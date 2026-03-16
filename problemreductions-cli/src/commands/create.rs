@@ -6,7 +6,9 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
-use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
+use problemreductions::models::graph::{
+    GraphPartitioning, HamiltonianPath, LengthBoundedDisjointPaths, MultipleChoiceBranching,
+};
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
     PaintShop, SequencingToMinimizeWeightedCompletionTime, ShortestCommonSupersequence, SubsetSum,
@@ -25,6 +27,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
     args.graph.is_none()
         && args.weights.is_none()
         && args.edge_weights.is_none()
+        && args.capacities.is_none()
+        && args.source.is_none()
+        && args.sink.is_none()
+        && args.num_paths_required.is_none()
         && args.couplings.is_none()
         && args.fields.is_none()
         && args.clauses.is_none()
@@ -39,10 +45,17 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.seed.is_none()
         && args.positions.is_none()
         && args.radius.is_none()
+        && args.source_1.is_none()
+        && args.sink_1.is_none()
+        && args.source_2.is_none()
+        && args.sink_2.is_none()
+        && args.requirement_1.is_none()
+        && args.requirement_2.is_none()
         && args.sizes.is_none()
         && args.capacity.is_none()
         && args.sequence.is_none()
         && args.sets.is_none()
+        && args.partition.is_none()
         && args.universe.is_none()
         && args.biedges.is_none()
         && args.left.is_none()
@@ -65,6 +78,13 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.deadline.is_none()
         && args.num_processors.is_none()
         && args.alphabet_size.is_none()
+        && args.capacities.is_none()
+        && args.source_1.is_none()
+        && args.sink_1.is_none()
+        && args.source_2.is_none()
+        && args.sink_2.is_none()
+        && args.requirement_1.is_none()
+        && args.requirement_2.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -195,14 +215,17 @@ fn create_from_example(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
     match type_name {
+        "SimpleGraph" => "edge list: 0-1,1-2,2-3",
         "G" => match graph_type {
             Some("KingsSubgraph" | "TriangularSubgraph") => "integer positions: \"0,0;1,0;1,1\"",
             Some("UnitDiskGraph") => "float positions: \"0.0,0.0;1.0,0.0\"",
             _ => "edge list: 0-1,1-2,2-3",
         },
+        "Vec<u64>" => "comma-separated integers: 1,1,2",
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
+        "Vec<Vec<usize>>" => "semicolon-separated groups: \"0,1;2,3\"",
         "usize" => "integer",
         "u64" => "integer",
         "i64" => "integer",
@@ -211,6 +234,22 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<i64>" => "comma-separated integers: 3,7,1,8",
         "DirectedGraph" => "directed arcs: 0>1,1>2,2>0",
         _ => "value",
+    }
+}
+
+fn cli_flag_name(field_name: &str) -> String {
+    match field_name {
+        "universe_size" => "universe".to_string(),
+        "collection" | "subsets" => "sets".to_string(),
+        "left_size" => "left".to_string(),
+        "right_size" => "right".to_string(),
+        "edges" => "biedges".to_string(),
+        "vertex_weights" => "weights".to_string(),
+        "edge_lengths" => "edge-weights".to_string(),
+        "num_tasks" => "n".to_string(),
+        "precedences" => "precedence-pairs".to_string(),
+        "threshold" => "bound".to_string(),
+        _ => field_name.replace('_', "-"),
     }
 }
 
@@ -227,6 +266,12 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         },
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
+        "UndirectedTwoCommodityIntegralFlow" => {
+            "--graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1"
+        },
+        "LengthBoundedDisjointPaths" => {
+            "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3"
+        }
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
@@ -243,12 +288,19 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "Factoring" => "--target 15 --m 4 --n 4",
         "SteinerTree" => "--graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4",
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
+        "DirectedTwoCommodityIntegralFlow" => {
+            "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
+        }
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "RuralPostman" => {
             "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
         }
+        "MultipleChoiceBranching" => {
+            "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
+        }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
     }
@@ -266,22 +318,24 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
         eprintln!("{}\n  {}\n", canonical, s.description);
         eprintln!("Parameters:");
         for field in &s.fields {
+            let flag_name =
+                problem_help_flag_name(canonical, &field.name, &field.type_name, is_geometry);
             // For geometry variants, show --positions instead of --graph
             if field.type_name == "G" && is_geometry {
                 let hint = type_format_hint(&field.type_name, graph_type);
-                eprintln!("  --{:<16} {} ({hint})", "positions", field.description);
+                eprintln!("  --{:<16} {} ({hint})", flag_name, field.description);
                 if graph_type == Some("UnitDiskGraph") {
                     eprintln!("  --{:<16} Distance threshold [default: 1.0]", "radius");
                 }
             } else if field.type_name == "DirectedGraph" {
                 // DirectedGraph fields use --arcs, not --graph
                 let hint = type_format_hint(&field.type_name, graph_type);
-                eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
+                eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             } else {
                 let hint = type_format_hint(&field.type_name, graph_type);
                 eprintln!(
                     "  --{:<16} {} ({})",
-                    field.name.replace('_', "-"),
+                    cli_flag_name(&field.name),
                     field.description,
                     hint
                 );
@@ -304,6 +358,69 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
         );
     }
     Ok(())
+}
+
+fn problem_help_flag_name(
+    canonical: &str,
+    field_name: &str,
+    field_type: &str,
+    is_geometry: bool,
+) -> String {
+    if field_type == "G" && is_geometry {
+        return "positions".to_string();
+    }
+    if field_type == "DirectedGraph" {
+        return "arcs".to_string();
+    }
+    if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
+        return "bound".to_string();
+    }
+    field_name.replace('_', "-")
+}
+
+fn lbdp_validation_error(message: &str, usage: Option<&str>) -> anyhow::Error {
+    match usage {
+        Some(usage) => anyhow::anyhow!("{message}\n\n{usage}"),
+        None => anyhow::anyhow!("{message}"),
+    }
+}
+
+fn validate_length_bounded_disjoint_paths_args(
+    num_vertices: usize,
+    source: usize,
+    sink: usize,
+    num_paths_required: usize,
+    bound: i64,
+    usage: Option<&str>,
+) -> Result<usize> {
+    let max_length = usize::try_from(bound).map_err(|_| {
+        lbdp_validation_error(
+            "--bound must be a nonnegative integer for LengthBoundedDisjointPaths",
+            usage,
+        )
+    })?;
+    if source >= num_vertices || sink >= num_vertices {
+        return Err(lbdp_validation_error(
+            "--source and --sink must be valid graph vertices",
+            usage,
+        ));
+    }
+    if source == sink {
+        return Err(lbdp_validation_error(
+            "--source and --sink must be distinct",
+            usage,
+        ));
+    }
+    if num_paths_required == 0 {
+        return Err(lbdp_validation_error(
+            "--num-paths-required must be positive",
+            usage,
+        ));
+    }
+    if max_length == 0 {
+        return Err(lbdp_validation_error("--bound must be positive", usage));
+    }
+    Ok(max_length)
 }
 
 /// Resolve the graph type from the variant map (e.g., "KingsSubgraph", "UnitDiskGraph", or "SimpleGraph").
@@ -397,6 +514,96 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
         }
 
+        // UndirectedTwoCommodityIntegralFlow (graph + capacities + terminals + requirements)
+        "UndirectedTwoCommodityIntegralFlow" => {
+            let usage = "Usage: pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities = parse_capacities(args, graph.num_edges(), usage)?;
+            let num_vertices = graph.num_vertices();
+            let source_1 = args.source_1.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --source-1\n\n{usage}")
+            })?;
+            let sink_1 = args.sink_1.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --sink-1\n\n{usage}")
+            })?;
+            let source_2 = args.source_2.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --source-2\n\n{usage}")
+            })?;
+            let sink_2 = args.sink_2.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --sink-2\n\n{usage}")
+            })?;
+            let requirement_1 = args.requirement_1.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "UndirectedTwoCommodityIntegralFlow requires --requirement-1\n\n{usage}"
+                )
+            })?;
+            let requirement_2 = args.requirement_2.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "UndirectedTwoCommodityIntegralFlow requires --requirement-2\n\n{usage}"
+                )
+            })?;
+            for (label, vertex) in [
+                ("source-1", source_1),
+                ("sink-1", sink_1),
+                ("source-2", source_2),
+                ("sink-2", sink_2),
+            ] {
+                validate_vertex_index(label, vertex, num_vertices, usage)?;
+            }
+            (
+                ser(UndirectedTwoCommodityIntegralFlow::new(
+                    graph,
+                    capacities,
+                    source_1,
+                    sink_1,
+                    source_2,
+                    sink_2,
+                    requirement_1,
+                    requirement_2,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // LengthBoundedDisjointPaths (graph + source + sink + path count + bound)
+        "LengthBoundedDisjointPaths" => {
+            let usage = "Usage: pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("LengthBoundedDisjointPaths requires --source\n\n{usage}")
+            })?;
+            let sink = args.sink.ok_or_else(|| {
+                anyhow::anyhow!("LengthBoundedDisjointPaths requires --sink\n\n{usage}")
+            })?;
+            let num_paths_required = args.num_paths_required.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "LengthBoundedDisjointPaths requires --num-paths-required\n\n{usage}"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("LengthBoundedDisjointPaths requires --bound\n\n{usage}")
+            })?;
+            let max_length = validate_length_bounded_disjoint_paths_args(
+                graph.num_vertices(),
+                source,
+                sink,
+                num_paths_required,
+                bound,
+                Some(usage),
+            )?;
+
+            (
+                ser(LengthBoundedDisjointPaths::new(
+                    graph,
+                    source,
+                    sink,
+                    num_paths_required,
+                    max_length,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // IsomorphicSpanningTree (graph + tree)
         "IsomorphicSpanningTree" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
@@ -481,6 +688,24 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     edge_weights,
                     required_edges,
                     bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MultipleChoiceBranching
+        "MultipleChoiceBranching" => {
+            let usage = "Usage: pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MultipleChoiceBranching requires --arcs\n\n{usage}")
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let weights = parse_arc_weights(args, num_arcs)?;
+            let partition = parse_partition_groups(args, num_arcs)?;
+            let threshold = parse_multiple_choice_branching_threshold(args, usage)?;
+            (
+                ser(MultipleChoiceBranching::new(
+                    graph, weights, partition, threshold,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -719,6 +944,41 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // SetBasis
+        "SetBasis" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SetBasis requires --universe, --sets, and --k\n\n\
+                     Usage: pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3"
+                )
+            })?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SetBasis requires --k\n\n\
+                     Usage: pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3"
+                )
+            })?;
+            let sets = parse_sets(args)?;
+            for (i, set) in sets.iter().enumerate() {
+                for &element in set {
+                    if element >= universe {
+                        bail!(
+                            "Set {} contains element {} which is outside universe of size {}",
+                            i,
+                            element,
+                            universe
+                        );
+                    }
+                }
+            }
+            (
+                ser(problemreductions::models::set::SetBasis::new(
+                    universe, sets, k,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // BicliqueCover
         "BicliqueCover" => {
             let left = args.left.ok_or_else(|| {
@@ -886,6 +1146,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 lengths.len(),
                 weights.len()
             );
+            anyhow::ensure!(
+                lengths.iter().all(|&length| length > 0),
+                "task lengths must be positive"
+            );
             let num_tasks = lengths.len();
             let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
                 Some(s) if !s.is_empty() => s
@@ -985,6 +1249,67 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     num_processors,
                     task_lengths,
                     deadline,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // DirectedTwoCommodityIntegralFlow
+        "DirectedTwoCommodityIntegralFlow" => {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "DirectedTwoCommodityIntegralFlow requires --arcs\n\n\
+                     Usage: pred create DirectedTwoCommodityIntegralFlow \
+                     --arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" \
+                     --capacities 1,1,1,1,1,1,1,1 \
+                     --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 \
+                     --requirement-1 1 --requirement-2 1"
+                )
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let capacities: Vec<u64> = if let Some(ref s) = args.capacities {
+                util::parse_comma_list(s)?
+            } else {
+                vec![1; num_arcs]
+            };
+            anyhow::ensure!(
+                capacities.len() == num_arcs,
+                "capacities length ({}) must match number of arcs ({num_arcs})",
+                capacities.len()
+            );
+            let n = graph.num_vertices();
+            let source_1 = args.source_1.ok_or_else(|| {
+                anyhow::anyhow!("DirectedTwoCommodityIntegralFlow requires --source-1")
+            })?;
+            let sink_1 = args.sink_1.ok_or_else(|| {
+                anyhow::anyhow!("DirectedTwoCommodityIntegralFlow requires --sink-1")
+            })?;
+            let source_2 = args.source_2.ok_or_else(|| {
+                anyhow::anyhow!("DirectedTwoCommodityIntegralFlow requires --source-2")
+            })?;
+            let sink_2 = args.sink_2.ok_or_else(|| {
+                anyhow::anyhow!("DirectedTwoCommodityIntegralFlow requires --sink-2")
+            })?;
+            for (name, idx) in [
+                ("source_1", source_1),
+                ("sink_1", sink_1),
+                ("source_2", source_2),
+                ("sink_2", sink_2),
+            ] {
+                anyhow::ensure!(idx < n, "{name} ({idx}) >= num_vertices ({n})");
+            }
+            let requirement_1 = args.requirement_1.unwrap_or(1);
+            let requirement_2 = args.requirement_2.unwrap_or(1);
+            (
+                ser(DirectedTwoCommodityIntegralFlow::new(
+                    graph,
+                    capacities,
+                    source_1,
+                    sink_1,
+                    source_2,
+                    sink_2,
+                    requirement_1,
+                    requirement_2,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -1421,6 +1746,58 @@ fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
     }
 }
 
+fn validate_vertex_index(
+    label: &str,
+    vertex: usize,
+    num_vertices: usize,
+    usage: &str,
+) -> Result<()> {
+    if vertex < num_vertices {
+        return Ok(());
+    }
+
+    bail!("{label} must be less than num_vertices ({num_vertices})\n\n{usage}");
+}
+
+/// Parse `--capacities` as edge capacities (u64).
+fn parse_capacities(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<Vec<u64>> {
+    let capacities = args.capacities.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --capacities\n\n{usage}")
+    })?;
+    let capacities: Vec<u64> = capacities
+        .split(',')
+        .map(|s| {
+            let trimmed = s.trim();
+            trimmed
+                .parse::<u64>()
+                .with_context(|| format!("Invalid capacity `{trimmed}`\n\n{usage}"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if capacities.len() != num_edges {
+        bail!(
+            "Expected {} capacities but got {}\n\n{}",
+            num_edges,
+            capacities.len(),
+            usage
+        );
+    }
+    for (edge_index, &capacity) in capacities.iter().enumerate() {
+        let fits = usize::try_from(capacity)
+            .ok()
+            .and_then(|value| value.checked_add(1))
+            .is_some();
+        if !fits {
+            bail!(
+                "capacity {} at edge index {} is too large for this platform\n\n{}",
+                capacity,
+                edge_index,
+                usage
+            );
+        }
+    }
+    Ok(capacities)
+}
+
 /// Parse `--couplings` as SpinGlass pairwise couplings (i32), defaulting to all 1s.
 fn parse_couplings(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
     match &args.couplings {
@@ -1535,6 +1912,68 @@ fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
                 .collect()
         })
         .collect()
+}
+
+/// Parse `--partition` as semicolon-separated groups of comma-separated arc indices.
+/// E.g., "0,1;2,3;4,7;5,6"
+fn parse_partition_groups(args: &CreateArgs, num_arcs: usize) -> Result<Vec<Vec<usize>>> {
+    let partition_str = args.partition.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("MultipleChoiceBranching requires --partition (e.g., \"0,1;2,3;4,7;5,6\")")
+    })?;
+
+    let partition: Vec<Vec<usize>> = partition_str
+        .split(';')
+        .map(|group| {
+            group
+                .trim()
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .map_err(|e| anyhow::anyhow!("Invalid partition index: {}", e))
+                })
+                .collect()
+        })
+        .collect::<Result<_>>()?;
+
+    let mut seen = vec![false; num_arcs];
+    for group in &partition {
+        for &arc_index in group {
+            anyhow::ensure!(
+                arc_index < num_arcs,
+                "partition arc index {} out of range for {} arcs",
+                arc_index,
+                num_arcs
+            );
+            anyhow::ensure!(
+                !seen[arc_index],
+                "partition arc index {} appears more than once",
+                arc_index
+            );
+            seen[arc_index] = true;
+        }
+    }
+    anyhow::ensure!(
+        seen.iter().all(|present| *present),
+        "partition must cover every arc exactly once"
+    );
+
+    Ok(partition)
+}
+
+fn parse_multiple_choice_branching_threshold(args: &CreateArgs, usage: &str) -> Result<i32> {
+    let raw_bound = args
+        .bound
+        .ok_or_else(|| anyhow::anyhow!("MultipleChoiceBranching requires --bound\n\n{usage}"))?;
+    anyhow::ensure!(
+        raw_bound >= 0,
+        "MultipleChoiceBranching threshold must be non-negative, got {raw_bound}"
+    );
+    i32::try_from(raw_bound).map_err(|_| {
+        anyhow::anyhow!(
+            "MultipleChoiceBranching threshold must fit in a 32-bit signed integer, got {raw_bound}"
+        )
+    })
 }
 
 /// Parse `--weights` for set-based problems (i32), defaulting to all 1s.
@@ -1763,6 +2202,47 @@ fn create_random(
             (ser(HamiltonianPath::new(graph))?, variant)
         }
 
+        // LengthBoundedDisjointPaths (graph only, with path defaults)
+        "LengthBoundedDisjointPaths" => {
+            let num_vertices = if num_vertices < 2 {
+                eprintln!(
+                    "Warning: LengthBoundedDisjointPaths requires at least 2 vertices; rounding {} up to 2",
+                    num_vertices
+                );
+                2
+            } else {
+                num_vertices
+            };
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let source = args.source.unwrap_or(0);
+            let sink = args.sink.unwrap_or(num_vertices - 1);
+            let num_paths_required = args.num_paths_required.unwrap_or(1);
+            let bound = args.bound.unwrap_or((num_vertices - 1) as i64);
+            let max_length = validate_length_bounded_disjoint_paths_args(
+                num_vertices,
+                source,
+                sink,
+                num_paths_required,
+                bound,
+                None,
+            )?;
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (
+                ser(LengthBoundedDisjointPaths::new(
+                    graph,
+                    source,
+                    sink,
+                    num_paths_required,
+                    max_length,
+                ))?,
+                variant,
+            )
+        }
+
         // Graph problems with edge weights
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
@@ -1871,4 +2351,30 @@ fn create_random(
     };
 
     emit_problem_output(&output, out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::problem_help_flag_name;
+
+    #[test]
+    fn test_problem_help_uses_bound_for_length_bounded_disjoint_paths() {
+        assert_eq!(
+            problem_help_flag_name("LengthBoundedDisjointPaths", "max_length", "usize", false),
+            "bound"
+        );
+    }
+
+    #[test]
+    fn test_problem_help_preserves_generic_field_kebab_case() {
+        assert_eq!(
+            problem_help_flag_name(
+                "LengthBoundedDisjointPaths",
+                "num_paths_required",
+                "usize",
+                false,
+            ),
+            "num-paths-required"
+        );
+    }
 }

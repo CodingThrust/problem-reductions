@@ -127,6 +127,12 @@ fn test_sequencing_to_minimize_weighted_completion_time_invalid_precedence() {
 }
 
 #[test]
+#[should_panic(expected = "task lengths must be positive")]
+fn test_sequencing_to_minimize_weighted_completion_time_zero_length_task() {
+    SequencingToMinimizeWeightedCompletionTime::new(vec![0, 1, 3], vec![3, 5, 1], vec![]);
+}
+
+#[test]
 fn test_sequencing_to_minimize_weighted_completion_time_cyclic_precedences() {
     let problem = SequencingToMinimizeWeightedCompletionTime::new(
         vec![2, 1, 3],
@@ -152,4 +158,23 @@ fn test_sequencing_to_minimize_weighted_completion_time_paper_example() {
     let solver = BruteForce::new();
     let solutions = solver.find_all_best(&problem);
     assert_eq!(solutions, vec![expected]);
+}
+
+#[test]
+#[should_panic(expected = "weighted completion time overflowed u64")]
+fn test_sequencing_to_minimize_weighted_completion_time_weighted_sum_overflow() {
+    let problem = SequencingToMinimizeWeightedCompletionTime::new(
+        vec![1, 1],
+        vec![u64::MAX, u64::MAX],
+        vec![],
+    );
+    let _ = problem.evaluate(&[0, 0]);
+}
+
+#[test]
+#[should_panic(expected = "total processing time overflowed u64")]
+fn test_sequencing_to_minimize_weighted_completion_time_total_processing_time_overflow() {
+    let problem =
+        SequencingToMinimizeWeightedCompletionTime::new(vec![u64::MAX, 1], vec![1, 1], vec![]);
+    let _ = problem.total_processing_time();
 }

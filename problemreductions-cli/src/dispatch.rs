@@ -79,8 +79,12 @@ impl LoadedProblem {
             }
         }
 
-        let reduction_path =
-            best_path.ok_or_else(|| anyhow::anyhow!("No reduction path from {} to ILP", name))?;
+        let reduction_path = best_path.ok_or_else(|| {
+            anyhow::anyhow!(
+                "No reduction path from {} to ILP. Try `--solver brute-force`, or reduce to a problem that supports ILP.",
+                name
+            )
+        })?;
 
         let chain = graph
             .reduce_along_path(&reduction_path, self.as_any())
@@ -161,17 +165,26 @@ pub struct SolveResult {
     pub evaluation: String,
 }
 
-/// Solve an ILP problem directly. The input must be an `ILP` instance.
-fn solve_ilp(any: &dyn Any) -> Result<SolveResult> {
-    let problem = any
-        .downcast_ref::<ILP>()
-        .ok_or_else(|| anyhow::anyhow!("Internal error: expected ILP problem instance"))?;
+fn solve_typed_ilp<V: problemreductions::models::algebraic::VariableDomain>(
+    problem: &ILP<V>,
+) -> Result<SolveResult> {
     let solver = ILPSolver::new();
     let config = solver
         .solve(problem)
         .ok_or_else(|| anyhow::anyhow!("ILP solver found no feasible solution"))?;
     let evaluation = format!("{:?}", problem.evaluate(&config));
     Ok(SolveResult { config, evaluation })
+}
+
+/// Solve an ILP problem directly. The input must be an `ILP<bool>` or `ILP<i32>` instance.
+fn solve_ilp(any: &dyn Any) -> Result<SolveResult> {
+    if let Some(problem) = any.downcast_ref::<ILP<bool>>() {
+        return solve_typed_ilp(problem);
+    }
+    if let Some(problem) = any.downcast_ref::<ILP<i32>>() {
+        return solve_typed_ilp(problem);
+    }
+    Err(anyhow::anyhow!("Internal error: expected ILP problem instance"))
 }
 
 #[cfg(test)]

@@ -67,7 +67,19 @@ impl ReduceTo<ILP<i32>> for SequencingToMinimizeWeightedCompletionTime {
 
     fn reduce_to(&self) -> Self::Result {
         let num_tasks = self.num_tasks();
-        let total_processing_time = self.total_processing_time() as f64;
+        let max_ilp_value = i32::MAX as u64;
+        assert!(
+            self.lengths().iter().all(|&length| length <= max_ilp_value),
+            "task lengths must fit in ILP<i32> variable bounds"
+        );
+
+        let total_processing_time_u64 = self.total_processing_time();
+        assert!(
+            total_processing_time_u64 <= max_ilp_value,
+            "total processing time must fit in ILP<i32> variable bounds"
+        );
+
+        let total_processing_time = total_processing_time_u64 as f64;
         let num_order_vars = num_tasks * (num_tasks.saturating_sub(1)) / 2;
         let num_vars = num_tasks + num_order_vars;
 

@@ -15,13 +15,20 @@ Or build from source:
 ```bash
 git clone https://github.com/CodingThrust/problem-reductions
 cd problem-reductions
-make cli    # builds target/release/pred
+cargo build -p problemreductions-cli --release   # builds target/release/pred
+cargo install --path problemreductions-cli       # optional: installs `pred` to ~/.cargo/bin
 ```
 
 Verify the installation:
 
 ```bash
 pred --version
+```
+
+For a workspace-local run without installing globally, use:
+
+```bash
+cargo run -p problemreductions-cli --bin pred -- --version
 ```
 
 ### ILP Backend
@@ -48,6 +55,9 @@ pred create MIS --graph 0-1,1-2,2-3 --weights 3,1,2,1 -o weighted.json
 # Create a Steiner Tree instance
 pred create SteinerTree --graph 0-1,0-3,1-2,1-3,2-3,2-4,3-4 --edge-weights 2,5,2,1,5,6,1 --terminals 0,2,4 -o steiner.json
 
+# Create a Length-Bounded Disjoint Paths instance
+pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3 -o lbdp.json
+
 # Or start from a canonical model example
 pred create --example MIS/SimpleGraph/i32 -o example.json
 
@@ -57,11 +67,17 @@ pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 -o example.js
 # Inspect what's inside a problem file
 pred inspect problem.json
 
+# Inspect the new path problem
+pred inspect lbdp.json
+
 # Solve it (auto-reduces to ILP)
 pred solve problem.json
 
 # Or solve with brute-force
 pred solve problem.json --solver brute-force
+
+# LengthBoundedDisjointPaths currently needs brute-force
+pred solve lbdp.json --solver brute-force
 
 # Evaluate a specific configuration (shows Valid(N) or Invalid)
 pred evaluate problem.json --config 1,0,1,0
@@ -276,11 +292,17 @@ pred create KColoring --k 3 --graph 0-1,1-2,2-0 -o kcol.json
 pred create SpinGlass --graph 0-1,1-2 -o sg.json
 pred create MaxCut --graph 0-1,1-2,2-0 -o maxcut.json
 pred create SteinerTree --graph 0-1,0-3,1-2,1-3,2-3,2-4,3-4 --edge-weights 2,5,2,1,5,6,1 --terminals 0,2,4 -o steiner.json
+pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1 -o utcif.json
+pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3 -o lbdp.json
 pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
 pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
 pred create X3C --universe 9 --sets "0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8" -o x3c.json
 pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 --precedence-pairs "0>3,1>3,1>4,2>4" -o mts.json
+pred create SequencingToMinimizeWeightedCompletionTime --lengths 2,1,3,1,2 --weights 3,5,1,4,2 --precedence-pairs "0>2,1>4" -o stmwct.json
 ```
+
+For `LengthBoundedDisjointPaths`, the CLI flag `--bound` maps to the JSON field
+`max_length`.
 
 Canonical examples are useful when you want a known-good instance from the paper/example database.
 For model examples, `pred create --example <PROBLEM_SPEC>` emits the canonical instance for that
@@ -418,8 +440,9 @@ Source evaluation: Valid(2)
 ```
 
 > **Note:** The ILP solver requires a reduction path from the target problem to ILP.
-> Some problems (e.g., QUBO, SpinGlass, MaxCut, CircuitSAT) do not have this path yet.
-> Use `--solver brute-force` for these, or reduce to a problem that supports ILP first.
+> `LengthBoundedDisjointPaths` does not currently have one, so use
+> `pred solve lbdp.json --solver brute-force`.
+> For other problems, use `pred path <PROBLEM> ILP` to check whether an ILP reduction path exists.
 
 ## Shell Completions
 

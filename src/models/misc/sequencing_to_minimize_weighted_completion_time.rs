@@ -54,6 +54,10 @@ impl SequencingToMinimizeWeightedCompletionTime {
             weights.len(),
             "lengths length must equal weights length"
         );
+        assert!(
+            lengths.iter().all(|&length| length > 0),
+            "task lengths must be positive"
+        );
 
         let num_tasks = lengths.len();
         for &(pred, succ) in &precedences {
@@ -105,7 +109,10 @@ impl SequencingToMinimizeWeightedCompletionTime {
 
     /// Returns the sum of all processing times.
     pub fn total_processing_time(&self) -> u64 {
-        self.lengths.iter().sum()
+        self.lengths
+            .iter()
+            .try_fold(0u64, |acc, &length| acc.checked_add(length))
+            .expect("total processing time overflowed u64")
     }
 
     fn decode_schedule(&self, config: &[usize]) -> Option<Vec<usize>> {
@@ -133,7 +140,9 @@ impl SequencingToMinimizeWeightedCompletionTime {
 
         for (position, &task) in schedule.iter().enumerate() {
             positions[task] = position;
-            elapsed += self.lengths[task];
+            elapsed = elapsed
+                .checked_add(self.lengths[task])
+                .expect("total processing time overflowed u64");
             completion_times[task] = elapsed;
         }
 
@@ -146,8 +155,12 @@ impl SequencingToMinimizeWeightedCompletionTime {
         let total = completion_times
             .iter()
             .enumerate()
-            .map(|(task, &completion)| completion * self.weights[task])
-            .sum();
+            .try_fold(0u64, |acc, (task, &completion)| -> Option<u64> {
+                let weighted_completion = completion
+                    .checked_mul(self.weights[task])?;
+                acc.checked_add(weighted_completion)
+            })
+            .expect("weighted completion time overflowed u64");
         SolutionSize::Valid(total)
     }
 }

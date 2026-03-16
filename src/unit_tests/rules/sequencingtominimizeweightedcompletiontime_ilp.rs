@@ -104,6 +104,28 @@ fn test_cyclic_precedence_instance_is_infeasible() {
 }
 
 #[test]
+#[should_panic(expected = "task lengths must fit in ILP<i32> variable bounds")]
+fn test_reduction_panics_when_a_task_length_exceeds_i32_domain() {
+    let problem = SequencingToMinimizeWeightedCompletionTime::new(
+        vec![(i32::MAX as u64) + 1],
+        vec![1],
+        vec![],
+    );
+    let _: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+}
+
+#[test]
+#[should_panic(expected = "total processing time must fit in ILP<i32> variable bounds")]
+fn test_reduction_panics_when_total_processing_time_exceeds_i32_domain() {
+    let problem = SequencingToMinimizeWeightedCompletionTime::new(
+        vec![i32::MAX as u64, 1],
+        vec![1, 1],
+        vec![],
+    );
+    let _: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+}
+
+#[test]
 fn test_solve_reduced_matches_source_optimum() {
     let problem = SequencingToMinimizeWeightedCompletionTime::new(
         vec![2, 1, 3, 1, 2],
