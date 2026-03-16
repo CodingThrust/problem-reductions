@@ -18,6 +18,13 @@ cd problem-reductions
 make cli    # builds target/release/pred
 ```
 
+If you prefer a workspace-local build without installing into your global Cargo bin directory:
+
+```bash
+cargo build -p problemreductions-cli --release
+./target/release/pred --version
+```
+
 Verify the installation:
 
 ```bash
@@ -276,6 +283,7 @@ pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
 pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
 pred create X3C --universe 9 --sets "0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8" -o x3c.json
 pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 --precedence-pairs "0>3,1>3,1>4,2>4" -o mts.json
+pred create StrongConnectivityAugmentation --arcs "0>1,1>2,2>0,3>4,4>3,2>3,4>5,5>3" --candidate-arcs "3>0:5,3>1:3,3>2:4,4>0:6,4>1:2,4>2:7,5>0:4,5>1:3,5>2:1,0>3:8,0>4:3,0>5:2,1>3:6,1>4:4,1>5:5,2>4:3,2>5:7,1>0:2" --bound 1 -o sca.json
 ```
 
 Canonical examples are useful when you want a known-good instance from the paper/example database.

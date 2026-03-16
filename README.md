@@ -40,6 +40,13 @@ cd problem-reductions
 make cli    # builds target/release/pred
 ```
 
+If you prefer a workspace-local build without installing into your global Cargo bin directory:
+
+```bash
+cargo build -p problemreductions-cli --release
+./target/release/pred --version
+```
+
 See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples, the reduction workflow, and [CLI usage](https://codingthrust.github.io/problem-reductions/cli.html).
 
 ## MCP Server (AI Integration)
