@@ -626,6 +626,27 @@
     ]
   },
   {
+    "name": "SequencingToMinimizeMaximumCumulativeCost",
+    "description": "Schedule tasks with precedence constraints so every cumulative cost prefix stays within a bound",
+    "fields": [
+      {
+        "name": "costs",
+        "type_name": "Vec<i64>",
+        "description": "Task costs in schedule order-independent indexing"
+      },
+      {
+        "name": "precedences",
+        "type_name": "Vec<(usize, usize)>",
+        "description": "Precedence pairs (predecessor, successor)"
+      },
+      {
+        "name": "bound",
+        "type_name": "i64",
+        "description": "Upper bound on every cumulative cost prefix"
+      }
+    ]
+  },
+  {
     "name": "SetBasis",
     "description": "Determine whether a collection of sets admits a basis of size k under union",
     "fields": [

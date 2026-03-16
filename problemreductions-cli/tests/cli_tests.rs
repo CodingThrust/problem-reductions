@@ -3479,6 +3479,147 @@ fn test_create_factoring_missing_bits() {
     );
 }
 
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--costs",
+            "2,-1,3,-2,1,-3",
+            "--precedence-pairs",
+            "0>2,1>2,1>3,2>4,3>5,4>5",
+            "--bound",
+            "4",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "SequencingToMinimizeMaximumCumulativeCost");
+    assert_eq!(json["data"]["costs"], serde_json::json!([2, -1, 3, -2, 1, -3]));
+    assert_eq!(
+        json["data"]["precedences"],
+        serde_json::json!([[0, 2], [1, 2], [1, 3], [2, 4], [3, 5], [4, 5]])
+    );
+    assert_eq!(json["data"]["bound"], 4);
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_no_flags_shows_help() {
+    let output = pred()
+        .args(["create", "SequencingToMinimizeMaximumCumulativeCost"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--costs"),
+        "expected '--costs' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_missing_costs() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--bound",
+            "4",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("requires --costs"),
+        "expected missing --costs message, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_bad_precedence() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--costs",
+            "1,-1,2",
+            "--precedence-pairs",
+            "0>3",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("precedence"),
+        "expected precedence validation error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_invalid_precedence_pair() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--costs",
+            "1,-1,2",
+            "--precedence-pairs",
+            "a>b",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--precedence-pairs"),
+        "expected flag-specific precedence parse error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_allows_negative_values() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--costs",
+            "-1,2,-3",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["data"]["costs"], serde_json::json!([-1, 2, -3]));
+    assert_eq!(json["data"]["bound"], -1);
+}
+
 // ---- Timeout tests (H3) ----
 
 #[test]

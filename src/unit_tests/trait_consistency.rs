@@ -165,6 +165,10 @@ fn test_all_problems_implement_trait_correctly() {
         &MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]),
         "MinimumTardinessSequencing",
     );
+    check_problem_trait(
+        &SequencingToMinimizeMaximumCumulativeCost::new(vec![1, -1, 2], vec![(0, 2)], 2),
+        "SequencingToMinimizeMaximumCumulativeCost",
+    );
 }
 
 #[test]

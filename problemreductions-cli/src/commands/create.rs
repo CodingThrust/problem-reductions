@@ -11,7 +11,7 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    PaintShop, ShortestCommonSupersequence, SubsetSum,
+    PaintShop, SequencingToMinimizeMaximumCumulativeCost, ShortestCommonSupersequence, SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -69,6 +69,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.bound.is_none()
         && args.pattern.is_none()
         && args.strings.is_none()
+        && args.costs.is_none()
         && args.arcs.is_none()
         && args.deadlines.is_none()
         && args.precedence_pairs.is_none()
@@ -169,6 +170,50 @@ fn resolve_rule_example(
                 format_problem_ref(&target)
             )
         })
+}
+
+fn parse_precedence_pairs(raw: Option<&str>) -> Result<Vec<(usize, usize)>> {
+    raw.filter(|s| !s.is_empty())
+        .map(|s| {
+            s.split(',')
+                .map(|pair| {
+                    let pair = pair.trim();
+                    let (pred, succ) = pair.split_once('>').ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Invalid --precedence-pairs value '{}': expected 'u>v'",
+                            pair
+                        )
+                    })?;
+                    let pred = pred.trim().parse::<usize>().map_err(|_| {
+                        anyhow::anyhow!(
+                            "Invalid --precedence-pairs value '{}': expected 'u>v' with nonnegative integer indices",
+                            pair
+                        )
+                    })?;
+                    let succ = succ.trim().parse::<usize>().map_err(|_| {
+                        anyhow::anyhow!(
+                            "Invalid --precedence-pairs value '{}': expected 'u>v' with nonnegative integer indices",
+                            pair
+                        )
+                    })?;
+                    Ok((pred, succ))
+                })
+                .collect()
+        })
+        .unwrap_or_else(|| Ok(vec![]))
+}
+
+fn validate_precedence_pairs(precedences: &[(usize, usize)], num_tasks: usize) -> Result<()> {
+    for &(pred, succ) in precedences {
+        anyhow::ensure!(
+            pred < num_tasks && succ < num_tasks,
+            "precedence index out of range: ({}, {}) but num_tasks = {}",
+            pred,
+            succ,
+            num_tasks
+        );
+    }
+    Ok(())
 }
 
 fn create_from_example(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
@@ -285,6 +330,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
+        "SequencingToMinimizeMaximumCumulativeCost" => {
+            "--costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+        }
         _ => "",
     }
 }
@@ -1046,44 +1094,46 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
-            let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
-                Some(s) if !s.is_empty() => s
-                    .split(',')
-                    .map(|pair| {
-                        let parts: Vec<&str> = pair.trim().split('>').collect();
-                        anyhow::ensure!(
-                            parts.len() == 2,
-                            "Invalid precedence format '{}', expected 'u>v'",
-                            pair.trim()
-                        );
-                        Ok((
-                            parts[0].trim().parse::<usize>()?,
-                            parts[1].trim().parse::<usize>()?,
-                        ))
-                    })
-                    .collect::<Result<Vec<_>>>()?,
-                _ => vec![],
-            };
+            let precedences = parse_precedence_pairs(args.precedence_pairs.as_deref())?;
             anyhow::ensure!(
                 deadlines.len() == num_tasks,
                 "deadlines length ({}) must equal num_tasks ({})",
                 deadlines.len(),
                 num_tasks
             );
-            for &(pred, succ) in &precedences {
-                anyhow::ensure!(
-                    pred < num_tasks && succ < num_tasks,
-                    "precedence index out of range: ({}, {}) but num_tasks = {}",
-                    pred,
-                    succ,
-                    num_tasks
-                );
-            }
+            validate_precedence_pairs(&precedences, num_tasks)?;
             (
                 ser(MinimumTardinessSequencing::new(
                     num_tasks,
                     deadlines,
                     precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingToMinimizeMaximumCumulativeCost
+        "SequencingToMinimizeMaximumCumulativeCost" => {
+            let costs_str = args.costs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeMaximumCumulativeCost requires --costs\n\n\
+                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeMaximumCumulativeCost requires --bound\n\n\
+                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+                )
+            })?;
+            let costs: Vec<i64> = util::parse_comma_list(costs_str)?;
+            let precedences = parse_precedence_pairs(args.precedence_pairs.as_deref())?;
+            validate_precedence_pairs(&precedences, costs.len())?;
+            (
+                ser(SequencingToMinimizeMaximumCumulativeCost::new(
+                    costs,
+                    precedences,
+                    bound,
                 ))?,
                 resolved_variant.clone(),
             )
