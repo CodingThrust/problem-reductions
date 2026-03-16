@@ -34,7 +34,7 @@ inventory::submit! {
 pub struct SetBasis {
     /// Size of the universe (elements are `0..universe_size`).
     universe_size: usize,
-    /// Collection of target sets, each sorted and deduplicated.
+    /// Collection of target sets.
     collection: Vec<Vec<usize>>,
     /// Number of basis sets to encode in a configuration.
     k: usize,
@@ -119,16 +119,22 @@ impl SetBasis {
         Some(basis)
     }
 
-    fn is_subset(candidate: &[usize], target: &[usize]) -> bool {
-        candidate
-            .iter()
-            .all(|element| target.binary_search(element).is_ok())
+    fn is_subset(candidate: &[usize], target_membership: &[bool]) -> bool {
+        candidate.iter().all(|&element| target_membership[element])
     }
 
     fn can_represent_target(basis: &[Vec<usize>], target: &[usize], universe_size: usize) -> bool {
+        let mut target_membership = vec![false; universe_size];
+        for &element in target {
+            if element >= universe_size {
+                return false;
+            }
+            target_membership[element] = true;
+        }
+
         let mut covered = vec![false; universe_size];
         for subset in basis {
-            if Self::is_subset(subset, target) {
+            if Self::is_subset(subset, &target_membership) {
                 for &element in subset {
                     covered[element] = true;
                 }

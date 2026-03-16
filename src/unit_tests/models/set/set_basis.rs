@@ -93,7 +93,32 @@ fn test_set_basis_invalid_config_values() {
 #[test]
 fn test_set_basis_rejects_wrong_config_length() {
     let problem = issue_example_problem(3);
-    assert!(!problem.evaluate(&canonical_solution()[..11]));
+    let solution = canonical_solution();
+    assert!(!problem.evaluate(solution.get(..11).unwrap()));
+}
+
+#[test]
+fn test_set_basis_deserialized_invalid_target_returns_false() {
+    let problem: SetBasis = serde_json::from_value(serde_json::json!({
+        "universe_size": 4,
+        "collection": [[0, 4]],
+        "k": 1
+    }))
+    .unwrap();
+
+    assert!(!problem.evaluate(&[1, 0, 0, 0]));
+}
+
+#[test]
+fn test_set_basis_deserialized_unsorted_target_still_evaluates_correctly() {
+    let problem: SetBasis = serde_json::from_value(serde_json::json!({
+        "universe_size": 2,
+        "collection": [[1, 0]],
+        "k": 1
+    }))
+    .unwrap();
+
+    assert!(problem.evaluate(&[1, 1]));
 }
 
 #[test]
