@@ -2113,7 +2113,7 @@ fn parse_bool_rows(rows_str: &str) -> Result<Vec<Vec<bool>>> {
                     "1" | "true" => Ok(true),
                     "0" | "false" => Ok(false),
                     other => Err(anyhow::anyhow!(
-                        "Invalid schedule entry '{other}': expected 0/1 or true/false"
+                        "Invalid boolean entry '{other}': expected 0/1 or true/false"
                     )),
                 })
                 .collect()
@@ -2157,7 +2157,10 @@ fn validate_staff_scheduling_args(
         if ones != shifts_per_schedule {
             bail!(
                 "schedule {} has {} active periods, expected {}\n\n{}",
-                index, ones, shifts_per_schedule, usage
+                index,
+                ones,
+                shifts_per_schedule,
+                usage
             );
         }
     }
@@ -2509,6 +2512,7 @@ fn create_random(
 mod tests {
     use super::create;
     use super::help_flag_name;
+    use super::parse_bool_rows;
     use super::problem_help_flag_name;
     use crate::cli::{Cli, Commands};
     use crate::output::OutputConfig;
@@ -2545,6 +2549,15 @@ mod tests {
         assert_eq!(
             problem_help_flag_name("StaffScheduling", "shifts_per_schedule", "usize", false),
             "k"
+        );
+    }
+
+    #[test]
+    fn test_parse_bool_rows_reports_generic_invalid_boolean_entry() {
+        let err = parse_bool_rows("1,maybe").unwrap_err().to_string();
+        assert_eq!(
+            err,
+            "Invalid boolean entry 'maybe': expected 0/1 or true/false"
         );
     }
 
@@ -2589,7 +2602,10 @@ mod tests {
             serde_json::from_str(&std::fs::read_to_string(&output_path).unwrap()).unwrap();
         assert_eq!(json["type"], "StaffScheduling");
         assert_eq!(json["data"]["num_workers"], 4);
-        assert_eq!(json["data"]["requirements"], serde_json::json!([2, 2, 2, 3, 3, 2, 1]));
+        assert_eq!(
+            json["data"]["requirements"],
+            serde_json::json!([2, 2, 2, 3, 3, 2, 1])
+        );
         std::fs::remove_file(output_path).unwrap();
     }
 

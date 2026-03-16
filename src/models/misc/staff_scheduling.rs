@@ -40,6 +40,13 @@ pub struct StaffScheduling {
 
 impl StaffScheduling {
     /// Create a new Staff Scheduling instance.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `num_workers` does not fit in `usize`, if any schedule has a
+    /// different number of periods than `requirements.len()`, or if any
+    /// schedule has a number of active periods different from
+    /// `shifts_per_schedule`.
     pub fn new(
         shifts_per_schedule: usize,
         schedules: Vec<Vec<bool>>,

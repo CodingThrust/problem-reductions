@@ -20,8 +20,8 @@ mod longest_common_subsequence;
 mod minimum_tardiness_sequencing;
 pub(crate) mod paintshop;
 mod sequencing_within_intervals;
-mod staff_scheduling;
 pub(crate) mod shortest_common_supersequence;
+mod staff_scheduling;
 mod subset_sum;
 
 pub use bin_packing::BinPacking;
@@ -32,8 +32,8 @@ pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use paintshop::PaintShop;
 pub use sequencing_within_intervals::SequencingWithinIntervals;
-pub use staff_scheduling::StaffScheduling;
 pub use shortest_common_supersequence::ShortestCommonSupersequence;
+pub use staff_scheduling::StaffScheduling;
 pub use subset_sum::SubsetSum;
 
 #[cfg(feature = "example-db")]
