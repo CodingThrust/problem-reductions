@@ -11,7 +11,7 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    PaintShop, ShortestCommonSupersequence, SubsetSum,
+    PaintShop, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -76,6 +76,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.deadline.is_none()
         && args.num_processors.is_none()
         && args.alphabet_size.is_none()
+        && args.source_string.is_none()
+        && args.target_string.is_none()
         && args.capacities.is_none()
         && args.source_1.is_none()
         && args.sink_1.is_none()
@@ -295,6 +297,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
+        "StringToStringCorrection" => {
+            "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
+        }
         _ => "",
     }
 }
@@ -1394,6 +1399,53 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let weights = parse_vertex_weights(args, num_v)?;
             (
                 ser(MinimumFeedbackVertexSet::new(graph, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // StringToStringCorrection
+        "StringToStringCorrection" => {
+            let usage = "Usage: pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2";
+            let source_str = args.source_string.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("StringToStringCorrection requires --source-string\n\n{usage}")
+            })?;
+            let target_str = args.target_string.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("StringToStringCorrection requires --target-string\n\n{usage}")
+            })?;
+            let bound_k = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("StringToStringCorrection requires --bound\n\n{usage}")
+            })? as usize;
+            let parse_symbols = |s: &str| -> Result<Vec<usize>> {
+                if s.trim().is_empty() {
+                    return Ok(Vec::new());
+                }
+                s.split(',')
+                    .map(|v| v.trim().parse::<usize>().context("invalid symbol index"))
+                    .collect()
+            };
+            let source = parse_symbols(source_str)?;
+            let target = parse_symbols(target_str)?;
+            let inferred = source
+                .iter()
+                .chain(target.iter())
+                .copied()
+                .max()
+                .map_or(0, |m| m + 1);
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            if alphabet_size < inferred {
+                anyhow::bail!(
+                    "--alphabet-size {} is smaller than max symbol + 1 ({}) in the strings",
+                    alphabet_size,
+                    inferred
+                );
+            }
+            (
+                ser(StringToStringCorrection::new(
+                    alphabet_size,
+                    source,
+                    target,
+                    bound_k,
+                ))?,
                 resolved_variant.clone(),
             )
         }

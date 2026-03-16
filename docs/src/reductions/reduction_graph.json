@@ -535,6 +535,13 @@
       "complexity": "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2"
     },
     {
+      "name": "StringToStringCorrection",
+      "variant": {},
+      "category": "misc",
+      "doc_path": "models/misc/struct.StringToStringCorrection.html",
+      "complexity": "(2 * source_length + 1) ^ bound_k"
+    },
+    {
       "name": "SubgraphIsomorphism",
       "variant": {},
       "category": "graph",
@@ -763,7 +770,7 @@
     },
     {
       "source": 22,
-      "target": 61,
+      "target": 62,
       "overhead": [
         {
           "field": "num_elements",
@@ -1391,7 +1398,7 @@
       "doc_path": "rules/spinglass_casts/index.html"
     },
     {
-      "source": 62,
+      "source": 63,
       "target": 13,
       "overhead": [
         {
@@ -1406,7 +1413,7 @@
       "doc_path": "rules/travelingsalesman_ilp/index.html"
     },
     {
-      "source": 62,
+      "source": 63,
       "target": 51,
       "overhead": [
         {

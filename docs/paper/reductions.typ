@@ -109,6 +109,7 @@
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "StringToStringCorrection": [String-to-String Correction],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -1933,6 +1934,72 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
       ) <fig:scs>
 
       The supersequence $w = #w-str$ has length #w-len and contains both input strings as subsequences. This is optimal because $"LCS"(#r-strs.join(", ")) = "ac"$ (length 2), so the shortest common supersequence has length $#strings.at(0).len() + #strings.at(1).len() - 2 = #w-len$.
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("StringToStringCorrection")
+  let source = x.instance.source
+  let target = x.instance.target
+  let alpha-size = x.instance.alphabet_size
+  let bound-k = x.instance.bound_k
+  let n = source.len()
+  // Alphabet mapping: 0->a, 1->b, 2->c, 3->d
+  let alpha-map = range(alpha-size).map(i => str.from-unicode(97 + i))
+  let fmt-str(s) = s.map(c => alpha-map.at(c)).join("")
+  let src-str = fmt-str(source)
+  let tgt-str = fmt-str(target)
+  // Use solution [8, 5]: swap(2,3) then delete(5)
+  let sol = x.optimal.at(1)
+  // Trace the operations
+  let after-swap = (source.at(0), source.at(1), source.at(3), source.at(2), source.at(4), source.at(5))
+  let after-swap-str = after-swap.map(c => alpha-map.at(c)).join("")
+  [
+    #problem-def("StringToStringCorrection")[
+      Given a finite alphabet $Sigma$, a source string $x in Sigma^*$, a target string $y in Sigma^*$, and a positive integer $K$, determine whether $y$ can be derived from $x$ by a sequence of at most $K$ operations, where each operation is either a _single-symbol deletion_ (remove one character at a chosen position) or an _adjacent-symbol interchange_ (swap two neighboring characters).
+    ][
+      A classical NP-complete problem listed as SR20 in Garey and Johnson @garey1979. #cite(<wagner1975>, form: "prose") proved NP-completeness via transformation from Set Covering. The standard edit distance problem --- allowing insertion, deletion, and substitution --- is solvable in $O(|x| dot |y|)$ time by the Wagner--Fischer dynamic programming algorithm @wagner1974. However, restricting the operation set to only deletions and adjacent swaps makes the problem NP-complete for unbounded alphabets. When only adjacent swaps are allowed (no deletions), the problem reduces to counting inversions and is polynomial @wagner1975.#footnote[No algorithm improving on brute-force is known for the general swap-and-delete variant.]
+
+      *Example.* Let $Sigma = {#alpha-map.join(", ")}$, source $x = #src-str$ (length #n), target $y = #tgt-str$ (length #target.len()), and $K = #bound-k$.
+
+      #figure({
+        let blue = graph-colors.at(0)
+        let red = rgb("#e15759")
+        let cell(ch, highlight: false, strike: false) = {
+          let fill = if highlight { blue.transparentize(70%) } else { white }
+          box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
+            align(center + horizon, text(9pt, weight: "bold",
+              if strike { text(fill: red, [#sym.times]) } else { ch })))
+        }
+        align(center, stack(dir: ttb, spacing: 0.5cm,
+          // Step 0: source
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 2.2cm, height: 0.5cm, align(right + horizon, text(8pt)[$x: quad$])),
+            ..source.map(c => cell(alpha-map.at(c))),
+          ),
+          // Step 1: after swap at positions 2,3
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 2.2cm, height: 0.5cm, align(right + horizon, text(8pt)[swap$(2,3)$: quad])),
+            ..after-swap.map(c => cell(alpha-map.at(c), highlight: c != source.at(after-swap.position(cc => cc == c)))),
+          ),
+          // Step 2: after delete at position 5
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 2.2cm, height: 0.5cm, align(right + horizon, text(8pt)[del$(5)$: quad])),
+            ..target.map(c => cell(alpha-map.at(c))),
+            cell([], strike: true),
+          ),
+          // Result
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 2.2cm, height: 0.5cm, align(right + horizon, text(8pt)[$= y$: quad])),
+            ..target.map(c => cell(alpha-map.at(c), highlight: true)),
+          ),
+        ))
+      },
+      caption: [String-to-String Correction: transforming $x = #src-str$ into $y = #tgt-str$ with $K = #bound-k$ operations. Step 1 swaps adjacent symbols at positions 2 and 3; step 2 deletes the symbol at position 5.],
+      ) <fig:stsc>
+
+      The transformation uses exactly $K = #bound-k$ operations (1 swap + 1 deletion), which is the minimum: a single operation cannot account for both the transposition of two symbols and the removal of one.
     ]
   ]
 }

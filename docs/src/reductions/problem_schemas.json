@@ -756,6 +756,32 @@
     ]
   },
   {
+    "name": "StringToStringCorrection",
+    "description": "Derive target string from source using at most K deletions and adjacent swaps",
+    "fields": [
+      {
+        "name": "alphabet_size",
+        "type_name": "usize",
+        "description": "Size of the finite alphabet"
+      },
+      {
+        "name": "source",
+        "type_name": "Vec<usize>",
+        "description": "Source string (symbol indices)"
+      },
+      {
+        "name": "target",
+        "type_name": "Vec<usize>",
+        "description": "Target string (symbol indices)"
+      },
+      {
+        "name": "bound_k",
+        "type_name": "usize",
+        "description": "Maximum number of operations allowed"
+      }
+    ]
+  },
+  {
     "name": "SubgraphIsomorphism",
     "description": "Determine if host graph G contains a subgraph isomorphic to pattern graph H",
     "fields": [

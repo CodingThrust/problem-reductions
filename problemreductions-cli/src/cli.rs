@@ -247,6 +247,7 @@ Flags by problem type:
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
   SCS                             --strings, --bound [--alphabet-size]
+  StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   ILP, CircuitSAT                 (via reduction only)
 
@@ -440,9 +441,15 @@ pub struct CreateArgs {
     /// Number of processors/machines for FlowShopScheduling
     #[arg(long)]
     pub num_processors: Option<usize>,
-    /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
+    /// Alphabet size for SCS or StringToStringCorrection (optional; inferred from max symbol + 1 if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+    /// Source string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,2,3")
+    #[arg(long)]
+    pub source_string: Option<String>,
+    /// Target string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,3,2")
+    #[arg(long)]
+    pub target_string: Option<String>,
 }
 
 #[derive(clap::Args)]
