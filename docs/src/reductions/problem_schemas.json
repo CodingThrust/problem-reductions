@@ -595,6 +595,27 @@
     ]
   },
   {
+    "name": "SetBasis",
+    "description": "Determine whether a collection of sets admits a basis of size k under union",
+    "fields": [
+      {
+        "name": "universe_size",
+        "type_name": "usize",
+        "description": "Size of the ground set S"
+      },
+      {
+        "name": "collection",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Collection C of target subsets of S"
+      },
+      {
+        "name": "k",
+        "type_name": "usize",
+        "description": "Required number of basis sets"
+      }
+    ]
+  },
+  {
     "name": "ShortestCommonSupersequence",
     "description": "Find a common supersequence of bounded length for a set of strings",
     "fields": [
