@@ -5,7 +5,7 @@ use crate::problem_name::{resolve_problem_ref, unknown_problem_error};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
-use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
+use problemreductions::models::algebraic::{ClosestVectorProblem, ConsecutiveOnesSubmatrix, BMF};
 use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
@@ -750,6 +750,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             (ser(BMF::new(matrix, rank))?, resolved_variant.clone())
+        }
+
+        // ConsecutiveOnesSubmatrix
+        "ConsecutiveOnesSubmatrix" => {
+            let matrix = parse_bool_matrix(args)?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ConsecutiveOnesSubmatrix requires --matrix and --k\n\n\
+                     Usage: pred create ConsecutiveOnesSubmatrix --matrix \"1,1,0,1;1,0,1,1;0,1,1,0\" --k 3"
+                )
+            })?;
+            (
+                ser(ConsecutiveOnesSubmatrix::new(matrix, k))?,
+                resolved_variant.clone(),
+            )
         }
 
         // LongestCommonSubsequence

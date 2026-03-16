@@ -105,6 +105,7 @@
   "PartitionIntoTriangles": [Partition Into Triangles],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
+  "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -1935,6 +1936,73 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
         }),
         caption: [Optimal schedule for #ntasks tasks. #if tardy-tasks.len() > 0 [Faded #if tardy-tasks.len() == 1 [block indicates the] else [blocks indicate] tardy #if tardy-tasks.len() == 1 [task] else [tasks] (finish time exceeds deadline).] else [All tasks meet their deadlines.]],
       ) <fig:mts>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("ConsecutiveOnesSubmatrix")
+  let A = x.instance.matrix
+  let m = A.len()
+  let n = A.at(0).len()
+  let K = x.instance.bound_k
+  // Convert bool matrix to int for display
+  let A-int = A.map(row => row.map(v => if v { 1 } else { 0 }))
+  // Get a satisfying solution
+  let sol = x.optimal.at(0)
+  let cfg = sol.config
+  // Selected column indices
+  let selected = cfg.enumerate().filter(((i, v)) => v == 1).map(((i, v)) => i)
+  [
+    #problem-def("ConsecutiveOnesSubmatrix")[
+      Given an $m times n$ binary matrix $A$ and a positive integer $K <= n$, determine whether there exists a subset of $K$ columns of $A$ whose columns can be permuted so that in each row all 1's occur consecutively (the _consecutive ones property_).
+    ][
+      The Consecutive Ones Property (C1P) --- that the columns of a binary matrix can be ordered so that all 1's in each row are contiguous --- is fundamental in computational biology (DNA physical mapping), interval graph recognition, and PQ-tree algorithms. Testing whether a full matrix has the C1P is polynomial: Booth and Lueker @booth1976 gave a linear-time PQ-tree algorithm running in $O(m + n + f)$ where $f$ is the number of 1-entries. However, finding the largest column subset with the C1P is NP-complete, proven by Booth @booth1975 via transformation from Hamiltonian Path. The best known exact algorithm is brute-force enumeration of all $binom(n, K)$ column subsets, testing each for the C1P in $O(m + n)$ time#footnote[No algorithm improving on brute-force subset enumeration is known for the general Consecutive Ones Submatrix problem.].
+
+      *Example.* Consider the $#m times #n$ matrix $A = mat(#A-int.map(row => row.map(v => str(v)).join(", ")).join("; "))$ with $K = #K$. Selecting columns $\{#selected.map(i => str(i)).join(", ")\}$ yields a $#m times #K$ submatrix. Under column permutation $[1, 0, 3]$, each row's 1-entries are contiguous: row 1 has $[1, 1, 1]$, row 2 has $[0, 1, 1]$, and row 3 has $[1, 0, 0]$. The full $3 times 4$ matrix does _not_ have the C1P (it contains a Tucker obstruction), but two of the four 3-column subsets do.
+
+      #figure(
+        canvas(length: 0.7cm, {
+          import draw: *
+          let cell-size = 0.9
+          let gap = 0.15
+          // Draw the original matrix
+          for i in range(m) {
+            for j in range(n) {
+              let val = A-int.at(i).at(j)
+              let is-selected = cfg.at(j) == 1
+              let f = if val == 1 {
+                if is-selected { graph-colors.at(0).transparentize(30%) } else { luma(200) }
+              } else { white }
+              rect(
+                (j * cell-size, -i * cell-size),
+                (j * cell-size + cell-size - gap, -i * cell-size - cell-size + gap),
+                fill: f,
+                stroke: 0.3pt + luma(180),
+              )
+              content(
+                (j * cell-size + (cell-size - gap) / 2, -i * cell-size - (cell-size - gap) / 2),
+                text(8pt, str(val)),
+              )
+            }
+          }
+          // Column labels
+          for j in range(n) {
+            content(
+              (j * cell-size + (cell-size - gap) / 2, 0.4),
+              text(7pt)[$c_#j$],
+            )
+          }
+          // Row labels
+          for i in range(m) {
+            content(
+              (-0.5, -i * cell-size - (cell-size - gap) / 2),
+              text(7pt)[$r_#(i + 1)$],
+            )
+          }
+        }),
+        caption: [Binary matrix $A$ ($#m times #n$) with $K = #K$. Blue-highlighted columns $\{#selected.map(i => str(i)).join(", ")\}$ form a submatrix with the consecutive ones property under a suitable column permutation. Grey cells are 1-entries in non-selected columns.],
+      ) <fig:c1s-example>
     ]
   ]
 }

@@ -138,6 +138,10 @@ fn test_all_problems_implement_trait_correctly() {
         &MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]),
         "MinimumTardinessSequencing",
     );
+    check_problem_trait(
+        &ConsecutiveOnesSubmatrix::new(vec![vec![true, false], vec![false, true]], 1),
+        "ConsecutiveOnesSubmatrix",
+    );
 }
 
 #[test]

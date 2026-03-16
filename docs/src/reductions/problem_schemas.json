@@ -90,6 +90,22 @@
     ]
   },
   {
+    "name": "ConsecutiveOnesSubmatrix",
+    "description": "Find K columns of a binary matrix that can be permuted to have the consecutive ones property",
+    "fields": [
+      {
+        "name": "matrix",
+        "type_name": "Vec<Vec<bool>>",
+        "description": "m×n binary matrix A"
+      },
+      {
+        "name": "bound_k",
+        "type_name": "usize",
+        "description": "Required number of columns K"
+      }
+    ]
+  },
+  {
     "name": "ExactCoverBy3Sets",
     "description": "Determine if a collection of 3-element subsets contains an exact cover",
     "fields": [

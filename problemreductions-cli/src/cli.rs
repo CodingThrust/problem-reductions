@@ -233,6 +233,7 @@ Flags by problem type:
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
+  ConsecutiveOnesSubmatrix        --matrix (0/1), --k
   SteinerTree                     --graph, --edge-weights, --terminals
   CVP                             --basis, --target-vec [--bounds]
   OptimalLinearArrangement        --graph, --bound
