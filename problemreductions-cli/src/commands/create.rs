@@ -1335,7 +1335,7 @@ fn parse_terminals(args: &CreateArgs, num_vertices: usize) -> Result<Vec<usize>>
     let s = args
         .terminals
         .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("SteinerTree requires --terminals (e.g., \"0,2,4\")"))?;
+        .ok_or_else(|| anyhow::anyhow!("--terminals required (e.g., \"0,2,4\")"))?;
     let terminals: Vec<usize> = s
         .split(',')
         .map(|t| t.trim().parse::<usize>())
@@ -1375,49 +1375,6 @@ fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
         }
         None => Ok(vec![1i32; num_edges]),
     }
-}
-
-/// Parse `--terminals` as a comma-separated list of vertex indices.
-fn parse_terminals(args: &CreateArgs, num_vertices: usize) -> Result<Vec<usize>> {
-    let terminals_str = args
-        .terminals
-        .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("MinimumMultiwayCut requires --terminals (e.g., 0,2,4)"))?;
-
-    let terminals: Vec<usize> = terminals_str
-        .split(',')
-        .map(|s| {
-            s.trim()
-                .parse::<usize>()
-                .map_err(|e| anyhow::anyhow!("Invalid terminal index '{}': {}", s.trim(), e))
-        })
-        .collect::<Result<Vec<_>>>()?;
-
-    anyhow::ensure!(
-        terminals.len() >= 2,
-        "at least 2 terminals required, got {}",
-        terminals.len()
-    );
-
-    for &t in &terminals {
-        anyhow::ensure!(
-            t < num_vertices,
-            "terminal index {} out of bounds (graph has {} vertices)",
-            t,
-            num_vertices
-        );
-    }
-
-    let mut sorted = terminals.clone();
-    sorted.sort();
-    sorted.dedup();
-    anyhow::ensure!(
-        sorted.len() == terminals.len(),
-        "duplicate terminal indices in {:?}",
-        terminals
-    );
-
-    Ok(terminals)
 }
 
 /// Parse `--couplings` as SpinGlass pairwise couplings (i32), defaulting to all 1s.

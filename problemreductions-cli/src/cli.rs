@@ -372,9 +372,6 @@ pub struct CreateArgs {
     /// Variable bounds for CVP as "lower,upper" (e.g., "-10,10") [default: -10,10]
     #[arg(long, allow_hyphen_values = true)]
     pub bounds: Option<String>,
-    /// Terminal vertices for SteinerTree (comma-separated indices, e.g., "0,2,4")
-    #[arg(long)]
-    pub terminals: Option<String>,
     /// Tree edge list for IsomorphicSpanningTree (e.g., 0-1,1-2,2-3)
     #[arg(long)]
     pub tree: Option<String>,
