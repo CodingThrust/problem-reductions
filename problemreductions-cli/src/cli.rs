@@ -249,7 +249,7 @@ Flags by problem type:
   FVS                             --arcs [--weights] [--num-vertices]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
-  SchedulingWithIndividualDeadlines --n, --num-processors, --deadlines [--precedence-pairs]
+  SchedulingWithIndividualDeadlines --n, --num-processors/--m, --deadlines [--precedence-pairs]
   SCS                             --strings, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   ILP, CircuitSAT                 (via reduction only)
@@ -343,7 +343,7 @@ pub struct CreateArgs {
     /// Target value (for Factoring and SubsetSum)
     #[arg(long)]
     pub target: Option<String>,
-    /// Bits for first factor (for Factoring)
+    /// Bits for first factor (for Factoring); also accepted as a processor-count alias for scheduling create commands
     #[arg(long)]
     pub m: Option<usize>,
     /// Bits for second factor (for Factoring)
@@ -604,5 +604,8 @@ mod tests {
             ),
             "create help should describe --num-processors for both scheduling models"
         );
+        assert!(help.contains(
+            "SchedulingWithIndividualDeadlines --n, --num-processors/--m, --deadlines [--precedence-pairs]"
+        ));
     }
 }

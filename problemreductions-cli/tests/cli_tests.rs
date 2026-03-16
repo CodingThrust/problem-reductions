@@ -4817,6 +4817,82 @@ fn test_create_sequencing_within_intervals() {
 }
 
 #[test]
+fn test_create_scheduling_with_individual_deadlines_with_m_alias() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_scheduling_with_individual_deadlines.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SchedulingWithIndividualDeadlines",
+            "--n",
+            "7",
+            "--deadlines",
+            "2,1,2,2,3,3,2",
+            "--m",
+            "3",
+            "--precedence-pairs",
+            "0>3,1>3,1>4,2>4,2>5",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SchedulingWithIndividualDeadlines");
+    assert_eq!(json["data"]["num_processors"], 3);
+    assert_eq!(json["data"]["num_tasks"], 7);
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_scheduling_with_individual_deadlines_help_mentions_m_alias() {
+    let output = pred()
+        .args(["create", "SchedulingWithIndividualDeadlines"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "problem-specific help should exit non-zero"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--num-processors/--m"),
+        "expected alias in problem-specific help, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_scheduling_with_individual_deadlines_rejects_conflicting_processor_flags() {
+    let output = pred()
+        .args([
+            "create",
+            "SchedulingWithIndividualDeadlines",
+            "--n",
+            "3",
+            "--deadlines",
+            "1,1,2",
+            "--num-processors",
+            "3",
+            "--m",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("conflicting processor counts"),
+        "expected conflict error, got: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_model_example_sequencing_within_intervals() {
     let output = pred()
         .args(["create", "--example", "SequencingWithinIntervals"])

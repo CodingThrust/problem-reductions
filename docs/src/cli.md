@@ -298,10 +298,15 @@ pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
 pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
 pred create X3C --universe 9 --sets "0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8" -o x3c.json
 pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 --precedence-pairs "0>3,1>3,1>4,2>4" -o mts.json
+pred create SchedulingWithIndividualDeadlines --n 7 --deadlines 2,1,2,2,3,3,2 --num-processors 3 --precedence-pairs "0>3,1>3,1>4,2>4,2>5" -o swid.json
+pred solve swid.json --solver brute-force
 ```
 
 For `LengthBoundedDisjointPaths`, the CLI flag `--bound` maps to the JSON field
 `max_length`.
+
+For problem-specific create help, run `pred create <PROBLEM>` with no additional flags.
+The generic `pred create --help` output lists all flags across all problem types.
 
 Canonical examples are useful when you want a known-good instance from the paper/example database.
 For model examples, `pred create --example <PROBLEM_SPEC>` emits the canonical instance for that
@@ -372,12 +377,31 @@ pred create MIS --graph 0-1,1-2,2-3 | pred evaluate - --config 1,0,1,0
 
 ### `pred inspect` — Inspect a problem file
 
-Show a summary of what's inside a problem JSON or reduction bundle:
+Show JSON metadata about what's inside a problem JSON or reduction bundle:
 
 ```bash
 $ pred inspect problem.json
-Type: MaximumIndependentSet {graph=SimpleGraph, weight=i32}
-Size: 5 vertices, 5 edges
+{
+  "kind": "problem",
+  "num_variables": 4,
+  "reduces_to": [
+    "MaximumSetPacking",
+    "MinimumVertexCover"
+  ],
+  "size_fields": [
+    "num_vertices",
+    "num_edges"
+  ],
+  "solvers": [
+    "ilp",
+    "brute-force"
+  ],
+  "type": "MaximumIndependentSet",
+  "variant": {
+    "graph": "SimpleGraph",
+    "weight": "i32"
+  }
+}
 ```
 
 Works with reduction bundles and stdin:

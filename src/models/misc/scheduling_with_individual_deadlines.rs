@@ -7,6 +7,7 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -128,10 +129,11 @@ impl Problem for SchedulingWithIndividualDeadlines {
             }
         }
 
-        let mut slot_loads = vec![0usize; self.max_deadline()];
+        let mut slot_loads = BTreeMap::new();
         for &start in config {
-            slot_loads[start] += 1;
-            if slot_loads[start] > self.num_processors {
+            let load = slot_loads.entry(start).or_insert(0usize);
+            *load += 1;
+            if *load > self.num_processors {
                 return false;
             }
         }

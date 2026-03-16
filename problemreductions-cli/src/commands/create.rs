@@ -234,7 +234,6 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<Vec<usize>>" => "semicolon-separated groups: \"0,1;2,3\"",
         "usize" => "integer",
         "u64" => "integer",
-        "Vec<u64>" => "comma-separated integers: 0,0,5",
         "i64" => "integer",
         "BigUint" => "nonnegative decimal integer",
         "Vec<BigUint>" => "comma-separated nonnegative decimal integers: 3,7,1,8",
@@ -306,6 +305,10 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        ("FlowShopScheduling", "num_processors")
+        | ("SchedulingWithIndividualDeadlines", "num_processors") => {
+            return "num-processors/--m".to_string();
+        }
         _ => {}
     }
     // General field-name overrides (previously in cli_flag_name)
@@ -332,6 +335,7 @@ fn help_flag_hint(
 ) -> &'static str {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_weight") => "integer",
+        ("SequencingWithinIntervals", "release_times") => "comma-separated integers: 0,0,5",
         _ => type_format_hint(type_name, graph_type),
     }
 }
@@ -339,6 +343,26 @@ fn help_flag_hint(
 fn parse_nonnegative_usize_bound(bound: i64, problem_name: &str, usage: &str) -> Result<usize> {
     usize::try_from(bound)
         .map_err(|_| anyhow::anyhow!("{problem_name} requires nonnegative --bound\n\n{usage}"))
+}
+
+fn resolve_processor_count_flags(
+    problem_name: &str,
+    usage: &str,
+    num_processors: Option<usize>,
+    m_alias: Option<usize>,
+) -> Result<Option<usize>> {
+    match (num_processors, m_alias) {
+        (Some(num_processors), Some(m_alias)) => {
+            anyhow::ensure!(
+                num_processors == m_alias,
+                "{problem_name} received conflicting processor counts: --num-processors={num_processors} but --m={m_alias}\n\n{usage}"
+            );
+            Ok(Some(num_processors))
+        }
+        (Some(num_processors), None) => Ok(Some(num_processors)),
+        (None, Some(m_alias)) => Ok(Some(m_alias)),
+        (None, None) => Ok(None),
+    }
 }
 
 fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
@@ -1221,22 +1245,26 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // SchedulingWithIndividualDeadlines
         "SchedulingWithIndividualDeadlines" => {
+            let usage = "Usage: pred create SchedulingWithIndividualDeadlines --n 7 --deadlines 2,1,2,2,3,3,2 [--num-processors 3 | --m 3] [--precedence-pairs \"0>3,1>3,1>4,2>4,2>5\"]";
             let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "SchedulingWithIndividualDeadlines requires --deadlines, --n, and --num-processors\n\n\
-                     Usage: pred create SchedulingWithIndividualDeadlines --n 7 --num-processors 3 --deadlines 2,1,2,2,3,3,2 [--precedence-pairs \"0>3,1>3,1>4,2>4,2>5\"]"
+                    "SchedulingWithIndividualDeadlines requires --deadlines, --n, and a processor count (--num-processors or --m)\n\n{usage}"
                 )
             })?;
             let num_tasks = args.n.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "SchedulingWithIndividualDeadlines requires --n (number of tasks)\n\n\
-                     Usage: pred create SchedulingWithIndividualDeadlines --n 7 --num-processors 3 --deadlines 2,1,2,2,3,3,2"
+                    "SchedulingWithIndividualDeadlines requires --n (number of tasks)\n\n{usage}"
                 )
             })?;
-            let num_processors = args.num_processors.ok_or_else(|| {
+            let num_processors = resolve_processor_count_flags(
+                "SchedulingWithIndividualDeadlines",
+                usage,
+                args.num_processors,
+                args.m,
+            )?
+            .ok_or_else(|| {
                 anyhow::anyhow!(
-                    "SchedulingWithIndividualDeadlines requires --num-processors\n\n\
-                     Usage: pred create SchedulingWithIndividualDeadlines --n 7 --num-processors 3 --deadlines 2,1,2,2,3,3,2"
+                    "SchedulingWithIndividualDeadlines requires --num-processors or --m\n\n{usage}"
                 )
             })?;
             let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
@@ -1344,15 +1372,18 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 .split(';')
                 .map(|row| util::parse_comma_list(row.trim()))
                 .collect::<Result<Vec<_>>>()?;
-            let num_processors = if let Some(np) = args.num_processors {
-                np
-            } else if let Some(m) = args.m {
-                m
-            } else if let Some(first) = task_lengths.first() {
-                first.len()
-            } else {
-                bail!("Cannot infer num_processors from empty task list; use --num-processors");
-            };
+            let num_processors = resolve_processor_count_flags(
+                "FlowShopScheduling",
+                "Usage: pred create FlowShopScheduling --task-lengths \"3,4,2;2,3,5;4,1,3\" --deadline 25 --num-processors 3",
+                args.num_processors,
+                args.m,
+            )?
+            .or_else(|| task_lengths.first().map(Vec::len))
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Cannot infer num_processors from empty task list; use --num-processors"
+                )
+            })?;
             for (j, row) in task_lengths.iter().enumerate() {
                 if row.len() != num_processors {
                     bail!(
@@ -2478,7 +2509,7 @@ fn create_random(
 
 #[cfg(test)]
 mod tests {
-    use super::{create, problem_help_flag_name};
+    use super::{create, help_flag_name, problem_help_flag_name};
     use crate::cli::{Cli, Commands};
     use crate::output::OutputConfig;
     use clap::Parser;
@@ -2505,7 +2536,19 @@ mod tests {
     }
 
     #[test]
-    fn test_create_scheduling_with_individual_deadlines_rejects_m_alias() {
+    fn test_help_flag_name_mentions_m_alias_for_scheduling_processors() {
+        assert_eq!(
+            help_flag_name("SchedulingWithIndividualDeadlines", "num_processors"),
+            "num-processors/--m"
+        );
+        assert_eq!(
+            help_flag_name("FlowShopScheduling", "num_processors"),
+            "num-processors/--m"
+        );
+    }
+
+    #[test]
+    fn test_create_scheduling_with_individual_deadlines_accepts_m_alias() {
         let cli = Cli::try_parse_from([
             "pred",
             "create",
@@ -2524,13 +2567,22 @@ mod tests {
         };
 
         let out = OutputConfig {
-            output: None,
+            output: Some(
+                std::env::temp_dir()
+                    .join("pred_test_create_scheduling_with_individual_deadlines_m_alias.json"),
+            ),
             quiet: true,
             json: false,
             auto_json: false,
         };
-        let err = create(&args, &out).expect_err("`--m` should not satisfy --num-processors");
+        create(&args, &out).expect("`--m` should satisfy --num-processors alias");
 
-        assert!(err.to_string().contains("requires --num-processors"));
+        let created: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(out.output.as_ref().unwrap()).unwrap())
+                .unwrap();
+        std::fs::remove_file(out.output.as_ref().unwrap()).ok();
+
+        assert_eq!(created["type"], "SchedulingWithIndividualDeadlines");
+        assert_eq!(created["data"]["num_processors"], 2);
     }
 }

@@ -72,6 +72,15 @@ fn test_scheduling_with_individual_deadlines_evaluate_rejects_capacity_violation
 }
 
 #[test]
+fn test_scheduling_with_individual_deadlines_evaluate_handles_huge_sparse_deadline() {
+    let problem = SchedulingWithIndividualDeadlines::new(1, 1, vec![usize::MAX], vec![]);
+
+    let result = std::panic::catch_unwind(|| problem.evaluate(&[0]));
+
+    assert!(matches!(result, Ok(true)));
+}
+
+#[test]
 fn test_scheduling_with_individual_deadlines_brute_force_satisfiable() {
     let problem = SchedulingWithIndividualDeadlines::new(3, 2, vec![1, 1, 2], vec![(0, 2)]);
     let solver = BruteForce::new();
