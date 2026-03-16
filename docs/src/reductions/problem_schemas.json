@@ -90,6 +90,52 @@
     ]
   },
   {
+    "name": "DirectedTwoCommodityIntegralFlow",
+    "description": "Two-commodity integral flow feasibility on a directed graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "DirectedGraph",
+        "description": "Directed graph G = (V, A)"
+      },
+      {
+        "name": "capacities",
+        "type_name": "Vec<u64>",
+        "description": "Capacity c(a) for each arc"
+      },
+      {
+        "name": "source_1",
+        "type_name": "usize",
+        "description": "Source vertex s_1 for commodity 1"
+      },
+      {
+        "name": "sink_1",
+        "type_name": "usize",
+        "description": "Sink vertex t_1 for commodity 1"
+      },
+      {
+        "name": "source_2",
+        "type_name": "usize",
+        "description": "Source vertex s_2 for commodity 2"
+      },
+      {
+        "name": "sink_2",
+        "type_name": "usize",
+        "description": "Sink vertex t_2 for commodity 2"
+      },
+      {
+        "name": "requirement_1",
+        "type_name": "u64",
+        "description": "Flow requirement R_1 for commodity 1"
+      },
+      {
+        "name": "requirement_2",
+        "type_name": "u64",
+        "description": "Flow requirement R_2 for commodity 2"
+      }
+    ]
+  },
+  {
     "name": "ExactCoverBy3Sets",
     "description": "Determine if a collection of 3-element subsets contains an exact cover",
     "fields": [
@@ -256,6 +302,37 @@
         "name": "capacity",
         "type_name": "i64",
         "description": "Nonnegative knapsack capacity C"
+      }
+    ]
+  },
+  {
+    "name": "LengthBoundedDisjointPaths",
+    "description": "Find J internally vertex-disjoint s-t paths of length at most K",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "source",
+        "type_name": "usize",
+        "description": "The shared source vertex s"
+      },
+      {
+        "name": "sink",
+        "type_name": "usize",
+        "description": "The shared sink vertex t"
+      },
+      {
+        "name": "num_paths_required",
+        "type_name": "usize",
+        "description": "Required number J of disjoint s-t paths"
+      },
+      {
+        "name": "max_length",
+        "type_name": "usize",
+        "description": "Maximum path length K in edges"
       }
     ]
   },
@@ -621,6 +698,27 @@
     ]
   },
   {
+    "name": "SetBasis",
+    "description": "Determine whether a collection of sets admits a basis of size k under union",
+    "fields": [
+      {
+        "name": "universe_size",
+        "type_name": "usize",
+        "description": "Size of the ground set S"
+      },
+      {
+        "name": "collection",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Collection C of target subsets of S"
+      },
+      {
+        "name": "k",
+        "type_name": "usize",
+        "description": "Required number of basis sets"
+      }
+    ]
+  },
+  {
     "name": "ShortestCommonSupersequence",
     "description": "Find a common supersequence of bounded length for a set of strings",
     "fields": [
@@ -659,6 +757,27 @@
         "name": "fields",
         "type_name": "Vec<W>",
         "description": "On-site fields h_i"
+      }
+    ]
+  },
+  {
+    "name": "SteinerTree",
+    "description": "Find minimum weight tree connecting terminal vertices",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "edge_weights",
+        "type_name": "Vec<W>",
+        "description": "Edge weights w: E -> R"
+      },
+      {
+        "name": "terminals",
+        "type_name": "Vec<usize>",
+        "description": "Terminal vertices T that must be connected"
       }
     ]
   },
@@ -707,6 +826,52 @@
         "name": "edge_weights",
         "type_name": "Vec<W>",
         "description": "Edge weights w: E -> R"
+      }
+    ]
+  },
+  {
+    "name": "UndirectedTwoCommodityIntegralFlow",
+    "description": "Determine whether two integral commodities can satisfy sink demands in an undirected capacitated graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "SimpleGraph",
+        "description": "Undirected graph G=(V,E)"
+      },
+      {
+        "name": "capacities",
+        "type_name": "Vec<u64>",
+        "description": "Edge capacities c(e) in graph edge order"
+      },
+      {
+        "name": "source_1",
+        "type_name": "usize",
+        "description": "Source vertex s_1 for commodity 1"
+      },
+      {
+        "name": "sink_1",
+        "type_name": "usize",
+        "description": "Sink vertex t_1 for commodity 1"
+      },
+      {
+        "name": "source_2",
+        "type_name": "usize",
+        "description": "Source vertex s_2 for commodity 2"
+      },
+      {
+        "name": "sink_2",
+        "type_name": "usize",
+        "description": "Sink vertex t_2 for commodity 2"
+      },
+      {
+        "name": "requirement_1",
+        "type_name": "u64",
+        "description": "Required net inflow R_1 at sink t_1"
+      },
+      {
+        "name": "requirement_2",
+        "type_name": "u64",
+        "description": "Required net inflow R_2 at sink t_2"
       }
     ]
   }

@@ -2,6 +2,7 @@ use super::*;
 use crate::solvers::{BruteForce, Solver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
+use serde_json;
 
 fn yes_instance() -> MultipleChoiceBranching<i32> {
     MultipleChoiceBranching::new(
@@ -199,4 +200,50 @@ fn test_multiple_choice_branching_serialization() {
     assert_eq!(deserialized.num_vertices(), 6);
     assert_eq!(deserialized.num_arcs(), 8);
     assert_eq!(deserialized.threshold(), &10);
+}
+
+#[test]
+fn test_multiple_choice_branching_deserialize_rejects_weight_length_mismatch() {
+    let json = r#"{
+        "graph": {"inner": {"nodes": [null, null], "node_holes": [], "edge_property": "directed", "edges": [[0, 1, null]]}},
+        "weights": [1, 2],
+        "partition": [[0]],
+        "threshold": 1
+    }"#;
+    let result: Result<MultipleChoiceBranching<i32>, _> = serde_json::from_str(json);
+    let err = result.unwrap_err().to_string();
+    assert!(err.contains("weights length must match"), "got: {err}");
+}
+
+#[test]
+fn test_multiple_choice_branching_deserialize_rejects_invalid_partition() {
+    let json = r#"{
+        "graph": {"inner": {"nodes": [null, null], "node_holes": [], "edge_property": "directed", "edges": [[0, 1, null]]}},
+        "weights": [1],
+        "partition": [[1]],
+        "threshold": 1
+    }"#;
+    let result: Result<MultipleChoiceBranching<i32>, _> = serde_json::from_str(json);
+    let err = result.unwrap_err().to_string();
+    assert!(err.contains("partition"), "got: {err}");
+}
+
+#[test]
+fn test_multiple_choice_branching_set_weights_rejects_wrong_length() {
+    let result = std::panic::catch_unwind(|| {
+        let mut problem = MultipleChoiceBranching::new(
+            DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![1, 1],
+            vec![vec![0], vec![1]],
+            1,
+        );
+        problem.set_weights(vec![1, 2, 3]);
+    });
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_multiple_choice_branching_num_variables() {
+    let problem = yes_instance();
+    assert_eq!(problem.num_variables(), 8);
 }
