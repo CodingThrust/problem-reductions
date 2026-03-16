@@ -413,7 +413,7 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound or length bound (for LengthBoundedDisjointPaths, OptimalLinearArrangement, RuralPostman, or SCS)
+    /// Upper bound or length bound (for LengthBoundedDisjointPaths, MultipleCopyFileAllocation, OptimalLinearArrangement, RuralPostman, or SCS)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
@@ -454,7 +454,7 @@ pub struct CreateArgs {
 #[derive(clap::Args)]
 #[command(after_help = "\
 Examples:
-  pred solve problem.json                        # ILP solver (default, auto-reduces to ILP)
+  pred solve problem.json                        # auto-select solver (ILP when reachable, otherwise brute-force)
   pred solve problem.json --solver brute-force   # brute-force (exhaustive search)
   pred solve reduced.json                        # solve a reduction bundle
   pred solve reduced.json -o solution.json       # save result to file
@@ -471,6 +471,7 @@ Solve via explicit reduction:
 
 Input: a problem JSON from `pred create`, or a reduction bundle from `pred reduce`.
 When given a bundle, the target is solved and the solution is mapped back to the source.
+When --solver is omitted, `pred solve` picks ILP if the problem can reduce to ILP and otherwise falls back to brute-force.
 The ILP solver auto-reduces non-ILP problems before solving.
 
 ILP backend (default: HiGHS). To use a different backend:
@@ -480,9 +481,9 @@ ILP backend (default: HiGHS). To use a different backend:
 pub struct SolveArgs {
     /// Problem JSON file (from `pred create`) or reduction bundle (from `pred reduce`). Use - for stdin.
     pub input: PathBuf,
-    /// Solver: ilp (default) or brute-force
-    #[arg(long, default_value = "ilp")]
-    pub solver: String,
+    /// Solver: ilp or brute-force. Defaults to ilp when reachable, otherwise brute-force.
+    #[arg(long)]
+    pub solver: Option<String>,
     /// Timeout in seconds (0 = no limit)
     #[arg(long, default_value = "0")]
     pub timeout: u64,

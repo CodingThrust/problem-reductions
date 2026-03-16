@@ -38,6 +38,21 @@ fn test_multiple_copy_file_allocation_total_cost_and_validity() {
 }
 
 #[test]
+fn test_multiple_copy_file_allocation_uses_per_vertex_costs() {
+    let problem = MultipleCopyFileAllocation::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1, 10, 100, 1000],
+        vec![3, 5, 7, 11],
+        1020,
+    );
+    let config = vec![1, 0, 1, 0];
+
+    assert_eq!(problem.total_cost(&config), Some(1020));
+    assert!(problem.is_valid_solution(&config));
+    assert!(problem.evaluate(&config));
+}
+
+#[test]
 fn test_multiple_copy_file_allocation_invalid_configs() {
     let problem = cycle_yes_instance();
 

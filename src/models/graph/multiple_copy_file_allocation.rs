@@ -3,7 +3,7 @@
 //! The Multiple Copy File Allocation problem asks whether a set of file-copy
 //! locations can keep the combined storage and access cost below a bound.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
 use serde::{Deserialize, Serialize};
@@ -23,6 +23,13 @@ inventory::submit! {
             FieldInfo { name: "storage", type_name: "Vec<i64>", description: "Storage costs s(v) for placing a copy at each vertex" },
             FieldInfo { name: "bound", type_name: "i64", description: "Upper bound K on total storage plus access cost" },
         ],
+    }
+}
+
+inventory::submit! {
+    ProblemSizeFieldEntry {
+        name: "MultipleCopyFileAllocation",
+        fields: &["num_vertices", "num_edges"],
     }
 }
 

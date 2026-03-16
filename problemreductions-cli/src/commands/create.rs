@@ -22,6 +22,11 @@ use problemreductions::topology::{
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
+const MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS: &str =
+    "--graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8";
+const MULTIPLE_COPY_FILE_ALLOCATION_USAGE: &str =
+    "Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8";
+
 /// Check if all data flags are None (no problem-specific input provided).
 fn all_data_flags_empty(args: &CreateArgs) -> bool {
     args.graph.is_none()
@@ -279,7 +284,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "Factoring" => "--target 15 --m 4 --n 4",
         "SteinerTree" => "--graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4",
         "MultipleCopyFileAllocation" => {
-            "--graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8"
+            MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS
         }
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
@@ -504,18 +509,25 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // MultipleCopyFileAllocation (graph + usage + storage + bound)
         "MultipleCopyFileAllocation" => {
-            let (graph, num_vertices) = parse_graph(args).map_err(|e| {
-                anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8"
-                )
-            })?;
-            let usage = parse_vertex_i64_values(args.usage.as_deref(), "usage", num_vertices)?;
-            let storage =
-                parse_vertex_i64_values(args.storage.as_deref(), "storage", num_vertices)?;
+            let (graph, num_vertices) = parse_graph(args)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{MULTIPLE_COPY_FILE_ALLOCATION_USAGE}"))?;
+            let usage = parse_vertex_i64_values(
+                args.usage.as_deref(),
+                "usage",
+                num_vertices,
+                "MultipleCopyFileAllocation",
+                MULTIPLE_COPY_FILE_ALLOCATION_USAGE,
+            )?;
+            let storage = parse_vertex_i64_values(
+                args.storage.as_deref(),
+                "storage",
+                num_vertices,
+                "MultipleCopyFileAllocation",
+                MULTIPLE_COPY_FILE_ALLOCATION_USAGE,
+            )?;
             let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "MultipleCopyFileAllocation requires --bound\n\n\
-                     Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8"
+                    "MultipleCopyFileAllocation requires --bound\n\n{MULTIPLE_COPY_FILE_ALLOCATION_USAGE}"
                 )
             })?;
             (
@@ -1572,20 +1584,20 @@ fn parse_vertex_i64_values(
     raw: Option<&str>,
     field_name: &str,
     num_vertices: usize,
+    problem_name: &str,
+    usage: &str,
 ) -> Result<Vec<i64>> {
-    let raw = raw.ok_or_else(|| {
-        anyhow::anyhow!(
-            "MultipleCopyFileAllocation requires --{field_name}\n\n\
-             Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8"
-        )
-    })?;
-    let values: Vec<i64> = util::parse_comma_list(raw)?;
+    let raw =
+        raw.ok_or_else(|| anyhow::anyhow!("{problem_name} requires --{field_name}\n\n{usage}"))?;
+    let values: Vec<i64> = util::parse_comma_list(raw)
+        .map_err(|e| anyhow::anyhow!("invalid {field_name} list: {e}\n\n{usage}"))?;
     if values.len() != num_vertices {
         bail!(
-            "Expected {} {} values but got {}",
+            "Expected {} {} values but got {}\n\n{}",
             num_vertices,
             field_name,
-            values.len()
+            values.len(),
+            usage
         );
     }
     Ok(values)

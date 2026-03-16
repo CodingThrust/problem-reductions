@@ -47,6 +47,47 @@ impl LoadedProblem {
         Ok(SolveResult { config, evaluation })
     }
 
+    pub fn supports_ilp(&self) -> bool {
+        let name = self.problem_name();
+        if name == "ILP" {
+            return true;
+        }
+
+        let source_variant = self.variant_map();
+        let graph = ReductionGraph::new();
+        let ilp_variants = graph.variants_for("ILP");
+        let input_size = ProblemSize::new(vec![]);
+
+        ilp_variants.iter().any(|target_variant| {
+            graph
+                .find_cheapest_path(
+                    name,
+                    &source_variant,
+                    "ILP",
+                    target_variant,
+                    &input_size,
+                    &MinimizeSteps,
+                )
+                .is_some()
+        })
+    }
+
+    pub fn available_solvers(&self) -> Vec<&'static str> {
+        if self.supports_ilp() {
+            vec!["ilp", "brute-force"]
+        } else {
+            vec!["brute-force"]
+        }
+    }
+
+    pub fn default_solver(&self) -> &'static str {
+        if self.supports_ilp() {
+            "ilp"
+        } else {
+            "brute-force"
+        }
+    }
+
     /// Solve using the ILP solver. If the problem is not ILP, auto-reduce to ILP first.
     pub fn solve_with_ilp(&self) -> Result<SolveResult> {
         let name = self.problem_name();

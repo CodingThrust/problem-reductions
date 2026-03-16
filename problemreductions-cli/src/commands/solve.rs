@@ -29,18 +29,40 @@ fn parse_input(path: &Path) -> Result<SolveInput> {
     }
 }
 
-pub fn solve(input: &Path, solver_name: &str, timeout: u64, out: &OutputConfig) -> Result<()> {
-    if solver_name != "brute-force" && solver_name != "ilp" {
-        anyhow::bail!(
-            "Unknown solver: {}. Available solvers: brute-force, ilp",
-            solver_name
-        );
+pub fn solve(
+    input: &Path,
+    solver_name: Option<&str>,
+    timeout: u64,
+    out: &OutputConfig,
+) -> Result<()> {
+    if let Some(solver_name) = solver_name {
+        if solver_name != "brute-force" && solver_name != "ilp" {
+            anyhow::bail!(
+                "Unknown solver: {}. Available solvers: brute-force, ilp",
+                solver_name
+            );
+        }
     }
 
     let parsed = parse_input(input)?;
+    let resolved_solver = match (&parsed, solver_name) {
+        (_, Some(solver_name)) => solver_name.to_string(),
+        (SolveInput::Problem(pj), None) => {
+            load_problem(&pj.problem_type, &pj.variant, pj.data.clone())?
+                .default_solver()
+                .to_string()
+        }
+        (SolveInput::Bundle(bundle), None) => load_problem(
+            &bundle.target.problem_type,
+            &bundle.target.variant,
+            bundle.target.data.clone(),
+        )?
+        .default_solver()
+        .to_string(),
+    };
 
     if timeout > 0 {
-        let solver_name = solver_name.to_string();
+        let solver_name = resolved_solver.clone();
         let out = out.clone();
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
@@ -58,10 +80,14 @@ pub fn solve(input: &Path, solver_name: &str, timeout: u64, out: &OutputConfig) 
         }
     } else {
         match parsed {
-            SolveInput::Problem(pj) => {
-                solve_problem(&pj.problem_type, &pj.variant, pj.data, solver_name, out)
-            }
-            SolveInput::Bundle(b) => solve_bundle(b, solver_name, out),
+            SolveInput::Problem(pj) => solve_problem(
+                &pj.problem_type,
+                &pj.variant,
+                pj.data,
+                &resolved_solver,
+                out,
+            ),
+            SolveInput::Bundle(b) => solve_bundle(b, &resolved_solver, out),
         }
     }
 }
@@ -97,6 +123,11 @@ fn solve_problem(
             result
         }
         "ilp" => {
+            if !problem.supports_ilp() {
+                anyhow::bail!(
+                    "ILP solver is not available for {name}\n\nTry: pred solve <problem.json> --solver brute-force"
+                );
+            }
             let result = problem.solve_with_ilp()?;
             let solver_desc = if name == "ILP" {
                 "ilp".to_string()
@@ -139,7 +170,14 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
     // 2. Solve the target problem
     let target_result = match solver_name {
         "brute-force" => target.solve_brute_force()?,
-        "ilp" => target.solve_with_ilp()?,
+        "ilp" => {
+            if !target.supports_ilp() {
+                anyhow::bail!(
+                    "ILP solver is not available for bundle target {target_name}\n\nTry: pred solve <bundle.json> --solver brute-force"
+                );
+            }
+            target.solve_with_ilp()?
+        }
         _ => unreachable!(),
     };
 
