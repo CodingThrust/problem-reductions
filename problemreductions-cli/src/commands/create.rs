@@ -234,7 +234,6 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<Vec<usize>>" => "semicolon-separated groups: \"0,1;2,3\"",
         "usize" => "integer",
         "u64" => "integer",
-        "Vec<u64>" => "comma-separated integers: 0,0,5",
         "i64" => "integer",
         "BigUint" => "nonnegative decimal integer",
         "Vec<BigUint>" => "comma-separated nonnegative decimal integers: 3,7,1,8",
@@ -309,6 +308,8 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        ("LengthBoundedDisjointPaths", "max_length") => return "bound".to_string(),
+        ("RectilinearPictureCompression", "bound_k") => return "k".to_string(),
         _ => {}
     }
     // General field-name overrides (previously in cli_flag_name)
@@ -371,12 +372,7 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             } else {
                 let hint = help_flag_hint(canonical, &field.name, &field.type_name, graph_type);
-                eprintln!(
-                    "  --{:<16} {} ({})",
-                    help_flag_name(canonical, &field.name),
-                    field.description,
-                    hint
-                );
+                eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             }
         }
     } else {
@@ -410,10 +406,7 @@ fn problem_help_flag_name(
     if field_type == "DirectedGraph" {
         return "arcs".to_string();
     }
-    if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
-        return "bound".to_string();
-    }
-    field_name.replace('_', "-")
+    help_flag_name(canonical, field_name)
 }
 
 fn lbdp_validation_error(message: &str, usage: Option<&str>) -> anyhow::Error {
@@ -2071,7 +2064,7 @@ fn parse_bool_matrix(args: &CreateArgs) -> Result<Vec<Vec<bool>>> {
         .matrix
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("This problem requires --matrix (e.g., \"1,0;0,1;1,1\")"))?;
-    matrix_str
+    let matrix: Vec<Vec<bool>> = matrix_str
         .split(';')
         .map(|row| {
             row.trim()
@@ -2086,7 +2079,16 @@ fn parse_bool_matrix(args: &CreateArgs) -> Result<Vec<Vec<bool>>> {
                 })
                 .collect()
         })
-        .collect()
+        .collect::<Result<_>>()?;
+
+    if let Some(expected_width) = matrix.first().map(Vec::len) {
+        anyhow::ensure!(
+            matrix.iter().all(|row| row.len() == expected_width),
+            "All rows in --matrix must have the same length"
+        );
+    }
+
+    Ok(matrix)
 }
 
 /// Parse `--matrix` as semicolon-separated rows of comma-separated f64 values.

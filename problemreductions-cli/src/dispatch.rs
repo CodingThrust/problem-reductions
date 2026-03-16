@@ -47,14 +47,12 @@ impl LoadedProblem {
         Ok(SolveResult { config, evaluation })
     }
 
-    /// Solve using the ILP solver. If the problem is not ILP, auto-reduce to ILP first.
-    pub fn solve_with_ilp(&self) -> Result<SolveResult> {
+    fn best_ilp_path(&self) -> Option<problemreductions::rules::ReductionPath> {
         let name = self.problem_name();
         if name == "ILP" {
-            return solve_ilp(self.as_any());
+            return Some(problemreductions::rules::ReductionPath { steps: Vec::new() });
         }
 
-        // Auto-reduce to ILP, solve, and map solution back
         let source_variant = self.variant_map();
         let graph = ReductionGraph::new();
         let ilp_variants = graph.variants_for("ILP");
@@ -79,13 +77,37 @@ impl LoadedProblem {
             }
         }
 
-        let reduction_path = best_path.ok_or_else(|| {
+        best_path
+    }
+
+    pub fn supports_ilp_solver(&self) -> bool {
+        self.best_ilp_path().is_some()
+    }
+
+    pub fn available_solvers(&self) -> Vec<&'static str> {
+        if self.supports_ilp_solver() {
+            vec!["ilp", "brute-force"]
+        } else {
+            vec!["brute-force"]
+        }
+    }
+
+    /// Solve using the ILP solver. If the problem is not ILP, auto-reduce to ILP first.
+    pub fn solve_with_ilp(&self) -> Result<SolveResult> {
+        let name = self.problem_name();
+        if name == "ILP" {
+            return solve_ilp(self.as_any());
+        }
+
+        // Auto-reduce to ILP, solve, and map solution back
+        let reduction_path = self.best_ilp_path().ok_or_else(|| {
             anyhow::anyhow!(
                 "No reduction path from {} to ILP. Try `--solver brute-force`, or reduce to a problem that supports ILP.",
                 name
             )
         })?;
 
+        let graph = ReductionGraph::new();
         let chain = graph
             .reduce_along_path(&reduction_path, self.as_any())
             .ok_or_else(|| anyhow::anyhow!("Failed to execute reduction chain to ILP"))?;

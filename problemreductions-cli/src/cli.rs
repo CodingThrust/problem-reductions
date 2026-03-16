@@ -322,10 +322,10 @@ pub struct CreateArgs {
     /// Number of variables (for SAT/KSAT)
     #[arg(long)]
     pub num_vars: Option<usize>,
-    /// Matrix for QUBO (semicolon-separated rows, e.g., "1,0.5;0.5,2")
+    /// Matrix input (semicolon-separated rows; use `pred create <PROBLEM>` for problem-specific formats)
     #[arg(long)]
     pub matrix: Option<String>,
-    /// Number of colors for KColoring
+    /// Shared integer parameter (use `pred create <PROBLEM>` for the problem-specific meaning)
     #[arg(long)]
     pub k: Option<usize>,
     /// Generate a random instance (graph-based problems only)
