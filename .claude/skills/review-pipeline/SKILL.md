@@ -329,7 +329,7 @@ Completed: 2/2 | All moved to Final review
 | Guessing on an issue card with multiple linked repo PRs | Stop, show options to the user, and recommend the most likely correct OPEN PR |
 | Picking a PR before Copilot has reviewed | Inspect the checked-out diff and PR body first. If the PR is incomplete, comment and move it back to Ready. If it is review-ready, request Copilot review and switch to another item instead of waiting |
 | Missing project scopes | Run `gh auth refresh -s read:project,project` |
-| Skipping review-implementation | Always run structural completeness check in Step 2b — it catches gaps Copilot misses (paper entries, CLI registration, trait_consistency) |
+| Skipping review-implementation | Always run structural completeness check in Step 2b — it catches gaps Copilot misses (paper entries, CLI registration, example-db wiring) |
 | Skipping agentic tests | Always run test-feature even if CI is green |
 | Not checking out the right branch | Use `gh pr view` to get the exact branch name |
 | Waiting idle for Copilot | Request the review, leave the PR in Review pool, and keep triaging other items in the same run |
