@@ -2451,6 +2451,49 @@ fn test_create_kth_best_spanning_tree_rejects_zero_k() {
 }
 
 #[test]
+fn test_create_kth_best_spanning_tree_help_uses_edge_weights() {
+    let output = pred()
+        .args(["create", "KthBestSpanningTree"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--edge-weights"),
+        "expected edge-weight help, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("\n  --weights"),
+        "vertex-weight flag should not be suggested, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_kth_best_spanning_tree_rejects_vertex_weights_flag() {
+    let output = pred()
+        .args([
+            "create",
+            "KthBestSpanningTree",
+            "--graph",
+            "0-1,0-2,1-2",
+            "--weights",
+            "9,9,9",
+            "--k",
+            "1",
+            "--bound",
+            "3",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--edge-weights"),
+        "expected guidance toward edge weights, got: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_length_bounded_disjoint_paths_rejects_equal_terminals() {
     let output = pred()
         .args([

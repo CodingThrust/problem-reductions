@@ -310,12 +310,27 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
     }
 }
 
+fn uses_edge_weights_flag(canonical: &str) -> bool {
+    matches!(
+        canonical,
+        "KthBestSpanningTree"
+            | "MaxCut"
+            | "MaximumMatching"
+            | "TravelingSalesman"
+            | "RuralPostman"
+    )
+}
+
 fn help_flag_name(canonical: &str, field_name: &str) -> String {
     // Problem-specific overrides first
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
         _ => {}
+    }
+    // Edge-weight problems use --edge-weights instead of --weights
+    if field_name == "weights" && uses_edge_weights_flag(canonical) {
+        return "edge-weights".to_string();
     }
     // General field-name overrides (previously in cli_flag_name)
     match field_name {
@@ -332,6 +347,25 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         "threshold" => "bound".to_string(),
         _ => field_name.replace('_', "-"),
     }
+}
+
+fn reject_vertex_weights_for_edge_weight_problem(
+    args: &CreateArgs,
+    canonical: &str,
+    graph_type: Option<&str>,
+) -> Result<()> {
+    if args.weights.is_some() && uses_edge_weights_flag(canonical) {
+        bail!(
+            "{canonical} uses --edge-weights, not --weights.\n\n\
+             Usage: pred create {} {}",
+            match graph_type {
+                Some(g) => format!("{canonical}/{g}"),
+                None => canonical.to_string(),
+            },
+            example_for(canonical, graph_type)
+        );
+    }
+    Ok(())
 }
 
 fn help_flag_hint(
@@ -783,6 +817,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // KthBestSpanningTree (weighted graph + k + bound)
         "KthBestSpanningTree" => {
+            reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
                     "{e}\n\nUsage: pred create KthBestSpanningTree --graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3"
@@ -810,6 +845,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // Graph problems with edge weights
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
+            reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
                     "{e}\n\nUsage: pred create {} --graph 0-1,1-2,2-3 [--edge-weights 1,1,1]",
@@ -828,6 +864,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // RuralPostman
         "RuralPostman" => {
+            reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
                     "{e}\n\nUsage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
