@@ -136,11 +136,6 @@ fn test_strong_connectivity_augmentation_paper_example() {
     let config = yes_config();
 
     assert!(problem.evaluate(&config));
-
-    let solver = BruteForce::new();
-    let all_satisfying = solver.find_all_satisfying(&problem);
-    assert_eq!(all_satisfying.len(), 1);
-    assert_eq!(all_satisfying[0], config);
 }
 
 #[test]

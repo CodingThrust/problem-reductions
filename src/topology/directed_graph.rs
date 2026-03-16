@@ -13,7 +13,7 @@
 //! [`MinimumFeedbackVertexSet`]: crate::models::graph::MinimumFeedbackVertexSet
 //! [`MinimumFeedbackArcSet`]: crate::models::graph::MinimumFeedbackArcSet
 
-use petgraph::algo::toposort;
+use petgraph::algo::{kosaraju_scc, toposort};
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
@@ -145,39 +145,7 @@ impl DirectedGraph {
 
     /// Returns `true` if every vertex can reach every other vertex.
     pub fn is_strongly_connected(&self) -> bool {
-        let n = self.num_vertices();
-        if n <= 1 {
-            return true;
-        }
-
-        fn visit(
-            graph: &DirectedGraph,
-            start: usize,
-            neighbors: impl Fn(&DirectedGraph, usize) -> Vec<usize>,
-        ) -> Vec<bool> {
-            let mut seen = vec![false; graph.num_vertices()];
-            let mut stack = vec![start];
-            seen[start] = true;
-
-            while let Some(v) = stack.pop() {
-                for u in neighbors(graph, v) {
-                    if !seen[u] {
-                        seen[u] = true;
-                        stack.push(u);
-                    }
-                }
-            }
-
-            seen
-        }
-
-        let forward = visit(self, 0, DirectedGraph::successors);
-        if forward.iter().any(|&seen| !seen) {
-            return false;
-        }
-
-        let reverse = visit(self, 0, DirectedGraph::predecessors);
-        reverse.iter().all(|&seen| seen)
+        kosaraju_scc(&self.inner).len() <= 1
     }
 
     /// Check if the subgraph induced by keeping only the given arcs is acyclic (a DAG).
