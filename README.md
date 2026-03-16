@@ -73,9 +73,11 @@ See the [MCP documentation](https://codingthrust.github.io/problem-reductions/mc
 
 **Authorship:** contribute 10 non-trivial reduction rules and you'll be added to the author list of the [paper](https://codingthrust.github.io/problem-reductions/reductions.pdf).
 
-> **Tip:** If you use Claude Code / OpenCode / Codex, you can file issues interactively:
+> **Tip:** If you use Claude Code / OpenCode / Codex, run `/propose` to file issues interactively — it guides you one question at a time, suggests the most needed reductions based on graph topology, and runs quality checks before filing:
 > ```
-> File an issue on CodingThrust/problem-reductions, using the "Model" issue template, about the Closest Vector Problem. Brainstorm with me.
+> /propose              # brainstorm a new model or rule
+> /propose model        # propose a new problem
+> /propose rule         # propose a new reduction
 > ```
 
 If you prefer to **implement yourself**, see the [Design](https://codingthrust.github.io/problem-reductions/design.html) guide. Run `make help` to see available developer commands.

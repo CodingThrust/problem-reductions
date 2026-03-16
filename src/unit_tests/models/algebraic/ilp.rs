@@ -425,3 +425,33 @@ fn test_ilp_i32_dims() {
     let ilp = ILP::<i32>::new(3, vec![], vec![], ObjectiveSense::Minimize);
     assert_eq!(ilp.dims(), vec![(i32::MAX as usize) + 1; 3]);
 }
+
+#[test]
+fn test_ilp_paper_example() {
+    // Paper: minimize -5x₁ - 6x₂
+    // s.t. x₁ + x₂ ≤ 5, 4x₁ + 7x₂ ≤ 28, x₁, x₂ ≥ 0, x ∈ Z²
+    // Optimal: x* = (3, 2), objective = -27
+    let ilp = ILP::<i32>::new(
+        2,
+        vec![
+            LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 5.0),
+            LinearConstraint::le(vec![(0, 4.0), (1, 7.0)], 28.0),
+        ],
+        vec![(0, -5.0), (1, -6.0)],
+        ObjectiveSense::Minimize,
+    );
+
+    // Verify optimal solution x* = (3, 2) → config [3, 2]
+    let result = Problem::evaluate(&ilp, &[3, 2]);
+    assert_eq!(result, SolutionSize::Valid(-27.0));
+
+    // Verify feasibility: 3+2=5≤5, 4*3+7*2=26≤28
+    assert!(ilp.is_feasible(&[3, 2]));
+
+    // Verify infeasible point: 4+4=8>5
+    assert!(!ilp.is_feasible(&[4, 4]));
+
+    // Verify suboptimal feasible point: -5*0 - 6*4 = -24 > -27
+    let result2 = Problem::evaluate(&ilp, &[0, 4]);
+    assert_eq!(result2, SolutionSize::Valid(-24.0));
+}

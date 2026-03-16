@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;
 include!("../../jl_helpers.rs");
 
@@ -182,4 +182,29 @@ fn test_size_getters() {
     );
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
+}
+
+#[test]
+fn test_maximal_is_paper_example() {
+    use crate::traits::Problem;
+    // Paper: path P5, maximal IS {v_1, v_3} (weight 2), {v_0, v_2, v_4} (weight 3)
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+    let problem = MaximalIS::new(graph, vec![1i32; 5]);
+
+    // {v_1, v_3} is maximal (can't add v_0: adj to v_1, can't add v_2: adj to both, can't add v_4: adj to v_3)
+    let config1 = vec![0, 1, 0, 1, 0];
+    let result1 = problem.evaluate(&config1);
+    assert!(result1.is_valid());
+    assert_eq!(result1.unwrap(), 2);
+
+    // {v_0, v_2, v_4} is also maximal, weight 3 (maximum weight maximal IS)
+    let config2 = vec![1, 0, 1, 0, 1];
+    let result2 = problem.evaluate(&config2);
+    assert!(result2.is_valid());
+    assert_eq!(result2.unwrap(), 3);
+
+    // Verify optimal weight is 3
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), 3);
 }

@@ -48,7 +48,7 @@ Connect fields to the symbols defined above.
 | Field | Type | Description |
 |-------|------|-------------|
 | <!-- e.g. graph --> | <!-- e.g. SimpleGraph --> | <!-- e.g. the graph G=(V,E) --> |
-| <!-- e.g. weights --> | <!-- e.g. Vec<W> --> | <!-- e.g. vertex weights w_i for each i ∈ V (weighted variant only) --> |
+| <!-- e.g. weights --> | <!-- e.g. list of W --> | <!-- e.g. vertex weights w_i for each i ∈ V (weighted variant only) --> |
 
 ## Complexity
 
@@ -76,16 +76,37 @@ Link to existing rule issues or file new ones.
 <!--
 Solver is required for reduction rule verification purpose.
 -->
-- [ ] It can be solved by (existing) bruteforce.
-- [ ] It can be solved by reducing the integer programming, through #issue-number (please file a new issue it is not exist).
-- [ ] Other, refer to ... 
+- [ ] It can be solved by (existing) brute force.
+- [ ] It can be solved by reducing to ILP via #issue-number (please file a new rule issue if one does not exist).
+- [ ] Other, refer to ...
 
 ## Example Instance
 
 <!--
-A small but non-trivial instance with known optimal solution, for testing and the paper.
+A small but non-trivial instance for testing and the paper.
 Should be large enough to exercise the problem's constraints meaningfully (avoid trivial cases like triangle graphs).
-E.g. "Petersen graph: |V|=10, |E|=15, 3-regular. Optimal IS size = 4, and more details.."
+E.g. "Petersen graph: |V|=10, |E|=15, 3-regular."
 
 This example will be shown in our paper, where you could find some references.
+-->
+
+## Expected Outcome
+
+<!--
+Optimization: provide one optimal configuration and its objective value.
+Satisfaction: provide one valid / satisfying configuration and a brief justification.
+-->
+
+## BibTeX
+
+<!-- Machine-readable citation for the definition/complexity references. E.g.
+```bibtex
+@article{Author2021,
+  title={Paper title},
+  author={Last, First and Last, First},
+  journal={Journal Name},
+  year={2021},
+  doi={10.xxxx/xxxxx}
+}
+```
 -->

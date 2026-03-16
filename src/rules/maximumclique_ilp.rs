@@ -78,6 +78,18 @@ impl ReduceTo<ILP<bool>> for MaximumClique<SimpleGraph, i32> {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "maximumclique_to_ilp",
+        build: || {
+            let (n, edges) = crate::topology::small_graphs::octahedral();
+            let source = MaximumClique::new(SimpleGraph::new(n, edges), vec![1i32; 6]);
+            crate::example_db::specs::direct_ilp_example::<_, bool, _>(source, |_, _| true)
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/maximumclique_ilp.rs"]
 mod tests;

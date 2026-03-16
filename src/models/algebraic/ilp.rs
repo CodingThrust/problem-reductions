@@ -7,7 +7,7 @@
 //! - `ILP<bool>`: binary variables (0 or 1)
 //! - `ILP<i32>`: non-negative integer variables (0..2^31-1)
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,9 @@ use std::marker::PhantomData;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "ILP",
+        display_name: "ILP",
+        aliases: &[],
+        dimensions: &[VariantDimension::new("variable", "bool", &["bool", "i32"])],
         module_path: module_path!(),
         description: "Optimize linear objective subject to linear constraints",
         fields: &[
@@ -272,8 +275,27 @@ impl<V: VariableDomain> OptimizationProblem for ILP<V> {
 }
 
 crate::declare_variants! {
-    ILP<bool> => "2^num_vars",
-    ILP<i32> => "num_vars^num_vars",
+    default opt ILP<bool> => "2^num_vars",
+    opt ILP<i32> => "num_vars^num_vars",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "ilp_i32",
+        build: || {
+            let problem = ILP::<i32>::new(
+                2,
+                vec![
+                    LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 5.0),
+                    LinearConstraint::le(vec![(0, 4.0), (1, 7.0)], 28.0),
+                ],
+                vec![(0, -5.0), (1, -6.0)],
+                ObjectiveSense::Minimize,
+            );
+            crate::example_db::specs::explicit_example(problem, vec![vec![0, 4]], vec![vec![3, 2]])
+        },
+    }]
 }
 
 #[cfg(test)]

@@ -3,7 +3,7 @@
 //! The Vertex Cover problem asks for a minimum weight subset of vertices
 //! such that every edge has at least one endpoint in the subset.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -13,6 +13,12 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumVertexCover",
+        display_name: "Minimum Vertex Cover",
+        aliases: &["MVC"],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find minimum weight vertex cover in a graph",
         fields: &[
@@ -157,7 +163,19 @@ fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    MinimumVertexCover<SimpleGraph, i32> => "1.1996^num_vertices",
+    default opt MinimumVertexCover<SimpleGraph, i32> => "1.1996^num_vertices",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "minimum_vertex_cover_simplegraph_i32",
+        build: || {
+            let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+            let problem = MinimumVertexCover::new(graph, vec![1i32; 5]);
+            crate::example_db::specs::optimization_example(problem, vec![vec![1, 0, 0, 1, 1]])
+        },
+    }]
 }
 
 /// Check if a set of vertices forms a vertex cover.

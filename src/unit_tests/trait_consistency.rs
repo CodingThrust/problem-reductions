@@ -3,7 +3,7 @@ use crate::models::formula::*;
 use crate::models::graph::*;
 use crate::models::misc::*;
 use crate::models::set::*;
-use crate::topology::{BipartiteGraph, SimpleGraph};
+use crate::topology::{BipartiteGraph, DirectedGraph, SimpleGraph};
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -16,8 +16,8 @@ fn check_problem_trait<P: Problem>(problem: &P, name: &str) {
     );
     for d in &dims {
         assert!(
-            *d >= 2,
-            "{} should have at least 2 choices per dimension",
+            *d >= 1,
+            "{} should have at least 1 choice per dimension",
             name
         );
     }
@@ -70,6 +70,10 @@ fn test_all_problems_implement_trait_correctly() {
         &MaximumSetPacking::<i32>::new(vec![vec![0, 1]]),
         "MaximumSetPacking",
     );
+    check_problem_trait(
+        &ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]),
+        "ExactCoverBy3Sets",
+    );
     check_problem_trait(&PaintShop::new(vec!["a", "a"]), "PaintShop");
     check_problem_trait(&BMF::new(vec![vec![true]], 1), "BMF");
     check_problem_trait(
@@ -83,6 +87,49 @@ fn test_all_problems_implement_trait_correctly() {
         BooleanExpr::constant(true),
     )]);
     check_problem_trait(&CircuitSAT::new(circuit), "CircuitSAT");
+    check_problem_trait(
+        &MinimumFeedbackArcSet::new(
+            DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+            vec![1i32; 3],
+        ),
+        "MinimumFeedbackArcSet",
+    );
+    check_problem_trait(
+        &MinimumSumMulticenter::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![1i32; 3],
+            vec![1i32; 2],
+            1,
+        ),
+        "MinimumSumMulticenter",
+    );
+    check_problem_trait(
+        &HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
+        "HamiltonianPath",
+    );
+    check_problem_trait(
+        &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 3),
+        "OptimalLinearArrangement",
+    );
+    check_problem_trait(
+        &IsomorphicSpanningTree::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        ),
+        "IsomorphicSpanningTree",
+    );
+    check_problem_trait(
+        &ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3),
+        "ShortestCommonSupersequence",
+    );
+    check_problem_trait(
+        &FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10),
+        "FlowShopScheduling",
+    );
+    check_problem_trait(
+        &MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]),
+        "MinimumTardinessSequencing",
+    );
 }
 
 #[test]
@@ -121,7 +168,29 @@ fn test_direction() {
     );
     assert_eq!(Factoring::new(6, 2, 2).direction(), Direction::Minimize);
     assert_eq!(
+        MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]).direction(),
+        Direction::Minimize
+    );
+    assert_eq!(
         BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1).direction(),
+        Direction::Minimize
+    );
+    assert_eq!(
+        MinimumFeedbackArcSet::new(
+            DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+            vec![1i32; 3]
+        )
+        .direction(),
+        Direction::Minimize
+    );
+    assert_eq!(
+        MinimumSumMulticenter::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![1i32; 3],
+            vec![1i32; 2],
+            1
+        )
+        .direction(),
         Direction::Minimize
     );
 
