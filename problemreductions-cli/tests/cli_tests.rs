@@ -3681,3 +3681,77 @@ fn test_create_weighted_mis_round_trips_into_solve() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["evaluation"], "Valid(5)");
 }
+
+#[test]
+fn test_create_minimum_multiway_cut() {
+    let output_file = std::env::temp_dir().join("pred_test_create_minimum_multiway_cut.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MinimumMultiwayCut",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--terminals",
+            "0,2",
+            "--edge-weights",
+            "1,1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MinimumMultiwayCut");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["terminals"], serde_json::json!([0, 2]));
+    assert_eq!(json["data"]["edge_weights"], serde_json::json!([1, 1, 1]));
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_model_example_minimum_multiway_cut() {
+    let output = pred()
+        .args(["create", "--example", "MinimumMultiwayCut"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MinimumMultiwayCut");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "i32");
+}
+
+#[test]
+fn test_create_minimum_multiway_cut_rejects_single_terminal() {
+    let output = pred()
+        .args([
+            "create",
+            "MinimumMultiwayCut",
+            "--graph",
+            "0-1,1-2",
+            "--edge-weights",
+            "1,1",
+            "--terminals",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("terminal") || stderr.contains("Terminal"),
+        "expected terminal-related error, got: {stderr}"
+    );
+}
