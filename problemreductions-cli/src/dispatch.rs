@@ -1,18 +1,13 @@
-use anyhow::{bail, Context, Result};
-use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
-use problemreductions::models::misc::{BinPacking, Knapsack, SubsetSum};
-use problemreductions::prelude::*;
+use anyhow::{Context, Result};
+use problemreductions::models::algebraic::ILP;
+use problemreductions::registry::{DynProblem, LoadedDynProblem};
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
-use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
-use problemreductions::topology::{KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
+use problemreductions::solvers::ILPSolver;
+use problemreductions::traits::Problem;
 use problemreductions::types::ProblemSize;
-use problemreductions::variant::{K2, K3, KN};
-use serde::Serialize;
 use serde_json::Value;
 use std::any::Any;
 use std::collections::BTreeMap;
-use std::fmt;
-use std::ops::Deref;
 use std::path::Path;
 
 use crate::problem_name::resolve_alias;
@@ -31,100 +26,12 @@ pub fn read_input(path: &Path) -> Result<String> {
     }
 }
 
-/// Type-erased problem for CLI dispatch.
-#[allow(dead_code)]
-pub trait DynProblem: Any {
-    fn evaluate_dyn(&self, config: &[usize]) -> String;
-    fn serialize_json(&self) -> Value;
-    fn as_any(&self) -> &dyn Any;
-    fn dims_dyn(&self) -> Vec<usize>;
-    fn problem_name(&self) -> &'static str;
-    fn variant_map(&self) -> BTreeMap<String, String>;
-    fn num_variables_dyn(&self) -> usize;
-}
-
-impl<T> DynProblem for T
-where
-    T: Problem + Serialize + 'static,
-    T::Metric: fmt::Debug,
-{
-    fn evaluate_dyn(&self, config: &[usize]) -> String {
-        format!("{:?}", self.evaluate(config))
-    }
-    fn serialize_json(&self) -> Value {
-        serde_json::to_value(self).expect("serialize failed")
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    fn dims_dyn(&self) -> Vec<usize> {
-        self.dims()
-    }
-    fn problem_name(&self) -> &'static str {
-        T::NAME
-    }
-    fn variant_map(&self) -> BTreeMap<String, String> {
-        T::variant()
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect()
-    }
-    fn num_variables_dyn(&self) -> usize {
-        self.num_variables()
-    }
-}
-
-fn deser_opt<T>(data: Value) -> Result<LoadedProblem>
-where
-    T: OptimizationProblem + Serialize + serde::de::DeserializeOwned + 'static,
-    T::Metric: fmt::Debug,
-{
-    let problem: T = serde_json::from_value(data)?;
-    Ok(LoadedProblem {
-        inner: Box::new(problem),
-        brute_force_fn: bf_opt::<T>,
-    })
-}
-
-fn deser_sat<T>(data: Value) -> Result<LoadedProblem>
-where
-    T: Problem<Metric = bool> + Serialize + serde::de::DeserializeOwned + 'static,
-{
-    let problem: T = serde_json::from_value(data)?;
-    Ok(LoadedProblem {
-        inner: Box::new(problem),
-        brute_force_fn: bf_sat::<T>,
-    })
-}
-
-fn bf_opt<T>(any: &dyn Any) -> Option<SolveResult>
-where
-    T: OptimizationProblem + 'static,
-    T::Metric: fmt::Debug,
-{
-    let p = any.downcast_ref::<T>()?;
-    let config = BruteForce::new().find_best(p)?;
-    let evaluation = format!("{:?}", p.evaluate(&config));
-    Some(SolveResult { config, evaluation })
-}
-
-fn bf_sat<T>(any: &dyn Any) -> Option<SolveResult>
-where
-    T: Problem<Metric = bool> + 'static,
-{
-    let p = any.downcast_ref::<T>()?;
-    let config = BruteForce::new().find_satisfying(p)?;
-    let evaluation = format!("{:?}", p.evaluate(&config));
-    Some(SolveResult { config, evaluation })
-}
-
 /// Loaded problem with type-erased solve capability.
 pub struct LoadedProblem {
-    inner: Box<dyn DynProblem>,
-    brute_force_fn: fn(&dyn Any) -> Option<SolveResult>,
+    inner: LoadedDynProblem,
 }
 
-impl Deref for LoadedProblem {
+impl std::ops::Deref for LoadedProblem {
     type Target = dyn DynProblem;
     fn deref(&self) -> &(dyn DynProblem + 'static) {
         &*self.inner
@@ -133,8 +40,11 @@ impl Deref for LoadedProblem {
 
 impl LoadedProblem {
     pub fn solve_brute_force(&self) -> Result<SolveResult> {
-        (self.brute_force_fn)(self.inner.as_any())
-            .ok_or_else(|| anyhow::anyhow!("No solution found"))
+        let (config, evaluation) = self
+            .inner
+            .solve_brute_force()
+            .ok_or_else(|| anyhow::anyhow!("No solution found"))?;
+        Ok(SolveResult { config, evaluation })
     }
 
     /// Solve using the ILP solver. If the problem is not ILP, auto-reduce to ILP first.
@@ -183,13 +93,6 @@ impl LoadedProblem {
     }
 }
 
-fn graph_variant(variant: &BTreeMap<String, String>) -> &str {
-    variant
-        .get("graph")
-        .map(|s| s.as_str())
-        .unwrap_or("SimpleGraph")
-}
-
 /// Load a problem from JSON type/variant/data.
 pub fn load_problem(
     name: &str,
@@ -197,59 +100,9 @@ pub fn load_problem(
     data: Value,
 ) -> Result<LoadedProblem> {
     let canonical = resolve_alias(name);
-    match canonical.as_str() {
-        "MaximumIndependentSet" => match graph_variant(variant) {
-            "KingsSubgraph" => deser_opt::<MaximumIndependentSet<KingsSubgraph, i32>>(data),
-            "TriangularSubgraph" => {
-                deser_opt::<MaximumIndependentSet<TriangularSubgraph, i32>>(data)
-            }
-            "UnitDiskGraph" => deser_opt::<MaximumIndependentSet<UnitDiskGraph, i32>>(data),
-            _ => deser_opt::<MaximumIndependentSet<SimpleGraph, i32>>(data),
-        },
-        "MinimumVertexCover" => deser_opt::<MinimumVertexCover<SimpleGraph, i32>>(data),
-        "MaximumClique" => deser_opt::<MaximumClique<SimpleGraph, i32>>(data),
-        "MaximumMatching" => deser_opt::<MaximumMatching<SimpleGraph, i32>>(data),
-        "MinimumDominatingSet" => deser_opt::<MinimumDominatingSet<SimpleGraph, i32>>(data),
-        "GraphPartitioning" => deser_opt::<GraphPartitioning<SimpleGraph>>(data),
-        "MaxCut" => deser_opt::<MaxCut<SimpleGraph, i32>>(data),
-        "MaximalIS" => deser_opt::<MaximalIS<SimpleGraph, i32>>(data),
-        "TravelingSalesman" => deser_opt::<TravelingSalesman<SimpleGraph, i32>>(data),
-        "KColoring" => match variant.get("k").map(|s| s.as_str()) {
-            Some("K3") => deser_sat::<KColoring<K3, SimpleGraph>>(data),
-            _ => deser_sat::<KColoring<KN, SimpleGraph>>(data),
-        },
-        "MaximumSetPacking" => deser_opt::<MaximumSetPacking<i32>>(data),
-        "MinimumSetCovering" => deser_opt::<MinimumSetCovering<i32>>(data),
-        "QUBO" => deser_opt::<QUBO<f64>>(data),
-        "SpinGlass" => match variant.get("weight").map(|s| s.as_str()) {
-            Some("f64") => deser_opt::<SpinGlass<SimpleGraph, f64>>(data),
-            _ => deser_opt::<SpinGlass<SimpleGraph, i32>>(data),
-        },
-        "Satisfiability" => deser_sat::<Satisfiability>(data),
-        "KSatisfiability" => match variant.get("k").map(|s| s.as_str()) {
-            Some("K2") => deser_sat::<KSatisfiability<K2>>(data),
-            Some("K3") => deser_sat::<KSatisfiability<K3>>(data),
-            _ => deser_sat::<KSatisfiability<KN>>(data),
-        },
-        "CircuitSAT" => deser_sat::<CircuitSAT>(data),
-        "Factoring" => deser_opt::<Factoring>(data),
-        "ILP" => deser_opt::<ILP>(data),
-        "BicliqueCover" => deser_opt::<BicliqueCover>(data),
-        "BMF" => deser_opt::<BMF>(data),
-        "PaintShop" => deser_opt::<PaintShop>(data),
-        "BinPacking" => match variant.get("weight").map(|s| s.as_str()) {
-            Some("f64") => deser_opt::<BinPacking<f64>>(data),
-            _ => deser_opt::<BinPacking<i32>>(data),
-        },
-        "ClosestVectorProblem" => match variant.get("weight").map(|s| s.as_str()) {
-            Some("f64") => deser_opt::<ClosestVectorProblem<f64>>(data),
-            _ => deser_opt::<ClosestVectorProblem<i32>>(data),
-        },
-        "Knapsack" => deser_opt::<Knapsack>(data),
-        "MinimumFeedbackVertexSet" => deser_opt::<MinimumFeedbackVertexSet<i32>>(data),
-        "SubsetSum" => deser_sat::<SubsetSum>(data),
-        _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
-    }
+    let inner = problemreductions::registry::load_dyn(&canonical, variant, data)
+        .map_err(|e| anyhow::anyhow!(e))?;
+    Ok(LoadedProblem { inner })
 }
 
 /// Serialize a `&dyn Any` target problem given its name and variant.
@@ -259,67 +112,13 @@ pub fn serialize_any_problem(
     any: &dyn Any,
 ) -> Result<Value> {
     let canonical = resolve_alias(name);
-    match canonical.as_str() {
-        "MaximumIndependentSet" => match graph_variant(variant) {
-            "KingsSubgraph" => try_ser::<MaximumIndependentSet<KingsSubgraph, i32>>(any),
-            "TriangularSubgraph" => try_ser::<MaximumIndependentSet<TriangularSubgraph, i32>>(any),
-            "UnitDiskGraph" => try_ser::<MaximumIndependentSet<UnitDiskGraph, i32>>(any),
-            _ => try_ser::<MaximumIndependentSet<SimpleGraph, i32>>(any),
-        },
-        "MinimumVertexCover" => try_ser::<MinimumVertexCover<SimpleGraph, i32>>(any),
-        "MaximumClique" => try_ser::<MaximumClique<SimpleGraph, i32>>(any),
-        "MaximumMatching" => try_ser::<MaximumMatching<SimpleGraph, i32>>(any),
-        "MinimumDominatingSet" => try_ser::<MinimumDominatingSet<SimpleGraph, i32>>(any),
-        "GraphPartitioning" => try_ser::<GraphPartitioning<SimpleGraph>>(any),
-        "MaxCut" => try_ser::<MaxCut<SimpleGraph, i32>>(any),
-        "MaximalIS" => try_ser::<MaximalIS<SimpleGraph, i32>>(any),
-        "TravelingSalesman" => try_ser::<TravelingSalesman<SimpleGraph, i32>>(any),
-        "KColoring" => match variant.get("k").map(|s| s.as_str()) {
-            Some("K3") => try_ser::<KColoring<K3, SimpleGraph>>(any),
-            _ => try_ser::<KColoring<KN, SimpleGraph>>(any),
-        },
-        "MaximumSetPacking" => match variant.get("weight").map(|s| s.as_str()) {
-            Some("f64") => try_ser::<MaximumSetPacking<f64>>(any),
-            _ => try_ser::<MaximumSetPacking<i32>>(any),
-        },
-        "MinimumSetCovering" => try_ser::<MinimumSetCovering<i32>>(any),
-        "QUBO" => try_ser::<QUBO<f64>>(any),
-        "SpinGlass" => match variant.get("weight").map(|s| s.as_str()) {
-            Some("f64") => try_ser::<SpinGlass<SimpleGraph, f64>>(any),
-            _ => try_ser::<SpinGlass<SimpleGraph, i32>>(any),
-        },
-        "Satisfiability" => try_ser::<Satisfiability>(any),
-        "KSatisfiability" => match variant.get("k").map(|s| s.as_str()) {
-            Some("K2") => try_ser::<KSatisfiability<K2>>(any),
-            Some("K3") => try_ser::<KSatisfiability<K3>>(any),
-            _ => try_ser::<KSatisfiability<KN>>(any),
-        },
-        "CircuitSAT" => try_ser::<CircuitSAT>(any),
-        "Factoring" => try_ser::<Factoring>(any),
-        "ILP" => try_ser::<ILP>(any),
-        "BicliqueCover" => try_ser::<BicliqueCover>(any),
-        "BMF" => try_ser::<BMF>(any),
-        "PaintShop" => try_ser::<PaintShop>(any),
-        "BinPacking" => match variant.get("weight").map(|s| s.as_str()) {
-            Some("f64") => try_ser::<BinPacking<f64>>(any),
-            _ => try_ser::<BinPacking<i32>>(any),
-        },
-        "ClosestVectorProblem" => match variant.get("weight").map(|s| s.as_str()) {
-            Some("f64") => try_ser::<ClosestVectorProblem<f64>>(any),
-            _ => try_ser::<ClosestVectorProblem<i32>>(any),
-        },
-        "Knapsack" => try_ser::<Knapsack>(any),
-        "MinimumFeedbackVertexSet" => try_ser::<MinimumFeedbackVertexSet<i32>>(any),
-        "SubsetSum" => try_ser::<SubsetSum>(any),
-        _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
-    }
-}
-
-fn try_ser<T: Serialize + 'static>(any: &dyn Any) -> Result<Value> {
-    let problem = any
-        .downcast_ref::<T>()
-        .ok_or_else(|| anyhow::anyhow!("Type mismatch during serialization"))?;
-    Ok(serde_json::to_value(problem)?)
+    problemreductions::registry::serialize_any(&canonical, variant, any).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Failed to serialize {} with variant {:?}",
+            canonical,
+            variant
+        )
+    })
 }
 
 /// JSON wrapper format for problem files.
@@ -373,4 +172,43 @@ fn solve_ilp(any: &dyn Any) -> Result<SolveResult> {
         .ok_or_else(|| anyhow::anyhow!("ILP solver found no feasible solution"))?;
     let evaluation = format!("{:?}", problem.evaluate(&config));
     Ok(SolveResult { config, evaluation })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use problemreductions::models::graph::MaximumIndependentSet;
+    use problemreductions::models::misc::BinPacking;
+    use problemreductions::topology::SimpleGraph;
+
+    #[test]
+    fn test_load_problem_alias_uses_registry_dispatch() {
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
+        let variant = BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ]);
+        let loaded =
+            load_problem("MIS", &variant, serde_json::to_value(&problem).unwrap()).unwrap();
+        assert_eq!(loaded.problem_name(), "MaximumIndependentSet");
+    }
+
+    #[test]
+    fn test_load_problem_rejects_unresolved_weight_variant() {
+        let problem = BinPacking::new(vec![3i32, 3, 2, 2], 5i32);
+        let loaded = load_problem(
+            "BinPacking",
+            &BTreeMap::new(),
+            serde_json::to_value(&problem).unwrap(),
+        );
+        assert!(loaded.is_err());
+    }
+
+    #[test]
+    fn test_serialize_any_problem_round_trips_bin_packing() {
+        let problem = BinPacking::new(vec![3i32, 3, 2, 2], 5i32);
+        let variant = BTreeMap::from([("weight".to_string(), "i32".to_string())]);
+        let json = serialize_any_problem("BinPacking", &variant, &problem as &dyn Any).unwrap();
+        assert_eq!(json, serde_json::to_value(&problem).unwrap());
+    }
 }

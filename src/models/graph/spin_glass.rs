@@ -2,7 +2,7 @@
 //!
 //! The Spin Glass problem minimizes the Ising Hamiltonian energy.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -11,6 +11,12 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "SpinGlass",
+        display_name: "Spin Glass",
+        aliases: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32", "f64"]),
+        ],
         module_path: module_path!(),
         description: "Minimize Ising Hamiltonian on a graph",
         fields: &[
@@ -251,8 +257,30 @@ where
 }
 
 crate::declare_variants! {
-    SpinGlass<SimpleGraph, i32> => "2^num_spins",
-    SpinGlass<SimpleGraph, f64> => "2^num_spins",
+    default opt SpinGlass<SimpleGraph, i32> => "2^num_spins",
+    opt SpinGlass<SimpleGraph, f64> => "2^num_spins",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "spin_glass_simplegraph_i32",
+        build: || {
+            let problem = SpinGlass::<SimpleGraph, i32>::without_fields(
+                5,
+                vec![
+                    ((0, 1), 1),
+                    ((1, 2), 1),
+                    ((3, 4), 1),
+                    ((0, 3), 1),
+                    ((1, 3), 1),
+                    ((1, 4), 1),
+                    ((2, 4), 1),
+                ],
+            );
+            crate::example_db::specs::optimization_example(problem, vec![vec![1, 0, 1, 1, 0]])
+        },
+    }]
 }
 
 #[cfg(test)]

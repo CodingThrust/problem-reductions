@@ -13,6 +13,9 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "BicliqueCover",
+        display_name: "Biclique Cover",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Cover bipartite edges with k bicliques",
         fields: &[
@@ -244,7 +247,25 @@ impl OptimizationProblem for BicliqueCover {
 }
 
 crate::declare_variants! {
-    BicliqueCover => "2^num_vertices",
+    default opt BicliqueCover => "2^num_vertices",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "biclique_cover",
+        build: || {
+            use crate::topology::BipartiteGraph;
+            let problem = BicliqueCover::new(
+                BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 1), (1, 2)]),
+                2,
+            );
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![1, 0, 0, 1, 1, 0, 1, 1, 0, 1]],
+            )
+        },
+    }]
 }
 
 #[cfg(test)]

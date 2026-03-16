@@ -1,7 +1,7 @@
 use super::*;
+use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
-use std::collections::HashSet;
 
 #[test]
 fn test_maximumindependentset_to_maximumclique_closed_loop() {
@@ -17,16 +17,11 @@ fn test_maximumindependentset_to_maximumclique_closed_loop() {
     assert_eq!(target.num_vertices(), 5);
     assert_eq!(target.num_edges(), 6);
 
-    let solver = BruteForce::new();
-    let best_target = solver.find_all_best(target);
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-
-    // Extract solutions and verify they are valid source solutions
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| reduction.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &reduction,
+        "MaximumIndependentSet->MaximumClique closed loop",
+    );
 }
 
 #[test]
