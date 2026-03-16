@@ -2973,6 +2973,83 @@ fn test_create_factoring_missing_bits() {
     );
 }
 
+#[test]
+fn test_create_multiple_copy_file_allocation() {
+    let output = pred()
+        .args([
+            "create",
+            "MultipleCopyFileAllocation",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--usage",
+            "5,4,3,2",
+            "--storage",
+            "1,1,1,1",
+            "--bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MultipleCopyFileAllocation");
+}
+
+#[test]
+fn test_create_multiple_copy_file_allocation_no_flags_shows_help() {
+    let output = pred()
+        .args(["create", "MultipleCopyFileAllocation"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--usage"),
+        "expected '--usage' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--storage"),
+        "expected '--storage' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_multiple_copy_file_allocation_rejects_length_mismatch() {
+    let output = pred()
+        .args([
+            "create",
+            "MultipleCopyFileAllocation",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--usage",
+            "5,4",
+            "--storage",
+            "1,1,1,1",
+            "--bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("usage"),
+        "expected usage-length diagnostic, got: {stderr}"
+    );
+}
+
 // ---- Timeout tests (H3) ----
 
 #[test]

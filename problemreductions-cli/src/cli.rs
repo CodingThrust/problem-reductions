@@ -234,6 +234,7 @@ Flags by problem type:
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
   SteinerTree                     --graph, --edge-weights, --terminals
+  MultipleCopyFileAllocation      --graph, --usage, --storage, --bound
   CVP                             --basis, --target-vec [--bounds]
   OptimalLinearArrangement        --graph, --bound
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
@@ -389,6 +390,12 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Usage frequencies for MultipleCopyFileAllocation (comma-separated, e.g., "5,4,3,2")
+    #[arg(long)]
+    pub usage: Option<String>,
+    /// Storage costs for MultipleCopyFileAllocation (comma-separated, e.g., "1,1,1,1")
+    #[arg(long)]
+    pub storage: Option<String>,
     /// Deadlines for MinimumTardinessSequencing (comma-separated, e.g., "5,5,5,3,3")
     #[arg(long)]
     pub deadlines: Option<String>,

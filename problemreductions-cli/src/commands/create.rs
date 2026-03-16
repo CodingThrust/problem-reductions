@@ -58,6 +58,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
+        && args.usage.is_none()
+        && args.storage.is_none()
         && args.deadlines.is_none()
         && args.precedence_pairs.is_none()
         && args.task_lengths.is_none()
@@ -241,6 +243,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
         "SteinerTree" => "--graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4",
+        "MultipleCopyFileAllocation" => {
+            "--graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8"
+        }
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "RuralPostman" => {
@@ -394,6 +399,28 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 anyhow::anyhow!("{e}\n\nUsage: pred create HamiltonianPath --graph 0-1,1-2,2-3")
             })?;
             (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
+        }
+
+        // MultipleCopyFileAllocation (graph + usage + storage + bound)
+        "MultipleCopyFileAllocation" => {
+            let (graph, num_vertices) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8"
+                )
+            })?;
+            let usage = parse_vertex_i64_values(args.usage.as_deref(), "usage", num_vertices)?;
+            let storage =
+                parse_vertex_i64_values(args.storage.as_deref(), "storage", num_vertices)?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MultipleCopyFileAllocation requires --bound\n\n\
+                     Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8"
+                )
+            })?;
+            (
+                ser(MultipleCopyFileAllocation::new(graph, usage, storage, bound))?,
+                resolved_variant.clone(),
+            )
         }
 
         // IsomorphicSpanningTree (graph + tree)
@@ -1311,6 +1338,29 @@ fn parse_vertex_weights(args: &CreateArgs, num_vertices: usize) -> Result<Vec<i3
         }
         None => Ok(vec![1i32; num_vertices]),
     }
+}
+
+fn parse_vertex_i64_values(
+    raw: Option<&str>,
+    field_name: &str,
+    num_vertices: usize,
+) -> Result<Vec<i64>> {
+    let raw = raw.ok_or_else(|| {
+        anyhow::anyhow!(
+            "MultipleCopyFileAllocation requires --{field_name}\n\n\
+             Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8"
+        )
+    })?;
+    let values: Vec<i64> = util::parse_comma_list(raw)?;
+    if values.len() != num_vertices {
+        bail!(
+            "Expected {} {} values but got {}",
+            num_vertices,
+            field_name,
+            values.len()
+        );
+    }
+    Ok(values)
 }
 
 /// Parse `--terminals` as comma-separated vertex indices.
