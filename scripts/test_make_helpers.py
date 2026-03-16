@@ -380,6 +380,63 @@ class MakeHelpersTests(unittest.TestCase):
         self.assertIn('board_next_json ready "" "" "$state_file"', proc.stdout)
         self.assertIn('skill_prompt_with_context project-pipeline', proc.stdout)
 
+    def test_watch_and_dispatch_uses_persistent_default_state_file(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "poll_project_items() { printf 'state:%s\\n' \"$2\" >&2; return 2; }; "
+                    "watch_and_dispatch ready run-pipeline 'Ready issues'"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn(
+            "state:/tmp/problemreductions-ready-forever-state.json",
+            proc.stderr,
+        )
+
+    def test_watch_and_dispatch_sleeps_after_successful_dispatch(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "flag=/tmp/test-watch-and-dispatch-$$; "
+                    "rm -f \"$flag\"; "
+                    "date() { printf '2026-03-16 00:00:00'; }; "
+                    "poll_project_items() { "
+                    "  if [ ! -f \"$flag\" ]; then : > \"$flag\"; printf 'PVTI_1\\t42\\n'; return 0; fi; "
+                    "  return 2; "
+                    "}; "
+                    "make() { printf 'make:%s %s\\n' \"$1\" \"$2\"; return 0; }; "
+                    "ack_polled_item() { printf 'ack:%s\\n' \"$2\"; }; "
+                    "sleep() { printf 'sleep:%s\\n' \"$1\"; return 0; }; "
+                    "MAKE=make POLL_INTERVAL=600 "
+                    "watch_and_dispatch ready run-pipeline 'Ready issues'"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn("make:run-pipeline N=42", proc.stdout)
+        self.assertIn("ack:PVTI_1", proc.stdout)
+        self.assertIn("sleep:600", proc.stdout)
+
     def test_pr_snapshot_uses_pipeline_pr_cli(self) -> None:
         if shutil.which("dash") is None:
             self.skipTest("dash is not installed")

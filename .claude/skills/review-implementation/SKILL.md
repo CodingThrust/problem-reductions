@@ -19,6 +19,7 @@ Dispatches two parallel review subagents with fresh context (no implementation h
 ## Step 1: Generate the Review-Implementation Report
 
 Step 1 should be a single report-generation step. Do not manually rebuild git range detection, `review-context`, current PR lookup, or linked-issue loading with separate shell snippets.
+The expensive full-context call here is `python3 scripts/pipeline_skill_context.py review-implementation ...` (backed by `build_review_implementation_context()`). It is allowed exactly once per top-level `review-implementation` invocation. After it succeeds, reuse that packet for both subagents and the consolidated report.
 
 ```bash
 set -- python3 scripts/pipeline_skill_context.py review-implementation --repo-root . --format text
@@ -41,7 +42,7 @@ The report is the Step 1 packet. It should already include:
 - Current PR
 - Linked Issue Context
 
-Use the report as the default source of truth for the rest of this skill. If you need structured data for a corner case, rerun the same command with `--format json`, but do not rebuild Step 1 manually.
+Use the report as the default source of truth for the rest of this skill. If you need structured data for a corner case, derive it from the existing packet whenever possible instead of rerunning Step 1.
 
 ## Step 2: Prepare Subagent Context
 

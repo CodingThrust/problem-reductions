@@ -39,6 +39,7 @@ This skill runs **fully autonomously** — no confirmation prompts, no user ques
 ### 0. Generate the Project-Pipeline Report
 
 Step 0 should be a single report-generation step. Do not manually list Ready items, list In-progress items, grep model declarations, or re-derive blocked rules with separate shell commands.
+The expensive full-context call here is `python3 scripts/pipeline_skill_context.py project-pipeline ...` (backed by `build_project_pipeline_context()`). For a single top-level `project-pipeline` invocation, call it once and reuse the packet for scoring, ranking, and choosing the issue. Do not rerun it in the single-issue path after the packet exists.
 
 ```bash
 set -- python3 scripts/pipeline_skill_context.py project-pipeline --repo CodingThrust/problem-reductions --repo-root . --format text
@@ -117,7 +118,7 @@ The report should already have stopped you before this point if the requested is
 
 After successful validation, extract `ITEM_ID`, `ISSUE`, and `TITLE` from `CLAIM` using the same commands shown below.
 
-**If `--all`:** proceed with all eligible issues in ranked order (highest score first). Models before Rules at same score. Blocked rules are skipped. After each issue is processed, regenerate the report before the next claim, because a just-merged Model may unblock pending rules.
+**If `--all`:** proceed with all eligible issues in ranked order (highest score first). Models before Rules at same score. Blocked rules are skipped. After each issue is processed, regenerate the report before the next claim, because a just-merged Model may unblock pending rules. This is the only normal case in this skill where a second full-context packet is expected.
 
 **Otherwise (no args):** score the eligible issues from the report, pick the highest-scored one, and proceed immediately (no confirmation). After picking the issue number, claim it through the scripted bundle:
 
@@ -136,14 +137,28 @@ TITLE=$(printf '%s\n' "$CLAIM" | python3 -c "import sys,json; print(json.load(sy
 
 ### 1. Create Worktree
 
-Create an isolated git worktree for this issue so the main working directory stays clean:
+Create an isolated git worktree for this issue. The script automatically checks for an existing open PR — if one exists, it checks out that PR branch (treating it as an incomplete implementation); otherwise it creates a fresh worktree from `origin/main`:
 
 ```bash
-WORKTREE=$(python3 scripts/pipeline_worktree.py create-issue --issue "$ISSUE" --slug <slug> --base origin/main --format json)
-BRANCH=$(printf '%s\n' "$WORKTREE" | python3 -c "import sys,json; print(json.load(sys.stdin)['branch'])")
+WORKTREE=$(python3 scripts/pipeline_worktree.py worktree-for-issue \
+  --repo "$REPO" --issue "$ISSUE" --slug <slug> --format json)
+ACTION=$(printf '%s\n' "$WORKTREE" | python3 -c "import sys,json; print(json.load(sys.stdin)['action'])")
 WORKTREE_DIR=$(printf '%s\n' "$WORKTREE" | python3 -c "import sys,json; print(json.load(sys.stdin)['worktree_dir'])")
 cd "$WORKTREE_DIR"
 ```
+
+If `worktree-for-issue` fails during the GraphQL-backed open-PR lookup, fall back to a REST search instead of creating a fresh branch blindly:
+
+```bash
+PR_JSON=$(gh api "search/issues?q=repo:$REPO+is:pr+is:open+%22Fix+%23$ISSUE%22")
+PR_NUMBER=$(printf '%s\n' "$PR_JSON" | python3 -c "import sys,json; items=json.load(sys.stdin).get('items', []); print(items[0]['number'] if items else '')")
+WORKTREE=$(python3 scripts/pipeline_worktree.py checkout-pr \
+  --repo "$REPO" --pr "$PR_NUMBER" --repo-root . --format json)
+```
+
+- `action == "resume-pr"`: existing PR checked out — `issue-to-pr` will skip plan creation and jump to execution
+- If the resumed branch later proves stale against `main` (for example, merge conflicts span registry/CLI/skill wiring or a merge helper reports `likely_complex: true`), STOP autonomous repair and move the issue to `Final review` for human triage instead of forcing a large migration inside project-pipeline
+- `action == "create-worktree"`: fresh branch from `origin/main`
 
 All subsequent steps run inside the worktree. This ensures the user's main checkout is never modified.
 
@@ -159,17 +174,20 @@ Invoke the `issue-to-pr` skill with `--execute` (working directory is the worktr
 /issue-to-pr "$ISSUE" --execute
 ```
 
-This handles the full pipeline: fetch issue, verify Good label, research, write plan, create PR, implement, review, fix CI.
+This handles the full pipeline: fetch issue, verify Good label, research, write plan, create PR, implement, review, fix CI. If an existing PR was detected in Step 1, `issue-to-pr` will resume it (skip plan creation, jump to execution).
 
 **If `issue-to-pr` fails after creating a PR:** record the failure, but still move the issue to "Final review" so it's visible for human triage. Report the failure to the user.
 
 ### 4. Move to "Review pool"
 
-After `issue-to-pr` succeeds, move the issue to the `Review pool` column for the second-stage review pipeline:
+After `issue-to-pr` succeeds, move the issue to the `Review pool` column and request a Copilot review so the review pipeline can pick it up:
 
 ```bash
 python3 scripts/pipeline_board.py move <ITEM_ID> review-pool
+gh copilot-review <PR_NUMBER>
 ```
+
+The Copilot review request is required — without it, `run-review-forever` will not detect the PR as eligible.
 
 **If `issue-to-pr` failed after creating a PR:** move the issue to `Final review` instead so a human can take over:
 
@@ -237,3 +255,5 @@ Completed: 2/4 | Review pool: 3 | Returned to Ready: 1
 | Worktree left behind on failure | Always clean up with `git worktree remove` in Step 5 |
 | Working in main checkout | All work happens in `.worktrees/` — never modify the main checkout |
 | Missing items from project board | `gh project item-list` defaults to 30 items — always use `--limit 500` |
+| Creating a fresh branch when PR exists | Check `issue-context` action field first — use `checkout-pr` for existing PRs instead of `create-issue` |
+| Forcing a very stale resume PR through autonomous conflict repair | If a resumed PR has broad merge conflicts (`likely_complex: true`, registry/CLI/skill churn, etc.), stop and move it to `Final review` |
