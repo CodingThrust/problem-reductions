@@ -225,6 +225,7 @@ Flags by problem type:
   GraphPartitioning               --graph
   UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   IsomorphicSpanningTree          --graph, --tree
+  LengthBoundedDisjointPaths      --graph, --source, --sink, --num-paths-required, --bound
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
   SubsetSum                       --sizes, --target
@@ -232,6 +233,7 @@ Flags by problem type:
   MaximumSetPacking               --sets [--weights]
   MinimumSetCovering              --universe, --sets [--weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
+  SetBasis                        --universe, --sets, --k
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
   SteinerTree                     --graph, --edge-weights, --terminals
@@ -266,7 +268,8 @@ Examples:
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
   pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1
   pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
-  pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"")]
+  pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
+  pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT). Omit when using --example.
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -292,6 +295,15 @@ pub struct CreateArgs {
     /// Edge capacities for multicommodity flow problems (e.g., 1,1,2)
     #[arg(long)]
     pub capacities: Option<String>,
+    /// Source vertex for path-based graph problems
+    #[arg(long)]
+    pub source: Option<usize>,
+    /// Sink vertex for path-based graph problems
+    #[arg(long)]
+    pub sink: Option<usize>,
+    /// Required number of paths for LengthBoundedDisjointPaths
+    #[arg(long)]
+    pub num_paths_required: Option<usize>,
     /// Pairwise couplings J_ij for SpinGlass (e.g., 1,-1,1) [default: all 1s]
     #[arg(long)]
     pub couplings: Option<String>,
@@ -400,8 +412,8 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound (for RuralPostman or SCS)
-    #[arg(long)]
+    /// Upper bound or length bound (for LengthBoundedDisjointPaths, OptimalLinearArrangement, RuralPostman, or SCS)
+    #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
     #[arg(long)]

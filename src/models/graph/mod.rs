@@ -20,6 +20,7 @@
 //! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
+//! - [`LengthBoundedDisjointPaths`]: Length-bounded internally disjoint s-t paths
 //! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
 //! - [`SteinerTree`]: Minimum-weight tree spanning all required terminals
 //! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
@@ -30,6 +31,7 @@ pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_path;
 pub(crate) mod isomorphic_spanning_tree;
 pub(crate) mod kcoloring;
+pub(crate) mod length_bounded_disjoint_paths;
 pub(crate) mod max_cut;
 pub(crate) mod maximal_is;
 pub(crate) mod maximum_clique;
@@ -54,6 +56,7 @@ pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_path::HamiltonianPath;
 pub use isomorphic_spanning_tree::IsomorphicSpanningTree;
 pub use kcoloring::KColoring;
+pub use length_bounded_disjoint_paths::LengthBoundedDisjointPaths;
 pub use max_cut::MaxCut;
 pub use maximal_is::MaximalIS;
 pub use maximum_clique::MaximumClique;
@@ -82,6 +85,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(hamiltonian_path::canonical_model_example_specs());
     specs.extend(isomorphic_spanning_tree::canonical_model_example_specs());
     specs.extend(kcoloring::canonical_model_example_specs());
+    specs.extend(length_bounded_disjoint_paths::canonical_model_example_specs());
     specs.extend(minimum_dominating_set::canonical_model_example_specs());
     specs.extend(maximum_matching::canonical_model_example_specs());
     specs.extend(traveling_salesman::canonical_model_example_specs());

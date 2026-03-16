@@ -68,6 +68,7 @@
   "GraphPartitioning": [Graph Partitioning],
   "HamiltonianPath": [Hamiltonian Path],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
+  "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
   "KColoring": [$k$-Coloring],
   "MinimumDominatingSet": [Minimum Dominating Set],
@@ -76,6 +77,7 @@
   "MaximumClique": [Maximum Clique],
   "MaximumSetPacking": [Maximum Set Packing],
   "MinimumSetCovering": [Minimum Set Covering],
+  "SetBasis": [Set Basis],
   "SpinGlass": [Spin Glass],
   "QUBO": [QUBO],
   "ILP": [Integer Linear Programming],
@@ -531,6 +533,67 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
   caption: [Graph with $n = 6$ vertices partitioned into $A = {v_0, v_1, v_2}$ (blue) and $B = {v_3, v_4, v_5}$ (red). The 3 crossing edges $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$ are shown in bold red; internal edges are gray.],
 ) <fig:graph-partitioning>
 ]
+#{
+  let x = load-model-example("LengthBoundedDisjointPaths")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let s = x.instance.source
+  let t = x.instance.sink
+  let J = x.instance.num_paths_required
+  let K = x.instance.max_length
+  let chosen-verts = (0, 1, 2, 3, 6)
+  let chosen-edges = ((0, 1), (1, 6), (0, 2), (2, 3), (3, 6))
+  [
+    #problem-def("LengthBoundedDisjointPaths")[
+      Given an undirected graph $G = (V, E)$, distinct terminals $s, t in V$, and positive integers $J, K$, determine whether $G$ contains at least $J$ pairwise internally vertex-disjoint paths from $s$ to $t$, each using at most $K$ edges.
+    ][
+      Length-Bounded Disjoint Paths is the bounded-routing version of the classical disjoint-path problem, with applications in network routing and VLSI where multiple connections must fit simultaneously under quality-of-service limits. Garey & Johnson list it as ND41 and summarize the sharp threshold proved by Itai, Perl, and Shiloach: the problem is NP-complete for every fixed $K >= 5$, polynomial-time solvable for $K <= 4$, and becomes polynomial again when the length bound is removed entirely @garey1979. The implementation here uses the natural $J dot |V|$ binary membership encoding, so brute-force search over configurations runs in $O^*(2^(J dot |V|))$.
+
+      *Example.* Consider the graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, terminals $s = v_#s$, $t = v_#t$, $J = #J$, and $K = #K$. The two paths $P_1 = v_0 arrow v_1 arrow v_6$ and $P_2 = v_0 arrow v_2 arrow v_3 arrow v_6$ are both of length at most 3, and their internal vertex sets ${v_1}$ and ${v_2, v_3}$ are disjoint. Hence this instance is satisfying. The third branch $v_0 arrow v_4 arrow v_5 arrow v_6$ is available but unused, so the instance has multiple satisfying path-slot assignments.
+
+      #figure(
+        canvas(length: 1cm, {
+          let blue = graph-colors.at(0)
+          let gray = luma(180)
+          let verts = (
+            (0, 1),    // v0 = s
+            (1.3, 1.8),
+            (1.3, 1.0),
+            (2.6, 1.0),
+            (1.3, 0.2),
+            (2.6, 0.2),
+            (3.9, 1),  // v6 = t
+          )
+          for (u, v) in edges {
+            let selected = chosen-edges.any(e =>
+              (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u)
+            )
+            g-edge(verts.at(u), verts.at(v),
+              stroke: if selected { 2pt + blue } else { 1pt + gray })
+          }
+          for (k, pos) in verts.enumerate() {
+            let active = chosen-verts.contains(k)
+            g-node(pos, name: "v" + str(k),
+              fill: if active { blue } else { white },
+              label: if active {
+                text(fill: white)[
+                  #if k == s { $s$ }
+                  else if k == t { $t$ }
+                  else { $v_#k$ }
+                ]
+              } else [
+                #if k == s { $s$ }
+                else if k == t { $t$ }
+                else { $v_#k$ }
+              ])
+          }
+        }),
+        caption: [A satisfying Length-Bounded Disjoint Paths instance with $s = v_0$, $t = v_6$, $J = 2$, and $K = 3$. The highlighted paths are $v_0 arrow v_1 arrow v_6$ and $v_0 arrow v_2 arrow v_3 arrow v_6$; the lower branch through $v_4, v_5$ remains unused.],
+      ) <fig:length-bounded-disjoint-paths>
+    ]
+  ]
+}
 #{
   let x = load-model-example("HamiltonianPath")
   let nv = graph-num-vertices(x.instance)
@@ -1155,6 +1218,43 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     Shown NP-complete by Karp (1972) via transformation from 3-Dimensional Matching @karp1972. X3C remains NP-complete even when no element appears in more than three subsets, but is solvable in polynomial time when no element appears in more than two subsets. It is one of the most widely used source problems for NP-completeness reductions in Garey & Johnson (A3 SP2), serving as the starting point for proving hardness of problems in scheduling, graph theory, set systems, coding, and number theory. The best known exact algorithm runs in $O^*(2^n)$ via inclusion-exclusion over the $n = |X|$ universe elements; a direct brute-force search over the $m$ subsets gives the weaker $O^*(2^m)$ bound.
 
     *Example.* Let $X = {1, 2, dots, #n}$ ($q = #q$) and $cal(C) = {S_1, dots, S_#m}$ with #subs.enumerate().map(((i, t)) => $S_#(i + 1) = #fmt-triple(t)$).join(", "). An exact cover is $cal(C)' = {#selected.map(i => $S_#(i + 1)$).join(", ")}$: #selected.map(i => [$S_#(i + 1)$ covers #fmt-triple(subs.at(i))]).join(", "), their union is $X$, and they are pairwise disjoint with $|cal(C)'| = #selected.len() = q$.
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SetBasis")
+  let coll = x.instance.collection
+  let m = coll.len()
+  let U-size = x.instance.universe_size
+  let k = x.instance.k
+  let sample = x.samples.at(0)
+  let sat-count = x.optimal.len()
+  let basis = range(k).map(i =>
+    range(U-size).filter(j => sample.config.at(i * U-size + j) == 1)
+  )
+  let fmt-set(s) = "${" + s.map(e => str(e + 1)).join(", ") + "}$"
+  [
+    #problem-def("SetBasis")[
+      Given finite set $S$, collection $cal(C)$ of subsets of $S$, and integer $k$, does there exist a family $cal(B) = {B_1, ..., B_k}$ with each $B_i subset.eq S$ such that for every $C in cal(C)$ there exists $cal(B)_C subset.eq cal(B)$ with $union.big_(B in cal(B)_C) B = C$?
+    ][
+    The Set Basis problem was shown NP-complete by Stockmeyer @stockmeyer1975setbasis and appears as SP7 in Garey & Johnson @garey1979. It asks for an exact union-based description of a family of sets, unlike Set Cover which only requires covering the underlying universe. Applications include data compression, database schema design, and Boolean function minimization. The library's decision encoding uses $k |S|$ membership bits, so brute-force over those bits gives an $O^*(2^(k |S|))$ exact algorithm#footnote[This is the direct search bound induced by the encoding implemented here; we are not aware of a faster general exact worst-case algorithm for this representation.].
+
+    *Example.* Let $S = {1, 2, 3, 4}$, $k = #k$, and $cal(C) = {#range(m).map(i => $C_#(i + 1)$).join(", ")}$ with #coll.enumerate().map(((i, s)) => $C_#(i + 1) = #fmt-set(s)$).join(", "). The sample basis from the issue is $cal(B) = {#range(k).map(i => $B_#(i + 1)$).join(", ")}$ with #basis.enumerate().map(((i, s)) => $B_#(i + 1) = #fmt-set(s)$).join(", "). Then $C_1 = B_1 union B_2$, $C_2 = B_2 union B_3$, $C_3 = B_1 union B_3$, and $C_4 = B_1 union B_2 union B_3$. There are #sat-count satisfying encodings in total: the singleton basis can be permuted in $3! = 6$ ways, and the three pair sets $C_1, C_2, C_3$ also form a basis with another six row permutations.
+
+    #figure(
+      canvas(length: 1cm, {
+        let elems = ((-0.9, 0.2), (0.0, -0.5), (0.9, 0.2), (1.8, -0.5))
+        for i in range(k) {
+          let positions = basis.at(i).map(e => elems.at(e))
+          sregion(positions, pad: 0.28, label: [$B_#(i + 1)$], ..sregion-selected)
+        }
+        for (idx, pos) in elems.enumerate() {
+          selem(pos, label: [#(idx + 1)], fill: if idx < 3 { black } else { luma(160) })
+        }
+      }),
+      caption: [Set Basis example: the singleton basis $cal(B) = {#range(k).map(i => $B_#(i + 1)$).join(", ")}$ reconstructs every target set in $cal(C)$; element $4$ is unused by the target family.],
+    ) <fig:set-basis>
     ]
   ]
 }

@@ -237,8 +237,8 @@ fn edit_distance(a: &str, b: &str) -> usize {
     for (i, row) in dp.iter_mut().enumerate().take(n + 1) {
         row[0] = i;
     }
-    for j in 0..=m {
-        dp[0][j] = j;
+    for (j, value) in dp[0].iter_mut().enumerate().take(m + 1) {
+        *value = j;
     }
 
     for i in 1..=n {

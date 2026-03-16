@@ -843,6 +843,82 @@ fn test_create_x3c_rejects_duplicate_subset_elements() {
 }
 
 #[test]
+fn test_create_set_basis() {
+    let output_file = std::env::temp_dir().join("pred_test_create_set_basis.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SetBasis",
+            "--universe",
+            "4",
+            "--sets",
+            "0,1;1,2;0,2;0,1,2",
+            "--k",
+            "3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SetBasis");
+    assert_eq!(json["data"]["universe_size"], 4);
+    assert_eq!(json["data"]["k"], 3);
+    assert_eq!(json["data"]["collection"][0], serde_json::json!([0, 1]));
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_set_basis_requires_k() {
+    let output = pred()
+        .args([
+            "create",
+            "SetBasis",
+            "--universe",
+            "4",
+            "--sets",
+            "0,1;1,2;0,2;0,1,2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("SetBasis requires --k"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_set_basis_rejects_out_of_range_elements() {
+    let output = pred()
+        .args([
+            "create",
+            "SetBasis",
+            "--universe",
+            "4",
+            "--sets",
+            "0,4",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("outside universe of size 4"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_then_evaluate() {
     // Create a problem
     let problem_file = std::env::temp_dir().join("pred_test_create_eval.json");
@@ -1714,6 +1790,33 @@ fn test_create_no_flags_shows_help() {
 }
 
 #[test]
+fn test_create_set_basis_no_flags_uses_actual_cli_flag_names() {
+    let output = pred().args(["create", "SetBasis"]).output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--universe"),
+        "expected '--universe' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--sets"),
+        "expected '--sets' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--k"),
+        "expected '--k' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--universe-size"),
+        "help should not advertise schema field names: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--collection"),
+        "help should not advertise schema field names: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_kcoloring_missing_k() {
     let output = pred()
         .args(["create", "KColoring", "--graph", "0-1,1-2"])
@@ -1722,6 +1825,120 @@ fn test_create_kcoloring_missing_k() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--k"));
+}
+
+#[test]
+fn test_create_length_bounded_disjoint_paths_rejects_equal_terminals() {
+    let output = pred()
+        .args([
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--graph",
+            "0-1,1-2",
+            "--source",
+            "0",
+            "--sink",
+            "0",
+            "--num-paths-required",
+            "1",
+            "--bound",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--source and --sink must be distinct"),
+        "expected user-facing validation error, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("panicked at"),
+        "create command should reject equal terminals without panicking: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_length_bounded_disjoint_paths_succeeds() {
+    let output = pred()
+        .args([
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--graph",
+            "0-1,1-3,0-2,2-3",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--num-paths-required",
+            "2",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "LengthBoundedDisjointPaths");
+    assert_eq!(json["data"]["source"], 0);
+    assert_eq!(json["data"]["sink"], 3);
+    assert_eq!(json["data"]["num_paths_required"], 2);
+    assert_eq!(json["data"]["max_length"], 2);
+}
+
+#[test]
+fn test_create_length_bounded_disjoint_paths_rejects_negative_bound_value() {
+    let output = pred()
+        .args([
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--graph",
+            "0-1,1-2",
+            "--source",
+            "0",
+            "--sink",
+            "1",
+            "--num-paths-required",
+            "1",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--bound must be a nonnegative integer for LengthBoundedDisjointPaths"),
+        "expected user-facing negative-bound error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_random_length_bounded_disjoint_paths_rejects_negative_bound_value() {
+    let output = pred()
+        .args([
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--random",
+            "--num-vertices",
+            "3",
+            "--seed",
+            "7",
+            "--bound=-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--bound must be a nonnegative integer for LengthBoundedDisjointPaths"),
+        "expected shared negative-bound validation, got: {stderr}"
+    );
 }
 
 #[test]
