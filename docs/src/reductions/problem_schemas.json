@@ -526,6 +526,17 @@
     ]
   },
   {
+    "name": "Partition",
+    "description": "Determine whether a multiset of positive integers can be partitioned into two subsets of equal sum",
+    "fields": [
+      {
+        "name": "sizes",
+        "type_name": "Vec<u64>",
+        "description": "Positive integer size for each element"
+      }
+    ]
+  },
+  {
     "name": "PartitionIntoTriangles",
     "description": "Partition vertices into triangles (K3 subgraphs)",
     "fields": [

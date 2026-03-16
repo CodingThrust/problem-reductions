@@ -89,6 +89,7 @@ fn test_all_problems_implement_trait_correctly() {
         "BicliqueCover",
     );
     check_problem_trait(&Factoring::new(6, 2, 2), "Factoring");
+    check_problem_trait(&Partition::new(vec![3, 1, 1, 2, 2, 1]), "Partition");
 
     let circuit = Circuit::new(vec![Assignment::new(
         vec!["x".to_string()],

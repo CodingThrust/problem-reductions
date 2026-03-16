@@ -96,6 +96,7 @@
   "LongestCommonSubsequence": [Longest Common Subsequence],
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "SubsetSum": [Subset Sum],
+  "Partition": [Partition],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
@@ -1703,6 +1704,14 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   One of Karp's 21 NP-complete problems @karp1972. Subset Sum is the special case of Knapsack where $v_i = w_i$ for all items and we seek an exact sum rather than an inequality. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n B)$ pseudo-polynomial time. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974.
 
   *Example.* Let $A = {3, 7, 1, 8, 2, 4}$ ($n = 6$) and target $B = 11$. Selecting $A' = {3, 8}$ gives sum $3 + 8 = 11 = B$. Another solution: $A' = {7, 4}$ with sum $7 + 4 = 11 = B$.
+]
+
+#problem-def("Partition")[
+  Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ such that $sum_(a in A') s(a) = sum_(a in A without A') s(a)$.
+][
+  One of Karp's 21 NP-complete problems @karp1972, listed as SP12 in Garey & Johnson @garey1979. Partition is the special case of Subset Sum where the target equals half the total sum. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n dot B_"total")$ pseudo-polynomial time, where $B_"total" = sum_i s(a_i)$. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Schroeppel and Shamir (1981).
+
+  *Example.* Let $A = {3, 1, 1, 2, 2, 1}$ ($n = 6$, total sum $= 10$). Setting $A' = {3, 2}$ (indices 0, 3) gives sum $3 + 2 = 5 = 10 slash 2$, and $A without A' = {1, 1, 2, 1}$ also sums to 5. Hence a balanced partition exists.
 ]
 
 #{
