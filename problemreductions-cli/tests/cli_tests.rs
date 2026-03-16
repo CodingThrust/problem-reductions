@@ -383,6 +383,102 @@ fn test_create_undirected_two_commodity_integral_flow_missing_capacities_shows_u
 }
 
 #[test]
+fn test_create_undirected_two_commodity_integral_flow_rejects_invalid_capacity_token() {
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--capacities",
+            "1,x,2",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Invalid capacity `x`"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow_rejects_wrong_capacity_count() {
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--capacities",
+            "1,2",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Expected 3 capacities but got 2"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow_rejects_oversized_capacity() {
+    let oversized = ((usize::MAX as u128) + 1).to_string();
+    let capacities = format!("1,1,{oversized}");
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--capacities",
+            capacities.as_str(),
+            "--source-1",
+            "0",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("is too large for this platform"));
+    assert!(stderr.contains("edge index 2"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+}
+
+#[test]
 fn test_create_undirected_two_commodity_integral_flow_rejects_out_of_range_terminal() {
     let output = pred()
         .args([
@@ -2757,6 +2853,65 @@ fn test_inspect_json_output() {
     );
     assert!(json["solvers"].is_array());
     assert!(json["reduces_to"].is_array());
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&result_file).ok();
+}
+
+#[test]
+fn test_inspect_undirected_two_commodity_integral_flow_reports_size_fields() {
+    let problem_file = std::env::temp_dir().join("pred_test_utcif_inspect_in.json");
+    let result_file = std::env::temp_dir().join("pred_test_utcif_inspect_out.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "--example",
+            "UndirectedTwoCommodityIntegralFlow",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args([
+            "-o",
+            result_file.to_str().unwrap(),
+            "inspect",
+            problem_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(result_file.exists());
+
+    let content = std::fs::read_to_string(&result_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let size_fields: Vec<&str> = json["size_fields"]
+        .as_array()
+        .expect("size_fields should be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(
+        size_fields.contains(&"num_vertices"),
+        "UndirectedTwoCommodityIntegralFlow size_fields should contain num_vertices, got: {:?}",
+        size_fields
+    );
+    assert!(
+        size_fields.contains(&"num_edges"),
+        "UndirectedTwoCommodityIntegralFlow size_fields should contain num_edges, got: {:?}",
+        size_fields
+    );
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();

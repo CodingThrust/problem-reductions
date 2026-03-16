@@ -15,7 +15,7 @@ Or build from source:
 ```bash
 git clone https://github.com/CodingThrust/problem-reductions
 cd problem-reductions
-make cli    # builds target/release/pred
+make cli    # installs ~/.cargo/bin/pred from the local checkout
 ```
 
 Verify the installation:
@@ -276,6 +276,7 @@ pred create KColoring --k 3 --graph 0-1,1-2,2-0 -o kcol.json
 pred create SpinGlass --graph 0-1,1-2 -o sg.json
 pred create MaxCut --graph 0-1,1-2,2-0 -o maxcut.json
 pred create SteinerTree --graph 0-1,0-3,1-2,1-3,2-3,2-4,3-4 --edge-weights 2,5,2,1,5,6,1 --terminals 0,2,4 -o steiner.json
+pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1 -o utcif.json
 pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
 pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
 pred create X3C --universe 9 --sets "0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8" -o x3c.json

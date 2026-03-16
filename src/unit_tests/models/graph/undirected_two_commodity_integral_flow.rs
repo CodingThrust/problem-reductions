@@ -3,7 +3,7 @@ use crate::solvers::{BruteForce, Solver};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
-fn even_capacity_instance() -> UndirectedTwoCommodityIntegralFlow {
+fn capacity_two_bottleneck_instance() -> UndirectedTwoCommodityIntegralFlow {
     UndirectedTwoCommodityIntegralFlow::new(
         SimpleGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]),
         vec![1, 1, 2],
@@ -39,7 +39,7 @@ fn example_config() -> Vec<usize> {
 
 #[test]
 fn test_undirected_two_commodity_integral_flow_creation() {
-    let problem = even_capacity_instance();
+    let problem = capacity_two_bottleneck_instance();
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.capacities(), &[1, 1, 2]);
@@ -56,7 +56,7 @@ fn test_undirected_two_commodity_integral_flow_creation() {
 
 #[test]
 fn test_undirected_two_commodity_integral_flow_evaluation_yes() {
-    let problem = even_capacity_instance();
+    let problem = capacity_two_bottleneck_instance();
     assert!(problem.evaluate(&example_config()));
     assert!(problem.is_valid_solution(&example_config()));
 }
@@ -70,8 +70,36 @@ fn test_undirected_two_commodity_integral_flow_evaluation_no_shared_bottleneck()
 }
 
 #[test]
+fn test_undirected_two_commodity_integral_flow_rejects_wrong_config_length() {
+    let problem = capacity_two_bottleneck_instance();
+    let mut config = example_config();
+    config.pop();
+
+    assert!(!problem.evaluate(&config));
+}
+
+#[test]
+fn test_undirected_two_commodity_integral_flow_rejects_value_above_capacity_domain() {
+    let problem = capacity_two_bottleneck_instance();
+    let mut config = example_config();
+    config[8] = 3;
+
+    assert!(!problem.evaluate(&config));
+}
+
+#[test]
+fn test_undirected_two_commodity_integral_flow_rejects_antisymmetry_violation() {
+    let problem = capacity_two_bottleneck_instance();
+    let mut config = example_config();
+    config[0] = 1;
+    config[1] = 1;
+
+    assert!(!problem.evaluate(&config));
+}
+
+#[test]
 fn test_undirected_two_commodity_integral_flow_serialization() {
-    let problem = even_capacity_instance();
+    let problem = capacity_two_bottleneck_instance();
     let value = serde_json::to_value(&problem).unwrap();
     let deserialized: UndirectedTwoCommodityIntegralFlow = serde_json::from_value(value).unwrap();
     assert_eq!(deserialized.graph(), problem.graph());
@@ -86,7 +114,7 @@ fn test_undirected_two_commodity_integral_flow_serialization() {
 
 #[test]
 fn test_undirected_two_commodity_integral_flow_paper_example() {
-    let problem = even_capacity_instance();
+    let problem = capacity_two_bottleneck_instance();
     let config = example_config();
     assert!(problem.evaluate(&config));
 

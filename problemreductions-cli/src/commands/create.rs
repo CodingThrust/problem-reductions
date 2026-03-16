@@ -237,7 +237,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
         "UndirectedTwoCommodityIntegralFlow" => {
             "--graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1"
-        }
+        },
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"

@@ -21,6 +21,7 @@
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
 //! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
+//! - [`SteinerTree`]: Minimum-weight tree spanning all required terminals
 //! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
 //! - [`UndirectedTwoCommodityIntegralFlow`]: Two-commodity integral flow on undirected graphs
 
@@ -91,7 +92,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(spin_glass::canonical_model_example_specs());
     specs.extend(biclique_cover::canonical_model_example_specs());
     specs.extend(partition_into_triangles::canonical_model_example_specs());
-    specs.extend(undirected_two_commodity_integral_flow::canonical_model_example_specs());
     specs.extend(steiner_tree::canonical_model_example_specs());
     specs.extend(undirected_two_commodity_integral_flow::canonical_model_example_specs());
     specs

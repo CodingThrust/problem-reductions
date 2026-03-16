@@ -3,7 +3,7 @@
 //! The problem asks whether two integral commodities can be routed through an
 //! undirected capacitated graph while sharing edge capacities.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
 use serde::{Deserialize, Serialize};
@@ -26,6 +26,13 @@ inventory::submit! {
             FieldInfo { name: "requirement_1", type_name: "u64", description: "Required net inflow R_1 at sink t_1" },
             FieldInfo { name: "requirement_2", type_name: "u64", description: "Required net inflow R_2 at sink t_2" },
         ],
+    }
+}
+
+inventory::submit! {
+    ProblemSizeFieldEntry {
+        name: "UndirectedTwoCommodityIntegralFlow",
+        fields: &["num_vertices", "num_edges"],
     }
 }
 
@@ -179,12 +186,7 @@ impl UndirectedTwoCommodityIntegralFlow {
         }
     }
 
-    fn commodity_balance(
-        &self,
-        config: &[usize],
-        commodity: usize,
-        vertex: usize,
-    ) -> Option<i128> {
+    fn commodity_balance(&self, config: &[usize], commodity: usize, vertex: usize) -> Option<i128> {
         let mut balance = 0i128;
         for (edge_index, (u, v)) in self.graph.edges().into_iter().enumerate() {
             let flows = self.edge_flows(config, edge_index)?;
