@@ -416,6 +416,9 @@ fn problem_help_flag_name(
     if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
         return "bound".to_string();
     }
+    if canonical == "StaffScheduling" && field_name == "shifts_per_schedule" {
+        return "k".to_string();
+    }
     field_name.replace('_', "-")
 }
 
@@ -1325,6 +1328,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let shifts_per_schedule = args
                 .k
                 .ok_or_else(|| anyhow::anyhow!("StaffScheduling requires --k\n\n{usage}"))?;
+            validate_staff_scheduling_args(
+                &schedules,
+                &requirements,
+                shifts_per_schedule,
+                num_workers,
+                usage,
+            )?;
 
             (
                 ser(problemreductions::models::misc::StaffScheduling::new(
@@ -2082,22 +2092,7 @@ fn parse_bool_matrix(args: &CreateArgs) -> Result<Vec<Vec<bool>>> {
         .matrix
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("This problem requires --matrix (e.g., \"1,0;0,1;1,1\")"))?;
-    matrix_str
-        .split(';')
-        .map(|row| {
-            row.trim()
-                .split(',')
-                .map(|s| match s.trim() {
-                    "1" | "true" => Ok(true),
-                    "0" | "false" => Ok(false),
-                    other => Err(anyhow::anyhow!(
-                        "Invalid boolean value '{}': expected 0/1 or true/false",
-                        other
-                    )),
-                })
-                .collect()
-        })
-        .collect()
+    parse_bool_rows(matrix_str)
 }
 
 fn parse_schedules(args: &CreateArgs, usage: &str) -> Result<Vec<Vec<bool>>> {
@@ -2105,7 +2100,11 @@ fn parse_schedules(args: &CreateArgs, usage: &str) -> Result<Vec<Vec<bool>>> {
         .schedules
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("StaffScheduling requires --schedules\n\n{usage}"))?;
-    schedules_str
+    parse_bool_rows(schedules_str)
+}
+
+fn parse_bool_rows(rows_str: &str) -> Result<Vec<Vec<bool>>> {
+    rows_str
         .split(';')
         .map(|row| {
             row.trim()
@@ -2128,6 +2127,42 @@ fn parse_requirements(args: &CreateArgs, usage: &str) -> Result<Vec<u64>> {
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("StaffScheduling requires --requirements\n\n{usage}"))?;
     util::parse_comma_list(requirements_str)
+}
+
+fn validate_staff_scheduling_args(
+    schedules: &[Vec<bool>],
+    requirements: &[u64],
+    shifts_per_schedule: usize,
+    num_workers: u64,
+    usage: &str,
+) -> Result<()> {
+    if num_workers >= usize::MAX as u64 {
+        bail!(
+            "StaffScheduling requires --num-workers to fit in usize for brute-force enumeration\n\n{usage}"
+        );
+    }
+
+    let num_periods = requirements.len();
+    for (index, schedule) in schedules.iter().enumerate() {
+        if schedule.len() != num_periods {
+            bail!(
+                "schedule {} has {} periods, expected {}\n\n{}",
+                index,
+                schedule.len(),
+                num_periods,
+                usage
+            );
+        }
+        let ones = schedule.iter().filter(|&&active| active).count();
+        if ones != shifts_per_schedule {
+            bail!(
+                "schedule {} has {} active periods, expected {}\n\n{}",
+                index, ones, shifts_per_schedule, usage
+            );
+        }
+    }
+
+    Ok(())
 }
 
 /// Parse `--matrix` as semicolon-separated rows of comma-separated f64 values.
@@ -2473,6 +2508,7 @@ fn create_random(
 #[cfg(test)]
 mod tests {
     use super::create;
+    use super::help_flag_name;
     use super::problem_help_flag_name;
     use crate::cli::{Cli, Commands};
     use crate::output::OutputConfig;
@@ -2497,6 +2533,18 @@ mod tests {
                 false,
             ),
             "num-paths-required"
+        );
+    }
+
+    #[test]
+    fn test_problem_help_uses_k_for_staff_scheduling() {
+        assert_eq!(
+            help_flag_name("StaffScheduling", "shifts_per_schedule"),
+            "k"
+        );
+        assert_eq!(
+            problem_help_flag_name("StaffScheduling", "shifts_per_schedule", "usize", false),
+            "k"
         );
     }
 
@@ -2543,5 +2591,39 @@ mod tests {
         assert_eq!(json["data"]["num_workers"], 4);
         assert_eq!(json["data"]["requirements"], serde_json::json!([2, 2, 2, 3, 3, 2, 1]));
         std::fs::remove_file(output_path).unwrap();
+    }
+
+    #[test]
+    fn test_create_staff_scheduling_reports_invalid_schedule_without_panic() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "StaffScheduling",
+            "--schedules",
+            "1,1,1,1,1,0,0;0,1,1,1,1,1",
+            "--requirements",
+            "2,2,2,3,3,2,1",
+            "--num-workers",
+            "4",
+            "--k",
+            "5",
+        ])
+        .unwrap();
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let result = std::panic::catch_unwind(|| create(&args, &out));
+        assert!(result.is_ok(), "create should return an error, not panic");
+        let err = result.unwrap().unwrap_err().to_string();
+        assert!(err.contains("schedule 1 has 6 periods, expected 7"));
     }
 }
