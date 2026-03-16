@@ -1804,8 +1804,7 @@ fn test_create_bounded_component_spanning_forest_rejects_zero_k() {
 
 #[test]
 fn test_create_bounded_component_spanning_forest_accepts_k_larger_than_num_vertices() {
-    let dir = tempdir().unwrap();
-    let out = dir.path().join("bcsf_large_k.json");
+    let out = std::env::temp_dir().join("pred_test_bcsf_large_k.json");
     let output = pred()
         .args([
             "create",
@@ -1829,6 +1828,7 @@ fn test_create_bounded_component_spanning_forest_accepts_k_larger_than_num_verti
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(out.exists());
+    let _ = std::fs::remove_file(&out);
 }
 
 #[test]

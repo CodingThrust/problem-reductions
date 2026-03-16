@@ -238,22 +238,6 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
     }
 }
 
-fn cli_flag_name(field_name: &str) -> String {
-    match field_name {
-        "universe_size" => "universe".to_string(),
-        "collection" | "subsets" => "sets".to_string(),
-        "left_size" => "left".to_string(),
-        "right_size" => "right".to_string(),
-        "edges" => "biedges".to_string(),
-        "vertex_weights" => "weights".to_string(),
-        "edge_lengths" => "edge-weights".to_string(),
-        "num_tasks" => "n".to_string(),
-        "precedences" => "precedence-pairs".to_string(),
-        "threshold" => "bound".to_string(),
-        _ => field_name.replace('_', "-"),
-    }
-}
-
 fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
     match canonical {
         "MaximumIndependentSet"
