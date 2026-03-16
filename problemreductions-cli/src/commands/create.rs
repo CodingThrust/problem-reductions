@@ -8,6 +8,7 @@ use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExamp
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{
     GraphPartitioning, HamiltonianPath, LengthBoundedDisjointPaths, MultipleChoiceBranching,
+    SteinerTree,
 };
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
