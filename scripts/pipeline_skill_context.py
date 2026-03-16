@@ -225,6 +225,8 @@ def render_review_pipeline_text(result: dict) -> str:
     )
     if checkout.get("worktree_dir"):
         lines.append(f"- Worktree: `{checkout['worktree_dir']}`")
+    if checkout.get("head_ref_name"):
+        lines.append(f"- PR head branch: `{checkout['head_ref_name']}`")
     conflicts = merge.get("conflicts") or []
     if conflicts:
         lines.append("- Conflicts:")
@@ -609,6 +611,7 @@ def fetch_review_candidates(repo: str) -> list[dict]:
         pipeline_board.fetch_pr_reviews,
         pipeline_board.resolve_issue_pr,
         pipeline_board.fetch_pr_info,
+        batch_pr_fetcher=pipeline_board.batch_fetch_prs_with_reviews,
     )
 
 
@@ -618,20 +621,11 @@ def claim_review_entry(
     state_file: Path,
     pr_number: int | None,
 ) -> dict | None:
-    owner = repo.split("/", 1)[0]
-    board_data = pipeline_board.fetch_board_items(
-        owner,
-        PROJECT_BOARD_NUMBER,
-        PROJECT_BOARD_LIMIT,
-    )
-    return pipeline_board.claim_next_entry(
+    candidates = fetch_review_candidates(repo)
+    return pipeline_board.claim_entry_from_entries(
         "review",
-        board_data,
+        pipeline_board.eligible_review_candidate_entries(candidates),
         state_file,
-        repo=repo,
-        review_fetcher=pipeline_board.fetch_pr_reviews,
-        pr_resolver=pipeline_board.resolve_issue_pr,
-        pr_state_fetcher=pipeline_board.fetch_pr_state,
         target_number=pr_number,
     )
 
@@ -996,10 +990,15 @@ def build_project_pipeline_context(
     repo_root: Path,
     board_fetcher: Callable[[str], dict] | None = None,
     issue_fetcher: Callable[[str, int], dict] | None = None,
+    batch_issue_fetcher: Callable[[str, list[int]], dict[int, dict]] | None = None,
     existing_problem_finder: Callable[[Path], set[str]] | None = None,
 ) -> dict:
     board_fetcher = board_fetcher or fetch_project_board_data
+    _custom_issue_fetcher = issue_fetcher is not None
     issue_fetcher = issue_fetcher or pipeline_checks.fetch_issue
+    # Only use batch fetcher when no custom per-item fetcher was injected (e.g. tests)
+    if batch_issue_fetcher is None and not _custom_issue_fetcher:
+        batch_issue_fetcher = pipeline_board.batch_fetch_issues
     existing_problem_finder = existing_problem_finder or scan_existing_problems
 
     board_data = board_fetcher(repo)
@@ -1014,17 +1013,31 @@ def build_project_pipeline_context(
     existing_problems = existing_problem_finder(repo_root)
     pending_rule_counts = build_pending_rule_counts(ready_entries, in_progress_entries)
 
+    ready_entries_items = sorted(
+        pipeline_board.ready_entries(board_data).items(),
+        key=lambda pair: pair[1]["issue_number"],
+    )
+
+    # Batch-fetch all issue data in one API call when batch fetcher is available
+    if batch_issue_fetcher is not None:
+        all_issue_numbers = [int(entry["issue_number"]) for _, entry in ready_entries_items]
+        issues_cache = batch_issue_fetcher(repo, all_issue_numbers)
+
+        def _fetch_one(repo: str, n: int) -> dict:
+            if n in issues_cache:
+                return issues_cache[n]
+            return issue_fetcher(repo, n)
+    else:
+        _fetch_one = issue_fetcher
+
     ready_issues = [
         classify_project_issue(
             dict(entry, item_id=item_id),
-            issue=issue_fetcher(repo, int(entry["issue_number"])),
+            issue=_fetch_one(repo, int(entry["issue_number"])),
             existing_problems=existing_problems,
             pending_rule_counts=pending_rule_counts,
         )
-        for item_id, entry in sorted(
-            pipeline_board.ready_entries(board_data).items(),
-            key=lambda pair: pair[1]["issue_number"],
-        )
+        for item_id, entry in ready_entries_items
     ]
 
     requested_issue = None
@@ -1074,7 +1087,6 @@ def build_review_pipeline_context(
     mover: Callable[[str, str], None] | None = None,
 ) -> dict:
     review_candidate_fetcher = review_candidate_fetcher or fetch_review_candidates
-    claim_entry = claim_entry or claim_review_entry
     pr_context_builder = pr_context_builder or pipeline_pr.build_pr_context
     review_preparer = review_preparer or (
         lambda repo, pr_number: pipeline_worktree.prepare_review(
@@ -1105,11 +1117,18 @@ def build_review_pipeline_context(
                 recommendation=ambiguous.get("recommendation"),
             )
 
-        selection = claim_entry(
-            repo=repo,
-            state_file=state_file,
-            pr_number=None,
-        )
+        if claim_entry is not None:
+            selection = claim_entry(
+                repo=repo,
+                state_file=state_file,
+                pr_number=None,
+            )
+        else:
+            selection = pipeline_board.claim_entry_from_entries(
+                "review",
+                pipeline_board.eligible_review_candidate_entries(candidates),
+                state_file,
+            )
         if selection is None:
             return build_status_result("review-pipeline", status="empty")
 
@@ -1160,11 +1179,19 @@ def build_review_pipeline_context(
     if matching_candidate.get("eligibility") != "eligible":
         return build_status_result("review-pipeline", status="empty")
 
-    selection = claim_entry(
-        repo=repo,
-        state_file=state_file,
-        pr_number=pr_number,
-    )
+    if claim_entry is not None:
+        selection = claim_entry(
+            repo=repo,
+            state_file=state_file,
+            pr_number=pr_number,
+        )
+    else:
+        selection = pipeline_board.claim_entry_from_entries(
+            "review",
+            pipeline_board.eligible_review_candidate_entries(candidates),
+            state_file,
+            target_number=pr_number,
+        )
     if selection is None:
         return build_status_result("review-pipeline", status="empty")
 

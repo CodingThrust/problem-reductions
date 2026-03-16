@@ -31,6 +31,7 @@ GitHub Project board IDs (for `gh project item-edit`):
 ### Step 0: Generate the Final-Review Report
 
 Step 0 should be a single report-generation step. Do not manually unpack board selection, PR metadata, merge prep, or deterministic checks with shell snippets.
+The expensive full-context call here is `python3 scripts/pipeline_skill_context.py final-review ...` (backed by `build_final_review_context()`). It is allowed exactly once per top-level `final-review` invocation. After it succeeds, reuse the packet for the rest of the review and do not rerun Step 0 just to fetch the same context in another format.
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
@@ -59,7 +60,7 @@ Branch from the report:
 - `Bundle status: ready` => continue normally (check warnings — a self-review warning means the reviewer is the PR author; flag it but do not block)
 - `Bundle status: ready-with-warnings` => continue only with the narrow warning fallback described in the report
 
-When you need to take actions later, use the identifiers already printed in the report (`Board item`, `PR`, URL). If you absolutely need raw structured data for a corner case, rerun the same command with `--format json`, but do not rebuild Step 0 manually.
+When you need to take actions later, use the identifiers already printed in the report (`Board item`, `PR`, URL). If you need structured data for a corner case, derive it from the existing packet whenever possible instead of rerunning Step 0.
 
 ### Step 1: Push the Merge with Main
 
