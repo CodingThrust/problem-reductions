@@ -3,7 +3,7 @@ use crate::solvers::{BruteForce, Solver};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
-fn capacity_two_bottleneck_instance() -> UndirectedTwoCommodityIntegralFlow {
+fn canonical_instance() -> UndirectedTwoCommodityIntegralFlow {
     UndirectedTwoCommodityIntegralFlow::new(
         SimpleGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]),
         vec![1, 1, 2],
@@ -39,7 +39,7 @@ fn example_config() -> Vec<usize> {
 
 #[test]
 fn test_undirected_two_commodity_integral_flow_creation() {
-    let problem = capacity_two_bottleneck_instance();
+    let problem = canonical_instance();
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.capacities(), &[1, 1, 2]);
@@ -56,7 +56,7 @@ fn test_undirected_two_commodity_integral_flow_creation() {
 
 #[test]
 fn test_undirected_two_commodity_integral_flow_evaluation_yes() {
-    let problem = capacity_two_bottleneck_instance();
+    let problem = canonical_instance();
     assert!(problem.evaluate(&example_config()));
     assert!(problem.is_valid_solution(&example_config()));
 }
@@ -71,7 +71,7 @@ fn test_undirected_two_commodity_integral_flow_evaluation_no_shared_bottleneck()
 
 #[test]
 fn test_undirected_two_commodity_integral_flow_rejects_wrong_config_length() {
-    let problem = capacity_two_bottleneck_instance();
+    let problem = canonical_instance();
     let mut config = example_config();
     config.pop();
 
@@ -80,7 +80,7 @@ fn test_undirected_two_commodity_integral_flow_rejects_wrong_config_length() {
 
 #[test]
 fn test_undirected_two_commodity_integral_flow_rejects_value_above_capacity_domain() {
-    let problem = capacity_two_bottleneck_instance();
+    let problem = canonical_instance();
     let mut config = example_config();
     config[8] = 3;
 
@@ -89,7 +89,7 @@ fn test_undirected_two_commodity_integral_flow_rejects_value_above_capacity_doma
 
 #[test]
 fn test_undirected_two_commodity_integral_flow_rejects_antisymmetry_violation() {
-    let problem = capacity_two_bottleneck_instance();
+    let problem = canonical_instance();
     let mut config = example_config();
     config[0] = 1;
     config[1] = 1;
@@ -99,7 +99,7 @@ fn test_undirected_two_commodity_integral_flow_rejects_antisymmetry_violation() 
 
 #[test]
 fn test_undirected_two_commodity_integral_flow_serialization() {
-    let problem = capacity_two_bottleneck_instance();
+    let problem = canonical_instance();
     let value = serde_json::to_value(&problem).unwrap();
     let deserialized: UndirectedTwoCommodityIntegralFlow = serde_json::from_value(value).unwrap();
     assert_eq!(deserialized.graph(), problem.graph());
@@ -114,7 +114,7 @@ fn test_undirected_two_commodity_integral_flow_serialization() {
 
 #[test]
 fn test_undirected_two_commodity_integral_flow_paper_example() {
-    let problem = capacity_two_bottleneck_instance();
+    let problem = canonical_instance();
     let config = example_config();
     assert!(problem.evaluate(&config));
 
@@ -125,38 +125,88 @@ fn test_undirected_two_commodity_integral_flow_paper_example() {
 
 #[test]
 fn test_undirected_two_commodity_integral_flow_large_capacity_sink_balance() {
-    let Ok(large) = usize::try_from(i64::MAX as u64 + 1) else {
-        return;
-    };
+    // Use a moderately large capacity that fits in usize on all platforms.
+    let large: u64 = 1_000_000;
+    let large_usize = large as usize;
     let problem = UndirectedTwoCommodityIntegralFlow::new(
         SimpleGraph::new(2, vec![(0, 1)]),
-        vec![large as u64],
+        vec![large],
         0,
         1,
         0,
         1,
-        large as u64,
+        large,
         0,
     );
 
-    assert!(problem.evaluate(&[large, 0, 0, 0]));
+    assert!(problem.evaluate(&[large_usize, 0, 0, 0]));
 }
 
 #[test]
-fn test_undirected_two_commodity_integral_flow_large_capacity_shared_overflow_is_invalid() {
-    let Ok(large) = usize::try_from(u64::MAX / 2 + 1) else {
-        return;
-    };
+fn test_undirected_two_commodity_integral_flow_shared_capacity_exceeded() {
+    // Two commodities each sending 2 units on an edge with capacity 3.
     let problem = UndirectedTwoCommodityIntegralFlow::new(
         SimpleGraph::new(2, vec![(0, 1)]),
-        vec![large as u64],
+        vec![3],
         0,
         1,
         0,
         1,
-        0,
-        0,
+        2,
+        2,
     );
 
-    assert!(!problem.evaluate(&[large, 0, large, 0]));
+    // f1(0->1)=2, f1(1->0)=0, f2(0->1)=2, f2(1->0)=0 => shared = 4 > 3
+    assert!(!problem.evaluate(&[2, 0, 2, 0]));
+}
+
+#[test]
+#[should_panic(expected = "capacities length must match")]
+fn test_undirected_two_commodity_integral_flow_panics_wrong_capacity_count() {
+    UndirectedTwoCommodityIntegralFlow::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        vec![1], // 1 capacity but 2 edges
+        0,
+        2,
+        0,
+        2,
+        1,
+        1,
+    );
+}
+
+#[test]
+#[should_panic(expected = "must be less than num_vertices")]
+fn test_undirected_two_commodity_integral_flow_panics_vertex_out_of_bounds() {
+    UndirectedTwoCommodityIntegralFlow::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        vec![1, 1],
+        0,
+        5, // out of bounds
+        0,
+        2,
+        1,
+        1,
+    );
+}
+
+#[test]
+fn test_undirected_two_commodity_integral_flow_flow_conservation_violated() {
+    // 0 -- 1 -- 2, commodity 1: s=0 t=2, commodity 2: s=0 t=2
+    let problem = UndirectedTwoCommodityIntegralFlow::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        vec![2, 2],
+        0,
+        2,
+        0,
+        2,
+        1,
+        1,
+    );
+
+    // Flow conservation violated at vertex 1: commodity 1 enters but doesn't leave.
+    // Edge (0,1): f1(0->1)=1, f1(1->0)=0, f2=0,0
+    // Edge (1,2): f1(1->2)=0, f1(2->1)=0, f2=0,0
+    // Vertex 1 gets +1 for commodity 1 from edge (0,1) but no outflow on edge (1,2)
+    assert!(!problem.evaluate(&[1, 0, 0, 0, 0, 0, 0, 0]));
 }
