@@ -290,12 +290,7 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
             } else {
                 let hint = type_format_hint(&field.type_name, graph_type);
                 let flag_name = cli_flag_name(&field.name);
-                eprintln!(
-                    "  --{:<16} {} ({})",
-                    flag_name,
-                    field.description,
-                    hint
-                );
+                eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             }
         }
     } else {
@@ -960,11 +955,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // MinMaxMulticenter (vertex p-center)
         "MinMaxMulticenter" => {
             let usage = "Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 [--weights 1,1,1,1] [--edge-weights 1,1,1] --k 2 --bound 2";
-            let (graph, n) = parse_graph(args).map_err(|e| {
-                anyhow::anyhow!(
-                    "{e}\n\n{usage}"
-                )
-            })?;
+            let (graph, n) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let vertex_weights = parse_vertex_weights(args, n)?;
             let edge_lengths = parse_edge_weights(args, graph.num_edges())?;
             let k = args.k.ok_or_else(|| {
@@ -979,8 +970,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                      Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --k 2 --bound 2"
                 )
             })?;
-            let bound = i32::try_from(bound)
-                .map_err(|_| anyhow::anyhow!("MinMaxMulticenter --bound must fit in i32 (got {bound})\n\n{usage}"))?;
+            let bound = i32::try_from(bound).map_err(|_| {
+                anyhow::anyhow!(
+                    "MinMaxMulticenter --bound must fit in i32 (got {bound})\n\n{usage}"
+                )
+            })?;
             if vertex_weights.iter().any(|&weight| weight < 0) {
                 bail!("MinMaxMulticenter --weights must be non-negative");
             }

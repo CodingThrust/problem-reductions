@@ -40,8 +40,12 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
     }
     text.push_str(&format!("Variables: {}\n", problem.num_variables_dyn()));
 
-    // Solvers
-    text.push_str("Solvers: ilp (default), brute-force\n");
+    let solvers = problem.available_solvers();
+    if solvers.first() == Some(&"ilp") {
+        text.push_str("Solvers: ilp (default), brute-force\n");
+    } else {
+        text.push_str("Solvers: brute-force\n");
+    }
 
     // Reductions
     let outgoing = graph.outgoing_reductions(name);
@@ -56,7 +60,7 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
         "variant": variant,
         "size_fields": size_fields,
         "num_variables": problem.num_variables_dyn(),
-        "solvers": ["ilp", "brute-force"],
+        "solvers": solvers,
         "reduces_to": targets,
     });
 

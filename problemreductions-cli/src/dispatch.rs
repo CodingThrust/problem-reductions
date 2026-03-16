@@ -39,22 +39,8 @@ impl std::ops::Deref for LoadedProblem {
 }
 
 impl LoadedProblem {
-    pub fn solve_brute_force(&self) -> Result<SolveResult> {
-        let (config, evaluation) = self
-            .inner
-            .solve_brute_force()
-            .ok_or_else(|| anyhow::anyhow!("No solution found"))?;
-        Ok(SolveResult { config, evaluation })
-    }
-
-    /// Solve using the ILP solver. If the problem is not ILP, auto-reduce to ILP first.
-    pub fn solve_with_ilp(&self) -> Result<SolveResult> {
+    fn find_ilp_reduction_path(&self) -> Option<problemreductions::rules::ReductionPath> {
         let name = self.problem_name();
-        if name == "ILP" {
-            return solve_ilp(self.as_any());
-        }
-
-        // Auto-reduce to ILP, solve, and map solution back
         let source_variant = self.variant_map();
         let graph = ReductionGraph::new();
         let ilp_variants = graph.variants_for("ILP");
@@ -79,8 +65,41 @@ impl LoadedProblem {
             }
         }
 
-        let reduction_path =
-            best_path.ok_or_else(|| anyhow::anyhow!("No reduction path from {} to ILP", name))?;
+        best_path
+    }
+
+    pub fn supports_ilp(&self) -> bool {
+        self.problem_name() == "ILP" || self.find_ilp_reduction_path().is_some()
+    }
+
+    pub fn available_solvers(&self) -> Vec<&'static str> {
+        let mut solvers = Vec::new();
+        if self.supports_ilp() {
+            solvers.push("ilp");
+        }
+        solvers.push("brute-force");
+        solvers
+    }
+
+    pub fn solve_brute_force(&self) -> Result<SolveResult> {
+        let (config, evaluation) = self
+            .inner
+            .solve_brute_force()
+            .ok_or_else(|| anyhow::anyhow!("No solution found"))?;
+        Ok(SolveResult { config, evaluation })
+    }
+
+    /// Solve using the ILP solver. If the problem is not ILP, auto-reduce to ILP first.
+    pub fn solve_with_ilp(&self) -> Result<SolveResult> {
+        let name = self.problem_name();
+        if name == "ILP" {
+            return solve_ilp(self.as_any());
+        }
+
+        let reduction_path = self
+            .find_ilp_reduction_path()
+            .ok_or_else(|| anyhow::anyhow!("No reduction path from {} to ILP", name))?;
+        let graph = ReductionGraph::new();
 
         let chain = graph
             .reduce_along_path(&reduction_path, self.as_any())

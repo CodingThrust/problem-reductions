@@ -431,6 +431,8 @@ Solve via explicit reduction:
 Input: a problem JSON from `pred create`, or a reduction bundle from `pred reduce`.
 When given a bundle, the target is solved and the solution is mapped back to the source.
 The ILP solver auto-reduces non-ILP problems before solving.
+Some problems (e.g., QUBO, SpinGlass, MaxCut, CircuitSAT, MinMaxMulticenter) do not have an ILP path yet.
+Use `--solver brute-force` for these, or inspect the instance first to see available solvers.
 
 ILP backend (default: HiGHS). To use a different backend:
   cargo install problemreductions-cli --features coin-cbc
