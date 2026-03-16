@@ -33,6 +33,11 @@ inventory::submit! {
 /// such that the elements of each subset appear as a contiguous block (in any
 /// order) within w.
 ///
+/// Configurations use `bound_k` positions. Values `0..alphabet_size-1`
+/// represent alphabet symbols, and the extra value `alphabet_size` marks
+/// unused positions beyond the end of a shorter string. Only trailing unused
+/// positions are valid.
+///
 /// This problem is NP-complete and arises in physical mapping of DNA and in
 /// consecutive arrangements of hypergraph vertices.
 ///
@@ -55,6 +60,12 @@ inventory::submit! {
 /// // w = [0, 4, 2, 5, 1, 3] is a valid solution
 /// assert!(solution.is_some());
 /// assert!(problem.evaluate(&solution.unwrap()));
+///
+/// // Shorter strings are encoded with trailing `unused = alphabet_size`.
+/// let shorter = ConsecutiveSets::new(3, vec![vec![0, 1]], 4);
+/// let unused = shorter.alphabet_size();
+/// assert!(shorter.evaluate(&[0, 1, unused, unused]));
+/// assert!(!shorter.evaluate(&[0, unused, 1, unused]));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsecutiveSets {
