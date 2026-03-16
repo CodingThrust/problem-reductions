@@ -646,6 +646,97 @@ class PipelineSkillContextTests(unittest.TestCase):
             },
         )
 
+    def test_build_review_pipeline_context_defaults_to_candidate_based_claim(self) -> None:
+        with mock.patch.object(
+            pipeline_skill_context.pipeline_board,
+            "claim_entry_from_entries",
+            return_value={
+                "item_id": "PVTI_11",
+                "number": 570,
+                "issue_number": 117,
+                "pr_number": 570,
+                "status": "Review pool",
+                "title": "[Model] GraphPartitioning",
+                "claimed": True,
+                "claimed_status": "Under review",
+            },
+        ) as claim_from_entries:
+            result = pipeline_skill_context.build_review_pipeline_context(
+                repo="CodingThrust/problem-reductions",
+                pr_number=None,
+                state_file=Path("/tmp/problemreductions-review-state.json"),
+                review_candidate_fetcher=lambda repo: [
+                    {
+                        "item_id": "PVTI_11",
+                        "issue_number": 117,
+                        "pr_number": 570,
+                        "status": "Review pool",
+                        "title": "[Model] GraphPartitioning",
+                        "eligibility": "eligible",
+                        "reason": "copilot reviewed",
+                    }
+                ],
+                pr_context_builder=lambda repo, pr_number: {"number": pr_number},
+                review_preparer=lambda repo, pr_number: {"ready": True},
+            )
+
+        claim_from_entries.assert_called_once()
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["selection"]["pr_number"], 570)
+
+    def test_build_review_pipeline_context_explicit_pr_defaults_to_candidate_based_claim(
+        self,
+    ) -> None:
+        with mock.patch.object(
+            pipeline_skill_context.pipeline_board,
+            "claim_entry_from_entries",
+            return_value={
+                "item_id": "PVTI_11",
+                "number": 570,
+                "issue_number": 117,
+                "pr_number": 570,
+                "status": "Review pool",
+                "title": "[Model] GraphPartitioning",
+                "claimed": True,
+                "claimed_status": "Under review",
+            },
+        ) as claim_from_entries:
+            result = pipeline_skill_context.build_review_pipeline_context(
+                repo="CodingThrust/problem-reductions",
+                pr_number=570,
+                state_file=Path("/tmp/problemreductions-review-state.json"),
+                review_candidate_fetcher=lambda repo: [
+                    {
+                        "item_id": "PVTI_11",
+                        "issue_number": 117,
+                        "pr_number": 570,
+                        "status": "Review pool",
+                        "title": "[Model] GraphPartitioning",
+                        "eligibility": "eligible",
+                        "reason": "copilot reviewed",
+                    }
+                ],
+                pr_context_builder=lambda repo, pr_number: {"number": pr_number},
+                review_preparer=lambda repo, pr_number: {"ready": True},
+            )
+
+        claim_from_entries.assert_called_once_with(
+            "review",
+            {
+                "PVTI_11": {
+                    "number": 570,
+                    "issue_number": 117,
+                    "pr_number": 570,
+                    "status": "Review pool",
+                    "title": "[Model] GraphPartitioning",
+                }
+            },
+            Path("/tmp/problemreductions-review-state.json"),
+            target_number=570,
+        )
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["selection"]["pr_number"], 570)
+
     def test_build_final_review_context_reports_empty_queue(self) -> None:
         result = pipeline_skill_context.build_final_review_context(
             repo="CodingThrust/problem-reductions",

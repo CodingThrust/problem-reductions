@@ -577,8 +577,8 @@ run-review:
 	PROMPT=$$(skill_prompt_with_context review-pipeline "$$slash_cmd" "$$codex_desc" "Review pipeline context" "$$selection"); \
 	run_agent "review-output.log" "$$PROMPT"
 
-# Poll Review pool column for Copilot-reviewed PRs and run-review when new ones appear
-# Checks every 10 minutes; triggers make run-review when the eligible PR set gains new members
+# Poll Review pool column for PRs and run-review when Copilot-reviewed ones appear
+# Auto-requests Copilot review on PRs that don't have one yet before each poll cycle
 run-review-forever:
 	@. scripts/make_helpers.sh; \
 	REPO=$$(gh repo view --json nameWithOwner --jq .nameWithOwner); \
