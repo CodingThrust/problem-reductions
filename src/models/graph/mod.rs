@@ -20,14 +20,20 @@
 //! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
+//! - [`LengthBoundedDisjointPaths`]: Length-bounded internally disjoint s-t paths
 //! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
+//! - [`SteinerTree`]: Minimum-weight tree spanning all required terminals
 //! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
+//! - [`DirectedTwoCommodityIntegralFlow`]: Directed two-commodity integral flow (satisfaction)
+//! - [`UndirectedTwoCommodityIntegralFlow`]: Two-commodity integral flow on undirected graphs
 
 pub(crate) mod biclique_cover;
+pub(crate) mod directed_two_commodity_integral_flow;
 pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_path;
 pub(crate) mod isomorphic_spanning_tree;
 pub(crate) mod kcoloring;
+pub(crate) mod length_bounded_disjoint_paths;
 pub(crate) mod max_cut;
 pub(crate) mod maximal_is;
 pub(crate) mod maximum_clique;
@@ -45,12 +51,15 @@ pub(crate) mod spin_glass;
 pub(crate) mod steiner_tree;
 pub(crate) mod subgraph_isomorphism;
 pub(crate) mod traveling_salesman;
+pub(crate) mod undirected_two_commodity_integral_flow;
 
 pub use biclique_cover::BicliqueCover;
+pub use directed_two_commodity_integral_flow::DirectedTwoCommodityIntegralFlow;
 pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_path::HamiltonianPath;
 pub use isomorphic_spanning_tree::IsomorphicSpanningTree;
 pub use kcoloring::KColoring;
+pub use length_bounded_disjoint_paths::LengthBoundedDisjointPaths;
 pub use max_cut::MaxCut;
 pub use maximal_is::MaximalIS;
 pub use maximum_clique::MaximumClique;
@@ -68,6 +77,7 @@ pub use spin_glass::SpinGlass;
 pub use steiner_tree::SteinerTree;
 pub use subgraph_isomorphism::SubgraphIsomorphism;
 pub use traveling_salesman::TravelingSalesman;
+pub use undirected_two_commodity_integral_flow::UndirectedTwoCommodityIntegralFlow;
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
@@ -78,6 +88,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(hamiltonian_path::canonical_model_example_specs());
     specs.extend(isomorphic_spanning_tree::canonical_model_example_specs());
     specs.extend(kcoloring::canonical_model_example_specs());
+    specs.extend(length_bounded_disjoint_paths::canonical_model_example_specs());
     specs.extend(minimum_dominating_set::canonical_model_example_specs());
     specs.extend(maximum_matching::canonical_model_example_specs());
     specs.extend(traveling_salesman::canonical_model_example_specs());
@@ -89,5 +100,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(biclique_cover::canonical_model_example_specs());
     specs.extend(partition_into_triangles::canonical_model_example_specs());
     specs.extend(steiner_tree::canonical_model_example_specs());
+    specs.extend(directed_two_commodity_integral_flow::canonical_model_example_specs());
+    specs.extend(undirected_two_commodity_integral_flow::canonical_model_example_specs());
     specs
 }

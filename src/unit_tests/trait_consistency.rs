@@ -82,6 +82,10 @@ fn test_all_problems_implement_trait_correctly() {
         &ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]),
         "ExactCoverBy3Sets",
     );
+    check_problem_trait(
+        &SetBasis::new(3, vec![vec![0, 1], vec![1, 2]], 2),
+        "SetBasis",
+    );
     check_problem_trait(&PaintShop::new(vec!["a", "a"]), "PaintShop");
     check_problem_trait(&BMF::new(vec![vec![true]], 1), "BMF");
     check_problem_trait(
@@ -107,6 +111,19 @@ fn test_all_problems_implement_trait_correctly() {
         "MinimumFeedbackArcSet",
     );
     check_problem_trait(
+        &DirectedTwoCommodityIntegralFlow::new(
+            DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+            vec![1; 3],
+            0,
+            3,
+            0,
+            3,
+            1,
+            1,
+        ),
+        "DirectedTwoCommodityIntegralFlow",
+    );
+    check_problem_trait(
         &MinimumSumMulticenter::new(
             SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
             vec![1i32; 3],
@@ -118,6 +135,29 @@ fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
         &HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
         "HamiltonianPath",
+    );
+    check_problem_trait(
+        &UndirectedTwoCommodityIntegralFlow::new(
+            SimpleGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]),
+            vec![1, 1, 2],
+            0,
+            3,
+            1,
+            3,
+            1,
+            1,
+        ),
+        "UndirectedTwoCommodityIntegralFlow",
+    );
+    check_problem_trait(
+        &LengthBoundedDisjointPaths::new(
+            SimpleGraph::new(4, vec![(0, 1), (1, 3), (0, 2), (2, 3)]),
+            0,
+            3,
+            2,
+            2,
+        ),
+        "LengthBoundedDisjointPaths",
     );
     check_problem_trait(
         &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 3),

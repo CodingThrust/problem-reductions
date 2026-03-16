@@ -67,6 +67,8 @@
   "MaxCut": [Max-Cut],
   "GraphPartitioning": [Graph Partitioning],
   "HamiltonianPath": [Hamiltonian Path],
+  "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
+  "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
   "KColoring": [$k$-Coloring],
   "MinimumDominatingSet": [Minimum Dominating Set],
@@ -75,6 +77,7 @@
   "MaximumClique": [Maximum Clique],
   "MaximumSetPacking": [Maximum Set Packing],
   "MinimumSetCovering": [Minimum Set Covering],
+  "SetBasis": [Set Basis],
   "SpinGlass": [Spin Glass],
   "QUBO": [QUBO],
   "ILP": [Integer Linear Programming],
@@ -106,6 +109,7 @@
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
   "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
+  "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -532,6 +536,67 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
 ) <fig:graph-partitioning>
 ]
 #{
+  let x = load-model-example("LengthBoundedDisjointPaths")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let s = x.instance.source
+  let t = x.instance.sink
+  let J = x.instance.num_paths_required
+  let K = x.instance.max_length
+  let chosen-verts = (0, 1, 2, 3, 6)
+  let chosen-edges = ((0, 1), (1, 6), (0, 2), (2, 3), (3, 6))
+  [
+    #problem-def("LengthBoundedDisjointPaths")[
+      Given an undirected graph $G = (V, E)$, distinct terminals $s, t in V$, and positive integers $J, K$, determine whether $G$ contains at least $J$ pairwise internally vertex-disjoint paths from $s$ to $t$, each using at most $K$ edges.
+    ][
+      Length-Bounded Disjoint Paths is the bounded-routing version of the classical disjoint-path problem, with applications in network routing and VLSI where multiple connections must fit simultaneously under quality-of-service limits. Garey & Johnson list it as ND41 and summarize the sharp threshold proved by Itai, Perl, and Shiloach: the problem is NP-complete for every fixed $K >= 5$, polynomial-time solvable for $K <= 4$, and becomes polynomial again when the length bound is removed entirely @garey1979. The implementation here uses the natural $J dot |V|$ binary membership encoding, so brute-force search over configurations runs in $O^*(2^(J dot |V|))$.
+
+      *Example.* Consider the graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, terminals $s = v_#s$, $t = v_#t$, $J = #J$, and $K = #K$. The two paths $P_1 = v_0 arrow v_1 arrow v_6$ and $P_2 = v_0 arrow v_2 arrow v_3 arrow v_6$ are both of length at most 3, and their internal vertex sets ${v_1}$ and ${v_2, v_3}$ are disjoint. Hence this instance is satisfying. The third branch $v_0 arrow v_4 arrow v_5 arrow v_6$ is available but unused, so the instance has multiple satisfying path-slot assignments.
+
+      #figure(
+        canvas(length: 1cm, {
+          let blue = graph-colors.at(0)
+          let gray = luma(180)
+          let verts = (
+            (0, 1),    // v0 = s
+            (1.3, 1.8),
+            (1.3, 1.0),
+            (2.6, 1.0),
+            (1.3, 0.2),
+            (2.6, 0.2),
+            (3.9, 1),  // v6 = t
+          )
+          for (u, v) in edges {
+            let selected = chosen-edges.any(e =>
+              (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u)
+            )
+            g-edge(verts.at(u), verts.at(v),
+              stroke: if selected { 2pt + blue } else { 1pt + gray })
+          }
+          for (k, pos) in verts.enumerate() {
+            let active = chosen-verts.contains(k)
+            g-node(pos, name: "v" + str(k),
+              fill: if active { blue } else { white },
+              label: if active {
+                text(fill: white)[
+                  #if k == s { $s$ }
+                  else if k == t { $t$ }
+                  else { $v_#k$ }
+                ]
+              } else [
+                #if k == s { $s$ }
+                else if k == t { $t$ }
+                else { $v_#k$ }
+              ])
+          }
+        }),
+        caption: [A satisfying Length-Bounded Disjoint Paths instance with $s = v_0$, $t = v_6$, $J = 2$, and $K = 3$. The highlighted paths are $v_0 arrow v_1 arrow v_6$ and $v_0 arrow v_2 arrow v_3 arrow v_6$; the lower branch through $v_4, v_5$ remains unused.],
+      ) <fig:length-bounded-disjoint-paths>
+    ]
+  ]
+}
+#{
   let x = load-model-example("HamiltonianPath")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
@@ -572,6 +637,57 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
       },
       caption: [Hamiltonian Path in a #{nv}-vertex graph. Blue edges show the path $#path.map(v => $v_#v$).join($arrow$)$.],
       ) <fig:hamiltonian-path>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("UndirectedTwoCommodityIntegralFlow")
+  let sample = x.samples.at(0)
+  let satisfying_count = x.optimal.len()
+  let source1 = x.instance.source_1
+  let source2 = x.instance.source_2
+  let sink1 = x.instance.sink_1
+  [
+    #problem-def("UndirectedTwoCommodityIntegralFlow")[
+      Given an undirected graph $G = (V, E)$, specified terminals $s_1, s_2, t_1, t_2 in V$, edge capacities $c: E -> ZZ^+$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2$ that orient each used edge for each commodity, respect the shared edge capacities, conserve flow at every vertex in $V backslash {s_1, s_2, t_1, t_2}$, and deliver at least $R_i$ units of net flow into $t_i$ for each commodity $i in {1, 2}$.
+    ][
+      Undirected Two-Commodity Integral Flow is the undirected counterpart of the classical two-commodity integral flow problem from Garey \& Johnson (ND39) @garey1979. Even, Itai, and Shamir proved that it remains NP-complete even when every capacity is 1, but becomes polynomial-time solvable when all capacities are even, giving a rare parity-driven complexity dichotomy @evenItaiShamir1976.
+
+      The implementation uses four variables per undirected edge ${u, v}$: $f_1(u, v)$, $f_1(v, u)$, $f_2(u, v)$, and $f_2(v, u)$. In the unit-capacity regime, each edge has exactly five meaningful local states: unused, commodity 1 in either direction, or commodity 2 in either direction, which matches the catalog bound $O(5^m)$ for $m = |E|$.
+
+      *Example.* Consider the graph with edges $(0, 2)$, $(1, 2)$, and $(2, 3)$, capacities $(1, 1, 2)$, sources $s_1 = v_#source1$, $s_2 = v_#source2$, and shared sink $t_1 = t_2 = v_#sink1$. The sample configuration in the fixture database sets $f_1(0, 2) = 1$, $f_2(1, 2) = 1$, and $f_1(2, 3) = f_2(2, 3) = 1$, with all reverse-direction variables zero. The only nonterminal vertex is $v_2$, where each commodity has one unit of inflow and one unit of outflow, so conservation holds. Vertex $v_3$ receives one unit of net inflow from each commodity, and the shared edge $(2,3)$ uses its full capacity 2. The fixture database contains exactly #satisfying_count satisfying configurations for this instance: the one shown below and the symmetric variant that swaps which commodity uses the two left edges.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let teal = rgb("#76b7b2")
+          let gray = luma(190)
+          let verts = ((0, 1.2), (0, -1.2), (2.0, 0), (4.0, 0))
+          let labels = (
+            [$s_1 = v_0$],
+            [$s_2 = v_1$],
+            [$v_2$],
+            [$t_1 = t_2 = v_3$],
+          )
+          let edges = ((0, 2), (1, 2), (2, 3))
+          for (u, v) in edges {
+            g-edge(verts.at(u), verts.at(v), stroke: 1pt + gray)
+          }
+          g-edge(verts.at(0), verts.at(2), stroke: 1.8pt + blue)
+          g-edge(verts.at(1), verts.at(2), stroke: (paint: teal, thickness: 1.8pt, dash: "dashed"))
+          g-edge(verts.at(2), verts.at(3), stroke: 1.8pt + blue)
+          g-edge(verts.at(2), verts.at(3), stroke: (paint: teal, thickness: 1.8pt, dash: "dashed"))
+          for (i, pos) in verts.enumerate() {
+            let fill = if i == 0 { blue } else if i == 1 { teal } else if i == 3 { rgb("#e15759") } else { white }
+            g-node(pos, name: "utcif-" + str(i), fill: fill, label: if i == 2 { labels.at(i) } else { text(fill: white)[#labels.at(i)] })
+          }
+          content((1.0, 0.95), text(8pt, fill: gray)[$c = 1$])
+          content((1.0, -0.95), text(8pt, fill: gray)[$c = 1$])
+          content((3.0, 0.35), text(8pt, fill: gray)[$c = 2$])
+        }),
+        caption: [Canonical shared-capacity YES instance for Undirected Two-Commodity Integral Flow. Solid blue carries commodity 1 and dashed teal carries commodity 2; both commodities share the edge $(v_2, v_3)$ of capacity 2.],
+      ) <fig:undirected-two-commodity-integral-flow>
     ]
   ]
 }
@@ -1104,6 +1220,43 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     Shown NP-complete by Karp (1972) via transformation from 3-Dimensional Matching @karp1972. X3C remains NP-complete even when no element appears in more than three subsets, but is solvable in polynomial time when no element appears in more than two subsets. It is one of the most widely used source problems for NP-completeness reductions in Garey & Johnson (A3 SP2), serving as the starting point for proving hardness of problems in scheduling, graph theory, set systems, coding, and number theory. The best known exact algorithm runs in $O^*(2^n)$ via inclusion-exclusion over the $n = |X|$ universe elements; a direct brute-force search over the $m$ subsets gives the weaker $O^*(2^m)$ bound.
 
     *Example.* Let $X = {1, 2, dots, #n}$ ($q = #q$) and $cal(C) = {S_1, dots, S_#m}$ with #subs.enumerate().map(((i, t)) => $S_#(i + 1) = #fmt-triple(t)$).join(", "). An exact cover is $cal(C)' = {#selected.map(i => $S_#(i + 1)$).join(", ")}$: #selected.map(i => [$S_#(i + 1)$ covers #fmt-triple(subs.at(i))]).join(", "), their union is $X$, and they are pairwise disjoint with $|cal(C)'| = #selected.len() = q$.
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SetBasis")
+  let coll = x.instance.collection
+  let m = coll.len()
+  let U-size = x.instance.universe_size
+  let k = x.instance.k
+  let sample = x.samples.at(0)
+  let sat-count = x.optimal.len()
+  let basis = range(k).map(i =>
+    range(U-size).filter(j => sample.config.at(i * U-size + j) == 1)
+  )
+  let fmt-set(s) = "${" + s.map(e => str(e + 1)).join(", ") + "}$"
+  [
+    #problem-def("SetBasis")[
+      Given finite set $S$, collection $cal(C)$ of subsets of $S$, and integer $k$, does there exist a family $cal(B) = {B_1, ..., B_k}$ with each $B_i subset.eq S$ such that for every $C in cal(C)$ there exists $cal(B)_C subset.eq cal(B)$ with $union.big_(B in cal(B)_C) B = C$?
+    ][
+    The Set Basis problem was shown NP-complete by Stockmeyer @stockmeyer1975setbasis and appears as SP7 in Garey & Johnson @garey1979. It asks for an exact union-based description of a family of sets, unlike Set Cover which only requires covering the underlying universe. Applications include data compression, database schema design, and Boolean function minimization. The library's decision encoding uses $k |S|$ membership bits, so brute-force over those bits gives an $O^*(2^(k |S|))$ exact algorithm#footnote[This is the direct search bound induced by the encoding implemented here; we are not aware of a faster general exact worst-case algorithm for this representation.].
+
+    *Example.* Let $S = {1, 2, 3, 4}$, $k = #k$, and $cal(C) = {#range(m).map(i => $C_#(i + 1)$).join(", ")}$ with #coll.enumerate().map(((i, s)) => $C_#(i + 1) = #fmt-set(s)$).join(", "). The sample basis from the issue is $cal(B) = {#range(k).map(i => $B_#(i + 1)$).join(", ")}$ with #basis.enumerate().map(((i, s)) => $B_#(i + 1) = #fmt-set(s)$).join(", "). Then $C_1 = B_1 union B_2$, $C_2 = B_2 union B_3$, $C_3 = B_1 union B_3$, and $C_4 = B_1 union B_2 union B_3$. There are #sat-count satisfying encodings in total: the singleton basis can be permuted in $3! = 6$ ways, and the three pair sets $C_1, C_2, C_3$ also form a basis with another six row permutations.
+
+    #figure(
+      canvas(length: 1cm, {
+        let elems = ((-0.9, 0.2), (0.0, -0.5), (0.9, 0.2), (1.8, -0.5))
+        for i in range(k) {
+          let positions = basis.at(i).map(e => elems.at(e))
+          sregion(positions, pad: 0.28, label: [$B_#(i + 1)$], ..sregion-selected)
+        }
+        for (idx, pos) in elems.enumerate() {
+          selem(pos, label: [#(idx + 1)], fill: if idx < 3 { black } else { luma(160) })
+        }
+      }),
+      caption: [Set Basis example: the singleton basis $cal(B) = {#range(k).map(i => $B_#(i + 1)$).join(", ")}$ reconstructs every target set in $cal(C)$; element $4$ is unused by the target family.],
+    ) <fig:set-basis>
     ]
   ]
 }
@@ -1973,6 +2126,53 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     ]
   ]
 }
+
+#problem-def("DirectedTwoCommodityIntegralFlow")[
+  Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) flow $f_i$ is conserved at every vertex except $s_1, s_2, t_1, t_2$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$ for $i in {1, 2}$.
+][
+  Directed Two-Commodity Integral Flow is a fundamental NP-complete problem in multicommodity flow theory, catalogued as ND38 in Garey & Johnson @garey1979. While single-commodity max-flow is solvable in polynomial time and fractional multicommodity flow reduces to linear programming, requiring integral flows with just two commodities makes the problem NP-complete.
+
+  NP-completeness was proved by Even, Itai, and Shamir via reduction from 3-SAT @even1976. The problem remains NP-complete even when all arc capacities are 1 and $R_1 = 1$. No sub-exponential exact algorithm is known; brute-force enumeration over $(C + 1)^(2|A|)$ flow assignments dominates, where $C = max_(a in A) c(a)$.#footnote[No algorithm improving on brute-force is known for Directed Two-Commodity Integral Flow.]
+
+  *Example.* Consider a directed graph with 6 vertices and 8 arcs (all with unit capacity), sources $s_1 = 0$, $s_2 = 1$, sinks $t_1 = 4$, $t_2 = 5$, and requirements $R_1 = R_2 = 1$. Commodity 1 routes along the path $0 -> 2 -> 4$ and commodity 2 along $1 -> 3 -> 5$, satisfying all capacity and conservation constraints.
+
+  #figure(
+    canvas(length: 1cm, {
+      import draw: *
+      let positions = (
+        (0, 1),    // 0 = s1
+        (0, -1),   // 1 = s2
+        (2, 1),    // 2
+        (2, -1),   // 3
+        (4, 1),    // 4 = t1
+        (4, -1),   // 5 = t2
+      )
+      let labels = ($s_1$, $s_2$, $2$, $3$, $t_1$, $t_2$)
+      let arcs = ((0, 2), (0, 3), (1, 2), (1, 3), (2, 4), (2, 5), (3, 4), (3, 5))
+      // Commodity 1 path: arcs 0 (0->2) and 4 (2->4)
+      let c1-arcs = (0, 4)
+      // Commodity 2 path: arcs 3 (1->3) and 7 (3->5)
+      let c2-arcs = (3, 7)
+
+      // Draw arcs
+      for (idx, (u, v)) in arcs.enumerate() {
+        let from = positions.at(u)
+        let to = positions.at(v)
+        let color = if c1-arcs.contains(idx) { blue } else if c2-arcs.contains(idx) { red } else { gray.darken(20%) }
+        let thickness = if c1-arcs.contains(idx) or c2-arcs.contains(idx) { 1.2pt } else { 0.6pt }
+        line(from, to, stroke: (paint: color, thickness: thickness), mark: (end: "straight", scale: 0.5))
+      }
+
+      // Draw vertices
+      for (k, pos) in positions.enumerate() {
+        let fill = if k == 0 or k == 4 { blue.lighten(70%) } else if k == 1 or k == 5 { red.lighten(70%) } else { white }
+        circle(pos, radius: 0.3, fill: fill, stroke: 0.6pt, name: str(k))
+        content(pos, text(8pt, labels.at(k)))
+      }
+    }),
+    caption: [Two-commodity flow: commodity 1 (blue, $s_1 -> 2 -> t_1$) and commodity 2 (red, $s_2 -> 3 -> t_2$).],
+  ) <fig:d2cif>
+]
 
 // Completeness check: warn about problem types in JSON but missing from paper
 #{

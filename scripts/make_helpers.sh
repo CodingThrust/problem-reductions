@@ -47,6 +47,7 @@ run_agent() {
         claude --dangerously-skip-permissions \
             --model "${CLAUDE_MODEL:-opus}" \
             --verbose \
+            --output-format text \
             --max-turns 500 \
             -p "$prompt" 2>&1 | tee "$output_file"
     else
@@ -61,7 +62,7 @@ run_agent() {
 # --- Project board ---
 
 # Detect the next eligible item and preserve retryable state in a queue.
-#   poll_project_items <mode> <state-file> [repo] [number] [format] [board-cache]
+#   poll_project_items <mode> <state-file> [repo] [number] [format] [board-cache] [board-cache-max-age]
 poll_project_items() {
     mode=$1
     state_file=$2
@@ -69,6 +70,7 @@ poll_project_items() {
     number=${4-}
     fmt=${5-text}
     board_cache=${6-}
+    board_cache_max_age=${7-}
 
     set -- scripts/pipeline_board.py next "$mode" "$state_file" --format "$fmt"
     if [ -n "$repo" ]; then
@@ -79,6 +81,13 @@ poll_project_items() {
     fi
     if [ -n "$board_cache" ]; then
         set -- "$@" --board-cache "$board_cache"
+    fi
+    if [ -n "$board_cache_max_age" ]; then
+        set -- "$@" --board-cache-max-age "$board_cache_max_age"
+    fi
+    # Filter blocked [Rule] issues whose model dependency is missing on main
+    if [ "$mode" = "ready" ]; then
+        set -- "$@" --repo-root .
     fi
     python3 "$@"
 }
@@ -115,6 +124,10 @@ claim_project_items() {
     fi
     if [ -n "$number" ]; then
         set -- "$@" --number "$number"
+    fi
+    # Filter blocked [Rule] issues whose model dependency is missing on main
+    if [ "$mode" = "ready" ]; then
+        set -- "$@" --repo-root .
     fi
     python3 "$@"
 }
@@ -242,21 +255,37 @@ watch_and_dispatch() {
     label=$3
     repo=${4-}
     interval=${POLL_INTERVAL:-600}
+    cache_threshold=${CACHE_THRESHOLD:-5}
 
     state_file=${STATE_FILE:-/tmp/problemreductions-${mode}-forever-state.json}
     board_cache="/tmp/problemreductions-${mode}-forever-board-cache.json"
 
-    echo "Watching for new ${label} (polling every $((interval / 60))m)..."
+    echo "Watching for new ${label} (polling every $((interval / 60))m, cache threshold ${cache_threshold})..."
     while true; do
-        # Invalidate board cache at the start of each iteration
-        rm -f "$board_cache"
+        # Count pending items in the state file
+        pending_count=$(python3 -c "
+import json, sys
+try:
+    state = json.load(open(sys.argv[1]))
+    print(len(state.get('pending', [])))
+except (FileNotFoundError, json.JSONDecodeError, ValueError):
+    print(0)
+" "$state_file" 2>/dev/null || echo 0)
 
-        # For review mode, request Copilot reviews on PRs that don't have one yet
-        if [ "$mode" = "review" ] && [ -n "$repo" ]; then
-            request_copilot_reviews "$repo" "$board_cache"
+        # Always fetch a reasonably fresh board to avoid dispatching items
+        # that moved out of the target column since the last fetch.
+        board_max_age=$interval
+        if [ "$pending_count" -lt "$cache_threshold" ]; then
+            # Running low — invalidate cache to discover new items immediately
+            rm -f "$board_cache"
+
+            # For review mode, request Copilot reviews on PRs that don't have one yet
+            if [ "$mode" = "review" ] && [ -n "$repo" ]; then
+                request_copilot_reviews "$repo" "$board_cache"
+            fi
         fi
 
-        next_item=$(poll_project_items "$mode" "$state_file" "$repo" "" text "$board_cache")
+        next_item=$(poll_project_items "$mode" "$state_file" "$repo" "" text "$board_cache" "$board_max_age")
         status=$?
         if [ "$status" -eq 0 ]; then
             item_id=$(printf '%s\n' "$next_item" | cut -f1)

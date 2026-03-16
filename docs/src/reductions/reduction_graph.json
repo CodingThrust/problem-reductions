@@ -5,17 +5,6 @@
       "variant": {},
       "category": "algebraic",
       "doc_path": "models/algebraic/struct.BMF.html",
-      "complexity": "2^(rows * rank + r
-Exported to: docs/src/reductions/reduction_graph.json
-
-JSON content:
-{
-  "nodes": [
-    {
-      "name": "BMF",
-      "variant": {},
-      "category": "algebraic",
-      "doc_path": "models/algebraic/struct.BMF.html",
       "complexity": "2^(rows * rank + rank * cols)"
     },
     {
@@ -74,6 +63,13 @@ JSON content:
       "category": "algebraic",
       "doc_path": "models/algebraic/struct.ConsecutiveBlockMinimization.html",
       "complexity": "factorial(num_cols) * num_rows * num_cols"
+    },
+    {
+      "name": "DirectedTwoCommodityIntegralFlow",
+      "variant": {},
+      "category": "graph",
+      "doc_path": "models/graph/struct.DirectedTwoCommodityIntegralFlow.html",
+      "complexity": "(max_capacity + 1)^(2 * num_arcs)"
     },
     {
       "name": "ExactCoverBy3Sets",
@@ -222,6 +218,15 @@ JSON content:
       "category": "misc",
       "doc_path": "models/misc/struct.Knapsack.html",
       "complexity": "2^(num_items / 2)"
+    },
+    {
+      "name": "LengthBoundedDisjointPaths",
+      "variant": {
+        "graph": "SimpleGraph"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.LengthBoundedDisjointPaths.html",
+      "complexity": "2^(num_paths_required * num_vertices)"
     },
     {
       "name": "LongestCommonSubsequence",
@@ -483,6 +488,13 @@ JSON content:
       "complexity": "2^num_variables"
     },
     {
+      "name": "SetBasis",
+      "variant": {},
+      "category": "set",
+      "doc_path": "models/set/struct.SetBasis.html",
+      "complexity": "2^(basis_size * universe_size)"
+    },
+    {
       "name": "ShortestCommonSupersequence",
       "variant": {},
       "category": "misc",
@@ -552,12 +564,19 @@ JSON content:
       "category": "graph",
       "doc_path": "models/graph/struct.TravelingSalesman.html",
       "complexity": "2^num_vertices"
+    },
+    {
+      "name": "UndirectedTwoCommodityIntegralFlow",
+      "variant": {},
+      "category": "graph",
+      "doc_path": "models/graph/struct.UndirectedTwoCommodityIntegralFlow.html",
+      "complexity": "5^num_edges"
     }
   ],
   "edges": [
     {
       "source": 3,
-      "target": 13,
+      "target": 14,
       "overhead": [
         {
           "field": "num_vars",
@@ -572,7 +591,7 @@ JSON content:
     },
     {
       "source": 4,
-      "target": 13,
+      "target": 14,
       "overhead": [
         {
           "field": "num_vars",
@@ -587,7 +606,7 @@ JSON content:
     },
     {
       "source": 4,
-      "target": 55,
+      "target": 58,
       "overhead": [
         {
           "field": "num_spins",
@@ -601,7 +620,7 @@ JSON content:
       "doc_path": "rules/circuit_spinglass/index.html"
     },
     {
-      "source": 9,
+      "source": 10,
       "target": 4,
       "overhead": [
         {
@@ -616,8 +635,8 @@ JSON content:
       "doc_path": "rules/factoring_circuit/index.html"
     },
     {
-      "source": 9,
-      "target": 14,
+      "source": 10,
+      "target": 15,
       "overhead": [
         {
           "field": "num_vars",
@@ -631,8 +650,8 @@ JSON content:
       "doc_path": "rules/factoring_ilp/index.html"
     },
     {
-      "source": 13,
-      "target": 14,
+      "source": 14,
+      "target": 15,
       "overhead": [
         {
           "field": "num_vars",
@@ -646,8 +665,8 @@ JSON content:
       "doc_path": "rules/ilp_bool_ilp_i32/index.html"
     },
     {
-      "source": 13,
-      "target": 50,
+      "source": 14,
+      "target": 52,
       "overhead": [
         {
           "field": "num_vars",
@@ -657,8 +676,8 @@ JSON content:
       "doc_path": "rules/ilp_qubo/index.html"
     },
     {
-      "source": 17,
-      "target": 20,
+      "source": 18,
+      "target": 21,
       "overhead": [
         {
           "field": "num_vertices",
@@ -672,8 +691,8 @@ JSON content:
       "doc_path": "rules/kcoloring_casts/index.html"
     },
     {
-      "source": 20,
-      "target": 13,
+      "source": 21,
+      "target": 14,
       "overhead": [
         {
           "field": "num_vars",
@@ -687,8 +706,8 @@ JSON content:
       "doc_path": "rules/coloring_ilp/index.html"
     },
     {
-      "source": 20,
-      "target": 50,
+      "source": 21,
+      "target": 52,
       "overhead": [
         {
           "field": "num_vars",
@@ -698,8 +717,8 @@ JSON content:
       "doc_path": "rules/coloring_qubo/index.html"
     },
     {
-      "source": 21,
-      "target": 23,
+      "source": 22,
+      "target": 24,
       "overhead": [
         {
           "field": "num_vars",
@@ -713,8 +732,8 @@ JSON content:
       "doc_path": "rules/ksatisfiability_casts/index.html"
     },
     {
-      "source": 21,
-      "target": 50,
+      "source": 22,
+      "target": 52,
       "overhead": [
         {
           "field": "num_vars",
@@ -724,8 +743,8 @@ JSON content:
       "doc_path": "rules/ksatisfiability_qubo/index.html"
     },
     {
-      "source": 22,
-      "target": 23,
+      "source": 23,
+      "target": 24,
       "overhead": [
         {
           "field": "num_vars",
@@ -739,8 +758,8 @@ JSON content:
       "doc_path": "rules/ksatisfiability_casts/index.html"
     },
     {
-      "source": 22,
-      "target": 50,
+      "source": 23,
+      "target": 52,
       "overhead": [
         {
           "field": "num_vars",
@@ -750,8 +769,8 @@ JSON content:
       "doc_path": "rules/ksatisfiability_qubo/index.html"
     },
     {
-      "source": 22,
-      "target": 59,
+      "source": 23,
+      "target": 62,
       "overhead": [
         {
           "field": "num_elements",
@@ -761,8 +780,8 @@ JSON content:
       "doc_path": "rules/ksatisfiability_subsetsum/index.html"
     },
     {
-      "source": 23,
-      "target": 52,
+      "source": 24,
+      "target": 54,
       "overhead": [
         {
           "field": "num_clauses",
@@ -780,8 +799,8 @@ JSON content:
       "doc_path": "rules/sat_ksat/index.html"
     },
     {
-      "source": 24,
-      "target": 50,
+      "source": 25,
+      "target": 52,
       "overhead": [
         {
           "field": "num_vars",
@@ -791,8 +810,8 @@ JSON content:
       "doc_path": "rules/knapsack_qubo/index.html"
     },
     {
-      "source": 25,
-      "target": 13,
+      "source": 27,
+      "target": 14,
       "overhead": [
         {
           "field": "num_vars",
@@ -806,8 +825,8 @@ JSON content:
       "doc_path": "rules/longestcommonsubsequence_ilp/index.html"
     },
     {
-      "source": 26,
-      "target": 55,
+      "source": 28,
+      "target": 58,
       "overhead": [
         {
           "field": "num_spins",
@@ -821,8 +840,8 @@ JSON content:
       "doc_path": "rules/spinglass_maxcut/index.html"
     },
     {
-      "source": 28,
-      "target": 13,
+      "source": 30,
+      "target": 14,
       "overhead": [
         {
           "field": "num_vars",
@@ -836,8 +855,8 @@ JSON content:
       "doc_path": "rules/maximumclique_ilp/index.html"
     },
     {
-      "source": 28,
-      "target": 32,
+      "source": 30,
+      "target": 34,
       "overhead": [
         {
           "field": "num_vertices",
@@ -851,8 +870,8 @@ JSON content:
       "doc_path": "rules/maximumclique_maximumindependentset/index.html"
     },
     {
-      "source": 29,
-      "target": 30,
+      "source": 31,
+      "target": 32,
       "overhead": [
         {
           "field": "num_vertices",
@@ -866,7 +885,52 @@ JSON content:
       "doc_path": "rules/maximumindependentset_casts/index.html"
     },
     {
-      "source": 29,
+      "source": 31,
+      "target": 36,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_casts/index.html"
+    },
+    {
+      "source": 32,
+      "target": 37,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_casts/index.html"
+    },
+    {
+      "source": 33,
+      "target": 31,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices * num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_vertices * num_vertices"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_gridgraph/index.html"
+    },
+    {
+      "source": 33,
       "target": 34,
       "overhead": [
         {
@@ -881,53 +945,8 @@ JSON content:
       "doc_path": "rules/maximumindependentset_casts/index.html"
     },
     {
-      "source": 30,
+      "source": 33,
       "target": 35,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_casts/index.html"
-    },
-    {
-      "source": 31,
-      "target": 29,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices * num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_vertices * num_vertices"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_gridgraph/index.html"
-    },
-    {
-      "source": 31,
-      "target": 32,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_casts/index.html"
-    },
-    {
-      "source": 31,
-      "target": 33,
       "overhead": [
         {
           "field": "num_vertices",
@@ -941,8 +960,8 @@ JSON content:
       "doc_path": "rules/maximumindependentset_triangular/index.html"
     },
     {
-      "source": 31,
-      "target": 37,
+      "source": 33,
+      "target": 39,
       "overhead": [
         {
           "field": "num_sets",
@@ -956,8 +975,8 @@ JSON content:
       "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
     },
     {
-      "source": 32,
-      "target": 28,
+      "source": 34,
+      "target": 30,
       "overhead": [
         {
           "field": "num_vertices",
@@ -971,8 +990,8 @@ JSON content:
       "doc_path": "rules/maximumindependentset_maximumclique/index.html"
     },
     {
-      "source": 32,
-      "target": 39,
+      "source": 34,
+      "target": 41,
       "overhead": [
         {
           "field": "num_sets",
@@ -986,8 +1005,8 @@ JSON content:
       "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
     },
     {
-      "source": 32,
-      "target": 46,
+      "source": 34,
+      "target": 48,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1001,53 +1020,8 @@ JSON content:
       "doc_path": "rules/minimumvertexcover_maximumindependentset/index.html"
     },
     {
-      "source": 33,
-      "target": 35,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_casts/index.html"
-    },
-    {
-      "source": 34,
-      "target": 31,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_casts/index.html"
-    },
-    {
-      "source": 34,
-      "target": 35,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_casts/index.html"
-    },
-    {
       "source": 35,
-      "target": 32,
+      "target": 37,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1062,7 +1036,52 @@ JSON content:
     },
     {
       "source": 36,
-      "target": 13,
+      "target": 33,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_casts/index.html"
+    },
+    {
+      "source": 36,
+      "target": 37,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_casts/index.html"
+    },
+    {
+      "source": 37,
+      "target": 34,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_casts/index.html"
+    },
+    {
+      "source": 38,
+      "target": 14,
       "overhead": [
         {
           "field": "num_vars",
@@ -1076,8 +1095,8 @@ JSON content:
       "doc_path": "rules/maximummatching_ilp/index.html"
     },
     {
-      "source": 36,
-      "target": 39,
+      "source": 38,
+      "target": 41,
       "overhead": [
         {
           "field": "num_sets",
@@ -1091,64 +1110,8 @@ JSON content:
       "doc_path": "rules/maximummatching_maximumsetpacking/index.html"
     },
     {
-      "source": 37,
-      "target": 31,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_sets"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_sets^2"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
-    },
-    {
-      "source": 37,
-      "target": 39,
-      "overhead": [
-        {
-          "field": "num_sets",
-          "formula": "num_sets"
-        },
-        {
-          "field": "universe_size",
-          "formula": "universe_size"
-        }
-      ],
-      "doc_path": "rules/maximumsetpacking_casts/index.html"
-    },
-    {
-      "source": 38,
-      "target": 50,
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_sets"
-        }
-      ],
-      "doc_path": "rules/maximumsetpacking_qubo/index.html"
-    },
-    {
       "source": 39,
-      "target": 13,
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_sets"
-        },
-        {
-          "field": "num_constraints",
-          "formula": "universe_size"
-        }
-      ],
-      "doc_path": "rules/maximumsetpacking_ilp/index.html"
-    },
-    {
-      "source": 39,
-      "target": 32,
+      "target": 33,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1163,7 +1126,7 @@ JSON content:
     },
     {
       "source": 39,
-      "target": 38,
+      "target": 41,
       "overhead": [
         {
           "field": "num_sets",
@@ -1178,7 +1141,63 @@ JSON content:
     },
     {
       "source": 40,
-      "target": 13,
+      "target": 52,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_sets"
+        }
+      ],
+      "doc_path": "rules/maximumsetpacking_qubo/index.html"
+    },
+    {
+      "source": 41,
+      "target": 14,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_sets"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "universe_size"
+        }
+      ],
+      "doc_path": "rules/maximumsetpacking_ilp/index.html"
+    },
+    {
+      "source": 41,
+      "target": 34,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_sets"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_sets^2"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
+    },
+    {
+      "source": 41,
+      "target": 40,
+      "overhead": [
+        {
+          "field": "num_sets",
+          "formula": "num_sets"
+        },
+        {
+          "field": "universe_size",
+          "formula": "universe_size"
+        }
+      ],
+      "doc_path": "rules/maximumsetpacking_casts/index.html"
+    },
+    {
+      "source": 42,
+      "target": 14,
       "overhead": [
         {
           "field": "num_vars",
@@ -1192,8 +1211,8 @@ JSON content:
       "doc_path": "rules/minimumdominatingset_ilp/index.html"
     },
     {
-      "source": 43,
-      "target": 13,
+      "source": 45,
+      "target": 14,
       "overhead": [
         {
           "field": "num_vars",
@@ -1207,8 +1226,8 @@ JSON content:
       "doc_path": "rules/minimumsetcovering_ilp/index.html"
     },
     {
-      "source": 46,
-      "target": 32,
+      "source": 48,
+      "target": 34,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1222,8 +1241,8 @@ JSON content:
       "doc_path": "rules/minimumvertexcover_maximumindependentset/index.html"
     },
     {
-      "source": 46,
-      "target": 43,
+      "source": 48,
+      "target": 45,
       "overhead": [
         {
           "field": "num_sets",
@@ -1237,8 +1256,8 @@ JSON content:
       "doc_path": "rules/minimumvertexcover_minimumsetcovering/index.html"
     },
     {
-      "source": 50,
-      "target": 13,
+      "source": 52,
+      "target": 14,
       "overhead": [
         {
           "field": "num_vars",
@@ -1252,8 +1271,8 @@ JSON content:
       "doc_path": "rules/qubo_ilp/index.html"
     },
     {
-      "source": 50,
-      "target": 54,
+      "source": 52,
+      "target": 57,
       "overhead": [
         {
           "field": "num_spins",
@@ -1263,7 +1282,7 @@ JSON content:
       "doc_path": "rules/spinglass_qubo/index.html"
     },
     {
-      "source": 52,
+      "source": 54,
       "target": 4,
       "overhead": [
         {
@@ -1278,8 +1297,8 @@ JSON content:
       "doc_path": "rules/sat_circuitsat/index.html"
     },
     {
-      "source": 52,
-      "target": 17,
+      "source": 54,
+      "target": 18,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1293,8 +1312,8 @@ JSON content:
       "doc_path": "rules/sat_coloring/index.html"
     },
     {
-      "source": 52,
-      "target": 22,
+      "source": 54,
+      "target": 23,
       "overhead": [
         {
           "field": "num_clauses",
@@ -1308,8 +1327,8 @@ JSON content:
       "doc_path": "rules/sat_ksat/index.html"
     },
     {
-      "source": 52,
-      "target": 31,
+      "source": 54,
+      "target": 33,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1323,8 +1342,8 @@ JSON content:
       "doc_path": "rules/sat_maximumindependentset/index.html"
     },
     {
-      "source": 52,
-      "target": 40,
+      "source": 54,
+      "target": 42,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1338,8 +1357,8 @@ JSON content:
       "doc_path": "rules/sat_minimumdominatingset/index.html"
     },
     {
-      "source": 54,
-      "target": 50,
+      "source": 57,
+      "target": 52,
       "overhead": [
         {
           "field": "num_vars",
@@ -1349,8 +1368,8 @@ JSON content:
       "doc_path": "rules/spinglass_qubo/index.html"
     },
     {
-      "source": 55,
-      "target": 26,
+      "source": 58,
+      "target": 28,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1364,8 +1383,8 @@ JSON content:
       "doc_path": "rules/spinglass_maxcut/index.html"
     },
     {
-      "source": 55,
-      "target": 54,
+      "source": 58,
+      "target": 57,
       "overhead": [
         {
           "field": "num_spins",
@@ -1379,8 +1398,8 @@ JSON content:
       "doc_path": "rules/spinglass_casts/index.html"
     },
     {
-      "source": 60,
-      "target": 13,
+      "source": 63,
+      "target": 14,
       "overhead": [
         {
           "field": "num_vars",
@@ -1394,8 +1413,8 @@ JSON content:
       "doc_path": "rules/travelingsalesman_ilp/index.html"
     },
     {
-      "source": 60,
-      "target": 50,
+      "source": 63,
+      "target": 52,
       "overhead": [
         {
           "field": "num_vars",
