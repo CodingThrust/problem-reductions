@@ -165,7 +165,8 @@ impl MultipleCopyFileAllocation {
 
     /// Check whether a configuration satisfies the bound.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.total_cost(config).is_some_and(|cost| cost <= self.bound)
+        self.total_cost(config)
+            .is_some_and(|cost| cost <= self.bound)
     }
 }
 
@@ -193,12 +194,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "multiple_copy_file_allocation",
         build: || {
-            let problem = MultipleCopyFileAllocation::new(
-                SimpleGraph::cycle(6),
-                vec![10; 6],
-                vec![1; 6],
-                33,
-            );
+            let problem =
+                MultipleCopyFileAllocation::new(SimpleGraph::cycle(6), vec![10; 6], vec![1; 6], 33);
             crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 1, 0, 1, 0, 1]])
         },
     }]
