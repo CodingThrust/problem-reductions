@@ -613,6 +613,82 @@ fn test_create_x3c_rejects_duplicate_subset_elements() {
 }
 
 #[test]
+fn test_create_set_basis() {
+    let output_file = std::env::temp_dir().join("pred_test_create_set_basis.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SetBasis",
+            "--universe",
+            "4",
+            "--sets",
+            "0,1;1,2;0,2;0,1,2",
+            "--k",
+            "3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SetBasis");
+    assert_eq!(json["data"]["universe_size"], 4);
+    assert_eq!(json["data"]["k"], 3);
+    assert_eq!(json["data"]["collection"][0], serde_json::json!([0, 1]));
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_set_basis_requires_k() {
+    let output = pred()
+        .args([
+            "create",
+            "SetBasis",
+            "--universe",
+            "4",
+            "--sets",
+            "0,1;1,2;0,2;0,1,2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("SetBasis requires --k"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_set_basis_rejects_out_of_range_elements() {
+    let output = pred()
+        .args([
+            "create",
+            "SetBasis",
+            "--universe",
+            "4",
+            "--sets",
+            "0,4",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("outside universe of size 4"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_then_evaluate() {
     // Create a problem
     let problem_file = std::env::temp_dir().join("pred_test_create_eval.json");
@@ -1480,6 +1556,33 @@ fn test_create_no_flags_shows_help() {
     assert!(
         stderr.contains("Example:"),
         "expected 'Example:' in help output, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_set_basis_no_flags_uses_actual_cli_flag_names() {
+    let output = pred().args(["create", "SetBasis"]).output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--universe"),
+        "expected '--universe' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--sets"),
+        "expected '--sets' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--k"),
+        "expected '--k' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--universe-size"),
+        "help should not advertise schema field names: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--collection"),
+        "help should not advertise schema field names: {stderr}"
     );
 }
 

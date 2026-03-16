@@ -474,6 +474,13 @@
       "complexity": "2^num_variables"
     },
     {
+      "name": "SetBasis",
+      "variant": {},
+      "category": "set",
+      "doc_path": "models/set/struct.SetBasis.html",
+      "complexity": "2^(basis_size * universe_size)"
+    },
+    {
       "name": "ShortestCommonSupersequence",
       "variant": {},
       "category": "misc",
@@ -578,7 +585,7 @@
     },
     {
       "source": 4,
-      "target": 55,
+      "target": 56,
       "overhead": [
         {
           "field": "num_spins",
@@ -742,7 +749,7 @@
     },
     {
       "source": 21,
-      "target": 59,
+      "target": 60,
       "overhead": [
         {
           "field": "num_elements",
@@ -798,7 +805,7 @@
     },
     {
       "source": 26,
-      "target": 55,
+      "target": 56,
       "overhead": [
         {
           "field": "num_spins",
@@ -1244,7 +1251,7 @@
     },
     {
       "source": 50,
-      "target": 54,
+      "target": 55,
       "overhead": [
         {
           "field": "num_spins",
@@ -1329,7 +1336,7 @@
       "doc_path": "rules/sat_minimumdominatingset/index.html"
     },
     {
-      "source": 54,
+      "source": 55,
       "target": 50,
       "overhead": [
         {
@@ -1340,7 +1347,7 @@
       "doc_path": "rules/spinglass_qubo/index.html"
     },
     {
-      "source": 55,
+      "source": 56,
       "target": 26,
       "overhead": [
         {
@@ -1355,8 +1362,8 @@
       "doc_path": "rules/spinglass_maxcut/index.html"
     },
     {
-      "source": 55,
-      "target": 54,
+      "source": 56,
+      "target": 55,
       "overhead": [
         {
           "field": "num_spins",
@@ -1370,7 +1377,7 @@
       "doc_path": "rules/spinglass_casts/index.html"
     },
     {
-      "source": 60,
+      "source": 61,
       "target": 12,
       "overhead": [
         {
@@ -1385,7 +1392,7 @@
       "doc_path": "rules/travelingsalesman_ilp/index.html"
     },
     {
-      "source": 60,
+      "source": 61,
       "target": 50,
       "overhead": [
         {
