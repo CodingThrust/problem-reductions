@@ -264,24 +264,35 @@ def ready_entries(board_data: dict) -> dict[str, dict]:
     return entries
 
 
-def status_items(board_data: dict, status_name: str) -> list[dict]:
+def status_items(
+    board_data: dict,
+    status_name: str,
+    *,
+    content_types: set[str] | None = None,
+) -> list[dict]:
+    if content_types is None:
+        content_types = {"Issue"}
     items = []
     for item in board_data.get("items", []):
         if item.get("status") != status_name:
             continue
 
         content = item.get("content") or {}
-        if content.get("type") != "Issue":
+        item_type = content.get("type")
+        if item_type not in content_types:
             continue
 
         number = content.get("number")
         if number is None:
             continue
 
+        issue_number = int(number) if item_type == "Issue" else None
+        pr_number = int(number) if item_type == "PullRequest" else None
         entry = build_entry(
             item,
             number=int(number),
-            issue_number=int(number),
+            issue_number=issue_number,
+            pr_number=pr_number,
         )
         entry["item_id"] = item_identity(item)
         items.append(entry)
@@ -1017,7 +1028,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     ack_parser.add_argument("item_id")
 
     list_parser = subparsers.add_parser("list")
-    list_parser.add_argument("mode", choices=["ready", "in-progress", "review"])
+    list_parser.add_argument("mode", choices=["ready", "in-progress", "review-pool", "review"])
     list_parser.add_argument("--repo")
     list_parser.add_argument("--owner", default="CodingThrust")
     list_parser.add_argument("--project-number", type=int, default=8)
@@ -1080,6 +1091,13 @@ def main(argv: list[str] | None = None) -> int:
             return print_candidate_list(args.mode, items, fmt=args.format)
         if args.mode == "in-progress":
             items = status_items(board_data, STATUS_IN_PROGRESS)
+            return print_candidate_list(args.mode, items, fmt=args.format)
+        if args.mode == "review-pool":
+            items = status_items(
+                board_data,
+                STATUS_REVIEW_POOL,
+                content_types={"Issue", "PullRequest"},
+            )
             return print_candidate_list(args.mode, items, fmt=args.format)
         if args.mode == "review":
             items = review_candidates(

@@ -259,6 +259,51 @@ def prepare_review(
     }
 
 
+def worktree_for_issue(
+    *,
+    repo: str,
+    issue_number: int,
+    slug: str,
+    base_ref: str = "origin/main",
+    repo_root: str | Path | None = None,
+) -> dict:
+    """Create or checkout a worktree for an issue.
+
+    If the issue already has an open PR, checkout the PR branch.
+    Otherwise, create a fresh worktree from base_ref.
+    """
+    import pipeline_checks
+
+    existing_prs = pipeline_checks.fetch_existing_prs(repo, issue_number)
+    if existing_prs:
+        pr = existing_prs[0]
+        pr_number = int(pr["number"])
+        result = checkout_pr_worktree(
+            repo=repo,
+            pr_number=pr_number,
+            repo_root=repo_root,
+        )
+        return {
+            **result,
+            "action": "resume-pr",
+            "issue_number": issue_number,
+            "pr_number": pr_number,
+        }
+
+    result = create_issue_worktree(
+        issue_number=issue_number,
+        slug=slug,
+        base_ref=base_ref,
+        repo_root=repo_root,
+    )
+    return {
+        **result,
+        "action": "create-worktree",
+        "issue_number": issue_number,
+        "pr_number": None,
+    }
+
+
 def cleanup_worktree(*, worktree: str | Path) -> dict:
     worktree = Path(worktree).resolve()
     repo_root = repo_root_from(worktree)
@@ -302,6 +347,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     checkout_pr.add_argument("--repo-root")
     checkout_pr.add_argument("--format", choices=["json", "text"], default="json")
 
+    for_issue = subparsers.add_parser("worktree-for-issue")
+    for_issue.add_argument("--repo", required=True)
+    for_issue.add_argument("--issue", required=True, type=int)
+    for_issue.add_argument("--slug", required=True)
+    for_issue.add_argument("--base", default="origin/main")
+    for_issue.add_argument("--repo-root")
+    for_issue.add_argument("--format", choices=["json", "text"], default="json")
+
     prepare_review = subparsers.add_parser("prepare-review")
     prepare_review.add_argument("--repo", required=True)
     prepare_review.add_argument("--pr", required=True, type=int)
@@ -337,6 +390,19 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "prepare-issue-branch":
         emit_result(
             prepare_issue_branch(
+                issue_number=args.issue,
+                slug=args.slug,
+                base_ref=args.base,
+                repo_root=args.repo_root,
+            ),
+            args.format,
+        )
+        return 0
+
+    if args.command == "worktree-for-issue":
+        emit_result(
+            worktree_for_issue(
+                repo=args.repo,
                 issue_number=args.issue,
                 slug=args.slug,
                 base_ref=args.base,

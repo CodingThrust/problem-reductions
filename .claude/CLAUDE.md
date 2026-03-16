@@ -62,8 +62,8 @@ make run-pipeline N=97 # Process a specific issue from the project board
 make run-pipeline-forever # Poll Ready column, run-pipeline when new issues appear
 make run-review    # Pick next PR from Review pool column, fix Copilot comments, fix CI, run agentic tests
 make run-review N=570 # Process a specific PR from the Review pool column
-make run-review-forever # Poll Review pool for Copilot-reviewed PRs, run-review when new ones appear
-make copilot-review # Request Copilot code review on current PR
+make run-review-forever # Poll Review pool, auto-request Copilot reviews, dispatch run-review when reviewed
+make copilot-review # Request Copilot code review on current PR (requires: gh extension install ChrisCarini/gh-copilot-review)
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 # Set RUNNER=claude to use Claude instead of Codex (default: codex)
 # Default Codex model: CODEX_MODEL=gpt-5.4

@@ -98,14 +98,27 @@ Read the merge result from the report's `Merge Prep` section.
   2. Compare the current skill versions on main vs the PR branch to understand which patterns are current.
   3. Resolve conflicts (prefer main's patterns for skill-generated code, the PR branch for problem-specific logic, main for regenerated artifacts like JSON).
   4. Stage resolved files, commit, and push.
-- If the report says the merge status is `conflicted` and the overlap is otherwise too complex to resolve automatically:
+- If the report says the merge status is `conflicted` and there are too many conflicts (>3 files, or conflicts in core implementation files beyond just JSON/skill artifacts):
   1. Abort the merge: `git merge --abort` if a merge is still in progress
-  2. Move the project item back to `Review pool`:
+  2. Post a comment on the PR explaining the situation:
      ```bash
-     python3 scripts/pipeline_board.py move <ITEM_ID> review-pool
+     gh pr comment <PR_NUMBER> --body "This PR has significant merge conflicts with main ($(N) conflicting files). Moving back to Ready for rework.
+
+     Conflicting files:
+     $(list of files)
+
+     The PR needs to be rebased on current main and conflicts resolved before it can proceed through the review pipeline."
      ```
-  3. Report: `PR #N has complex merge conflicts with main — needs manual resolution.`
-  4. STOP processing this PR.
+  3. Close the PR:
+     ```bash
+     gh pr close <PR_NUMBER>
+     ```
+  4. Move the project item back to `Ready`:
+     ```bash
+     python3 scripts/pipeline_board.py move <ITEM_ID> ready
+     ```
+  5. Report: `PR #N has too many merge conflicts — closed and moved back to Ready for rework.`
+  6. STOP processing this PR.
 
 ### 2. Fix Copilot Review Comments
 
@@ -288,7 +301,7 @@ Completed: 2/2 | All moved to Final review
 | PR not in Review pool column | Verify status before processing; STOP if not Review pool |
 | Processing a closed PR from a stale issue card | Require PR state `OPEN`; skip stale closed PRs |
 | Guessing on an issue card with multiple linked repo PRs | Stop, show options to the user, and recommend the most likely correct OPEN PR |
-| Picking a PR before Copilot has reviewed | Check `pulls/$PR/reviews` for copilot-pull-request-reviewer[bot]; skip if absent |
+| Picking a PR before Copilot has reviewed | Check `pulls/$PR/reviews` for copilot-pull-request-reviewer[bot]; if absent, request with `gh copilot-review <PR>` and wait |
 | Missing project scopes | Run `gh auth refresh -s read:project,project` |
 | Skipping review-implementation | Always run structural completeness check in Step 2b — it catches gaps Copilot misses (paper entries, CLI registration, trait_consistency) |
 | Skipping agentic tests | Always run test-feature even if CI is green |
@@ -296,6 +309,7 @@ Completed: 2/2 | All moved to Final review
 | Worktree left behind on failure | Always clean up with `git worktree remove` in Step 5 |
 | Working in main checkout | All work happens in `.worktrees/` — never modify the main checkout |
 | Skipping merge with main | Always merge origin/main in Step 1a to catch conflicts before fixing comments |
+| Wasting time on heavy conflicts | If >3 files conflict or core impl files are affected, close PR, move to Ready, and let project-pipeline rework it |
 | Ignoring issue comments | Always check the linked issue (`Fix #N`) for human feedback in Step 2a |
 | Only checking Copilot comments | Step 2a checks human PR reviews and linked issue comments too — bot-only review is insufficient |
 | Saying "passed" while deferring issues | If anything remains for maintainer judgment, list it explicitly under `Remaining issues for final review` and mark the agentic result accordingly |

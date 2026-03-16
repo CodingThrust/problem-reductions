@@ -204,6 +204,24 @@ cleanup_pipeline_worktree() {
     python3 scripts/pipeline_worktree.py cleanup --worktree "$worktree" --format json
 }
 
+# Request Copilot review on all Review pool PRs that don't have one yet.
+#   request_copilot_reviews <repo>
+request_copilot_reviews() {
+    repo=$1
+    prs=$(python3 scripts/pipeline_board.py list review --repo "$repo" --format json \
+        | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for item in data.get('items', []):
+    if item.get('eligibility') == 'waiting-for-copilot' and item.get('pr_number'):
+        print(item['pr_number'])
+")
+    for pr in $prs; do
+        echo "$(date '+%Y-%m-%d %H:%M:%S') Requesting Copilot review on PR #${pr}..."
+        gh copilot-review "$pr" 2>&1 || true
+    done
+}
+
 # Poll a board column and dispatch a make target when new items appear.
 #   watch_and_dispatch <mode> <make-target> <label> [repo]
 # Example:
@@ -221,6 +239,11 @@ watch_and_dispatch() {
 
     echo "Watching for new ${label} (polling every $((interval / 60))m)..."
     while true; do
+        # For review mode, request Copilot reviews on PRs that don't have one yet
+        if [ "$mode" = "review" ] && [ -n "$repo" ]; then
+            request_copilot_reviews "$repo"
+        fi
+
         next_item=$(poll_project_items "$mode" "$state_file" "$repo")
         status=$?
         if [ "$status" -eq 0 ]; then

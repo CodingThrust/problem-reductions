@@ -596,7 +596,7 @@ def fetch_existing_prs(repo: str, issue_number: int) -> list[dict]:
         "--state",
         "open",
         "--search",
-        f"Fixes #{issue_number}",
+        f"Fix #{issue_number}",
         "--json",
         "number,headRefName,url",
     )

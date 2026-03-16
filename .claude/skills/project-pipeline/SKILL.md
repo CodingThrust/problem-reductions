@@ -136,14 +136,18 @@ TITLE=$(printf '%s\n' "$CLAIM" | python3 -c "import sys,json; print(json.load(sy
 
 ### 1. Create Worktree
 
-Create an isolated git worktree for this issue so the main working directory stays clean:
+Create an isolated git worktree for this issue. The script automatically checks for an existing open PR — if one exists, it checks out that PR branch (treating it as an incomplete implementation); otherwise it creates a fresh worktree from `origin/main`:
 
 ```bash
-WORKTREE=$(python3 scripts/pipeline_worktree.py create-issue --issue "$ISSUE" --slug <slug> --base origin/main --format json)
-BRANCH=$(printf '%s\n' "$WORKTREE" | python3 -c "import sys,json; print(json.load(sys.stdin)['branch'])")
+WORKTREE=$(python3 scripts/pipeline_worktree.py worktree-for-issue \
+  --repo "$REPO" --issue "$ISSUE" --slug <slug> --format json)
+ACTION=$(printf '%s\n' "$WORKTREE" | python3 -c "import sys,json; print(json.load(sys.stdin)['action'])")
 WORKTREE_DIR=$(printf '%s\n' "$WORKTREE" | python3 -c "import sys,json; print(json.load(sys.stdin)['worktree_dir'])")
 cd "$WORKTREE_DIR"
 ```
+
+- `action == "resume-pr"`: existing PR checked out — `issue-to-pr` will skip plan creation and jump to execution
+- `action == "create-worktree"`: fresh branch from `origin/main`
 
 All subsequent steps run inside the worktree. This ensures the user's main checkout is never modified.
 
@@ -159,17 +163,20 @@ Invoke the `issue-to-pr` skill with `--execute` (working directory is the worktr
 /issue-to-pr "$ISSUE" --execute
 ```
 
-This handles the full pipeline: fetch issue, verify Good label, research, write plan, create PR, implement, review, fix CI.
+This handles the full pipeline: fetch issue, verify Good label, research, write plan, create PR, implement, review, fix CI. If an existing PR was detected in Step 1, `issue-to-pr` will resume it (skip plan creation, jump to execution).
 
 **If `issue-to-pr` fails after creating a PR:** record the failure, but still move the issue to "Final review" so it's visible for human triage. Report the failure to the user.
 
 ### 4. Move to "Review pool"
 
-After `issue-to-pr` succeeds, move the issue to the `Review pool` column for the second-stage review pipeline:
+After `issue-to-pr` succeeds, move the issue to the `Review pool` column and request a Copilot review so the review pipeline can pick it up:
 
 ```bash
 python3 scripts/pipeline_board.py move <ITEM_ID> review-pool
+gh copilot-review <PR_NUMBER>
 ```
+
+The Copilot review request is required — without it, `run-review-forever` will not detect the PR as eligible.
 
 **If `issue-to-pr` failed after creating a PR:** move the issue to `Final review` instead so a human can take over:
 
@@ -237,3 +244,4 @@ Completed: 2/4 | Review pool: 3 | Returned to Ready: 1
 | Worktree left behind on failure | Always clean up with `git worktree remove` in Step 5 |
 | Working in main checkout | All work happens in `.worktrees/` — never modify the main checkout |
 | Missing items from project board | `gh project item-list` defaults to 30 items — always use `--limit 500` |
+| Creating a fresh branch when PR exists | Check `issue-context` action field first — use `checkout-pr` for existing PRs instead of `create-issue` |
