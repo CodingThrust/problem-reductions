@@ -134,13 +134,7 @@ fn test_comparative_containment_rejects_non_finite_f64_weights() {
 #[test]
 #[should_panic(expected = "S weights must be finite and positive")]
 fn test_comparative_containment_rejects_nonpositive_f64_weights() {
-    ComparativeContainment::with_weights(
-        2,
-        vec![vec![0]],
-        vec![vec![0]],
-        vec![1.0],
-        vec![0.0],
-    );
+    ComparativeContainment::with_weights(2, vec![vec![0]], vec![vec![0]], vec![1.0], vec![0.0]);
 }
 
 #[test]

@@ -1003,10 +1003,65 @@ fn test_create_comparative_containment() {
     assert_eq!(json["type"], "ComparativeContainment");
     assert_eq!(json["variant"]["weight"], "i32");
     assert_eq!(json["data"]["universe_size"], 4);
-    assert_eq!(json["data"]["r_sets"].as_array().unwrap().len(), 2);
-    assert_eq!(json["data"]["s_sets"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        json["data"]["r_sets"],
+        serde_json::json!([[0, 1, 2, 3], [0, 1]])
+    );
+    assert_eq!(
+        json["data"]["s_sets"],
+        serde_json::json!([[0, 1, 2, 3], [2, 3]])
+    );
+    assert_eq!(json["data"]["r_weights"], serde_json::json!([2, 5]));
+    assert_eq!(json["data"]["s_weights"], serde_json::json!([3, 6]));
 
     std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_comparative_containment_rejects_out_of_range_elements_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "ComparativeContainment",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,4",
+            "--s-sets",
+            "0,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("outside universe of size 4"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_comparative_containment_rejects_nonpositive_weights_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "ComparativeContainment",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1",
+            "--s-sets",
+            "0,1",
+            "--r-weights",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("positive"), "stderr: {stderr}");
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
 }
 
 #[test]
@@ -2453,6 +2508,10 @@ fn test_create_multiple_choice_branching_help_uses_bound_flag() {
     assert!(
         !stderr.contains("--threshold"),
         "help output should not advertise '--threshold', got: {stderr}"
+    );
+    assert!(
+        stderr.contains("semicolon-separated groups"),
+        "expected '--partition' help to describe groups, got: {stderr}"
     );
 }
 

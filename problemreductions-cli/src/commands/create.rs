@@ -230,15 +230,13 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
             Some("UnitDiskGraph") => "float positions: \"0.0,0.0;1.0,0.0\"",
             _ => "edge list: 0-1,1-2,2-3",
         },
-        "Vec<u64>" => "comma-separated integers: 1,1,2",
+        "Vec<u64>" => "comma-separated integers: 1,2,3",
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<Vec<usize>>" => "semicolon-separated sets: \"0,1;1,2;0,2\"",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
-        "Vec<Vec<usize>>" => "semicolon-separated groups: \"0,1;2,3\"",
         "usize" => "integer",
         "u64" => "integer",
-        "Vec<u64>" => "comma-separated integers: 0,0,5",
         "i64" => "integer",
         "BigUint" => "nonnegative decimal integer",
         "Vec<BigUint>" => "comma-separated nonnegative decimal integers: 3,7,1,8",
@@ -339,6 +337,7 @@ fn help_flag_hint(
 ) -> &'static str {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_weight") => "integer",
+        ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
         _ => type_format_hint(type_name, graph_type),
     }
 }
@@ -1012,6 +1011,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             let r_sets = parse_named_sets(args.r_sets.as_deref(), "--r-sets")?;
             let s_sets = parse_named_sets(args.s_sets.as_deref(), "--s-sets")?;
+            validate_comparative_containment_sets("R", "--r-sets", universe, &r_sets)?;
+            validate_comparative_containment_sets("S", "--s-sets", universe, &s_sets)?;
             let data = match resolved_variant.get("weight").map(|value| value.as_str()) {
                 Some("One") => {
                     let r_weights = parse_named_set_weights(
@@ -1038,11 +1039,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                         r_sets.len(),
                         "--r-weights",
                     )?;
+                    validate_comparative_containment_f64_weights("R", "--r-weights", &r_weights)?;
                     let s_weights = parse_named_set_weights_f64(
                         args.s_weights.as_deref(),
                         s_sets.len(),
                         "--s-weights",
                     )?;
+                    validate_comparative_containment_f64_weights("S", "--s-weights", &s_weights)?;
                     ser(ComparativeContainment::<f64>::with_weights(
                         universe, r_sets, s_sets, r_weights, s_weights,
                     ))?
@@ -1053,11 +1056,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                         r_sets.len(),
                         "--r-weights",
                     )?;
+                    validate_comparative_containment_i32_weights("R", "--r-weights", &r_weights)?;
                     let s_weights = parse_named_set_weights(
                         args.s_weights.as_deref(),
                         s_sets.len(),
                         "--s-weights",
                     )?;
+                    validate_comparative_containment_i32_weights("S", "--s-weights", &s_weights)?;
                     ser(ComparativeContainment::with_weights(
                         universe, r_sets, s_sets, r_weights, s_weights,
                     ))?
@@ -2047,6 +2052,23 @@ fn parse_named_sets(sets_str: Option<&str>, flag: &str) -> Result<Vec<Vec<usize>
         .collect()
 }
 
+fn validate_comparative_containment_sets(
+    family_name: &str,
+    flag: &str,
+    universe_size: usize,
+    sets: &[Vec<usize>],
+) -> Result<()> {
+    for (set_index, set) in sets.iter().enumerate() {
+        for &element in set {
+            anyhow::ensure!(
+                element < universe_size,
+                "{family_name} set {set_index} from {flag} contains element {element} outside universe of size {universe_size}"
+            );
+        }
+    }
+    Ok(())
+}
+
 /// Parse `--partition` as semicolon-separated groups of comma-separated arc indices.
 /// E.g., "0,1;2,3;4,7;5,6"
 fn parse_partition_groups(args: &CreateArgs, num_arcs: usize) -> Result<Vec<Vec<usize>>> {
@@ -2156,6 +2178,34 @@ fn parse_named_set_weights_f64(
         }
         None => Ok(vec![1.0f64; num_sets]),
     }
+}
+
+fn validate_comparative_containment_i32_weights(
+    family_name: &str,
+    flag: &str,
+    weights: &[i32],
+) -> Result<()> {
+    for (index, weight) in weights.iter().enumerate() {
+        anyhow::ensure!(
+            *weight > 0,
+            "{family_name} weights from {flag} must be positive; found {weight} at index {index}"
+        );
+    }
+    Ok(())
+}
+
+fn validate_comparative_containment_f64_weights(
+    family_name: &str,
+    flag: &str,
+    weights: &[f64],
+) -> Result<()> {
+    for (index, weight) in weights.iter().enumerate() {
+        anyhow::ensure!(
+            weight.is_finite() && *weight > 0.0,
+            "{family_name} weights from {flag} must be finite and positive; found {weight} at index {index}"
+        );
+    }
+    Ok(())
 }
 
 /// Parse `--matrix` as semicolon-separated rows of comma-separated bool values (0/1).
