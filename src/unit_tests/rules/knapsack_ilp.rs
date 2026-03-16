@@ -53,6 +53,26 @@ fn test_knapsack_to_ilp_zero_capacity() {
     assert_eq!(extracted, vec![0, 0]);
 }
 
+#[test]
+fn test_knapsack_to_ilp_empty_instance() {
+    let knapsack = Knapsack::new(vec![], vec![], 0);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack);
+    let ilp = reduction.target_problem();
+
+    assert_eq!(ilp.num_vars(), 0);
+    assert_eq!(ilp.num_constraints(), 1);
+    assert_eq!(ilp.constraints[0].cmp, Comparison::Le);
+    assert_eq!(ilp.constraints[0].rhs, 0.0);
+    assert!(ilp.constraints[0].terms.is_empty());
+    assert!(ilp.objective.is_empty());
+
+    let ilp_solution = ILPSolver::new()
+        .solve(ilp)
+        .expect("empty Knapsack ILP should still be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(extracted, Vec::<usize>::new());
+}
+
 #[cfg(feature = "example-db")]
 #[test]
 fn test_knapsack_to_ilp_canonical_example_spec() {
@@ -67,5 +87,11 @@ fn test_knapsack_to_ilp_canonical_example_spec() {
     assert_eq!(example.source.instance["capacity"], 7);
     assert_eq!(example.target.instance["num_vars"], 4);
     assert_eq!(example.target.instance["constraints"].as_array().unwrap().len(), 1);
-    assert!(!example.solutions.is_empty());
+    assert_eq!(
+        example.solutions,
+        vec![crate::export::SolutionPair {
+            source_config: vec![0, 1, 1, 0],
+            target_config: vec![0, 1, 1, 0],
+        }]
+    );
 }
