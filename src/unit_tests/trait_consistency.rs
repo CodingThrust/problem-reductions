@@ -54,6 +54,14 @@ fn test_all_problems_implement_trait_correctly() {
         "MaximumMatching",
     );
     check_problem_trait(
+        &SteinerTree::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![1i32; 2],
+            vec![0, 2],
+        ),
+        "SteinerTree",
+    );
+    check_problem_trait(
         &Satisfiability::new(3, vec![CNFClause::new(vec![1])]),
         "SAT",
     );
@@ -69,6 +77,10 @@ fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
         &MaximumSetPacking::<i32>::new(vec![vec![0, 1]]),
         "MaximumSetPacking",
+    );
+    check_problem_trait(
+        &ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]),
+        "ExactCoverBy3Sets",
     );
     check_problem_trait(&PaintShop::new(vec!["a", "a"]), "PaintShop");
     check_problem_trait(&BMF::new(vec![vec![true]], 1), "BMF");
@@ -130,6 +142,10 @@ fn test_all_problems_implement_trait_correctly() {
         &FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10),
         "FlowShopScheduling",
     );
+    check_problem_trait(
+        &MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]),
+        "MinimumTardinessSequencing",
+    );
 }
 
 #[test]
@@ -168,6 +184,10 @@ fn test_direction() {
     );
     assert_eq!(Factoring::new(6, 2, 2).direction(), Direction::Minimize);
     assert_eq!(
+        MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]).direction(),
+        Direction::Minimize
+    );
+    assert_eq!(
         BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1).direction(),
         Direction::Minimize
     );
@@ -194,6 +214,15 @@ fn test_direction() {
             vec![1i32; 3],
             vec![1i32; 2],
             1
+        )
+        .direction(),
+        Direction::Minimize
+    );
+    assert_eq!(
+        SteinerTree::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![1i32; 2],
+            vec![0, 2]
         )
         .direction(),
         Direction::Minimize

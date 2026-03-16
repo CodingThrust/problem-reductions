@@ -1,5 +1,8 @@
 use super::*;
 use crate::models::formula::CNFClause;
+use crate::rules::test_helpers::{
+    assert_satisfaction_round_trip_from_optimization_target, solve_optimization_problem,
+};
 use crate::solvers::BruteForce;
 use crate::topology::Graph;
 use crate::traits::Problem;
@@ -208,25 +211,22 @@ fn test_jl_parity_sat_to_independentset() {
         let source = Satisfiability::new(num_vars, clauses);
         let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source);
         let solver = BruteForce::new();
-        let best_target = solver.find_all_best(result.target_problem());
-        let extracted: HashSet<Vec<usize>> = best_target
-            .iter()
-            .map(|t| result.extract_solution(t))
-            .collect();
         let sat_solutions: HashSet<Vec<usize>> =
             solver.find_all_satisfying(&source).into_iter().collect();
         for case in data["cases"].as_array().unwrap() {
             if sat_solutions.is_empty() {
-                for sol in &extracted {
-                    assert!(
-                        !source.evaluate(sol),
-                        "SAT->IS [{label}]: unsatisfiable but extracted satisfies"
-                    );
-                }
-            } else {
+                let target_solution = solve_optimization_problem(result.target_problem())
+                    .expect("SAT->IS: target should have an optimal solution");
+                let extracted = result.extract_solution(&target_solution);
                 assert!(
-                    extracted.is_subset(&sat_solutions),
-                    "SAT->IS [{label}]: extracted not subset"
+                    !source.evaluate(&extracted),
+                    "SAT->IS [{label}]: unsatisfiable but extracted satisfies"
+                );
+            } else {
+                assert_satisfaction_round_trip_from_optimization_target(
+                    &source,
+                    &result,
+                    &format!("SAT->IS [{label}]"),
                 );
                 assert_eq!(
                     sat_solutions,

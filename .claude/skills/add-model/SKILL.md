@@ -26,8 +26,14 @@ Before any implementation, collect all required information. If called from `iss
 | 9 | **Best known exact algorithm** | Complexity with variable definitions | "O(1.1996^n) by Xiao & Nagamochi (2017), where n = \|V\|" |
 | 10 | **Solving strategy** | How it can be solved | "BruteForce works; ILP reduction available" |
 | 11 | **Category** | Which sub-module under `src/models/` | `graph`, `formula`, `set`, `algebraic`, `misc` |
+| 12 | **Expected outcome from the issue** | Concrete outcome for the issue's example instance | Optimization: one optimal solution + optimal value. Satisfaction: one valid/satisfying solution + why it is valid |
 
 If any item is missing, ask the user to provide it. Do NOT proceed until the checklist is complete.
+
+The issue's **Expected Outcome** section is the source of truth for the implementation-facing example.
+- For optimization problems, use the issue's optimal solution and optimal objective value.
+- For satisfaction problems, use the issue's valid / satisfying solution and its justification.
+- Do not invent or replace the expected outcome during implementation unless the issue is corrected first.
 
 ### Associated Rule Check
 
@@ -60,6 +66,16 @@ Read these first to understand the patterns:
 - **CLI aliases:** `problemreductions-cli/src/problem_name.rs`
 - **CLI creation:** `problemreductions-cli/src/commands/create.rs`
 - **Canonical model examples:** `src/example_db/model_builders.rs`
+
+## Pre-review Checklist
+
+Before implementing, make sure the plan explicitly covers these items that structural review checks later:
+- `ProblemSchemaEntry` metadata is complete for the current schema shape (`display_name`, `aliases`, `dimensions`, and constructor-facing `fields`)
+- `declare_variants!` is present with the correct `opt`/`sat` marker and exactly one `default` variant when multiple concrete variants exist
+- CLI discovery and `pred create <ProblemName>` support are included where applicable
+- A canonical model example is registered for example-db / `pred create --example`
+- `docs/paper/reductions.typ` adds both the display-name dictionary entry and the `problem-def(...)`
+- `src/unit_tests/trait_consistency.rs` is updated
 
 ## Step 1: Determine the category
 
@@ -101,6 +117,7 @@ Create `src/models/<category>/<name>.rs`:
 ```
 
 Key decisions:
+- **Schema metadata:** `ProblemSchemaEntry` must reflect the current registry schema shape, including `display_name`, `aliases`, `dimensions`, and constructor-facing `fields`
 - **Optimization problems:** `type Metric = SolutionSize<W::Sum>`, implement `OptimizationProblem` with `direction()`
 - **Satisfaction problems:** `type Metric = bool`, implement `SatisfactionProblem` (marker trait)
 - **Weight management:** use inherent methods (`weights()`, `set_weights()`, `is_weighted()`), NOT traits
@@ -185,14 +202,14 @@ Required tests:
 - `test_<name>_direction` -- verify optimization direction (if optimization problem)
 - `test_<name>_serialization` -- round-trip serde test (optional but recommended)
 - `test_<name>_solver` -- verify brute-force solver finds correct solutions
-- `test_<name>_paper_example` -- **use the same instance from the paper example** (Step 6), verify the claimed solution is valid/optimal and the solution count matches
+- `test_<name>_paper_example` -- **use the same instance from the paper example** (Step 6), verify the issue's expected outcome is valid/optimal and the solution count matches
 
 The `test_<name>_paper_example` test is critical for consistency between code and paper. It must:
 1. Construct the exact same instance shown in the paper's example figure
-2. Evaluate the solution shown in the paper and assert it is valid (and optimal for optimization problems)
+2. Evaluate the solution from the issue's **Expected Outcome** section as shown in the paper and assert it is valid (and optimal for optimization problems)
 3. Use `BruteForce` to find all optimal/satisfying solutions and assert the count matches the paper's claim
 
-This test should be written **after** Step 6 (paper entry), once the example instance and solution are finalized. If writing tests before the paper, use the same instance you plan to use in the paper and come back to verify consistency.
+This test should be written **after** Step 6 (paper entry), once the example instance and expected outcome are finalized. If writing tests before the paper, use the issue's Example Instance + Expected Outcome as the source of truth and come back to verify consistency.
 
 Link the test file via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the model file.
 

@@ -46,7 +46,7 @@ pub mod prelude {
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
     pub use crate::models::graph::{
         BicliqueCover, GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, SpinGlass,
-        SubgraphIsomorphism,
+        SteinerTree, SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
@@ -55,10 +55,10 @@ pub mod prelude {
         PartitionIntoTriangles, RuralPostman, TravelingSalesman,
     };
     pub use crate::models::misc::{
-        BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, PaintShop,
-        ShortestCommonSupersequence, SubsetSum,
+        BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
+        MinimumTardinessSequencing, PaintShop, ShortestCommonSupersequence, SubsetSum,
     };
-    pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
+    pub use crate::models::set::{ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering};
 
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};

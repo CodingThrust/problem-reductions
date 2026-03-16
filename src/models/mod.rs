@@ -16,10 +16,10 @@ pub use graph::{
     MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
     MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter,
     MinimumVertexCover, OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, SpinGlass,
-    SubgraphIsomorphism, TravelingSalesman,
+    SteinerTree, SubgraphIsomorphism, TravelingSalesman,
 };
 pub use misc::{
-    BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, PaintShop,
-    ShortestCommonSupersequence, SubsetSum,
+    BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
+    MinimumTardinessSequencing, PaintShop, ShortestCommonSupersequence, SubsetSum,
 };
-pub use set::{MaximumSetPacking, MinimumSetCovering};
+pub use set::{ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering};

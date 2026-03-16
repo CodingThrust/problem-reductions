@@ -1,4 +1,5 @@
 use super::*;
+use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::types::One;
 include!("../jl_helpers.rs");
@@ -80,13 +81,12 @@ fn test_jl_parity_is_to_setpacking() {
         MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i32; nv]);
     let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &result,
+        "JL parity MIS->SetPacking",
+    );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }
@@ -104,13 +104,12 @@ fn test_jl_parity_setpacking_to_is() {
     let source = MaximumSetPacking::<i32>::new(jl_parse_sets(&inst["sets"]));
     let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &result,
+        "JL parity SetPacking->MIS",
+    );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }
@@ -130,13 +129,12 @@ fn test_jl_parity_rule_is_to_setpacking() {
         MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i32; nv]);
     let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &result,
+        "JL parity rule MIS->SetPacking",
+    );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }
@@ -157,13 +155,12 @@ fn test_jl_parity_doc_is_to_setpacking() {
         MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i32; nv]);
     let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &result,
+        "JL parity doc MIS->SetPacking",
+    );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }

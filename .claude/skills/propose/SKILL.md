@@ -312,7 +312,9 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
 
    If the user picks "Generate new batch", create 3 new examples with different sizes/structures and re-present.
 
-   After the user picks a concrete example, provide a complete instance with its known optimal solution.
+   After the user picks a concrete example, provide a complete instance with its expected outcome.
+   - For optimization problems: give at least one optimal solution and the optimal objective value
+   - For satisfaction problems: give at least one valid / satisfying solution and explain briefly why it is valid
    - Must exercise the problem's core structure
    - Must be small enough to verify by hand
 
@@ -488,7 +490,7 @@ If the reduction is well-known, use the literature to **pre-fill** answers in St
    - Must define all symbols before using them
    - Must be detailed enough that someone could implement it
 
-3. **Explanation** — Present a correctness argument explaining why the reduction preserves optimal solutions, then ask for feedback via `AskUserQuestion`:
+3. **Explanation** — Present a correctness argument explaining why the reduction preserves feasibility (for satisfaction problems) or optimality (for optimization problems), then ask for feedback via `AskUserQuestion`:
    ```
    AskUserQuestion:
      question: "How does this explanation look?"
@@ -525,7 +527,8 @@ If the reduction is well-known, use the literature to **pre-fill** answers in St
 
    If the user picks "Generate new batch", create 3 new examples with different sizes/structures and re-present.
 
-   After the user picks a concrete example, fully work out the example: show source instance, each construction step, resulting target instance, and the optimal solution.
+   After the user picks a concrete example, fully work out the example: show source instance, each construction step, and the resulting target instance.
+   - Do not ask the user to provide solved witnesses manually
    - Must be non-trivial but hand-verifiable
    - Must exercise the core structure of the reduction
 
@@ -637,6 +640,9 @@ If proposing a model + rules, present all drafts together:
 - Reduction Rule Crossref (linking to companion rule issues or noting planned rules)
 - How to solve (brute-force, ILP, or other — if ILP/QUBO, must cross-reference rule issue)
 - Example Instance
+- Expected Outcome
+  - Optimization problems: optimal solution + optimal objective value
+  - Satisfaction problems: valid / satisfying solution + brief justification
 - BibTeX (include the BibTeX entry for the complexity/definition reference at the end of the issue)
 
 **For rules**, the draft must include:
@@ -644,7 +650,7 @@ If proposing a model + rules, present all drafts together:
 - Reduction Algorithm (numbered steps, all symbols defined)
 - Size Overhead (table with target metrics and formulas)
 - Validation Method
-- Example (fully worked)
+- Example (fully worked: source instance, construction, target instance)
 - BibTeX (include the BibTeX entry for the reference at the end of the issue)
 
 ---
@@ -665,7 +671,7 @@ Apply all 4 checks from `/check-issue` against the draft content:
 1. **Usefulness:** `pred show <name>` must fail (problem doesn't exist). At least one reduction planned.
 2. **Non-trivial:** Not isomorphic to existing problem.
 3. **Correctness:** Complexity expression verified against literature.
-4. **Well-written:** All template sections present, symbols consistent, example exercises core structure.
+4. **Well-written:** All template sections present, symbols consistent, example exercises core structure, and Expected Outcome matches the problem type (valid solution for satisfaction, optimal solution/value for optimization).
 
 **If any check fails:** Fix the draft automatically if possible. If user input is needed, ask. Loop back to Step 4 with the corrected draft.
 

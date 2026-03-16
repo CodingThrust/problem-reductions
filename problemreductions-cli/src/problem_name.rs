@@ -274,6 +274,7 @@ mod tests {
         assert_eq!(resolve_alias("mis"), "MaximumIndependentSet");
         assert_eq!(resolve_alias("MVC"), "MinimumVertexCover");
         assert_eq!(resolve_alias("SAT"), "Satisfiability");
+        assert_eq!(resolve_alias("X3C"), "ExactCoverBy3Sets");
         // 3SAT is no longer a registered alias (removed to avoid confusion with KSatisfiability/KN)
         assert_eq!(resolve_alias("3SAT"), "3SAT"); // pass-through
         assert_eq!(resolve_alias("QUBO"), "QUBO");

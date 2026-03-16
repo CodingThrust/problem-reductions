@@ -155,18 +155,17 @@ Step-by-step walkthrough with concrete numbers from JSON data. Required steps:
 1. Show source instance (dimensions, structure, graph visualization if applicable)
 2. Walk through construction with intermediate values
 3. Verify a concrete solution end-to-end
-4. Solution count: `#src_tgt.solutions.len()` with combinatorial justification
+4. Witness semantics: state that the fixture stores one canonical witness; if multiplicity matters mathematically, explain it from the construction rather than from `solutions.len()`
 
 Use `graph-colors`, `g-node()`, `g-edge()` for graph visualization — see reference examples.
 
 ### 5d. Build and verify
 
 ```bash
-make examples  # Regenerate example JSON
 make paper     # Must compile without errors
 ```
 
-Checklist: notation self-contained, complexity cited, overhead consistent, example uses JSON data (not hardcoded), solution verified end-to-end, solution count stated, paper compiles.
+Checklist: notation self-contained, complexity cited, overhead consistent, example uses JSON data (not hardcoded), solution verified end-to-end, witness semantics respected, paper compiles.
 
 ## Step 6: Regenerate exports and verify
 
