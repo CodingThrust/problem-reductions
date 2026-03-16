@@ -2,6 +2,7 @@ use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::BipartiteGraph;
 use crate::traits::{Problem, SatisfactionProblem};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -19,14 +20,22 @@ inventory::submit! {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(from = "BalancedCompleteBipartiteSubgraphRepr")]
 pub struct BalancedCompleteBipartiteSubgraph {
     graph: BipartiteGraph,
     k: usize,
+    #[serde(skip)]
+    edge_lookup: HashSet<(usize, usize)>,
 }
 
 impl BalancedCompleteBipartiteSubgraph {
     pub fn new(graph: BipartiteGraph, k: usize) -> Self {
-        Self { graph, k }
+        let edge_lookup = Self::build_edge_lookup(&graph);
+        Self {
+            graph,
+            k,
+            edge_lookup,
+        }
     }
 
     pub fn graph(&self) -> &BipartiteGraph {
@@ -51,6 +60,10 @@ impl BalancedCompleteBipartiteSubgraph {
 
     pub fn k(&self) -> usize {
         self.k
+    }
+
+    fn build_edge_lookup(graph: &BipartiteGraph) -> HashSet<(usize, usize)> {
+        graph.left_edges().iter().copied().collect()
     }
 
     fn selected_vertices(&self, config: &[usize]) -> Option<(Vec<usize>, Vec<usize>)> {
@@ -78,6 +91,10 @@ impl BalancedCompleteBipartiteSubgraph {
         Some((selected_left, selected_right))
     }
 
+    fn has_selected_edge(&self, left: usize, right: usize) -> bool {
+        self.edge_lookup.contains(&(left, right))
+    }
+
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
         self.evaluate(config)
     }
@@ -103,7 +120,7 @@ impl Problem for BalancedCompleteBipartiteSubgraph {
         selected_left.iter().all(|&left| {
             selected_right
                 .iter()
-                .all(|&right| self.graph.left_edges().contains(&(left, right)))
+                .all(|&right| self.has_selected_edge(left, right))
         })
     }
 
@@ -114,8 +131,20 @@ impl Problem for BalancedCompleteBipartiteSubgraph {
 
 impl SatisfactionProblem for BalancedCompleteBipartiteSubgraph {}
 
+#[derive(Deserialize)]
+struct BalancedCompleteBipartiteSubgraphRepr {
+    graph: BipartiteGraph,
+    k: usize,
+}
+
+impl From<BalancedCompleteBipartiteSubgraphRepr> for BalancedCompleteBipartiteSubgraph {
+    fn from(repr: BalancedCompleteBipartiteSubgraphRepr) -> Self {
+        Self::new(repr.graph, repr.k)
+    }
+}
+
 crate::declare_variants! {
-    default sat BalancedCompleteBipartiteSubgraph => "2^num_vertices",
+    default sat BalancedCompleteBipartiteSubgraph => "1.3803^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

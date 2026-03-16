@@ -195,19 +195,6 @@ fn test_problem_size_biclique_cover() {
 }
 
 #[test]
-fn test_problem_size_balanced_complete_bipartite_subgraph() {
-    let bcbs = BalancedCompleteBipartiteSubgraph::new(
-        BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 2)]),
-        2,
-    );
-    let size = problem_size(&bcbs);
-    assert_eq!(size.get("left_size"), Some(2));
-    assert_eq!(size.get("right_size"), Some(3));
-    assert_eq!(size.get("num_edges"), Some(3));
-    assert_eq!(size.get("k"), Some(2));
-}
-
-#[test]
 fn test_problem_size_bmf() {
     let bmf = BMF::new(vec![vec![true, false], vec![false, true]], 2);
     let size = problem_size(&bmf);

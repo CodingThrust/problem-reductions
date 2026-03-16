@@ -12,7 +12,7 @@
       "variant": {},
       "category": "graph",
       "doc_path": "models/graph/struct.BalancedCompleteBipartiteSubgraph.html",
-      "complexity": "2^num_vertices"
+      "complexity": "1.3803^num_vertices"
     },
     {
       "name": "BicliqueCover",

@@ -81,6 +81,15 @@ fn test_balanced_complete_bipartite_subgraph_invalid_pairing() {
 }
 
 #[test]
+fn test_balanced_complete_bipartite_subgraph_edge_lookup() {
+    let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_1_graph(), 2);
+
+    assert!(problem.has_selected_edge(0, 0));
+    assert!(problem.has_selected_edge(1, 3));
+    assert!(!problem.has_selected_edge(3, 3));
+}
+
+#[test]
 fn test_balanced_complete_bipartite_subgraph_rejects_invalid_configs() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_1_graph(), 2);
 
@@ -112,6 +121,7 @@ fn test_balanced_complete_bipartite_subgraph_solver_no_instance() {
 #[test]
 fn test_balanced_complete_bipartite_subgraph_serialization() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_2_graph(), 3);
+    let witness = issue_instance_2_witness();
 
     let json = serde_json::to_string(&problem).unwrap();
     let deserialized: BalancedCompleteBipartiteSubgraph = serde_json::from_str(&json).unwrap();
@@ -124,6 +134,7 @@ fn test_balanced_complete_bipartite_subgraph_serialization() {
         problem.graph().left_edges()
     );
     assert_eq!(deserialized.k(), 3);
+    assert!(deserialized.evaluate(&witness));
 }
 
 #[test]
