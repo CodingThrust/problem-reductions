@@ -3681,3 +3681,76 @@ fn test_create_weighted_mis_round_trips_into_solve() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["evaluation"], "Valid(5)");
 }
+
+#[test]
+fn test_create_sequencing_within_intervals() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_sequencing_within_intervals.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SequencingWithinIntervals",
+            "--release-times",
+            "0,0,0,0,5",
+            "--deadlines",
+            "11,11,11,11,6",
+            "--lengths",
+            "3,1,2,4,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SequencingWithinIntervals");
+    assert_eq!(
+        json["data"]["release_times"],
+        serde_json::json!([0, 0, 0, 0, 5])
+    );
+    assert_eq!(
+        json["data"]["deadlines"],
+        serde_json::json!([11, 11, 11, 11, 6])
+    );
+    assert_eq!(json["data"]["lengths"], serde_json::json!([3, 1, 2, 4, 1]));
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_model_example_sequencing_within_intervals() {
+    let output = pred()
+        .args(["create", "--example", "SequencingWithinIntervals"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "SequencingWithinIntervals");
+}
+
+#[test]
+fn test_create_sequencing_within_intervals_rejects_empty_window() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingWithinIntervals",
+            "--release-times",
+            "5",
+            "--deadlines",
+            "3",
+            "--lengths",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+}

@@ -141,9 +141,9 @@ impl Problem for SequencingWithinIntervals {
         }
 
         // Check each variable is within range and compute start times
-        let dims = self.dims();
         let mut starts = Vec::with_capacity(n);
-        for (i, (&c, &dim)) in config.iter().zip(dims.iter()).enumerate() {
+        for (i, &c) in config.iter().enumerate() {
+            let dim = (self.deadlines[i] - self.release_times[i] - self.lengths[i] + 1) as usize;
             if c >= dim {
                 return false;
             }
