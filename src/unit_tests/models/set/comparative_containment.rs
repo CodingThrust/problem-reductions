@@ -63,6 +63,15 @@ fn test_comparative_containment_rejects_invalid_configs() {
 }
 
 #[test]
+fn test_comparative_containment_contains_selected_subset_requires_valid_config() {
+    let problem = yes_instance();
+    assert!(problem.contains_selected_subset(&[1, 0, 0, 0], &[0, 1, 2, 3]));
+    assert!(!problem.contains_selected_subset(&[0, 0, 1, 0], &[0, 1]));
+    assert!(!problem.contains_selected_subset(&[1, 0, 0], &[0, 1, 2, 3]));
+    assert!(!problem.contains_selected_subset(&[1, 0, 0, 2], &[0, 1, 2, 3]));
+}
+
+#[test]
 fn test_comparative_containment_solver() {
     let solver = BruteForce::new();
 
@@ -102,6 +111,36 @@ fn test_comparative_containment_paper_example() {
 #[should_panic(expected = "number of R sets and R weights must match")]
 fn test_comparative_containment_rejects_mismatched_r_weights() {
     ComparativeContainment::with_weights(2, vec![vec![0]], vec![vec![0]], vec![1, 2], vec![1]);
+}
+
+#[test]
+#[should_panic(expected = "R weights must be positive")]
+fn test_comparative_containment_rejects_nonpositive_i32_weights() {
+    ComparativeContainment::with_weights(2, vec![vec![0]], vec![vec![0]], vec![0], vec![1]);
+}
+
+#[test]
+#[should_panic(expected = "R weights must be finite and positive")]
+fn test_comparative_containment_rejects_non_finite_f64_weights() {
+    ComparativeContainment::with_weights(
+        2,
+        vec![vec![0]],
+        vec![vec![0]],
+        vec![f64::NAN],
+        vec![1.0],
+    );
+}
+
+#[test]
+#[should_panic(expected = "S weights must be finite and positive")]
+fn test_comparative_containment_rejects_nonpositive_f64_weights() {
+    ComparativeContainment::with_weights(
+        2,
+        vec![vec![0]],
+        vec![vec![0]],
+        vec![1.0],
+        vec![0.0],
+    );
 }
 
 #[test]

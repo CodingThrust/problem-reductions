@@ -9,6 +9,7 @@ use crate::traits::{Problem, SatisfactionProblem};
 use crate::types::{One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -43,7 +44,7 @@ pub struct ComparativeContainment<W = i32> {
     s_weights: Vec<W>,
 }
 
-impl<W> ComparativeContainment<W> {
+impl<W: 'static> ComparativeContainment<W> {
     /// Create a new instance with unit weights.
     pub fn new(universe_size: usize, r_sets: Vec<Vec<usize>>, s_sets: Vec<Vec<usize>>) -> Self
     where
@@ -61,7 +62,10 @@ impl<W> ComparativeContainment<W> {
         s_sets: Vec<Vec<usize>>,
         r_weights: Vec<W>,
         s_weights: Vec<W>,
-    ) -> Self {
+    ) -> Self
+    where
+        W: 'static,
+    {
         assert_eq!(
             r_sets.len(),
             r_weights.len(),
@@ -74,6 +78,8 @@ impl<W> ComparativeContainment<W> {
         );
         validate_set_family("R", universe_size, &r_sets);
         validate_set_family("S", universe_size, &s_sets);
+        validate_weight_family("R", &r_weights);
+        validate_weight_family("S", &s_weights);
         Self {
             universe_size,
             r_sets,
@@ -120,11 +126,7 @@ impl<W> ComparativeContainment<W> {
 
     /// Check whether the subset selected by `config` is contained in `set`.
     pub fn contains_selected_subset(&self, config: &[usize], set: &[usize]) -> bool {
-        self.valid_config(config)
-            && config
-                .iter()
-                .enumerate()
-                .all(|(element, &selected)| selected == 0 || set.contains(&element))
+        self.valid_config(config) && contains_selected_subset_unchecked(config, set)
     }
 
     fn valid_config(&self, config: &[usize]) -> bool {
@@ -166,7 +168,7 @@ where
 
         let mut total = W::Sum::zero();
         for (set, weight) in sets.iter().zip(weights.iter()) {
-            if self.contains_selected_subset(config, set) {
+            if contains_selected_subset_unchecked(config, set) {
                 total += weight.to_sum();
             }
         }
@@ -217,6 +219,30 @@ fn validate_set_family(label: &str, universe_size: usize, sets: &[Vec<usize>]) {
             );
         }
     }
+}
+
+fn validate_weight_family<W: 'static>(label: &str, weights: &[W]) {
+    for (index, weight) in weights.iter().enumerate() {
+        let any_weight = weight as &dyn Any;
+        if let Some(weight) = any_weight.downcast_ref::<i32>() {
+            assert!(
+                *weight > 0,
+                "{label} weights must be positive; found {weight} at index {index}"
+            );
+        } else if let Some(weight) = any_weight.downcast_ref::<f64>() {
+            assert!(
+                weight.is_finite() && *weight > 0.0,
+                "{label} weights must be finite and positive; found {weight} at index {index}"
+            );
+        }
+    }
+}
+
+fn contains_selected_subset_unchecked(config: &[usize], set: &[usize]) -> bool {
+    config
+        .iter()
+        .enumerate()
+        .all(|(element, &selected)| selected == 0 || set.contains(&element))
 }
 
 #[cfg(feature = "example-db")]
