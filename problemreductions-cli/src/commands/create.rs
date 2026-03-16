@@ -248,6 +248,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
     }
@@ -713,6 +714,29 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (
                 ser(problemreductions::models::set::ExactCoverBy3Sets::new(
                     universe, subsets,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SetBasis
+        "SetBasis" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SetBasis requires --universe, --sets, and --k\n\n\
+                     Usage: pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3"
+                )
+            })?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SetBasis requires --k\n\n\
+                     Usage: pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3"
+                )
+            })?;
+            let sets = parse_sets(args)?;
+            (
+                ser(problemreductions::models::set::SetBasis::new(
+                    universe, sets, k,
                 ))?,
                 resolved_variant.clone(),
             )

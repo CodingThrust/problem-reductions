@@ -1,0 +1,103 @@
+use super::*;
+use crate::solvers::BruteForce;
+use crate::traits::Problem;
+use std::collections::HashSet;
+
+fn issue_example_problem(k: usize) -> SetBasis {
+    SetBasis::new(
+        4,
+        vec![vec![0, 1], vec![1, 2], vec![0, 2], vec![0, 1, 2]],
+        k,
+    )
+}
+
+fn canonical_solution() -> Vec<usize> {
+    vec![1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]
+}
+
+#[test]
+fn test_set_basis_creation() {
+    let problem = issue_example_problem(3);
+    assert_eq!(problem.universe_size(), 4);
+    assert_eq!(problem.num_sets(), 4);
+    assert_eq!(problem.basis_size(), 3);
+    assert_eq!(problem.num_variables(), 12);
+    assert_eq!(problem.dims(), vec![2; 12]);
+    assert_eq!(problem.get_set(0), Some(&vec![0, 1]));
+    assert_eq!(problem.get_set(4), None);
+}
+
+#[test]
+fn test_set_basis_evaluation() {
+    let problem = issue_example_problem(3);
+
+    assert!(problem.evaluate(&canonical_solution()));
+    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0]));
+}
+
+#[test]
+fn test_set_basis_no_solution_for_k_two() {
+    let problem = issue_example_problem(2);
+
+    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0, 1, 0]));
+
+    let solver = BruteForce::new();
+    assert!(solver.find_all_satisfying(&problem).is_empty());
+}
+
+#[test]
+fn test_set_basis_solver() {
+    let problem = issue_example_problem(3);
+    let solver = BruteForce::new();
+    let solutions = solver.find_all_satisfying(&problem);
+    let solution_set: HashSet<Vec<usize>> = solutions.iter().cloned().collect();
+
+    assert_eq!(solutions.len(), 12);
+    assert_eq!(solution_set.len(), 12);
+    assert!(solution_set.contains(&canonical_solution()));
+    assert!(solutions.iter().all(|solution| problem.evaluate(solution)));
+}
+
+#[test]
+fn test_set_basis_serialization() {
+    let problem = issue_example_problem(3);
+    let json = serde_json::to_string(&problem).unwrap();
+    let deserialized: SetBasis = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(deserialized.universe_size(), problem.universe_size());
+    assert_eq!(deserialized.num_sets(), problem.num_sets());
+    assert_eq!(deserialized.basis_size(), problem.basis_size());
+    assert_eq!(deserialized.collection(), problem.collection());
+}
+
+#[test]
+fn test_set_basis_paper_example() {
+    let problem = issue_example_problem(3);
+    let solution = canonical_solution();
+
+    assert!(problem.evaluate(&solution));
+
+    let solver = BruteForce::new();
+    let solutions = solver.find_all_satisfying(&problem);
+    assert_eq!(solutions.len(), 12);
+}
+
+#[test]
+fn test_set_basis_invalid_config_values() {
+    let problem = issue_example_problem(3);
+    let mut invalid = canonical_solution();
+    invalid[0] = 2;
+    assert!(!problem.evaluate(&invalid));
+}
+
+#[test]
+fn test_set_basis_rejects_wrong_config_length() {
+    let problem = issue_example_problem(3);
+    assert!(!problem.evaluate(&canonical_solution()[..11]));
+}
+
+#[test]
+#[should_panic(expected = "outside universe")]
+fn test_set_basis_rejects_out_of_range_elements() {
+    SetBasis::new(4, vec![vec![0, 4]], 1);
+}
