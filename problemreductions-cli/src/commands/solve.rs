@@ -29,6 +29,15 @@ fn parse_input(path: &Path) -> Result<SolveInput> {
     }
 }
 
+fn with_bruteforce_hint(err: anyhow::Error) -> anyhow::Error {
+    let message = err.to_string();
+    if message.starts_with("No reduction path from ") && message.ends_with(" to ILP") {
+        anyhow::anyhow!("{message}\n\nTry `--solver brute-force`.")
+    } else {
+        err
+    }
+}
+
 pub fn solve(input: &Path, solver_name: &str, timeout: u64, out: &OutputConfig) -> Result<()> {
     if solver_name != "brute-force" && solver_name != "ilp" {
         anyhow::bail!(
@@ -97,7 +106,7 @@ fn solve_problem(
             result
         }
         "ilp" => {
-            let result = problem.solve_with_ilp()?;
+            let result = problem.solve_with_ilp().map_err(with_bruteforce_hint)?;
             let solver_desc = if name == "ILP" {
                 "ilp".to_string()
             } else {
@@ -139,7 +148,7 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
     // 2. Solve the target problem
     let target_result = match solver_name {
         "brute-force" => target.solve_brute_force()?,
-        "ilp" => target.solve_with_ilp()?,
+        "ilp" => target.solve_with_ilp().map_err(with_bruteforce_hint)?,
         _ => unreachable!(),
     };
 

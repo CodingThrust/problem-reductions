@@ -80,7 +80,8 @@ impl SumOfSquaresPartition {
         Ok(())
     }
 
-    fn try_new(sizes: Vec<i64>, num_groups: usize, bound: i64) -> Result<Self, String> {
+    /// Create a new SumOfSquaresPartition instance, returning validation errors.
+    pub fn try_new(sizes: Vec<i64>, num_groups: usize, bound: i64) -> Result<Self, String> {
         Self::validate_inputs(&sizes, num_groups, bound)?;
         Ok(Self {
             sizes,

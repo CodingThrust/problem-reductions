@@ -674,7 +674,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
             (
-                ser(SumOfSquaresPartition::new(sizes, num_groups, bound))?,
+                ser(SumOfSquaresPartition::try_new(sizes, num_groups, bound)
+                    .map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
         }
