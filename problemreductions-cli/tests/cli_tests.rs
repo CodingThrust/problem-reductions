@@ -1100,6 +1100,25 @@ fn test_create_two_dimensional_consecutive_sets_rejects_zero_alphabet_size_witho
 }
 
 #[test]
+fn test_create_two_dimensional_consecutive_sets_rejects_duplicate_elements_without_panic() {
+    let output = pred()
+        .args([
+            "create",
+            "TwoDimensionalConsecutiveSets",
+            "--alphabet-size",
+            "3",
+            "--sets",
+            "0,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("duplicate element"), "stderr: {stderr}");
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_then_evaluate() {
     // Create a problem
     let problem_file = std::env::temp_dir().join("pred_test_create_eval.json");

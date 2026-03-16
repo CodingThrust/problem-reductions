@@ -1084,28 +1084,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                      Usage: pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
                 )
             })?;
-            if alphabet_size == 0 {
-                bail!("Alphabet size must be positive");
-            }
             let sets = parse_sets(args)?;
-            for (i, set) in sets.iter().enumerate() {
-                for &element in set {
-                    if element >= alphabet_size {
-                        bail!(
-                            "Set {} contains element {} which is outside alphabet of size {}",
-                            i,
-                            element,
-                            alphabet_size
-                        );
-                    }
-                }
-            }
             (
                 ser(
-                    problemreductions::models::set::TwoDimensionalConsecutiveSets::new(
+                    problemreductions::models::set::TwoDimensionalConsecutiveSets::try_new(
                         alphabet_size,
                         sets,
-                    ),
+                    )
+                    .map_err(anyhow::Error::msg)?,
                 )?,
                 resolved_variant.clone(),
             )

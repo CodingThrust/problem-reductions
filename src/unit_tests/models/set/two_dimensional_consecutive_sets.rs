@@ -54,6 +54,14 @@ fn test_two_dimensional_consecutive_sets_evaluation() {
 }
 
 #[test]
+fn test_two_dimensional_consecutive_sets_evaluation_ignores_empty_group_labels() {
+    let problem = TwoDimensionalConsecutiveSets::new(3, vec![vec![0, 1]]);
+
+    // The empty label 1 should be ignored, so this encodes the ordered partition {0} | {1,2}.
+    assert!(problem.evaluate(&[0, 2, 2]));
+}
+
+#[test]
 fn test_two_dimensional_consecutive_sets_no_instance() {
     // NO instance from issue:
     // Alphabet: {0,1,2,3,4,5}

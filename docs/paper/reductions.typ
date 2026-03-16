@@ -1321,7 +1321,6 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let m = subs.len()
   let sol = x.optimal.at(0)
   let config = sol.config
-  let sat-count = x.optimal.len()
   // Build groups from config: groups.at(g) = list of symbols in group g
   let groups = range(n).map(g => range(n).filter(s => config.at(s) == g))
   // Only non-empty groups
@@ -1334,7 +1333,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     ][
     This problem generalizes the Consecutive Sets problem (SR18) by requiring not just that each subset's elements appear consecutively in an ordering, but that they be spread across consecutive groups of a partition where each group contributes at most one element per subset. Shown NP-complete by Lipski @lipski1977fct via transformation from Graph 3-Colorability. The problem arises in information storage and retrieval where records must be organized in contiguous blocks. It remains NP-complete if all subsets have at most 5 elements, but is solvable in polynomial time if all subsets have at most 2 elements. The brute-force algorithm assigns each of $n$ symbols to one of up to $n$ groups, giving $O^*(n^n)$ time#footnote[No algorithm improving on brute-force enumeration is known for this problem.].
 
-    *Example.* Let $Sigma = {0, 1, dots, #(n - 1)}$ and $cal(C) = {#range(m).map(i => $Sigma_#(i + 1)$).join(", ")}$ with #subs.enumerate().map(((i, s)) => $Sigma_#(i + 1) = #fmt-set(s)$).join(", "). A valid partition uses $k = #k$ groups: #nonempty.map(((g, elems)) => $X_#(g + 1) = #fmt-set(elems)$).join(", "). Each group intersects every subset in at most one element, and each subset's elements span exactly $|Sigma_j|$ consecutive groups. For instance, $Sigma_1 = {0, 1, 2}$ maps to groups $X_1, X_2, X_3$ (consecutive), and $Sigma_5 = {0, 5}$ maps to groups $X_1, X_2$ (consecutive). In total, there are #sat-count valid partitions.
+    *Example.* Let $Sigma = {0, 1, dots, #(n - 1)}$ and $cal(C) = {#range(m).map(i => $Sigma_#(i + 1)$).join(", ")}$ with #subs.enumerate().map(((i, s)) => $Sigma_#(i + 1) = #fmt-set(s)$).join(", "). A valid partition uses $k = #k$ groups: #nonempty.map(((g, elems)) => $X_#(g + 1) = #fmt-set(elems)$).join(", "). Each group intersects every subset in at most one element, and each subset's elements span exactly $|Sigma_j|$ consecutive groups. For instance, $Sigma_1 = {0, 1, 2}$ maps to groups $X_1, X_2, X_3$ (consecutive), and $Sigma_5 = {0, 5}$ maps to groups $X_1, X_2$ (consecutive). The example database records many satisfying assignments for this instance, including encodings that differ only by unused or shifted group labels.
 
     #figure(
       canvas(length: 1cm, {

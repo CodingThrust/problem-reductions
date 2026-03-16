@@ -435,6 +435,7 @@ Stdin is supported with `-`:
 ```bash
 pred create MIS --graph 0-1,1-2,2-3 | pred solve -
 pred create MIS --graph 0-1,1-2,2-3 | pred solve - --solver brute-force
+pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets "0,1,2;3,4,5;1,3;2,4;0,5" | pred solve - --solver brute-force
 ```
 
 When the problem is not ILP, the solver automatically reduces it to ILP, solves, and maps the solution back. The auto-reduction is shown in the output:

@@ -96,19 +96,24 @@ impl<'de> Deserialize<'de> for TwoDimensionalConsecutiveSets {
     where
         D: serde::Deserializer<'de>,
     {
-        let mut unchecked = TwoDimensionalConsecutiveSetsUnchecked::deserialize(deserializer)?;
-        if let Some(message) = validation_error(unchecked.alphabet_size, &mut unchecked.subsets) {
-            return Err(D::Error::custom(message));
-        }
-
-        Ok(Self {
-            alphabet_size: unchecked.alphabet_size,
-            subsets: unchecked.subsets,
-        })
+        let unchecked = TwoDimensionalConsecutiveSetsUnchecked::deserialize(deserializer)?;
+        Self::try_new(unchecked.alphabet_size, unchecked.subsets).map_err(D::Error::custom)
     }
 }
 
 impl TwoDimensionalConsecutiveSets {
+    /// Create a new 2-Dimensional Consecutive Sets instance, returning validation errors.
+    pub fn try_new(alphabet_size: usize, subsets: Vec<Vec<usize>>) -> Result<Self, String> {
+        let mut subsets = subsets;
+        if let Some(message) = validation_error(alphabet_size, &mut subsets) {
+            return Err(message);
+        }
+        Ok(Self {
+            alphabet_size,
+            subsets,
+        })
+    }
+
     /// Create a new 2-Dimensional Consecutive Sets instance.
     ///
     /// # Panics
@@ -116,14 +121,7 @@ impl TwoDimensionalConsecutiveSets {
     /// Panics if `alphabet_size` is 0, if any subset contains elements
     /// outside the alphabet, or if any subset has duplicate elements.
     pub fn new(alphabet_size: usize, subsets: Vec<Vec<usize>>) -> Self {
-        let mut subsets = subsets;
-        if let Some(message) = validation_error(alphabet_size, &mut subsets) {
-            panic!("{message}");
-        }
-        Self {
-            alphabet_size,
-            subsets,
-        }
+        Self::try_new(alphabet_size, subsets).unwrap_or_else(|message| panic!("{message}"))
     }
 
     /// Get the alphabet size.
@@ -158,12 +156,25 @@ impl Problem for TwoDimensionalConsecutiveSets {
             return false;
         }
 
+        // Empty labels do not create gaps in the partition order, so compress used labels first.
+        let mut used = vec![false; self.alphabet_size];
+        for &group in config {
+            used[group] = true;
+        }
+        let mut dense_labels = vec![0; self.alphabet_size];
+        let mut next_label = 0;
+        for (label, is_used) in used.into_iter().enumerate() {
+            if is_used {
+                dense_labels[label] = next_label;
+                next_label += 1;
+            }
+        }
+
         for subset in &self.subsets {
             if subset.is_empty() {
                 continue;
             }
-            // Collect group indices for this subset's elements
-            let groups: Vec<usize> = subset.iter().map(|&s| config[s]).collect();
+            let groups: Vec<usize> = subset.iter().map(|&s| dense_labels[config[s]]).collect();
 
             // Intersection constraint: all group indices must be distinct
             let unique: HashSet<usize> = groups.iter().copied().collect();

@@ -468,6 +468,7 @@ Examples:
   pred solve reduced.json                        # solve a reduction bundle
   pred solve reduced.json -o solution.json       # save result to file
   pred create MIS --graph 0-1,1-2 | pred solve - # read from stdin
+  pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\" | pred solve - --solver brute-force
   pred solve problem.json --timeout 10           # abort after 10 seconds
 
 Typical workflow:
