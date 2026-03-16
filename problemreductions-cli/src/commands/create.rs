@@ -11,7 +11,7 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    PaintShop, ShortestCommonSupersequence, SubsetSum,
+    PaintShop, SchedulingWithIndividualDeadlines, ShortestCommonSupersequence, SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -1116,6 +1116,71 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (
                 ser(MinimumTardinessSequencing::new(
                     num_tasks,
+                    deadlines,
+                    precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SchedulingWithIndividualDeadlines
+        "SchedulingWithIndividualDeadlines" => {
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingWithIndividualDeadlines requires --deadlines, --n, and --num-processors\n\n\
+                     Usage: pred create SchedulingWithIndividualDeadlines --n 7 --num-processors 3 --deadlines 2,1,2,2,3,3,2 [--precedence-pairs \"0>3,1>3,1>4,2>4,2>5\"]"
+                )
+            })?;
+            let num_tasks = args.n.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingWithIndividualDeadlines requires --n (number of tasks)\n\n\
+                     Usage: pred create SchedulingWithIndividualDeadlines --n 7 --num-processors 3 --deadlines 2,1,2,2,3,3,2"
+                )
+            })?;
+            let num_processors = args.num_processors.or(args.m).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingWithIndividualDeadlines requires --num-processors\n\n\
+                     Usage: pred create SchedulingWithIndividualDeadlines --n 7 --num-processors 3 --deadlines 2,1,2,2,3,3,2"
+                )
+            })?;
+            let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
+            let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
+                Some(s) if !s.is_empty() => s
+                    .split(',')
+                    .map(|pair| {
+                        let parts: Vec<&str> = pair.trim().split('>').collect();
+                        anyhow::ensure!(
+                            parts.len() == 2,
+                            "Invalid precedence format '{}', expected 'u>v'",
+                            pair.trim()
+                        );
+                        Ok((
+                            parts[0].trim().parse::<usize>()?,
+                            parts[1].trim().parse::<usize>()?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                _ => vec![],
+            };
+            anyhow::ensure!(
+                deadlines.len() == num_tasks,
+                "deadlines length ({}) must equal num_tasks ({})",
+                deadlines.len(),
+                num_tasks
+            );
+            for &(pred, succ) in &precedences {
+                anyhow::ensure!(
+                    pred < num_tasks && succ < num_tasks,
+                    "precedence index out of range: ({}, {}) but num_tasks = {}",
+                    pred,
+                    succ,
+                    num_tasks
+                );
+            }
+            (
+                ser(SchedulingWithIndividualDeadlines::new(
+                    num_tasks,
+                    num_processors,
                     deadlines,
                     precedences,
                 ))?,

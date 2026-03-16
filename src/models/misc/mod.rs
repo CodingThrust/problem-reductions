@@ -8,6 +8,7 @@
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
 //! - [`MinimumTardinessSequencing`]: Minimize tardy tasks in single-machine scheduling
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
+//! - [`SchedulingWithIndividualDeadlines`]: Meet per-task deadlines on parallel processors
 //! - [`ShortestCommonSupersequence`]: Find a common supersequence of bounded length
 //! - [`SubsetSum`]: Find a subset summing to exactly a target value
 
@@ -18,6 +19,7 @@ mod knapsack;
 mod longest_common_subsequence;
 mod minimum_tardiness_sequencing;
 pub(crate) mod paintshop;
+mod scheduling_with_individual_deadlines;
 pub(crate) mod shortest_common_supersequence;
 mod subset_sum;
 
@@ -28,6 +30,7 @@ pub use knapsack::Knapsack;
 pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use paintshop::PaintShop;
+pub use scheduling_with_individual_deadlines::SchedulingWithIndividualDeadlines;
 pub use shortest_common_supersequence::ShortestCommonSupersequence;
 pub use subset_sum::SubsetSum;
 
@@ -38,5 +41,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(paintshop::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
     specs.extend(minimum_tardiness_sequencing::canonical_model_example_specs());
+    specs.extend(scheduling_with_individual_deadlines::canonical_model_example_specs());
     specs
 }

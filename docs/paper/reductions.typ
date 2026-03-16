@@ -108,6 +108,7 @@
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "PartitionIntoTriangles": [Partition Into Triangles],
   "FlowShopScheduling": [Flow Shop Scheduling],
+  "SchedulingWithIndividualDeadlines": [Scheduling With Individual Deadlines],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
 )
@@ -2056,6 +2057,83 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     caption: [Flow shop schedule for 5 jobs on 3 machines. Job order $(j_4, j_1, j_5, j_3, j_2)$ achieves makespan 23, within deadline $D = 25$ (dashed red line).],
   ) <fig:flowshop>
 ]
+
+#{
+  let x = load-model-example("SchedulingWithIndividualDeadlines")
+  let ntasks = x.instance.num_tasks
+  let nproc = x.instance.num_processors
+  let deadlines = x.instance.deadlines
+  let precs = x.instance.precedences
+  let sample = x.samples.at(0)
+  let start = sample.config
+  let horizon = deadlines.fold(0, (acc, d) => if d > acc { d } else { acc })
+  let slot-groups = range(horizon).map(slot => range(ntasks).filter(t => start.at(t) == slot))
+  let tight-tasks = range(ntasks).filter(t => start.at(t) + 1 == deadlines.at(t))
+  let start-label = start.map(v => str(v)).join(", ")
+  let deadline-pairs = deadlines.enumerate().map(((t, d)) => [$d(t_#(t + 1)) = #d$])
+  let slot-summaries = slot-groups.enumerate().map(((slot, tasks)) => [slot #slot: #tasks.map(task => $t_#(task + 1)$).join(", ")])
+  let tight-task-labels = tight-tasks.map(task => $t_#(task + 1)$)
+  [
+    #problem-def("SchedulingWithIndividualDeadlines")[
+      Given a set $T$ of $n$ unit-length tasks, a number $m in ZZ^+$ of identical processors, a deadline function $d: T -> ZZ^+$, and a partial order $prec.eq$ on $T$, determine whether there exists a schedule $sigma: T -> {0, 1, dots, D - 1}$, where $D = max_(t in T) d(t)$, such that every task meets its own deadline ($sigma(t) + 1 <= d(t)$), every precedence constraint is respected (if $t_i prec.eq t_j$ then $sigma(t_i) + 1 <= sigma(t_j)$), and at most $m$ tasks are scheduled in each time slot.
+    ][
+      Scheduling With Individual Deadlines is the parallel-machine feasibility problem catalogued as A5 SS11 in Garey & Johnson @garey1979. Garey & Johnson record NP-completeness via reduction from Vertex Cover, and Brucker, Garey, and Johnson sharpen the complexity picture: the problem remains NP-complete for out-tree precedence constraints, but becomes polynomial-time solvable for in-trees @bruckerGareyJohnson1977. The two-processor case is also polynomial-time solvable @garey1979.
+
+      The direct encoding in this library uses one start-time variable per task, with each variable ranging over its allowable deadline window. If $D = max_t d(t)$, exhaustive search over that encoding yields an $O^*(D^n)$ brute-force bound.#footnote[This is the worst-case search bound induced by the implementation's configuration space; deadlines can be smaller on individual tasks, so practical instances may enumerate fewer than $D^n$ assignments.]
+
+      *Example.* Consider $n = #ntasks$ tasks on $m = #nproc$ processors with deadlines #{deadline-pairs.join(", ")} and precedence constraints #{precs.map(p => [$t_#(p.at(0) + 1) prec.eq t_#(p.at(1) + 1)$]).join(", ")}. The sample schedule $sigma = [#start-label]$ assigns #{slot-summaries.join("; ")}. Every slot uses at most #nproc processors, and the tight tasks #{tight-task-labels.join(", ")} finish exactly at their deadlines.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (
+            rgb("#4e79a7"),
+            rgb("#e15759"),
+            rgb("#76b7b2"),
+            rgb("#f28e2b"),
+            rgb("#59a14f"),
+            rgb("#edc948"),
+            rgb("#b07aa1"),
+          )
+          let scale = 1.25
+          let row-h = 0.58
+          let gap = 0.18
+
+          for lane in range(nproc) {
+            let y = -lane * (row-h + gap)
+            content((-0.8, y), text(7pt, "P" + str(lane + 1)))
+          }
+
+          for (slot, tasks) in slot-groups.enumerate() {
+            for (lane, task) in tasks.enumerate() {
+              let x0 = slot * scale
+              let x1 = (slot + 1) * scale
+              let y = -lane * (row-h + gap)
+              let color = colors.at(calc.rem(task, colors.len()))
+              rect(
+                (x0, y - row-h / 2),
+                (x1, y + row-h / 2),
+                fill: color.transparentize(30%),
+                stroke: 0.4pt + color,
+              )
+              content(((x0 + x1) / 2, y), text(7pt)[$t_#(task + 1)$])
+            }
+          }
+
+          let y-axis = -(nproc - 1) * (row-h + gap) - row-h / 2 - 0.2
+          line((0, y-axis), (horizon * scale, y-axis), stroke: 0.4pt)
+          for t in range(horizon + 1) {
+            let x = t * scale
+            line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
+            content((x, y-axis - 0.24), text(6pt, str(t)))
+          }
+          content((horizon * scale / 2, y-axis - 0.46), text(7pt)[time slot])
+        }),
+        caption: [A feasible 3-processor schedule for Scheduling With Individual Deadlines. Tasks sharing a column run in the same unit-length time slot; the sample assignment uses slots $0, 1, 2$ and meets every deadline.],
+      ) <fig:scheduling-with-individual-deadlines>
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("MinimumTardinessSequencing")
