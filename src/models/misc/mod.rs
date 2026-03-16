@@ -35,6 +35,7 @@ pub use subset_sum::SubsetSum;
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let mut specs = Vec::new();
     specs.extend(factoring::canonical_model_example_specs());
+    specs.extend(longest_common_subsequence::canonical_model_example_specs());
     specs.extend(paintshop::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
     specs.extend(minimum_tardiness_sequencing::canonical_model_example_specs());

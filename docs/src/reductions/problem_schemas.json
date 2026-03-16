@@ -261,12 +261,22 @@
   },
   {
     "name": "LongestCommonSubsequence",
-    "description": "Find the longest string that is a subsequence of every input string",
+    "description": "Find a common subsequence of bounded length for a set of strings",
     "fields": [
       {
+        "name": "alphabet_size",
+        "type_name": "usize",
+        "description": "Size of the alphabet"
+      },
+      {
         "name": "strings",
-        "type_name": "Vec<Vec<u8>>",
-        "description": "The input strings"
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Input strings over the alphabet {0, ..., alphabet_size-1}"
+      },
+      {
+        "name": "bound",
+        "type_name": "usize",
+        "description": "Required length of the common subsequence witness"
       }
     ]
   },

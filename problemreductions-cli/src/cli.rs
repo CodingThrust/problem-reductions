@@ -238,7 +238,7 @@ Flags by problem type:
   OptimalLinearArrangement        --graph, --bound
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
-  LCS                             --strings
+  LCS                             --strings, --bound [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
@@ -377,13 +377,13 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound (for RuralPostman or SCS)
+    /// Upper bound (for RuralPostman, LCS, or SCS)
     #[arg(long)]
     pub bound: Option<i64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
     #[arg(long)]
     pub pattern: Option<String>,
-    /// Input strings for LCS (e.g., "ABAC;BACA") or SCS (e.g., "0,1,2;1,2,0")
+    /// Input strings for LCS (e.g., "010110;100101" or "0,1,0;1,0,1") or SCS (e.g., "0,1,2;1,2,0")
     #[arg(long)]
     pub strings: Option<String>,
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
@@ -404,7 +404,7 @@ pub struct CreateArgs {
     /// Number of processors/machines for FlowShopScheduling
     #[arg(long)]
     pub num_processors: Option<usize>,
-    /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
+    /// Alphabet size for LCS/SCS (optional; inferred from the input strings if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
 }

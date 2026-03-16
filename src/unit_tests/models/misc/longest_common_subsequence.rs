@@ -1,19 +1,46 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::traits::Problem;
+
+fn issue_yes_instance() -> LongestCommonSubsequence {
+    LongestCommonSubsequence::new(
+        2,
+        vec![
+            vec![0, 1, 0, 1, 1, 0],
+            vec![1, 0, 0, 1, 0, 1],
+            vec![0, 0, 1, 0, 1, 1],
+            vec![1, 1, 0, 0, 1, 0],
+            vec![0, 1, 0, 1, 0, 1],
+            vec![1, 0, 1, 0, 1, 0],
+        ],
+        3,
+    )
+}
+
+fn issue_no_instance() -> LongestCommonSubsequence {
+    LongestCommonSubsequence::new(
+        2,
+        vec![
+            vec![0, 0, 0],
+            vec![1, 1, 1],
+            vec![0, 1, 0],
+            vec![1, 0, 1],
+            vec![0, 0, 1],
+            vec![1, 1, 0],
+        ],
+        1,
+    )
+}
 
 #[test]
 fn test_lcs_basic() {
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B', b'C', b'D', b'A', b'B'],
-        vec![b'B', b'D', b'C', b'A', b'B', b'A'],
-    ]);
-    assert_eq!(problem.num_strings(), 2);
-    assert_eq!(problem.total_length(), 12);
-    assert_eq!(problem.num_chars_first(), 6);
-    assert_eq!(problem.num_chars_second(), 6);
-    assert_eq!(problem.direction(), Direction::Maximize);
+    let problem = issue_yes_instance();
+    assert_eq!(problem.alphabet_size(), 2);
+    assert_eq!(problem.num_strings(), 6);
+    assert_eq!(problem.bound(), 3);
+    assert_eq!(problem.total_length(), 36);
+    assert_eq!(problem.sum_squared_lengths(), 216);
+    assert_eq!(problem.dims(), vec![2; 3]);
     assert_eq!(
         <LongestCommonSubsequence as Problem>::NAME,
         "LongestCommonSubsequence"
@@ -22,136 +49,92 @@ fn test_lcs_basic() {
 }
 
 #[test]
-fn test_lcs_dims() {
-    // Shortest string has 4 chars
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B', b'A', b'C'],
-        vec![b'B', b'A', b'C', b'A', b'B', b'C'],
-    ]);
-    assert_eq!(problem.dims(), vec![2; 4]);
+fn test_lcs_evaluate_issue_yes() {
+    let problem = issue_yes_instance();
+    assert!(problem.evaluate(&[0, 1, 0]));
+    assert!(!problem.evaluate(&[1, 1, 0]));
 }
 
 #[test]
-fn test_lcs_evaluate_valid() {
-    // s1 = "ABC", s2 = "ACB"
-    // Selecting positions 0,2 of s1 (shorter) gives "AC" which is subseq of "ACB"
-    let problem =
-        LongestCommonSubsequence::new(vec![vec![b'A', b'B', b'C'], vec![b'A', b'C', b'B']]);
-    let result = problem.evaluate(&[1, 0, 1]); // "AC"
-    assert!(result.is_valid());
-    assert_eq!(result.unwrap(), 2);
+fn test_lcs_evaluate_issue_no() {
+    let problem = issue_no_instance();
+    assert!(!problem.evaluate(&[0]));
+    assert!(!problem.evaluate(&[1]));
 }
 
 #[test]
-fn test_lcs_evaluate_invalid_subsequence() {
-    // s1 = "ABC", s2 = "CAB"
-    // Selecting positions 1,2 of s1 gives "BC" - is "BC" a subseq of "CAB"? No
-    let problem =
-        LongestCommonSubsequence::new(vec![vec![b'A', b'B', b'C'], vec![b'C', b'A', b'B']]);
-    let result = problem.evaluate(&[0, 1, 1]); // "BC"
-    assert!(!result.is_valid());
+fn test_lcs_out_of_range_symbol() {
+    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1]], 3);
+    assert!(!problem.evaluate(&[0, 2, 1]));
 }
 
 #[test]
-fn test_lcs_evaluate_empty_selection() {
-    let problem =
-        LongestCommonSubsequence::new(vec![vec![b'A', b'B', b'C'], vec![b'X', b'Y', b'Z']]);
-    let result = problem.evaluate(&[0, 0, 0]); // empty
-    assert!(result.is_valid());
-    assert_eq!(result.unwrap(), 0);
+fn test_lcs_wrong_length() {
+    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1]], 3);
+    assert!(!problem.evaluate(&[0, 1]));
+    assert!(!problem.evaluate(&[0, 1, 0, 1]));
 }
 
 #[test]
-fn test_lcs_evaluate_wrong_config_length() {
-    let problem = LongestCommonSubsequence::new(vec![vec![b'A', b'B'], vec![b'A', b'B', b'C']]);
-    assert!(!problem.evaluate(&[1]).is_valid());
-    assert!(!problem.evaluate(&[1, 0, 0]).is_valid());
-}
-
-#[test]
-fn test_lcs_evaluate_invalid_variable_value() {
-    let problem = LongestCommonSubsequence::new(vec![vec![b'A', b'B'], vec![b'A', b'B']]);
-    assert!(!problem.evaluate(&[2, 0]).is_valid());
-}
-
-#[test]
-fn test_lcs_brute_force_two_strings() {
-    // s1 = "ABAC", s2 = "BACA"
-    // LCS = "BAC" or "AAC" or "ABA", length 3
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B', b'A', b'C'],
-        vec![b'B', b'A', b'C', b'A'],
-    ]);
+fn test_lcs_bruteforce_yes() {
+    let problem = issue_yes_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_best(&problem).expect("should find a solution");
-    let metric = problem.evaluate(&solution);
-    assert!(metric.is_valid());
-    assert_eq!(metric.unwrap(), 3);
+    let solution = solver
+        .find_satisfying(&problem)
+        .expect("expected a common subsequence witness");
+    assert!(problem.evaluate(&solution));
 }
 
 #[test]
-fn test_lcs_identical_strings() {
-    let problem =
-        LongestCommonSubsequence::new(vec![vec![b'A', b'B', b'C'], vec![b'A', b'B', b'C']]);
+fn test_lcs_bruteforce_no() {
+    let problem = issue_no_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_best(&problem).expect("should find a solution");
-    let metric = problem.evaluate(&solution);
-    assert_eq!(metric.unwrap(), 3);
+    assert!(solver.find_satisfying(&problem).is_none());
 }
 
 #[test]
-fn test_lcs_no_common_chars() {
-    let problem = LongestCommonSubsequence::new(vec![vec![b'A', b'B'], vec![b'C', b'D']]);
+fn test_lcs_find_all_satisfying_contains_issue_witness() {
+    let problem = issue_yes_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_best(&problem).expect("should find a solution");
-    let metric = problem.evaluate(&solution);
-    assert_eq!(metric.unwrap(), 0);
+    let satisfying = solver.find_all_satisfying(&problem);
+    assert!(satisfying.iter().any(|config| config == &vec![0, 1, 0]));
 }
 
 #[test]
-fn test_lcs_single_char_alphabet() {
-    // All same character - LCS is length of shortest string
-    let problem = LongestCommonSubsequence::new(vec![vec![b'A', b'A', b'A'], vec![b'A', b'A']]);
-    let solver = BruteForce::new();
-    let solution = solver.find_best(&problem).expect("should find a solution");
-    let metric = problem.evaluate(&solution);
-    assert_eq!(metric.unwrap(), 2);
+fn test_lcs_empty_bound() {
+    let problem = LongestCommonSubsequence::new(1, vec![vec![0, 0, 0], vec![0, 0]], 0);
+    assert_eq!(problem.dims(), Vec::<usize>::new());
+    assert!(problem.evaluate(&[]));
 }
 
 #[test]
-fn test_lcs_three_strings() {
-    // Example from issue #108
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B', b'C', b'D', b'A', b'B'],
-        vec![b'B', b'D', b'C', b'A', b'B', b'A'],
-        vec![b'B', b'C', b'A', b'D', b'B', b'A'],
-    ]);
+fn test_lcs_paper_example() {
+    let problem = issue_yes_instance();
+    assert!(problem.evaluate(&[0, 1, 0]));
+
     let solver = BruteForce::new();
-    let solution = solver.find_best(&problem).expect("should find a solution");
-    let metric = problem.evaluate(&solution);
-    assert!(metric.is_valid());
-    assert_eq!(metric.unwrap(), 4); // "BCAB" or equivalent
+    let satisfying = solver.find_all_satisfying(&problem);
+    assert!(!satisfying.is_empty());
 }
 
 #[test]
 fn test_lcs_serialization() {
-    let problem =
-        LongestCommonSubsequence::new(vec![vec![b'A', b'B', b'C'], vec![b'A', b'C', b'B']]);
+    let problem = issue_yes_instance();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: LongestCommonSubsequence = serde_json::from_value(json).unwrap();
+    assert_eq!(restored.alphabet_size(), problem.alphabet_size());
     assert_eq!(restored.strings(), problem.strings());
+    assert_eq!(restored.bound(), problem.bound());
 }
 
 #[test]
-fn test_lcs_empty_string_in_input() {
-    let problem = LongestCommonSubsequence::new(vec![vec![], vec![b'A', b'B', b'C']]);
-    assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert!(problem.evaluate(&[]).is_valid());
-    assert_eq!(problem.evaluate(&[]).unwrap(), 0);
+#[should_panic(expected = "alphabet_size must be > 0 when bound > 0")]
+fn test_lcs_zero_alphabet_with_positive_bound_panics() {
+    LongestCommonSubsequence::new(0, vec![vec![]], 1);
 }
 
 #[test]
-#[should_panic(expected = "LCS requires at least 2 strings")]
-fn test_lcs_single_string_panics() {
-    LongestCommonSubsequence::new(vec![vec![b'A', b'B']]);
+#[should_panic(expected = "input symbols must be less than alphabet_size")]
+fn test_lcs_symbol_out_of_range_panics() {
+    LongestCommonSubsequence::new(2, vec![vec![0, 2]], 1);
 }

@@ -202,6 +202,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
+        "Vec<Vec<usize>>" => "semicolon-separated strings: \"0,1,2;1,2,0\"",
         "usize" => "integer",
         "u64" => "integer",
         "i64" => "integer",
@@ -248,6 +249,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "LongestCommonSubsequence" => {
+            "--strings \"010110;100101;001011\" --bound 3 --alphabet-size 2"
+        }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
     }
@@ -754,18 +758,85 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // LongestCommonSubsequence
         "LongestCommonSubsequence" => {
+            let usage =
+                "Usage: pred create LCS --strings \"010110;100101;001011\" --bound 3 [--alphabet-size 2]";
             let strings_str = args.strings.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "LCS requires --strings\n\n\
-                     Usage: pred create LCS --strings \"ABAC;BACA\""
-                )
+                anyhow::anyhow!("LongestCommonSubsequence requires --strings\n\n{usage}")
             })?;
-            let strings: Vec<Vec<u8>> = strings_str
-                .split(';')
-                .map(|s| s.trim().as_bytes().to_vec())
-                .collect();
+            let bound_i64 = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("LongestCommonSubsequence requires --bound\n\n{usage}")
+            })?;
+            anyhow::ensure!(
+                bound_i64 >= 0,
+                "LongestCommonSubsequence requires a nonnegative --bound, got {}",
+                bound_i64
+            );
+            let bound = bound_i64 as usize;
+
+            let segments: Vec<&str> = strings_str.split(';').map(str::trim).collect();
+            let comma_mode = segments.iter().any(|segment| segment.contains(','));
+
+            let (strings, inferred_alphabet_size): (Vec<Vec<usize>>, usize) = if comma_mode {
+                let strings = segments
+                    .iter()
+                    .map(|segment| {
+                        if segment.is_empty() {
+                            return Ok(Vec::new());
+                        }
+                        segment
+                            .split(',')
+                            .map(|value| {
+                                value.trim().parse::<usize>().map_err(|e| {
+                                    anyhow::anyhow!("Invalid LCS alphabet index: {}", e)
+                                })
+                            })
+                            .collect::<Result<Vec<_>>>()
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let inferred = strings
+                    .iter()
+                    .flat_map(|string| string.iter())
+                    .copied()
+                    .max()
+                    .map(|value| value + 1)
+                    .unwrap_or(0);
+                (strings, inferred)
+            } else {
+                let mut encoding = BTreeMap::new();
+                let mut next_symbol = 0usize;
+                let strings = segments
+                    .iter()
+                    .map(|segment| {
+                        segment
+                            .as_bytes()
+                            .iter()
+                            .map(|byte| {
+                                let entry = encoding.entry(*byte).or_insert_with(|| {
+                                    let current = next_symbol;
+                                    next_symbol += 1;
+                                    current
+                                });
+                                *entry
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
+                (strings, next_symbol)
+            };
+
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred_alphabet_size);
+            anyhow::ensure!(
+                alphabet_size >= inferred_alphabet_size,
+                "--alphabet-size {} is smaller than the inferred alphabet size ({})",
+                alphabet_size,
+                inferred_alphabet_size
+            );
             (
-                ser(LongestCommonSubsequence::new(strings))?,
+                ser(LongestCommonSubsequence::new(
+                    alphabet_size,
+                    strings,
+                    bound,
+                ))?,
                 resolved_variant.clone(),
             )
         }

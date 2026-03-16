@@ -1689,13 +1689,60 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   *Example.* Consider host graph $G$ with 7 vertices: a $K_4$ clique on ${0, 1, 2, 3}$ and a triangle on ${4, 5, 6}$ connected via edge $(3, 4)$. Pattern $H = K_4$ with vertices ${a, b, c, d}$. The mapping $f(a) = 0, f(b) = 1, f(c) = 2, f(d) = 3$ preserves all 6 edges of $K_4$, confirming a subgraph isomorphism exists.
 ]
 
-#problem-def("LongestCommonSubsequence")[
-  Given $k$ strings $s_1, dots, s_k$ over a finite alphabet $Sigma$, find a longest string $w$ that is a subsequence of every $s_i$. A string $w$ is a _subsequence_ of $s$ if $w$ can be obtained by deleting zero or more characters from $s$ without changing the order of the remaining characters.
-][
-  The LCS problem is polynomial-time solvable for $k = 2$ strings via dynamic programming in $O(n_1 n_2)$ time (Wagner & Fischer, 1974), but NP-hard for $k gt.eq 3$ strings @maier1978. It is a foundational problem in bioinformatics (sequence alignment), version control (diff algorithms), and data compression. The problem is listed as SR10 in Garey & Johnson @garey1979.
+#{
+  let x = load-model-example("LongestCommonSubsequence")
+  let strings = x.instance.strings
+  let witness = x.samples.at(0).config
+  let fmt-str(s) = "\"" + s.map(c => str(c)).join("") + "\""
+  let string-list = strings.map(fmt-str).join(", ")
+  let find-embed(target, candidate) = {
+    let positions = ()
+    let j = 0
+    for (i, ch) in target.enumerate() {
+      if j < candidate.len() and ch == candidate.at(j) {
+        positions.push(i)
+        j += 1
+      }
+    }
+    positions
+  }
+  let embeds = strings.map(s => find-embed(s, witness))
+  [
+    #problem-def("LongestCommonSubsequence")[
+      Given a finite alphabet $Sigma$, a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, and a positive integer $K$, determine whether there exists a string $w in Sigma^*$ with $|w| gt.eq K$ such that every string $r_i in R$ contains $w$ as a _subsequence_: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|w|) lt.eq |r_i|$ with $r_i[j_t] = w[t]$ for all $t$.
+    ][
+      A classic NP-complete string problem, listed as problem SR10 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness, while Garey and Johnson note polynomial-time cases for fixed $K$ or fixed $|R|$. For the special case of two strings, the classical dynamic-programming algorithm of #cite(<wagnerfischer1974>, form: "prose") runs in $O(|r_1| dot |r_2|)$ time. The decision model implemented in this repository fixes the witness length to exactly $K$; this is equivalent to the standard "$|w| gt.eq K$" formulation because any longer common subsequence has a length-$K$ prefix.
 
-  *Example.* Let $s_1 = $ `ABAC` and $s_2 = $ `BACA` over $Sigma = {A, B, C}$. The longest common subsequence has length 3, e.g., `BAC`: positions 1, 2, 3 of $s_1$ match positions 0, 1, 2 of $s_2$.
-]
+      *Example.* Let $Sigma = {0, 1}$ and let the input set $R$ contain the strings #string-list. The witness $w = $ #fmt-str(witness) is a common subsequence of every string in $R$.
+
+      #figure({
+        let blue = graph-colors.at(0)
+        align(center, stack(dir: ttb, spacing: 0.35cm,
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 1.2cm, height: 0.45cm, align(center + horizon, text(8pt, "w ="))),
+            ..witness.enumerate().map(((i, symbol)) => {
+              box(width: 0.48cm, height: 0.48cm, fill: blue.transparentize(70%), stroke: 0.5pt + luma(120),
+                align(center + horizon, text(9pt, weight: "bold", str(symbol))))
+            }),
+          ),
+          ..strings.enumerate().map(((ri, s)) => {
+            let embed = embeds.at(ri)
+            stack(dir: ltr, spacing: 0pt,
+              box(width: 1.2cm, height: 0.45cm, align(center + horizon, text(8pt, "r" + str(ri + 1) + " ="))),
+              ..s.enumerate().map(((i, symbol)) => {
+                let fill = if embed.contains(i) { blue.transparentize(78%) } else { white }
+                box(width: 0.48cm, height: 0.48cm, fill: fill, stroke: 0.5pt + luma(120),
+                  align(center + horizon, text(9pt, weight: "bold", str(symbol))))
+              }),
+            )
+          }),
+        ))
+      })
+
+      The highlighted positions show one left-to-right embedding of $w = $ #fmt-str(witness) in each input string, certifying the YES answer for $K = 3$.
+    ]
+  ]
+}
 
 #problem-def("SubsetSum")[
   Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$ and a target $B in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ such that $sum_(a in A') s(a) = B$.
@@ -2724,19 +2771,19 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("LongestCommonSubsequence", "ILP")[
-  The match-pair ILP formulation @blum2021 encodes subsequence alignment as a binary optimization. For two strings $s_1$ (length $n_1$) and $s_2$ (length $n_2$), each position pair $(j_1, j_2)$ where $s_1[j_1] = s_2[j_2]$ yields a binary variable. Constraints enforce one-to-one matching and order preservation (no crossings). The objective maximizes the number of matched pairs.
+  A bounded-witness ILP formulation turns the decision version of LCS into a feasibility problem. Binary variables choose the symbol at each witness position and, for every input string, choose where that witness position is realized. Linear constraints enforce symbol consistency and strictly increasing source positions.
 ][
-  _Construction._ Given strings $s_1$ and $s_2$:
+  _Construction._ Given alphabet $Sigma$, strings $R = {r_1, dots, r_m}$, and bound $K$:
 
-  _Variables:_ Binary $m_(j_1, j_2) in {0, 1}$ for each $(j_1, j_2)$ with $s_1[j_1] = s_2[j_2]$. Interpretation: $m_(j_1, j_2) = 1$ iff position $j_1$ of $s_1$ is matched to position $j_2$ of $s_2$.
+  _Variables:_ Binary $x_(p, a) in {0, 1}$ for witness position $p in {1, dots, K}$ and symbol $a in Sigma$, with $x_(p, a) = 1$ iff the $p$-th witness symbol equals $a$. For every input string $r_i$, witness position $p$, and source index $j in {1, dots, |r_i|}$, binary $y_(i, p, j) = 1$ iff the $p$-th witness symbol is matched to position $j$ of $r_i$.
 
-  _Constraints:_ (1) Each position in $s_1$ matched at most once: $sum_(j_2 : (j_1, j_2) in M) m_(j_1, j_2) lt.eq 1$ for all $j_1$. (2) Each position in $s_2$ matched at most once: $sum_(j_1 : (j_1, j_2) in M) m_(j_1, j_2) lt.eq 1$ for all $j_2$. (3) No crossings: for $(j_1, j_2), (j'_1, j'_2) in M$ with $j_1 < j'_1$ and $j_2 > j'_2$: $m_(j_1, j_2) + m_(j'_1, j'_2) lt.eq 1$.
+  _Constraints:_ (1) Exactly one symbol per witness position: $sum_(a in Sigma) x_(p, a) = 1$ for all $p$. (2) Exactly one matched source position for each $(i, p)$: $sum_(j = 1)^(|r_i|) y_(i, p, j) = 1$. (3) Character consistency: if $r_i[j] = a$, then $y_(i, p, j) lt.eq x_(p, a)$. (4) Strictly increasing matches: for consecutive witness positions $p$ and $p + 1$, forbid $y_(i, p, j') = y_(i, p + 1, j) = 1$ whenever $j' gt.eq j$.
 
-  _Objective:_ Maximize $sum_((j_1, j_2) in M) m_(j_1, j_2)$.
+  _Objective:_ Use the zero objective. The target ILP is feasible iff the source LCS instance is a YES instance.
 
-  _Correctness._ ($arrow.r.double$) A common subsequence of length $ell$ defines $ell$ matched pairs that are order-preserving (no crossings) and one-to-one, yielding a feasible ILP solution with objective $ell$. ($arrow.l.double$) An ILP solution with objective $ell$ defines $ell$ matched pairs; constraints (1)--(2) ensure one-to-one matching, and constraint (3) ensures order preservation, so the matched characters form a common subsequence of length $ell$.
+  _Correctness._ ($arrow.r.double$) If a witness $w = w_1 dots w_K$ is a common subsequence of every string, set $x_(p, w_p) = 1$ and choose, in every $r_i$, the positions where that embedding occurs. Constraints (1)--(4) are satisfied, so the ILP is feasible. ($arrow.l.double$) Any feasible ILP solution selects exactly one symbol for each witness position and exactly one realization in each source string. Character consistency ensures the chosen positions spell the same witness string in every input string, and the ordering constraints ensure those positions are strictly increasing. Therefore the extracted witness is a common subsequence of length $K$.
 
-  _Solution extraction._ Collect pairs $(j_1, j_2)$ with $m_(j_1, j_2) = 1$, sort by $j_1$, and read the characters.
+  _Solution extraction._ For each witness position $p$, read the unique symbol $a$ with $x_(p, a) = 1$ and output the resulting length-$K$ string.
 ]
 
 == Unit Disk Mapping

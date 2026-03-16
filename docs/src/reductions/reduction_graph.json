@@ -210,7 +210,7 @@
       "variant": {},
       "category": "misc",
       "doc_path": "models/misc/struct.LongestCommonSubsequence.html",
-      "complexity": "2^min_string_length"
+      "complexity": "alphabet_size ^ bound"
     },
     {
       "name": "MaxCut",
@@ -778,11 +778,11 @@
       "overhead": [
         {
           "field": "num_vars",
-          "formula": "num_chars_first * num_chars_second"
+          "formula": "bound * alphabet_size + bound * total_length"
         },
         {
           "field": "num_constraints",
-          "formula": "num_chars_first + num_chars_second + (num_chars_first * num_chars_second)^2"
+          "formula": "bound + bound * num_strings + bound * total_length + num_transitions * sum_triangular_lengths"
         }
       ],
       "doc_path": "rules/longestcommonsubsequence_ilp/index.html"
