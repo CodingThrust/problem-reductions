@@ -125,7 +125,8 @@ fn test_rectilinear_picture_compression_brute_force_all() {
     let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
     let solver = BruteForce::new();
     let solutions = solver.find_all_satisfying(&problem);
-    assert!(!solutions.is_empty());
+    // Two disjoint 2x2 blocks with K=2: exactly one satisfying config [1,1].
+    assert_eq!(solutions.len(), 1);
     for sol in &solutions {
         assert!(problem.evaluate(sol));
     }

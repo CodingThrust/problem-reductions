@@ -8,6 +8,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
+use serde::de::Deserializer;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -55,10 +56,27 @@ inventory::submit! {
 /// let solution = solver.find_satisfying(&problem);
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct RectilinearPictureCompression {
     matrix: Vec<Vec<bool>>,
     bound_k: usize,
+    #[serde(skip)]
+    maximal_rects: Vec<(usize, usize, usize, usize)>,
+}
+
+impl<'de> Deserialize<'de> for RectilinearPictureCompression {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Inner {
+            matrix: Vec<Vec<bool>>,
+            bound_k: usize,
+        }
+        let inner = Inner::deserialize(deserializer)?;
+        Ok(Self::new(inner.matrix, inner.bound_k))
+    }
 }
 
 impl RectilinearPictureCompression {
@@ -75,7 +93,13 @@ impl RectilinearPictureCompression {
             matrix.iter().all(|row| row.len() == cols),
             "All rows must have the same length"
         );
-        Self { matrix, bound_k }
+        let mut instance = Self {
+            matrix,
+            bound_k,
+            maximal_rects: Vec::new(),
+        };
+        instance.maximal_rects = instance.compute_maximal_rectangles();
+        instance
     }
 
     /// Returns the number of rows in the matrix.
@@ -94,18 +118,23 @@ impl RectilinearPictureCompression {
     }
 
     /// Returns a reference to the binary matrix.
-    pub fn matrix(&self) -> &Vec<Vec<bool>> {
+    pub fn matrix(&self) -> &[Vec<bool>] {
         &self.matrix
+    }
+
+    /// Returns the precomputed maximal all-1 sub-rectangles.
+    ///
+    /// Each rectangle is `(r1, c1, r2, c2)` covering rows `r1..=r2` and
+    /// columns `c1..=c2`.
+    pub fn maximal_rectangles(&self) -> &[(usize, usize, usize, usize)] {
+        &self.maximal_rects
     }
 
     /// Enumerate all maximal all-1 sub-rectangles in the matrix.
     ///
-    /// A rectangle is represented as `(r1, c1, r2, c2)` covering rows
-    /// `r1..=r2` and columns `c1..=c2`. A rectangle is maximal if no
-    /// proper superset rectangle in the candidate set is also all-1.
-    ///
-    /// The result is sorted lexicographically and deduplicated.
-    pub fn maximal_rectangles(&self) -> Vec<(usize, usize, usize, usize)> {
+    /// A rectangle is maximal if no proper superset rectangle in the
+    /// candidate set is also all-1. The result is sorted lexicographically.
+    fn compute_maximal_rectangles(&self) -> Vec<(usize, usize, usize, usize)> {
         let m = self.num_rows();
         let n = self.num_cols();
 
@@ -178,12 +207,11 @@ impl Problem for RectilinearPictureCompression {
     }
 
     fn dims(&self) -> Vec<usize> {
-        let r = self.maximal_rectangles().len();
-        vec![2; r]
+        vec![2; self.maximal_rects.len()]
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
-        let rects = self.maximal_rectangles();
+        let rects = &self.maximal_rects;
         if config.len() != rects.len() {
             return false;
         }
