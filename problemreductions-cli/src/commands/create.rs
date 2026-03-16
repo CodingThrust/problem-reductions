@@ -328,6 +328,51 @@ fn problem_help_flag_name(
     field_name.replace('_', "-")
 }
 
+fn lbdp_validation_error(message: &str, usage: Option<&str>) -> anyhow::Error {
+    match usage {
+        Some(usage) => anyhow::anyhow!("{message}\n\n{usage}"),
+        None => anyhow::anyhow!("{message}"),
+    }
+}
+
+fn validate_length_bounded_disjoint_paths_args(
+    num_vertices: usize,
+    source: usize,
+    sink: usize,
+    num_paths_required: usize,
+    bound: i64,
+    usage: Option<&str>,
+) -> Result<usize> {
+    let max_length = usize::try_from(bound).map_err(|_| {
+        lbdp_validation_error(
+            "--bound must be a nonnegative integer for LengthBoundedDisjointPaths",
+            usage,
+        )
+    })?;
+    if source >= num_vertices || sink >= num_vertices {
+        return Err(lbdp_validation_error(
+            "--source and --sink must be valid graph vertices",
+            usage,
+        ));
+    }
+    if source == sink {
+        return Err(lbdp_validation_error(
+            "--source and --sink must be distinct",
+            usage,
+        ));
+    }
+    if num_paths_required == 0 {
+        return Err(lbdp_validation_error(
+            "--num-paths-required must be positive",
+            usage,
+        ));
+    }
+    if max_length == 0 {
+        return Err(lbdp_validation_error("--bound must be positive", usage));
+    }
+    Ok(max_length)
+}
+
 /// Resolve the graph type from the variant map (e.g., "KingsSubgraph", "UnitDiskGraph", or "SimpleGraph").
 fn resolved_graph_type(variant: &BTreeMap<String, String>) -> &str {
     variant
@@ -437,19 +482,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --bound\n\n{usage}")
             })?;
-            let max_length = usize::try_from(bound).map_err(|_| {
-                anyhow::anyhow!("--bound must be a nonnegative integer for LengthBoundedDisjointPaths\n\n{usage}")
-            })?;
-
-            if source >= graph.num_vertices() || sink >= graph.num_vertices() {
-                bail!("--source and --sink must be valid graph vertices\n\n{usage}");
-            }
-            if num_paths_required == 0 {
-                bail!("--num-paths-required must be positive\n\n{usage}");
-            }
-            if max_length == 0 {
-                bail!("--bound must be positive\n\n{usage}");
-            }
+            let max_length = validate_length_bounded_disjoint_paths_args(
+                graph.num_vertices(),
+                source,
+                sink,
+                num_paths_required,
+                bound,
+                Some(usage),
+            )?;
 
             (
                 ser(LengthBoundedDisjointPaths::new(
@@ -1789,20 +1829,14 @@ fn create_random(
             let sink = args.sink.unwrap_or(num_vertices - 1);
             let num_paths_required = args.num_paths_required.unwrap_or(1);
             let bound = args.bound.unwrap_or((num_vertices - 1) as i64);
-            let max_length = usize::try_from(bound)
-                .map_err(|_| anyhow::anyhow!("--bound must be nonnegative"))?;
-            if source >= num_vertices || sink >= num_vertices {
-                bail!("--source and --sink must be valid graph vertices");
-            }
-            if source == sink {
-                bail!("--source and --sink must be distinct");
-            }
-            if num_paths_required == 0 {
-                bail!("--num-paths-required must be positive");
-            }
-            if max_length == 0 {
-                bail!("--bound must be positive");
-            }
+            let max_length = validate_length_bounded_disjoint_paths_args(
+                num_vertices,
+                source,
+                sink,
+                num_paths_required,
+                bound,
+                None,
+            )?;
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (
                 ser(LengthBoundedDisjointPaths::new(

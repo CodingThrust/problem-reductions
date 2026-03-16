@@ -388,7 +388,7 @@ pub struct CreateArgs {
     #[arg(long)]
     pub required_edges: Option<String>,
     /// Upper bound or length bound (for LengthBoundedDisjointPaths, OptimalLinearArrangement, RuralPostman, or SCS)
-    #[arg(long)]
+    #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
     #[arg(long)]

@@ -52,6 +52,36 @@ fn test_length_bounded_disjoint_paths_allows_large_bounds() {
 }
 
 #[test]
+#[should_panic(expected = "source must be a valid graph vertex")]
+fn test_length_bounded_disjoint_paths_creation_rejects_invalid_source() {
+    let _ = LengthBoundedDisjointPaths::new(sample_yes_graph(), 7, 6, 2, 3);
+}
+
+#[test]
+#[should_panic(expected = "sink must be a valid graph vertex")]
+fn test_length_bounded_disjoint_paths_creation_rejects_invalid_sink() {
+    let _ = LengthBoundedDisjointPaths::new(sample_yes_graph(), 0, 7, 2, 3);
+}
+
+#[test]
+#[should_panic(expected = "source and sink must be distinct")]
+fn test_length_bounded_disjoint_paths_creation_rejects_equal_terminals() {
+    let _ = LengthBoundedDisjointPaths::new(sample_yes_graph(), 0, 0, 2, 3);
+}
+
+#[test]
+#[should_panic(expected = "num_paths_required must be positive")]
+fn test_length_bounded_disjoint_paths_creation_rejects_zero_paths() {
+    let _ = LengthBoundedDisjointPaths::new(sample_yes_graph(), 0, 6, 0, 3);
+}
+
+#[test]
+#[should_panic(expected = "max_length must be positive")]
+fn test_length_bounded_disjoint_paths_creation_rejects_zero_bound() {
+    let _ = LengthBoundedDisjointPaths::new(sample_yes_graph(), 0, 6, 2, 0);
+}
+
+#[test]
 fn test_length_bounded_disjoint_paths_evaluation() {
     let problem = sample_yes_problem();
     let config = encode_paths(7, &[&[0, 1, 6], &[0, 2, 3, 6]]);

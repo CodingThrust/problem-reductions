@@ -47,6 +47,11 @@ pub struct LengthBoundedDisjointPaths<G> {
 
 impl<G: Graph> LengthBoundedDisjointPaths<G> {
     /// Create a new Length-Bounded Disjoint Paths instance.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `source` or `sink` is not a valid graph vertex, if `source ==
+    /// sink`, if `num_paths_required == 0`, or if `max_length == 0`.
     pub fn new(
         graph: G,
         source: usize,
