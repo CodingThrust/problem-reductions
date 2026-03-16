@@ -106,6 +106,7 @@
   "PartitionIntoTriangles": [Partition Into Triangles],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
+  "SequencingToMinimizeWeightedTardiness": [Sequencing to Minimize Weighted Tardiness],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -1973,6 +1974,87 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
         }),
         caption: [Optimal schedule for #ntasks tasks. #if tardy-tasks.len() > 0 [Faded #if tardy-tasks.len() == 1 [block indicates the] else [blocks indicate] tardy #if tardy-tasks.len() == 1 [task] else [tasks] (finish time exceeds deadline).] else [All tasks meet their deadlines.]],
       ) <fig:mts>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SequencingToMinimizeWeightedTardiness")
+  let lengths = x.instance.lengths
+  let weights = x.instance.weights
+  let deadlines = x.instance.deadlines
+  let bound = x.instance.bound
+  let njobs = lengths.len()
+  let sol = x.optimal.at(0)
+  let lehmer = sol.config
+  let schedule = {
+    let avail = range(njobs)
+    let result = ()
+    for c in lehmer {
+      result.push(avail.at(c))
+      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
+    }
+    result
+  }
+  let completions = {
+    let t = 0
+    let result = ()
+    for job in schedule {
+      t += lengths.at(job)
+      result.push(t)
+    }
+    result
+  }
+  let tardiness = schedule.enumerate().map(((pos, job)) => calc.max(0, completions.at(pos) - deadlines.at(job)))
+  let weighted = schedule.enumerate().map(((pos, job)) => tardiness.at(pos) * weights.at(job))
+  let total-weighted = weighted.fold(0, (acc, v) => acc + v)
+  let tardy-jobs = schedule.enumerate().filter(((pos, job)) => tardiness.at(pos) > 0).map(((pos, job)) => job)
+  [
+    #problem-def("SequencingToMinimizeWeightedTardiness")[
+      Given a set $J$ of $n$ jobs, processing times $ell_j in ZZ^+$, tardiness weights $w_j in ZZ^+$, deadlines $d_j in ZZ^+$, and a bound $K in ZZ^+$, determine whether there exists a one-machine schedule whose total weighted tardiness
+      $sum_(j in J) w_j max(0, C_j - d_j)$
+      is at most $K$, where $C_j$ is the completion time of job $j$.
+    ][
+      Sequencing to Minimize Weighted Tardiness is the classical single-machine scheduling problem $1 || sum w_j T_j$, where $T_j = max(0, C_j - d_j)$. It appears as SS5 in Garey & Johnson @garey1979 and is strongly NP-complete via transformation from 3-Partition, which rules out pseudo-polynomial algorithms in general. When all weights are equal, the special case reduces to ordinary total tardiness and admits a pseudo-polynomial dynamic program @lawler1977. Garey & Johnson also note that the equal-length case is polynomial-time solvable by bipartite matching @garey1979.
+
+      Exact algorithms remain exponential in the worst case. Brute-force over all $n!$ schedules evaluates the implementation's decision encoding in $O(n! dot n)$ time. More refined exact methods include the branch-and-bound algorithm of Potts and Van Wassenhove @potts1985 and the dynamic-programming style exact algorithm of Tanaka, Fujikuma, and Araki @tanaka2009.
+
+      *Example.* Consider the five jobs with processing times $ell = (#lengths.map(v => str(v)).join(", "))$, weights $w = (#weights.map(v => str(v)).join(", "))$, deadlines $d = (#deadlines.map(v => str(v)).join(", "))$, and bound $K = #bound$. The unique satisfying schedule is $(#schedule.map(job => $t_#(job + 1)$).join(", "))$, with completion times $(#completions.map(v => str(v)).join(", "))$. Only job $t_#(tardy-jobs.at(0) + 1)$ is tardy; the per-job weighted tardiness contributions are $(#weighted.map(v => str(v)).join(", "))$, so the total weighted tardiness is $#total-weighted <= K$.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"))
+          let scale = 0.34
+          let row-h = 0.7
+          let y = 0
+
+          for (pos, job) in schedule.enumerate() {
+            let start = if pos == 0 { 0 } else { completions.at(pos - 1) }
+            let end = completions.at(pos)
+            let is-tardy = tardiness.at(pos) > 0
+            let fill = colors.at(calc.rem(job, colors.len())).transparentize(if is-tardy { 70% } else { 30% })
+            let stroke = colors.at(calc.rem(job, colors.len()))
+            rect((start * scale, y - row-h / 2), (end * scale, y + row-h / 2),
+              fill: fill, stroke: 0.4pt + stroke)
+            content(((start + end) * scale / 2, y), text(7pt, $t_#(job + 1)$))
+
+            let dl = deadlines.at(job)
+            line((dl * scale, y + row-h / 2 + 0.05), (dl * scale, y + row-h / 2 + 0.2),
+              stroke: (paint: if is-tardy { red } else { green.darken(20%) }, thickness: 0.6pt))
+          }
+
+          let axis-y = -row-h / 2 - 0.25
+          line((0, axis-y), (completions.at(completions.len() - 1) * scale, axis-y), stroke: 0.4pt)
+          for t in range(completions.at(completions.len() - 1) + 1) {
+            let x = t * scale
+            line((x, axis-y), (x, axis-y - 0.08), stroke: 0.4pt)
+            content((x, axis-y - 0.22), text(6pt, str(t)))
+          }
+          content((completions.at(completions.len() - 1) * scale / 2, axis-y - 0.42), text(7pt)[time])
+        }),
+        caption: [Single-machine schedule for the canonical weighted-tardiness example. The faded job is tardy; colored ticks mark the individual deadlines $d_j$.],
+      ) <fig:weighted-tardiness>
     ]
   ]
 }

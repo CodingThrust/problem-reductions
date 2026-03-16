@@ -595,6 +595,32 @@
     ]
   },
   {
+    "name": "SequencingToMinimizeWeightedTardiness",
+    "description": "Schedule jobs on one machine so total weighted tardiness is at most K",
+    "fields": [
+      {
+        "name": "lengths",
+        "type_name": "Vec<u64>",
+        "description": "Processing times l_j for each job"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<u64>",
+        "description": "Tardiness weights w_j for each job"
+      },
+      {
+        "name": "deadlines",
+        "type_name": "Vec<u64>",
+        "description": "Deadlines d_j for each job"
+      },
+      {
+        "name": "bound",
+        "type_name": "u64",
+        "description": "Upper bound K on total weighted tardiness"
+      }
+    ]
+  },
+  {
     "name": "SetBasis",
     "description": "Determine whether a collection of sets admits a basis of size k under union",
     "fields": [

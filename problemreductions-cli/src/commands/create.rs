@@ -9,7 +9,7 @@ use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    PaintShop, ShortestCommonSupersequence, SubsetSum,
+    PaintShop, SequencingToMinimizeWeightedTardiness, ShortestCommonSupersequence, SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -262,6 +262,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
         }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
+        "SequencingToMinimizeWeightedTardiness" => {
+            "--sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+        }
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
@@ -909,6 +912,62 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     num_tasks,
                     deadlines,
                     precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingToMinimizeWeightedTardiness
+        "SequencingToMinimizeWeightedTardiness" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeWeightedTardiness requires --sizes, --weights, --deadlines, and --bound\n\n\
+                     Usage: pred create SequencingToMinimizeWeightedTardiness --sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+                )
+            })?;
+            let weights_str = args.weights.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeWeightedTardiness requires --weights (comma-separated tardiness weights)\n\n\
+                     Usage: pred create SequencingToMinimizeWeightedTardiness --sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+                )
+            })?;
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeWeightedTardiness requires --deadlines (comma-separated job deadlines)\n\n\
+                     Usage: pred create SequencingToMinimizeWeightedTardiness --sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeWeightedTardiness requires --bound\n\n\
+                     Usage: pred create SequencingToMinimizeWeightedTardiness --sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+                )
+            })?;
+            anyhow::ensure!(bound >= 0, "--bound must be non-negative");
+
+            let lengths: Vec<u64> = util::parse_comma_list(sizes_str)?;
+            let weights: Vec<u64> = util::parse_comma_list(weights_str)?;
+            let deadlines: Vec<u64> = util::parse_comma_list(deadlines_str)?;
+
+            anyhow::ensure!(
+                lengths.len() == weights.len(),
+                "sizes length ({}) must equal weights length ({})",
+                lengths.len(),
+                weights.len()
+            );
+            anyhow::ensure!(
+                lengths.len() == deadlines.len(),
+                "sizes length ({}) must equal deadlines length ({})",
+                lengths.len(),
+                deadlines.len()
+            );
+
+            (
+                ser(SequencingToMinimizeWeightedTardiness::new(
+                    lengths,
+                    weights,
+                    deadlines,
+                    bound as u64,
                 ))?,
                 resolved_variant.clone(),
             )

@@ -689,6 +689,72 @@ fn test_create_set_basis_rejects_out_of_range_elements() {
 }
 
 #[test]
+fn test_create_sequencing_to_minimize_weighted_tardiness() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_weighted_tardiness_sequencing.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SequencingToMinimizeWeightedTardiness",
+            "--sizes",
+            "3,4,2,5,3",
+            "--weights",
+            "2,3,1,4,2",
+            "--deadlines",
+            "5,8,4,15,10",
+            "--bound",
+            "13",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SequencingToMinimizeWeightedTardiness");
+    assert_eq!(json["data"]["lengths"], serde_json::json!([3, 4, 2, 5, 3]));
+    assert_eq!(json["data"]["weights"], serde_json::json!([2, 3, 1, 4, 2]));
+    assert_eq!(
+        json["data"]["deadlines"],
+        serde_json::json!([5, 8, 4, 15, 10])
+    );
+    assert_eq!(json["data"]["bound"], 13);
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_weighted_tardiness_rejects_mismatched_lengths() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeWeightedTardiness",
+            "--sizes",
+            "3,4,2",
+            "--weights",
+            "2,3",
+            "--deadlines",
+            "5,8,4",
+            "--bound",
+            "13",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("sizes length (3) must equal weights length (2)"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_then_evaluate() {
     // Create a problem
     let problem_file = std::env::temp_dir().join("pred_test_create_eval.json");
@@ -1557,6 +1623,21 @@ fn test_create_no_flags_shows_help() {
         stderr.contains("Example:"),
         "expected 'Example:' in help output, got: {stderr}"
     );
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_weighted_tardiness_no_flags_shows_help() {
+    let output = pred()
+        .args(["create", "SequencingToMinimizeWeightedTardiness"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--sizes"));
+    assert!(stderr.contains("--weights"));
+    assert!(stderr.contains("--deadlines"));
+    assert!(stderr.contains("--bound"));
+    assert!(stderr.contains("pred create SequencingToMinimizeWeightedTardiness"));
 }
 
 #[test]

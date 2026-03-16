@@ -244,6 +244,7 @@ Flags by problem type:
   FVS                             --arcs [--weights] [--num-vertices]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
+  SequencingToMinimizeWeightedTardiness --sizes, --weights, --deadlines, --bound
   SCS                             --strings, --bound [--alphabet-size]
   ILP, CircuitSAT                 (via reduction only)
 
