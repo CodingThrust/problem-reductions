@@ -67,6 +67,16 @@ Read these first to understand the patterns:
 - **CLI creation:** `problemreductions-cli/src/commands/create.rs`
 - **Canonical model examples:** `src/example_db/model_builders.rs`
 
+## Pre-review Checklist
+
+Before implementing, make sure the plan explicitly covers these items that structural review checks later:
+- `ProblemSchemaEntry` metadata is complete for the current schema shape (`display_name`, `aliases`, `dimensions`, and constructor-facing `fields`)
+- `declare_variants!` is present with the correct `opt`/`sat` marker and exactly one `default` variant when multiple concrete variants exist
+- CLI discovery and `pred create <ProblemName>` support are included where applicable
+- A canonical model example is registered for example-db / `pred create --example`
+- `docs/paper/reductions.typ` adds both the display-name dictionary entry and the `problem-def(...)`
+- `src/unit_tests/trait_consistency.rs` is updated
+
 ## Step 1: Determine the category
 
 Choose the appropriate sub-module under `src/models/`:
@@ -107,6 +117,7 @@ Create `src/models/<category>/<name>.rs`:
 ```
 
 Key decisions:
+- **Schema metadata:** `ProblemSchemaEntry` must reflect the current registry schema shape, including `display_name`, `aliases`, `dimensions`, and constructor-facing `fields`
 - **Optimization problems:** `type Metric = SolutionSize<W::Sum>`, implement `OptimizationProblem` with `direction()`
 - **Satisfaction problems:** `type Metric = bool`, implement `SatisfactionProblem` (marker trait)
 - **Weight management:** use inherent methods (`weights()`, `set_weights()`, `is_weighted()`), NOT traits

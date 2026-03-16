@@ -61,13 +61,14 @@ run_agent() {
 # --- Project board ---
 
 # Detect the next eligible item and preserve retryable state in a queue.
-#   poll_project_items <mode> <state-file> [repo] [number] [format]
+#   poll_project_items <mode> <state-file> [repo] [number] [format] [board-cache]
 poll_project_items() {
     mode=$1
     state_file=$2
     repo=${3-}
     number=${4-}
     fmt=${5-text}
+    board_cache=${6-}
 
     set -- scripts/pipeline_board.py next "$mode" "$state_file" --format "$fmt"
     if [ -n "$repo" ]; then
@@ -75,6 +76,9 @@ poll_project_items() {
     fi
     if [ -n "$number" ]; then
         set -- "$@" --number "$number"
+    fi
+    if [ -n "$board_cache" ]; then
+        set -- "$@" --board-cache "$board_cache"
     fi
     python3 "$@"
 }
@@ -204,6 +208,29 @@ cleanup_pipeline_worktree() {
     python3 scripts/pipeline_worktree.py cleanup --worktree "$worktree" --format json
 }
 
+# Request Copilot review on all Review pool PRs that don't have one yet.
+#   request_copilot_reviews <repo> [board-cache]
+request_copilot_reviews() {
+    repo=$1
+    board_cache=${2-}
+    cache_args=""
+    if [ -n "$board_cache" ]; then
+        cache_args="--board-cache $board_cache"
+    fi
+    prs=$(python3 scripts/pipeline_board.py list review --repo "$repo" --format json $cache_args \
+        | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for item in data.get('items', []):
+    if item.get('eligibility') == 'waiting-for-copilot' and item.get('pr_number'):
+        print(item['pr_number'])
+")
+    for pr in $prs; do
+        echo "$(date '+%Y-%m-%d %H:%M:%S') Requesting Copilot review on PR #${pr}..."
+        gh copilot-review "$pr" 2>&1 || true
+    done
+}
+
 # Poll a board column and dispatch a make target when new items appear.
 #   watch_and_dispatch <mode> <make-target> <label> [repo]
 # Example:
@@ -216,12 +243,20 @@ watch_and_dispatch() {
     repo=${4-}
     interval=${POLL_INTERVAL:-600}
 
-    state_file=$(mktemp /tmp/problemreductions-${mode}-state.XXXXXX)
-    trap 'rm -f "$state_file"' EXIT INT TERM
+    state_file=${STATE_FILE:-/tmp/problemreductions-${mode}-forever-state.json}
+    board_cache="/tmp/problemreductions-${mode}-forever-board-cache.json"
 
     echo "Watching for new ${label} (polling every $((interval / 60))m)..."
     while true; do
-        next_item=$(poll_project_items "$mode" "$state_file" "$repo")
+        # Invalidate board cache at the start of each iteration
+        rm -f "$board_cache"
+
+        # For review mode, request Copilot reviews on PRs that don't have one yet
+        if [ "$mode" = "review" ] && [ -n "$repo" ]; then
+            request_copilot_reviews "$repo" "$board_cache"
+        fi
+
+        next_item=$(poll_project_items "$mode" "$state_file" "$repo" "" text "$board_cache")
         status=$?
         if [ "$status" -eq 0 ]; then
             item_id=$(printf '%s\n' "$next_item" | cut -f1)
@@ -229,6 +264,8 @@ watch_and_dispatch() {
             echo "$(date '+%Y-%m-%d %H:%M:%S') New ${label}: item $number ($item_id)"
             if ${MAKE:-make} "$make_target" N="$number"; then
                 ack_polled_item "$state_file" "$item_id" || exit $?
+                echo "$(date '+%Y-%m-%d %H:%M:%S') Processed ${label} item $number; sleeping $((interval / 60))m..."
+                sleep "$interval"
             else
                 dispatch_status=$?
                 echo "$(date '+%Y-%m-%d %H:%M:%S') Dispatch failed for ${label} item $number; will retry after sleep." >&2

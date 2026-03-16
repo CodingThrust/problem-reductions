@@ -587,19 +587,42 @@ def fetch_issue(repo: str, issue_number: int) -> dict:
     )
 
 
+def fetch_existing_prs_via_search(repo: str, issue_number: int) -> list[dict]:
+    query = f'repo:{repo} is:pr is:open "Fix #{issue_number}"'
+    data = run_gh_json("api", "search/issues", "-f", f"q={query}")
+    items = data.get("items", [])
+    prs: list[dict] = []
+    for item in items:
+        number = item.get("number")
+        if number is None or "pull_request" not in item:
+            continue
+        pr = run_gh_json("api", f"repos/{repo}/pulls/{number}")
+        prs.append(
+            {
+                "number": pr.get("number"),
+                "headRefName": (pr.get("head") or {}).get("ref"),
+                "url": pr.get("html_url"),
+            }
+        )
+    return prs
+
+
 def fetch_existing_prs(repo: str, issue_number: int) -> list[dict]:
-    data = run_gh_json(
-        "pr",
-        "list",
-        "--repo",
-        repo,
-        "--state",
-        "open",
-        "--search",
-        f"Fixes #{issue_number}",
-        "--json",
-        "number,headRefName,url",
-    )
+    try:
+        data = run_gh_json(
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "open",
+            "--search",
+            f"Fix #{issue_number}",
+            "--json",
+            "number,headRefName,url",
+        )
+    except subprocess.CalledProcessError:
+        return fetch_existing_prs_via_search(repo, issue_number)
     if not isinstance(data, list):
         raise ValueError(f"Unexpected PR list payload for issue #{issue_number}: {data!r}")
     return data
