@@ -1896,6 +1896,65 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
         [$ell(t)$], ..regular.map(i => [#lengths.at(i)]), [#lengths.at(enforcer)],
       ))
       The enforcer task $overline(t)$ must run in $[#release.at(enforcer), #deadline.at(enforcer))$, splitting the schedule into $[0, #release.at(enforcer))$ and $[#deadline.at(enforcer), #deadline.at(0))$. Each side has #(B / 2) time units, and tasks with total length $#(B / 2)$ must fill each side --- corresponding to a partition of $A$.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"))
+          let enforcer-color = rgb("#b07aa1")
+          let task-labels = regular.map(i => "$t_" + str(i + 1) + "$") + ("$overline(t)$",)
+          let task-order = regular + (enforcer,)
+          let scale = 0.7
+          let row-h = 0.6
+
+          // Single-row Gantt chart: all tasks on one timeline
+          for (k, i) in task-order.enumerate() {
+            let s = starts.at(i)
+            let e = s + lengths.at(i)
+            let x0 = s * scale
+            let x1 = e * scale
+            let col = if i == enforcer { enforcer-color } else { colors.at(regular.position(j => j == i)) }
+            rect((x0, -row-h / 2), (x1, row-h / 2),
+              fill: col.transparentize(30%), stroke: 0.4pt + col)
+            content(((x0 + x1) / 2, 0), text(6pt, task-labels.at(k)))
+          }
+
+          // Release-time and deadline markers for each task
+          for (k, i) in task-order.enumerate() {
+            let col = if i == enforcer { enforcer-color } else { colors.at(regular.position(j => j == i)) }
+            // Release time: upward triangle below axis
+            let rx = release.at(i) * scale
+            line((rx, -row-h / 2 - 0.05), (rx, -row-h / 2 - 0.18), stroke: 0.5pt + col)
+            // Deadline: downward tick above axis
+            let dx = deadline.at(i) * scale
+            line((dx, row-h / 2 + 0.05), (dx, row-h / 2 + 0.18), stroke: 0.5pt + col)
+          }
+
+          // Release / deadline group labels
+          content((-0.5, -row-h / 2 - 0.12), text(5pt)[$r$])
+          content((-0.5, row-h / 2 + 0.12), text(5pt)[$d$])
+
+          // Time axis
+          let max-t = 11
+          let y-axis = -row-h / 2 - 0.35
+          line((0, y-axis), (max-t * scale, y-axis), stroke: 0.4pt)
+          for t in range(max-t + 1) {
+            let x = t * scale
+            line((x, y-axis), (x, y-axis - 0.08), stroke: 0.4pt)
+            if calc.rem(t, 2) == 0 or t == max-t {
+              content((x, y-axis - 0.22), text(5pt, str(t)))
+            }
+          }
+          content((max-t * scale / 2, y-axis - 0.45), text(7pt)[$t$])
+
+          // Enforcer region highlight
+          let ex0 = release.at(enforcer) * scale
+          let ex1 = deadline.at(enforcer) * scale
+          line((ex0, row-h / 2 + 0.3), (ex0, y-axis), stroke: (paint: enforcer-color, thickness: 0.6pt, dash: "dashed"))
+          line((ex1, row-h / 2 + 0.3), (ex1, y-axis), stroke: (paint: enforcer-color, thickness: 0.6pt, dash: "dashed"))
+        }),
+        caption: [Feasible schedule for the SWI instance. The enforcer task $overline(t)$ (purple) is pinned at $[#release.at(enforcer), #deadline.at(enforcer))$, splitting the timeline into two halves of #(B / 2) time units each.],
+      ) <fig:swi>
     ]
   ]
 }
