@@ -54,6 +54,14 @@ fn test_all_problems_implement_trait_correctly() {
         "MaximumMatching",
     );
     check_problem_trait(
+        &SteinerTree::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![1i32; 2],
+            vec![0, 2],
+        ),
+        "SteinerTree",
+    );
+    check_problem_trait(
         &Satisfiability::new(3, vec![CNFClause::new(vec![1])]),
         "SAT",
     );
@@ -193,6 +201,15 @@ fn test_direction() {
             vec![1i32; 3],
             vec![1i32; 2],
             1
+        )
+        .direction(),
+        Direction::Minimize
+    );
+    assert_eq!(
+        SteinerTree::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![1i32; 2],
+            vec![0, 2]
         )
         .direction(),
         Direction::Minimize

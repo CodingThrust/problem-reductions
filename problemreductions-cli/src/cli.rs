@@ -233,6 +233,7 @@ Flags by problem type:
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
+  SteinerTree                     --graph, --edge-weights, --terminals
   CVP                             --basis, --target-vec [--bounds]
   SequencingWithinIntervals       --release-times, --deadlines, --lengths
   OptimalLinearArrangement        --graph, --bound
@@ -374,6 +375,9 @@ pub struct CreateArgs {
     /// Processing lengths for SequencingWithinIntervals (comma-separated, e.g., "3,1,1")
     #[arg(long)]
     pub lengths: Option<String>,
+    /// Terminal vertices for SteinerTree (comma-separated indices, e.g., "0,2,4")
+    #[arg(long)]
+    pub terminals: Option<String>,
     /// Tree edge list for IsomorphicSpanningTree (e.g., 0-1,1-2,2-3)
     #[arg(long)]
     pub tree: Option<String>,

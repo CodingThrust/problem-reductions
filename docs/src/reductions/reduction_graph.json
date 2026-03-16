@@ -3,6 +3,15 @@
     {
       "name": "BMF",
       "variant": {},
+  
+Exported to: docs/src/reductions/reduction_graph.json
+
+JSON content:
+{
+  "nodes": [
+    {
+      "name": "BMF",
+      "variant": {},
       "category": "algebraic",
       "doc_path": "models/algebraic/struct.BMF.html",
       "complexity": "2^(rows * rank + rank * cols)"
@@ -499,6 +508,26 @@
       "complexity": "2^num_spins"
     },
     {
+      "name": "SteinerTree",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "One"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.SteinerTree.html",
+      "complexity": "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2"
+    },
+    {
+      "name": "SteinerTree",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.SteinerTree.html",
+      "complexity": "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2"
+    },
+    {
       "name": "SubgraphIsomorphism",
       "variant": {},
       "category": "graph",
@@ -720,7 +749,7 @@
     },
     {
       "source": 21,
-      "target": 57,
+      "target": 59,
       "overhead": [
         {
           "field": "num_elements",
@@ -1348,7 +1377,7 @@
       "doc_path": "rules/spinglass_casts/index.html"
     },
     {
-      "source": 58,
+      "source": 60,
       "target": 12,
       "overhead": [
         {
@@ -1363,7 +1392,7 @@
       "doc_path": "rules/travelingsalesman_ilp/index.html"
     },
     {
-      "source": 58,
+      "source": 60,
       "target": 49,
       "overhead": [
         {
