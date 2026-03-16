@@ -94,6 +94,7 @@
   "BicliqueCover": [Biclique Cover],
   "BoundedComponentSpanningForest": [Bounded Component Spanning Forest],
   "BinPacking": [Bin Packing],
+  "BoyceCoddNormalFormViolation": [Boyce-Codd Normal Form Violation],
   "ClosestVectorProblem": [Closest Vector Problem],
   "OptimalLinearArrangement": [Optimal Linear Arrangement],
   "RuralPostman": [Rural Postman],
@@ -1869,6 +1870,14 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   },
   caption: [Optimal packing of items with sizes $(6, 6, 5, 5, 4, 4)$ into 3 bins of capacity $C = 10$. Numbers indicate item sizes; all bins are fully utilized.],
   ) <fig:binpacking-example>
+]
+
+#problem-def("BoyceCoddNormalFormViolation")[
+  *Instance:* A set $A$ of attribute names, a collection $F$ of functional dependencies on $A$, and a subset $A' subset.eq A$.
+
+  *Question:* Is there a subset $X subset.eq A'$ and two attributes $y, z in A' without X$ such that $y in X^+$ but $z in.not X^+$, where $X^+$ is the closure of $X$ under $F$?
+][
+  A relation satisfies _Boyce-Codd Normal Form_ (BCNF) if every non-trivial functional dependency $X arrow.r Y$ has $X$ as a superkey --- that is, $X^+$ = $A'$. This classical NP-complete problem from database theory asks whether the given attribute subset $A'$ violates BCNF. The NP-completeness was established by Beeri and Bernstein (1979) via reduction from Hitting Set. It appears as problem SR29 in Garey and Johnson's compendium (category A4: Storage and Retrieval).
 ]
 
 #problem-def("Knapsack")[

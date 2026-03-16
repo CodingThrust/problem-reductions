@@ -13,8 +13,9 @@ use problemreductions::models::graph::{
     SteinerTree,
 };
 use problemreductions::models::misc::{
-    BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence, SubsetSum,
+    BinPacking, BoyceCoddNormalFormViolation, FlowShopScheduling, LongestCommonSubsequence,
+    MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence,
+    SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -294,6 +295,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "BoyceCoddNormalFormViolation" => {
+            "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
+        }
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
@@ -899,6 +903,47 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // MaximalIS — same as MIS (graph + vertex weights)
         "MaximalIS" => {
             create_vertex_weight_problem(args, canonical, graph_type, &resolved_variant)?
+        }
+
+        // BoyceCoddNormalFormViolation
+        "BoyceCoddNormalFormViolation" => {
+            let n = args.n.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "BoyceCoddNormalFormViolation requires --n, --sets, and --target\n\n\
+                     Usage: pred create BoyceCoddNormalFormViolation --n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
+                )
+            })?;
+            let sets_str = args.sets.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "BoyceCoddNormalFormViolation requires --sets (functional deps as lhs:rhs;...)\n\n\
+                     Usage: pred create BoyceCoddNormalFormViolation --n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
+                )
+            })?;
+            let target_str = args.target.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "BoyceCoddNormalFormViolation requires --target (comma-separated attribute indices)\n\n\
+                     Usage: pred create BoyceCoddNormalFormViolation --n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
+                )
+            })?;
+            let fds: Vec<(Vec<usize>, Vec<usize>)> = sets_str
+                .split(';')
+                .map(|fd_str| {
+                    let parts: Vec<&str> = fd_str.split(':').collect();
+                    anyhow::ensure!(
+                        parts.len() == 2,
+                        "Each FD must be lhs:rhs, got '{}'",
+                        fd_str
+                    );
+                    let lhs: Vec<usize> = util::parse_comma_list(parts[0])?;
+                    let rhs: Vec<usize> = util::parse_comma_list(parts[1])?;
+                    Ok((lhs, rhs))
+                })
+                .collect::<Result<_>>()?;
+            let target: Vec<usize> = util::parse_comma_list(target_str)?;
+            (
+                ser(BoyceCoddNormalFormViolation::new(n, fds, target))?,
+                resolved_variant.clone(),
+            )
         }
 
         // BinPacking
