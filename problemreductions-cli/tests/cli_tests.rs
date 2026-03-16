@@ -281,6 +281,39 @@ fn test_evaluate_sat() {
 }
 
 #[test]
+fn test_evaluate_multiple_choice_branching_rejects_invalid_partition_without_panicking() {
+    let problem_json = r#"{
+        "type": "MultipleChoiceBranching",
+        "variant": {"weight": "i32"},
+        "data": {
+            "graph": {"inner": {"nodes": [null, null], "node_holes": [], "edge_property": "directed", "edges": [[0,1,null]]}},
+            "weights": [1],
+            "partition": [[1]],
+            "threshold": 1
+        }
+    }"#;
+    let tmp = std::env::temp_dir().join("pred_test_eval_invalid_mcb_partition.json");
+    std::fs::write(&tmp, problem_json).unwrap();
+
+    let output = pred()
+        .args(["evaluate", tmp.to_str().unwrap(), "--config", "1"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        !stderr.contains("panicked at"),
+        "invalid partition should return a user error, got panic output: {stderr}"
+    );
+    assert!(
+        stderr.contains("partition"),
+        "stderr should mention the invalid partition: {stderr}"
+    );
+
+    std::fs::remove_file(&tmp).ok();
+}
+
+#[test]
 fn test_reduce() {
     let problem_json = r#"{
         "type": "MIS",
@@ -1590,6 +1623,24 @@ fn test_create_no_flags_shows_help() {
     assert!(
         stderr.contains("Example:"),
         "expected 'Example:' in help output, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_multiple_choice_branching_help_uses_bound_flag() {
+    let output = pred()
+        .args(["create", "MultipleChoiceBranching/i32"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--threshold"),
+        "help output should not advertise '--threshold', got: {stderr}"
     );
 }
 

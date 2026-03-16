@@ -32,12 +32,12 @@ Install the `pred` command-line tool for exploring the reduction graph from your
 cargo install problemreductions-cli
 ```
 
-Or build from source:
+Or install/update it from source:
 
 ```bash
 git clone https://github.com/CodingThrust/problem-reductions
 cd problem-reductions
-make cli    # builds target/release/pred
+make cli    # installs or updates `pred` in your Cargo bin directory
 ```
 
 See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples, the reduction workflow, and [CLI usage](https://codingthrust.github.io/problem-reductions/cli.html).

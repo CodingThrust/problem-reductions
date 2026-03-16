@@ -9,6 +9,7 @@ use crate::topology::DirectedGraph;
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::types::WeightElement;
 use num_traits::Zero;
+use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -39,12 +40,50 @@ inventory::submit! {
 /// - every vertex has in-degree at most one in the selected subgraph
 /// - the selected subgraph is acyclic
 /// - at most one arc is selected from each partition group
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MultipleChoiceBranching<W: WeightElement> {
     graph: DirectedGraph,
     weights: Vec<W>,
     partition: Vec<Vec<usize>>,
     threshold: W::Sum,
+}
+
+#[derive(Debug, Deserialize)]
+struct MultipleChoiceBranchingUnchecked<W: WeightElement> {
+    graph: DirectedGraph,
+    weights: Vec<W>,
+    partition: Vec<Vec<usize>>,
+    threshold: W::Sum,
+}
+
+impl<'de, W> Deserialize<'de> for MultipleChoiceBranching<W>
+where
+    W: WeightElement + Deserialize<'de>,
+    W::Sum: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let unchecked = MultipleChoiceBranchingUnchecked::<W>::deserialize(deserializer)?;
+        let num_arcs = unchecked.graph.num_arcs();
+        if unchecked.weights.len() != num_arcs {
+            return Err(D::Error::custom(format!(
+                "weights length must match graph num_arcs (expected {num_arcs}, got {})",
+                unchecked.weights.len()
+            )));
+        }
+        if let Some(message) = partition_validation_error(&unchecked.partition, num_arcs) {
+            return Err(D::Error::custom(message));
+        }
+
+        Ok(Self {
+            graph: unchecked.graph,
+            weights: unchecked.weights,
+            partition: unchecked.partition,
+            threshold: unchecked.threshold,
+        })
+    }
 }
 
 impl<W: WeightElement> MultipleChoiceBranching<W> {
@@ -164,27 +203,35 @@ impl<W> SatisfactionProblem for MultipleChoiceBranching<W> where
 }
 
 fn validate_partition(partition: &[Vec<usize>], num_arcs: usize) {
+    if let Some(message) = partition_validation_error(partition, num_arcs) {
+        panic!("{message}");
+    }
+}
+
+fn partition_validation_error(partition: &[Vec<usize>], num_arcs: usize) -> Option<String> {
     let mut seen = vec![false; num_arcs];
     for group in partition {
         for &arc_index in group {
-            assert!(
-                arc_index < num_arcs,
-                "partition arc index {} out of range for {} arcs",
-                arc_index,
-                num_arcs
-            );
-            assert!(
-                !seen[arc_index],
-                "partition arc index {} appears more than once",
-                arc_index
-            );
+            if arc_index >= num_arcs {
+                return Some(format!(
+                    "partition arc index {} out of range for {} arcs",
+                    arc_index, num_arcs
+                ));
+            }
+            if seen[arc_index] {
+                return Some(format!(
+                    "partition arc index {} appears more than once",
+                    arc_index
+                ));
+            }
             seen[arc_index] = true;
         }
     }
-    assert!(
-        seen.iter().all(|present| *present),
-        "partition must cover every arc exactly once"
-    );
+    if seen.iter().all(|present| *present) {
+        None
+    } else {
+        Some("partition must cover every arc exactly once".to_string())
+    }
 }
 
 fn is_valid_multiple_choice_branching<W: WeightElement>(

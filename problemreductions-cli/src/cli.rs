@@ -378,7 +378,7 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound (for RuralPostman or SCS)
+    /// Bound / threshold parameter (for RuralPostman, MultipleChoiceBranching, or SCS)
     #[arg(long)]
     pub bound: Option<i64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)

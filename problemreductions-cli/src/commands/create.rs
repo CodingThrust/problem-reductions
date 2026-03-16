@@ -283,12 +283,13 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
             } else {
                 let hint = type_format_hint(&field.type_name, graph_type);
-                eprintln!(
-                    "  --{:<16} {} ({})",
-                    field.name.replace('_', "-"),
-                    field.description,
-                    hint
-                );
+                let flag_name =
+                    if canonical == "MultipleChoiceBranching" && field.name == "threshold" {
+                        "bound".to_string()
+                    } else {
+                        field.name.replace('_', "-")
+                    };
+                eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             }
         }
     } else {
