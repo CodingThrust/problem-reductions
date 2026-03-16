@@ -90,6 +90,27 @@
     ]
   },
   {
+    "name": "ConsecutiveSets",
+    "description": "Determine if a string exists where each subset's elements appear consecutively",
+    "fields": [
+      {
+        "name": "alphabet_size",
+        "type_name": "usize",
+        "description": "Size of the alphabet (elements are 0..alphabet_size-1)"
+      },
+      {
+        "name": "subsets",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Collection of subsets of the alphabet"
+      },
+      {
+        "name": "bound_k",
+        "type_name": "usize",
+        "description": "Maximum string length K"
+      }
+    ]
+  },
+  {
     "name": "ExactCoverBy3Sets",
     "description": "Determine if a collection of 3-element subsets contains an exact cover",
     "fields": [
