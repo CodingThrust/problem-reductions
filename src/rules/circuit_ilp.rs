@@ -14,7 +14,7 @@
 //! ## Objective
 //! Trivial (minimize 0): any feasible ILP solution is a satisfying assignment.
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::formula::{BooleanExpr, BooleanOp, CircuitSAT};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -23,16 +23,16 @@ use std::collections::HashMap;
 /// Result of reducing CircuitSAT to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionCircuitToILP {
-    target: ILP,
+    target: ILP<bool>,
     source_variables: Vec<String>,
     variable_map: HashMap<String, usize>,
 }
 
 impl ReductionResult for ReductionCircuitToILP {
     type Source = CircuitSAT;
-    type Target = ILP;
+    type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP {
+    fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
@@ -176,7 +176,7 @@ impl ILPBuilder {
         num_constraints = "num_variables + num_assignments",
     }
 )]
-impl ReduceTo<ILP> for CircuitSAT {
+impl ReduceTo<ILP<bool>> for CircuitSAT {
     type Result = ReductionCircuitToILP;
 
     fn reduce_to(&self) -> Self::Result {
@@ -203,12 +203,10 @@ impl ReduceTo<ILP> for CircuitSAT {
             }
         }
 
-        let bounds = vec![VarBounds::binary(); builder.num_vars];
         // Trivial objective: minimize 0 (satisfaction problem)
         let objective = vec![];
         let target = ILP::new(
             builder.num_vars,
-            bounds,
             builder.constraints,
             objective,
             ObjectiveSense::Minimize,
@@ -220,6 +218,47 @@ impl ReduceTo<ILP> for CircuitSAT {
             variable_map: builder.variable_map,
         }
     }
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::models::formula::{Assignment, BooleanExpr, Circuit};
+
+    fn full_adder_circuit_sat() -> CircuitSAT {
+        let circuit = Circuit::new(vec![
+            Assignment::new(
+                vec!["t".to_string()],
+                BooleanExpr::xor(vec![BooleanExpr::var("a"), BooleanExpr::var("b")]),
+            ),
+            Assignment::new(
+                vec!["sum".to_string()],
+                BooleanExpr::xor(vec![BooleanExpr::var("t"), BooleanExpr::var("cin")]),
+            ),
+            Assignment::new(
+                vec!["ab".to_string()],
+                BooleanExpr::and(vec![BooleanExpr::var("a"), BooleanExpr::var("b")]),
+            ),
+            Assignment::new(
+                vec!["cin_t".to_string()],
+                BooleanExpr::and(vec![BooleanExpr::var("cin"), BooleanExpr::var("t")]),
+            ),
+            Assignment::new(
+                vec!["cout".to_string()],
+                BooleanExpr::or(vec![BooleanExpr::var("ab"), BooleanExpr::var("cin_t")]),
+            ),
+        ]);
+        CircuitSAT::new(circuit)
+    }
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "circuitsat_to_ilp",
+        build: || {
+            crate::example_db::specs::direct_best_example::<_, crate::models::algebraic::ILP<bool>, _>(
+                full_adder_circuit_sat(),
+                crate::example_db::specs::keep_bool_source,
+            )
+        },
+    }]
 }
 
 #[cfg(test)]

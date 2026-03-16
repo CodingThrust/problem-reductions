@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::formula::Circuit;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::types::{NumericSize, WeightElement};
 use num_traits::Num;
@@ -294,16 +295,9 @@ fn test_jl_parity_circuitsat_to_spinglass() {
     ]);
     let source = CircuitSAT::new(circuit);
     let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&source);
-    let solver = BruteForce::new();
-    let best_target = solver.find_all_best(result.target_problem());
-    let best_source = solver.find_all_satisfying(&source);
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    let best_source_set: HashSet<Vec<usize>> = best_source.into_iter().collect();
-    assert!(
-        extracted.is_subset(&best_source_set),
-        "CircuitSAT->SpinGlass: extracted not satisfying"
+    assert_satisfaction_round_trip_from_optimization_target(
+        &source,
+        &result,
+        "CircuitSAT->SpinGlass parity",
     );
 }

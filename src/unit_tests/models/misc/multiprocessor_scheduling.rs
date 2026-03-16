@@ -6,6 +6,7 @@ use crate::traits::Problem;
 fn test_multiprocessor_scheduling_basic() {
     let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
     assert_eq!(problem.num_tasks(), 5);
+    assert_eq!(problem.total_length(), 20);
     assert_eq!(problem.lengths(), &[4, 5, 3, 2, 6]);
     assert_eq!(problem.num_processors(), 2);
     assert_eq!(problem.deadline(), 10);

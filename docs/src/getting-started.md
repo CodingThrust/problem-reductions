@@ -28,33 +28,34 @@ The core workflow is: **create** a problem, **reduce** it to a target, **solve**
 
 </div>
 
-### Example 1: Direct reduction — MIS to ILP
+### Example 1: Direct reduction — Set Packing to ILP
 
-Reduce Maximum Independent Set to Integer Linear Programming (ILP) on a
-4-vertex path graph, solve with the ILP solver, and extract the solution back.
+Reduce Maximum Set Packing to Integer Linear Programming (ILP), solve with the
+ILP solver, and extract the solution back.
 
 #### Step 1 — Create the source problem
 
-A path graph `0–1–2–3` has 4 vertices and 3 edges.
+A small set system with pairwise overlaps gives a direct binary ILP.
 
 ```rust,ignore
 use problemreductions::prelude::*;
 use problemreductions::models::algebraic::ILP;
 use problemreductions::solvers::ILPSolver;
-use problemreductions::topology::SimpleGraph;
 
-let problem = MaximumIndependentSet::new(
-    SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-    vec![1i32; 4],
-);
+let problem = MaximumSetPacking::<i32>::new(vec![
+    vec![0, 1],
+    vec![1, 2],
+    vec![2, 3],
+    vec![4, 5],
+]);
 ```
 
 #### Step 2 — Reduce to ILP
 
 `ReduceTo` applies a single-step reduction. The result holds the target
 problem and knows how to map solutions back. The ILP formulation introduces
-binary variable x_v for each vertex, constraint x_u + x_v ≤ 1 for each edge,
-and maximizes the weighted sum.
+binary variable x_i for each set, constraint x_i + x_j ≤ 1 for each
+overlapping pair, and maximizes the weighted sum.
 
 ```rust,ignore
 let reduction = ReduceTo::<ILP>::reduce_to(&problem);
@@ -63,7 +64,7 @@ println!("ILP: {} variables, {} constraints", ilp.num_vars, ilp.constraints.len(
 ```
 
 ```text
-ILP: 4 variables, 3 constraints
+ILP: 4 variables, 2 constraints
 ```
 
 #### Step 3 — Solve the ILP
@@ -90,12 +91,12 @@ configuration space.
 ```rust,ignore
 let solution = reduction.extract_solution(&ilp_solution);
 let metric = problem.evaluate(&solution);
-println!("IS solution: {:?} -> size {:?}", solution, metric);
+println!("Packing solution: {:?} -> size {:?}", solution, metric);
 assert!(metric.is_valid());
 ```
 
 ```text
-IS solution: [1, 0, 1, 0] -> size Valid(2)
+Packing solution: [1, 0, 1, 1] -> size Valid(3)
 ```
 
 For convenience, `ILPSolver::solve_reduced` combines reduce + solve + extract
@@ -206,6 +207,7 @@ problemreductions = { version = "0.2", default-features = false }
 
 The library exports machine-readable metadata useful for tooling and research:
 
+These files are generated when you build the docs locally.
 - [reduction_graph.json](reductions/reduction_graph.json) lists all problem variants and reduction edges
 - [problem_schemas.json](reductions/problem_schemas.json) lists field definitions for each problem type
 

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;
 use crate::variant::{K1, K2, K3, K4};
 include!("../../jl_helpers.rs");
@@ -194,4 +194,20 @@ fn test_size_getters() {
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_edges(), 2);
+}
+
+#[test]
+fn test_kcoloring_paper_example() {
+    use crate::traits::Problem;
+    // Paper: house graph, k=3, proper coloring [0,1,1,0,2], chi(G)=3
+    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+    let problem = KColoring::<K3, _>::new(graph);
+    let config = vec![0, 1, 1, 0, 2];
+    assert!(problem.evaluate(&config));
+
+    // Verify not 2-colorable (triangle v_2,v_3,v_4)
+    let graph2 = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+    let problem2 = KColoring::<K2, _>::new(graph2);
+    let solver = BruteForce::new();
+    assert!(solver.find_satisfying(&problem2).is_none());
 }

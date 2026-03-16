@@ -201,9 +201,67 @@ macro_rules! impl_ksat_to_sat {
 
 // Register KN for the reduction graph (covers all K values as the generic entry)
 impl_ksat_to_sat!(KN);
-// Register K3 and K2 as concrete entries (used directly in tests and reductions)
-impl_ksat_to_sat!(K3);
-impl_ksat_to_sat!(K2);
+
+// K3 and K2 keep their ReduceTo<Satisfiability> impls for typed use,
+// but are NOT registered as separate primitive graph edges (KN covers them).
+impl ReduceTo<Satisfiability> for KSatisfiability<K3> {
+    type Result = ReductionKSATToSAT<K3>;
+    fn reduce_to(&self) -> Self::Result {
+        reduce_ksat_to_sat(self)
+    }
+}
+
+impl ReduceTo<Satisfiability> for KSatisfiability<K2> {
+    type Result = ReductionKSATToSAT<K2>;
+    fn reduce_to(&self) -> Self::Result {
+        reduce_ksat_to_sat(self)
+    }
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::models::formula::CNFClause;
+
+    vec![
+        crate::example_db::specs::RuleExampleSpec {
+            id: "satisfiability_to_ksatisfiability",
+            build: || {
+                let source = Satisfiability::new(
+                    5,
+                    vec![
+                        CNFClause::new(vec![1]),
+                        CNFClause::new(vec![2, -3]),
+                        CNFClause::new(vec![-1, 3, 4]),
+                        CNFClause::new(vec![2, -4, 5]),
+                        CNFClause::new(vec![1, -2, 3, -5]),
+                        CNFClause::new(vec![-1, 2, -3, 4, 5]),
+                    ],
+                );
+                crate::example_db::specs::direct_satisfying_example::<_, KSatisfiability<K3>, _>(
+                    source,
+                    |_, _| true,
+                )
+            },
+        },
+        crate::example_db::specs::RuleExampleSpec {
+            id: "ksatisfiability_to_satisfiability",
+            build: || {
+                let source = KSatisfiability::<KN>::new(
+                    4,
+                    vec![
+                        CNFClause::new(vec![1, -2, 3]),
+                        CNFClause::new(vec![-1, 3, 4]),
+                        CNFClause::new(vec![2, -3, -4]),
+                    ],
+                );
+                crate::example_db::specs::direct_satisfying_example::<_, Satisfiability, _>(
+                    source,
+                    |_, _| true,
+                )
+            },
+        },
+    ]
+}
 
 #[cfg(test)]
 #[path = "../unit_tests/rules/sat_ksat.rs"]

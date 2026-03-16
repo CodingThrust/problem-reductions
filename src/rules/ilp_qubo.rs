@@ -21,7 +21,7 @@ pub struct ReductionILPToQUBO {
 }
 
 impl ReductionResult for ReductionILPToQUBO {
-    type Source = ILP;
+    type Source = ILP<bool>;
     type Target = QUBO<f64>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -35,23 +35,15 @@ impl ReductionResult for ReductionILPToQUBO {
 }
 
 #[reduction(
-    overhead = { num_vars = "num_vars" }
+    overhead = { num_vars = "num_vars + num_constraints * num_vars" }
 )]
-impl ReduceTo<QUBO<f64>> for ILP {
+impl ReduceTo<QUBO<f64>> for ILP<bool> {
     type Result = ReductionILPToQUBO;
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_vars;
 
-        // Verify all variables are binary
-        for (i, b) in self.bounds.iter().enumerate() {
-            assert!(
-                b.lower == Some(0) && b.upper == Some(1),
-                "ILP→QUBO requires binary variables (var {} has bounds {:?})",
-                i,
-                b
-            );
-        }
+        // All variables are binary by type — no runtime check needed.
 
         // Build dense constraint matrix A and rhs vector b
         // Also compute slack sizes for inequality constraints
@@ -173,6 +165,31 @@ impl ReduceTo<QUBO<f64>> for ILP {
             num_original_vars: n,
         }
     }
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::models::algebraic::{LinearConstraint, ObjectiveSense};
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "ilp_to_qubo",
+        build: || {
+            let source = ILP::new(
+                6,
+                vec![
+                    LinearConstraint::le(
+                        vec![(0, 3.0), (1, 2.0), (2, 5.0), (3, 4.0), (4, 2.0), (5, 3.0)],
+                        10.0,
+                    ),
+                    LinearConstraint::le(vec![(0, 1.0), (1, 1.0), (2, 1.0)], 2.0),
+                    LinearConstraint::le(vec![(3, 1.0), (4, 1.0), (5, 1.0)], 2.0),
+                ],
+                vec![(0, 10.0), (1, 7.0), (2, 12.0), (3, 8.0), (4, 6.0), (5, 9.0)],
+                ObjectiveSense::Maximize,
+            );
+            crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(source, |_, _| true)
+        },
+    }]
 }
 
 #[cfg(test)]

@@ -14,7 +14,7 @@
 //!   factor   = unary ('^' factor)?        // right-associative
 //!   unary    = '-' unary | primary
 //!   primary  = NUMBER | IDENT | func_call | '(' expr ')'
-//!   func_call = ('exp' | 'log' | 'sqrt') '(' expr ')'
+//!   func_call = ('exp' | 'log' | 'sqrt' | 'factorial') '(' expr ')'
 
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -33,6 +33,7 @@ pub enum ParsedExpr {
     Exp(Box<ParsedExpr>),
     Log(Box<ParsedExpr>),
     Sqrt(Box<ParsedExpr>),
+    Factorial(Box<ParsedExpr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -205,6 +206,7 @@ impl Parser {
                         "exp" => Ok(ParsedExpr::Exp(Box::new(arg))),
                         "log" => Ok(ParsedExpr::Log(Box::new(arg))),
                         "sqrt" => Ok(ParsedExpr::Sqrt(Box::new(arg))),
+                        "factorial" => Ok(ParsedExpr::Factorial(Box::new(arg))),
                         _ => Err(format!("unknown function: {name}")),
                     }
                 } else {
@@ -245,22 +247,22 @@ impl ParsedExpr {
             ParsedExpr::Add(a, b) => {
                 let a = a.to_expr_tokens();
                 let b = b.to_expr_tokens();
-                quote! { crate::expr::Expr::add(#a, #b) }
+                quote! { (#a) + (#b) }
             }
             ParsedExpr::Sub(a, b) => {
                 let a = a.to_expr_tokens();
                 let b = b.to_expr_tokens();
-                quote! { crate::expr::Expr::add(#a, crate::expr::Expr::mul(crate::expr::Expr::Const(-1.0), #b)) }
+                quote! { (#a) - (#b) }
             }
             ParsedExpr::Mul(a, b) => {
                 let a = a.to_expr_tokens();
                 let b = b.to_expr_tokens();
-                quote! { crate::expr::Expr::mul(#a, #b) }
+                quote! { (#a) * (#b) }
             }
             ParsedExpr::Div(a, b) => {
                 let a = a.to_expr_tokens();
                 let b = b.to_expr_tokens();
-                quote! { crate::expr::Expr::mul(#a, crate::expr::Expr::pow(#b, crate::expr::Expr::Const(-1.0))) }
+                quote! { (#a) / (#b) }
             }
             ParsedExpr::Pow(base, exp) => {
                 let base = base.to_expr_tokens();
@@ -269,7 +271,7 @@ impl ParsedExpr {
             }
             ParsedExpr::Neg(a) => {
                 let a = a.to_expr_tokens();
-                quote! { crate::expr::Expr::mul(crate::expr::Expr::Const(-1.0), #a) }
+                quote! { -(#a) }
             }
             ParsedExpr::Exp(a) => {
                 let a = a.to_expr_tokens();
@@ -282,6 +284,10 @@ impl ParsedExpr {
             ParsedExpr::Sqrt(a) => {
                 let a = a.to_expr_tokens();
                 quote! { crate::expr::Expr::Sqrt(Box::new(#a)) }
+            }
+            ParsedExpr::Factorial(a) => {
+                let a = a.to_expr_tokens();
+                quote! { crate::expr::Expr::Factorial(Box::new(#a)) }
             }
         }
     }
@@ -336,6 +342,22 @@ impl ParsedExpr {
                 let a = a.to_eval_tokens(src_ident);
                 quote! { f64::sqrt(#a) }
             }
+            ParsedExpr::Factorial(a) => {
+                let a = a.to_eval_tokens(src_ident);
+                quote! { {
+                    let __n = #a;
+                    let __r = __n.round();
+                    if (__n - __r).abs() < 1e-10 && __r >= 0.0 {
+                        let mut __f = 1u64;
+                        let __k = __r as u64;
+                        let mut __i = 2u64;
+                        while __i <= __k { __f = __f.saturating_mul(__i); __i += 1; }
+                        __f as f64
+                    } else {
+                        (2.0 * ::std::f64::consts::PI * __n).sqrt() * (__n / ::std::f64::consts::E).powf(__n)
+                    }
+                } }
+            }
         }
     }
 
@@ -360,7 +382,11 @@ impl ParsedExpr {
                 a.collect_vars(vars);
                 b.collect_vars(vars);
             }
-            ParsedExpr::Neg(a) | ParsedExpr::Exp(a) | ParsedExpr::Log(a) | ParsedExpr::Sqrt(a) => {
+            ParsedExpr::Neg(a)
+            | ParsedExpr::Exp(a)
+            | ParsedExpr::Log(a)
+            | ParsedExpr::Sqrt(a)
+            | ParsedExpr::Factorial(a) => {
                 a.collect_vars(vars);
             }
         }

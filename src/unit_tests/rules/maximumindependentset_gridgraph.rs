@@ -52,24 +52,3 @@ fn test_mis_simple_one_to_kings_one_closed_loop() {
     let size: usize = original_solution.iter().sum();
     assert_eq!(size, 3, "Max IS in path of 5 should be 3");
 }
-
-#[test]
-fn test_mis_simple_one_to_kings_weighted_closed_loop() {
-    // Path graph: 0-1-2-3-4 (MIS = 3: select vertices 0, 2, 4)
-    let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
-        vec![One; 5],
-    );
-    let result = ReduceTo::<MaximumIndependentSet<KingsSubgraph, i32>>::reduce_to(&problem);
-    let target = result.target_problem();
-    assert!(target.graph().num_vertices() > 5);
-
-    let solver = BruteForce::new();
-    let grid_solutions = solver.find_all_best(target);
-    assert!(!grid_solutions.is_empty());
-
-    let original_solution = result.extract_solution(&grid_solutions[0]);
-    assert_eq!(original_solution.len(), 5);
-    let size: usize = original_solution.iter().sum();
-    assert_eq!(size, 3, "Max IS in path of 5 should be 3");
-}

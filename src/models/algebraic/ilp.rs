@@ -2,20 +2,27 @@
 //!
 //! ILP optimizes a linear objective over integer variables subject to linear constraints.
 //! This is a fundamental "hub" problem that many other NP-hard problems can be reduced to.
+//!
+//! The type parameter `V` determines the variable domain:
+//! - `ILP<bool>`: binary variables (0 or 1)
+//! - `ILP<i32>`: non-negative integer variables (0..2^31-1)
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "ILP",
+        display_name: "ILP",
+        aliases: &[],
+        dimensions: &[VariantDimension::new("variable", "bool", &["bool", "i32"])],
         module_path: module_path!(),
         description: "Optimize linear objective subject to linear constraints",
         fields: &[
             FieldInfo { name: "num_vars", type_name: "usize", description: "Number of integer variables" },
-            FieldInfo { name: "bounds", type_name: "Vec<VarBounds>", description: "Variable bounds" },
             FieldInfo { name: "constraints", type_name: "Vec<LinearConstraint>", description: "Linear constraints" },
             FieldInfo { name: "objective", type_name: "Vec<(usize, f64)>", description: "Sparse objective coefficients" },
             FieldInfo { name: "sense", type_name: "ObjectiveSense", description: "Optimization direction" },
@@ -23,80 +30,24 @@ inventory::submit! {
     }
 }
 
-/// Variable bounds (None = unbounded in that direction).
+/// Sealed trait for ILP variable domains.
 ///
-/// Represents the lower and upper bounds for an integer variable.
-/// A value of `None` indicates the variable is unbounded in that direction.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VarBounds {
-    /// Lower bound (None = -infinity).
-    pub lower: Option<i64>,
-    /// Upper bound (None = +infinity).
-    pub upper: Option<i64>,
+/// `bool` = binary variables (0 or 1), `i32` = non-negative integers (0..2^31-1).
+pub trait VariableDomain: 'static + Clone + std::fmt::Debug + Send + Sync {
+    /// Number of possible values per variable (used by `dims()`).
+    const DIMS_PER_VAR: usize;
+    /// Name for the variant system (e.g., "bool", "i32").
+    const NAME: &'static str;
 }
 
-impl VarBounds {
-    /// Create bounds for a binary variable: 0 <= x <= 1.
-    pub fn binary() -> Self {
-        Self {
-            lower: Some(0),
-            upper: Some(1),
-        }
-    }
+impl VariableDomain for bool {
+    const DIMS_PER_VAR: usize = 2;
+    const NAME: &'static str = "bool";
+}
 
-    /// Create bounds for a non-negative variable: x >= 0.
-    pub fn non_negative() -> Self {
-        Self {
-            lower: Some(0),
-            upper: None,
-        }
-    }
-
-    /// Create unbounded variable: -infinity < x < +infinity.
-    pub fn unbounded() -> Self {
-        Self {
-            lower: None,
-            upper: None,
-        }
-    }
-
-    /// Create bounds with explicit lower and upper: lo <= x <= hi.
-    pub fn bounded(lo: i64, hi: i64) -> Self {
-        Self {
-            lower: Some(lo),
-            upper: Some(hi),
-        }
-    }
-
-    /// Check if a value satisfies these bounds.
-    pub fn contains(&self, value: i64) -> bool {
-        if let Some(lo) = self.lower {
-            if value < lo {
-                return false;
-            }
-        }
-        if let Some(hi) = self.upper {
-            if value > hi {
-                return false;
-            }
-        }
-        true
-    }
-
-    /// Get the number of integer values in this bound range.
-    /// Returns None if unbounded in either direction.
-    pub fn num_values(&self) -> Option<usize> {
-        match (self.lower, self.upper) {
-            (Some(lo), Some(hi)) => {
-                if hi >= lo {
-                    Some((hi - lo + 1) as usize)
-                } else {
-                    Some(0)
-                }
-            }
-            _ => None,
-        }
-    }
+impl VariableDomain for i32 {
+    const DIMS_PER_VAR: usize = (i32::MAX as usize) + 1;
+    const NAME: &'static str = "i32";
 }
 
 /// Comparison operator for linear constraints.
@@ -187,22 +138,26 @@ pub enum ObjectiveSense {
 /// Integer Linear Programming (ILP) problem.
 ///
 /// An ILP consists of:
-/// - A set of integer variables with bounds
+/// - A set of integer variables with a domain determined by `V`
 /// - Linear constraints on those variables
 /// - A linear objective function to optimize
 /// - An optimization sense (maximize or minimize)
 ///
+/// # Type Parameter
+///
+/// - `V = bool`: binary variables (0 or 1)
+/// - `V = i32`: non-negative integer variables
+///
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::algebraic::{ILP, VarBounds, Comparison, LinearConstraint, ObjectiveSense};
+/// use problemreductions::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 /// use problemreductions::Problem;
 ///
-/// // Create a simple ILP: maximize x0 + 2*x1
+/// // Create a simple binary ILP: maximize x0 + 2*x1
 /// // subject to: x0 + x1 <= 3, x0, x1 binary
-/// let ilp = ILP::new(
+/// let ilp = ILP::<bool>::new(
 ///     2,
-///     vec![VarBounds::binary(), VarBounds::binary()],
 ///     vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 3.0)],
 ///     vec![(0, 1.0), (1, 2.0)],
 ///     ObjectiveSense::Maximize,
@@ -211,70 +166,40 @@ pub enum ObjectiveSense {
 /// assert_eq!(ilp.num_variables(), 2);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ILP {
+#[serde(bound(serialize = "", deserialize = ""))]
+pub struct ILP<V: VariableDomain = bool> {
     /// Number of variables.
     pub num_vars: usize,
-    /// Bounds for each variable.
-    pub bounds: Vec<VarBounds>,
     /// Linear constraints.
     pub constraints: Vec<LinearConstraint>,
     /// Sparse objective coefficients: (var_index, coefficient).
     pub objective: Vec<(usize, f64)>,
     /// Optimization direction.
     pub sense: ObjectiveSense,
+    #[serde(skip)]
+    _marker: PhantomData<V>,
 }
 
-impl ILP {
+impl<V: VariableDomain> ILP<V> {
     /// Create a new ILP problem.
-    ///
-    /// # Arguments
-    /// * `num_vars` - Number of variables
-    /// * `bounds` - Bounds for each variable (must have length num_vars)
-    /// * `constraints` - List of linear constraints
-    /// * `objective` - Sparse objective coefficients
-    /// * `sense` - Maximize or minimize
-    ///
-    /// # Panics
-    /// Panics if bounds.len() != num_vars.
     pub fn new(
         num_vars: usize,
-        bounds: Vec<VarBounds>,
         constraints: Vec<LinearConstraint>,
         objective: Vec<(usize, f64)>,
         sense: ObjectiveSense,
     ) -> Self {
-        assert_eq!(bounds.len(), num_vars, "bounds length must match num_vars");
         Self {
             num_vars,
-            bounds,
             constraints,
             objective,
             sense,
+            _marker: PhantomData,
         }
-    }
-
-    /// Create a binary ILP (all variables are 0-1).
-    ///
-    /// This is a convenience constructor for common binary optimization problems.
-    pub fn binary(
-        num_vars: usize,
-        constraints: Vec<LinearConstraint>,
-        objective: Vec<(usize, f64)>,
-        sense: ObjectiveSense,
-    ) -> Self {
-        let bounds = vec![VarBounds::binary(); num_vars];
-        Self::new(num_vars, bounds, constraints, objective, sense)
     }
 
     /// Create an empty ILP with no variables.
     pub fn empty() -> Self {
-        Self {
-            num_vars: 0,
-            bounds: vec![],
-            constraints: vec![],
-            objective: vec![],
-            sense: ObjectiveSense::Minimize,
-        }
+        Self::new(0, vec![], vec![], ObjectiveSense::Minimize)
     }
 
     /// Evaluate the objective function for given variable values.
@@ -285,40 +210,20 @@ impl ILP {
             .sum()
     }
 
-    /// Check if all bounds are satisfied for given variable values.
-    pub fn bounds_satisfied(&self, values: &[i64]) -> bool {
-        if values.len() != self.num_vars {
-            return false;
-        }
-        for (i, &value) in values.iter().enumerate() {
-            if !self.bounds[i].contains(value) {
-                return false;
-            }
-        }
-        true
-    }
-
     /// Check if all constraints are satisfied for given variable values.
     pub fn constraints_satisfied(&self, values: &[i64]) -> bool {
         self.constraints.iter().all(|c| c.is_satisfied(values))
     }
 
-    /// Check if a solution is feasible (satisfies bounds and constraints).
+    /// Check if a solution is feasible (satisfies constraints).
     pub fn is_feasible(&self, values: &[i64]) -> bool {
-        self.bounds_satisfied(values) && self.constraints_satisfied(values)
+        values.len() == self.num_vars && self.constraints_satisfied(values)
     }
 
     /// Convert a configuration (Vec<usize>) to integer values (Vec<i64>).
-    /// The configuration encodes variable values as offsets from lower bounds.
+    /// For bool: config 0→0, 1→1. For i32: config index = value.
     fn config_to_values(&self, config: &[usize]) -> Vec<i64> {
-        config
-            .iter()
-            .enumerate()
-            .map(|(i, &c)| {
-                let lo = self.bounds.get(i).and_then(|b| b.lower).unwrap_or(0);
-                lo + c as i64
-            })
-            .collect()
+        config.iter().map(|&c| c as i64).collect()
     }
 
     /// Get the number of variables.
@@ -337,19 +242,12 @@ impl ILP {
     }
 }
 
-impl Problem for ILP {
+impl<V: VariableDomain> Problem for ILP<V> {
     const NAME: &'static str = "ILP";
     type Metric = SolutionSize<f64>;
 
     fn dims(&self) -> Vec<usize> {
-        self.bounds
-            .iter()
-            .map(|b| {
-                b.num_values().expect(
-                    "ILP brute-force enumeration requires all variables to have finite bounds",
-                )
-            })
-            .collect()
+        vec![V::DIMS_PER_VAR; self.num_vars]
     }
 
     fn evaluate(&self, config: &[usize]) -> SolutionSize<f64> {
@@ -361,11 +259,11 @@ impl Problem for ILP {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        crate::variant_params![]
+        vec![("variable", V::NAME)]
     }
 }
 
-impl OptimizationProblem for ILP {
+impl<V: VariableDomain> OptimizationProblem for ILP<V> {
     type Value = f64;
 
     fn direction(&self) -> Direction {
@@ -377,7 +275,27 @@ impl OptimizationProblem for ILP {
 }
 
 crate::declare_variants! {
-    ILP => "num_variables^num_variables",
+    default opt ILP<bool> => "2^num_vars",
+    opt ILP<i32> => "num_vars^num_vars",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "ilp_i32",
+        build: || {
+            let problem = ILP::<i32>::new(
+                2,
+                vec![
+                    LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 5.0),
+                    LinearConstraint::le(vec![(0, 4.0), (1, 7.0)], 28.0),
+                ],
+                vec![(0, -5.0), (1, -6.0)],
+                ObjectiveSense::Minimize,
+            );
+            crate::example_db::specs::explicit_example(problem, vec![vec![0, 4]], vec![vec![3, 2]])
+        },
+    }]
 }
 
 #[cfg(test)]
