@@ -240,6 +240,7 @@ Flags by problem type:
   CVP                             --basis, --target-vec [--bounds]
   OptimalLinearArrangement        --graph, --bound
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
+  MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
   LCS                             --strings
   FAS                             --arcs [--weights] [--num-vertices]
@@ -264,6 +265,7 @@ Examples:
   pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
+  pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
@@ -380,6 +382,9 @@ pub struct CreateArgs {
     /// Sets for SetPacking/SetCovering (semicolon-separated, e.g., "0,1;1,2;0,2")
     #[arg(long)]
     pub sets: Option<String>,
+    /// Partition groups for arc-index partitions (semicolon-separated, e.g., "0,1;2,3")
+    #[arg(long)]
+    pub partition: Option<String>,
     /// Universe size for MinimumSetCovering
     #[arg(long)]
     pub universe: Option<usize>,
@@ -413,7 +418,7 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound or length bound (for LengthBoundedDisjointPaths, OptimalLinearArrangement, RuralPostman, or SCS)
+    /// Upper bound or length bound (for LengthBoundedDisjointPaths, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, or SCS)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)

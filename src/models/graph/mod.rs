@@ -20,6 +20,7 @@
 //! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
+//! - [`MultipleChoiceBranching`]: Directed branching with partition constraints
 //! - [`LengthBoundedDisjointPaths`]: Length-bounded internally disjoint s-t paths
 //! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
 //! - [`SteinerTree`]: Minimum-weight tree spanning all required terminals
@@ -44,6 +45,7 @@ pub(crate) mod minimum_feedback_arc_set;
 pub(crate) mod minimum_feedback_vertex_set;
 pub(crate) mod minimum_sum_multicenter;
 pub(crate) mod minimum_vertex_cover;
+pub(crate) mod multiple_choice_branching;
 pub(crate) mod optimal_linear_arrangement;
 pub(crate) mod partition_into_triangles;
 pub(crate) mod rural_postman;
@@ -70,6 +72,7 @@ pub use minimum_feedback_arc_set::MinimumFeedbackArcSet;
 pub use minimum_feedback_vertex_set::MinimumFeedbackVertexSet;
 pub use minimum_sum_multicenter::MinimumSumMulticenter;
 pub use minimum_vertex_cover::MinimumVertexCover;
+pub use multiple_choice_branching::MultipleChoiceBranching;
 pub use optimal_linear_arrangement::OptimalLinearArrangement;
 pub use partition_into_triangles::PartitionIntoTriangles;
 pub use rural_postman::RuralPostman;
@@ -96,6 +99,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(maximal_is::canonical_model_example_specs());
     specs.extend(minimum_feedback_vertex_set::canonical_model_example_specs());
     specs.extend(minimum_sum_multicenter::canonical_model_example_specs());
+    specs.extend(multiple_choice_branching::canonical_model_example_specs());
     specs.extend(spin_glass::canonical_model_example_specs());
     specs.extend(biclique_cover::canonical_model_example_specs());
     specs.extend(partition_into_triangles::canonical_model_example_specs());

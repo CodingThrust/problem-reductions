@@ -7,7 +7,7 @@ use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{
-    GraphPartitioning, HamiltonianPath, LengthBoundedDisjointPaths,
+    GraphPartitioning, HamiltonianPath, LengthBoundedDisjointPaths, MultipleChoiceBranching,
 };
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
@@ -55,6 +55,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.capacity.is_none()
         && args.sequence.is_none()
         && args.sets.is_none()
+        && args.partition.is_none()
         && args.universe.is_none()
         && args.biedges.is_none()
         && args.left.is_none()
@@ -223,6 +224,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
+        "Vec<Vec<usize>>" => "semicolon-separated groups: \"0,1;2,3\"",
         "usize" => "integer",
         "u64" => "integer",
         "i64" => "integer",
@@ -245,6 +247,7 @@ fn cli_flag_name(field_name: &str) -> String {
         "edge_lengths" => "edge-weights".to_string(),
         "num_tasks" => "n".to_string(),
         "precedences" => "precedence-pairs".to_string(),
+        "threshold" => "bound".to_string(),
         _ => field_name.replace('_', "-"),
     }
 }
@@ -290,6 +293,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "RuralPostman" => {
             "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
+        }
+        "MultipleChoiceBranching" => {
+            "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
         }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
@@ -681,6 +687,24 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     edge_weights,
                     required_edges,
                     bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MultipleChoiceBranching
+        "MultipleChoiceBranching" => {
+            let usage = "Usage: pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MultipleChoiceBranching requires --arcs\n\n{usage}")
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let weights = parse_arc_weights(args, num_arcs)?;
+            let partition = parse_partition_groups(args, num_arcs)?;
+            let threshold = parse_multiple_choice_branching_threshold(args, usage)?;
+            (
+                ser(MultipleChoiceBranching::new(
+                    graph, weights, partition, threshold,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -1823,6 +1847,68 @@ fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
                 .collect()
         })
         .collect()
+}
+
+/// Parse `--partition` as semicolon-separated groups of comma-separated arc indices.
+/// E.g., "0,1;2,3;4,7;5,6"
+fn parse_partition_groups(args: &CreateArgs, num_arcs: usize) -> Result<Vec<Vec<usize>>> {
+    let partition_str = args.partition.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("MultipleChoiceBranching requires --partition (e.g., \"0,1;2,3;4,7;5,6\")")
+    })?;
+
+    let partition: Vec<Vec<usize>> = partition_str
+        .split(';')
+        .map(|group| {
+            group
+                .trim()
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .map_err(|e| anyhow::anyhow!("Invalid partition index: {}", e))
+                })
+                .collect()
+        })
+        .collect::<Result<_>>()?;
+
+    let mut seen = vec![false; num_arcs];
+    for group in &partition {
+        for &arc_index in group {
+            anyhow::ensure!(
+                arc_index < num_arcs,
+                "partition arc index {} out of range for {} arcs",
+                arc_index,
+                num_arcs
+            );
+            anyhow::ensure!(
+                !seen[arc_index],
+                "partition arc index {} appears more than once",
+                arc_index
+            );
+            seen[arc_index] = true;
+        }
+    }
+    anyhow::ensure!(
+        seen.iter().all(|present| *present),
+        "partition must cover every arc exactly once"
+    );
+
+    Ok(partition)
+}
+
+fn parse_multiple_choice_branching_threshold(args: &CreateArgs, usage: &str) -> Result<i32> {
+    let raw_bound = args
+        .bound
+        .ok_or_else(|| anyhow::anyhow!("MultipleChoiceBranching requires --bound\n\n{usage}"))?;
+    anyhow::ensure!(
+        raw_bound >= 0,
+        "MultipleChoiceBranching threshold must be non-negative, got {raw_bound}"
+    );
+    i32::try_from(raw_bound).map_err(|_| {
+        anyhow::anyhow!(
+            "MultipleChoiceBranching threshold must fit in a 32-bit signed integer, got {raw_bound}"
+        )
+    })
 }
 
 /// Parse `--weights` for set-based problems (i32), defaulting to all 1s.
