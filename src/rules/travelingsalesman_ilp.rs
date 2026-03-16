@@ -5,7 +5,7 @@
 //! - Constraints: assignment, non-edge consecutive, McCormick
 //! - Objective: minimize total edge weight of the tour
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::TravelingSalesman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -14,7 +14,7 @@ use crate::topology::{Graph, SimpleGraph};
 /// Result of reducing TravelingSalesman to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionTSPToILP {
-    target: ILP,
+    target: ILP<bool>,
     /// Number of vertices in the source graph.
     num_vertices: usize,
     /// Edges of the source graph (for solution extraction).
@@ -30,9 +30,9 @@ impl ReductionTSPToILP {
 
 impl ReductionResult for ReductionTSPToILP {
     type Source = TravelingSalesman<SimpleGraph, i32>;
-    type Target = ILP;
+    type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP {
+    fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
@@ -76,7 +76,7 @@ impl ReductionResult for ReductionTSPToILP {
         num_constraints = "num_vertices^3 + -1 * num_vertices^2 + 2 * num_vertices + 4 * num_vertices * num_edges",
     }
 )]
-impl ReduceTo<ILP> for TravelingSalesman<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i32> {
     type Result = ReductionTSPToILP;
 
     fn reduce_to(&self) -> Self::Result {
@@ -105,7 +105,6 @@ impl ReduceTo<ILP> for TravelingSalesman<SimpleGraph, i32> {
         let y_idx =
             |edge: usize, k: usize, dir: usize| -> usize { num_x + edge * 2 * n + 2 * k + dir };
 
-        let bounds = vec![VarBounds::binary(); num_vars];
         let mut constraints = Vec::new();
 
         // Constraint 1: Each vertex has exactly one position
@@ -187,13 +186,7 @@ impl ReduceTo<ILP> for TravelingSalesman<SimpleGraph, i32> {
             }
         }
 
-        let target = ILP::new(
-            num_vars,
-            bounds,
-            constraints,
-            objective,
-            ObjectiveSense::Minimize,
-        );
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
         ReductionTSPToILP {
             target,
@@ -201,6 +194,20 @@ impl ReduceTo<ILP> for TravelingSalesman<SimpleGraph, i32> {
             source_edges,
         }
     }
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "travelingsalesman_to_ilp",
+        build: || {
+            let source = TravelingSalesman::new(
+                SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+                vec![10, 15, 20, 35, 25, 30],
+            );
+            crate::example_db::specs::direct_ilp_example::<_, bool, _>(source, |_, _| true)
+        },
+    }]
 }
 
 #[cfg(test)]

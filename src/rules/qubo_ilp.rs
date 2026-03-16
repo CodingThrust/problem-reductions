@@ -14,22 +14,22 @@
 //! ## Objective
 //! minimize Σ_i Q_ii · x_i + Σ_{i<j} Q_ij · y_{ij}
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP, QUBO};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP, QUBO};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing QUBO to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionQUBOToILP {
-    target: ILP,
+    target: ILP<bool>,
     num_original: usize,
 }
 
 impl ReductionResult for ReductionQUBOToILP {
     type Source = QUBO<f64>;
-    type Target = ILP;
+    type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP {
+    fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
@@ -44,7 +44,7 @@ impl ReductionResult for ReductionQUBOToILP {
         num_constraints = "num_vars^2",
     }
 )]
-impl ReduceTo<ILP> for QUBO<f64> {
+impl ReduceTo<ILP<bool>> for QUBO<f64> {
     type Result = ReductionQUBOToILP;
 
     fn reduce_to(&self) -> Self::Result {
@@ -63,9 +63,6 @@ impl ReduceTo<ILP> for QUBO<f64> {
 
         let m = off_diag.len();
         let total_vars = n + m;
-
-        // All variables are binary
-        let bounds = vec![VarBounds::binary(); total_vars];
 
         // Objective: minimize Σ Q_ii · x_i + Σ Q_ij · y_k
         let mut objective: Vec<(usize, f64)> = Vec::new();
@@ -94,18 +91,31 @@ impl ReduceTo<ILP> for QUBO<f64> {
             ));
         }
 
-        let target = ILP::new(
-            total_vars,
-            bounds,
-            constraints,
-            objective,
-            ObjectiveSense::Minimize,
-        );
+        let target = ILP::new(total_vars, constraints, objective, ObjectiveSense::Minimize);
         ReductionQUBOToILP {
             target,
             num_original: n,
         }
     }
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "qubo_to_ilp",
+        build: || {
+            let mut matrix = vec![vec![0.0; 4]; 4];
+            matrix[0][0] = -2.0;
+            matrix[1][1] = -3.0;
+            matrix[2][2] = -1.0;
+            matrix[3][3] = -4.0;
+            matrix[0][1] = 1.0;
+            matrix[1][2] = 2.0;
+            matrix[2][3] = -1.0;
+            let source = QUBO::from_matrix(matrix);
+            crate::example_db::specs::direct_best_example::<_, ILP<bool>, _>(source, |_, _| true)
+        },
+    }]
 }
 
 #[cfg(test)]

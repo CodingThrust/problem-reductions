@@ -278,13 +278,8 @@ impl PartialEq for SimpleGraph {
 
 impl Eq for SimpleGraph {}
 
-use super::hypergraph::HyperGraph;
 use crate::impl_variant_param;
-impl_variant_param!(SimpleGraph, "graph", parent: HyperGraph,
-cast: |g| {
-    let edges: Vec<Vec<usize>> = g.edges().into_iter().map(|(u, v)| vec![u, v]).collect();
-    HyperGraph::new(g.num_vertices(), edges)
-});
+impl_variant_param!(SimpleGraph, "graph");
 
 #[cfg(test)]
 #[path = "../unit_tests/topology/graph.rs"]

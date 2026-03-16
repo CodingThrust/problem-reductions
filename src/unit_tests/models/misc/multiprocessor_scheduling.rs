@@ -9,6 +9,7 @@ fn test_multiprocessor_scheduling_basic() {
     assert_eq!(problem.lengths(), &[4, 5, 3, 2, 6]);
     assert_eq!(problem.num_processors(), 2);
     assert_eq!(problem.deadline(), 10);
+    assert_eq!(problem.total_length(), 20);
     assert_eq!(problem.dims(), vec![2; 5]);
     assert_eq!(
         <MultiprocessorScheduling as Problem>::NAME,
@@ -112,6 +113,20 @@ fn test_multiprocessor_scheduling_serialization() {
     assert_eq!(restored.lengths(), problem.lengths());
     assert_eq!(restored.num_processors(), problem.num_processors());
     assert_eq!(restored.deadline(), problem.deadline());
+}
+
+#[test]
+fn test_multiprocessor_scheduling_deserialization_rejects_zero_processors() {
+    let err = serde_json::from_value::<MultiprocessorScheduling>(serde_json::json!({
+        "lengths": [1, 2],
+        "num_processors": 0,
+        "deadline": 5
+    }))
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("expected positive integer, got 0"),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]

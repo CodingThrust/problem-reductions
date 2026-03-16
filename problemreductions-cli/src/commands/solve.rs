@@ -97,7 +97,7 @@ fn solve_problem(
             result
         }
         "ilp" => {
-            let result = problem.solve_with_ilp()?;
+            let result = problem.solve_with_ilp().map_err(add_ilp_solver_hint)?;
             let solver_desc = if name == "ILP" {
                 "ilp".to_string()
             } else {
@@ -139,7 +139,7 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
     // 2. Solve the target problem
     let target_result = match solver_name {
         "brute-force" => target.solve_brute_force()?,
-        "ilp" => target.solve_with_ilp()?,
+        "ilp" => target.solve_with_ilp().map_err(add_ilp_solver_hint)?,
         _ => unreachable!(),
     };
 
@@ -199,4 +199,15 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
         out.info("\nHint: use -o to save full solution details (including intermediate results) as JSON.");
     }
     result
+}
+
+fn add_ilp_solver_hint(err: anyhow::Error) -> anyhow::Error {
+    let message = err.to_string();
+    if message.starts_with("No reduction path from ") && message.ends_with(" to ILP") {
+        anyhow::anyhow!(
+            "{message}\n\nHint: try `--solver brute-force` for direct exhaustive search on small instances."
+        )
+    } else {
+        err
+    }
 }

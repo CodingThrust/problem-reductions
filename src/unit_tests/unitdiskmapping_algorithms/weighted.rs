@@ -710,7 +710,7 @@ fn test_weighted_map_config_back_standard_graphs() {
             .map(|(i, &w)| (i, w))
             .collect();
 
-        let ilp = ILP::binary(num_grid, constraints, objective, ObjectiveSense::Maximize);
+        let ilp = ILP::<bool>::new(num_grid, constraints, objective, ObjectiveSense::Maximize);
         let solver = ILPSolver::new();
         let grid_config: Vec<usize> = solver
             .solve(&ilp)

@@ -36,14 +36,28 @@ digraph check_issue {
 }
 ```
 
+### Prerequisites
+
+This skill uses the `pred` CLI tool. If `pred` is not available, build it first:
+
+```bash
+pred --version 2>/dev/null || make cli
+```
+
 ### Step 0: Fetch and Parse Issue
 
 ```bash
-gh issue view <NUMBER> --json title,body,labels
+gh issue view <NUMBER> --json title,body,labels,comments
 ```
 
 - Detect issue type from title: `[Rule]` or `[Model]`
 - If neither, stop with message: "This skill only checks [Rule] and [Model] issues."
+
+#### Duplicate Check Detection
+
+Before running checks, scan existing comments for a previous `## Issue Quality Check` heading. If found:
+- **Default:** Skip and report: "Already checked (comment from YYYY-MM-DD). Use `/check-issue <NUMBER> --force` to re-check."
+- **`--force` flag:** Proceed with re-check. Post the new report as "Re-check" and note any changes from the previous report (e.g., "Previously: 2 warnings → Now: 0 warnings after issue edits").
 
 ---
 
@@ -71,12 +85,10 @@ Applies when the title contains `[Rule]`.
 
 4. Decision (principle: new rule must reduce the reduction overhead):
    - **No path exists** → **Pass** (novel reduction)
-   - **Path exists** → compare overhead:
-     - Parse the proposed overhead from the issue's "Size Overhead" table
-     - Parse the overhead of the path.
-     - If proposed overhead is **strictly lower** on at least one dimension (and not higher on any) → **Pass** ("improves existing reduction")
-     - If overhead is **equal or higher** on all dimensions → **Fail**
-     - If overhead comparison is ambiguous (different dimensions, incomparable expressions) → **Warn** with explanation
+   - **Path exists** → run `/topology-sanity-check redundancy <source> <target>` to perform a full overhead dominance analysis against all composite paths. Use its verdict:
+     - **Not Redundant** → **Pass** ("improves existing reduction — not dominated by any composite path")
+     - **Redundant** (dominated by a composite path) → **Fail** — include the dominating path from the redundancy report
+     - **Inconclusive** → **Warn** with the details from the redundancy report
 
 5. Check **Motivation** field: if empty, placeholder, or just "enables X" without explaining *why this path matters* → **Warn**
 
@@ -89,7 +101,7 @@ Applies when the title contains `[Rule]`.
 Read the "Reduction Algorithm" section and flag as **Fail** if:
 
 - **Variable substitution only:** The mapping is a 1-to-1 relabeling (e.g., `x_i → 1 - x_i` for complement problems). A valid reduction must construct new constraints, objectives, or graph structure.
-- **Subtype coercion:** The reduction merely casts to a more general type (e.g., SimpleGraph → HyperGraph) with no structural change to the problem instance.
+- **Subtype coercion:** The reduction merely casts to a more general type within an existing variant hierarchy (e.g., UnitDiskGraph → SimpleGraph) with no structural change to the problem instance.
 - **Same-problem identity:** Reducing between variants of the same problem with no insight (e.g., `MIS<SimpleGraph, One>` → `MIS<SimpleGraph, i32>` by setting all weights to 1).
 - **Insufficient detail:** The algorithm is a hand-wave ("map variables accordingly", "follows from the definition") — not a step-by-step procedure a programmer could implement. This is also a **Fail**.
 
@@ -183,6 +195,7 @@ If the algorithm is a high-level sketch rather than an implementable procedure �
 - **Non-trivial**: Must have enough structure to exercise the reduction meaningfully (not just 2 vertices)
 - **Brute-force solvable**: Small enough to verify by hand or with `pred solve`
 - **Fully worked**: Shows the source instance, the reduction construction step by step, and the target instance — not just "apply the reduction to get..."
+- **Round-trip testable**: The example must be complex enough to validate correctness via a closed-loop test: reduce the source instance → solve the target → extract the solution back → verify it is optimal for the source. A too-simple example (e.g., a single edge, a trivially satisfiable formula) can pass the round trip even with a buggy reduction. The example should have multiple feasible solutions with different objective values so that only a correct reduction maps to the true optimum. Rule of thumb: the source instance should have at least 2 suboptimal feasible solutions in addition to the optimal one.
 
 ---
 
@@ -202,12 +215,16 @@ Applies when the title contains `[Model]`.
    ```
    If it succeeds, the problem **already exists** → **Fail** ("Problem already implemented").
 
-3. Check **Motivation** field:
+3. Check **planned reductions** — the issue must mention at least one concrete reduction rule connecting this problem to the existing graph:
+   - Look for explicit statements like "reduces to/from X", "interreducible with Y", or references to planned `[Rule]` issues
+   - If **no reduction is mentioned at all** → **Fail** ("Orphan node — a problem without any planned reduction rule has no value in the reduction graph. Add at least one planned reduction to/from an existing problem.")
+   - If reductions are mentioned but vague ("can be connected to other problems") → **Warn**
+
+4. Check **Motivation** field:
    - Is there a concrete use case? (quantum computing, network design, scheduling, etc.)
-   - Does it mention what reductions this problem enables? A problem without any planned reduction rules is an orphan node.
    - If motivation is empty, placeholder, or vague → **Warn**
 
-4. Check **How to solve** section:
+5. Check **How to solve** section:
    - At least one solver method must be checked (brute-force, ILP reduction, or other)
    - If no solver path is identified → **Warn** ("No solver means reduction rules can't be verified")
 
@@ -241,6 +258,13 @@ If the problem has a genuinely different feasibility constraint or objective fun
 - Verify the formal definition is mathematically well-formed
 - Check that feasibility constraints and objective are clearly separated
 - Verify the variable domain matches the problem semantics (binary for selection, k-ary for coloring, etc.)
+
+### 3e: Representation Feasibility
+
+Verify that the proposed data types in the Schema can represent the stated problem domain:
+- If the Schema proposes a data type but the Definition or Variants mention domains that exceed that type's range (e.g., proposing integer coefficients for a finite field larger than any fixed-width integer can hold) → **Fail** ("Proposed data type cannot represent the stated domain")
+- If multiple variants are listed, check that the proposed schema handles all of them or explicitly restricts scope
+- If the issue acknowledges a limitation and restricts scope (e.g., "initial implementation targets small fields only"), this is acceptable → **Pass** with a note
 
 ### 3b: Complexity Verification
 
@@ -280,9 +304,10 @@ Check all template sections are present and substantive:
 | Definition | Formal: input, feasibility constraints, objective |
 | Variables | Count, per-variable domain, semantic meaning |
 | Schema | Type name, variants, field table |
-| Complexity | Best known algorithm with citation |
+| Complexity | Best known algorithm with citation **and** a concrete complexity expression in terms of problem parameters (e.g., `q^n`, `2^{0.8765n}`) |
 | How to solve | At least one solver method checked |
-| Example Instance | Concrete instance with known solution |
+| Example Instance | Concrete instance that exercises the core structure |
+| Expected Outcome | Satisfaction: one valid / satisfying solution with brief justification. Optimization: one optimal solution with the optimal objective value |
 
 Missing or placeholder sections → list them as **Fail** items.
 
@@ -303,8 +328,16 @@ The formal definition must be **precise and implementable**:
 ### 4d: Example Quality
 
 - **Non-trivial**: Enough vertices/variables to exercise constraints meaningfully (not just a triangle)
-- **Known optimal solution provided**: Must state the optimal value, not just the instance
+- **Exercises core structure**: Examples must use the defining features of the problem. For instance, a "MultivariateQuadratic" example that only has linear terms does not exercise the quadratic structure → **Fail**. If the problem's name or definition highlights a specific structural feature (quadratic, k-colorable, bipartite, etc.), at least one example must exercise that feature.
+- **Expected outcome provided**:
+  - Satisfaction problems must include a concrete valid / satisfying solution and say why it is valid
+  - Optimization problems must include a concrete optimal solution and the optimal objective value
 - **Detailed enough for paper**: This example will appear in the paper — it needs to be illustrative
+- **Round-trip testable**: The example must be complex enough that a round-trip test (construct instance → solve → verify) can catch implementation bugs. A too-simple instance (e.g., 2 vertices, a single clause) may have a trivially correct solution that passes even with a wrong implementation. The example should have multiple feasible configurations with different objective values (for optimization) or a mix of satisfying and non-satisfying configurations (for satisfaction problems), so that correctness is meaningfully tested. Rule of thumb: the instance should have at least 2 suboptimal feasible solutions in addition to the optimal one.
+
+### 4e: Representation Feasibility
+
+Same check as Correctness 3e — if the proposed data types cannot represent the stated domain, this is also a **Fail** here (the schema is not implementable as written).
 
 ---
 
@@ -389,7 +422,8 @@ gh issue edit <NUMBER> --add-label "Trivial"      # if Check 2 failed
 gh issue edit <NUMBER> --add-label "Wrong"        # if Check 3 failed
 gh issue edit <NUMBER> --add-label "PoorWritten"  # if Check 4 failed
 
-# If ALL checks passed (no failures), add the "Good" label
+# "Good" label requires: zero failures AND zero warnings on Usefulness or Correctness.
+# Warnings on Non-trivial or Well-written alone do NOT block "Good".
 gh issue edit <NUMBER> --add-label "Good"
 
 # If re-checking after fixes, remove stale failure labels and add "Good" if now passing

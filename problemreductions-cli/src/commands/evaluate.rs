@@ -1,11 +1,23 @@
 use crate::dispatch::{load_problem, read_input, ProblemJson};
 use crate::output::OutputConfig;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::path::Path;
 
 pub fn evaluate(input: &Path, config_str: &str, out: &OutputConfig) -> Result<()> {
     let content = read_input(input)?;
-    let problem_json: ProblemJson = serde_json::from_str(&content)?;
+    let json: serde_json::Value =
+        serde_json::from_str(&content).context("Input is not valid JSON")?;
+
+    if json.get("source").is_some() && json.get("target").is_some() && json.get("path").is_some() {
+        anyhow::bail!(
+            "Input is a reduction bundle, not a problem instance.\n\
+             `pred evaluate` only works on problem files (from `pred create`).\n\
+             To solve a bundle, use: pred solve <bundle>"
+        );
+    }
+
+    let problem_json: ProblemJson =
+        serde_json::from_value(json).context("Failed to parse problem JSON")?;
 
     let problem = load_problem(
         &problem_json.problem_type,
@@ -29,6 +41,15 @@ pub fn evaluate(input: &Path, config_str: &str, out: &OutputConfig) -> Result<()
             config.len(),
             dims.len()
         );
+    }
+
+    for (i, (val, dim)) in config.iter().zip(dims.iter()).enumerate() {
+        if *val >= *dim {
+            anyhow::bail!(
+                "Config value {} at position {} is out of range: variable {} has {} possible values (0..{})",
+                val, i, i, dim, dim.saturating_sub(1)
+            );
+        }
     }
 
     let result = problem.evaluate_dyn(&config);

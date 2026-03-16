@@ -176,3 +176,26 @@ fn test_cvp_inconsistent_dimensions() {
     let bounds = vec![VarBounds::bounded(0, 1), VarBounds::bounded(0, 1)];
     ClosestVectorProblem::new(basis, target, bounds);
 }
+
+#[test]
+fn test_cvp_paper_example() {
+    // Paper: basis (2,0),(1,2), target (2.8,1.5), closest (3,2) at x=(1,1)
+    let basis = vec![vec![2, 0], vec![1, 2]];
+    let target = vec![2.8, 1.5];
+    let bounds = vec![VarBounds::bounded(-2, 4), VarBounds::bounded(-2, 4)];
+    let cvp = ClosestVectorProblem::new(basis, target, bounds);
+
+    // x=(1,1): Bx = 2*1+1*1=3, 0*1+2*1=2 -> point (3,2)
+    // distance = sqrt((2.8-3)^2 + (1.5-2)^2) = sqrt(0.04+0.25) = sqrt(0.29)
+    // config offset: x_i - lower = 1 - (-2) = 3
+    let config = vec![3, 3]; // maps to x=(1,1)
+    let result = Problem::evaluate(&cvp, &config);
+    assert!(result.is_valid());
+    let dist = result.unwrap();
+    assert!((dist - 0.29_f64.sqrt()).abs() < 1e-10);
+
+    let solver = BruteForce::new();
+    let best = solver.find_best(&cvp).unwrap();
+    let best_dist = Problem::evaluate(&cvp, &best).unwrap();
+    assert!((best_dist - 0.29_f64.sqrt()).abs() < 1e-10);
+}

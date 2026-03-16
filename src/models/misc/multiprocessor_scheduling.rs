@@ -1,8 +1,8 @@
 //! Multiprocessor Scheduling problem implementation.
 //!
-//! The Multiprocessor Scheduling problem asks whether a set of tasks
-//! can be assigned to identical processors such that no processor's
-//! total load exceeds a given deadline.
+//! Given `n` tasks with positive processing times, `m` identical processors, and
+//! a deadline `D`, determine whether all tasks can be assigned to processors so
+//! that every processor finishes by time `D`.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
@@ -11,11 +11,14 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MultiprocessorScheduling",
+        display_name: "Multiprocessor Scheduling",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
-        description: "Assign tasks to processors so that no processor's load exceeds a deadline",
+        description: "Assign tasks to identical processors so that every processor meets a deadline",
         fields: &[
             FieldInfo { name: "lengths", type_name: "Vec<u64>", description: "Processing time l(t) for each task" },
-            FieldInfo { name: "num_processors", type_name: "u64", description: "Number of identical processors m" },
+            FieldInfo { name: "num_processors", type_name: "usize", description: "Number of identical processors m" },
             FieldInfo { name: "deadline", type_name: "u64", description: "Global deadline D" },
         ],
     }
@@ -23,22 +26,24 @@ inventory::submit! {
 
 /// The Multiprocessor Scheduling problem.
 ///
-/// Given a set T of tasks with processing times, a number m of identical
-/// processors, and a deadline D, determine whether there exists an assignment
-/// of tasks to processors such that the total load on each processor does
-/// not exceed D.
+/// The original Garey-Johnson formulation uses a start-time function
+/// `sigma: T -> Z_>=0`. For identical processors with non-preemptive,
+/// independent tasks, that feasibility question is equivalent to assigning each
+/// task to a processor and requiring every processor's total assigned load to be
+/// at most `deadline`, since tasks on the same processor can be packed
+/// sequentially without gaps.
 ///
 /// # Representation
 ///
-/// Each task has a variable in `{0, ..., m-1}` representing its processor assignment.
+/// Each task has one variable in `{0, ..., m - 1}` indicating which processor
+/// executes it.
 ///
 /// # Example
 ///
 /// ```
 /// use problemreductions::models::misc::MultiprocessorScheduling;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{BruteForce, Problem, Solver};
 ///
-/// // 5 tasks with lengths [4, 5, 3, 2, 6], 2 processors, deadline 10
 /// let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
 /// let solver = BruteForce::new();
 /// let solution = solver.find_satisfying(&problem);
@@ -46,20 +51,19 @@ inventory::submit! {
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MultiprocessorScheduling {
-    /// Processing time for each task.
     lengths: Vec<u64>,
-    /// Number of identical processors.
-    num_processors: u64,
-    /// Global deadline.
+    #[serde(deserialize_with = "positive_usize::deserialize")]
+    num_processors: usize,
     deadline: u64,
 }
 
 impl MultiprocessorScheduling {
-    /// Create a new Multiprocessor Scheduling instance.
+    /// Create a new MultiprocessorScheduling instance.
     ///
     /// # Panics
-    /// Panics if `num_processors` is zero.
-    pub fn new(lengths: Vec<u64>, num_processors: u64, deadline: u64) -> Self {
+    ///
+    /// Panics if `num_processors == 0`.
+    pub fn new(lengths: Vec<u64>, num_processors: usize, deadline: u64) -> Self {
         assert!(num_processors > 0, "num_processors must be positive");
         Self {
             lengths,
@@ -68,13 +72,13 @@ impl MultiprocessorScheduling {
         }
     }
 
-    /// Returns the processing times for each task.
+    /// Returns the task processing times.
     pub fn lengths(&self) -> &[u64] {
         &self.lengths
     }
 
     /// Returns the number of processors.
-    pub fn num_processors(&self) -> u64 {
+    pub fn num_processors(&self) -> usize {
         self.num_processors
     }
 
@@ -87,6 +91,11 @@ impl MultiprocessorScheduling {
     pub fn num_tasks(&self) -> usize {
         self.lengths.len()
     }
+
+    /// Returns the total processing time of all tasks.
+    pub fn total_length(&self) -> u64 {
+        self.lengths.iter().sum()
+    }
 }
 
 impl Problem for MultiprocessorScheduling {
@@ -98,20 +107,20 @@ impl Problem for MultiprocessorScheduling {
     }
 
     fn dims(&self) -> Vec<usize> {
-        vec![self.num_processors as usize; self.num_tasks()]
+        vec![self.num_processors; self.num_tasks()]
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
         if config.len() != self.num_tasks() {
             return false;
         }
-        let m = self.num_processors as usize;
-        if config.iter().any(|&p| p >= m) {
+        if config.iter().any(|&processor| processor >= self.num_processors) {
             return false;
         }
-        let mut loads = vec![0u64; m];
-        for (i, &processor) in config.iter().enumerate() {
-            loads[processor] += self.lengths[i];
+
+        let mut loads = vec![0u64; self.num_processors];
+        for (task, &processor) in config.iter().enumerate() {
+            loads[processor] += self.lengths[task];
         }
         loads.iter().all(|&load| load <= self.deadline)
     }
@@ -120,7 +129,34 @@ impl Problem for MultiprocessorScheduling {
 impl SatisfactionProblem for MultiprocessorScheduling {}
 
 crate::declare_variants! {
-    MultiprocessorScheduling => "num_processors ^ num_tasks",
+    default sat MultiprocessorScheduling => "2 ^ num_tasks",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "multiprocessor_scheduling",
+        build: || {
+            let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
+            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 1, 1, 1, 0]])
+        },
+    }]
+}
+
+mod positive_usize {
+    use serde::de::Error;
+    use serde::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<usize, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = usize::deserialize(deserializer)?;
+        if value == 0 {
+            return Err(D::Error::custom("expected positive integer, got 0"));
+        }
+        Ok(value)
+    }
 }
 
 #[cfg(test)]

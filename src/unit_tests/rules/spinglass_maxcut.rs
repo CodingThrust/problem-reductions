@@ -1,4 +1,5 @@
 use super::*;
+use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 include!("../jl_helpers.rs");
 
@@ -96,13 +97,12 @@ fn test_jl_parity_spinglass_to_maxcut() {
     let source = SpinGlass::<SimpleGraph, i32>::new(nv, interactions, h_values);
     let result = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &result,
+        "JL parity SpinGlass->MaxCut",
+    );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }
@@ -124,13 +124,12 @@ fn test_jl_parity_maxcut_to_spinglass() {
     let source = MaxCut::new(SimpleGraph::new(nv, edges), weights);
     let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &result,
+        "JL parity MaxCut->SpinGlass",
+    );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }
@@ -154,13 +153,12 @@ fn test_jl_parity_rule_maxcut_to_spinglass() {
     );
     let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &result,
+        "JL parity rule MaxCut->SpinGlass",
+    );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }
@@ -183,13 +181,12 @@ fn test_jl_parity_rule_spinglass_to_maxcut() {
     let source = SpinGlass::<SimpleGraph, i32>::new(nv, interactions, h_values);
     let result = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &result,
+        "JL parity rule SpinGlass->MaxCut",
+    );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }

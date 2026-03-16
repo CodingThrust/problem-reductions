@@ -5,7 +5,7 @@
 //! - Constraints: For each element e: sum_{j: e in set_j} x_j >= 1 (element must be covered)
 //! - Objective: Minimize the sum of weights of selected sets
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::MinimumSetCovering;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -18,14 +18,14 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// - The objective minimizes the total weight of selected sets
 #[derive(Debug, Clone)]
 pub struct ReductionSCToILP {
-    target: ILP,
+    target: ILP<bool>,
 }
 
 impl ReductionResult for ReductionSCToILP {
     type Source = MinimumSetCovering<i32>;
-    type Target = ILP;
+    type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP {
+    fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
@@ -44,14 +44,11 @@ impl ReductionResult for ReductionSCToILP {
         num_constraints = "universe_size",
     }
 )]
-impl ReduceTo<ILP> for MinimumSetCovering<i32> {
+impl ReduceTo<ILP<bool>> for MinimumSetCovering<i32> {
     type Result = ReductionSCToILP;
 
     fn reduce_to(&self) -> Self::Result {
         let num_vars = self.num_sets();
-
-        // All variables are binary (0 or 1)
-        let bounds = vec![VarBounds::binary(); num_vars];
 
         // Constraints: For each element e, sum_{j: e in set_j} x_j >= 1
         // This ensures each element is covered by at least one selected set
@@ -78,16 +75,31 @@ impl ReduceTo<ILP> for MinimumSetCovering<i32> {
             .map(|(i, &w)| (i, w as f64))
             .collect();
 
-        let target = ILP::new(
-            num_vars,
-            bounds,
-            constraints,
-            objective,
-            ObjectiveSense::Minimize,
-        );
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
         ReductionSCToILP { target }
     }
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "minimumsetcovering_to_ilp",
+        build: || {
+            let source = MinimumSetCovering::new(
+                8,
+                vec![
+                    vec![0, 1, 2],
+                    vec![2, 3, 4],
+                    vec![4, 5, 6],
+                    vec![6, 7, 0],
+                    vec![1, 3, 5],
+                    vec![0, 4, 7],
+                ],
+            );
+            crate::example_db::specs::direct_ilp_example::<_, bool, _>(source, |_, _| true)
+        },
+    }]
 }
 
 #[cfg(test)]
