@@ -1,8 +1,9 @@
 //! Consecutive Ones Submatrix problem implementation.
 //!
-//! Given an m×n binary matrix A and a positive integer K ≤ n, determine whether
+//! Given an m×n binary matrix A and an integer 0 ≤ K ≤ n, determine whether
 //! there exists a subset of K columns whose columns can be permuted so that in
-//! each row all 1's occur consecutively. NP-complete (Booth, 1975) via
+//! each row all 1's occur consecutively. The implementation treats K = 0 as the
+//! vacuous empty-submatrix case. NP-complete (Booth, 1975) via
 //! transformation from Hamiltonian Path.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
@@ -26,16 +27,18 @@ inventory::submit! {
 
 /// The Consecutive Ones Submatrix problem.
 ///
-/// Given an m×n binary matrix A and a positive integer K ≤ n, determine
+/// Given an m×n binary matrix A and an integer 0 ≤ K ≤ n, determine
 /// whether there exists a subset of K columns that has the "consecutive ones
 /// property" — i.e., the columns can be permuted so that in each row all 1's
-/// occur consecutively.
+/// occur consecutively. The implementation treats K = 0 as vacuously
+/// satisfiable.
 ///
 /// # Representation
 ///
 /// Each column has a binary variable: `x_j = 1` if column j is selected.
 /// The problem is satisfiable iff exactly K columns are selected and some
-/// permutation of those columns gives each row consecutive 1's.
+/// permutation of those columns gives each row consecutive 1's. The current
+/// evaluator checks those permutations explicitly with Heap's algorithm.
 ///
 /// # Example
 ///
@@ -67,7 +70,11 @@ impl ConsecutiveOnesSubmatrix {
     ///
     /// Panics if `bound_k > n`, or if rows have inconsistent lengths.
     pub fn new(matrix: Vec<Vec<bool>>, bound_k: usize) -> Self {
-        let n = if matrix.is_empty() { 0 } else { matrix[0].len() };
+        let n = if matrix.is_empty() {
+            0
+        } else {
+            matrix[0].len()
+        };
         for row in &matrix {
             assert_eq!(row.len(), n, "All rows must have the same length");
         }
@@ -200,7 +207,7 @@ impl Problem for ConsecutiveOnesSubmatrix {
 impl SatisfactionProblem for ConsecutiveOnesSubmatrix {}
 
 crate::declare_variants! {
-    default sat ConsecutiveOnesSubmatrix => "2^(num_cols) * num_rows",
+    default sat ConsecutiveOnesSubmatrix => "2^(num_cols) * factorial(bound_k) * num_rows",
 }
 
 #[cfg(feature = "example-db")]

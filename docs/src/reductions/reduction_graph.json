@@ -62,7 +62,7 @@
       "variant": {},
       "category": "algebraic",
       "doc_path": "models/algebraic/struct.ConsecutiveOnesSubmatrix.html",
-      "complexity": "2^(num_cols) * num_rows"
+      "complexity": "2^(num_cols) * factorial(bound_k) * num_rows"
     },
     {
       "name": "DirectedTwoCommodityIntegralFlow",

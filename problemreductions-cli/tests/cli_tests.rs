@@ -1911,6 +1911,32 @@ fn test_create_set_basis_no_flags_uses_actual_cli_flag_names() {
 }
 
 #[test]
+fn test_create_consecutive_ones_submatrix_no_flags_uses_actual_cli_help() {
+    let output = pred()
+        .args(["create", "ConsecutiveOnesSubmatrix"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--matrix"),
+        "expected '--matrix' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--k"),
+        "expected '--k' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--bound-k"),
+        "help should not advertise schema field names: {stderr}"
+    );
+    assert!(
+        stderr.contains("semicolon-separated 0/1 rows: \"1,0;0,1\""),
+        "expected bool matrix format hint in help output, got: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_kcoloring_missing_k() {
     let output = pred()
         .args(["create", "KColoring", "--graph", "0-1,1-2"])
@@ -1919,6 +1945,34 @@ fn test_create_kcoloring_missing_k() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--k"));
+}
+
+#[test]
+fn test_create_consecutive_ones_submatrix_succeeds() {
+    let output = pred()
+        .args([
+            "create",
+            "ConsecutiveOnesSubmatrix",
+            "--matrix",
+            "1,1,0,1;1,0,1,1;0,1,1,0",
+            "--k",
+            "3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "ConsecutiveOnesSubmatrix");
+    assert_eq!(json["data"]["bound_k"], 3);
+    assert_eq!(
+        json["data"]["matrix"][0],
+        serde_json::json!([true, true, false, true])
+    );
 }
 
 #[test]

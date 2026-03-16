@@ -186,6 +186,31 @@ fn test_consecutive_ones_submatrix_k_zero() {
 }
 
 #[test]
+fn test_consecutive_ones_submatrix_empty_matrix_vacuous_case() {
+    let problem = ConsecutiveOnesSubmatrix::new(vec![], 0);
+
+    assert!(problem.matrix().is_empty());
+    assert_eq!(problem.num_rows(), 0);
+    assert_eq!(problem.num_cols(), 0);
+    assert_eq!(problem.dims(), Vec::<usize>::new());
+    assert!(problem.evaluate(&[]));
+}
+
+#[test]
+fn test_consecutive_ones_submatrix_complexity_metadata_matches_evaluator() {
+    use crate::registry::VariantEntry;
+
+    let entry = inventory::iter::<VariantEntry>()
+        .find(|entry| entry.name == "ConsecutiveOnesSubmatrix")
+        .expect("ConsecutiveOnesSubmatrix variant entry should exist");
+
+    assert_eq!(
+        entry.complexity,
+        "2^(num_cols) * factorial(bound_k) * num_rows"
+    );
+}
+
+#[test]
 #[should_panic(expected = "bound_k")]
 fn test_consecutive_ones_submatrix_k_too_large() {
     let matrix = vec![vec![true, false]];

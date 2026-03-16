@@ -5,9 +5,7 @@ use crate::problem_name::{resolve_problem_ref, unknown_problem_error};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
-use problemreductions::models::algebraic::{
-    BMF, ClosestVectorProblem, ConsecutiveOnesSubmatrix,
-};
+use problemreductions::models::algebraic::{ClosestVectorProblem, ConsecutiveOnesSubmatrix, BMF};
 use problemreductions::models::graph::{
     GraphPartitioning, HamiltonianPath, LengthBoundedDisjointPaths,
 };
@@ -221,6 +219,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
             Some("UnitDiskGraph") => "float positions: \"0.0,0.0;1.0,0.0\"",
             _ => "edge list: 0-1,1-2,2-3",
         },
+        "Vec<Vec<bool>>" => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         "Vec<u64>" => "comma-separated integers: 1,1,2",
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
@@ -242,6 +241,7 @@ fn cli_flag_name(field_name: &str) -> String {
         "collection" | "subsets" => "sets".to_string(),
         "left_size" => "left".to_string(),
         "right_size" => "right".to_string(),
+        "bound_k" => "k".to_string(),
         "edges" => "biedges".to_string(),
         "vertex_weights" => "weights".to_string(),
         "edge_lengths" => "edge-weights".to_string(),
@@ -328,12 +328,7 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             } else {
                 let hint = type_format_hint(&field.type_name, graph_type);
-                eprintln!(
-                    "  --{:<16} {} ({})",
-                    cli_flag_name(&field.name),
-                    field.description,
-                    hint
-                );
+                eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             }
         }
     } else {
@@ -370,7 +365,7 @@ fn problem_help_flag_name(
     if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
         return "bound".to_string();
     }
-    field_name.replace('_', "-")
+    cli_flag_name(field_name)
 }
 
 fn lbdp_validation_error(message: &str, usage: Option<&str>) -> anyhow::Error {
