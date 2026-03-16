@@ -3028,6 +3028,42 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $K = {v : x_v = 1}$.
 ]
 
+#let ks_ilp = load-example("Knapsack", "ILP")
+#let ks_ilp_sol = ks_ilp.solutions.at(0)
+#let ks_ilp_selected = ks_ilp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let ks_ilp_sel_weight = ks_ilp_selected.fold(0, (a, i) => a + ks_ilp.source.instance.weights.at(i))
+#let ks_ilp_sel_value = ks_ilp_selected.fold(0, (a, i) => a + ks_ilp.source.instance.values.at(i))
+#reduction-rule("Knapsack", "ILP",
+  example: true,
+  example-caption: [$n = #ks_ilp.source.instance.weights.len()$ items, capacity $C = #ks_ilp.source.instance.capacity$],
+  extra: [
+    *Step 1 -- Source instance.* The canonical knapsack instance has weights $(#ks_ilp.source.instance.weights.map(str).join(", "))$, values $(#ks_ilp.source.instance.values.map(str).join(", "))$, and capacity $C = #ks_ilp.source.instance.capacity$.
+
+    *Step 2 -- Build the binary ILP.* Introduce one binary variable per item:
+    $#range(ks_ilp.source.instance.weights.len()).map(i => $x_#i$).join(", ") in {0,1}$.
+    The objective is
+    $ max #ks_ilp.source.instance.values.enumerate().map(((i, v)) => $#v x_#i$).join($+$) $
+    subject to the single capacity inequality
+    $ #ks_ilp.source.instance.weights.enumerate().map(((i, w)) => $#w x_#i$).join($+$) <= #ks_ilp.source.instance.capacity $.
+
+    *Step 3 -- Verify a solution.* The ILP optimum $bold(x)^* = (#ks_ilp_sol.target_config.map(str).join(", "))$ extracts directly to the knapsack selection $bold(x)^* = (#ks_ilp_sol.source_config.map(str).join(", "))$, choosing items $\{#ks_ilp_selected.map(str).join(", ")\}$. Their total weight is $#ks_ilp_selected.map(i => str(ks_ilp.source.instance.weights.at(i))).join(" + ") = #ks_ilp_sel_weight$ and their total value is $#ks_ilp_selected.map(i => str(ks_ilp.source.instance.values.at(i))).join(" + ") = #ks_ilp_sel_value$ #sym.checkmark.
+
+    *Uniqueness:* The fixture stores one canonical optimal witness. For this instance the optimum is unique: items $\{#ks_ilp_selected.map(str).join(", ")\}$ are the only feasible choice achieving value #ks_ilp_sel_value.
+  ],
+)[
+  A 0-1 Knapsack instance is already a binary Integer Linear Program @papadimitriou-steiglitz1982: each item-selection bit becomes a binary variable, the capacity condition is a single linear inequality, and the value objective is linear. The reduction preserves the number of decision variables exactly, producing an ILP with $n$ variables and one constraint.
+][
+  _Construction._ Given nonnegative weights $w_0, dots, w_(n-1)$, nonnegative values $v_0, dots, v_(n-1)$, and capacity $C$, introduce binary variables $x_0, dots, x_(n-1) in {0,1}$ where $x_i = 1$ iff item $i$ is selected. Construct the binary ILP:
+  $ max sum_(i=0)^(n-1) v_i x_i $
+  subject to
+  $ sum_(i=0)^(n-1) w_i x_i <= C $
+  and $x_i in {0,1}$ for all $i$. The target therefore has exactly $n$ variables and one linear constraint.
+
+  _Correctness._ ($arrow.r.double$) Any feasible knapsack solution $bold(x)$ satisfies $sum_i w_i x_i <= C$, so the same binary vector is feasible for the ILP and attains identical objective value $sum_i v_i x_i$. ($arrow.l.double$) Any feasible binary ILP solution selects exactly the items with $x_i = 1$; the single inequality guarantees the chosen set fits in the knapsack, and the ILP objective equals the knapsack value. Therefore optimal solutions correspond one-to-one and preserve the optimum value.
+
+  _Solution extraction._ Identity: return the binary variable vector $bold(x)$ as the knapsack selection.
+]
+
 #reduction-rule("MaximumClique", "MaximumIndependentSet",
   example: true,
   example-caption: [Path graph $P_4$: clique in $G$ maps to independent set in complement $overline(G)$.],

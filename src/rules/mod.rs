@@ -54,6 +54,8 @@ mod ilp_bool_ilp_i32;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod ilp_qubo;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod knapsack_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod longestcommonsubsequence_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumclique_ilp;
@@ -107,6 +109,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(coloring_ilp::canonical_rule_example_specs());
         specs.extend(factoring_ilp::canonical_rule_example_specs());
         specs.extend(ilp_qubo::canonical_rule_example_specs());
+        specs.extend(knapsack_ilp::canonical_rule_example_specs());
         specs.extend(longestcommonsubsequence_ilp::canonical_rule_example_specs());
         specs.extend(maximumclique_ilp::canonical_rule_example_specs());
         specs.extend(maximummatching_ilp::canonical_rule_example_specs());
