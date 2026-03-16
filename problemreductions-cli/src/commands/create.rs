@@ -1,17 +1,21 @@
 use crate::cli::{CreateArgs, ExampleSide};
 use crate::dispatch::ProblemJsonOutput;
 use crate::output::OutputConfig;
-use crate::problem_name::{resolve_problem_ref, unknown_problem_error};
+use crate::problem_name::{
+    parse_problem_spec, resolve_catalog_problem_ref, resolve_problem_ref, unknown_problem_error,
+};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{
-    GraphPartitioning, HamiltonianPath, LengthBoundedDisjointPaths,
+    GraphPartitioning, HamiltonianPath, LengthBoundedDisjointPaths, MultipleChoiceBranching,
+    SteinerTree,
 };
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    PaintShop, RectilinearPictureCompression, ShortestCommonSupersequence, SubsetSum,
+    PaintShop, RectilinearPictureCompression, SequencingWithinIntervals,
+    ShortestCommonSupersequence, SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -55,6 +59,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.capacity.is_none()
         && args.sequence.is_none()
         && args.sets.is_none()
+        && args.partition.is_none()
         && args.universe.is_none()
         && args.biedges.is_none()
         && args.left.is_none()
@@ -63,6 +68,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.release_times.is_none()
+        && args.deadlines.is_none()
+        && args.lengths.is_none()
         && args.terminals.is_none()
         && args.tree.is_none()
         && args.required_edges.is_none()
@@ -223,29 +231,16 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
+        "Vec<Vec<usize>>" => "semicolon-separated groups: \"0,1;2,3\"",
         "usize" => "integer",
         "u64" => "integer",
+        "Vec<u64>" => "comma-separated integers: 0,0,5",
         "i64" => "integer",
         "BigUint" => "nonnegative decimal integer",
         "Vec<BigUint>" => "comma-separated nonnegative decimal integers: 3,7,1,8",
         "Vec<i64>" => "comma-separated integers: 3,7,1,8",
         "DirectedGraph" => "directed arcs: 0>1,1>2,2>0",
         _ => "value",
-    }
-}
-
-fn cli_flag_name(field_name: &str) -> String {
-    match field_name {
-        "universe_size" => "universe".to_string(),
-        "collection" | "subsets" => "sets".to_string(),
-        "left_size" => "left".to_string(),
-        "right_size" => "right".to_string(),
-        "edges" => "biedges".to_string(),
-        "vertex_weights" => "weights".to_string(),
-        "edge_lengths" => "edge-weights".to_string(),
-        "num_tasks" => "n".to_string(),
-        "precedences" => "precedence-pairs".to_string(),
-        _ => field_name.replace('_', "-"),
     }
 }
 
@@ -261,6 +256,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
+        "BoundedComponentSpanningForest" => {
+            "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6"
+        }
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
         "UndirectedTwoCommodityIntegralFlow" => {
             "--graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1"
@@ -282,6 +280,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "SequencingWithinIntervals" => "--release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1",
         "SteinerTree" => "--graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4",
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
         "DirectedTwoCommodityIntegralFlow" => {
@@ -290,6 +289,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "RuralPostman" => {
             "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
+        }
+        "MultipleChoiceBranching" => {
+            "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
         }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "RectilinearPictureCompression" => {
@@ -300,6 +302,46 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
     }
+}
+
+fn help_flag_name(canonical: &str, field_name: &str) -> String {
+    // Problem-specific overrides first
+    match (canonical, field_name) {
+        ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
+        ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        _ => {}
+    }
+    // General field-name overrides (previously in cli_flag_name)
+    match field_name {
+        "universe_size" => "universe".to_string(),
+        "collection" | "subsets" => "sets".to_string(),
+        "left_size" => "left".to_string(),
+        "right_size" => "right".to_string(),
+        "edges" => "biedges".to_string(),
+        "vertex_weights" => "weights".to_string(),
+        "edge_lengths" => "edge-weights".to_string(),
+        "num_tasks" => "n".to_string(),
+        "precedences" => "precedence-pairs".to_string(),
+        "threshold" => "bound".to_string(),
+        _ => field_name.replace('_', "-"),
+    }
+}
+
+fn help_flag_hint(
+    canonical: &str,
+    field_name: &str,
+    type_name: &str,
+    graph_type: Option<&str>,
+) -> &'static str {
+    match (canonical, field_name) {
+        ("BoundedComponentSpanningForest", "max_weight") => "integer",
+        _ => type_format_hint(type_name, graph_type),
+    }
+}
+
+fn parse_nonnegative_usize_bound(bound: i64, problem_name: &str, usage: &str) -> Result<usize> {
+    usize::try_from(bound)
+        .map_err(|_| anyhow::anyhow!("{problem_name} requires nonnegative --bound\n\n{usage}"))
 }
 
 fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
@@ -328,10 +370,10 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 let hint = type_format_hint(&field.type_name, graph_type);
                 eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             } else {
-                let hint = type_format_hint(&field.type_name, graph_type);
+                let hint = help_flag_hint(canonical, &field.name, &field.type_name, graph_type);
                 eprintln!(
                     "  --{:<16} {} ({})",
-                    cli_flag_name(&field.name),
+                    help_flag_name(canonical, &field.name),
                     field.description,
                     hint
                 );
@@ -436,9 +478,30 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         anyhow::anyhow!("Missing problem type.\n\nUsage: pred create <PROBLEM> [FLAGS]")
     })?;
     let rgraph = problemreductions::rules::ReductionGraph::new();
-    let resolved = resolve_problem_ref(problem, &rgraph)?;
-    let canonical = &resolved.name;
-    let resolved_variant = resolved.variant;
+    let resolved = match resolve_problem_ref(problem, &rgraph) {
+        Ok(resolved) => resolved,
+        Err(graph_err) => match resolve_catalog_problem_ref(problem) {
+            Ok(catalog_resolved) => {
+                if rgraph.variants_for(catalog_resolved.name()).is_empty() {
+                    ProblemRef {
+                        name: catalog_resolved.name().to_string(),
+                        variant: catalog_resolved.variant().clone(),
+                    }
+                } else {
+                    return Err(graph_err);
+                }
+            }
+            Err(catalog_err) => {
+                let spec = parse_problem_spec(problem)?;
+                if rgraph.variants_for(&spec.name).is_empty() {
+                    return Err(catalog_err);
+                }
+                return Err(graph_err);
+            }
+        },
+    };
+    let canonical = resolved.name.as_str();
+    let resolved_variant = resolved.variant.clone();
     let graph_type = resolved_graph_type(&resolved_variant);
 
     if args.random {
@@ -467,7 +530,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         std::process::exit(2);
     }
 
-    let (data, variant) = match canonical.as_str() {
+    let (data, variant) = match canonical {
         // Graph problems with vertex weights
         "MaximumIndependentSet"
         | "MinimumVertexCover"
@@ -498,6 +561,45 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(GraphPartitioning::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Bounded Component Spanning Forest
+        "BoundedComponentSpanningForest" => {
+            let usage = "Usage: pred create BoundedComponentSpanningForest --graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6";
+            let (graph, n) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            args.weights.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("BoundedComponentSpanningForest requires --weights\n\n{usage}")
+            })?;
+            let weights = parse_vertex_weights(args, n)?;
+            if weights.iter().any(|&weight| weight < 0) {
+                bail!("BoundedComponentSpanningForest requires nonnegative --weights\n\n{usage}");
+            }
+            let max_components = args.k.ok_or_else(|| {
+                anyhow::anyhow!("BoundedComponentSpanningForest requires --k\n\n{usage}")
+            })?;
+            if max_components == 0 {
+                bail!("BoundedComponentSpanningForest requires --k >= 1\n\n{usage}");
+            }
+            let bound_raw = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("BoundedComponentSpanningForest requires --bound\n\n{usage}")
+            })?;
+            if bound_raw <= 0 {
+                bail!("BoundedComponentSpanningForest requires positive --bound\n\n{usage}");
+            }
+            let max_weight = i32::try_from(bound_raw).map_err(|_| {
+                anyhow::anyhow!(
+                    "BoundedComponentSpanningForest requires --bound within i32 range\n\n{usage}"
+                )
+            })?;
+            (
+                ser(BoundedComponentSpanningForest::new(
+                    graph,
+                    weights,
+                    max_components,
+                    max_weight,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -648,7 +750,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
-            let data = match canonical.as_str() {
+            let data = match canonical {
                 "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
                 "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
                 "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,
@@ -684,6 +786,24 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     edge_weights,
                     required_edges,
                     bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MultipleChoiceBranching
+        "MultipleChoiceBranching" => {
+            let usage = "Usage: pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MultipleChoiceBranching requires --arcs\n\n{usage}")
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let weights = parse_arc_weights(args, num_arcs)?;
+            let partition = parse_partition_groups(args, num_arcs)?;
+            let threshold = parse_multiple_choice_branching_threshold(args, usage)?;
+            (
+                ser(MultipleChoiceBranching::new(
+                    graph, weights, partition, threshold,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -1117,19 +1237,42 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // SequencingWithinIntervals
+        "SequencingWithinIntervals" => {
+            let usage = "Usage: pred create SequencingWithinIntervals --release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1";
+            let rt_str = args.release_times.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("SequencingWithinIntervals requires --release-times\n\n{usage}")
+            })?;
+            let dl_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("SequencingWithinIntervals requires --deadlines\n\n{usage}")
+            })?;
+            let len_str = args.lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("SequencingWithinIntervals requires --lengths\n\n{usage}")
+            })?;
+            let release_times: Vec<u64> = util::parse_comma_list(rt_str)?;
+            let deadlines: Vec<u64> = util::parse_comma_list(dl_str)?;
+            let lengths: Vec<u64> = util::parse_comma_list(len_str)?;
+            (
+                ser(SequencingWithinIntervals::new(
+                    release_times,
+                    deadlines,
+                    lengths,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // OptimalLinearArrangement — graph + bound
         "OptimalLinearArrangement" => {
-            let (graph, _) = parse_graph(args).map_err(|e| {
+            let usage = "Usage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3 --bound 5";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let bound_raw = args.bound.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3 --bound 5"
+                    "OptimalLinearArrangement requires --bound (upper bound K on total edge length)\n\n{usage}"
                 )
             })?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "OptimalLinearArrangement requires --bound (upper bound K on total edge length)\n\n\
-                     Usage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3 --bound 5"
-                )
-            })? as usize;
+            let bound =
+                parse_nonnegative_usize_bound(bound_raw, "OptimalLinearArrangement", usage)?;
             (
                 ser(OptimalLinearArrangement::new(graph, bound))?,
                 resolved_variant.clone(),
@@ -1354,9 +1497,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let strings_str = args.strings.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("ShortestCommonSupersequence requires --strings\n\n{usage}")
             })?;
-            let bound = args.bound.ok_or_else(|| {
+            let bound_raw = args.bound.ok_or_else(|| {
                 anyhow::anyhow!("ShortestCommonSupersequence requires --bound\n\n{usage}")
-            })? as usize;
+            })?;
+            let bound =
+                parse_nonnegative_usize_bound(bound_raw, "ShortestCommonSupersequence", usage)?;
             let strings: Vec<Vec<usize>> = strings_str
                 .split(';')
                 .map(|s| {
@@ -1843,6 +1988,68 @@ fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
         .collect()
 }
 
+/// Parse `--partition` as semicolon-separated groups of comma-separated arc indices.
+/// E.g., "0,1;2,3;4,7;5,6"
+fn parse_partition_groups(args: &CreateArgs, num_arcs: usize) -> Result<Vec<Vec<usize>>> {
+    let partition_str = args.partition.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("MultipleChoiceBranching requires --partition (e.g., \"0,1;2,3;4,7;5,6\")")
+    })?;
+
+    let partition: Vec<Vec<usize>> = partition_str
+        .split(';')
+        .map(|group| {
+            group
+                .trim()
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .map_err(|e| anyhow::anyhow!("Invalid partition index: {}", e))
+                })
+                .collect()
+        })
+        .collect::<Result<_>>()?;
+
+    let mut seen = vec![false; num_arcs];
+    for group in &partition {
+        for &arc_index in group {
+            anyhow::ensure!(
+                arc_index < num_arcs,
+                "partition arc index {} out of range for {} arcs",
+                arc_index,
+                num_arcs
+            );
+            anyhow::ensure!(
+                !seen[arc_index],
+                "partition arc index {} appears more than once",
+                arc_index
+            );
+            seen[arc_index] = true;
+        }
+    }
+    anyhow::ensure!(
+        seen.iter().all(|present| *present),
+        "partition must cover every arc exactly once"
+    );
+
+    Ok(partition)
+}
+
+fn parse_multiple_choice_branching_threshold(args: &CreateArgs, usage: &str) -> Result<i32> {
+    let raw_bound = args
+        .bound
+        .ok_or_else(|| anyhow::anyhow!("MultipleChoiceBranching requires --bound\n\n{usage}"))?;
+    anyhow::ensure!(
+        raw_bound >= 0,
+        "MultipleChoiceBranching threshold must be non-negative, got {raw_bound}"
+    );
+    i32::try_from(raw_bound).map_err(|_| {
+        anyhow::anyhow!(
+            "MultipleChoiceBranching threshold must fit in a 32-bit signed integer, got {raw_bound}"
+        )
+    })
+}
+
 /// Parse `--weights` for set-based problems (i32), defaulting to all 1s.
 fn parse_set_weights(args: &CreateArgs, num_sets: usize) -> Result<Vec<i32>> {
     match &args.weights {
@@ -2195,9 +2402,11 @@ fn create_random(
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             // Default bound: (n-1) * num_edges ensures satisfiability (max edge stretch is n-1)
             let n = graph.num_vertices();
+            let usage = "Usage: pred create OptimalLinearArrangement --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] [--bound 10]";
             let bound = args
                 .bound
-                .map(|b| b as usize)
+                .map(|b| parse_nonnegative_usize_bound(b, "OptimalLinearArrangement", usage))
+                .transpose()?
                 .unwrap_or((n.saturating_sub(1)) * graph.num_edges());
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (ser(OptimalLinearArrangement::new(graph, bound))?, variant)
