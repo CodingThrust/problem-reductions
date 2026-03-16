@@ -209,15 +209,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         id: "minimum_multiway_cut_simplegraph_i32",
         build: || {
             // 5 vertices, terminals {0, 2, 4}, 6 edges
-            let graph =
-                SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
-            let problem =
-                MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
+            let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
+            let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
             // Optimal cut: edges {(0,1), (3,4), (0,4)} = config [1,0,0,1,1,0], weight=8
-            crate::example_db::specs::optimization_example(
-                problem,
-                vec![vec![1, 0, 0, 1, 1, 0]],
-            )
+            crate::example_db::specs::optimization_example(problem, vec![vec![1, 0, 0, 1, 1, 0]])
         },
     }]
 }

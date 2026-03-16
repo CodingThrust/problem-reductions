@@ -129,6 +129,42 @@ fn test_minimummultiwaycut_name() {
 }
 
 #[test]
+#[should_panic(expected = "edge_weights length must match num_edges")]
+fn test_minimummultiwaycut_panic_wrong_weights_len() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    MinimumMultiwayCut::new(graph, vec![0, 2], vec![1i32]);
+}
+
+#[test]
+#[should_panic(expected = "need at least 2 terminals")]
+fn test_minimummultiwaycut_panic_too_few_terminals() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    MinimumMultiwayCut::new(graph, vec![0], vec![1i32, 1]);
+}
+
+#[test]
+#[should_panic(expected = "duplicate terminal indices")]
+fn test_minimummultiwaycut_panic_duplicate_terminals() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    MinimumMultiwayCut::new(graph, vec![0, 0], vec![1i32, 1]);
+}
+
+#[test]
+#[should_panic(expected = "terminal index out of bounds")]
+fn test_minimummultiwaycut_panic_terminal_out_of_bounds() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    MinimumMultiwayCut::new(graph, vec![0, 10], vec![1i32, 1]);
+}
+
+#[test]
+fn test_minimummultiwaycut_getters() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let problem = MinimumMultiwayCut::new(graph, vec![0, 2], vec![3i32, 5]);
+    assert_eq!(problem.graph().num_vertices(), 3);
+    assert_eq!(problem.edge_weights(), &[3, 5]);
+}
+
+#[test]
 fn test_minimummultiwaycut_short_config_no_panic() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
     let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);

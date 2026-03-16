@@ -754,7 +754,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     "{e}\n\nUsage: pred create MinimumMultiwayCut --graph 0-1,1-2,2-3 --terminals 0,2 [--edge-weights 1,1,1]"
                 )
             })?;
-            let terminals = parse_terminals(args)?;
+            let terminals = parse_terminals(args, graph.num_vertices())?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
             (
                 ser(MinimumMultiwayCut::new(graph, terminals, edge_weights))?,
@@ -1234,20 +1234,46 @@ fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
 }
 
 /// Parse `--terminals` as a comma-separated list of vertex indices.
-fn parse_terminals(args: &CreateArgs) -> Result<Vec<usize>> {
+fn parse_terminals(args: &CreateArgs, num_vertices: usize) -> Result<Vec<usize>> {
     let terminals_str = args
         .terminals
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("MinimumMultiwayCut requires --terminals (e.g., 0,2,4)"))?;
 
-    terminals_str
+    let terminals: Vec<usize> = terminals_str
         .split(',')
         .map(|s| {
             s.trim()
                 .parse::<usize>()
                 .map_err(|e| anyhow::anyhow!("Invalid terminal index '{}': {}", s.trim(), e))
         })
-        .collect()
+        .collect::<Result<Vec<_>>>()?;
+
+    anyhow::ensure!(
+        terminals.len() >= 2,
+        "at least 2 terminals required, got {}",
+        terminals.len()
+    );
+
+    for &t in &terminals {
+        anyhow::ensure!(
+            t < num_vertices,
+            "terminal index {} out of bounds (graph has {} vertices)",
+            t,
+            num_vertices
+        );
+    }
+
+    let mut sorted = terminals.clone();
+    sorted.sort();
+    sorted.dedup();
+    anyhow::ensure!(
+        sorted.len() == terminals.len(),
+        "duplicate terminal indices in {:?}",
+        terminals
+    );
+
+    Ok(terminals)
 }
 
 /// Parse `--couplings` as SpinGlass pairwise couplings (i32), defaulting to all 1s.
