@@ -158,6 +158,11 @@ impl Problem for StringToStringCorrection {
         if config.len() != self.bound_k {
             return false;
         }
+        if self.target.len() > self.source.len()
+            || self.target.len() < self.source.len().saturating_sub(self.bound_k)
+        {
+            return false;
+        }
         let n = self.source.len();
         let domain = 2 * n + 1;
         if config.iter().any(|&v| v >= domain) {

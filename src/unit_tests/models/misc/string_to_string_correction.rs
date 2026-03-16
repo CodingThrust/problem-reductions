@@ -131,3 +131,21 @@ fn test_string_to_string_correction_delete_only() {
         .expect("should find a solution");
     assert!(problem.evaluate(&solution));
 }
+
+#[test]
+fn test_string_to_string_correction_rejects_target_longer_than_source() {
+    let problem = StringToStringCorrection::new(3, vec![0, 1], vec![0, 1, 2], 1);
+    assert!(!problem.evaluate(&[4]));
+}
+
+#[test]
+fn test_string_to_string_correction_rejects_excessive_deletions_requirement() {
+    let problem = StringToStringCorrection::new(4, vec![0, 1, 2, 3], vec![0], 2);
+    assert!(!problem.evaluate(&[8, 8]));
+}
+
+#[test]
+fn test_string_to_string_correction_is_available_in_prelude() {
+    let problem = crate::prelude::StringToStringCorrection::new(2, vec![0], vec![0], 0);
+    assert!(problem.evaluate(&[]));
+}

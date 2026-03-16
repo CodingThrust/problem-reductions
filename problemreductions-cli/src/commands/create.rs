@@ -373,12 +373,7 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             } else {
                 let hint = help_flag_hint(canonical, &field.name, &field.type_name, graph_type);
-                eprintln!(
-                    "  --{:<16} {} ({})",
-                    help_flag_name(canonical, &field.name),
-                    field.description,
-                    hint
-                );
+                eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             }
         }
     } else {
@@ -415,7 +410,15 @@ fn problem_help_flag_name(
     if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
         return "bound".to_string();
     }
-    field_name.replace('_', "-")
+    if canonical == "StringToStringCorrection" {
+        return match field_name {
+            "source" => "source-string".to_string(),
+            "target" => "target-string".to_string(),
+            "bound_k" => "bound".to_string(),
+            _ => help_flag_name(canonical, field_name),
+        };
+    }
+    help_flag_name(canonical, field_name)
 }
 
 fn lbdp_validation_error(message: &str, usage: Option<&str>) -> anyhow::Error {
@@ -1557,9 +1560,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let target_str = args.target_string.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("StringToStringCorrection requires --target-string\n\n{usage}")
             })?;
-            let bound_k = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("StringToStringCorrection requires --bound\n\n{usage}")
-            })? as usize;
+            let bound_k = parse_nonnegative_usize_bound(
+                args.bound.ok_or_else(|| {
+                    anyhow::anyhow!("StringToStringCorrection requires --bound\n\n{usage}")
+                })?,
+                "StringToStringCorrection",
+                usage,
+            )?;
             let parse_symbols = |s: &str| -> Result<Vec<usize>> {
                 if s.trim().is_empty() {
                     return Ok(Vec::new());
@@ -2485,6 +2492,22 @@ mod tests {
                 false,
             ),
             "num-paths-required"
+        );
+    }
+
+    #[test]
+    fn test_problem_help_uses_string_to_string_correction_cli_flags() {
+        assert_eq!(
+            problem_help_flag_name("StringToStringCorrection", "source", "Vec<usize>", false),
+            "source-string"
+        );
+        assert_eq!(
+            problem_help_flag_name("StringToStringCorrection", "target", "Vec<usize>", false),
+            "target-string"
+        );
+        assert_eq!(
+            problem_help_flag_name("StringToStringCorrection", "bound_k", "usize", false),
+            "bound"
         );
     }
 }
