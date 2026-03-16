@@ -10,10 +10,11 @@ use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExamp
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{
     GraphPartitioning, HamiltonianPath, LengthBoundedDisjointPaths, MultipleChoiceBranching,
+    SteinerTree,
 };
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    PaintShop, ShortestCommonSupersequence, SubsetSum,
+    PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence, SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -66,6 +67,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.release_times.is_none()
+        && args.deadlines.is_none()
+        && args.lengths.is_none()
         && args.terminals.is_none()
         && args.tree.is_none()
         && args.required_edges.is_none()
@@ -229,6 +233,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<Vec<usize>>" => "semicolon-separated groups: \"0,1;2,3\"",
         "usize" => "integer",
         "u64" => "integer",
+        "Vec<u64>" => "comma-separated integers: 0,0,5",
         "i64" => "integer",
         "BigUint" => "nonnegative decimal integer",
         "Vec<BigUint>" => "comma-separated nonnegative decimal integers: 3,7,1,8",
@@ -274,6 +279,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "SequencingWithinIntervals" => "--release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1",
         "SteinerTree" => "--graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4",
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
         "DirectedTwoCommodityIntegralFlow" => {
@@ -1207,6 +1213,31 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     num_tasks,
                     deadlines,
                     precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingWithinIntervals
+        "SequencingWithinIntervals" => {
+            let usage = "Usage: pred create SequencingWithinIntervals --release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1";
+            let rt_str = args.release_times.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("SequencingWithinIntervals requires --release-times\n\n{usage}")
+            })?;
+            let dl_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("SequencingWithinIntervals requires --deadlines\n\n{usage}")
+            })?;
+            let len_str = args.lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("SequencingWithinIntervals requires --lengths\n\n{usage}")
+            })?;
+            let release_times: Vec<u64> = util::parse_comma_list(rt_str)?;
+            let deadlines: Vec<u64> = util::parse_comma_list(dl_str)?;
+            let lengths: Vec<u64> = util::parse_comma_list(len_str)?;
+            (
+                ser(SequencingWithinIntervals::new(
+                    release_times,
+                    deadlines,
+                    lengths,
                 ))?,
                 resolved_variant.clone(),
             )
