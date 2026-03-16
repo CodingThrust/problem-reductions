@@ -179,13 +179,18 @@ impl UndirectedTwoCommodityIntegralFlow {
         }
     }
 
-    fn commodity_balance(&self, config: &[usize], commodity: usize, vertex: usize) -> Option<i64> {
-        let mut balance = 0i64;
+    fn commodity_balance(
+        &self,
+        config: &[usize],
+        commodity: usize,
+        vertex: usize,
+    ) -> Option<i128> {
+        let mut balance = 0i128;
         for (edge_index, (u, v)) in self.graph.edges().into_iter().enumerate() {
             let flows = self.edge_flows(config, edge_index)?;
             let (uv, vu) = Self::flow_pair_for_commodity(flows, commodity);
-            let uv = i64::try_from(uv).ok()?;
-            let vu = i64::try_from(vu).ok()?;
+            let uv = i128::from(u64::try_from(uv).ok()?);
+            let vu = i128::from(u64::try_from(vu).ok()?);
 
             if vertex == u {
                 balance -= uv;
@@ -251,8 +256,14 @@ impl Problem for UndirectedTwoCommodityIntegralFlow {
                 return false;
             }
 
-            let shared = std::cmp::max(flows[0], flows[1]) + std::cmp::max(flows[2], flows[3]);
-            if u64::try_from(shared).map_or(true, |value| value > capacity) {
+            let commodity_1 = u64::try_from(std::cmp::max(flows[0], flows[1]))
+                .expect("flow values already validated against u64 capacities");
+            let commodity_2 = u64::try_from(std::cmp::max(flows[2], flows[3]))
+                .expect("flow values already validated against u64 capacities");
+            let Some(shared) = commodity_1.checked_add(commodity_2) else {
+                return false;
+            };
+            if shared > capacity {
                 return false;
             }
         }

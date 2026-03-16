@@ -94,3 +94,41 @@ fn test_undirected_two_commodity_integral_flow_paper_example() {
     assert_eq!(all.len(), 2);
     assert!(all.contains(&config));
 }
+
+#[test]
+fn test_undirected_two_commodity_integral_flow_large_capacity_sink_balance() {
+    let Ok(large) = usize::try_from(i64::MAX as u64 + 1) else {
+        return;
+    };
+    let problem = UndirectedTwoCommodityIntegralFlow::new(
+        SimpleGraph::new(2, vec![(0, 1)]),
+        vec![large as u64],
+        0,
+        1,
+        0,
+        1,
+        large as u64,
+        0,
+    );
+
+    assert!(problem.evaluate(&[large, 0, 0, 0]));
+}
+
+#[test]
+fn test_undirected_two_commodity_integral_flow_large_capacity_shared_overflow_is_invalid() {
+    let Ok(large) = usize::try_from(u64::MAX / 2 + 1) else {
+        return;
+    };
+    let problem = UndirectedTwoCommodityIntegralFlow::new(
+        SimpleGraph::new(2, vec![(0, 1)]),
+        vec![large as u64],
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+    );
+
+    assert!(!problem.evaluate(&[large, 0, large, 0]));
+}

@@ -354,6 +354,67 @@ fn test_create_undirected_two_commodity_integral_flow() {
 }
 
 #[test]
+fn test_create_undirected_two_commodity_integral_flow_missing_capacities_shows_usage() {
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("requires --capacities"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow_rejects_out_of_range_terminal() {
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--capacities",
+            "1,1,2",
+            "--source-1",
+            "99",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("source-1 must be less than num_vertices (4)"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_reduce() {
     let problem_json = r#"{
         "type": "MIS",

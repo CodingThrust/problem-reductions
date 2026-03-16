@@ -397,7 +397,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "UndirectedTwoCommodityIntegralFlow" => {
             let usage = "Usage: pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1";
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let capacities = parse_capacities(args, graph.num_edges())?;
+            let capacities = parse_capacities(args, graph.num_edges(), usage)?;
+            let num_vertices = graph.num_vertices();
             let source_1 = args.source_1.ok_or_else(|| {
                 anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --source-1\n\n{usage}")
             })?;
@@ -420,6 +421,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     "UndirectedTwoCommodityIntegralFlow requires --requirement-2\n\n{usage}"
                 )
             })?;
+            for (label, vertex) in [
+                ("source-1", source_1),
+                ("sink-1", sink_1),
+                ("source-2", source_2),
+                ("sink-2", sink_2),
+            ] {
+                validate_vertex_index(label, vertex, num_vertices, usage)?;
+            }
             (
                 ser(UndirectedTwoCommodityIntegralFlow::new(
                     graph,
@@ -1373,21 +1382,54 @@ fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
     }
 }
 
+fn validate_vertex_index(
+    label: &str,
+    vertex: usize,
+    num_vertices: usize,
+    usage: &str,
+) -> Result<()> {
+    if vertex < num_vertices {
+        return Ok(());
+    }
+
+    bail!("{label} must be less than num_vertices ({num_vertices})\n\n{usage}");
+}
+
 /// Parse `--capacities` as edge capacities (u64).
-fn parse_capacities(args: &CreateArgs, num_edges: usize) -> Result<Vec<u64>> {
+fn parse_capacities(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<Vec<u64>> {
     let capacities = args.capacities.as_deref().ok_or_else(|| {
-        anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --capacities")
+        anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --capacities\n\n{usage}")
     })?;
     let capacities: Vec<u64> = capacities
         .split(',')
-        .map(|s| s.trim().parse::<u64>())
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+        .map(|s| {
+            let trimmed = s.trim();
+            trimmed
+                .parse::<u64>()
+                .with_context(|| format!("Invalid capacity `{trimmed}`\n\n{usage}"))
+        })
+        .collect::<Result<Vec<_>>>()?;
     if capacities.len() != num_edges {
         bail!(
-            "Expected {} capacities but got {}",
+            "Expected {} capacities but got {}\n\n{}",
             num_edges,
-            capacities.len()
+            capacities.len(),
+            usage
         );
+    }
+    for (edge_index, &capacity) in capacities.iter().enumerate() {
+        let fits = usize::try_from(capacity)
+            .ok()
+            .and_then(|value| value.checked_add(1))
+            .is_some();
+        if !fits {
+            bail!(
+                "capacity {} at edge index {} is too large for this platform\n\n{}",
+                capacity,
+                edge_index,
+                usage
+            );
+        }
     }
     Ok(capacities)
 }
