@@ -14,8 +14,8 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, FlowShopScheduling, LongestCommonSubsequence,
-    MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals,
-    ShortestCommonSupersequence, SubsetSum,
+    MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence,
+    SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -942,19 +942,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "AdditionalKey" => {
             let usage = "Usage: pred create AdditionalKey --num-attributes 6 --dependencies \"0,1:2,3;2,3:4,5\" --relation-attrs \"0,1,2,3,4,5\" --known-keys \"0,1;2,3\"";
             let num_attributes = args.num_attributes.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "AdditionalKey requires --num-attributes\n\n{usage}"
-                )
+                anyhow::anyhow!("AdditionalKey requires --num-attributes\n\n{usage}")
             })?;
             let deps_str = args.dependencies.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "AdditionalKey requires --dependencies\n\n{usage}"
-                )
+                anyhow::anyhow!("AdditionalKey requires --dependencies\n\n{usage}")
             })?;
             let ra_str = args.relation_attrs.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "AdditionalKey requires --relation-attrs\n\n{usage}"
-                )
+                anyhow::anyhow!("AdditionalKey requires --relation-attrs\n\n{usage}")
             })?;
             let dependencies: Vec<(Vec<usize>, Vec<usize>)> = deps_str
                 .split(';')

@@ -20,12 +20,7 @@ fn instance1() -> AdditionalKey {
 
 /// Instance 2: 3 attributes, single FD {0}->{1,2}, known key [{0}].
 fn instance2() -> AdditionalKey {
-    AdditionalKey::new(
-        3,
-        vec![(vec![0], vec![1, 2])],
-        vec![0, 1, 2],
-        vec![vec![0]],
-    )
+    AdditionalKey::new(3, vec![(vec![0], vec![1, 2])], vec![0, 1, 2], vec![vec![0]])
 }
 
 #[test]
