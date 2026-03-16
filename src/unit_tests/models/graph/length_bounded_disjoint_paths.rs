@@ -154,6 +154,32 @@ fn test_length_bounded_disjoint_paths_serialization() {
 }
 
 #[test]
+fn test_length_bounded_disjoint_paths_graph_getter() {
+    let problem = sample_yes_problem();
+    assert_eq!(problem.graph().num_vertices(), 7);
+    assert_eq!(problem.graph().num_edges(), 8);
+}
+
+#[test]
+fn test_length_bounded_disjoint_paths_num_variables() {
+    let problem = sample_yes_problem();
+    assert_eq!(problem.num_variables(), 14);
+}
+
+#[test]
+fn test_length_bounded_disjoint_paths_is_valid_solution() {
+    let problem = sample_yes_problem();
+    let config = encode_paths(7, &[&[0, 1, 6], &[0, 2, 3, 6]]);
+    assert!(problem.is_valid_solution(&config));
+}
+
+#[test]
+fn test_length_bounded_disjoint_paths_rejects_wrong_length_config() {
+    let problem = sample_yes_problem();
+    assert!(!problem.evaluate(&[0, 1, 0]));
+}
+
+#[test]
 fn test_length_bounded_disjoint_paths_paper_example() {
     let problem = sample_yes_problem();
     let config = encode_paths(7, &[&[0, 1, 6], &[0, 2, 3, 6]]);

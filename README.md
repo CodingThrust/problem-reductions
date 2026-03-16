@@ -37,8 +37,7 @@ Or build from source:
 ```bash
 git clone https://github.com/CodingThrust/problem-reductions
 cd problem-reductions
-cargo build -p problemreductions-cli --release   # builds target/release/pred
-cargo install --path problemreductions-cli       # optional: installs `pred` to ~/.cargo/bin
+make cli    # builds target/release/pred
 ```
 
 See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples, the reduction workflow, and [CLI usage](https://codingthrust.github.io/problem-reductions/cli.html).
