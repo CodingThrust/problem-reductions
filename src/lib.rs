@@ -57,8 +57,8 @@ pub mod prelude {
         UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
-        BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-        MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals,
+        BinPacking, BoyceCoddNormalFormViolation, Factoring, FlowShopScheduling, Knapsack,
+        LongestCommonSubsequence, MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals,
         ShortestCommonSupersequence, SubsetSum,
     };
     pub use crate::models::set::{

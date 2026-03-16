@@ -4068,6 +4068,88 @@ fn test_create_factoring_missing_bits() {
     );
 }
 
+#[test]
+fn test_create_bcnf_rejects_out_of_range_attribute_indices() {
+    let output = pred()
+        .args([
+            "create",
+            "BoyceCoddNormalFormViolation",
+            "--n",
+            "3",
+            "--sets",
+            "0:4",
+            "--target",
+            "0,1,2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "expected invalid indices to be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "CLI should return a user-facing error, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("out of range"),
+        "expected out-of-range error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_bcnf_rejects_out_of_range_lhs_attribute_indices() {
+    let output = pred()
+        .args([
+            "create",
+            "BoyceCoddNormalFormViolation",
+            "--n",
+            "3",
+            "--sets",
+            "4:0",
+            "--target",
+            "0,1,2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "expected invalid lhs indices to be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("lhs contains attribute index 4"),
+        "expected lhs-specific out-of-range error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_bcnf_rejects_out_of_range_target_attribute_indices() {
+    let output = pred()
+        .args([
+            "create",
+            "BoyceCoddNormalFormViolation",
+            "--n",
+            "3",
+            "--sets",
+            "0:1",
+            "--target",
+            "0,1,4",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "expected invalid target indices to be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Target subset contains attribute index 4"),
+        "expected target-specific out-of-range error, got: {stderr}"
+    );
+}
+
 // ---- Timeout tests (H3) ----
 
 #[test]

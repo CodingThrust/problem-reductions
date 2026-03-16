@@ -120,6 +120,20 @@ fn format_problem_ref(problem: &ProblemRef) -> String {
     format!("{}/{}", problem.name, values)
 }
 
+fn ensure_attribute_indices_in_range(
+    indices: &[usize],
+    num_attributes: usize,
+    context: &str,
+) -> Result<()> {
+    for &attr in indices {
+        anyhow::ensure!(
+            attr < num_attributes,
+            "{context} contains attribute index {attr}, which is out of range for --n {num_attributes}"
+        );
+    }
+    Ok(())
+}
+
 fn resolve_example_problem_ref(
     input: &str,
     rgraph: &problemreductions::rules::ReductionGraph,
@@ -936,10 +950,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     );
                     let lhs: Vec<usize> = util::parse_comma_list(parts[0])?;
                     let rhs: Vec<usize> = util::parse_comma_list(parts[1])?;
+                    ensure_attribute_indices_in_range(
+                        &lhs,
+                        n,
+                        &format!("Functional dependency '{fd_str}' lhs"),
+                    )?;
+                    ensure_attribute_indices_in_range(
+                        &rhs,
+                        n,
+                        &format!("Functional dependency '{fd_str}' rhs"),
+                    )?;
                     Ok((lhs, rhs))
                 })
                 .collect::<Result<_>>()?;
             let target: Vec<usize> = util::parse_comma_list(target_str)?;
+            ensure_attribute_indices_in_range(&target, n, "Target subset")?;
             (
                 ser(BoyceCoddNormalFormViolation::new(n, fds, target))?,
                 resolved_variant.clone(),
@@ -2457,7 +2482,7 @@ fn create_random(
 
 #[cfg(test)]
 mod tests {
-    use super::problem_help_flag_name;
+    use super::{ensure_attribute_indices_in_range, problem_help_flag_name};
 
     #[test]
     fn test_problem_help_uses_bound_for_length_bounded_disjoint_paths() {
@@ -2477,6 +2502,16 @@ mod tests {
                 false,
             ),
             "num-paths-required"
+        );
+    }
+
+    #[test]
+    fn test_ensure_attribute_indices_in_range_rejects_out_of_range_index() {
+        let err = ensure_attribute_indices_in_range(&[0, 4], 3, "Functional dependency '0:4' rhs")
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("out of range"),
+            "unexpected error: {err}"
         );
     }
 }

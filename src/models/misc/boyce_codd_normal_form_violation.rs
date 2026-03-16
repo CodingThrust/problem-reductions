@@ -76,6 +76,11 @@ impl BoyceCoddNormalFormViolation {
     /// Panics if any attribute index in `functional_deps` or `target_subset` is
     /// out of range (≥ `num_attributes`), if `target_subset` is empty, or if any
     /// functional dependency has an empty LHS.
+    ///
+    /// The constructor also normalizes the instance by sorting and deduplicating
+    /// every functional dependency LHS/RHS and the `target_subset`. As a result,
+    /// the configuration bit positions correspond to the normalized
+    /// `target_subset()` order rather than the caller's original input order.
     pub fn new(
         num_attributes: usize,
         functional_deps: Vec<(Vec<usize>, Vec<usize>)>,
