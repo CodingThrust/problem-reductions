@@ -66,6 +66,7 @@
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
   "GraphPartitioning": [Graph Partitioning],
+  "GeneralizedHex": [Generalized Hex],
   "HamiltonianPath": [Hamiltonian Path],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
   "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
@@ -645,6 +646,64 @@ is feasible: each set induces a connected subgraph, the component weights are $2
         }),
         caption: [A satisfying Length-Bounded Disjoint Paths instance with $s = v_0$, $t = v_6$, $J = 2$, and $K = 3$. The highlighted paths are $v_0 arrow v_1 arrow v_6$ and $v_0 arrow v_2 arrow v_3 arrow v_6$; the lower branch through $v_4, v_5$ remains unused.],
       ) <fig:length-bounded-disjoint-paths>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("GeneralizedHex")
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let source = x.instance.source
+  let target = x.instance.target
+  let winning-path = ((0, 1), (1, 4), (4, 5))
+  [
+    #problem-def("GeneralizedHex")[
+      Given an undirected graph $G = (V, E)$ and distinct terminals $s, t in V$, determine whether Player 1 has a forced win in the vertex-claiming Shannon switching game where the players alternately claim vertices of $V backslash {s, t}$, coloring them blue and red respectively, and Player 1 wins iff the final coloring contains an $s$-$t$ path whose internal vertices are all blue.
+    ][
+      Generalized Hex is the vertex version of the Shannon switching game listed by Garey & Johnson (A8 GP1). Even and Tarjan proved that deciding whether the first player has a winning strategy is PSPACE-complete @evenTarjan1976. The edge-claiming Shannon switching game is a classical contrast point: Bruno and Weinberg showed that the edge version is polynomial-time solvable via matroid methods @brunoWeinberg1970.
+
+      The implementation evaluates the decision problem directly rather than searching over candidate assignments. The instance has `dims() = []`, and `evaluate([])` runs a memoized minimax search over the ternary states (unclaimed, blue, red) of the nonterminal vertices. This preserves the alternating-game semantics of the original problem instead of collapsing the game into a static coloring predicate.
+
+      *Example.* The canonical fixture uses the six-vertex graph with terminals $s = v_#source$ and $t = v_#target$, and edges #edges.map(((u, v)) => $(v_#u, v_#v)$).join(", "). Vertex $v_4$ is the unique neighbor of $t$, so Player 1 opens by claiming $v_4$. Player 2 can then block at most one of $v_1$, $v_2$, and $v_3$; Player 1 responds by claiming one of the remaining branch vertices, completing a blue path $v_0 arrow v_i arrow v_4 arrow v_5$. The fixture database therefore has exactly one satisfying configuration: the empty configuration, which triggers the internal game-tree evaluator on the initial board.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let gray = luma(185)
+          let verts = (
+            (0, 1.0),
+            (1.6, 2.2),
+            (1.6, 1.0),
+            (1.6, -0.2),
+            (3.3, 1.0),
+            (5.0, 1.0),
+          )
+          for (u, v) in edges {
+            let on-path = winning-path.any(e =>
+              (e.at(0) == u and e.at(1) == v) or
+              (e.at(0) == v and e.at(1) == u)
+            )
+            g-edge(
+              verts.at(u),
+              verts.at(v),
+              stroke: if on-path { 2pt + blue } else { 1pt + gray },
+            )
+          }
+          for (k, pos) in verts.enumerate() {
+            let highlighted = k == source or k == 1 or k == 4 or k == target
+            g-node(
+              pos,
+              name: "v" + str(k),
+              fill: if highlighted { blue } else { white },
+              stroke: 1pt + if highlighted { blue } else { gray },
+              label: text(fill: if highlighted { white } else { black })[$v_#k$],
+            )
+          }
+          content((0, 1.55), text(8pt)[$s$])
+          content((5.0, 1.55), text(8pt)[$t$])
+        }),
+        caption: [A winning Generalized Hex instance. Player 1 first claims $v_4$, then answers any red move on $\{v_1, v_2, v_3\}$ by taking a different branch vertex and completing a blue path from $s = v_0$ to $t = v_5$.],
+      ) <fig:generalized-hex>
     ]
   ]
 }

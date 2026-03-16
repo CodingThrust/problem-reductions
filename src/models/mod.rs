@@ -13,7 +13,7 @@ pub use algebraic::{ClosestVectorProblem, BMF, ILP, QUBO};
 pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
     BicliqueCover, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
-    GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, KColoring,
+    GeneralizedHex, GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, KColoring,
     LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
     MaximumMatching, MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
     MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching, OptimalLinearArrangement,

@@ -32,6 +32,7 @@
 pub(crate) mod biclique_cover;
 pub(crate) mod bounded_component_spanning_forest;
 pub(crate) mod directed_two_commodity_integral_flow;
+pub(crate) mod generalized_hex;
 pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_path;
 pub(crate) mod isomorphic_spanning_tree;
@@ -60,6 +61,7 @@ pub(crate) mod undirected_two_commodity_integral_flow;
 pub use biclique_cover::BicliqueCover;
 pub use bounded_component_spanning_forest::BoundedComponentSpanningForest;
 pub use directed_two_commodity_integral_flow::DirectedTwoCommodityIntegralFlow;
+pub use generalized_hex::GeneralizedHex;
 pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_path::HamiltonianPath;
 pub use isomorphic_spanning_tree::IsomorphicSpanningTree;
@@ -91,6 +93,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(maximum_independent_set::canonical_model_example_specs());
     specs.extend(minimum_vertex_cover::canonical_model_example_specs());
     specs.extend(max_cut::canonical_model_example_specs());
+    specs.extend(generalized_hex::canonical_model_example_specs());
     specs.extend(hamiltonian_path::canonical_model_example_specs());
     specs.extend(isomorphic_spanning_tree::canonical_model_example_specs());
     specs.extend(kcoloring::canonical_model_example_specs());
