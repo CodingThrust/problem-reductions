@@ -47,6 +47,11 @@ impl LoadedProblem {
         Ok(SolveResult { config, evaluation })
     }
 
+    pub fn supports_ilp_solver(&self) -> bool {
+        let name = self.problem_name();
+        name == "ILP" || self.best_ilp_reduction_path().is_some()
+    }
+
     /// Solve using the ILP solver. If the problem is not ILP, auto-reduce to ILP first.
     pub fn solve_with_ilp(&self) -> Result<SolveResult> {
         let name = self.problem_name();
@@ -54,37 +59,13 @@ impl LoadedProblem {
             return solve_ilp(self.as_any());
         }
 
-        // Auto-reduce to ILP, solve, and map solution back
-        let source_variant = self.variant_map();
-        let graph = ReductionGraph::new();
-        let ilp_variants = graph.variants_for("ILP");
-        let input_size = ProblemSize::new(vec![]);
-
-        let mut best_path = None;
-        for dv in &ilp_variants {
-            if let Some(p) = graph.find_cheapest_path(
-                name,
-                &source_variant,
-                "ILP",
-                dv,
-                &input_size,
-                &MinimizeSteps,
-            ) {
-                let is_better = best_path
-                    .as_ref()
-                    .is_none_or(|bp: &problemreductions::rules::ReductionPath| p.len() < bp.len());
-                if is_better {
-                    best_path = Some(p);
-                }
-            }
-        }
-
-        let reduction_path = best_path.ok_or_else(|| {
+        let reduction_path = self.best_ilp_reduction_path().ok_or_else(|| {
             anyhow::anyhow!(
                 "No reduction path from {} to ILP. Try `--solver brute-force`, or reduce to a problem that supports ILP.",
                 name
             )
         })?;
+        let graph = ReductionGraph::new();
 
         let chain = graph
             .reduce_along_path(&reduction_path, self.as_any())
@@ -94,6 +75,35 @@ impl LoadedProblem {
         let config = chain.extract_solution(&ilp_result.config);
         let evaluation = self.evaluate_dyn(&config);
         Ok(SolveResult { config, evaluation })
+    }
+
+    fn best_ilp_reduction_path(&self) -> Option<problemreductions::rules::ReductionPath> {
+        let name = self.problem_name();
+        let source_variant = self.variant_map();
+        let graph = ReductionGraph::new();
+        let ilp_variants = graph.variants_for("ILP");
+        let input_size = ProblemSize::new(vec![]);
+
+        let mut best_path = None;
+        for dv in &ilp_variants {
+            if let Some(path) = graph.find_cheapest_path(
+                name,
+                &source_variant,
+                "ILP",
+                dv,
+                &input_size,
+                &MinimizeSteps,
+            ) {
+                let is_better = best_path.as_ref().is_none_or(
+                    |current: &problemreductions::rules::ReductionPath| path.len() < current.len(),
+                );
+                if is_better {
+                    best_path = Some(path);
+                }
+            }
+        }
+
+        best_path
     }
 }
 

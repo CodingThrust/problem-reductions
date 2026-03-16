@@ -3727,6 +3727,64 @@ fn test_inspect_json_output() {
 }
 
 #[test]
+fn test_inspect_multiprocessor_scheduling_reports_only_brute_force_solver() {
+    let problem_file = std::env::temp_dir().join("pred_test_inspect_mps_in.json");
+    let result_file = std::env::temp_dir().join("pred_test_inspect_mps_out.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MultiprocessorScheduling",
+            "--lengths",
+            "4,5,3,2,6",
+            "--num-processors",
+            "2",
+            "--deadline",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args([
+            "-o",
+            result_file.to_str().unwrap(),
+            "inspect",
+            problem_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&result_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let solvers: Vec<&str> = json["solvers"]
+        .as_array()
+        .expect("solvers should be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert_eq!(
+        solvers,
+        vec!["brute-force"],
+        "unexpected solvers: {solvers:?}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&result_file).ok();
+}
+
+#[test]
 fn test_inspect_undirected_two_commodity_integral_flow_reports_size_fields() {
     let problem_file = std::env::temp_dir().join("pred_test_utcif_inspect_in.json");
     let result_file = std::env::temp_dir().join("pred_test_utcif_inspect_out.json");
