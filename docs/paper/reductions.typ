@@ -100,6 +100,7 @@
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
+  "MultipleCopyFileAllocation": [Multiple Copy File Allocation],
   "SteinerTree": [Steiner Tree],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "PartitionIntoTriangles": [Partition Into Triangles],
@@ -999,6 +1000,46 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     },
     caption: [Minimum Sum Multicenter with $K = #K$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) achieve optimal total weighted distance #opt-cost.],
     ) <fig:minimum-sum-multicenter>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MultipleCopyFileAllocation")
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let K = x.instance.bound
+  let sat-count = x.optimal.len()
+  let sol = x.samples.at(0)
+  let copies = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  [
+    #problem-def("MultipleCopyFileAllocation")[
+      Given a graph $G = (V, E)$, usage values $u: V -> ZZ_(> 0)$, storage costs $s: V -> ZZ_(> 0)$, and a positive integer $K$, determine whether there exists a subset $V' subset.eq V$ such that
+      $sum_(v in V') s(v) + sum_(v in V) u(v) dot d(v, V') <= K,$
+      where $d(v, V') = min_(w in V') d_G(v, w)$ is the shortest-path distance from $v$ to the nearest copy vertex.
+    ][
+    Multiple Copy File Allocation appears in the storage-and-retrieval section of Garey and Johnson (SR6) @garey1979. The model combines two competing costs: each chosen copy vertex incurs a storage charge, while every vertex pays an access cost weighted by its demand and graph distance to the nearest copy. Garey and Johnson record the problem as NP-complete in the strong sense, even when usage and storage costs are uniform @garey1979.
+
+    *Example.* Consider the 6-cycle $C_6$ with uniform usage $u(v) = 10$, uniform storage $s(v) = 1$, and bound $K = #K$. Placing copies at $V' = {#copies.map(i => $v_#i$).join(", ")}$ gives storage cost $1 + 1 + 1 = 3$. The remaining vertices $v_0, v_2, v_4$ are each at distance 1 from the nearest copy, so the access cost is $10 + 10 + 10 = 30$. Thus the total cost is $3 + 30 = 33 <= #K$, so this placement is satisfying. Brute force finds #sat-count satisfying copy placements for this instance; the alternating placement shown below is one symmetric witness.
+
+    #figure({
+      let blue = graph-colors.at(0)
+      let gray = luma(200)
+      canvas(length: 1cm, {
+        import draw: *
+        let verts = ((0, 1.6), (1.35, 0.8), (1.35, -0.8), (0, -1.6), (-1.35, -0.8), (-1.35, 0.8))
+        for (u, v) in edges {
+          g-edge(verts.at(u), verts.at(v), stroke: 1pt + gray)
+        }
+        for (k, pos) in verts.enumerate() {
+          let has-copy = copies.any(c => c == k)
+          g-node(pos, name: "v" + str(k),
+            fill: if has-copy { blue } else { white },
+            label: if has-copy { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+        }
+      })
+    },
+    caption: [Multiple Copy File Allocation on a 6-cycle. Copy vertices $v_1$, $v_3$, and $v_5$ are shown in blue; every white vertex is one hop from the nearest copy, so the total cost is $33$.],
+    ) <fig:multiple-copy-file-allocation>
     ]
   ]
 }

@@ -135,7 +135,7 @@ impl MultipleCopyFileAllocation {
             }
         }
 
-        if distances.iter().any(|&distance| distance == usize::MAX) {
+        if distances.contains(&usize::MAX) {
             None
         } else {
             Some(distances)

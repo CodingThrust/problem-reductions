@@ -93,6 +93,6 @@ fn test_multiple_copy_file_allocation_paper_example() {
 
     let solver = BruteForce::new();
     let all = solver.find_all_satisfying(&problem);
-    assert!(!all.is_empty());
+    assert_eq!(all.len(), 36);
     assert!(all.iter().any(|candidate| candidate == &config));
 }

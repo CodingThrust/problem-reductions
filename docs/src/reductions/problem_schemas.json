@@ -499,6 +499,32 @@
     ]
   },
   {
+    "name": "MultipleCopyFileAllocation",
+    "description": "Place file copies on graph vertices so storage plus access cost stays within a bound",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "SimpleGraph",
+        "description": "The network graph G=(V,E)"
+      },
+      {
+        "name": "usage",
+        "type_name": "Vec<i64>",
+        "description": "Usage frequencies u(v) for each vertex"
+      },
+      {
+        "name": "storage",
+        "type_name": "Vec<i64>",
+        "description": "Storage costs s(v) for placing a copy at each vertex"
+      },
+      {
+        "name": "bound",
+        "type_name": "i64",
+        "description": "Upper bound K on total storage plus access cost"
+      }
+    ]
+  },
+  {
     "name": "OptimalLinearArrangement",
     "description": "Find a vertex ordering on a line with total edge length at most K",
     "fields": [
