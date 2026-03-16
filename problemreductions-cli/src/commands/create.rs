@@ -573,11 +573,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             if max_components == 0 {
                 bail!("BoundedComponentSpanningForest requires --k >= 1\n\n{usage}");
             }
-            if max_components > n {
-                bail!(
-                    "BoundedComponentSpanningForest requires --k <= number of vertices ({n})\n\n{usage}"
-                );
-            }
             let bound_raw = args.bound.ok_or_else(|| {
                 anyhow::anyhow!("BoundedComponentSpanningForest requires --bound\n\n{usage}")
             })?;

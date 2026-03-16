@@ -65,10 +65,6 @@ impl<G: Graph, W: WeightElement> BoundedComponentSpanningForest<G, W> {
             "weights must be nonnegative"
         );
         assert!(max_components >= 1, "max_components must be at least 1");
-        assert!(
-            max_components <= graph.num_vertices(),
-            "max_components must not exceed graph num_vertices"
-        );
         assert!(max_weight > W::Sum::zero(), "max_weight must be positive");
         Self {
             graph,

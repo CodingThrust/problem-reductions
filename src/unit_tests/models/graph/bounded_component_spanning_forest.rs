@@ -177,10 +177,12 @@ fn test_bounded_component_spanning_forest_rejects_zero_max_components_in_constru
 }
 
 #[test]
-#[should_panic(expected = "max_components must not exceed graph num_vertices")]
-fn test_bounded_component_spanning_forest_rejects_too_many_components_in_constructor() {
+fn test_bounded_component_spanning_forest_accepts_k_larger_than_num_vertices() {
     let graph = SimpleGraph::new(2, vec![(0, 1)]);
-    let _ = BoundedComponentSpanningForest::new(graph, vec![1, 1], 3, 1);
+    let problem = BoundedComponentSpanningForest::new(graph, vec![1, 1], 5, 2);
+    // K > |V| is mathematically harmless — just means fewer than K components possible
+    assert_eq!(problem.max_components(), 5);
+    assert!(problem.evaluate(&[0, 0]));
 }
 
 #[test]

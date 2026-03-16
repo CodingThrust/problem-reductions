@@ -1803,7 +1803,9 @@ fn test_create_bounded_component_spanning_forest_rejects_zero_k() {
 }
 
 #[test]
-fn test_create_bounded_component_spanning_forest_rejects_k_larger_than_num_vertices() {
+fn test_create_bounded_component_spanning_forest_accepts_k_larger_than_num_vertices() {
+    let dir = tempdir().unwrap();
+    let out = dir.path().join("bcsf_large_k.json");
     let output = pred()
         .args([
             "create",
@@ -1816,15 +1818,17 @@ fn test_create_bounded_component_spanning_forest_rejects_k_larger_than_num_verti
             "5",
             "--bound",
             "2",
+            "-o",
         ])
+        .arg(&out)
         .output()
         .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--k <= number of vertices"),
-        "stderr: {stderr}"
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
+    assert!(out.exists());
 }
 
 #[test]

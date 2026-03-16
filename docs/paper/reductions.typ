@@ -547,6 +547,69 @@ $V_1 = {v_0, v_1, v_7}$,
 $V_2 = {v_2, v_3, v_4}$,
 $V_3 = {v_5, v_6}$
 is feasible: each set induces a connected subgraph, the component weights are $2 + 3 + 1 = 6$, $1 + 2 + 3 = 6$, and $1 + 2 = 3$, and exactly three non-empty components are used. Therefore this instance is a YES instance.
+
+#figure(
+  canvas(length: 1cm, {
+    import draw: *
+    // 8 vertices in a circular layout (radius 1.6)
+    let r = 1.6
+    let verts = range(8).map(k => {
+      let angle = 90deg - k * 45deg
+      (calc.cos(angle) * r, calc.sin(angle) * r)
+    })
+    let weights = (2, 3, 1, 2, 3, 1, 2, 1)
+    let edges = ((0,1),(1,2),(2,3),(3,4),(4,5),(5,6),(6,7),(0,7),(1,5),(2,6))
+    // Partition assignments: V1={0,1,7}, V2={2,3,4}, V3={5,6}
+    let partition = (0, 0, 1, 1, 1, 2, 2, 0)  // vertex -> component index
+    let comp-colors = (graph-colors.at(0), graph-colors.at(2), graph-colors.at(1))  // blue, green, red
+    // Intra-component edges: both endpoints in same partition
+    let intra(e) = partition.at(e.at(0)) == partition.at(e.at(1))
+    // Draw edges
+    for (u, v) in edges {
+      if intra((u, v)) {
+        g-edge(verts.at(u), verts.at(v),
+          stroke: 2pt + comp-colors.at(partition.at(u)))
+      } else {
+        g-edge(verts.at(u), verts.at(v),
+          stroke: 1pt + luma(180))
+      }
+    }
+    // Draw partition region backgrounds
+    on-layer(-1, {
+      // V1 = {v0, v1, v7} — blue region (top-right, right, top-left)
+      hobby(verts.at(0), verts.at(1), verts.at(7), close: true,
+        fill: comp-colors.at(0).transparentize(90%),
+        stroke: (dash: "dashed", paint: comp-colors.at(0), thickness: 0.8pt))
+      // V2 = {v2, v3, v4} — green region (lower-right to bottom)
+      hobby(verts.at(2), verts.at(3), verts.at(4), close: true,
+        fill: comp-colors.at(1).transparentize(90%),
+        stroke: (dash: "dashed", paint: comp-colors.at(1), thickness: 0.8pt))
+      // V3 = {v5, v6} — red region (lower-left to left)
+      let mid56 = ((verts.at(5).at(0) + verts.at(6).at(0)) / 2,
+                   (verts.at(5).at(1) + verts.at(6).at(1)) / 2 - 0.5)
+      hobby(verts.at(5), mid56, verts.at(6), close: true,
+        fill: comp-colors.at(2).transparentize(90%),
+        stroke: (dash: "dashed", paint: comp-colors.at(2), thickness: 0.8pt))
+    })
+    // Draw nodes with weight subscripts
+    for (k, pos) in verts.enumerate() {
+      let c = comp-colors.at(partition.at(k))
+      let w = weights.at(k)
+      g-node(pos, name: "v" + str(k),
+        fill: c,
+        label: text(fill: white)[$v_#k$])
+      // Weight label outside the node
+      let angle = 90deg - k * 45deg
+      let lpos = (calc.cos(angle) * (r + 0.45), calc.sin(angle) * (r + 0.45))
+      content(lpos, text(7pt)[$#w$])
+    }
+    // Component labels
+    content((r + 0.9, 0.6), text(8pt, fill: comp-colors.at(0))[$V_1$])
+    content((0, -(r + 0.7)), text(8pt, fill: comp-colors.at(1))[$V_2$])
+    content((-(r + 0.9), -0.3), text(8pt, fill: comp-colors.at(2))[$V_3$])
+  }),
+  caption: [Eight-vertex graph partitioned into $V_1 = {v_0, v_1, v_7}$ (blue, weight 6), $V_2 = {v_2, v_3, v_4}$ (green, weight 6), and $V_3 = {v_5, v_6}$ (red, weight 3). Each component induces a connected subgraph and satisfies the bound $B = 6$. Vertex weights are shown outside each node; bold colored edges are intra-component, gray edges cross components.],
+) <fig:bcsf>
 ]
 #{
   let x = load-model-example("LengthBoundedDisjointPaths")
