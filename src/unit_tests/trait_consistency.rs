@@ -116,6 +116,15 @@ fn test_all_problems_implement_trait_correctly() {
         "HamiltonianPath",
     );
     check_problem_trait(
+        &MultipleCopyFileAllocation::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![1; 3],
+            vec![1; 3],
+            3,
+        ),
+        "MultipleCopyFileAllocation",
+    );
+    check_problem_trait(
         &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 3),
         "OptimalLinearArrangement",
     );
