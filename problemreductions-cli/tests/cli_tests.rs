@@ -3572,6 +3572,131 @@ fn test_create_shortest_weight_constrained_path_no_flags_shows_vector_hints() {
 }
 
 #[test]
+fn test_create_shortest_weight_constrained_path_rejects_out_of_bounds_source_vertex() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestWeightConstrainedPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4",
+            "--edge-lengths",
+            "2,4,3,1,5,4,2,6",
+            "--edge-weights",
+            "5,1,2,3,2,3,1,1",
+            "--source-vertex",
+            "9",
+            "--target-vertex",
+            "5",
+            "--length-bound",
+            "10",
+            "--weight-bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("source_vertex 9 out of bounds"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        !stderr.contains("panicked at"),
+        "out-of-bounds input should produce a normal CLI error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_shortest_weight_constrained_path_requires_edge_lengths() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestWeightConstrainedPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4",
+            "--edge-weights",
+            "5,1,2,3,2,3,1,1",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "5",
+            "--length-bound",
+            "10",
+            "--weight-bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("ShortestWeightConstrainedPath requires --edge-lengths"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_shortest_weight_constrained_path_rejects_weights_flag_typo() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestWeightConstrainedPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4",
+            "--edge-lengths",
+            "2,4,3,1,5,4,2,6",
+            "--weights",
+            "5,1,2,3,2,3,1,1",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "5",
+            "--length-bound",
+            "10",
+            "--weight-bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("uses --edge-weights, not --weights"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_shortest_weight_constrained_path_rejects_non_positive_edge_lengths() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestWeightConstrainedPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4",
+            "--edge-lengths=-2,4,3,1,5,4,2,6",
+            "--edge-weights",
+            "5,1,2,3,2,3,1,1",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "5",
+            "--length-bound",
+            "10",
+            "--weight-bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("All edge lengths must be positive (> 0)"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn test_show_shortest_weight_constrained_path_uses_weight_schema_type_names() {
     let output = pred()
         .args(["show", "ShortestWeightConstrainedPath"])

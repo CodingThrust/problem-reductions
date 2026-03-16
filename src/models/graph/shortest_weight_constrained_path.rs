@@ -76,6 +76,19 @@ pub struct ShortestWeightConstrainedPath<G, N: WeightElement> {
 }
 
 impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
+    fn assert_positive_edge_values(values: &[N], label: &str) {
+        let zero = N::Sum::zero();
+        assert!(
+            values.iter().all(|value| value.to_sum() > zero.clone()),
+            "All {label} must be positive (> 0)"
+        );
+    }
+
+    fn assert_positive_bound(bound: &N::Sum, label: &str) {
+        let zero = N::Sum::zero();
+        assert!(bound > &zero, "{label} must be positive (> 0)");
+    }
+
     /// Create a new ShortestWeightConstrainedPath instance.
     ///
     /// # Panics
@@ -102,6 +115,8 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
             graph.num_edges(),
             "edge_weights length must match num_edges"
         );
+        Self::assert_positive_edge_values(&edge_lengths, "edge lengths");
+        Self::assert_positive_edge_values(&edge_weights, "edge weights");
         assert!(
             source_vertex < graph.num_vertices(),
             "source_vertex {} out of bounds (graph has {} vertices)",
@@ -114,6 +129,8 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
             target_vertex,
             graph.num_vertices()
         );
+        Self::assert_positive_bound(&length_bound, "length_bound");
+        Self::assert_positive_bound(&weight_bound, "weight_bound");
         Self {
             graph,
             edge_lengths,
@@ -147,6 +164,7 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
             self.graph.num_edges(),
             "edge_lengths length must match num_edges"
         );
+        Self::assert_positive_edge_values(&edge_lengths, "edge lengths");
         self.edge_lengths = edge_lengths;
     }
 
@@ -157,6 +175,7 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
             self.graph.num_edges(),
             "edge_weights length must match num_edges"
         );
+        Self::assert_positive_edge_values(&edge_weights, "edge weights");
         self.edge_weights = edge_weights;
     }
 

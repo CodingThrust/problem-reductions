@@ -392,37 +392,54 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // ShortestWeightConstrainedPath
         "ShortestWeightConstrainedPath" => {
-            let (graph, _) = parse_graph(args).map_err(|e| {
+            let usage = "pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8";
+            let (graph, _) =
+                parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
+            if args.weights.is_some() {
+                bail!(
+                    "ShortestWeightConstrainedPath uses --edge-weights, not --weights\n\nUsage: {usage}"
+                );
+            }
+            let edge_lengths_raw = args.edge_lengths.as_ref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
+                    "ShortestWeightConstrainedPath requires --edge-lengths\n\nUsage: {usage}"
                 )
             })?;
-            let edge_lengths = parse_edge_lengths(args, graph.num_edges())?;
-            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            let edge_weights_raw = args.edge_weights.as_ref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ShortestWeightConstrainedPath requires --edge-weights\n\nUsage: {usage}"
+                )
+            })?;
+            let edge_lengths =
+                parse_i32_edge_values(Some(edge_lengths_raw), graph.num_edges(), "edge length")?;
+            let edge_weights =
+                parse_i32_edge_values(Some(edge_weights_raw), graph.num_edges(), "edge weight")?;
+            ensure_positive_i32_values(&edge_lengths, "edge lengths")?;
+            ensure_positive_i32_values(&edge_weights, "edge weights")?;
             let source_vertex = args.source_vertex.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "ShortestWeightConstrainedPath requires --source-vertex\n\n\
-                     Usage: pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
+                    "ShortestWeightConstrainedPath requires --source-vertex\n\nUsage: {usage}"
                 )
             })?;
             let target_vertex = args.target_vertex.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "ShortestWeightConstrainedPath requires --target-vertex\n\n\
-                     Usage: pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
+                    "ShortestWeightConstrainedPath requires --target-vertex\n\nUsage: {usage}"
                 )
             })?;
             let length_bound = args.length_bound.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "ShortestWeightConstrainedPath requires --length-bound\n\n\
-                     Usage: pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
+                    "ShortestWeightConstrainedPath requires --length-bound\n\nUsage: {usage}"
                 )
             })?;
             let weight_bound = args.weight_bound.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "ShortestWeightConstrainedPath requires --weight-bound\n\n\
-                     Usage: pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
+                    "ShortestWeightConstrainedPath requires --weight-bound\n\nUsage: {usage}"
                 )
             })?;
+            ensure_vertex_in_bounds(source_vertex, graph.num_vertices(), "source_vertex")?;
+            ensure_vertex_in_bounds(target_vertex, graph.num_vertices(), "target_vertex")?;
+            ensure_positive_i32(length_bound, "length_bound")?;
+            ensure_positive_i32(weight_bound, "weight_bound")?;
             (
                 ser(ShortestWeightConstrainedPath::new(
                     graph,
@@ -1379,14 +1396,30 @@ fn parse_i32_edge_values(
     }
 }
 
-/// Parse `--edge-weights` as edge weights (i32), defaulting to all 1s.
-fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
-    parse_i32_edge_values(args.edge_weights.as_ref(), num_edges, "edge weight")
+fn ensure_positive_i32_values(values: &[i32], label: &str) -> Result<()> {
+    if values.iter().any(|&value| value <= 0) {
+        bail!("All {label} must be positive (> 0)");
+    }
+    Ok(())
 }
 
-/// Parse `--edge-lengths` as edge lengths (i32), defaulting to all 1s.
-fn parse_edge_lengths(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
-    parse_i32_edge_values(args.edge_lengths.as_ref(), num_edges, "edge length")
+fn ensure_positive_i32(value: i32, label: &str) -> Result<()> {
+    if value <= 0 {
+        bail!("{label} must be positive (> 0)");
+    }
+    Ok(())
+}
+
+fn ensure_vertex_in_bounds(vertex: usize, num_vertices: usize, label: &str) -> Result<()> {
+    if vertex >= num_vertices {
+        bail!("{label} {vertex} out of bounds (graph has {num_vertices} vertices)");
+    }
+    Ok(())
+}
+
+/// Parse `--edge-weights` as per-edge numeric values (i32), defaulting to all 1s.
+fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
+    parse_i32_edge_values(args.edge_weights.as_ref(), num_edges, "edge weight")
 }
 
 /// Parse `--couplings` as SpinGlass pairwise couplings (i32), defaulting to all 1s.

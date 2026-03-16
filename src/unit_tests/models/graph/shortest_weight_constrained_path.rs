@@ -151,8 +151,8 @@ fn test_shortest_weight_constrained_path_source_equals_target_allows_only_empty_
         vec![2, 5],
         1,
         1,
-        0,
-        0,
+        1,
+        1,
     );
 
     assert!(problem.is_valid_solution(&[0, 0]));
@@ -172,4 +172,32 @@ fn test_shortest_weight_constrained_path_rejects_disconnected_selected_edges() {
     );
 
     assert!(!problem.is_valid_solution(&[1, 1, 1, 1, 1]));
+}
+
+#[test]
+#[should_panic(expected = "All edge lengths must be positive (> 0)")]
+fn test_shortest_weight_constrained_path_rejects_non_positive_edge_lengths() {
+    ShortestWeightConstrainedPath::new(
+        SimpleGraph::new(2, vec![(0, 1)]),
+        vec![0],
+        vec![1],
+        0,
+        1,
+        1,
+        1,
+    );
+}
+
+#[test]
+#[should_panic(expected = "length_bound must be positive (> 0)")]
+fn test_shortest_weight_constrained_path_rejects_non_positive_bounds() {
+    ShortestWeightConstrainedPath::new(
+        SimpleGraph::new(2, vec![(0, 1)]),
+        vec![1],
+        vec![1],
+        0,
+        1,
+        0,
+        1,
+    );
 }
