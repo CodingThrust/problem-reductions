@@ -9,11 +9,13 @@ pub(crate) mod exact_cover_by_3_sets;
 pub(crate) mod maximum_set_packing;
 pub(crate) mod minimum_set_covering;
 pub(crate) mod set_basis;
+pub(crate) mod two_dimensional_consecutive_sets;
 
 pub use exact_cover_by_3_sets::ExactCoverBy3Sets;
 pub use maximum_set_packing::MaximumSetPacking;
 pub use minimum_set_covering::MinimumSetCovering;
 pub use set_basis::SetBasis;
+pub use two_dimensional_consecutive_sets::TwoDimensionalConsecutiveSets;
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
@@ -22,5 +24,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(maximum_set_packing::canonical_model_example_specs());
     specs.extend(minimum_set_covering::canonical_model_example_specs());
     specs.extend(set_basis::canonical_model_example_specs());
+    specs.extend(two_dimensional_consecutive_sets::canonical_model_example_specs());
     specs
 }

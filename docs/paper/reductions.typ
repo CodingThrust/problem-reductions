@@ -108,6 +108,7 @@
   "PartitionIntoTriangles": [Partition Into Triangles],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
+  "TwoDimensionalConsecutiveSets": [2-Dimensional Consecutive Sets],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -1255,6 +1256,53 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
       }),
       caption: [Set Basis example: the singleton basis $cal(B) = {#range(k).map(i => $B_#(i + 1)$).join(", ")}$ reconstructs every target set in $cal(C)$; element $4$ is unused by the target family.],
     ) <fig:set-basis>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("TwoDimensionalConsecutiveSets")
+  let n = x.instance.alphabet_size
+  let subs = x.instance.subsets
+  let m = subs.len()
+  let sol = x.optimal.at(0)
+  let config = sol.config
+  let sat-count = x.optimal.len()
+  // Build groups from config: groups.at(g) = list of symbols in group g
+  let groups = range(n).map(g => range(n).filter(s => config.at(s) == g))
+  // Only non-empty groups
+  let nonempty = groups.enumerate().filter(((_, g)) => g.len() > 0)
+  let k = nonempty.len()
+  let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
+  [
+    #problem-def("TwoDimensionalConsecutiveSets")[
+      Given finite alphabet $Sigma = {0, 1, dots, n - 1}$ and collection $cal(C) = {Sigma_1, dots, Sigma_m}$ of subsets of $Sigma$, determine whether $Sigma$ can be partitioned into disjoint sets $X_1, X_2, dots, X_k$ such that each $X_i$ has at most one element in common with each $Sigma_j$, and for each $Sigma_j in cal(C)$ there is an index $l(j)$ with $Sigma_j subset.eq X_(l(j)) union X_(l(j)+1) union dots.c union X_(l(j)+|Sigma_j|-1)$.
+    ][
+    This problem generalizes the Consecutive Sets problem (SR18) by requiring not just that each subset's elements appear consecutively in an ordering, but that they be spread across consecutive groups of a partition where each group contributes at most one element per subset. Shown NP-complete by Lipski @lipski1977fct via transformation from Graph 3-Colorability. The problem arises in information storage and retrieval where records must be organized in contiguous blocks. It remains NP-complete if all subsets have at most 5 elements, but is solvable in polynomial time if all subsets have at most 2 elements. The brute-force algorithm assigns each of $n$ symbols to one of up to $n$ groups, giving $O^*(n^n)$ time#footnote[No algorithm improving on brute-force enumeration is known for this problem.].
+
+    *Example.* Let $Sigma = {0, 1, dots, #(n - 1)}$ and $cal(C) = {#range(m).map(i => $Sigma_#(i + 1)$).join(", ")}$ with #subs.enumerate().map(((i, s)) => $Sigma_#(i + 1) = #fmt-set(s)$).join(", "). A valid partition uses $k = #k$ groups: #nonempty.map(((g, elems)) => $X_#(g + 1) = #fmt-set(elems)$).join(", "). Each group intersects every subset in at most one element, and each subset's elements span exactly $|Sigma_j|$ consecutive groups. For instance, $Sigma_1 = {0, 1, 2}$ maps to groups $X_1, X_2, X_3$ (consecutive), and $Sigma_5 = {0, 5}$ maps to groups $X_1, X_2$ (consecutive). In total, there are #sat-count valid partitions.
+
+    #figure(
+      canvas(length: 1cm, {
+        import draw: *
+        // Draw groups as labeled columns
+        let gw = 1.4
+        let gh = 0.45
+        for (col, (g, elems)) in nonempty.enumerate() {
+          let x0 = col * (gw + 0.3)
+          // Group header
+          content((x0 + gw / 2, 0.5), $X_#(g + 1)$, anchor: "south")
+          // Draw box for the group
+          rect((x0, -elems.len() * gh), (x0 + gw, 0),
+            stroke: 0.5pt + black, fill: rgb("#e8f0fe"))
+          // Elements inside
+          for (row, elem) in elems.enumerate() {
+            content((x0 + gw / 2, -row * gh - gh / 2), text(size: 9pt, str(elem)))
+          }
+        }
+      }),
+      caption: [2-Dimensional Consecutive Sets: partition of $Sigma = {0, dots, 5}$ into #k groups satisfying intersection and consecutiveness constraints for all #m subsets.],
+    ) <fig:two-dim-consecutive-sets>
     ]
   ]
 }

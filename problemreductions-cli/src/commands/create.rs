@@ -284,6 +284,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
+        "TwoDimensionalConsecutiveSets" => {
+            "--universe 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
+        }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
     }
@@ -940,6 +943,37 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 ser(problemreductions::models::set::SetBasis::new(
                     universe, sets, k,
                 ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // TwoDimensionalConsecutiveSets
+        "TwoDimensionalConsecutiveSets" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "TwoDimensionalConsecutiveSets requires --universe and --sets\n\n\
+                     Usage: pred create TwoDimensionalConsecutiveSets --universe 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
+                )
+            })?;
+            let sets = parse_sets(args)?;
+            for (i, set) in sets.iter().enumerate() {
+                for &element in set {
+                    if element >= universe {
+                        bail!(
+                            "Set {} contains element {} which is outside alphabet of size {}",
+                            i,
+                            element,
+                            universe
+                        );
+                    }
+                }
+            }
+            (
+                ser(
+                    problemreductions::models::set::TwoDimensionalConsecutiveSets::new(
+                        universe, sets,
+                    ),
+                )?,
                 resolved_variant.clone(),
             )
         }

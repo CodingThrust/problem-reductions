@@ -552,6 +552,13 @@
       "complexity": "2^num_vertices"
     },
     {
+      "name": "TwoDimensionalConsecutiveSets",
+      "variant": {},
+      "category": "set",
+      "doc_path": "models/set/struct.TwoDimensionalConsecutiveSets.html",
+      "complexity": "alphabet_size^alphabet_size"
+    },
+    {
       "name": "UndirectedTwoCommodityIntegralFlow",
       "variant": {},
       "category": "graph",

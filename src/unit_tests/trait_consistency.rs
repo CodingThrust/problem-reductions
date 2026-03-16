@@ -86,6 +86,10 @@ fn test_all_problems_implement_trait_correctly() {
         &SetBasis::new(3, vec![vec![0, 1], vec![1, 2]], 2),
         "SetBasis",
     );
+    check_problem_trait(
+        &TwoDimensionalConsecutiveSets::new(4, vec![vec![0, 1], vec![2, 3]]),
+        "TwoDimensionalConsecutiveSets",
+    );
     check_problem_trait(&PaintShop::new(vec!["a", "a"]), "PaintShop");
     check_problem_trait(&BMF::new(vec![vec![true]], 1), "BMF");
     check_problem_trait(

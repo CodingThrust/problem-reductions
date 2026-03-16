@@ -758,6 +758,22 @@
     ]
   },
   {
+    "name": "TwoDimensionalConsecutiveSets",
+    "description": "Determine if alphabet can be partitioned into ordered groups with intersection and consecutiveness constraints",
+    "fields": [
+      {
+        "name": "alphabet_size",
+        "type_name": "usize",
+        "description": "Size of the alphabet (elements are 0..alphabet_size-1)"
+      },
+      {
+        "name": "subsets",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Collection of subsets of the alphabet"
+      }
+    ]
+  },
+  {
     "name": "UndirectedTwoCommodityIntegralFlow",
     "description": "Determine whether two integral commodities can satisfy sink demands in an undirected capacitated graph",
     "fields": [
