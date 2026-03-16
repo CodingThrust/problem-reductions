@@ -443,27 +443,6 @@ pub struct CreateArgs {
     /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
-    /// Arc capacities for DirectedTwoCommodityIntegralFlow (comma-separated, e.g., "1,1,1")
-    #[arg(long)]
-    pub capacities: Option<String>,
-    /// Source vertex for commodity 1
-    #[arg(long)]
-    pub source_1: Option<usize>,
-    /// Sink vertex for commodity 1
-    #[arg(long)]
-    pub sink_1: Option<usize>,
-    /// Source vertex for commodity 2
-    #[arg(long)]
-    pub source_2: Option<usize>,
-    /// Sink vertex for commodity 2
-    #[arg(long)]
-    pub sink_2: Option<usize>,
-    /// Flow requirement for commodity 1
-    #[arg(long)]
-    pub requirement_1: Option<u64>,
-    /// Flow requirement for commodity 2
-    #[arg(long)]
-    pub requirement_2: Option<u64>,
 }
 
 #[derive(clap::Args)]
