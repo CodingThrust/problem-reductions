@@ -27,6 +27,12 @@ fn no_instance() -> KthBestSpanningTree<i32> {
     KthBestSpanningTree::new(graph, weights, 2, 3)
 }
 
+fn small_yes_instance() -> KthBestSpanningTree<i32> {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
+    let weights = vec![1, 1, 1];
+    KthBestSpanningTree::new(graph, weights, 2, 2)
+}
+
 fn yes_witness_config() -> Vec<usize> {
     vec![
         1, 0, 1, 0, 1, 0, 1, 0, // {0,1}, {1,2}, {2,3}, {3,4}
@@ -53,6 +59,8 @@ fn test_kthbestspanningtree_creation() {
     let problem = yes_instance();
 
     assert_eq!(problem.dims(), vec![2; 24]);
+    assert_eq!(problem.graph().num_vertices(), 5);
+    assert_eq!(problem.graph().num_edges(), 8);
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 8);
     assert_eq!(problem.k(), 3);
@@ -66,6 +74,7 @@ fn test_kthbestspanningtree_creation() {
 fn test_kthbestspanningtree_evaluation_yes_instance() {
     let problem = yes_instance();
     assert!(problem.evaluate(&yes_witness_config()));
+    assert!(problem.is_valid_solution(&yes_witness_config()));
 }
 
 #[test]
@@ -78,6 +87,20 @@ fn test_kthbestspanningtree_evaluation_rejects_duplicate_trees() {
 fn test_kthbestspanningtree_evaluation_rejects_overweight_tree() {
     let problem = yes_instance();
     assert!(!problem.evaluate(&overweight_tree_config()));
+}
+
+#[test]
+fn test_kthbestspanningtree_evaluation_rejects_wrong_length_config() {
+    let problem = yes_instance();
+    assert!(!problem.evaluate(&yes_witness_config()[..23]));
+}
+
+#[test]
+fn test_kthbestspanningtree_evaluation_rejects_nonbinary_value() {
+    let problem = yes_instance();
+    let mut config = yes_witness_config();
+    config[0] = 2;
+    assert!(!problem.evaluate(&config));
 }
 
 #[test]
@@ -97,6 +120,16 @@ fn test_kthbestspanningtree_solver_no_instance() {
 
     assert!(solver.find_satisfying(&problem).is_none());
     assert!(solver.find_all_satisfying(&problem).is_empty());
+}
+
+#[test]
+fn test_kthbestspanningtree_small_exhaustive_search() {
+    let problem = small_yes_instance();
+    let solver = BruteForce::new();
+
+    let all = solver.find_all_satisfying(&problem);
+    assert_eq!(all.len(), 6);
+    assert!(all.iter().all(|config| problem.evaluate(config)));
 }
 
 #[test]
@@ -121,7 +154,32 @@ fn test_kthbestspanningtree_paper_example() {
     assert!(problem.evaluate(&witness));
 
     let solver = BruteForce::new();
-    let all = solver.find_all_satisfying(&problem);
-    assert_eq!(all.len(), 4_896);
-    assert!(all.iter().any(|config| config == &witness));
+    let solution = solver.find_satisfying(&problem).unwrap();
+    assert!(problem.evaluate(&solution));
+}
+
+#[test]
+fn test_kthbestspanningtree_single_vertex_accepts_single_empty_tree() {
+    let problem = KthBestSpanningTree::<i32>::new(SimpleGraph::new(1, vec![]), vec![], 1, 0);
+    assert!(problem.evaluate(&[]));
+    assert!(problem.is_valid_solution(&[]));
+}
+
+#[test]
+fn test_kthbestspanningtree_single_vertex_rejects_multiple_empty_trees() {
+    let problem = KthBestSpanningTree::<i32>::new(SimpleGraph::new(1, vec![]), vec![], 2, 0);
+    assert!(!problem.evaluate(&[]));
+}
+
+#[test]
+#[should_panic(expected = "weights length must match graph num_edges")]
+fn test_kthbestspanningtree_creation_rejects_weight_length_mismatch() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let _ = KthBestSpanningTree::new(graph, vec![1], 1, 2);
+}
+
+#[test]
+#[should_panic(expected = "k must be positive")]
+fn test_kthbestspanningtree_creation_rejects_zero_k() {
+    let _ = KthBestSpanningTree::<i32>::new(SimpleGraph::new(1, vec![]), vec![], 0, 0);
 }

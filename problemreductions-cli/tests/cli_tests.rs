@@ -2426,6 +2426,31 @@ fn test_create_kcoloring_missing_k() {
 }
 
 #[test]
+fn test_create_kth_best_spanning_tree_rejects_zero_k() {
+    let output = pred()
+        .args([
+            "create",
+            "KthBestSpanningTree",
+            "--graph",
+            "0-1,1-2,0-2",
+            "--edge-weights",
+            "2,3,1",
+            "--k",
+            "0",
+            "--bound",
+            "3",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("must be positive"),
+        "expected positive-k validation error, got: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_length_bounded_disjoint_paths_rejects_equal_terminals() {
     let output = pred()
         .args([
