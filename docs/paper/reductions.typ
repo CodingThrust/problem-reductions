@@ -813,7 +813,17 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
 
     The best known exact algorithm runs in $O^*(3^(|T|) dot n + 2^(|T|) dot n^2)$ time via Dreyfus--Wagner dynamic programming over terminal subsets @dreyfuswagner1971. Byrka _et al._ achieved a $ln(4) + epsilon approx 1.39$-approximation @byrka2013; the classic 2-approximation uses the minimum spanning tree of the terminal distance graph.
 
-    *Example.* Consider $G$ with $n = #nv$ vertices, $m = #ne$ edges, and terminals $T = {#terminals.map(t => $v_#t$).join(", ")}$. The optimal Steiner tree uses edges ${#tree-edges.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")}$ with Steiner vertices ${#steiner-verts.map(v => $v_#v$).join(", ")}$ acting as relay points. The total cost is #tree-edge-indices.map(i => $#(weights.at(i))$).join($+$) $= #cost$. Note the only direct terminal--terminal edge $(v_2, v_4)$ has weight #weights.at(edges.position(e => e == (2, 4))), equaling the entire Steiner tree cost.
+    // Find the unique direct terminal-terminal edge (both endpoints in T, not in the optimal tree)
+    #let terminal-set = terminals
+    #let direct-tt-edges = edges.enumerate().filter(((i, e)) => {
+      terminal-set.contains(e.at(0)) and terminal-set.contains(e.at(1)) and not tree-edge-indices.contains(i)
+    })
+    #let tt-edge = direct-tt-edges.at(0)
+    #let tt-idx = tt-edge.at(0)
+    #let tt-u = tt-edge.at(1).at(0)
+    #let tt-v = tt-edge.at(1).at(1)
+
+    *Example.* Consider $G$ with $n = #nv$ vertices, $m = #ne$ edges, and terminals $T = {#terminals.map(t => $v_#t$).join(", ")}$. The optimal Steiner tree uses edges ${#tree-edges.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")}$ with Steiner vertices ${#steiner-verts.map(v => $v_#v$).join(", ")}$ acting as relay points. The total cost is #tree-edge-indices.map(i => $#(weights.at(i))$).join($+$) $= #cost$. Note the only direct terminal--terminal edge $(v_#tt-u, v_#tt-v)$ has weight #weights.at(tt-idx), equaling the entire Steiner tree cost.
 
     #figure({
       // Layout: v0 top-left, v1 top-center, v2 top-right, v3 bottom-center, v4 bottom-right
