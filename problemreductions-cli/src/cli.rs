@@ -223,6 +223,7 @@ Flags by problem type:
   KColoring                       --graph, --k
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
+  BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   IsomorphicSpanningTree          --graph, --tree
   LengthBoundedDisjointPaths      --graph, --source, --sink, --num-paths-required, --bound
@@ -239,6 +240,7 @@ Flags by problem type:
   BMF                             --matrix (0/1), --rank
   SteinerTree                     --graph, --edge-weights, --terminals
   CVP                             --basis, --target-vec [--bounds]
+  SequencingWithinIntervals       --release-times, --deadlines, --lengths
   OptimalLinearArrangement        --graph, --bound
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
   MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
@@ -411,6 +413,12 @@ pub struct CreateArgs {
     /// Variable bounds for CVP as "lower,upper" (e.g., "-10,10") [default: -10,10]
     #[arg(long, allow_hyphen_values = true)]
     pub bounds: Option<String>,
+    /// Release times for SequencingWithinIntervals (comma-separated, e.g., "0,0,5")
+    #[arg(long)]
+    pub release_times: Option<String>,
+    /// Processing lengths for SequencingWithinIntervals (comma-separated, e.g., "3,1,1")
+    #[arg(long)]
+    pub lengths: Option<String>,
     /// Terminal vertices for SteinerTree (comma-separated indices, e.g., "0,2,4")
     #[arg(long)]
     pub terminals: Option<String>,
@@ -420,7 +428,7 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound or length bound (for LengthBoundedDisjointPaths, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, or SCS)
+    /// Upper bound or length bound (for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, or SCS)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)

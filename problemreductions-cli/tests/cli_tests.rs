@@ -1748,6 +1748,220 @@ fn test_create_kcoloring() {
 }
 
 #[test]
+fn test_create_bounded_component_spanning_forest() {
+    let output_file = std::env::temp_dir().join("pred_test_create_bcsf.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6",
+            "--weights",
+            "2,3,1,2,3,1,2,1",
+            "--k",
+            "3",
+            "--bound",
+            "6",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "BoundedComponentSpanningForest");
+    assert_eq!(json["data"]["max_components"], 3);
+    assert_eq!(json["data"]["max_weight"], 6);
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_zero_k() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "0",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--k >= 1"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_accepts_k_larger_than_num_vertices() {
+    let out = std::env::temp_dir().join("pred_test_bcsf_large_k.json");
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "5",
+            "--bound",
+            "2",
+            "-o",
+        ])
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(out.exists());
+    let _ = std::fs::remove_file(&out);
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_negative_weights() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,-1,1,1",
+            "--k",
+            "2",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --weights"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "2",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("positive --bound"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_out_of_range_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "2",
+            "--bound",
+            "3000000000",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("within i32 range"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_no_flags_shows_actual_cli_flags() {
+    let output = pred()
+        .args(["create", "BoundedComponentSpanningForest"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--k"),
+        "expected '--k' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--max-components"),
+        "help should not advertise nonexistent '--max-components' flag: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--max-weight"),
+        "help should not advertise nonexistent '--max-weight' flag: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_ola_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "OptimalLinearArrangement",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "negative bound should be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_scs_rejects_negative_bound() {
+    let output = pred()
+        .args(["create", "SCS", "--strings", "0,1,2;1,2,0", "--bound", "-1"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "negative bound should be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_spinglass() {
     let output_file = std::env::temp_dir().join("pred_test_create_sg.json");
     let output = pred()
@@ -4561,4 +4775,77 @@ fn test_create_weighted_mis_round_trips_into_solve() {
     let stdout = String::from_utf8(solve_output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["evaluation"], "Valid(5)");
+}
+
+#[test]
+fn test_create_sequencing_within_intervals() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_sequencing_within_intervals.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SequencingWithinIntervals",
+            "--release-times",
+            "0,0,0,0,5",
+            "--deadlines",
+            "11,11,11,11,6",
+            "--lengths",
+            "3,1,2,4,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SequencingWithinIntervals");
+    assert_eq!(
+        json["data"]["release_times"],
+        serde_json::json!([0, 0, 0, 0, 5])
+    );
+    assert_eq!(
+        json["data"]["deadlines"],
+        serde_json::json!([11, 11, 11, 11, 6])
+    );
+    assert_eq!(json["data"]["lengths"], serde_json::json!([3, 1, 2, 4, 1]));
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_model_example_sequencing_within_intervals() {
+    let output = pred()
+        .args(["create", "--example", "SequencingWithinIntervals"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "SequencingWithinIntervals");
+}
+
+#[test]
+fn test_create_sequencing_within_intervals_rejects_empty_window() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingWithinIntervals",
+            "--release-times",
+            "5",
+            "--deadlines",
+            "3",
+            "--lengths",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
 }

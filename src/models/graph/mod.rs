@@ -17,6 +17,7 @@
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`HamiltonianPath`]: Hamiltonian path (simple path visiting every vertex)
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
+//! - [`BoundedComponentSpanningForest`]: Partition vertices into bounded-weight connected components
 //! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
@@ -29,6 +30,7 @@
 //! - [`UndirectedTwoCommodityIntegralFlow`]: Two-commodity integral flow on undirected graphs
 
 pub(crate) mod biclique_cover;
+pub(crate) mod bounded_component_spanning_forest;
 pub(crate) mod directed_two_commodity_integral_flow;
 pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_path;
@@ -56,6 +58,7 @@ pub(crate) mod traveling_salesman;
 pub(crate) mod undirected_two_commodity_integral_flow;
 
 pub use biclique_cover::BicliqueCover;
+pub use bounded_component_spanning_forest::BoundedComponentSpanningForest;
 pub use directed_two_commodity_integral_flow::DirectedTwoCommodityIntegralFlow;
 pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_path::HamiltonianPath;
@@ -102,6 +105,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(multiple_choice_branching::canonical_model_example_specs());
     specs.extend(spin_glass::canonical_model_example_specs());
     specs.extend(biclique_cover::canonical_model_example_specs());
+    specs.extend(bounded_component_spanning_forest::canonical_model_example_specs());
     specs.extend(partition_into_triangles::canonical_model_example_specs());
     specs.extend(steiner_tree::canonical_model_example_specs());
     specs.extend(directed_two_commodity_integral_flow::canonical_model_example_specs());

@@ -93,6 +93,7 @@
   "BMF": [Boolean Matrix Factorization],
   "PaintShop": [Paint Shop],
   "BicliqueCover": [Biclique Cover],
+  "BoundedComponentSpanningForest": [Bounded Component Spanning Forest],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
   "OptimalLinearArrangement": [Optimal Linear Arrangement],
@@ -110,6 +111,7 @@
   "PartitionIntoTriangles": [Partition Into Triangles],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
+  "SequencingWithinIntervals": [Sequencing Within Intervals],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
 )
 
@@ -535,6 +537,56 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
   }),
   caption: [Graph with $n = 6$ vertices partitioned into $A = {v_0, v_1, v_2}$ (blue) and $B = {v_3, v_4, v_5}$ (red). The 3 crossing edges $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$ are shown in bold red; internal edges are gray.],
 ) <fig:graph-partitioning>
+]
+
+#problem-def("BoundedComponentSpanningForest")[
+  Given an undirected graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(gt.eq 0)$, a positive integer $K <= |V|$, and a positive bound $B$, determine whether there exists a partition of $V$ into $t$ non-empty sets $V_1, dots, V_t$ with $1 <= t <= K$ such that each induced subgraph $G[V_i]$ is connected and each part satisfies $sum_(v in V_i) w(v) <= B$.
+][
+Bounded Component Spanning Forest appears as ND10 in Garey and Johnson @garey1979. It asks for a decomposition into a bounded number of connected pieces, each with bounded total weight, so it naturally captures contiguous districting and redistricting-style constraints where each district must remain connected while respecting a population cap. A direct exhaustive search over component labels gives an $O^*(K^n)$ baseline, but subset-DP techniques via inclusion-exclusion improve the exact running time to $O^*(3^n)$ @bjorklund2009.
+
+*Example.* Consider the graph on vertices ${v_0, v_1, dots, v_7}$ with edges $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_4)$, $(v_4, v_5)$, $(v_5, v_6)$, $(v_6, v_7)$, $(v_0, v_7)$, $(v_1, v_5)$, $(v_2, v_6)$; vertex weights $(2, 3, 1, 2, 3, 1, 2, 1)$; component limit $K = 3$; and bound $B = 6$. The partition
+$V_1 = {v_0, v_1, v_7}$,
+$V_2 = {v_2, v_3, v_4}$,
+$V_3 = {v_5, v_6}$
+is feasible: each set induces a connected subgraph, the component weights are $2 + 3 + 1 = 6$, $1 + 2 + 3 = 6$, and $1 + 2 = 3$, and exactly three non-empty components are used. Therefore this instance is a YES instance.
+
+#figure(
+  canvas(length: 1cm, {
+    import draw: *
+    // 8 vertices in a circular layout (radius 1.6)
+    let r = 1.6
+    let verts = range(8).map(k => {
+      let angle = 90deg - k * 45deg
+      (calc.cos(angle) * r, calc.sin(angle) * r)
+    })
+    let weights = (2, 3, 1, 2, 3, 1, 2, 1)
+    let edges = ((0,1),(1,2),(2,3),(3,4),(4,5),(5,6),(6,7),(0,7),(1,5),(2,6))
+    // Partition: V1={0,1,7} blue, V2={2,3,4} green, V3={5,6} red
+    let partition = (0, 0, 1, 1, 1, 2, 2, 0)
+    let comp-colors = (graph-colors.at(0), graph-colors.at(2), graph-colors.at(1))
+    // Draw edges: bold colored for intra-component, gray for cross-component
+    for (u, v) in edges {
+      if partition.at(u) == partition.at(v) {
+        g-edge(verts.at(u), verts.at(v),
+          stroke: 2pt + comp-colors.at(partition.at(u)))
+      } else {
+        g-edge(verts.at(u), verts.at(v),
+          stroke: 1pt + luma(180))
+      }
+    }
+    // Draw nodes colored by partition, with weight labels
+    for (k, pos) in verts.enumerate() {
+      let c = comp-colors.at(partition.at(k))
+      g-node(pos, name: "v" + str(k),
+        fill: c,
+        label: text(fill: white)[$v_#k$])
+      let angle = 90deg - k * 45deg
+      let lpos = (calc.cos(angle) * (r + 0.5), calc.sin(angle) * (r + 0.5))
+      content(lpos, text(7pt)[$w = #(weights.at(k))$])
+    }
+  }),
+  caption: [Bounded Component Spanning Forest on 8 vertices with $K = 3$ and $B = 6$. The partition $V_1 = {v_0, v_1, v_7}$ (blue, weight 6), $V_2 = {v_2, v_3, v_4}$ (green, weight 6), $V_3 = {v_5, v_6}$ (red, weight 3) is feasible. Bold colored edges are intra-component; gray edges cross components.],
+) <fig:bcsf>
 ]
 #{
   let x = load-model-example("LengthBoundedDisjointPaths")
@@ -2081,6 +2133,100 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   ) <fig:flowshop>
 ]
 
+#{
+  let x = load-model-example("SequencingWithinIntervals")
+  let ntasks = x.instance.lengths.len()
+  let release = x.instance.release_times
+  let deadline = x.instance.deadlines
+  let lengths = x.instance.lengths
+  let sol = x.optimal.at(0)
+  // Compute start times from config offsets: start_i = release_i + config_i
+  let starts = range(ntasks).map(i => release.at(i) + sol.config.at(i))
+  // Identify the enforcer task: the one with the tightest window (deadline - release == length)
+  let enforcer = range(ntasks).filter(i => deadline.at(i) - release.at(i) == lengths.at(i)).at(0)
+  let regular = range(ntasks).filter(i => i != enforcer)
+  // Partition sum B = total length of regular tasks
+  let B = regular.map(i => lengths.at(i)).sum()
+  [
+    #problem-def("SequencingWithinIntervals")[
+      Given a finite set $T$ of tasks and, for each $t in T$, a release time $r(t) >= 0$, a deadline $d(t) >= 0$, and a processing length $ell(t) in ZZ^+$ satisfying $r(t) + ell(t) <= d(t)$, determine whether there exists a feasible schedule $sigma: T -> ZZ_(>= 0)$ such that for each $t in T$: (1) $sigma(t) >= r(t)$, (2) $sigma(t) + ell(t) <= d(t)$, and (3) for all $t' in T backslash {t}$, either $sigma(t') + ell(t') <= sigma(t)$ or $sigma(t') >= sigma(t) + ell(t)$.
+    ][
+      Sequencing Within Intervals is problem SS1 in Garey & Johnson @garey1979, proved NP-complete via reduction from Partition (Theorem 3.8). Each task $t$ must execute non-preemptively during the interval $[r(t), d(t))$, occupying $ell(t)$ consecutive time units, and no two tasks may overlap. The problem is a canonical single-machine scheduling problem and one of the earliest NP-completeness results for scheduling theory.
+
+      The NP-completeness proof uses an "enforcer" task pinned at the midpoint of the time horizon, forcing the remaining tasks to split into two balanced groups --- directly encoding the Partition problem.
+
+      *Example.* Consider #ntasks tasks derived from a Partition instance with $A = {#regular.map(i => str(lengths.at(i))).join(", ")}$ (sum $B = #B$):
+      #align(center, table(
+        columns: ntasks + 1,
+        align: center,
+        table.header([$"Task"$], ..regular.map(i => [$t_#(i + 1)$]), [$overline(t)$]),
+        [$r(t)$], ..regular.map(i => [#release.at(i)]), [#release.at(enforcer)],
+        [$d(t)$], ..regular.map(i => [#deadline.at(i)]), [#deadline.at(enforcer)],
+        [$ell(t)$], ..regular.map(i => [#lengths.at(i)]), [#lengths.at(enforcer)],
+      ))
+      The enforcer task $overline(t)$ must run in $[#release.at(enforcer), #deadline.at(enforcer))$, splitting the schedule into $[0, #release.at(enforcer))$ and $[#deadline.at(enforcer), #deadline.at(0))$. Each side has #(B / 2) time units, and tasks with total length $#(B / 2)$ must fill each side --- corresponding to a partition of $A$.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"))
+          let enforcer-color = rgb("#b07aa1")
+          let task-labels = regular.map(i => "$t_" + str(i + 1) + "$") + ("$overline(t)$",)
+          let task-order = regular + (enforcer,)
+          let scale = 0.7
+          let row-h = 0.6
+
+          // Single-row Gantt chart: all tasks on one timeline
+          for (k, i) in task-order.enumerate() {
+            let s = starts.at(i)
+            let e = s + lengths.at(i)
+            let x0 = s * scale
+            let x1 = e * scale
+            let col = if i == enforcer { enforcer-color } else { colors.at(regular.position(j => j == i)) }
+            rect((x0, -row-h / 2), (x1, row-h / 2),
+              fill: col.transparentize(30%), stroke: 0.4pt + col)
+            content(((x0 + x1) / 2, 0), text(6pt, task-labels.at(k)))
+          }
+
+          // Release-time and deadline markers for each task
+          for (k, i) in task-order.enumerate() {
+            let col = if i == enforcer { enforcer-color } else { colors.at(regular.position(j => j == i)) }
+            // Release time: upward triangle below axis
+            let rx = release.at(i) * scale
+            line((rx, -row-h / 2 - 0.05), (rx, -row-h / 2 - 0.18), stroke: 0.5pt + col)
+            // Deadline: downward tick above axis
+            let dx = deadline.at(i) * scale
+            line((dx, row-h / 2 + 0.05), (dx, row-h / 2 + 0.18), stroke: 0.5pt + col)
+          }
+
+          // Release / deadline group labels
+          content((-0.5, -row-h / 2 - 0.12), text(5pt)[$r$])
+          content((-0.5, row-h / 2 + 0.12), text(5pt)[$d$])
+
+          // Time axis
+          let max-t = 11
+          let y-axis = -row-h / 2 - 0.35
+          line((0, y-axis), (max-t * scale, y-axis), stroke: 0.4pt)
+          for t in range(max-t + 1) {
+            let x = t * scale
+            line((x, y-axis), (x, y-axis - 0.08), stroke: 0.4pt)
+            if calc.rem(t, 2) == 0 or t == max-t {
+              content((x, y-axis - 0.22), text(5pt, str(t)))
+            }
+          }
+          content((max-t * scale / 2, y-axis - 0.45), text(7pt)[$t$])
+
+          // Enforcer region highlight
+          let ex0 = release.at(enforcer) * scale
+          let ex1 = deadline.at(enforcer) * scale
+          line((ex0, row-h / 2 + 0.3), (ex0, y-axis), stroke: (paint: enforcer-color, thickness: 0.6pt, dash: "dashed"))
+          line((ex1, row-h / 2 + 0.3), (ex1, y-axis), stroke: (paint: enforcer-color, thickness: 0.6pt, dash: "dashed"))
+        }),
+        caption: [Feasible schedule for the SWI instance. The enforcer task $overline(t)$ (purple) is pinned at $[#release.at(enforcer), #deadline.at(enforcer))$, splitting the timeline into two halves of #(B / 2) time units each.],
+      ) <fig:swi>
+    ]
+  ]
+}
 #{
   let x = load-model-example("MinimumTardinessSequencing")
   let ntasks = x.instance.num_tasks
