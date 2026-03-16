@@ -2110,6 +2110,25 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   ) <fig:flowshop>
 ]
 
+#problem-def("MultiprocessorScheduling")[
+  Given task lengths $ell_1, ell_2, dots, ell_n in ZZ^+$, a positive integer $m$, and a deadline $D in ZZ^+$, determine whether the tasks can be assigned to $m$ identical processors so that the total assigned load on every processor is at most $D$.
+][
+  Multiprocessor Scheduling is the classical decision problem SS8 in Garey and Johnson @garey1979. It generalizes Partition: when $m = 2$ and $D$ is half the total work, feasibility asks whether the jobs can be split into two equal-load groups. For fixed $m$, pseudo-polynomial dynamic programming gives $O(n D^(m - 1))$ time algorithms, while the case where $m$ is part of the input is strongly NP-complete; see the scheduling complexity survey of Brucker, Lenstra, and Rinnooy Kan @brucker1977. The brute-force formulation used by this project checks all $m^n$ task-to-processor assignments, and subset-based exact partitioning methods improve the general bound to $O^*(2^n)$ @bjorklund2009.
+
+  Because the processors are identical and there are no precedence constraints, the usual start-time formulation is equivalent to a simpler load-balancing view: once a set of tasks is assigned to a processor, they can be executed back-to-back in any order. A configuration is therefore feasible exactly when every processor's total assigned load is at most $D$.
+
+  *Example.* Consider task lengths $(4, 5, 3, 2, 6)$, $m = 2$, and deadline $D = 10$. Assigning tasks $(t_1, t_5)$ to processor 1 and $(t_2, t_3, t_4)$ to processor 2 yields loads $4 + 6 = 10$ and $5 + 3 + 2 = 10$, so the instance is feasible.
+
+  #table(
+    columns: (auto, 1fr, auto),
+    inset: (x: 4pt, y: 3pt),
+    align: (left, left, center),
+    table.header([Processor], [Assigned tasks], [Load]),
+    [1], [$t_1, t_5$], [$10$],
+    [2], [$t_2, t_3, t_4$], [$10$],
+  )
+]
+
 #{
   let x = load-model-example("MultiprocessorScheduling")
   let lengths = x.instance.lengths

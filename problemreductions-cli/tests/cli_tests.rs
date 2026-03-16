@@ -4130,6 +4130,91 @@ fn test_create_factoring_missing_bits() {
     );
 }
 
+#[test]
+fn test_evaluate_multiprocessor_scheduling_rejects_zero_processors_json() {
+    let problem_file =
+        std::env::temp_dir().join("pred_test_eval_multiprocessor_zero_processors.json");
+    std::fs::write(
+        &problem_file,
+        r#"{
+  "type": "MultiprocessorScheduling",
+  "variant": {},
+  "data": {
+    "lengths": [1, 2],
+    "num_processors": 0,
+    "deadline": 5
+  }
+}"#,
+    )
+    .unwrap();
+
+    let output = pred()
+        .args([
+            "evaluate",
+            problem_file.to_str().unwrap(),
+            "--config",
+            "0,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("expected positive integer, got 0"),
+        "stderr: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_multiprocessor_scheduling_default_solver_suggests_brute_force() {
+    let problem_file =
+        std::env::temp_dir().join("pred_test_solve_multiprocessor_default_solver.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MultiprocessorScheduling",
+            "--lengths",
+            "4,5,3,2,6",
+            "--num-processors",
+            "2",
+            "--deadline",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args(["solve", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("No reduction path from MultiprocessorScheduling to ILP"),
+        "stderr: {stderr}"
+    );
+    assert!(stderr.contains("--solver brute-force"), "stderr: {stderr}");
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
 // ---- Timeout tests (H3) ----
 
 #[test]

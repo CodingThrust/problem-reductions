@@ -57,6 +57,7 @@ pub struct MultiprocessorScheduling {
     /// Processing time for each task.
     lengths: Vec<u64>,
     /// Number of identical processors.
+    #[serde(deserialize_with = "positive_usize::deserialize")]
     num_processors: usize,
     /// Global deadline.
     deadline: u64,
@@ -149,6 +150,22 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             )
         },
     }]
+}
+
+mod positive_usize {
+    use serde::de::Error;
+    use serde::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<usize, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = usize::deserialize(deserializer)?;
+        if value == 0 {
+            return Err(D::Error::custom("expected positive integer, got 0"));
+        }
+        Ok(value)
+    }
 }
 
 #[cfg(test)]

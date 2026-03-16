@@ -460,8 +460,9 @@ Source evaluation: Valid(2)
 ```
 
 > **Note:** The ILP solver requires a reduction path from the target problem to ILP.
-> Some problems (e.g., BoundedComponentSpanningForest, LengthBoundedDisjointPaths) do not currently have one, so use
-> `pred solve <file> --solver brute-force` for these.
+> Some problems do not currently have one. Examples include BoundedComponentSpanningForest,
+> LengthBoundedDisjointPaths, QUBO, SpinGlass, MaxCut, CircuitSAT, and MultiprocessorScheduling.
+> Use `pred solve <file> --solver brute-force` for these, or reduce to a problem that supports ILP first.
 > For other problems, use `pred path <PROBLEM> ILP` to check whether an ILP reduction path exists.
 
 ## Shell Completions

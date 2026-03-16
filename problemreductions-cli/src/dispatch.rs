@@ -215,4 +215,26 @@ mod tests {
         let json = serialize_any_problem("BinPacking", &variant, &problem as &dyn Any).unwrap();
         assert_eq!(json, serde_json::to_value(&problem).unwrap());
     }
+
+    #[test]
+    fn test_load_problem_rejects_zero_processor_multiprocessor_scheduling() {
+        let loaded = load_problem(
+            "MultiprocessorScheduling",
+            &BTreeMap::new(),
+            serde_json::json!({
+                "lengths": [1, 2],
+                "num_processors": 0,
+                "deadline": 5
+            }),
+        );
+        assert!(
+            loaded.is_err(),
+            "zero-processor instance should be rejected"
+        );
+        let err = loaded.err().unwrap();
+        assert!(
+            err.to_string().contains("expected positive integer, got 0"),
+            "unexpected error: {err}"
+        );
+    }
 }
