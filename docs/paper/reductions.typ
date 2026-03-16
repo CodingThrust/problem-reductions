@@ -99,6 +99,7 @@
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
+  "MinMaxMulticenter": [Min-Max Multicenter],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
   "SteinerTree": [Steiner Tree],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
@@ -999,6 +1000,50 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     },
     caption: [Minimum Sum Multicenter with $K = #K$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) achieve optimal total weighted distance #opt-cost.],
     ) <fig:minimum-sum-multicenter>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinMaxMulticenter")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let K = x.instance.k
+  let B = x.instance.bound
+  // Pick optimal[1] = {v1, v4} to match figure
+  let sol = x.optimal.at(1)
+  let centers = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  [
+    #problem-def("MinMaxMulticenter")[
+      Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, a positive integer $K <= |V|$, and a rational bound $B > 0$, does there exist $S subset.eq V$ with $|S| = K$ such that $max_(v in V) w(v) dot d(v, S) <= B$, where $d(v, S) = min_(s in S) d(v, s)$ is the shortest weighted-path distance from $v$ to the nearest vertex in $S$?
+    ][
+    Also known as the _vertex p-center problem_ (Garey & Johnson A2 ND50). The goal is to place $K$ facilities so that the worst-case weighted distance from any demand point to its nearest facility is at most $B$. NP-complete even with unit weights and unit edge lengths (Kariv and Hakimi, 1979).
+
+    Closely related to Dominating Set: on unweighted unit-length graphs, a $K$-center with radius $B = 1$ is exactly a dominating set of size $K$. The best known exact algorithm runs in $O^*(1.4969^n)$ via binary search over distance thresholds combined with dominating set computation @vanrooij2011. An optimal 2-approximation exists (Hochbaum and Shmoys, 1985); no $(2 - epsilon)$-approximation is possible unless $P = "NP"$ (Hsu and Nemhauser, 1979).
+
+    Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. A configuration is satisfying when exactly $K$ centers are selected and $max_(v in V) w(v) dot d(v, S) <= B$.
+
+    *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$, unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, $K = #K$, and $B = #B$. Placing centers at $S = {#centers.map(i => $v_#i$).join(", ")}$ gives maximum distance $max_v d(v, S) = 1 <= B$, so this is a feasible solution. In fact, #x.optimal.len() distinct center placements satisfy the bound.
+
+    #figure({
+      let blue = graph-colors.at(0)
+      let gray = luma(200)
+      canvas(length: 1cm, {
+        import draw: *
+        let verts = ((-1.5, 0.8), (0, 1.5), (1.5, 0.8), (1.5, -0.8), (0, -1.5), (-1.5, -0.8))
+        for (u, v) in edges {
+          g-edge(verts.at(u), verts.at(v), stroke: 1pt + gray)
+        }
+        for (k, pos) in verts.enumerate() {
+          let is-center = centers.any(c => c == k)
+          g-node(pos, name: "v" + str(k),
+            fill: if is-center { blue } else { white },
+            label: if is-center { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+        }
+      })
+    },
+    caption: [Min-Max Multicenter with $K = #K$, $B = #B$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) ensure every vertex is within distance $B$ of some center.],
+    ) <fig:min-max-multicenter>
     ]
   ]
 }
