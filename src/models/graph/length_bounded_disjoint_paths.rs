@@ -68,10 +68,6 @@ impl<G: Graph> LengthBoundedDisjointPaths<G> {
             "num_paths_required must be positive"
         );
         assert!(max_length > 0, "max_length must be positive");
-        assert!(
-            max_length <= graph.num_vertices(),
-            "max_length must be at most num_vertices"
-        );
         Self {
             graph,
             source,
@@ -163,10 +159,22 @@ fn is_valid_path_collection<G: Graph>(
     if config.len() != num_paths_required * num_vertices {
         return false;
     }
+    if config.iter().any(|&value| value > 1) {
+        return false;
+    }
 
     let mut used_internal = vec![false; num_vertices];
+    let mut used_direct_path = false;
     for slot in config.chunks(num_vertices) {
-        if !is_valid_path_slot(graph, source, sink, max_length, slot, &mut used_internal) {
+        if !is_valid_path_slot(
+            graph,
+            source,
+            sink,
+            max_length,
+            slot,
+            &mut used_internal,
+            &mut used_direct_path,
+        ) {
             return false;
         }
     }
@@ -180,6 +188,7 @@ fn is_valid_path_slot<G: Graph>(
     max_length: usize,
     slot: &[usize],
     used_internal: &mut [bool],
+    used_direct_path: &mut bool,
 ) -> bool {
     if slot.len() != graph.num_vertices()
         || slot.get(source) != Some(&1)
@@ -226,6 +235,12 @@ fn is_valid_path_slot<G: Graph>(
     let edge_count = degree_sum / 2;
     if edge_count + 1 != selected.len() || edge_count > max_length {
         return false;
+    }
+    if edge_count == 1 {
+        if *used_direct_path {
+            return false;
+        }
+        *used_direct_path = true;
     }
 
     let mut seen = vec![false; graph.num_vertices()];

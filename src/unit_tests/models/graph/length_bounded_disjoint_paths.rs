@@ -45,6 +45,13 @@ fn test_length_bounded_disjoint_paths_creation() {
 }
 
 #[test]
+fn test_length_bounded_disjoint_paths_allows_large_bounds() {
+    let problem = LengthBoundedDisjointPaths::new(sample_yes_graph(), 0, 6, 2, 10);
+    let config = encode_paths(7, &[&[0, 1, 6], &[0, 2, 3, 6]]);
+    assert!(problem.evaluate(&config));
+}
+
+#[test]
 fn test_length_bounded_disjoint_paths_evaluation() {
     let problem = sample_yes_problem();
     let config = encode_paths(7, &[&[0, 1, 6], &[0, 2, 3, 6]]);
@@ -76,6 +83,21 @@ fn test_length_bounded_disjoint_paths_rejects_overlong_slot() {
 fn test_length_bounded_disjoint_paths_rejects_shared_internal_vertices() {
     let problem = sample_yes_problem();
     let config = encode_paths(7, &[&[0, 2, 3, 6], &[0, 2, 3, 6]]);
+    assert!(!problem.evaluate(&config));
+}
+
+#[test]
+fn test_length_bounded_disjoint_paths_rejects_reused_direct_edge() {
+    let problem = LengthBoundedDisjointPaths::new(SimpleGraph::new(2, vec![(0, 1)]), 0, 1, 2, 1);
+    let config = encode_paths(2, &[&[0, 1], &[0, 1]]);
+    assert!(!problem.evaluate(&config));
+}
+
+#[test]
+fn test_length_bounded_disjoint_paths_rejects_non_binary_entries() {
+    let problem = sample_yes_problem();
+    let mut config = encode_paths(7, &[&[0, 1, 6], &[0, 2, 3, 6]]);
+    config[4] = 2;
     assert!(!problem.evaluate(&config));
 }
 
