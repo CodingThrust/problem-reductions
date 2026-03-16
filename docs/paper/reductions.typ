@@ -85,6 +85,7 @@
   "Satisfiability": [SAT],
   "KSatisfiability": [$k$-SAT],
   "CircuitSAT": [CircuitSAT],
+  "ConjunctiveQueryFoldability": [Conjunctive Query Foldability],
   "Factoring": [Factoring],
   "KingsSubgraph": [King's Subgraph MIS],
   "TriangularSubgraph": [Triangular Subgraph MIS],
@@ -1627,6 +1628,61 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     ]
   ]
 }
+
+#problem-def("ConjunctiveQueryFoldability")[
+  Given a finite domain $D$, relation symbols $R_1, dots, R_m$ with fixed arities $d_1, dots, d_m$, a set $X$ of _distinguished_ variables, a set $Y$ of _undistinguished_ variables (with $X inter Y = emptyset$), and two conjunctive queries $Q_1$ and $Q_2$ — each a set of atoms of the form $R_j (t_1, dots, t_(d_j))$ with $t_i in D union X union Y$ — determine whether there exists a substitution $sigma: Y -> D union X union Y$ such that $sigma(Q_1) = Q_2$ as sets of atoms, where $sigma$ fixes all elements of $D union X$.
+][
+  Conjunctive query foldability is equivalent to conjunctive query containment and was shown NP-complete by Chandra and Merlin (1977) via reduction from Graph 3-Colorability.#footnote[A. K. Chandra and P. M. Merlin, "Optimal implementation of conjunctive queries in relational data bases," _Proc. 9th ACM STOC_, 1977, pp. 77–90.] If $Q_1$ folds into $Q_2$, then $Q_1$ is subsumed by $Q_2$, making $Q_1$ redundant — a key step in query optimization. The brute-force algorithm enumerates all $|D union X union Y|^(|Y|)$ possible substitutions and checks set equality; no general exact algorithm with a better worst-case bound is known.#footnote[No algorithm improving on brute-force substitution enumeration is known for general conjunctive query foldability.]
+
+  *Example.* Let $D = emptyset$, $X = {x}$, $Y = {u, v, a}$, and $R$ a single binary relation. The query $Q_1 = {R(x, u), R(u, v), R(v, x), R(u, u)}$ is a directed triangle $(x, u, v)$ with a self-loop on $u$. The query $Q_2 = {R(x, a), R(a, a), R(a, x)}$ is a "lollipop": a self-loop on $a$ with edges $x -> a$ and $a -> x$. The substitution $sigma: u |-> a,\ v |-> a,\ a |-> a$ maps $Q_1$ to ${R(x, a), R(a, a), R(a, x), R(a, a)} = Q_2$ (as a set), so $Q_1$ folds into $Q_2$.
+
+  #figure(
+    canvas(length: 1cm, {
+      import draw: *
+      // Q1: triangle (x, u, v) with self-loop on u
+      // Place x at top-left, u at bottom-left, v at bottom-right
+      let px = (-2.5, 0.6)
+      let pu = (-3.2, -0.6)
+      let pv = (-1.8, -0.6)
+      circle(px, radius: 0.22, fill: white, stroke: 0.6pt, name: "x1")
+      content("x1", text(8pt)[$x$])
+      circle(pu, radius: 0.22, fill: white, stroke: 0.6pt, name: "u")
+      content("u", text(8pt)[$u$])
+      circle(pv, radius: 0.22, fill: white, stroke: 0.6pt, name: "v")
+      content("v", text(8pt)[$v$])
+      // edges: x->u, u->v, v->x
+      line("x1.south-west", "u.north", mark: (end: "straight", scale: 0.45))
+      line("u.east", "v.west", mark: (end: "straight", scale: 0.45))
+      line("v.north-west", "x1.south-east", mark: (end: "straight", scale: 0.45))
+      // self-loop on u: arc below u
+      arc((-3.2, -0.82), radius: 0.22, start: 200deg, stop: 340deg,
+        stroke: 0.6pt, mark: (end: "straight", scale: 0.45))
+      // Q1 label
+      content((-2.5, -1.4), text(8pt)[$Q_1$])
+
+      // Substitution arrow sigma in the middle
+      line((-1.1, 0.0), (-0.3, 0.0), mark: (end: "straight", scale: 0.6))
+      content((-0.7, 0.2), text(8pt)[$sigma$])
+
+      // Q2: lollipop — x and a, self-loop on a, edges x->a and a->x
+      let qx = (0.8, 0.3)
+      let qa = (1.8, -0.5)
+      circle(qx, radius: 0.22, fill: white, stroke: 0.6pt, name: "x2")
+      content("x2", text(8pt)[$x$])
+      circle(qa, radius: 0.22, fill: white, stroke: 0.6pt, name: "a")
+      content("a", text(8pt)[$a$])
+      // edges: x->a and a->x (use slightly bent anchors)
+      line("x2.south-east", "a.north-west", mark: (end: "straight", scale: 0.45))
+      line("a.north", (1.8, 0.1), "x2.east", mark: (end: "straight", scale: 0.45))
+      // self-loop on a
+      arc((1.8, -0.72), radius: 0.22, start: 200deg, stop: 340deg,
+        stroke: 0.6pt, mark: (end: "straight", scale: 0.45))
+      // Q2 label
+      content((1.3, -1.4), text(8pt)[$Q_2$])
+    }),
+    caption: [Conjunctive Query Foldability example. Left: query $Q_1$ — directed triangle $(x, u, v)$ with self-loop on $u$. Right: query $Q_2$ — lollipop with node $a$ having a self-loop and two edges to $x$. The substitution $sigma: u |-> a, v |-> a$ (with $a |-> a$) folds $Q_1$ into $Q_2$.],
+  ) <fig:cqf-example>
+]
 
 #{
   let x = load-model-example("Factoring")

@@ -296,6 +296,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
+        "ConjunctiveQueryFoldability" => "(use --example ConjunctiveQueryFoldability)",
         _ => "",
     }
 }
@@ -1539,6 +1540,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (
                 ser(MinimumFeedbackVertexSet::new(graph, weights))?,
                 resolved_variant.clone(),
+            )
+        }
+
+        "ConjunctiveQueryFoldability" => {
+            bail!(
+                "ConjunctiveQueryFoldability has complex nested input.\n\n\
+                 Use: pred create --example ConjunctiveQueryFoldability\n\
+                 Or provide a JSON file directly."
             )
         }
 

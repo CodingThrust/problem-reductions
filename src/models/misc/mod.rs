@@ -2,6 +2,7 @@
 //!
 //! Problems with unique input structures that don't fit other categories:
 //! - [`BinPacking`]: Bin Packing (minimize bins)
+//! - [`ConjunctiveQueryFoldability`]: Conjunctive Query Foldability
 //! - [`Factoring`]: Integer factorization
 //! - [`FlowShopScheduling`]: Flow Shop Scheduling (meet deadline on m processors)
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
@@ -13,6 +14,7 @@
 //! - [`SubsetSum`]: Find a subset summing to exactly a target value
 
 mod bin_packing;
+pub(crate) mod conjunctive_query_foldability;
 pub(crate) mod factoring;
 mod flow_shop_scheduling;
 mod knapsack;
@@ -24,6 +26,7 @@ pub(crate) mod shortest_common_supersequence;
 mod subset_sum;
 
 pub use bin_packing::BinPacking;
+pub use conjunctive_query_foldability::{ConjunctiveQueryFoldability, Term};
 pub use factoring::Factoring;
 pub use flow_shop_scheduling::FlowShopScheduling;
 pub use knapsack::Knapsack;
@@ -37,6 +40,7 @@ pub use subset_sum::SubsetSum;
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let mut specs = Vec::new();
+    specs.extend(conjunctive_query_foldability::canonical_model_example_specs());
     specs.extend(factoring::canonical_model_example_specs());
     specs.extend(paintshop::canonical_model_example_specs());
     specs.extend(sequencing_within_intervals::canonical_model_example_specs());
