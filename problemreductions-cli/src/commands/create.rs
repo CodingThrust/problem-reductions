@@ -2,7 +2,7 @@ use crate::cli::{CreateArgs, ExampleSide};
 use crate::dispatch::ProblemJsonOutput;
 use crate::output::OutputConfig;
 use crate::problem_name::{
-    resolve_catalog_problem_ref, resolve_problem_ref, unknown_problem_error,
+    parse_problem_spec, resolve_catalog_problem_ref, resolve_problem_ref, unknown_problem_error,
 };
 use crate::util;
 use anyhow::{bail, Context, Result};
@@ -352,17 +352,25 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     let rgraph = problemreductions::rules::ReductionGraph::new();
     let resolved = match resolve_problem_ref(problem, &rgraph) {
         Ok(resolved) => resolved,
-        Err(graph_err) => {
-            let catalog_resolved = resolve_catalog_problem_ref(problem)?;
-            if rgraph.variants_for(catalog_resolved.name()).is_empty() {
-                ProblemRef {
-                    name: catalog_resolved.name().to_string(),
-                    variant: catalog_resolved.variant().clone(),
+        Err(graph_err) => match resolve_catalog_problem_ref(problem) {
+            Ok(catalog_resolved) => {
+                if rgraph.variants_for(catalog_resolved.name()).is_empty() {
+                    ProblemRef {
+                        name: catalog_resolved.name().to_string(),
+                        variant: catalog_resolved.variant().clone(),
+                    }
+                } else {
+                    return Err(graph_err);
                 }
-            } else {
+            }
+            Err(catalog_err) => {
+                let spec = parse_problem_spec(problem)?;
+                if rgraph.variants_for(&spec.name).is_empty() {
+                    return Err(catalog_err);
+                }
                 return Err(graph_err);
             }
-        }
+        },
     };
     let canonical = resolved.name.as_str();
     let resolved_variant = resolved.variant.clone();
