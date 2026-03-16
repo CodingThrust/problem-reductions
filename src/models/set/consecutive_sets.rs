@@ -150,6 +150,11 @@ impl Problem for ConsecutiveSets {
             return false;
         }
 
+        let mut subset_membership = vec![0usize; self.alphabet_size];
+        let mut seen_in_window = vec![0usize; self.alphabet_size];
+        let mut subset_stamp = 1usize;
+        let mut window_stamp = 1usize;
+
         // 4. Check each subset has a consecutive block
         for subset in &self.subsets {
             let subset_len = subset.len();
@@ -160,13 +165,29 @@ impl Problem for ConsecutiveSets {
                 return false; // can't fit
             }
 
+            for &elem in subset {
+                subset_membership[elem] = subset_stamp;
+            }
+
             let mut found = false;
             for start in 0..=(str_len - subset_len) {
                 let window = &w[start..start + subset_len];
-                // Check if window is a permutation of subset
-                let mut window_sorted: Vec<usize> = window.to_vec();
-                window_sorted.sort();
-                if window_sorted == *subset {
+                let current_window_stamp = window_stamp;
+                window_stamp += 1;
+
+                // Because subsets are validated to contain unique elements,
+                // a window matches iff every symbol belongs to the subset and
+                // appears at most once.
+                if window.iter().all(|&elem| {
+                    let is_member = subset_membership[elem] == subset_stamp;
+                    let is_new = seen_in_window[elem] != current_window_stamp;
+                    if is_member && is_new {
+                        seen_in_window[elem] = current_window_stamp;
+                        true
+                    } else {
+                        false
+                    }
+                }) {
                     // subset is already sorted
                     found = true;
                     break;
@@ -175,6 +196,8 @@ impl Problem for ConsecutiveSets {
             if !found {
                 return false;
             }
+
+            subset_stamp += 1;
         }
 
         true

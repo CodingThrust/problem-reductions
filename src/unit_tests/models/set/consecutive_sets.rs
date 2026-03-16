@@ -74,6 +74,12 @@ fn test_consecutive_sets_rejects_internal_unused() {
 }
 
 #[test]
+fn test_consecutive_sets_rejects_duplicate_window_symbol() {
+    let problem = ConsecutiveSets::new(2, vec![vec![0, 1]], 2);
+    assert!(!problem.evaluate(&[0, 0]));
+}
+
+#[test]
 fn test_consecutive_sets_serialization() {
     let problem = ConsecutiveSets::new(6, vec![vec![0, 4], vec![2, 4]], 6);
     let json = serde_json::to_string(&problem).unwrap();
