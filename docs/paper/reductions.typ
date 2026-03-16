@@ -62,6 +62,7 @@
 
 // Problem display names for theorem headers
 #let display-name = (
+  "AdditionalKey": [Additional Key],
   "MaximumIndependentSet": [Maximum Independent Set],
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
@@ -2324,6 +2325,28 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     }),
     caption: [Two-commodity flow: commodity 1 (blue, $s_1 -> 2 -> t_1$) and commodity 2 (red, $s_2 -> 3 -> t_2$).],
   ) <fig:d2cif>
+]
+
+#problem-def("AdditionalKey")[
+  Given a set $A$ of attribute names, a collection $F$ of functional dependencies on $A$,
+  a subset $R subset.eq A$, and a set $K$ of candidate keys for the relational scheme $chevron.l R, F chevron.r$,
+  determine whether there exists a subset $R' subset.eq R$ such that $R' in.not K$,
+  the closure $R'^+$ under $F$ equals $R$, and no proper subset of $R'$ also has this property.
+][
+  A classical NP-complete problem from relational database theory @beeri1979.
+  Enumerating all candidate keys is necessary to verify Boyce-Codd Normal Form (BCNF),
+  and the NP-completeness of Additional Key implies that BCNF testing is intractable in general.
+  The best known exact algorithm is brute-force enumeration of all $2^(|R|)$ subsets,
+  checking each for the key property via closure computation under Armstrong's axioms.
+  #footnote[No algorithm improving on brute-force is known for the Additional Key problem.]
+
+  *Example.* Consider attribute set $A = {0, 1, 2, 3, 4, 5}$ with functional dependencies
+  $F = {{0,1} -> {2,3}, {2,3} -> {4,5}, {4,5} -> {0,1}, {0,2} -> {3}, {3,5} -> {1}}$,
+  relation $R = A$, and known keys $K = {{0,1}, {2,3}, {4,5}}$.
+  The subset ${0,2}$ is an additional key: starting from ${0,2}$, we apply ${0,2} -> {3}$
+  to get ${0,2,3}$, then ${2,3} -> {4,5}$ to get ${0,2,3,4,5}$, then ${4,5} -> {0,1}$
+  to reach $R^+ = A$. The set ${0,2}$ is minimal (neither ${0}$ nor ${2}$ alone determines $A$)
+  and ${0,2} in.not K$, so the answer is YES.
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper
