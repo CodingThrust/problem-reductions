@@ -238,22 +238,6 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
     }
 }
 
-fn cli_flag_name(field_name: &str) -> String {
-    match field_name {
-        "universe_size" => "universe".to_string(),
-        "collection" | "subsets" => "sets".to_string(),
-        "left_size" => "left".to_string(),
-        "right_size" => "right".to_string(),
-        "edges" => "biedges".to_string(),
-        "vertex_weights" => "weights".to_string(),
-        "edge_lengths" => "edge-weights".to_string(),
-        "num_tasks" => "n".to_string(),
-        "precedences" => "precedence-pairs".to_string(),
-        "threshold" => "bound".to_string(),
-        _ => field_name.replace('_', "-"),
-    }
-}
-
 fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
     match canonical {
         "MaximumIndependentSet"
@@ -311,9 +295,24 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
 }
 
 fn help_flag_name(canonical: &str, field_name: &str) -> String {
+    // Problem-specific overrides first
     match (canonical, field_name) {
-        ("BoundedComponentSpanningForest", "max_components") => "k".to_string(),
-        ("BoundedComponentSpanningForest", "max_weight") => "bound".to_string(),
+        ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
+        ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        _ => {}
+    }
+    // General field-name overrides (previously in cli_flag_name)
+    match field_name {
+        "universe_size" => "universe".to_string(),
+        "collection" | "subsets" => "sets".to_string(),
+        "left_size" => "left".to_string(),
+        "right_size" => "right".to_string(),
+        "edges" => "biedges".to_string(),
+        "vertex_weights" => "weights".to_string(),
+        "edge_lengths" => "edge-weights".to_string(),
+        "num_tasks" => "n".to_string(),
+        "precedences" => "precedence-pairs".to_string(),
+        "threshold" => "bound".to_string(),
         _ => field_name.replace('_', "-"),
     }
 }
