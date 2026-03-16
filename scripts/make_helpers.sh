@@ -222,13 +222,17 @@ cleanup_pipeline_worktree() {
 }
 
 # Request Copilot review on all Review pool PRs that don't have one yet.
-#   request_copilot_reviews <repo> [board-cache]
+#   request_copilot_reviews <repo> [board-cache] [board-cache-max-age]
 request_copilot_reviews() {
     repo=$1
     board_cache=${2-}
+    board_cache_max_age=${3-}
     cache_args=""
     if [ -n "$board_cache" ]; then
         cache_args="--board-cache $board_cache"
+    fi
+    if [ -n "$board_cache_max_age" ]; then
+        cache_args="$cache_args --board-cache-max-age $board_cache_max_age"
     fi
     prs=$(python3 scripts/pipeline_board.py list review --repo "$repo" --format json $cache_args \
         | python3 -c "
@@ -274,15 +278,15 @@ except (FileNotFoundError, json.JSONDecodeError, ValueError):
 
         # Always fetch a reasonably fresh board to avoid dispatching items
         # that moved out of the target column since the last fetch.
+        # The board cache naturally expires after board_max_age seconds,
+        # so we don't need to delete it — just let natural expiry handle
+        # staleness.  This avoids redundant 4-page GraphQL fetches when
+        # multiple commands share the same cache file within one cycle.
         board_max_age=$interval
-        if [ "$pending_count" -lt "$cache_threshold" ]; then
-            # Running low — invalidate cache to discover new items immediately
-            rm -f "$board_cache"
 
-            # For review mode, request Copilot reviews on PRs that don't have one yet
-            if [ "$mode" = "review" ] && [ -n "$repo" ]; then
-                request_copilot_reviews "$repo" "$board_cache"
-            fi
+        # For review mode, request Copilot reviews on PRs that don't have one yet
+        if [ "$mode" = "review" ] && [ -n "$repo" ]; then
+            request_copilot_reviews "$repo" "$board_cache" "$board_max_age"
         fi
 
         next_item=$(poll_project_items "$mode" "$state_file" "$repo" "" text "$board_cache" "$board_max_age")

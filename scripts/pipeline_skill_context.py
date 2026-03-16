@@ -598,12 +598,20 @@ def emit_result(result: dict, fmt: str) -> None:
     print(json.dumps(result, indent=2, sort_keys=True))
 
 
+_REVIEW_BOARD_CACHE = Path("/tmp/problemreductions-review-board-cache.json")
+_FINAL_REVIEW_BOARD_CACHE = Path("/tmp/problemreductions-final-review-board-cache.json")
+_PROJECT_BOARD_CACHE = Path("/tmp/problemreductions-project-board-cache.json")
+_BOARD_CACHE_MAX_AGE = 120  # seconds — covers multiple calls within one dispatch cycle
+
+
 def fetch_review_candidates(repo: str) -> list[dict]:
     owner = repo.split("/", 1)[0]
     board_data = pipeline_board.fetch_board_items(
         owner,
         PROJECT_BOARD_NUMBER,
         PROJECT_BOARD_LIMIT,
+        cache_file=_REVIEW_BOARD_CACHE,
+        cache_max_age=_BOARD_CACHE_MAX_AGE,
     )
     return pipeline_board.review_candidates(
         board_data,
@@ -664,6 +672,8 @@ def select_final_review_entry(
         owner,
         PROJECT_BOARD_NUMBER,
         PROJECT_BOARD_LIMIT,
+        cache_file=_FINAL_REVIEW_BOARD_CACHE,
+        cache_max_age=_BOARD_CACHE_MAX_AGE,
     )
     return pipeline_board.select_next_entry(
         "final-review",
@@ -980,6 +990,8 @@ def fetch_project_board_data(repo: str) -> dict:
         owner,
         PROJECT_BOARD_NUMBER,
         PROJECT_BOARD_LIMIT,
+        cache_file=_PROJECT_BOARD_CACHE,
+        cache_max_age=_BOARD_CACHE_MAX_AGE,
     )
 
 
