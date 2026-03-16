@@ -3452,6 +3452,100 @@ fn test_create_bare_mis_default_variant() {
     assert_eq!(json["type"], "MaximumIndependentSet");
 }
 
+#[test]
+fn test_create_shortest_weight_constrained_path() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestWeightConstrainedPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4",
+            "--edge-lengths",
+            "2,4,3,1,5,4,2,6",
+            "--edge-weights",
+            "5,1,2,3,2,3,1,1",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "5",
+            "--length-bound",
+            "10",
+            "--weight-bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "ShortestWeightConstrainedPath");
+    assert_eq!(json["data"]["source_vertex"], 0);
+    assert_eq!(json["data"]["target_vertex"], 5);
+    assert_eq!(json["data"]["length_bound"], 10);
+    assert_eq!(json["data"]["weight_bound"], 8);
+}
+
+#[test]
+fn test_create_shortest_weight_constrained_path_missing_source_vertex() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestWeightConstrainedPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4",
+            "--edge-lengths",
+            "2,4,3,1,5,4,2,6",
+            "--edge-weights",
+            "5,1,2,3,2,3,1,1",
+            "--target-vertex",
+            "5",
+            "--length-bound",
+            "10",
+            "--weight-bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--source-vertex"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_shortest_weight_constrained_path_edge_length_count_mismatch() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestWeightConstrainedPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4",
+            "--edge-lengths",
+            "2,4,3,1,5,4,2",
+            "--edge-weights",
+            "5,1,2,3,2,3,1,1",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "5",
+            "--length-bound",
+            "10",
+            "--weight-bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Expected 8 edge length values but got 7"),
+        "stderr: {stderr}"
+    );
+}
+
 // ---- Show JSON includes default annotation ----
 
 #[test]

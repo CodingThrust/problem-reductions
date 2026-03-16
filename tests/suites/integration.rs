@@ -110,6 +110,35 @@ mod all_problems_solvable {
     }
 
     #[test]
+    fn test_shortest_weight_constrained_path_solvable() {
+        let problem = ShortestWeightConstrainedPath::new(
+            SimpleGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (0, 2),
+                    (1, 3),
+                    (2, 3),
+                    (2, 4),
+                    (3, 5),
+                    (4, 5),
+                    (1, 4),
+                ],
+            ),
+            vec![2, 4, 3, 1, 5, 4, 2, 6],
+            vec![5, 1, 2, 3, 2, 3, 1, 1],
+            0,
+            5,
+            10,
+            8,
+        );
+        let solver = BruteForce::new();
+        let solution = solver.find_satisfying(&problem);
+        assert!(solution.is_some());
+        assert!(problem.evaluate(&solution.unwrap()));
+    }
+
+    #[test]
     fn test_satisfiability_solvable() {
         let problem = Satisfiability::new(
             3,

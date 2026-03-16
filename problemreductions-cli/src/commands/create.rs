@@ -25,6 +25,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
     args.graph.is_none()
         && args.weights.is_none()
         && args.edge_weights.is_none()
+        && args.edge_lengths.is_none()
         && args.couplings.is_none()
         && args.fields.is_none()
         && args.clauses.is_none()
@@ -35,6 +36,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.m.is_none()
         && args.n.is_none()
         && args.num_vertices.is_none()
+        && args.source_vertex.is_none()
+        && args.target_vertex.is_none()
         && args.edge_prob.is_none()
         && args.seed.is_none()
         && args.positions.is_none()
@@ -54,6 +57,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.tree.is_none()
         && args.required_edges.is_none()
         && args.bound.is_none()
+        && args.length_bound.is_none()
+        && args.weight_bound.is_none()
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
@@ -229,6 +234,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
+        "ShortestWeightConstrainedPath" => {
+            "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
+        }
         "Satisfiability" => "--num-vars 3 --clauses \"1,2;-1,3\"",
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
@@ -379,6 +387,53 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 anyhow::anyhow!("{e}\n\nUsage: pred create HamiltonianPath --graph 0-1,1-2,2-3")
             })?;
             (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
+        }
+
+        // ShortestWeightConstrainedPath
+        "ShortestWeightConstrainedPath" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
+                )
+            })?;
+            let edge_lengths = parse_edge_lengths(args, graph.num_edges())?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            let source_vertex = args.source_vertex.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ShortestWeightConstrainedPath requires --source-vertex\n\n\
+                     Usage: pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
+                )
+            })?;
+            let target_vertex = args.target_vertex.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ShortestWeightConstrainedPath requires --target-vertex\n\n\
+                     Usage: pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
+                )
+            })?;
+            let length_bound = args.length_bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ShortestWeightConstrainedPath requires --length-bound\n\n\
+                     Usage: pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
+                )
+            })?;
+            let weight_bound = args.weight_bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ShortestWeightConstrainedPath requires --weight-bound\n\n\
+                     Usage: pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
+                )
+            })?;
+            (
+                ser(ShortestWeightConstrainedPath::new(
+                    graph,
+                    edge_lengths,
+                    edge_weights,
+                    source_vertex,
+                    target_vertex,
+                    length_bound,
+                    weight_bound,
+                ))?,
+                resolved_variant.clone(),
+            )
         }
 
         // IsomorphicSpanningTree (graph + tree)
@@ -1298,25 +1353,39 @@ fn parse_vertex_weights(args: &CreateArgs, num_vertices: usize) -> Result<Vec<i3
     }
 }
 
-/// Parse `--edge-weights` as edge weights (i32), defaulting to all 1s.
-fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
-    match &args.edge_weights {
-        Some(w) => {
-            let weights: Vec<i32> = w
+fn parse_i32_edge_values(
+    values: Option<&String>,
+    num_edges: usize,
+    value_label: &str,
+) -> Result<Vec<i32>> {
+    match values {
+        Some(raw) => {
+            let parsed: Vec<i32> = raw
                 .split(',')
                 .map(|s| s.trim().parse::<i32>())
                 .collect::<std::result::Result<Vec<_>, _>>()?;
-            if weights.len() != num_edges {
+            if parsed.len() != num_edges {
                 bail!(
-                    "Expected {} edge weights but got {}",
+                    "Expected {} {} values but got {}",
                     num_edges,
-                    weights.len()
+                    value_label,
+                    parsed.len()
                 );
             }
-            Ok(weights)
+            Ok(parsed)
         }
         None => Ok(vec![1i32; num_edges]),
     }
+}
+
+/// Parse `--edge-weights` as edge weights (i32), defaulting to all 1s.
+fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
+    parse_i32_edge_values(args.edge_weights.as_ref(), num_edges, "edge weight")
+}
+
+/// Parse `--edge-lengths` as edge lengths (i32), defaulting to all 1s.
+fn parse_edge_lengths(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
+    parse_i32_edge_values(args.edge_lengths.as_ref(), num_edges, "edge length")
 }
 
 /// Parse `--couplings` as SpinGlass pairwise couplings (i32), defaulting to all 1s.

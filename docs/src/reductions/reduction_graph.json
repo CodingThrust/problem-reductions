@@ -472,6 +472,16 @@
       "complexity": "alphabet_size ^ bound"
     },
     {
+      "name": "ShortestWeightConstrainedPath",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.ShortestWeightConstrainedPath.html",
+      "complexity": "2^num_edges"
+    },
+    {
       "name": "SpinGlass",
       "variant": {
         "graph": "SimpleGraph",
@@ -549,7 +559,7 @@
     },
     {
       "source": 4,
-      "target": 54,
+      "target": 55,
       "overhead": [
         {
           "field": "num_spins",
@@ -713,7 +723,7 @@
     },
     {
       "source": 21,
-      "target": 56,
+      "target": 57,
       "overhead": [
         {
           "field": "num_elements",
@@ -769,7 +779,7 @@
     },
     {
       "source": 25,
-      "target": 54,
+      "target": 55,
       "overhead": [
         {
           "field": "num_spins",
@@ -1215,7 +1225,7 @@
     },
     {
       "source": 49,
-      "target": 53,
+      "target": 54,
       "overhead": [
         {
           "field": "num_spins",
@@ -1300,7 +1310,7 @@
       "doc_path": "rules/sat_minimumdominatingset/index.html"
     },
     {
-      "source": 53,
+      "source": 54,
       "target": 49,
       "overhead": [
         {
@@ -1311,7 +1321,7 @@
       "doc_path": "rules/spinglass_qubo/index.html"
     },
     {
-      "source": 54,
+      "source": 55,
       "target": 25,
       "overhead": [
         {
@@ -1326,8 +1336,8 @@
       "doc_path": "rules/spinglass_maxcut/index.html"
     },
     {
-      "source": 54,
-      "target": 53,
+      "source": 55,
+      "target": 54,
       "overhead": [
         {
           "field": "num_spins",
@@ -1341,7 +1351,7 @@
       "doc_path": "rules/spinglass_casts/index.html"
     },
     {
-      "source": 57,
+      "source": 58,
       "target": 12,
       "overhead": [
         {
@@ -1356,7 +1366,7 @@
       "doc_path": "rules/travelingsalesman_ilp/index.html"
     },
     {
-      "source": 57,
+      "source": 58,
       "target": 49,
       "overhead": [
         {

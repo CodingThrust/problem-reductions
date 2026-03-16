@@ -216,6 +216,7 @@ TIP: Run `pred create <PROBLEM>` (no other flags) to see problem-specific help.
 Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
   MaxCut, MaxMatching, TSP        --graph, --edge-weights
+  ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --length-bound, --weight-bound
   MaximalIS                       --graph, --weights
   SAT, KSAT                       --num-vars, --clauses [--k]
   QUBO                            --matrix
@@ -286,6 +287,9 @@ pub struct CreateArgs {
     /// Edge weights (e.g., 2,3,1) [default: all 1s]
     #[arg(long)]
     pub edge_weights: Option<String>,
+    /// Edge lengths (e.g., 2,3,1) [default: all 1s]
+    #[arg(long)]
+    pub edge_lengths: Option<String>,
     /// Pairwise couplings J_ij for SpinGlass (e.g., 1,-1,1) [default: all 1s]
     #[arg(long)]
     pub couplings: Option<String>,
@@ -310,6 +314,12 @@ pub struct CreateArgs {
     /// Number of vertices for random graph generation
     #[arg(long)]
     pub num_vertices: Option<usize>,
+    /// Source vertex for path problems
+    #[arg(long)]
+    pub source_vertex: Option<usize>,
+    /// Target vertex for path problems
+    #[arg(long)]
+    pub target_vertex: Option<usize>,
     /// Edge probability for random graph generation (0.0 to 1.0) [default: 0.5]
     #[arg(long)]
     pub edge_prob: Option<f64>,
@@ -376,6 +386,12 @@ pub struct CreateArgs {
     /// Upper bound (for RuralPostman or SCS)
     #[arg(long)]
     pub bound: Option<i64>,
+    /// Upper bound on total path length
+    #[arg(long)]
+    pub length_bound: Option<i32>,
+    /// Upper bound on total path weight
+    #[arg(long)]
+    pub weight_bound: Option<i32>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
     #[arg(long)]
     pub pattern: Option<String>,

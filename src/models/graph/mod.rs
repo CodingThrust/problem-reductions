@@ -16,6 +16,7 @@
 //! - [`TravelingSalesman`]: Traveling Salesman (minimum weight Hamiltonian cycle)
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`HamiltonianPath`]: Hamiltonian path (simple path visiting every vertex)
+//! - [`ShortestWeightConstrainedPath`]: Bicriteria simple s-t path with length and weight bounds
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
 //! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
@@ -41,6 +42,7 @@ pub(crate) mod minimum_vertex_cover;
 pub(crate) mod optimal_linear_arrangement;
 pub(crate) mod partition_into_triangles;
 pub(crate) mod rural_postman;
+pub(crate) mod shortest_weight_constrained_path;
 pub(crate) mod spin_glass;
 pub(crate) mod subgraph_isomorphism;
 pub(crate) mod traveling_salesman;
@@ -63,6 +65,7 @@ pub use minimum_vertex_cover::MinimumVertexCover;
 pub use optimal_linear_arrangement::OptimalLinearArrangement;
 pub use partition_into_triangles::PartitionIntoTriangles;
 pub use rural_postman::RuralPostman;
+pub use shortest_weight_constrained_path::ShortestWeightConstrainedPath;
 pub use spin_glass::SpinGlass;
 pub use subgraph_isomorphism::SubgraphIsomorphism;
 pub use traveling_salesman::TravelingSalesman;
@@ -83,6 +86,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(maximal_is::canonical_model_example_specs());
     specs.extend(minimum_feedback_vertex_set::canonical_model_example_specs());
     specs.extend(minimum_sum_multicenter::canonical_model_example_specs());
+    specs.extend(shortest_weight_constrained_path::canonical_model_example_specs());
     specs.extend(spin_glass::canonical_model_example_specs());
     specs.extend(biclique_cover::canonical_model_example_specs());
     specs.extend(partition_into_triangles::canonical_model_example_specs());

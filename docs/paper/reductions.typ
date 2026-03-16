@@ -67,6 +67,7 @@
   "MaxCut": [Max-Cut],
   "GraphPartitioning": [Graph Partitioning],
   "HamiltonianPath": [Hamiltonian Path],
+  "ShortestWeightConstrainedPath": [Shortest Weight-Constrained Path],
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
   "KColoring": [$k$-Coloring],
   "MinimumDominatingSet": [Minimum Dominating Set],
@@ -628,6 +629,62 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
       },
       caption: [Isomorphic Spanning Tree: the graph $G = K_#nv$ (left) contains a spanning tree isomorphic to the star $S_#(nt - 1)$ (right, blue edges). The identity mapping $pi(u_i) = v_i$ embeds all #t-edges.len() star edges into $G$. Center vertex $v_#(pi.at(0))$ shown in blue.],
       ) <fig:isomorphic-spanning-tree>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("ShortestWeightConstrainedPath")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let lengths = x.instance.edge_lengths
+  let weights = x.instance.edge_weights
+  let s = x.instance.source_vertex
+  let t = x.instance.target_vertex
+  let K = x.instance.length_bound
+  let W = x.instance.weight_bound
+  let sample = x.samples.at(0)
+  let path-config = sample.config
+  let path-edges = edges.enumerate().filter(((idx, _)) => path-config.at(idx) == 1).map(((idx, e)) => e)
+  let path-order = (0, 2, 3, 5)
+  let satisfying-count = x.optimal.len()
+  [
+    #problem-def("ShortestWeightConstrainedPath")[
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$, positive edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, and bounds $K, W in ZZ^+$, determine whether there exists a simple path $P$ from $s$ to $t$ such that $sum_(e in P) l(e) <= K$ and $sum_(e in P) w(e) <= W$.
+    ][
+      Also called the _restricted shortest path_ or _resource-constrained shortest path_ problem. Garey and Johnson list it as ND30 and show NP-completeness via transformation from Partition @garey1979. The model captures bicriteria routing: one resource measures path length or delay, while the other captures a second consumable budget such as cost, risk, or bandwidth. Because pseudo-polynomial dynamic programming formulations are known @joksch1966, the hardness is weak rather than strong; approximation schemes were later developed by Hassin @hassin1992 and improved by Lorenz and Raz @lorenzraz2001.
+
+      The implementation catalog reports the natural brute-force complexity of the edge-subset encoding used here: with $m = |E|$ binary variables, exhaustive search over all candidate subsets costs $O^*(2^m)$. A configuration is satisfying precisely when the selected edges form a single simple $s$-$t$ path and both resource sums stay within their bounds.
+
+      *Example.* Consider the graph on #nv vertices with source $s = v_#s$, target $t = v_#t$, length bound $K = #K$, and weight bound $W = #W$. Edge labels are written as $(l(e), w(e))$. The highlighted path $#path-order.map(v => $v_#v$).join($arrow$)$ uses edges ${#path-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, so its total length is $4 + 1 + 4 = 9 <= #K$ and its total weight is $1 + 3 + 3 = 7 <= #W$. This instance has #satisfying-count satisfying edge selections; another feasible path is $v_0 arrow v_1 arrow v_4 arrow v_5$.
+
+      #figure({
+        let blue = graph-colors.at(0)
+        let gray = luma(200)
+        let verts = ((0, 1), (1.5, 1.8), (1.5, 0.2), (3, 1.8), (3, 0.2), (4.5, 1))
+        canvas(length: 1cm, {
+          import draw: *
+          for (idx, (u, v)) in edges.enumerate() {
+            let on-path = path-config.at(idx) == 1
+            g-edge(verts.at(u), verts.at(v), stroke: if on-path { 2pt + blue } else { 1pt + gray })
+            let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+            let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+            let dx = if idx == 7 { -0.25 } else if idx == 5 or idx == 6 { 0.15 } else { 0 }
+            let dy = if idx == 0 or idx == 2 or idx == 5 { 0.16 } else if idx == 1 or idx == 4 or idx == 6 { -0.16 } else if idx == 7 { 0.12 } else { 0 }
+            draw.content(
+              (mx + dx, my + dy),
+              text(7pt, fill: luma(80))[#("(" + str(int(lengths.at(idx))) + ", " + str(int(weights.at(idx))) + ")")]
+            )
+          }
+          for (k, pos) in verts.enumerate() {
+            let on-path = path-order.any(v => v == k)
+            g-node(pos, name: "v" + str(k),
+              fill: if on-path { blue } else { white },
+              label: if on-path { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+          }
+        })
+      },
+      caption: [Shortest Weight-Constrained Path instance with edge labels $(l(e), w(e))$. The highlighted path $v_0 arrow v_2 arrow v_3 arrow v_5$ satisfies both bounds.],
+      ) <fig:shortest-weight-constrained-path>
     ]
   ]
 }
