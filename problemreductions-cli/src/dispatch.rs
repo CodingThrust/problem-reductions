@@ -81,9 +81,7 @@ impl LoadedProblem {
 
         let reduction_path = best_path.ok_or_else(|| {
             anyhow::anyhow!(
-                "No reduction path from {} to ILP\n\n\
-                 Hint: try --solver brute-force for exhaustive search on small instances:\n  \
-                 pred solve <file> --solver brute-force",
+                "No reduction path from {} to ILP. Try `--solver brute-force`, or reduce to a problem that supports ILP.",
                 name
             )
         })?;
