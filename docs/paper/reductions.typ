@@ -1864,24 +1864,41 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   ) <fig:flowshop>
 ]
 
-#problem-def("SequencingWithinIntervals")[
-  Given a finite set $T$ of tasks and, for each $t in T$, a release time $r(t) >= 0$, a deadline $d(t) >= 0$, and a processing length $ell(t) in ZZ^+$ satisfying $r(t) + ell(t) <= d(t)$, determine whether there exists a feasible schedule $sigma: T -> ZZ_(>= 0)$ such that for each $t in T$: (1) $sigma(t) >= r(t)$, (2) $sigma(t) + ell(t) <= d(t)$, and (3) for all $t' in T backslash {t}$, either $sigma(t') + ell(t') <= sigma(t)$ or $sigma(t') >= sigma(t) + ell(t)$.
-][
-  Sequencing Within Intervals is problem SS1 in Garey & Johnson @garey1979, proved NP-complete via reduction from Partition (Theorem 3.8). Each task $t$ must execute non-preemptively during the interval $[r(t), d(t))$, occupying $ell(t)$ consecutive time units, and no two tasks may overlap. The problem is a canonical single-machine scheduling problem and one of the earliest NP-completeness results for scheduling theory.
+#{
+  let x = load-model-example("SequencingWithinIntervals")
+  let ntasks = x.instance.lengths.len()
+  let release = x.instance.release_times
+  let deadline = x.instance.deadlines
+  let lengths = x.instance.lengths
+  let sol = x.optimal.at(0)
+  // Compute start times from config offsets: start_i = release_i + config_i
+  let starts = range(ntasks).map(i => release.at(i) + sol.config.at(i))
+  // Identify the enforcer task: the one with the tightest window (deadline - release == length)
+  let enforcer = range(ntasks).filter(i => deadline.at(i) - release.at(i) == lengths.at(i)).at(0)
+  let regular = range(ntasks).filter(i => i != enforcer)
+  // Partition sum B = total length of regular tasks
+  let B = regular.map(i => lengths.at(i)).sum()
+  [
+    #problem-def("SequencingWithinIntervals")[
+      Given a finite set $T$ of tasks and, for each $t in T$, a release time $r(t) >= 0$, a deadline $d(t) >= 0$, and a processing length $ell(t) in ZZ^+$ satisfying $r(t) + ell(t) <= d(t)$, determine whether there exists a feasible schedule $sigma: T -> ZZ_(>= 0)$ such that for each $t in T$: (1) $sigma(t) >= r(t)$, (2) $sigma(t) + ell(t) <= d(t)$, and (3) for all $t' in T backslash {t}$, either $sigma(t') + ell(t') <= sigma(t)$ or $sigma(t') >= sigma(t) + ell(t)$.
+    ][
+      Sequencing Within Intervals is problem SS1 in Garey & Johnson @garey1979, proved NP-complete via reduction from Partition (Theorem 3.8). Each task $t$ must execute non-preemptively during the interval $[r(t), d(t))$, occupying $ell(t)$ consecutive time units, and no two tasks may overlap. The problem is a canonical single-machine scheduling problem and one of the earliest NP-completeness results for scheduling theory.
 
-  The NP-completeness proof uses an "enforcer" task pinned at the midpoint of the time horizon, forcing the remaining tasks to split into two balanced groups --- directly encoding the Partition problem.
+      The NP-completeness proof uses an "enforcer" task pinned at the midpoint of the time horizon, forcing the remaining tasks to split into two balanced groups --- directly encoding the Partition problem.
 
-  *Example.* Consider 5 tasks derived from a Partition instance with $A = {3, 1, 2, 4}$ (sum $B = 10$):
-  #align(center, table(
-    columns: 6,
-    align: center,
-    table.header[$"Task"$][$t_1$][$t_2$][$t_3$][$t_4$][$overline(t)$],
-    [$r(t)$], [0], [0], [0], [0], [5],
-    [$d(t)$], [11], [11], [11], [11], [6],
-    [$ell(t)$], [3], [1], [2], [4], [1],
-  ))
-  The enforcer task $overline(t)$ must run in $[5, 6)$, splitting the schedule into $[0, 5)$ and $[6, 11)$. Each side has 5 time units, and tasks with total length $5$ must fill each side --- corresponding to a partition of $A$.
-]
+      *Example.* Consider #ntasks tasks derived from a Partition instance with $A = {#regular.map(i => str(lengths.at(i))).join(", ")}$ (sum $B = #B$):
+      #align(center, table(
+        columns: ntasks + 1,
+        align: center,
+        table.header([$"Task"$], ..regular.map(i => [$t_#(i + 1)$]), [$overline(t)$]),
+        [$r(t)$], ..regular.map(i => [#release.at(i)]), [#release.at(enforcer)],
+        [$d(t)$], ..regular.map(i => [#deadline.at(i)]), [#deadline.at(enforcer)],
+        [$ell(t)$], ..regular.map(i => [#lengths.at(i)]), [#lengths.at(enforcer)],
+      ))
+      The enforcer task $overline(t)$ must run in $[#release.at(enforcer), #deadline.at(enforcer))$, splitting the schedule into $[0, #release.at(enforcer))$ and $[#deadline.at(enforcer), #deadline.at(0))$. Each side has #(B / 2) time units, and tasks with total length $#(B / 2)$ must fill each side --- corresponding to a partition of $A$.
+    ]
+  ]
+}
 #{
   let x = load-model-example("MinimumTardinessSequencing")
   let ntasks = x.instance.num_tasks
