@@ -233,7 +233,6 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<Vec<usize>>" => "semicolon-separated lists: \"0,1;2,3\"",
         "usize" => "integer",
         "u64" => "integer",
-        "Vec<u64>" => "comma-separated integers: 0,0,5",
         "i64" => "integer",
         "BigUint" => "nonnegative decimal integer",
         "Vec<BigUint>" => "comma-separated nonnegative decimal integers: 3,7,1,8",
