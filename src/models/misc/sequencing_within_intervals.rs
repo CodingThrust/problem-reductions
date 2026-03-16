@@ -147,11 +147,9 @@ impl Problem for SequencingWithinIntervals {
             if c >= dim {
                 return false;
             }
+            // start = r[i] + c, and c < dim = d[i] - r[i] - l[i] + 1,
+            // so start + l[i] <= d[i] is guaranteed by construction.
             let start = self.release_times[i] + c as u64;
-            // Check task finishes by deadline (should hold by construction)
-            if start + self.lengths[i] > self.deadlines[i] {
-                return false;
-            }
             starts.push(start);
         }
 
