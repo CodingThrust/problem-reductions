@@ -687,6 +687,105 @@ fn test_create_sat() {
 }
 
 #[test]
+fn test_create_multiple_choice_branching() {
+    let output_file = std::env::temp_dir().join("pred_test_create_mcb.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MultipleChoiceBranching/i32",
+            "--arcs",
+            "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
+            "--weights",
+            "3,2,4,1,2,3,1,3",
+            "--partition",
+            "0,1;2,3;4,7;5,6",
+            "--bound",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MultipleChoiceBranching");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["weights"], serde_json::json!([3, 2, 4, 1, 2, 3, 1, 3]));
+    assert_eq!(
+        json["data"]["partition"],
+        serde_json::json!([[0, 1], [2, 3], [4, 7], [5, 6]])
+    );
+    assert_eq!(json["data"]["threshold"], 10);
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_model_example_multiple_choice_branching() {
+    let output = pred()
+        .args(["create", "--example", "MultipleChoiceBranching/i32"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MultipleChoiceBranching");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["threshold"], 10);
+    assert_eq!(json["data"]["partition"].as_array().unwrap().len(), 4);
+}
+
+#[test]
+fn test_create_model_example_multiple_choice_branching_round_trips_into_solve() {
+    let path = std::env::temp_dir().join(format!(
+        "pred_test_model_example_mcb_{}.json",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let create = pred()
+        .args([
+            "create",
+            "--example",
+            "MultipleChoiceBranching/i32",
+            "-o",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create.stderr)
+    );
+
+    let solve = pred()
+        .args(["solve", path.to_str().unwrap(), "--solver", "brute-force"])
+        .output()
+        .unwrap();
+    assert!(
+        solve.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&solve.stderr)
+    );
+
+    std::fs::remove_file(&path).ok();
+}
+
+#[test]
 fn test_create_qubo() {
     let output_file = std::env::temp_dir().join("pred_test_create_qubo.json");
     let output = pred()
@@ -2267,6 +2366,56 @@ fn test_create_pipe_to_solve() {
     );
     let stdout = String::from_utf8(solve_result.stdout).unwrap();
     // auto_json: data commands output JSON when stdout is not a TTY
+    assert!(
+        stdout.contains("\"solution\""),
+        "stdout should contain solution, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_create_multiple_choice_branching_pipe_to_solve() {
+    let create_out = pred()
+        .args([
+            "create",
+            "MultipleChoiceBranching/i32",
+            "--arcs",
+            "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
+            "--weights",
+            "3,2,4,1,2,3,1,3",
+            "--partition",
+            "0,1;2,3;4,7;5,6",
+            "--bound",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    use std::io::Write;
+    let mut child = pred()
+        .args(["solve", "-", "--solver", "brute-force"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&create_out.stdout)
+        .unwrap();
+    let solve_result = child.wait_with_output().unwrap();
+    assert!(
+        solve_result.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&solve_result.stderr)
+    );
+    let stdout = String::from_utf8(solve_result.stdout).unwrap();
     assert!(
         stdout.contains("\"solution\""),
         "stdout should contain solution, got: {stdout}"

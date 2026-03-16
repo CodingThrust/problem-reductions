@@ -499,6 +499,32 @@
     ]
   },
   {
+    "name": "MultipleChoiceBranching",
+    "description": "Find a branching with partition constraints and weight at least K",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "DirectedGraph",
+        "description": "The directed graph G=(V,A)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Arc weights w(a) for each arc a in A"
+      },
+      {
+        "name": "partition",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Partition of arc indices; each arc index must appear in exactly one group"
+      },
+      {
+        "name": "threshold",
+        "type_name": "W::Sum",
+        "description": "Weight threshold K"
+      }
+    ]
+  },
+  {
     "name": "OptimalLinearArrangement",
     "description": "Find a vertex ordering on a line with total edge length at most K",
     "fields": [
