@@ -12,17 +12,17 @@ pub mod set;
 pub use algebraic::{ClosestVectorProblem, BMF, ILP, QUBO};
 pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
-    BicliqueCover, DirectedTwoCommodityIntegralFlow, GraphPartitioning, HamiltonianPath,
-    IsomorphicSpanningTree, KColoring, LengthBoundedDisjointPaths, MaxCut, MaximalIS,
-    MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
-    MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumSumMulticenter, MinimumVertexCover,
-    MultipleChoiceBranching, OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman,
-    SpinGlass, SteinerTree, SubgraphIsomorphism, TravelingSalesman,
-    UndirectedTwoCommodityIntegralFlow,
+    BicliqueCover, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
+    GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, KColoring,
+    LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
+    MaximumMatching, MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
+    MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching, OptimalLinearArrangement,
+    PartitionIntoTriangles, RuralPostman, SpinGlass, SteinerTree, SubgraphIsomorphism,
+    TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::{
     BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
     MinimumTardinessSequencing, PaintShop, SchedulingWithIndividualDeadlines,
-    ShortestCommonSupersequence, SubsetSum,
+    SequencingWithinIntervals, ShortestCommonSupersequence, SubsetSum,
 };
 pub use set::{ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis};
