@@ -514,6 +514,13 @@
       "category": "graph",
       "doc_path": "models/graph/struct.TravelingSalesman.html",
       "complexity": "2^num_vertices"
+    },
+    {
+      "name": "UndirectedTwoCommodityIntegralFlow",
+      "variant": {},
+      "category": "graph",
+      "doc_path": "models/graph/struct.UndirectedTwoCommodityIntegralFlow.html",
+      "complexity": "5^num_edges"
     }
   ],
   "edges": [

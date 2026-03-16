@@ -308,6 +308,14 @@ mod tests {
     }
 
     #[test]
+    fn test_resolve_alias_pass_through_undirected_two_commodity_integral_flow() {
+        assert_eq!(
+            resolve_alias("UndirectedTwoCommodityIntegralFlow"),
+            "UndirectedTwoCommodityIntegralFlow"
+        );
+    }
+
+    #[test]
     fn test_parse_problem_spec_ksat_alias() {
         let spec = parse_problem_spec("KSAT").unwrap();
         assert_eq!(spec.name, "KSatisfiability");

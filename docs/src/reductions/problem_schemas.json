@@ -683,5 +683,51 @@
         "description": "Edge weights w: E -> R"
       }
     ]
+  },
+  {
+    "name": "UndirectedTwoCommodityIntegralFlow",
+    "description": "Determine whether two integral commodities can satisfy sink demands in an undirected capacitated graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "SimpleGraph",
+        "description": "Undirected graph G=(V,E)"
+      },
+      {
+        "name": "capacities",
+        "type_name": "Vec<u64>",
+        "description": "Edge capacities c(e) in graph edge order"
+      },
+      {
+        "name": "source_1",
+        "type_name": "usize",
+        "description": "Source vertex s_1 for commodity 1"
+      },
+      {
+        "name": "sink_1",
+        "type_name": "usize",
+        "description": "Sink vertex t_1 for commodity 1"
+      },
+      {
+        "name": "source_2",
+        "type_name": "usize",
+        "description": "Source vertex s_2 for commodity 2"
+      },
+      {
+        "name": "sink_2",
+        "type_name": "usize",
+        "description": "Sink vertex t_2 for commodity 2"
+      },
+      {
+        "name": "requirement_1",
+        "type_name": "u64",
+        "description": "Required net inflow R_1 at sink t_1"
+      },
+      {
+        "name": "requirement_2",
+        "type_name": "u64",
+        "description": "Required net inflow R_2 at sink t_2"
+      }
+    ]
   }
 ]

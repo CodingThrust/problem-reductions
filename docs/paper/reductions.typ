@@ -67,6 +67,7 @@
   "MaxCut": [Max-Cut],
   "GraphPartitioning": [Graph Partitioning],
   "HamiltonianPath": [Hamiltonian Path],
+  "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
   "KColoring": [$k$-Coloring],
   "MinimumDominatingSet": [Minimum Dominating Set],
@@ -570,6 +571,57 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
       },
       caption: [Hamiltonian Path in a #{nv}-vertex graph. Blue edges show the path $#path.map(v => $v_#v$).join($arrow$)$.],
       ) <fig:hamiltonian-path>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("UndirectedTwoCommodityIntegralFlow")
+  let sample = x.samples.at(0)
+  let satisfying_count = x.optimal.len()
+  let source1 = x.instance.source_1
+  let source2 = x.instance.source_2
+  let sink1 = x.instance.sink_1
+  [
+    #problem-def("UndirectedTwoCommodityIntegralFlow")[
+      Given an undirected graph $G = (V, E)$, specified terminals $s_1, s_2, t_1, t_2 in V$, edge capacities $c: E -> ZZ^+$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2$ that orient each used edge for each commodity, respect the shared edge capacities, conserve flow at every vertex in $V backslash {s_1, s_2, t_1, t_2}$, and deliver at least $R_i$ units of net flow into $t_i$ for each commodity $i in {1, 2}$.
+    ][
+      Undirected Two-Commodity Integral Flow is the undirected counterpart of the classical two-commodity integral flow problem from Garey \& Johnson (ND39) @garey1979. Even, Itai, and Shamir proved that it remains NP-complete even when every capacity is 1, but becomes polynomial-time solvable when all capacities are even, giving a rare parity-driven complexity dichotomy @evenItaiShamir1976.
+
+      The implementation uses four variables per undirected edge ${u, v}$: $f_1(u, v)$, $f_1(v, u)$, $f_2(u, v)$, and $f_2(v, u)$. In the unit-capacity regime, each edge has exactly five meaningful local states: unused, commodity 1 in either direction, or commodity 2 in either direction, which matches the catalog bound $O(5^m)$ for $m = |E|$.
+
+      *Example.* Consider the graph with edges $(0, 2)$, $(1, 2)$, and $(2, 3)$, capacities $(1, 1, 2)$, sources $s_1 = v_#source1$, $s_2 = v_#source2$, and shared sink $t_1 = t_2 = v_#sink1$. The sample configuration in the fixture database sets $f_1(0, 2) = 1$, $f_2(1, 2) = 1$, and $f_1(2, 3) = f_2(2, 3) = 1$, with all reverse-direction variables zero. The only nonterminal vertex is $v_2$, where each commodity has one unit of inflow and one unit of outflow, so conservation holds. Vertex $v_3$ receives one unit of net inflow from each commodity, and the shared edge $(2,3)$ uses its full capacity 2. The fixture database contains exactly #satisfying_count satisfying configurations for this instance: the one shown below and the symmetric variant that swaps which commodity uses the two left edges.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let teal = rgb("#76b7b2")
+          let gray = luma(190)
+          let verts = ((0, 1.2), (0, -1.2), (2.0, 0), (4.0, 0))
+          let labels = (
+            [$s_1 = v_0$],
+            [$s_2 = v_1$],
+            [$v_2$],
+            [$t_1 = t_2 = v_3$],
+          )
+          let edges = ((0, 2), (1, 2), (2, 3))
+          for (u, v) in edges {
+            g-edge(verts.at(u), verts.at(v), stroke: 1pt + gray)
+          }
+          g-edge(verts.at(0), verts.at(2), stroke: 1.8pt + blue)
+          g-edge(verts.at(1), verts.at(2), stroke: (paint: teal, thickness: 1.8pt, dash: "dashed"))
+          g-edge(verts.at(2), verts.at(3), stroke: 1.8pt + blue)
+          g-edge(verts.at(2), verts.at(3), stroke: (paint: teal, thickness: 1.8pt, dash: "dashed"))
+          for (i, pos) in verts.enumerate() {
+            let fill = if i == 0 { blue } else if i == 1 { teal } else if i == 3 { rgb("#e15759") } else { white }
+            g-node(pos, name: "utcif-" + str(i), fill: fill, label: if i == 2 { labels.at(i) } else { text(fill: white)[#labels.at(i)] })
+          }
+          content((1.0, 0.95), text(8pt, fill: gray)[$c = 1$])
+          content((1.0, -0.95), text(8pt, fill: gray)[$c = 1$])
+          content((3.0, 0.35), text(8pt, fill: gray)[$c = 2$])
+        }),
+        caption: [Canonical shared-capacity YES instance for Undirected Two-Commodity Integral Flow. Solid blue carries commodity 1 and dashed teal carries commodity 2; both commodities share the edge $(v_2, v_3)$ of capacity 2.],
+      ) <fig:undirected-two-commodity-integral-flow>
     ]
   ]
 }

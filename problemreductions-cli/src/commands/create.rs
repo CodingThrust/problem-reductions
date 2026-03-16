@@ -25,6 +25,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
     args.graph.is_none()
         && args.weights.is_none()
         && args.edge_weights.is_none()
+        && args.capacities.is_none()
         && args.couplings.is_none()
         && args.fields.is_none()
         && args.clauses.is_none()
@@ -39,6 +40,12 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.seed.is_none()
         && args.positions.is_none()
         && args.radius.is_none()
+        && args.source_1.is_none()
+        && args.sink_1.is_none()
+        && args.source_2.is_none()
+        && args.sink_2.is_none()
+        && args.requirement_1.is_none()
+        && args.requirement_2.is_none()
         && args.sizes.is_none()
         && args.capacity.is_none()
         && args.sequence.is_none()
@@ -193,11 +200,13 @@ fn create_from_example(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
     match type_name {
+        "SimpleGraph" => "edge list: 0-1,1-2,2-3",
         "G" => match graph_type {
             Some("KingsSubgraph" | "TriangularSubgraph") => "integer positions: \"0,0;1,0;1,1\"",
             Some("UnitDiskGraph") => "float positions: \"0.0,0.0;1.0,0.0\"",
             _ => "edge list: 0-1,1-2,2-3",
         },
+        "Vec<u64>" => "comma-separated integers: 1,1,2",
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
@@ -225,6 +234,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         },
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
+        "UndirectedTwoCommodityIntegralFlow" => {
+            "--graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1"
+        }
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
@@ -379,6 +391,48 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 anyhow::anyhow!("{e}\n\nUsage: pred create HamiltonianPath --graph 0-1,1-2,2-3")
             })?;
             (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
+        }
+
+        // UndirectedTwoCommodityIntegralFlow (graph + capacities + terminals + requirements)
+        "UndirectedTwoCommodityIntegralFlow" => {
+            let usage = "Usage: pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities = parse_capacities(args, graph.num_edges())?;
+            let source_1 = args.source_1.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --source-1\n\n{usage}")
+            })?;
+            let sink_1 = args.sink_1.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --sink-1\n\n{usage}")
+            })?;
+            let source_2 = args.source_2.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --source-2\n\n{usage}")
+            })?;
+            let sink_2 = args.sink_2.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --sink-2\n\n{usage}")
+            })?;
+            let requirement_1 = args.requirement_1.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "UndirectedTwoCommodityIntegralFlow requires --requirement-1\n\n{usage}"
+                )
+            })?;
+            let requirement_2 = args.requirement_2.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "UndirectedTwoCommodityIntegralFlow requires --requirement-2\n\n{usage}"
+                )
+            })?;
+            (
+                ser(UndirectedTwoCommodityIntegralFlow::new(
+                    graph,
+                    capacities,
+                    source_1,
+                    sink_1,
+                    source_2,
+                    sink_2,
+                    requirement_1,
+                    requirement_2,
+                ))?,
+                resolved_variant.clone(),
+            )
         }
 
         // IsomorphicSpanningTree (graph + tree)
@@ -1317,6 +1371,25 @@ fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
         }
         None => Ok(vec![1i32; num_edges]),
     }
+}
+
+/// Parse `--capacities` as edge capacities (u64).
+fn parse_capacities(args: &CreateArgs, num_edges: usize) -> Result<Vec<u64>> {
+    let capacities = args.capacities.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --capacities")
+    })?;
+    let capacities: Vec<u64> = capacities
+        .split(',')
+        .map(|s| s.trim().parse::<u64>())
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    if capacities.len() != num_edges {
+        bail!(
+            "Expected {} capacities but got {}",
+            num_edges,
+            capacities.len()
+        );
+    }
+    Ok(capacities)
 }
 
 /// Parse `--couplings` as SpinGlass pairwise couplings (i32), defaulting to all 1s.

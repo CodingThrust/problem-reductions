@@ -53,6 +53,7 @@ pub mod prelude {
         MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
         MinimumSumMulticenter, MinimumVertexCover, OptimalLinearArrangement,
         PartitionIntoTriangles, RuralPostman, TravelingSalesman,
+        UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
         BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
