@@ -3329,6 +3329,22 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Collect pairs $(j_1, j_2)$ with $m_(j_1, j_2) = 1$, sort by $j_1$, and read the characters.
 ]
 
+#reduction-rule("MinimumMultiwayCut", "ILP")[
+  The vertex-assignment + edge-cut indicator formulation @chopra1996 introduces binary variables for vertex-to-component membership and edge-cut indicators. Terminal vertices are fixed to their own components, partition constraints ensure every vertex belongs to exactly one component, and linking inequalities force the cut indicator on whenever an edge's endpoints are in different components.
+][
+  _Construction._ Given graph $G = (V, E, w)$ with $n = |V|$ vertices, $m = |E|$ edges, edge weights $w_e > 0$, and $k$ terminals $T = {t_0, dots, t_(k-1)}$:
+
+  _Variables:_ (1) $y_(i v) in {0, 1}$ for $i in {0, dots, k-1}$, $v in V$: vertex $v$ belongs to the component of terminal $t_i$. (2) $x_e in {0, 1}$ for $e in E$: edge $e$ is in the cut. Total: $k n + m$ variables.
+
+  _Constraints:_ (1) Terminal fixing: $y_(i, t_i) = 1$ for each $i$ (terminal $t_i$ is in its own component); $y_(j, t_i) = 0$ for $j eq.not i$ (each terminal excluded from other components). (2) Partition: $sum_(i=0)^(k-1) y_(i v) = 1$ for each $v in V$ (each vertex in exactly one component). (3) Edge-cut linking: for each edge $e = (u, v)$ and each terminal $i$: $x_e gt.eq y_(i u) - y_(i v)$ and $x_e gt.eq y_(i v) - y_(i u)$ (force $x_e = 1$ when endpoints are in different components). Total: $k^2 + n + 2 k m$ constraints.
+
+  _Objective:_ Minimize $sum_(e in E) w_e dot x_e$.
+
+  _Correctness._ ($arrow.r.double$) A multiway cut $C$ partitions $V$ into $k$ components, one per terminal. Setting $y_(i v) = 1$ iff $v$ is in $t_i$'s component and $x_e = 1$ iff $e in C$ satisfies all constraints: partition by construction, terminal fixing by definition, and linking because any edge with endpoints in different components is in $C$. The objective equals the cut weight. ($arrow.l.double$) Any feasible ILP solution defines a valid partition (by constraint (2)) separating all terminals (by constraint (1)). The linking constraints (3) force $x_e = 1$ for all cross-component edges, so the objective is at least the multiway cut weight; minimization ensures optimality.
+
+  _Solution extraction._ For each edge $e$ at index $"idx"$, read $x_e = x^*_(k n + "idx"))$. The source configuration is $"config"[e] = x_e$ (1 = cut, 0 = keep).
+]
+
 == Unit Disk Mapping
 
 #reduction-rule("MaximumIndependentSet", "KingsSubgraph")[

@@ -1266,6 +1266,21 @@
       "doc_path": "rules/minimumdominatingset_ilp/index.html"
     },
     {
+      "source": 47,
+      "target": 16,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_terminals * num_vertices + num_edges"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_vertices + 2 * num_terminals * num_edges + num_terminals * num_terminals"
+        }
+      ],
+      "doc_path": "rules/minimummultiwaycut_ilp/index.html"
+    },
+    {
       "source": 48,
       "target": 16,
       "overhead": [
