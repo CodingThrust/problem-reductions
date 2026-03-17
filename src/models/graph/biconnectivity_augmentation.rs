@@ -4,7 +4,7 @@
 //! adding some subset of the potential edges can make the graph biconnected
 //! without exceeding the budget.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::types::WeightElement;
@@ -15,6 +15,12 @@ use std::collections::BTreeSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "BiconnectivityAugmentation",
+        display_name: "Biconnectivity Augmentation",
+        aliases: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Add weighted potential edges to make a graph biconnected within budget",
         fields: &[
@@ -254,22 +260,42 @@ fn is_biconnected<G: Graph>(graph: &G) -> bool {
 }
 
 crate::declare_variants! {
-    BiconnectivityAugmentation<SimpleGraph, i32> => "2^num_potential_edges",
+    default sat BiconnectivityAugmentation<SimpleGraph, i32> => "2^num_potential_edges",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "biconnectivity_augmentation",
+        build: || {
+            let problem = BiconnectivityAugmentation::new(
+                SimpleGraph::path(6),
+                vec![
+                    (0, 2, 1),
+                    (0, 3, 2),
+                    (0, 4, 3),
+                    (1, 3, 1),
+                    (1, 4, 2),
+                    (1, 5, 3),
+                    (2, 4, 1),
+                    (2, 5, 2),
+                    (3, 5, 1),
+                ],
+                4,
+            );
+            crate::example_db::specs::satisfaction_example(
+                problem,
+                vec![vec![1, 0, 0, 1, 0, 0, 1, 0, 1]],
+            )
+        },
+    }]
 }
 
 #[cfg(test)]
-pub(crate) struct BiconnectivityAugmentationExample {
-    pub(crate) graph: SimpleGraph,
-    pub(crate) potential_edges: Vec<(usize, usize, i32)>,
-    pub(crate) budget: i32,
-    pub(crate) satisfying_config: Vec<usize>,
-}
-
-#[cfg(test)]
-pub(crate) fn canonical_model_example_specs() -> BiconnectivityAugmentationExample {
-    BiconnectivityAugmentationExample {
-        graph: SimpleGraph::path(6),
-        potential_edges: vec![
+pub(crate) fn example_instance() -> BiconnectivityAugmentation<SimpleGraph, i32> {
+    BiconnectivityAugmentation::new(
+        SimpleGraph::path(6),
+        vec![
             (0, 2, 1),
             (0, 3, 2),
             (0, 4, 3),
@@ -280,9 +306,8 @@ pub(crate) fn canonical_model_example_specs() -> BiconnectivityAugmentationExamp
             (2, 5, 2),
             (3, 5, 1),
         ],
-        budget: 4,
-        satisfying_config: vec![1, 0, 0, 1, 0, 0, 1, 0, 1],
-    }
+        4,
+    )
 }
 
 #[cfg(test)]

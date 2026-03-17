@@ -220,6 +220,47 @@ impl ReduceTo<ILP<bool>> for CircuitSAT {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::models::formula::{Assignment, BooleanExpr, Circuit};
+
+    fn full_adder_circuit_sat() -> CircuitSAT {
+        let circuit = Circuit::new(vec![
+            Assignment::new(
+                vec!["t".to_string()],
+                BooleanExpr::xor(vec![BooleanExpr::var("a"), BooleanExpr::var("b")]),
+            ),
+            Assignment::new(
+                vec!["sum".to_string()],
+                BooleanExpr::xor(vec![BooleanExpr::var("t"), BooleanExpr::var("cin")]),
+            ),
+            Assignment::new(
+                vec!["ab".to_string()],
+                BooleanExpr::and(vec![BooleanExpr::var("a"), BooleanExpr::var("b")]),
+            ),
+            Assignment::new(
+                vec!["cin_t".to_string()],
+                BooleanExpr::and(vec![BooleanExpr::var("cin"), BooleanExpr::var("t")]),
+            ),
+            Assignment::new(
+                vec!["cout".to_string()],
+                BooleanExpr::or(vec![BooleanExpr::var("ab"), BooleanExpr::var("cin_t")]),
+            ),
+        ]);
+        CircuitSAT::new(circuit)
+    }
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "circuitsat_to_ilp",
+        build: || {
+            crate::example_db::specs::direct_best_example::<_, crate::models::algebraic::ILP<bool>, _>(
+                full_adder_circuit_sat(),
+                crate::example_db::specs::keep_bool_source,
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/circuit_ilp.rs"]
 mod tests;

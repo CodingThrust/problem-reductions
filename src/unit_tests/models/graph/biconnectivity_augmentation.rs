@@ -109,21 +109,30 @@ fn test_biconnectivity_augmentation_no_solution() {
 
 #[test]
 fn test_biconnectivity_augmentation_paper_example() {
-    let example = canonical_model_example_specs();
-    let problem = BiconnectivityAugmentation::new(
-        example.graph.clone(),
-        example.potential_edges.clone(),
-        example.budget,
-    );
+    let problem = example_instance();
     let solver = BruteForce::new();
+    let satisfying_config = vec![1, 0, 0, 1, 0, 0, 1, 0, 1];
     let satisfying_solutions = solver.find_all_satisfying(&problem);
 
-    assert!(problem.evaluate(&example.satisfying_config));
-    assert!(satisfying_solutions.contains(&example.satisfying_config));
+    assert!(problem.evaluate(&satisfying_config));
+    assert!(satisfying_solutions.contains(&satisfying_config));
 
-    let over_budget_problem =
-        BiconnectivityAugmentation::new(example.graph, example.potential_edges, 3);
-    assert!(!over_budget_problem.evaluate(&example.satisfying_config));
+    let over_budget_problem = BiconnectivityAugmentation::new(
+        SimpleGraph::path(6),
+        vec![
+            (0, 2, 1),
+            (0, 3, 2),
+            (0, 4, 3),
+            (1, 3, 1),
+            (1, 4, 2),
+            (1, 5, 3),
+            (2, 4, 1),
+            (2, 5, 2),
+            (3, 5, 1),
+        ],
+        3,
+    );
+    assert!(!over_budget_problem.evaluate(&satisfying_config));
     assert!(solver.find_satisfying(&over_budget_problem).is_none());
 }
 

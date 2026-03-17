@@ -7,10 +7,21 @@ assignees: ''
 
 ---
 
-**Source:** <!-- e.g. MaximumIndependentSet. Browse existing problems: https://codingthrust.github.io/problem-reductions/ -->
-**Target:** <!-- e.g. QUBO -->
-**Motivation:** <!-- One sentence: why is this reduction useful? E.g. "Enables solving MIS on quantum annealers via QUBO formulation." -->
-**Reference:** <!-- URL, paper, or textbook citation for this reduction -->
+## Source
+<!-- e.g. MaximumIndependentSet. Browse existing problems: https://codingthrust.github.io/problem-reductions/ -->
+
+## Target
+<!-- e.g. QUBO -->
+
+## Motivation
+<!-- Why is this reduction useful? E.g.
+- Connects orphan problem X to the main reduction graph
+- Enables solving X on quantum annealers via QUBO formulation
+- Well-known textbook reduction (Garey & Johnson, Karp's 21, etc.)
+-->
+
+## Reference
+<!-- Author(s), title, journal/conference, year, and URL or DOI -->
 
 ## Reduction Algorithm
 
@@ -27,13 +38,12 @@ Solution extraction follows from the variable mapping, no need to describe separ
 ## Size Overhead
 
 <!-- How large is the target instance relative to the source size?
-Use the symbols defined in the Reduction Algorithm above.
-Also provide the code-level metric name (matching the problem's inherent getter methods, e.g., num_vertices, num_edges). -->
+Use the symbols defined in the Reduction Algorithm above. -->
 
-| Target metric (code name) | Polynomial (using symbols above) |
-|----------------------------|----------------------------------|
-| <!-- e.g. num_vars --> | <!-- e.g. n = |V| --> |
-| <!-- e.g. num_edges --> | <!-- e.g. m = |E| --> |
+| Target metric | Formula (using symbols above) |
+|---------------|-------------------------------|
+| <!-- e.g. number of variables --> | <!-- e.g. n = |V| --> |
+| <!-- e.g. number of edges --> | <!-- e.g. m = |E| --> |
 
 ## Validation Method
 
@@ -46,11 +56,31 @@ E.g.
 
 ## Example
 
-<!-- A small but non-trivial source instance for the paper illustration.
-Must be small enough for brute-force solving, but large enough to exercise the reduction meaningfully. E.g. "petersen graph: |V|=10, |E|=15, 3-regular" should be perfect.
+<!-- A small but non-trivial worked example for the paper illustration.
+Structure your example as follows:
+
+1. **Source instance:** Describe the input (e.g. graph, formula, sequence).
+2. **Construction:** Show how each step of the reduction algorithm transforms it.
+3. **Target instance:** Show the resulting target problem data (e.g. QUBO matrix, ILP constraints).
+
+Must be small enough for brute-force solving, but large enough to exercise the reduction meaningfully.
 Please provide as many details as possible, because
 1. this example will appear in the paper.
-2. AI needs this information to generate example code, run it, and try to compare with what you provided.
+2. AI needs this information to generate example code and derive round-trip tests from it. You do **not** need to provide a solved witness manually.
 
 Please check existing examples in our paper for references.
+-->
+
+## BibTeX
+
+<!-- Machine-readable citation for the reference above. E.g.
+```bibtex
+@article{Author2021,
+  title={Paper title},
+  author={Last, First and Last, First},
+  journal={Journal Name},
+  year={2021},
+  doi={10.xxxx/xxxxx}
+}
+```
 -->

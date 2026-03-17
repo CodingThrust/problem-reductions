@@ -1,12 +1,21 @@
-use crate::cli::CreateArgs;
+use crate::cli::{CreateArgs, ExampleSide};
 use crate::dispatch::ProblemJsonOutput;
 use crate::output::OutputConfig;
-use crate::problem_name::{parse_problem_spec, resolve_variant};
+use crate::problem_name::{
+    parse_problem_spec, resolve_catalog_problem_ref, resolve_problem_ref, unknown_problem_error,
+};
 use crate::util;
 use anyhow::{bail, Context, Result};
+use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
-use problemreductions::models::graph::GraphPartitioning;
-use problemreductions::models::misc::{BinPacking, LongestCommonSubsequence, PaintShop, SubsetSum};
+use problemreductions::models::graph::{
+    GraphPartitioning, HamiltonianPath, LengthBoundedDisjointPaths, MultipleChoiceBranching,
+    SteinerTree,
+};
+use problemreductions::models::misc::{
+    BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
+    PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence, SubsetSum,
+};
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -22,6 +31,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
     args.graph.is_none()
         && args.weights.is_none()
         && args.edge_weights.is_none()
+        && args.capacities.is_none()
+        && args.source.is_none()
+        && args.sink.is_none()
+        && args.num_paths_required.is_none()
         && args.couplings.is_none()
         && args.fields.is_none()
         && args.clauses.is_none()
@@ -36,10 +49,17 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.seed.is_none()
         && args.positions.is_none()
         && args.radius.is_none()
+        && args.source_1.is_none()
+        && args.sink_1.is_none()
+        && args.source_2.is_none()
+        && args.sink_2.is_none()
+        && args.requirement_1.is_none()
+        && args.requirement_2.is_none()
         && args.sizes.is_none()
         && args.capacity.is_none()
         && args.sequence.is_none()
         && args.sets.is_none()
+        && args.partition.is_none()
         && args.universe.is_none()
         && args.biedges.is_none()
         && args.left.is_none()
@@ -48,29 +68,175 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.release_times.is_none()
+        && args.deadlines.is_none()
+        && args.lengths.is_none()
+        && args.terminals.is_none()
+        && args.tree.is_none()
+        && args.required_edges.is_none()
+        && args.bound.is_none()
+        && args.pattern.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
         && args.potential_edges.is_none()
         && args.budget.is_none()
+        && args.precedence_pairs.is_none()
+        && args.task_lengths.is_none()
+        && args.deadline.is_none()
+        && args.num_processors.is_none()
+        && args.alphabet_size.is_none()
+}
+
+fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
+    let json = serde_json::to_value(output)?;
+    if let Some(ref path) = out.output {
+        let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
+        std::fs::write(path, &content)
+            .with_context(|| format!("Failed to write {}", path.display()))?;
+        out.info(&format!("Wrote {}", path.display()));
+    } else {
+        println!("{}", serde_json::to_string_pretty(&json)?);
+    }
+    Ok(())
+}
+
+fn format_problem_ref(problem: &ProblemRef) -> String {
+    if problem.variant.is_empty() {
+        return problem.name.clone();
+    }
+
+    let values = problem
+        .variant
+        .values()
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("/");
+    format!("{}/{}", problem.name, values)
+}
+
+fn resolve_example_problem_ref(
+    input: &str,
+    rgraph: &problemreductions::rules::ReductionGraph,
+) -> Result<ProblemRef> {
+    let problem = resolve_problem_ref(input, rgraph)?;
+    if rgraph.variants_for(&problem.name).is_empty() {
+        bail!("{}", unknown_problem_error(input));
+    }
+    Ok(problem)
+}
+
+fn problem_output_from_side(side: ProblemSide) -> ProblemJsonOutput {
+    ProblemJsonOutput {
+        problem_type: side.problem,
+        variant: side.variant,
+        data: side.instance,
+    }
+}
+
+fn problem_output_from_model(example: ModelExample) -> ProblemJsonOutput {
+    ProblemJsonOutput {
+        problem_type: example.problem,
+        variant: example.variant,
+        data: example.instance,
+    }
+}
+
+fn resolve_model_example(
+    example_spec: &str,
+    rgraph: &problemreductions::rules::ReductionGraph,
+) -> Result<ModelExample> {
+    let model_db = problemreductions::example_db::build_model_db()?;
+    let problem = resolve_example_problem_ref(example_spec, rgraph)?;
+    model_db
+        .models
+        .into_iter()
+        .find(|model| model.problem_ref() == problem)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "No canonical model example exists for {}",
+                format_problem_ref(&problem)
+            )
+        })
+}
+
+fn resolve_rule_example(
+    example_spec: &str,
+    target_spec: &str,
+    rgraph: &problemreductions::rules::ReductionGraph,
+) -> Result<RuleExample> {
+    let rule_db = problemreductions::example_db::build_rule_db()?;
+    let source = resolve_example_problem_ref(example_spec, rgraph)?;
+    let target = resolve_example_problem_ref(target_spec, rgraph)?;
+    rule_db
+        .rules
+        .into_iter()
+        .find(|rule| rule.source.problem_ref() == source && rule.target.problem_ref() == target)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "No canonical rule example exists for {} -> {}",
+                format_problem_ref(&source),
+                format_problem_ref(&target)
+            )
+        })
+}
+
+fn create_from_example(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
+    let example_spec = args
+        .example
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("Missing --example problem spec"))?;
+
+    if args.problem.is_some() {
+        bail!(
+            "Use either `pred create <PROBLEM>` or `pred create --example <PROBLEM_SPEC>`, not both"
+        );
+    }
+    if args.random || !all_data_flags_empty(args) {
+        bail!("`pred create --example` does not accept problem-construction flags");
+    }
+    let rgraph = problemreductions::rules::ReductionGraph::new();
+
+    let output = if let Some(target_spec) = args.example_target.as_deref() {
+        let example = resolve_rule_example(example_spec, target_spec, &rgraph)?;
+        match args.example_side {
+            ExampleSide::Source => problem_output_from_side(example.source),
+            ExampleSide::Target => problem_output_from_side(example.target),
+        }
+    } else {
+        if matches!(args.example_side, ExampleSide::Target) {
+            bail!("`--example-side target` requires `--to <TARGET_SPEC>`");
+        }
+
+        problem_output_from_model(resolve_model_example(example_spec, &rgraph)?)
+    };
+
+    emit_problem_output(&output, out)
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
     match type_name {
+        "SimpleGraph" => "edge list: 0-1,1-2,2-3",
         "G" => match graph_type {
             Some("KingsSubgraph" | "TriangularSubgraph") => "integer positions: \"0,0;1,0;1,1\"",
             Some("UnitDiskGraph") => "float positions: \"0.0,0.0;1.0,0.0\"",
             _ => "edge list: 0-1,1-2,2-3",
         },
+        "Vec<u64>" => "comma-separated integers: 1,1,2",
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<(usize, usize, W)>" | "Vec<(usize,usize,W)>" => {
             "comma-separated weighted edges: 0-2:3,1-3:5"
         }
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
+        "Vec<Vec<usize>>" => "semicolon-separated groups: \"0,1;2,3\"",
         "usize" | "W::Sum" => "integer",
         "u64" => "integer",
+        "Vec<u64>" => "comma-separated integers: 0,0,5",
         "i64" => "integer",
+        "BigUint" => "nonnegative decimal integer",
+        "Vec<BigUint>" => "comma-separated nonnegative decimal integers: 3,7,1,8",
         "Vec<i64>" => "comma-separated integers: 3,7,1,8",
+        "DirectedGraph" => "directed arcs: 0>1,1>2,2>0",
         _ => "value",
     }
 }
@@ -87,6 +253,17 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
+        "BoundedComponentSpanningForest" => {
+            "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6"
+        }
+        "HamiltonianPath" => "--graph 0-1,1-2,2-3",
+        "UndirectedTwoCommodityIntegralFlow" => {
+            "--graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1"
+        },
+        "LengthBoundedDisjointPaths" => {
+            "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3"
+        }
+        "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
@@ -98,10 +275,71 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
+        "MinimumSumMulticenter" => {
+            "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
+        }
+        "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "SequencingWithinIntervals" => "--release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1",
+        "SteinerTree" => "--graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4",
+        "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
+        "DirectedTwoCommodityIntegralFlow" => {
+            "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
+        }
+        "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
+        "RuralPostman" => {
+            "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
+        }
+        "MultipleChoiceBranching" => {
+            "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
+        }
+        "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
+        "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
     }
+}
+
+fn help_flag_name(canonical: &str, field_name: &str) -> String {
+    // Problem-specific overrides first
+    match (canonical, field_name) {
+        ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
+        ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        _ => {}
+    }
+    // General field-name overrides (previously in cli_flag_name)
+    match field_name {
+        "universe_size" => "universe".to_string(),
+        "collection" | "subsets" => "sets".to_string(),
+        "left_size" => "left".to_string(),
+        "right_size" => "right".to_string(),
+        "edges" => "biedges".to_string(),
+        "vertex_weights" => "weights".to_string(),
+        "potential_weights" => "potential-edges".to_string(),
+        "edge_lengths" => "edge-weights".to_string(),
+        "num_tasks" => "n".to_string(),
+        "precedences" => "precedence-pairs".to_string(),
+        "threshold" => "bound".to_string(),
+        _ => field_name.replace('_', "-"),
+    }
+}
+
+fn help_flag_hint(
+    canonical: &str,
+    field_name: &str,
+    type_name: &str,
+    graph_type: Option<&str>,
+) -> &'static str {
+    match (canonical, field_name) {
+        ("BoundedComponentSpanningForest", "max_weight") => "integer",
+        _ => type_format_hint(type_name, graph_type),
+    }
+}
+
+fn parse_nonnegative_usize_bound(bound: i64, problem_name: &str, usage: &str) -> Result<usize> {
+    usize::try_from(bound)
+        .map_err(|_| anyhow::anyhow!("{problem_name} requires nonnegative --bound\n\n{usage}"))
 }
 
 fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
@@ -116,21 +354,27 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
         eprintln!("{}\n  {}\n", canonical, s.description);
         eprintln!("Parameters:");
         for field in &s.fields {
+            let flag_name =
+                problem_help_flag_name(canonical, &field.name, &field.type_name, is_geometry);
             // For geometry variants, show --positions instead of --graph
             if field.type_name == "G" && is_geometry {
                 let hint = type_format_hint(&field.type_name, graph_type);
-                eprintln!("  --{:<16} {} ({hint})", "positions", field.description);
+                eprintln!("  --{:<16} {} ({hint})", flag_name, field.description);
                 if graph_type == Some("UnitDiskGraph") {
                     eprintln!("  --{:<16} Distance threshold [default: 1.0]", "radius");
                 }
-            } else {
+            } else if field.type_name == "DirectedGraph" {
+                // DirectedGraph fields use --arcs, not --graph
                 let hint = type_format_hint(&field.type_name, graph_type);
-                let flag_name = if field.name == "potential_weights" {
-                    "potential-edges".to_string()
-                } else {
-                    field.name.replace('_', "-")
-                };
                 eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
+            } else {
+                let hint = help_flag_hint(canonical, &field.name, &field.type_name, graph_type);
+                eprintln!(
+                    "  --{:<16} {} ({})",
+                    help_flag_name(canonical, &field.name),
+                    field.description,
+                    hint
+                );
             }
         }
     } else {
@@ -152,6 +396,69 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
     Ok(())
 }
 
+fn problem_help_flag_name(
+    canonical: &str,
+    field_name: &str,
+    field_type: &str,
+    is_geometry: bool,
+) -> String {
+    if field_type == "G" && is_geometry {
+        return "positions".to_string();
+    }
+    if field_type == "DirectedGraph" {
+        return "arcs".to_string();
+    }
+    if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
+        return "bound".to_string();
+    }
+    field_name.replace('_', "-")
+}
+
+fn lbdp_validation_error(message: &str, usage: Option<&str>) -> anyhow::Error {
+    match usage {
+        Some(usage) => anyhow::anyhow!("{message}\n\n{usage}"),
+        None => anyhow::anyhow!("{message}"),
+    }
+}
+
+fn validate_length_bounded_disjoint_paths_args(
+    num_vertices: usize,
+    source: usize,
+    sink: usize,
+    num_paths_required: usize,
+    bound: i64,
+    usage: Option<&str>,
+) -> Result<usize> {
+    let max_length = usize::try_from(bound).map_err(|_| {
+        lbdp_validation_error(
+            "--bound must be a nonnegative integer for LengthBoundedDisjointPaths",
+            usage,
+        )
+    })?;
+    if source >= num_vertices || sink >= num_vertices {
+        return Err(lbdp_validation_error(
+            "--source and --sink must be valid graph vertices",
+            usage,
+        ));
+    }
+    if source == sink {
+        return Err(lbdp_validation_error(
+            "--source and --sink must be distinct",
+            usage,
+        ));
+    }
+    if num_paths_required == 0 {
+        return Err(lbdp_validation_error(
+            "--num-paths-required must be positive",
+            usage,
+        ));
+    }
+    if max_length == 0 {
+        return Err(lbdp_validation_error("--bound must be positive", usage));
+    }
+    Ok(max_length)
+}
+
 /// Resolve the graph type from the variant map (e.g., "KingsSubgraph", "UnitDiskGraph", or "SimpleGraph").
 fn resolved_graph_type(variant: &BTreeMap<String, String>) -> &str {
     variant
@@ -161,17 +468,38 @@ fn resolved_graph_type(variant: &BTreeMap<String, String>) -> &str {
 }
 
 pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
-    let spec = parse_problem_spec(&args.problem)?;
-    let canonical = &spec.name;
+    if args.example.is_some() {
+        return create_from_example(args, out);
+    }
 
-    // Resolve variant early so random and help can use it
+    let problem = args.problem.as_ref().ok_or_else(|| {
+        anyhow::anyhow!("Missing problem type.\n\nUsage: pred create <PROBLEM> [FLAGS]")
+    })?;
     let rgraph = problemreductions::rules::ReductionGraph::new();
-    let known_variants = rgraph.variants_for(canonical);
-    let resolved_variant = if known_variants.is_empty() {
-        BTreeMap::new()
-    } else {
-        resolve_variant(&spec, &known_variants)?
+    let resolved = match resolve_problem_ref(problem, &rgraph) {
+        Ok(resolved) => resolved,
+        Err(graph_err) => match resolve_catalog_problem_ref(problem) {
+            Ok(catalog_resolved) => {
+                if rgraph.variants_for(catalog_resolved.name()).is_empty() {
+                    ProblemRef {
+                        name: catalog_resolved.name().to_string(),
+                        variant: catalog_resolved.variant().clone(),
+                    }
+                } else {
+                    return Err(graph_err);
+                }
+            }
+            Err(catalog_err) => {
+                let spec = parse_problem_spec(problem)?;
+                if rgraph.variants_for(&spec.name).is_empty() {
+                    return Err(catalog_err);
+                }
+                return Err(graph_err);
+            }
+        },
     };
+    let canonical = resolved.name.as_str();
+    let resolved_variant = resolved.variant.clone();
     let graph_type = resolved_graph_type(&resolved_variant);
 
     if args.random {
@@ -200,13 +528,26 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         std::process::exit(2);
     }
 
-    let (data, variant) = match canonical.as_str() {
+    let (data, variant) = match canonical {
         // Graph problems with vertex weights
         "MaximumIndependentSet"
         | "MinimumVertexCover"
         | "MaximumClique"
         | "MinimumDominatingSet" => {
             create_vertex_weight_problem(args, canonical, graph_type, &resolved_variant)?
+        }
+
+        // SteinerTree (graph + edge weights + terminals)
+        "SteinerTree" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create SteinerTree --graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4"
+                )
+            })?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            let terminals = parse_terminals(args, graph.num_vertices())?;
+            let data = ser(SteinerTree::new(graph, edge_weights, terminals))?;
+            (data, resolved_variant.clone())
         }
 
         // Graph partitioning (graph only, no weights)
@@ -242,22 +583,248 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // Bounded Component Spanning Forest
+        "BoundedComponentSpanningForest" => {
+            let usage = "Usage: pred create BoundedComponentSpanningForest --graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6";
+            let (graph, n) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            args.weights.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("BoundedComponentSpanningForest requires --weights\n\n{usage}")
+            })?;
+            let weights = parse_vertex_weights(args, n)?;
+            if weights.iter().any(|&weight| weight < 0) {
+                bail!("BoundedComponentSpanningForest requires nonnegative --weights\n\n{usage}");
+            }
+            let max_components = args.k.ok_or_else(|| {
+                anyhow::anyhow!("BoundedComponentSpanningForest requires --k\n\n{usage}")
+            })?;
+            if max_components == 0 {
+                bail!("BoundedComponentSpanningForest requires --k >= 1\n\n{usage}");
+            }
+            let bound_raw = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("BoundedComponentSpanningForest requires --bound\n\n{usage}")
+            })?;
+            if bound_raw <= 0 {
+                bail!("BoundedComponentSpanningForest requires positive --bound\n\n{usage}");
+            }
+            let max_weight = i32::try_from(bound_raw).map_err(|_| {
+                anyhow::anyhow!(
+                    "BoundedComponentSpanningForest requires --bound within i32 range\n\n{usage}"
+                )
+            })?;
+            (
+                ser(BoundedComponentSpanningForest::new(
+                    graph,
+                    weights,
+                    max_components,
+                    max_weight,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Hamiltonian path (graph only, no weights)
+        "HamiltonianPath" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!("{e}\n\nUsage: pred create HamiltonianPath --graph 0-1,1-2,2-3")
+            })?;
+            (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
+        }
+
+        // UndirectedTwoCommodityIntegralFlow (graph + capacities + terminals + requirements)
+        "UndirectedTwoCommodityIntegralFlow" => {
+            let usage = "Usage: pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities = parse_capacities(args, graph.num_edges(), usage)?;
+            let num_vertices = graph.num_vertices();
+            let source_1 = args.source_1.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --source-1\n\n{usage}")
+            })?;
+            let sink_1 = args.sink_1.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --sink-1\n\n{usage}")
+            })?;
+            let source_2 = args.source_2.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --source-2\n\n{usage}")
+            })?;
+            let sink_2 = args.sink_2.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --sink-2\n\n{usage}")
+            })?;
+            let requirement_1 = args.requirement_1.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "UndirectedTwoCommodityIntegralFlow requires --requirement-1\n\n{usage}"
+                )
+            })?;
+            let requirement_2 = args.requirement_2.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "UndirectedTwoCommodityIntegralFlow requires --requirement-2\n\n{usage}"
+                )
+            })?;
+            for (label, vertex) in [
+                ("source-1", source_1),
+                ("sink-1", sink_1),
+                ("source-2", source_2),
+                ("sink-2", sink_2),
+            ] {
+                validate_vertex_index(label, vertex, num_vertices, usage)?;
+            }
+            (
+                ser(UndirectedTwoCommodityIntegralFlow::new(
+                    graph,
+                    capacities,
+                    source_1,
+                    sink_1,
+                    source_2,
+                    sink_2,
+                    requirement_1,
+                    requirement_2,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // LengthBoundedDisjointPaths (graph + source + sink + path count + bound)
+        "LengthBoundedDisjointPaths" => {
+            let usage = "Usage: pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("LengthBoundedDisjointPaths requires --source\n\n{usage}")
+            })?;
+            let sink = args.sink.ok_or_else(|| {
+                anyhow::anyhow!("LengthBoundedDisjointPaths requires --sink\n\n{usage}")
+            })?;
+            let num_paths_required = args.num_paths_required.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "LengthBoundedDisjointPaths requires --num-paths-required\n\n{usage}"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("LengthBoundedDisjointPaths requires --bound\n\n{usage}")
+            })?;
+            let max_length = validate_length_bounded_disjoint_paths_args(
+                graph.num_vertices(),
+                source,
+                sink,
+                num_paths_required,
+                bound,
+                Some(usage),
+            )?;
+
+            (
+                ser(LengthBoundedDisjointPaths::new(
+                    graph,
+                    source,
+                    sink,
+                    num_paths_required,
+                    max_length,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // IsomorphicSpanningTree (graph + tree)
+        "IsomorphicSpanningTree" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create IsomorphicSpanningTree --graph 0-1,1-2,0-2 --tree 0-1,1-2"
+                )
+            })?;
+            let tree_str = args.tree.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "IsomorphicSpanningTree requires --tree\n\n\
+                     Usage: pred create IsomorphicSpanningTree --graph 0-1,1-2,0-2 --tree 0-1,1-2"
+                )
+            })?;
+            let tree_edges: Vec<(usize, usize)> = tree_str
+                .split(',')
+                .map(|pair| {
+                    let parts: Vec<&str> = pair.trim().split('-').collect();
+                    if parts.len() != 2 {
+                        bail!("Invalid tree edge '{}': expected format u-v", pair.trim());
+                    }
+                    let u: usize = parts[0].parse()?;
+                    let v: usize = parts[1].parse()?;
+                    Ok((u, v))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let tree_num_vertices = tree_edges
+                .iter()
+                .flat_map(|(u, v)| [*u, *v])
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0)
+                .max(graph.num_vertices());
+            let tree = SimpleGraph::new(tree_num_vertices, tree_edges);
+            (
+                ser(problemreductions::models::graph::IsomorphicSpanningTree::new(graph, tree))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // Graph problems with edge weights
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
                     "{e}\n\nUsage: pred create {} --graph 0-1,1-2,2-3 [--edge-weights 1,1,1]",
-                    args.problem
+                    problem
                 )
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
-            let data = match canonical.as_str() {
+            let data = match canonical {
                 "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
                 "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
                 "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,
                 _ => unreachable!(),
             };
             (data, resolved_variant.clone())
+        }
+
+        // RuralPostman
+        "RuralPostman" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                )
+            })?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            let required_edges_str = args.required_edges.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RuralPostman requires --required-edges\n\n\
+                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                )
+            })?;
+            let required_edges: Vec<usize> = util::parse_comma_list(required_edges_str)?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RuralPostman requires --bound\n\n\
+                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                )
+            })? as i32;
+            (
+                ser(RuralPostman::new(
+                    graph,
+                    edge_weights,
+                    required_edges,
+                    bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MultipleChoiceBranching
+        "MultipleChoiceBranching" => {
+            let usage = "Usage: pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MultipleChoiceBranching requires --arcs\n\n{usage}")
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let weights = parse_arc_weights(args, num_arcs)?;
+            let partition = parse_partition_groups(args, num_arcs)?;
+            let threshold = parse_multiple_choice_branching_threshold(args, usage)?;
+            (
+                ser(MultipleChoiceBranching::new(
+                    graph, weights, partition, threshold,
+                ))?,
+                resolved_variant.clone(),
+            )
         }
 
         // KColoring
@@ -288,7 +855,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let num_vars = args.num_vars.ok_or_else(|| {
                 anyhow::anyhow!(
                     "KSatisfiability requires --num-vars\n\n\
-                     Usage: pred create 3SAT --num-vars 3 --clauses \"1,2,3;-1,2,-3\""
+                     Usage: pred create KSAT --num-vars 3 --clauses \"1,2,3;-1,2,-3\""
                 )
             })?;
             let clauses = parse_clauses(args)?;
@@ -337,7 +904,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let usage = "Usage: pred create Factoring --target 15 --m 4 --n 4";
             let target = args
                 .target
+                .as_deref()
                 .ok_or_else(|| anyhow::anyhow!("Factoring requires --target\n\n{usage}"))?;
+            let target: u64 = target
+                .parse()
+                .context("Factoring --target must fit in u64")?;
             let m = args
                 .m
                 .ok_or_else(|| anyhow::anyhow!("Factoring requires --m\n\n{usage}"))?;
@@ -391,15 +962,16 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                      Usage: pred create SubsetSum --sizes 3,7,1,8,2,4 --target 11"
                 )
             })?;
-            let target = args.target.ok_or_else(|| {
+            let target = args.target.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "SubsetSum requires --target\n\n\
                      Usage: pred create SubsetSum --sizes 3,7,1,8,2,4 --target 11"
                 )
             })?;
-            let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
+            let sizes = util::parse_biguint_list(sizes_str)?;
+            let target = util::parse_decimal_biguint(target)?;
             (
-                ser(SubsetSum::new(sizes, target as i64))?,
+                ser(SubsetSum::new(sizes, target))?,
                 resolved_variant.clone(),
             )
         }
@@ -440,6 +1012,85 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let weights = parse_set_weights(args, num_sets)?;
             (
                 ser(MinimumSetCovering::with_weights(universe, sets, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ExactCoverBy3Sets
+        "ExactCoverBy3Sets" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ExactCoverBy3Sets requires --universe and --sets\n\n\
+                     Usage: pred create X3C --universe 6 --sets \"0,1,2;3,4,5\""
+                )
+            })?;
+            if universe % 3 != 0 {
+                bail!("Universe size must be divisible by 3, got {}", universe);
+            }
+            let sets = parse_sets(args)?;
+            // Validate each set has exactly 3 distinct elements within the universe
+            for (i, set) in sets.iter().enumerate() {
+                if set.len() != 3 {
+                    bail!(
+                        "Subset {} has {} elements, but X3C requires exactly 3 elements per subset",
+                        i,
+                        set.len()
+                    );
+                }
+                if set[0] == set[1] || set[0] == set[2] || set[1] == set[2] {
+                    bail!("Subset {} contains duplicate elements: {:?}", i, set);
+                }
+                for &elem in set {
+                    if elem >= universe {
+                        bail!(
+                            "Subset {} contains element {} which is outside universe of size {}",
+                            i,
+                            elem,
+                            universe
+                        );
+                    }
+                }
+            }
+            let subsets: Vec<[usize; 3]> = sets.into_iter().map(|s| [s[0], s[1], s[2]]).collect();
+            (
+                ser(problemreductions::models::set::ExactCoverBy3Sets::new(
+                    universe, subsets,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SetBasis
+        "SetBasis" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SetBasis requires --universe, --sets, and --k\n\n\
+                     Usage: pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3"
+                )
+            })?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SetBasis requires --k\n\n\
+                     Usage: pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3"
+                )
+            })?;
+            let sets = parse_sets(args)?;
+            for (i, set) in sets.iter().enumerate() {
+                for &element in set {
+                    if element >= universe {
+                        bail!(
+                            "Set {} contains element {} which is outside universe of size {}",
+                            i,
+                            element,
+                            universe
+                        );
+                    }
+                }
+            }
+            (
+                ser(problemreductions::models::set::SetBasis::new(
+                    universe, sets, k,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -531,49 +1182,381 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MinimumTardinessSequencing
+        "MinimumTardinessSequencing" => {
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumTardinessSequencing requires --deadlines and --n\n\n\
+                     Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 [--precedence-pairs \"0>3,1>3,1>4,2>4\"]"
+                )
+            })?;
+            let num_tasks = args.n.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumTardinessSequencing requires --n (number of tasks)\n\n\
+                     Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3"
+                )
+            })?;
+            let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
+            let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
+                Some(s) if !s.is_empty() => s
+                    .split(',')
+                    .map(|pair| {
+                        let parts: Vec<&str> = pair.trim().split('>').collect();
+                        anyhow::ensure!(
+                            parts.len() == 2,
+                            "Invalid precedence format '{}', expected 'u>v'",
+                            pair.trim()
+                        );
+                        Ok((
+                            parts[0].trim().parse::<usize>()?,
+                            parts[1].trim().parse::<usize>()?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                _ => vec![],
+            };
+            anyhow::ensure!(
+                deadlines.len() == num_tasks,
+                "deadlines length ({}) must equal num_tasks ({})",
+                deadlines.len(),
+                num_tasks
+            );
+            for &(pred, succ) in &precedences {
+                anyhow::ensure!(
+                    pred < num_tasks && succ < num_tasks,
+                    "precedence index out of range: ({}, {}) but num_tasks = {}",
+                    pred,
+                    succ,
+                    num_tasks
+                );
+            }
+            (
+                ser(MinimumTardinessSequencing::new(
+                    num_tasks,
+                    deadlines,
+                    precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingWithinIntervals
+        "SequencingWithinIntervals" => {
+            let usage = "Usage: pred create SequencingWithinIntervals --release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1";
+            let rt_str = args.release_times.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("SequencingWithinIntervals requires --release-times\n\n{usage}")
+            })?;
+            let dl_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("SequencingWithinIntervals requires --deadlines\n\n{usage}")
+            })?;
+            let len_str = args.lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("SequencingWithinIntervals requires --lengths\n\n{usage}")
+            })?;
+            let release_times: Vec<u64> = util::parse_comma_list(rt_str)?;
+            let deadlines: Vec<u64> = util::parse_comma_list(dl_str)?;
+            let lengths: Vec<u64> = util::parse_comma_list(len_str)?;
+            (
+                ser(SequencingWithinIntervals::new(
+                    release_times,
+                    deadlines,
+                    lengths,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // OptimalLinearArrangement — graph + bound
+        "OptimalLinearArrangement" => {
+            let usage = "Usage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3 --bound 5";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let bound_raw = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "OptimalLinearArrangement requires --bound (upper bound K on total edge length)\n\n{usage}"
+                )
+            })?;
+            let bound =
+                parse_nonnegative_usize_bound(bound_raw, "OptimalLinearArrangement", usage)?;
+            (
+                ser(OptimalLinearArrangement::new(graph, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // FlowShopScheduling
+        "FlowShopScheduling" => {
+            let task_str = args.task_lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FlowShopScheduling requires --task-lengths and --deadline\n\n\
+                     Usage: pred create FlowShopScheduling --task-lengths \"3,4,2;2,3,5;4,1,3\" --deadline 25 --num-processors 3"
+                )
+            })?;
+            let deadline = args.deadline.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FlowShopScheduling requires --deadline\n\n\
+                     Usage: pred create FlowShopScheduling --task-lengths \"3,4,2;2,3,5;4,1,3\" --deadline 25 --num-processors 3"
+                )
+            })?;
+            let task_lengths: Vec<Vec<u64>> = task_str
+                .split(';')
+                .map(|row| util::parse_comma_list(row.trim()))
+                .collect::<Result<Vec<_>>>()?;
+            let num_processors = if let Some(np) = args.num_processors {
+                np
+            } else if let Some(m) = args.m {
+                m
+            } else if let Some(first) = task_lengths.first() {
+                first.len()
+            } else {
+                bail!("Cannot infer num_processors from empty task list; use --num-processors");
+            };
+            for (j, row) in task_lengths.iter().enumerate() {
+                if row.len() != num_processors {
+                    bail!(
+                        "task_lengths row {} has {} entries, expected {} (num_processors)",
+                        j,
+                        row.len(),
+                        num_processors
+                    );
+                }
+            }
+            (
+                ser(FlowShopScheduling::new(
+                    num_processors,
+                    task_lengths,
+                    deadline,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // DirectedTwoCommodityIntegralFlow
+        "DirectedTwoCommodityIntegralFlow" => {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "DirectedTwoCommodityIntegralFlow requires --arcs\n\n\
+                     Usage: pred create DirectedTwoCommodityIntegralFlow \
+                     --arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" \
+                     --capacities 1,1,1,1,1,1,1,1 \
+                     --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 \
+                     --requirement-1 1 --requirement-2 1"
+                )
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let capacities: Vec<u64> = if let Some(ref s) = args.capacities {
+                util::parse_comma_list(s)?
+            } else {
+                vec![1; num_arcs]
+            };
+            anyhow::ensure!(
+                capacities.len() == num_arcs,
+                "capacities length ({}) must match number of arcs ({num_arcs})",
+                capacities.len()
+            );
+            let n = graph.num_vertices();
+            let source_1 = args.source_1.ok_or_else(|| {
+                anyhow::anyhow!("DirectedTwoCommodityIntegralFlow requires --source-1")
+            })?;
+            let sink_1 = args.sink_1.ok_or_else(|| {
+                anyhow::anyhow!("DirectedTwoCommodityIntegralFlow requires --sink-1")
+            })?;
+            let source_2 = args.source_2.ok_or_else(|| {
+                anyhow::anyhow!("DirectedTwoCommodityIntegralFlow requires --source-2")
+            })?;
+            let sink_2 = args.sink_2.ok_or_else(|| {
+                anyhow::anyhow!("DirectedTwoCommodityIntegralFlow requires --sink-2")
+            })?;
+            for (name, idx) in [
+                ("source_1", source_1),
+                ("sink_1", sink_1),
+                ("source_2", source_2),
+                ("sink_2", sink_2),
+            ] {
+                anyhow::ensure!(idx < n, "{name} ({idx}) >= num_vertices ({n})");
+            }
+            let requirement_1 = args.requirement_1.unwrap_or(1);
+            let requirement_2 = args.requirement_2.unwrap_or(1);
+            (
+                ser(DirectedTwoCommodityIntegralFlow::new(
+                    graph,
+                    capacities,
+                    source_1,
+                    sink_1,
+                    source_2,
+                    sink_2,
+                    requirement_1,
+                    requirement_2,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumFeedbackArcSet
+        "MinimumFeedbackArcSet" => {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFeedbackArcSet requires --arcs\n\n\
+                     Usage: pred create FAS --arcs \"0>1,1>2,2>0\" [--weights 1,1,1] [--num-vertices N]"
+                )
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let weights = parse_arc_weights(args, num_arcs)?;
+            (
+                ser(MinimumFeedbackArcSet::new(graph, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumSumMulticenter (p-median)
+        "MinimumSumMulticenter" => {
+            let (graph, n) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MinimumSumMulticenter --graph 0-1,1-2,2-3 [--weights 1,1,1,1] [--edge-weights 1,1,1] --k 2"
+                )
+            })?;
+            let vertex_weights = parse_vertex_weights(args, n)?;
+            let edge_lengths = parse_edge_weights(args, graph.num_edges())?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumSumMulticenter requires --k (number of centers)\n\n\
+                     Usage: pred create MinimumSumMulticenter --graph 0-1,1-2,2-3 --k 2"
+                )
+            })?;
+            (
+                ser(MinimumSumMulticenter::new(
+                    graph,
+                    vertex_weights,
+                    edge_lengths,
+                    k,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SubgraphIsomorphism
+        "SubgraphIsomorphism" => {
+            let (host_graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create SubgraphIsomorphism --graph 0-1,1-2,2-0 --pattern 0-1"
+                )
+            })?;
+            let pattern_str = args.pattern.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubgraphIsomorphism requires --pattern (pattern graph edges)\n\n\
+                     Usage: pred create SubgraphIsomorphism --graph 0-1,1-2,2-0 --pattern 0-1"
+                )
+            })?;
+            let pattern_edges: Vec<(usize, usize)> = pattern_str
+                .split(',')
+                .map(|pair| {
+                    let parts: Vec<&str> = pair.trim().split('-').collect();
+                    if parts.len() != 2 {
+                        bail!("Invalid edge '{}': expected format u-v", pair.trim());
+                    }
+                    let u: usize = parts[0].parse()?;
+                    let v: usize = parts[1].parse()?;
+                    if u == v {
+                        bail!(
+                            "Invalid edge '{}': self-loops are not allowed in simple graphs",
+                            pair.trim()
+                        );
+                    }
+                    Ok((u, v))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let pattern_nv = pattern_edges
+                .iter()
+                .flat_map(|(u, v)| [*u, *v])
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0);
+            let pattern_graph = SimpleGraph::new(pattern_nv, pattern_edges);
+            (
+                ser(SubgraphIsomorphism::new(host_graph, pattern_graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // PartitionIntoTriangles
+        "PartitionIntoTriangles" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create PartitionIntoTriangles --graph 0-1,1-2,0-2"
+                )
+            })?;
+            anyhow::ensure!(
+                graph.num_vertices() % 3 == 0,
+                "PartitionIntoTriangles requires vertex count divisible by 3, got {}",
+                graph.num_vertices()
+            );
+            (
+                ser(PartitionIntoTriangles::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ShortestCommonSupersequence
+        "ShortestCommonSupersequence" => {
+            let usage = "Usage: pred create SCS --strings \"0,1,2;1,2,0\" --bound 4";
+            let strings_str = args.strings.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("ShortestCommonSupersequence requires --strings\n\n{usage}")
+            })?;
+            let bound_raw = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("ShortestCommonSupersequence requires --bound\n\n{usage}")
+            })?;
+            let bound =
+                parse_nonnegative_usize_bound(bound_raw, "ShortestCommonSupersequence", usage)?;
+            let strings: Vec<Vec<usize>> = strings_str
+                .split(';')
+                .map(|s| {
+                    let trimmed = s.trim();
+                    if trimmed.is_empty() {
+                        return Ok(Vec::new());
+                    }
+                    trimmed
+                        .split(',')
+                        .map(|v| {
+                            v.trim()
+                                .parse::<usize>()
+                                .map_err(|e| anyhow::anyhow!("Invalid alphabet index: {}", e))
+                        })
+                        .collect::<Result<Vec<_>>>()
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let inferred = strings
+                .iter()
+                .flat_map(|s| s.iter())
+                .copied()
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0);
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            if alphabet_size < inferred {
+                anyhow::bail!(
+                    "--alphabet-size {} is smaller than the largest symbol + 1 ({}) in the strings",
+                    alphabet_size,
+                    inferred
+                );
+            }
+            (
+                ser(ShortestCommonSupersequence::new(
+                    alphabet_size,
+                    strings,
+                    bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumFeedbackVertexSet
         "MinimumFeedbackVertexSet" => {
-            let arcs_str = args.arcs.as_ref().ok_or_else(|| {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "MinimumFeedbackVertexSet requires --arcs\n\n\
                      Usage: pred create FVS --arcs \"0>1,1>2,2>0\" [--weights 1,1,1] [--num-vertices N]"
                 )
             })?;
-            let arcs: Vec<(usize, usize)> = arcs_str
-                .split(',')
-                .map(|s| {
-                    let parts: Vec<&str> = s.split('>').collect();
-                    anyhow::ensure!(
-                        parts.len() == 2,
-                        "Invalid arc format '{}', expected 'u>v'",
-                        s
-                    );
-                    Ok((
-                        parts[0].trim().parse::<usize>()?,
-                        parts[1].trim().parse::<usize>()?,
-                    ))
-                })
-                .collect::<Result<Vec<_>>>()?;
-            let inferred_num_v = arcs
-                .iter()
-                .flat_map(|&(u, v)| [u, v])
-                .max()
-                .map(|m| m + 1)
-                .unwrap_or(0);
-            let num_v = match args.num_vertices {
-                Some(user_num_v) => {
-                    anyhow::ensure!(
-                        user_num_v >= inferred_num_v,
-                        "--num-vertices ({}) is too small for the arcs: need at least {} to cover vertices up to {}",
-                        user_num_v,
-                        inferred_num_v,
-                        inferred_num_v.saturating_sub(1),
-                    );
-                    user_num_v
-                }
-                None => inferred_num_v,
-            };
-            let graph = DirectedGraph::new(num_v, arcs);
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let num_v = graph.num_vertices();
             let weights = parse_vertex_weights(args, num_v)?;
             (
                 ser(MinimumFeedbackVertexSet::new(graph, weights))?,
@@ -590,16 +1573,22 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         data,
     };
 
-    let json = serde_json::to_value(&output)?;
+    emit_problem_output(&output, out)
+}
 
-    if let Some(ref path) = out.output {
-        let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
-        std::fs::write(path, &content)
-            .with_context(|| format!("Failed to write {}", path.display()))?;
-        out.info(&format!("Wrote {}", path.display()));
-    } else {
-        // Print JSON to stdout so data is not lost (consistent with reduce)
-        println!("{}", serde_json::to_string_pretty(&json)?);
+/// Reject non-unit weights when the resolved variant uses `weight=One`.
+fn reject_nonunit_weights_for_one_variant(
+    canonical: &str,
+    graph_type: &str,
+    variant: &BTreeMap<String, String>,
+    weights: &[i32],
+) -> Result<()> {
+    if variant.get("weight").map(|w| w.as_str()) == Some("One") && weights.iter().any(|&w| w != 1) {
+        bail!(
+            "Non-unit weights are not supported for the default unit-weight variant.\n\n\
+             Use the weighted variant instead:\n  \
+             pred create {canonical}/{graph_type}/i32 --graph ... --weights ..."
+        );
     }
     Ok(())
 }
@@ -617,6 +1606,12 @@ fn create_vertex_weight_problem(
             let n = positions.len();
             let graph = KingsSubgraph::new(positions);
             let weights = parse_vertex_weights(args, n)?;
+            reject_nonunit_weights_for_one_variant(
+                canonical,
+                graph_type,
+                resolved_variant,
+                &weights,
+            )?;
             Ok((
                 ser_vertex_weight_problem_with(canonical, graph, weights)?,
                 resolved_variant.clone(),
@@ -627,6 +1622,12 @@ fn create_vertex_weight_problem(
             let n = positions.len();
             let graph = TriangularSubgraph::new(positions);
             let weights = parse_vertex_weights(args, n)?;
+            reject_nonunit_weights_for_one_variant(
+                canonical,
+                graph_type,
+                resolved_variant,
+                &weights,
+            )?;
             Ok((
                 ser_vertex_weight_problem_with(canonical, graph, weights)?,
                 resolved_variant.clone(),
@@ -638,6 +1639,12 @@ fn create_vertex_weight_problem(
             let radius = args.radius.unwrap_or(1.0);
             let graph = UnitDiskGraph::new(positions, radius);
             let weights = parse_vertex_weights(args, n)?;
+            reject_nonunit_weights_for_one_variant(
+                canonical,
+                graph_type,
+                resolved_variant,
+                &weights,
+            )?;
             Ok((
                 ser_vertex_weight_problem_with(canonical, graph, weights)?,
                 resolved_variant.clone(),
@@ -648,10 +1655,16 @@ fn create_vertex_weight_problem(
             let (graph, n) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
                     "{e}\n\nUsage: pred create {} --graph 0-1,1-2,2-3 [--weights 1,1,1,1]",
-                    args.problem
+                    canonical
                 )
             })?;
             let weights = parse_vertex_weights(args, n)?;
+            reject_nonunit_weights_for_one_variant(
+                canonical,
+                graph_type,
+                resolved_variant,
+                &weights,
+            )?;
             let data = ser_vertex_weight_problem_with(canonical, graph, weights)?;
             Ok((data, resolved_variant.clone()))
         }
@@ -777,6 +1790,32 @@ fn parse_vertex_weights(args: &CreateArgs, num_vertices: usize) -> Result<Vec<i3
     }
 }
 
+/// Parse `--terminals` as comma-separated vertex indices.
+fn parse_terminals(args: &CreateArgs, num_vertices: usize) -> Result<Vec<usize>> {
+    let s = args
+        .terminals
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("SteinerTree requires --terminals (e.g., \"0,2,4\")"))?;
+    let terminals: Vec<usize> = s
+        .split(',')
+        .map(|t| t.trim().parse::<usize>())
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .context("invalid terminal index")?;
+    for &t in &terminals {
+        anyhow::ensure!(
+            t < num_vertices,
+            "terminal {t} >= num_vertices ({num_vertices})"
+        );
+    }
+    let distinct_terminals: BTreeSet<_> = terminals.iter().copied().collect();
+    anyhow::ensure!(
+        distinct_terminals.len() == terminals.len(),
+        "terminals must be distinct"
+    );
+    anyhow::ensure!(terminals.len() >= 2, "at least 2 terminals required");
+    Ok(terminals)
+}
+
 /// Parse `--edge-weights` as edge weights (i32), defaulting to all 1s.
 fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
     match &args.edge_weights {
@@ -796,6 +1835,58 @@ fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
         }
         None => Ok(vec![1i32; num_edges]),
     }
+}
+
+fn validate_vertex_index(
+    label: &str,
+    vertex: usize,
+    num_vertices: usize,
+    usage: &str,
+) -> Result<()> {
+    if vertex < num_vertices {
+        return Ok(());
+    }
+
+    bail!("{label} must be less than num_vertices ({num_vertices})\n\n{usage}");
+}
+
+/// Parse `--capacities` as edge capacities (u64).
+fn parse_capacities(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<Vec<u64>> {
+    let capacities = args.capacities.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --capacities\n\n{usage}")
+    })?;
+    let capacities: Vec<u64> = capacities
+        .split(',')
+        .map(|s| {
+            let trimmed = s.trim();
+            trimmed
+                .parse::<u64>()
+                .with_context(|| format!("Invalid capacity `{trimmed}`\n\n{usage}"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if capacities.len() != num_edges {
+        bail!(
+            "Expected {} capacities but got {}\n\n{}",
+            num_edges,
+            capacities.len(),
+            usage
+        );
+    }
+    for (edge_index, &capacity) in capacities.iter().enumerate() {
+        let fits = usize::try_from(capacity)
+            .ok()
+            .and_then(|value| value.checked_add(1))
+            .is_some();
+        if !fits {
+            bail!(
+                "capacity {} at edge index {} is too large for this platform\n\n{}",
+                capacity,
+                edge_index,
+                usage
+            );
+        }
+    }
+    Ok(capacities)
 }
 
 /// Parse `--couplings` as SpinGlass pairwise couplings (i32), defaulting to all 1s.
@@ -914,6 +2005,68 @@ fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
         .collect()
 }
 
+/// Parse `--partition` as semicolon-separated groups of comma-separated arc indices.
+/// E.g., "0,1;2,3;4,7;5,6"
+fn parse_partition_groups(args: &CreateArgs, num_arcs: usize) -> Result<Vec<Vec<usize>>> {
+    let partition_str = args.partition.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("MultipleChoiceBranching requires --partition (e.g., \"0,1;2,3;4,7;5,6\")")
+    })?;
+
+    let partition: Vec<Vec<usize>> = partition_str
+        .split(';')
+        .map(|group| {
+            group
+                .trim()
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .map_err(|e| anyhow::anyhow!("Invalid partition index: {}", e))
+                })
+                .collect()
+        })
+        .collect::<Result<_>>()?;
+
+    let mut seen = vec![false; num_arcs];
+    for group in &partition {
+        for &arc_index in group {
+            anyhow::ensure!(
+                arc_index < num_arcs,
+                "partition arc index {} out of range for {} arcs",
+                arc_index,
+                num_arcs
+            );
+            anyhow::ensure!(
+                !seen[arc_index],
+                "partition arc index {} appears more than once",
+                arc_index
+            );
+            seen[arc_index] = true;
+        }
+    }
+    anyhow::ensure!(
+        seen.iter().all(|present| *present),
+        "partition must cover every arc exactly once"
+    );
+
+    Ok(partition)
+}
+
+fn parse_multiple_choice_branching_threshold(args: &CreateArgs, usage: &str) -> Result<i32> {
+    let raw_bound = args
+        .bound
+        .ok_or_else(|| anyhow::anyhow!("MultipleChoiceBranching requires --bound\n\n{usage}"))?;
+    anyhow::ensure!(
+        raw_bound >= 0,
+        "MultipleChoiceBranching threshold must be non-negative, got {raw_bound}"
+    );
+    i32::try_from(raw_bound).map_err(|_| {
+        anyhow::anyhow!(
+            "MultipleChoiceBranching threshold must fit in a 32-bit signed integer, got {raw_bound}"
+        )
+    })
+}
+
 /// Parse `--weights` for set-based problems (i32), defaulting to all 1s.
 fn parse_set_weights(args: &CreateArgs, num_sets: usize) -> Result<Vec<i32>> {
     match &args.weights {
@@ -1016,10 +2169,18 @@ fn validate_potential_edges(
         }
         let edge = if u <= v { (u, v) } else { (v, u) };
         if graph.has_edge(edge.0, edge.1) {
-            bail!("Potential edge {}-{} already exists in the graph", edge.0, edge.1);
+            bail!(
+                "Potential edge {}-{} already exists in the graph",
+                edge.0,
+                edge.1
+            );
         }
         if !seen_potential_edges.insert(edge) {
-            bail!("Duplicate potential edge {}-{} is not allowed", edge.0, edge.1);
+            bail!(
+                "Duplicate potential edge {}-{} is not allowed",
+                edge.0,
+                edge.1
+            );
         }
     }
     Ok(())
@@ -1035,6 +2196,74 @@ fn parse_budget(args: &CreateArgs) -> Result<i32> {
         .map_err(|e| anyhow::anyhow!("Invalid budget '{budget}': {e}"))
 }
 
+/// Parse `--arcs` as directed arc pairs and build a `DirectedGraph`.
+///
+/// Returns `(graph, num_arcs)`. Infers vertex count from arc endpoints
+/// unless `num_vertices` is provided (which must be >= inferred count).
+/// E.g., "0>1,1>2,2>0"
+fn parse_directed_graph(
+    arcs_str: &str,
+    num_vertices: Option<usize>,
+) -> Result<(DirectedGraph, usize)> {
+    let arcs: Vec<(usize, usize)> = arcs_str
+        .split(',')
+        .map(|pair| {
+            let parts: Vec<&str> = pair.trim().split('>').collect();
+            if parts.len() != 2 {
+                bail!(
+                    "Invalid arc '{}': expected format u>v (e.g., 0>1)",
+                    pair.trim()
+                );
+            }
+            let u: usize = parts[0].parse()?;
+            let v: usize = parts[1].parse()?;
+            Ok((u, v))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let inferred_num_v = arcs
+        .iter()
+        .flat_map(|&(u, v)| [u, v])
+        .max()
+        .map(|m| m + 1)
+        .unwrap_or(0);
+    let num_v = match num_vertices {
+        Some(user_num_v) => {
+            anyhow::ensure!(
+                user_num_v >= inferred_num_v,
+                "--num-vertices ({}) is too small for the arcs: need at least {} to cover vertices up to {}",
+                user_num_v,
+                inferred_num_v,
+                inferred_num_v.saturating_sub(1),
+            );
+            user_num_v
+        }
+        None => inferred_num_v,
+    };
+    let num_arcs = arcs.len();
+    Ok((DirectedGraph::new(num_v, arcs), num_arcs))
+}
+
+/// Parse `--weights` as arc weights (i32), defaulting to all 1s.
+fn parse_arc_weights(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
+    match &args.weights {
+        Some(w) => {
+            let weights: Vec<i32> = w
+                .split(',')
+                .map(|s| s.trim().parse::<i32>())
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            if weights.len() != num_arcs {
+                bail!(
+                    "Expected {} arc weights but got {}",
+                    num_arcs,
+                    weights.len()
+                );
+            }
+            Ok(weights)
+        }
+        None => Ok(vec![1i32; num_arcs]),
+    }
+}
+
 /// Handle `pred create <PROBLEM> --random ...`
 fn create_random(
     args: &CreateArgs,
@@ -1046,7 +2275,7 @@ fn create_random(
         anyhow::anyhow!(
             "--random requires --num-vertices\n\n\
              Usage: pred create {} --random --num-vertices 10 [--edge-prob 0.3] [--seed 42]",
-            args.problem
+            canonical
         )
     })?;
 
@@ -1120,6 +2349,58 @@ fn create_random(
             (ser(GraphPartitioning::new(graph))?, variant)
         }
 
+        // HamiltonianPath (graph only, no weights)
+        "HamiltonianPath" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (ser(HamiltonianPath::new(graph))?, variant)
+        }
+
+        // LengthBoundedDisjointPaths (graph only, with path defaults)
+        "LengthBoundedDisjointPaths" => {
+            let num_vertices = if num_vertices < 2 {
+                eprintln!(
+                    "Warning: LengthBoundedDisjointPaths requires at least 2 vertices; rounding {} up to 2",
+                    num_vertices
+                );
+                2
+            } else {
+                num_vertices
+            };
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let source = args.source.unwrap_or(0);
+            let sink = args.sink.unwrap_or(num_vertices - 1);
+            let num_paths_required = args.num_paths_required.unwrap_or(1);
+            let bound = args.bound.unwrap_or((num_vertices - 1) as i64);
+            let max_length = validate_length_bounded_disjoint_paths_args(
+                num_vertices,
+                source,
+                sink,
+                num_paths_required,
+                bound,
+                None,
+            )?;
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (
+                ser(LengthBoundedDisjointPaths::new(
+                    graph,
+                    source,
+                    sink,
+                    num_paths_required,
+                    max_length,
+                ))?,
+                variant,
+            )
+        }
+
         // Graph problems with edge weights
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
@@ -1137,6 +2418,34 @@ fn create_random(
                 _ => unreachable!(),
             };
             (data, variant)
+        }
+
+        // SteinerTree
+        "SteinerTree" => {
+            anyhow::ensure!(
+                num_vertices >= 2,
+                "SteinerTree random generation requires --num-vertices >= 2"
+            );
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let mut state = util::lcg_init(args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, Some(state));
+            // Advance state past the graph generation
+            for _ in 0..num_vertices * num_vertices {
+                util::lcg_step(&mut state);
+            }
+            let edge_weights: Vec<i32> = (0..graph.num_edges())
+                .map(|_| (util::lcg_step(&mut state) * 9.0) as i32 + 1)
+                .collect();
+            let num_terminals = std::cmp::max(2, num_vertices * 2 / 5);
+            let terminals = util::lcg_choose(&mut state, num_vertices, num_terminals);
+            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+            (
+                ser(SteinerTree::new(graph, edge_weights, terminals))?,
+                variant,
+            )
         }
 
         // SpinGlass
@@ -1168,10 +2477,30 @@ fn create_random(
             util::ser_kcoloring(graph, k)?
         }
 
+        // OptimalLinearArrangement — graph + bound
+        "OptimalLinearArrangement" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            // Default bound: (n-1) * num_edges ensures satisfiability (max edge stretch is n-1)
+            let n = graph.num_vertices();
+            let usage = "Usage: pred create OptimalLinearArrangement --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] [--bound 10]";
+            let bound = args
+                .bound
+                .map(|b| parse_nonnegative_usize_bound(b, "OptimalLinearArrangement", usage))
+                .transpose()?
+                .unwrap_or((n.saturating_sub(1)) * graph.num_edges());
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (ser(OptimalLinearArrangement::new(graph, bound))?, variant)
+        }
+
         _ => bail!(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
-             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman)"
+             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman, \
+             SteinerTree, OptimalLinearArrangement, HamiltonianPath)"
         ),
     };
 
@@ -1181,17 +2510,33 @@ fn create_random(
         data,
     };
 
-    let json = serde_json::to_value(&output)?;
+    emit_problem_output(&output, out)
+}
 
-    if let Some(ref path) = out.output {
-        let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
-        std::fs::write(path, &content)
-            .with_context(|| format!("Failed to write {}", path.display()))?;
-        out.info(&format!("Wrote {}", path.display()));
-    } else {
-        println!("{}", serde_json::to_string_pretty(&json)?);
+#[cfg(test)]
+mod tests {
+    use super::problem_help_flag_name;
+
+    #[test]
+    fn test_problem_help_uses_bound_for_length_bounded_disjoint_paths() {
+        assert_eq!(
+            problem_help_flag_name("LengthBoundedDisjointPaths", "max_length", "usize", false),
+            "bound"
+        );
     }
-    Ok(())
+
+    #[test]
+    fn test_problem_help_preserves_generic_field_kebab_case() {
+        assert_eq!(
+            problem_help_flag_name(
+                "LengthBoundedDisjointPaths",
+                "num_paths_required",
+                "usize",
+                false,
+            ),
+            "num-paths-required"
+        );
+    }
 }
 
 #[cfg(test)]

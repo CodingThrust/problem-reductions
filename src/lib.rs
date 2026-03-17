@@ -17,10 +17,14 @@
 //!
 //! Use [`prelude`] for convenient imports.
 
+extern crate self as problemreductions;
+
 pub(crate) mod big_o;
 pub(crate) mod canonical;
 pub mod config;
 pub mod error;
+#[cfg(feature = "example-db")]
+pub mod example_db;
 pub mod export;
 pub(crate) mod expr;
 pub mod io;
@@ -41,16 +45,26 @@ pub mod prelude {
     pub use crate::models::algebraic::{BMF, QUBO};
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
     pub use crate::models::graph::{
-        BicliqueCover, BiconnectivityAugmentation, GraphPartitioning, SpinGlass,
+        BicliqueCover, BiconnectivityAugmentation, BoundedComponentSpanningForest,
+        DirectedTwoCommodityIntegralFlow, GraphPartitioning, HamiltonianPath,
+        IsomorphicSpanningTree, LengthBoundedDisjointPaths, SpinGlass, SteinerTree,
+        SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-        MinimumDominatingSet, MinimumFeedbackVertexSet, MinimumVertexCover, TravelingSalesman,
+        MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
+        MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
+        OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, TravelingSalesman,
+        UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
-        BinPacking, Factoring, Knapsack, LongestCommonSubsequence, PaintShop, SubsetSum,
+        BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
+        MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals,
+        ShortestCommonSupersequence, SubsetSum,
     };
-    pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
+    pub use crate::models::set::{
+        ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis,
+    };
 
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};
@@ -89,9 +103,6 @@ mod test_property;
 #[cfg(test)]
 #[path = "unit_tests/reduction_graph.rs"]
 mod test_reduction_graph;
-#[cfg(test)]
-#[path = "unit_tests/trait_consistency.rs"]
-mod test_trait_consistency;
 #[cfg(test)]
 #[path = "unit_tests/unitdiskmapping_algorithms/mod.rs"]
 mod test_unitdiskmapping_algorithms;

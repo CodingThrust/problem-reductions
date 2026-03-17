@@ -23,6 +23,8 @@ pub enum Expr {
     Log(Box<Expr>),
     /// Square root: sqrt(a).
     Sqrt(Box<Expr>),
+    /// Factorial: factorial(a).
+    Factorial(Box<Expr>),
 }
 
 impl Expr {
@@ -47,6 +49,7 @@ impl Expr {
             Expr::Exp(a) => a.eval(vars).exp(),
             Expr::Log(a) => a.eval(vars).ln(),
             Expr::Sqrt(a) => a.eval(vars).sqrt(),
+            Expr::Factorial(a) => gamma_factorial(a.eval(vars)),
         }
     }
 
@@ -67,7 +70,7 @@ impl Expr {
                 a.collect_variables(vars);
                 b.collect_variables(vars);
             }
-            Expr::Exp(a) | Expr::Log(a) | Expr::Sqrt(a) => {
+            Expr::Exp(a) | Expr::Log(a) | Expr::Sqrt(a) | Expr::Factorial(a) => {
                 a.collect_variables(vars);
             }
         }
@@ -90,6 +93,7 @@ impl Expr {
             Expr::Exp(a) => Expr::Exp(Box::new(a.substitute(mapping))),
             Expr::Log(a) => Expr::Log(Box::new(a.substitute(mapping))),
             Expr::Sqrt(a) => Expr::Sqrt(Box::new(a.substitute(mapping))),
+            Expr::Factorial(a) => Expr::Factorial(Box::new(a.substitute(mapping))),
         }
     }
 
@@ -122,7 +126,7 @@ impl Expr {
                 base.is_polynomial()
                     && matches!(exp.as_ref(), Expr::Const(c) if *c >= 0.0 && (*c - c.round()).abs() < 1e-10)
             }
-            Expr::Exp(_) | Expr::Log(_) | Expr::Sqrt(_) => false,
+            Expr::Exp(_) | Expr::Log(_) | Expr::Sqrt(_) | Expr::Factorial(_) => false,
         }
     }
 
@@ -174,7 +178,9 @@ impl Expr {
 
                 base_ok && exp_ok
             }
-            Expr::Exp(a) | Expr::Log(a) | Expr::Sqrt(a) => a.is_valid_complexity_notation_inner(),
+            Expr::Exp(a) | Expr::Log(a) | Expr::Sqrt(a) | Expr::Factorial(a) => {
+                a.is_valid_complexity_notation_inner()
+            }
         }
     }
 
@@ -192,6 +198,7 @@ impl Expr {
             Expr::Exp(a) => Some(a.constant_value()?.exp()),
             Expr::Log(a) => Some(a.constant_value()?.ln()),
             Expr::Sqrt(a) => Some(a.constant_value()?.sqrt()),
+            Expr::Factorial(a) => Some(gamma_factorial(a.constant_value()?)),
         }
     }
 }
@@ -244,6 +251,7 @@ impl fmt::Display for Expr {
             Expr::Exp(a) => write!(f, "exp({a})"),
             Expr::Log(a) => write!(f, "log({a})"),
             Expr::Sqrt(a) => write!(f, "sqrt({a})"),
+            Expr::Factorial(a) => write!(f, "factorial({a})"),
         }
     }
 }
@@ -328,6 +336,29 @@ impl std::error::Error for CanonicalizationError {}
 /// This is now a compatibility wrapper for `big_o_normal_form()`.
 pub fn asymptotic_normal_form(expr: &Expr) -> Result<Expr, AsymptoticAnalysisError> {
     crate::big_o::big_o_normal_form(expr)
+}
+
+/// Compute factorial for non-negative values.
+///
+/// For non-negative integers, returns the exact integer factorial.
+/// For non-integer values, uses Stirling's approximation of the gamma function:
+/// n! = Γ(n+1) ≈ √(2πn) · (n/e)^n.
+fn gamma_factorial(n: f64) -> f64 {
+    if n < 0.0 {
+        return f64::NAN;
+    }
+    let rounded = n.round();
+    if (n - rounded).abs() < 1e-10 && rounded >= 0.0 {
+        let k = rounded as u64;
+        let mut result = 1u64;
+        for i in 2..=k {
+            result = result.saturating_mul(i);
+        }
+        result as f64
+    } else {
+        // Stirling's approximation: Γ(n+1) ≈ √(2πn) · (n/e)^n
+        (2.0 * std::f64::consts::PI * n).sqrt() * (n / std::f64::consts::E).powf(n)
+    }
 }
 
 // --- Runtime expression parser ---
@@ -516,6 +547,7 @@ impl ExprParser {
                         "exp" => Ok(Expr::Exp(Box::new(arg))),
                         "log" => Ok(Expr::Log(Box::new(arg))),
                         "sqrt" => Ok(Expr::Sqrt(Box::new(arg))),
+                        "factorial" => Ok(Expr::Factorial(Box::new(arg))),
                         _ => Err(format!("unknown function: {name}")),
                     }
                 } else {
