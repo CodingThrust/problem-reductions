@@ -113,10 +113,7 @@ fn test_conjunctivebooleanquery_serialization() {
     let problem = issue_example();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: ConjunctiveBooleanQuery = serde_json::from_value(json).unwrap();
-    assert_eq!(restored.domain_size(), problem.domain_size());
-    assert_eq!(restored.num_relations(), problem.num_relations());
-    assert_eq!(restored.num_variables(), problem.num_variables());
-    assert_eq!(restored.num_conjuncts(), problem.num_conjuncts());
+    assert_eq!(restored, problem);
 }
 
 #[test]

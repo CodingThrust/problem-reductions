@@ -32,7 +32,7 @@ inventory::submit! {
 }
 
 /// A relation with fixed arity and a set of tuples over a finite domain.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Relation {
     /// The arity (number of columns) of this relation.
     pub arity: usize,
@@ -41,7 +41,7 @@ pub struct Relation {
 }
 
 /// An argument in a conjunctive query atom.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum QueryArg {
     /// A reference to existential variable `y_i` (0-indexed).
     Variable(usize),
@@ -79,7 +79,7 @@ pub enum QueryArg {
 /// let solution = solver.find_satisfying(&problem);
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ConjunctiveBooleanQuery {
     domain_size: usize,
     relations: Vec<Relation>,
