@@ -2,8 +2,8 @@ name: Community Call Reminder
 
 on:
   schedule:
-    # Every Monday at 00:00 UTC = 08:00 HKT (one day before Tuesday 10:00 HKT call)
-    - cron: '0 0 * * 1'
+    # Every Monday at 02:00 UTC = exactly 24 hours before Tuesday 10:00 HKT (02:00 UTC)
+    - cron: '0 2 * * 1'
   workflow_dispatch: # Manual trigger for testing
 
 jobs:
@@ -67,6 +67,7 @@ jobs:
             build_section "Review pool" "Ready for review"
             build_section "Final review" "Final review"
             build_section "Ready" "Up next"
+            build_section "OnHold" "On hold"
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
