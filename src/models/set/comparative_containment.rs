@@ -9,7 +9,6 @@ use crate::traits::{Problem, SatisfactionProblem};
 use crate::types::{One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
-use std::any::Any;
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -44,11 +43,11 @@ pub struct ComparativeContainment<W = i32> {
     s_weights: Vec<W>,
 }
 
-impl<W: 'static> ComparativeContainment<W> {
+impl<W: WeightElement> ComparativeContainment<W> {
     /// Create a new instance with unit weights.
     pub fn new(universe_size: usize, r_sets: Vec<Vec<usize>>, s_sets: Vec<Vec<usize>>) -> Self
     where
-        W: Clone + From<i32>,
+        W: From<i32>,
     {
         let r_weights = vec![W::from(1); r_sets.len()];
         let s_weights = vec![W::from(1); s_sets.len()];
@@ -62,10 +61,7 @@ impl<W: 'static> ComparativeContainment<W> {
         s_sets: Vec<Vec<usize>>,
         r_weights: Vec<W>,
         s_weights: Vec<W>,
-    ) -> Self
-    where
-        W: 'static,
-    {
+    ) -> Self {
         assert_eq!(
             r_sets.len(),
             r_weights.len(),
@@ -218,20 +214,13 @@ fn validate_set_family(label: &str, universe_size: usize, sets: &[Vec<usize>]) {
     }
 }
 
-fn validate_weight_family<W: 'static>(label: &str, weights: &[W]) {
+fn validate_weight_family<W: WeightElement>(label: &str, weights: &[W]) {
     for (index, weight) in weights.iter().enumerate() {
-        let any_weight = weight as &dyn Any;
-        if let Some(weight) = any_weight.downcast_ref::<i32>() {
-            assert!(
-                *weight > 0,
-                "{label} weights must be positive; found {weight} at index {index}"
-            );
-        } else if let Some(weight) = any_weight.downcast_ref::<f64>() {
-            assert!(
-                weight.is_finite() && *weight > 0.0,
-                "{label} weights must be finite and positive; found {weight} at index {index}"
-            );
-        }
+        let sum = weight.to_sum();
+        assert!(
+            sum.partial_cmp(&W::Sum::zero()) == Some(std::cmp::Ordering::Greater),
+            "{label} weights must be finite and positive; weight at index {index} is not"
+        );
     }
 }
 

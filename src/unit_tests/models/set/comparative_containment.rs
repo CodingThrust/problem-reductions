@@ -108,19 +108,37 @@ fn test_comparative_containment_paper_example() {
 }
 
 #[test]
+fn test_comparative_containment_weight_sums() {
+    let problem = yes_instance();
+    // Y = {0}: R1={0,1,2,3} contains {0} (w=2), R2={0,1} contains {0} (w=5) → 7
+    assert_eq!(problem.r_weight_sum(&[1, 0, 0, 0]), Some(7));
+    // Y = {0}: S1={0,1,2,3} contains {0} (w=3), S2={2,3} does not → 3
+    assert_eq!(problem.s_weight_sum(&[1, 0, 0, 0]), Some(3));
+    // Invalid config returns None
+    assert_eq!(problem.r_weight_sum(&[1, 0, 0]), None);
+    assert_eq!(problem.s_weight_sum(&[1, 0, 0, 2]), None);
+}
+
+#[test]
 #[should_panic(expected = "number of R sets and R weights must match")]
 fn test_comparative_containment_rejects_mismatched_r_weights() {
     ComparativeContainment::with_weights(2, vec![vec![0]], vec![vec![0]], vec![1, 2], vec![1]);
 }
 
 #[test]
-#[should_panic(expected = "R weights must be positive")]
+#[should_panic(expected = "number of S sets and S weights must match")]
+fn test_comparative_containment_rejects_mismatched_s_weights() {
+    ComparativeContainment::with_weights(2, vec![vec![0]], vec![vec![0]], vec![1], vec![1, 2]);
+}
+
+#[test]
+#[should_panic(expected = "R weights must be finite and positive")]
 fn test_comparative_containment_rejects_nonpositive_i32_weights() {
     ComparativeContainment::with_weights(2, vec![vec![0]], vec![vec![0]], vec![0], vec![1]);
 }
 
 #[test]
-#[should_panic(expected = "S weights must be positive")]
+#[should_panic(expected = "S weights must be finite and positive")]
 fn test_comparative_containment_rejects_nonpositive_i32_s_weights() {
     ComparativeContainment::with_weights(2, vec![vec![0]], vec![vec![0]], vec![1], vec![0]);
 }
