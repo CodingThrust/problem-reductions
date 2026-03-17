@@ -1073,9 +1073,9 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 }
 #{
   let x = load-model-example("StrongConnectivityAugmentation")
-  let nv = x.instance.graph.num_vertices
-  let ne = x.instance.graph.arcs.len()
-  let arcs = x.instance.graph.arcs.map(e => (e.at(0), e.at(1)))
+  let nv = x.instance.graph.inner.nodes.len()
+  let ne = x.instance.graph.inner.edges.len()
+  let arcs = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
   let candidates = x.instance.candidate_arcs
   let bound = x.instance.bound
   let sol = x.optimal.at(0)
