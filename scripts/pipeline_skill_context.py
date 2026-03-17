@@ -225,6 +225,8 @@ def render_review_pipeline_text(result: dict) -> str:
     )
     if checkout.get("worktree_dir"):
         lines.append(f"- Worktree: `{checkout['worktree_dir']}`")
+    if checkout.get("head_ref_name"):
+        lines.append(f"- PR head branch: `{checkout['head_ref_name']}`")
     conflicts = merge.get("conflicts") or []
     if conflicts:
         lines.append("- Conflicts:")

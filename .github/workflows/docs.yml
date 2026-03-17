@@ -41,8 +41,8 @@ jobs:
       - name: Build mdBook
         run: mdbook build
 
-      - name: Build examples and PDF
-        run: make examples && typst compile --root docs docs/paper/reductions.typ book/reductions.pdf
+      - name: Build PDF
+        run: typst compile --root . docs/paper/reductions.typ book/reductions.pdf
 
       - name: Build rustdoc
         run: RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps

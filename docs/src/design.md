@@ -230,7 +230,8 @@ Exported files:
 - [reduction_graph.json](reductions/reduction_graph.json) — all problem variants and reduction edges
 - [problem_schemas.json](reductions/problem_schemas.json) — field definitions for each problem type
 
-Regenerate with `cargo run --example export_graph` and `cargo run --example export_schemas`.
+These JSON assets are generated during `make doc`, `make mdbook`, and `make paper`; they are build artifacts, not committed source files.
+Generate them manually with `cargo run --example export_graph` and `cargo run --example export_schemas` when you need the raw exports locally.
 
 ### Path finding
 

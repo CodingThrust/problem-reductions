@@ -13,7 +13,7 @@
 //! [`MinimumFeedbackVertexSet`]: crate::models::graph::MinimumFeedbackVertexSet
 //! [`MinimumFeedbackArcSet`]: crate::models::graph::MinimumFeedbackArcSet
 
-use petgraph::algo::toposort;
+use petgraph::algo::{kosaraju_scc, toposort};
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
@@ -141,6 +141,11 @@ impl DirectedGraph {
     /// ordering exists, the graph is acyclic.
     pub fn is_dag(&self) -> bool {
         toposort(&self.inner, None).is_ok()
+    }
+
+    /// Returns `true` if every vertex can reach every other vertex.
+    pub fn is_strongly_connected(&self) -> bool {
+        kosaraju_scc(&self.inner).len() <= 1
     }
 
     /// Check if the subgraph induced by keeping only the given arcs is acyclic (a DAG).
