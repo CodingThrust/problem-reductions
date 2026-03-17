@@ -822,15 +822,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
             let (k, _variant) =
                 util::validate_k_param(&resolved_variant, args.k, None, "KthBestSpanningTree")?;
-            let bound_raw = args.bound.ok_or_else(|| {
+            let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!(
                     "KthBestSpanningTree requires --bound\n\n\
                      Usage: pred create KthBestSpanningTree --graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3"
                 )
-            })?;
-            let bound = i32::try_from(bound_raw).map_err(|_| {
-                anyhow::anyhow!("KthBestSpanningTree --bound value {bound_raw} does not fit in i32")
-            })?;
+            })? as i32;
             (
                 ser(problemreductions::models::graph::KthBestSpanningTree::new(
                     graph,
