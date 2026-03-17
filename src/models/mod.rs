@@ -12,9 +12,9 @@ pub mod set;
 pub use algebraic::{ClosestVectorProblem, BMF, ILP, QUBO};
 pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
-    BicliqueCover, BiconnectivityAugmentation, BoundedComponentSpanningForest,
-    DirectedTwoCommodityIntegralFlow, GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree,
-    KColoring, LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
+    BicliqueCover, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
+    GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, KColoring,
+    LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
     MaximumMatching, MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
     MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching, OptimalLinearArrangement,
     PartitionIntoTriangles, RuralPostman, SpinGlass, SteinerTree, SubgraphIsomorphism,

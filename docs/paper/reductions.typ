@@ -66,7 +66,6 @@
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
   "GraphPartitioning": [Graph Partitioning],
-  "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
   "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
@@ -537,52 +536,6 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
   }),
   caption: [Graph with $n = 6$ vertices partitioned into $A = {v_0, v_1, v_2}$ (blue) and $B = {v_3, v_4, v_5}$ (red). The 3 crossing edges $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$ are shown in bold red; internal edges are gray.],
 ) <fig:graph-partitioning>
-]
-#problem-def("BiconnectivityAugmentation")[
-  Given an undirected graph $G = (V, E)$, a set $F$ of candidate edges on $V$ with $F inter E = emptyset$, weights $w: F -> RR$, and a budget $B in RR$, find $F' subset.eq F$ such that $sum_(e in F') w(e) <= B$ and the augmented graph $G' = (V, E union F')$ is biconnected, meaning $G'$ is connected and deleting any single vertex leaves it connected.
-][
-Biconnectivity augmentation is a classical network-design problem: add backup links so the graph survives any single vertex failure. The weighted candidate-edge formulation modeled here captures communication, transportation, and infrastructure planning settings where only a prescribed set of new links is feasible and each carries a cost. In this library, the exact baseline is brute-force enumeration over the $m = |F|$ candidate edges, yielding $O^*(2^m)$ time and matching the exported complexity metadata for the model.
-
-*Example.* Consider the path graph $v_0 - v_1 - v_2 - v_3 - v_4 - v_5$ with candidate edges $(v_0, v_2)$, $(v_0, v_3)$, $(v_0, v_4)$, $(v_1, v_3)$, $(v_1, v_4)$, $(v_1, v_5)$, $(v_2, v_4)$, $(v_2, v_5)$, $(v_3, v_5)$ carrying weights $(1, 2, 3, 1, 2, 3, 1, 2, 1)$ and budget $B = 4$. Selecting $F' = {(v_0, v_2), (v_1, v_3), (v_2, v_4), (v_3, v_5)}$ uses total weight $1 + 1 + 1 + 1 = 4$ and eliminates every articulation point: after deleting any single vertex, the remaining graph is still connected. Reducing the budget to $B = 3$ makes the instance infeasible, because one of the path endpoints remains attached through a single articulation vertex.
-
-#figure(
-  canvas(length: 1cm, {
-    import draw: *
-    // 6 vertices in a horizontal line
-    let verts = range(6).map(k => (k * 1.5, 0))
-    let path-edges = ((0,1),(1,2),(2,3),(3,4),(4,5))
-    // Candidate edges: (u, v, weight, selected?)
-    let candidates = (
-      (0, 2, 1, true), (0, 3, 2, false), (0, 4, 3, false),
-      (1, 3, 1, true), (1, 4, 2, false), (1, 5, 3, false),
-      (2, 4, 1, true), (2, 5, 2, false), (3, 5, 1, true),
-    )
-    let blue = graph-colors.at(0)
-    let green = graph-colors.at(2)
-    let gray = luma(180)
-    // Draw path edges (existing graph)
-    for (u, v) in path-edges {
-      g-edge(verts.at(u), verts.at(v), stroke: 2pt + black)
-    }
-    // Draw candidate edges as arcs above the path
-    for (u, v, w, sel) in candidates {
-      let mid-x = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
-      let span = v - u
-      let height = span * 0.4
-      let ctrl = (mid-x, height)
-      bezier(verts.at(u), verts.at(v), ctrl,
-        stroke: if sel { 2.5pt + green } else { (dash: "dashed", paint: gray, thickness: 0.8pt) })
-      // Weight label
-      content((mid-x, height + 0.25),
-        text(7pt, fill: if sel { green.darken(30%) } else { gray })[#w])
-    }
-    // Draw nodes
-    for (k, pos) in verts.enumerate() {
-      g-node(pos, name: "v" + str(k), label: [$v_#k$])
-    }
-  }),
-  caption: [Biconnectivity Augmentation on a 6-vertex path with $B = 4$. Existing edges are black; green arcs show the selected augmentation $F'$ (total weight 4); dashed gray arcs are unselected candidates. The resulting graph $G' = (V, E union F')$ is biconnected.],
-) <fig:biconnectivity-augmentation>
 ]
 
 #problem-def("BoundedComponentSpanningForest")[

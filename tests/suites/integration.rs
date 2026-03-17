@@ -110,19 +110,6 @@ mod all_problems_solvable {
     }
 
     #[test]
-    fn test_biconnectivity_augmentation_solvable() {
-        let problem = BiconnectivityAugmentation::new(
-            SimpleGraph::path(4),
-            vec![(0, 2, 5), (1, 3, 1), (0, 3, 2)],
-            2,
-        );
-        let solver = BruteForce::new();
-        let satisfying = solver.find_all_satisfying(&problem);
-        assert_eq!(satisfying, vec![vec![0, 0, 1]]);
-        assert!(satisfying.iter().all(|config| problem.evaluate(config)));
-    }
-
-    #[test]
     fn test_satisfiability_solvable() {
         let problem = Satisfiability::new(
             3,
