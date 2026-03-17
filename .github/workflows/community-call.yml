@@ -95,6 +95,6 @@ jobs:
           curl -s -X POST "https://problem-reductions.zulipchat.com/api/v1/messages" \
             -u "${ZULIP_BOT_EMAIL}:${ZULIP_BOT_API_KEY}" \
             --data-urlencode "type=stream" \
-            --data-urlencode "to=community-calls" \
+            --data-urlencode "to=community-call" \
             --data-urlencode "topic=${TOPIC}" \
             --data-urlencode "content=${BODY}"
