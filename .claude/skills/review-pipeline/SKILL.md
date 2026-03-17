@@ -1,11 +1,11 @@
 ---
 name: review-pipeline
-description: Pick a PR from the Review pool board column, fix Copilot review comments, check issue/human comments, fix CI, run agentic feature tests, then move to Final review
+description: Use when triaging PRs from the Review pool board column and moving them toward Final review or back to Ready
 ---
 
 # Review Pipeline
 
-Pick PRs from the `Review pool` column on the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1). For each PR: wait for Copilot review, fix Copilot comments, check and address issue/human comments, fix CI, run agentic feature tests, then move to `Final review`.
+Pick PRs from the `Review pool` column on the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1). For each item: first decide whether the PR is actually review-ready. If Copilot has not reviewed it yet, inspect the PR body and current diff to understand why. Incomplete PRs go back to `Ready` with a remark. Review-ready PRs without Copilot review metadata get a Copilot review request, then you switch to another item. PRs that already show Copilot review metadata continue through the full review flow, where the actual comment text is fetched later.
 
 ## Invocation
 
@@ -34,21 +34,61 @@ GitHub Project board IDs (for `gh project item-edit`):
 
 ## Autonomous Mode
 
-This skill runs **fully autonomously** except for one case: if the scripted `review-pipeline` context bundle returns `status == "needs-user-choice"`, STOP and ask the user which PR is the intended target.
+This skill runs **fully autonomously** except for one case: if a Review pool card links multiple repo PRs and the intended target is unclear, STOP and ask the user which PR is the intended target.
 
 ## Steps
 
-### 0. Generate the Review-Pipeline Report
+### 0a. Triage Review Pool Cheaply
 
-Step 0 should be a single report-generation step. Do not manually unpack board selection, worktree prep, or PR context with shell snippets.
+Before spending the expensive full-context packet, do one lightweight Review-pool scan:
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+QUEUE=$(python3 scripts/pipeline_board.py list review --repo "$REPO" --format json)
+```
+
+If `PR` was explicitly supplied (for example `/review-pipeline 570`), do **not** pick a different item from the queue. Triage only that PR. The "switch to another item" behavior in this step is for untargeted `/review-pipeline` runs.
+
+Pick one candidate with a lightweight heuristic. Good enough is:
+- prefer direct PR cards over issue cards
+- prefer `eligible` items over `waiting-for-copilot`
+- otherwise any open PR is fine; randomness is acceptable
+
+For the chosen PR:
+- If it already shows Copilot review metadata (`eligibility == eligible`), set `PR` to that PR number and continue to Step 0b.
+- If it is `waiting-for-copilot`, check out the PR and inspect the current diff plus PR body to decide why Copilot has not reviewed it yet.
+
+When a PR is `waiting-for-copilot`, inspect the checked-out worktree, the PR body, and the current diff. Use the actual code delta as the source of truth; do not assume the PR is review-ready just because it is in `Review pool`.
+
+Decision rule for `waiting-for-copilot` PRs:
+- If the PR is not complete enough for review, keep the PR open, post a short remark explaining what is still missing, and move the project item back to `Ready`.
+  For untargeted runs, then return to Step 0a to pick another item.
+  For explicit `PR` runs, STOP after reporting what you moved back.
+- If the PR looks complete enough for review, run `gh copilot-review <PR_NUMBER>` and leave it in `Review pool`.
+  For untargeted runs, then return to Step 0a to pick another item. Do **not** wait on that PR in the same invocation.
+  For explicit `PR` runs, STOP after reporting that Copilot review was requested.
+
+For "not complete enough", rely on the checked-out diff and PR body together. Typical reasons include: the PR body promises work that is not in the diff, the diff is still mostly scaffolding or partial plumbing, key files or tests are missing, or the implementation is obviously not ready for a meaningful review pass.
+
+Use a concrete remark when sending the item back to `Ready`, for example:
+
+```bash
+gh pr comment <PR_NUMBER> --body "This PR is not review-ready yet. I checked the current diff and PR body and it still looks incomplete for review: <brief concrete reason>. Moving the linked board item back to Ready so implementation can continue."
+python3 scripts/pipeline_board.py move <ITEM_ID> ready
+```
+
+If no candidate in the current queue is both open and ready for a full review pass after this triage, STOP with `No Review pool PRs are currently ready for full review-pipeline processing.`
+
+### 0b. Generate the Review-Pipeline Report for the Selected Reviewed PR
+
+Only after Step 0a has identified a reviewed, review-ready PR should you spend the expensive full-context packet. Step 0b should be a single report-generation step for that selected PR. Do not manually unpack board selection, worktree prep, or PR context with shell snippets.
+The expensive full-context call here is `python3 scripts/pipeline_skill_context.py review-pipeline ...` (backed by `build_review_pipeline_context()`). It is allowed exactly once per top-level `review-pipeline` invocation. After it succeeds, do not rerun this command or lower-level selection helpers such as `fetch_review_candidates`, `claim_review_entry`, or `pipeline_board.review_candidates` in the same invocation unless no packet was produced at all or the user explicitly asks for a fresh snapshot.
+Step 0a only tells you whether Copilot has reviewed the PR at all. Step 0b is where you fetch the full comment summary and actual review context for the selected PR.
+
+```bash
 STATE_FILE=/tmp/problemreductions-review-selection.json
-set -- python3 scripts/pipeline_skill_context.py review-pipeline --repo "$REPO" --state-file "$STATE_FILE" --format text
-if [ -n "${PR:-}" ]; then
-  set -- "$@" --pr "$PR"
-fi
+# Step 0a should already have selected the PR number.
+set -- python3 scripts/pipeline_skill_context.py review-pipeline --repo "$REPO" --pr "$PR" --state-file "$STATE_FILE" --format text
 REPORT=$("$@")
 printf '%s\n' "$REPORT"
 ```
@@ -59,10 +99,11 @@ The report is the Step 0 packet. It should already include:
 - Comment Summary
 - CI / Coverage
 - Merge Prep
+- PR head branch
 - Linked Issue Context
 
 Branch from the report:
-- `Bundle status: empty` => STOP with `No Review pool PRs are currently eligible for review-pipeline.`
+- `Bundle status: empty` => the selected PR is no longer eligible; for untargeted runs return to Step 0a and pick another item, and for explicit `PR` runs STOP and report that the targeted PR is not currently eligible
 - `Bundle status: needs-user-choice` => STOP and ask the user which PR is intended
 - `Bundle status: ready` => continue with the already-claimed item and prepared worktree
 
@@ -75,10 +116,10 @@ Review pool card links multiple repo PRs:
 ```
 
 The bundle already handled the mechanical claim step:
-- normal eligible PRs are claimed through the review queue
+- the selected reviewed PR is claimed through the review queue
 - explicit `--pr` matches on ambiguous cards are treated as deterministic disambiguation and claimed automatically
 
-When you need to take actions later, use the identifiers already printed in the report (`Board item`, `PR`, worktree path). If you absolutely need raw structured data for a corner case, rerun the same command with `--format json`, but do not rebuild Step 0 manually.
+When you need to take actions later, use the identifiers already printed in the report (`Board item`, `PR`, worktree path, `PR head branch`). If you need structured data, prefer parsing the existing packet or ensure Step 0 was generated as JSON once; do not rerun Step 0 just to switch formats inside the same invocation.
 
 All subsequent steps run inside the prepared worktree and should read facts from the report instead of re-fetching them by default.
 
@@ -92,33 +133,13 @@ All subsequent steps run inside the prepared worktree and should read facts from
 
 Read the merge result from the report's `Merge Prep` section.
 
-- If the report says the merge status is `clean`: push the merge commit and continue.
+- If the report says the merge status is `clean`: push the merge commit to the packet's `PR head branch` and continue.
 - If there are conflicts:
   1. Inspect the conflicting files listed in the report.
   2. Compare the current skill versions on main vs the PR branch to understand which patterns are current.
-  3. Resolve conflicts (prefer main's patterns for skill-generated code, the PR branch for problem-specific logic, main for regenerated artifacts like JSON).
+  3. Resolve **all** conflicts regardless of how many files are affected (prefer main's patterns for skill-generated code, the PR branch for problem-specific logic, main for regenerated artifacts like JSON).
   4. Stage resolved files, commit, and push.
-- If the report says the merge status is `conflicted` and there are too many conflicts (>3 files, or conflicts in core implementation files beyond just JSON/skill artifacts):
-  1. Abort the merge: `git merge --abort` if a merge is still in progress
-  2. Post a comment on the PR explaining the situation:
-     ```bash
-     gh pr comment <PR_NUMBER> --body "This PR has significant merge conflicts with main ($(N) conflicting files). Moving back to Ready for rework.
-
-     Conflicting files:
-     $(list of files)
-
-     The PR needs to be rebased on current main and conflicts resolved before it can proceed through the review pipeline."
-     ```
-  3. Close the PR:
-     ```bash
-     gh pr close <PR_NUMBER>
-     ```
-  4. Move the project item back to `Ready`:
-     ```bash
-     python3 scripts/pipeline_board.py move <ITEM_ID> ready
-     ```
-  5. Report: `PR #N has too many merge conflicts — closed and moved back to Ready for rework.`
-  6. STOP processing this PR.
+  5. Continue to the next step — the goal is to push PRs through to merge, not to bounce them back.
 
 ### 2. Fix Copilot Review Comments
 
@@ -126,11 +147,13 @@ Use the report as the primary mechanical context:
 - `Comment Summary`
 - `CI / Coverage`
 - `Linked Issue Context`
+- `Merge Prep` (`PR head branch`)
 
 Inspect the report's Copilot comment count and linked issue context. If there are actionable comments: invoke `/fix-pr` to address them, then push:
 
 ```bash
-git push
+HEAD_REF_NAME=<from the review-pipeline packet>
+git push origin HEAD:"$HEAD_REF_NAME"
 ```
 
 If Copilot approved with no actionable comments: skip to next step.
@@ -176,7 +199,9 @@ Run agentic feature tests on the modified feature:
    - `[Model]` PRs: the new problem model name
    - `[Rule]` PRs: the new reduction rule (source -> target)
 
-2. **Invoke `/agentic-tests:test-feature`** with the identified feature. This simulates a downstream user exercising the feature from docs and examples. You MUST use the Skill tool to invoke `agentic-tests:test-feature`.
+2. **Invoke `/agentic-tests:test-feature`** with the identified feature. This simulates a downstream user exercising the feature from docs and examples.
+   - In environments with a Skill tool, use that tool.
+   - In Codex, open `~/.claude/commands/agentic-tests:test-feature.md` directly and follow it instead of assuming slash-command support.
 
 3. **If test-feature reports issues:** treat every reported issue as real until you have checked it in the **current PR worktree/branch**.
    - Reproduce each issue from the current PR branch/worktree before acting. If it does not reproduce there, classify it as `not reproducible in current worktree`.
@@ -218,7 +243,8 @@ print(mapping.get(state, 'FAILED'))
 
 3. **Push fixes:**
    ```bash
-   git push
+   HEAD_REF_NAME=<from the review-pipeline packet>
+   git push origin HEAD:"$HEAD_REF_NAME"
    ```
 
 4. Increment retry counter. If `< 3`, go back to step 1. If `= 3`, give up.
@@ -301,15 +327,16 @@ Completed: 2/2 | All moved to Final review
 | PR not in Review pool column | Verify status before processing; STOP if not Review pool |
 | Processing a closed PR from a stale issue card | Require PR state `OPEN`; skip stale closed PRs |
 | Guessing on an issue card with multiple linked repo PRs | Stop, show options to the user, and recommend the most likely correct OPEN PR |
-| Picking a PR before Copilot has reviewed | Check `pulls/$PR/reviews` for copilot-pull-request-reviewer[bot]; if absent, request with `gh copilot-review <PR>` and wait |
+| Picking a PR before Copilot has reviewed | Inspect the checked-out diff and PR body first. If the PR is incomplete, comment and move it back to Ready. If it is review-ready, request Copilot review and switch to another item instead of waiting |
 | Missing project scopes | Run `gh auth refresh -s read:project,project` |
-| Skipping review-implementation | Always run structural completeness check in Step 2b — it catches gaps Copilot misses (paper entries, CLI registration, trait_consistency) |
+| Skipping review-implementation | Always run structural completeness check in Step 2b — it catches gaps Copilot misses (paper entries, CLI registration, example-db wiring) |
 | Skipping agentic tests | Always run test-feature even if CI is green |
 | Not checking out the right branch | Use `gh pr view` to get the exact branch name |
+| Waiting idle for Copilot | Request the review, leave the PR in Review pool, and keep triaging other items in the same run |
 | Worktree left behind on failure | Always clean up with `git worktree remove` in Step 5 |
 | Working in main checkout | All work happens in `.worktrees/` — never modify the main checkout |
 | Skipping merge with main | Always merge origin/main in Step 1a to catch conflicts before fixing comments |
-| Wasting time on heavy conflicts | If >3 files conflict or core impl files are affected, close PR, move to Ready, and let project-pipeline rework it |
+| Giving up on conflicts too easily | Always try to resolve all conflicts. Only move back to Ready if resolution would be genuinely dangerous (e.g. irreconcilable semantic conflicts that risk breaking correctness) |
 | Ignoring issue comments | Always check the linked issue (`Fix #N`) for human feedback in Step 2a |
 | Only checking Copilot comments | Step 2a checks human PR reviews and linked issue comments too — bot-only review is insufficient |
 | Saying "passed" while deferring issues | If anything remains for maintainer judgment, list it explicitly under `Remaining issues for final review` and mark the agentic result accordingly |

@@ -49,6 +49,8 @@ ISSUE_JSON=$(python3 scripts/pipeline_checks.py issue-context \
   --format json)
 ```
 
+This `issue-context` packet is the expensive deterministic preflight call for `issue-to-pr`. It is allowed exactly once per top-level `issue-to-pr` invocation. After it succeeds, reuse `ISSUE_JSON` for all later guards, resume/create decisions, and summaries instead of calling `issue-context` again.
+
 Treat `ISSUE_JSON` as the source of truth for the deterministic preflight data:
 - `title`, `body`, `labels`, and `comments` provide the issue summary and comment thread
 - `kind`, `source_problem`, and `target_problem` provide parsed issue metadata
@@ -95,7 +97,7 @@ The plan MUST reference the appropriate implementation skill and follow its step
 Include the concrete details from the issue (problem definition, reduction algorithm, example, etc.) mapped onto each step.
 
 **Plan batching:** The paper writing step (add-model Step 6 / add-rule Step 5) MUST be in a **separate batch** from the implementation steps, so it gets its own subagent with fresh context. It depends on the implementation being complete (needs exports). Example batch structure for a `[Model]` plan:
-- Batch 1: Steps 1-5.5 (implement model, register, CLI, tests, trait_consistency)
+- Batch 1: Steps 1-5.5 (implement model, register, CLI, tests)
 - Batch 2: Step 6 (write paper entry — depends on batch 1 for exports)
 
 **Solver rules:**
@@ -221,8 +223,17 @@ EOF
 python3 scripts/pipeline_pr.py comment --repo "$REPO" --pr "$PR" --body-file "$COMMENT_FILE"
 rm -f "$COMMENT_FILE"
 
+# Repo verification may regenerate ignored doc exports (notably after `make paper`).
+# Inspect the tree once more before pushing.
+git status --short
+
+# Generated doc exports under docs/src/reductions/ are ignored; do not stage them.
+
+# The issue plan file must be gone before push.
+test ! -e docs/plans/<plan-file>.md
+
 git push
-make copilot-review
+gh copilot-review "$PR"
 ```
 
 #### 7e. Done
@@ -278,3 +289,5 @@ Run /review-pipeline to process Copilot comments, fix CI, and run agentic tests.
 | Dirty working tree | Use `pipeline_worktree.py prepare-issue-branch` — it stops before branching if the worktree is dirty |
 | Bundling model + rule in one PR | Each PR must contain exactly one model or one rule — STOP and block if model is missing (Step 3.5) |
 | Plan files left in PR | Delete plan files before final push (Step 7c) |
+| `make paper` or export steps changed tracked JSON after verification | Run `git status --short`, stage expected generated exports, and STOP if unexpected files remain before push |
+| `make copilot-review` cannot find a resumed PR branch | Request review with `gh copilot-review "$PR"` so resumed local branch names do not matter |

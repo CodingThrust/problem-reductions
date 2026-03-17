@@ -39,6 +39,7 @@ This skill runs **fully autonomously** — no confirmation prompts, no user ques
 ### 0. Generate the Project-Pipeline Report
 
 Step 0 should be a single report-generation step. Do not manually list Ready items, list In-progress items, grep model declarations, or re-derive blocked rules with separate shell commands.
+The expensive full-context call here is `python3 scripts/pipeline_skill_context.py project-pipeline ...` (backed by `build_project_pipeline_context()`). For a single top-level `project-pipeline` invocation, call it once and reuse the packet for scoring, ranking, and choosing the issue. Do not rerun it in the single-issue path after the packet exists.
 
 ```bash
 set -- python3 scripts/pipeline_skill_context.py project-pipeline --repo CodingThrust/problem-reductions --repo-root . --format text
@@ -117,7 +118,7 @@ The report should already have stopped you before this point if the requested is
 
 After successful validation, extract `ITEM_ID`, `ISSUE`, and `TITLE` from `CLAIM` using the same commands shown below.
 
-**If `--all`:** proceed with all eligible issues in ranked order (highest score first). Models before Rules at same score. Blocked rules are skipped. After each issue is processed, regenerate the report before the next claim, because a just-merged Model may unblock pending rules.
+**If `--all`:** proceed with all eligible issues in ranked order (highest score first). Models before Rules at same score. Blocked rules are skipped. After each issue is processed, regenerate the report before the next claim, because a just-merged Model may unblock pending rules. This is the only normal case in this skill where a second full-context packet is expected.
 
 **Otherwise (no args):** score the eligible issues from the report, pick the highest-scored one, and proceed immediately (no confirmation). After picking the issue number, claim it through the scripted bundle:
 
@@ -146,7 +147,17 @@ WORKTREE_DIR=$(printf '%s\n' "$WORKTREE" | python3 -c "import sys,json; print(js
 cd "$WORKTREE_DIR"
 ```
 
+If `worktree-for-issue` fails during the GraphQL-backed open-PR lookup, fall back to a REST search instead of creating a fresh branch blindly:
+
+```bash
+PR_JSON=$(gh api "search/issues?q=repo:$REPO+is:pr+is:open+%22Fix+%23$ISSUE%22")
+PR_NUMBER=$(printf '%s\n' "$PR_JSON" | python3 -c "import sys,json; items=json.load(sys.stdin).get('items', []); print(items[0]['number'] if items else '')")
+WORKTREE=$(python3 scripts/pipeline_worktree.py checkout-pr \
+  --repo "$REPO" --pr "$PR_NUMBER" --repo-root . --format json)
+```
+
 - `action == "resume-pr"`: existing PR checked out — `issue-to-pr` will skip plan creation and jump to execution
+- If the resumed branch later proves stale against `main` (for example, merge conflicts span registry/CLI/skill wiring or a merge helper reports `likely_complex: true`), STOP autonomous repair and move the issue to `Final review` for human triage instead of forcing a large migration inside project-pipeline
 - `action == "create-worktree"`: fresh branch from `origin/main`
 
 All subsequent steps run inside the worktree. This ensures the user's main checkout is never modified.
@@ -245,3 +256,4 @@ Completed: 2/4 | Review pool: 3 | Returned to Ready: 1
 | Working in main checkout | All work happens in `.worktrees/` — never modify the main checkout |
 | Missing items from project board | `gh project item-list` defaults to 30 items — always use `--limit 500` |
 | Creating a fresh branch when PR exists | Check `issue-context` action field first — use `checkout-pr` for existing PRs instead of `create-issue` |
+| Forcing a very stale resume PR through autonomous conflict repair | If a resumed PR has broad merge conflicts (`likely_complex: true`, registry/CLI/skill churn, etc.), stop and move it to `Final review` |

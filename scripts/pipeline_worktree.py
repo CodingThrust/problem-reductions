@@ -201,18 +201,38 @@ def checkout_pr_worktree(
         "--repo",
         repo,
         "--json",
-        "headRefName,headRefOid,baseRefOid",
+        "headRefName,headRefOid,baseRefName",
     )
+
+    # baseRefOid is not available via gh pr view --json; resolve it locally
+    run_git_checked(repo_root, "fetch", "origin", pr_data["baseRefName"])
+    base_sha = run_git(repo_root, "rev-parse", f"origin/{pr_data['baseRefName']}").strip()
 
     plan = plan_pr_worktree(
         repo_root,
         pr_number=pr_number,
         head_ref_name=pr_data["headRefName"],
-        base_sha=pr_data["baseRefOid"],
+        base_sha=base_sha,
         head_sha=pr_data["headRefOid"],
     )
 
-    Path(plan["worktree_dir"]).parent.mkdir(parents=True, exist_ok=True)
+    worktree_dir = Path(plan["worktree_dir"])
+
+    # If the worktree already exists from a previous run, remove it first
+    if worktree_dir.exists():
+        run_git_checked(repo_root, "worktree", "remove", "--force", str(worktree_dir))
+    # Also clean up the local branch if it exists (may be left over after worktree removal)
+    branch_check = subprocess.run(
+        ["git", "-C", str(repo_root), "rev-parse", "--verify", plan["local_branch"]],
+        capture_output=True,
+    )
+    if branch_check.returncode == 0:
+        subprocess.run(
+            ["git", "-C", str(repo_root), "branch", "-D", plan["local_branch"]],
+            capture_output=True,
+        )
+
+    worktree_dir.parent.mkdir(parents=True, exist_ok=True)
     run_git_checked(repo_root, "fetch", "origin", plan["fetch_ref"])
     run_git_checked(repo_root, "worktree", "add", plan["worktree_dir"], plan["local_branch"])
     return plan
