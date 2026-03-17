@@ -313,11 +313,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
 fn uses_edge_weights_flag(canonical: &str) -> bool {
     matches!(
         canonical,
-        "KthBestSpanningTree"
-            | "MaxCut"
-            | "MaximumMatching"
-            | "TravelingSalesman"
-            | "RuralPostman"
+        "KthBestSpanningTree" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" | "RuralPostman"
     )
 }
 
@@ -1703,7 +1699,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
     emit_problem_output(&output, out)
 }
-
 
 /// Reject non-unit weights when the resolved variant uses `weight=One`.
 fn reject_nonunit_weights_for_one_variant(
