@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -95,12 +94,6 @@ class ProjectBoardPollTests(unittest.TestCase):
             self.assertEqual(repo, "CodingThrust/problem-reductions")
             return 570 if issue_number == 117 else None
 
-        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            self.assertEqual(repo, "CodingThrust/problem-reductions")
-            if pr_number == 570:
-                return [{"user": {"login": "copilot-pull-request-reviewer[bot]"}}]
-            return []
-
         def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
             self.assertEqual(repo, "CodingThrust/problem-reductions")
             self.assertEqual(pr_number, 570)
@@ -113,37 +106,12 @@ class ProjectBoardPollTests(unittest.TestCase):
                 {"items": [make_issue_item("PVTI_10", 117, status="Review pool")]},
                 state_file,
                 repo="CodingThrust/problem-reductions",
-                review_fetcher=fake_review_fetcher,
                 pr_resolver=fake_pr_resolver,
                 pr_state_fetcher=fake_pr_state_fetcher,
             )
             self.assertEqual((item_id, number), ("PVTI_10", 570))
 
-    def test_review_fetch_errors_are_not_suppressed(self) -> None:
-        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            raise subprocess.CalledProcessError(42, ["gh", "api"])
-
-        def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
-            self.assertEqual(repo, "CodingThrust/problem-reductions")
-            self.assertEqual(pr_number, 570)
-            return "OPEN"
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            state_file = Path(tmpdir) / "review-state.json"
-            with self.assertRaises(subprocess.CalledProcessError):
-                process_snapshot(
-                    "review",
-                    {"items": [make_pr_item("PVTI_10", 570)]},
-                    state_file,
-                    repo="CodingThrust/problem-reductions",
-                    review_fetcher=fake_review_fetcher,
-                    pr_state_fetcher=fake_pr_state_fetcher,
-                )
-
     def test_review_queue_skips_closed_pr_cards(self) -> None:
-        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            return [{"user": {"login": "copilot-pull-request-reviewer[bot]"}}]
-
         def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
             self.assertEqual(repo, "CodingThrust/problem-reductions")
             self.assertEqual(pr_number, 570)
@@ -156,7 +124,6 @@ class ProjectBoardPollTests(unittest.TestCase):
                 {"items": [make_pr_item("PVTI_10", 570)]},
                 state_file,
                 repo="CodingThrust/problem-reductions",
-                review_fetcher=fake_review_fetcher,
                 pr_state_fetcher=fake_pr_state_fetcher,
             )
             self.assertIsNone(no_item)
@@ -166,11 +133,6 @@ class ProjectBoardPollTests(unittest.TestCase):
             self.assertEqual(repo, "CodingThrust/problem-reductions")
             self.assertEqual(issue_number, 108)
             return 173
-
-        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            self.assertEqual(repo, "CodingThrust/problem-reductions")
-            self.assertEqual(pr_number, 173)
-            return [{"user": {"login": "copilot-pull-request-reviewer[bot]"}}]
 
         def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
             self.assertEqual(repo, "CodingThrust/problem-reductions")
@@ -191,7 +153,6 @@ class ProjectBoardPollTests(unittest.TestCase):
                 },
                 state_file,
                 repo="CodingThrust/problem-reductions",
-                review_fetcher=fake_review_fetcher,
                 pr_resolver=fake_pr_resolver,
                 pr_state_fetcher=fake_pr_state_fetcher,
             )

@@ -221,6 +221,7 @@ Flags by problem type:
   QUBO                            --matrix
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
+  MinimumMultiwayCut              --graph, --terminals, --edge-weights
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
@@ -233,9 +234,12 @@ Flags by problem type:
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumSetCovering              --universe, --sets [--weights]
+  ComparativeContainment          --universe, --r-sets, --s-sets [--r-weights] [--s-weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   SetBasis                        --universe, --sets, --k
   BicliqueCover                   --left, --right, --biedges, --k
+  BalancedCompleteBipartiteSubgraph --left, --right, --biedges, --k
+  BiconnectivityAugmentation      --graph, --potential-edges, --budget [--num-vertices]
   BMF                             --matrix (0/1), --rank
   SteinerTree                     --graph, --edge-weights, --terminals
   CVP                             --basis, --target-vec [--bounds]
@@ -248,6 +252,7 @@ Flags by problem type:
   LCS                             --strings
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
+  StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
   SCS                             --strings, --bound [--alphabet-size]
@@ -273,6 +278,7 @@ Examples:
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
   pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10
+  pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5
   pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1
   pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
   pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
@@ -386,19 +392,31 @@ pub struct CreateArgs {
     /// Sets for SetPacking/SetCovering (semicolon-separated, e.g., "0,1;1,2;0,2")
     #[arg(long)]
     pub sets: Option<String>,
+    /// R-family sets for ComparativeContainment (semicolon-separated, e.g., "0,1;1,2")
+    #[arg(long)]
+    pub r_sets: Option<String>,
+    /// S-family sets for ComparativeContainment (semicolon-separated, e.g., "0,1;1,2")
+    #[arg(long)]
+    pub s_sets: Option<String>,
+    /// R-family weights for ComparativeContainment (comma-separated, e.g., "2,5")
+    #[arg(long)]
+    pub r_weights: Option<String>,
+    /// S-family weights for ComparativeContainment (comma-separated, e.g., "3,6")
+    #[arg(long)]
+    pub s_weights: Option<String>,
     /// Partition groups for arc-index partitions (semicolon-separated, e.g., "0,1;2,3")
     #[arg(long)]
     pub partition: Option<String>,
-    /// Universe size for MinimumSetCovering
+    /// Universe size for set-system problems such as MinimumSetCovering and ComparativeContainment
     #[arg(long)]
     pub universe: Option<usize>,
-    /// Bipartite graph edges for BicliqueCover (e.g., "0-0,0-1,1-2" for left-right pairs)
+    /// Bipartite graph edges for BicliqueCover / BalancedCompleteBipartiteSubgraph (e.g., "0-0,0-1,1-2" for left-right pairs)
     #[arg(long)]
     pub biedges: Option<String>,
-    /// Left partition size for BicliqueCover
+    /// Left partition size for BicliqueCover / BalancedCompleteBipartiteSubgraph
     #[arg(long)]
     pub left: Option<usize>,
-    /// Right partition size for BicliqueCover
+    /// Right partition size for BicliqueCover / BalancedCompleteBipartiteSubgraph
     #[arg(long)]
     pub right: Option<usize>,
     /// Rank for BMF
@@ -419,7 +437,7 @@ pub struct CreateArgs {
     /// Processing lengths (comma-separated, e.g., "4,5,3,2,6")
     #[arg(long)]
     pub lengths: Option<String>,
-    /// Terminal vertices for SteinerTree (comma-separated indices, e.g., "0,2,4")
+    /// Terminal vertices for SteinerTree or MinimumMultiwayCut (comma-separated indices, e.g., "0,2,4")
     #[arg(long)]
     pub terminals: Option<String>,
     /// Tree edge list for IsomorphicSpanningTree (e.g., 0-1,1-2,2-3)
@@ -440,6 +458,15 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Weighted potential augmentation edges (e.g., 0-2:3,1-3:5)
+    #[arg(long)]
+    pub potential_edges: Option<String>,
+    /// Total budget for selected potential edges
+    #[arg(long)]
+    pub budget: Option<String>,
+    /// Candidate weighted arcs for StrongConnectivityAugmentation (e.g., 2>0:1,2>1:3)
+    #[arg(long)]
+    pub candidate_arcs: Option<String>,
     /// Deadlines for MinimumTardinessSequencing (comma-separated, e.g., "5,5,5,3,3")
     #[arg(long)]
     pub deadlines: Option<String>,
@@ -573,5 +600,48 @@ pub fn print_subcommand_help_hint(error_msg: &str) {
             }
             return;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_parses_biconnectivity_augmentation_flags() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "BiconnectivityAugmentation",
+            "--graph",
+            "0-1,1-2",
+            "--potential-edges",
+            "0-2:3,1-3:5",
+            "--budget",
+            "7",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        assert_eq!(args.problem.as_deref(), Some("BiconnectivityAugmentation"));
+        assert_eq!(args.graph.as_deref(), Some("0-1,1-2"));
+        assert_eq!(args.potential_edges.as_deref(), Some("0-2:3,1-3:5"));
+        assert_eq!(args.budget.as_deref(), Some("7"));
+    }
+
+    #[test]
+    fn test_create_help_mentions_biconnectivity_augmentation_flags() {
+        let cmd = Cli::command();
+        let create = cmd.find_subcommand("create").expect("create subcommand");
+        let help = create
+            .get_after_help()
+            .expect("create after_help")
+            .to_string();
+
+        assert!(help.contains("BiconnectivityAugmentation"));
+        assert!(help.contains("--potential-edges"));
+        assert!(help.contains("--budget"));
     }
 }

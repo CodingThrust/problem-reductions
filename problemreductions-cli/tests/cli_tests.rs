@@ -107,6 +107,49 @@ fn test_show_variant_info() {
 }
 
 #[test]
+fn test_show_balanced_complete_bipartite_subgraph_complexity() {
+    let output = pred()
+        .args(["show", "BalancedCompleteBipartiteSubgraph"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("1.3803^num_vertices"),
+        "expected updated complexity metadata, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_solve_balanced_complete_bipartite_subgraph_suggests_bruteforce() {
+    let tmp = std::env::temp_dir().join("pred_test_bcbs_problem.json");
+    let create = pred()
+        .args([
+            "create",
+            "--example",
+            "BalancedCompleteBipartiteSubgraph",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(create.status.success());
+    std::fs::write(&tmp, create.stdout).unwrap();
+
+    let solve = pred()
+        .args(["solve", tmp.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!solve.status.success());
+    let stderr = String::from_utf8(solve.stderr).unwrap();
+    assert!(
+        stderr.contains("--solver brute-force"),
+        "expected brute-force hint, got: {stderr}"
+    );
+
+    std::fs::remove_file(tmp).ok();
+}
+
+#[test]
 fn test_path() {
     let output = pred().args(["path", "MIS", "QUBO"]).output().unwrap();
     assert!(output.status.success());
@@ -207,6 +250,22 @@ fn test_show_includes_fields() {
     assert!(stdout.contains("Fields"));
     assert!(stdout.contains("graph"));
     assert!(stdout.contains("weights"));
+}
+
+#[test]
+fn test_create_balanced_complete_bipartite_subgraph_help_uses_bipartite_flags() {
+    let output = pred()
+        .args(["create", "BalancedCompleteBipartiteSubgraph"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--left"), "stderr: {stderr}");
+    assert!(stderr.contains("--right"), "stderr: {stderr}");
+    assert!(stderr.contains("--biedges"), "stderr: {stderr}");
+    assert!(!stderr.contains("--left-size"), "stderr: {stderr}");
+    assert!(!stderr.contains("--right-size"), "stderr: {stderr}");
+    assert!(!stderr.contains("--edges"), "stderr: {stderr}");
 }
 
 #[test]
@@ -1032,6 +1091,101 @@ fn test_create_x3c_rejects_duplicate_subset_elements() {
 }
 
 #[test]
+fn test_create_comparative_containment() {
+    let output_file = std::env::temp_dir().join("pred_test_create_comparative_containment.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "ComparativeContainment",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,2,3;0,1",
+            "--s-sets",
+            "0,1,2,3;2,3",
+            "--r-weights",
+            "2,5",
+            "--s-weights",
+            "3,6",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "ComparativeContainment");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["universe_size"], 4);
+    assert_eq!(
+        json["data"]["r_sets"],
+        serde_json::json!([[0, 1, 2, 3], [0, 1]])
+    );
+    assert_eq!(
+        json["data"]["s_sets"],
+        serde_json::json!([[0, 1, 2, 3], [2, 3]])
+    );
+    assert_eq!(json["data"]["r_weights"], serde_json::json!([2, 5]));
+    assert_eq!(json["data"]["s_weights"], serde_json::json!([3, 6]));
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_comparative_containment_rejects_out_of_range_elements_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "ComparativeContainment",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,4",
+            "--s-sets",
+            "0,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("outside universe of size 4"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_comparative_containment_rejects_nonpositive_weights_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "ComparativeContainment",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1",
+            "--s-sets",
+            "0,1",
+            "--r-weights",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("positive"), "stderr: {stderr}");
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_set_basis() {
     let output_file = std::env::temp_dir().join("pred_test_create_set_basis.json");
     let output = pred()
@@ -1063,6 +1217,94 @@ fn test_create_set_basis() {
     assert_eq!(json["data"]["collection"][0], serde_json::json!([0, 1]));
 
     std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_comparative_containment_f64() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_comparative_containment_f64.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "ComparativeContainment/f64",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,2,3;0,1",
+            "--s-sets",
+            "0,1,2,3;2,3",
+            "--r-weights",
+            "2.5,5.0",
+            "--s-weights",
+            "3.5,6.0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "ComparativeContainment");
+    assert_eq!(json["variant"]["weight"], "f64");
+    assert_eq!(json["data"]["r_weights"], serde_json::json!([2.5, 5.0]));
+    assert_eq!(json["data"]["s_weights"], serde_json::json!([3.5, 6.0]));
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_comparative_containment_one_rejects_nonunit_weights() {
+    let output = pred()
+        .args([
+            "create",
+            "ComparativeContainment/One",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,2,3;0,1",
+            "--s-sets",
+            "0,1,2,3;2,3",
+            "--r-weights",
+            "2,5",
+            "--s-weights",
+            "3,6",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Non-unit weights are not supported for ComparativeContainment/One"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_comparative_containment_no_flags_shows_help() {
+    let output = pred()
+        .args(["create", "ComparativeContainment"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--universe"), "stderr: {stderr}");
+    assert!(stderr.contains("--r-sets"), "stderr: {stderr}");
+    assert!(stderr.contains("--s-sets"), "stderr: {stderr}");
+    assert!(!stderr.contains("--universe-size"), "stderr: {stderr}");
 }
 
 #[test]
@@ -2387,6 +2629,10 @@ fn test_create_multiple_choice_branching_help_uses_bound_flag() {
     assert!(
         !stderr.contains("--threshold"),
         "help output should not advertise '--threshold', got: {stderr}"
+    );
+    assert!(
+        stderr.contains("semicolon-separated groups"),
+        "expected '--partition' help to describe groups, got: {stderr}"
     );
 }
 
@@ -4983,6 +5229,39 @@ fn test_create_weighted_mis_round_trips_into_solve() {
 }
 
 #[test]
+fn test_create_minimum_multiway_cut() {
+    let output_file = std::env::temp_dir().join("pred_test_create_minimum_multiway_cut.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MinimumMultiwayCut",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--terminals",
+            "0,2",
+            "--edge-weights",
+            "1,1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MinimumMultiwayCut");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["terminals"], serde_json::json!([0, 2]));
+    assert_eq!(json["data"]["edge_weights"], serde_json::json!([1, 1, 1]));
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
 fn test_create_sequencing_within_intervals() {
     let output_file =
         std::env::temp_dir().join("pred_test_create_sequencing_within_intervals.json");
@@ -5038,6 +5317,24 @@ fn test_create_model_example_multiprocessor_scheduling() {
 }
 
 #[test]
+fn test_create_model_example_minimum_multiway_cut() {
+    let output = pred()
+        .args(["create", "--example", "MinimumMultiwayCut"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MinimumMultiwayCut");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "i32");
+}
+
+#[test]
 fn test_create_model_example_sequencing_within_intervals() {
     let output = pred()
         .args(["create", "--example", "SequencingWithinIntervals"])
@@ -5051,6 +5348,29 @@ fn test_create_model_example_sequencing_within_intervals() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "SequencingWithinIntervals");
+}
+
+#[test]
+fn test_create_minimum_multiway_cut_rejects_single_terminal() {
+    let output = pred()
+        .args([
+            "create",
+            "MinimumMultiwayCut",
+            "--graph",
+            "0-1,1-2",
+            "--edge-weights",
+            "1,1",
+            "--terminals",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("terminal") || stderr.contains("Terminal"),
+        "expected terminal-related error, got: {stderr}"
+    );
 }
 
 #[test]
