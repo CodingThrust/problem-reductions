@@ -188,10 +188,7 @@ where
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
-        match (self.r_weight_sum(config), self.s_weight_sum(config)) {
-            (Some(r_total), Some(s_total)) => r_total >= s_total,
-            _ => false,
-        }
+        self.is_valid_solution(config)
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

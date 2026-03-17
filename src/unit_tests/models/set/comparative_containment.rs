@@ -120,6 +120,12 @@ fn test_comparative_containment_rejects_nonpositive_i32_weights() {
 }
 
 #[test]
+#[should_panic(expected = "S weights must be positive")]
+fn test_comparative_containment_rejects_nonpositive_i32_s_weights() {
+    ComparativeContainment::with_weights(2, vec![vec![0]], vec![vec![0]], vec![1], vec![0]);
+}
+
+#[test]
 #[should_panic(expected = "R weights must be finite and positive")]
 fn test_comparative_containment_rejects_non_finite_f64_weights() {
     ComparativeContainment::with_weights(
