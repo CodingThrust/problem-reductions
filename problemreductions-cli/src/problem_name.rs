@@ -46,7 +46,7 @@ pub fn resolve_catalog_problem_ref(
 /// graph so `pred create` only emits loadable variants. Fall back to catalog
 /// resolution for catalog-only problems that have not yet been connected by
 /// reductions.
-#[cfg(test)]
+#[allow(dead_code)]
 pub fn resolve_create_problem_ref(
     input: &str,
     graph: &problemreductions::rules::ReductionGraph,
