@@ -21,8 +21,8 @@ pub use graph::{
     TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::{
-    BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-    MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence,
-    SubsetSum,
+    BinPacking, CbqRelation, ConjunctiveBooleanQuery, Factoring, FlowShopScheduling, Knapsack,
+    LongestCommonSubsequence, MinimumTardinessSequencing, PaintShop, QueryArg,
+    SequencingWithinIntervals, ShortestCommonSupersequence, SubsetSum,
 };
 pub use set::{ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis};
