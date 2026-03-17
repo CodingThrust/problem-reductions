@@ -237,6 +237,7 @@ Flags by problem type:
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   SetBasis                        --universe, --sets, --k
   BicliqueCover                   --left, --right, --biedges, --k
+  BiconnectivityAugmentation      --graph, --potential-edges, --budget [--num-vertices]
   BMF                             --matrix (0/1), --rank
   SteinerTree                     --graph, --edge-weights, --terminals
   CVP                             --basis, --target-vec [--bounds]
@@ -272,6 +273,7 @@ Examples:
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
+  pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5
   pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1
   pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
   pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
@@ -439,6 +441,12 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Weighted potential augmentation edges (e.g., 0-2:3,1-3:5)
+    #[arg(long)]
+    pub potential_edges: Option<String>,
+    /// Total budget for selected potential edges
+    #[arg(long)]
+    pub budget: Option<String>,
     /// Deadlines for MinimumTardinessSequencing (comma-separated, e.g., "5,5,5,3,3")
     #[arg(long)]
     pub deadlines: Option<String>,
@@ -572,5 +580,48 @@ pub fn print_subcommand_help_hint(error_msg: &str) {
             }
             return;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_parses_biconnectivity_augmentation_flags() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "BiconnectivityAugmentation",
+            "--graph",
+            "0-1,1-2",
+            "--potential-edges",
+            "0-2:3,1-3:5",
+            "--budget",
+            "7",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        assert_eq!(args.problem.as_deref(), Some("BiconnectivityAugmentation"));
+        assert_eq!(args.graph.as_deref(), Some("0-1,1-2"));
+        assert_eq!(args.potential_edges.as_deref(), Some("0-2:3,1-3:5"));
+        assert_eq!(args.budget.as_deref(), Some("7"));
+    }
+
+    #[test]
+    fn test_create_help_mentions_biconnectivity_augmentation_flags() {
+        let cmd = Cli::command();
+        let create = cmd.find_subcommand("create").expect("create subcommand");
+        let help = create
+            .get_after_help()
+            .expect("create after_help")
+            .to_string();
+
+        assert!(help.contains("BiconnectivityAugmentation"));
+        assert!(help.contains("--potential-edges"));
+        assert!(help.contains("--budget"));
     }
 }

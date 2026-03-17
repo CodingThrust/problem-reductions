@@ -16,6 +16,7 @@ use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
     PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence, SubsetSum,
 };
+use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -77,19 +78,13 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
-        && args.deadlines.is_none()
+        && args.potential_edges.is_none()
+        && args.budget.is_none()
         && args.precedence_pairs.is_none()
         && args.task_lengths.is_none()
         && args.deadline.is_none()
         && args.num_processors.is_none()
         && args.alphabet_size.is_none()
-        && args.capacities.is_none()
-        && args.source_1.is_none()
-        && args.sink_1.is_none()
-        && args.source_2.is_none()
-        && args.sink_2.is_none()
-        && args.requirement_1.is_none()
-        && args.requirement_2.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -229,10 +224,13 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<u64>" => "comma-separated integers: 1,1,2",
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<usize>" => "comma-separated indices: 0,2,4",
+        "Vec<(usize, usize, W)>" | "Vec<(usize,usize,W)>" => {
+            "comma-separated weighted edges: 0-2:3,1-3:5"
+        }
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "Vec<Vec<usize>>" => "semicolon-separated groups: \"0,1;2,3\"",
-        "usize" => "integer",
+        "usize" | "W::Sum" => "integer",
         "u64" => "integer",
         "i64" => "integer",
         "BigUint" => "nonnegative decimal integer",
@@ -268,6 +266,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
+        }
+        "BiconnectivityAugmentation" => {
+            "--graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5"
         }
         "Satisfiability" => "--num-vars 3 --clauses \"1,2;-1,3\"",
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
@@ -316,6 +317,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         "right_size" => "right".to_string(),
         "edges" => "biedges".to_string(),
         "vertex_weights" => "weights".to_string(),
+        "potential_weights" => "potential-edges".to_string(),
         "edge_lengths" => "edge-weights".to_string(),
         "num_tasks" => "n".to_string(),
         "precedences" => "precedence-pairs".to_string(),
@@ -558,6 +560,26 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(GraphPartitioning::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Biconnectivity augmentation
+        "BiconnectivityAugmentation" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5"
+                )
+            })?;
+            let potential_edges = parse_potential_edges(args)?;
+            validate_potential_edges(&graph, &potential_edges)?;
+            let budget = parse_budget(args)?;
+            (
+                ser(BiconnectivityAugmentation::new(
+                    graph,
+                    potential_edges,
+                    budget,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -1689,7 +1711,8 @@ fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
     util::variant_map(pairs)
 }
 
-/// Parse `--graph` into a SimpleGraph, inferring num_vertices from max index.
+/// Parse `--graph` into a SimpleGraph, optionally preserving isolated vertices
+/// via `--num-vertices`.
 fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
     let edges_str = args
         .graph
@@ -1697,10 +1720,12 @@ fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
         .ok_or_else(|| anyhow::anyhow!("This problem requires --graph (e.g., 0-1,1-2,2-3)"))?;
 
     if edges_str.trim().is_empty() {
-        bail!(
-            "Empty graph string. To create a graph with isolated vertices, use:\n  \
-             pred create <PROBLEM> --random --num-vertices N --edge-prob 0.0"
-        );
+        let num_vertices = args.num_vertices.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Empty graph string. To create a graph with isolated vertices, pass --num-vertices N as well."
+            )
+        })?;
+        return Ok((SimpleGraph::empty(num_vertices), num_vertices));
     }
 
     let edges: Vec<(usize, usize)> = edges_str
@@ -1723,12 +1748,23 @@ fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let num_vertices = edges
+    let inferred_num_vertices = edges
         .iter()
         .flat_map(|(u, v)| [*u, *v])
         .max()
         .map(|m| m + 1)
         .unwrap_or(0);
+    let num_vertices = match args.num_vertices {
+        Some(explicit) if explicit < inferred_num_vertices => {
+            bail!(
+                "--num-vertices {} is too small for the provided graph; need at least {}",
+                explicit,
+                inferred_num_vertices
+            );
+        }
+        Some(explicit) => explicit,
+        None => inferred_num_vertices,
+    };
 
     Ok((SimpleGraph::new(num_vertices, edges), num_vertices))
 }
@@ -2109,6 +2145,73 @@ fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
         .collect()
 }
 
+fn parse_potential_edges(args: &CreateArgs) -> Result<Vec<(usize, usize, i32)>> {
+    let edges_str = args.potential_edges.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("BiconnectivityAugmentation requires --potential-edges (e.g., 0-2:3,1-3:5)")
+    })?;
+
+    edges_str
+        .split(',')
+        .map(|entry| {
+            let entry = entry.trim();
+            let (edge_part, weight_part) = entry.split_once(':').ok_or_else(|| {
+                anyhow::anyhow!("Invalid potential edge '{entry}': expected u-v:w")
+            })?;
+            let (u_str, v_str) = edge_part.split_once('-').ok_or_else(|| {
+                anyhow::anyhow!("Invalid potential edge '{entry}': expected u-v:w")
+            })?;
+            let u = u_str.trim().parse::<usize>()?;
+            let v = v_str.trim().parse::<usize>()?;
+            if u == v {
+                bail!("Self-loop detected in potential edge {u}-{v}");
+            }
+            let weight = weight_part.trim().parse::<i32>()?;
+            Ok((u, v, weight))
+        })
+        .collect()
+}
+
+fn validate_potential_edges(
+    graph: &SimpleGraph,
+    potential_edges: &[(usize, usize, i32)],
+) -> Result<()> {
+    let num_vertices = graph.num_vertices();
+    let mut seen_potential_edges = BTreeSet::new();
+    for &(u, v, _) in potential_edges {
+        if u >= num_vertices || v >= num_vertices {
+            bail!(
+                "Potential edge {u}-{v} references a vertex outside the graph (num_vertices = {num_vertices})"
+            );
+        }
+        let edge = if u <= v { (u, v) } else { (v, u) };
+        if graph.has_edge(edge.0, edge.1) {
+            bail!(
+                "Potential edge {}-{} already exists in the graph",
+                edge.0,
+                edge.1
+            );
+        }
+        if !seen_potential_edges.insert(edge) {
+            bail!(
+                "Duplicate potential edge {}-{} is not allowed",
+                edge.0,
+                edge.1
+            );
+        }
+    }
+    Ok(())
+}
+
+fn parse_budget(args: &CreateArgs) -> Result<i32> {
+    let budget = args
+        .budget
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("BiconnectivityAugmentation requires --budget (e.g., 5)"))?;
+    budget
+        .parse::<i32>()
+        .map_err(|e| anyhow::anyhow!("Invalid budget '{budget}': {e}"))
+}
+
 /// Parse `--arcs` as directed arc pairs and build a `DirectedGraph`.
 ///
 /// Returns `(graph, num_arcs)`. Infers vertex count from arc endpoints
@@ -2429,6 +2532,7 @@ fn create_random(
 #[cfg(test)]
 mod tests {
     use super::problem_help_flag_name;
+    use super::*;
 
     #[test]
     fn test_problem_help_uses_bound_for_length_bounded_disjoint_paths() {
@@ -2449,5 +2553,205 @@ mod tests {
             ),
             "num-paths-required"
         );
+    }
+
+    fn empty_args() -> CreateArgs {
+        CreateArgs {
+            problem: Some("BiconnectivityAugmentation".to_string()),
+            example: None,
+            example_target: None,
+            example_side: crate::cli::ExampleSide::Source,
+            graph: None,
+            weights: None,
+            edge_weights: None,
+            capacities: None,
+            source: None,
+            sink: None,
+            num_paths_required: None,
+            couplings: None,
+            fields: None,
+            clauses: None,
+            num_vars: None,
+            matrix: None,
+            k: None,
+            random: false,
+            num_vertices: None,
+            edge_prob: None,
+            seed: None,
+            target: None,
+            m: None,
+            n: None,
+            positions: None,
+            radius: None,
+            source_1: None,
+            sink_1: None,
+            source_2: None,
+            sink_2: None,
+            requirement_1: None,
+            requirement_2: None,
+            sizes: None,
+            capacity: None,
+            sequence: None,
+            sets: None,
+            partition: None,
+            universe: None,
+            biedges: None,
+            left: None,
+            right: None,
+            rank: None,
+            basis: None,
+            target_vec: None,
+            bounds: None,
+            release_times: None,
+            lengths: None,
+            terminals: None,
+            tree: None,
+            required_edges: None,
+            bound: None,
+            pattern: None,
+            strings: None,
+            arcs: None,
+            potential_edges: None,
+            budget: None,
+            deadlines: None,
+            precedence_pairs: None,
+            task_lengths: None,
+            deadline: None,
+            num_processors: None,
+            alphabet_size: None,
+        }
+    }
+
+    #[test]
+    fn test_all_data_flags_empty_treats_potential_edges_as_input() {
+        let mut args = empty_args();
+        args.potential_edges = Some("0-2:3,1-3:5".to_string());
+        assert!(!all_data_flags_empty(&args));
+    }
+
+    #[test]
+    fn test_all_data_flags_empty_treats_budget_as_input() {
+        let mut args = empty_args();
+        args.budget = Some("7".to_string());
+        assert!(!all_data_flags_empty(&args));
+    }
+
+    #[test]
+    fn test_parse_potential_edges() {
+        let mut args = empty_args();
+        args.potential_edges = Some("0-2:3,1-3:5".to_string());
+
+        let potential_edges = parse_potential_edges(&args).unwrap();
+
+        assert_eq!(potential_edges, vec![(0, 2, 3), (1, 3, 5)]);
+    }
+
+    #[test]
+    fn test_parse_potential_edges_rejects_missing_weight() {
+        let mut args = empty_args();
+        args.potential_edges = Some("0-2,1-3:5".to_string());
+
+        let err = parse_potential_edges(&args).unwrap_err().to_string();
+
+        assert!(err.contains("u-v:w"));
+    }
+
+    #[test]
+    fn test_parse_budget() {
+        let mut args = empty_args();
+        args.budget = Some("7".to_string());
+
+        assert_eq!(parse_budget(&args).unwrap(), 7);
+    }
+
+    #[test]
+    fn test_parse_graph_respects_explicit_num_vertices() {
+        let mut args = empty_args();
+        args.graph = Some("0-1".to_string());
+        args.num_vertices = Some(3);
+
+        let (graph, num_vertices) = parse_graph(&args).unwrap();
+
+        assert_eq!(num_vertices, 3);
+        assert_eq!(graph.num_vertices(), 3);
+        assert_eq!(graph.edges(), vec![(0, 1)]);
+    }
+
+    #[test]
+    fn test_validate_potential_edges_rejects_existing_graph_edge() {
+        let err = validate_potential_edges(&SimpleGraph::path(3), &[(0, 1, 5)])
+            .unwrap_err()
+            .to_string();
+
+        assert!(err.contains("already exists in the graph"));
+    }
+
+    #[test]
+    fn test_validate_potential_edges_rejects_duplicate_edges() {
+        let err = validate_potential_edges(&SimpleGraph::path(4), &[(0, 3, 1), (3, 0, 2)])
+            .unwrap_err()
+            .to_string();
+
+        assert!(err.contains("Duplicate potential edge"));
+    }
+
+    #[test]
+    fn test_create_biconnectivity_augmentation_json() {
+        let mut args = empty_args();
+        args.graph = Some("0-1,1-2,2-3".to_string());
+        args.potential_edges = Some("0-2:3,0-3:4,1-3:2".to_string());
+        args.budget = Some("5".to_string());
+
+        let output_path = std::env::temp_dir().join("pred_test_create_biconnectivity.json");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let content = std::fs::read_to_string(&output_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(json["type"], "BiconnectivityAugmentation");
+        assert_eq!(json["data"]["budget"], 5);
+        assert_eq!(
+            json["data"]["potential_weights"][0],
+            serde_json::json!([0, 2, 3])
+        );
+
+        std::fs::remove_file(output_path).ok();
+    }
+
+    #[test]
+    fn test_create_biconnectivity_augmentation_json_with_isolated_vertices() {
+        let mut args = empty_args();
+        args.graph = Some("0-1".to_string());
+        args.num_vertices = Some(3);
+        args.potential_edges = Some("1-2:1".to_string());
+        args.budget = Some("1".to_string());
+
+        let output_path =
+            std::env::temp_dir().join("pred_test_create_biconnectivity_isolated.json");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let content = std::fs::read_to_string(&output_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        let problem: BiconnectivityAugmentation<SimpleGraph, i32> =
+            serde_json::from_value(json["data"].clone()).unwrap();
+
+        assert_eq!(problem.num_vertices(), 3);
+        assert_eq!(problem.potential_weights(), &[(1, 2, 1)]);
+        assert_eq!(problem.budget(), &1);
+
+        std::fs::remove_file(output_path).ok();
     }
 }
