@@ -1288,7 +1288,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-<<<<<<< HEAD
         // MultiprocessorScheduling
         "MultiprocessorScheduling" => {
             let usage = "Usage: pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10";
