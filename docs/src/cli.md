@@ -111,37 +111,82 @@ Lists all registered problem types with their short aliases.
 
 ```bash
 $ pred list
-Registered problems: 25 types, 58 reductions, 42 variant nodes
+Registered problems: 50 types, 59 reductions, 69 variant nodes
 
-  Problem                Aliases      Variants  Reduces to
-  ─────────────────────  ───────────  ────────  ──────────
-  BMF                                        1           0
-  BicliqueCover                              1           0
-  BinPacking                                 2           0
-  CircuitSAT                                 1           2
-  ClosestVectorProblem   CVP                 2           0
-  Factoring                                  1           2
-  ILP                                        1           1
-  KColoring                                  5           3
-  KSatisfiability        3SAT, KSAT          3           7
-  Knapsack                                   1           0
-  MaxCut                                     1           1
-  MaximalIS                                  1           0
-  MaximumClique                              1           1
-  MaximumIndependentSet  MIS                 7          16
-  MaximumMatching        MaxMatching         1           2
-  MaximumSetPacking                          3           6
-  MinimumDominatingSet                       1           1
-  MinimumMultiwayCut                         1           0
-  MinimumSetCovering                         1           1
-  MinimumVertexCover     MVC                 1           4
-  PaintShop                                  1           0
-  QUBO                                       1           2
-  Satisfiability         SAT                 1           5
-  SpinGlass                                  2           3
-  TravelingSalesman      TSP                 1           1
+  Problem                                           Aliases      Rules  Complexity
+  ────────────────────────────────────────────────  ───────────  ─────  ──────────────────────────────────────────────────────────────────
+  BMF *                                                                 O(2^(cols * rank + rank * rows))
+  BicliqueCover *                                                       O(2^num_vertices)
+  BiconnectivityAugmentation/SimpleGraph/i32 *                          O(2^num_potential_edges)
+  BinPacking/f64                                                     1  O(2^num_items)
+  BinPacking/i32 *                                                      O(2^num_items)
+  BoundedComponentSpanningForest/SimpleGraph/i32 *                      O(3^num_vertices)
+  CircuitSAT *                                                       2  O(2^num_variables)
+  ClosestVectorProblem/f64                          CVP                 O(2^num_basis_vectors)
+  ClosestVectorProblem/i32 *                                            O(2^num_basis_vectors)
+  DirectedTwoCommodityIntegralFlow *                D2CIF               O((max_capacity + 1)^(2 * num_arcs))
+  ExactCoverBy3Sets *                               X3C                 O(2^universe_size)
+  Factoring *                                                        2  O(exp((m + n)^0.3333333333333333 * log(m + n)^0.6666666666666666))
+  FlowShopScheduling *                                                  O(factorial(num_jobs))
+  GraphPartitioning/SimpleGraph *                                       O(2^num_vertices)
+  HamiltonianPath/SimpleGraph *                                         O(1.657^num_vertices)
+  ILP/bool *                                                         2  O(2^num_vars)
+  ILP/i32                                                               O(num_vars^num_vars)
+  IsomorphicSpanningTree *                                              O(factorial(num_vertices))
+  KColoring/SimpleGraph/KN *                                         3  O(2^num_vertices)
+  KColoring/SimpleGraph/K2                                              O(num_edges + num_vertices)
+  KColoring/SimpleGraph/K3                                              O(1.3289^num_vertices)
+  KColoring/SimpleGraph/K4                                              O(1.7159^num_vertices)
+  KColoring/SimpleGraph/K5                                              O(2^num_vertices)
+  KSatisfiability/KN *                              KSAT             6  O(2^num_variables)
+  KSatisfiability/K2                                                    O(num_clauses + num_variables)
+  KSatisfiability/K3                                                    O(1.307^num_variables)
+  Knapsack *                                                         1  O(2^(0.5 * num_items))
+  LengthBoundedDisjointPaths/SimpleGraph *                              O(2^(num_paths_required * num_vertices))
+  LongestCommonSubsequence *                        LCS              1  O(2^min_string_length)
+  MaxCut/SimpleGraph/i32 *                                           1  O(2^(0.7906666666666666 * num_vertices))
+  MaximalIS/SimpleGraph/i32 *                                           O(3^(0.3333333333333333 * num_vertices))
+  MaximumClique/SimpleGraph/i32 *                                    2  O(1.1996^num_vertices)
+  MaximumIndependentSet/SimpleGraph/One *           MIS             14  O(1.1996^num_vertices)
+  MaximumIndependentSet/KingsSubgraph/One                               O(2^sqrt(num_vertices))
+  MaximumIndependentSet/SimpleGraph/i32                                 O(1.1996^num_vertices)
+  MaximumIndependentSet/UnitDiskGraph/One                               O(2^sqrt(num_vertices))
+  MaximumIndependentSet/KingsSubgraph/i32                               O(2^sqrt(num_vertices))
+  MaximumIndependentSet/TriangularSubgraph/i32                          O(2^sqrt(num_vertices))
+  MaximumIndependentSet/UnitDiskGraph/i32                               O(2^sqrt(num_vertices))
+  MaximumMatching/SimpleGraph/i32 *                 MaxMatching      2  O(num_vertices^3)
+  MaximumSetPacking/One *                                            6  O(2^num_sets)
+  MaximumSetPacking/f64                                                 O(2^num_sets)
+  MaximumSetPacking/i32                                                 O(2^num_sets)
+  MinimumDominatingSet/SimpleGraph/i32 *                             1  O(1.4969^num_vertices)
+  MinimumFeedbackArcSet/i32 *                       FAS                 O(2^num_vertices)
+  MinimumFeedbackVertexSet/i32 *                    FVS                 O(1.9977^num_vertices)
+  MinimumMultiwayCut/SimpleGraph/i32 *                                  O(num_vertices^3 * 1.84^num_terminals)
+  MinimumSetCovering/i32 *                                           1  O(2^num_sets)
+  MinimumSumMulticenter/SimpleGraph/i32 *           pmedian             O(2^num_vertices)
+  MinimumTardinessSequencing *                                          O(2^num_tasks)
+  MinimumVertexCover/SimpleGraph/i32 *              MVC              2  O(1.1996^num_vertices)
+  MultipleChoiceBranching/i32 *                                         O(2^num_arcs)
+  OptimalLinearArrangement/SimpleGraph *            OLA                 O(2^num_vertices)
+  PaintShop *                                                           O(2^num_cars)
+  PartitionIntoTriangles/SimpleGraph *                                  O(2^num_vertices)
+  QUBO/f64 *                                                         2  O(2^num_vars)
+  RuralPostman/SimpleGraph/i32 *                    RPP                 O(num_vertices^2 * 2^num_vertices)
+  Satisfiability *                                  SAT              5  O(2^num_variables)
+  SequencingWithinIntervals *                                           O(2^num_tasks)
+  SetBasis *                                                            O(2^(basis_size * universe_size))
+  ShortestCommonSupersequence *                     SCS                 O(alphabet_size^bound)
+  SpinGlass/SimpleGraph/f64                                          3  O(2^num_spins)
+  SpinGlass/SimpleGraph/i32 *                                           O(2^num_spins)
+  SteinerTree/SimpleGraph/One                                           O(num_vertices * 3^num_terminals)
+  SteinerTree/SimpleGraph/i32 *                                         O(num_vertices * 3^num_terminals)
+  SubgraphIsomorphism *                                                 O(num_host_vertices^num_pattern_vertices)
+  SubsetSum *                                                           O(2^(0.5 * num_elements))
+  TravelingSalesman/SimpleGraph/i32 *               TSP              2  O(2^num_vertices)
+  UndirectedTwoCommodityIntegralFlow *                                  O(5^num_edges)
 
-Use `pred show <problem>` to see variants, reductions, and fields.
+* = default variant
+Use `pred show <problem>` to see reductions and fields.
 ```
 
 ### `pred show` — Inspect a problem
