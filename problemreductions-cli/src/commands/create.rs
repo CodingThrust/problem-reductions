@@ -2688,6 +2688,7 @@ mod tests {
             arcs: None,
             potential_edges: None,
             budget: None,
+            candidate_arcs: None,
             deadlines: None,
             precedence_pairs: None,
             task_lengths: None,
