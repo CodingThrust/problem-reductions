@@ -178,7 +178,10 @@ class PipelineSkillContextTests(unittest.TestCase):
             },
             "prep": {
                 "ready": False,
-                "checkout": {"worktree_dir": "/tmp/review-pr-570"},
+                "checkout": {
+                    "worktree_dir": "/tmp/review-pr-570",
+                    "head_ref_name": "issue-117-graph-partitioning",
+                },
                 "merge": {"status": "conflicted", "conflicts": ["src/models/graph_partitioning.rs"]},
             },
         }
@@ -197,6 +200,7 @@ class PipelineSkillContextTests(unittest.TestCase):
         self.assertIn("- CI state: failure", rendered)
         self.assertIn("## Merge Prep", rendered)
         self.assertIn("- Worktree: `/tmp/review-pr-570`", rendered)
+        self.assertIn("- PR head branch: `issue-117-graph-partitioning`", rendered)
         self.assertIn("## Linked Issue Context", rendered)
 
     def test_emit_result_prints_review_implementation_text_report(self) -> None:

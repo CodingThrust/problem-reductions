@@ -81,7 +81,7 @@ impl LoadedProblem {
 
         let reduction_path = best_path.ok_or_else(|| {
             anyhow::anyhow!(
-                "No reduction path from {} to ILP. Try `pred solve <problem.json> --solver brute-force` for exhaustive search.",
+                "No reduction path from {} to ILP. Try `--solver brute-force`, or reduce to a problem that supports ILP.",
                 name
             )
         })?;
@@ -184,6 +184,7 @@ mod tests {
     use problemreductions::models::graph::MaximumIndependentSet;
     use problemreductions::models::misc::BinPacking;
     use problemreductions::topology::SimpleGraph;
+    use serde_json::json;
 
     #[test]
     fn test_load_problem_alias_uses_registry_dispatch() {
@@ -206,6 +207,29 @@ mod tests {
             serde_json::to_value(&problem).unwrap(),
         );
         assert!(loaded.is_err());
+    }
+
+    #[test]
+    fn test_load_problem_rejects_invalid_strong_connectivity_augmentation_instance() {
+        let variant = BTreeMap::from([("weight".to_string(), "i32".to_string())]);
+        let data = json!({
+            "graph": {
+                "inner": {
+                    "edge_property": "directed",
+                    "nodes": [null, null, null],
+                    "node_holes": [],
+                    "edges": [[0, 1, null], [1, 2, null]]
+                }
+            },
+            "candidate_arcs": [[0, 3, 1]],
+            "bound": 1
+        });
+
+        let loaded = load_problem("StrongConnectivityAugmentation", &variant, data);
+        assert!(loaded.is_err());
+        let err = loaded.err().unwrap().to_string();
+        assert!(err.contains("candidate arc"), "err: {err}");
+        assert!(err.contains("num_vertices"), "err: {err}");
     }
 
     #[test]

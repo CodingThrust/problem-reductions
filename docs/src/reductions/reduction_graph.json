@@ -22,6 +22,16 @@
       "complexity": "2^num_vertices"
     },
     {
+      "name": "BiconnectivityAugmentation",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.BiconnectivityAugmentation.html",
+      "complexity": "2^num_potential_edges"
+    },
+    {
       "name": "BinPacking",
       "variant": {
         "weight": "f64"
@@ -38,6 +48,16 @@
       "category": "misc",
       "doc_path": "models/misc/struct.BinPacking.html",
       "complexity": "2^num_items"
+    },
+    {
+      "name": "BoundedComponentSpanningForest",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.BoundedComponentSpanningForest.html",
+      "complexity": "3^num_vertices"
     },
     {
       "name": "CircuitSAT",
@@ -63,6 +83,13 @@
       "category": "algebraic",
       "doc_path": "models/algebraic/struct.ClosestVectorProblem.html",
       "complexity": "2^num_basis_vectors"
+    },
+    {
+      "name": "DirectedTwoCommodityIntegralFlow",
+      "variant": {},
+      "category": "graph",
+      "doc_path": "models/graph/struct.DirectedTwoCommodityIntegralFlow.html",
+      "complexity": "(max_capacity + 1)^(2 * num_arcs)"
     },
     {
       "name": "ExactCoverBy3Sets",
@@ -211,6 +238,15 @@
       "category": "misc",
       "doc_path": "models/misc/struct.Knapsack.html",
       "complexity": "2^(num_items / 2)"
+    },
+    {
+      "name": "LengthBoundedDisjointPaths",
+      "variant": {
+        "graph": "SimpleGraph"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.LengthBoundedDisjointPaths.html",
+      "complexity": "2^(num_paths_required * num_vertices)"
     },
     {
       "name": "LongestCommonSubsequence",
@@ -385,6 +421,16 @@
       "complexity": "1.9977^num_vertices"
     },
     {
+      "name": "MinimumMultiwayCut",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.MinimumMultiwayCut.html",
+      "complexity": "1.84^num_terminals * num_vertices^3"
+    },
+    {
       "name": "MinimumSetCovering",
       "variant": {
         "weight": "i32"
@@ -419,6 +465,15 @@
       "category": "graph",
       "doc_path": "models/graph/struct.MinimumVertexCover.html",
       "complexity": "1.1996^num_vertices"
+    },
+    {
+      "name": "MultipleChoiceBranching",
+      "variant": {
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.MultipleChoiceBranching.html",
+      "complexity": "2^num_arcs"
     },
     {
       "name": "OptimalLinearArrangement",
@@ -472,6 +527,20 @@
       "complexity": "2^num_variables"
     },
     {
+      "name": "SequencingWithinIntervals",
+      "variant": {},
+      "category": "misc",
+      "doc_path": "models/misc/struct.SequencingWithinIntervals.html",
+      "complexity": "2^num_tasks"
+    },
+    {
+      "name": "SetBasis",
+      "variant": {},
+      "category": "set",
+      "doc_path": "models/set/struct.SetBasis.html",
+      "complexity": "2^(basis_size * universe_size)"
+    },
+    {
       "name": "ShortestCommonSupersequence",
       "variant": {},
       "category": "misc",
@@ -499,6 +568,35 @@
       "complexity": "2^num_spins"
     },
     {
+      "name": "SteinerTree",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "One"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.SteinerTree.html",
+      "complexity": "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2"
+    },
+    {
+      "name": "SteinerTree",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.SteinerTree.html",
+      "complexity": "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2"
+    },
+    {
+      "name": "StrongConnectivityAugmentation",
+      "variant": {
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.StrongConnectivityAugmentation.html",
+      "complexity": "2^num_potential_arcs"
+    },
+    {
       "name": "SubgraphIsomorphism",
       "variant": {},
       "category": "graph",
@@ -521,12 +619,19 @@
       "category": "graph",
       "doc_path": "models/graph/struct.TravelingSalesman.html",
       "complexity": "2^num_vertices"
+    },
+    {
+      "name": "UndirectedTwoCommodityIntegralFlow",
+      "variant": {},
+      "category": "graph",
+      "doc_path": "models/graph/struct.UndirectedTwoCommodityIntegralFlow.html",
+      "complexity": "5^num_edges"
     }
   ],
   "edges": [
     {
-      "source": 4,
-      "target": 13,
+      "source": 5,
+      "target": 16,
       "overhead": [
         {
           "field": "num_vars",
@@ -540,8 +645,8 @@
       "doc_path": "rules/binpacking_ilp/index.html"
     },
     {
-      "source": 5,
-      "target": 13,
+      "source": 7,
+      "target": 16,
       "overhead": [
         {
           "field": "num_vars",
@@ -555,8 +660,8 @@
       "doc_path": "rules/circuit_ilp/index.html"
     },
     {
-      "source": 5,
-      "target": 55,
+      "source": 7,
+      "target": 63,
       "overhead": [
         {
           "field": "num_spins",
@@ -570,8 +675,8 @@
       "doc_path": "rules/circuit_spinglass/index.html"
     },
     {
-      "source": 9,
-      "target": 5,
+      "source": 12,
+      "target": 7,
       "overhead": [
         {
           "field": "num_variables",
@@ -585,8 +690,8 @@
       "doc_path": "rules/factoring_circuit/index.html"
     },
     {
-      "source": 9,
-      "target": 14,
+      "source": 12,
+      "target": 17,
       "overhead": [
         {
           "field": "num_vars",
@@ -600,8 +705,8 @@
       "doc_path": "rules/factoring_ilp/index.html"
     },
     {
-      "source": 13,
-      "target": 14,
+      "source": 16,
+      "target": 17,
       "overhead": [
         {
           "field": "num_vars",
@@ -615,8 +720,8 @@
       "doc_path": "rules/ilp_bool_ilp_i32/index.html"
     },
     {
-      "source": 13,
-      "target": 50,
+      "source": 16,
+      "target": 56,
       "overhead": [
         {
           "field": "num_vars",
@@ -626,8 +731,8 @@
       "doc_path": "rules/ilp_qubo/index.html"
     },
     {
-      "source": 17,
-      "target": 20,
+      "source": 20,
+      "target": 23,
       "overhead": [
         {
           "field": "num_vertices",
@@ -641,8 +746,8 @@
       "doc_path": "rules/kcoloring_casts/index.html"
     },
     {
-      "source": 20,
-      "target": 13,
+      "source": 23,
+      "target": 16,
       "overhead": [
         {
           "field": "num_vars",
@@ -656,8 +761,8 @@
       "doc_path": "rules/coloring_ilp/index.html"
     },
     {
-      "source": 20,
-      "target": 50,
+      "source": 23,
+      "target": 56,
       "overhead": [
         {
           "field": "num_vars",
@@ -667,8 +772,8 @@
       "doc_path": "rules/coloring_qubo/index.html"
     },
     {
-      "source": 21,
-      "target": 23,
+      "source": 24,
+      "target": 26,
       "overhead": [
         {
           "field": "num_vars",
@@ -682,8 +787,8 @@
       "doc_path": "rules/ksatisfiability_casts/index.html"
     },
     {
-      "source": 21,
-      "target": 50,
+      "source": 24,
+      "target": 56,
       "overhead": [
         {
           "field": "num_vars",
@@ -693,8 +798,8 @@
       "doc_path": "rules/ksatisfiability_qubo/index.html"
     },
     {
-      "source": 22,
-      "target": 23,
+      "source": 25,
+      "target": 26,
       "overhead": [
         {
           "field": "num_vars",
@@ -708,8 +813,8 @@
       "doc_path": "rules/ksatisfiability_casts/index.html"
     },
     {
-      "source": 22,
-      "target": 50,
+      "source": 25,
+      "target": 56,
       "overhead": [
         {
           "field": "num_vars",
@@ -719,8 +824,8 @@
       "doc_path": "rules/ksatisfiability_qubo/index.html"
     },
     {
-      "source": 22,
-      "target": 57,
+      "source": 25,
+      "target": 68,
       "overhead": [
         {
           "field": "num_elements",
@@ -730,8 +835,8 @@
       "doc_path": "rules/ksatisfiability_subsetsum/index.html"
     },
     {
-      "source": 23,
-      "target": 52,
+      "source": 26,
+      "target": 58,
       "overhead": [
         {
           "field": "num_clauses",
@@ -749,8 +854,8 @@
       "doc_path": "rules/sat_ksat/index.html"
     },
     {
-      "source": 24,
-      "target": 50,
+      "source": 27,
+      "target": 56,
       "overhead": [
         {
           "field": "num_vars",
@@ -760,8 +865,8 @@
       "doc_path": "rules/knapsack_qubo/index.html"
     },
     {
-      "source": 25,
-      "target": 13,
+      "source": 29,
+      "target": 16,
       "overhead": [
         {
           "field": "num_vars",
@@ -775,8 +880,8 @@
       "doc_path": "rules/longestcommonsubsequence_ilp/index.html"
     },
     {
-      "source": 26,
-      "target": 55,
+      "source": 30,
+      "target": 63,
       "overhead": [
         {
           "field": "num_spins",
@@ -790,8 +895,8 @@
       "doc_path": "rules/spinglass_maxcut/index.html"
     },
     {
-      "source": 28,
-      "target": 13,
+      "source": 32,
+      "target": 16,
       "overhead": [
         {
           "field": "num_vars",
@@ -805,8 +910,8 @@
       "doc_path": "rules/maximumclique_ilp/index.html"
     },
     {
-      "source": 28,
-      "target": 32,
+      "source": 32,
+      "target": 36,
       "overhead": [
         {
           "field": "num_vertices",
@@ -820,22 +925,7 @@
       "doc_path": "rules/maximumclique_maximumindependentset/index.html"
     },
     {
-      "source": 29,
-      "target": 30,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_casts/index.html"
-    },
-    {
-      "source": 29,
+      "source": 33,
       "target": 34,
       "overhead": [
         {
@@ -850,128 +940,8 @@
       "doc_path": "rules/maximumindependentset_casts/index.html"
     },
     {
-      "source": 30,
-      "target": 35,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_casts/index.html"
-    },
-    {
-      "source": 31,
-      "target": 29,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices * num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_vertices * num_vertices"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_gridgraph/index.html"
-    },
-    {
-      "source": 31,
-      "target": 32,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_casts/index.html"
-    },
-    {
-      "source": 31,
-      "target": 33,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices * num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_vertices * num_vertices"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_triangular/index.html"
-    },
-    {
-      "source": 31,
-      "target": 37,
-      "overhead": [
-        {
-          "field": "num_sets",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "universe_size",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
-    },
-    {
-      "source": 32,
-      "target": 28,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_vertices * (num_vertices + -1 * 1) * 2^-1 + -1 * num_edges"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_maximumclique/index.html"
-    },
-    {
-      "source": 32,
-      "target": 39,
-      "overhead": [
-        {
-          "field": "num_sets",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "universe_size",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
-    },
-    {
-      "source": 32,
-      "target": 46,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": "rules/minimumvertexcover_maximumindependentset/index.html"
-    },
-    {
       "source": 33,
-      "target": 35,
+      "target": 38,
       "overhead": [
         {
           "field": "num_vertices",
@@ -986,22 +956,7 @@
     },
     {
       "source": 34,
-      "target": 31,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_casts/index.html"
-    },
-    {
-      "source": 34,
-      "target": 35,
+      "target": 39,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1016,7 +971,22 @@
     },
     {
       "source": 35,
-      "target": 32,
+      "target": 33,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices * num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_vertices * num_vertices"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_gridgraph/index.html"
+    },
+    {
+      "source": 35,
+      "target": 36,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1030,154 +1000,68 @@
       "doc_path": "rules/maximumindependentset_casts/index.html"
     },
     {
-      "source": 36,
-      "target": 13,
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_edges"
-        },
-        {
-          "field": "num_constraints",
-          "formula": "num_vertices"
-        }
-      ],
-      "doc_path": "rules/maximummatching_ilp/index.html"
-    },
-    {
-      "source": 36,
-      "target": 39,
-      "overhead": [
-        {
-          "field": "num_sets",
-          "formula": "num_edges"
-        },
-        {
-          "field": "universe_size",
-          "formula": "num_vertices"
-        }
-      ],
-      "doc_path": "rules/maximummatching_maximumsetpacking/index.html"
-    },
-    {
-      "source": 37,
-      "target": 31,
+      "source": 35,
+      "target": 37,
       "overhead": [
         {
           "field": "num_vertices",
-          "formula": "num_sets"
+          "formula": "num_vertices * num_vertices"
         },
         {
           "field": "num_edges",
-          "formula": "num_sets^2"
+          "formula": "num_vertices * num_vertices"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_triangular/index.html"
+    },
+    {
+      "source": 35,
+      "target": 41,
+      "overhead": [
+        {
+          "field": "num_sets",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "universe_size",
+          "formula": "num_edges"
         }
       ],
       "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
     },
     {
-      "source": 37,
-      "target": 39,
-      "overhead": [
-        {
-          "field": "num_sets",
-          "formula": "num_sets"
-        },
-        {
-          "field": "universe_size",
-          "formula": "universe_size"
-        }
-      ],
-      "doc_path": "rules/maximumsetpacking_casts/index.html"
-    },
-    {
-      "source": 38,
-      "target": 50,
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_sets"
-        }
-      ],
-      "doc_path": "rules/maximumsetpacking_qubo/index.html"
-    },
-    {
-      "source": 39,
-      "target": 13,
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_sets"
-        },
-        {
-          "field": "num_constraints",
-          "formula": "universe_size"
-        }
-      ],
-      "doc_path": "rules/maximumsetpacking_ilp/index.html"
-    },
-    {
-      "source": 39,
+      "source": 36,
       "target": 32,
       "overhead": [
         {
           "field": "num_vertices",
-          "formula": "num_sets"
+          "formula": "num_vertices"
         },
         {
           "field": "num_edges",
-          "formula": "num_sets^2"
+          "formula": "num_vertices * (num_vertices + -1 * 1) * 2^-1 + -1 * num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_maximumclique/index.html"
+    },
+    {
+      "source": 36,
+      "target": 43,
+      "overhead": [
+        {
+          "field": "num_sets",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "universe_size",
+          "formula": "num_edges"
         }
       ],
       "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
     },
     {
-      "source": 39,
-      "target": 38,
-      "overhead": [
-        {
-          "field": "num_sets",
-          "formula": "num_sets"
-        },
-        {
-          "field": "universe_size",
-          "formula": "universe_size"
-        }
-      ],
-      "doc_path": "rules/maximumsetpacking_casts/index.html"
-    },
-    {
-      "source": 40,
-      "target": 13,
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_constraints",
-          "formula": "num_vertices"
-        }
-      ],
-      "doc_path": "rules/minimumdominatingset_ilp/index.html"
-    },
-    {
-      "source": 43,
-      "target": 13,
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_sets"
-        },
-        {
-          "field": "num_constraints",
-          "formula": "universe_size"
-        }
-      ],
-      "doc_path": "rules/minimumsetcovering_ilp/index.html"
-    },
-    {
-      "source": 46,
-      "target": 32,
+      "source": 36,
+      "target": 51,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1191,8 +1075,229 @@
       "doc_path": "rules/minimumvertexcover_maximumindependentset/index.html"
     },
     {
-      "source": 46,
+      "source": 37,
+      "target": 39,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_casts/index.html"
+    },
+    {
+      "source": 38,
+      "target": 35,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_casts/index.html"
+    },
+    {
+      "source": 38,
+      "target": 39,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_casts/index.html"
+    },
+    {
+      "source": 39,
+      "target": 36,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_casts/index.html"
+    },
+    {
+      "source": 40,
+      "target": 16,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_edges"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_vertices"
+        }
+      ],
+      "doc_path": "rules/maximummatching_ilp/index.html"
+    },
+    {
+      "source": 40,
       "target": 43,
+      "overhead": [
+        {
+          "field": "num_sets",
+          "formula": "num_edges"
+        },
+        {
+          "field": "universe_size",
+          "formula": "num_vertices"
+        }
+      ],
+      "doc_path": "rules/maximummatching_maximumsetpacking/index.html"
+    },
+    {
+      "source": 41,
+      "target": 35,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_sets"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_sets^2"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
+    },
+    {
+      "source": 41,
+      "target": 43,
+      "overhead": [
+        {
+          "field": "num_sets",
+          "formula": "num_sets"
+        },
+        {
+          "field": "universe_size",
+          "formula": "universe_size"
+        }
+      ],
+      "doc_path": "rules/maximumsetpacking_casts/index.html"
+    },
+    {
+      "source": 42,
+      "target": 56,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_sets"
+        }
+      ],
+      "doc_path": "rules/maximumsetpacking_qubo/index.html"
+    },
+    {
+      "source": 43,
+      "target": 16,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_sets"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "universe_size"
+        }
+      ],
+      "doc_path": "rules/maximumsetpacking_ilp/index.html"
+    },
+    {
+      "source": 43,
+      "target": 36,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_sets"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_sets^2"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
+    },
+    {
+      "source": 43,
+      "target": 42,
+      "overhead": [
+        {
+          "field": "num_sets",
+          "formula": "num_sets"
+        },
+        {
+          "field": "universe_size",
+          "formula": "universe_size"
+        }
+      ],
+      "doc_path": "rules/maximumsetpacking_casts/index.html"
+    },
+    {
+      "source": 44,
+      "target": 16,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_vertices"
+        }
+      ],
+      "doc_path": "rules/minimumdominatingset_ilp/index.html"
+    },
+    {
+      "source": 48,
+      "target": 16,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_sets"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "universe_size"
+        }
+      ],
+      "doc_path": "rules/minimumsetcovering_ilp/index.html"
+    },
+    {
+      "source": 51,
+      "target": 36,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/minimumvertexcover_maximumindependentset/index.html"
+    },
+    {
+      "source": 51,
+      "target": 48,
       "overhead": [
         {
           "field": "num_sets",
@@ -1206,8 +1311,8 @@
       "doc_path": "rules/minimumvertexcover_minimumsetcovering/index.html"
     },
     {
-      "source": 50,
-      "target": 13,
+      "source": 56,
+      "target": 16,
       "overhead": [
         {
           "field": "num_vars",
@@ -1221,8 +1326,8 @@
       "doc_path": "rules/qubo_ilp/index.html"
     },
     {
-      "source": 50,
-      "target": 54,
+      "source": 56,
+      "target": 62,
       "overhead": [
         {
           "field": "num_spins",
@@ -1232,8 +1337,8 @@
       "doc_path": "rules/spinglass_qubo/index.html"
     },
     {
-      "source": 52,
-      "target": 5,
+      "source": 58,
+      "target": 7,
       "overhead": [
         {
           "field": "num_variables",
@@ -1247,8 +1352,8 @@
       "doc_path": "rules/sat_circuitsat/index.html"
     },
     {
-      "source": 52,
-      "target": 17,
+      "source": 58,
+      "target": 20,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1262,8 +1367,8 @@
       "doc_path": "rules/sat_coloring/index.html"
     },
     {
-      "source": 52,
-      "target": 22,
+      "source": 58,
+      "target": 25,
       "overhead": [
         {
           "field": "num_clauses",
@@ -1277,8 +1382,8 @@
       "doc_path": "rules/sat_ksat/index.html"
     },
     {
-      "source": 52,
-      "target": 31,
+      "source": 58,
+      "target": 35,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1292,8 +1397,8 @@
       "doc_path": "rules/sat_maximumindependentset/index.html"
     },
     {
-      "source": 52,
-      "target": 40,
+      "source": 58,
+      "target": 44,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1307,8 +1412,8 @@
       "doc_path": "rules/sat_minimumdominatingset/index.html"
     },
     {
-      "source": 54,
-      "target": 50,
+      "source": 62,
+      "target": 56,
       "overhead": [
         {
           "field": "num_vars",
@@ -1318,8 +1423,8 @@
       "doc_path": "rules/spinglass_qubo/index.html"
     },
     {
-      "source": 55,
-      "target": 26,
+      "source": 63,
+      "target": 30,
       "overhead": [
         {
           "field": "num_vertices",
@@ -1333,8 +1438,8 @@
       "doc_path": "rules/spinglass_maxcut/index.html"
     },
     {
-      "source": 55,
-      "target": 54,
+      "source": 63,
+      "target": 62,
       "overhead": [
         {
           "field": "num_spins",
@@ -1348,8 +1453,8 @@
       "doc_path": "rules/spinglass_casts/index.html"
     },
     {
-      "source": 58,
-      "target": 13,
+      "source": 69,
+      "target": 16,
       "overhead": [
         {
           "field": "num_vars",
@@ -1363,8 +1468,8 @@
       "doc_path": "rules/travelingsalesman_ilp/index.html"
     },
     {
-      "source": 58,
-      "target": 50,
+      "source": 69,
+      "target": 56,
       "overhead": [
         {
           "field": "num_vars",

@@ -147,7 +147,17 @@ WORKTREE_DIR=$(printf '%s\n' "$WORKTREE" | python3 -c "import sys,json; print(js
 cd "$WORKTREE_DIR"
 ```
 
+If `worktree-for-issue` fails during the GraphQL-backed open-PR lookup, fall back to a REST search instead of creating a fresh branch blindly:
+
+```bash
+PR_JSON=$(gh api "search/issues?q=repo:$REPO+is:pr+is:open+%22Fix+%23$ISSUE%22")
+PR_NUMBER=$(printf '%s\n' "$PR_JSON" | python3 -c "import sys,json; items=json.load(sys.stdin).get('items', []); print(items[0]['number'] if items else '')")
+WORKTREE=$(python3 scripts/pipeline_worktree.py checkout-pr \
+  --repo "$REPO" --pr "$PR_NUMBER" --repo-root . --format json)
+```
+
 - `action == "resume-pr"`: existing PR checked out — `issue-to-pr` will skip plan creation and jump to execution
+- If the resumed branch later proves stale against `main` (for example, merge conflicts span registry/CLI/skill wiring or a merge helper reports `likely_complex: true`), STOP autonomous repair and move the issue to `Final review` for human triage instead of forcing a large migration inside project-pipeline
 - `action == "create-worktree"`: fresh branch from `origin/main`
 
 All subsequent steps run inside the worktree. This ensures the user's main checkout is never modified.
@@ -246,3 +256,4 @@ Completed: 2/4 | Review pool: 3 | Returned to Ready: 1
 | Working in main checkout | All work happens in `.worktrees/` — never modify the main checkout |
 | Missing items from project board | `gh project item-list` defaults to 30 items — always use `--limit 500` |
 | Creating a fresh branch when PR exists | Check `issue-context` action field first — use `checkout-pr` for existing PRs instead of `create-issue` |
+| Forcing a very stale resume PR through autonomous conflict repair | If a resumed PR has broad merge conflicts (`likely_complex: true`, registry/CLI/skill churn, etc.), stop and move it to `Final review` |

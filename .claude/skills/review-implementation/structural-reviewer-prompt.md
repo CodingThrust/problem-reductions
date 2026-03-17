@@ -33,17 +33,15 @@ Given: problem name `P` = `{PROBLEM_NAME}`, category `C` = `{CATEGORY}`, file st
 | 5 | `OptimizationProblem` or `SatisfactionProblem` impl | `Grep("(OptimizationProblem|SatisfactionProblem).*for.*{P}", file)` |
 | 6 | `#[cfg(test)]` + `#[path = "..."]` test link | `Grep("#\\[path =", file)` |
 | 7 | Test file exists | `Glob("src/unit_tests/models/{C}/{F}.rs")` |
-| 8 | Test has creation test | `Grep("fn test_.*creation|fn test_{F}.*basic", test_file)` |
-| 9 | Test has evaluation test | `Grep("fn test_.*evaluat", test_file)` |
-| 10 | Registered in `{C}/mod.rs` | `Grep("mod {F}", "src/models/{C}/mod.rs")` |
-| 11 | Re-exported in `models/mod.rs` | `Grep("{P}", "src/models/mod.rs")` |
-| 12 | `declare_variants!` entry exists | `Grep("declare_variants!|default opt|default sat|opt {P}|sat {P}", file)` |
-| 13 | CLI `resolve_alias` entry | `Grep("{P}", "problemreductions-cli/src/problem_name.rs")` |
-| 14 | CLI `create` support | `Grep('"{P}"', "problemreductions-cli/src/commands/create.rs")` |
-| 15 | Canonical model example registered | `Grep("{P}", "src/example_db/model_builders.rs")` |
-| 16 | Paper `display-name` entry | `Grep('"{P}"', "docs/paper/reductions.typ")` |
-| 17 | Paper `problem-def` block | `Grep('problem-def.*"{P}"', "docs/paper/reductions.typ")` |
-| 18 | `trait_consistency` entry | `Grep("{P}", "src/unit_tests/trait_consistency.rs")` |
+| 8 | Test file has >= 3 test functions | `Grep("fn test_", test_file)` — count matches, FAIL if < 3 |
+| 9 | Registered in `{C}/mod.rs` | `Grep("mod {F}", "src/models/{C}/mod.rs")` |
+| 10 | Re-exported in `models/mod.rs` | `Grep("{P}", "src/models/mod.rs")` |
+| 11 | `declare_variants!` entry exists | `Grep("declare_variants!|default opt|default sat|opt {P}|sat {P}", file)` |
+| 12 | CLI `resolve_alias` entry | `Grep("{P}", "problemreductions-cli/src/problem_name.rs")` |
+| 13 | CLI `create` support | `Grep('"{P}"', "problemreductions-cli/src/commands/create.rs")` |
+| 14 | Canonical model example registered | `Grep("{P}", "src/example_db/model_builders.rs")` |
+| 15 | Paper `display-name` entry | `Grep('"{P}"', "docs/paper/reductions.typ")` |
+| 16 | Paper `problem-def` block | `Grep('problem-def.*"{P}"', "docs/paper/reductions.typ")` |
 
 ## Rule Checklist
 

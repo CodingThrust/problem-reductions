@@ -99,6 +99,7 @@ The report is the Step 0 packet. It should already include:
 - Comment Summary
 - CI / Coverage
 - Merge Prep
+- PR head branch
 - Linked Issue Context
 
 Branch from the report:
@@ -118,7 +119,7 @@ The bundle already handled the mechanical claim step:
 - the selected reviewed PR is claimed through the review queue
 - explicit `--pr` matches on ambiguous cards are treated as deterministic disambiguation and claimed automatically
 
-When you need to take actions later, use the identifiers already printed in the report (`Board item`, `PR`, worktree path). If you need structured data, prefer parsing the existing packet or ensure Step 0 was generated as JSON once; do not rerun Step 0 just to switch formats inside the same invocation.
+When you need to take actions later, use the identifiers already printed in the report (`Board item`, `PR`, worktree path, `PR head branch`). If you need structured data, prefer parsing the existing packet or ensure Step 0 was generated as JSON once; do not rerun Step 0 just to switch formats inside the same invocation.
 
 All subsequent steps run inside the prepared worktree and should read facts from the report instead of re-fetching them by default.
 
@@ -132,7 +133,7 @@ All subsequent steps run inside the prepared worktree and should read facts from
 
 Read the merge result from the report's `Merge Prep` section.
 
-- If the report says the merge status is `clean`: push the merge commit and continue.
+- If the report says the merge status is `clean`: push the merge commit to the packet's `PR head branch` and continue.
 - If there are conflicts:
   1. Inspect the conflicting files listed in the report.
   2. Compare the current skill versions on main vs the PR branch to understand which patterns are current.
@@ -146,11 +147,13 @@ Use the report as the primary mechanical context:
 - `Comment Summary`
 - `CI / Coverage`
 - `Linked Issue Context`
+- `Merge Prep` (`PR head branch`)
 
 Inspect the report's Copilot comment count and linked issue context. If there are actionable comments: invoke `/fix-pr` to address them, then push:
 
 ```bash
-git push
+HEAD_REF_NAME=<from the review-pipeline packet>
+git push origin HEAD:"$HEAD_REF_NAME"
 ```
 
 If Copilot approved with no actionable comments: skip to next step.
@@ -196,7 +199,9 @@ Run agentic feature tests on the modified feature:
    - `[Model]` PRs: the new problem model name
    - `[Rule]` PRs: the new reduction rule (source -> target)
 
-2. **Invoke `/agentic-tests:test-feature`** with the identified feature. This simulates a downstream user exercising the feature from docs and examples. You MUST use the Skill tool to invoke `agentic-tests:test-feature`.
+2. **Invoke `/agentic-tests:test-feature`** with the identified feature. This simulates a downstream user exercising the feature from docs and examples.
+   - In environments with a Skill tool, use that tool.
+   - In Codex, open `~/.claude/commands/agentic-tests:test-feature.md` directly and follow it instead of assuming slash-command support.
 
 3. **If test-feature reports issues:** treat every reported issue as real until you have checked it in the **current PR worktree/branch**.
    - Reproduce each issue from the current PR branch/worktree before acting. If it does not reproduce there, classify it as `not reproducible in current worktree`.
@@ -238,7 +243,8 @@ print(mapping.get(state, 'FAILED'))
 
 3. **Push fixes:**
    ```bash
-   git push
+   HEAD_REF_NAME=<from the review-pipeline packet>
+   git push origin HEAD:"$HEAD_REF_NAME"
    ```
 
 4. Increment retry counter. If `< 3`, go back to step 1. If `= 3`, give up.
@@ -323,7 +329,7 @@ Completed: 2/2 | All moved to Final review
 | Guessing on an issue card with multiple linked repo PRs | Stop, show options to the user, and recommend the most likely correct OPEN PR |
 | Picking a PR before Copilot has reviewed | Inspect the checked-out diff and PR body first. If the PR is incomplete, comment and move it back to Ready. If it is review-ready, request Copilot review and switch to another item instead of waiting |
 | Missing project scopes | Run `gh auth refresh -s read:project,project` |
-| Skipping review-implementation | Always run structural completeness check in Step 2b — it catches gaps Copilot misses (paper entries, CLI registration, trait_consistency) |
+| Skipping review-implementation | Always run structural completeness check in Step 2b — it catches gaps Copilot misses (paper entries, CLI registration, example-db wiring) |
 | Skipping agentic tests | Always run test-feature even if CI is green |
 | Not checking out the right branch | Use `gh pr view` to get the exact branch name |
 | Waiting idle for Copilot | Request the review, leave the PR in Review pool, and keep triaging other items in the same run |
