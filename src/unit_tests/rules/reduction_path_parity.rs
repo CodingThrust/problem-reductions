@@ -5,12 +5,12 @@
 use crate::models::algebraic::QUBO;
 use crate::models::graph::{MaxCut, SpinGlass};
 use crate::models::misc::Factoring;
+use crate::rules::test_helpers::assert_optimization_round_trip_chain;
 use crate::rules::{MinimizeSteps, ReductionGraph};
 use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::ProblemSize;
-use std::collections::HashSet;
 
 /// Julia: paths = reduction_paths(MaxCut, SpinGlass)
 /// Julia: res = reduceto(paths[1], MaxCut(smallgraph(:petersen)))
@@ -106,19 +106,10 @@ fn test_jl_parity_maxcut_to_qubo_path() {
     let chain = graph
         .reduce_along_path(&rpath, &source as &dyn std::any::Any)
         .expect("Should reduce along path");
-
-    let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let best_target = solver.find_all_best(chain.target_problem::<QUBO<f64>>());
-
-    // Julia: sort(extract_solution.(Ref(res), best2)) == sort(best1)
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| chain.extract_solution(t))
-        .collect();
-    assert_eq!(
-        extracted, best_source,
-        "MaxCut->QUBO path: extracted solutions should match direct source solutions"
+    assert_optimization_round_trip_chain::<MaxCut<SimpleGraph, i32>, QUBO<f64>>(
+        &source,
+        &chain,
+        "MaxCut->QUBO path parity",
     );
 }
 

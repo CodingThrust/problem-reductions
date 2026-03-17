@@ -24,12 +24,14 @@ These repo-local skills live under `.claude/skills/*/SKILL.md`.
 - [propose](skills/propose/SKILL.md) -- Interactive brainstorming to help domain experts propose a new model or rule. Asks one question at a time, uses mathematical language (no programming jargon), and files a GitHub issue.
 - [final-review](skills/final-review/SKILL.md) -- Interactive maintainer review for PRs in "Final review" column. Assesses usefulness, safety, completeness, quality ranking, then merge or hold.
 - [dev-setup](skills/dev-setup/SKILL.md) -- Interactive wizard to install and configure all development tools for new maintainers.
+- [tutorial](skills/tutorial/SKILL.md) -- Interactive tutorial — walk through the pred CLI to explore, reduce, and solve NP-hard problems. No Rust internals.
 
 ## Codex Compatibility
 - Claude slash commands such as `/issue-to-pr 42 --execute` are aliases for the matching repo-local skill files under `.claude/skills/`.
 - In Codex, read the relevant `SKILL.md` directly and follow it; do not assume slash-command support exists.
 - The Makefile targets `run-plan`, `run-issue`, `run-pipeline`, and `run-review` already translate these workflows into explicit `SKILL.md` prompts for Codex.
 - The default Codex model in the Makefile is `gpt-5.4`. Override it with `CODEX_MODEL=<model>` if needed.
+- The Step 0/Step 1 packet builders under `scripts/pipeline_skill_context.py` and `scripts/pipeline_checks.py` are expensive GitHub-backed calls. Per top-level skill invocation, generate each packet at most once and reuse the resulting text/JSON for all later steps unless the skill explicitly requires a fresh rerun.
 
 ## Commands
 ```bash
@@ -41,7 +43,7 @@ make fmt-check      # Check code formatting
 make clippy         # Run clippy lints
 make doc            # Build mdBook documentation (includes reduction graph export)
 make mdbook         # Build and serve mdBook with live reload
-make paper          # Build Typst paper (runs examples + exports first)
+make paper          # Build Typst paper from checked-in example fixtures
 make coverage       # Generate coverage report (>95% required)
 make check          # Quick pre-commit check (fmt + clippy + test)
 make rust-export    # Generate Julia parity test data (mapping stages)
@@ -49,7 +51,6 @@ make export-schemas # Regenerate problem schemas JSON
 make qubo-testdata  # Regenerate QUBO ground truth JSON
 make clean          # Clean build artifacts
 make diagrams      # Generate SVG diagrams from Typst (light + dark)
-make examples      # Generate example JSON for paper
 make compare       # Generate and compare Rust mapping exports
 make jl-testdata   # Regenerate Julia parity test data (requires julia)
 make cli           # Build the pred CLI tool (without MCP, fast)
@@ -63,8 +64,8 @@ make run-pipeline N=97 # Process a specific issue from the project board
 make run-pipeline-forever # Poll Ready column, run-pipeline when new issues appear
 make run-review    # Pick next PR from Review pool column, fix Copilot comments, fix CI, run agentic tests
 make run-review N=570 # Process a specific PR from the Review pool column
-make run-review-forever # Poll Review pool for Copilot-reviewed PRs, run-review when new ones appear
-make copilot-review # Request Copilot code review on current PR
+make run-review-forever # Poll Review pool, auto-request Copilot reviews, dispatch run-review when reviewed
+make copilot-review # Request Copilot code review on current PR (requires: gh extension install ChrisCarini/gh-copilot-review)
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 # Set RUNNER=claude to use Claude instead of Codex (default: codex)
 # Default Codex model: CODEX_MODEL=gpt-5.4
@@ -206,7 +207,7 @@ New code must have >95% test coverage. Run `make coverage` to check.
 ### Naming
 
 - Reduction tests: `test_<source>_to_<target>_closed_loop`
-- Model tests: `test_<model>_basic`, `test_<model>_serialization`
+- Model tests: descriptive names — e.g., `test_<model>_creation`, `test_<model>_evaluate_*`, `test_<model>_direction`, `test_<model>_solver`, `test_<model>_serialization`. Use whichever are relevant; there is no fixed per-model naming set.
 - Solver tests: `test_<solver>_<problem>`
 
 ### Key Testing Patterns
@@ -216,6 +217,8 @@ See Key Patterns above for solver API signatures. Follow the reference files for
 ### File Organization
 
 Unit tests in `src/unit_tests/` linked via `#[path]` (see Core Modules above). Integration tests in `tests/suites/`, consolidated through `tests/main.rs`. Canonical example-db coverage lives in `src/unit_tests/example_db.rs`.
+
+Model review automation checks for a dedicated test file under `src/unit_tests/models/...` with at least 3 test functions. The exact split of coverage is judged per model during review.
 
 ## Documentation Locations
 - `README.md` — Project overview and quickstart
@@ -257,7 +260,7 @@ Also add to the `display-name` dictionary:
 ]
 ```
 
-Every directed reduction in the graph needs its own `reduction-rule` entry. The paper auto-checks completeness against `reduction_graph.json`.
+Every directed reduction in the graph needs its own `reduction-rule` entry. The paper auto-checks completeness against the generated `reduction_graph.json` export.
 
 ## Complexity Verification Requirements
 

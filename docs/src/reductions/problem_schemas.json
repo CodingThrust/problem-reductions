@@ -16,6 +16,22 @@
     ]
   },
   {
+    "name": "BalancedCompleteBipartiteSubgraph",
+    "description": "Decide whether a bipartite graph contains a K_{k,k} subgraph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "BipartiteGraph",
+        "description": "The bipartite graph G = (A, B, E)"
+      },
+      {
+        "name": "k",
+        "type_name": "usize",
+        "description": "Balanced biclique size"
+      }
+    ]
+  },
+  {
     "name": "BicliqueCover",
     "description": "Cover bipartite edges with k bicliques",
     "fields": [
@@ -42,6 +58,27 @@
     ]
   },
   {
+    "name": "BiconnectivityAugmentation",
+    "description": "Add weighted potential edges to make a graph biconnected within budget",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "potential_weights",
+        "type_name": "Vec<(usize, usize, W)>",
+        "description": "Potential edges with augmentation weights"
+      },
+      {
+        "name": "budget",
+        "type_name": "W::Sum",
+        "description": "Maximum total augmentation weight B"
+      }
+    ]
+  },
+  {
     "name": "BinPacking",
     "description": "Assign items to bins minimizing number of bins used, subject to capacity",
     "fields": [
@@ -54,6 +91,32 @@
         "name": "capacity",
         "type_name": "W",
         "description": "Bin capacity C"
+      }
+    ]
+  },
+  {
+    "name": "BoundedComponentSpanningForest",
+    "description": "Partition vertices into at most K connected components, each of total weight at most B",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w(v) for each vertex v in V"
+      },
+      {
+        "name": "max_components",
+        "type_name": "usize",
+        "description": "Upper bound K on the number of connected components"
+      },
+      {
+        "name": "max_weight",
+        "type_name": "W::Sum",
+        "description": "Upper bound B on the total weight of each component"
       }
     ]
   },
@@ -86,6 +149,52 @@
         "name": "bounds",
         "type_name": "Vec<VarBounds>",
         "description": "Integer bounds per variable"
+      }
+    ]
+  },
+  {
+    "name": "DirectedTwoCommodityIntegralFlow",
+    "description": "Two-commodity integral flow feasibility on a directed graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "DirectedGraph",
+        "description": "Directed graph G = (V, A)"
+      },
+      {
+        "name": "capacities",
+        "type_name": "Vec<u64>",
+        "description": "Capacity c(a) for each arc"
+      },
+      {
+        "name": "source_1",
+        "type_name": "usize",
+        "description": "Source vertex s_1 for commodity 1"
+      },
+      {
+        "name": "sink_1",
+        "type_name": "usize",
+        "description": "Sink vertex t_1 for commodity 1"
+      },
+      {
+        "name": "source_2",
+        "type_name": "usize",
+        "description": "Source vertex s_2 for commodity 2"
+      },
+      {
+        "name": "sink_2",
+        "type_name": "usize",
+        "description": "Sink vertex t_2 for commodity 2"
+      },
+      {
+        "name": "requirement_1",
+        "type_name": "u64",
+        "description": "Flow requirement R_1 for commodity 1"
+      },
+      {
+        "name": "requirement_2",
+        "type_name": "u64",
+        "description": "Flow requirement R_2 for commodity 2"
       }
     ]
   },
@@ -260,6 +369,37 @@
     ]
   },
   {
+    "name": "LengthBoundedDisjointPaths",
+    "description": "Find J internally vertex-disjoint s-t paths of length at most K",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "source",
+        "type_name": "usize",
+        "description": "The shared source vertex s"
+      },
+      {
+        "name": "sink",
+        "type_name": "usize",
+        "description": "The shared sink vertex t"
+      },
+      {
+        "name": "num_paths_required",
+        "type_name": "usize",
+        "description": "Required number J of disjoint s-t paths"
+      },
+      {
+        "name": "max_length",
+        "type_name": "usize",
+        "description": "Maximum path length K in edges"
+      }
+    ]
+  },
+  {
     "name": "LongestCommonSubsequence",
     "description": "Find the longest string that is a subsequence of every input string",
     "fields": [
@@ -415,6 +555,27 @@
     ]
   },
   {
+    "name": "MinimumMultiwayCut",
+    "description": "Find minimum weight set of edges whose removal disconnects all terminal pairs",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The undirected graph G=(V,E)"
+      },
+      {
+        "name": "terminals",
+        "type_name": "Vec<usize>",
+        "description": "Terminal vertices that must be separated"
+      },
+      {
+        "name": "edge_weights",
+        "type_name": "Vec<W>",
+        "description": "Edge weights w: E -> R (same order as graph.edges())"
+      }
+    ]
+  },
+  {
     "name": "MinimumSetCovering",
     "description": "Find minimum weight collection covering the universe",
     "fields": [
@@ -495,6 +656,32 @@
         "name": "weights",
         "type_name": "Vec<W>",
         "description": "Vertex weights w: V -> R"
+      }
+    ]
+  },
+  {
+    "name": "MultipleChoiceBranching",
+    "description": "Find a branching with partition constraints and weight at least K",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "DirectedGraph",
+        "description": "The directed graph G=(V,A)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Arc weights w(a) for each arc a in A"
+      },
+      {
+        "name": "partition",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Partition of arc indices; each arc index must appear in exactly one group"
+      },
+      {
+        "name": "threshold",
+        "type_name": "W::Sum",
+        "description": "Weight threshold K"
       }
     ]
   },
@@ -595,6 +782,48 @@
     ]
   },
   {
+    "name": "SequencingWithinIntervals",
+    "description": "Schedule tasks non-overlappingly within their time windows",
+    "fields": [
+      {
+        "name": "release_times",
+        "type_name": "Vec<u64>",
+        "description": "Release time r(t) for each task"
+      },
+      {
+        "name": "deadlines",
+        "type_name": "Vec<u64>",
+        "description": "Deadline d(t) for each task"
+      },
+      {
+        "name": "lengths",
+        "type_name": "Vec<u64>",
+        "description": "Processing length l(t) for each task"
+      }
+    ]
+  },
+  {
+    "name": "SetBasis",
+    "description": "Determine whether a collection of sets admits a basis of size k under union",
+    "fields": [
+      {
+        "name": "universe_size",
+        "type_name": "usize",
+        "description": "Size of the ground set S"
+      },
+      {
+        "name": "collection",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Collection C of target subsets of S"
+      },
+      {
+        "name": "k",
+        "type_name": "usize",
+        "description": "Required number of basis sets"
+      }
+    ]
+  },
+  {
     "name": "ShortestCommonSupersequence",
     "description": "Find a common supersequence of bounded length for a set of strings",
     "fields": [
@@ -633,6 +862,48 @@
         "name": "fields",
         "type_name": "Vec<W>",
         "description": "On-site fields h_i"
+      }
+    ]
+  },
+  {
+    "name": "SteinerTree",
+    "description": "Find minimum weight tree connecting terminal vertices",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "edge_weights",
+        "type_name": "Vec<W>",
+        "description": "Edge weights w: E -> R"
+      },
+      {
+        "name": "terminals",
+        "type_name": "Vec<usize>",
+        "description": "Terminal vertices T that must be connected"
+      }
+    ]
+  },
+  {
+    "name": "StrongConnectivityAugmentation",
+    "description": "Add a bounded set of weighted candidate arcs to make a digraph strongly connected",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "DirectedGraph",
+        "description": "The initial directed graph G=(V,A)"
+      },
+      {
+        "name": "candidate_arcs",
+        "type_name": "Vec<(usize, usize, W)>",
+        "description": "Candidate augmenting arcs (u, v, w(u,v)) not already present in G"
+      },
+      {
+        "name": "bound",
+        "type_name": "W::Sum",
+        "description": "Upper bound B on the total added weight"
       }
     ]
   },
@@ -681,6 +952,52 @@
         "name": "edge_weights",
         "type_name": "Vec<W>",
         "description": "Edge weights w: E -> R"
+      }
+    ]
+  },
+  {
+    "name": "UndirectedTwoCommodityIntegralFlow",
+    "description": "Determine whether two integral commodities can satisfy sink demands in an undirected capacitated graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "SimpleGraph",
+        "description": "Undirected graph G=(V,E)"
+      },
+      {
+        "name": "capacities",
+        "type_name": "Vec<u64>",
+        "description": "Edge capacities c(e) in graph edge order"
+      },
+      {
+        "name": "source_1",
+        "type_name": "usize",
+        "description": "Source vertex s_1 for commodity 1"
+      },
+      {
+        "name": "sink_1",
+        "type_name": "usize",
+        "description": "Sink vertex t_1 for commodity 1"
+      },
+      {
+        "name": "source_2",
+        "type_name": "usize",
+        "description": "Source vertex s_2 for commodity 2"
+      },
+      {
+        "name": "sink_2",
+        "type_name": "usize",
+        "description": "Sink vertex t_2 for commodity 2"
+      },
+      {
+        "name": "requirement_1",
+        "type_name": "u64",
+        "description": "Required net inflow R_1 at sink t_1"
+      },
+      {
+        "name": "requirement_2",
+        "type_name": "u64",
+        "description": "Required net inflow R_2 at sink t_2"
       }
     ]
   }

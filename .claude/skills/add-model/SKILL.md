@@ -26,8 +26,14 @@ Before any implementation, collect all required information. If called from `iss
 | 9 | **Best known exact algorithm** | Complexity with variable definitions | "O(1.1996^n) by Xiao & Nagamochi (2017), where n = \|V\|" |
 | 10 | **Solving strategy** | How it can be solved | "BruteForce works; ILP reduction available" |
 | 11 | **Category** | Which sub-module under `src/models/` | `graph`, `formula`, `set`, `algebraic`, `misc` |
+| 12 | **Expected outcome from the issue** | Concrete outcome for the issue's example instance | Optimization: one optimal solution + optimal value. Satisfaction: one valid/satisfying solution + why it is valid |
 
 If any item is missing, ask the user to provide it. Do NOT proceed until the checklist is complete.
+
+The issue's **Expected Outcome** section is the source of truth for the implementation-facing example.
+- For optimization problems, use the issue's optimal solution and optimal objective value.
+- For satisfaction problems, use the issue's valid / satisfying solution and its justification.
+- Do not invent or replace the expected outcome during implementation unless the issue is corrected first.
 
 ### Associated Rule Check
 
@@ -60,6 +66,15 @@ Read these first to understand the patterns:
 - **CLI aliases:** `problemreductions-cli/src/problem_name.rs`
 - **CLI creation:** `problemreductions-cli/src/commands/create.rs`
 - **Canonical model examples:** `src/example_db/model_builders.rs`
+
+## Pre-review Checklist
+
+Before implementing, make sure the plan explicitly covers these items that structural review checks later:
+- `ProblemSchemaEntry` metadata is complete for the current schema shape (`display_name`, `aliases`, `dimensions`, and constructor-facing `fields`)
+- `declare_variants!` is present with the correct `opt`/`sat` marker and exactly one `default` variant when multiple concrete variants exist
+- CLI discovery and `pred create <ProblemName>` support are included where applicable
+- A canonical model example is registered for example-db / `pred create --example`
+- `docs/paper/reductions.typ` adds both the display-name dictionary entry and the `problem-def(...)`
 
 ## Step 1: Determine the category
 
@@ -101,6 +116,7 @@ Create `src/models/<category>/<name>.rs`:
 ```
 
 Key decisions:
+- **Schema metadata:** `ProblemSchemaEntry` must reflect the current registry schema shape, including `display_name`, `aliases`, `dimensions`, and constructor-facing `fields`
 - **Optimization problems:** `type Metric = SolutionSize<W::Sum>`, implement `OptimizationProblem` with `direction()`
 - **Satisfaction problems:** `type Metric = bool`, implement `SatisfactionProblem` (marker trait)
 - **Weight management:** use inherent methods (`weights()`, `set_weights()`, `is_weighted()`), NOT traits
@@ -179,31 +195,23 @@ This example is now the canonical source for:
 
 Create `src/unit_tests/models/<category>/<name>.rs`:
 
-Required tests:
-- `test_<name>_creation` -- construct an instance, verify dimensions
-- `test_<name>_evaluation` -- verify `evaluate()` on valid and invalid configs
-- `test_<name>_direction` -- verify optimization direction (if optimization problem)
-- `test_<name>_serialization` -- round-trip serde test (optional but recommended)
-- `test_<name>_solver` -- verify brute-force solver finds correct solutions
-- `test_<name>_paper_example` -- **use the same instance from the paper example** (Step 6), verify the claimed solution is valid/optimal and the solution count matches
+Every model needs **at least 3 test functions** (the structural reviewer enforces this). Choose from the coverage areas below — pick whichever are relevant to the model:
 
-The `test_<name>_paper_example` test is critical for consistency between code and paper. It must:
-1. Construct the exact same instance shown in the paper's example figure
-2. Evaluate the solution shown in the paper and assert it is valid (and optimal for optimization problems)
-3. Use `BruteForce` to find all optimal/satisfying solutions and assert the count matches the paper's claim
+- **Creation/basic** — exercise constructor inputs, key accessors, `dims()` / `num_variables()`.
+- **Evaluation** — valid and invalid configs so the feasibility boundary is explicit.
+- **Direction** — verify optimization direction (optimization problems only).
+- **Solver** — brute-force solver finds correct solutions (when the model is small enough).
+- **Serialization** — round-trip serde (when the model is used in CLI/example-db flows).
+- **Paper example** — verify the worked example from the paper entry (see below).
 
-This test should be written **after** Step 6 (paper entry), once the example instance and solution are finalized. If writing tests before the paper, use the same instance you plan to use in the paper and come back to verify consistency.
+When you add `test_<name>_paper_example`, it should:
+1. Construct the same instance shown in the paper's example figure
+2. Evaluate the solution from the issue's **Expected Outcome** section as shown in the paper and assert it is valid (and optimal for optimization problems)
+3. Use `BruteForce` to confirm the claimed optimum/satisfying solution count when the instance is small enough for unit tests
+
+This test is usually written **after** Step 6 (paper entry), once the example instance and expected outcome are finalized. If writing tests before the paper, use the issue's Example Instance + Expected Outcome as the source of truth and come back to verify consistency.
 
 Link the test file via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the model file.
-
-## Step 5.5: Add trait_consistency entry
-
-Add the new problem to `src/unit_tests/trait_consistency.rs`:
-
-1. **`test_all_problems_implement_trait_correctly`** — add a `check_problem_trait(...)` call with a small instance
-2. **`test_direction`** (optimization problems only) — add an `assert_eq!(...direction(), Direction::Minimize/Maximize)` entry
-
-This is **required** for every new model — it ensures the Problem trait implementation is well-formed.
 
 ## Step 6: Document in paper
 
@@ -277,5 +285,4 @@ If running standalone (not inside `make run-plan`), invoke [review-implementatio
 | Missing from CLI help table | Must add entry to "Flags by problem type" table in `cli.rs` `after_help` |
 | Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |
 | Missing canonical model example | Add a builder in `src/example_db/model_builders.rs` and keep it aligned with paper/example workflows |
-| Forgetting trait_consistency | Must add entry in `test_all_problems_implement_trait_correctly` (and `test_direction` for optimization) in `src/unit_tests/trait_consistency.rs` |
 | Paper example not tested | Must include `test_<name>_paper_example` that verifies the exact instance, solution, and solution count shown in the paper |
