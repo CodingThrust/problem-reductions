@@ -153,6 +153,37 @@
     ]
   },
   {
+    "name": "ComparativeContainment",
+    "description": "Compare containment-weight sums for two set families over a shared universe",
+    "fields": [
+      {
+        "name": "universe_size",
+        "type_name": "usize",
+        "description": "Size of the universe X"
+      },
+      {
+        "name": "r_sets",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "First set family R over X"
+      },
+      {
+        "name": "s_sets",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Second set family S over X"
+      },
+      {
+        "name": "r_weights",
+        "type_name": "Vec<W>",
+        "description": "Positive weights for sets in R"
+      },
+      {
+        "name": "s_weights",
+        "type_name": "Vec<W>",
+        "description": "Positive weights for sets in S"
+      }
+    ]
+  },
+  {
     "name": "DirectedTwoCommodityIntegralFlow",
     "description": "Two-commodity integral flow feasibility on a directed graph",
     "fields": [

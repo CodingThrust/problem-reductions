@@ -2926,6 +2926,54 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Discard slack variables: return $bold(z)[0..n]$.
 ]
 
+#let mwc_qubo = load-example("MinimumMultiwayCut", "QUBO")
+#let mwc_qubo_sol = mwc_qubo.solutions.at(0)
+#let mwc_qubo_edges = mwc_qubo.source.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+#let mwc_qubo_weights = mwc_qubo.source.instance.edge_weights
+#let mwc_qubo_terminals = mwc_qubo.source.instance.terminals
+#let mwc_qubo_n = mwc_qubo.source.instance.graph.inner.nodes.len()
+#let mwc_qubo_k = mwc_qubo_terminals.len()
+#let mwc_qubo_nq = mwc_qubo_n * mwc_qubo_k
+#let mwc_qubo_alpha = mwc_qubo_weights.fold(0, (a, w) => a + w) + 1
+#let mwc_qubo_cut_indices = mwc_qubo_sol.source_config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+#let mwc_qubo_cut_cost = mwc_qubo_cut_indices.fold(0, (a, i) => a + mwc_qubo_weights.at(i))
+#reduction-rule("MinimumMultiwayCut", "QUBO",
+  example: true,
+  example-caption: [$n = #mwc_qubo_n$ vertices, $k = #mwc_qubo_k$ terminals $T = {#mwc_qubo_terminals.map(str).join(", ")}$, $|E| = #mwc_qubo_edges.len()$ edges],
+  extra: [
+    *Step 1 -- Source instance.* The canonical graph has $n = #mwc_qubo_n$ vertices, $m = #mwc_qubo_edges.len()$ edges with weights $(#mwc_qubo_weights.map(str).join(", "))$, and $k = #mwc_qubo_k$ terminals $T = {#mwc_qubo_terminals.map(str).join(", ")}$.
+
+    *Step 2 -- Introduce binary variables.* Assign $k = #mwc_qubo_k$ indicator variables per vertex: $x_(u,t) = 1$ means vertex $u$ belongs to terminal $t$'s component. This gives $n k = #mwc_qubo_n times #mwc_qubo_k = #mwc_qubo_nq$ QUBO variables:
+    $ underbrace(x_(0,0) x_(0,1) x_(0,2), "vertex 0") #h(4pt) underbrace(x_(1,0) x_(1,1) x_(1,2), "vertex 1") #h(4pt) dots.c #h(4pt) underbrace(x_(4,0) x_(4,1) x_(4,2), "vertex 4") $
+
+    *Step 3 -- Penalty coefficient.* $alpha = 1 + sum_(e in E) w(e) = 1 + #mwc_qubo_weights.map(str).join(" + ") = #mwc_qubo_alpha$.
+
+    *Step 4 -- Build $H_A$ (constraints).* One-hot: diagonal entries $Q_(u k+t, u k+t) = -#mwc_qubo_alpha$, off-diagonal $Q_(u k+s, u k+t) = #(2 * mwc_qubo_alpha)$ within each vertex's group. Terminal pinning: for each terminal vertex $t_i$, the wrong-position diagonal entries $Q_(t_i k+s, t_i k+s) += #mwc_qubo_alpha$ for $s != i$, effectively canceling the one-hot incentive for those positions.\
+
+    *Step 5 -- Build $H_B$ (cut cost).* For each edge $(u,v)$ with weight $w$ and each pair $s != t$, add $w$ to $Q_(u k+s, v k+t)$. For example, edge $(0,1)$ with weight $2$ contributes $2$ to positions $(x_(0,0), x_(1,1))$, $(x_(0,0), x_(1,2))$, $(x_(0,1), x_(1,0))$, $(x_(0,1), x_(1,2))$, $(x_(0,2), x_(1,0))$, and $(x_(0,2), x_(1,1))$.\
+
+    *Step 6 -- Verify a solution.* The QUBO ground state $bold(x) = (#mwc_qubo_sol.target_config.map(str).join(", "))$ decodes to the partition: vertex 0 in component 0, vertices 1--3 in component 1, vertex 4 in component 2. Cut edges: $\{#mwc_qubo_cut_indices.map(i => "(" + str(mwc_qubo_edges.at(i).at(0)) + "," + str(mwc_qubo_edges.at(i).at(1)) + ")").join(", ")\}$ with total weight #mwc_qubo_cut_indices.map(i => str(mwc_qubo_weights.at(i))).join(" + ") $= #mwc_qubo_cut_cost$ #sym.checkmark.
+  ],
+)[
+  The multiway cut problem requires a partition of vertices into $k$ components — one per terminal — minimizing the total weight of edges crossing components. The penalty method (@sec:penalty-method) encodes two constraints as QUBO penalties: (1) each vertex belongs to exactly one component (one-hot), and (2) each terminal is pinned to its own component. The cut-cost Hamiltonian counts edge weight across distinct components. Reference: @Heidari2022.
+][
+  _Construction._ Given $G = (V, E)$ with $n = |V|$, edge weights $w: E -> RR_(>0)$, and $k$ terminals $T = {t_0, ..., t_(k-1)}$. Introduce $n k$ binary variables $x_(u,t) in {0,1}$ (indexed by $u dot k + t$), where $x_(u,t) = 1$ means vertex $u$ is in terminal $t$'s component. Let $alpha = 1 + sum_(e in E) w(e)$.
+
+  The QUBO Hamiltonian is $H = H_A + H_B$ where:
+  $ H_A = alpha (sum_(u in V) (1 - sum_(t=0)^(k-1) x_(u,t))^2 + sum_(i=0)^(k-1) sum_(s != i) x_(t_i, s)) $
+  The first term is a _one-hot constraint_ ensuring each vertex is assigned to exactly one component. The second term _pins_ each terminal $t_i$ to position $i$ by penalizing any other assignment. Expanding the one-hot term using $x^2 = x$:
+  $ Q_(u k+t, u k+t) = -alpha, quad Q_(u k+s, u k+t) = 2 alpha quad (s < t) $
+  Terminal pinning adds $alpha$ to the diagonal $Q_(t_i k+s, t_i k+s)$ for $s != i$, canceling the one-hot incentive.
+
+  The cut-cost Hamiltonian:
+  $ H_B = sum_((u,v) in E) sum_(s != t) w(u,v) dot x_(u,s) dot x_(v,t) $
+  counts the total weight of edges whose endpoints lie in different components.
+
+  _Correctness._ ($arrow.r.double$) A valid multiway cut with cost $C$ maps to a QUBO solution with $H_A = 0$ (valid partition with correct terminal pinning) and $H_B = C$. ($arrow.l.double$) If $H_A > 0$, the penalty $alpha > sum_e w(e)$ exceeds the entire cut-cost range, so any QUBO minimizer has $H_A = 0$, encoding a valid partition. Among valid partitions, $H_B$ equals the cut cost, and the minimizer achieves the minimum multiway cut.
+
+  _Solution extraction._ For each vertex $u$, find terminal position $t$ with $x_(u,t) = 1$. For each edge $(u,v)$, output 1 (cut) if $u$ and $v$ are in different components, 0 otherwise.
+]
+
 #let qubo_ilp = load-example("QUBO", "ILP")
 #let qubo_ilp_sol = qubo_ilp.solutions.at(0)
 #reduction-rule("QUBO", "ILP",
