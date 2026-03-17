@@ -68,6 +68,23 @@ fn test_find_model_example_exact_cover_by_3_sets() {
 }
 
 #[test]
+fn test_find_model_example_strong_connectivity_augmentation() {
+    let problem = ProblemRef {
+        name: "StrongConnectivityAugmentation".to_string(),
+        variant: BTreeMap::from([("weight".to_string(), "i32".to_string())]),
+    };
+
+    let example = find_model_example(&problem).expect("SCA example should exist");
+    assert_eq!(example.problem, "StrongConnectivityAugmentation");
+    assert_eq!(example.variant, problem.variant);
+    assert!(example.instance.is_object());
+    assert!(
+        !example.optimal.is_empty(),
+        "canonical example should include satisfying assignments"
+    );
+}
+
+#[test]
 fn test_find_rule_example_mvc_to_mis_contains_full_problem_json() {
     let source = ProblemRef {
         name: "MinimumVertexCover".to_string(),
@@ -705,12 +722,17 @@ fn verify_rule_fixtures_match_computed() {
             loaded_rule.solutions.len(),
             computed_rule.solutions.len(),
             "solution count mismatch for {} -> {} — regenerate fixtures",
+            loaded_rule.source.problem,
+            loaded_rule.target.problem
+        );
+        let label = format!(
+            "{} -> {}",
             loaded_rule.source.problem, loaded_rule.target.problem
         );
-        let label =
-            format!("{} -> {}", loaded_rule.source.problem, loaded_rule.target.problem);
-        for (loaded_pair, computed_pair) in
-            loaded_rule.solutions.iter().zip(computed_rule.solutions.iter())
+        for (loaded_pair, computed_pair) in loaded_rule
+            .solutions
+            .iter()
+            .zip(computed_rule.solutions.iter())
         {
             let loaded_target_problem = load_dyn(
                 &loaded_rule.target.problem,
@@ -718,10 +740,8 @@ fn verify_rule_fixtures_match_computed() {
                 loaded_rule.target.instance.clone(),
             )
             .unwrap_or_else(|e| panic!("{label}: load target: {e}"));
-            let loaded_energy =
-                loaded_target_problem.evaluate_dyn(&loaded_pair.target_config);
-            let computed_energy =
-                loaded_target_problem.evaluate_dyn(&computed_pair.target_config);
+            let loaded_energy = loaded_target_problem.evaluate_dyn(&loaded_pair.target_config);
+            let computed_energy = loaded_target_problem.evaluate_dyn(&computed_pair.target_config);
             assert_eq!(
                 loaded_energy, computed_energy,
                 "{label}: target energy mismatch — regenerate fixtures"

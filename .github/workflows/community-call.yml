@@ -1,0 +1,121 @@
+name: Community Call Reminder
+
+on:
+  schedule:
+    # Every Monday at 02:00 UTC = exactly 24 hours before Tuesday 10:00 HKT (02:00 UTC)
+    - cron: '0 2 * * 1'
+  workflow_dispatch: # Manual trigger for testing
+
+jobs:
+  post-reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect agenda from project board
+        id: agenda
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_READ_TOKEN }}
+        run: |
+          # Fetch issues in "Review pool", "Final review", and "Ready" columns
+          QUERY='query {
+            node(id: "PVT_kwDOBrtarc4BRNVy") {
+              ... on ProjectV2 {
+                items(first: 50) {
+                  nodes {
+                    fieldValueByName(name: "Status") {
+                      ... on ProjectV2ItemFieldSingleSelectValue { name }
+                    }
+                    content {
+                      ... on Issue {
+                        title number url
+                        labels(first: 5) { nodes { name } }
+                        author { login }
+                      }
+                      ... on PullRequest {
+                        title number url
+                        labels(first: 5) { nodes { name } }
+                        author { login }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }'
+
+          RESULT=$(gh api graphql -f query="$QUERY")
+
+          # Build agenda sections
+          build_section() {
+            local status="$1"
+            local header="$2"
+            local items
+            items=$(echo "$RESULT" | jq -r --arg s "$status" '
+              .data.node.items.nodes[]
+              | select(.fieldValueByName.name == $s)
+              | select(.content != null)
+              | "- [#\(.content.number)](\(.content.url)) \(.content.title) (by @\(.content.author.login))"
+            ')
+            if [ -n "$items" ]; then
+              echo "**$header:**"
+              echo "$items"
+              echo ""
+            fi
+          }
+
+          {
+            echo 'AGENDA<<EOF'
+            build_section "OnHold" "On hold"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Collect closed issues from last week
+        id: closed
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_READ_TOKEN }}
+        run: |
+          SINCE=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          ITEMS=$(gh issue list --repo "$GITHUB_REPOSITORY" --state closed \
+            --search "closed:>=$SINCE" --json number,title,url,author \
+            --jq '.[] | "- [#\(.number)](\(.url)) \(.title) (by @\(.author.login))"')
+
+          {
+            echo 'CLOSED<<EOF'
+            if [ -n "$ITEMS" ]; then
+              echo "**Closed this week:**"
+              echo "$ITEMS"
+              echo ""
+            fi
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post to Zulip
+        env:
+          ZULIP_BOT_EMAIL: ${{ secrets.ZULIP_BOT_EMAIL }}
+          ZULIP_BOT_API_KEY: ${{ secrets.ZULIP_BOT_API_KEY }}
+        run: |
+          TOMORROW=$(TZ=Asia/Hong_Kong date -d '+1 day' +%Y-%m-%d)
+          CALL_TIME="10:00 HKT (UTC+8)"
+
+          TOPIC="Community Call ${TOMORROW}"
+
+          BODY="**Community Call — ${TOMORROW} at ${CALL_TIME}**
+
+          **Join:** ${{ secrets.CALL_LINK }}
+
+          **Latest documentation:** [reductions.pdf](https://codingthrust.github.io/problem-reductions/reductions.pdf)
+
+          ## Agenda
+          ${{ steps.closed.outputs.CLOSED }}
+          ${{ steps.agenda.outputs.AGENDA }}
+          **Open discussion** — bring your questions and ideas!
+
+          ---
+          _Reply to this thread to add agenda items._"
+
+          # Post via Zulip API
+          curl -s -X POST "https://problem-reductions.zulipchat.com/api/v1/messages" \
+            -u "${ZULIP_BOT_EMAIL}:${ZULIP_BOT_API_KEY}" \
+            --data-urlencode "type=stream" \
+            --data-urlencode "to=community-call" \
+            --data-urlencode "topic=${TOPIC}" \
+            --data-urlencode "content=${BODY}"

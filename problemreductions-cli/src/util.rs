@@ -214,6 +214,20 @@ pub fn create_random_float_positions(num_vertices: usize, seed: Option<u64>) -> 
         .collect()
 }
 
+/// Choose `k` distinct elements from `0..n` using Fisher-Yates partial shuffle.
+/// Returns a sorted vector of chosen indices.
+pub fn lcg_choose(state: &mut u64, n: usize, k: usize) -> Vec<usize> {
+    assert!(k <= n, "k={k} exceeds n={n}");
+    let mut indices: Vec<usize> = (0..n).collect();
+    for i in 0..k {
+        let j = i + (lcg_step(state) * (n - i) as f64) as usize % (n - i);
+        indices.swap(i, j);
+    }
+    let mut chosen: Vec<usize> = indices[..k].to_vec();
+    chosen.sort_unstable();
+    chosen
+}
+
 // ---------------------------------------------------------------------------
 // Small shared helpers
 // ---------------------------------------------------------------------------

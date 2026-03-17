@@ -16,6 +16,8 @@ from pipeline_board import (
     STATUS_READY,
     STATUS_REVIEW_POOL,
     STATUS_UNDER_REVIEW,
+    _is_rule_blocked,
+    _scan_existing_problems,
     ack_item,
     batch_fetch_issues,
     batch_fetch_prs_with_reviews,
@@ -23,10 +25,13 @@ from pipeline_board import (
     build_recovery_plan,
     claim_entry_from_entries,
     eligible_review_candidate_entries,
+    final_review_entries,
     normalize_status_name,
     print_next_item,
     process_snapshot,
+    ready_entries,
     review_candidates,
+    review_entries,
     select_entry_from_entries,
     select_next_entry,
     status_items,
@@ -120,6 +125,48 @@ class PipelineBoardPollTests(unittest.TestCase):
             ack_item(state_file, "PVTI_1")
             item_id, number = process_snapshot("ready", snapshot, state_file)
             self.assertEqual((item_id, number), ("PVTI_2", 102))
+
+    def test_ready_entries_filters_blocked_rules(self) -> None:
+        """[Rule] issues whose source/target model is missing are excluded when repo_root is set."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a fake src/models/ with ILP and MaxCut
+            models_dir = Path(tmpdir) / "src" / "models"
+            models_dir.mkdir(parents=True)
+            (models_dir / "ilp.rs").write_text("pub struct ILP {}")
+            (models_dir / "max_cut.rs").write_text("pub struct MaxCut {}")
+
+            snapshot = {
+                "items": [
+                    make_issue_item("PVTI_1", 184, title="[Model] MinimumMultiwayCut"),
+                    make_issue_item("PVTI_2", 185, title="[Rule] MinimumMultiwayCut to ILP"),
+                    make_issue_item("PVTI_3", 186, title="[Rule] MinimumMultiwayCut to QUBO"),
+                    make_issue_item("PVTI_4", 100, title="[Rule] MaxCut to ILP"),
+                ]
+            }
+
+            # Without repo_root: all 4 items returned
+            entries = ready_entries(snapshot)
+            self.assertEqual(len(entries), 4)
+
+            # With repo_root: blocked rules filtered out
+            # 185: source MinimumMultiwayCut missing
+            # 186: source MinimumMultiwayCut missing, target QUBO missing
+            # 184: [Model] — never filtered
+            # 100: both MaxCut and ILP exist — not filtered
+            entries = ready_entries(snapshot, repo_root=tmpdir)
+            numbers = {e["number"] for e in entries.values()}
+            self.assertEqual(numbers, {184, 100})
+
+    def test_is_rule_blocked_helper(self) -> None:
+        existing = {"ILP", "MaximumIndependentSet"}
+        # Not a rule
+        self.assertFalse(_is_rule_blocked("[Model] Foo", existing))
+        # Both exist
+        self.assertFalse(_is_rule_blocked("[Rule] ILP to MaximumIndependentSet", existing))
+        # Source missing
+        self.assertTrue(_is_rule_blocked("[Rule] Foo to ILP", existing))
+        # Target missing
+        self.assertTrue(_is_rule_blocked("[Rule] ILP to Bar", existing))
 
     def test_review_queue_resolves_issue_cards_to_prs(self) -> None:
         def fake_pr_resolver(repo: str, issue_number: int) -> int | None:
@@ -901,6 +948,159 @@ class ReviewCandidatesBatchTests(unittest.TestCase):
         self.assertEqual(resolve_called, [120])
 
 
+class ReviewEntriesBatchTests(unittest.TestCase):
+    def test_review_entries_uses_batch_pr_fetcher(self) -> None:
+        """review_entries should use batch_pr_fetcher and skip individual calls."""
+        individual_called: list[int] = []
+
+        def fail_review_fetcher(repo: str, pr_number: int) -> list[dict]:
+            individual_called.append(pr_number)
+            raise AssertionError("should not be called when batch cache has the PR")
+
+        def fail_pr_state_fetcher(repo: str, pr_number: int) -> str:
+            individual_called.append(pr_number)
+            raise AssertionError("should not be called when batch cache has the PR")
+
+        def fake_batch_pr_fetcher(
+            repo: str, pr_numbers: list[int]
+        ) -> dict[int, dict]:
+            return {
+                570: {
+                    "number": 570,
+                    "state": "OPEN",
+                    "title": "Fix #117",
+                    "reviews": [
+                        {
+                            "author": {"login": "copilot-pull-request-reviewer"},
+                            "state": "COMMENTED",
+                        },
+                    ],
+                }
+            }
+
+        entries = review_entries(
+            {"items": [make_pr_item("PVTI_1", 570, status="Review pool")]},
+            "CodingThrust/problem-reductions",
+            fail_review_fetcher,
+            None,
+            fail_pr_state_fetcher,
+            batch_pr_fetcher=fake_batch_pr_fetcher,
+        )
+
+        self.assertEqual(len(entries), 1)
+        entry = list(entries.values())[0]
+        self.assertEqual(entry["pr_number"], 570)
+        self.assertEqual(individual_called, [])
+
+    def test_review_entries_falls_back_without_batch(self) -> None:
+        """Without batch_pr_fetcher, individual fetchers are used."""
+        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
+            return [
+                {
+                    "author": {"login": "copilot-pull-request-reviewer"},
+                    "state": "COMMENTED",
+                }
+            ]
+
+        def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
+            return "OPEN"
+
+        entries = review_entries(
+            {"items": [make_pr_item("PVTI_1", 570, status="Review pool")]},
+            "CodingThrust/problem-reductions",
+            fake_review_fetcher,
+            None,
+            fake_pr_state_fetcher,
+        )
+
+        self.assertEqual(len(entries), 1)
+
+    def test_final_review_entries_uses_batch_pr_fetcher(self) -> None:
+        """final_review_entries should use batch_pr_fetcher and skip individual calls."""
+        individual_called: list[int] = []
+
+        def fail_pr_state_fetcher(repo: str, pr_number: int) -> str:
+            individual_called.append(pr_number)
+            raise AssertionError("should not be called when batch cache has the PR")
+
+        def fake_batch_pr_fetcher(
+            repo: str, pr_numbers: list[int]
+        ) -> dict[int, dict]:
+            return {
+                570: {
+                    "number": 570,
+                    "state": "OPEN",
+                    "title": "Fix #117",
+                }
+            }
+
+        entries = final_review_entries(
+            {"items": [make_pr_item("PVTI_1", 570, status="Final review")]},
+            "CodingThrust/problem-reductions",
+            None,
+            fail_pr_state_fetcher,
+            batch_pr_fetcher=fake_batch_pr_fetcher,
+        )
+
+        self.assertEqual(len(entries), 1)
+        entry = list(entries.values())[0]
+        self.assertEqual(entry["pr_number"], 570)
+        self.assertEqual(individual_called, [])
+
+    def test_final_review_entries_falls_back_without_batch(self) -> None:
+        """Without batch_pr_fetcher, individual pr_state_fetcher is used."""
+        def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
+            return "OPEN"
+
+        entries = final_review_entries(
+            {"items": [make_pr_item("PVTI_1", 570, status="Final review")]},
+            "CodingThrust/problem-reductions",
+            None,
+            fake_pr_state_fetcher,
+        )
+
+        self.assertEqual(len(entries), 1)
+
+    def test_final_review_entries_batch_linked_issue(self) -> None:
+        """final_review_entries batch path works for issue items with linked PRs."""
+        def fail_pr_state_fetcher(repo: str, pr_number: int) -> str:
+            raise AssertionError("should not be called")
+
+        def fake_pr_resolver(repo: str, issue_number: int) -> int | None:
+            return None  # should not be called — linked PR exists
+
+        def fake_batch_pr_fetcher(
+            repo: str, pr_numbers: list[int]
+        ) -> dict[int, dict]:
+            return {
+                580: {
+                    "number": 580,
+                    "state": "OPEN",
+                    "title": "Fix #120",
+                }
+            }
+
+        entries = final_review_entries(
+            {
+                "items": [
+                    make_issue_item(
+                        "PVTI_2", 120,
+                        status="Final review",
+                        linked_prs=[580],
+                    ),
+                ]
+            },
+            "CodingThrust/problem-reductions",
+            fake_pr_resolver,
+            fail_pr_state_fetcher,
+            batch_pr_fetcher=fake_batch_pr_fetcher,
+        )
+
+        self.assertEqual(len(entries), 1)
+        entry = list(entries.values())[0]
+        self.assertEqual(entry["pr_number"], 580)
+
+
 class BatchFetchTests(unittest.TestCase):
     def test_batch_fetch_prs_with_reviews_builds_correct_query(self) -> None:
         fake_response = {
@@ -990,6 +1190,97 @@ class BatchFetchTests(unittest.TestCase):
     def test_batch_fetch_issues_empty_list(self) -> None:
         result = batch_fetch_issues("CodingThrust/problem-reductions", [])
         self.assertEqual(result, {})
+
+
+class GraphQLBoardFetchTests(unittest.TestCase):
+    def test_parse_graphql_board_items_extracts_issue_and_pr(self) -> None:
+        from pipeline_board import _parse_graphql_board_items
+
+        raw = {
+            "data": {
+                "node": {
+                    "items": {
+                        "pageInfo": {"hasNextPage": True, "endCursor": "abc123"},
+                        "nodes": [
+                            {
+                                "id": "PVTI_1",
+                                "fieldValueByName": {"name": "Ready"},
+                                "content": {"__typename": "Issue", "number": 101, "title": "[Model] Foo"},
+                            },
+                            {
+                                "id": "PVTI_2",
+                                "fieldValueByName": {"name": "Review pool"},
+                                "content": {"__typename": "PullRequest", "number": 570, "title": "Fix #117"},
+                            },
+                            {
+                                "id": "PVTI_3",
+                                "fieldValueByName": {"name": "Backlog"},
+                                "content": {"__typename": "DraftIssue", "number": None, "title": "Draft"},
+                            },
+                        ],
+                    }
+                }
+            }
+        }
+
+        items, has_next, cursor = _parse_graphql_board_items(raw)
+
+        self.assertTrue(has_next)
+        self.assertEqual(cursor, "abc123")
+        self.assertEqual(len(items), 2)
+        self.assertEqual(items[0], {"id": "PVTI_1", "status": "Ready", "content": {"type": "Issue", "number": 101, "title": "[Model] Foo"}, "title": "[Model] Foo"})
+        self.assertEqual(items[1], {"id": "PVTI_2", "status": "Review pool", "content": {"type": "PullRequest", "number": 570, "title": "Fix #117"}, "title": "Fix #117"})
+
+    def test_fetch_board_items_graphql_paginates(self) -> None:
+        from pipeline_board import fetch_board_items_graphql
+
+        page1 = {"data": {"node": {"items": {"pageInfo": {"hasNextPage": True, "endCursor": "cur1"}, "nodes": [{"id": "PVTI_1", "fieldValueByName": {"name": "Ready"}, "content": {"__typename": "Issue", "number": 1, "title": "A"}}]}}}}
+        page2 = {"data": {"node": {"items": {"pageInfo": {"hasNextPage": False, "endCursor": None}, "nodes": [{"id": "PVTI_2", "fieldValueByName": {"name": "Ready"}, "content": {"__typename": "Issue", "number": 2, "title": "B"}}]}}}}
+
+        with patch("pipeline_board.run_gh", side_effect=[json.dumps(page1), json.dumps(page2)]) as mock_gh:
+            result = fetch_board_items_graphql("PVT_test", 200, page_size=1)
+
+        self.assertEqual(len(result["items"]), 2)
+        self.assertEqual(result["items"][0]["id"], "PVTI_1")
+        self.assertEqual(result["items"][1]["id"], "PVTI_2")
+        self.assertEqual(mock_gh.call_count, 2)
+
+    def test_fetch_board_items_lite_uses_graphql_for_default_project(self) -> None:
+        import pipeline_board
+
+        graphql_response = {"data": {"node": {"items": {"pageInfo": {"hasNextPage": False, "endCursor": None}, "nodes": [{"id": "PVTI_1", "fieldValueByName": {"name": "Ready"}, "content": {"__typename": "Issue", "number": 42, "title": "Test"}}]}}}}
+
+        with patch("pipeline_board.run_gh", return_value=json.dumps(graphql_response)) as mock_gh:
+            result = pipeline_board.fetch_board_items("CodingThrust", 8, 100, lite=True)
+
+        self.assertEqual(len(result["items"]), 1)
+        call_args = mock_gh.call_args[0]
+        self.assertEqual(call_args[0], "api")
+        self.assertEqual(call_args[1], "graphql")
+
+    def test_fetch_board_items_lite_false_uses_cli(self) -> None:
+        import pipeline_board
+
+        cli_response = {"items": [{"id": "PVTI_1", "status": "Ready", "content": {"type": "Issue", "number": 42, "title": "Test"}, "linked pull requests": ["https://github.com/CodingThrust/problem-reductions/pull/100"]}]}
+
+        with patch("pipeline_board.run_gh", return_value=json.dumps(cli_response)) as mock_gh:
+            result = pipeline_board.fetch_board_items("CodingThrust", 8, 100, lite=False)
+
+        self.assertEqual(len(result["items"]), 1)
+        self.assertIn("linked pull requests", result["items"][0])
+        call_args = mock_gh.call_args[0]
+        self.assertEqual(call_args[0], "project")
+
+    def test_fetch_board_items_lite_non_default_project_uses_cli(self) -> None:
+        import pipeline_board
+
+        cli_response = {"items": []}
+
+        with patch("pipeline_board.run_gh", return_value=json.dumps(cli_response)) as mock_gh:
+            result = pipeline_board.fetch_board_items("OtherOrg", 99, 100, lite=True)
+
+        call_args = mock_gh.call_args[0]
+        self.assertEqual(call_args[0], "project")
 
 
 if __name__ == "__main__":
