@@ -167,6 +167,8 @@ pub fn resolve_problem_ref(
     })
 }
 
+use problemreductions::export::ProblemRef;
+
 /// A value parser that accepts any string but provides problem names as
 /// completion candidates for shell completion scripts.
 #[derive(Clone)]
