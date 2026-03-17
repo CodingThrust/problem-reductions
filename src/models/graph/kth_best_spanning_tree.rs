@@ -145,10 +145,9 @@ impl<W: WeightElement> KthBestSpanningTree<W> {
             return true;
         }
 
-        let start = match start {
-            Some(vertex) => vertex,
-            None => return false,
-        };
+        // SAFETY: num_vertices > 1 and selected_count == num_vertices - 1 > 0,
+        // so at least one edge was selected and `start` is Some.
+        let start = start.expect("at least one selected edge");
 
         let mut visited = vec![false; num_vertices];
         let mut queue = VecDeque::new();
@@ -168,10 +167,7 @@ impl<W: WeightElement> KthBestSpanningTree<W> {
     }
 
     fn blocks_are_pairwise_distinct(&self, config: &[usize], block_size: usize) -> bool {
-        if block_size == 0 {
-            return self.k == 1;
-        }
-
+        debug_assert!(block_size > 0, "block_size must be positive");
         let blocks: Vec<&[usize]> = config.chunks_exact(block_size).collect();
         for left in 0..blocks.len() {
             for right in (left + 1)..blocks.len() {
@@ -195,10 +191,6 @@ impl<W: WeightElement> KthBestSpanningTree<W> {
         }
 
         let edges = self.graph.edges();
-        let blocks = config.chunks_exact(block_size);
-        if !blocks.remainder().is_empty() {
-            return false;
-        }
 
         if !self.blocks_are_pairwise_distinct(config, block_size) {
             return false;
