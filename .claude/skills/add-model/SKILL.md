@@ -259,7 +259,7 @@ Checklist: display name registered, notation self-contained, background present,
 make test clippy  # Must pass
 ```
 
-If running standalone (not inside `make run-plan`), invoke [review-implementation](../review-implementation/SKILL.md) to verify all structural and semantic checks pass. When running inside a plan, the outer orchestrator handles the review.
+Structural and quality review is handled by the `review-pipeline` stage, not here. The run stage just needs to produce working code.
 
 ## Naming Conventions
 

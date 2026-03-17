@@ -16,12 +16,6 @@ from typing import Callable
 PROJECT_ID = "PVT_kwDOBrtarc4BRNVy"
 STATUS_FIELD_ID = "PVTSSF_lADOBrtarc4BRNVyzg_GmQc"
 
-COPILOT_REVIEWER = "copilot-pull-request-reviewer[bot]"
-COPILOT_REVIEWERS = {
-    "copilot-pull-request-reviewer",
-    COPILOT_REVIEWER,
-}
-
 STATUS_BACKLOG = "Backlog"
 STATUS_READY = "Ready"
 STATUS_IN_PROGRESS = "In progress"
@@ -427,14 +421,6 @@ def save_state(state_file: Path, state: dict) -> None:
     state_file.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n")
 
 
-def has_copilot_review(reviews: list[dict]) -> bool:
-    return any(
-        (review.get("author") or review.get("user") or {}).get("login")
-        in COPILOT_REVIEWERS
-        for review in reviews
-    )
-
-
 def linked_pr_numbers(item: dict, repo: str | None = None) -> list[int]:
     urls = item.get("linked pull requests") or []
     numbers: list[int] = []
@@ -578,7 +564,6 @@ def status_items(
 def review_entries(
     board_data: dict,
     repo: str,
-    review_fetcher: Callable[[str, int], list[dict]],
     pr_resolver: Callable[[str, int], int | None] | None,
     pr_state_fetcher: Callable[[str, int], str],
     *,
@@ -605,11 +590,6 @@ def review_entries(
         if pr_num in pr_cache:
             return str(pr_cache[pr_num].get("state", ""))
         return pr_state_fetcher(repo, pr_num)
-
-    def _get_reviews(pr_num: int) -> list[dict]:
-        if pr_num in pr_cache:
-            return pr_cache[pr_num].get("reviews", [])
-        return review_fetcher(repo, pr_num)
 
     entries = {}
     for item in board_data.get("items", []):
@@ -649,22 +629,19 @@ def review_entries(
         if pr_number is None:
             continue
 
-        reviews = _get_reviews(pr_number)
-        if has_copilot_review(reviews):
-            issue_number = int(number) if item_type == "Issue" else None
-            entries[item_identity(item)] = build_entry(
-                item,
-                number=pr_number,
-                issue_number=issue_number,
-                pr_number=pr_number,
-            )
+        issue_number = int(number) if item_type == "Issue" else None
+        entries[item_identity(item)] = build_entry(
+            item,
+            number=pr_number,
+            issue_number=issue_number,
+            pr_number=pr_number,
+        )
     return entries
 
 
 def review_candidates(
     board_data: dict,
     repo: str,
-    review_fetcher: Callable[[str, int], list[dict]],
     pr_resolver: Callable[[str, int], int | None] | None,
     pr_info_fetcher: Callable[[str, int], dict],
     *,
@@ -692,11 +669,6 @@ def review_candidates(
         if pr_num in pr_cache:
             return pr_cache[pr_num]
         return pr_info_fetcher(repo, pr_num)
-
-    def _get_reviews(pr_num: int) -> list[dict]:
-        if pr_num in pr_cache:
-            return pr_cache[pr_num].get("reviews", [])
-        return review_fetcher(repo, pr_num)
 
     candidates = []
     for item in board_data.get("items", []):
@@ -728,16 +700,7 @@ def review_candidates(
                 candidates.append(base_entry)
                 continue
 
-            reviews = _get_reviews(pr_number)
-            if has_copilot_review(reviews):
-                base_entry.update({"eligibility": "eligible", "reason": "copilot reviewed"})
-            else:
-                base_entry.update(
-                    {
-                        "eligibility": "waiting-for-copilot",
-                        "reason": f"open PR #{pr_number} waiting for Copilot review",
-                    }
-                )
+            base_entry.update({"eligibility": "eligible", "reason": "open PR"})
             candidates.append(base_entry)
             continue
 
@@ -805,16 +768,7 @@ def review_candidates(
                 continue
             base_entry.update({"number": pr_number, "pr_number": pr_number})
 
-        reviews = _get_reviews(pr_number)
-        if has_copilot_review(reviews):
-            base_entry.update({"eligibility": "eligible", "reason": "copilot reviewed"})
-        else:
-            base_entry.update(
-                {
-                    "eligibility": "waiting-for-copilot",
-                    "reason": f"open PR #{pr_number} waiting for Copilot review",
-                }
-            )
+        base_entry.update({"eligibility": "eligible", "reason": "open PR"})
         candidates.append(base_entry)
 
     return sorted(
@@ -911,7 +865,6 @@ def current_entries(
     mode: str,
     board_data: dict,
     repo: str | None = None,
-    review_fetcher: Callable[[str, int], list[dict]] | None = None,
     pr_resolver: Callable[[str, int], int | None] | None = None,
     pr_state_fetcher: Callable[[str, int], str] | None = None,
     *,
@@ -923,12 +876,11 @@ def current_entries(
     if mode == "review":
         if repo is None:
             raise ValueError("repo is required in review mode")
-        if review_fetcher is None or pr_state_fetcher is None:
-            raise ValueError("review mode requires review_fetcher and pr_state_fetcher")
+        if pr_state_fetcher is None:
+            raise ValueError("review mode requires pr_state_fetcher")
         return review_entries(
             board_data,
             repo,
-            review_fetcher,
             pr_resolver,
             pr_state_fetcher,
             batch_pr_fetcher=batch_pr_fetcher,
@@ -953,7 +905,6 @@ def process_snapshot(
     board_data: dict,
     state_file: Path,
     repo: str | None = None,
-    review_fetcher: Callable[[str, int], list[dict]] | None = None,
     pr_resolver: Callable[[str, int], int | None] | None = None,
     pr_state_fetcher: Callable[[str, int], str] | None = None,
     target_number: int | None = None,
@@ -966,7 +917,6 @@ def process_snapshot(
         board_data,
         state_file,
         repo,
-        review_fetcher,
         pr_resolver,
         pr_state_fetcher,
         target_number,
@@ -1028,7 +978,6 @@ def select_next_entry(
     board_data: dict,
     state_file: Path,
     repo: str | None = None,
-    review_fetcher: Callable[[str, int], list[dict]] | None = None,
     pr_resolver: Callable[[str, int], int | None] | None = None,
     pr_state_fetcher: Callable[[str, int], str] | None = None,
     target_number: int | None = None,
@@ -1040,7 +989,6 @@ def select_next_entry(
         mode,
         board_data,
         repo,
-        review_fetcher,
         pr_resolver,
         pr_state_fetcher,
         batch_pr_fetcher=batch_pr_fetcher,
@@ -1092,7 +1040,6 @@ def all_checks_green(pr: dict) -> bool:
 def infer_issue_status(
     issue: dict,
     linked_prs: list[dict],
-    pr_reviews: dict[int, list[dict]],
 ) -> tuple[str, str]:
     labels = label_names(issue)
     merged_prs = [pr for pr in linked_prs if pr.get("mergedAt")]
@@ -1106,19 +1053,10 @@ def infer_issue_status(
         return STATUS_DONE, "issue itself is closed"
 
     if open_prs:
-        waiting_for_copilot = [
-            pr
-            for pr in open_prs
-            if not has_copilot_review(pr_reviews.get(int(pr["number"]), []))
-        ]
-        if waiting_for_copilot:
-            pr_numbers = ", ".join(f"#{pr['number']}" for pr in waiting_for_copilot)
-            return STATUS_REVIEW_POOL, f"open PR {pr_numbers} waiting for Copilot review"
-
         green_prs = [pr for pr in open_prs if all_checks_green(pr)]
         if len(green_prs) == len(open_prs):
             pr_numbers = ", ".join(f"#{pr['number']}" for pr in open_prs)
-            return STATUS_FINAL_REVIEW, f"Copilot reviewed green open PR {pr_numbers}"
+            return STATUS_FINAL_REVIEW, f"green open PR {pr_numbers}"
 
         pr_numbers = ", ".join(f"#{pr['number']}" for pr in open_prs)
         return STATUS_REVIEW_POOL, f"open PR {pr_numbers} still implementing or fixing review"
@@ -1137,7 +1075,6 @@ def build_recovery_plan(
     board_data: dict,
     issues: list[dict],
     prs: list[dict],
-    pr_reviews: dict[int, list[dict]],
 ) -> list[dict]:
     issues_by_number = {issue["number"]: issue for issue in issues}
     prs_by_number = {pr["number"]: pr for pr in prs}
@@ -1162,7 +1099,7 @@ def build_recovery_plan(
             for pr_number in linked_pr_numbers(item)
             if pr_number in prs_by_number
         ]
-        status_name, reason = infer_issue_status(issue, linked_prs, pr_reviews)
+        status_name, reason = infer_issue_status(issue, linked_prs)
         plan.append(
             {
                 "item_id": item["id"],
@@ -1184,7 +1121,6 @@ def save_backup(
     board_data: dict,
     issues: list[dict],
     prs: list[dict],
-    pr_reviews: dict[int, list[dict]],
     plan: list[dict],
 ) -> None:
     backup_file.parent.mkdir(parents=True, exist_ok=True)
@@ -1193,7 +1129,6 @@ def save_backup(
         "board_data": board_data,
         "issues": issues,
         "prs": prs,
-        "pr_reviews": pr_reviews,
         "plan": plan,
     }
     backup_file.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
@@ -1277,7 +1212,6 @@ def claim_next_entry(
     board_data: dict,
     state_file: Path,
     repo: str | None = None,
-    review_fetcher: Callable[[str, int], list[dict]] | None = None,
     pr_resolver: Callable[[str, int], int | None] | None = None,
     pr_state_fetcher: Callable[[str, int], str] | None = None,
     target_number: int | None = None,
@@ -1290,7 +1224,6 @@ def claim_next_entry(
         mode,
         board_data,
         repo=repo,
-        review_fetcher=review_fetcher,
         pr_resolver=pr_resolver,
         pr_state_fetcher=pr_state_fetcher,
         batch_pr_fetcher=batch_pr_fetcher,
@@ -1576,7 +1509,6 @@ def main(argv: list[str] | None = None) -> int:
                 review_candidates(
                     board_data,
                     args.repo,
-                    fetch_pr_reviews,
                     resolve_issue_pr,
                     fetch_pr_info,
                     batch_pr_fetcher=batch_fetch_prs_with_reviews,
@@ -1600,7 +1532,6 @@ def main(argv: list[str] | None = None) -> int:
                 board_data,
                 args.state_file,
                 repo=args.repo,
-                review_fetcher=fetch_pr_reviews,
                 pr_resolver=resolve_issue_pr,
                 pr_state_fetcher=fetch_pr_state,
                 target_number=args.number,
@@ -1636,7 +1567,6 @@ def main(argv: list[str] | None = None) -> int:
             items = review_candidates(
                 board_data,
                 args.repo,
-                fetch_pr_reviews,
                 resolve_issue_pr,
                 fetch_pr_info,
                 batch_pr_fetcher=batch_fetch_prs_with_reviews,
@@ -1661,7 +1591,6 @@ def main(argv: list[str] | None = None) -> int:
             review_candidates(
                 board_data,
                 args.repo,
-                fetch_pr_reviews,
                 resolve_issue_pr,
                 fetch_pr_info,
                 batch_pr_fetcher=batch_fetch_prs_with_reviews,
@@ -1678,7 +1607,6 @@ def main(argv: list[str] | None = None) -> int:
             board_data,
             args.state_file,
             repo=args.repo,
-            review_fetcher=fetch_pr_reviews,
             pr_resolver=resolve_issue_pr,
             pr_state_fetcher=fetch_pr_state,
             target_number=args.number,

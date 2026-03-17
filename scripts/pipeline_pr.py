@@ -12,10 +12,6 @@ import time
 from typing import Callable
 from urllib.parse import unquote
 
-COPILOT_REVIEWERS = {
-    "copilot-pull-request-reviewer",
-    "copilot-pull-request-reviewer[bot]",
-}
 CODECOV_REVIEWER = "codecov[bot]"
 
 _CLOSING_ISSUE_RE = re.compile(
@@ -49,7 +45,7 @@ def login_for(entry: dict) -> str:
 
 
 def is_bot_login(login: str) -> bool:
-    return login.endswith("[bot]") or login in COPILOT_REVIEWERS
+    return login.endswith("[bot]")
 
 
 def extract_linked_issue_number(title: str | None, body: str | None) -> int | None:
@@ -120,7 +116,6 @@ def summarize_comments(
                 "path": comment.get("path"),
                 "line": comment.get("line") or comment.get("original_line"),
                 "is_bot": is_bot_login(login),
-                "is_copilot": login in COPILOT_REVIEWERS,
             }
         )
 
@@ -133,7 +128,6 @@ def summarize_comments(
                 "body": review.get("body", ""),
                 "state": review.get("state"),
                 "is_bot": is_bot_login(login),
-                "is_copilot": login in COPILOT_REVIEWERS,
             }
         )
 
@@ -177,9 +171,6 @@ def summarize_comments(
         "human_inline_comments": [
             comment for comment in normalized_inline if not comment["is_bot"]
         ],
-        "copilot_inline_comments": [
-            comment for comment in normalized_inline if comment["is_copilot"]
-        ],
         "human_reviews": human_reviews,
         "human_issue_comments": [
             comment
@@ -194,9 +185,6 @@ def summarize_comments(
         "codecov_comments": codecov_comments,
         "counts": {
             "inline_comments": len(normalized_inline),
-            "copilot_inline_comments": sum(
-                1 for comment in normalized_inline if comment["is_copilot"]
-            ),
             "human_inline_comments": sum(
                 1 for comment in normalized_inline if not comment["is_bot"]
             ),
@@ -507,7 +495,25 @@ def fetch_current_pr_data() -> dict:
     return run_gh_json("pr", "view", "--json", "number,title,headRefName,url")
 
 
-def fetch_current_pr_data_for_repo(repo: str) -> dict:
+def fetch_current_pr_data_for_repo(repo: str, *, head: str | None = None) -> dict:
+    if head:
+        # In worktrees, `gh pr view --repo` can't infer the current branch.
+        # Use `gh pr list --head <branch>` which works regardless of CWD.
+        data = run_gh_json(
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--head",
+            head,
+            "--state",
+            "open",
+            "--json",
+            "number,title,headRefName,url",
+        )
+        if isinstance(data, list) and data:
+            return data[0]
+        raise ValueError(f"No open PR found for head branch {head!r} in {repo}")
     return run_gh_json(
         "pr",
         "view",
@@ -637,7 +643,7 @@ def create_pr(
     if head:
         args.extend(["--head", head])
     run_gh_checked(*args)
-    return build_current_pr_context(repo, fetch_current_pr_data_for_repo(repo))
+    return build_current_pr_context(repo, fetch_current_pr_data_for_repo(repo, head=head))
 
 
 def post_pr_comment(repo: str, pr_number: int, body_file: str) -> None:
@@ -690,7 +696,6 @@ def render_context_text(result: dict) -> str:
         [
             "",
             "## Comment Summary",
-            f"- Copilot inline comments: {counts.get('copilot_inline_comments', 0)}",
             f"- Human inline comments: {counts.get('human_inline_comments', 0)}",
             f"- Human PR issue comments: {counts.get('human_issue_comments', 0)}",
             f"- Human linked-issue comments: {counts.get('human_linked_issue_comments', 0)}",
