@@ -1,4 +1,3 @@
-use problemreductions::export::ProblemRef;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsStr;
 
@@ -38,29 +37,6 @@ pub fn resolve_catalog_problem_ref(
 ) -> anyhow::Result<problemreductions::registry::ProblemRef> {
     problemreductions::registry::parse_catalog_problem_ref(input)
         .map_err(|e| anyhow::anyhow!("{e}"))
-}
-
-/// Resolve a problem ref for `pred create`.
-///
-/// Prefer reduction-graph-backed variants for problems already present in the
-/// graph so `pred create` only emits loadable variants. Fall back to catalog
-/// resolution for catalog-only problems that have not yet been connected by
-/// reductions.
-#[allow(dead_code)]
-pub fn resolve_create_problem_ref(
-    input: &str,
-    graph: &problemreductions::rules::ReductionGraph,
-) -> anyhow::Result<ProblemRef> {
-    let spec = parse_problem_spec(input)?;
-    if graph.variants_for(&spec.name).is_empty() {
-        let resolved = resolve_catalog_problem_ref(input)?;
-        return Ok(ProblemRef {
-            name: resolved.name().to_string(),
-            variant: resolved.variant().clone(),
-        });
-    }
-
-    resolve_problem_ref(input, graph)
 }
 
 /// Parse a problem spec string like "MIS/UnitDiskGraph/i32" into name + variant values.
@@ -514,20 +490,5 @@ mod tests {
             Some("SimpleGraph")
         );
         assert_eq!(r.variant().get("weight").map(|s| s.as_str()), Some("One"));
-    }
-
-    #[test]
-    fn resolve_create_problem_ref_uses_catalog_for_problem_missing_from_graph() {
-        let graph = problemreductions::rules::ReductionGraph::new();
-        let r = resolve_create_problem_ref("StrongConnectivityAugmentation", &graph).unwrap();
-        assert_eq!(r.name, "StrongConnectivityAugmentation");
-        assert_eq!(r.variant.get("weight").map(|s| s.as_str()), Some("i32"));
-    }
-
-    #[test]
-    fn resolve_create_problem_ref_rejects_catalog_only_variant_for_graph_problem() {
-        let graph = problemreductions::rules::ReductionGraph::new();
-        let err = resolve_create_problem_ref("MIS/TriangularSubgraph/One", &graph).unwrap_err();
-        assert!(err.to_string().contains("Resolved variant"));
     }
 }

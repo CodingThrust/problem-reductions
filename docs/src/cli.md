@@ -19,13 +19,6 @@ cargo build -p problemreductions-cli --release   # builds target/release/pred
 cargo install --path problemreductions-cli       # optional: installs `pred` to ~/.cargo/bin
 ```
 
-If you prefer a workspace-local build without installing into your global Cargo bin directory:
-
-```bash
-cargo build -p problemreductions-cli --release
-./target/release/pred --version
-```
-
 Verify the installation:
 
 ```bash

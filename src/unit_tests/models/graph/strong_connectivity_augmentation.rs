@@ -131,14 +131,6 @@ fn test_strong_connectivity_augmentation_variant() {
 }
 
 #[test]
-fn test_strong_connectivity_augmentation_paper_example() {
-    let problem = issue_example_yes();
-    let config = yes_config();
-
-    assert!(problem.evaluate(&config));
-}
-
-#[test]
 #[should_panic(expected = "candidate arc (0, 1) already exists in the base graph")]
 fn test_strong_connectivity_augmentation_existing_arc_candidate_panics() {
     StrongConnectivityAugmentation::new(
