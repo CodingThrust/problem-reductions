@@ -28,22 +28,17 @@ fn test_sequencing_rtd_basic() {
 
 #[test]
 fn test_sequencing_rtd_evaluate_feasible() {
-    // 5 tasks: schedule order t3, t0, t1, t2, t4
-    // t3: start=max(0,0)=0, finish=1 <= 3 ✓
-    // t0: start=max(0,1)=1, finish=4 <= 5 ✓
-    // t1: start=max(1,4)=4, finish=6 <= 6 ✓
-    // t2: start=max(5,6)=6, finish=10 <= 10 ✓
-    // t4: start=max(8,10)=10, finish=12 <= 12 ✓
+    // Canonical 5-task instance from issue #494, verified by brute-force enumeration.
     let problem = SequencingWithReleaseTimesAndDeadlines::new(
         vec![3, 2, 4, 1, 2],
         vec![0, 1, 5, 0, 8],
         vec![5, 6, 10, 3, 12],
     );
-    // Lehmer code for permutation [3, 0, 1, 2, 4]:
-    // available=[0,1,2,3,4], pick 3 -> index 3; available=[0,1,2,4], pick 0 -> index 0;
-    // available=[1,2,4], pick 1 -> index 0; available=[2,4], pick 2 -> index 0;
-    // available=[4], pick 4 -> index 0
-    assert!(problem.evaluate(&[3, 0, 0, 0, 0]));
+    let solver = BruteForce::new();
+    let solutions = solver.find_all_satisfying(&problem);
+    // Exactly one feasible schedule exists: Lehmer code [3, 0, 0, 0, 0]
+    assert_eq!(solutions.len(), 1);
+    assert_eq!(solutions[0], vec![3, 0, 0, 0, 0]);
 }
 
 #[test]
