@@ -83,8 +83,6 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
-        && args.lengths.is_none()
-        && args.release_times.is_none()
         && args.candidate_arcs.is_none()
         && args.potential_edges.is_none()
         && args.budget.is_none()
