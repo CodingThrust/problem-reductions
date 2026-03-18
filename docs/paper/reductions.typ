@@ -122,6 +122,7 @@
   "FlowShopScheduling": [Flow Shop Scheduling],
   "StaffScheduling": [Staff Scheduling],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
+  "PrecedenceConstrainedScheduling": [Precedence Constrained Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
   "SumOfSquaresPartition": [Sum of Squares Partition],
   "SequencingWithinIntervals": [Sequencing Within Intervals],
@@ -2856,6 +2857,28 @@ The identity assignment $f(i) = i$ gives cost $sum_(i != j) C_(i j) dot D_(i, j)
       },
       caption: [Canonical Multiprocessor Scheduling instance with 5 tasks on 2 processors. Stacked blocks show the satisfying assignment $(1, 2, 2, 2, 1)$; both processor loads equal the deadline $D = 10$.],
       ) <fig:multiprocessor-scheduling>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("PrecedenceConstrainedScheduling")
+  let n = x.instance.num_tasks
+  let m = x.instance.num_processors
+  let D = x.instance.deadline
+  let precs = x.instance.precedences
+  let sigma = x.optimal_config
+  // Group tasks by assigned slot
+  let tasks-by-slot = range(D).map(s =>
+    range(n).filter(i => sigma.at(i) == s)
+  )
+  [
+    #problem-def("PrecedenceConstrainedScheduling")[
+      Given a set $T$ of $n$ unit-length tasks, a partial order $prec$ on $T$, a number $m in ZZ^+$ of processors, and a deadline $D in ZZ^+$, determine whether there exists a schedule $sigma: T -> {0, dots, D-1}$ such that (i) for every time slot $t$, at most $m$ tasks are assigned to $t$, and (ii) for every precedence $t_i prec t_j$, we have $sigma(t_j) >= sigma(t_i) + 1$.
+    ][
+      Precedence Constrained Scheduling is problem SS9 in Garey & Johnson @garey1979. NP-complete via reduction from 3SAT @ullman1975. Remains NP-complete even for $D = 3$ @lenstra1978. Solvable in polynomial time for $m = 2$ by the Coffman--Graham algorithm @coffman1972, for forest-structured precedences @hu1961, and for chordal complement precedences @papadimitriou1979. A subset dynamic programming approach solves the general case in $O(2^n dot n)$ time by enumerating subsets of completed tasks at each time step.
+
+      *Example.* Let $n = #n$ tasks, $m = #m$ processors, $D = #D$. Precedences: #precs.map(p => $t_#(p.at(0)) prec t_#(p.at(1))$).join(", "). A feasible schedule assigns $sigma = (#sigma.map(s => str(s)).join(", "))$: #range(D).map(s => [slot #s has ${#tasks-by-slot.at(s).map(i => $t_#i$).join(", ")}$]).join(", "). All precedences are satisfied and no slot exceeds $m = #m$.
     ]
   ]
 }
