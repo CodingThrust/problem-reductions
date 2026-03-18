@@ -3633,6 +3633,7 @@ mod tests {
             pattern: None,
             strings: None,
             arcs: None,
+            distance_matrix: None,
             potential_edges: None,
             budget: None,
             candidate_arcs: None,
