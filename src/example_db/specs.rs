@@ -12,8 +12,9 @@ use serde::Serialize;
 ///
 /// Stores a concrete problem instance and its known optimal solution.
 /// The instance is type-erased via `DynProblem` for heterogeneous collection.
+#[allow(dead_code)]
 pub struct ModelExampleSpec {
-    /// Unique example identifier.
+    /// Unique example identifier (used by uniqueness tests).
     pub id: &'static str,
     /// The concrete problem instance (type-erased).
     pub instance: Box<dyn DynProblem>,
