@@ -2380,15 +2380,15 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 ]
 
 #problem-def("StaffScheduling")[
-  Given a collection $C$ of binary schedule patterns of length $m$, where each pattern has exactly $k$ ones, a requirement vector $bar(R) in ZZ_(>= 0)^m$, and a worker budget $n in ZZ_(>= 0)$, determine whether there exists a function $f: C -> ZZ_(>= 0)$ such that $sum_(c in C) f(c) <= n$ and $sum_(c in C) f(c) dot c >= bar(R)$ component-wise.
+  Given a collection $C$ of binary schedule patterns of length $m$, where each pattern has exactly $k$ ones, a requirement vector $overline(R) in ZZ_(>= 0)^m$, and a worker budget $n in ZZ_(>= 0)$, determine whether there exists a function $f: C -> ZZ_(>= 0)$ such that $sum_(c in C) f(c) <= n$ and $sum_(c in C) f(c) dot c >= overline(R)$ component-wise.
 ][
   Staff Scheduling is problem SS20 in Garey and Johnson's catalog @garey1979. It models workforce planning with reusable shift templates: each pattern describes the periods covered by one worker, and the multiplicity function $f$ chooses how many workers receive each template. The general problem is NP-complete @garey1979, while the circular-ones special case admits a polynomial-time algorithm via network-flow structure @bartholdi1980. In this codebase the registered baseline enumerates all assignments of $0, dots, n$ workers to each pattern, matching the $(n + 1)^(|C|)$ configuration space exposed by the model.
 
   *Example.* Consider a 7-day week with $k = 5$ working days per schedule, worker budget $n = 4$, and schedule patterns
   $ c_1 = (1, 1, 1, 1, 1, 0, 0), c_2 = (0, 1, 1, 1, 1, 1, 0), c_3 = (0, 0, 1, 1, 1, 1, 1), c_4 = (1, 0, 0, 1, 1, 1, 1), c_5 = (1, 1, 0, 0, 1, 1, 1) $
-  with requirement vector $bar(R) = (2, 2, 2, 3, 3, 2, 1)$. Choosing
+  with requirement vector $overline(R) = (2, 2, 2, 3, 3, 2, 1)$. Choosing
   $ f(c_1) = f(c_2) = f(c_3) = f(c_4) = 1 $ and $ f(c_5) = 0 $
-  uses exactly 4 workers and yields coverage vector $(2, 2, 3, 4, 4, 3, 2) >= bar(R)$, so the instance is feasible.
+  uses exactly 4 workers and yields coverage vector $(2, 2, 3, 4, 4, 3, 2) >= overline(R)$, so the instance is feasible.
 
   #figure(
     align(center, table(
@@ -2400,7 +2400,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
       [$c_3$], [0], [0], [1], [1], [1], [1], [1], [1],
       [$c_4$], [1], [0], [0], [1], [1], [1], [1], [1],
       [$c_5$], [1], [1], [0], [0], [1], [1], [1], [0],
-      [$bar(R)$], [2], [2], [2], [3], [3], [2], [1], [-],
+      [$overline(R)$], [2], [2], [2], [3], [3], [2], [1], [-],
       [Coverage], [2], [2], [3], [4], [4], [3], [2], [4],
     )),
     caption: [Worked Staff Scheduling instance. The last column shows the chosen multiplicities $f(c_i)$; the final row verifies that daily coverage dominates the requirement vector while using 4 workers.],
