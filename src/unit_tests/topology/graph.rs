@@ -133,3 +133,23 @@ fn test_simple_graph_eq_different_sizes() {
     let g2 = SimpleGraph::new(4, vec![(0, 1)]); // Different vertex count
     assert_ne!(g1, g2);
 }
+
+#[test]
+fn test_simplegraph_json_roundtrip() {
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let json = serde_json::to_value(&graph).unwrap();
+    assert_eq!(json["num_vertices"], 4);
+    let edges: Vec<(usize, usize)> = serde_json::from_value(json["edges"].clone()).unwrap();
+    assert_eq!(edges.len(), 3);
+    let roundtrip: SimpleGraph = serde_json::from_value(json).unwrap();
+    assert_eq!(graph, roundtrip);
+}
+
+#[test]
+fn test_simplegraph_json_format() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let json_str = serde_json::to_string(&graph).unwrap();
+    assert!(!json_str.contains("edge_property"));
+    assert!(!json_str.contains("node_holes"));
+    assert!(json_str.contains("num_vertices"));
+}

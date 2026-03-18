@@ -48,8 +48,8 @@
   }
 }
 
-#let graph-num-vertices(instance) = instance.graph.inner.nodes.len()
-#let graph-num-edges(instance) = instance.graph.inner.edges.len()
+#let graph-num-vertices(instance) = instance.graph.num_vertices
+#let graph-num-edges(instance) = instance.graph.edges.len()
 #let spin-num-spins(instance) = instance.fields.len()
 #let sat-num-clauses(instance) = instance.clauses.len()
 #let subsetsum-num-elements(instance) = instance.sizes.len()
@@ -434,7 +434,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let x = load-model-example("MinimumVertexCover")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   // Pick optimal[2] = {v0, v3, v4} to match figure
   let sol = x.optimal.at(2)
   let cover = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
@@ -466,7 +466,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let x = load-model-example("MaxCut")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   // Pick optimal[2] = S={v0, v3} to match figure
   let sol = x.optimal.at(2)
   let side-s = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
@@ -643,7 +643,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let x = load-model-example("LengthBoundedDisjointPaths")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   let s = x.instance.source
   let t = x.instance.sink
   let J = x.instance.num_paths_required
@@ -704,7 +704,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let x = load-model-example("HamiltonianPath")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   // Pick optimal[2] = [0, 2, 4, 3, 1, 5] to match figure
   let sol = x.optimal.at(2)
   let path = sol.config
@@ -797,10 +797,10 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 }
 #{
   let x = load-model-example("IsomorphicSpanningTree")
-  let g-edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
-  let t-edges = x.instance.tree.inner.edges.map(e => (e.at(0), e.at(1)))
-  let nv = x.instance.graph.inner.nodes.len()
-  let nt = x.instance.tree.inner.nodes.len()
+  let g-edges = x.instance.graph.edges
+  let t-edges = x.instance.tree.edges
+  let nv = x.instance.graph.num_vertices
+  let nt = x.instance.tree.num_vertices
   // optimal[0] = identity mapping [0,1,2,3]
   let sol = x.optimal.at(0)
   let pi = sol.config
@@ -882,7 +882,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 #{
   let x = load-model-example("MinimumDominatingSet")
   let nv = graph-num-vertices(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   // Pick optimal[0] = {v2, v3} to match figure
   let sol = x.optimal.at(0)
   let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
@@ -917,7 +917,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let x = load-model-example("MaximumMatching")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   // Pick optimal[4] = config [1,0,0,0,1,0] = edges {(0,1),(2,4)} to match figure
   let sol = x.optimal.at(4)
   let matched-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
@@ -950,7 +950,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 #{
   let x = load-model-example("TravelingSalesman")
   let nv = graph-num-vertices(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   let ew = x.instance.edge_weights
   let sol = x.optimal.at(0)
   let tour-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
@@ -1012,7 +1012,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let x = load-model-example("SteinerTree")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   let weights = x.instance.edge_weights
   let terminals = x.instance.terminals
   let sol = x.optimal.at(0)
@@ -1076,9 +1076,9 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 }
 #{
   let x = load-model-example("StrongConnectivityAugmentation")
-  let nv = x.instance.graph.inner.nodes.len()
-  let ne = x.instance.graph.inner.edges.len()
-  let arcs = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let nv = x.instance.graph.num_vertices
+  let ne = x.instance.graph.arcs.len()
+  let arcs = x.instance.graph.arcs
   let candidates = x.instance.candidate_arcs
   let bound = x.instance.bound
   let sol = x.optimal.at(0)
@@ -1121,7 +1121,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let x = load-model-example("MinimumMultiwayCut")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   let weights = x.instance.edge_weights
   let terminals = x.instance.terminals
   let sol = x.optimal.at(0)
@@ -1174,7 +1174,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let x = load-model-example("MaximumClique")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   // optimal[0] = {v2, v3, v4}
   let sol = x.optimal.at(0)
   let K = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
@@ -1202,7 +1202,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let x = load-model-example("MaximalIS")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   // optimal[0] = {v0,v2,v4} with w=3 (maximum-weight maximal IS)
   let opt = x.optimal.at(0)
   let S-opt = opt.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
@@ -1231,8 +1231,8 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 #{
   let x = load-model-example("MinimumFeedbackVertexSet")
   let nv = graph-num-vertices(x.instance)
-  let ne = graph-num-edges(x.instance)
-  let arcs = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let ne = x.instance.graph.arcs.len()
+  let arcs = x.instance.graph.arcs
   // Pick optimal[1] = {v0} to match figure
   let sol = x.optimal.at(1)
   let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
@@ -1270,7 +1270,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 #{
   let x = load-model-example("MinimumSumMulticenter")
   let nv = graph-num-vertices(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   let K = x.instance.k
   let opt-cost = x.optimal.at(2).metric.Valid
   // Pick optimal[2] = {v2, v5} to match figure
@@ -1521,7 +1521,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 #{
   let x = load-model-example("SpinGlass")
   let n = spin-num-spins(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   let ne = edges.len()
   // Pick optimal[1] = (+,-,+,+,-) to match figure
   let sol = x.optimal.at(1)
@@ -2063,7 +2063,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let x = load-model-example("PartitionIntoTriangles")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   let q = int(nv / 3)
   // optimal[0] config groups vertices into triangles: config[i] = triangle index
   let sol = x.optimal.at(0)
@@ -2270,7 +2270,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 #{
   let x = load-model-example("MultipleChoiceBranching")
   let nv = graph-num-vertices(x.instance)
-  let arcs = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let arcs = x.instance.graph.arcs
   let sol = x.samples.at(0)
   let chosen = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   [
@@ -3236,7 +3236,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 #let mc_sg = load-example("MaxCut", "SpinGlass")
 #let mc_sg_sol = mc_sg.solutions.at(0)
-#let mc_sg_cut = mc_sg.source.instance.graph.inner.edges.filter(e => mc_sg_sol.source_config.at(e.at(0)) != mc_sg_sol.source_config.at(e.at(1))).len()
+#let mc_sg_cut = mc_sg.source.instance.graph.edges.filter(e => mc_sg_sol.source_config.at(e.at(0)) != mc_sg_sol.source_config.at(e.at(1))).len()
 #reduction-rule("MaxCut", "SpinGlass",
   example: true,
   example-caption: [Petersen graph ($n = 10$, unit weights) to Ising],
