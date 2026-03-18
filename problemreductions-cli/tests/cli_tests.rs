@@ -34,6 +34,18 @@ fn test_list_includes_undirected_two_commodity_integral_flow() {
 }
 
 #[test]
+fn test_solve_help_mentions_string_to_string_correction_bruteforce() {
+    let output = pred().args(["solve", "--help"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("StringToStringCorrection"),
+        "stdout: {stdout}"
+    );
+    assert!(stdout.contains("--solver brute-force"), "stdout: {stdout}");
+}
+
+#[test]
 fn test_list_rules() {
     let output = pred().args(["list", "--rules"]).output().unwrap();
     assert!(
@@ -104,6 +116,49 @@ fn test_show_variant_info() {
         stdout.contains("Complexity:"),
         "should show complexity: {stdout}"
     );
+}
+
+#[test]
+fn test_show_balanced_complete_bipartite_subgraph_complexity() {
+    let output = pred()
+        .args(["show", "BalancedCompleteBipartiteSubgraph"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("1.3803^num_vertices"),
+        "expected updated complexity metadata, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_solve_balanced_complete_bipartite_subgraph_suggests_bruteforce() {
+    let tmp = std::env::temp_dir().join("pred_test_bcbs_problem.json");
+    let create = pred()
+        .args([
+            "create",
+            "--example",
+            "BalancedCompleteBipartiteSubgraph",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(create.status.success());
+    std::fs::write(&tmp, create.stdout).unwrap();
+
+    let solve = pred()
+        .args(["solve", tmp.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!solve.status.success());
+    let stderr = String::from_utf8(solve.stderr).unwrap();
+    assert!(
+        stderr.contains("--solver brute-force"),
+        "expected brute-force hint, got: {stderr}"
+    );
+
+    std::fs::remove_file(tmp).ok();
 }
 
 #[test]
@@ -207,6 +262,22 @@ fn test_show_includes_fields() {
     assert!(stdout.contains("Fields"));
     assert!(stdout.contains("graph"));
     assert!(stdout.contains("weights"));
+}
+
+#[test]
+fn test_create_balanced_complete_bipartite_subgraph_help_uses_bipartite_flags() {
+    let output = pred()
+        .args(["create", "BalancedCompleteBipartiteSubgraph"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--left"), "stderr: {stderr}");
+    assert!(stderr.contains("--right"), "stderr: {stderr}");
+    assert!(stderr.contains("--biedges"), "stderr: {stderr}");
+    assert!(!stderr.contains("--left-size"), "stderr: {stderr}");
+    assert!(!stderr.contains("--right-size"), "stderr: {stderr}");
+    assert!(!stderr.contains("--edges"), "stderr: {stderr}");
 }
 
 #[test]
@@ -828,6 +899,68 @@ fn test_create_mis() {
 }
 
 #[test]
+fn test_create_multiprocessor_scheduling() {
+    let output_file = std::env::temp_dir().join("pred_test_create_multiprocessor_scheduling.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MultiprocessorScheduling",
+            "--lengths",
+            "4,5,3,2,6",
+            "--num-processors",
+            "2",
+            "--deadline",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MultiprocessorScheduling");
+    assert_eq!(json["data"]["lengths"], serde_json::json!([4, 5, 3, 2, 6]));
+    assert_eq!(json["data"]["num_processors"], 2);
+    assert_eq!(json["data"]["deadline"], 10);
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_multiprocessor_scheduling_rejects_zero_processors() {
+    let output = pred()
+        .args([
+            "create",
+            "MultiprocessorScheduling",
+            "--lengths",
+            "4,5,3,2,6",
+            "--num-processors",
+            "0",
+            "--deadline",
+            "10",
+        ])
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "zero processors should return a user error, got panic output: {stderr}"
+    );
+    assert!(
+        stderr.contains("requires --num-processors > 0"),
+        "expected a validation error for zero processors, got: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_x3c_alias() {
     let output_file = std::env::temp_dir().join("pred_test_create_x3c.json");
     let output = pred()
@@ -970,6 +1103,101 @@ fn test_create_x3c_rejects_duplicate_subset_elements() {
 }
 
 #[test]
+fn test_create_comparative_containment() {
+    let output_file = std::env::temp_dir().join("pred_test_create_comparative_containment.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "ComparativeContainment",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,2,3;0,1",
+            "--s-sets",
+            "0,1,2,3;2,3",
+            "--r-weights",
+            "2,5",
+            "--s-weights",
+            "3,6",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "ComparativeContainment");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["universe_size"], 4);
+    assert_eq!(
+        json["data"]["r_sets"],
+        serde_json::json!([[0, 1, 2, 3], [0, 1]])
+    );
+    assert_eq!(
+        json["data"]["s_sets"],
+        serde_json::json!([[0, 1, 2, 3], [2, 3]])
+    );
+    assert_eq!(json["data"]["r_weights"], serde_json::json!([2, 5]));
+    assert_eq!(json["data"]["s_weights"], serde_json::json!([3, 6]));
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_comparative_containment_rejects_out_of_range_elements_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "ComparativeContainment",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,4",
+            "--s-sets",
+            "0,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("outside universe of size 4"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_comparative_containment_rejects_nonpositive_weights_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "ComparativeContainment",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1",
+            "--s-sets",
+            "0,1",
+            "--r-weights",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("positive"), "stderr: {stderr}");
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_set_basis() {
     let output_file = std::env::temp_dir().join("pred_test_create_set_basis.json");
     let output = pred()
@@ -1001,6 +1229,94 @@ fn test_create_set_basis() {
     assert_eq!(json["data"]["collection"][0], serde_json::json!([0, 1]));
 
     std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_comparative_containment_f64() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_comparative_containment_f64.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "ComparativeContainment/f64",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,2,3;0,1",
+            "--s-sets",
+            "0,1,2,3;2,3",
+            "--r-weights",
+            "2.5,5.0",
+            "--s-weights",
+            "3.5,6.0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "ComparativeContainment");
+    assert_eq!(json["variant"]["weight"], "f64");
+    assert_eq!(json["data"]["r_weights"], serde_json::json!([2.5, 5.0]));
+    assert_eq!(json["data"]["s_weights"], serde_json::json!([3.5, 6.0]));
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_comparative_containment_one_rejects_nonunit_weights() {
+    let output = pred()
+        .args([
+            "create",
+            "ComparativeContainment/One",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,2,3;0,1",
+            "--s-sets",
+            "0,1,2,3;2,3",
+            "--r-weights",
+            "2,5",
+            "--s-weights",
+            "3,6",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Non-unit weights are not supported for ComparativeContainment/One"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_comparative_containment_no_flags_shows_help() {
+    let output = pred()
+        .args(["create", "ComparativeContainment"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--universe"), "stderr: {stderr}");
+    assert!(stderr.contains("--r-sets"), "stderr: {stderr}");
+    assert!(stderr.contains("--s-sets"), "stderr: {stderr}");
+    assert!(!stderr.contains("--universe-size"), "stderr: {stderr}");
 }
 
 #[test]
@@ -1043,6 +1359,73 @@ fn test_create_set_basis_rejects_out_of_range_elements() {
         "stderr: {stderr}"
     );
     assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
+    let output = pred()
+        .args(["create", "MinimumCardinalityKey"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--num-attributes"), "stderr: {stderr}");
+    assert!(stderr.contains("--dependencies"), "stderr: {stderr}");
+    assert!(stderr.contains("--k"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("semicolon-separated dependencies"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("--bound-k"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_minimum_cardinality_key_allows_empty_lhs_dependency() {
+    let output = pred()
+        .args([
+            "create",
+            "MinimumCardinalityKey",
+            "--num-attributes",
+            "1",
+            "--dependencies",
+            ">0",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MinimumCardinalityKey");
+    assert_eq!(json["data"]["num_attributes"], 1);
+    assert_eq!(json["data"]["bound_k"], 1);
+    assert_eq!(json["data"]["dependencies"][0][0], serde_json::json!([]));
+    assert_eq!(json["data"]["dependencies"][0][1], serde_json::json!([0]));
+}
+
+#[test]
+fn test_create_minimum_cardinality_key_missing_num_attributes_message() {
+    let output = pred()
+        .args([
+            "create",
+            "MinimumCardinalityKey",
+            "--dependencies",
+            "0>0",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("MinimumCardinalityKey requires --num-attributes"));
+    assert!(!stderr.contains("--num-vertices"), "stderr: {stderr}");
 }
 
 #[test]
@@ -1748,6 +2131,315 @@ fn test_create_kcoloring() {
 }
 
 #[test]
+fn test_create_bounded_component_spanning_forest() {
+    let output_file = std::env::temp_dir().join("pred_test_create_bcsf.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6",
+            "--weights",
+            "2,3,1,2,3,1,2,1",
+            "--k",
+            "3",
+            "--bound",
+            "6",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "BoundedComponentSpanningForest");
+    assert_eq!(json["data"]["max_components"], 3);
+    assert_eq!(json["data"]["max_weight"], 6);
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_zero_k() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "0",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--k >= 1"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_accepts_k_larger_than_num_vertices() {
+    let out = std::env::temp_dir().join("pred_test_bcsf_large_k.json");
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "5",
+            "--bound",
+            "2",
+            "-o",
+        ])
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(out.exists());
+    let _ = std::fs::remove_file(&out);
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_negative_weights() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,-1,1,1",
+            "--k",
+            "2",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --weights"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "2",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("positive --bound"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_out_of_range_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "2",
+            "--bound",
+            "3000000000",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("within i32 range"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_no_flags_shows_actual_cli_flags() {
+    let output = pred()
+        .args(["create", "BoundedComponentSpanningForest"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--k"),
+        "expected '--k' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--max-components"),
+        "help should not advertise nonexistent '--max-components' flag: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--max-weight"),
+        "help should not advertise nonexistent '--max-weight' flag: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_ola_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "OptimalLinearArrangement",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "negative bound should be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_scs_rejects_negative_bound() {
+    let output = pred()
+        .args(["create", "SCS", "--strings", "0,1,2;1,2,0", "--bound", "-1"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "negative bound should be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_string_to_string_correction() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_string_to_string_correction.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "StringToStringCorrection",
+            "--source-string",
+            "0,1,2,3,1,0",
+            "--target-string",
+            "0,1,3,2,1",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "StringToStringCorrection");
+    assert_eq!(
+        json["data"]["source"],
+        serde_json::json!([0, 1, 2, 3, 1, 0])
+    );
+    assert_eq!(json["data"]["target"], serde_json::json!([0, 1, 3, 2, 1]));
+    assert_eq!(json["data"]["bound"], 2);
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_model_example_string_to_string_correction() {
+    let output = pred()
+        .args(["create", "--example", "StringToStringCorrection"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "StringToStringCorrection");
+    assert_eq!(
+        json["data"]["source"],
+        serde_json::json!([0, 1, 2, 3, 1, 0])
+    );
+    assert_eq!(json["data"]["target"], serde_json::json!([0, 1, 3, 2, 1]));
+    assert_eq!(json["data"]["bound"], 2);
+}
+
+#[test]
+fn test_create_string_to_string_correction_help_uses_cli_flags() {
+    let output = pred()
+        .args(["create", "StringToStringCorrection"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--source-string"), "stderr: {stderr}");
+    assert!(stderr.contains("--target-string"), "stderr: {stderr}");
+    assert!(stderr.contains("--bound"), "stderr: {stderr}");
+    assert!(!stderr.contains("--bound-k"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_string_to_string_correction_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "StringToStringCorrection",
+            "--source-string",
+            "0,1,2,3,1,0",
+            "--target-string",
+            "0,1,3,2,1",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "negative bound should be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_spinglass() {
     let output_file = std::env::temp_dir().join("pred_test_create_sg.json");
     let output = pred()
@@ -2112,6 +2804,10 @@ fn test_create_multiple_choice_branching_help_uses_bound_flag() {
         !stderr.contains("--threshold"),
         "help output should not advertise '--threshold', got: {stderr}"
     );
+    assert!(
+        stderr.contains("semicolon-separated groups"),
+        "expected '--partition' help to describe groups, got: {stderr}"
+    );
 }
 
 #[test]
@@ -2138,6 +2834,46 @@ fn test_create_set_basis_no_flags_uses_actual_cli_flag_names() {
     assert!(
         !stderr.contains("--collection"),
         "help should not advertise schema field names: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_lcs_with_raw_strings_infers_alphabet() {
+    let output = pred()
+        .args(["create", "LCS", "--strings", "ABAC;BACA", "--bound", "2"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "LongestCommonSubsequence");
+    assert_eq!(json["data"]["alphabet_size"], 3);
+    assert_eq!(json["data"]["bound"], 2);
+    assert_eq!(
+        json["data"]["strings"],
+        serde_json::json!([[0, 1, 0, 2], [1, 0, 2, 0]])
+    );
+}
+
+#[test]
+fn test_create_lcs_rejects_empty_strings_with_positive_bound_without_panicking() {
+    let output = pred()
+        .args(["create", "LCS", "--strings", "", "--bound", "1"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Provide --alphabet-size when all strings are empty and --bound > 0"),
+        "expected user-facing validation error, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("panicked at"),
+        "create command should reject invalid LCS input without panicking: {stderr}"
     );
 }
 
@@ -3451,6 +4187,64 @@ fn test_inspect_json_output() {
 }
 
 #[test]
+fn test_inspect_multiprocessor_scheduling_reports_only_brute_force_solver() {
+    let problem_file = std::env::temp_dir().join("pred_test_inspect_mps_in.json");
+    let result_file = std::env::temp_dir().join("pred_test_inspect_mps_out.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MultiprocessorScheduling",
+            "--lengths",
+            "4,5,3,2,6",
+            "--num-processors",
+            "2",
+            "--deadline",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args([
+            "-o",
+            result_file.to_str().unwrap(),
+            "inspect",
+            problem_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&result_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let solvers: Vec<&str> = json["solvers"]
+        .as_array()
+        .expect("solvers should be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert_eq!(
+        solvers,
+        vec!["brute-force"],
+        "unexpected solvers: {solvers:?}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&result_file).ok();
+}
+
+#[test]
 fn test_inspect_undirected_two_commodity_integral_flow_reports_size_fields() {
     let problem_file = std::env::temp_dir().join("pred_test_utcif_inspect_in.json");
     let result_file = std::env::temp_dir().join("pred_test_utcif_inspect_out.json");
@@ -3852,6 +4646,91 @@ fn test_create_factoring_missing_bits() {
         stderr.contains("--m"),
         "expected '--m' in error, got: {stderr}"
     );
+}
+
+#[test]
+fn test_evaluate_multiprocessor_scheduling_rejects_zero_processors_json() {
+    let problem_file =
+        std::env::temp_dir().join("pred_test_eval_multiprocessor_zero_processors.json");
+    std::fs::write(
+        &problem_file,
+        r#"{
+  "type": "MultiprocessorScheduling",
+  "variant": {},
+  "data": {
+    "lengths": [1, 2],
+    "num_processors": 0,
+    "deadline": 5
+  }
+}"#,
+    )
+    .unwrap();
+
+    let output = pred()
+        .args([
+            "evaluate",
+            problem_file.to_str().unwrap(),
+            "--config",
+            "0,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("expected positive integer, got 0"),
+        "stderr: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_multiprocessor_scheduling_default_solver_suggests_brute_force() {
+    let problem_file =
+        std::env::temp_dir().join("pred_test_solve_multiprocessor_default_solver.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MultiprocessorScheduling",
+            "--lengths",
+            "4,5,3,2,6",
+            "--num-processors",
+            "2",
+            "--deadline",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args(["solve", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("No reduction path from MultiprocessorScheduling to ILP"),
+        "stderr: {stderr}"
+    );
+    assert!(stderr.contains("--solver brute-force"), "stderr: {stderr}");
+
+    std::fs::remove_file(&problem_file).ok();
 }
 
 // ---- Timeout tests (H3) ----
@@ -4561,4 +5440,167 @@ fn test_create_weighted_mis_round_trips_into_solve() {
     let stdout = String::from_utf8(solve_output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["evaluation"], "Valid(5)");
+}
+
+#[test]
+fn test_create_minimum_multiway_cut() {
+    let output_file = std::env::temp_dir().join("pred_test_create_minimum_multiway_cut.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MinimumMultiwayCut",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--terminals",
+            "0,2",
+            "--edge-weights",
+            "1,1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MinimumMultiwayCut");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["terminals"], serde_json::json!([0, 2]));
+    assert_eq!(json["data"]["edge_weights"], serde_json::json!([1, 1, 1]));
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_sequencing_within_intervals() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_sequencing_within_intervals.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SequencingWithinIntervals",
+            "--release-times",
+            "0,0,0,0,5",
+            "--deadlines",
+            "11,11,11,11,6",
+            "--lengths",
+            "3,1,2,4,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SequencingWithinIntervals");
+    assert_eq!(
+        json["data"]["release_times"],
+        serde_json::json!([0, 0, 0, 0, 5])
+    );
+    assert_eq!(
+        json["data"]["deadlines"],
+        serde_json::json!([11, 11, 11, 11, 6])
+    );
+    assert_eq!(json["data"]["lengths"], serde_json::json!([3, 1, 2, 4, 1]));
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_model_example_multiprocessor_scheduling() {
+    let output = pred()
+        .args(["create", "--example", "MultiprocessorScheduling"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MultiprocessorScheduling");
+}
+
+#[test]
+fn test_create_model_example_minimum_multiway_cut() {
+    let output = pred()
+        .args(["create", "--example", "MinimumMultiwayCut"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MinimumMultiwayCut");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "i32");
+}
+
+#[test]
+fn test_create_model_example_sequencing_within_intervals() {
+    let output = pred()
+        .args(["create", "--example", "SequencingWithinIntervals"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "SequencingWithinIntervals");
+}
+
+#[test]
+fn test_create_minimum_multiway_cut_rejects_single_terminal() {
+    let output = pred()
+        .args([
+            "create",
+            "MinimumMultiwayCut",
+            "--graph",
+            "0-1,1-2",
+            "--edge-weights",
+            "1,1",
+            "--terminals",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("terminal") || stderr.contains("Terminal"),
+        "expected terminal-related error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_within_intervals_rejects_empty_window() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingWithinIntervals",
+            "--release-times",
+            "5",
+            "--deadlines",
+            "3",
+            "--lengths",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
 }

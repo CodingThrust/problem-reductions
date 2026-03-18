@@ -565,6 +565,28 @@ def fetch_issue(repo: str, issue_number: int) -> dict:
     )
 
 
+_ISSUE_REF_RE_TEMPLATE = r"(?:(?:Fix|Fixes|Close|Closes|Resolve|Resolves)\s+#{})\b"
+
+
+def _pr_references_issue(pr: dict, issue_number: int) -> bool:
+    """Check whether a PR actually references the given issue number.
+
+    Validates via:
+    1. PR body contains 'Fixes #N', 'Closes #N', etc. as a word-boundary match
+    2. OR the branch name contains 'issue-N' (our naming convention)
+    """
+    pattern = re.compile(
+        _ISSUE_REF_RE_TEMPLATE.format(issue_number), re.IGNORECASE
+    )
+    body = pr.get("body") or ""
+    if pattern.search(body):
+        return True
+    branch = pr.get("headRefName") or ""
+    if re.search(rf"\bissue-{issue_number}\b", branch):
+        return True
+    return False
+
+
 def fetch_existing_prs_via_search(repo: str, issue_number: int) -> list[dict]:
     query = f'repo:{repo} is:pr is:open "Fix #{issue_number}"'
     data = run_gh_json("api", "search/issues", "-f", f"q={query}")
@@ -575,13 +597,14 @@ def fetch_existing_prs_via_search(repo: str, issue_number: int) -> list[dict]:
         if number is None or "pull_request" not in item:
             continue
         pr = run_gh_json("api", f"repos/{repo}/pulls/{number}")
-        prs.append(
-            {
-                "number": pr.get("number"),
-                "headRefName": (pr.get("head") or {}).get("ref"),
-                "url": pr.get("html_url"),
-            }
-        )
+        normalized = {
+            "number": pr.get("number"),
+            "headRefName": (pr.get("head") or {}).get("ref"),
+            "url": pr.get("html_url"),
+            "body": pr.get("body", ""),
+        }
+        if _pr_references_issue(normalized, issue_number):
+            prs.append(normalized)
     return prs
 
 
@@ -597,13 +620,13 @@ def fetch_existing_prs(repo: str, issue_number: int) -> list[dict]:
             "--search",
             f"Fix #{issue_number}",
             "--json",
-            "number,headRefName,url",
+            "number,headRefName,url,body",
         )
     except subprocess.CalledProcessError:
         return fetch_existing_prs_via_search(repo, issue_number)
     if not isinstance(data, list):
         raise ValueError(f"Unexpected PR list payload for issue #{issue_number}: {data!r}")
-    return data
+    return [pr for pr in data if _pr_references_issue(pr, issue_number)]
 
 
 def git_output(*args: str) -> list[str]:

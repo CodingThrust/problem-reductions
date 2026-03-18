@@ -20,11 +20,9 @@ STATUS_FINAL_REVIEW = pipeline_board.STATUS_FINAL_REVIEW
 STATUS_DONE = pipeline_board.STATUS_DONE
 STATUS_OPTION_IDS = pipeline_board.STATUS_OPTION_IDS
 FAILURE_LABELS = pipeline_board.FAILURE_LABELS
-COPILOT_REVIEWERS = pipeline_board.COPILOT_REVIEWERS
 label_names = pipeline_board.label_names
 linked_pr_numbers = pipeline_board.linked_pr_numbers
 is_tracked_issue_title = pipeline_board.is_tracked_issue_title
-has_copilot_review = pipeline_board.has_copilot_review
 all_checks_green = pipeline_board.all_checks_green
 infer_issue_status = pipeline_board.infer_issue_status
 build_recovery_plan = pipeline_board.build_recovery_plan
@@ -88,11 +86,6 @@ def fetch_prs(repo: str, limit: int) -> list[dict]:
     )
 
 
-def fetch_pr_reviews(repo: str, pr_number: int) -> list[dict]:
-    data = pipeline_board.json.loads(
-        run_gh("pr", "view", str(pr_number), "-R", repo, "--json", "reviews")
-    )
-    return data.get("reviews", [])
 def default_backup_path(project_number: int) -> Path:
     return pipeline_board.default_backup_path(project_number)
 
@@ -121,21 +114,7 @@ def main(argv: list[str] | None = None) -> int:
     issues = fetch_issues(args.repo, args.limit)
     prs = fetch_prs(args.repo, args.limit)
 
-    prs_by_number = {pr["number"]: pr for pr in prs}
-    open_linked_pr_numbers = sorted(
-        {
-            pr_number
-            for item in board_data.get("items", [])
-            for pr_number in linked_pr_numbers(item)
-            if prs_by_number.get(pr_number, {}).get("state") == "OPEN"
-        }
-    )
-    pr_reviews = {
-        pr_number: fetch_pr_reviews(args.repo, pr_number)
-        for pr_number in open_linked_pr_numbers
-    }
-
-    plan = build_recovery_plan(board_data, issues, prs, pr_reviews)
+    plan = build_recovery_plan(board_data, issues, prs)
     if args.plan_file is not None:
         args.plan_file.parent.mkdir(parents=True, exist_ok=True)
         args.plan_file.write_text(
@@ -155,7 +134,6 @@ def main(argv: list[str] | None = None) -> int:
         board_data=board_data,
         issues=issues,
         prs=prs,
-        pr_reviews=pr_reviews,
         plan=plan,
     )
     changed = apply_plan(plan, project_id=args.project_id, field_id=args.field_id)
