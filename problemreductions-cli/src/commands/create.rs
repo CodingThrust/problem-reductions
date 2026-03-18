@@ -94,6 +94,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.requirements.is_none()
         && args.num_workers.is_none()
         && args.alphabet_size.is_none()
+        && args.dependencies.is_none()
+        && args.num_attributes.is_none()
         && args.source_string.is_none()
         && args.target_string.is_none()
         && args.capacities.is_none()
@@ -239,6 +241,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
             Some("UnitDiskGraph") => "float positions: \"0.0,0.0;1.0,0.0\"",
             _ => "edge list: 0-1,1-2,2-3",
         },
+        "Vec<(Vec<usize>, Vec<usize>)>" => "semicolon-separated dependencies: \"0,1>2;0,2>3\"",
         "Vec<u64>" => "comma-separated integers: 4,5,3,2,6",
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<usize>" => "comma-separated indices: 0,2,4",
@@ -332,6 +335,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "LongestCommonSubsequence" => {
             "--strings \"010110;100101;001011\" --bound 3 --alphabet-size 2"
         }
+        "MinimumCardinalityKey" => {
+            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
+        }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         "StringToStringCorrection" => {
             "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
@@ -345,6 +351,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        ("MinimumCardinalityKey", "bound_k") => return "k".to_string(),
         ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
         _ => {}
     }
@@ -1225,6 +1232,33 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (
                 ser(problemreductions::models::set::SetBasis::new(
                     universe, sets, k,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumCardinalityKey
+        "MinimumCardinalityKey" => {
+            let num_attributes = args.num_attributes.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCardinalityKey requires --num-attributes, --dependencies, and --k\n\n\
+                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
+                )
+            })?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!("MinimumCardinalityKey requires --k (bound on key cardinality)")
+            })?;
+            let deps_str = args.dependencies.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCardinalityKey requires --dependencies (e.g., \"0,1>2;0,2>3\")"
+                )
+            })?;
+            let dependencies = parse_dependencies(deps_str)?;
+            (
+                ser(problemreductions::models::set::MinimumCardinalityKey::new(
+                    num_attributes,
+                    dependencies,
+                    k,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -2402,6 +2436,39 @@ fn parse_named_sets(sets_str: Option<&str>, flag: &str) -> Result<Vec<Vec<usize>
         .collect()
 }
 
+/// Parse `--dependencies` as semicolon-separated "lhs>rhs" pairs.
+/// E.g., "0,1>2;0,2>3;1,3>4;2,4>5" means {0,1}->{2}, {0,2}->{3}, etc.
+fn parse_dependencies(input: &str) -> Result<Vec<(Vec<usize>, Vec<usize>)>> {
+    fn parse_dependency_side(side: &str) -> Result<Vec<usize>> {
+        if side.trim().is_empty() {
+            return Ok(vec![]);
+        }
+        side.split(',')
+            .map(|s| {
+                s.trim()
+                    .parse::<usize>()
+                    .map_err(|e| anyhow::anyhow!("Invalid attribute index: {}", e))
+            })
+            .collect()
+    }
+
+    input
+        .split(';')
+        .map(|dep| {
+            let parts: Vec<&str> = dep.trim().split('>').collect();
+            if parts.len() != 2 {
+                bail!(
+                    "Invalid dependency format: expected 'lhs>rhs', got '{}'",
+                    dep.trim()
+                );
+            }
+            let lhs = parse_dependency_side(parts[0])?;
+            let rhs = parse_dependency_side(parts[1])?;
+            Ok((lhs, rhs))
+        })
+        .collect()
+}
+
 fn validate_comparative_containment_sets(
     family_name: &str,
     flag: &str,
@@ -3336,6 +3403,8 @@ mod tests {
             deadline: None,
             num_processors: None,
             alphabet_size: None,
+            dependencies: None,
+            num_attributes: None,
             source_string: None,
             target_string: None,
             schedules: None,

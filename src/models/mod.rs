@@ -27,5 +27,6 @@ pub use misc::{
     ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
 };
 pub use set::{
-    ComparativeContainment, ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis,
+    ComparativeContainment, ExactCoverBy3Sets, MaximumSetPacking, MinimumCardinalityKey,
+    MinimumSetCovering, SetBasis,
 };
