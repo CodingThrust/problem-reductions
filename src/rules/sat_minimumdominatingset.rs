@@ -177,6 +177,7 @@ impl ReduceTo<MinimumDominatingSet<SimpleGraph, i32>> for Satisfiability {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
     use crate::models::formula::CNFClause;
 
     vec![crate::example_db::specs::RuleExampleSpec {
@@ -194,11 +195,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     CNFClause::new(vec![3, -4, -5]),
                 ],
             );
-            crate::example_db::specs::direct_best_example::<
+            crate::example_db::specs::rule_example_with_witness::<
                 _,
                 MinimumDominatingSet<SimpleGraph, i32>,
-                _,
-            >(source, crate::example_db::specs::keep_bool_source)
+            >(
+                source,
+                SolutionPair {
+                    source_config: vec![1, 0, 1, 1, 1],
+                    target_config: vec![1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                },
+            )
         },
     }]
 }

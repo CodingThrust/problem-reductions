@@ -270,59 +270,17 @@ impl ReduceTo<CircuitSAT> for Factoring {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
-    use crate::prelude::{ReduceTo, ReductionResult};
-    use crate::solvers::BruteForce;
-    use std::collections::HashMap;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "factoring_to_circuitsat",
         build: || {
-            fn simulate_circuit(
-                circuit: &crate::models::formula::Circuit,
-                initial_assignments: &HashMap<String, bool>,
-            ) -> HashMap<String, bool> {
-                let mut values = initial_assignments.clone();
-                for assignment in &circuit.assignments {
-                    let result = assignment.expr.evaluate(&values);
-                    for output in &assignment.outputs {
-                        values.insert(output.clone(), result);
-                    }
-                }
-                values
-            }
-
-            let source = Factoring::new(3, 3, 35);
-            let reduction = ReduceTo::<CircuitSAT>::reduce_to(&source);
-            let target = reduction.target_problem();
-            let var_names = target.variable_names();
-            let solutions = BruteForce::new()
-                .find_all_best(&source)
-                .into_iter()
-                .min()
-                .map(|source_config| {
-                    let mut inputs: HashMap<String, bool> = HashMap::new();
-                    for (i, &bit) in source_config.iter().enumerate().take(source.m()) {
-                        inputs.insert(format!("p{}", i + 1), bit == 1);
-                    }
-                    for (i, &bit) in source_config[source.m()..]
-                        .iter()
-                        .enumerate()
-                        .take(source.n())
-                    {
-                        inputs.insert(format!("q{}", i + 1), bit == 1);
-                    }
-                    let values = simulate_circuit(target.circuit(), &inputs);
-                    let target_config = var_names
-                        .iter()
-                        .map(|name| usize::from(*values.get(name).unwrap_or(&false)))
-                        .collect();
-                    vec![SolutionPair {
-                        source_config,
-                        target_config,
-                    }]
-                })
-                .unwrap_or_default();
-            crate::example_db::specs::assemble_rule_example(&source, target, solutions)
+            crate::example_db::specs::rule_example_with_witness::<_, CircuitSAT>(
+                Factoring::new(3, 3, 35),
+                SolutionPair {
+                    source_config: vec![1, 0, 1, 1, 1, 1],
+                    target_config: vec![1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+                },
+            )
         },
     }]
 }

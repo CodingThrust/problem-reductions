@@ -162,6 +162,8 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "longestcommonsubsequence_to_ilp",
         build: || {
@@ -169,7 +171,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![b'A', b'B', b'A', b'C'],
                 vec![b'B', b'A', b'C', b'A'],
             ]);
-            crate::example_db::specs::direct_ilp_example::<_, bool, _>(source, |_, _| true)
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
+                source,
+                SolutionPair {
+                    source_config: vec![0, 1, 1, 1],
+                    target_config: vec![0, 0, 1, 1, 0, 1],
+                },
+            )
         },
     }]
 }

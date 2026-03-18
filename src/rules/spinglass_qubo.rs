@@ -148,6 +148,8 @@ impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
     vec![
         crate::example_db::specs::RuleExampleSpec {
             id: "qubo_to_spinglass",
@@ -162,9 +164,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     matrix[i][j] = if idx % 2 == 0 { 2.0 } else { -1.5 };
                 }
                 let source = QUBO::from_matrix(matrix);
-                crate::example_db::specs::direct_best_example::<_, SpinGlass<SimpleGraph, f64>, _>(
+                crate::example_db::specs::rule_example_with_witness::<
+                    _,
+                    SpinGlass<SimpleGraph, f64>,
+                >(
                     source,
-                    |_, _| true,
+                    SolutionPair {
+                        source_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
+                        target_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
+                    },
                 )
             },
         },
@@ -178,9 +186,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .map(|(i, &(u, v))| ((u, v), if i % 2 == 0 { 1.0 } else { -1.0 }))
                     .collect();
                 let source = SpinGlass::new(n, couplings, vec![0.0; n]);
-                crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(source, |_, _| {
-                    true
-                })
+                crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+                    source,
+                    SolutionPair {
+                        source_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
+                        target_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
+                    },
+                )
             },
         },
     ]
