@@ -47,6 +47,11 @@ impl LoadedProblem {
         Ok(SolveResult { config, evaluation })
     }
 
+    pub fn supports_ilp_solver(&self) -> bool {
+        let name = self.problem_name();
+        name == "ILP" || self.best_ilp_reduction_path().is_some()
+    }
+
     /// Solve using the ILP solver. If the problem is not ILP, auto-reduce to ILP first.
     pub fn solve_with_ilp(&self) -> Result<SolveResult> {
         let name = self.problem_name();
@@ -54,37 +59,13 @@ impl LoadedProblem {
             return solve_ilp(self.as_any());
         }
 
-        // Auto-reduce to ILP, solve, and map solution back
-        let source_variant = self.variant_map();
-        let graph = ReductionGraph::new();
-        let ilp_variants = graph.variants_for("ILP");
-        let input_size = ProblemSize::new(vec![]);
-
-        let mut best_path = None;
-        for dv in &ilp_variants {
-            if let Some(p) = graph.find_cheapest_path(
-                name,
-                &source_variant,
-                "ILP",
-                dv,
-                &input_size,
-                &MinimizeSteps,
-            ) {
-                let is_better = best_path
-                    .as_ref()
-                    .is_none_or(|bp: &problemreductions::rules::ReductionPath| p.len() < bp.len());
-                if is_better {
-                    best_path = Some(p);
-                }
-            }
-        }
-
-        let reduction_path = best_path.ok_or_else(|| {
+        let reduction_path = self.best_ilp_reduction_path().ok_or_else(|| {
             anyhow::anyhow!(
                 "No reduction path from {} to ILP. Try `--solver brute-force`, or reduce to a problem that supports ILP.",
                 name
             )
         })?;
+        let graph = ReductionGraph::new();
 
         let chain = graph
             .reduce_along_path(&reduction_path, self.as_any())
@@ -94,6 +75,35 @@ impl LoadedProblem {
         let config = chain.extract_solution(&ilp_result.config);
         let evaluation = self.evaluate_dyn(&config);
         Ok(SolveResult { config, evaluation })
+    }
+
+    fn best_ilp_reduction_path(&self) -> Option<problemreductions::rules::ReductionPath> {
+        let name = self.problem_name();
+        let source_variant = self.variant_map();
+        let graph = ReductionGraph::new();
+        let ilp_variants = graph.variants_for("ILP");
+        let input_size = ProblemSize::new(vec![]);
+
+        let mut best_path = None;
+        for dv in &ilp_variants {
+            if let Some(path) = graph.find_cheapest_path(
+                name,
+                &source_variant,
+                "ILP",
+                dv,
+                &input_size,
+                &MinimizeSteps,
+            ) {
+                let is_better = best_path.as_ref().is_none_or(
+                    |current: &problemreductions::rules::ReductionPath| path.len() < current.len(),
+                );
+                if is_better {
+                    best_path = Some(path);
+                }
+            }
+        }
+
+        best_path
     }
 }
 
@@ -165,17 +175,27 @@ pub struct SolveResult {
     pub evaluation: String,
 }
 
-/// Solve an ILP problem directly. The input must be an `ILP` instance.
+/// Solve an ILP problem directly. The input must be an `ILP<bool>` or `ILP<i32>` instance.
 fn solve_ilp(any: &dyn Any) -> Result<SolveResult> {
-    let problem = any
-        .downcast_ref::<ILP>()
-        .ok_or_else(|| anyhow::anyhow!("Internal error: expected ILP problem instance"))?;
-    let solver = ILPSolver::new();
-    let config = solver
-        .solve(problem)
-        .ok_or_else(|| anyhow::anyhow!("ILP solver found no feasible solution"))?;
-    let evaluation = format!("{:?}", problem.evaluate(&config));
-    Ok(SolveResult { config, evaluation })
+    if let Some(problem) = any.downcast_ref::<ILP<bool>>() {
+        let solver = ILPSolver::new();
+        let config = solver
+            .solve(problem)
+            .ok_or_else(|| anyhow::anyhow!("ILP solver found no feasible solution"))?;
+        let evaluation = format!("{:?}", problem.evaluate(&config));
+        return Ok(SolveResult { config, evaluation });
+    }
+    if let Some(problem) = any.downcast_ref::<ILP<i32>>() {
+        let solver = ILPSolver::new();
+        let config = solver
+            .solve(problem)
+            .ok_or_else(|| anyhow::anyhow!("ILP solver found no feasible solution"))?;
+        let evaluation = format!("{:?}", problem.evaluate(&config));
+        return Ok(SolveResult { config, evaluation });
+    }
+    Err(anyhow::anyhow!(
+        "Internal error: expected ILP<bool> or ILP<i32> problem instance"
+    ))
 }
 
 #[cfg(test)]
@@ -238,5 +258,27 @@ mod tests {
         let variant = BTreeMap::from([("weight".to_string(), "i32".to_string())]);
         let json = serialize_any_problem("BinPacking", &variant, &problem as &dyn Any).unwrap();
         assert_eq!(json, serde_json::to_value(&problem).unwrap());
+    }
+
+    #[test]
+    fn test_load_problem_rejects_zero_processor_multiprocessor_scheduling() {
+        let loaded = load_problem(
+            "MultiprocessorScheduling",
+            &BTreeMap::new(),
+            serde_json::json!({
+                "lengths": [1, 2],
+                "num_processors": 0,
+                "deadline": 5
+            }),
+        );
+        assert!(
+            loaded.is_err(),
+            "zero-processor instance should be rejected"
+        );
+        let err = loaded.err().unwrap();
+        assert!(
+            err.to_string().contains("expected positive integer, got 0"),
+            "unexpected error: {err}"
+        );
     }
 }
