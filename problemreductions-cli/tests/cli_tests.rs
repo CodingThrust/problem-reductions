@@ -1363,7 +1363,10 @@ fn test_create_set_basis_rejects_out_of_range_elements() {
 
 #[test]
 fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
-    let output = pred().args(["create", "MinimumCardinalityKey"]).output().unwrap();
+    let output = pred()
+        .args(["create", "MinimumCardinalityKey"])
+        .output()
+        .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--num-attributes"), "stderr: {stderr}");
