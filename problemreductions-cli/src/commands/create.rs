@@ -3482,6 +3482,7 @@ mod tests {
             schedules: None,
             requirements: None,
             num_workers: None,
+            num_groups: None,
         }
     }
 
