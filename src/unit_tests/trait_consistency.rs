@@ -111,6 +111,41 @@ fn test_all_problems_implement_trait_correctly() {
         ),
         "KthBestSpanningTree",
     );
+    check_problem_trait(
+        &HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)])),
+        "HamiltonianCircuit",
+    );
+    check_problem_trait(
+        &HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
+        "HamiltonianPath",
+    );
+    check_problem_trait(
+        &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 3),
+        "OptimalLinearArrangement",
+    );
+    check_problem_trait(
+        &IsomorphicSpanningTree::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        ),
+        "IsomorphicSpanningTree",
+    );
+    check_problem_trait(
+        &ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3),
+        "ShortestCommonSupersequence",
+    );
+    check_problem_trait(
+        &FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10),
+        "FlowShopScheduling",
+    );
+    check_problem_trait(
+        &SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]),
+        "SequencingWithReleaseTimesAndDeadlines",
+    );
+    check_problem_trait(
+        &SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240),
+        "SumOfSquaresPartition",
+    );
 }
 
 #[test]

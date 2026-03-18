@@ -87,7 +87,8 @@ pred reduce problem.json --to QUBO -o reduced.json
 pred solve reduced.json --solver brute-force
 
 # Pipe commands together (use - to read from stdin)
-pred create MIS --graph 0-1,1-2,2-3 | pred solve -
+pred create MIS --graph 0-1,1-2,2-3 | pred solve -   # when an ILP reduction path exists
+pred create StringToStringCorrection --source-string "0,1,2,3,1,0" --target-string "0,1,3,2,1" --bound 2 | pred solve - --solver brute-force
 pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --to QUBO | pred solve -
 ```
 
@@ -352,7 +353,9 @@ pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 -
 pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
 pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
 pred create X3C --universe 9 --sets "0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8" -o x3c.json
+pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" --k 2 -o mck.json
 pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 --precedence-pairs "0>3,1>3,1>4,2>4" -o mts.json
+pred create StringToStringCorrection --source-string "0,1,2,3,1,0" --target-string "0,1,3,2,1" --bound 2 | pred solve - --solver brute-force
 pred create StrongConnectivityAugmentation --arcs "0>1,1>2,2>0,3>4,4>3,2>3,4>5,5>3" --candidate-arcs "3>0:5,3>1:3,3>2:4,4>0:6,4>1:2,4>2:7,5>0:4,5>1:3,5>2:1,0>3:8,0>4:3,0>5:2,1>3:6,1>4:4,1>5:5,2>4:3,2>5:7,1>0:2" --bound 1 -o sca.json
 ```
 
@@ -376,7 +379,8 @@ pred create MaxCut --random --num-vertices 20 --edge-prob 0.5 -o maxcut.json
 Without `-o`, the problem JSON is printed to stdout, which can be piped to other commands:
 
 ```bash
-pred create MIS --graph 0-1,1-2,2-3 | pred solve -
+pred create MIS --graph 0-1,1-2,2-3 | pred solve -   # when an ILP reduction path exists
+pred create StringToStringCorrection --source-string "0,1,2,3,1,0" --target-string "0,1,3,2,1" --bound 2 | pred solve - --solver brute-force
 pred create MIS --random --num-vertices 10 | pred inspect -
 ```
 
@@ -516,9 +520,17 @@ Source evaluation: Valid(2)
 ```
 
 > **Note:** The ILP solver requires a reduction path from the target problem to ILP.
-> Some problems (e.g., BoundedComponentSpanningForest, LengthBoundedDisjointPaths) do not currently have one, so use
-> `pred solve <file> --solver brute-force` for these.
+> Some problems do not currently have one. Examples include BoundedComponentSpanningForest,
+> LengthBoundedDisjointPaths, MinimumCardinalityKey, QUBO, SpinGlass, MaxCut, CircuitSAT, and MultiprocessorScheduling.
+> Use `pred solve <file> --solver brute-force` for these, or reduce to a problem that supports ILP first.
 > For other problems, use `pred path <PROBLEM> ILP` to check whether an ILP reduction path exists.
+
+For example, the canonical Minimum Cardinality Key instance can be created and solved with:
+
+```bash
+pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" --k 2 -o mck.json
+pred solve mck.json --solver brute-force
+```
 
 ## Shell Completions
 

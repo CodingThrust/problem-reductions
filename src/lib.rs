@@ -47,8 +47,9 @@ pub mod prelude {
     pub use crate::models::graph::{
         BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
         BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GraphPartitioning,
-        HamiltonianPath, IsomorphicSpanningTree, KthBestSpanningTree, LengthBoundedDisjointPaths,
-        SpinGlass, SteinerTree, StrongConnectivityAugmentation, SubgraphIsomorphism,
+        HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KthBestSpanningTree,
+        LengthBoundedDisjointPaths, SpinGlass, SteinerTree, StrongConnectivityAugmentation,
+        SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
@@ -59,11 +60,14 @@ pub mod prelude {
     };
     pub use crate::models::misc::{
         BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-        MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals,
-        ShortestCommonSupersequence, SubsetSum,
+        MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+        SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
+        ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
+        SumOfSquaresPartition,
     };
     pub use crate::models::set::{
-        ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis,
+        ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
+        MinimumCardinalityKey, MinimumSetCovering, SetBasis,
     };
 
     // Core traits
