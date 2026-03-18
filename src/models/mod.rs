@@ -28,6 +28,6 @@ pub use misc::{
     StaffScheduling, StringToStringCorrection, SubsetSum,
 };
 pub use set::{
-    ComparativeContainment, ExactCoverBy3Sets, MaximumSetPacking, MinimumCardinalityKey,
-    MinimumSetCovering, SetBasis,
+    ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
+    MinimumCardinalityKey, MinimumSetCovering, SetBasis,
 };
