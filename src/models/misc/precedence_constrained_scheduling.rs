@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "PrecedenceConstrainedScheduling",
+        display_name: "Precedence Constrained Scheduling",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Schedule unit-length tasks on m processors by deadline D respecting precedence constraints",
         fields: &[
@@ -69,7 +72,10 @@ impl PrecedenceConstrainedScheduling {
         precedences: Vec<(usize, usize)>,
     ) -> Self {
         if num_tasks > 0 {
-            assert!(num_processors > 0, "num_processors must be > 0 when there are tasks");
+            assert!(
+                num_processors > 0,
+                "num_processors must be > 0 when there are tasks"
+            );
             assert!(deadline > 0, "deadline must be > 0 when there are tasks");
         }
         for &(i, j) in &precedences {
@@ -151,7 +157,40 @@ impl Problem for PrecedenceConstrainedScheduling {
 impl SatisfactionProblem for PrecedenceConstrainedScheduling {}
 
 crate::declare_variants! {
-    PrecedenceConstrainedScheduling => "deadline ^ num_tasks",
+    default sat PrecedenceConstrainedScheduling => "deadline ^ num_tasks",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "precedence_constrained_scheduling",
+        build: || {
+            use crate::solvers::BruteForce;
+            // Issue #501 example: 8 tasks, 3 processors, deadline 4
+            let problem = PrecedenceConstrainedScheduling::new(
+                8,
+                3,
+                4,
+                vec![
+                    (0, 2),
+                    (0, 3),
+                    (1, 3),
+                    (1, 4),
+                    (2, 5),
+                    (3, 6),
+                    (4, 6),
+                    (5, 7),
+                    (6, 7),
+                ],
+            );
+            let sample = BruteForce::new()
+                .find_all_satisfying(&problem)
+                .into_iter()
+                .next()
+                .expect("precedence_constrained_scheduling example should solve");
+            crate::example_db::specs::satisfaction_example(problem, vec![sample])
+        },
+    }]
 }
 
 #[cfg(test)]

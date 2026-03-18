@@ -64,6 +64,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(string_to_string_correction::canonical_model_example_specs());
     specs.extend(minimum_tardiness_sequencing::canonical_model_example_specs());
     specs.extend(sum_of_squares_partition::canonical_model_example_specs());
+    specs.extend(precedence_constrained_scheduling::canonical_model_example_specs());
     specs.extend(sequencing_with_release_times_and_deadlines::canonical_model_example_specs());
     specs
 }

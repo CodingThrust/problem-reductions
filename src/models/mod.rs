@@ -25,8 +25,8 @@ pub use misc::{
     BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
     MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
     PrecedenceConstrainedScheduling, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence,
-    StaffScheduling, StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
 };
 pub use set::{
     ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
