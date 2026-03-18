@@ -157,39 +157,33 @@ impl Problem for PrecedenceConstrainedScheduling {
 impl SatisfactionProblem for PrecedenceConstrainedScheduling {}
 
 crate::declare_variants! {
-    default sat PrecedenceConstrainedScheduling => "deadline ^ num_tasks",
+    default sat PrecedenceConstrainedScheduling => "2^num_tasks",
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "precedence_constrained_scheduling",
-        build: || {
-            use crate::solvers::BruteForce;
-            // Issue #501 example: 8 tasks, 3 processors, deadline 4
-            let problem = PrecedenceConstrainedScheduling::new(
-                8,
-                3,
-                4,
-                vec![
-                    (0, 2),
-                    (0, 3),
-                    (1, 3),
-                    (1, 4),
-                    (2, 5),
-                    (3, 6),
-                    (4, 6),
-                    (5, 7),
-                    (6, 7),
-                ],
-            );
-            let sample = BruteForce::new()
-                .find_all_satisfying(&problem)
-                .into_iter()
-                .next()
-                .expect("precedence_constrained_scheduling example should solve");
-            crate::example_db::specs::satisfaction_example(problem, vec![sample])
-        },
+        // Issue #501 example: 8 tasks, 3 processors, deadline 4
+        instance: Box::new(PrecedenceConstrainedScheduling::new(
+            8,
+            3,
+            4,
+            vec![
+                (0, 2),
+                (0, 3),
+                (1, 3),
+                (1, 4),
+                (2, 5),
+                (3, 6),
+                (4, 6),
+                (5, 7),
+                (6, 7),
+            ],
+        )),
+        // Valid schedule: slot 0: {t0,t1}, slot 1: {t2,t3,t4}, slot 2: {t5,t6}, slot 3: {t7}
+        optimal_config: vec![0, 0, 1, 1, 1, 2, 2, 3],
+        optimal_value: serde_json::json!(true),
     }]
 }
 
