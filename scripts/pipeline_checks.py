@@ -17,9 +17,6 @@ MODEL_WHITELIST = [
     "src/example_db/model_builders.rs",
     "src/example_db/rule_builders.rs",
     "docs/paper/reductions.typ",
-    "docs/src/reductions/problem_schemas.json",
-    "docs/src/reductions/reduction_graph.json",
-    "tests/suites/trait_consistency.rs",
 ]
 
 RULE_WHITELIST = [
@@ -28,8 +25,6 @@ RULE_WHITELIST = [
     "src/example_db/rule_builders.rs",
     "src/models/",
     "docs/paper/reductions.typ",
-    "docs/src/reductions/reduction_graph.json",
-    "docs/src/reductions/problem_schemas.json",
 ]
 
 IGNORED_RULE_FILES = {
@@ -197,10 +192,7 @@ def model_completeness(repo_root: Path, name: str) -> dict:
         test_file = repo_root / "src/unit_tests/models" / category / f"{file_stem}.rs"
 
     model_text = read_text(model_file) if model_file is not None else ""
-    trait_text = read_text(repo_root / "src/unit_tests/trait_consistency.rs")
     paper_text = read_text(repo_root / "docs/paper/reductions.typ")
-
-    is_optimization = f"impl OptimizationProblem for {name}" in model_text
 
     checks = {
         "model_file": (
@@ -239,20 +231,6 @@ def model_completeness(repo_root: Path, name: str) -> dict:
             check_entry(status="pass", path="docs/paper/reductions.typ")
             if f'"{name}":' in paper_text
             else check_entry(status="fail", detail="missing display-name entry in paper")
-        ),
-        "trait_consistency": (
-            check_entry(status="pass", path="src/unit_tests/trait_consistency.rs")
-            if name in trait_text and "test_all_problems_implement_trait_correctly" in trait_text
-            else check_entry(status="fail", detail="missing trait consistency entry")
-        ),
-        "trait_direction": (
-            check_entry(status="pass", path="src/unit_tests/trait_consistency.rs")
-            if not is_optimization
-            else (
-                check_entry(status="pass", path="src/unit_tests/trait_consistency.rs")
-                if name in trait_text.split("fn test_direction()", 1)[-1]
-                else check_entry(status="fail", detail="missing optimization direction check")
-            )
         ),
     }
 
@@ -587,6 +565,28 @@ def fetch_issue(repo: str, issue_number: int) -> dict:
     )
 
 
+_ISSUE_REF_RE_TEMPLATE = r"(?:(?:Fix|Fixes|Close|Closes|Resolve|Resolves)\s+#{})\b"
+
+
+def _pr_references_issue(pr: dict, issue_number: int) -> bool:
+    """Check whether a PR actually references the given issue number.
+
+    Validates via:
+    1. PR body contains 'Fixes #N', 'Closes #N', etc. as a word-boundary match
+    2. OR the branch name contains 'issue-N' (our naming convention)
+    """
+    pattern = re.compile(
+        _ISSUE_REF_RE_TEMPLATE.format(issue_number), re.IGNORECASE
+    )
+    body = pr.get("body") or ""
+    if pattern.search(body):
+        return True
+    branch = pr.get("headRefName") or ""
+    if re.search(rf"\bissue-{issue_number}\b", branch):
+        return True
+    return False
+
+
 def fetch_existing_prs_via_search(repo: str, issue_number: int) -> list[dict]:
     query = f'repo:{repo} is:pr is:open "Fix #{issue_number}"'
     data = run_gh_json("api", "search/issues", "-f", f"q={query}")
@@ -597,13 +597,14 @@ def fetch_existing_prs_via_search(repo: str, issue_number: int) -> list[dict]:
         if number is None or "pull_request" not in item:
             continue
         pr = run_gh_json("api", f"repos/{repo}/pulls/{number}")
-        prs.append(
-            {
-                "number": pr.get("number"),
-                "headRefName": (pr.get("head") or {}).get("ref"),
-                "url": pr.get("html_url"),
-            }
-        )
+        normalized = {
+            "number": pr.get("number"),
+            "headRefName": (pr.get("head") or {}).get("ref"),
+            "url": pr.get("html_url"),
+            "body": pr.get("body", ""),
+        }
+        if _pr_references_issue(normalized, issue_number):
+            prs.append(normalized)
     return prs
 
 
@@ -619,13 +620,13 @@ def fetch_existing_prs(repo: str, issue_number: int) -> list[dict]:
             "--search",
             f"Fix #{issue_number}",
             "--json",
-            "number,headRefName,url",
+            "number,headRefName,url,body",
         )
     except subprocess.CalledProcessError:
         return fetch_existing_prs_via_search(repo, issue_number)
     if not isinstance(data, list):
         raise ValueError(f"Unexpected PR list payload for issue #{issue_number}: {data!r}")
-    return data
+    return [pr for pr in data if _pr_references_issue(pr, issue_number)]
 
 
 def git_output(*args: str) -> list[str]:

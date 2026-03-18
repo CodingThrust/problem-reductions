@@ -13,6 +13,8 @@ fn test_dominating_set_creation() {
     );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
+    assert_eq!(problem.num_variables(), 4);
+    assert_eq!(problem.dims(), vec![2; 4]);
 }
 
 #[test]

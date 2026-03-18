@@ -66,7 +66,10 @@
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
   "GraphPartitioning": [Graph Partitioning],
+  "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
+  "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
+  "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
   "KColoring": [$k$-Coloring],
   "MinimumDominatingSet": [Minimum Dominating Set],
@@ -75,7 +78,9 @@
   "MaximumClique": [Maximum Clique],
   "MaximumSetPacking": [Maximum Set Packing],
   "MinimumSetCovering": [Minimum Set Covering],
+  "ComparativeContainment": [Comparative Containment],
   "SetBasis": [Set Basis],
+  "MinimumCardinalityKey": [Minimum Cardinality Key],
   "SpinGlass": [Spin Glass],
   "QUBO": [QUBO],
   "ILP": [Integer Linear Programming],
@@ -90,8 +95,12 @@
   "BMF": [Boolean Matrix Factorization],
   "PaintShop": [Paint Shop],
   "BicliqueCover": [Biclique Cover],
+  "BalancedCompleteBipartiteSubgraph": [Balanced Complete Bipartite Subgraph],
+  "BoundedComponentSpanningForest": [Bounded Component Spanning Forest],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "ConsecutiveSets": [Consecutive Sets],
+  "MinimumMultiwayCut": [Minimum Multiway Cut],
   "OptimalLinearArrangement": [Optimal Linear Arrangement],
   "RuralPostman": [Rural Postman],
   "LongestCommonSubsequence": [Longest Common Subsequence],
@@ -99,14 +108,22 @@
   "SubsetSum": [Subset Sum],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
+  "SequencingWithReleaseTimesAndDeadlines": [Sequencing with Release Times and Deadlines],
+  "MultipleChoiceBranching": [Multiple Choice Branching],
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
   "SteinerTree": [Steiner Tree],
+  "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "PartitionIntoTriangles": [Partition Into Triangles],
   "FlowShopScheduling": [Flow Shop Scheduling],
+  "StaffScheduling": [Staff Scheduling],
+  "MultiprocessorScheduling": [Multiprocessor Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
   "SumOfSquaresPartition": [Sum of Squares Partition],
+  "SequencingWithinIntervals": [Sequencing Within Intervals],
+  "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "StringToStringCorrection": [String-to-String Correction],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -532,6 +549,163 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
   caption: [Graph with $n = 6$ vertices partitioned into $A = {v_0, v_1, v_2}$ (blue) and $B = {v_3, v_4, v_5}$ (red). The 3 crossing edges $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$ are shown in bold red; internal edges are gray.],
 ) <fig:graph-partitioning>
 ]
+#problem-def("BiconnectivityAugmentation")[
+  Given an undirected graph $G = (V, E)$, a set $F$ of candidate edges on $V$ with $F inter E = emptyset$, weights $w: F -> RR$, and a budget $B in RR$, find $F' subset.eq F$ such that $sum_(e in F') w(e) <= B$ and the augmented graph $G' = (V, E union F')$ is biconnected, meaning $G'$ is connected and deleting any single vertex leaves it connected.
+][
+Biconnectivity augmentation is a classical network-design problem: add backup links so the graph survives any single vertex failure. The weighted candidate-edge formulation modeled here captures communication, transportation, and infrastructure planning settings where only a prescribed set of new links is feasible and each carries a cost. In this library, the exact baseline is brute-force enumeration over the $m = |F|$ candidate edges, yielding $O^*(2^m)$ time and matching the exported complexity metadata for the model.
+
+*Example.* Consider the path graph $v_0 - v_1 - v_2 - v_3 - v_4 - v_5$ with candidate edges $(v_0, v_2)$, $(v_0, v_3)$, $(v_0, v_4)$, $(v_1, v_3)$, $(v_1, v_4)$, $(v_1, v_5)$, $(v_2, v_4)$, $(v_2, v_5)$, $(v_3, v_5)$ carrying weights $(1, 2, 3, 1, 2, 3, 1, 2, 1)$ and budget $B = 4$. Selecting $F' = {(v_0, v_2), (v_1, v_3), (v_2, v_4), (v_3, v_5)}$ uses total weight $1 + 1 + 1 + 1 = 4$ and eliminates every articulation point: after deleting any single vertex, the remaining graph is still connected. Reducing the budget to $B = 3$ makes the instance infeasible, because one of the path endpoints remains attached through a single articulation vertex.
+
+#figure(
+  canvas(length: 1cm, {
+    import draw: *
+    // 6 vertices in a horizontal line
+    let verts = range(6).map(k => (k * 1.5, 0))
+    let path-edges = ((0,1),(1,2),(2,3),(3,4),(4,5))
+    // Candidate edges: (u, v, weight, selected?)
+    let candidates = (
+      (0, 2, 1, true), (0, 3, 2, false), (0, 4, 3, false),
+      (1, 3, 1, true), (1, 4, 2, false), (1, 5, 3, false),
+      (2, 4, 1, true), (2, 5, 2, false), (3, 5, 1, true),
+    )
+    let blue = graph-colors.at(0)
+    let green = graph-colors.at(2)
+    let gray = luma(180)
+    // Draw path edges (existing graph)
+    for (u, v) in path-edges {
+      g-edge(verts.at(u), verts.at(v), stroke: 2pt + black)
+    }
+    // Draw candidate edges as arcs above the path
+    for (u, v, w, sel) in candidates {
+      let mid-x = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+      let span = v - u
+      let height = span * 0.4
+      let ctrl = (mid-x, height)
+      bezier(verts.at(u), verts.at(v), ctrl,
+        stroke: if sel { 2.5pt + green } else { (dash: "dashed", paint: gray, thickness: 0.8pt) })
+      // Weight label
+      content((mid-x, height + 0.25),
+        text(7pt, fill: if sel { green.darken(30%) } else { gray })[#w])
+    }
+    // Draw nodes
+    for (k, pos) in verts.enumerate() {
+      g-node(pos, name: "v" + str(k), label: [$v_#k$])
+    }
+  }),
+  caption: [Biconnectivity Augmentation on a 6-vertex path with $B = 4$. Existing edges are black; green arcs show the selected augmentation $F'$ (total weight 4); dashed gray arcs are unselected candidates. The resulting graph $G' = (V, E union F')$ is biconnected.],
+) <fig:biconnectivity-augmentation>
+]
+
+#problem-def("BoundedComponentSpanningForest")[
+  Given an undirected graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(gt.eq 0)$, a positive integer $K <= |V|$, and a positive bound $B$, determine whether there exists a partition of $V$ into $t$ non-empty sets $V_1, dots, V_t$ with $1 <= t <= K$ such that each induced subgraph $G[V_i]$ is connected and each part satisfies $sum_(v in V_i) w(v) <= B$.
+][
+Bounded Component Spanning Forest appears as ND10 in Garey and Johnson @garey1979. It asks for a decomposition into a bounded number of connected pieces, each with bounded total weight, so it naturally captures contiguous districting and redistricting-style constraints where each district must remain connected while respecting a population cap. A direct exhaustive search over component labels gives an $O^*(K^n)$ baseline, but subset-DP techniques via inclusion-exclusion improve the exact running time to $O^*(3^n)$ @bjorklund2009.
+
+*Example.* Consider the graph on vertices ${v_0, v_1, dots, v_7}$ with edges $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_4)$, $(v_4, v_5)$, $(v_5, v_6)$, $(v_6, v_7)$, $(v_0, v_7)$, $(v_1, v_5)$, $(v_2, v_6)$; vertex weights $(2, 3, 1, 2, 3, 1, 2, 1)$; component limit $K = 3$; and bound $B = 6$. The partition
+$V_1 = {v_0, v_1, v_7}$,
+$V_2 = {v_2, v_3, v_4}$,
+$V_3 = {v_5, v_6}$
+is feasible: each set induces a connected subgraph, the component weights are $2 + 3 + 1 = 6$, $1 + 2 + 3 = 6$, and $1 + 2 = 3$, and exactly three non-empty components are used. Therefore this instance is a YES instance.
+
+#figure(
+  canvas(length: 1cm, {
+    import draw: *
+    // 8 vertices in a circular layout (radius 1.6)
+    let r = 1.6
+    let verts = range(8).map(k => {
+      let angle = 90deg - k * 45deg
+      (calc.cos(angle) * r, calc.sin(angle) * r)
+    })
+    let weights = (2, 3, 1, 2, 3, 1, 2, 1)
+    let edges = ((0,1),(1,2),(2,3),(3,4),(4,5),(5,6),(6,7),(0,7),(1,5),(2,6))
+    // Partition: V1={0,1,7} blue, V2={2,3,4} green, V3={5,6} red
+    let partition = (0, 0, 1, 1, 1, 2, 2, 0)
+    let comp-colors = (graph-colors.at(0), graph-colors.at(2), graph-colors.at(1))
+    // Draw edges: bold colored for intra-component, gray for cross-component
+    for (u, v) in edges {
+      if partition.at(u) == partition.at(v) {
+        g-edge(verts.at(u), verts.at(v),
+          stroke: 2pt + comp-colors.at(partition.at(u)))
+      } else {
+        g-edge(verts.at(u), verts.at(v),
+          stroke: 1pt + luma(180))
+      }
+    }
+    // Draw nodes colored by partition, with weight labels
+    for (k, pos) in verts.enumerate() {
+      let c = comp-colors.at(partition.at(k))
+      g-node(pos, name: "v" + str(k),
+        fill: c,
+        label: text(fill: white)[$v_#k$])
+      let angle = 90deg - k * 45deg
+      let lpos = (calc.cos(angle) * (r + 0.5), calc.sin(angle) * (r + 0.5))
+      content(lpos, text(7pt)[$w = #(weights.at(k))$])
+    }
+  }),
+  caption: [Bounded Component Spanning Forest on 8 vertices with $K = 3$ and $B = 6$. The partition $V_1 = {v_0, v_1, v_7}$ (blue, weight 6), $V_2 = {v_2, v_3, v_4}$ (green, weight 6), $V_3 = {v_5, v_6}$ (red, weight 3) is feasible. Bold colored edges are intra-component; gray edges cross components.],
+) <fig:bcsf>
+]
+#{
+  let x = load-model-example("LengthBoundedDisjointPaths")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let s = x.instance.source
+  let t = x.instance.sink
+  let J = x.instance.num_paths_required
+  let K = x.instance.max_length
+  let chosen-verts = (0, 1, 2, 3, 6)
+  let chosen-edges = ((0, 1), (1, 6), (0, 2), (2, 3), (3, 6))
+  [
+    #problem-def("LengthBoundedDisjointPaths")[
+      Given an undirected graph $G = (V, E)$, distinct terminals $s, t in V$, and positive integers $J, K$, determine whether $G$ contains at least $J$ pairwise internally vertex-disjoint paths from $s$ to $t$, each using at most $K$ edges.
+    ][
+      Length-Bounded Disjoint Paths is the bounded-routing version of the classical disjoint-path problem, with applications in network routing and VLSI where multiple connections must fit simultaneously under quality-of-service limits. Garey & Johnson list it as ND41 and summarize the sharp threshold proved by Itai, Perl, and Shiloach: the problem is NP-complete for every fixed $K >= 5$, polynomial-time solvable for $K <= 4$, and becomes polynomial again when the length bound is removed entirely @garey1979. The implementation here uses the natural $J dot |V|$ binary membership encoding, so brute-force search over configurations runs in $O^*(2^(J dot |V|))$.
+
+      *Example.* Consider the graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, terminals $s = v_#s$, $t = v_#t$, $J = #J$, and $K = #K$. The two paths $P_1 = v_0 arrow v_1 arrow v_6$ and $P_2 = v_0 arrow v_2 arrow v_3 arrow v_6$ are both of length at most 3, and their internal vertex sets ${v_1}$ and ${v_2, v_3}$ are disjoint. Hence this instance is satisfying. The third branch $v_0 arrow v_4 arrow v_5 arrow v_6$ is available but unused, so the instance has multiple satisfying path-slot assignments.
+
+      #figure(
+        canvas(length: 1cm, {
+          let blue = graph-colors.at(0)
+          let gray = luma(180)
+          let verts = (
+            (0, 1),    // v0 = s
+            (1.3, 1.8),
+            (1.3, 1.0),
+            (2.6, 1.0),
+            (1.3, 0.2),
+            (2.6, 0.2),
+            (3.9, 1),  // v6 = t
+          )
+          for (u, v) in edges {
+            let selected = chosen-edges.any(e =>
+              (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u)
+            )
+            g-edge(verts.at(u), verts.at(v),
+              stroke: if selected { 2pt + blue } else { 1pt + gray })
+          }
+          for (k, pos) in verts.enumerate() {
+            let active = chosen-verts.contains(k)
+            g-node(pos, name: "v" + str(k),
+              fill: if active { blue } else { white },
+              label: if active {
+                text(fill: white)[
+                  #if k == s { $s$ }
+                  else if k == t { $t$ }
+                  else { $v_#k$ }
+                ]
+              } else [
+                #if k == s { $s$ }
+                else if k == t { $t$ }
+                else { $v_#k$ }
+              ])
+          }
+        }),
+        caption: [A satisfying Length-Bounded Disjoint Paths instance with $s = v_0$, $t = v_6$, $J = 2$, and $K = 3$. The highlighted paths are $v_0 arrow v_1 arrow v_6$ and $v_0 arrow v_2 arrow v_3 arrow v_6$; the lower branch through $v_4, v_5$ remains unused.],
+      ) <fig:length-bounded-disjoint-paths>
+    ]
+  ]
+}
 #{
   let x = load-model-example("HamiltonianPath")
   let nv = graph-num-vertices(x.instance)
@@ -573,6 +747,57 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
       },
       caption: [Hamiltonian Path in a #{nv}-vertex graph. Blue edges show the path $#path.map(v => $v_#v$).join($arrow$)$.],
       ) <fig:hamiltonian-path>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("UndirectedTwoCommodityIntegralFlow")
+  let sample = x.samples.at(0)
+  let satisfying_count = x.optimal.len()
+  let source1 = x.instance.source_1
+  let source2 = x.instance.source_2
+  let sink1 = x.instance.sink_1
+  [
+    #problem-def("UndirectedTwoCommodityIntegralFlow")[
+      Given an undirected graph $G = (V, E)$, specified terminals $s_1, s_2, t_1, t_2 in V$, edge capacities $c: E -> ZZ^+$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2$ that orient each used edge for each commodity, respect the shared edge capacities, conserve flow at every vertex in $V backslash {s_1, s_2, t_1, t_2}$, and deliver at least $R_i$ units of net flow into $t_i$ for each commodity $i in {1, 2}$.
+    ][
+      Undirected Two-Commodity Integral Flow is the undirected counterpart of the classical two-commodity integral flow problem from Garey \& Johnson (ND39) @garey1979. Even, Itai, and Shamir proved that it remains NP-complete even when every capacity is 1, but becomes polynomial-time solvable when all capacities are even, giving a rare parity-driven complexity dichotomy @evenItaiShamir1976.
+
+      The implementation uses four variables per undirected edge ${u, v}$: $f_1(u, v)$, $f_1(v, u)$, $f_2(u, v)$, and $f_2(v, u)$. In the unit-capacity regime, each edge has exactly five meaningful local states: unused, commodity 1 in either direction, or commodity 2 in either direction, which matches the catalog bound $O(5^m)$ for $m = |E|$.
+
+      *Example.* Consider the graph with edges $(0, 2)$, $(1, 2)$, and $(2, 3)$, capacities $(1, 1, 2)$, sources $s_1 = v_#source1$, $s_2 = v_#source2$, and shared sink $t_1 = t_2 = v_#sink1$. The sample configuration in the fixture database sets $f_1(0, 2) = 1$, $f_2(1, 2) = 1$, and $f_1(2, 3) = f_2(2, 3) = 1$, with all reverse-direction variables zero. The only nonterminal vertex is $v_2$, where each commodity has one unit of inflow and one unit of outflow, so conservation holds. Vertex $v_3$ receives one unit of net inflow from each commodity, and the shared edge $(2,3)$ uses its full capacity 2. The fixture database contains exactly #satisfying_count satisfying configurations for this instance: the one shown below and the symmetric variant that swaps which commodity uses the two left edges.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let teal = rgb("#76b7b2")
+          let gray = luma(190)
+          let verts = ((0, 1.2), (0, -1.2), (2.0, 0), (4.0, 0))
+          let labels = (
+            [$s_1 = v_0$],
+            [$s_2 = v_1$],
+            [$v_2$],
+            [$t_1 = t_2 = v_3$],
+          )
+          let edges = ((0, 2), (1, 2), (2, 3))
+          for (u, v) in edges {
+            g-edge(verts.at(u), verts.at(v), stroke: 1pt + gray)
+          }
+          g-edge(verts.at(0), verts.at(2), stroke: 1.8pt + blue)
+          g-edge(verts.at(1), verts.at(2), stroke: (paint: teal, thickness: 1.8pt, dash: "dashed"))
+          g-edge(verts.at(2), verts.at(3), stroke: 1.8pt + blue)
+          g-edge(verts.at(2), verts.at(3), stroke: (paint: teal, thickness: 1.8pt, dash: "dashed"))
+          for (i, pos) in verts.enumerate() {
+            let fill = if i == 0 { blue } else if i == 1 { teal } else if i == 3 { rgb("#e15759") } else { white }
+            g-node(pos, name: "utcif-" + str(i), fill: fill, label: if i == 2 { labels.at(i) } else { text(fill: white)[#labels.at(i)] })
+          }
+          content((1.0, 0.95), text(8pt, fill: gray)[$c = 1$])
+          content((1.0, -0.95), text(8pt, fill: gray)[$c = 1$])
+          content((3.0, 0.35), text(8pt, fill: gray)[$c = 2$])
+        }),
+        caption: [Canonical shared-capacity YES instance for Undirected Two-Commodity Integral Flow. Solid blue carries commodity 1 and dashed teal carries commodity 2; both commodities share the edge $(v_2, v_3)$ of capacity 2.],
+      ) <fig:undirected-two-commodity-integral-flow>
     ]
   ]
 }
@@ -855,6 +1080,93 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
     ]
   ]
 }
+#{
+  let x = load-model-example("StrongConnectivityAugmentation")
+  let nv = x.instance.graph.inner.nodes.len()
+  let ne = x.instance.graph.inner.edges.len()
+  let arcs = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let candidates = x.instance.candidate_arcs
+  let bound = x.instance.bound
+  let sol = x.optimal.at(0)
+  let chosen = candidates.enumerate().filter(((i, _)) => sol.config.at(i) == 1).map(((i, arc)) => arc)
+  let arc = chosen.at(0)
+  let blue = graph-colors.at(0)
+  [
+    #problem-def("StrongConnectivityAugmentation")[
+      Given a directed graph $G = (V, A)$, a set $C subset.eq (V times V backslash A) times ZZ_(> 0)$ of weighted candidate arcs, and a bound $B in ZZ_(>= 0)$, determine whether there exists a subset $C' subset.eq C$ such that $sum_((u, v, w) in C') w <= B$ and the augmented digraph $(V, A union {(u, v) : (u, v, w) in C'})$ is strongly connected.
+    ][
+    Strong Connectivity Augmentation models network design problems where a partially connected directed communication graph may be repaired by buying additional arcs. Eswaran and Tarjan showed that the unweighted augmentation problem is solvable in linear time, while the weighted variant is substantially harder @eswarantarjan1976. The decision version recorded as ND19 in Garey and Johnson is NP-complete @garey1979. The implementation here uses one binary variable per candidate arc, so brute-force over the candidate set yields a worst-case bound of $O^*(2^m)$ where $m = "num_potential_arcs"$. #footnote[No exact algorithm improving on brute-force is claimed here for the weighted candidate-arc formulation implemented in the codebase.]
+
+    *Example.* The canonical instance has $n = #nv$ vertices, $|A| = #ne$ existing arcs, #candidates.len() weighted candidate arcs, and bound $B = #bound$. The base graph already contains the directed 3-cycle $v_0 -> v_1 -> v_2 -> v_0$ and the strongly connected component on ${v_3, v_4, v_5}$, with only the forward bridge $v_2 -> v_3$ between them. The unique satisfying augmentation under this bound selects the single candidate arc $(v_#arc.at(0), v_#arc.at(1)))$ of weight #arc.at(2), closing the cycle $v_2 -> v_3 -> v_4 -> v_5 -> v_2$ and making every vertex reachable from every other. The all-zero configuration is infeasible because no path returns from ${v_3, v_4, v_5}$ to ${v_0, v_1, v_2}$.
+
+    #figure({
+      let verts = ((0, 1), (1.2, 1.6), (1.2, 0.4), (3.4, 1.0), (4.6, 1.5), (4.6, 0.5))
+      canvas(length: 1cm, {
+        for (u, v) in arcs {
+          draw.line(verts.at(u), verts.at(v),
+            stroke: 1pt + black,
+            mark: (end: "straight", scale: 0.4))
+        }
+        draw.line(verts.at(arc.at(0)), verts.at(arc.at(1)),
+          stroke: 1.6pt + blue,
+          mark: (end: "straight", scale: 0.45))
+        for (k, pos) in verts.enumerate() {
+          let highlighted = k == arc.at(0) or k == arc.at(1)
+          g-node(pos, name: "v" + str(k),
+            fill: if highlighted { blue.transparentize(65%) } else { white },
+            label: [$v_#k$])
+        }
+      })
+    },
+    caption: [Strong Connectivity Augmentation on a #{nv}-vertex digraph. Black arcs are present in $A$; the added candidate arc $(v_#arc.at(0), v_#arc.at(1)))$ is shown in blue. With bound $B = #bound$, this single augmentation makes the digraph strongly connected.],
+    ) <fig:strong-connectivity-augmentation>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("MinimumMultiwayCut")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let weights = x.instance.edge_weights
+  let terminals = x.instance.terminals
+  let sol = x.optimal.at(0)
+  let cut-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let cut-edges = cut-edge-indices.map(i => edges.at(i))
+  let cost = sol.metric.Valid
+  [
+    #problem-def("MinimumMultiwayCut")[
+      Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR_(>0)$ and a set of $k$ terminal vertices $T = {t_1, ..., t_k} subset.eq V$, find a minimum-weight set of edges $C subset.eq E$ such that no two terminals remain in the same connected component of $G' = (V, E backslash C)$.
+    ][
+    The Minimum Multiway Cut problem generalizes the classical minimum $s$-$t$ cut: for $k=2$ it reduces to max-flow and is solvable in polynomial time, but for $k >= 3$ on general graphs it becomes NP-hard @dahlhaus1994. The problem arises in VLSI design, image segmentation, and network design. A $(2 - 2 slash k)$-approximation is achievable in polynomial time by taking the union of the $k - 1$ cheapest isolating cuts @dahlhaus1994. The best known exact algorithm runs in $O^*(1.84^k)$ time (suppressing polynomial factors) via submodular functions on isolating cuts @cao2013.
+
+    *Example.* Consider a graph with $n = #nv$ vertices, $m = #ne$ edges, and $k = #terminals.len()$ terminals $T = {#terminals.map(t => $#t$).join(", ")}$, with edge weights #edges.zip(weights).map(((e, w)) => $w(#(e.at(0)), #(e.at(1))) = #w$).join(", "). The optimal multiway cut removes edges ${#cut-edges.map(e => $(#(e.at(0)), #(e.at(1)))$).join(", ")}$ with total weight #cut-edge-indices.map(i => $#(weights.at(i))$).join($+$) $= #cost$, placing each terminal in a distinct component.
+
+    #figure({
+      let verts = ((0, 0.8), (1.2, 1.5), (2.4, 0.8), (1.8, -0.2), (0.6, -0.2))
+      canvas(length: 1cm, {
+        for (idx, (u, v)) in edges.enumerate() {
+          let is-cut = cut-edge-indices.contains(idx)
+          g-edge(verts.at(u), verts.at(v),
+            stroke: if is-cut { (paint: red, thickness: 2pt, dash: "dashed") } else { 1pt + luma(120) })
+          let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+          let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+          let dy = if idx == 5 { 0.15 } else { 0 }
+          draw.content((mx, my + dy), text(7pt, fill: luma(80))[#weights.at(idx)])
+        }
+        for (k, pos) in verts.enumerate() {
+          let is-terminal = terminals.contains(k)
+          g-node(pos, name: "v" + str(k),
+            fill: if is-terminal { graph-colors.at(0) } else { luma(180) },
+            label: text(fill: white)[$#k$])
+        }
+      })
+    },
+    caption: [Minimum Multiway Cut with terminals ${#terminals.map(t => $#t$).join(", ")}$ (blue). Dashed red edges form the optimal cut (weight #cost).],
+    ) <fig:multiway-cut>
+    ]
+  ]
+}
 #problem-def("OptimalLinearArrangement")[
   Given an undirected graph $G=(V,E)$ and a non-negative integer $K$, is there a bijection $f: V -> {0, 1, dots, |V|-1}$ such that $sum_({u,v} in E) |f(u) - f(v)| <= K$?
 ][
@@ -1087,6 +1399,25 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 }
 
 #{
+  let x = load-model-example("ConsecutiveSets")
+  let m = x.instance.alphabet_size
+  let n = x.instance.subsets.len()
+  let K = x.instance.bound_k
+  let subs = x.instance.subsets
+  let sol = x.optimal.at(0).config
+  let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
+  [
+    #problem-def("ConsecutiveSets")[
+      Given a finite alphabet $Sigma$ of size $m$, a collection $cal(C) = {Sigma_1, Sigma_2, dots, Sigma_n}$ of subsets of $Sigma$, and a positive integer $K$, determine whether there exists a string $w in Sigma^*$ with $|w| lt.eq K$ such that, for each $i$, the elements of $Sigma_i$ occur in a consecutive block of $|Sigma_i|$ symbols of $w$.
+    ][
+      This problem arises in information retrieval and file organization (SR18 in Garey and Johnson @garey1979). It generalizes the _consecutive ones property_ from binary matrices to a string-based formulation: given subsets of an alphabet, construct the shortest string where each subset's elements appear contiguously. The problem is NP-complete, as shown by #cite(<kou1977>, form: "prose") via reduction from Hamiltonian Path. The circular variant, where blocks may wrap around from the end of $w$ back to its beginning (considering $w w$), is also NP-complete @boothlueker1976. When $K$ equals the number of distinct symbols appearing in the subsets, the problem reduces to testing a binary matrix for the consecutive ones property, which is solvable in linear time using PQ-tree algorithms @boothlueker1976.
+
+      *Example.* Let $Sigma = {0, 1, dots, #(m - 1)}$, $K = #K$, and $cal(C) = {#range(n).map(i => $Sigma_#(i + 1)$).join(", ")}$ with #range(n).map(i => $Sigma_#(i + 1) = #fmt-set(subs.at(i))$).join(", "). A valid string is $w = (#sol.map(e => str(e)).join(", "))$ with $|w| = #sol.len() = K$: $Sigma_1 = {0, 4}$ appears as the block $(0, 4)$ at positions 0--1, $Sigma_2 = {2, 4}$ appears as $(4, 2)$ at positions 1--2, $Sigma_3 = {2, 5}$ appears as $(2, 5)$ at positions 2--3, $Sigma_4 = {1, 5}$ appears as $(5, 1)$ at positions 3--4, and $Sigma_5 = {1, 3}$ appears as $(1, 3)$ at positions 4--5.
+    ]
+  ]
+}
+
+#{
   let x3c = load-model-example("ExactCoverBy3Sets")
   let n = x3c.instance.universe_size
   let q = int(n / 3)
@@ -1105,6 +1436,70 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     Shown NP-complete by Karp (1972) via transformation from 3-Dimensional Matching @karp1972. X3C remains NP-complete even when no element appears in more than three subsets, but is solvable in polynomial time when no element appears in more than two subsets. It is one of the most widely used source problems for NP-completeness reductions in Garey & Johnson (A3 SP2), serving as the starting point for proving hardness of problems in scheduling, graph theory, set systems, coding, and number theory. The best known exact algorithm runs in $O^*(2^n)$ via inclusion-exclusion over the $n = |X|$ universe elements; a direct brute-force search over the $m$ subsets gives the weaker $O^*(2^m)$ bound.
 
     *Example.* Let $X = {1, 2, dots, #n}$ ($q = #q$) and $cal(C) = {S_1, dots, S_#m}$ with #subs.enumerate().map(((i, t)) => $S_#(i + 1) = #fmt-triple(t)$).join(", "). An exact cover is $cal(C)' = {#selected.map(i => $S_#(i + 1)$).join(", ")}$: #selected.map(i => [$S_#(i + 1)$ covers #fmt-triple(subs.at(i))]).join(", "), their union is $X$, and they are pairwise disjoint with $|cal(C)'| = #selected.len() = q$.
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("ComparativeContainment")
+  let n = x.instance.universe_size
+  let R = x.instance.r_sets
+  let S = x.instance.s_sets
+  let r-weights = x.instance.r_weights
+  let s-weights = x.instance.s_weights
+  let sample = x.samples.at(0)
+  let selected = sample.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let satisfiers = x.optimal.map(sol => sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i))
+  let contains-selected(family-set) = selected.all(i => family-set.contains(i))
+  let r-active = range(R.len()).filter(i => contains-selected(R.at(i)))
+  let s-active = range(S.len()).filter(i => contains-selected(S.at(i)))
+  let r-total = r-active.map(i => r-weights.at(i)).sum(default: 0)
+  let s-total = s-active.map(i => s-weights.at(i)).sum(default: 0)
+  let fmt-set(items) = if items.len() == 0 {
+    $emptyset$
+  } else {
+    "${" + items.map(e => str(e + 1)).join(", ") + "}$"
+  }
+  let left-elems = (
+    (-3.1, 0.4),
+    (-2.4, -0.4),
+    (-1.6, 0.4),
+    (-0.9, -0.4),
+  )
+  let right-elems = (
+    (0.9, 0.4),
+    (1.6, -0.4),
+    (2.4, 0.4),
+    (3.1, -0.4),
+  )
+  [
+    #problem-def("ComparativeContainment")[
+      Given a finite universe $X$, two set families $cal(R) = {R_1, dots, R_k}$ and $cal(S) = {S_1, dots, S_l}$ over $X$, and positive integer weights $w_R(R_i)$ and $w_S(S_j)$, does there exist a subset $Y subset.eq X$ such that $sum_(Y subset.eq R_i) w_R(R_i) >= sum_(Y subset.eq S_j) w_S(S_j)$?
+    ][
+    Comparative Containment is the set-system comparison problem SP10 in Garey & Johnson @garey1979. Unlike covering and packing problems, feasibility depends on how the chosen subset $Y$ is nested inside two competing set families: the $cal(R)$ family rewards containment while the $cal(S)$ family penalizes it. The problem remains NP-complete in the unit-weight special case and provides a clean weighted-set comparison primitive for future reduction entries in this catalog.
+
+    A direct exact algorithm enumerates all $2^n$ subsets $Y subset.eq X$ for $n = |X|$ and checks which members of $cal(R)$ and $cal(S)$ contain each candidate. This yields an $O^*(2^n)$ exact algorithm, with the polynomial factor coming from scanning the $k + l$ sets for each subset#footnote[No specialized exact algorithm improving on brute-force enumeration is recorded in the standard references used for this catalog entry.].
+
+    *Example.* Let $X = {1, 2, dots, #n}$, $cal(R) = {#range(R.len()).map(i => $R_#(i + 1)$).join(", ")}$ with #R.enumerate().map(((i, family-set)) => [$R_#(i + 1) = #fmt-set(family-set)$ with $w_R(R_#(i + 1)) = #(r-weights.at(i))$]).join(", "), and $cal(S) = {#range(S.len()).map(i => $S_#(i + 1)$).join(", ")}$ with #S.enumerate().map(((i, family-set)) => [$S_#(i + 1) = #fmt-set(family-set)$ with $w_S(S_#(i + 1)) = #(s-weights.at(i))$]).join(", "). The subset $Y = #fmt-set(selected)$ is satisfying because #r-active.map(i => $R_#(i + 1)$).join(", ") contribute $#r-total$ on the left while #s-active.map(i => $S_#(i + 1)$).join(", ") contribute only $#s-total$ on the right, so $#r-total >= #s-total$. In fact, the satisfying subsets are #satisfiers.map(fmt-set).join(", "), so this instance has exactly #satisfiers.len() satisfying solutions.
+
+    #figure(
+      canvas(length: 1cm, {
+        import draw: *
+        content((-2.0, 1.5), text(8pt)[$cal(R)$])
+        content((2.0, 1.5), text(8pt)[$cal(S)$])
+        sregion((left-elems.at(0), left-elems.at(1), left-elems.at(2), left-elems.at(3)), pad: 0.5, label: [$R_1$], ..if r-active.contains(0) { sregion-selected } else { sregion-dimmed })
+        sregion((left-elems.at(0), left-elems.at(1)), pad: 0.35, label: [$R_2$], ..if r-active.contains(1) { sregion-selected } else { sregion-dimmed })
+        sregion((right-elems.at(0), right-elems.at(1), right-elems.at(2), right-elems.at(3)), pad: 0.5, label: [$S_1$], ..if s-active.contains(0) { sregion-selected } else { sregion-dimmed })
+        sregion((right-elems.at(2), right-elems.at(3)), pad: 0.35, label: [$S_2$], ..if s-active.contains(1) { sregion-selected } else { sregion-dimmed })
+        for (k, pos) in left-elems.enumerate() {
+          selem(pos, label: [#(k + 1)], fill: if selected.contains(k) { graph-colors.at(0) } else { black })
+        }
+        for (k, pos) in right-elems.enumerate() {
+          selem(pos, label: [#(k + 1)], fill: if selected.contains(k) { graph-colors.at(0) } else { black })
+        }
+      }),
+      caption: [Comparative containment for $Y = #fmt-set(selected)$: both $R_1$ and $R_2$ contain $Y$, while only $S_1$ does, so the $cal(R)$ side dominates the $cal(S)$ side.]
+    ) <fig:comparative-containment>
     ]
   ]
 }
@@ -1142,6 +1537,29 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
       }),
       caption: [Set Basis example: the singleton basis $cal(B) = {#range(k).map(i => $B_#(i + 1)$).join(", ")}$ reconstructs every target set in $cal(C)$; element $4$ is unused by the target family.],
     ) <fig:set-basis>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumCardinalityKey")
+  let n = x.instance.num_attributes
+  let deps = x.instance.dependencies
+  let m = deps.len()
+  let bound = x.instance.bound_k
+  let sample = x.samples.at(0)
+  let key-attrs = range(n).filter(i => sample.config.at(i) == 1)
+  let sat-count = x.optimal.len()
+  let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
+  let fmt-fd(d) = fmt-set(d.at(0)) + " $arrow.r$ " + fmt-set(d.at(1))
+  [
+    #problem-def("MinimumCardinalityKey")[
+      Given a set $A$ of attribute names, a collection $F$ of functional dependencies (ordered pairs of subsets of $A$), and a positive integer $M$, does there exist a candidate key $K subset.eq A$ with $|K| <= M$, i.e., a minimal subset $K$ such that the closure of $K$ under $F^*$ equals $A$?
+    ][
+    The Minimum Cardinality Key problem arises in relational database theory, where identifying the smallest candidate key determines the most efficient way to uniquely identify rows in a relation. It was shown NP-complete by Lucchesi and Osborn (1978) @lucchesi1978keys via transformation from Vertex Cover. The problem appears as SR26 in Garey & Johnson (A4) @garey1979. The closure $F^*$ is defined by Armstrong's axioms: reflexivity ($B subset.eq C$ implies $C arrow.r B$), transitivity, and union. The best known exact algorithm is brute-force enumeration of all subsets of $A$, giving $O^*(2^(|A|))$ time#footnote[Lucchesi and Osborn give an output-polynomial algorithm for enumerating all candidate keys, but the number of keys can be exponential.].
+
+    *Example.* Let $A = {0, 1, ..., #(n - 1)}$ ($|A| = #n$) with $M = #bound$ and functional dependencies $F = {#deps.enumerate().map(((i, d)) => fmt-fd(d)).join(", ")}$.
+    The candidate key $K = #fmt-set(key-attrs)$ has $|K| = #key-attrs.len() <= #bound$. Its closure: start with ${0, 1}$; apply ${0, 1} arrow.r {2}$ to get ${0, 1, 2}$; apply ${0, 2} arrow.r {3}$ to get ${0, 1, 2, 3}$; apply ${1, 3} arrow.r {4}$ to get ${0, 1, 2, 3, 4}$; apply ${2, 4} arrow.r {5}$ to get $A$. Neither ${0}$ nor ${1}$ alone determines $A$, so $K$ is minimal. There are #sat-count satisfying encodings in total.
     ]
   ]
 }
@@ -1624,6 +2042,72 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 }
 
 #{
+  let x = load-model-example("BalancedCompleteBipartiteSubgraph")
+  let left-size = x.instance.graph.left_size
+  let right-size = x.instance.graph.right_size
+  let k = x.instance.k
+  let bip-edges = x.instance.graph.edges
+  let sol = x.optimal.at(0)
+  let left-selected = range(left-size).filter(i => sol.config.at(i) == 1)
+  let right-selected = range(right-size).filter(i => sol.config.at(left-size + i) == 1)
+  let selected-edges = bip-edges.filter(e =>
+    left-selected.contains(e.at(0)) and right-selected.contains(e.at(1))
+  )
+  [
+    #problem-def("BalancedCompleteBipartiteSubgraph")[
+      Given a bipartite graph $G = (A, B, E)$ and an integer $k$, determine whether there exist subsets $A' subset.eq A$ and $B' subset.eq B$ such that $|A'| = |B'| = k$ and every cross pair is present:
+      $A' times B' subset.eq E.$
+    ][
+    Balanced Complete Bipartite Subgraph is a classical NP-complete bipartite containment problem from Garey and Johnson @garey1979. Unlike Biclique Cover, which asks for a collection of bicliques covering all edges, this problem asks for a _single_ balanced biclique of prescribed size. It arises naturally in biclustering, dense submatrix discovery, and pattern mining on bipartite data. Chen et al. give an exact $O^*(1.3803^n)$ algorithm for dense bipartite graphs, and the registry records that best-known bound in the catalog metadata. A straightforward baseline still enumerates all $k$-subsets of $A$ and $B$ and checks whether they induce a complete bipartite graph, taking $O(binom(|A|, k) dot binom(|B|, k) dot k^2) = O^*(2^(|A| + |B|))$ time.
+
+    *Example.* Consider the bipartite graph with $A = {ell_1, ell_2, ell_3, ell_4}$, $B = {r_1, r_2, r_3, r_4}$, and edges $E = {#bip-edges.map(e => $(ell_#(e.at(0) + 1), r_#(e.at(1) + 1))$).join(", ")}$. For $k = #k$, the selected sets $A' = {#left-selected.map(i => $ell_#(i + 1)$).join(", ")}$ and $B' = {#right-selected.map(i => $r_#(i + 1)$).join(", ")}$ form a balanced complete bipartite subgraph: all #selected-edges.len() required cross edges are present. Vertex $ell_4$ is excluded because $(ell_4, r_3) in.not E$, so any witness using $ell_4$ cannot realize $K_(#k,#k)$.
+
+    #figure(
+      canvas(length: 1cm, {
+        let lpos = range(left-size).map(i => (0, left-size - 1 - i))
+        let rpos = range(right-size).map(i => (2.6, right-size - 1 - i))
+        for (li, rj) in bip-edges {
+          let selected = selected-edges.any(e => e.at(0) == li and e.at(1) == rj)
+          g-edge(
+            lpos.at(li),
+            rpos.at(rj),
+            stroke: if selected { 2pt + graph-colors.at(0) } else { 1pt + luma(180) },
+          )
+        }
+        for (idx, pos) in lpos.enumerate() {
+          let selected = left-selected.contains(idx)
+          g-node(
+            pos,
+            name: "bcbs-l" + str(idx),
+            fill: if selected { graph-colors.at(0) } else { luma(240) },
+            label: if selected {
+              text(fill: white)[$ell_#(idx + 1)$]
+            } else {
+              [$ell_#(idx + 1)$]
+            },
+          )
+        }
+        for (idx, pos) in rpos.enumerate() {
+          let selected = right-selected.contains(idx)
+          g-node(
+            pos,
+            name: "bcbs-r" + str(idx),
+            fill: if selected { graph-colors.at(0) } else { luma(240) },
+            label: if selected {
+              text(fill: white)[$r_#(idx + 1)$]
+            } else {
+              [$r_#(idx + 1)$]
+            },
+          )
+        }
+      }),
+      caption: [Balanced complete bipartite subgraph with $k = #k$: the selected vertices $A' = {#left-selected.map(i => $ell_#(i + 1)$).join(", ")}$ and $B' = {#right-selected.map(i => $r_#(i + 1)$).join(", ")}$ are blue, and the 9 edges of the induced $K_(#k,#k)$ are highlighted. The missing edge $(ell_4, r_3)$ prevents including $ell_4$.],
+    ) <fig:balanced-complete-bipartite-subgraph>
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("PartitionIntoTriangles")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
@@ -1728,13 +2212,60 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   *Example.* Consider host graph $G$ with 7 vertices: a $K_4$ clique on ${0, 1, 2, 3}$ and a triangle on ${4, 5, 6}$ connected via edge $(3, 4)$. Pattern $H = K_4$ with vertices ${a, b, c, d}$. The mapping $f(a) = 0, f(b) = 1, f(c) = 2, f(d) = 3$ preserves all 6 edges of $K_4$, confirming a subgraph isomorphism exists.
 ]
 
-#problem-def("LongestCommonSubsequence")[
-  Given $k$ strings $s_1, dots, s_k$ over a finite alphabet $Sigma$, find a longest string $w$ that is a subsequence of every $s_i$. A string $w$ is a _subsequence_ of $s$ if $w$ can be obtained by deleting zero or more characters from $s$ without changing the order of the remaining characters.
-][
-  The LCS problem is polynomial-time solvable for $k = 2$ strings via dynamic programming in $O(n_1 n_2)$ time (Wagner & Fischer, 1974), but NP-hard for $k gt.eq 3$ strings @maier1978. It is a foundational problem in bioinformatics (sequence alignment), version control (diff algorithms), and data compression. The problem is listed as SR10 in Garey & Johnson @garey1979.
+#{
+  let x = load-model-example("LongestCommonSubsequence")
+  let strings = x.instance.strings
+  let witness = x.samples.at(0).config
+  let fmt-str(s) = "\"" + s.map(c => str(c)).join("") + "\""
+  let string-list = strings.map(fmt-str).join(", ")
+  let find-embed(target, candidate) = {
+    let positions = ()
+    let j = 0
+    for (i, ch) in target.enumerate() {
+      if j < candidate.len() and ch == candidate.at(j) {
+        positions.push(i)
+        j += 1
+      }
+    }
+    positions
+  }
+  let embeds = strings.map(s => find-embed(s, witness))
+  [
+    #problem-def("LongestCommonSubsequence")[
+      Given a finite alphabet $Sigma$, a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, and a positive integer $K$, determine whether there exists a string $w in Sigma^*$ with $|w| gt.eq K$ such that every string $r_i in R$ contains $w$ as a _subsequence_: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|w|) lt.eq |r_i|$ with $r_i[j_t] = w[t]$ for all $t$.
+    ][
+      A classic NP-complete string problem, listed as problem SR10 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness, while Garey and Johnson note polynomial-time cases for fixed $K$ or fixed $|R|$. For the special case of two strings, the classical dynamic-programming algorithm of #cite(<wagnerfischer1974>, form: "prose") runs in $O(|r_1| dot |r_2|)$ time. The decision model implemented in this repository fixes the witness length to exactly $K$; this is equivalent to the standard "$|w| gt.eq K$" formulation because any longer common subsequence has a length-$K$ prefix.
 
-  *Example.* Let $s_1 = $ `ABAC` and $s_2 = $ `BACA` over $Sigma = {A, B, C}$. The longest common subsequence has length 3, e.g., `BAC`: positions 1, 2, 3 of $s_1$ match positions 0, 1, 2 of $s_2$.
-]
+      *Example.* Let $Sigma = {0, 1}$ and let the input set $R$ contain the strings #string-list. The witness $w = $ #fmt-str(witness) is a common subsequence of every string in $R$.
+
+      #figure({
+        let blue = graph-colors.at(0)
+        align(center, stack(dir: ttb, spacing: 0.35cm,
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 1.2cm, height: 0.45cm, align(center + horizon, text(8pt, "w ="))),
+            ..witness.enumerate().map(((i, symbol)) => {
+              box(width: 0.48cm, height: 0.48cm, fill: blue.transparentize(70%), stroke: 0.5pt + luma(120),
+                align(center + horizon, text(9pt, weight: "bold", str(symbol))))
+            }),
+          ),
+          ..strings.enumerate().map(((ri, s)) => {
+            let embed = embeds.at(ri)
+            stack(dir: ltr, spacing: 0pt,
+              box(width: 1.2cm, height: 0.45cm, align(center + horizon, text(8pt, "r" + str(ri + 1) + " ="))),
+              ..s.enumerate().map(((i, symbol)) => {
+                let fill = if embed.contains(i) { blue.transparentize(78%) } else { white }
+                box(width: 0.48cm, height: 0.48cm, fill: fill, stroke: 0.5pt + luma(120),
+                  align(center + horizon, text(9pt, weight: "bold", str(symbol))))
+              }),
+            )
+          }),
+        ))
+      })
+
+      The highlighted positions show one left-to-right embedding of $w = $ #fmt-str(witness) in each input string, certifying the YES answer for $K = 3$.
+    ]
+  ]
+}
 
 #problem-def("SubsetSum")[
   Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$ and a target $B in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ such that $sum_(a in A') s(a) = B$.
@@ -1751,6 +2282,48 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 
   *Example.* Let $A = {5, 3, 8, 2, 7, 1}$ ($n = 6$), $K = 3$ groups, and bound $J = 240$. The partition $A_1 = {8, 1}$, $A_2 = {5, 2}$, $A_3 = {3, 7}$ gives group sums $9, 7, 10$ and sum of squares $81 + 49 + 100 = 230 lt.eq 240 = J$. With a tighter bound $J = 225$, the best achievable partition has group sums ${9, 9, 8}$ yielding $81 + 81 + 64 = 226 > 225$, so the answer is NO.
 ]
+
+#{
+  let x = load-model-example("SequencingWithReleaseTimesAndDeadlines")
+  let n = x.instance.lengths.len()
+  let lengths = x.instance.lengths
+  let release = x.instance.release_times
+  let deadline = x.instance.deadlines
+  let sol = x.optimal.at(0)
+  // Decode Lehmer code to permutation
+  let available = range(n)
+  let perm = ()
+  for c in sol.config {
+    perm = perm + (available.at(c),)
+    available = available.slice(0, c) + available.slice(c + 1)
+  }
+  // Compute start times by simulating the schedule (build (task_idx, start) pairs)
+  let current = 0
+  let schedule = ()
+  for idx in perm {
+    let s = calc.max(current, release.at(idx))
+    schedule = schedule + ((idx, s),)
+    current = s + lengths.at(idx)
+  }
+  [
+    #problem-def("SequencingWithReleaseTimesAndDeadlines")[
+      Given a set $T$ of $n$ tasks and, for each task $t in T$, a processing time $ell(t) in ZZ^+$, a release time $r(t) in ZZ^(>=0)$, and a deadline $d(t) in ZZ^+$, determine whether there exists a one-processor schedule $sigma: T -> ZZ^(>=0)$ such that for all $t in T$: $sigma(t) >= r(t)$, $sigma(t) + ell(t) <= d(t)$, and no two tasks overlap (i.e., $sigma(t) > sigma(t')$ implies $sigma(t) >= sigma(t') + ell(t')$).
+    ][
+      Problem SS1 in Garey and Johnson's appendix @garey1979, and a fundamental single-machine scheduling feasibility problem. It is strongly NP-complete by reduction from 3-Partition, so no pseudo-polynomial time algorithm exists unless P = NP. The problem becomes polynomial-time solvable when: (1) all task lengths equal 1, (2) preemption is allowed, or (3) all release times are zero. The best known exact algorithm for the general case runs in $O^*(2^n dot n)$ time via dynamic programming on task subsets.
+
+      *Example.* Consider #n tasks:
+      #align(center, table(
+        columns: n + 1,
+        align: center,
+        table.header([], ..range(n).map(i => [$t_#(i + 1)$])),
+        [$ell(t)$], ..lengths.map(l => [#l]),
+        [$r(t)$], ..release.map(r => [#r]),
+        [$d(t)$], ..deadline.map(d => [#d]),
+      ))
+      A feasible schedule: #schedule.map(((idx, s)) => [$sigma(t_#(idx + 1)) = #s$ (runs $[#s, #(s + lengths.at(idx)))$)]).join([, ]). All release and deadline constraints are satisfied with no overlap.
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("ShortestCommonSupersequence")
@@ -1831,6 +2404,72 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   ]
 }
 
+#{
+  let x = load-model-example("StringToStringCorrection")
+  let source = x.instance.source
+  let target = x.instance.target
+  let alpha-size = x.instance.alphabet_size
+  let bound-k = x.instance.bound
+  let n = source.len()
+  // Alphabet mapping: 0->a, 1->b, 2->c, 3->d
+  let alpha-map = range(alpha-size).map(i => str.from-unicode(97 + i))
+  let fmt-str(s) = s.map(c => alpha-map.at(c)).join("")
+  let src-str = fmt-str(source)
+  let tgt-str = fmt-str(target)
+  // Use solution [8, 5]: swap(2,3) then delete(5)
+  let sol = x.optimal.at(1)
+  // Trace the operations
+  let after-swap = (source.at(0), source.at(1), source.at(3), source.at(2), source.at(4), source.at(5))
+  let after-swap-str = after-swap.map(c => alpha-map.at(c)).join("")
+  [
+    #problem-def("StringToStringCorrection")[
+      Given a finite alphabet $Sigma$, a source string $x in Sigma^*$, a target string $y in Sigma^*$, and a positive integer $K$, determine whether $y$ can be derived from $x$ by a sequence of at most $K$ operations, where each operation is either a _single-symbol deletion_ (remove one character at a chosen position) or an _adjacent-symbol interchange_ (swap two neighboring characters).
+    ][
+      A classical NP-complete problem listed as SR20 in Garey and Johnson @garey1979. #cite(<wagner1975>, form: "prose") proved NP-completeness via transformation from Set Covering. The standard edit distance problem --- allowing insertion, deletion, and substitution --- is solvable in $O(|x| dot |y|)$ time by the Wagner--Fischer dynamic programming algorithm @wagner1974. However, restricting the operation set to only deletions and adjacent swaps makes the problem NP-complete for unbounded alphabets. When only adjacent swaps are allowed (no deletions), the problem reduces to counting inversions and is polynomial @wagner1975.#footnote[No algorithm improving on brute-force is known for the general swap-and-delete variant.]
+
+      *Example.* Let $Sigma = {#alpha-map.join(", ")}$, source $x = #src-str$ (length #n), target $y = #tgt-str$ (length #target.len()), and $K = #bound-k$.
+
+      #figure({
+        let blue = graph-colors.at(0)
+        let red = rgb("#e15759")
+        let cell(ch, highlight: false, strike: false) = {
+          let fill = if highlight { blue.transparentize(70%) } else { white }
+          box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
+            align(center + horizon, text(9pt, weight: "bold",
+              if strike { text(fill: red, [#sym.times]) } else { ch })))
+        }
+        align(center, stack(dir: ttb, spacing: 0.5cm,
+          // Step 0: source
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 2.2cm, height: 0.5cm, align(right + horizon, text(8pt)[$x: quad$])),
+            ..source.map(c => cell(alpha-map.at(c))),
+          ),
+          // Step 1: after swap at positions 2,3
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 2.2cm, height: 0.5cm, align(right + horizon, text(8pt)[swap$(2,3)$: quad])),
+            ..range(after-swap.len()).map(i => cell(alpha-map.at(after-swap.at(i)), highlight: after-swap.at(i) != source.at(i))),
+          ),
+          // Step 2: after delete at position 5
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 2.2cm, height: 0.5cm, align(right + horizon, text(8pt)[del$(5)$: quad])),
+            ..target.map(c => cell(alpha-map.at(c))),
+            cell([], strike: true),
+          ),
+          // Result
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 2.2cm, height: 0.5cm, align(right + horizon, text(8pt)[$= y$: quad])),
+            ..target.map(c => cell(alpha-map.at(c), highlight: true)),
+          ),
+        ))
+      },
+      caption: [String-to-String Correction: transforming $x = #src-str$ into $y = #tgt-str$ with $K = #bound-k$ operations. Step 1 swaps adjacent symbols at positions 2 and 3; step 2 deletes the symbol at position 5.],
+      ) <fig:stsc>
+
+      The transformation uses exactly $K = #bound-k$ operations (1 swap + 1 deletion), which is the minimum: a single operation cannot account for both the transposition of two symbols and the removal of one.
+    ]
+  ]
+}
+
 #problem-def("MinimumFeedbackArcSet")[
   Given a directed graph $G = (V, A)$, find a minimum-size subset $A' subset.eq A$ such that $G - A'$ is a directed acyclic graph (DAG). Equivalently, $A'$ must contain at least one arc from every directed cycle in $G$.
 ][
@@ -1838,6 +2477,46 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 
   *Example.* Consider $G$ with $V = {0, 1, 2, 3, 4, 5}$ and arcs $(0 arrow 1), (1 arrow 2), (2 arrow 0), (1 arrow 3), (3 arrow 4), (4 arrow 1), (2 arrow 5), (5 arrow 3), (3 arrow 0)$. This graph contains four directed cycles: $0 arrow 1 arrow 2 arrow 0$, $1 arrow 3 arrow 4 arrow 1$, $0 arrow 1 arrow 3 arrow 0$, and $2 arrow 5 arrow 3 arrow 0 arrow 1 arrow 2$. Removing $A' = {(0 arrow 1), (3 arrow 4)}$ breaks all four cycles (vertex 0 becomes a sink in the residual graph), giving a minimum FAS of size 2.
 ]
+
+#{
+  let x = load-model-example("MultipleChoiceBranching")
+  let nv = graph-num-vertices(x.instance)
+  let arcs = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let sol = x.samples.at(0)
+  let chosen = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  [
+    #problem-def("MultipleChoiceBranching")[
+      Given a directed graph $G = (V, A)$, arc weights $w: A -> ZZ^+$, a partition $A_1, A_2, dots, A_m$ of $A$, and a threshold $K in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ with $sum_(a in A') w(a) >= K$ such that every vertex has in-degree at most one in $(V, A')$, the selected subgraph $(V, A')$ is acyclic, and $|A' inter A_i| <= 1$ for every partition group.
+    ][
+      Multiple Choice Branching is the directed-graph problem ND11 in Garey & Johnson @garey1979. The partition constraint turns the polynomial-time maximum branching setting into an NP-complete decision problem: Garey and Johnson note that the problem remains NP-complete even when the digraph is strongly connected and all weights are equal, while the special case in which every partition group has size 1 reduces to ordinary maximum branching and becomes polynomial-time solvable @garey1979.
+
+      A conservative exact algorithm enumerates all $2^{|A|}$ arc subsets and checks the partition, in-degree, acyclicity, and threshold constraints in polynomial time. This is the brute-force search space used by the implementation.#footnote[We use the registry complexity bound $O^*(2^{|A|})$ for the full partitioned problem.]
+
+      *Example.* Consider the digraph on $n = #nv$ vertices with arcs $(0 arrow 1), (0 arrow 2), (1 arrow 3), (2 arrow 3), (1 arrow 4), (3 arrow 5), (4 arrow 5), (2 arrow 4)$, partition groups $A_1 = {(0 arrow 1), (0 arrow 2)}$, $A_2 = {(1 arrow 3), (2 arrow 3)}$, $A_3 = {(1 arrow 4), (2 arrow 4)}$, $A_4 = {(3 arrow 5), (4 arrow 5)}$, and threshold $K = 10$. The highlighted selection $A' = {(0 arrow 1), (1 arrow 3), (2 arrow 4), (3 arrow 5)}$ has total weight $3 + 4 + 3 + 3 = 13 >= 10$, uses exactly one arc from each partition group, and gives in-degrees 1 at vertices $1, 3, 4,$ and $5$. Because every selected arc points strictly left-to-right in the drawing, the selected subgraph is acyclic. The canonical fixture contains #x.optimal.len() satisfying selections for this instance; the figure highlights one of them.
+
+      #figure({
+        let verts = ((0, 1.6), (1.3, 2.3), (1.3, 0.9), (3.0, 2.3), (3.0, 0.9), (4.6, 1.6))
+        canvas(length: 1cm, {
+          for (idx, arc) in arcs.enumerate() {
+            let (u, v) = arc
+            let selected = chosen.contains(idx)
+            draw.line(
+              verts.at(u),
+              verts.at(v),
+              stroke: if selected { 2pt + graph-colors.at(0) } else { 0.9pt + luma(180) },
+              mark: (end: "straight", scale: if selected { 0.5 } else { 0.4 }),
+            )
+          }
+          for (k, pos) in verts.enumerate() {
+            g-node(pos, name: "v" + str(k), label: [$v_#k$])
+          }
+        })
+      },
+      caption: [Directed graph for Multiple Choice Branching. Blue arcs show the satisfying branching $(0 arrow 1), (1 arrow 3), (2 arrow 4), (3 arrow 5)$ of total weight 13; gray arcs are available but unselected.],
+      ) <fig:mcb-example>
+    ]
+  ]
+}
 
 #problem-def("FlowShopScheduling")[
   Given $m$ processors and a set $J$ of $n$ jobs, where each job $j in J$ consists of $m$ tasks $t_1 [j], t_2 [j], dots, t_m [j]$ with lengths $ell(t_i [j]) in ZZ^+_0$, and a deadline $D in ZZ^+$, determine whether there exists a permutation schedule $pi$ of the jobs such that all jobs complete by time $D$. Each job must be processed on machines $1, 2, dots, m$ in order, and job $j$ cannot start on machine $i+1$ until its task on machine $i$ is completed.
@@ -1910,6 +2589,197 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   ) <fig:flowshop>
 ]
 
+#problem-def("StaffScheduling")[
+  Given a collection $C$ of binary schedule patterns of length $m$, where each pattern has exactly $k$ ones, a requirement vector $overline(R) in ZZ_(>= 0)^m$, and a worker budget $n in ZZ_(>= 0)$, determine whether there exists a function $f: C -> ZZ_(>= 0)$ such that $sum_(c in C) f(c) <= n$ and $sum_(c in C) f(c) dot c >= overline(R)$ component-wise.
+][
+  Staff Scheduling is problem SS20 in Garey and Johnson's catalog @garey1979. It models workforce planning with reusable shift templates: each pattern describes the periods covered by one worker, and the multiplicity function $f$ chooses how many workers receive each template. The general problem is NP-complete @garey1979, while the circular-ones special case admits a polynomial-time algorithm via network-flow structure @bartholdi1980. In this codebase the registered baseline enumerates all assignments of $0, dots, n$ workers to each pattern, matching the $(n + 1)^(|C|)$ configuration space exposed by the model.
+
+  *Example.* Consider a 7-day week with $k = 5$ working days per schedule, worker budget $n = 4$, and schedule patterns
+  $ c_1 = (1, 1, 1, 1, 1, 0, 0), c_2 = (0, 1, 1, 1, 1, 1, 0), c_3 = (0, 0, 1, 1, 1, 1, 1), c_4 = (1, 0, 0, 1, 1, 1, 1), c_5 = (1, 1, 0, 0, 1, 1, 1) $
+  with requirement vector $overline(R) = (2, 2, 2, 3, 3, 2, 1)$. Choosing
+  $ f(c_1) = f(c_2) = f(c_3) = f(c_4) = 1 $ and $ f(c_5) = 0 $
+  uses exactly 4 workers and yields coverage vector $(2, 2, 3, 4, 4, 3, 2) >= overline(R)$, so the instance is feasible.
+
+  #figure(
+    align(center, table(
+      columns: 9,
+      align: center,
+      table.header([Schedule], [Mon], [Tue], [Wed], [Thu], [Fri], [Sat], [Sun], [Workers]),
+      [$c_1$], [1], [1], [1], [1], [1], [0], [0], [1],
+      [$c_2$], [0], [1], [1], [1], [1], [1], [0], [1],
+      [$c_3$], [0], [0], [1], [1], [1], [1], [1], [1],
+      [$c_4$], [1], [0], [0], [1], [1], [1], [1], [1],
+      [$c_5$], [1], [1], [0], [0], [1], [1], [1], [0],
+      [$overline(R)$], [2], [2], [2], [3], [3], [2], [1], [-],
+      [Coverage], [2], [2], [3], [4], [4], [3], [2], [4],
+    )),
+    caption: [Worked Staff Scheduling instance. The last column shows the chosen multiplicities $f(c_i)$; the final row verifies that daily coverage dominates the requirement vector while using 4 workers.],
+  ) <fig:staff-scheduling>
+]
+
+#{
+  let x = load-model-example("MultiprocessorScheduling")
+  let lengths = x.instance.lengths
+  let num-processors = x.instance.num_processors
+  let deadline = x.instance.deadline
+  let assignment = x.optimal.at(0).config
+  let tasks-by-processor = range(num-processors).map(p =>
+    range(lengths.len()).filter(i => assignment.at(i) == p)
+  )
+  let loads = tasks-by-processor.map(tasks => tasks.map(i => lengths.at(i)).sum())
+  let max-x = (num-processors - 1) * 1.8 + 1.0
+  [
+    #problem-def("MultiprocessorScheduling")[
+      Given a finite set $T$ of tasks with processing lengths $ell: T -> ZZ^+$, a number $m in ZZ^+$ of identical processors, and a deadline $D in ZZ^+$, determine whether there exists an assignment $p: T -> {1, dots, m}$ such that for every processor $i in {1, dots, m}$ we have $sum_(t in T: p(t) = i) ell(t) <= D$.
+    ][
+      Multiprocessor Scheduling is problem SS8 in Garey & Johnson @garey1979. Their original formulation uses start times on identical processors, but because tasks are independent and non-preemptive, any feasible schedule can be packed contiguously on each processor. The model implemented here therefore uses processor-assignment variables, and feasibility reduces to checking that every processor's total load is at most $D$. For fixed $m$, dynamic programming over load vectors gives pseudo-polynomial algorithms; for general $m$, the best known exact algorithm runs in $O^*(2^n)$ time via inclusion-exclusion over set partitions @bjorklund2009.
+
+      *Example.* Let $T = {t_1, dots, t_5}$ with lengths $(4, 5, 3, 2, 6)$, $m = 2$, and $D = 10$. The satisfying assignment $(1, 2, 2, 2, 1)$ places $t_1$ and $t_5$ on processor 1 and $t_2, t_3, t_4$ on processor 2. The verifier computes the processor loads $4 + 6 = 10$ and $5 + 3 + 2 = 10$, so both meet the deadline exactly.
+
+      #figure({
+        canvas(length: 1cm, {
+          let scale = 0.25
+          let width = 1.0
+          let gap = 0.8
+          let colors = (
+            rgb("#4e79a7"),
+            rgb("#e15759"),
+            rgb("#76b7b2"),
+            rgb("#f28e2b"),
+            rgb("#59a14f"),
+          )
+
+          for p in range(num-processors) {
+            let x0 = p * (width + gap)
+            draw.rect((x0, 0), (x0 + width, deadline * scale), stroke: 0.8pt + black)
+            let y = 0
+            for task in tasks-by-processor.at(p) {
+              let len = lengths.at(task)
+              let col = colors.at(task)
+              draw.rect(
+                (x0, y),
+                (x0 + width, y + len * scale),
+                fill: col.transparentize(25%),
+                stroke: 0.4pt + col,
+              )
+              draw.content(
+                (x0 + width / 2, y + len * scale / 2),
+                text(7pt, fill: white)[$t_#(task + 1)$],
+              )
+              y += len * scale
+            }
+            draw.content((x0 + width / 2, -0.3), text(8pt)[$P_#(p + 1)$])
+            draw.content((x0 + width / 2, deadline * scale + 0.25), text(7pt)[$L_#(p + 1) = #loads.at(p)$])
+          }
+
+          draw.line(
+            (-0.15, deadline * scale),
+            (max-x + 0.15, deadline * scale),
+            stroke: (dash: "dashed", paint: luma(150), thickness: 0.5pt),
+          )
+          draw.content((-0.45, deadline * scale), text(7pt)[$D$])
+        })
+      },
+      caption: [Canonical Multiprocessor Scheduling instance with 5 tasks on 2 processors. Stacked blocks show the satisfying assignment $(1, 2, 2, 2, 1)$; both processor loads equal the deadline $D = 10$.],
+      ) <fig:multiprocessor-scheduling>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SequencingWithinIntervals")
+  let ntasks = x.instance.lengths.len()
+  let release = x.instance.release_times
+  let deadline = x.instance.deadlines
+  let lengths = x.instance.lengths
+  let sol = x.optimal.at(0)
+  // Compute start times from config offsets: start_i = release_i + config_i
+  let starts = range(ntasks).map(i => release.at(i) + sol.config.at(i))
+  // Identify the enforcer task: the one with the tightest window (deadline - release == length)
+  let enforcer = range(ntasks).filter(i => deadline.at(i) - release.at(i) == lengths.at(i)).at(0)
+  let regular = range(ntasks).filter(i => i != enforcer)
+  // Partition sum B = total length of regular tasks
+  let B = regular.map(i => lengths.at(i)).sum()
+  [
+    #problem-def("SequencingWithinIntervals")[
+      Given a finite set $T$ of tasks and, for each $t in T$, a release time $r(t) >= 0$, a deadline $d(t) >= 0$, and a processing length $ell(t) in ZZ^+$ satisfying $r(t) + ell(t) <= d(t)$, determine whether there exists a feasible schedule $sigma: T -> ZZ_(>= 0)$ such that for each $t in T$: (1) $sigma(t) >= r(t)$, (2) $sigma(t) + ell(t) <= d(t)$, and (3) for all $t' in T backslash {t}$, either $sigma(t') + ell(t') <= sigma(t)$ or $sigma(t') >= sigma(t) + ell(t)$.
+    ][
+      Sequencing Within Intervals is problem SS1 in Garey & Johnson @garey1979, proved NP-complete via reduction from Partition (Theorem 3.8). Each task $t$ must execute non-preemptively during the interval $[r(t), d(t))$, occupying $ell(t)$ consecutive time units, and no two tasks may overlap. The problem is a canonical single-machine scheduling problem and one of the earliest NP-completeness results for scheduling theory.
+
+      The NP-completeness proof uses an "enforcer" task pinned at the midpoint of the time horizon, forcing the remaining tasks to split into two balanced groups --- directly encoding the Partition problem.
+
+      *Example.* Consider #ntasks tasks derived from a Partition instance with $A = {#regular.map(i => str(lengths.at(i))).join(", ")}$ (sum $B = #B$):
+      #align(center, table(
+        columns: ntasks + 1,
+        align: center,
+        table.header([$"Task"$], ..regular.map(i => [$t_#(i + 1)$]), [$overline(t)$]),
+        [$r(t)$], ..regular.map(i => [#release.at(i)]), [#release.at(enforcer)],
+        [$d(t)$], ..regular.map(i => [#deadline.at(i)]), [#deadline.at(enforcer)],
+        [$ell(t)$], ..regular.map(i => [#lengths.at(i)]), [#lengths.at(enforcer)],
+      ))
+      The enforcer task $overline(t)$ must run in $[#release.at(enforcer), #deadline.at(enforcer))$, splitting the schedule into $[0, #release.at(enforcer))$ and $[#deadline.at(enforcer), #deadline.at(0))$. Each side has #(B / 2) time units, and tasks with total length $#(B / 2)$ must fill each side --- corresponding to a partition of $A$.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"))
+          let enforcer-color = rgb("#b07aa1")
+          let task-labels = regular.map(i => "$t_" + str(i + 1) + "$") + ("$overline(t)$",)
+          let task-order = regular + (enforcer,)
+          let scale = 0.7
+          let row-h = 0.6
+
+          // Single-row Gantt chart: all tasks on one timeline
+          for (k, i) in task-order.enumerate() {
+            let s = starts.at(i)
+            let e = s + lengths.at(i)
+            let x0 = s * scale
+            let x1 = e * scale
+            let col = if i == enforcer { enforcer-color } else { colors.at(regular.position(j => j == i)) }
+            rect((x0, -row-h / 2), (x1, row-h / 2),
+              fill: col.transparentize(30%), stroke: 0.4pt + col)
+            content(((x0 + x1) / 2, 0), text(6pt, task-labels.at(k)))
+          }
+
+          // Release-time and deadline markers for each task
+          for (k, i) in task-order.enumerate() {
+            let col = if i == enforcer { enforcer-color } else { colors.at(regular.position(j => j == i)) }
+            // Release time: upward triangle below axis
+            let rx = release.at(i) * scale
+            line((rx, -row-h / 2 - 0.05), (rx, -row-h / 2 - 0.18), stroke: 0.5pt + col)
+            // Deadline: downward tick above axis
+            let dx = deadline.at(i) * scale
+            line((dx, row-h / 2 + 0.05), (dx, row-h / 2 + 0.18), stroke: 0.5pt + col)
+          }
+
+          // Release / deadline group labels
+          content((-0.5, -row-h / 2 - 0.12), text(5pt)[$r$])
+          content((-0.5, row-h / 2 + 0.12), text(5pt)[$d$])
+
+          // Time axis
+          let max-t = 11
+          let y-axis = -row-h / 2 - 0.35
+          line((0, y-axis), (max-t * scale, y-axis), stroke: 0.4pt)
+          for t in range(max-t + 1) {
+            let x = t * scale
+            line((x, y-axis), (x, y-axis - 0.08), stroke: 0.4pt)
+            if calc.rem(t, 2) == 0 or t == max-t {
+              content((x, y-axis - 0.22), text(5pt, str(t)))
+            }
+          }
+          content((max-t * scale / 2, y-axis - 0.45), text(7pt)[$t$])
+
+          // Enforcer region highlight
+          let ex0 = release.at(enforcer) * scale
+          let ex1 = deadline.at(enforcer) * scale
+          line((ex0, row-h / 2 + 0.3), (ex0, y-axis), stroke: (paint: enforcer-color, thickness: 0.6pt, dash: "dashed"))
+          line((ex1, row-h / 2 + 0.3), (ex1, y-axis), stroke: (paint: enforcer-color, thickness: 0.6pt, dash: "dashed"))
+        }),
+        caption: [Feasible schedule for the SWI instance. The enforcer task $overline(t)$ (purple) is pinned at $[#release.at(enforcer), #deadline.at(enforcer))$, splitting the timeline into two halves of #(B / 2) time units each.],
+      ) <fig:swi>
+    ]
+  ]
+}
 #{
   let x = load-model-example("MinimumTardinessSequencing")
   let ntasks = x.instance.num_tasks
@@ -1985,6 +2855,53 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     ]
   ]
 }
+
+#problem-def("DirectedTwoCommodityIntegralFlow")[
+  Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) flow $f_i$ is conserved at every vertex except $s_1, s_2, t_1, t_2$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$ for $i in {1, 2}$.
+][
+  Directed Two-Commodity Integral Flow is a fundamental NP-complete problem in multicommodity flow theory, catalogued as ND38 in Garey & Johnson @garey1979. While single-commodity max-flow is solvable in polynomial time and fractional multicommodity flow reduces to linear programming, requiring integral flows with just two commodities makes the problem NP-complete.
+
+  NP-completeness was proved by Even, Itai, and Shamir via reduction from 3-SAT @even1976. The problem remains NP-complete even when all arc capacities are 1 and $R_1 = 1$. No sub-exponential exact algorithm is known; brute-force enumeration over $(C + 1)^(2|A|)$ flow assignments dominates, where $C = max_(a in A) c(a)$.#footnote[No algorithm improving on brute-force is known for Directed Two-Commodity Integral Flow.]
+
+  *Example.* Consider a directed graph with 6 vertices and 8 arcs (all with unit capacity), sources $s_1 = 0$, $s_2 = 1$, sinks $t_1 = 4$, $t_2 = 5$, and requirements $R_1 = R_2 = 1$. Commodity 1 routes along the path $0 -> 2 -> 4$ and commodity 2 along $1 -> 3 -> 5$, satisfying all capacity and conservation constraints.
+
+  #figure(
+    canvas(length: 1cm, {
+      import draw: *
+      let positions = (
+        (0, 1),    // 0 = s1
+        (0, -1),   // 1 = s2
+        (2, 1),    // 2
+        (2, -1),   // 3
+        (4, 1),    // 4 = t1
+        (4, -1),   // 5 = t2
+      )
+      let labels = ($s_1$, $s_2$, $2$, $3$, $t_1$, $t_2$)
+      let arcs = ((0, 2), (0, 3), (1, 2), (1, 3), (2, 4), (2, 5), (3, 4), (3, 5))
+      // Commodity 1 path: arcs 0 (0->2) and 4 (2->4)
+      let c1-arcs = (0, 4)
+      // Commodity 2 path: arcs 3 (1->3) and 7 (3->5)
+      let c2-arcs = (3, 7)
+
+      // Draw arcs
+      for (idx, (u, v)) in arcs.enumerate() {
+        let from = positions.at(u)
+        let to = positions.at(v)
+        let color = if c1-arcs.contains(idx) { blue } else if c2-arcs.contains(idx) { red } else { gray.darken(20%) }
+        let thickness = if c1-arcs.contains(idx) or c2-arcs.contains(idx) { 1.2pt } else { 0.6pt }
+        line(from, to, stroke: (paint: color, thickness: thickness), mark: (end: "straight", scale: 0.5))
+      }
+
+      // Draw vertices
+      for (k, pos) in positions.enumerate() {
+        let fill = if k == 0 or k == 4 { blue.lighten(70%) } else if k == 1 or k == 5 { red.lighten(70%) } else { white }
+        circle(pos, radius: 0.3, fill: fill, stroke: 0.6pt, name: str(k))
+        content(pos, text(8pt, labels.at(k)))
+      }
+    }),
+    caption: [Two-commodity flow: commodity 1 (blue, $s_1 -> 2 -> t_1$) and commodity 2 (red, $s_2 -> 3 -> t_2$).],
+  ) <fig:d2cif>
+]
 
 // Completeness check: warn about problem types in JSON but missing from paper
 #{
@@ -2678,6 +3595,22 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $D = {v : x_v = 1}$.
 ]
 
+#reduction-rule("MinimumFeedbackVertexSet", "ILP")[
+  A directed graph is a DAG iff it admits a topological ordering. MTZ-style ordering variables enforce this: for each kept vertex, an integer position variable must increase strictly along every arc. Removed vertices relax the ordering constraints via big-$M$ terms.
+][
+  _Construction._ Given directed graph $G = (V, A)$ with $n = |V|$, $m = |A|$, and weights $w_v$:
+
+  _Variables:_ Binary $x_v in {0, 1}$ for each $v in V$: $x_v = 1$ iff $v$ is removed. Integer $o_v in {0, dots, n-1}$ for each $v in V$: topological order position. Total: $2n$ variables.
+
+  _Constraints:_ (1) For each arc $(u -> v) in A$: $o_v - o_u >= 1 - n(x_u + x_v)$. When both endpoints are kept ($x_u = x_v = 0$), this forces $o_v > o_u$ (strict topological order). When either is removed, the constraint relaxes to $o_v - o_u >= 1 - n$ (trivially satisfied). (2) Binary bounds: $x_v <= 1$. (3) Order bounds: $o_v <= n - 1$. Total: $m + 2n$ constraints.
+
+  _Objective:_ Minimize $sum_v w_v x_v$.
+
+  _Correctness._ ($arrow.r.double$) If $S$ is a feedback vertex set, then $G[V backslash S]$ is a DAG with a topological ordering. Set $x_v = 1$ for $v in S$, $o_v$ to the topological position for kept vertices, and $o_v = 0$ for removed vertices. All constraints are satisfied. ($arrow.l.double$) If the ILP is feasible with all arc constraints satisfied, no directed cycle can exist among kept vertices: a cycle $v_1 -> dots -> v_k -> v_1$ would require $o_(v_1) < o_(v_2) < dots < o_(v_k) < o_(v_1)$, a contradiction.
+
+  _Solution extraction._ $S = {v : x_v = 1}$.
+]
+
 #reduction-rule("MaximumClique", "ILP")[
   A clique requires every pair of selected vertices to be adjacent; equivalently, no two selected vertices may share a _non_-edge. This is the independent set formulation on the complement graph $overline(G)$.
 ][
@@ -2771,19 +3704,19 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("LongestCommonSubsequence", "ILP")[
-  The match-pair ILP formulation @blum2021 encodes subsequence alignment as a binary optimization. For two strings $s_1$ (length $n_1$) and $s_2$ (length $n_2$), each position pair $(j_1, j_2)$ where $s_1[j_1] = s_2[j_2]$ yields a binary variable. Constraints enforce one-to-one matching and order preservation (no crossings). The objective maximizes the number of matched pairs.
+  A bounded-witness ILP formulation turns the decision version of LCS into a feasibility problem. Binary variables choose the symbol at each witness position and, for every input string, choose where that witness position is realized. Linear constraints enforce symbol consistency and strictly increasing source positions.
 ][
-  _Construction._ Given strings $s_1$ and $s_2$:
+  _Construction._ Given alphabet $Sigma$, strings $R = {r_1, dots, r_m}$, and bound $K$:
 
-  _Variables:_ Binary $m_(j_1, j_2) in {0, 1}$ for each $(j_1, j_2)$ with $s_1[j_1] = s_2[j_2]$. Interpretation: $m_(j_1, j_2) = 1$ iff position $j_1$ of $s_1$ is matched to position $j_2$ of $s_2$.
+  _Variables:_ Binary $x_(p, a) in {0, 1}$ for witness position $p in {1, dots, K}$ and symbol $a in Sigma$, with $x_(p, a) = 1$ iff the $p$-th witness symbol equals $a$. For every input string $r_i$, witness position $p$, and source index $j in {1, dots, |r_i|}$, binary $y_(i, p, j) = 1$ iff the $p$-th witness symbol is matched to position $j$ of $r_i$.
 
-  _Constraints:_ (1) Each position in $s_1$ matched at most once: $sum_(j_2 : (j_1, j_2) in M) m_(j_1, j_2) lt.eq 1$ for all $j_1$. (2) Each position in $s_2$ matched at most once: $sum_(j_1 : (j_1, j_2) in M) m_(j_1, j_2) lt.eq 1$ for all $j_2$. (3) No crossings: for $(j_1, j_2), (j'_1, j'_2) in M$ with $j_1 < j'_1$ and $j_2 > j'_2$: $m_(j_1, j_2) + m_(j'_1, j'_2) lt.eq 1$.
+  _Constraints:_ (1) Exactly one symbol per witness position: $sum_(a in Sigma) x_(p, a) = 1$ for all $p$. (2) Exactly one matched source position for each $(i, p)$: $sum_(j = 1)^(|r_i|) y_(i, p, j) = 1$. (3) Character consistency: if $r_i[j] = a$, then $y_(i, p, j) lt.eq x_(p, a)$. (4) Strictly increasing matches: for consecutive witness positions $p$ and $p + 1$, forbid $y_(i, p, j') = y_(i, p + 1, j) = 1$ whenever $j' gt.eq j$.
 
-  _Objective:_ Maximize $sum_((j_1, j_2) in M) m_(j_1, j_2)$.
+  _Objective:_ Use the zero objective. The target ILP is feasible iff the source LCS instance is a YES instance.
 
-  _Correctness._ ($arrow.r.double$) A common subsequence of length $ell$ defines $ell$ matched pairs that are order-preserving (no crossings) and one-to-one, yielding a feasible ILP solution with objective $ell$. ($arrow.l.double$) An ILP solution with objective $ell$ defines $ell$ matched pairs; constraints (1)--(2) ensure one-to-one matching, and constraint (3) ensures order preservation, so the matched characters form a common subsequence of length $ell$.
+  _Correctness._ ($arrow.r.double$) If a witness $w = w_1 dots w_K$ is a common subsequence of every string, set $x_(p, w_p) = 1$ and choose, in every $r_i$, the positions where that embedding occurs. Constraints (1)--(4) are satisfied, so the ILP is feasible. ($arrow.l.double$) Any feasible ILP solution selects exactly one symbol for each witness position and exactly one realization in each source string. Character consistency ensures the chosen positions spell the same witness string in every input string, and the ordering constraints ensure those positions are strictly increasing. Therefore the extracted witness is a common subsequence of length $K$.
 
-  _Solution extraction._ Collect pairs $(j_1, j_2)$ with $m_(j_1, j_2) = 1$, sort by $j_1$, and read the characters.
+  _Solution extraction._ For each witness position $p$, read the unique symbol $a$ with $x_(p, a) = 1$ and output the resulting length-$K$ string.
 ]
 
 == Unit Disk Mapping
