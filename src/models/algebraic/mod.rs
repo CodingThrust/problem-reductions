@@ -26,5 +26,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(ilp::canonical_model_example_specs());
     specs.extend(closest_vector_problem::canonical_model_example_specs());
     specs.extend(bmf::canonical_model_example_specs());
+    specs.extend(quadratic_assignment::canonical_model_example_specs());
     specs
 }

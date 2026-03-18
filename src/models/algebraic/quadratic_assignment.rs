@@ -176,6 +176,29 @@ crate::declare_variants! {
     default opt QuadraticAssignment => "factorial(num_facilities)",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "quadratic_assignment",
+        instance: Box::new(QuadraticAssignment::new(
+            vec![
+                vec![0, 5, 2, 0],
+                vec![5, 0, 0, 3],
+                vec![2, 0, 0, 4],
+                vec![0, 3, 4, 0],
+            ],
+            vec![
+                vec![0, 4, 1, 1],
+                vec![4, 0, 3, 4],
+                vec![1, 3, 0, 4],
+                vec![1, 4, 4, 0],
+            ],
+        )),
+        optimal_config: vec![3, 0, 1, 2],
+        optimal_value: serde_json::json!({"Valid": 56}),
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/algebraic/quadratic_assignment.rs"]
 mod tests;

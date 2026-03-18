@@ -3,19 +3,21 @@ use crate::solvers::{BruteForce, Solver};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
-/// Create a 4x4 test instance for reuse across tests.
+/// Create a 4x4 test instance matching issue #300's example.
 ///
-/// Cost matrix C:
+/// Cost matrix C (flows between 4 facilities):
 /// [[0, 5, 2, 0],
 ///  [5, 0, 0, 3],
 ///  [2, 0, 0, 4],
 ///  [0, 3, 4, 0]]
 ///
-/// Distance matrix D:
-/// [[0, 1, 2, 3],
-///  [1, 0, 1, 2],
-///  [2, 1, 0, 1],
-///  [3, 2, 1, 0]]
+/// Distance matrix D (distances between 4 locations):
+/// [[0, 4, 1, 1],
+///  [4, 0, 3, 4],
+///  [1, 3, 0, 4],
+///  [1, 4, 4, 0]]
+///
+/// Optimal assignment: f* = (3, 0, 1, 2) with cost 56.
 fn make_test_instance() -> QuadraticAssignment {
     let cost_matrix = vec![
         vec![0, 5, 2, 0],
@@ -24,10 +26,10 @@ fn make_test_instance() -> QuadraticAssignment {
         vec![0, 3, 4, 0],
     ];
     let distance_matrix = vec![
-        vec![0, 1, 2, 3],
-        vec![1, 0, 1, 2],
-        vec![2, 1, 0, 1],
-        vec![3, 2, 1, 0],
+        vec![0, 4, 1, 1],
+        vec![4, 0, 3, 4],
+        vec![1, 3, 0, 4],
+        vec![1, 4, 4, 0],
     ];
     QuadraticAssignment::new(cost_matrix, distance_matrix)
 }
@@ -47,11 +49,11 @@ fn test_quadratic_assignment_evaluate_identity() {
     let qap = make_test_instance();
     // Identity assignment f = (0, 1, 2, 3):
     // cost = sum_{i != j} C[i][j] * D[i][j]
-    //   = 5*1 + 2*2 + 0*3 + 5*1 + 0*1 + 3*2 + 2*2 + 0*1 + 4*1 + 0*3 + 3*2 + 4*1
-    //   = 5 + 4 + 0 + 5 + 0 + 6 + 4 + 0 + 4 + 0 + 6 + 4 = 38
+    //   = 5*4 + 2*1 + 0*1 + 5*4 + 0*3 + 3*4 + 2*1 + 0*3 + 4*4 + 0*1 + 3*4 + 4*4
+    //   = 20 + 2 + 0 + 20 + 0 + 12 + 2 + 0 + 16 + 0 + 12 + 16 = 100
     assert_eq!(
         Problem::evaluate(&qap, &[0, 1, 2, 3]),
-        SolutionSize::Valid(38)
+        SolutionSize::Valid(100)
     );
 }
 
@@ -60,14 +62,14 @@ fn test_quadratic_assignment_evaluate_swap() {
     let qap = make_test_instance();
     // Assignment f = (0, 2, 1, 3): facility 1 -> loc 2, facility 2 -> loc 1
     // cost = sum_{i != j} C[i][j] * D[config[i]][config[j]]
-    //   i=0,j=1: 5*D[0][2]=5*2=10  i=0,j=2: 2*D[0][1]=2*1=2   i=0,j=3: 0*D[0][3]=0
-    //   i=1,j=0: 5*D[2][0]=5*2=10  i=1,j=2: 0*D[2][1]=0*1=0   i=1,j=3: 3*D[2][3]=3*1=3
-    //   i=2,j=0: 2*D[1][0]=2*1=2   i=2,j=1: 0*D[1][2]=0*1=0   i=2,j=3: 4*D[1][3]=4*2=8
-    //   i=3,j=0: 0*D[3][0]=0       i=3,j=1: 3*D[3][2]=3*1=3   i=3,j=2: 4*D[3][1]=4*2=8
-    //   Total = 10+2+0+10+0+3+2+0+8+0+3+8 = 46
+    //   i=0,j=1: 5*D[0][2]=5*1=5   i=0,j=2: 2*D[0][1]=2*4=8   i=0,j=3: 0*D[0][3]=0
+    //   i=1,j=0: 5*D[2][0]=5*1=5   i=1,j=2: 0*D[2][1]=0*3=0   i=1,j=3: 3*D[2][3]=3*4=12
+    //   i=2,j=0: 2*D[1][0]=2*4=8   i=2,j=1: 0*D[1][2]=0*3=0   i=2,j=3: 4*D[1][3]=4*4=16
+    //   i=3,j=0: 0*D[3][0]=0       i=3,j=1: 3*D[3][2]=3*4=12  i=3,j=2: 4*D[3][1]=4*4=16
+    //   Total = 5+8+0+5+0+12+8+0+16+0+12+16 = 82
     assert_eq!(
         Problem::evaluate(&qap, &[0, 2, 1, 3]),
-        SolutionSize::Valid(46)
+        SolutionSize::Valid(82)
     );
 }
 
@@ -154,9 +156,9 @@ fn test_quadratic_assignment_solver() {
     let best = solver.find_best(&qap);
     assert!(best.is_some());
     let best_config = best.unwrap();
-    // The brute-force solver finds the optimal assignment with cost 36.
+    // The brute-force solver finds the optimal assignment f* = (3, 0, 1, 2) with cost 56.
     assert_eq!(
         Problem::evaluate(&qap, &best_config),
-        SolutionSize::Valid(36)
+        SolutionSize::Valid(56)
     );
 }
