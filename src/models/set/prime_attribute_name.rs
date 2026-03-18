@@ -212,20 +212,19 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "prime_attribute_name",
-        build: || {
-            // Issue Example 1: 6 attributes, 3 FDs, query=3 -> YES
-            let problem = PrimeAttributeName::new(
-                6,
-                vec![
-                    (vec![0, 1], vec![2, 3, 4, 5]),
-                    (vec![2, 3], vec![0, 1, 4, 5]),
-                    (vec![0, 3], vec![1, 2, 4, 5]),
-                ],
-                3,
-            );
-            // {2, 3} is a candidate key containing attribute 3
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 0, 1, 1, 0, 0]])
-        },
+        // Issue Example 1: 6 attributes, 3 FDs, query=3 -> YES
+        instance: Box::new(PrimeAttributeName::new(
+            6,
+            vec![
+                (vec![0, 1], vec![2, 3, 4, 5]),
+                (vec![2, 3], vec![0, 1, 4, 5]),
+                (vec![0, 3], vec![1, 2, 4, 5]),
+            ],
+            3,
+        )),
+        // {2, 3} is a candidate key containing attribute 3
+        optimal_config: vec![0, 0, 1, 1, 0, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

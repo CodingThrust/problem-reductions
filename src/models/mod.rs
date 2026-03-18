@@ -12,19 +12,24 @@ pub mod set;
 pub use algebraic::{ClosestVectorProblem, BMF, ILP, QUBO};
 pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
-    BicliqueCover, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
-    GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, KColoring,
+    BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
+    BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GraphPartitioning,
+    HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KColoring, KthBestSpanningTree,
     LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
     MaximumMatching, MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
-    MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching, OptimalLinearArrangement,
-    PartitionIntoTriangles, RuralPostman, SpinGlass, SteinerTree, SubgraphIsomorphism,
-    TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
+    MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
+    OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, SpinGlass, SteinerTree,
+    StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
+    UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::{
     BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-    MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence,
-    SubsetSum,
+    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+    PrecedenceConstrainedScheduling, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
 };
 pub use set::{
-    ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, PrimeAttributeName, SetBasis,
+    ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
+    MinimumCardinalityKey, MinimumSetCovering, PrimeAttributeName, SetBasis,
 };

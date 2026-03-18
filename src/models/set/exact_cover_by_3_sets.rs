@@ -196,21 +196,20 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "exact_cover_by_3_sets",
-        build: || {
-            let problem = ExactCoverBy3Sets::new(
-                9,
-                vec![
-                    [0, 1, 2],
-                    [0, 2, 4],
-                    [3, 4, 5],
-                    [3, 5, 7],
-                    [6, 7, 8],
-                    [1, 4, 6],
-                    [2, 5, 8],
-                ],
-            );
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![1, 0, 1, 0, 1, 0, 0]])
-        },
+        instance: Box::new(ExactCoverBy3Sets::new(
+            9,
+            vec![
+                [0, 1, 2],
+                [0, 2, 4],
+                [3, 4, 5],
+                [3, 5, 7],
+                [6, 7, 8],
+                [1, 4, 6],
+                [2, 5, 8],
+            ],
+        )),
+        optimal_config: vec![1, 0, 1, 0, 1, 0, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

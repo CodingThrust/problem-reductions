@@ -87,7 +87,8 @@ pred reduce problem.json --to QUBO -o reduced.json
 pred solve reduced.json --solver brute-force
 
 # Pipe commands together (use - to read from stdin)
-pred create MIS --graph 0-1,1-2,2-3 | pred solve -
+pred create MIS --graph 0-1,1-2,2-3 | pred solve -   # when an ILP reduction path exists
+pred create StringToStringCorrection --source-string "0,1,2,3,1,0" --target-string "0,1,3,2,1" --bound 2 | pred solve - --solver brute-force
 pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --to QUBO | pred solve -
 ```
 
@@ -111,29 +112,82 @@ Lists all registered problem types with their short aliases.
 
 ```bash
 $ pred list
-Registered problems: 17 types, 48 reductions, 25 variant nodes
+Registered problems: 50 types, 59 reductions, 69 variant nodes
 
-  Problem                Aliases     Variants  Reduces to
-  ─────────────────────  ──────────  ────────  ──────────
-  CircuitSAT                                1           1
-  Factoring                                 1           2
-  ILP                                       1           1
-  KColoring                                 2           3
-  KSatisfiability        3SAT, KSAT         3           7
-  MaxCut                                    1           1
-  MaximumClique                             1           1
-  MaximumIndependentSet  MIS                4          10
-  MaximumMatching                           1           2
-  MaximumSetPacking                         2           4
-  MinimumDominatingSet                      1           1
-  MinimumSetCovering                        1           1
-  MinimumVertexCover     MVC                1           4
-  QUBO                                      1           1
-  Satisfiability         SAT                1           5
-  SpinGlass                                 2           3
-  TravelingSalesman      TSP                1           1
+  Problem                                           Aliases      Rules  Complexity
+  ────────────────────────────────────────────────  ───────────  ─────  ──────────────────────────────────────────────────────────────────
+  BMF *                                                                 O(2^(cols * rank + rank * rows))
+  BicliqueCover *                                                       O(2^num_vertices)
+  BiconnectivityAugmentation/SimpleGraph/i32 *                          O(2^num_potential_edges)
+  BinPacking/f64                                                     1  O(2^num_items)
+  BinPacking/i32 *                                                      O(2^num_items)
+  BoundedComponentSpanningForest/SimpleGraph/i32 *                      O(3^num_vertices)
+  CircuitSAT *                                                       2  O(2^num_variables)
+  ClosestVectorProblem/f64                          CVP                 O(2^num_basis_vectors)
+  ClosestVectorProblem/i32 *                                            O(2^num_basis_vectors)
+  DirectedTwoCommodityIntegralFlow *                D2CIF               O((max_capacity + 1)^(2 * num_arcs))
+  ExactCoverBy3Sets *                               X3C                 O(2^universe_size)
+  Factoring *                                                        2  O(exp((m + n)^0.3333333333333333 * log(m + n)^0.6666666666666666))
+  FlowShopScheduling *                                                  O(factorial(num_jobs))
+  GraphPartitioning/SimpleGraph *                                       O(2^num_vertices)
+  HamiltonianPath/SimpleGraph *                                         O(1.657^num_vertices)
+  ILP/bool *                                                         2  O(2^num_vars)
+  ILP/i32                                                               O(num_vars^num_vars)
+  IsomorphicSpanningTree *                                              O(factorial(num_vertices))
+  KColoring/SimpleGraph/KN *                                         3  O(2^num_vertices)
+  KColoring/SimpleGraph/K2                                              O(num_edges + num_vertices)
+  KColoring/SimpleGraph/K3                                              O(1.3289^num_vertices)
+  KColoring/SimpleGraph/K4                                              O(1.7159^num_vertices)
+  KColoring/SimpleGraph/K5                                              O(2^num_vertices)
+  KSatisfiability/KN *                              KSAT             6  O(2^num_variables)
+  KSatisfiability/K2                                                    O(num_clauses + num_variables)
+  KSatisfiability/K3                                                    O(1.307^num_variables)
+  Knapsack *                                                         1  O(2^(0.5 * num_items))
+  LengthBoundedDisjointPaths/SimpleGraph *                              O(2^(num_paths_required * num_vertices))
+  LongestCommonSubsequence *                        LCS              1  O(2^min_string_length)
+  MaxCut/SimpleGraph/i32 *                                           1  O(2^(0.7906666666666666 * num_vertices))
+  MaximalIS/SimpleGraph/i32 *                                           O(3^(0.3333333333333333 * num_vertices))
+  MaximumClique/SimpleGraph/i32 *                                    2  O(1.1996^num_vertices)
+  MaximumIndependentSet/SimpleGraph/One *           MIS             14  O(1.1996^num_vertices)
+  MaximumIndependentSet/KingsSubgraph/One                               O(2^sqrt(num_vertices))
+  MaximumIndependentSet/SimpleGraph/i32                                 O(1.1996^num_vertices)
+  MaximumIndependentSet/UnitDiskGraph/One                               O(2^sqrt(num_vertices))
+  MaximumIndependentSet/KingsSubgraph/i32                               O(2^sqrt(num_vertices))
+  MaximumIndependentSet/TriangularSubgraph/i32                          O(2^sqrt(num_vertices))
+  MaximumIndependentSet/UnitDiskGraph/i32                               O(2^sqrt(num_vertices))
+  MaximumMatching/SimpleGraph/i32 *                 MaxMatching      2  O(num_vertices^3)
+  MaximumSetPacking/One *                                            6  O(2^num_sets)
+  MaximumSetPacking/f64                                                 O(2^num_sets)
+  MaximumSetPacking/i32                                                 O(2^num_sets)
+  MinimumDominatingSet/SimpleGraph/i32 *                             1  O(1.4969^num_vertices)
+  MinimumFeedbackArcSet/i32 *                       FAS                 O(2^num_vertices)
+  MinimumFeedbackVertexSet/i32 *                    FVS                 O(1.9977^num_vertices)
+  MinimumMultiwayCut/SimpleGraph/i32 *                                  O(num_vertices^3 * 1.84^num_terminals)
+  MinimumSetCovering/i32 *                                           1  O(2^num_sets)
+  MinimumSumMulticenter/SimpleGraph/i32 *           pmedian             O(2^num_vertices)
+  MinimumTardinessSequencing *                                          O(2^num_tasks)
+  MinimumVertexCover/SimpleGraph/i32 *              MVC              2  O(1.1996^num_vertices)
+  MultipleChoiceBranching/i32 *                                         O(2^num_arcs)
+  OptimalLinearArrangement/SimpleGraph *            OLA                 O(2^num_vertices)
+  PaintShop *                                                           O(2^num_cars)
+  PartitionIntoTriangles/SimpleGraph *                                  O(2^num_vertices)
+  QUBO/f64 *                                                         2  O(2^num_vars)
+  RuralPostman/SimpleGraph/i32 *                    RPP                 O(num_vertices^2 * 2^num_vertices)
+  Satisfiability *                                  SAT              5  O(2^num_variables)
+  SequencingWithinIntervals *                                           O(2^num_tasks)
+  SetBasis *                                                            O(2^(basis_size * universe_size))
+  ShortestCommonSupersequence *                     SCS                 O(alphabet_size^bound)
+  SpinGlass/SimpleGraph/f64                                          3  O(2^num_spins)
+  SpinGlass/SimpleGraph/i32 *                                           O(2^num_spins)
+  SteinerTree/SimpleGraph/One                                           O(num_vertices * 3^num_terminals)
+  SteinerTree/SimpleGraph/i32 *                                         O(num_vertices * 3^num_terminals)
+  SubgraphIsomorphism *                                                 O(num_host_vertices^num_pattern_vertices)
+  SubsetSum *                                                           O(2^(0.5 * num_elements))
+  TravelingSalesman/SimpleGraph/i32 *               TSP              2  O(2^num_vertices)
+  UndirectedTwoCommodityIntegralFlow *                                  O(5^num_edges)
 
-Use `pred show <problem>` to see variants, reductions, and fields.
+* = default variant
+Use `pred show <problem>` to see reductions and fields.
 ```
 
 ### `pred show` — Inspect a problem
@@ -289,15 +343,20 @@ pred create MIS --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o problem.json
 pred create SAT --num-vars 3 --clauses "1,2;-1,3" -o sat.json
 pred create QUBO --matrix "1,0.5;0.5,2" -o qubo.json
 pred create KColoring --k 3 --graph 0-1,1-2,2-0 -o kcol.json
+pred create KthBestSpanningTree --graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3 -o kth.json
 pred create SpinGlass --graph 0-1,1-2 -o sg.json
 pred create MaxCut --graph 0-1,1-2,2-0 -o maxcut.json
+pred create MinimumMultiwayCut --graph 0-1,1-2,2-3,3-0 --terminals 0,2 --edge-weights 3,1,2,4 -o mmc.json
 pred create SteinerTree --graph 0-1,0-3,1-2,1-3,2-3,2-4,3-4 --edge-weights 2,5,2,1,5,6,1 --terminals 0,2,4 -o steiner.json
 pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1 -o utcif.json
 pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3 -o lbdp.json
 pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
 pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
 pred create X3C --universe 9 --sets "0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8" -o x3c.json
+pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" --k 2 -o mck.json
 pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 --precedence-pairs "0>3,1>3,1>4,2>4" -o mts.json
+pred create StringToStringCorrection --source-string "0,1,2,3,1,0" --target-string "0,1,3,2,1" --bound 2 | pred solve - --solver brute-force
+pred create StrongConnectivityAugmentation --arcs "0>1,1>2,2>0,3>4,4>3,2>3,4>5,5>3" --candidate-arcs "3>0:5,3>1:3,3>2:4,4>0:6,4>1:2,4>2:7,5>0:4,5>1:3,5>2:1,0>3:8,0>4:3,0>5:2,1>3:6,1>4:4,1>5:5,2>4:3,2>5:7,1>0:2" --bound 1 -o sca.json
 ```
 
 For `LengthBoundedDisjointPaths`, the CLI flag `--bound` maps to the JSON field
@@ -320,7 +379,8 @@ pred create MaxCut --random --num-vertices 20 --edge-prob 0.5 -o maxcut.json
 Without `-o`, the problem JSON is printed to stdout, which can be piped to other commands:
 
 ```bash
-pred create MIS --graph 0-1,1-2,2-3 | pred solve -
+pred create MIS --graph 0-1,1-2,2-3 | pred solve -   # when an ILP reduction path exists
+pred create StringToStringCorrection --source-string "0,1,2,3,1,0" --target-string "0,1,3,2,1" --bound 2 | pred solve - --solver brute-force
 pred create MIS --random --num-vertices 10 | pred inspect -
 ```
 
@@ -460,9 +520,17 @@ Source evaluation: Valid(2)
 ```
 
 > **Note:** The ILP solver requires a reduction path from the target problem to ILP.
-> Some problems (e.g., BoundedComponentSpanningForest, LengthBoundedDisjointPaths) do not currently have one, so use
-> `pred solve <file> --solver brute-force` for these.
+> Some problems do not currently have one. Examples include BoundedComponentSpanningForest,
+> LengthBoundedDisjointPaths, MinimumCardinalityKey, QUBO, SpinGlass, MaxCut, CircuitSAT, and MultiprocessorScheduling.
+> Use `pred solve <file> --solver brute-force` for these, or reduce to a problem that supports ILP first.
 > For other problems, use `pred path <PROBLEM> ILP` to check whether an ILP reduction path exists.
+
+For example, the canonical Minimum Cardinality Key instance can be created and solved with:
+
+```bash
+pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" --k 2 -o mck.json
+pred solve mck.json --solver brute-force
+```
 
 ## Shell Completions
 
@@ -511,6 +579,8 @@ You can use short aliases instead of full problem names (shown in `pred list`):
 | `SAT` | `Satisfiability` |
 | `3SAT` / `KSAT` | `KSatisfiability` |
 | `TSP` | `TravelingSalesman` |
+| `CVP` | `ClosestVectorProblem` |
+| `MaxMatching` | `MaximumMatching` |
 
 You can also specify variants with a slash: `MIS/UnitDiskGraph`, `SpinGlass/SimpleGraph`.
 

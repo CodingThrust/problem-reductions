@@ -45,24 +45,29 @@ pub mod prelude {
     pub use crate::models::algebraic::{BMF, QUBO};
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
     pub use crate::models::graph::{
-        BicliqueCover, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
-        GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, LengthBoundedDisjointPaths,
-        SpinGlass, SteinerTree, SubgraphIsomorphism,
+        BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
+        BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GraphPartitioning,
+        HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KthBestSpanningTree,
+        LengthBoundedDisjointPaths, SpinGlass, SteinerTree, StrongConnectivityAugmentation,
+        SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-        MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
+        MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut,
         MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
         OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, TravelingSalesman,
         UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
         BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-        MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals,
-        ShortestCommonSupersequence, SubsetSum,
+        MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+        SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
+        ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
+        SumOfSquaresPartition,
     };
     pub use crate::models::set::{
-        ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, PrimeAttributeName, SetBasis,
+        ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
+        MinimumCardinalityKey, MinimumSetCovering, PrimeAttributeName, SetBasis,
     };
 
     // Core traits

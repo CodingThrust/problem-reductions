@@ -267,8 +267,8 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_sum_multicenter_simplegraph_i32",
-        build: || {
-            let graph = SimpleGraph::new(
+        instance: Box::new(MinimumSumMulticenter::new(
+            SimpleGraph::new(
                 7,
                 vec![
                     (0, 1),
@@ -280,10 +280,13 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                     (0, 6),
                     (2, 5),
                 ],
-            );
-            let problem = MinimumSumMulticenter::new(graph, vec![1i32; 7], vec![1i32; 8], 2);
-            crate::example_db::specs::optimization_example(problem, vec![vec![0, 0, 1, 0, 0, 1, 0]])
-        },
+            ),
+            vec![1i32; 7],
+            vec![1i32; 8],
+            2,
+        )),
+        optimal_config: vec![0, 0, 1, 0, 0, 1, 0],
+        optimal_value: serde_json::json!({"Valid": 6}),
     }]
 }
 
