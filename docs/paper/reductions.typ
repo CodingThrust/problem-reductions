@@ -602,8 +602,8 @@ Biconnectivity augmentation is a classical network-design problem: add backup li
   let x = load-model-example("HamiltonianCircuit")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
-  let sol = x.optimal.at(0)
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let circuit = sol.config
   // Build circuit edges from consecutive vertices (including wrap-around)
   let circuit-edges = range(circuit.len()).map(i => (circuit.at(i), circuit.at(calc.rem(i + 1, circuit.len()))))
@@ -922,10 +922,10 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 }
 #{
   let x = load-model-example("KthBestSpanningTree")
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let weights = x.instance.weights
   let m = edges.len()
-  let sol = x.optimal.at(0).config
+  let sol = x.optimal_config
   let tree1 = sol.enumerate().filter(((i, v)) => i < m and v == 1).map(((i, _)) => edges.at(i))
   let blue = graph-colors.at(0)
   let gray = luma(190)
@@ -1533,7 +1533,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let n = x.instance.subsets.len()
   let K = x.instance.bound_k
   let subs = x.instance.subsets
-  let sol = x.optimal.at(0).config
+  let sol = x.optimal_config
   let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
   [
     #problem-def("ConsecutiveSets")[
@@ -1674,9 +1674,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let deps = x.instance.dependencies
   let m = deps.len()
   let bound = x.instance.bound_k
-  let sample = x.samples.at(0)
-  let key-attrs = range(n).filter(i => sample.config.at(i) == 1)
-  let sat-count = x.optimal.len()
+  let key-attrs = range(n).filter(i => x.optimal_config.at(i) == 1)
   let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
   let fmt-fd(d) = fmt-set(d.at(0)) + " $arrow.r$ " + fmt-set(d.at(1))
   [
@@ -1686,7 +1684,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     The Minimum Cardinality Key problem arises in relational database theory, where identifying the smallest candidate key determines the most efficient way to uniquely identify rows in a relation. It was shown NP-complete by Lucchesi and Osborn (1978) @lucchesi1978keys via transformation from Vertex Cover. The problem appears as SR26 in Garey & Johnson (A4) @garey1979. The closure $F^*$ is defined by Armstrong's axioms: reflexivity ($B subset.eq C$ implies $C arrow.r B$), transitivity, and union. The best known exact algorithm is brute-force enumeration of all subsets of $A$, giving $O^*(2^(|A|))$ time#footnote[Lucchesi and Osborn give an output-polynomial algorithm for enumerating all candidate keys, but the number of keys can be exponential.].
 
     *Example.* Let $A = {0, 1, ..., #(n - 1)}$ ($|A| = #n$) with $M = #bound$ and functional dependencies $F = {#deps.enumerate().map(((i, d)) => fmt-fd(d)).join(", ")}$.
-    The candidate key $K = #fmt-set(key-attrs)$ has $|K| = #key-attrs.len() <= #bound$. Its closure: start with ${0, 1}$; apply ${0, 1} arrow.r {2}$ to get ${0, 1, 2}$; apply ${0, 2} arrow.r {3}$ to get ${0, 1, 2, 3}$; apply ${1, 3} arrow.r {4}$ to get ${0, 1, 2, 3, 4}$; apply ${2, 4} arrow.r {5}$ to get $A$. Neither ${0}$ nor ${1}$ alone determines $A$, so $K$ is minimal. There are #sat-count satisfying encodings in total.
+    The candidate key $K = #fmt-set(key-attrs)$ has $|K| = #key-attrs.len() <= #bound$. Its closure: start with ${0, 1}$; apply ${0, 1} arrow.r {2}$ to get ${0, 1, 2}$; apply ${0, 2} arrow.r {3}$ to get ${0, 1, 2, 3}$; apply ${1, 3} arrow.r {4}$ to get ${0, 1, 2, 3, 4}$; apply ${2, 4} arrow.r {5}$ to get $A$. Neither ${0}$ nor ${1}$ alone determines $A$, so $K$ is minimal.
     ]
   ]
 }
@@ -2392,7 +2390,7 @@ The identity assignment $f(i) = i$ gives cost $sum_(i != j) C_(i j) dot D_(i, j)
 #{
   let x = load-model-example("LongestCommonSubsequence")
   let strings = x.instance.strings
-  let witness = x.samples.at(0).config
+  let witness = x.optimal_config
   let fmt-str(s) = "\"" + s.map(c => str(c)).join("") + "\""
   let string-list = strings.map(fmt-str).join(", ")
   let find-embed(target, candidate) = {
@@ -2466,7 +2464,7 @@ The identity assignment $f(i) = i$ gives cost $sum_(i != j) C_(i j) dot D_(i, j)
   let lengths = x.instance.lengths
   let release = x.instance.release_times
   let deadline = x.instance.deadlines
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   // Decode Lehmer code to permutation
   let available = range(n)
   let perm = ()
@@ -2594,7 +2592,7 @@ The identity assignment $f(i) = i$ gives cost $sum_(i != j) C_(i j) dot D_(i, j)
   let src-str = fmt-str(source)
   let tgt-str = fmt-str(target)
   // Use solution [8, 5]: swap(2,3) then delete(5)
-  let sol = x.optimal.at(1)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   // Trace the operations
   let after-swap = (source.at(0), source.at(1), source.at(3), source.at(2), source.at(4), source.at(5))
   let after-swap-str = after-swap.map(c => alpha-map.at(c)).join("")
