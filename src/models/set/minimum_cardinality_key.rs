@@ -184,19 +184,18 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_cardinality_key",
-        build: || {
-            let problem = MinimumCardinalityKey::new(
-                6,
-                vec![
-                    (vec![0, 1], vec![2]),
-                    (vec![0, 2], vec![3]),
-                    (vec![1, 3], vec![4]),
-                    (vec![2, 4], vec![5]),
-                ],
-                2,
-            );
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![1, 1, 0, 0, 0, 0]])
-        },
+        instance: Box::new(MinimumCardinalityKey::new(
+            6,
+            vec![
+                (vec![0, 1], vec![2]),
+                (vec![0, 2], vec![3]),
+                (vec![1, 3], vec![4]),
+                (vec![2, 4], vec![5]),
+            ],
+            2,
+        )),
+        optimal_config: vec![1, 1, 0, 0, 0, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

@@ -180,21 +180,20 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "staff_scheduling",
-        build: || {
-            let problem = StaffScheduling::new(
-                5,
-                vec![
-                    vec![true, true, true, true, true, false, false],
-                    vec![false, true, true, true, true, true, false],
-                    vec![false, false, true, true, true, true, true],
-                    vec![true, false, false, true, true, true, true],
-                    vec![true, true, false, false, true, true, true],
-                ],
-                vec![2, 2, 2, 3, 3, 2, 1],
-                4,
-            );
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![1, 1, 1, 1, 0]])
-        },
+        instance: Box::new(StaffScheduling::new(
+            5,
+            vec![
+                vec![true, true, true, true, true, false, false],
+                vec![false, true, true, true, true, true, false],
+                vec![false, false, true, true, true, true, true],
+                vec![true, false, false, true, true, true, true],
+                vec![true, true, false, false, true, true, true],
+            ],
+            vec![2, 2, 2, 3, 3, 2, 1],
+            4,
+        )),
+        optimal_config: vec![1, 1, 1, 1, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

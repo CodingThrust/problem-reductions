@@ -229,21 +229,18 @@ impl<W> SatisfactionProblem for KthBestSpanningTree<W> where
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    // K4 with weights [1,1,2,2,2,3], k=2, B=4.
+    // 16 spanning trees; exactly 2 have weight ≤ 4 (both weight 4):
+    //   {01,02,03} (star at 0) and {01,02,13}.
+    // Satisfying configs = 2 (the two orderings of this pair).
+    // 12 variables → 2^12 = 4096 configs, fast to enumerate.
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+    let problem = KthBestSpanningTree::new(graph, vec![1, 1, 2, 2, 2, 3], 2, 4);
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "kth_best_spanning_tree_i32",
-        build: || {
-            // K4 with weights [1,1,2,2,2,3], k=2, B=4.
-            // 16 spanning trees; exactly 2 have weight ≤ 4 (both weight 4):
-            //   {01,02,03} (star at 0) and {01,02,13}.
-            // Satisfying configs = 2 (the two orderings of this pair).
-            // 12 variables → 2^12 = 4096 configs, fast to enumerate.
-            let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-            let problem = KthBestSpanningTree::new(graph, vec![1, 1, 2, 2, 2, 3], 2, 4);
-            crate::example_db::specs::satisfaction_example(
-                problem,
-                vec![vec![1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0], vec![0; 12]],
-            )
-        },
+        instance: Box::new(problem),
+        optimal_config: vec![1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

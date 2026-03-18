@@ -165,21 +165,20 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "longest_common_subsequence",
-        build: || {
-            let problem = LongestCommonSubsequence::new(
-                2,
-                vec![
-                    vec![0, 1, 0, 1, 1, 0],
-                    vec![1, 0, 0, 1, 0, 1],
-                    vec![0, 0, 1, 0, 1, 1],
-                    vec![1, 1, 0, 0, 1, 0],
-                    vec![0, 1, 0, 1, 0, 1],
-                    vec![1, 0, 1, 0, 1, 0],
-                ],
-                3,
-            );
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 1, 0]])
-        },
+        instance: Box::new(LongestCommonSubsequence::new(
+            2,
+            vec![
+                vec![0, 1, 0, 1, 1, 0],
+                vec![1, 0, 0, 1, 0, 1],
+                vec![0, 0, 1, 0, 1, 1],
+                vec![1, 1, 0, 0, 1, 0],
+                vec![0, 1, 0, 1, 0, 1],
+                vec![1, 0, 1, 0, 1, 0],
+            ],
+            3,
+        )),
+        optimal_config: vec![0, 1, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

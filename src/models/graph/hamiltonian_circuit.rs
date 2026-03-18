@@ -146,24 +146,23 @@ impl<G: Graph + VariantParam> SatisfactionProblem for HamiltonianCircuit<G> {}
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "hamiltonian_circuit_simplegraph",
-        build: || {
-            // Prism graph (triangular prism): 6 vertices, 9 edges
-            let problem = HamiltonianCircuit::new(SimpleGraph::new(
-                6,
-                vec![
-                    (0, 1),
-                    (1, 2),
-                    (2, 0),
-                    (3, 4),
-                    (4, 5),
-                    (5, 3),
-                    (0, 3),
-                    (1, 4),
-                    (2, 5),
-                ],
-            ));
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 1, 2, 5, 4, 3]])
-        },
+        // Prism graph (triangular prism): 6 vertices, 9 edges
+        instance: Box::new(HamiltonianCircuit::new(SimpleGraph::new(
+            6,
+            vec![
+                (0, 1),
+                (1, 2),
+                (2, 0),
+                (3, 4),
+                (4, 5),
+                (5, 3),
+                (0, 3),
+                (1, 4),
+                (2, 5),
+            ],
+        ))),
+        optimal_config: vec![0, 1, 2, 5, 4, 3],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

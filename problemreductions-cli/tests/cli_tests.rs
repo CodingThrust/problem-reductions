@@ -340,7 +340,7 @@ fn test_evaluate() {
         "type": "MaximumIndependentSet",
         "variant": {"graph": "SimpleGraph", "weight": "i32"},
         "data": {
-            "graph": {"inner": {"nodes": [null, null, null, null], "node_holes": [], "edge_property": "undirected", "edges": [[0,1,null],[1,2,null],[2,3,null]]}},
+            "graph": {"num_vertices": 4, "edges": [[0,1],[1,2],[2,3]]},
             "weights": [1, 1, 1, 1]
         }
     }"#;
@@ -387,7 +387,7 @@ fn test_evaluate_multiple_choice_branching_rejects_invalid_partition_without_pan
         "type": "MultipleChoiceBranching",
         "variant": {"weight": "i32"},
         "data": {
-            "graph": {"inner": {"nodes": [null, null], "node_holes": [], "edge_property": "directed", "edges": [[0,1,null]]}},
+            "graph": {"num_vertices": 2, "arcs": [[0,1]]},
             "weights": [1],
             "partition": [[1]],
             "threshold": 1
@@ -620,7 +620,7 @@ fn test_reduce() {
         "type": "MIS",
         "variant": {"graph": "SimpleGraph", "weight": "i32"},
         "data": {
-            "graph": {"inner": {"nodes": [null, null, null, null], "node_holes": [], "edge_property": "undirected", "edges": [[0,1,null],[1,2,null],[2,3,null]]}},
+            "graph": {"num_vertices": 4, "edges": [[0,1],[1,2],[2,3]]},
             "weights": [1, 1, 1, 1]
         }
     }"#;

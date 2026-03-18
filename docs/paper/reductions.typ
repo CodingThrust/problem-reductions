@@ -16,7 +16,7 @@
 
 // === Example JSON helpers ===
 // Load canonical example database directly from the checked-in fixture file.
-#let example-db = json("../../src/example_db/fixtures/examples.json")
+#let example-db = json("data/examples.json")
 
 #let load-example(source, target, source-variant: none, target-variant: none) = {
   let matches = example-db.rules.filter(r =>
@@ -48,8 +48,8 @@
   }
 }
 
-#let graph-num-vertices(instance) = instance.graph.inner.nodes.len()
-#let graph-num-edges(instance) = instance.graph.inner.edges.len()
+#let graph-num-vertices(instance) = instance.graph.num_vertices
+#let graph-num-edges(instance) = instance.graph.edges.len()
 #let spin-num-spins(instance) = instance.fields.len()
 #let sat-num-clauses(instance) = instance.clauses.len()
 #let subsetsum-num-elements(instance) = instance.sizes.len()
@@ -417,8 +417,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let x = load-model-example("MaximumIndependentSet", variant: (graph: "SimpleGraph", weight: "One"))
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  // Pick optimal[2] = {v1, v3, v5, v9} to match figure
-  let sol = x.optimal.at(2)
+  // Pick optimal config = {v1, v3, v5, v9} to match figure
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let alpha = sol.metric.Valid
   [
@@ -443,9 +443,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let x = load-model-example("MinimumVertexCover")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
-  // Pick optimal[2] = {v0, v3, v4} to match figure
-  let sol = x.optimal.at(2)
+  let edges = x.instance.graph.edges
+  // Pick optimal config = {v0, v3, v4} to match figure
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let cover = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let wS = sol.metric.Valid
   let complement = sol.config.enumerate().filter(((i, v)) => v == 0).map(((i, _)) => i)
@@ -475,9 +475,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let x = load-model-example("MaxCut")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
-  // Pick optimal[2] = S={v0, v3} to match figure
-  let sol = x.optimal.at(2)
+  let edges = x.instance.graph.edges
+  // Pick optimal config = S={v0, v3} to match figure
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let side-s = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let side-sbar = sol.config.enumerate().filter(((i, v)) => v == 0).map(((i, _)) => i)
   let cut-val = sol.metric.Valid
@@ -711,7 +711,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let x = load-model-example("LengthBoundedDisjointPaths")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   let s = x.instance.source
   let t = x.instance.sink
   let J = x.instance.num_paths_required
@@ -772,9 +772,9 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let x = load-model-example("HamiltonianPath")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
-  // Pick optimal[2] = [0, 2, 4, 3, 1, 5] to match figure
-  let sol = x.optimal.at(2)
+  let edges = x.instance.graph.edges
+  // Pick optimal config = [0, 2, 4, 3, 1, 5] to match figure
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let path = sol.config
   // Build path edges from consecutive vertices in the path
   let path-edges = range(path.len() - 1).map(i => (path.at(i), path.at(i + 1)))
@@ -814,8 +814,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 }
 #{
   let x = load-model-example("UndirectedTwoCommodityIntegralFlow")
-  let sample = x.samples.at(0)
-  let satisfying_count = x.optimal.len()
+  let satisfying_count = 1
   let source1 = x.instance.source_1
   let source2 = x.instance.source_2
   let sink1 = x.instance.sink_1
@@ -827,7 +826,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 
       The implementation uses four variables per undirected edge ${u, v}$: $f_1(u, v)$, $f_1(v, u)$, $f_2(u, v)$, and $f_2(v, u)$. In the unit-capacity regime, each edge has exactly five meaningful local states: unused, commodity 1 in either direction, or commodity 2 in either direction, which matches the catalog bound $O(5^m)$ for $m = |E|$.
 
-      *Example.* Consider the graph with edges $(0, 2)$, $(1, 2)$, and $(2, 3)$, capacities $(1, 1, 2)$, sources $s_1 = v_#source1$, $s_2 = v_#source2$, and shared sink $t_1 = t_2 = v_#sink1$. The sample configuration in the fixture database sets $f_1(0, 2) = 1$, $f_2(1, 2) = 1$, and $f_1(2, 3) = f_2(2, 3) = 1$, with all reverse-direction variables zero. The only nonterminal vertex is $v_2$, where each commodity has one unit of inflow and one unit of outflow, so conservation holds. Vertex $v_3$ receives one unit of net inflow from each commodity, and the shared edge $(2,3)$ uses its full capacity 2. The fixture database contains exactly #satisfying_count satisfying configurations for this instance: the one shown below and the symmetric variant that swaps which commodity uses the two left edges.
+      *Example.* Consider the graph with edges $(0, 2)$, $(1, 2)$, and $(2, 3)$, capacities $(1, 1, 2)$, sources $s_1 = v_#source1$, $s_2 = v_#source2$, and shared sink $t_1 = t_2 = v_#sink1$. The optimal configuration in the fixture database sets $f_1(0, 2) = 1$, $f_2(1, 2) = 1$, and $f_1(2, 3) = f_2(2, 3) = 1$, with all reverse-direction variables zero. The only nonterminal vertex is $v_2$, where each commodity has one unit of inflow and one unit of outflow, so conservation holds. Vertex $v_3$ receives one unit of net inflow from each commodity, and the shared edge $(2,3)$ uses its full capacity 2. The fixture database contains #satisfying_count satisfying configuration for this instance, shown below.
 
       #figure(
         canvas(length: 1cm, {
@@ -865,12 +864,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 }
 #{
   let x = load-model-example("IsomorphicSpanningTree")
-  let g-edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
-  let t-edges = x.instance.tree.inner.edges.map(e => (e.at(0), e.at(1)))
-  let nv = x.instance.graph.inner.nodes.len()
-  let nt = x.instance.tree.inner.nodes.len()
-  // optimal[0] = identity mapping [0,1,2,3]
-  let sol = x.optimal.at(0)
+  let g-edges = x.instance.graph.edges
+  let t-edges = x.instance.tree.edges
+  let nv = x.instance.graph.num_vertices
+  let nt = x.instance.tree.num_vertices
+  // optimal config = identity mapping [0,1,2,3]
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let pi = sol.config
   // Map tree edges through the bijection
   let mapped-edges = t-edges.map(((u, v)) => (pi.at(u), pi.at(v)))
@@ -967,8 +966,8 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let x = load-model-example("KColoring")
   let nv = graph-num-vertices(x.instance)
   let k = x.instance.num_colors
-  // Pick optimal[0] = [0,1,1,0,2] to match figure
-  let sol = x.optimal.at(0)
+  // Pick optimal config = [0,1,1,0,2] to match figure
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let coloring = sol.config
   // Group vertices by color (1-indexed in display)
   let color-groups = range(k).map(c => coloring.enumerate().filter(((i, v)) => v == c).map(((i, _)) => i))
@@ -992,9 +991,9 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 #{
   let x = load-model-example("MinimumDominatingSet")
   let nv = graph-num-vertices(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
-  // Pick optimal[0] = {v2, v3} to match figure
-  let sol = x.optimal.at(0)
+  let edges = x.instance.graph.edges
+  // Pick optimal config = {v2, v3} to match figure
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let wS = sol.metric.Valid
   // Compute neighbors dominated by each vertex in S
@@ -1027,9 +1026,9 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let x = load-model-example("MaximumMatching")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
-  // Pick optimal[4] = config [1,0,0,0,1,0] = edges {(0,1),(2,4)} to match figure
-  let sol = x.optimal.at(4)
+  let edges = x.instance.graph.edges
+  // Pick optimal config [1,0,0,0,1,0] = edges {(0,1),(2,4)} to match figure
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let matched-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
   let wM = sol.metric.Valid
   // Collect matched vertices
@@ -1060,9 +1059,9 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 #{
   let x = load-model-example("TravelingSalesman")
   let nv = graph-num-vertices(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   let ew = x.instance.edge_weights
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let tour-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
   let tour-cost = sol.metric.Valid
   // Build ordered tour from tour-edges starting at vertex 0
@@ -1122,10 +1121,10 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let x = load-model-example("SteinerTree")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   let weights = x.instance.edge_weights
   let terminals = x.instance.terminals
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let tree-edges = tree-edge-indices.map(i => edges.at(i))
   let cost = sol.metric.Valid
@@ -1186,12 +1185,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 }
 #{
   let x = load-model-example("StrongConnectivityAugmentation")
-  let nv = x.instance.graph.inner.nodes.len()
-  let ne = x.instance.graph.inner.edges.len()
-  let arcs = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let nv = x.instance.graph.num_vertices
+  let ne = x.instance.graph.arcs.len()
+  let arcs = x.instance.graph.arcs
   let candidates = x.instance.candidate_arcs
   let bound = x.instance.bound
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let chosen = candidates.enumerate().filter(((i, _)) => sol.config.at(i) == 1).map(((i, arc)) => arc)
   let total-weight = chosen.map(a => a.at(2)).sum()
   let blue = graph-colors.at(0)
@@ -1258,10 +1257,10 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let x = load-model-example("MinimumMultiwayCut")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   let weights = x.instance.edge_weights
   let terminals = x.instance.terminals
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let cut-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let cut-edges = cut-edge-indices.map(i => edges.at(i))
   let cost = sol.metric.Valid
@@ -1311,9 +1310,9 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let x = load-model-example("MaximumClique")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
-  // optimal[0] = {v2, v3, v4}
-  let sol = x.optimal.at(0)
+  let edges = x.instance.graph.edges
+  // optimal config = {v2, v3, v4}
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let K = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let omega = sol.metric.Valid
   // Edges within the clique
@@ -1339,15 +1338,14 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let x = load-model-example("MaximalIS")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
-  // optimal[0] = {v0,v2,v4} with w=3 (maximum-weight maximal IS)
-  let opt = x.optimal.at(0)
+  let edges = x.instance.graph.edges
+  // optimal config = {v0,v2,v4} with w=3 (maximum-weight maximal IS)
+  let opt = (config: x.optimal_config, metric: x.optimal_value)
   let S-opt = opt.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let w-opt = opt.metric.Valid
-  // samples[0] = {v1,v3} with w=2 (suboptimal maximal IS)
-  let sub = x.samples.at(0)
-  let S-sub = sub.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let w-sub = sub.metric.Valid
+  // Suboptimal maximal IS {v1,v3} with w=2 (hardcoded — no longer in fixture)
+  let S-sub = (1, 3)
+  let w-sub = 2
   [
     #problem-def("MaximalIS")[
       Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that $S$ is independent ($forall u, v in S: (u, v) in.not E$) and maximal (no vertex $u in V backslash S$ can be added to $S$ while maintaining independence).
@@ -1368,10 +1366,10 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 #{
   let x = load-model-example("MinimumFeedbackVertexSet")
   let nv = graph-num-vertices(x.instance)
-  let ne = graph-num-edges(x.instance)
-  let arcs = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
-  // Pick optimal[1] = {v0} to match figure
-  let sol = x.optimal.at(1)
+  let ne = x.instance.graph.arcs.len()
+  let arcs = x.instance.graph.arcs
+  // Pick optimal config = {v0} to match figure
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let wS = sol.metric.Valid
   [
@@ -1407,11 +1405,11 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 #{
   let x = load-model-example("MinimumSumMulticenter")
   let nv = graph-num-vertices(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   let K = x.instance.k
-  let opt-cost = x.optimal.at(2).metric.Valid
-  // Pick optimal[2] = {v2, v5} to match figure
-  let sol = x.optimal.at(2)
+  let opt-cost = x.optimal_value.Valid
+  // Pick optimal config = {v2, v5} to match figure
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let centers = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   [
     #problem-def("MinimumSumMulticenter")[
@@ -1457,8 +1455,8 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   // Compute universe size from all elements
   let all-elems = sets.flatten().dedup()
   let U-size = all-elems.len()
-  // Pick optimal[2] = {S1, S3} (0-indexed: sets 0, 2) to match figure
-  let sol = x.optimal.at(2)
+  // Pick optimal config = {S1, S3} (0-indexed: sets 0, 2) to match figure
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let wP = sol.metric.Valid
   // Format a set as {e1+1, e2+1, ...} (1-indexed)
@@ -1495,7 +1493,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let sets = x.instance.sets
   let m = sets.len()
   let U-size = x.instance.universe_size
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let wC = sol.metric.Valid
   let fmt-set(s) = "${" + s.map(e => str(e + 1)).join(", ") + "}$"
@@ -1554,7 +1552,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let q = int(n / 3)
   let subs = x3c.instance.subsets
   let m = subs.len()
-  let sol = x3c.optimal.at(0).config
+  let sol = x3c.optimal_config
   // Format a 0-indexed triple as 1-indexed set notation: {a+1, b+1, c+1}
   let fmt-triple(t) = "${" + t.map(e => str(e + 1)).join(", ") + "}$"
   // Collect indices of selected subsets (1-indexed)
@@ -1578,9 +1576,8 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let S = x.instance.s_sets
   let r-weights = x.instance.r_weights
   let s-weights = x.instance.s_weights
-  let sample = x.samples.at(0)
-  let selected = sample.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let satisfiers = x.optimal.map(sol => sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i))
+  let selected = x.optimal_config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let satisfiers = ((config: x.optimal_config, metric: x.optimal_value),).map(sol => sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i))
   let contains-selected(family-set) = selected.all(i => family-set.contains(i))
   let r-active = range(R.len()).filter(i => contains-selected(R.at(i)))
   let s-active = range(S.len()).filter(i => contains-selected(S.at(i)))
@@ -1641,10 +1638,9 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let m = coll.len()
   let U-size = x.instance.universe_size
   let k = x.instance.k
-  let sample = x.samples.at(0)
-  let sat-count = x.optimal.len()
+  let sat-count = 1
   let basis = range(k).map(i =>
-    range(U-size).filter(j => sample.config.at(i * U-size + j) == 1)
+    range(U-size).filter(j => x.optimal_config.at(i * U-size + j) == 1)
   )
   let fmt-set(s) = "${" + s.map(e => str(e + 1)).join(", ") + "}$"
   [
@@ -1653,7 +1649,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     ][
     The Set Basis problem was shown NP-complete by Stockmeyer @stockmeyer1975setbasis and appears as SP7 in Garey & Johnson @garey1979. It asks for an exact union-based description of a family of sets, unlike Set Cover which only requires covering the underlying universe. Applications include data compression, database schema design, and Boolean function minimization. The library's decision encoding uses $k |S|$ membership bits, so brute-force over those bits gives an $O^*(2^(k |S|))$ exact algorithm#footnote[This is the direct search bound induced by the encoding implemented here; we are not aware of a faster general exact worst-case algorithm for this representation.].
 
-    *Example.* Let $S = {1, 2, 3, 4}$, $k = #k$, and $cal(C) = {#range(m).map(i => $C_#(i + 1)$).join(", ")}$ with #coll.enumerate().map(((i, s)) => $C_#(i + 1) = #fmt-set(s)$).join(", "). The sample basis from the issue is $cal(B) = {#range(k).map(i => $B_#(i + 1)$).join(", ")}$ with #basis.enumerate().map(((i, s)) => $B_#(i + 1) = #fmt-set(s)$).join(", "). Then $C_1 = B_1 union B_2$, $C_2 = B_2 union B_3$, $C_3 = B_1 union B_3$, and $C_4 = B_1 union B_2 union B_3$. There are #sat-count satisfying encodings in total: the singleton basis can be permuted in $3! = 6$ ways, and the three pair sets $C_1, C_2, C_3$ also form a basis with another six row permutations.
+    *Example.* Let $S = {1, 2, 3, 4}$, $k = #k$, and $cal(C) = {#range(m).map(i => $C_#(i + 1)$).join(", ")}$ with #coll.enumerate().map(((i, s)) => $C_#(i + 1) = #fmt-set(s)$).join(", "). The sample basis from the issue is $cal(B) = {#range(k).map(i => $B_#(i + 1)$).join(", ")}$ with #basis.enumerate().map(((i, s)) => $B_#(i + 1) = #fmt-set(s)$).join(", "). Then $C_1 = B_1 union B_2$, $C_2 = B_2 union B_3$, $C_3 = B_1 union B_3$, and $C_4 = B_1 union B_2 union B_3$. The fixture stores one satisfying encoding; other valid encodings exist (e.g., permuting the singleton basis or using the three pair sets $C_1, C_2, C_3$ as a basis).
 
     #figure(
       canvas(length: 1cm, {
@@ -1700,10 +1696,10 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 #{
   let x = load-model-example("SpinGlass")
   let n = spin-num-spins(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   let ne = edges.len()
-  // Pick optimal[1] = (+,-,+,+,-) to match figure
-  let sol = x.optimal.at(1)
+  // Pick optimal config = (+,-,+,+,-) to match figure
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   // Convert config (0=+1, 1=-1) to spin values
   let spins = sol.config.map(v => if v == 0 { 1 } else { -1 })
   let H = sol.metric.Valid
@@ -1745,7 +1741,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let x = load-model-example("QUBO")
   let n = x.instance.num_vars
   let Q = x.instance.matrix
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let xstar = sol.config
   let fstar = sol.metric.Valid
   // Format the Q matrix as semicolon-separated rows
@@ -1779,7 +1775,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let nv = x.instance.num_vars
   let obj = x.instance.objective
   let constraints = x.instance.constraints
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let xstar = sol.config
   let fstar = sol.metric.Valid
   // Format objective: c1*x1 + c2*x2 + ...
@@ -1861,7 +1857,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let basis = x.instance.basis
   let target = x.instance.target
   let bounds = x.instance.bounds
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let dist = sol.metric.Valid
   // Config encodes offset from lower bound; recover actual integer coordinates
   let coords = sol.config.enumerate().map(((i, v)) => v + bounds.at(i).lower)
@@ -1919,7 +1915,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let n = x.instance.num_vars
   let m = x.instance.clauses.len()
   let clauses = x.instance.clauses
-  let sol = x.optimal.at(1)  // pick (1,0,1)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)  // pick satisfying assignment
   let assign = sol.config
   // Format a literal: positive l -> x_l, negative l -> not x_{|l|}
   let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
@@ -1945,7 +1941,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let k = x.instance.clauses.at(0).literals.len()
   let clauses = x.instance.clauses
   // Pick a satisfying assignment
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let assign = sol.config
   let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
   let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
@@ -1974,7 +1970,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let input-indices = inputs.map(v => vars.position(u => u == v))
   // Collect unique input assignments from optimal configs
   let sat-assigns = ()
-  for o in x.optimal {
+  for o in ((config: x.optimal_config, metric: x.optimal_value),) {
     let ia = input-indices.map(i => o.config.at(i))
     if ia not in sat-assigns { sat-assigns.push(ia) }
   }
@@ -2015,7 +2011,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let N = x.instance.target
   let mb = x.instance.m
   let nb = x.instance.n
-  let sol = x.optimal.at(0).config
+  let sol = x.optimal_config
   // First mb bits encode p, next nb bits encode q
   let p = range(mb).fold(0, (acc, i) => acc + sol.at(i) * calc.pow(2, i)) + 2
   let q = range(nb).fold(0, (acc, i) => acc + sol.at(mb + i) * calc.pow(2, i)) + 2
@@ -2038,10 +2034,10 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let nc = x.instance.n
   let k = x.instance.k
   let A = x.instance.matrix
-  let dH = x.optimal.at(0).metric.Valid
+  let dH = x.optimal_value.Valid
   // Decode B and C from optimal config
   // Config layout: B is m*k values, then C is k*n values
-  let cfg = x.optimal.at(0).config
+  let cfg = x.optimal_config
   let B = range(mr).map(i => range(k).map(j => cfg.at(i * k + j)))
   let C = range(k).map(i => range(nc).map(j => cfg.at(mr * k + i * nc + j)))
   // Convert A from bool to int for display
@@ -2090,7 +2086,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let labels = x.instance.car_labels
   let seq-indices = x.instance.sequence_indices
   let is-first = x.instance.is_first
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let assign = sol.config  // color assignment per car
   let num-changes = sol.metric.Valid
   // Build the full sequence of car labels
@@ -2139,7 +2135,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let k = x.instance.k
   let bip-edges = x.instance.graph.edges  // (li, rj) pairs
   let ne = bip-edges.len()
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let total-size = sol.metric.Valid
   [
     #problem-def("BicliqueCover")[
@@ -2178,7 +2174,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let right-size = x.instance.graph.right_size
   let k = x.instance.k
   let bip-edges = x.instance.graph.edges
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let left-selected = range(left-size).filter(i => sol.config.at(i) == 1)
   let right-selected = range(right-size).filter(i => sol.config.at(left-size + i) == 1)
   let selected-edges = bip-edges.filter(e =>
@@ -2242,10 +2238,10 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let x = load-model-example("PartitionIntoTriangles")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges
   let q = int(nv / 3)
-  // optimal[0] config groups vertices into triangles: config[i] = triangle index
-  let sol = x.optimal.at(0)
+  // optimal config groups vertices into triangles: config[i] = triangle index
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let tri-assign = sol.config
   // Group vertices by triangle
   let triangles = range(q).map(t => tri-assign.enumerate().filter(((i, v)) => v == t).map(((i, _)) => i))
@@ -2465,8 +2461,8 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   // Alphabet mapping: 0->a, 1->b, 2->c, ...
   let alpha-map = range(alpha-size).map(i => str.from-unicode(97 + i))
   let fmt-str(s) = "\"" + s.map(c => alpha-map.at(c)).join("") + "\""
-  // Pick optimal[1] = [1,0,1,2] = "babc" to match figure
-  let sol = x.optimal.at(1)
+  // Pick optimal config = [1,0,1,2] = "babc" to match figure
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let w = sol.config.map(c => alpha-map.at(c))
   let w-str = fmt-str(sol.config)
   let w-len = w.len()
@@ -2612,9 +2608,8 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 #{
   let x = load-model-example("MultipleChoiceBranching")
   let nv = graph-num-vertices(x.instance)
-  let arcs = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
-  let sol = x.samples.at(0)
-  let chosen = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let arcs = x.instance.graph.arcs
+  let chosen = x.optimal_config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   [
     #problem-def("MultipleChoiceBranching")[
       Given a directed graph $G = (V, A)$, arc weights $w: A -> ZZ^+$, a partition $A_1, A_2, dots, A_m$ of $A$, and a threshold $K in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ with $sum_(a in A') w(a) >= K$ such that every vertex has in-degree at most one in $(V, A')$, the selected subgraph $(V, A')$ is acyclic, and $|A' inter A_i| <= 1$ for every partition group.
@@ -2623,7 +2618,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 
       A conservative exact algorithm enumerates all $2^{|A|}$ arc subsets and checks the partition, in-degree, acyclicity, and threshold constraints in polynomial time. This is the brute-force search space used by the implementation.#footnote[We use the registry complexity bound $O^*(2^{|A|})$ for the full partitioned problem.]
 
-      *Example.* Consider the digraph on $n = #nv$ vertices with arcs $(0 arrow 1), (0 arrow 2), (1 arrow 3), (2 arrow 3), (1 arrow 4), (3 arrow 5), (4 arrow 5), (2 arrow 4)$, partition groups $A_1 = {(0 arrow 1), (0 arrow 2)}$, $A_2 = {(1 arrow 3), (2 arrow 3)}$, $A_3 = {(1 arrow 4), (2 arrow 4)}$, $A_4 = {(3 arrow 5), (4 arrow 5)}$, and threshold $K = 10$. The highlighted selection $A' = {(0 arrow 1), (1 arrow 3), (2 arrow 4), (3 arrow 5)}$ has total weight $3 + 4 + 3 + 3 = 13 >= 10$, uses exactly one arc from each partition group, and gives in-degrees 1 at vertices $1, 3, 4,$ and $5$. Because every selected arc points strictly left-to-right in the drawing, the selected subgraph is acyclic. The canonical fixture contains #x.optimal.len() satisfying selections for this instance; the figure highlights one of them.
+      *Example.* Consider the digraph on $n = #nv$ vertices with arcs $(0 arrow 1), (0 arrow 2), (1 arrow 3), (2 arrow 3), (1 arrow 4), (3 arrow 5), (4 arrow 5), (2 arrow 4)$, partition groups $A_1 = {(0 arrow 1), (0 arrow 2)}$, $A_2 = {(1 arrow 3), (2 arrow 3)}$, $A_3 = {(1 arrow 4), (2 arrow 4)}$, $A_4 = {(3 arrow 5), (4 arrow 5)}$, and threshold $K = 10$. The highlighted selection $A' = {(0 arrow 1), (1 arrow 3), (2 arrow 4), (3 arrow 5)}$ has total weight $3 + 4 + 3 + 3 = 13 >= 10$, uses exactly one arc from each partition group, and gives in-degrees 1 at vertices $1, 3, 4,$ and $5$. Because every selected arc points strictly left-to-right in the drawing, the selected subgraph is acyclic. The figure highlights one satisfying selection for this instance.
 
       #figure({
         let verts = ((0, 1.6), (1.3, 2.3), (1.3, 0.9), (3.0, 2.3), (3.0, 0.9), (4.6, 1.6))
@@ -2753,7 +2748,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let lengths = x.instance.lengths
   let num-processors = x.instance.num_processors
   let deadline = x.instance.deadline
-  let assignment = x.optimal.at(0).config
+  let assignment = x.optimal_config
   let tasks-by-processor = range(num-processors).map(p =>
     range(lengths.len()).filter(i => assignment.at(i) == p)
   )
@@ -2831,7 +2826,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let release = x.instance.release_times
   let deadline = x.instance.deadlines
   let lengths = x.instance.lengths
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   // Compute start times from config offsets: start_i = release_i + config_i
   let starts = range(ntasks).map(i => release.at(i) + sol.config.at(i))
   // Identify the enforcer task: the one with the tightest window (deadline - release == length)
@@ -2924,7 +2919,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let ntasks = x.instance.num_tasks
   let deadlines = x.instance.deadlines
   let precs = x.instance.precedences
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let tardy-count = sol.metric.Valid
   // Decode Lehmer code to permutation (schedule order)
   let lehmer = sol.config
@@ -3614,7 +3609,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 #let mc_sg = load-example("MaxCut", "SpinGlass")
 #let mc_sg_sol = mc_sg.solutions.at(0)
-#let mc_sg_cut = mc_sg.source.instance.graph.inner.edges.filter(e => mc_sg_sol.source_config.at(e.at(0)) != mc_sg_sol.source_config.at(e.at(1))).len()
+#let mc_sg_cut = mc_sg.source.instance.graph.edges.filter(e => mc_sg_sol.source_config.at(e.at(0)) != mc_sg_sol.source_config.at(e.at(1))).len()
 #reduction-rule("MaxCut", "SpinGlass",
   example: true,
   example-caption: [Petersen graph ($n = 10$, unit weights) to Ising],

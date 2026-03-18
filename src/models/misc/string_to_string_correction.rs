@@ -198,19 +198,17 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "string_to_string_correction",
-        build: || {
-            let problem =
-                StringToStringCorrection::new(4, vec![0, 1, 2, 3, 1, 0], vec![0, 1, 3, 2, 1], 2);
-            // source has length 6. Domain = 2*6+1 = 13. No-op = 12.
-            // First operation: swap at positions 2,3 in original 6-element string.
-            //   current_len = 6, so swap range starts at 6.
-            //   swap_pos = value - current_len. For swap_pos=2, value = 6 + 2 = 8
-            //   After swap: [0,1,3,2,1,0]
-            // Second operation: delete at position 5 (the trailing 0).
-            //   current_len = 6, 5 < 6 → delete index 5
-            //   After delete: [0,1,3,2,1] = target
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![8, 5]])
-        },
+        // source has length 6. Domain = 2*6+1 = 13. No-op = 12.
+        // First operation: swap at positions 2,3 → value = 6 + 2 = 8
+        // Second operation: delete at position 5
+        instance: Box::new(StringToStringCorrection::new(
+            4,
+            vec![0, 1, 2, 3, 1, 0],
+            vec![0, 1, 3, 2, 1],
+            2,
+        )),
+        optimal_config: vec![8, 5],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

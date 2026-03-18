@@ -229,15 +229,14 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "consecutive_sets",
-        build: || {
-            // YES instance from issue: w = [0, 4, 2, 5, 1, 3]
-            let problem = ConsecutiveSets::new(
-                6,
-                vec![vec![0, 4], vec![2, 4], vec![2, 5], vec![1, 5], vec![1, 3]],
-                6,
-            );
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 4, 2, 5, 1, 3]])
-        },
+        // YES instance from issue: w = [0, 4, 2, 5, 1, 3]
+        instance: Box::new(ConsecutiveSets::new(
+            6,
+            vec![vec![0, 4], vec![2, 4], vec![2, 5], vec![1, 5], vec![1, 3]],
+            6,
+        )),
+        optimal_config: vec![0, 4, 2, 5, 1, 3],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

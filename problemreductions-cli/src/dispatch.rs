@@ -1,9 +1,7 @@
 use anyhow::{Context, Result};
-use problemreductions::models::algebraic::ILP;
 use problemreductions::registry::{DynProblem, LoadedDynProblem};
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::ILPSolver;
-use problemreductions::traits::Problem;
 use problemreductions::types::ProblemSize;
 use serde_json::Value;
 use std::any::Any;
@@ -49,61 +47,35 @@ impl LoadedProblem {
 
     pub fn supports_ilp_solver(&self) -> bool {
         let name = self.problem_name();
-        name == "ILP" || self.best_ilp_reduction_path().is_some()
+        let variant = self.variant_map();
+        name == "ILP" || {
+            let graph = ReductionGraph::new();
+            let ilp_variants = graph.variants_for("ILP");
+            let input_size = ProblemSize::new(vec![]);
+            ilp_variants.iter().any(|dv| {
+                graph
+                    .find_cheapest_path(name, &variant, "ILP", dv, &input_size, &MinimizeSteps)
+                    .is_some()
+            })
+        }
     }
 
     /// Solve using the ILP solver. If the problem is not ILP, auto-reduce to ILP first.
     pub fn solve_with_ilp(&self) -> Result<SolveResult> {
         let name = self.problem_name();
-        if name == "ILP" {
-            return solve_ilp(self.as_any());
-        }
-
-        let reduction_path = self.best_ilp_reduction_path().ok_or_else(|| {
-            anyhow::anyhow!(
-                "No reduction path from {} to ILP. Try `--solver brute-force`, or reduce to a problem that supports ILP.",
-                name
-            )
-        })?;
-        let graph = ReductionGraph::new();
-
-        let chain = graph
-            .reduce_along_path(&reduction_path, self.as_any())
-            .ok_or_else(|| anyhow::anyhow!("Failed to execute reduction chain to ILP"))?;
-
-        let ilp_result = solve_ilp(chain.target_problem_any())?;
-        let config = chain.extract_solution(&ilp_result.config);
+        let variant = self.variant_map();
+        let solver = ILPSolver::new();
+        let config = solver
+            .solve_via_reduction(name, &variant, self.as_any())
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No reduction path from {} to ILP or ILP solver found no solution. \
+                     Try `--solver brute-force`.",
+                    name
+                )
+            })?;
         let evaluation = self.evaluate_dyn(&config);
         Ok(SolveResult { config, evaluation })
-    }
-
-    fn best_ilp_reduction_path(&self) -> Option<problemreductions::rules::ReductionPath> {
-        let name = self.problem_name();
-        let source_variant = self.variant_map();
-        let graph = ReductionGraph::new();
-        let ilp_variants = graph.variants_for("ILP");
-        let input_size = ProblemSize::new(vec![]);
-
-        let mut best_path = None;
-        for dv in &ilp_variants {
-            if let Some(path) = graph.find_cheapest_path(
-                name,
-                &source_variant,
-                "ILP",
-                dv,
-                &input_size,
-                &MinimizeSteps,
-            ) {
-                let is_better = best_path.as_ref().is_none_or(
-                    |current: &problemreductions::rules::ReductionPath| path.len() < current.len(),
-                );
-                if is_better {
-                    best_path = Some(path);
-                }
-            }
-        }
-
-        best_path
     }
 }
 
@@ -175,29 +147,6 @@ pub struct SolveResult {
     pub evaluation: String,
 }
 
-/// Solve an ILP problem directly. The input must be an `ILP<bool>` or `ILP<i32>` instance.
-fn solve_ilp(any: &dyn Any) -> Result<SolveResult> {
-    if let Some(problem) = any.downcast_ref::<ILP<bool>>() {
-        let solver = ILPSolver::new();
-        let config = solver
-            .solve(problem)
-            .ok_or_else(|| anyhow::anyhow!("ILP solver found no feasible solution"))?;
-        let evaluation = format!("{:?}", problem.evaluate(&config));
-        return Ok(SolveResult { config, evaluation });
-    }
-    if let Some(problem) = any.downcast_ref::<ILP<i32>>() {
-        let solver = ILPSolver::new();
-        let config = solver
-            .solve(problem)
-            .ok_or_else(|| anyhow::anyhow!("ILP solver found no feasible solution"))?;
-        let evaluation = format!("{:?}", problem.evaluate(&config));
-        return Ok(SolveResult { config, evaluation });
-    }
-    Err(anyhow::anyhow!(
-        "Internal error: expected ILP<bool> or ILP<i32> problem instance"
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -234,12 +183,8 @@ mod tests {
         let variant = BTreeMap::from([("weight".to_string(), "i32".to_string())]);
         let data = json!({
             "graph": {
-                "inner": {
-                    "edge_property": "directed",
-                    "nodes": [null, null, null],
-                    "node_holes": [],
-                    "edges": [[0, 1, null], [1, 2, null]]
-                }
+                "num_vertices": 3,
+                "arcs": [[0, 1], [1, 2]]
             },
             "candidate_arcs": [[0, 3, 1]],
             "bound": 1

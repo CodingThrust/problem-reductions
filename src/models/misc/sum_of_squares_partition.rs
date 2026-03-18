@@ -192,13 +192,11 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "sum_of_squares_partition",
-        build: || {
-            // sizes=[5,3,8,2,7,1], K=3, J=240
-            // Satisfying: groups {8,1},{5,2},{3,7} -> sums 9,7,10 -> 81+49+100=230 <= 240
-            // Config: a0=5->group1, a1=3->group2, a2=8->group0, a3=2->group1, a4=7->group2, a5=1->group0
-            let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240);
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![1, 2, 0, 1, 2, 0]])
-        },
+        // sizes=[5,3,8,2,7,1], K=3, J=240
+        // Satisfying: groups {8,1},{5,2},{3,7} -> sums 9,7,10 -> 81+49+100=230 <= 240
+        instance: Box::new(SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240)),
+        optimal_config: vec![1, 2, 0, 1, 2, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 
