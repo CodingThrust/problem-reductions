@@ -108,6 +108,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.sink_2.is_none()
         && args.requirement_1.is_none()
         && args.requirement_2.is_none()
+        && args.deps.is_none()
+        && args.query.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -339,6 +341,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
         }
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
+        "PrimeAttributeName" => {
+            "--universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
+        }
         "LongestCommonSubsequence" => {
             "--strings \"010110;100101;001011\" --bound 3 --alphabet-size 2"
         }
@@ -365,6 +370,9 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        ("PrimeAttributeName", "num_attributes") => return "universe".to_string(),
+        ("PrimeAttributeName", "dependencies") => return "deps".to_string(),
+        ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
         ("MinimumCardinalityKey", "bound_k") => return "k".to_string(),
         ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
         _ => {}
@@ -417,6 +425,9 @@ fn help_flag_hint(
 ) -> &'static str {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_weight") => "integer",
+        ("PrimeAttributeName", "dependencies") => {
+            "semicolon-separated dependencies: \"0,1>2,3;2,3>0,1\""
+        }
         ("LongestCommonSubsequence", "strings") => {
             "raw strings: \"ABAC;BACA\" or symbol lists: \"0,1,0;1,0,1\""
         }
@@ -2056,6 +2067,52 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // PrimeAttributeName
+        "PrimeAttributeName" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PrimeAttributeName requires --universe, --deps, and --query\n\n\
+                     Usage: pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
+                )
+            })?;
+            let deps_str = args.deps.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PrimeAttributeName requires --deps\n\n\
+                     Usage: pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
+                )
+            })?;
+            let query = args.query.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PrimeAttributeName requires --query\n\n\
+                     Usage: pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
+                )
+            })?;
+            let dependencies = parse_deps(deps_str)?;
+            for (i, (lhs, rhs)) in dependencies.iter().enumerate() {
+                for &attr in lhs.iter().chain(rhs.iter()) {
+                    if attr >= universe {
+                        bail!(
+                            "Dependency {} references attribute {} outside universe of size {}",
+                            i,
+                            attr,
+                            universe
+                        );
+                    }
+                }
+            }
+            if query >= universe {
+                bail!(
+                    "Query attribute {} is outside universe of size {}",
+                    query,
+                    universe
+                );
+            }
+            (
+                ser(PrimeAttributeName::new(universe, dependencies, query))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // SequencingWithReleaseTimesAndDeadlines
         "SequencingWithReleaseTimesAndDeadlines" => {
             let lengths_str = args.lengths.as_deref().ok_or_else(|| {
@@ -2629,6 +2686,33 @@ fn parse_named_sets(sets_str: Option<&str>, flag: &str) -> Result<Vec<Vec<usize>
                         .map_err(|e| anyhow::anyhow!("Invalid set element: {}", e))
                 })
                 .collect()
+        })
+        .collect()
+}
+
+/// Parse a dependency string as semicolon-separated `lhs>rhs` pairs.
+/// E.g., "0,1>2,3;2,3>0,1"
+fn parse_deps(s: &str) -> Result<Vec<(Vec<usize>, Vec<usize>)>> {
+    s.split(';')
+        .map(|dep| {
+            let parts: Vec<&str> = dep.split('>').collect();
+            if parts.len() != 2 {
+                bail!("Invalid dependency format '{}': expected 'lhs>rhs'", dep);
+            }
+            let lhs = parse_index_list(parts[0])?;
+            let rhs = parse_index_list(parts[1])?;
+            Ok((lhs, rhs))
+        })
+        .collect()
+}
+
+/// Parse a comma-separated list of usize indices.
+fn parse_index_list(s: &str) -> Result<Vec<usize>> {
+    s.split(',')
+        .map(|x| {
+            x.trim()
+                .parse::<usize>()
+                .map_err(|e| anyhow::anyhow!("Invalid index '{}': {}", x.trim(), e))
         })
         .collect()
 }
@@ -3433,6 +3517,27 @@ mod tests {
     }
 
     #[test]
+    fn test_problem_help_uses_prime_attribute_name_cli_overrides() {
+        assert_eq!(
+            problem_help_flag_name("PrimeAttributeName", "num_attributes", "usize", false),
+            "universe"
+        );
+        assert_eq!(
+            problem_help_flag_name(
+                "PrimeAttributeName",
+                "dependencies",
+                "Vec<(Vec<usize>, Vec<usize>)>",
+                false,
+            ),
+            "deps"
+        );
+        assert_eq!(
+            problem_help_flag_name("PrimeAttributeName", "query_attribute", "usize", false),
+            "query"
+        );
+    }
+
+    #[test]
     fn test_problem_help_uses_problem_specific_lcs_strings_hint() {
         assert_eq!(
             help_flag_hint(
@@ -3643,6 +3748,8 @@ mod tests {
             deadline: None,
             num_processors: None,
             alphabet_size: None,
+            deps: None,
+            query: None,
             dependencies: None,
             num_attributes: None,
             source_string: None,

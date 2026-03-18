@@ -119,6 +119,7 @@
   "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "PartitionIntoTriangles": [Partition Into Triangles],
+  "PrimeAttributeName": [Prime Attribute Name],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "StaffScheduling": [Staff Scheduling],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
@@ -1665,6 +1666,72 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
       }),
       caption: [Set Basis example: the singleton basis $cal(B) = {#range(k).map(i => $B_#(i + 1)$).join(", ")}$ reconstructs every target set in $cal(C)$; element $4$ is unused by the target family.],
     ) <fig:set-basis>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("PrimeAttributeName")
+  let n = x.instance.num_attributes
+  let deps = x.instance.dependencies
+  let q = x.instance.query_attribute
+  let sample = x.samples.at(0)
+  let key = sample.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let num-sat = x.optimal.len()
+  // Format a set as {e0, e1, ...} (0-indexed) — for use in text mode
+  let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
+  // Format a set for use inside math mode (no $ delimiters)
+  let fmt-set-math(s) = "{" + s.map(e => str(e)).join(", ") + "}"
+  [
+    #problem-def("PrimeAttributeName")[
+      Given a set $A = {0, 1, ..., #(n - 1)}$ of attribute names, a collection $F$ of functional dependencies on $A$, and a specified attribute $x in A$, determine whether $x$ is a _prime attribute_ for $chevron.l A, F chevron.r$ --- i.e., whether there exists a candidate key $K$ for $chevron.l A, F chevron.r$ such that $x in K$.
+
+      A _candidate key_ is a minimal subset $K subset.eq A$ whose closure $K^+_F = A$, where the closure $K^+_F$ is the set of all attributes functionally determined by $K$ under $F$.
+    ][
+    Classical NP-complete problem from relational database theory (Lucchesi and Osborn, 1978; Garey & Johnson SR28). Prime attributes are central to database normalization: Second Normal Form (2NF) requires that no non-prime attribute is partially dependent on any candidate key, and Third Normal Form (3NF) requires that for every non-trivial functional dependency $X arrow Y$, either $X$ is a superkey or $Y$ consists only of prime attributes. The brute-force approach enumerates all $2^n$ subsets of $A$ containing $x$, checking each for the key property; no algorithm significantly improving on this is known for the general problem.
+
+    *Example.* Let $A = {0, 1, ..., #(n - 1)}$ ($n = #n$), query attribute $x = #q$, and $F = {#deps.enumerate().map(((i, d)) => $#fmt-set-math(d.at(0)) arrow #fmt-set-math(d.at(1))$).join(", ")}$. The subset $K = #fmt-set-math(key)$ is a candidate key containing $x = #q$: its closure is $K^+_F = A$ (since $#fmt-set-math(key.sorted()) arrow #fmt-set-math(deps.at(1).at(1))$ by the second FD, yielding all of $A$), and removing either element breaks the superkey property (${#(key.at(0))} arrow.r.not A$ and ${#(key.at(1))} arrow.r.not A$), so $K$ is minimal. Thus attribute #q is prime. There are #num-sat candidate keys containing attribute #q in total.
+
+    #figure(
+      canvas(length: 1cm, {
+        import draw: *
+        // Attribute nodes in two rows
+        let positions = (
+          (0, 1.2),    // 0: top-left
+          (1.5, 1.2),  // 1: top-center
+          (3.0, 1.2),  // 2: top-right
+          (0, 0),      // 3: bottom-left (query)
+          (1.5, 0),    // 4: bottom-center
+          (3.0, 0),    // 5: bottom-right
+        )
+        // Draw attribute nodes
+        for (k, pos) in positions.enumerate() {
+          let is-key = key.contains(k)
+          let is-query = k == q
+          g-node(pos, name: "a" + str(k), radius: 0.25,
+            fill: if is-key { graph-colors.at(0) } else if is-query { graph-colors.at(1) } else { white },
+            label: if is-key or is-query { text(fill: white)[$#k$] } else { [$#k$] })
+        }
+        // Draw functional dependencies as grouped arrows
+        // FD 1: {0,1} -> {2,3,4,5}
+        let fd-y-offsets = (0.55, -0.55, -1.15)
+        for (fi, (lhs, rhs)) in deps.enumerate() {
+          let ly = if fi == 0 { 2.0 } else if fi == 1 { -0.8 } else { 2.5 }
+          // Compute LHS and RHS centers
+          let lx = lhs.map(a => positions.at(a).at(0)).sum() / lhs.len()
+          let rx = rhs.map(a => positions.at(a).at(0)).sum() / rhs.len()
+          let mid-x = (lx + rx) / 2
+          // Draw arrow from LHS region to RHS region
+          let arrow-y = ly
+          on-layer(1, {
+            content((mid-x, arrow-y),
+              text(7pt)[FD#(fi + 1): $#fmt-set-math(lhs) arrow #fmt-set-math(rhs)$],
+              fill: white, frame: "rect", padding: 0.06, stroke: none)
+          })
+        }
+      }),
+      caption: [Prime Attribute Name instance with $n = #n$ attributes. Candidate key $K = #fmt-set-math(key)$ is highlighted in blue; query attribute $x = #q$ is a member of $K$. The three functional dependencies determine the closure of every subset.],
+    ) <fig:prime-attribute-name>
     ]
   ]
 }

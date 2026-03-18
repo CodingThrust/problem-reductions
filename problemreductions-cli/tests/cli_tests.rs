@@ -2861,6 +2861,40 @@ fn test_create_set_basis_no_flags_uses_actual_cli_flag_names() {
 }
 
 #[test]
+fn test_create_prime_attribute_name_no_flags_uses_actual_cli_flag_names() {
+    let output = pred()
+        .args(["create", "PrimeAttributeName"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--universe"),
+        "expected '--universe' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--deps"),
+        "expected '--deps' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--query"),
+        "expected '--query' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--num-attributes"),
+        "help should not advertise schema field names: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--dependencies"),
+        "help should not advertise schema field names: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--query-attribute"),
+        "help should not advertise schema field names: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_lcs_with_raw_strings_infers_alphabet() {
     let output = pred()
         .args(["create", "LCS", "--strings", "ABAC;BACA", "--bound", "2"])

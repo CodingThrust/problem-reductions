@@ -31,5 +31,5 @@ pub use misc::{
 };
 pub use set::{
     ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
-    MinimumCardinalityKey, MinimumSetCovering, SetBasis,
+    MinimumCardinalityKey, MinimumSetCovering, PrimeAttributeName, SetBasis,
 };

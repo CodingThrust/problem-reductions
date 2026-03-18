@@ -67,7 +67,7 @@ pub mod prelude {
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
-        MinimumCardinalityKey, MinimumSetCovering, SetBasis,
+        MinimumCardinalityKey, MinimumSetCovering, PrimeAttributeName, SetBasis,
     };
 
     // Core traits
