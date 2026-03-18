@@ -30,7 +30,7 @@ inventory::submit! {
             FieldInfo { name: "alphabet_size", type_name: "usize", description: "Size of the finite alphabet" },
             FieldInfo { name: "source", type_name: "Vec<usize>", description: "Source string (symbol indices)" },
             FieldInfo { name: "target", type_name: "Vec<usize>", description: "Target string (symbol indices)" },
-            FieldInfo { name: "bound_k", type_name: "usize", description: "Maximum number of operations allowed" },
+            FieldInfo { name: "bound", type_name: "usize", description: "Maximum number of operations allowed" },
         ],
     }
 }
@@ -74,7 +74,7 @@ pub struct StringToStringCorrection {
     alphabet_size: usize,
     source: Vec<usize>,
     target: Vec<usize>,
-    bound_k: usize,
+    bound: usize,
 }
 
 impl StringToStringCorrection {
@@ -89,7 +89,7 @@ impl StringToStringCorrection {
         alphabet_size: usize,
         source: Vec<usize>,
         target: Vec<usize>,
-        bound_k: usize,
+        bound: usize,
     ) -> Self {
         assert!(
             alphabet_size > 0 || (source.is_empty() && target.is_empty()),
@@ -107,7 +107,7 @@ impl StringToStringCorrection {
             alphabet_size,
             source,
             target,
-            bound_k,
+            bound,
         }
     }
 
@@ -127,8 +127,8 @@ impl StringToStringCorrection {
     }
 
     /// Returns the operation bound.
-    pub fn bound_k(&self) -> usize {
-        self.bound_k
+    pub fn bound(&self) -> usize {
+        self.bound
     }
 
     /// Returns the length of the source string.
@@ -151,15 +151,15 @@ impl Problem for StringToStringCorrection {
     }
 
     fn dims(&self) -> Vec<usize> {
-        vec![2 * self.source.len() + 1; self.bound_k]
+        vec![2 * self.source.len() + 1; self.bound]
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.bound_k {
+        if config.len() != self.bound {
             return false;
         }
         if self.target.len() > self.source.len()
-            || self.target.len() < self.source.len().saturating_sub(self.bound_k)
+            || self.target.len() < self.source.len().saturating_sub(self.bound)
         {
             return false;
         }
@@ -196,7 +196,7 @@ impl Problem for StringToStringCorrection {
 impl SatisfactionProblem for StringToStringCorrection {}
 
 crate::declare_variants! {
-    default sat StringToStringCorrection => "(2 * source_length + 1) ^ bound_k",
+    default sat StringToStringCorrection => "(2 * source_length + 1) ^ bound",
 }
 
 #[cfg(feature = "example-db")]

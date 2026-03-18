@@ -2266,7 +2266,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let source = x.instance.source
   let target = x.instance.target
   let alpha-size = x.instance.alphabet_size
-  let bound-k = x.instance.bound_k
+  let bound-k = x.instance.bound
   let n = source.len()
   // Alphabet mapping: 0->a, 1->b, 2->c, 3->d
   let alpha-map = range(alpha-size).map(i => str.from-unicode(97 + i))

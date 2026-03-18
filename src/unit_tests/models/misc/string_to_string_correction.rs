@@ -8,10 +8,10 @@ fn test_string_to_string_correction_creation() {
     assert_eq!(problem.alphabet_size(), 4);
     assert_eq!(problem.source(), &[0, 1, 2, 3, 1, 0]);
     assert_eq!(problem.target(), &[0, 1, 3, 2, 1]);
-    assert_eq!(problem.bound_k(), 2);
+    assert_eq!(problem.bound(), 2);
     assert_eq!(problem.source_length(), 6);
     assert_eq!(problem.target_length(), 5);
-    // domain = 2*6+1 = 13, bound_k = 2
+    // domain = 2*6+1 = 13, bound = 2
     assert_eq!(problem.dims(), vec![13; 2]);
     assert_eq!(
         <StringToStringCorrection as Problem>::NAME,
@@ -60,7 +60,7 @@ fn test_string_to_string_correction_serialization() {
     assert_eq!(restored.alphabet_size(), problem.alphabet_size());
     assert_eq!(restored.source(), problem.source());
     assert_eq!(restored.target(), problem.target());
-    assert_eq!(restored.bound_k(), problem.bound_k());
+    assert_eq!(restored.bound(), problem.bound());
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn test_string_to_string_correction_paper_example() {
 
 #[test]
 fn test_string_to_string_correction_unsatisfiable() {
-    // bound_k=0, source != target → impossible
+    // bound=0, source != target → impossible
     let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1, 0], 0);
     assert_eq!(problem.dims(), Vec::<usize>::new());
     assert!(!problem.evaluate(&[]));

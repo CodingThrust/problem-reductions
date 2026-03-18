@@ -462,7 +462,7 @@ fn problem_help_flag_name(
         return match field_name {
             "source" => "source-string".to_string(),
             "target" => "target-string".to_string(),
-            "bound_k" => "bound".to_string(),
+            "bound" => "bound".to_string(),
             _ => help_flag_name(canonical, field_name),
         };
     }
@@ -1802,7 +1802,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let target_str = args.target_string.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("StringToStringCorrection requires --target-string\n\n{usage}")
             })?;
-            let bound_k = parse_nonnegative_usize_bound(
+            let bound = parse_nonnegative_usize_bound(
                 args.bound.ok_or_else(|| {
                     anyhow::anyhow!("StringToStringCorrection requires --bound\n\n{usage}")
                 })?,
@@ -1838,7 +1838,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     alphabet_size,
                     source,
                     target,
-                    bound_k,
+                    bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -3063,7 +3063,7 @@ mod tests {
             "target-string"
         );
         assert_eq!(
-            problem_help_flag_name("StringToStringCorrection", "bound_k", "usize", false),
+            problem_help_flag_name("StringToStringCorrection", "bound", "usize", false),
             "bound"
         );
     }

@@ -2306,7 +2306,7 @@ fn test_create_string_to_string_correction() {
         serde_json::json!([0, 1, 2, 3, 1, 0])
     );
     assert_eq!(json["data"]["target"], serde_json::json!([0, 1, 3, 2, 1]));
-    assert_eq!(json["data"]["bound_k"], 2);
+    assert_eq!(json["data"]["bound"], 2);
     std::fs::remove_file(&output_file).ok();
 }
 
@@ -2329,7 +2329,7 @@ fn test_create_model_example_string_to_string_correction() {
         serde_json::json!([0, 1, 2, 3, 1, 0])
     );
     assert_eq!(json["data"]["target"], serde_json::json!([0, 1, 3, 2, 1]));
-    assert_eq!(json["data"]["bound_k"], 2);
+    assert_eq!(json["data"]["bound"], 2);
 }
 
 #[test]
