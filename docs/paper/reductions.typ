@@ -3819,7 +3819,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Correctness._ ($arrow.r.double$) A multiway cut $C$ partitions $V$ into $k$ components, one per terminal. Setting $y_(i v) = 1$ iff $v$ is in $t_i$'s component and $x_e = 1$ iff $e in C$ satisfies all constraints: partition by construction, terminal fixing by definition, and linking because any edge with endpoints in different components is in $C$. The objective equals the cut weight. ($arrow.l.double$) Any feasible ILP solution defines a valid partition (by constraint (2)) separating all terminals (by constraint (1)). The linking constraints (3) force $x_e = 1$ for all cross-component edges, so the objective is at least the multiway cut weight; minimization ensures optimality.
 
-  _Solution extraction._ For each edge $e$ at index $"idx"$, read $x_e = x^*_(k n + "idx"))$. The source configuration is $"config"[e] = x_e$ (1 = cut, 0 = keep).
+  _Solution extraction._ For each edge $e$ at index $"idx"$, read $x_e = x^*_(k n + "idx")$. The source configuration is $"config"[e] = x_e$ (1 = cut, 0 = keep).
 ]
 
 == Unit Disk Mapping
