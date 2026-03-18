@@ -401,6 +401,8 @@ fn model_specs_are_optimal() {
 
 #[test]
 fn rule_specs_solution_pairs_are_consistent() {
+    let graph = ReductionGraph::new();
+
     let db = build_rule_db().unwrap();
     for example in &db.rules {
         let label = format!(
@@ -428,6 +430,23 @@ fn rule_specs_solution_pairs_are_consistent() {
             example.target.instance.clone(),
         )
         .unwrap_or_else(|e| panic!("Failed to load target for {label}: {e}"));
+
+        // Re-run the reduction to get extract_solution for round-trip check
+        let chain = graph
+            .reduce_along_path(
+                &graph
+                    .find_cheapest_path(
+                        &example.source.problem,
+                        &example.source.variant,
+                        &example.target.problem,
+                        &example.target.variant,
+                        &crate::types::ProblemSize::new(vec![]),
+                        &crate::rules::MinimizeSteps,
+                    )
+                    .unwrap_or_else(|| panic!("No reduction path for {label}")),
+                source.as_any(),
+            )
+            .unwrap_or_else(|| panic!("Failed to reduce along path for {label}"));
 
         for pair in &example.solutions {
             assert!(
@@ -475,6 +494,17 @@ fn rule_specs_solution_pairs_are_consistent() {
                 target_val,
                 serde_json::json!(false),
                 "Rule {label}: target_config evaluates to false"
+            );
+            // Round-trip: extract_solution(target_config) must produce a valid
+            // source config with the same evaluation value
+            let extracted = chain.extract_solution(&pair.target_config);
+            let extracted_val = source.evaluate_json(&extracted);
+            assert_eq!(
+                extracted_val, source_val,
+                "Rule {label}: round-trip value mismatch: \
+                 evaluate(extract_solution(target_config)) = {} but evaluate(source_config) = {} \
+                 (extracted: {:?}, stored: {:?})",
+                extracted_val, source_val, extracted, pair.source_config
             );
         }
     }
