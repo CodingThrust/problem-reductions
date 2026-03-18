@@ -1,17 +1,11 @@
 //! Canonical example database assembly.
 //!
-//! The example database has two layers:
+//! Each model and rule has a canonical example spec that stores both the
+//! problem instance and its known optimal solution. The database is computed
+//! from these specs on demand — no static fixture file.
 //!
-//! - **Fixtures** (`fixtures/examples.json`): pre-computed expected results
-//!   embedded at compile time as a wrapped JSON object. These are the "stored
-//!   expected results" used for fast export and lookups.
-//!
-//! - **Builders** (`model_builders`, `rule_builders`): code that constructs
-//!   problem instances and computes solutions via BruteForce/ILP. Used only
-//!   for regenerating fixtures and for verification tests.
-//!
-//! The public API (`build_*_db`, `find_*_example`) loads from fixtures.
-//! Use `compute_*_db` to regenerate from code (slow, test/CI only).
+//! Model specs are pure data (`Box<dyn DynProblem>` + optimal config + value).
+//! Rule specs run `reduce_to()` (fast, no solver) with pre-stored solution pairs.
 
 use crate::error::{ProblemError, Result};
 use crate::export::{ExampleDb, ModelDb, ModelExample, ProblemRef, RuleDb, RuleExample};
@@ -57,33 +51,25 @@ fn validate_model_uniqueness(models: &[ModelExample]) -> Result<()> {
     Ok(())
 }
 
-// ---- Fixture loading (fast, used by default) ----
-
-/// Load the full example database from the embedded fixture file.
+/// Build the full example database from specs.
+///
+/// Fast — specs store concrete instances and pre-computed solutions,
+/// no solver is called.
 pub fn build_example_db() -> Result<ExampleDb> {
-    static EXAMPLES_JSON: &str = include_str!("fixtures/examples.json");
-    let db: ExampleDb = serde_json::from_str(EXAMPLES_JSON)
-        .map_err(|e| ProblemError::SerializationError(format!("invalid example fixture: {e}")))?;
-    validate_model_uniqueness(&db.models)?;
-    validate_rule_uniqueness(&db.rules)?;
-    Ok(db)
+    compute_example_db()
 }
 
-/// Load the model database from the embedded fixture file.
+/// Build the model database from specs.
 pub fn build_model_db() -> Result<ModelDb> {
-    let db = build_example_db()?;
-    Ok(ModelDb { models: db.models })
+    compute_model_db()
 }
 
-/// Load the rule database from the embedded fixture file.
+/// Build the rule database from specs.
 pub fn build_rule_db() -> Result<RuleDb> {
-    let db = build_example_db()?;
-    Ok(RuleDb { rules: db.rules })
+    compute_rule_db()
 }
 
-// ---- Computation from builders (slow, for regeneration and verification) ----
-
-/// Recompute the full example database from builder code.
+/// Compute the full example database from builder code.
 pub fn compute_example_db() -> Result<ExampleDb> {
     let model_db = compute_model_db()?;
     let rule_db = compute_rule_db()?;
@@ -93,7 +79,7 @@ pub fn compute_example_db() -> Result<ExampleDb> {
     })
 }
 
-/// Recompute the model database from builder code (runs BruteForce).
+/// Compute the model database from specs.
 pub fn compute_model_db() -> Result<ModelDb> {
     let mut models = model_builders::build_model_examples();
     models.sort_by_key(model_key);
@@ -101,7 +87,7 @@ pub fn compute_model_db() -> Result<ModelDb> {
     Ok(ModelDb { models })
 }
 
-/// Recompute the rule database from builder code (runs BruteForce/ILP).
+/// Compute the rule database from specs.
 pub fn compute_rule_db() -> Result<RuleDb> {
     let mut rules = rule_builders::build_rule_examples();
     rules.sort_by_key(rule_key);
