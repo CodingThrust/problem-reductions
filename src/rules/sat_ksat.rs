@@ -218,6 +218,51 @@ impl ReduceTo<Satisfiability> for KSatisfiability<K2> {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::models::formula::CNFClause;
+
+    vec![
+        crate::example_db::specs::RuleExampleSpec {
+            id: "satisfiability_to_ksatisfiability",
+            build: || {
+                let source = Satisfiability::new(
+                    5,
+                    vec![
+                        CNFClause::new(vec![1]),
+                        CNFClause::new(vec![2, -3]),
+                        CNFClause::new(vec![-1, 3, 4]),
+                        CNFClause::new(vec![2, -4, 5]),
+                        CNFClause::new(vec![1, -2, 3, -5]),
+                        CNFClause::new(vec![-1, 2, -3, 4, 5]),
+                    ],
+                );
+                crate::example_db::specs::direct_satisfying_example::<_, KSatisfiability<K3>, _>(
+                    source,
+                    |_, _| true,
+                )
+            },
+        },
+        crate::example_db::specs::RuleExampleSpec {
+            id: "ksatisfiability_to_satisfiability",
+            build: || {
+                let source = KSatisfiability::<KN>::new(
+                    4,
+                    vec![
+                        CNFClause::new(vec![1, -2, 3]),
+                        CNFClause::new(vec![-1, 3, 4]),
+                        CNFClause::new(vec![2, -3, -4]),
+                    ],
+                );
+                crate::example_db::specs::direct_satisfying_example::<_, Satisfiability, _>(
+                    source,
+                    |_, _| true,
+                )
+            },
+        },
+    ]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/sat_ksat.rs"]
 mod tests;

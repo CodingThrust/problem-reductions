@@ -12,6 +12,10 @@ fn test_directed_graph_empty() {
     let g = DirectedGraph::empty(5);
     assert_eq!(g.num_vertices(), 5);
     assert_eq!(g.num_arcs(), 0);
+    assert!(!g.is_empty());
+
+    let empty = DirectedGraph::new(0, vec![]);
+    assert!(empty.is_empty());
 }
 
 #[test]
@@ -56,6 +60,17 @@ fn test_directed_graph_predecessors() {
 }
 
 #[test]
+fn test_directed_graph_degrees() {
+    let graph = DirectedGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]);
+    assert_eq!(graph.out_degree(0), 2);
+    assert_eq!(graph.out_degree(1), 1);
+    assert_eq!(graph.out_degree(2), 0);
+    assert_eq!(graph.in_degree(0), 0);
+    assert_eq!(graph.in_degree(1), 1);
+    assert_eq!(graph.in_degree(2), 2);
+}
+
+#[test]
 fn test_directed_graph_is_dag_true() {
     // Simple path: 0 → 1 → 2
     let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
@@ -80,6 +95,44 @@ fn test_directed_graph_is_dag_self_loop() {
     // Self-loop is a cycle
     let g = DirectedGraph::new(2, vec![(0, 0)]);
     assert!(!g.is_dag());
+}
+
+#[test]
+fn test_is_strongly_connected_cycle() {
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    assert!(g.is_strongly_connected());
+}
+
+#[test]
+fn test_is_strongly_connected_path() {
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    assert!(!g.is_strongly_connected());
+}
+
+#[test]
+fn test_is_strongly_connected_single_vertex() {
+    let g = DirectedGraph::new(1, vec![]);
+    assert!(g.is_strongly_connected());
+}
+
+#[test]
+fn test_is_strongly_connected_empty() {
+    let g = DirectedGraph::empty(0);
+    assert!(g.is_strongly_connected());
+}
+
+#[test]
+fn test_directed_graph_is_acyclic_subgraph() {
+    // Cycle: 0->1->2->0
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    // Keep all arcs -> has cycle
+    assert!(!graph.is_acyclic_subgraph(&[true, true, true]));
+    // Remove arc 2->0 -> acyclic
+    assert!(graph.is_acyclic_subgraph(&[true, true, false]));
+    // Remove arc 0->1 -> acyclic
+    assert!(graph.is_acyclic_subgraph(&[false, true, true]));
+    // Keep no arcs -> trivially acyclic
+    assert!(graph.is_acyclic_subgraph(&[false, false, false]));
 }
 
 #[test]

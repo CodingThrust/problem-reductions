@@ -2,7 +2,13 @@
 
 use crate::models::algebraic::{Comparison, ObjectiveSense, VariableDomain, ILP};
 use crate::rules::{ReduceTo, ReductionResult};
-use good_lp::{default_solver, variable, ProblemVariables, Solution, SolverModel, Variable};
+#[cfg(not(feature = "ilp-highs"))]
+use good_lp::default_solver;
+#[cfg(feature = "ilp-highs")]
+use good_lp::highs;
+#[cfg(feature = "ilp-highs")]
+use good_lp::solvers::highs::HighsParallelType;
+use good_lp::{variable, ProblemVariables, Solution, SolverModel, Variable};
 
 /// An ILP solver using the HiGHS backend.
 ///
@@ -82,6 +88,20 @@ impl ILPSolver {
         };
 
         // Create the solver model
+        #[cfg(feature = "ilp-highs")]
+        let mut model = {
+            let mut model = unsolved
+                .using(highs)
+                .set_option("random_seed", 0i32)
+                .set_parallel(HighsParallelType::Off)
+                .set_threads(1);
+            if let Some(seconds) = self.time_limit {
+                model = model.set_time_limit(seconds);
+            }
+            model
+        };
+
+        #[cfg(not(feature = "ilp-highs"))]
         let mut model = unsolved.using(default_solver);
 
         // Add constraints

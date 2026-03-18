@@ -3,7 +3,7 @@ use crate::models::formula::*;
 use crate::models::graph::*;
 use crate::models::misc::*;
 use crate::models::set::*;
-use crate::topology::{BipartiteGraph, SimpleGraph};
+use crate::topology::{BipartiteGraph, DirectedGraph, SimpleGraph};
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -54,6 +54,10 @@ fn test_all_problems_implement_trait_correctly() {
         "MaximumMatching",
     );
     check_problem_trait(
+        &BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 3, 2)], 2),
+        "BiconnectivityAugmentation",
+    );
+    check_problem_trait(
         &Satisfiability::new(3, vec![CNFClause::new(vec![1])]),
         "SAT",
     );
@@ -76,6 +80,13 @@ fn test_all_problems_implement_trait_correctly() {
         &BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1),
         "BicliqueCover",
     );
+    check_problem_trait(
+        &BalancedCompleteBipartiteSubgraph::new(
+            BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]),
+            2,
+        ),
+        "BalancedCompleteBipartiteSubgraph",
+    );
     check_problem_trait(&Factoring::new(6, 2, 2), "Factoring");
 
     let circuit = Circuit::new(vec![Assignment::new(
@@ -83,6 +94,49 @@ fn test_all_problems_implement_trait_correctly() {
         BooleanExpr::constant(true),
     )]);
     check_problem_trait(&CircuitSAT::new(circuit), "CircuitSAT");
+    check_problem_trait(
+        &StrongConnectivityAugmentation::new(
+            DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+            vec![(0, 2, 1)],
+            1,
+        ),
+        "StrongConnectivityAugmentation",
+    );
+    check_problem_trait(
+        &HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)])),
+        "HamiltonianCircuit",
+    );
+    check_problem_trait(
+        &HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
+        "HamiltonianPath",
+    );
+    check_problem_trait(
+        &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 3),
+        "OptimalLinearArrangement",
+    );
+    check_problem_trait(
+        &IsomorphicSpanningTree::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        ),
+        "IsomorphicSpanningTree",
+    );
+    check_problem_trait(
+        &ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3),
+        "ShortestCommonSupersequence",
+    );
+    check_problem_trait(
+        &FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10),
+        "FlowShopScheduling",
+    );
+    check_problem_trait(
+        &SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]),
+        "SequencingWithReleaseTimesAndDeadlines",
+    );
+    check_problem_trait(
+        &SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240),
+        "SumOfSquaresPartition",
+    );
 }
 
 #[test]

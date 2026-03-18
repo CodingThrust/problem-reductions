@@ -126,3 +126,47 @@ fn test_knapsack_greedy_not_optimal() {
 fn test_knapsack_mismatched_lengths() {
     Knapsack::new(vec![1, 2], vec![3], 5);
 }
+
+#[test]
+#[should_panic(expected = "nonnegative")]
+fn test_knapsack_negative_weight_panics() {
+    Knapsack::new(vec![-1, 2], vec![3, 4], 5);
+}
+
+#[test]
+#[should_panic(expected = "nonnegative")]
+fn test_knapsack_negative_value_panics() {
+    Knapsack::new(vec![1, 2], vec![-3, 4], 5);
+}
+
+#[test]
+#[should_panic(expected = "nonnegative")]
+fn test_knapsack_negative_capacity_panics() {
+    Knapsack::new(vec![1, 2], vec![3, 4], -1);
+}
+
+#[test]
+fn test_knapsack_deserialization_rejects_negative_fields() {
+    let invalid_cases = [
+        serde_json::json!({
+            "weights": [-1, 2],
+            "values": [3, 4],
+            "capacity": 5,
+        }),
+        serde_json::json!({
+            "weights": [1, 2],
+            "values": [-3, 4],
+            "capacity": 5,
+        }),
+        serde_json::json!({
+            "weights": [1, 2],
+            "values": [3, 4],
+            "capacity": -1,
+        }),
+    ];
+
+    for invalid in invalid_cases {
+        let error = serde_json::from_value::<Knapsack>(invalid).unwrap_err();
+        assert!(error.to_string().contains("nonnegative"));
+    }
+}

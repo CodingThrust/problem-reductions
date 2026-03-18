@@ -1,4 +1,5 @@
 use super::*;
+use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 include!("../jl_helpers.rs");
@@ -83,13 +84,12 @@ fn test_jl_parity_spinglass_to_qubo() {
     let source = SpinGlass::<SimpleGraph, f64>::new(nv, interactions, h_values);
     let result = ReduceTo::<QUBO<f64>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &result,
+        "JL parity SpinGlass->QUBO",
+    );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }
@@ -126,13 +126,12 @@ fn test_jl_parity_qubo_to_spinglass() {
     let source = QUBO::from_matrix(rust_matrix);
     let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &result,
+        "JL parity QUBO->SpinGlass",
+    );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }
@@ -170,13 +169,12 @@ fn test_jl_parity_rule_qubo_to_spinglass() {
     let source = QUBO::from_matrix(rust_matrix);
     let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &result,
+        "JL parity rule QUBO->SpinGlass",
+    );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }

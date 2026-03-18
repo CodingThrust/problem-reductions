@@ -3,7 +3,7 @@
 //! The Maximum Matching problem asks for a maximum weight set of edges
 //! such that no two edges share a vertex.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -14,6 +14,12 @@ use std::collections::HashMap;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaximumMatching",
+        display_name: "Maximum Matching",
+        aliases: &["MaxMatching"],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find maximum weight matching in a graph",
         fields: &[
@@ -220,7 +226,19 @@ where
 }
 
 crate::declare_variants! {
-    MaximumMatching<SimpleGraph, i32> => "num_vertices^3",
+    default opt MaximumMatching<SimpleGraph, i32> => "num_vertices^3",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "maximum_matching_simplegraph_i32",
+        build: || {
+            let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+            let problem = MaximumMatching::<_, i32>::unit_weights(graph);
+            crate::example_db::specs::optimization_example(problem, vec![vec![1, 0, 0, 0, 1, 0]])
+        },
+    }]
 }
 
 /// Check if a selection of edges forms a valid matching.

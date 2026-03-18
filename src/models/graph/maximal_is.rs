@@ -3,7 +3,7 @@
 //! The Maximal Independent Set problem asks for an independent set that
 //! cannot be extended by adding any other vertex.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -13,6 +13,12 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaximalIS",
+        display_name: "Maximal IS",
+        aliases: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find maximum weight maximal independent set",
         fields: &[
@@ -183,6 +189,21 @@ where
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "maximal_is_simplegraph_i32",
+        build: || {
+            let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+            let problem = MaximalIS::new(graph, vec![1i32; 5]);
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![0, 1, 0, 1, 0], vec![1, 0, 1, 0, 1]],
+            )
+        },
+    }]
+}
+
 /// Check if a set is a maximal independent set.
 ///
 /// # Panics
@@ -216,7 +237,7 @@ pub(crate) fn is_maximal_independent_set<G: Graph>(graph: &G, selected: &[bool])
 }
 
 crate::declare_variants! {
-    MaximalIS<SimpleGraph, i32> => "3^(num_vertices / 3)",
+    default opt MaximalIS<SimpleGraph, i32> => "3^(num_vertices / 3)",
 }
 
 #[cfg(test)]

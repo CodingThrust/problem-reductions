@@ -1,115 +1,219 @@
-//! JSON export schema for reduction examples.
-//!
-//! Provides a unified serialization format for all reduction example programs.
-//! Each example produces two files:
-//! - `<name>.json` — reduction structure (source, target, overhead)
-//! - `<name>.result.json` — runtime solutions
-//!
-//! The schema mirrors the internal types: `ReductionOverhead` for expressions,
-//! `Problem::variant()` for problem variants, and `Problem::NAME` for problem names.
+//! JSON export schema for example payloads.
 
-use crate::expr::Expr;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::ReductionGraph;
-use serde::Serialize;
-use std::collections::{BTreeMap, HashMap};
+use crate::traits::Problem;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
 /// One side (source or target) of a reduction.
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ProblemSide {
     /// Problem name matching `Problem::NAME` (e.g., `"MaximumIndependentSet"`).
     pub problem: String,
     /// Variant attributes (e.g., `{"graph": "SimpleGraph", "weight": "One"}`).
-    pub variant: HashMap<String, String>,
+    pub variant: BTreeMap<String, String>,
     /// Problem-specific instance data (edges, matrix, clauses, etc.).
     pub instance: serde_json::Value,
 }
 
-/// One output field mapped to an expression.
-#[derive(Serialize, Clone, Debug)]
-pub struct OverheadEntry {
-    pub field: String,
-    pub expr: Expr,
-    pub formula: String,
+impl ProblemSide {
+    /// Build a serializable problem side from a typed problem.
+    pub fn from_problem<P>(problem: &P) -> Self
+    where
+        P: Problem + Serialize,
+    {
+        Self {
+            problem: P::NAME.to_string(),
+            variant: variant_to_map(P::variant()),
+            instance: serde_json::to_value(problem).expect("Failed to serialize problem instance"),
+        }
+    }
+
+    /// Extract the structural identity of this problem side.
+    pub fn problem_ref(&self) -> ProblemRef {
+        ProblemRef {
+            name: self.problem.clone(),
+            variant: self.variant.clone(),
+        }
+    }
 }
 
-/// Top-level reduction structure (written to `<name>.json`).
-#[derive(Serialize, Clone, Debug)]
-pub struct ReductionData {
-    pub source: ProblemSide,
-    pub target: ProblemSide,
-    pub overhead: Vec<OverheadEntry>,
+/// Canonical structural identity for a problem node in the reduction graph.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ProblemRef {
+    pub name: String,
+    pub variant: BTreeMap<String, String>,
 }
 
 /// One source↔target solution pair.
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SolutionPair {
     pub source_config: Vec<usize>,
     pub target_config: Vec<usize>,
 }
 
-/// Runtime results (written to `<name>.result.json`).
-#[derive(Serialize, Clone, Debug)]
-pub struct ResultData {
+/// A complete rule example: reduction + solutions in one file.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct RuleExample {
+    pub source: ProblemSide,
+    pub target: ProblemSide,
     pub solutions: Vec<SolutionPair>,
 }
 
-/// Convert a `ReductionOverhead` to JSON-serializable entries.
-pub fn overhead_to_json(overhead: &ReductionOverhead) -> Vec<OverheadEntry> {
-    overhead
-        .output_size
-        .iter()
-        .map(|(field, expr)| OverheadEntry {
-            field: field.to_string(),
-            formula: expr.to_string(),
-            expr: expr.clone(),
+/// A complete model example: instance + evaluations.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct ModelExample {
+    pub problem: String,
+    pub variant: BTreeMap<String, String>,
+    pub instance: serde_json::Value,
+    pub samples: Vec<SampleEval>,
+    pub optimal: Vec<SampleEval>,
+}
+
+impl ModelExample {
+    /// Build a serializable model example from a typed problem plus evaluated configs.
+    pub fn from_problem<P>(problem: &P, samples: Vec<SampleEval>, optimal: Vec<SampleEval>) -> Self
+    where
+        P: Problem + Serialize,
+    {
+        Self {
+            problem: P::NAME.to_string(),
+            variant: variant_to_map(P::variant()),
+            instance: serde_json::to_value(problem).expect("Failed to serialize problem instance"),
+            samples,
+            optimal,
+        }
+    }
+
+    /// Extract the structural identity of this model example.
+    pub fn problem_ref(&self) -> ProblemRef {
+        ProblemRef {
+            name: self.problem.clone(),
+            variant: self.variant.clone(),
+        }
+    }
+}
+
+/// Canonical exported database of rule examples.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct RuleDb {
+    pub rules: Vec<RuleExample>,
+}
+
+/// Canonical exported database of model examples.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct ModelDb {
+    pub models: Vec<ModelExample>,
+}
+
+/// Canonical exported database of model and rule examples.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct ExampleDb {
+    pub models: Vec<ModelExample>,
+    pub rules: Vec<RuleExample>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct SampleEval {
+    pub config: Vec<usize>,
+    pub metric: serde_json::Value,
+}
+
+/// Look up `ReductionOverhead` for a direct reduction using `ReductionGraph::find_best_entry`.
+pub fn lookup_overhead(
+    source_name: &str,
+    source_variant: &BTreeMap<String, String>,
+    target_name: &str,
+    target_variant: &BTreeMap<String, String>,
+) -> Option<ReductionOverhead> {
+    let graph = ReductionGraph::new();
+    let matched =
+        graph.find_best_entry(source_name, source_variant, target_name, target_variant)?;
+    Some(matched.overhead)
+}
+
+/// Convert `Problem::variant()` output to a stable `BTreeMap`.
+///
+/// Normalizes empty `"graph"` values to `"SimpleGraph"` for consistency
+/// with the reduction graph convention.
+pub fn variant_to_map(variant: Vec<(&str, &str)>) -> BTreeMap<String, String> {
+    variant
+        .into_iter()
+        .map(|(k, v)| {
+            let value = if k == "graph" && v.is_empty() {
+                "SimpleGraph".to_string()
+            } else {
+                v.to_string()
+            };
+            (k.to_string(), value)
         })
         .collect()
 }
 
-/// Look up `ReductionOverhead` for a direct reduction using `ReductionGraph::find_best_entry`.
-///
-/// Finds the best matching registered reduction entry for the given source/target
-/// names and source variant. Returns `None` if no compatible direct reduction exists.
-pub fn lookup_overhead(
-    source_name: &str,
-    source_variant: &HashMap<String, String>,
-    target_name: &str,
-    _target_variant: &HashMap<String, String>,
-) -> Option<ReductionOverhead> {
-    let graph = ReductionGraph::new();
-    let src_bt: BTreeMap<String, String> = source_variant
-        .iter()
-        .map(|(k, v)| (k.clone(), v.clone()))
-        .collect();
-    let matched = graph.find_best_entry(source_name, target_name, &src_bt)?;
-    Some(matched.overhead)
-}
-
-/// Convert `Problem::variant()` output to a `HashMap`.
-pub fn variant_to_map(variant: Vec<(&str, &str)>) -> HashMap<String, String> {
-    variant
-        .into_iter()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .collect()
-}
-
-/// Write both `<name>.json` and `<name>.result.json` to `docs/paper/examples/`.
-pub fn write_example(name: &str, reduction: &ReductionData, results: &ResultData) {
-    let dir = Path::new("docs/paper/examples");
+fn write_json_file<T: Serialize>(dir: &Path, name: &str, payload: &T) {
     fs::create_dir_all(dir).expect("Failed to create examples directory");
+    let path = dir.join(format!("{name}.json"));
+    let json = serde_json::to_string_pretty(payload).expect("Failed to serialize example");
+    fs::write(&path, json).expect("Failed to write example JSON");
+    println!("Exported: {}", path.display());
+}
 
-    let reduction_path = dir.join(format!("{}.json", name));
-    let json = serde_json::to_string_pretty(reduction).expect("Failed to serialize reduction");
-    fs::write(&reduction_path, json).expect("Failed to write reduction JSON");
-    println!("Exported: {}", reduction_path.display());
+fn render_compact_array<T: Serialize>(items: &[T]) -> String {
+    if items.is_empty() {
+        "[]".to_string()
+    } else {
+        let rows = items
+            .iter()
+            .map(|item| {
+                format!(
+                    "    {}",
+                    serde_json::to_string(item).expect("Failed to serialize example entry")
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",\n");
+        format!("[\n{rows}\n  ]")
+    }
+}
 
-    let results_path = dir.join(format!("{}.result.json", name));
-    let json = serde_json::to_string_pretty(results).expect("Failed to serialize results");
-    fs::write(&results_path, json).expect("Failed to write results JSON");
-    println!("Exported: {}", results_path.display());
+fn write_example_db_file(dir: &Path, db: &ExampleDb) {
+    fs::create_dir_all(dir).expect("Failed to create examples directory");
+    let path = dir.join("examples.json");
+    let json = format!(
+        "{{\n  \"models\": {},\n  \"rules\": {}\n}}\n",
+        render_compact_array(&db.models),
+        render_compact_array(&db.rules)
+    );
+    fs::write(&path, json).expect("Failed to write example JSON");
+    println!("Exported: {}", path.display());
+}
+
+/// Write a merged rule example JSON file.
+pub fn write_rule_example_to(dir: &Path, name: &str, example: &RuleExample) {
+    write_json_file(dir, name, example);
+}
+
+/// Write a model example JSON file to a target directory.
+pub fn write_model_example_to(dir: &Path, name: &str, example: &ModelExample) {
+    write_json_file(dir, name, example);
+}
+
+/// Write the canonical rule database as a wrapped JSON object.
+pub fn write_rule_db_to(dir: &Path, db: &RuleDb) {
+    write_json_file(dir, "rules", db);
+}
+
+/// Write the canonical model database as a wrapped JSON object.
+pub fn write_model_db_to(dir: &Path, db: &ModelDb) {
+    write_json_file(dir, "models", db);
+}
+
+/// Write the canonical example database as a wrapped JSON object.
+pub fn write_example_db_to(dir: &Path, db: &ExampleDb) {
+    write_example_db_file(dir, db);
 }
 
 #[cfg(test)]
