@@ -1089,7 +1089,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let bound = x.instance.bound
   let sol = x.optimal.at(0)
   let chosen = candidates.enumerate().filter(((i, _)) => sol.config.at(i) == 1).map(((i, arc)) => arc)
-  let arc = chosen.at(0)
+  let total-weight = chosen.map(a => a.at(2)).sum()
   let blue = graph-colors.at(0)
   [
     #problem-def("StrongConnectivityAugmentation")[
@@ -1097,28 +1097,55 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     ][
     Strong Connectivity Augmentation models network design problems where a partially connected directed communication graph may be repaired by buying additional arcs. Eswaran and Tarjan showed that the unweighted augmentation problem is solvable in linear time, while the weighted variant is substantially harder @eswarantarjan1976. The decision version recorded as ND19 in Garey and Johnson is NP-complete @garey1979. The implementation here uses one binary variable per candidate arc, so brute-force over the candidate set yields a worst-case bound of $O^*(2^m)$ where $m = "num_potential_arcs"$. #footnote[No exact algorithm improving on brute-force is claimed here for the weighted candidate-arc formulation implemented in the codebase.]
 
-    *Example.* The canonical instance has $n = #nv$ vertices, $|A| = #ne$ existing arcs, #candidates.len() weighted candidate arcs, and bound $B = #bound$. The base graph already contains the directed 3-cycle $v_0 -> v_1 -> v_2 -> v_0$ and the strongly connected component on ${v_3, v_4, v_5}$, with only the forward bridge $v_2 -> v_3$ between them. The unique satisfying augmentation under this bound selects the single candidate arc $(v_#arc.at(0), v_#arc.at(1)))$ of weight #arc.at(2), closing the cycle $v_2 -> v_3 -> v_4 -> v_5 -> v_2$ and making every vertex reachable from every other. The all-zero configuration is infeasible because no path returns from ${v_3, v_4, v_5}$ to ${v_0, v_1, v_2}$.
+    *Example.* The canonical instance has $n = #nv$ vertices, $|A| = #ne$ existing arcs, and bound $B = #bound$. The base graph is the directed path $v_0 -> v_1 -> v_2 -> v_3 -> v_4$ — every vertex can reach those ahead of it, but vertex $v_4$ is a sink with no outgoing arcs. The #candidates.len() candidate arcs with weights are: #candidates.map(a => $w(v_#(a.at(0)), v_#(a.at(1))) = #(a.at(2))$).join(", "). All are individually within budget, yet only the pair #chosen.map(a => $(v_#(a.at(0)), v_#(a.at(1)))$).join(" and ") with weights #chosen.map(a => $#(a.at(2))$).join($+$) $= #total-weight = B$ achieves strong connectivity. Alternative escape arcs from $v_4$ (to $v_3$ or $v_2$) are equally cheap but land on vertices from which reaching $v_0$ within the remaining budget is impossible.
 
     #figure({
-      let verts = ((0, 1), (1.2, 1.6), (1.2, 0.4), (3.4, 1.0), (4.6, 1.5), (4.6, 0.5))
+      let verts = ((0, 0), (1.5, 0), (3.0, 0), (4.5, 0), (6.0, 0))
+      let highlighted = chosen.map(a => (a.at(0), a.at(1))).flatten()
       canvas(length: 1cm, {
+        // Vertices (drawn first so edges can reference named anchors)
+        for (k, pos) in verts.enumerate() {
+          g-node(pos, name: "v" + str(k),
+            fill: if highlighted.contains(k) { blue.transparentize(65%) } else { white },
+            label: [$v_#k$])
+        }
+        // Base arcs (black, between named nodes)
         for (u, v) in arcs {
-          draw.line(verts.at(u), verts.at(v),
+          draw.line("v" + str(u), "v" + str(v),
             stroke: 1pt + black,
             mark: (end: "straight", scale: 0.4))
         }
-        draw.line(verts.at(arc.at(0)), verts.at(arc.at(1)),
-          stroke: 1.6pt + blue,
-          mark: (end: "straight", scale: 0.45))
-        for (k, pos) in verts.enumerate() {
-          let highlighted = k == arc.at(0) or k == arc.at(1)
-          g-node(pos, name: "v" + str(k),
-            fill: if highlighted { blue.transparentize(65%) } else { white },
-            label: [$v_#k$])
+        // Chosen augmenting arcs (blue, curved above the path)
+        let r = 0.24
+        for (idx, arc) in chosen.enumerate() {
+          let (u, v, w) = arc
+          let pu = verts.at(u)
+          let pv = verts.at(v)
+          let rise = 0.7 + 0.3 * calc.abs(u - v)
+          let ctrl = ((pu.at(0) + pv.at(0)) / 2, rise)
+          // Shorten start toward control point
+          let dx-s = ctrl.at(0) - pu.at(0)
+          let dy-s = ctrl.at(1) - pu.at(1)
+          let ds = calc.sqrt(dx-s * dx-s + dy-s * dy-s)
+          let p0 = (pu.at(0) + r * dx-s / ds, pu.at(1) + r * dy-s / ds)
+          // Shorten end toward control point
+          let dx-e = ctrl.at(0) - pv.at(0)
+          let dy-e = ctrl.at(1) - pv.at(1)
+          let de = calc.sqrt(dx-e * dx-e + dy-e * dy-e)
+          let p1 = (pv.at(0) + r * dx-e / de, pv.at(1) + r * dy-e / de)
+          draw.bezier(p0, p1, ctrl,
+            stroke: 1.6pt + blue,
+            mark: (end: "straight", scale: 0.5),
+          )
+          // Weight label
+          draw.content(
+            ((pu.at(0) + pv.at(0)) / 2, rise + 0.3),
+            text(7pt, fill: blue)[$#w$],
+          )
         }
       })
     },
-    caption: [Strong Connectivity Augmentation on a #{nv}-vertex digraph. Black arcs are present in $A$; the added candidate arc $(v_#arc.at(0), v_#arc.at(1)))$ is shown in blue. With bound $B = #bound$, this single augmentation makes the digraph strongly connected.],
+    caption: [Strong Connectivity Augmentation on a #{nv}-vertex path digraph. Black arcs form the base path $A$; blue arcs are the unique augmentation (#chosen.map(a => $(v_#(a.at(0)), v_#(a.at(1)))$).join(", ")) with total weight $#total-weight = B = #bound$.],
     ) <fig:strong-connectivity-augmentation>
     ]
   ]
