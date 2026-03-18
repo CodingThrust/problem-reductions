@@ -58,10 +58,7 @@ where
     }
 
     fn variant_map(&self) -> BTreeMap<String, String> {
-        T::variant()
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect()
+        crate::export::variant_to_map(T::variant())
     }
 
     fn num_variables_dyn(&self) -> usize {

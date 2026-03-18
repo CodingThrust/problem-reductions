@@ -2,7 +2,7 @@ use crate::example_db::{
     build_example_db, build_model_db, build_rule_db, find_model_example, find_rule_example,
 };
 use crate::export::ProblemRef;
-use crate::registry::{find_variant_entry, load_dyn};
+use crate::registry::load_dyn;
 use crate::rules::{registry::reduction_entries, ReductionGraph};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
@@ -334,8 +334,14 @@ fn model_specs_are_self_consistent() {
     }
 }
 
+#[cfg(feature = "ilp-solver")]
 #[test]
 fn model_specs_are_optimal() {
+    use crate::registry::find_variant_entry;
+    use crate::solvers::ILPSolver;
+
+    let ilp_solver = ILPSolver::new();
+
     let specs = crate::models::graph::canonical_model_example_specs()
         .into_iter()
         .chain(crate::models::formula::canonical_model_example_specs())
@@ -346,17 +352,30 @@ fn model_specs_are_optimal() {
     for spec in specs {
         let name = spec.instance.problem_name();
         let variant = spec.instance.variant_map();
-        let entry = find_variant_entry(name, &variant)
-            .unwrap_or_else(|| panic!("No variant entry for spec '{}' ({name} {variant:?})", spec.id));
 
-        let (best_config, _) = (entry.solve_fn)(spec.instance.as_any())
-            .unwrap_or_else(|| panic!("Brute-force returned no solution for spec '{}'", spec.id));
+        // Try ILP (direct or via reduction), fall back to brute force for small instances
+        let best_config = ilp_solver
+            .solve_via_reduction(name, &variant, spec.instance.as_any())
+            .or_else(|| {
+                // Only brute-force if search space is small (≤ 2^20 configs)
+                let dims = spec.instance.dims_dyn();
+                let log_space: f64 = dims.iter().map(|&d| (d as f64).log2()).sum();
+                if log_space > 20.0 {
+                    return None;
+                }
+                let entry = find_variant_entry(name, &variant)?;
+                let (config, _) = (entry.solve_fn)(spec.instance.as_any())?;
+                Some(config)
+            })
+            .unwrap_or_else(|| {
+                panic!("No solver found for spec '{}' ({name} {variant:?})", spec.id)
+            });
 
         let best_value = spec.instance.evaluate_json(&best_config);
         assert_eq!(
             best_value, spec.optimal_value,
-            "Model spec '{}': brute-force optimal = {} but stored optimal_value = {} \
-             (brute-force config: {:?}, stored config: {:?})",
+            "Model spec '{}': solver optimal = {} but stored optimal_value = {} \
+             (solver config: {:?}, stored config: {:?})",
             spec.id, best_value, spec.optimal_value, best_config, spec.optimal_config
         );
     }
