@@ -61,8 +61,8 @@ fn test_write_canonical_example_db() {
             problem: "ModelProblem".to_string(),
             variant: variant_to_map(vec![("graph", "SimpleGraph")]),
             instance: serde_json::json!({"n": 5}),
-            samples: vec![],
-            optimal: vec![],
+            optimal_config: vec![],
+            optimal_value: serde_json::json!(null),
         }],
         rules: vec![RuleExample {
             source: ProblemSide {
@@ -119,8 +119,8 @@ fn test_write_example_db_uses_wrapped_json_contract() {
             problem: "ModelProblem".to_string(),
             variant: variant_to_map(vec![("graph", "SimpleGraph")]),
             instance: serde_json::json!({"n": 5}),
-            samples: vec![],
-            optimal: vec![],
+            optimal_config: vec![],
+            optimal_value: serde_json::json!(null),
         }],
         rules: vec![RuleExample {
             source: ProblemSide {
@@ -169,11 +169,8 @@ fn test_write_example_db_uses_one_line_per_example_entry() {
             problem: "ModelProblem".to_string(),
             variant: variant_to_map(vec![("graph", "SimpleGraph")]),
             instance: serde_json::json!({"n": 5, "edges": [[0, 1], [1, 2]]}),
-            samples: vec![SampleEval {
-                config: vec![1, 0, 1],
-                metric: serde_json::json!({"Valid": 2}),
-            }],
-            optimal: vec![],
+            optimal_config: vec![1, 0, 1],
+            optimal_value: serde_json::json!({"Valid": 2}),
         }],
         rules: vec![RuleExample {
             source: ProblemSide {
@@ -274,7 +271,7 @@ fn export_variant_to_map_preserves_explicit_graph() {
     assert_eq!(map["weight"], "f64");
 }
 
-// ---- ProblemSide::from_problem / ModelExample::from_problem ----
+// ---- ProblemSide::from_problem / ModelExample::new ----
 
 #[test]
 fn problem_side_from_typed_problem() {
@@ -290,20 +287,17 @@ fn problem_side_from_typed_problem() {
 }
 
 #[test]
-fn model_example_from_typed_problem() {
-    use crate::models::graph::MaximumIndependentSet;
-    use crate::topology::SimpleGraph;
-
-    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let mis = MaximumIndependentSet::new(g, vec![1, 1, 1]);
-    let sample = SampleEval {
-        config: vec![1, 0, 1],
-        metric: serde_json::json!("Valid(2)"),
-    };
-    let example = ModelExample::from_problem(&mis, vec![sample.clone()], vec![sample]);
+fn model_example_new() {
+    let example = ModelExample::new(
+        "MaximumIndependentSet",
+        variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]),
+        serde_json::json!({"num_vertices": 3, "edges": [[0, 1], [1, 2]]}),
+        vec![1, 0, 1],
+        serde_json::json!({"Valid": 2}),
+    );
     assert_eq!(example.problem, "MaximumIndependentSet");
-    assert!(!example.samples.is_empty());
-    assert!(!example.optimal.is_empty());
+    assert_eq!(example.optimal_config, vec![1, 0, 1]);
+    assert_eq!(example.optimal_value, serde_json::json!({"Valid": 2}));
     assert!(example.instance.is_object());
 }
 
@@ -313,8 +307,8 @@ fn model_example_problem_ref() {
         problem: "TestProblem".to_string(),
         variant: variant_to_map(vec![("graph", "SimpleGraph")]),
         instance: serde_json::json!({}),
-        samples: vec![],
-        optimal: vec![],
+        optimal_config: vec![],
+        optimal_value: serde_json::json!(null),
     };
     let pref = example.problem_ref();
     assert_eq!(pref.name, "TestProblem");
@@ -367,11 +361,8 @@ fn write_model_example_to_creates_json_file() {
         problem: "TestModel".to_string(),
         variant: variant_to_map(vec![("graph", "SimpleGraph")]),
         instance: serde_json::json!({"n": 3}),
-        samples: vec![SampleEval {
-            config: vec![1, 0, 1],
-            metric: serde_json::json!("Valid(2)"),
-        }],
-        optimal: vec![],
+        optimal_config: vec![1, 0, 1],
+        optimal_value: serde_json::json!({"Valid": 2}),
     };
     write_model_example_to(&dir, "test_model", &example);
     let path = dir.join("test_model.json");

@@ -45,7 +45,7 @@ fn test_find_model_example_mis_simplegraph_i32() {
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
     assert!(
-        !example.optimal.is_empty(),
+        !example.optimal_config.is_empty(),
         "canonical example should include optima"
     );
 }
@@ -62,7 +62,7 @@ fn test_find_model_example_exact_cover_by_3_sets() {
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
     assert!(
-        !example.optimal.is_empty(),
+        !example.optimal_config.is_empty(),
         "canonical example should include satisfying assignments"
     );
 }
@@ -79,7 +79,7 @@ fn test_find_model_example_multiprocessor_scheduling() {
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
     assert!(
-        !example.optimal.is_empty(),
+        !example.optimal_config.is_empty(),
         "canonical example should include satisfying assignments"
     );
 }
@@ -96,7 +96,7 @@ fn test_find_model_example_strong_connectivity_augmentation() {
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
     assert!(
-        !example.optimal.is_empty(),
+        !example.optimal_config.is_empty(),
         "canonical example should include satisfying assignments"
     );
 }
@@ -648,14 +648,14 @@ fn verify_model_fixtures_match_computed() {
             loaded_model.variant
         );
         assert_eq!(
-            loaded_model.samples, computed_model.samples,
-            "model fixture sample evaluations mismatch for {} {:?} — regenerate fixtures with: \
+            loaded_model.optimal_config, computed_model.optimal_config,
+            "model fixture optimal_config mismatch for {} {:?} — regenerate fixtures with: \
              cargo run --release --example regenerate_fixtures --features \"ilp-highs example-db\"",
             loaded_model.problem, loaded_model.variant
         );
         assert_eq!(
-            loaded_model.optimal, computed_model.optimal,
-            "model fixture optima mismatch for {} {:?} — regenerate fixtures with: \
+            loaded_model.optimal_value, computed_model.optimal_value,
+            "model fixture optimal_value mismatch for {} {:?} — regenerate fixtures with: \
              cargo run --release --example regenerate_fixtures --features \"ilp-highs example-db\"",
             loaded_model.problem, loaded_model.variant
         );

@@ -3,9 +3,10 @@
 //! These types describe canonical model and rule examples with metadata
 //! that can be validated against the catalog and reduction registry.
 
-use crate::export::{ModelExample, ProblemSide, RuleExample, SampleEval, SolutionPair};
+use crate::export::{ProblemSide, RuleExample, SolutionPair};
 use crate::models::algebraic::{VariableDomain, ILP};
 use crate::prelude::{OptimizationProblem, Problem, ReduceTo, ReductionResult};
+use crate::registry::DynProblem;
 use crate::rules::{MinimizeSteps, ReductionGraph};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::types::ProblemSize;
@@ -15,12 +16,18 @@ use std::any::Any;
 use std::sync::OnceLock;
 
 /// Specification for a canonical model example.
-#[allow(dead_code)]
+///
+/// Stores a concrete problem instance and its known optimal solution.
+/// The instance is type-erased via `DynProblem` for heterogeneous collection.
 pub struct ModelExampleSpec {
     /// Unique example identifier.
     pub id: &'static str,
-    /// Builder function that produces the full exported example.
-    pub build: fn() -> ModelExample,
+    /// The concrete problem instance (type-erased).
+    pub instance: Box<dyn DynProblem>,
+    /// One known optimal configuration.
+    pub optimal_config: Vec<usize>,
+    /// The optimal value as a serializable JSON value.
+    pub optimal_value: serde_json::Value,
 }
 
 /// Specification for a canonical rule example.
@@ -30,71 +37,6 @@ pub struct RuleExampleSpec {
     pub id: &'static str,
     /// Builder function that produces the full exported example.
     pub build: fn() -> RuleExample,
-}
-
-// ---- Model example helpers ----
-
-pub fn sample_eval<P>(problem: &P, config: Vec<usize>) -> SampleEval
-where
-    P: Problem,
-    P::Metric: Serialize,
-{
-    let metric =
-        serde_json::to_value(problem.evaluate(&config)).expect("Failed to serialize metric");
-    SampleEval { config, metric }
-}
-
-pub fn optimization_example<P>(problem: P, samples: Vec<Vec<usize>>) -> ModelExample
-where
-    P: OptimizationProblem + Serialize,
-    P::Metric: Serialize,
-{
-    let sample_evals = samples
-        .into_iter()
-        .map(|config| sample_eval(&problem, config))
-        .collect();
-    let optimal = BruteForce::new()
-        .find_all_best(&problem)
-        .into_iter()
-        .map(|config| sample_eval(&problem, config))
-        .collect();
-    ModelExample::from_problem(&problem, sample_evals, optimal)
-}
-
-pub fn satisfaction_example<P>(problem: P, samples: Vec<Vec<usize>>) -> ModelExample
-where
-    P: Problem<Metric = bool> + Serialize,
-{
-    let sample_evals = samples
-        .into_iter()
-        .map(|config| sample_eval(&problem, config))
-        .collect();
-    let satisfying = BruteForce::new()
-        .find_all_satisfying(&problem)
-        .into_iter()
-        .map(|config| sample_eval(&problem, config))
-        .collect();
-    ModelExample::from_problem(&problem, sample_evals, satisfying)
-}
-
-pub fn explicit_example<P>(
-    problem: P,
-    samples: Vec<Vec<usize>>,
-    optimal_configs: Vec<Vec<usize>>,
-) -> ModelExample
-where
-    P: Problem + Serialize,
-    P::Metric: Serialize,
-{
-    let sample_evals = samples
-        .into_iter()
-        .map(|config| sample_eval(&problem, config))
-        .collect();
-    let optimal = optimal_configs
-        .into_iter()
-        .map(|config| sample_eval(&problem, config))
-        .collect();
-    ModelExample::from_problem(&problem, sample_evals, optimal)
 }
 
 // ---- Rule example helpers ----
