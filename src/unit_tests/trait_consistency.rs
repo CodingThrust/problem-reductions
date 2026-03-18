@@ -88,6 +88,10 @@ fn test_all_problems_implement_trait_correctly() {
         "BalancedCompleteBipartiteSubgraph",
     );
     check_problem_trait(&Factoring::new(6, 2, 2), "Factoring");
+    check_problem_trait(
+        &QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 1], vec![1, 0]]),
+        "QuadraticAssignment",
+    );
 
     let circuit = Circuit::new(vec![Assignment::new(
         vec!["x".to_string()],
@@ -185,6 +189,11 @@ fn test_direction() {
     assert_eq!(Factoring::new(6, 2, 2).direction(), Direction::Minimize);
     assert_eq!(
         BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1).direction(),
+        Direction::Minimize
+    );
+    assert_eq!(
+        QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 1], vec![1, 0]])
+            .direction(),
         Direction::Minimize
     );
 

@@ -257,6 +257,7 @@ Flags by problem type:
   LCS                             --strings, --bound [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
+  QAP                             --matrix (cost), --distance-matrix
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   StaffScheduling                 --schedules, --requirements, --num-workers, --k
@@ -467,6 +468,9 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Distance matrix for QuadraticAssignment (semicolon-separated rows, e.g., "0,1,2;1,0,1;2,1,0")
+    #[arg(long)]
+    pub distance_matrix: Option<String>,
     /// Weighted potential augmentation edges (e.g., 0-2:3,1-3:5)
     #[arg(long)]
     pub potential_edges: Option<String>,

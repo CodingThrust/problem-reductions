@@ -110,6 +110,7 @@
   "SubsetSum": [Subset Sum],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
+  "QuadraticAssignment": [Quadratic Assignment],
   "SequencingWithReleaseTimesAndDeadlines": [Sequencing with Release Times and Deadlines],
   "MultipleChoiceBranching": [Multiple Choice Branching],
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
@@ -1846,6 +1847,93 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   }),
   caption: [ILP feasible region (green) with constraints $x_1 + x_2 <= 5$ (blue) and $4x_1 + 7x_2 <= 28$ (orange). Hollow circles mark the integer lattice. The LP relaxation optimum $p_1 = (7 slash 3, 8 slash 3)$ is non-integral; the ILP optimum $bold(x)^* = (#xstar.map(v => str(v)).join(", "))$ gives $bold(c)^top bold(x)^* = #fstar$.],
 ) <fig:ilp-example>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("QuadraticAssignment")
+  let C = x.instance.cost_matrix
+  let D = x.instance.distance_matrix
+  let n = C.len()
+  let m = D.len()
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let fstar = sol.config
+  let cost-star = sol.metric.Valid
+  // Convert integer matrix to math.mat content
+  let to-mat(m) = math.mat(..m.map(row => row.map(v => $#v$)))
+  // Compute identity assignment cost
+  let id-cost = range(n).fold(0, (acc, i) =>
+    range(n).fold(acc, (acc2, j) =>
+      if i != j { acc2 + C.at(i).at(j) * D.at(i).at(j) } else { acc2 }
+    )
+  )
+  // Format optimal assignment as 1-indexed
+  let fstar-display = fstar.map(v => str(v + 1)).join(", ")
+  // Find the highest-flow off-diagonal pair
+  let max-flow = 0
+  let max-fi = 0
+  let max-fj = 0
+  for i in range(n) {
+    for j in range(i + 1, n) {
+      if C.at(i).at(j) > max-flow {
+        max-flow = C.at(i).at(j)
+        max-fi = i
+        max-fj = j
+      }
+    }
+  }
+  let assigned-li = fstar.at(max-fi)
+  let assigned-lj = fstar.at(max-fj)
+  let dist-between = D.at(assigned-li).at(assigned-lj)
+  [
+    #problem-def("QuadraticAssignment")[
+      Given $n$ facilities and $m$ locations ($n <= m$), a flow matrix $C in ZZ^(n times n)$ representing flows between facilities, and a distance matrix $D in ZZ^(m times m)$ representing distances between locations, find an injective assignment $f: {1, dots, n} -> {1, dots, m}$ that minimizes
+      $ sum_(i != j) C_(i j) dot D_(f(i), f(j)). $
+    ][
+    The Quadratic Assignment Problem was introduced by Koopmans and Beckmann (1957) to model the optimal placement of economic activities (facilities) across geographic locations, minimizing total transportation cost weighted by inter-facility flows. It is NP-hard, as shown by Sahni and Gonzalez (1976) via reduction from the Hamiltonian Circuit problem. QAP is widely regarded as one of the hardest combinatorial optimization problems: even moderate instances ($n > 20$) challenge state-of-the-art exact solvers. Best exact approaches use branch-and-bound with Gilmore--Lawler bounds or cutting-plane methods; the best known general algorithm runs in $O^*(n!)$ by exhaustive enumeration of all permutations#footnote[No algorithm significantly improving on brute-force permutation enumeration is known for general QAP.].
+
+    Applications include facility layout planning, keyboard and control panel design, scheduling, VLSI placement, and hospital floor planning. As a special case, when $D$ is a distance matrix on a line (i.e., $D_(k l) = |k - l|$), QAP reduces to the Optimal Linear Arrangement problem.
+
+    *Example.* Consider $n = m = #n$ with flow matrix $C$ and distance matrix $D$:
+    $ C = #to-mat(C), quad D = #to-mat(D). $
+    The identity assignment $f(i) = i$ gives cost #id-cost. The optimal assignment is $f^* = (#fstar-display)$ with cost #cost-star: it places the heavily interacting facilities $F_#(max-fi + 1)$ and $F_#(max-fj + 1)$ (highest flow $= #max-flow$) at locations $L_#(assigned-li + 1)$ and $L_#(assigned-lj + 1)$ (distance $= #dist-between$).
+
+    #figure(
+      canvas(length: 1cm, {
+        import draw: *
+        let fac-x = 0
+        let loc-x = 5
+        let ys = range(n).rev()
+        // Draw facility nodes
+        for i in range(n) {
+          circle((fac-x, ys.at(i)), radius: 0.3, fill: graph-colors.at(0), stroke: 0.8pt + graph-colors.at(0), name: "f" + str(i))
+          content("f" + str(i), text(fill: white, 8pt)[$F_#(i+1)$])
+        }
+        // Draw location nodes
+        for j in range(m) {
+          circle((loc-x, ys.at(j)), radius: 0.3, fill: graph-colors.at(1), stroke: 0.8pt + graph-colors.at(1), name: "l" + str(j))
+          content("l" + str(j), text(fill: white, 8pt)[$L_#(j+1)$])
+        }
+        content((fac-x, n - 0.3), text(9pt, weight: "bold")[Facilities])
+        content((loc-x, m - 0.3), text(9pt, weight: "bold")[Locations])
+        // Draw optimal assignment arrows
+        for (fi, li) in fstar.enumerate() {
+          line("f" + str(fi) + ".east", "l" + str(li) + ".west",
+            mark: (end: "straight"), stroke: 1.2pt + luma(80))
+        }
+        // Highlight highest-flow pair
+        on-layer(-1, {
+          let y0 = calc.min(ys.at(max-fi), ys.at(max-fj)) - 0.55
+          let y1 = calc.max(ys.at(max-fi), ys.at(max-fj)) + 0.55
+          rect((-0.55, y0), (0.55, y1),
+            fill: graph-colors.at(0).transparentize(92%),
+            stroke: (dash: "dashed", paint: graph-colors.at(0).transparentize(50%), thickness: 0.6pt))
+        })
+        content((fac-x, -0.9), text(6pt, fill: luma(100))[flow$(F_#(max-fi + 1), F_#(max-fj + 1)) = #max-flow$])
+      }),
+      caption: [Optimal assignment $f^* = (#fstar-display)$ for the $#n times #m$ QAP instance. Facilities (blue, left) are assigned to locations (red, right) by arrows. Facilities $F_#(max-fi + 1)$ and $F_#(max-fj + 1)$ (highest flow $= #max-flow$) are assigned to locations $L_#(assigned-li + 1)$ and $L_#(assigned-lj + 1)$ (distance $= #dist-between$). Total cost $= #cost-star$.],
+    ) <fig:qap-example>
     ]
   ]
 }
