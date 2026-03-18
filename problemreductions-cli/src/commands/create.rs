@@ -332,6 +332,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
         }
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
+        "LongestCommonSubsequence" => {
+            "--strings \"010110;100101;001011\" --bound 3 --alphabet-size 2"
+        }
         "MinimumCardinalityKey" => {
             "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
         }
@@ -377,6 +380,10 @@ fn help_flag_hint(
 ) -> &'static str {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_weight") => "integer",
+        ("LongestCommonSubsequence", "strings") => {
+            "raw strings: \"ABAC;BACA\" or symbol lists: \"0,1,0;1,0,1\""
+        }
+        ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
         _ => type_format_hint(type_name, graph_type),
     }
@@ -1294,18 +1301,85 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // LongestCommonSubsequence
         "LongestCommonSubsequence" => {
+            let usage =
+                "Usage: pred create LCS --strings \"010110;100101;001011\" --bound 3 [--alphabet-size 2]";
             let strings_str = args.strings.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "LCS requires --strings\n\n\
-                     Usage: pred create LCS --strings \"ABAC;BACA\""
-                )
+                anyhow::anyhow!("LongestCommonSubsequence requires --strings\n\n{usage}")
             })?;
-            let strings: Vec<Vec<u8>> = strings_str
-                .split(';')
-                .map(|s| s.trim().as_bytes().to_vec())
-                .collect();
+            let bound_i64 = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("LongestCommonSubsequence requires --bound\n\n{usage}")
+            })?;
+            anyhow::ensure!(
+                bound_i64 >= 0,
+                "LongestCommonSubsequence requires a nonnegative --bound, got {}",
+                bound_i64
+            );
+            let bound = bound_i64 as usize;
+
+            let segments: Vec<&str> = strings_str.split(';').map(str::trim).collect();
+            let comma_mode = segments.iter().any(|segment| segment.contains(','));
+
+            let (strings, inferred_alphabet_size): (Vec<Vec<usize>>, usize) = if comma_mode {
+                let strings = segments
+                    .iter()
+                    .map(|segment| {
+                        if segment.is_empty() {
+                            return Ok(Vec::new());
+                        }
+                        segment
+                            .split(',')
+                            .map(|value| {
+                                value.trim().parse::<usize>().map_err(|e| {
+                                    anyhow::anyhow!("Invalid LCS alphabet index: {}", e)
+                                })
+                            })
+                            .collect::<Result<Vec<_>>>()
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let inferred = strings
+                    .iter()
+                    .flat_map(|string| string.iter())
+                    .copied()
+                    .max()
+                    .map(|value| value + 1)
+                    .unwrap_or(0);
+                (strings, inferred)
+            } else {
+                let mut encoding = BTreeMap::new();
+                let mut next_symbol = 0usize;
+                let strings = segments
+                    .iter()
+                    .map(|segment| {
+                        segment
+                            .as_bytes()
+                            .iter()
+                            .map(|byte| {
+                                let entry = encoding.entry(*byte).or_insert_with(|| {
+                                    let current = next_symbol;
+                                    next_symbol += 1;
+                                    current
+                                });
+                                *entry
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
+                (strings, next_symbol)
+            };
+
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred_alphabet_size);
+            anyhow::ensure!(
+                alphabet_size >= inferred_alphabet_size,
+                "--alphabet-size {} is smaller than the inferred alphabet size ({})",
+                alphabet_size,
+                inferred_alphabet_size
+            );
+            anyhow::ensure!(
+                alphabet_size > 0 || (bound == 0 && strings.iter().all(|string| string.is_empty())),
+                "LongestCommonSubsequence requires a positive alphabet. Provide --alphabet-size when all strings are empty and --bound > 0.\n\n{usage}"
+            );
             (
-                ser(LongestCommonSubsequence::new(strings))?,
+                ser(LongestCommonSubsequence::new(alphabet_size, strings, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -3089,6 +3163,7 @@ fn create_random(
 #[cfg(test)]
 mod tests {
     use super::create;
+    use super::help_flag_hint;
     use super::help_flag_name;
     use super::parse_bool_rows;
     use super::problem_help_flag_name;
@@ -3119,6 +3194,19 @@ mod tests {
     }
 
     #[test]
+    fn test_problem_help_uses_problem_specific_lcs_strings_hint() {
+        assert_eq!(
+            help_flag_hint(
+                "LongestCommonSubsequence",
+                "strings",
+                "Vec<Vec<usize>>",
+                None,
+            ),
+            "raw strings: \"ABAC;BACA\" or symbol lists: \"0,1,0;1,0,1\""
+        );
+    }
+
+    #[test]
     fn test_problem_help_uses_string_to_string_correction_cli_flags() {
         assert_eq!(
             problem_help_flag_name("StringToStringCorrection", "source", "Vec<usize>", false),
@@ -3131,6 +3219,14 @@ mod tests {
         assert_eq!(
             problem_help_flag_name("StringToStringCorrection", "bound", "usize", false),
             "bound"
+        );
+    }
+
+    #[test]
+    fn test_problem_help_keeps_generic_vec_vec_usize_hint_for_other_models() {
+        assert_eq!(
+            help_flag_hint("SetBasis", "sets", "Vec<Vec<usize>>", None),
+            "semicolon-separated sets: \"0,1;1,2;0,2\""
         );
     }
 

@@ -2838,6 +2838,46 @@ fn test_create_set_basis_no_flags_uses_actual_cli_flag_names() {
 }
 
 #[test]
+fn test_create_lcs_with_raw_strings_infers_alphabet() {
+    let output = pred()
+        .args(["create", "LCS", "--strings", "ABAC;BACA", "--bound", "2"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "LongestCommonSubsequence");
+    assert_eq!(json["data"]["alphabet_size"], 3);
+    assert_eq!(json["data"]["bound"], 2);
+    assert_eq!(
+        json["data"]["strings"],
+        serde_json::json!([[0, 1, 0, 2], [1, 0, 2, 0]])
+    );
+}
+
+#[test]
+fn test_create_lcs_rejects_empty_strings_with_positive_bound_without_panicking() {
+    let output = pred()
+        .args(["create", "LCS", "--strings", "", "--bound", "1"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Provide --alphabet-size when all strings are empty and --bound > 0"),
+        "expected user-facing validation error, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("panicked at"),
+        "create command should reject invalid LCS input without panicking: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_kcoloring_missing_k() {
     let output = pred()
         .args(["create", "KColoring", "--graph", "0-1,1-2"])

@@ -251,7 +251,7 @@ Flags by problem type:
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
   MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
-  LCS                             --strings
+  LCS                             --strings, --bound [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
@@ -452,13 +452,13 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound or length bound (for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, SCS, or StringToStringCorrection)
+    /// Upper bound or length bound (for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
     #[arg(long)]
     pub pattern: Option<String>,
-    /// Input strings for LCS (e.g., "ABAC;BACA") or SCS (e.g., "0,1,2;1,2,0")
+    /// Input strings for LCS (e.g., "ABAC;BACA" or "0,1,0;1,0,1") or SCS (e.g., "0,1,2;1,2,0")
     #[arg(long)]
     pub strings: Option<String>,
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
@@ -497,7 +497,7 @@ pub struct CreateArgs {
     /// Number of available workers for StaffScheduling
     #[arg(long)]
     pub num_workers: Option<u64>,
-    /// Alphabet size for SCS or StringToStringCorrection (optional; inferred from max symbol + 1 if omitted)
+    /// Alphabet size for LCS, SCS, or StringToStringCorrection (optional; inferred from the input strings if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
     /// Functional dependencies for MinimumCardinalityKey (semicolon-separated "lhs>rhs" pairs, e.g., "0,1>2;0,2>3")
