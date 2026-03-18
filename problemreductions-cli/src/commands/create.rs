@@ -3248,6 +3248,107 @@ mod tests {
 
         let output_path = std::env::temp_dir().join("pred_test_create_biconnectivity.json");
         let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let content = std::fs::read_to_string(&output_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(json["type"], "BiconnectivityAugmentation");
+        assert_eq!(json["data"]["budget"], 5);
+        assert_eq!(
+            json["data"]["potential_weights"][0],
+            serde_json::json!([0, 2, 3])
+        );
+
+        std::fs::remove_file(output_path).ok();
+    }
+
+    #[test]
+    fn test_create_biconnectivity_augmentation_json_with_isolated_vertices() {
+        let mut args = empty_args();
+        args.graph = Some("0-1".to_string());
+        args.num_vertices = Some(3);
+        args.potential_edges = Some("1-2:1".to_string());
+        args.budget = Some("1".to_string());
+
+        let output_path =
+            std::env::temp_dir().join("pred_test_create_biconnectivity_isolated.json");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let content = std::fs::read_to_string(&output_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        let problem: BiconnectivityAugmentation<SimpleGraph, i32> =
+            serde_json::from_value(json["data"].clone()).unwrap();
+
+        assert_eq!(problem.num_vertices(), 3);
+        assert_eq!(problem.potential_weights(), &[(1, 2, 1)]);
+        assert_eq!(problem.budget(), &1);
+
+        std::fs::remove_file(output_path).ok();
+    }
+
+    #[test]
+    fn test_create_balanced_complete_bipartite_subgraph() {
+        use crate::dispatch::ProblemJsonOutput;
+        use problemreductions::models::graph::BalancedCompleteBipartiteSubgraph;
+
+        let mut args = empty_args();
+        args.problem = Some("BalancedCompleteBipartiteSubgraph".to_string());
+        args.biedges = Some("0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3".to_string());
+        args.left = Some(4);
+        args.right = Some(4);
+        args.k = Some(3);
+        args.graph = None;
+
+        let output_path =
+            std::env::temp_dir().join(format!("bcbs-create-{}.json", std::process::id()));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = std::fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "BalancedCompleteBipartiteSubgraph");
+        assert!(created.variant.is_empty());
+
+        let problem: BalancedCompleteBipartiteSubgraph =
+            serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.left_size(), 4);
+        assert_eq!(problem.right_size(), 4);
+        assert_eq!(problem.num_edges(), 12);
+        assert_eq!(problem.k(), 3);
+
+        let _ = std::fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_balanced_complete_bipartite_subgraph_rejects_out_of_range_biedges() {
+        let mut args = empty_args();
+        args.problem = Some("BalancedCompleteBipartiteSubgraph".to_string());
+        args.biedges = Some("4-0".to_string());
+        args.left = Some(4);
+        args.right = Some(4);
+        args.k = Some(3);
+        args.graph = None;
+
+        let out = OutputConfig {
             output: None,
             quiet: true,
             json: false,
