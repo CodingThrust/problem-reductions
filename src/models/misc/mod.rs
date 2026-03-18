@@ -23,6 +23,7 @@ mod multiprocessor_scheduling;
 pub(crate) mod paintshop;
 mod sequencing_within_intervals;
 pub(crate) mod shortest_common_supersequence;
+mod staff_scheduling;
 mod subset_sum;
 
 pub use bin_packing::BinPacking;
@@ -35,6 +36,7 @@ pub use multiprocessor_scheduling::MultiprocessorScheduling;
 pub use paintshop::PaintShop;
 pub use sequencing_within_intervals::SequencingWithinIntervals;
 pub use shortest_common_supersequence::ShortestCommonSupersequence;
+pub use staff_scheduling::StaffScheduling;
 pub use subset_sum::SubsetSum;
 
 #[cfg(feature = "example-db")]
@@ -44,6 +46,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(multiprocessor_scheduling::canonical_model_example_specs());
     specs.extend(paintshop::canonical_model_example_specs());
     specs.extend(sequencing_within_intervals::canonical_model_example_specs());
+    specs.extend(staff_scheduling::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
     specs.extend(minimum_tardiness_sequencing::canonical_model_example_specs());
     specs

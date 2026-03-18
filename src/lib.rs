@@ -60,7 +60,7 @@ pub mod prelude {
     pub use crate::models::misc::{
         BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
         MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, SequencingWithinIntervals,
-        ShortestCommonSupersequence, SubsetSum,
+        ShortestCommonSupersequence, StaffScheduling, SubsetSum,
     };
     pub use crate::models::set::{
         ComparativeContainment, ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis,

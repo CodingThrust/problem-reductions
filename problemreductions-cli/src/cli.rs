@@ -254,6 +254,7 @@ Flags by problem type:
   FVS                             --arcs [--weights] [--num-vertices]
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
+  StaffScheduling                 --schedules, --requirements, --num-workers, --k
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
   SCS                             --strings, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
@@ -482,6 +483,15 @@ pub struct CreateArgs {
     /// Number of processors/machines for FlowShopScheduling or MultiprocessorScheduling
     #[arg(long)]
     pub num_processors: Option<usize>,
+    /// Binary schedule patterns for StaffScheduling (semicolon-separated rows, e.g., "1,1,0;0,1,1")
+    #[arg(long)]
+    pub schedules: Option<String>,
+    /// Minimum staffing requirements per period for StaffScheduling
+    #[arg(long)]
+    pub requirements: Option<String>,
+    /// Number of available workers for StaffScheduling
+    #[arg(long)]
+    pub num_workers: Option<u64>,
     /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
