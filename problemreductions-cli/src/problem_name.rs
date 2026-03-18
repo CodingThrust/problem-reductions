@@ -237,8 +237,8 @@ fn edit_distance(a: &str, b: &str) -> usize {
     for (i, row) in dp.iter_mut().enumerate().take(n + 1) {
         row[0] = i;
     }
-    for j in 0..=m {
-        dp[0][j] = j;
+    for (j, value) in dp[0].iter_mut().enumerate().take(m + 1) {
+        *value = j;
     }
 
     for i in 1..=n {
@@ -279,6 +279,10 @@ mod tests {
         assert_eq!(resolve_alias("3SAT"), "3SAT"); // pass-through
         assert_eq!(resolve_alias("QUBO"), "QUBO");
         assert_eq!(resolve_alias("MaxCut"), "MaxCut");
+        assert_eq!(
+            resolve_alias("biconnectivityaugmentation"),
+            "BiconnectivityAugmentation"
+        );
         // Pass-through for full names
         assert_eq!(
             resolve_alias("MaximumIndependentSet"),
@@ -305,6 +309,14 @@ mod tests {
         let spec = parse_problem_spec("MIS/SimpleGraph/f64").unwrap();
         assert_eq!(spec.name, "MaximumIndependentSet");
         assert_eq!(spec.variant_values, vec!["SimpleGraph", "f64"]);
+    }
+
+    #[test]
+    fn test_resolve_alias_pass_through_undirected_two_commodity_integral_flow() {
+        assert_eq!(
+            resolve_alias("UndirectedTwoCommodityIntegralFlow"),
+            "UndirectedTwoCommodityIntegralFlow"
+        );
     }
 
     #[test]

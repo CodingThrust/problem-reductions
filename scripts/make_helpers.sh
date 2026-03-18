@@ -47,6 +47,7 @@ run_agent() {
         claude --dangerously-skip-permissions \
             --model "${CLAUDE_MODEL:-opus}" \
             --verbose \
+            --output-format text \
             --max-turns 500 \
             -p "$prompt" 2>&1 | tee "$output_file"
     else
@@ -75,6 +76,10 @@ poll_project_items() {
     fi
     if [ -n "$number" ]; then
         set -- "$@" --number "$number"
+    fi
+    # Filter blocked [Rule] issues whose model dependency is missing on main
+    if [ "$mode" = "ready" ]; then
+        set -- "$@" --repo-root .
     fi
     python3 "$@"
 }
@@ -111,6 +116,10 @@ claim_project_items() {
     fi
     if [ -n "$number" ]; then
         set -- "$@" --number "$number"
+    fi
+    # Filter blocked [Rule] issues whose model dependency is missing on main
+    if [ "$mode" = "ready" ]; then
+        set -- "$@" --repo-root .
     fi
     python3 "$@"
 }
@@ -153,10 +162,9 @@ pr_wait_ci() {
 review_pipeline_context() {
     repo=$1
     pr=${2-}
-    state_file=${3:-/tmp/problemreductions-review-state.json}
-    fmt=${4:-json}
+    fmt=${3:-json}
 
-    set -- scripts/pipeline_skill_context.py review-pipeline --repo "$repo" --state-file "$state_file" --format "$fmt"
+    set -- scripts/pipeline_skill_context.py review-pipeline --repo "$repo" --format "$fmt"
     if [ -n "$pr" ]; then
         set -- "$@" --pr "$pr"
     fi
@@ -208,20 +216,21 @@ cleanup_pipeline_worktree() {
 #   watch_and_dispatch <mode> <make-target> <label> [repo]
 # Example:
 #   watch_and_dispatch ready  run-pipeline "Ready issues"
-#   watch_and_dispatch review run-review   "Copilot-reviewed PRs" "$REPO"
+#   watch_and_dispatch review run-review   "Review pool PRs" "$REPO"
 watch_and_dispatch() {
     mode=$1
     make_target=$2
     label=$3
     repo=${4-}
     interval=${POLL_INTERVAL:-600}
+    max_retries=${MAX_RETRIES:-3}
 
-    state_file=$(mktemp /tmp/problemreductions-${mode}-state.XXXXXX)
-    trap 'rm -f "$state_file"' EXIT INT TERM
+    state_file=${STATE_FILE:-/tmp/problemreductions-${mode}-forever-state.json}
 
-    echo "Watching for new ${label} (polling every $((interval / 60))m)..."
+    trap 'exit 130' INT TERM
+    echo "Watching for new ${label} (polling every $((interval / 60))m, max retries ${max_retries})..."
     while true; do
-        next_item=$(poll_project_items "$mode" "$state_file" "$repo")
+        next_item=$(poll_project_items "$mode" "$state_file" "$repo" "" text)
         status=$?
         if [ "$status" -eq 0 ]; then
             item_id=$(printf '%s\n' "$next_item" | cut -f1)
@@ -229,9 +238,30 @@ watch_and_dispatch() {
             echo "$(date '+%Y-%m-%d %H:%M:%S') New ${label}: item $number ($item_id)"
             if ${MAKE:-make} "$make_target" N="$number"; then
                 ack_polled_item "$state_file" "$item_id" || exit $?
+                echo "$(date '+%Y-%m-%d %H:%M:%S') Processed ${label} item $number; sleeping $((interval / 60))m..."
+                sleep "$interval"
             else
-                dispatch_status=$?
-                echo "$(date '+%Y-%m-%d %H:%M:%S') Dispatch failed for ${label} item $number; will retry after sleep." >&2
+                # Track retries in state file; move to On Hold after max_retries
+                retry_count=$(python3 -c "
+import json, sys
+state_file, item_id = sys.argv[1], sys.argv[2]
+try:
+    state = json.load(open(state_file))
+except (FileNotFoundError, json.JSONDecodeError, ValueError):
+    state = {}
+retries = state.get('retries', {})
+retries[item_id] = retries.get(item_id, 0) + 1
+state['retries'] = retries
+json.dump(state, open(state_file, 'w'), indent=2, sort_keys=True)
+print(retries[item_id])
+" "$state_file" "$item_id" 2>/dev/null || echo 1)
+                if [ "$retry_count" -ge "$max_retries" ]; then
+                    echo "$(date '+%Y-%m-%d %H:%M:%S') Item $number ($item_id) failed ${retry_count} times; moving to On Hold." >&2
+                    move_board_item "$item_id" "on-hold" 2>/dev/null || true
+                    ack_polled_item "$state_file" "$item_id" 2>/dev/null || true
+                else
+                    echo "$(date '+%Y-%m-%d %H:%M:%S') Dispatch failed for ${label} item $number (attempt ${retry_count}/${max_retries}); will retry after sleep." >&2
+                fi
                 sleep "$interval"
                 continue
             fi

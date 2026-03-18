@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
-use std::collections::HashSet;
 
 #[test]
 fn test_circuitsat_to_ilp_and_gate() {
@@ -12,18 +12,11 @@ fn test_circuitsat_to_ilp_and_gate() {
     )]);
     let source = CircuitSAT::new(circuit);
     let reduction = ReduceTo::<ILP>::reduce_to(&source);
-    let ilp = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let best_target = solver.find_all_best(ilp);
-    let best_source: HashSet<_> = solver.find_all_satisfying(&source).into_iter().collect();
-
-    let extracted: HashSet<_> = best_target
-        .iter()
-        .map(|t| reduction.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
-    assert!(!extracted.is_empty());
+    assert_satisfaction_round_trip_from_optimization_target(
+        &source,
+        &reduction,
+        "CircuitSAT->ILP AND gate",
+    );
 }
 
 #[test]
@@ -35,17 +28,11 @@ fn test_circuitsat_to_ilp_or_gate() {
     )]);
     let source = CircuitSAT::new(circuit);
     let reduction = ReduceTo::<ILP>::reduce_to(&source);
-    let ilp = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let best_target = solver.find_all_best(ilp);
-    let best_source: HashSet<_> = solver.find_all_satisfying(&source).into_iter().collect();
-
-    let extracted: HashSet<_> = best_target
-        .iter()
-        .map(|t| reduction.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_satisfaction_round_trip_from_optimization_target(
+        &source,
+        &reduction,
+        "CircuitSAT->ILP OR gate",
+    );
 }
 
 #[test]
@@ -57,17 +44,12 @@ fn test_circuitsat_to_ilp_xor_gate() {
     )]);
     let source = CircuitSAT::new(circuit);
     let reduction = ReduceTo::<ILP>::reduce_to(&source);
-
-    let solver = BruteForce::new();
-    let best_target = solver.find_all_best(reduction.target_problem());
-    let best_source: HashSet<_> = solver.find_all_satisfying(&source).into_iter().collect();
-
-    let extracted: HashSet<_> = best_target
-        .iter()
-        .map(|t| reduction.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
-    assert_eq!(extracted.len(), 4); // all 4 truth table rows satisfy c == (x XOR y)
+    assert_satisfaction_round_trip_from_optimization_target(
+        &source,
+        &reduction,
+        "CircuitSAT->ILP XOR gate",
+    );
+    assert_eq!(BruteForce::new().find_all_satisfying(&source).len(), 4);
 }
 
 #[test]
@@ -82,16 +64,11 @@ fn test_circuitsat_to_ilp_nested() {
     )]);
     let source = CircuitSAT::new(circuit);
     let reduction = ReduceTo::<ILP>::reduce_to(&source);
-
-    let solver = BruteForce::new();
-    let best_target = solver.find_all_best(reduction.target_problem());
-    let best_source: HashSet<_> = solver.find_all_satisfying(&source).into_iter().collect();
-
-    let extracted: HashSet<_> = best_target
-        .iter()
-        .map(|t| reduction.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_satisfaction_round_trip_from_optimization_target(
+        &source,
+        &reduction,
+        "CircuitSAT->ILP nested",
+    );
 }
 
 #[test]
@@ -112,14 +89,9 @@ fn test_circuitsat_to_ilp_closed_loop() {
     ]);
     let source = CircuitSAT::new(circuit);
     let reduction = ReduceTo::<ILP>::reduce_to(&source);
-
-    let solver = BruteForce::new();
-    let best_target = solver.find_all_best(reduction.target_problem());
-    let best_source: HashSet<_> = solver.find_all_satisfying(&source).into_iter().collect();
-
-    let extracted: HashSet<_> = best_target
-        .iter()
-        .map(|t| reduction.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_satisfaction_round_trip_from_optimization_target(
+        &source,
+        &reduction,
+        "CircuitSAT->ILP closed loop",
+    );
 }

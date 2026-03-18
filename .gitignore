@@ -84,7 +84,9 @@ claude-output.log
 .worktrees/
 .worktree/
 *.json
+!src/example_db/fixtures/*.json
 .claude/worktrees/
 docs/test-reports/
 docs/superpowers/
 *.log
+docs/src/reductions/*.json

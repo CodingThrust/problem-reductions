@@ -46,8 +46,8 @@ name = "solver_benchmarks"
 harness = false
 
 [[example]]
-name = "export_examples"
-path = "examples/export_examples.rs"
+name = "regenerate_fixtures"
+path = "examples/regenerate_fixtures.rs"
 required-features = ["example-db"]
 
 [profile.release]

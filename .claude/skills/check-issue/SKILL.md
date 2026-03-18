@@ -306,7 +306,8 @@ Check all template sections are present and substantive:
 | Schema | Type name, variants, field table |
 | Complexity | Best known algorithm with citation **and** a concrete complexity expression in terms of problem parameters (e.g., `q^n`, `2^{0.8765n}`) |
 | How to solve | At least one solver method checked |
-| Example Instance | Concrete instance with known solution |
+| Example Instance | Concrete instance that exercises the core structure |
+| Expected Outcome | Satisfaction: one valid / satisfying solution with brief justification. Optimization: one optimal solution with the optimal objective value |
 
 Missing or placeholder sections → list them as **Fail** items.
 
@@ -328,7 +329,9 @@ The formal definition must be **precise and implementable**:
 
 - **Non-trivial**: Enough vertices/variables to exercise constraints meaningfully (not just a triangle)
 - **Exercises core structure**: Examples must use the defining features of the problem. For instance, a "MultivariateQuadratic" example that only has linear terms does not exercise the quadratic structure → **Fail**. If the problem's name or definition highlights a specific structural feature (quadratic, k-colorable, bipartite, etc.), at least one example must exercise that feature.
-- **Known optimal solution provided**: Must state the optimal value, not just the instance
+- **Expected outcome provided**:
+  - Satisfaction problems must include a concrete valid / satisfying solution and say why it is valid
+  - Optimization problems must include a concrete optimal solution and the optimal objective value
 - **Detailed enough for paper**: This example will appear in the paper — it needs to be illustrative
 - **Round-trip testable**: The example must be complex enough that a round-trip test (construct instance → solve → verify) can catch implementation bugs. A too-simple instance (e.g., 2 vertices, a single clause) may have a trivially correct solution that passes even with a wrong implementation. The example should have multiple feasible configurations with different objective values (for optimization) or a mix of satisfying and non-satisfying configurations (for satisfaction problems), so that correctness is meaningfully tested. Rule of thumb: the instance should have at least 2 suboptimal feasible solutions in addition to the optimal one.
 

@@ -98,6 +98,30 @@ fn test_directed_graph_is_dag_self_loop() {
 }
 
 #[test]
+fn test_is_strongly_connected_cycle() {
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    assert!(g.is_strongly_connected());
+}
+
+#[test]
+fn test_is_strongly_connected_path() {
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    assert!(!g.is_strongly_connected());
+}
+
+#[test]
+fn test_is_strongly_connected_single_vertex() {
+    let g = DirectedGraph::new(1, vec![]);
+    assert!(g.is_strongly_connected());
+}
+
+#[test]
+fn test_is_strongly_connected_empty() {
+    let g = DirectedGraph::empty(0);
+    assert!(g.is_strongly_connected());
+}
+
+#[test]
 fn test_directed_graph_is_acyclic_subgraph() {
     // Cycle: 0->1->2->0
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
