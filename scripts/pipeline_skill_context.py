@@ -608,8 +608,6 @@ def build_ambiguous_selection(candidate: dict, *, pr_number: int) -> dict:
         "pr_number": pr_number,
         "status": candidate.get("status"),
         "title": candidate.get("title"),
-        "claimed": True,
-        "claimed_status": pipeline_board.STATUS_UNDER_REVIEW,
     }
 
 
@@ -1056,10 +1054,9 @@ def _select_candidate(
     return eligible[0] if eligible else None
 
 
-def _selection_from_candidate(candidate: dict, *, mover: Callable[[str, str], None]) -> dict:
-    """Move the candidate to Under review and return a selection dict."""
+def _selection_from_candidate(candidate: dict) -> dict:
+    """Build a selection dict from a candidate (read-only, no board move)."""
     item_id = str(candidate["item_id"])
-    mover(item_id, pipeline_board.STATUS_UNDER_REVIEW)
     return {
         "item_id": item_id,
         "number": int(candidate.get("pr_number") or candidate["number"]),
@@ -1067,8 +1064,6 @@ def _selection_from_candidate(candidate: dict, *, mover: Callable[[str, str], No
         "pr_number": int(candidate.get("pr_number") or candidate["number"]),
         "status": candidate.get("status"),
         "title": candidate.get("title"),
-        "claimed": True,
-        "claimed_status": pipeline_board.STATUS_UNDER_REVIEW,
     }
 
 
@@ -1079,8 +1074,12 @@ def build_review_pipeline_context(
     review_candidate_fetcher: Callable[[str], list[dict]] | None = None,
     pr_context_builder: Callable[[str, int], dict] | None = None,
     review_preparer: Callable[[str, int], dict] | None = None,
-    mover: Callable[[str, str], None] | None = None,
 ) -> dict:
+    """Build review-pipeline context (read-only, no board move).
+
+    The agent is responsible for claiming the item (moving to Under review)
+    after it has verified the PR is review-ready and is about to start work.
+    """
     review_candidate_fetcher = review_candidate_fetcher or fetch_review_candidates
     pr_context_builder = pr_context_builder or pipeline_pr.build_pr_context
     review_preparer = review_preparer or (
@@ -1089,7 +1088,6 @@ def build_review_pipeline_context(
             pr_number=pr_number,
         )
     )
-    mover = mover or pipeline_board.move_item
 
     candidates = review_candidate_fetcher(repo)
     if not candidates:
@@ -1123,9 +1121,6 @@ def build_review_pipeline_context(
         )
         if matching_ambiguous is not None:
             selection = build_ambiguous_selection(matching_ambiguous, pr_number=pr_number)
-            mover(str(matching_ambiguous["item_id"]), pipeline_board.STATUS_UNDER_REVIEW)
-            selection["claimed"] = True
-            selection["claimed_status"] = pipeline_board.STATUS_UNDER_REVIEW
             return build_ready_result(
                 skill="review-pipeline",
                 selection=selection,
@@ -1140,7 +1135,7 @@ def build_review_pipeline_context(
     if candidate.get("eligibility") != "eligible":
         return build_status_result("review-pipeline", status="empty")
 
-    selection = _selection_from_candidate(candidate, mover=mover)
+    selection = _selection_from_candidate(candidate)
     selected_pr_number = int(selection["pr_number"])
     return build_ready_result(
         skill="review-pipeline",

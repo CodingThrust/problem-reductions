@@ -125,11 +125,15 @@ The two expensive context calls are allowed exactly once each per top-level `rev
 Branch from the review-pipeline report:
 - `Bundle status: empty` => the selected PR is no longer eligible; run `cd "$REPO_ROOT" && python3 scripts/pipeline_worktree.py cleanup --worktree "$WORKTREE_DIR"`, then for untargeted runs return to Step 0a, for explicit `PR` runs STOP
 - `Bundle status: needs-user-choice` => run `cd "$REPO_ROOT" && python3 scripts/pipeline_worktree.py cleanup --worktree "$WORKTREE_DIR"`, STOP and ask the user which PR is intended
-- `Bundle status: ready` => continue
+- `Bundle status: ready` => claim the item and continue
 
-The bundle already handled the mechanical claim step (moved to Under review). Use the identifiers from the report for all subsequent operations.
+**Claim the item** (move to Under review) only after confirming `Bundle status: ready`:
 
-All subsequent steps run inside the worktree and should read facts from the reports instead of re-fetching them.
+```bash
+python3 scripts/pipeline_board.py move <ITEM_ID> under-review
+```
+
+Use the identifiers from the report for all subsequent operations. All subsequent steps run inside the worktree and should read facts from the reports instead of re-fetching them.
 
 ### 1. Run Three Sub-Reviews (Parallel)
 
