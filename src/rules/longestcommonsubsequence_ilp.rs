@@ -1,19 +1,13 @@
 //! Reduction from LongestCommonSubsequence to ILP (Integer Linear Programming).
 //!
-//! Uses the match-pair formulation (Blum et al., 2021; Althaus et al., 2006).
-//! For 2 strings s1 (length n1) and s2 (length n2):
+//! The source problem is the decision version of LCS with a fixed witness
+//! length `K`. The ILP builds a binary feasibility model:
+//! - `x_(p,a)` selects symbol `a` at witness position `p`
+//! - `y_(r,p,j)` selects the matching position `j` in source string `r`
 //!
-//! ## Variables
-//! For each pair (j1, j2) where s1[j1] == s2[j2], a binary variable m_{j1,j2}.
-//!
-//! ## Constraints
-//! 1. Each position in s1 matched at most once
-//! 2. Each position in s2 matched at most once
-//! 3. Order preservation (no crossings): for (j1,j2),(j1',j2') with j1 < j1' and j2 > j2':
-//!    m_{j1,j2} + m_{j1',j2'} <= 1
-//!
-//! ## Objective
-//! Maximize sum of all match variables.
+//! The constraints enforce exactly one symbol per witness position, exactly one
+//! matched source position per `(r, p)`, character consistency, and strictly
+//! increasing matched positions within each source string.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::LongestCommonSubsequence;
@@ -24,12 +18,14 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 #[derive(Debug, Clone)]
 pub struct ReductionLCSToILP {
     target: ILP<bool>,
-    /// The match pairs: (j1, j2) for each variable index.
-    match_pairs: Vec<(usize, usize)>,
-    /// Number of characters in the first string.
-    n1: usize,
-    /// Number of characters in the second string.
-    n2: usize,
+    alphabet_size: usize,
+    bound: usize,
+}
+
+impl ReductionLCSToILP {
+    fn symbol_var(&self, position: usize, symbol: usize) -> usize {
+        position * self.alphabet_size + symbol
+    }
 }
 
 impl ReductionResult for ReductionLCSToILP {
@@ -40,122 +36,104 @@ impl ReductionResult for ReductionLCSToILP {
         &self.target
     }
 
-    /// Extract solution from ILP back to LCS.
-    ///
-    /// The ILP solution has binary variables for match pairs. We extract the
-    /// matched positions, build the LCS, and map back to a binary selection
-    /// on the shortest source string.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // The source problem's dims() is based on the shortest string.
-        // We build match pairs on s1=strings[0], s2=strings[1].
-        // If shortest is s1, we use j1 positions; if s2, we use j2 positions.
-        let shortest_len = std::cmp::min(self.n1, self.n2);
-        let shortest_is_first = self.n1 <= self.n2;
-
-        let matched_positions: Vec<usize> = self
-            .match_pairs
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| target_solution.get(*i).copied().unwrap_or(0) == 1)
-            .map(|(_, &(j1, j2))| if shortest_is_first { j1 } else { j2 })
-            .collect();
-
-        let mut config = vec![0usize; shortest_len];
-        for pos in matched_positions {
-            if pos < config.len() {
-                config[pos] = 1;
-            }
+        let mut witness = Vec::with_capacity(self.bound);
+        for position in 0..self.bound {
+            let selected = (0..self.alphabet_size)
+                .find(|&symbol| target_solution.get(self.symbol_var(position, symbol)) == Some(&1))
+                .unwrap_or(0);
+            witness.push(selected);
         }
-        config
+        witness
     }
 }
 
 #[reduction(
     overhead = {
-    num_vars = "num_chars_first * num_chars_second",
-    num_constraints = "num_chars_first + num_chars_second + (num_chars_first * num_chars_second) ^ 2",
+        num_vars = "bound * alphabet_size + bound * total_length",
+        num_constraints = "bound + bound * num_strings + bound * total_length + num_transitions * sum_triangular_lengths",
     }
 )]
 impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
     type Result = ReductionLCSToILP;
 
     fn reduce_to(&self) -> Self::Result {
+        let alphabet_size = self.alphabet_size();
+        let bound = self.bound();
         let strings = self.strings();
-        assert!(
-            strings.len() == 2,
-            "LCS to ILP reduction is defined for exactly 2 strings, got {}",
-            strings.len()
-        );
+        let total_length = self.total_length();
 
-        let s1 = &strings[0];
-        let s2 = &strings[1];
-        let n1 = s1.len();
-        let n2 = s2.len();
-
-        // Build match pairs: (j1, j2) where s1[j1] == s2[j2]
-        let mut match_pairs: Vec<(usize, usize)> = Vec::new();
-        for (j1, &c1) in s1.iter().enumerate() {
-            for (j2, &c2) in s2.iter().enumerate() {
-                if c1 == c2 {
-                    match_pairs.push((j1, j2));
-                }
-            }
+        let symbol_var_count = bound * alphabet_size;
+        let mut string_offsets = Vec::with_capacity(strings.len());
+        let mut running_offset = 0usize;
+        for string in strings {
+            string_offsets.push(running_offset);
+            running_offset += string.len();
         }
 
-        let num_vars = match_pairs.len();
+        let match_var = |string_index: usize, position: usize, char_index: usize| -> usize {
+            symbol_var_count + position * total_length + string_offsets[string_index] + char_index
+        };
+
         let mut constraints = Vec::new();
 
-        // Constraint 1: Each position in s1 matched at most once
-        for j1 in 0..n1 {
-            let terms: Vec<(usize, f64)> = match_pairs
-                .iter()
-                .enumerate()
-                .filter(|(_, &(a, _))| a == j1)
-                .map(|(idx, _)| (idx, 1.0))
+        // Exactly one symbol per witness position.
+        for position in 0..bound {
+            let terms = (0..alphabet_size)
+                .map(|symbol| (position * alphabet_size + symbol, 1.0))
                 .collect();
-            if !terms.is_empty() {
-                constraints.push(LinearConstraint::le(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1.0));
+        }
+
+        // For every string and witness position, choose exactly one matching source position.
+        for (string_index, string) in strings.iter().enumerate() {
+            for position in 0..bound {
+                let terms = (0..string.len())
+                    .map(|char_index| (match_var(string_index, position, char_index), 1.0))
+                    .collect();
+                constraints.push(LinearConstraint::eq(terms, 1.0));
             }
         }
 
-        // Constraint 2: Each position in s2 matched at most once
-        for j2 in 0..n2 {
-            let terms: Vec<(usize, f64)> = match_pairs
-                .iter()
-                .enumerate()
-                .filter(|(_, &(_, b))| b == j2)
-                .map(|(idx, _)| (idx, 1.0))
-                .collect();
-            if !terms.is_empty() {
-                constraints.push(LinearConstraint::le(terms, 1.0));
-            }
-        }
-
-        // Constraint 3: Order preservation (no crossings)
-        // For all pairs (j1, j2) and (j1', j2') with j1 < j1' and j2 > j2':
-        //   m_{j1,j2} + m_{j1',j2'} <= 1
-        for (i, &(j1, j2)) in match_pairs.iter().enumerate() {
-            for (k, &(j1p, j2p)) in match_pairs.iter().enumerate() {
-                if i < k && j1 < j1p && j2 > j2p {
-                    constraints.push(LinearConstraint::le(vec![(i, 1.0), (k, 1.0)], 1.0));
-                }
-                // Also check the reverse: j1 > j1p and j2 < j2p
-                if i < k && j1 > j1p && j2 < j2p {
-                    constraints.push(LinearConstraint::le(vec![(i, 1.0), (k, 1.0)], 1.0));
+        // A chosen source position can only realize the selected witness symbol.
+        for (string_index, string) in strings.iter().enumerate() {
+            for position in 0..bound {
+                for (char_index, &symbol) in string.iter().enumerate() {
+                    constraints.push(LinearConstraint::le(
+                        vec![
+                            (match_var(string_index, position, char_index), 1.0),
+                            (position * alphabet_size + symbol, -1.0),
+                        ],
+                        0.0,
+                    ));
                 }
             }
         }
 
-        // Objective: maximize sum of all match variables
-        let objective: Vec<(usize, f64)> = (0..num_vars).map(|i| (i, 1.0)).collect();
+        // Consecutive witness positions must map to strictly increasing source positions.
+        for (string_index, string) in strings.iter().enumerate() {
+            for position in 0..bound.saturating_sub(1) {
+                for previous in 0..string.len() {
+                    for next in 0..=previous {
+                        constraints.push(LinearConstraint::le(
+                            vec![
+                                (match_var(string_index, position, previous), 1.0),
+                                (match_var(string_index, position + 1, next), 1.0),
+                            ],
+                            1.0,
+                        ));
+                    }
+                }
+            }
+        }
 
-        let ilp = ILP::<bool>::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let num_vars = symbol_var_count + bound * total_length;
+        let target = ILP::<bool>::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
 
         ReductionLCSToILP {
-            target: ilp,
-            match_pairs,
-            n1,
-            n2,
+            target,
+            alphabet_size,
+            bound,
         }
     }
 }
@@ -167,15 +145,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "longestcommonsubsequence_to_ilp",
         build: || {
-            let source = LongestCommonSubsequence::new(vec![
-                vec![b'A', b'B', b'A', b'C'],
-                vec![b'B', b'A', b'C', b'A'],
-            ]);
+            let source = LongestCommonSubsequence::new(3, vec![vec![0, 1, 2], vec![1, 0, 2]], 2);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 1, 1],
-                    target_config: vec![0, 0, 1, 1, 0, 1],
+                    source_config: vec![1, 2],
+                    target_config: vec![0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1],
                 },
             )
         },

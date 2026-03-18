@@ -34,6 +34,18 @@ fn test_list_includes_undirected_two_commodity_integral_flow() {
 }
 
 #[test]
+fn test_solve_help_mentions_string_to_string_correction_bruteforce() {
+    let output = pred().args(["solve", "--help"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("StringToStringCorrection"),
+        "stdout: {stdout}"
+    );
+    assert!(stdout.contains("--solver brute-force"), "stdout: {stdout}");
+}
+
+#[test]
 fn test_list_rules() {
     let output = pred().args(["list", "--rules"]).output().unwrap();
     assert!(
@@ -1350,6 +1362,96 @@ fn test_create_set_basis_rejects_out_of_range_elements() {
 }
 
 #[test]
+fn test_create_sum_of_squares_partition_rejects_negative_bound_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "SumOfSquaresPartition",
+            "--sizes",
+            "1,2,3",
+            "--num-groups",
+            "2",
+            "--bound=-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Bound must be nonnegative"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
+    let output = pred()
+        .args(["create", "MinimumCardinalityKey"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--num-attributes"), "stderr: {stderr}");
+    assert!(stderr.contains("--dependencies"), "stderr: {stderr}");
+    assert!(stderr.contains("--k"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("semicolon-separated dependencies"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("--bound-k"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_minimum_cardinality_key_allows_empty_lhs_dependency() {
+    let output = pred()
+        .args([
+            "create",
+            "MinimumCardinalityKey",
+            "--num-attributes",
+            "1",
+            "--dependencies",
+            ">0",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MinimumCardinalityKey");
+    assert_eq!(json["data"]["num_attributes"], 1);
+    assert_eq!(json["data"]["bound_k"], 1);
+    assert_eq!(json["data"]["dependencies"][0][0], serde_json::json!([]));
+    assert_eq!(json["data"]["dependencies"][0][1], serde_json::json!([0]));
+}
+
+#[test]
+fn test_create_minimum_cardinality_key_missing_num_attributes_message() {
+    let output = pred()
+        .args([
+            "create",
+            "MinimumCardinalityKey",
+            "--dependencies",
+            "0>0",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("MinimumCardinalityKey requires --num-attributes"));
+    assert!(!stderr.contains("--num-vertices"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_then_evaluate() {
     // Create a problem
     let problem_file = std::env::temp_dir().join("pred_test_create_eval.json");
@@ -2266,6 +2368,101 @@ fn test_create_scs_rejects_negative_bound() {
 }
 
 #[test]
+fn test_create_string_to_string_correction() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_string_to_string_correction.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "StringToStringCorrection",
+            "--source-string",
+            "0,1,2,3,1,0",
+            "--target-string",
+            "0,1,3,2,1",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "StringToStringCorrection");
+    assert_eq!(
+        json["data"]["source"],
+        serde_json::json!([0, 1, 2, 3, 1, 0])
+    );
+    assert_eq!(json["data"]["target"], serde_json::json!([0, 1, 3, 2, 1]));
+    assert_eq!(json["data"]["bound"], 2);
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_model_example_string_to_string_correction() {
+    let output = pred()
+        .args(["create", "--example", "StringToStringCorrection"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "StringToStringCorrection");
+    assert_eq!(
+        json["data"]["source"],
+        serde_json::json!([0, 1, 2, 3, 1, 0])
+    );
+    assert_eq!(json["data"]["target"], serde_json::json!([0, 1, 3, 2, 1]));
+    assert_eq!(json["data"]["bound"], 2);
+}
+
+#[test]
+fn test_create_string_to_string_correction_help_uses_cli_flags() {
+    let output = pred()
+        .args(["create", "StringToStringCorrection"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--source-string"), "stderr: {stderr}");
+    assert!(stderr.contains("--target-string"), "stderr: {stderr}");
+    assert!(stderr.contains("--bound"), "stderr: {stderr}");
+    assert!(!stderr.contains("--bound-k"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_string_to_string_correction_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "StringToStringCorrection",
+            "--source-string",
+            "0,1,2,3,1,0",
+            "--target-string",
+            "0,1,3,2,1",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "negative bound should be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_spinglass() {
     let output_file = std::env::temp_dir().join("pred_test_create_sg.json");
     let output = pred()
@@ -2660,6 +2857,46 @@ fn test_create_set_basis_no_flags_uses_actual_cli_flag_names() {
     assert!(
         !stderr.contains("--collection"),
         "help should not advertise schema field names: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_lcs_with_raw_strings_infers_alphabet() {
+    let output = pred()
+        .args(["create", "LCS", "--strings", "ABAC;BACA", "--bound", "2"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "LongestCommonSubsequence");
+    assert_eq!(json["data"]["alphabet_size"], 3);
+    assert_eq!(json["data"]["bound"], 2);
+    assert_eq!(
+        json["data"]["strings"],
+        serde_json::json!([[0, 1, 0, 2], [1, 0, 2, 0]])
+    );
+}
+
+#[test]
+fn test_create_lcs_rejects_empty_strings_with_positive_bound_without_panicking() {
+    let output = pred()
+        .args(["create", "LCS", "--strings", "", "--bound", "1"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Provide --alphabet-size when all strings are empty and --bound > 0"),
+        "expected user-facing validation error, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("panicked at"),
+        "create command should reject invalid LCS input without panicking: {stderr}"
     );
 }
 
@@ -3635,6 +3872,34 @@ fn test_create_pipe_to_solve() {
         stdout.contains("\"solution\""),
         "stdout should contain solution, got: {stdout}"
     );
+}
+
+#[test]
+fn test_solve_ilp_error_suggests_brute_force_fallback() {
+    let problem_json = r#"{
+        "type": "SumOfSquaresPartition",
+        "data": {
+            "sizes": [5, 3, 8, 2, 7, 1],
+            "num_groups": 3,
+            "bound": 240
+        }
+    }"#;
+    let tmp = std::env::temp_dir().join("pred_test_sum_of_squares_partition.json");
+    std::fs::write(&tmp, problem_json).unwrap();
+
+    let output = pred()
+        .args(["solve", tmp.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--solver brute-force"),
+        "stderr should suggest the brute-force fallback, got: {stderr}"
+    );
+
+    std::fs::remove_file(&tmp).ok();
 }
 
 #[test]
