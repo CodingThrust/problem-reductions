@@ -16,8 +16,8 @@ fn check_problem_trait<P: Problem>(problem: &P, name: &str) {
     );
     for d in &dims {
         assert!(
-            *d >= 1,
-            "{} should have at least 1 choice per dimension",
+            *d >= 2,
+            "{} should have at least 2 choices per dimension",
             name
         );
     }
@@ -54,6 +54,10 @@ fn test_all_problems_implement_trait_correctly() {
         "MaximumMatching",
     );
     check_problem_trait(
+        &BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 3, 2)], 2),
+        "BiconnectivityAugmentation",
+    );
+    check_problem_trait(
         &Satisfiability::new(3, vec![CNFClause::new(vec![1])]),
         "SAT",
     );
@@ -76,6 +80,13 @@ fn test_all_problems_implement_trait_correctly() {
         &BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1),
         "BicliqueCover",
     );
+    check_problem_trait(
+        &BalancedCompleteBipartiteSubgraph::new(
+            BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]),
+            2,
+        ),
+        "BalancedCompleteBipartiteSubgraph",
+    );
     check_problem_trait(&Factoring::new(6, 2, 2), "Factoring");
 
     let circuit = Circuit::new(vec![Assignment::new(
@@ -84,20 +95,12 @@ fn test_all_problems_implement_trait_correctly() {
     )]);
     check_problem_trait(&CircuitSAT::new(circuit), "CircuitSAT");
     check_problem_trait(
-        &MinimumFeedbackArcSet::new(
+        &StrongConnectivityAugmentation::new(
             DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
-            vec![1i32; 3],
-        ),
-        "MinimumFeedbackArcSet",
-    );
-    check_problem_trait(
-        &MinimumSumMulticenter::new(
-            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-            vec![1i32; 3],
-            vec![1i32; 2],
+            vec![(0, 2, 1)],
             1,
         ),
-        "MinimumSumMulticenter",
+        "StrongConnectivityAugmentation",
     );
     check_problem_trait(
         &HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)])),
@@ -125,6 +128,10 @@ fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
         &FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10),
         "FlowShopScheduling",
+    );
+    check_problem_trait(
+        &SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]),
+        "SequencingWithReleaseTimesAndDeadlines",
     );
 }
 
@@ -165,24 +172,6 @@ fn test_direction() {
     assert_eq!(Factoring::new(6, 2, 2).direction(), Direction::Minimize);
     assert_eq!(
         BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1).direction(),
-        Direction::Minimize
-    );
-    assert_eq!(
-        MinimumFeedbackArcSet::new(
-            DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
-            vec![1i32; 3]
-        )
-        .direction(),
-        Direction::Minimize
-    );
-    assert_eq!(
-        MinimumSumMulticenter::new(
-            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-            vec![1i32; 3],
-            vec![1i32; 2],
-            1
-        )
-        .direction(),
         Direction::Minimize
     );
 

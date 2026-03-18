@@ -1,6 +1,6 @@
 use super::*;
+use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
-use std::collections::HashSet;
 
 #[test]
 fn test_qubo_to_ilp_closed_loop() {
@@ -10,17 +10,11 @@ fn test_qubo_to_ilp_closed_loop() {
     // Optimal: x = [0, 1] with obj = -3
     let qubo = QUBO::from_matrix(vec![vec![2.0, 1.0], vec![0.0, -3.0]]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&qubo);
-    let ilp = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let best_target = solver.find_all_best(ilp);
-    let best_source: HashSet<_> = solver.find_all_best(&qubo).into_iter().collect();
-
-    let extracted: HashSet<_> = best_target
-        .iter()
-        .map(|t| reduction.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_optimization_round_trip_from_optimization_target(
+        &qubo,
+        &reduction,
+        "QUBO->ILP closed loop",
+    );
 }
 
 #[test]

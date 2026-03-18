@@ -1,15 +1,21 @@
 //! Canonical example database assembly.
 //!
-//! `rule_builders` and `model_builders` are the canonical in-memory sources for
-//! all example data. This module assembles, validates, and looks up structural
-//! records from those builders — no filesystem round-trip or legacy bridge.
+//! The example database has two layers:
+//!
+//! - **Fixtures** (`fixtures/examples.json`): pre-computed expected results
+//!   embedded at compile time as a wrapped JSON object. These are the "stored
+//!   expected results" used for fast export and lookups.
+//!
+//! - **Builders** (`model_builders`, `rule_builders`): code that constructs
+//!   problem instances and computes solutions via BruteForce/ILP. Used only
+//!   for regenerating fixtures and for verification tests.
+//!
+//! The public API (`build_*_db`, `find_*_example`) loads from fixtures.
+//! Use `compute_*_db` to regenerate from code (slow, test/CI only).
 
 use crate::error::{ProblemError, Result};
-use crate::export::{
-    examples_output_dir, ModelDb, ModelExample, ProblemRef, RuleDb, RuleExample, EXAMPLE_DB_VERSION,
-};
+use crate::export::{ExampleDb, ModelDb, ModelExample, ProblemRef, RuleDb, RuleExample};
 use std::collections::BTreeSet;
-use std::path::PathBuf;
 
 mod model_builders;
 mod rule_builders;
@@ -51,24 +57,56 @@ fn validate_model_uniqueness(models: &[ModelExample]) -> Result<()> {
     Ok(())
 }
 
+// ---- Fixture loading (fast, used by default) ----
+
+/// Load the full example database from the embedded fixture file.
+pub fn build_example_db() -> Result<ExampleDb> {
+    static EXAMPLES_JSON: &str = include_str!("fixtures/examples.json");
+    let db: ExampleDb = serde_json::from_str(EXAMPLES_JSON)
+        .map_err(|e| ProblemError::SerializationError(format!("invalid example fixture: {e}")))?;
+    validate_model_uniqueness(&db.models)?;
+    validate_rule_uniqueness(&db.rules)?;
+    Ok(db)
+}
+
+/// Load the model database from the embedded fixture file.
+pub fn build_model_db() -> Result<ModelDb> {
+    let db = build_example_db()?;
+    Ok(ModelDb { models: db.models })
+}
+
+/// Load the rule database from the embedded fixture file.
 pub fn build_rule_db() -> Result<RuleDb> {
-    let mut rules = rule_builders::build_rule_examples();
-    rules.sort_by_key(rule_key);
-    validate_rule_uniqueness(&rules)?;
-    Ok(RuleDb {
-        version: EXAMPLE_DB_VERSION,
-        rules,
+    let db = build_example_db()?;
+    Ok(RuleDb { rules: db.rules })
+}
+
+// ---- Computation from builders (slow, for regeneration and verification) ----
+
+/// Recompute the full example database from builder code.
+pub fn compute_example_db() -> Result<ExampleDb> {
+    let model_db = compute_model_db()?;
+    let rule_db = compute_rule_db()?;
+    Ok(ExampleDb {
+        models: model_db.models,
+        rules: rule_db.rules,
     })
 }
 
-pub fn build_model_db() -> Result<ModelDb> {
+/// Recompute the model database from builder code (runs BruteForce).
+pub fn compute_model_db() -> Result<ModelDb> {
     let mut models = model_builders::build_model_examples();
     models.sort_by_key(model_key);
     validate_model_uniqueness(&models)?;
-    Ok(ModelDb {
-        version: EXAMPLE_DB_VERSION,
-        models,
-    })
+    Ok(ModelDb { models })
+}
+
+/// Recompute the rule database from builder code (runs BruteForce/ILP).
+pub fn compute_rule_db() -> Result<RuleDb> {
+    let mut rules = rule_builders::build_rule_examples();
+    rules.sort_by_key(rule_key);
+    validate_rule_uniqueness(&rules)?;
+    Ok(RuleDb { rules })
 }
 
 pub fn find_rule_example(source: &ProblemRef, target: &ProblemRef) -> Result<RuleExample> {
@@ -96,11 +134,6 @@ pub fn find_model_example(problem: &ProblemRef) -> Result<ModelExample> {
             ))
         })
 }
-
-pub fn default_generated_dir() -> PathBuf {
-    examples_output_dir()
-}
-
 #[cfg(test)]
 #[path = "../unit_tests/example_db.rs"]
 mod tests;

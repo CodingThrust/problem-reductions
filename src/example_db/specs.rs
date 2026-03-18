@@ -3,16 +3,16 @@
 //! These types describe canonical model and rule examples with metadata
 //! that can be validated against the catalog and reduction registry.
 
-use crate::export::{
-    lookup_overhead, overhead_to_json, variant_to_map, ModelExample, ProblemSide, RuleExample,
-    SampleEval, SolutionPair,
-};
+use crate::export::{ModelExample, ProblemSide, RuleExample, SampleEval, SolutionPair};
 use crate::models::algebraic::{VariableDomain, ILP};
 use crate::prelude::{OptimizationProblem, Problem, ReduceTo, ReductionResult};
-use crate::rules::{PathCostFn, ReductionGraph};
+use crate::rules::{MinimizeSteps, ReductionGraph};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::types::ProblemSize;
 use serde::Serialize;
+use std::any::Any;
+#[cfg(feature = "ilp-solver")]
+use std::sync::OnceLock;
 
 /// Specification for a canonical model example.
 #[allow(dead_code)]
@@ -102,7 +102,6 @@ where
 pub fn assemble_rule_example<S, T>(
     source: &S,
     target: &T,
-    overhead: crate::rules::ReductionOverhead,
     solutions: Vec<SolutionPair>,
 ) -> RuleExample
 where
@@ -112,72 +111,41 @@ where
     RuleExample {
         source: ProblemSide::from_problem(source),
         target: ProblemSide::from_problem(target),
-        overhead: overhead_to_json(&overhead),
         solutions,
     }
-}
-
-pub fn direct_overhead<S, T>() -> crate::rules::ReductionOverhead
-where
-    S: Problem,
-    T: Problem,
-{
-    let source_variant = variant_to_map(S::variant());
-    let target_variant = variant_to_map(T::variant());
-    lookup_overhead(S::NAME, &source_variant, T::NAME, &target_variant).unwrap_or_else(|| {
-        panic!(
-            "missing exact direct overhead for {} {:?} -> {} {:?}",
-            S::NAME,
-            source_variant,
-            T::NAME,
-            target_variant
-        )
-    })
 }
 
 pub fn direct_best_example<S, T, Keep>(source: S, keep: Keep) -> RuleExample
 where
     S: Problem + Serialize + ReduceTo<T>,
-    T: OptimizationProblem + Serialize,
+    T: OptimizationProblem + Serialize + 'static,
     T::Metric: Serialize,
     Keep: Fn(&S, &[usize]) -> bool,
 {
     let reduction = ReduceTo::<T>::reduce_to(&source);
     let target = reduction.target_problem();
-    let solutions = BruteForce::new()
-        .find_all_best(target)
-        .into_iter()
-        .filter_map(|target_config| {
-            let source_config = reduction.extract_solution(&target_config);
-            keep(&source, &source_config).then_some(SolutionPair {
-                source_config,
-                target_config,
-            })
-        })
-        .collect();
-    assemble_rule_example(&source, target, direct_overhead::<S, T>(), solutions)
+    let solutions = choose_best_target_solution(target, |target_config| {
+        build_solution_pair(&source, &reduction, target_config, &keep)
+    })
+    .into_iter()
+    .collect();
+    assemble_rule_example(&source, target, solutions)
 }
 
 pub fn direct_satisfying_example<S, T, Keep>(source: S, keep: Keep) -> RuleExample
 where
     S: Problem + Serialize + ReduceTo<T>,
-    T: Problem<Metric = bool> + Serialize,
+    T: Problem<Metric = bool> + Serialize + 'static,
     Keep: Fn(&S, &[usize]) -> bool,
 {
     let reduction = ReduceTo::<T>::reduce_to(&source);
     let target = reduction.target_problem();
-    let solutions = BruteForce::new()
-        .find_all_satisfying(target)
-        .into_iter()
-        .filter_map(|target_config| {
-            let source_config = reduction.extract_solution(&target_config);
-            keep(&source, &source_config).then_some(SolutionPair {
-                source_config,
-                target_config,
-            })
-        })
-        .collect();
-    assemble_rule_example(&source, target, direct_overhead::<S, T>(), solutions)
+    let solutions = choose_satisfying_target_solution(target, |target_config| {
+        build_solution_pair(&source, &reduction, target_config, &keep)
+    })
+    .into_iter()
+    .collect();
+    assemble_rule_example(&source, target, solutions)
 }
 
 pub fn direct_ilp_example<S, V, Keep>(source: S, keep: Keep) -> RuleExample
@@ -189,118 +157,12 @@ where
 {
     let reduction = ReduceTo::<ILP<V>>::reduce_to(&source);
     let target = reduction.target_problem();
-    let target_config = ILPSolver::new()
-        .solve(target)
-        .expect("canonical ILP target example should solve");
-    let source_config = reduction.extract_solution(&target_config);
-    let solutions = if keep(&source, &source_config) {
-        vec![SolutionPair {
-            source_config,
-            target_config,
-        }]
-    } else {
-        Vec::new()
-    };
-    assemble_rule_example(&source, target, direct_overhead::<S, ILP<V>>(), solutions)
-}
-
-pub fn path_best_example<S, T, C, Keep>(
-    source: S,
-    input_size: ProblemSize,
-    cost: C,
-    keep: Keep,
-) -> RuleExample
-where
-    S: Problem + Serialize + 'static,
-    T: OptimizationProblem + Serialize + 'static,
-    T::Metric: Serialize,
-    C: PathCostFn,
-    Keep: Fn(&S, &[usize]) -> bool,
-{
-    let graph = ReductionGraph::new();
-    let source_variant = variant_to_map(S::variant());
-    let target_variant = variant_to_map(T::variant());
-    let path = graph
-        .find_cheapest_path(
-            S::NAME,
-            &source_variant,
-            T::NAME,
-            &target_variant,
-            &input_size,
-            &cost,
-        )
-        .expect("canonical path example should exist");
-    let chain = graph
-        .reduce_along_path(&path, &source as &dyn std::any::Any)
-        .expect("canonical path example should execute");
-    let target = chain.target_problem::<T>();
-    let solutions = BruteForce::new()
-        .find_all_best(target)
-        .into_iter()
-        .filter_map(|target_config| {
-            let source_config = chain.extract_solution(&target_config);
-            keep(&source, &source_config).then_some(SolutionPair {
-                source_config,
-                target_config,
-            })
-        })
-        .collect();
-    assemble_rule_example(
-        &source,
-        target,
-        graph.compose_path_overhead(&path),
-        solutions,
-    )
-}
-
-pub fn path_ilp_example<S, V, C, Keep>(
-    source: S,
-    input_size: ProblemSize,
-    cost: C,
-    keep: Keep,
-) -> RuleExample
-where
-    S: Problem + Serialize + 'static,
-    ILP<V>: Serialize + 'static,
-    V: VariableDomain,
-    C: PathCostFn,
-    Keep: Fn(&S, &[usize]) -> bool,
-{
-    let graph = ReductionGraph::new();
-    let source_variant = variant_to_map(S::variant());
-    let target_variant = variant_to_map(ILP::<V>::variant());
-    let path = graph
-        .find_cheapest_path(
-            S::NAME,
-            &source_variant,
-            ILP::<V>::NAME,
-            &target_variant,
-            &input_size,
-            &cost,
-        )
-        .expect("canonical ILP path example should exist");
-    let chain = graph
-        .reduce_along_path(&path, &source as &dyn std::any::Any)
-        .expect("canonical ILP path example should execute");
-    let target = chain.target_problem::<ILP<V>>();
-    let target_config = ILPSolver::new()
-        .solve(target)
-        .expect("canonical ILP path target should solve");
-    let source_config = chain.extract_solution(&target_config);
-    let solutions = if keep(&source, &source_config) {
-        vec![SolutionPair {
-            source_config,
-            target_config,
-        }]
-    } else {
-        Vec::new()
-    };
-    assemble_rule_example(
-        &source,
-        target,
-        graph.compose_path_overhead(&path),
-        solutions,
-    )
+    let solutions = choose_best_target_solution(target, |target_config| {
+        build_solution_pair(&source, &reduction, target_config, &keep)
+    })
+    .into_iter()
+    .collect();
+    assemble_rule_example(&source, target, solutions)
 }
 
 pub fn keep_bool_source<S>(source: &S, config: &[usize]) -> bool
@@ -308,4 +170,116 @@ where
     S: Problem<Metric = bool>,
 {
     source.evaluate(config)
+}
+
+fn choose_best_target_solution<T, Keep>(target: &T, keep: Keep) -> Option<SolutionPair>
+where
+    T: OptimizationProblem + 'static,
+    Keep: Fn(&[usize]) -> Option<SolutionPair>,
+{
+    choose_available_ilp_solution(target)
+        .as_deref()
+        .and_then(&keep)
+        .or_else(|| first_matching_solution(BruteForce::new().find_all_best(target), keep))
+}
+
+fn choose_satisfying_target_solution<T, Keep>(target: &T, keep: Keep) -> Option<SolutionPair>
+where
+    T: Problem<Metric = bool> + 'static,
+    Keep: Fn(&[usize]) -> Option<SolutionPair>,
+{
+    choose_available_ilp_solution(target)
+        .as_deref()
+        .and_then(&keep)
+        .or_else(|| first_matching_solution(BruteForce::new().find_all_satisfying(target), keep))
+}
+
+fn build_solution_pair<S, R, Keep>(
+    source: &S,
+    reduction: &R,
+    target_config: &[usize],
+    keep: &Keep,
+) -> Option<SolutionPair>
+where
+    S: Problem,
+    R: ReductionResult<Source = S>,
+    Keep: Fn(&S, &[usize]) -> bool,
+{
+    let source_config = reduction.extract_solution(target_config);
+    keep(source, &source_config).then_some(SolutionPair {
+        source_config,
+        target_config: target_config.to_vec(),
+    })
+}
+
+fn first_matching_solution<Keep>(
+    mut candidates: Vec<Vec<usize>>,
+    keep: Keep,
+) -> Option<SolutionPair>
+where
+    Keep: Fn(&[usize]) -> Option<SolutionPair>,
+{
+    candidates.sort();
+    candidates.iter().find_map(|candidate| keep(candidate))
+}
+
+#[cfg(feature = "ilp-solver")]
+fn choose_available_ilp_solution<T>(problem: &T) -> Option<Vec<usize>>
+where
+    T: Problem + 'static,
+{
+    let problem_any = problem as &dyn Any;
+    if let Some(ilp) = problem_any.downcast_ref::<ILP<bool>>() {
+        return ILPSolver::new().solve(ilp);
+    }
+    if let Some(ilp) = problem_any.downcast_ref::<ILP<i32>>() {
+        return ILPSolver::new().solve(ilp);
+    }
+
+    let graph = ilp_reduction_graph();
+    let source_variant = ReductionGraph::variant_to_map(&T::variant());
+    let input_size = ProblemSize::new(vec![]);
+
+    let bool_variant = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
+    if let Some(path) = graph.find_cheapest_path(
+        T::NAME,
+        &source_variant,
+        "ILP",
+        &bool_variant,
+        &input_size,
+        &MinimizeSteps,
+    ) {
+        let chain = graph.reduce_along_path(&path, problem as &dyn Any)?;
+        let ilp = chain.target_problem::<ILP<bool>>();
+        let ilp_solution = ILPSolver::new().solve(ilp)?;
+        return Some(chain.extract_solution(&ilp_solution));
+    }
+
+    let i32_variant = ReductionGraph::variant_to_map(&ILP::<i32>::variant());
+    let path = graph.find_cheapest_path(
+        T::NAME,
+        &source_variant,
+        "ILP",
+        &i32_variant,
+        &input_size,
+        &MinimizeSteps,
+    )?;
+    let chain = graph.reduce_along_path(&path, problem as &dyn Any)?;
+    let ilp = chain.target_problem::<ILP<i32>>();
+    let ilp_solution = ILPSolver::new().solve(ilp)?;
+    Some(chain.extract_solution(&ilp_solution))
+}
+
+#[cfg(feature = "ilp-solver")]
+fn ilp_reduction_graph() -> &'static ReductionGraph {
+    static GRAPH: OnceLock<ReductionGraph> = OnceLock::new();
+    GRAPH.get_or_init(ReductionGraph::new)
+}
+
+#[cfg(not(feature = "ilp-solver"))]
+fn choose_available_ilp_solution<T>(_problem: &T) -> Option<Vec<usize>>
+where
+    T: Problem + 'static,
+{
+    None
 }

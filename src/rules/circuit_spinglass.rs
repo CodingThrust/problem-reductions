@@ -279,7 +279,8 @@ where
 
     /// Build the final SpinGlass.
     fn build(self) -> (SpinGlass<SimpleGraph, W>, HashMap<String, usize>) {
-        let interactions: Vec<((usize, usize), W)> = self.interactions.into_iter().collect();
+        let mut interactions: Vec<((usize, usize), W)> = self.interactions.into_iter().collect();
+        interactions.sort_by_key(|((u, v), _)| (*u, *v));
         let sg = SpinGlass::new(self.num_spins, interactions, self.fields);
         (sg, self.variable_map)
     }

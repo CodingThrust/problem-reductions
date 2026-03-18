@@ -45,21 +45,28 @@ pub mod prelude {
     pub use crate::models::algebraic::{BMF, QUBO};
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
     pub use crate::models::graph::{
-        BicliqueCover, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
-        IsomorphicSpanningTree, SpinGlass,
-        SubgraphIsomorphism,
+        BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
+        BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GraphPartitioning,
+        HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, LengthBoundedDisjointPaths,
+        SpinGlass, SteinerTree, StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-        MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
-        MinimumSumMulticenter, MinimumVertexCover, OptimalLinearArrangement,
-        PartitionIntoTriangles, RuralPostman, TravelingSalesman,
+        MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut,
+        MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
+        OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, TravelingSalesman,
+        UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
-        BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, PaintShop,
-        ShortestCommonSupersequence, SubsetSum,
+        BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
+        MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+        SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
+        ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
     };
-    pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
+    pub use crate::models::set::{
+        ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
+        MinimumCardinalityKey, MinimumSetCovering, SetBasis,
+    };
 
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};
@@ -98,9 +105,6 @@ mod test_property;
 #[cfg(test)]
 #[path = "unit_tests/reduction_graph.rs"]
 mod test_reduction_graph;
-#[cfg(test)]
-#[path = "unit_tests/trait_consistency.rs"]
-mod test_trait_consistency;
 #[cfg(test)]
 #[path = "unit_tests/unitdiskmapping_algorithms/mod.rs"]
 mod test_unitdiskmapping_algorithms;

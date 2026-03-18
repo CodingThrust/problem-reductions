@@ -2,6 +2,7 @@ use super::*;
 use crate::models::formula::CNFClause;
 use crate::solvers::BruteForce;
 use crate::topology::Graph;
+use crate::traits::Problem;
 use crate::variant::K3;
 include!("../jl_helpers.rs");
 
@@ -328,8 +329,8 @@ fn test_jl_parity_sat_to_coloring() {
             .into_iter()
             .collect();
         assert!(
-            best_source.contains(&extracted),
-            "SAT->Coloring [{label}]: extracted not satisfying"
+            source.evaluate(&extracted),
+            "SAT->Coloring [{label}]: extracted assignment is not satisfying"
         );
         for case in data["cases"].as_array().unwrap() {
             assert_eq!(
