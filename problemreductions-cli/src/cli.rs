@@ -229,6 +229,7 @@ Flags by problem type:
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   IsomorphicSpanningTree          --graph, --tree
+  KthBestSpanningTree             --graph, --edge-weights, --k, --bound
   LengthBoundedDisjointPaths      --graph, --source, --sink, --num-paths-required, --bound
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
