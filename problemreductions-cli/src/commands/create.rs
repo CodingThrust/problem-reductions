@@ -9,13 +9,15 @@ use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{
-    GraphPartitioning, HamiltonianPath, LengthBoundedDisjointPaths, MultipleChoiceBranching,
-    SteinerTree,
+    GraphPartitioning, HamiltonianPath, LengthBoundedDisjointPaths, MinimumMultiwayCut,
+    MultipleChoiceBranching, SteinerTree, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence, SubsetSum,
+    MultiprocessorScheduling, PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence,
+    SubsetSum,
 };
+use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -58,6 +60,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.capacity.is_none()
         && args.sequence.is_none()
         && args.sets.is_none()
+        && args.r_sets.is_none()
+        && args.s_sets.is_none()
+        && args.r_weights.is_none()
+        && args.s_weights.is_none()
         && args.partition.is_none()
         && args.universe.is_none()
         && args.biedges.is_none()
@@ -77,7 +83,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
-        && args.deadlines.is_none()
+        && args.candidate_arcs.is_none()
+        && args.potential_edges.is_none()
+        && args.budget.is_none()
         && args.precedence_pairs.is_none()
         && args.task_lengths.is_none()
         && args.deadline.is_none()
@@ -86,13 +94,6 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.requirements.is_none()
         && args.num_workers.is_none()
         && args.alphabet_size.is_none()
-        && args.capacities.is_none()
-        && args.source_1.is_none()
-        && args.sink_1.is_none()
-        && args.source_2.is_none()
-        && args.sink_2.is_none()
-        && args.requirement_1.is_none()
-        && args.requirement_2.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -229,13 +230,17 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
             Some("UnitDiskGraph") => "float positions: \"0.0,0.0;1.0,0.0\"",
             _ => "edge list: 0-1,1-2,2-3",
         },
-        "Vec<u64>" => "comma-separated integers: 1,1,2",
+        "Vec<u64>" => "comma-separated integers: 4,5,3,2,6",
         "Vec<W>" => "comma-separated: 1,2,3",
+        "Vec<usize>" => "comma-separated indices: 0,2,4",
+        "Vec<(usize, usize, W)>" | "Vec<(usize,usize,W)>" => {
+            "comma-separated weighted edges: 0-2:3,1-3:5"
+        }
+        "Vec<Vec<usize>>" => "semicolon-separated sets: \"0,1;1,2;0,2\"",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<bool>>" => "semicolon-separated binary rows: \"1,1,0;0,1,1\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
-        "Vec<Vec<usize>>" => "semicolon-separated groups: \"0,1;2,3\"",
-        "usize" => "integer",
+        "usize" | "W::Sum" => "integer",
         "u64" => "integer",
         "i64" => "integer",
         "BigUint" => "nonnegative decimal integer",
@@ -272,6 +277,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
+        "BiconnectivityAugmentation" => {
+            "--graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5"
+        }
         "Satisfiability" => "--num-vars 3 --clauses \"1,2;-1,3\"",
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
@@ -280,8 +288,13 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MinimumSumMulticenter" => {
             "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
         }
+        "BalancedCompleteBipartiteSubgraph" => {
+            "--left 4 --right 4 --biedges 0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3 --k 3"
+        }
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
+        "MinimumMultiwayCut" => "--graph 0-1,1-2,2-3 --terminals 0,2 --edge-weights 1,1,1",
         "SequencingWithinIntervals" => "--release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1",
         "StaffScheduling" => {
             "--schedules \"1,1,1,1,1,0,0;0,1,1,1,1,1,0;0,0,1,1,1,1,1;1,0,0,1,1,1,1;1,1,0,0,1,1,1\" --requirements 2,2,2,3,3,2,1 --num-workers 4 --k 5"
@@ -292,6 +305,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
         }
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
+        "StrongConnectivityAugmentation" => {
+            "--arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1"
+        }
         "RuralPostman" => {
             "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
         }
@@ -300,6 +316,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "ComparativeContainment" => {
+            "--universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
+        }
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
@@ -322,6 +341,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         "right_size" => "right".to_string(),
         "edges" => "biedges".to_string(),
         "vertex_weights" => "weights".to_string(),
+        "potential_weights" => "potential-edges".to_string(),
         "edge_lengths" => "edge-weights".to_string(),
         "num_tasks" => "n".to_string(),
         "precedences" => "precedence-pairs".to_string(),
@@ -338,6 +358,7 @@ fn help_flag_hint(
 ) -> &'static str {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_weight") => "integer",
+        ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
         _ => type_format_hint(type_name, graph_type),
     }
 }
@@ -371,7 +392,20 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
             } else if field.type_name == "DirectedGraph" {
                 // DirectedGraph fields use --arcs, not --graph
                 let hint = type_format_hint(&field.type_name, graph_type);
-                eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
+                eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
+            } else if field.type_name == "BipartiteGraph" {
+                eprintln!(
+                    "  --{:<16} {} ({})",
+                    "left", "Vertices in the left partition", "integer"
+                );
+                eprintln!(
+                    "  --{:<16} {} ({})",
+                    "right", "Vertices in the right partition", "integer"
+                );
+                eprintln!(
+                    "  --{:<16} {} ({})",
+                    "biedges", "Bipartite edges as left-right pairs", "edge list: 0-0,0-1,1-2"
+                );
             } else {
                 let hint = help_flag_hint(canonical, &field.name, &field.type_name, graph_type);
                 eprintln!(
@@ -567,6 +601,26 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(GraphPartitioning::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Biconnectivity augmentation
+        "BiconnectivityAugmentation" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5"
+                )
+            })?;
+            let potential_edges = parse_potential_edges(args)?;
+            validate_potential_edges(&graph, &potential_edges)?;
+            let budget = parse_budget(args)?;
+            (
+                ser(BiconnectivityAugmentation::new(
+                    graph,
+                    potential_edges,
+                    budget,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -1004,6 +1058,80 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // ComparativeContainment
+        "ComparativeContainment" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ComparativeContainment requires --universe, --r-sets, and --s-sets\n\n\
+                     Usage: pred create ComparativeContainment --universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" [--r-weights 2,5] [--s-weights 3,6]"
+                )
+            })?;
+            let r_sets = parse_named_sets(args.r_sets.as_deref(), "--r-sets")?;
+            let s_sets = parse_named_sets(args.s_sets.as_deref(), "--s-sets")?;
+            validate_comparative_containment_sets("R", "--r-sets", universe, &r_sets)?;
+            validate_comparative_containment_sets("S", "--s-sets", universe, &s_sets)?;
+            let data = match resolved_variant.get("weight").map(|value| value.as_str()) {
+                Some("One") => {
+                    let r_weights = parse_named_set_weights(
+                        args.r_weights.as_deref(),
+                        r_sets.len(),
+                        "--r-weights",
+                    )?;
+                    let s_weights = parse_named_set_weights(
+                        args.s_weights.as_deref(),
+                        s_sets.len(),
+                        "--s-weights",
+                    )?;
+                    if r_weights.iter().any(|&w| w != 1) || s_weights.iter().any(|&w| w != 1) {
+                        bail!(
+                            "Non-unit weights are not supported for ComparativeContainment/One.\n\n\
+                             Use `pred create ComparativeContainment/i32 ... --r-weights ... --s-weights ...` for weighted instances."
+                        );
+                    }
+                    ser(ComparativeContainment::<One>::new(universe, r_sets, s_sets))?
+                }
+                Some("f64") => {
+                    let r_weights = parse_named_set_weights_f64(
+                        args.r_weights.as_deref(),
+                        r_sets.len(),
+                        "--r-weights",
+                    )?;
+                    validate_comparative_containment_f64_weights("R", "--r-weights", &r_weights)?;
+                    let s_weights = parse_named_set_weights_f64(
+                        args.s_weights.as_deref(),
+                        s_sets.len(),
+                        "--s-weights",
+                    )?;
+                    validate_comparative_containment_f64_weights("S", "--s-weights", &s_weights)?;
+                    ser(ComparativeContainment::<f64>::with_weights(
+                        universe, r_sets, s_sets, r_weights, s_weights,
+                    ))?
+                }
+                Some("i32") | None => {
+                    let r_weights = parse_named_set_weights(
+                        args.r_weights.as_deref(),
+                        r_sets.len(),
+                        "--r-weights",
+                    )?;
+                    validate_comparative_containment_i32_weights("R", "--r-weights", &r_weights)?;
+                    let s_weights = parse_named_set_weights(
+                        args.s_weights.as_deref(),
+                        s_sets.len(),
+                        "--s-weights",
+                    )?;
+                    validate_comparative_containment_i32_weights("S", "--s-weights", &s_weights)?;
+                    ser(ComparativeContainment::with_weights(
+                        universe, r_sets, s_sets, r_weights, s_weights,
+                    ))?
+                }
+                Some(other) => bail!(
+                    "Unsupported ComparativeContainment weight variant: {}",
+                    other
+                ),
+            };
+            (data, resolved_variant.clone())
+        }
+
         // ExactCoverBy3Sets
         "ExactCoverBy3Sets" => {
             let universe = args.universe.ok_or_else(|| {
@@ -1085,24 +1213,25 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // BicliqueCover
         "BicliqueCover" => {
-            let left = args.left.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "BicliqueCover requires --left, --right, --biedges, and --k\n\n\
-                     Usage: pred create BicliqueCover --left 2 --right 2 --biedges 0-0,0-1,1-1 --k 2"
-                )
-            })?;
-            let right = args.right.ok_or_else(|| {
-                anyhow::anyhow!("BicliqueCover requires --right (right partition size)")
-            })?;
-            let k = args.k.ok_or_else(|| {
-                anyhow::anyhow!("BicliqueCover requires --k (number of bicliques)")
-            })?;
-            let edges_str = args.biedges.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("BicliqueCover requires --biedges (e.g., 0-0,0-1,1-1)")
-            })?;
-            let edges = util::parse_edge_pairs(edges_str)?;
-            let graph = BipartiteGraph::new(left, right, edges);
+            let usage = "pred create BicliqueCover --left 2 --right 2 --biedges 0-0,0-1,1-1 --k 2";
+            let (graph, k) =
+                parse_bipartite_problem_input(args, "BicliqueCover", "number of bicliques", usage)?;
             (ser(BicliqueCover::new(graph, k))?, resolved_variant.clone())
+        }
+
+        // BalancedCompleteBipartiteSubgraph
+        "BalancedCompleteBipartiteSubgraph" => {
+            let usage = "pred create BalancedCompleteBipartiteSubgraph --left 4 --right 4 --biedges 0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3 --k 3";
+            let (graph, k) = parse_bipartite_problem_input(
+                args,
+                "BalancedCompleteBipartiteSubgraph",
+                "balanced biclique size",
+                usage,
+            )?;
+            (
+                ser(BalancedCompleteBipartiteSubgraph::new(graph, k))?,
+                resolved_variant.clone(),
+            )
         }
 
         // BMF
@@ -1166,6 +1295,49 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MultiprocessorScheduling
+        "MultiprocessorScheduling" => {
+            let usage = "Usage: pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10";
+            let lengths_str = args.lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MultiprocessorScheduling requires --lengths, --num-processors, and --deadline\n\n{usage}"
+                )
+            })?;
+            let num_processors = args.num_processors.ok_or_else(|| {
+                anyhow::anyhow!("MultiprocessorScheduling requires --num-processors\n\n{usage}")
+            })?;
+            if num_processors == 0 {
+                bail!("MultiprocessorScheduling requires --num-processors > 0\n\n{usage}");
+            }
+            let deadline = args.deadline.ok_or_else(|| {
+                anyhow::anyhow!("MultiprocessorScheduling requires --deadline\n\n{usage}")
+            })?;
+            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
+            (
+                ser(MultiprocessorScheduling::new(
+                    lengths,
+                    num_processors,
+                    deadline,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumMultiwayCut
+        "MinimumMultiwayCut" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MinimumMultiwayCut --graph 0-1,1-2,2-3 --terminals 0,2 [--edge-weights 1,1,1]"
+                )
+            })?;
+            let terminals = parse_terminals(args, graph.num_vertices())?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            (
+                ser(MinimumMultiwayCut::new(graph, terminals, edge_weights))?,
                 resolved_variant.clone(),
             )
         }
@@ -1424,6 +1596,32 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // StrongConnectivityAugmentation
+        "StrongConnectivityAugmentation" => {
+            let usage = "Usage: pred create StrongConnectivityAugmentation --arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1 [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "StrongConnectivityAugmentation requires --arcs\n\n\
+                     {usage}"
+                )
+            })?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let candidate_arcs = parse_candidate_arcs(args, graph.num_vertices())?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "StrongConnectivityAugmentation requires --bound\n\n\
+                     {usage}"
+                )
+            })? as i32;
+            (
+                ser(
+                    StrongConnectivityAugmentation::try_new(graph, candidate_arcs, bound)
+                        .map_err(|e| anyhow::anyhow!(e))?,
+                )?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumSumMulticenter (p-median)
         "MinimumSumMulticenter" => {
             let (graph, n) = parse_graph(args).map_err(|e| {
@@ -1581,7 +1779,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 resolved_variant.clone(),
             )
         }
-
         _ => bail!("{}", crate::problem_name::unknown_problem_error(canonical)),
     };
 
@@ -1713,7 +1910,50 @@ fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
     util::variant_map(pairs)
 }
 
-/// Parse `--graph` into a SimpleGraph, inferring num_vertices from max index.
+fn parse_bipartite_problem_input(
+    args: &CreateArgs,
+    canonical: &str,
+    k_description: &str,
+    usage: &str,
+) -> Result<(BipartiteGraph, usize)> {
+    let left = args.left.ok_or_else(|| {
+        anyhow::anyhow!(
+            "{canonical} requires --left, --right, --biedges, and --k\n\nUsage: {usage}"
+        )
+    })?;
+    let right = args.right.ok_or_else(|| {
+        anyhow::anyhow!("{canonical} requires --right (right partition size)\n\nUsage: {usage}")
+    })?;
+    let k = args.k.ok_or_else(|| {
+        anyhow::anyhow!("{canonical} requires --k ({k_description})\n\nUsage: {usage}")
+    })?;
+    let edges_str = args.biedges.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("{canonical} requires --biedges (e.g., 0-0,0-1,1-1)\n\nUsage: {usage}")
+    })?;
+    let edges = util::parse_edge_pairs(edges_str)?;
+    validate_bipartite_edges(canonical, left, right, &edges)?;
+    Ok((BipartiteGraph::new(left, right, edges), k))
+}
+
+fn validate_bipartite_edges(
+    canonical: &str,
+    left: usize,
+    right: usize,
+    edges: &[(usize, usize)],
+) -> Result<()> {
+    for &(u, v) in edges {
+        if u >= left {
+            bail!("{canonical} edge {u}-{v} is out of bounds for left partition size {left}");
+        }
+        if v >= right {
+            bail!("{canonical} edge {u}-{v} is out of bounds for right partition size {right}");
+        }
+    }
+    Ok(())
+}
+
+/// Parse `--graph` into a SimpleGraph, optionally preserving isolated vertices
+/// via `--num-vertices`.
 fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
     let edges_str = args
         .graph
@@ -1721,10 +1961,12 @@ fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
         .ok_or_else(|| anyhow::anyhow!("This problem requires --graph (e.g., 0-1,1-2,2-3)"))?;
 
     if edges_str.trim().is_empty() {
-        bail!(
-            "Empty graph string. To create a graph with isolated vertices, use:\n  \
-             pred create <PROBLEM> --random --num-vertices N --edge-prob 0.0"
-        );
+        let num_vertices = args.num_vertices.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Empty graph string. To create a graph with isolated vertices, pass --num-vertices N as well."
+            )
+        })?;
+        return Ok((SimpleGraph::empty(num_vertices), num_vertices));
     }
 
     let edges: Vec<(usize, usize)> = edges_str
@@ -1747,12 +1989,23 @@ fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let num_vertices = edges
+    let inferred_num_vertices = edges
         .iter()
         .flat_map(|(u, v)| [*u, *v])
         .max()
         .map(|m| m + 1)
         .unwrap_or(0);
+    let num_vertices = match args.num_vertices {
+        Some(explicit) if explicit < inferred_num_vertices => {
+            bail!(
+                "--num-vertices {} is too small for the provided graph; need at least {}",
+                explicit,
+                inferred_num_vertices
+            );
+        }
+        Some(explicit) => explicit,
+        None => inferred_num_vertices,
+    };
 
     Ok((SimpleGraph::new(num_vertices, edges), num_vertices))
 }
@@ -1799,7 +2052,7 @@ fn parse_terminals(args: &CreateArgs, num_vertices: usize) -> Result<Vec<usize>>
     let s = args
         .terminals
         .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("SteinerTree requires --terminals (e.g., \"0,2,4\")"))?;
+        .ok_or_else(|| anyhow::anyhow!("--terminals required (e.g., \"0,2,4\")"))?;
     let terminals: Vec<usize> = s
         .split(',')
         .map(|t| t.trim().parse::<usize>())
@@ -1990,10 +2243,12 @@ fn parse_clauses(args: &CreateArgs) -> Result<Vec<CNFClause>> {
 /// Parse `--sets` as semicolon-separated sets of comma-separated usize.
 /// E.g., "0,1;1,2;0,2"
 fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
-    let sets_str = args
-        .sets
-        .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("This problem requires --sets (e.g., \"0,1;1,2;0,2\")"))?;
+    parse_named_sets(args.sets.as_deref(), "--sets")
+}
+
+fn parse_named_sets(sets_str: Option<&str>, flag: &str) -> Result<Vec<Vec<usize>>> {
+    let sets_str = sets_str
+        .ok_or_else(|| anyhow::anyhow!("This problem requires {flag} (e.g., \"0,1;1,2;0,2\")"))?;
     sets_str
         .split(';')
         .map(|set| {
@@ -2007,6 +2262,23 @@ fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
                 .collect()
         })
         .collect()
+}
+
+fn validate_comparative_containment_sets(
+    family_name: &str,
+    flag: &str,
+    universe_size: usize,
+    sets: &[Vec<usize>],
+) -> Result<()> {
+    for (set_index, set) in sets.iter().enumerate() {
+        for &element in set {
+            anyhow::ensure!(
+                element < universe_size,
+                "{family_name} set {set_index} from {flag} contains element {element} outside universe of size {universe_size}"
+            );
+        }
+    }
+    Ok(())
 }
 
 /// Parse `--partition` as semicolon-separated groups of comma-separated arc indices.
@@ -2073,16 +2345,79 @@ fn parse_multiple_choice_branching_threshold(args: &CreateArgs, usage: &str) -> 
 
 /// Parse `--weights` for set-based problems (i32), defaulting to all 1s.
 fn parse_set_weights(args: &CreateArgs, num_sets: usize) -> Result<Vec<i32>> {
-    match &args.weights {
+    parse_named_set_weights(args.weights.as_deref(), num_sets, "--weights")
+}
+
+fn parse_named_set_weights(
+    weights_str: Option<&str>,
+    num_sets: usize,
+    flag: &str,
+) -> Result<Vec<i32>> {
+    match weights_str {
         Some(w) => {
             let weights: Vec<i32> = util::parse_comma_list(w)?;
             if weights.len() != num_sets {
-                bail!("Expected {} weights but got {}", num_sets, weights.len());
+                bail!(
+                    "Expected {} values for {} but got {}",
+                    num_sets,
+                    flag,
+                    weights.len()
+                );
             }
             Ok(weights)
         }
         None => Ok(vec![1i32; num_sets]),
     }
+}
+
+fn parse_named_set_weights_f64(
+    weights_str: Option<&str>,
+    num_sets: usize,
+    flag: &str,
+) -> Result<Vec<f64>> {
+    match weights_str {
+        Some(w) => {
+            let weights: Vec<f64> = util::parse_comma_list(w)?;
+            if weights.len() != num_sets {
+                bail!(
+                    "Expected {} values for {} but got {}",
+                    num_sets,
+                    flag,
+                    weights.len()
+                );
+            }
+            Ok(weights)
+        }
+        None => Ok(vec![1.0f64; num_sets]),
+    }
+}
+
+fn validate_comparative_containment_i32_weights(
+    family_name: &str,
+    flag: &str,
+    weights: &[i32],
+) -> Result<()> {
+    for (index, weight) in weights.iter().enumerate() {
+        anyhow::ensure!(
+            *weight > 0,
+            "{family_name} weights from {flag} must be positive; found {weight} at index {index}"
+        );
+    }
+    Ok(())
+}
+
+fn validate_comparative_containment_f64_weights(
+    family_name: &str,
+    flag: &str,
+    weights: &[f64],
+) -> Result<()> {
+    for (index, weight) in weights.iter().enumerate() {
+        anyhow::ensure!(
+            weight.is_finite() && *weight > 0.0,
+            "{family_name} weights from {flag} must be finite and positive; found {weight} at index {index}"
+        );
+    }
+    Ok(())
 }
 
 /// Parse `--matrix` as semicolon-separated rows of comma-separated bool values (0/1).
@@ -2191,6 +2526,73 @@ fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
         .collect()
 }
 
+fn parse_potential_edges(args: &CreateArgs) -> Result<Vec<(usize, usize, i32)>> {
+    let edges_str = args.potential_edges.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("BiconnectivityAugmentation requires --potential-edges (e.g., 0-2:3,1-3:5)")
+    })?;
+
+    edges_str
+        .split(',')
+        .map(|entry| {
+            let entry = entry.trim();
+            let (edge_part, weight_part) = entry.split_once(':').ok_or_else(|| {
+                anyhow::anyhow!("Invalid potential edge '{entry}': expected u-v:w")
+            })?;
+            let (u_str, v_str) = edge_part.split_once('-').ok_or_else(|| {
+                anyhow::anyhow!("Invalid potential edge '{entry}': expected u-v:w")
+            })?;
+            let u = u_str.trim().parse::<usize>()?;
+            let v = v_str.trim().parse::<usize>()?;
+            if u == v {
+                bail!("Self-loop detected in potential edge {u}-{v}");
+            }
+            let weight = weight_part.trim().parse::<i32>()?;
+            Ok((u, v, weight))
+        })
+        .collect()
+}
+
+fn validate_potential_edges(
+    graph: &SimpleGraph,
+    potential_edges: &[(usize, usize, i32)],
+) -> Result<()> {
+    let num_vertices = graph.num_vertices();
+    let mut seen_potential_edges = BTreeSet::new();
+    for &(u, v, _) in potential_edges {
+        if u >= num_vertices || v >= num_vertices {
+            bail!(
+                "Potential edge {u}-{v} references a vertex outside the graph (num_vertices = {num_vertices})"
+            );
+        }
+        let edge = if u <= v { (u, v) } else { (v, u) };
+        if graph.has_edge(edge.0, edge.1) {
+            bail!(
+                "Potential edge {}-{} already exists in the graph",
+                edge.0,
+                edge.1
+            );
+        }
+        if !seen_potential_edges.insert(edge) {
+            bail!(
+                "Duplicate potential edge {}-{} is not allowed",
+                edge.0,
+                edge.1
+            );
+        }
+    }
+    Ok(())
+}
+
+fn parse_budget(args: &CreateArgs) -> Result<i32> {
+    let budget = args
+        .budget
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("BiconnectivityAugmentation requires --budget (e.g., 5)"))?;
+    budget
+        .parse::<i32>()
+        .map_err(|e| anyhow::anyhow!("Invalid budget '{budget}': {e}"))
+}
+
 /// Parse `--arcs` as directed arc pairs and build a `DirectedGraph`.
 ///
 /// Returns `(graph, num_arcs)`. Infers vertex count from arc endpoints
@@ -2257,6 +2659,51 @@ fn parse_arc_weights(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
         }
         None => Ok(vec![1i32; num_arcs]),
     }
+}
+
+/// Parse `--candidate-arcs` as `u>v:w` entries for StrongConnectivityAugmentation.
+fn parse_candidate_arcs(
+    args: &CreateArgs,
+    num_vertices: usize,
+) -> Result<Vec<(usize, usize, i32)>> {
+    let arcs_str = args.candidate_arcs.as_deref().ok_or_else(|| {
+        anyhow::anyhow!(
+            "StrongConnectivityAugmentation requires --candidate-arcs (e.g., \"2>0:1,2>1:3\")"
+        )
+    })?;
+
+    arcs_str
+        .split(',')
+        .map(|entry| {
+            let entry = entry.trim();
+            let (arc_part, weight_part) = entry.split_once(':').ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Invalid candidate arc '{}': expected format u>v:w (e.g., 2>0:1)",
+                    entry
+                )
+            })?;
+            let parts: Vec<&str> = arc_part.split('>').collect();
+            if parts.len() != 2 {
+                bail!(
+                    "Invalid candidate arc '{}': expected format u>v:w (e.g., 2>0:1)",
+                    entry
+                );
+            }
+
+            let u: usize = parts[0].parse()?;
+            let v: usize = parts[1].parse()?;
+            anyhow::ensure!(
+                u < num_vertices && v < num_vertices,
+                "candidate arc ({}, {}) references vertex >= num_vertices ({})",
+                u,
+                v,
+                num_vertices
+            );
+
+            let w: i32 = weight_part.parse()?;
+            Ok((u, v, w))
+        })
+        .collect()
 }
 
 /// Handle `pred create <PROBLEM> --random ...`
@@ -2514,8 +2961,8 @@ mod tests {
     use super::help_flag_name;
     use super::parse_bool_rows;
     use super::problem_help_flag_name;
+    use super::*;
     use crate::cli::{Cli, Commands};
-    use crate::output::OutputConfig;
     use clap::Parser;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -2630,6 +3077,7 @@ mod tests {
             Commands::Create(args) => args,
             _ => panic!("expected create command"),
         };
+
         let out = OutputConfig {
             output: None,
             quiet: true,
@@ -2641,5 +3089,172 @@ mod tests {
         assert!(result.is_ok(), "create should return an error, not panic");
         let err = result.unwrap().unwrap_err().to_string();
         assert!(err.contains("schedule 1 has 6 periods, expected 7"));
+    }
+
+    fn empty_args() -> CreateArgs {
+        CreateArgs {
+            problem: Some("BiconnectivityAugmentation".to_string()),
+            example: None,
+            example_target: None,
+            example_side: crate::cli::ExampleSide::Source,
+            graph: None,
+            weights: None,
+            edge_weights: None,
+            capacities: None,
+            source: None,
+            sink: None,
+            num_paths_required: None,
+            couplings: None,
+            fields: None,
+            clauses: None,
+            num_vars: None,
+            matrix: None,
+            k: None,
+            random: false,
+            num_vertices: None,
+            edge_prob: None,
+            seed: None,
+            target: None,
+            m: None,
+            n: None,
+            positions: None,
+            radius: None,
+            source_1: None,
+            sink_1: None,
+            source_2: None,
+            sink_2: None,
+            requirement_1: None,
+            requirement_2: None,
+            sizes: None,
+            capacity: None,
+            sequence: None,
+            sets: None,
+            r_sets: None,
+            s_sets: None,
+            r_weights: None,
+            s_weights: None,
+            partition: None,
+            universe: None,
+            biedges: None,
+            left: None,
+            right: None,
+            rank: None,
+            basis: None,
+            target_vec: None,
+            bounds: None,
+            release_times: None,
+            lengths: None,
+            terminals: None,
+            tree: None,
+            required_edges: None,
+            bound: None,
+            pattern: None,
+            strings: None,
+            arcs: None,
+            potential_edges: None,
+            budget: None,
+            candidate_arcs: None,
+            deadlines: None,
+            precedence_pairs: None,
+            task_lengths: None,
+            deadline: None,
+            num_processors: None,
+            alphabet_size: None,
+            schedules: None,
+            requirements: None,
+            num_workers: None,
+        }
+    }
+
+    #[test]
+    fn test_all_data_flags_empty_treats_potential_edges_as_input() {
+        let mut args = empty_args();
+        args.potential_edges = Some("0-2:3,1-3:5".to_string());
+        assert!(!all_data_flags_empty(&args));
+    }
+
+    #[test]
+    fn test_all_data_flags_empty_treats_budget_as_input() {
+        let mut args = empty_args();
+        args.budget = Some("7".to_string());
+        assert!(!all_data_flags_empty(&args));
+    }
+
+    #[test]
+    fn test_parse_potential_edges() {
+        let mut args = empty_args();
+        args.potential_edges = Some("0-2:3,1-3:5".to_string());
+
+        let potential_edges = parse_potential_edges(&args).unwrap();
+
+        assert_eq!(potential_edges, vec![(0, 2, 3), (1, 3, 5)]);
+    }
+
+    #[test]
+    fn test_parse_potential_edges_rejects_missing_weight() {
+        let mut args = empty_args();
+        args.potential_edges = Some("0-2,1-3:5".to_string());
+
+        let err = parse_potential_edges(&args).unwrap_err().to_string();
+
+        assert!(err.contains("u-v:w"));
+    }
+
+    #[test]
+    fn test_parse_budget() {
+        let mut args = empty_args();
+        args.budget = Some("7".to_string());
+
+        assert_eq!(parse_budget(&args).unwrap(), 7);
+    }
+
+    #[test]
+    fn test_parse_graph_respects_explicit_num_vertices() {
+        let mut args = empty_args();
+        args.graph = Some("0-1".to_string());
+        args.num_vertices = Some(3);
+
+        let (graph, num_vertices) = parse_graph(&args).unwrap();
+
+        assert_eq!(num_vertices, 3);
+        assert_eq!(graph.num_vertices(), 3);
+        assert_eq!(graph.edges(), vec![(0, 1)]);
+    }
+
+    #[test]
+    fn test_validate_potential_edges_rejects_existing_graph_edge() {
+        let err = validate_potential_edges(&SimpleGraph::path(3), &[(0, 1, 5)])
+            .unwrap_err()
+            .to_string();
+
+        assert!(err.contains("already exists in the graph"));
+    }
+
+    #[test]
+    fn test_validate_potential_edges_rejects_duplicate_edges() {
+        let err = validate_potential_edges(&SimpleGraph::path(4), &[(0, 3, 1), (3, 0, 2)])
+            .unwrap_err()
+            .to_string();
+
+        assert!(err.contains("Duplicate potential edge"));
+    }
+
+    #[test]
+    fn test_create_biconnectivity_augmentation_json() {
+        let mut args = empty_args();
+        args.graph = Some("0-1,1-2,2-3".to_string());
+        args.potential_edges = Some("0-2:3,0-3:4,1-3:2".to_string());
+        args.budget = Some("5".to_string());
+
+        let output_path = std::env::temp_dir().join("pred_test_create_biconnectivity.json");
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("out of bounds for left partition size 4"));
     }
 }

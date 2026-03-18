@@ -22,10 +22,7 @@ class PipelineSkillContextTests(unittest.TestCase):
         self.assertEqual(args.command, "review-pipeline")
         self.assertEqual(args.repo, "CodingThrust/problem-reductions")
         self.assertIsNone(args.pr)
-        self.assertEqual(
-            args.state_file,
-            Path("/tmp/problemreductions-review-state.json"),
-        )
+        self.assertFalse(hasattr(args, "state_file"))
         self.assertEqual(args.format, "json")
 
     def test_parse_args_final_review_with_explicit_values(self) -> None:
@@ -36,8 +33,6 @@ class PipelineSkillContextTests(unittest.TestCase):
                 "CodingThrust/problem-reductions",
                 "--pr",
                 "615",
-                "--state-file",
-                "/tmp/custom-final-review-state.json",
                 "--format",
                 "text",
             ]
@@ -46,10 +41,7 @@ class PipelineSkillContextTests(unittest.TestCase):
         self.assertEqual(args.command, "final-review")
         self.assertEqual(args.repo, "CodingThrust/problem-reductions")
         self.assertEqual(args.pr, 615)
-        self.assertEqual(
-            args.state_file,
-            Path("/tmp/custom-final-review-state.json"),
-        )
+        self.assertFalse(hasattr(args, "state_file"))
         self.assertEqual(args.format, "text")
 
     def test_parse_args_review_implementation_defaults(self) -> None:
@@ -166,7 +158,6 @@ class PipelineSkillContextTests(unittest.TestCase):
                 "url": "https://github.com/CodingThrust/problem-reductions/pull/570",
                 "comments": {
                     "counts": {
-                        "copilot_inline_comments": 2,
                         "human_inline_comments": 1,
                         "human_issue_comments": 1,
                         "human_linked_issue_comments": 1,
@@ -196,7 +187,6 @@ class PipelineSkillContextTests(unittest.TestCase):
         self.assertIn("- Board item: `PVTI_11`", rendered)
         self.assertIn("## Recommendation Seed", rendered)
         self.assertIn("- Suggested mode: conflicted-fix", rendered)
-        self.assertIn("- Copilot inline comments: 2", rendered)
         self.assertIn("- CI state: failure", rendered)
         self.assertIn("## Merge Prep", rendered)
         self.assertIn("- Worktree: `/tmp/review-pr-570`", rendered)
@@ -236,13 +226,6 @@ class PipelineSkillContextTests(unittest.TestCase):
                 "whitelist": {"ok": True, "skipped": False},
                 "completeness": {"ok": False, "skipped": False, "missing": ["paper_display_name"]},
             },
-            "current_pr": {
-                "repo": "CodingThrust/problem-reductions",
-                "pr_number": 615,
-                "title": "Fix #117: [Model] GraphPartitioning",
-                "linked_issue_number": 117,
-                "issue_context_text": "# Add GraphPartitioning\n\nNeed canonical example.",
-            },
         }
 
         stdout = io.StringIO()
@@ -254,11 +237,9 @@ class PipelineSkillContextTests(unittest.TestCase):
         self.assertIn("- Base SHA: `abc123`", rendered)
         self.assertIn("- Review type: model", rendered)
         self.assertIn("- Name: GraphPartitioning", rendered)
-        self.assertIn("- PR: #615", rendered)
-        self.assertIn("- Linked issue: #117", rendered)
+        self.assertNotIn("## Current PR", rendered)
         self.assertIn("## Deterministic Checks", rendered)
         self.assertIn("- Completeness: fail", rendered)
-        self.assertIn("## Linked Issue Context", rendered)
 
     def test_emit_result_prints_project_pipeline_text_report(self) -> None:
         result = {
@@ -371,7 +352,6 @@ class PipelineSkillContextTests(unittest.TestCase):
         builder.assert_called_once_with(
             repo="CodingThrust/problem-reductions",
             pr_number=None,
-            state_file=Path("/tmp/problemreductions-review-state.json"),
         )
         self.assertEqual(exit_code, 0)
         self.assertEqual(json.loads(stdout.getvalue()), result)
@@ -406,7 +386,6 @@ class PipelineSkillContextTests(unittest.TestCase):
         builder.assert_called_once_with(
             repo="CodingThrust/problem-reductions",
             pr_number=615,
-            state_file=Path("/tmp/problemreductions-final-review-state.json"),
         )
         self.assertEqual(exit_code, 0)
         self.assertEqual(json.loads(stdout.getvalue()), result)
@@ -417,7 +396,6 @@ class PipelineSkillContextTests(unittest.TestCase):
             "status": "ready",
             "git": {"base_sha": "abc123", "head_sha": "def456"},
             "review_context": {"subject": {"kind": "generic"}},
-            "current_pr": None,
         }
 
         with mock.patch.object(
@@ -481,7 +459,7 @@ class PipelineSkillContextTests(unittest.TestCase):
         result = pipeline_skill_context.build_review_pipeline_context(
             repo="CodingThrust/problem-reductions",
             pr_number=None,
-            state_file=Path("/tmp/problemreductions-review-state.json"),
+
             review_candidate_fetcher=lambda repo: [],
         )
 
@@ -497,7 +475,7 @@ class PipelineSkillContextTests(unittest.TestCase):
         result = pipeline_skill_context.build_review_pipeline_context(
             repo="CodingThrust/problem-reductions",
             pr_number=None,
-            state_file=Path("/tmp/problemreductions-review-state.json"),
+
             review_candidate_fetcher=lambda repo: [
                 {
                     "item_id": "PVTI_10",
@@ -534,7 +512,7 @@ class PipelineSkillContextTests(unittest.TestCase):
         result = pipeline_skill_context.build_review_pipeline_context(
             repo="CodingThrust/problem-reductions",
             pr_number=173,
-            state_file=Path("/tmp/problemreductions-review-state.json"),
+
             review_candidate_fetcher=lambda repo: [
                 {
                     "item_id": "PVTI_10",
@@ -589,34 +567,27 @@ class PipelineSkillContextTests(unittest.TestCase):
         )
 
     def test_build_review_pipeline_context_returns_ready_bundle_for_eligible_pr(self) -> None:
+        moves: list[tuple[str, str]] = []
+
         result = pipeline_skill_context.build_review_pipeline_context(
             repo="CodingThrust/problem-reductions",
             pr_number=None,
-            state_file=Path("/tmp/problemreductions-review-state.json"),
             review_candidate_fetcher=lambda repo: [
                 {
                     "item_id": "PVTI_11",
                     "issue_number": 117,
                     "pr_number": 570,
+                    "number": 570,
                     "status": "Review pool",
                     "title": "[Model] GraphPartitioning",
                     "eligibility": "eligible",
-                    "reason": "copilot reviewed",
+                    "reason": "open PR",
                 }
             ],
-            claim_entry=lambda **kwargs: {
-                "item_id": "PVTI_11",
-                "number": 570,
-                "issue_number": 117,
-                "pr_number": 570,
-                "status": "Review pool",
-                "title": "[Model] GraphPartitioning",
-                "claimed": True,
-                "claimed_status": "Under review",
-            },
+            mover=lambda item_id, status: moves.append((item_id, status)),
             pr_context_builder=lambda repo, pr_number: {
                 "number": pr_number,
-                "comments": {"counts": {"copilot_inline_comments": 1}},
+                "comments": {"counts": {"human_inline_comments": 0}},
             },
             review_preparer=lambda repo, pr_number: {
                 "ready": True,
@@ -624,120 +595,70 @@ class PipelineSkillContextTests(unittest.TestCase):
             },
         )
 
+        self.assertEqual(moves, [("PVTI_11", "Under review")])
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["selection"]["pr_number"], 570)
+        self.assertEqual(result["selection"]["claimed"], True)
         self.assertEqual(
-            result,
-            {
-                "skill": "review-pipeline",
-                "status": "ready",
-                "selection": {
-                    "item_id": "PVTI_11",
-                    "number": 570,
-                    "issue_number": 117,
-                    "pr_number": 570,
-                    "status": "Review pool",
-                    "title": "[Model] GraphPartitioning",
-                    "claimed": True,
-                    "claimed_status": "Under review",
-                },
-                "pr": {
-                    "number": 570,
-                    "comments": {"counts": {"copilot_inline_comments": 1}},
-                },
-                "prep": {
-                    "ready": True,
-                    "checkout": {"worktree_dir": "/tmp/review-pr-570"},
-                },
-            },
+            result["pr"],
+            {"number": 570, "comments": {"counts": {"human_inline_comments": 0}}},
+        )
+        self.assertEqual(
+            result["prep"],
+            {"ready": True, "checkout": {"worktree_dir": "/tmp/review-pr-570"}},
         )
 
-    def test_build_review_pipeline_context_defaults_to_candidate_based_claim(self) -> None:
-        with mock.patch.object(
-            pipeline_skill_context.pipeline_board,
-            "claim_entry_from_entries",
-            return_value={
-                "item_id": "PVTI_11",
-                "number": 570,
-                "issue_number": 117,
-                "pr_number": 570,
-                "status": "Review pool",
-                "title": "[Model] GraphPartitioning",
-                "claimed": True,
-                "claimed_status": "Under review",
-            },
-        ) as claim_from_entries:
-            result = pipeline_skill_context.build_review_pipeline_context(
-                repo="CodingThrust/problem-reductions",
-                pr_number=None,
-                state_file=Path("/tmp/problemreductions-review-state.json"),
-                review_candidate_fetcher=lambda repo: [
-                    {
-                        "item_id": "PVTI_11",
-                        "issue_number": 117,
-                        "pr_number": 570,
-                        "status": "Review pool",
-                        "title": "[Model] GraphPartitioning",
-                        "eligibility": "eligible",
-                        "reason": "copilot reviewed",
-                    }
-                ],
-                pr_context_builder=lambda repo, pr_number: {"number": pr_number},
-                review_preparer=lambda repo, pr_number: {"ready": True},
-            )
+    def test_build_review_pipeline_context_claims_via_mover(self) -> None:
+        moves: list[tuple[str, str]] = []
 
-        claim_from_entries.assert_called_once()
+        result = pipeline_skill_context.build_review_pipeline_context(
+            repo="CodingThrust/problem-reductions",
+            pr_number=None,
+            review_candidate_fetcher=lambda repo: [
+                {
+                    "item_id": "PVTI_11",
+                    "issue_number": 117,
+                    "pr_number": 570,
+                    "number": 570,
+                    "status": "Review pool",
+                    "title": "[Model] GraphPartitioning",
+                    "eligibility": "eligible",
+                    "reason": "open PR",
+                }
+            ],
+            mover=lambda item_id, status: moves.append((item_id, status)),
+            pr_context_builder=lambda repo, pr_number: {"number": pr_number},
+            review_preparer=lambda repo, pr_number: {"ready": True},
+        )
+
+        self.assertEqual(moves, [("PVTI_11", "Under review")])
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["selection"]["pr_number"], 570)
 
-    def test_build_review_pipeline_context_explicit_pr_defaults_to_candidate_based_claim(
-        self,
-    ) -> None:
-        with mock.patch.object(
-            pipeline_skill_context.pipeline_board,
-            "claim_entry_from_entries",
-            return_value={
-                "item_id": "PVTI_11",
-                "number": 570,
-                "issue_number": 117,
-                "pr_number": 570,
-                "status": "Review pool",
-                "title": "[Model] GraphPartitioning",
-                "claimed": True,
-                "claimed_status": "Under review",
-            },
-        ) as claim_from_entries:
-            result = pipeline_skill_context.build_review_pipeline_context(
-                repo="CodingThrust/problem-reductions",
-                pr_number=570,
-                state_file=Path("/tmp/problemreductions-review-state.json"),
-                review_candidate_fetcher=lambda repo: [
-                    {
-                        "item_id": "PVTI_11",
-                        "issue_number": 117,
-                        "pr_number": 570,
-                        "status": "Review pool",
-                        "title": "[Model] GraphPartitioning",
-                        "eligibility": "eligible",
-                        "reason": "copilot reviewed",
-                    }
-                ],
-                pr_context_builder=lambda repo, pr_number: {"number": pr_number},
-                review_preparer=lambda repo, pr_number: {"ready": True},
-            )
+    def test_build_review_pipeline_context_explicit_pr_claims_via_mover(self) -> None:
+        moves: list[tuple[str, str]] = []
 
-        claim_from_entries.assert_called_once_with(
-            "review",
-            {
-                "PVTI_11": {
-                    "number": 570,
+        result = pipeline_skill_context.build_review_pipeline_context(
+            repo="CodingThrust/problem-reductions",
+            pr_number=570,
+            review_candidate_fetcher=lambda repo: [
+                {
+                    "item_id": "PVTI_11",
                     "issue_number": 117,
                     "pr_number": 570,
+                    "number": 570,
                     "status": "Review pool",
                     "title": "[Model] GraphPartitioning",
+                    "eligibility": "eligible",
+                    "reason": "open PR",
                 }
-            },
-            Path("/tmp/problemreductions-review-state.json"),
-            target_number=570,
+            ],
+            mover=lambda item_id, status: moves.append((item_id, status)),
+            pr_context_builder=lambda repo, pr_number: {"number": pr_number},
+            review_preparer=lambda repo, pr_number: {"ready": True},
         )
+
+        self.assertEqual(moves, [("PVTI_11", "Under review")])
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["selection"]["pr_number"], 570)
 
@@ -745,7 +666,7 @@ class PipelineSkillContextTests(unittest.TestCase):
         result = pipeline_skill_context.build_final_review_context(
             repo="CodingThrust/problem-reductions",
             pr_number=None,
-            state_file=Path("/tmp/problemreductions-final-review-state.json"),
+
             selection_fetcher=lambda **kwargs: None,
         )
 
@@ -788,7 +709,7 @@ class PipelineSkillContextTests(unittest.TestCase):
         result = pipeline_skill_context.build_final_review_context(
             repo="CodingThrust/problem-reductions",
             pr_number=None,
-            state_file=Path("/tmp/problemreductions-final-review-state.json"),
+
             selection_fetcher=lambda **kwargs: selection,
             pr_context_builder=lambda repo, pr_number: pr_context,
             review_preparer=lambda repo, pr_number: prep,
@@ -838,7 +759,7 @@ class PipelineSkillContextTests(unittest.TestCase):
         result = pipeline_skill_context.build_final_review_context(
             repo="CodingThrust/problem-reductions",
             pr_number=620,
-            state_file=Path("/tmp/problemreductions-final-review-state.json"),
+
             selection_fetcher=lambda **kwargs: selection,
             pr_context_builder=lambda repo, pr_number: {"number": pr_number},
             review_preparer=lambda repo, pr_number: prep,
@@ -865,7 +786,7 @@ class PipelineSkillContextTests(unittest.TestCase):
         result = pipeline_skill_context.build_final_review_context(
             repo="CodingThrust/problem-reductions",
             pr_number=621,
-            state_file=Path("/tmp/problemreductions-final-review-state.json"),
+
             selection_fetcher=lambda **kwargs: selection,
             pr_context_builder=lambda repo, pr_number: {"number": pr_number},
             review_preparer=fail_prepare,
@@ -901,7 +822,6 @@ class PipelineSkillContextTests(unittest.TestCase):
                 "src/unit_tests/lib.rs",
             ],
             added_files_getter=lambda repo_root, base_sha, head_sha: [],
-            current_pr_fetcher=lambda: None,
             review_context_builder=lambda repo_root, **kwargs: {
                 "scope": {"review_type": "generic", "models": [], "rules": [], "changed_files": kwargs["changed_files"]},
                 "subject": {"kind": "generic"},
@@ -915,7 +835,7 @@ class PipelineSkillContextTests(unittest.TestCase):
         self.assertEqual(result["skill"], "review-implementation")
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["git"]["base_sha"], "abc123")
-        self.assertEqual(result["current_pr"], None)
+        self.assertNotIn("current_pr", result)
         self.assertEqual(result["review_context"]["subject"]["kind"], "generic")
 
     def test_build_project_pipeline_context_reports_requested_blocked_issue(self) -> None:

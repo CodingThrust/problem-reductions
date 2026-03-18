@@ -36,7 +36,7 @@ help:
 	@echo "  run-pipeline [N=<number>] - Pick a Ready issue, implement, move to Review pool"
 	@echo "  run-pipeline-forever - Loop: poll Ready column for new issues, run-pipeline when new ones appear"
 	@echo "  run-review [N=<number>] - Pick PR from Review pool, fix comments/CI, run agentic tests"
-	@echo "  run-review-forever - Loop: poll Review pool for Copilot-reviewed PRs, run-review when new ones appear"
+	@echo "  run-review-forever - Loop: poll Review pool for eligible PRs, dispatch run-review"
 	@echo "  board-next MODE=<ready|review|final-review> [NUMBER=<n>] [FORMAT=text|json] - Get the next eligible queued project item"
 	@echo "  board-claim MODE=<ready|review> [NUMBER=<n>] [FORMAT=text|json] - Claim and move the next eligible queued project item"
 	@echo "  board-ack MODE=<ready|review|final-review> ITEM=<id> - Acknowledge a queued project item"
@@ -384,12 +384,13 @@ cli-demo: cli
 #        make run-pipeline N=97     (processes specific issue)
 run-pipeline:
 	@. scripts/make_helpers.sh; \
-	state_file=$${STATE_FILE:-/tmp/problemreductions-ready-state.json}; \
 	if [ -n "$(N)" ]; then \
 		issue="$(N)"; \
 	else \
 		status=0; \
-		selection=$$(board_next_json ready "" "" "$$state_file") || status=$$?; \
+		tmp_state=$$(mktemp); \
+		selection=$$(board_next_json ready "" "" "$$tmp_state") || status=$$?; \
+		rm -f "$$tmp_state"; \
 		if [ "$$status" -eq 1 ]; then \
 			echo "No Ready issues are currently eligible."; \
 			exit 1; \
@@ -558,9 +559,8 @@ worktree-pr:
 run-review:
 	@. scripts/make_helpers.sh; \
 	repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
-	state_file=$${STATE_FILE:-/tmp/problemreductions-review-state.json}; \
 	pr="$(N)"; \
-	selection=$$(review_pipeline_context "$$repo" "$$pr" "$$state_file"); \
+	selection=$$(review_pipeline_context "$$repo" "$$pr"); \
 	status_name=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])"); \
 	if [ "$$status_name" = "empty" ]; then \
 		echo "No Review pool PRs are currently eligible."; \
@@ -577,12 +577,11 @@ run-review:
 	PROMPT=$$(skill_prompt_with_context review-pipeline "$$slash_cmd" "$$codex_desc" "Review pipeline context" "$$selection"); \
 	run_agent "review-output.log" "$$PROMPT"
 
-# Poll Review pool column for PRs and run-review when Copilot-reviewed ones appear
-# Auto-requests Copilot review on PRs that don't have one yet before each poll cycle
+# Poll Review pool column for eligible PRs and dispatch run-review
 run-review-forever:
 	@. scripts/make_helpers.sh; \
 	REPO=$$(gh repo view --json nameWithOwner --jq .nameWithOwner); \
-	MAKE=$(MAKE) watch_and_dispatch review run-review "Copilot-reviewed PRs" "$$REPO"
+	MAKE=$(MAKE) watch_and_dispatch review run-review "Review pool PRs" "$$REPO"
 
 # Request Copilot code review on the current PR
 # Requires: gh extension install ChrisCarini/gh-copilot-review
