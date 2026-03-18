@@ -5,6 +5,7 @@
 //! - [`ILP`]: Integer Linear Programming
 //! - [`ClosestVectorProblem`]: Closest Vector Problem (minimize lattice distance)
 //! - [`BMF`]: Boolean Matrix Factorization
+//! - [`ConsecutiveOnesSubmatrix`]: Consecutive Ones Submatrix (column selection with C1P)
 //! - [`QuadraticAssignment`]: Quadratic Assignment Problem
 
 pub(crate) mod bmf;

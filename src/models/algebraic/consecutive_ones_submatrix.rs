@@ -207,7 +207,7 @@ impl Problem for ConsecutiveOnesSubmatrix {
 impl SatisfactionProblem for ConsecutiveOnesSubmatrix {}
 
 crate::declare_variants! {
-    default sat ConsecutiveOnesSubmatrix => "2^(num_cols) * factorial(bound_k) * num_rows",
+    default sat ConsecutiveOnesSubmatrix => "2^(num_cols) * (num_rows + num_cols)",
 }
 
 #[cfg(feature = "example-db")]

@@ -204,10 +204,7 @@ fn test_consecutive_ones_submatrix_complexity_metadata_matches_evaluator() {
         .find(|entry| entry.name == "ConsecutiveOnesSubmatrix")
         .expect("ConsecutiveOnesSubmatrix variant entry should exist");
 
-    assert_eq!(
-        entry.complexity,
-        "2^(num_cols) * factorial(bound_k) * num_rows"
-    );
+    assert_eq!(entry.complexity, "2^(num_cols) * (num_rows + num_cols)");
 }
 
 #[test]
