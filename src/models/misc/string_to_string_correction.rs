@@ -85,12 +85,7 @@ impl StringToStringCorrection {
     /// Panics if `alphabet_size` is 0 when the source or target string is
     /// non-empty, or if any symbol in `source` or `target` is
     /// `>= alphabet_size`.
-    pub fn new(
-        alphabet_size: usize,
-        source: Vec<usize>,
-        target: Vec<usize>,
-        bound: usize,
-    ) -> Self {
+    pub fn new(alphabet_size: usize, source: Vec<usize>, target: Vec<usize>, bound: usize) -> Self {
         assert!(
             alphabet_size > 0 || (source.is_empty() && target.is_empty()),
             "alphabet_size must be > 0 when source or target is non-empty"

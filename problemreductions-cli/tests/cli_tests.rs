@@ -38,7 +38,10 @@ fn test_solve_help_mentions_string_to_string_correction_bruteforce() {
     let output = pred().args(["solve", "--help"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("StringToStringCorrection"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("StringToStringCorrection"),
+        "stdout: {stdout}"
+    );
     assert!(stdout.contains("--solver brute-force"), "stdout: {stdout}");
 }
 

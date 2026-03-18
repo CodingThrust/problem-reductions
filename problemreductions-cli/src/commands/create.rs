@@ -15,8 +15,7 @@ use problemreductions::models::graph::{
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
     MultiprocessorScheduling, PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection,
-    SubsetSum,
+    StringToStringCorrection, SubsetSum,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
