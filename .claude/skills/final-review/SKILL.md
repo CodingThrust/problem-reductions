@@ -150,12 +150,12 @@ Use `AskUserQuestion` with your recommendation:
 
 Scan the PR diff for dangerous actions:
 
-- **Blacklisted files**: If the diff touches `docs/src/reductions/reduction_graph.json` or `docs/src/reductions/problem_schemas.json`, **block merge**. These files are auto-generated and must not be committed in PRs — they are rebuilt by CI/`make doc`. Flag immediately and recommend OnHold.
+- **Blacklisted files**: If the diff touches `docs/src/reductions/reduction_graph.json`, `docs/src/reductions/problem_schemas.json`, or `src/example_db/fixtures/examples.json` (legacy, no longer exists), **block merge**. These files are auto-generated and must not be committed in PRs — they are rebuilt by CI/`make doc`/`make paper`. Flag immediately and recommend OnHold.
 - **Removed features**: Any existing model, rule, test, or example deleted?
 - **Unrelated changes**: Files modified that don't belong to this PR (e.g., changes to unrelated models/rules, CI config, Cargo.toml dependency changes not needed for this PR)
 - **Force push indicators**: Any sign of history rewriting
 - **Broad modifications**: Changes to core traits, macros, or shared infrastructure that could affect other features
-- **`examples.json` one-line rule**: Each PR should add exactly one model or one rule entry to `examples.json`. Check the **PR diff** (`gh pr diff`), not the post-merge-with-main diff — after merging main, fixture regeneration may touch many lines from other PRs. Only flag if the PR's own changes add or modify more than one entry.
+- **No committed `examples.json`**: The example database is generated on demand by `make paper` (via `export_examples`). PRs should not commit `src/example_db/fixtures/examples.json` (legacy path, deleted) or `docs/paper/data/examples.json` (current output path) — both are gitignored build artifacts.
 
 Report findings with fix options for each concern:
 
@@ -217,10 +217,10 @@ Verify the PR includes all required components:
 
 **Paper-example consistency check (both Model and Rule PRs):**
 
-The paper example must use data from the canonical fixture JSON (`src/example_db/fixtures/examples.json`), not hand-written data. To verify:
-1. If the PR changes example builders/specs, run `make regenerate-fixtures` on the PR branch.
+The paper example must use data from the canonical example database (generated on demand by `make paper` via `export_examples`), not hand-written data. To verify:
+1. If the PR changes example specs, run `make paper` to regenerate `docs/paper/data/examples.json`.
 2. For **[Rule] PRs**: the paper's `reduction-rule` entry must call `load-example(source, target, ...)` (defined in `reductions.typ`) to load the canonical example from `examples.json`, and derive all concrete values from the loaded data using Typst array operations — no hand-written instance data.
-3. For **[Model] PRs**: read the problem's entry in `examples.json` under `models` and compare its `instance` field against the paper's `problem-def` example. The paper example must use the same instance (allowing 0-indexed JSON vs 1-indexed math notation). If they differ, flag: "Paper example does not match `example_db` canonical instance in `examples.json`."
+3. For **[Model] PRs**: run the export and read the problem's entry in the generated `examples.json` under `models`, compare its `instance` field against the paper's `problem-def` example. The paper example must use the same instance (allowing 0-indexed JSON vs 1-indexed math notation). If they differ, flag: "Paper example does not match `example_db` canonical instance."
 
 **Issue–test round-trip consistency check (both Model and Rule PRs):**
 
