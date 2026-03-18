@@ -3307,6 +3307,8 @@ mod tests {
             deadline: None,
             num_processors: None,
             alphabet_size: None,
+            dependencies: None,
+            num_attributes: None,
             source_string: None,
             target_string: None,
             schedules: None,
