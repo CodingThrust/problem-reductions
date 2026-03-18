@@ -13,11 +13,8 @@ import pipeline_board
 item_identity = pipeline_board.item_identity
 load_state = pipeline_board.load_state
 save_state = pipeline_board.save_state
-has_copilot_review = pipeline_board.has_copilot_review
 ready_entries = pipeline_board.ready_entries
 ack_item = pipeline_board.ack_item
-
-COPILOT_REVIEWER = "copilot-pull-request-reviewer[bot]"
 
 
 def fetch_pr_reviews(repo: str, pr_number: int) -> list[dict]:
@@ -79,14 +76,12 @@ def linked_repo_pr_numbers(item: dict, repo: str) -> list[int]:
 def review_entries(
     board_data: dict,
     repo: str,
-    review_fetcher=fetch_pr_reviews,
     pr_resolver=resolve_issue_pr,
     pr_state_fetcher=fetch_pr_state,
 ) -> dict[str, dict]:
     return pipeline_board.review_entries(
         board_data,
         repo,
-        review_fetcher,
         pr_resolver,
         pr_state_fetcher,
     )
@@ -96,7 +91,6 @@ def current_entries(
     mode: str,
     board_data: dict,
     repo: str | None = None,
-    review_fetcher=fetch_pr_reviews,
     pr_resolver=resolve_issue_pr,
     pr_state_fetcher=fetch_pr_state,
 ) -> dict[str, dict]:
@@ -104,7 +98,6 @@ def current_entries(
         mode,
         board_data,
         repo,
-        review_fetcher,
         pr_resolver,
         pr_state_fetcher,
     )
@@ -115,7 +108,6 @@ def process_snapshot(
     board_data: dict,
     state_file: Path,
     repo: str | None = None,
-    review_fetcher=fetch_pr_reviews,
     pr_resolver=resolve_issue_pr,
     pr_state_fetcher=fetch_pr_state,
 ) -> tuple[str, int] | None:
@@ -124,7 +116,6 @@ def process_snapshot(
         board_data,
         state_file,
         repo,
-        review_fetcher,
         pr_resolver,
         pr_state_fetcher,
     )
