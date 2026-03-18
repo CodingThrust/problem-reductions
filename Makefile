@@ -6,6 +6,9 @@ RUNNER ?= codex
 CLAUDE_MODEL ?= opus
 CODEX_MODEL ?= gpt-5.4
 
+# Cross-platform sed in-place: macOS needs -i '', Linux needs -i
+SED_I := sed -i$(shell if [ "$$(uname)" = "Darwin" ]; then echo " ''"; fi)
+
 # Default target
 help:
 	@echo "Available targets:"
@@ -151,11 +154,11 @@ ifndef V
 	$(error Usage: make release V=x.y.z)
 endif
 	@echo "Releasing v$(V)..."
-	sed -i 's/^version = ".*"/version = "$(V)"/' Cargo.toml
-	sed -i 's/^version = ".*"/version = "$(V)"/' problemreductions-macros/Cargo.toml
-	sed -i 's/^version = ".*"/version = "$(V)"/' problemreductions-cli/Cargo.toml
-	sed -i 's/problemreductions-macros = { version = "[^"]*"/problemreductions-macros = { version = "$(V)"/' Cargo.toml
-	sed -i 's/problemreductions = { version = "[^"]*"/problemreductions = { version = "$(V)"/' problemreductions-cli/Cargo.toml
+	$(SED_I) 's/^version = ".*"/version = "$(V)"/' Cargo.toml
+	$(SED_I) 's/^version = ".*"/version = "$(V)"/' problemreductions-macros/Cargo.toml
+	$(SED_I) 's/^version = ".*"/version = "$(V)"/' problemreductions-cli/Cargo.toml
+	$(SED_I) 's/problemreductions-macros = { version = "[^"]*"/problemreductions-macros = { version = "$(V)"/' Cargo.toml
+	$(SED_I) 's/problemreductions = { version = "[^"]*"/problemreductions = { version = "$(V)"/' problemreductions-cli/Cargo.toml
 	cargo check
 	git add Cargo.toml problemreductions-macros/Cargo.toml problemreductions-cli/Cargo.toml
 	git commit -m "release: v$(V)"
