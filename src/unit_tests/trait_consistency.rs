@@ -133,6 +133,10 @@ fn test_all_problems_implement_trait_correctly() {
         &SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]),
         "SequencingWithReleaseTimesAndDeadlines",
     );
+    check_problem_trait(
+        &SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240),
+        "SumOfSquaresPartition",
+    );
 }
 
 #[test]

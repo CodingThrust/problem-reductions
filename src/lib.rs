@@ -62,6 +62,7 @@ pub mod prelude {
         MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
         SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
         ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
+        SumOfSquaresPartition,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,

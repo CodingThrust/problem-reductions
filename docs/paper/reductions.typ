@@ -121,6 +121,7 @@
   "StaffScheduling": [Staff Scheduling],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
+  "SumOfSquaresPartition": [Sum of Squares Partition],
   "SequencingWithinIntervals": [Sequencing Within Intervals],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
   "StringToStringCorrection": [String-to-String Correction],
@@ -2359,6 +2360,14 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   One of Karp's 21 NP-complete problems @karp1972. Subset Sum is the special case of Knapsack where $v_i = w_i$ for all items and we seek an exact sum rather than an inequality. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n B)$ pseudo-polynomial time. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974.
 
   *Example.* Let $A = {3, 7, 1, 8, 2, 4}$ ($n = 6$) and target $B = 11$. Selecting $A' = {3, 8}$ gives sum $3 + 8 = 11 = B$. Another solution: $A' = {7, 4}$ with sum $7 + 4 = 11 = B$.
+]
+
+#problem-def("SumOfSquaresPartition")[
+  Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$, a positive integer $K lt.eq |A|$ (number of groups), and a positive integer $J$ (bound), determine whether $A$ can be partitioned into $K$ disjoint sets $A_1, dots, A_K$ such that $sum_(i=1)^K (sum_(a in A_i) s(a))^2 lt.eq J$.
+][
+  Problem SP19 in Garey and Johnson @garey1979. NP-complete in the strong sense, so no pseudo-polynomial time algorithm exists unless $P = NP$. For fixed $K$, a dynamic-programming algorithm runs in $O(n S^(K-1))$ pseudo-polynomial time, where $S = sum s(a)$. The problem remains NP-complete when the exponent 2 is replaced by any fixed rational $alpha > 1$. #footnote[No algorithm improving on brute-force $O(K^n)$ enumeration is known for the general case.] The squared objective penalizes imbalanced partitions, connecting it to variance minimization, load balancing, and $k$-means clustering. Sum of Squares Partition generalizes Partition ($K = 2$, $J = S^2 slash 2$).
+
+  *Example.* Let $A = {5, 3, 8, 2, 7, 1}$ ($n = 6$), $K = 3$ groups, and bound $J = 240$. The partition $A_1 = {8, 1}$, $A_2 = {5, 2}$, $A_3 = {3, 7}$ gives group sums $9, 7, 10$ and sum of squares $81 + 49 + 100 = 230 lt.eq 240 = J$. With a tighter bound $J = 225$, the best achievable partition has group sums ${9, 9, 8}$ yielding $81 + 81 + 64 = 226 > 225$, so the answer is NO.
 ]
 
 #{

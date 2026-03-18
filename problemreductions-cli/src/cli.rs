@@ -233,6 +233,7 @@ Flags by problem type:
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
   SubsetSum                       --sizes, --target
+  SumOfSquaresPartition           --sizes, --num-groups, --bound
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumSetCovering              --universe, --sets [--weights]
@@ -501,6 +502,9 @@ pub struct CreateArgs {
     /// Alphabet size for LCS, SCS, or StringToStringCorrection (optional; inferred from the input strings if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+    /// Number of groups for SumOfSquaresPartition
+    #[arg(long)]
+    pub num_groups: Option<usize>,
     /// Functional dependencies for MinimumCardinalityKey (semicolon-separated "lhs>rhs" pairs, e.g., "0,1>2;0,2>3")
     #[arg(long)]
     pub dependencies: Option<String>,

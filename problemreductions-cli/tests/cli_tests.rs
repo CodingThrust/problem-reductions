@@ -1362,6 +1362,29 @@ fn test_create_set_basis_rejects_out_of_range_elements() {
 }
 
 #[test]
+fn test_create_sum_of_squares_partition_rejects_negative_bound_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "SumOfSquaresPartition",
+            "--sizes",
+            "1,2,3",
+            "--num-groups",
+            "2",
+            "--bound=-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Bound must be nonnegative"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
     let output = pred()
         .args(["create", "MinimumCardinalityKey"])
@@ -3849,6 +3872,34 @@ fn test_create_pipe_to_solve() {
         stdout.contains("\"solution\""),
         "stdout should contain solution, got: {stdout}"
     );
+}
+
+#[test]
+fn test_solve_ilp_error_suggests_brute_force_fallback() {
+    let problem_json = r#"{
+        "type": "SumOfSquaresPartition",
+        "data": {
+            "sizes": [5, 3, 8, 2, 7, 1],
+            "num_groups": 3,
+            "bound": 240
+        }
+    }"#;
+    let tmp = std::env::temp_dir().join("pred_test_sum_of_squares_partition.json");
+    std::fs::write(&tmp, problem_json).unwrap();
+
+    let output = pred()
+        .args(["solve", tmp.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--solver brute-force"),
+        "stderr should suggest the brute-force fallback, got: {stderr}"
+    );
+
+    std::fs::remove_file(&tmp).ok();
 }
 
 #[test]

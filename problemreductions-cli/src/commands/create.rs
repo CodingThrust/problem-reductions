@@ -16,6 +16,7 @@ use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
     MultiprocessorScheduling, PaintShop, SequencingWithReleaseTimesAndDeadlines,
     SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
+    SumOfSquaresPartition,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -94,6 +95,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.requirements.is_none()
         && args.num_workers.is_none()
         && args.alphabet_size.is_none()
+        && args.num_groups.is_none()
         && args.dependencies.is_none()
         && args.num_attributes.is_none()
         && args.source_string.is_none()
@@ -329,6 +331,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "SumOfSquaresPartition" => "--sizes 5,3,8,2,7,1 --num-groups 3 --bound 240",
         "ComparativeContainment" => {
             "--universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
         }
@@ -1054,6 +1057,34 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let target = util::parse_decimal_biguint(target)?;
             (
                 ser(SubsetSum::new(sizes, target))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SumOfSquaresPartition
+        "SumOfSquaresPartition" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SumOfSquaresPartition requires --sizes, --num-groups, and --bound\n\n\
+                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3 --bound 240"
+                )
+            })?;
+            let num_groups = args.num_groups.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SumOfSquaresPartition requires --num-groups\n\n\
+                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3 --bound 240"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SumOfSquaresPartition requires --bound\n\n\
+                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3 --bound 240"
+                )
+            })?;
+            let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
+            (
+                ser(SumOfSquaresPartition::try_new(sizes, num_groups, bound)
+                    .map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
         }
@@ -3476,6 +3507,7 @@ mod tests {
             schedules: None,
             requirements: None,
             num_workers: None,
+            num_groups: None,
         }
     }
 
