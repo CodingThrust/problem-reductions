@@ -2810,13 +2810,27 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   ]
 }
 
-#problem-def("PrecedenceConstrainedScheduling")[
-  Given a set $T$ of $n$ unit-length tasks, a partial order $prec$ on $T$, a number $m in ZZ^+$ of processors, and a deadline $D in ZZ^+$, determine whether there exists a schedule $sigma: T -> {0, dots, D-1}$ such that (i) for every time slot $t$, at most $m$ tasks are assigned to $t$, and (ii) for every precedence $t_i prec t_j$, we have $sigma(t_j) >= sigma(t_i) + 1$.
-][
-  Precedence Constrained Scheduling is problem SS9 in Garey & Johnson @garey1979. NP-complete via reduction from 3SAT @ullman1975. Remains NP-complete even for $D = 3$ @lenstra1978. Solvable in polynomial time for $m = 2$ by the Coffman--Graham algorithm @coffman1972, for forest-structured precedences @hu1961, and for chordal complement precedences @papadimitriou1979. A subset dynamic programming approach solves the general case in $O(2^n dot n)$ time by enumerating subsets of completed tasks at each time step.
+#{
+  let x = load-model-example("PrecedenceConstrainedScheduling")
+  let n = x.instance.num_tasks
+  let m = x.instance.num_processors
+  let D = x.instance.deadline
+  let precs = x.instance.precedences
+  let sigma = x.optimal_config
+  // Group tasks by assigned slot
+  let tasks-by-slot = range(D).map(s =>
+    range(n).filter(i => sigma.at(i) == s)
+  )
+  [
+    #problem-def("PrecedenceConstrainedScheduling")[
+      Given a set $T$ of $n$ unit-length tasks, a partial order $prec$ on $T$, a number $m in ZZ^+$ of processors, and a deadline $D in ZZ^+$, determine whether there exists a schedule $sigma: T -> {0, dots, D-1}$ such that (i) for every time slot $t$, at most $m$ tasks are assigned to $t$, and (ii) for every precedence $t_i prec t_j$, we have $sigma(t_j) >= sigma(t_i) + 1$.
+    ][
+      Precedence Constrained Scheduling is problem SS9 in Garey & Johnson @garey1979. NP-complete via reduction from 3SAT @ullman1975. Remains NP-complete even for $D = 3$ @lenstra1978. Solvable in polynomial time for $m = 2$ by the Coffman--Graham algorithm @coffman1972, for forest-structured precedences @hu1961, and for chordal complement precedences @papadimitriou1979. A subset dynamic programming approach solves the general case in $O(2^n dot n)$ time by enumerating subsets of completed tasks at each time step.
 
-  *Example.* Let $n = 8$ tasks, $m = 3$ processors, $D = 4$. Precedences: $t_0 prec t_2$, $t_0 prec t_3$, $t_1 prec t_3$, $t_1 prec t_4$, $t_2 prec t_5$, $t_3 prec t_6$, $t_4 prec t_6$, $t_5 prec t_7$, $t_6 prec t_7$. A feasible schedule assigns $sigma = (0, 0, 1, 1, 1, 2, 2, 3)$: slot 0 has ${t_0, t_1}$, slot 1 has ${t_2, t_3, t_4}$, slot 2 has ${t_5, t_6}$, slot 3 has ${t_7}$. All precedences are satisfied and no slot exceeds $m = 3$.
-]
+      *Example.* Let $n = #n$ tasks, $m = #m$ processors, $D = #D$. Precedences: #precs.map(p => $t_#(p.at(0)) prec t_#(p.at(1))$).join(", "). A feasible schedule assigns $sigma = (#sigma.map(s => str(s)).join(", "))$: #range(D).map(s => [slot #s has ${#tasks-by-slot.at(s).map(i => $t_#i$).join(", ")}$]).join(", "). All precedences are satisfied and no slot exceeds $m = #m$.
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("SequencingWithinIntervals")
