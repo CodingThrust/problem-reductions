@@ -3,7 +3,7 @@
 //! The p-median problem asks for K facility locations (centers) on a graph
 //! that minimize the total weighted distance from all vertices to their nearest center.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -13,6 +13,12 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumSumMulticenter",
+        display_name: "Minimum Sum Multicenter",
+        aliases: &["pmedian"],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find K centers minimizing total weighted distance (p-median problem)",
         fields: &[
@@ -254,7 +260,34 @@ where
 }
 
 crate::declare_variants! {
-    MinimumSumMulticenter<SimpleGraph, i32> => "2^num_vertices",
+    default opt MinimumSumMulticenter<SimpleGraph, i32> => "2^num_vertices",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "minimum_sum_multicenter_simplegraph_i32",
+        instance: Box::new(MinimumSumMulticenter::new(
+            SimpleGraph::new(
+                7,
+                vec![
+                    (0, 1),
+                    (1, 2),
+                    (2, 3),
+                    (3, 4),
+                    (4, 5),
+                    (5, 6),
+                    (0, 6),
+                    (2, 5),
+                ],
+            ),
+            vec![1i32; 7],
+            vec![1i32; 8],
+            2,
+        )),
+        optimal_config: vec![0, 0, 1, 0, 0, 1, 0],
+        optimal_value: serde_json::json!({"Valid": 6}),
+    }]
 }
 
 #[cfg(test)]

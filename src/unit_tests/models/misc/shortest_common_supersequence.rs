@@ -104,6 +104,25 @@ fn test_shortestcommonsupersequence_single_string() {
 }
 
 #[test]
+fn test_shortestcommonsupersequence_paper_example() {
+    // Paper: Σ = {a, b, c}, R = {"abc", "bac"}, supersequence "babc" (length 4)
+    // Mapping: a=0, b=1, c=2
+    let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![1, 0, 2]], 4);
+    // "babc" = [1, 0, 1, 2]
+    // "abc"=[0,1,2] embeds at positions (1,2,3), "bac"=[1,0,2] at positions (0,1,3)
+    assert!(problem.evaluate(&[1, 0, 1, 2]));
+
+    // Verify a solution exists with brute force
+    let solver = BruteForce::new();
+    assert!(solver.find_satisfying(&problem).is_some());
+
+    // Bound 3 is too short: LCS("abc","bac")="ac" (len 2), so SCS ≥ 3+3-2 = 4
+    let tight = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![1, 0, 2]], 3);
+    let solver2 = BruteForce::new();
+    assert!(solver2.find_satisfying(&tight).is_none());
+}
+
+#[test]
 fn test_shortestcommonsupersequence_serialization() {
     let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![2, 1, 0]], 5);
     let json = serde_json::to_value(&problem).unwrap();

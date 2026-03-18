@@ -151,6 +151,24 @@ fn test_isomorphicspanningtree_caterpillar_example() {
 }
 
 #[test]
+fn test_isomorphicspanningtree_paper_example() {
+    // Paper example: G = K4, T = star S3 (center 0, leaves {1, 2, 3})
+    // Any bijection works since K4 has all edges.
+    // Identity mapping π(i) = i embeds star edges {(0,1),(0,2),(0,3)} into K4.
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+    let tree = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]); // star S3
+    let problem = IsomorphicSpanningTree::new(graph, tree);
+
+    // Identity mapping: π = [0, 1, 2, 3]
+    assert!(problem.evaluate(&[0, 1, 2, 3]));
+
+    // All 4! = 24 permutations should work since K4 has every edge
+    let solver = BruteForce::new();
+    let all = solver.find_all_satisfying(&problem);
+    assert_eq!(all.len(), 24);
+}
+
+#[test]
 fn test_isomorphicspanningtree_variant() {
     assert!(IsomorphicSpanningTree::variant().is_empty());
 }

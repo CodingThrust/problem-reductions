@@ -162,6 +162,29 @@ impl ReduceTo<QUBO<f64>> for TravelingSalesman<SimpleGraph, i32> {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+    use crate::models::algebraic::QUBO;
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "travelingsalesman_to_qubo",
+        build: || {
+            let source = TravelingSalesman::new(
+                SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]),
+                vec![1, 2, 3],
+            );
+            crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+                source,
+                SolutionPair {
+                    source_config: vec![1, 1, 1],
+                    target_config: vec![0, 0, 1, 1, 0, 0, 0, 1, 0],
+                },
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/travelingsalesman_qubo.rs"]
 mod tests;

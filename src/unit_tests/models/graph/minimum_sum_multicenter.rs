@@ -200,6 +200,37 @@ fn test_min_sum_multicenter_k_too_large() {
 }
 
 #[test]
+fn test_min_sum_multicenter_paper_example() {
+    // Paper/issue #399: 7 vertices, 8 edges, unit weights, K=2
+    let graph = SimpleGraph::new(
+        7,
+        vec![
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 4),
+            (4, 5),
+            (5, 6),
+            (0, 6),
+            (2, 5),
+        ],
+    );
+    let problem = MinimumSumMulticenter::new(graph, vec![1i32; 7], vec![1i32; 8], 2);
+
+    // Optimal: centers at {2, 5}, config [0,0,1,0,0,1,0]
+    // Distances: d(0)=2, d(1)=1, d(2)=0, d(3)=1, d(4)=1, d(5)=0, d(6)=1
+    // Total = 6
+    let result = problem.evaluate(&[0, 0, 1, 0, 0, 1, 0]);
+    assert!(result.is_valid());
+    assert_eq!(result.unwrap(), 6);
+
+    // Verify optimality with brute force
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), 6);
+}
+
+#[test]
 fn test_min_sum_multicenter_dims() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let problem = MinimumSumMulticenter::new(graph, vec![1i32; 5], vec![1i32; 4], 2);

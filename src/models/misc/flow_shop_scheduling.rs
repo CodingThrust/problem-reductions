@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "FlowShopScheduling",
+        display_name: "Flow Shop Scheduling",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Determine if a flow-shop schedule for jobs on m processors meets a deadline",
         fields: &[
@@ -193,7 +196,7 @@ impl Problem for FlowShopScheduling {
 impl SatisfactionProblem for FlowShopScheduling {}
 
 crate::declare_variants! {
-    FlowShopScheduling => "factorial(num_jobs)",
+    default sat FlowShopScheduling => "factorial(num_jobs)",
 }
 
 #[cfg(test)]

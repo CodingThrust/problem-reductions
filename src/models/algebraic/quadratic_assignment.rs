@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "QuadraticAssignment",
+        display_name: "Quadratic Assignment",
+        aliases: &["QAP"],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Minimize total cost of assigning facilities to locations",
         fields: &[
@@ -170,7 +173,7 @@ impl OptimizationProblem for QuadraticAssignment {
 }
 
 crate::declare_variants! {
-    QuadraticAssignment => "factorial(num_facilities)",
+    default opt QuadraticAssignment => "factorial(num_facilities)",
 }
 
 #[cfg(test)]

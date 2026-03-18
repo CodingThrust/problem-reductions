@@ -13,6 +13,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "SubgraphIsomorphism",
+        display_name: "Subgraph Isomorphism",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Determine if host graph G contains a subgraph isomorphic to pattern graph H",
         fields: &[
@@ -177,7 +180,7 @@ impl Problem for SubgraphIsomorphism {
 impl SatisfactionProblem for SubgraphIsomorphism {}
 
 crate::declare_variants! {
-    SubgraphIsomorphism => "num_host_vertices ^ num_pattern_vertices",
+    default sat SubgraphIsomorphism => "num_host_vertices ^ num_pattern_vertices",
 }
 
 #[cfg(test)]

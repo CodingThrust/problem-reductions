@@ -14,6 +14,9 @@ use std::collections::{HashMap, HashSet};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "PaintShop",
+        display_name: "Paint Shop",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Minimize color changes in paint shop sequence",
         fields: &[
@@ -190,7 +193,17 @@ impl OptimizationProblem for PaintShop {
 }
 
 crate::declare_variants! {
-    PaintShop => "2^num_cars",
+    default opt PaintShop => "2^num_cars",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "paintshop",
+        instance: Box::new(PaintShop::new(vec!["A", "B", "A", "C", "B", "C"])),
+        optimal_config: vec![0, 0, 1],
+        optimal_value: serde_json::json!({"Valid": 2}),
+    }]
 }
 
 #[cfg(test)]

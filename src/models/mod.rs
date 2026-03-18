@@ -12,13 +12,23 @@ pub mod set;
 pub use algebraic::{ClosestVectorProblem, QuadraticAssignment, BMF, ILP, QUBO};
 pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
-    BicliqueCover, GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, KColoring, MaxCut,
-    MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
-    MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumSumMulticenter, MinimumVertexCover,
-    PartitionIntoTriangles, RuralPostman, SpinGlass, SubgraphIsomorphism, TravelingSalesman,
+    BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
+    BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GraphPartitioning,
+    HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KColoring, KthBestSpanningTree,
+    LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
+    MaximumMatching, MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
+    MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
+    OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, SpinGlass, SteinerTree,
+    StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
+    UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::{
-    BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, PaintShop,
-    ShortestCommonSupersequence, SubsetSum,
+    BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
+    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StaffScheduling, StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
 };
-pub use set::{MaximumSetPacking, MinimumSetCovering};
+pub use set::{
+    ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
+    MinimumCardinalityKey, MinimumSetCovering, SetBasis,
+};

@@ -128,6 +128,37 @@ fn test_size_getters() {
 }
 
 #[test]
+fn test_hamiltonianpath_paper_example() {
+    use crate::traits::Problem;
+
+    // Paper/issue #217: 6 vertices, 8 edges
+    let problem = HamiltonianPath::new(SimpleGraph::new(
+        6,
+        vec![
+            (0, 1),
+            (0, 2),
+            (1, 3),
+            (2, 3),
+            (3, 4),
+            (3, 5),
+            (4, 2),
+            (5, 1),
+        ],
+    ));
+
+    // Hamiltonian path: 0→2→4→3→1→5
+    assert!(problem.evaluate(&[0, 2, 4, 3, 1, 5]));
+
+    // Verify with brute force
+    let solver = BruteForce::new();
+    let all = solver.find_all_satisfying(&problem);
+    assert!(!all.is_empty());
+    for sol in &all {
+        assert!(problem.evaluate(sol));
+    }
+}
+
+#[test]
 fn test_single_vertex() {
     use crate::traits::Problem;
 

@@ -3,7 +3,7 @@
 //! Given a graph G = (V, E) where |V| = 3q, determine whether V can be
 //! partitioned into q triples, each forming a triangle (K3) in G.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::variant::VariantParam;
@@ -12,6 +12,11 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "PartitionIntoTriangles",
+        display_name: "Partition Into Triangles",
+        aliases: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+        ],
         module_path: module_path!(),
         description: "Partition vertices into triangles (K3 subgraphs)",
         fields: &[
@@ -152,7 +157,20 @@ where
 impl<G: Graph + VariantParam> SatisfactionProblem for PartitionIntoTriangles<G> {}
 
 crate::declare_variants! {
-    PartitionIntoTriangles<SimpleGraph> => "2^num_vertices",
+    default sat PartitionIntoTriangles<SimpleGraph> => "2^num_vertices",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "partition_into_triangles_simplegraph",
+        instance: Box::new(PartitionIntoTriangles::new(SimpleGraph::new(
+            6,
+            vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5), (0, 3)],
+        ))),
+        optimal_config: vec![0, 0, 0, 1, 1, 1],
+        optimal_value: serde_json::json!(true),
+    }]
 }
 
 #[cfg(test)]

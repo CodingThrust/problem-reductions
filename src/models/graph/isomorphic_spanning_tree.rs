@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "IsomorphicSpanningTree",
+        display_name: "Isomorphic Spanning Tree",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Does graph G contain a spanning tree isomorphic to tree T?",
         fields: &[
@@ -162,8 +165,21 @@ impl Problem for IsomorphicSpanningTree {
 
 impl SatisfactionProblem for IsomorphicSpanningTree {}
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "isomorphic_spanning_tree",
+        instance: Box::new(IsomorphicSpanningTree::new(
+            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
+        )),
+        optimal_config: vec![0, 1, 2, 3],
+        optimal_value: serde_json::json!(true),
+    }]
+}
+
 crate::declare_variants! {
-    IsomorphicSpanningTree => "num_vertices^num_vertices",
+    default sat IsomorphicSpanningTree => "factorial(num_vertices)",
 }
 
 #[cfg(test)]

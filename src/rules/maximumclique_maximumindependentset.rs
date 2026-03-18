@@ -66,6 +66,31 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MaximumClique<SimpleG
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "maximumclique_to_maximumindependentset",
+        build: || {
+            let source = MaximumClique::new(
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+                vec![1i32; 4],
+            );
+            crate::example_db::specs::rule_example_with_witness::<
+                _,
+                MaximumIndependentSet<SimpleGraph, i32>,
+            >(
+                source,
+                SolutionPair {
+                    source_config: vec![0, 1, 1, 0],
+                    target_config: vec![0, 1, 1, 0],
+                },
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/maximumclique_maximumindependentset.rs"]
 mod tests;

@@ -1,186 +1,185 @@
 //! Longest Common Subsequence (LCS) problem implementation.
 //!
-//! Given a set of strings over a finite alphabet, find the longest string
-//! that is a subsequence of every input string. Polynomial-time for 2 strings
-//! via dynamic programming, but NP-hard for k >= 3 strings (Maier, 1978).
+//! Given a finite alphabet, a set of strings over that alphabet, and a bound
+//! `K`, determine whether there exists a common subsequence of length exactly
+//! `K`. This fixed-length witness model is equivalent to the standard
+//! "length at least `K`" decision formulation.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{Problem, SatisfactionProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "LongestCommonSubsequence",
+        display_name: "Longest Common Subsequence",
+        aliases: &["LCS"],
+        dimensions: &[],
         module_path: module_path!(),
-        description: "Find the longest string that is a subsequence of every input string",
+        description: "Find a common subsequence of bounded length for a set of strings",
         fields: &[
-            FieldInfo { name: "strings", type_name: "Vec<Vec<u8>>", description: "The input strings" },
+            FieldInfo { name: "alphabet_size", type_name: "usize", description: "Size of the alphabet" },
+            FieldInfo { name: "strings", type_name: "Vec<Vec<usize>>", description: "Input strings over the alphabet {0, ..., alphabet_size-1}" },
+            FieldInfo { name: "bound", type_name: "usize", description: "Required length of the common subsequence witness" },
         ],
     }
 }
 
 /// The Longest Common Subsequence problem.
 ///
-/// Given `k` strings `s_1, ..., s_k` over a finite alphabet, find a longest
-/// string `w` that is a subsequence of every `s_i`.
-///
-/// A string `w` is a **subsequence** of `s` if `w` can be obtained by deleting
-/// zero or more characters from `s` without changing the order of the remaining
-/// characters.
+/// Given an alphabet of size `k`, a set of strings over `{0, ..., k-1}`, and a
+/// bound `K`, determine whether there exists a string `w` of length exactly `K`
+/// such that `w` is a subsequence of every input string. This is equivalent to
+/// the standard decision version with `|w| >= K`, because any longer witness has
+/// a length-`K` prefix that is also a common subsequence.
 ///
 /// # Representation
 ///
-/// The configuration is a binary vector of length equal to the shortest string.
-/// Each entry indicates whether the corresponding character of the shortest
-/// string is included in the candidate subsequence.
-///
-/// # Example
-///
-/// ```
-/// use problemreductions::models::misc::LongestCommonSubsequence;
-/// use problemreductions::{Problem, Solver, BruteForce};
-///
-/// let problem = LongestCommonSubsequence::new(vec![
-///     vec![b'A', b'B', b'C'],
-///     vec![b'A', b'C', b'B'],
-/// ]);
-/// let solver = BruteForce::new();
-/// let solution = solver.find_best(&problem);
-/// assert!(solution.is_some());
-/// ```
+/// The configuration is a vector of length `bound`, where each entry is a
+/// symbol in `{0, ..., alphabet_size-1}`. The instance is satisfiable iff that
+/// candidate witness is a subsequence of every input string.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LongestCommonSubsequence {
-    /// The input strings.
-    strings: Vec<Vec<u8>>,
+    alphabet_size: usize,
+    strings: Vec<Vec<usize>>,
+    bound: usize,
 }
 
 impl LongestCommonSubsequence {
-    /// Create a new LCS instance from a list of strings.
+    /// Create a new LongestCommonSubsequence instance.
     ///
     /// # Panics
-    /// Panics if fewer than 2 strings are provided.
-    pub fn new(strings: Vec<Vec<u8>>) -> Self {
+    ///
+    /// Panics if `alphabet_size == 0` while the witness length is positive or
+    /// any input string is non-empty, or if an input symbol is outside the
+    /// declared alphabet.
+    pub fn new(alphabet_size: usize, strings: Vec<Vec<usize>>, bound: usize) -> Self {
         assert!(
-            strings.len() >= 2,
-            "LCS requires at least 2 strings, got {}",
-            strings.len()
+            alphabet_size > 0 || (bound == 0 && strings.iter().all(|s| s.is_empty())),
+            "alphabet_size must be > 0 when bound > 0 or any input string is non-empty"
         );
-        Self { strings }
+        assert!(
+            strings
+                .iter()
+                .flat_map(|s| s.iter())
+                .all(|&symbol| symbol < alphabet_size),
+            "input symbols must be less than alphabet_size"
+        );
+        Self {
+            alphabet_size,
+            strings,
+            bound,
+        }
     }
 
-    /// Get the input strings.
-    pub fn strings(&self) -> &[Vec<u8>] {
+    /// Returns the alphabet size.
+    pub fn alphabet_size(&self) -> usize {
+        self.alphabet_size
+    }
+
+    /// Returns the input strings.
+    pub fn strings(&self) -> &[Vec<usize>] {
         &self.strings
     }
 
-    /// Get the number of strings.
+    /// Returns the witness-length bound.
+    pub fn bound(&self) -> usize {
+        self.bound
+    }
+
+    /// Returns the number of input strings.
     pub fn num_strings(&self) -> usize {
         self.strings.len()
     }
 
-    /// Get the total length of all strings.
+    /// Returns the total input length across all strings.
     pub fn total_length(&self) -> usize {
         self.strings.iter().map(|s| s.len()).sum()
     }
 
-    /// Get the length of the first string.
-    pub fn num_chars_first(&self) -> usize {
-        self.strings[0].len()
+    /// Returns the sum of squared string lengths.
+    pub fn sum_squared_lengths(&self) -> usize {
+        self.strings.iter().map(|s| s.len() * s.len()).sum()
     }
 
-    /// Get the length of the second string.
-    pub fn num_chars_second(&self) -> usize {
-        self.strings[1].len()
-    }
-
-    /// Index of the shortest string.
-    fn shortest_index(&self) -> usize {
+    /// Returns the sum of triangular numbers len * (len + 1) / 2 across strings.
+    pub fn sum_triangular_lengths(&self) -> usize {
         self.strings
             .iter()
-            .enumerate()
-            .min_by_key(|(_, s)| s.len())
-            .map(|(i, _)| i)
-            .unwrap()
+            .map(|s| s.len() * (s.len() + 1) / 2)
+            .sum()
     }
 
-    /// Length of the shortest string.
-    pub fn min_string_length(&self) -> usize {
-        self.strings[self.shortest_index()].len()
+    /// Returns the number of adjacent witness-position transitions.
+    pub fn num_transitions(&self) -> usize {
+        self.bound.saturating_sub(1)
     }
 }
 
-/// Check if `candidate` is a subsequence of `target`.
-fn is_subsequence(candidate: &[u8], target: &[u8]) -> bool {
-    let mut ti = 0;
-    for &ch in candidate {
-        while ti < target.len() && target[ti] != ch {
-            ti += 1;
+/// Check whether `candidate` is a subsequence of `target` using greedy
+/// left-to-right matching.
+fn is_subsequence(candidate: &[usize], target: &[usize]) -> bool {
+    let mut it = target.iter();
+    for &symbol in candidate {
+        loop {
+            match it.next() {
+                Some(&next) if next == symbol => break,
+                Some(_) => continue,
+                None => return false,
+            }
         }
-        if ti >= target.len() {
-            return false;
-        }
-        ti += 1;
     }
     true
 }
 
 impl Problem for LongestCommonSubsequence {
     const NAME: &'static str = "LongestCommonSubsequence";
-    type Metric = SolutionSize<i32>;
+    type Metric = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
     fn dims(&self) -> Vec<usize> {
-        vec![2; self.min_string_length()]
+        vec![self.alphabet_size; self.bound]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
-        let shortest_idx = self.shortest_index();
-        let shortest = &self.strings[shortest_idx];
-
-        if config.len() != shortest.len() {
-            return SolutionSize::Invalid;
+    fn evaluate(&self, config: &[usize]) -> bool {
+        if config.len() != self.bound {
+            return false;
         }
-        if config.iter().any(|&v| v >= 2) {
-            return SolutionSize::Invalid;
+        if config.iter().any(|&symbol| symbol >= self.alphabet_size) {
+            return false;
         }
-
-        // Build candidate subsequence from selected positions of shortest string
-        let candidate: Vec<u8> = config
-            .iter()
-            .enumerate()
-            .filter(|(_, &x)| x == 1)
-            .map(|(i, _)| shortest[i])
-            .collect();
-
-        // Check that candidate is a subsequence of ALL strings
-        for (i, s) in self.strings.iter().enumerate() {
-            if i == shortest_idx {
-                // The candidate is always a subsequence of the string it was built from
-                continue;
-            }
-            if !is_subsequence(&candidate, s) {
-                return SolutionSize::Invalid;
-            }
-        }
-
-        SolutionSize::Valid(candidate.len() as i32)
+        self.strings.iter().all(|s| is_subsequence(config, s))
     }
 }
 
-impl OptimizationProblem for LongestCommonSubsequence {
-    type Value = i32;
-
-    fn direction(&self) -> Direction {
-        Direction::Maximize
-    }
-}
+impl SatisfactionProblem for LongestCommonSubsequence {}
 
 crate::declare_variants! {
-    LongestCommonSubsequence => "2^min_string_length",
+    default sat LongestCommonSubsequence => "alphabet_size ^ bound",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "longest_common_subsequence",
+        instance: Box::new(LongestCommonSubsequence::new(
+            2,
+            vec![
+                vec![0, 1, 0, 1, 1, 0],
+                vec![1, 0, 0, 1, 0, 1],
+                vec![0, 0, 1, 0, 1, 1],
+                vec![1, 1, 0, 0, 1, 0],
+                vec![0, 1, 0, 1, 0, 1],
+                vec![1, 0, 1, 0, 1, 0],
+            ],
+            3,
+        )),
+        optimal_config: vec![0, 1, 0],
+        optimal_value: serde_json::json!(true),
+    }]
 }
 
 #[cfg(test)]

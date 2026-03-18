@@ -10,7 +10,7 @@ Fix errors and warnings from a `check-issue` report. Auto-fixes mechanical issue
 ## Invocation
 
 ```
-/fix-issue <issue-number>
+/fix-issue <model|rule>
 ```
 
 ## Constants
@@ -21,13 +21,15 @@ GitHub Project board IDs:
 |----------|-------|
 | `PROJECT_ID` | `PVT_kwDOBrtarc4BRNVy` |
 | `STATUS_FIELD_ID` | `PVTSSF_lADOBrtarc4BRNVyzg_GmQc` |
-| `STATUS_READY` | `61e4505c` |
+| `STATUS_BACKLOG` | `ab337660` |
+| `STATUS_READY` | `f37d0d80` |
 
 ## Process
 
 ```dot
 digraph fix_issue {
     rankdir=TB;
+    "Pick issue from Backlog" [shape=box];
     "Fetch issue + check comment" [shape=box];
     "Parse failures & warnings" [shape=box];
     "Auto-fix mechanical issues" [shape=box];
@@ -39,6 +41,7 @@ digraph fix_issue {
     "Ask what to change (free-form)" [shape=box];
     "Apply changes + re-check locally" [shape=box];
 
+    "Pick issue from Backlog" -> "Fetch issue + check comment";
     "Fetch issue + check comment" -> "Parse failures & warnings";
     "Parse failures & warnings" -> "Auto-fix mechanical issues";
     "Auto-fix mechanical issues" -> "Present auto-fixes to human";
@@ -54,15 +57,40 @@ digraph fix_issue {
 
 ---
 
-## Step 1: Fetch Issue and Check Comment
+## Step 1: Pick Next Issue from Backlog
+
+The argument is `model` or `rule` — determines which issue type (`[Model]` or `[Rule]`) to process.
+
+### 1a: Fetch candidate list from project board
+
+```bash
+uv run --project scripts scripts/pipeline_board.py backlog <model|rule> --format json
+```
+
+Returns all Backlog issues of the requested type, sorted by `Good` label first then by issue number:
+
+```json
+{
+  "issue_type": "rule",
+  "items": [
+    {"number": 246, "title": "[Rule] A → B", "has_good": true, "labels": ["Good", "rule"]},
+    {"number": 91, "title": "[Rule] C to D", "has_good": false, "labels": ["rule"]}
+  ]
+}
+```
+
+### 1b: Pick the top issue
+
+Pick the first item from the list. If the list is empty, STOP with message: "No `[Model]`/`[Rule]` issues in Backlog."
+
+### 1c: Fetch the chosen issue
 
 ```bash
 gh issue view <NUMBER> --json title,body,labels,comments
 ```
 
-- Detect issue type from title: `[Rule]` or `[Model]`
 - Find the **most recent** comment that starts with `## Issue Quality Check` — this is the check-issue report
-- If no check comment found, STOP with message: "No check-issue report found. Run `/check-issue <NUMBER>` first."
+- If no check comment found, run `/check-issue <NUMBER>` first, then re-fetch the issue
 
 ---
 
@@ -99,7 +127,7 @@ Tag each issue as:
 | Incomplete `(TBD)` in fields derivable from other sections | Fill from context |
 | Incorrect DOI format | Reformat to `https://doi.org/...` |
 
-**Substantive** (brainstorm with human):
+**Substantive** (brainstorm with human, ask for human's input):
 
 | Issue pattern | Why human input needed |
 |--------------|----------------------|
@@ -181,6 +209,8 @@ Print results to the human as a summary table (Check / Result / Details).
 
 ## Step 7: Ask Human for Decision
 
+Show the human the draft issue body.
+
 Use `AskUserQuestion` to present the options:
 
 > The issue has been re-checked locally. What would you like to do?
@@ -198,18 +228,15 @@ Apply the requested changes to the draft issue body, re-check locally (Step 6), 
 
 ---
 
-## Step 8: Finalize (on "Looks good")
+## Step 8: Finalize (If human picks 1 "Looks good")
 
 Only reached when the human approves. Now push everything to GitHub.
 
 ### 8a: Edit the issue body
 
-```bash
-# Write updated body to temp file
-cat > /tmp/fix_issue_body.md <<'BODYEOF'
-$UPDATED_BODY
-BODYEOF
+Use the Write tool to save the updated body to `/tmp/fix_issue_body.md`, then:
 
+```bash
 gh issue edit <NUMBER> --body-file /tmp/fix_issue_body.md
 ```
 
@@ -238,16 +265,10 @@ gh issue edit <NUMBER> --add-label "Good"
 
 ### 8d: Move to Ready on project board
 
-```bash
-# Find the project item ID for this issue
-ITEM_ID=$(gh project item-list 8 --owner CodingThrust --format json | \
-  jq -r '.items[] | select(.content.number == <NUMBER>) | .id')
+Use the `item_id` obtained from Step 1a:
 
-gh project item-edit \
-  --id "$ITEM_ID" \
-  --project-id PVT_kwDOBrtarc4BRNVy \
-  --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id 61e4505c
+```bash
+uv run --project scripts scripts/pipeline_board.py move <ITEM_ID> Ready
 ```
 
 ### 8e: Confirm
@@ -273,3 +294,4 @@ Done! Issue #<NUMBER>:
 | Running check-issue more than once per iteration | Re-check exactly once after edits, then ask human |
 | Closing the issue | Never close. Labels and board status only |
 | Force-pushing or modifying git | This skill only edits GitHub issues via `gh`. No git operations |
+| Inventing `pipeline_board.py` subcommands | Only `next`, `claim-next`, `ack`, `list`, `move`, `backlog` exist |
