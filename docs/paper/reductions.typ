@@ -72,6 +72,7 @@
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
   "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
+  "KthBestSpanningTree": [Kth Best Spanning Tree],
   "KColoring": [$k$-Coloring],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MaximumMatching": [Maximum Matching],
@@ -915,6 +916,48 @@ is feasible: each set induces a connected subgraph, the component weights are $2
       },
       caption: [Isomorphic Spanning Tree: the graph $G = K_#nv$ (left) contains a spanning tree isomorphic to the star $S_#(nt - 1)$ (right, blue edges). The identity mapping $pi(u_i) = v_i$ embeds all #t-edges.len() star edges into $G$. Center vertex $v_#(pi.at(0))$ shown in blue.],
       ) <fig:isomorphic-spanning-tree>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("KthBestSpanningTree")
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let weights = x.instance.weights
+  let m = edges.len()
+  let sol = x.optimal.at(0).config
+  let tree1 = sol.enumerate().filter(((i, v)) => i < m and v == 1).map(((i, _)) => edges.at(i))
+  let blue = graph-colors.at(0)
+  let gray = luma(190)
+  [
+    #problem-def("KthBestSpanningTree")[
+      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> ZZ_(gt.eq 0)$, a positive integer $k$, and a bound $B in ZZ_(gt.eq 0)$, determine whether there exist $k$ distinct spanning trees $T_1, dots, T_k subset.eq E$ such that $sum_(e in T_i) w(e) lt.eq B$ for every $i$.
+    ][
+      Kth Best Spanning Tree is catalogued as ND9 in Garey and Johnson @garey1979 and is marked there with an asterisk because the general problem is NP-hard but not known to lie in NP. For any fixed value of $k$, Lawler's $k$-best enumeration framework gives a polynomial-time algorithm when combined with minimum-spanning-tree subroutines @lawler1972. For output-sensitive enumeration, Eppstein gave an algorithm that lists the $k$ smallest spanning trees of a weighted graph in $O(m log beta(m, n) + k^2)$ time @eppstein1992.
+
+      Variables: $k |E|$ binary values grouped into $k$ consecutive edge-selection blocks. Entry $x_(i, e) = 1$ means edge $e$ belongs to the $i$-th candidate tree. A configuration is satisfying exactly when each block selects a spanning tree, every selected tree has total weight at most $B$, and the $k$ blocks encode pairwise distinct edge sets.
+
+      *Example.* Consider $K_4$ with edge weights $w = {(0,1): 1, (0,2): 1, (0,3): 2, (1,2): 2, (1,3): 2, (2,3): 3}$. With $k = 2$ and $B = 4$, exactly two of the $16$ spanning trees have total weight $lt.eq 4$: the star $T_1 = {(0,1), (0,2), (0,3)}$ with weight $4$ and $T_2 = {(0,1), (0,2), (1,3)}$ with weight $4$. Since two distinct bounded spanning trees exist, this is a YES-instance.
+
+      #figure({
+        canvas(length: 1cm, {
+          import draw: *
+          let pos = ((0.0, 1.8), (2.4, 1.8), (2.4, 0.0), (0.0, 0.0))
+          for (idx, (u, v)) in edges.enumerate() {
+            let in-tree1 = tree1.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
+            g-edge(pos.at(u), pos.at(v), stroke: if in-tree1 { 2pt + blue } else { 1pt + gray })
+            let mid-x = (pos.at(u).at(0) + pos.at(v).at(0)) / 2
+            let mid-y = (pos.at(u).at(1) + pos.at(v).at(1)) / 2
+            // Offset diagonal edge labels to avoid overlap at center
+            let (ox, oy) = if u == 0 and v == 2 { (0.3, 0) } else if u == 1 and v == 3 { (-0.3, 0) } else { (0, 0) }
+            content((mid-x + ox, mid-y + oy), text(7pt)[#weights.at(idx)], fill: white, frame: "rect", padding: .06, stroke: none)
+          }
+          for (idx, p) in pos.enumerate() {
+            g-node(p, name: "v" + str(idx), fill: white, label: $v_#idx$)
+          }
+        })
+      },
+      caption: [Kth Best Spanning Tree on $K_4$. Blue edges show $T_1 = {(0,1), (0,2), (0,3)}$, one of two spanning trees with weight $lt.eq 4$.],
+      ) <fig:kth-best-spanning-tree>
     ]
   ]
 }
@@ -3799,6 +3842,22 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) If a witness $w = w_1 dots w_K$ is a common subsequence of every string, set $x_(p, w_p) = 1$ and choose, in every $r_i$, the positions where that embedding occurs. Constraints (1)--(4) are satisfied, so the ILP is feasible. ($arrow.l.double$) Any feasible ILP solution selects exactly one symbol for each witness position and exactly one realization in each source string. Character consistency ensures the chosen positions spell the same witness string in every input string, and the ordering constraints ensure those positions are strictly increasing. Therefore the extracted witness is a common subsequence of length $K$.
 
   _Solution extraction._ For each witness position $p$, read the unique symbol $a$ with $x_(p, a) = 1$ and output the resulting length-$K$ string.
+]
+
+#reduction-rule("MinimumMultiwayCut", "ILP")[
+  The vertex-assignment + edge-cut indicator formulation @chopra1996 introduces binary variables for vertex-to-component membership and edge-cut indicators. Terminal vertices are fixed to their own components, partition constraints ensure every vertex belongs to exactly one component, and linking inequalities force the cut indicator on whenever an edge's endpoints are in different components.
+][
+  _Construction._ Given graph $G = (V, E, w)$ with $n = |V|$ vertices, $m = |E|$ edges, edge weights $w_e > 0$, and $k$ terminals $T = {t_0, dots, t_(k-1)}$:
+
+  _Variables:_ (1) $y_(i v) in {0, 1}$ for $i in {0, dots, k-1}$, $v in V$: vertex $v$ belongs to the component of terminal $t_i$. (2) $x_e in {0, 1}$ for $e in E$: edge $e$ is in the cut. Total: $k n + m$ variables.
+
+  _Constraints:_ (1) Terminal fixing: $y_(i, t_i) = 1$ for each $i$ (terminal $t_i$ is in its own component); $y_(j, t_i) = 0$ for $j eq.not i$ (each terminal excluded from other components). (2) Partition: $sum_(i=0)^(k-1) y_(i v) = 1$ for each $v in V$ (each vertex in exactly one component). (3) Edge-cut linking: for each edge $e = (u, v)$ and each terminal $i$: $x_e gt.eq y_(i u) - y_(i v)$ and $x_e gt.eq y_(i v) - y_(i u)$ (force $x_e = 1$ when endpoints are in different components). Total: $k^2 + n + 2 k m$ constraints.
+
+  _Objective:_ Minimize $sum_(e in E) w_e dot x_e$.
+
+  _Correctness._ ($arrow.r.double$) A multiway cut $C$ partitions $V$ into $k$ components, one per terminal. Setting $y_(i v) = 1$ iff $v$ is in $t_i$'s component and $x_e = 1$ iff $e in C$ satisfies all constraints: partition by construction, terminal fixing by definition, and linking because any edge with endpoints in different components is in $C$. The objective equals the cut weight. ($arrow.l.double$) Any feasible ILP solution defines a valid partition (by constraint (2)) separating all terminals (by constraint (1)). The linking constraints (3) force $x_e = 1$ for all cross-component edges, so the objective is at least the multiway cut weight; minimization ensures optimality.
+
+  _Solution extraction._ For each edge $e$ at index $"idx"$, read $x_e = x^*_(k n + "idx")$. The source configuration is $"config"[e] = x_e$ (1 = cut, 0 = keep).
 ]
 
 == Unit Disk Mapping

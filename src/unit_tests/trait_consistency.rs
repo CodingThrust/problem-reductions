@@ -103,6 +103,15 @@ fn test_all_problems_implement_trait_correctly() {
         "StrongConnectivityAugmentation",
     );
     check_problem_trait(
+        &KthBestSpanningTree::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+            vec![1, 1, 1],
+            1,
+            2,
+        ),
+        "KthBestSpanningTree",
+    );
+    check_problem_trait(
         &HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)])),
         "HamiltonianCircuit",
     );

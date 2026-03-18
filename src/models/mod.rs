@@ -14,12 +14,13 @@ pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
     BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
     BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GraphPartitioning,
-    HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KColoring,
+    HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KColoring, KthBestSpanningTree,
     LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
     MaximumMatching, MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
     MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
     OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, SpinGlass, SteinerTree,
-    SubgraphIsomorphism, TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
+    StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
+    UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::{
     BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
