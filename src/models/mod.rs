@@ -9,18 +9,27 @@ pub mod misc;
 pub mod set;
 
 // Re-export commonly used types
-pub use algebraic::{ClosestVectorProblem, ConsecutiveOnesSubmatrix, BMF, ILP, QUBO};
+pub use algebraic::{ClosestVectorProblem, ConsecutiveOnesSubmatrix, QuadraticAssignment, BMF, ILP, QUBO};
 pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
-    BicliqueCover, DirectedTwoCommodityIntegralFlow, GraphPartitioning, HamiltonianPath,
-    IsomorphicSpanningTree, KColoring, LengthBoundedDisjointPaths, MaxCut, MaximalIS,
-    MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
-    MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumSumMulticenter, MinimumVertexCover,
+    BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
+    BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GraphPartitioning,
+    HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KColoring, KthBestSpanningTree,
+    LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
+    MaximumMatching, MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
+    MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
     OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, SpinGlass, SteinerTree,
-    SubgraphIsomorphism, TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
+    StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
+    UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::{
     BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-    MinimumTardinessSequencing, PaintShop, ShortestCommonSupersequence, SubsetSum,
+    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+    PrecedenceConstrainedScheduling, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
 };
-pub use set::{ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis};
+pub use set::{
+    ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
+    MinimumCardinalityKey, MinimumSetCovering, PrimeAttributeName, SetBasis,
+};

@@ -169,19 +169,18 @@ crate::declare_variants! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    use crate::topology::DirectedGraph;
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_feedback_vertex_set_i32",
-        build: || {
-            use crate::topology::DirectedGraph;
-            let problem = MinimumFeedbackVertexSet::new(
-                DirectedGraph::new(
-                    5,
-                    vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (4, 2)],
-                ),
-                vec![1i32; 5],
-            );
-            crate::example_db::specs::optimization_example(problem, vec![vec![1, 0, 0, 0, 0]])
-        },
+        instance: Box::new(MinimumFeedbackVertexSet::new(
+            DirectedGraph::new(
+                5,
+                vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (4, 2)],
+            ),
+            vec![1i32; 5],
+        )),
+        optimal_config: vec![1, 0, 0, 0, 0],
+        optimal_value: serde_json::json!({"Valid": 1}),
     }]
 }
 

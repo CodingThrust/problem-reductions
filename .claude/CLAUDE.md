@@ -6,23 +6,25 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 ## Skills
 These repo-local skills live under `.claude/skills/*/SKILL.md`.
 
+- [run-pipeline](skills/run-pipeline/SKILL.md) -- Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr -> Review pool. One issue at a time; forever-loop handles iteration.
 - [issue-to-pr](skills/issue-to-pr/SKILL.md) -- Convert a GitHub issue into a PR with an implementation plan. One item per PR: `[Rule]` issues require both models to exist on `main`; never bundle model + rule in the same PR.
 - [add-model](skills/add-model/SKILL.md) -- Add a new problem model. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
 - [add-rule](skills/add-rule/SKILL.md) -- Add a new reduction rule. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
-- [review-implementation](skills/review-implementation/SKILL.md) -- Review implementation completeness by dispatching parallel subagents (structural + quality) with fresh context. Auto-detects new models/rules from git diff. Called automatically at the end of `add-model`/`add-rule`, after each `executing-plans` batch, or standalone via `/review-implementation`.
-- [fix-pr](skills/fix-pr/SKILL.md) -- Resolve PR review comments (user + Copilot), fix CI failures, and address codecov coverage gaps. Uses `gh api` for codecov (not local `cargo-llvm-cov`).
+- [review-structural](skills/review-structural/SKILL.md) -- Project-specific structural completeness check: model/rule checklists, build, semantic correctness, issue compliance. Read-only, no code changes. Called by `review-pipeline`.
+- [review-quality](skills/review-quality/SKILL.md) -- Generic code quality review: DRY, KISS, cohesion/coupling, test quality, HCI. Read-only, no code changes. Called by `review-pipeline`.
+- [fix-pr](skills/fix-pr/SKILL.md) -- Resolve PR review comments, fix CI failures, and address codecov coverage gaps. Uses `gh api` for codecov (not local `cargo-llvm-cov`).
 - [write-model-in-paper](skills/write-model-in-paper/SKILL.md) -- Write or improve a problem-def entry in the Typst paper (standalone, for improving existing entries). Core instructions are inlined in `add-model` Step 6.
 - [write-rule-in-paper](skills/write-rule-in-paper/SKILL.md) -- Write or improve a reduction-rule entry in the Typst paper (standalone, for improving existing entries). Core instructions are inlined in `add-rule` Step 5.
 - [release](skills/release/SKILL.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
 - [check-issue](skills/check-issue/SKILL.md) -- Quality gate for `[Rule]` and `[Model]` issues. Checks usefulness, non-triviality, correctness of literature, and writing quality. Posts structured report and adds failure labels.
+- [fix-issue](skills/fix-issue/SKILL.md) -- Fix quality issues found by check-issue — auto-fixes mechanical problems, brainstorms substantive issues with human, then re-checks and moves to Ready.
 - [topology-sanity-check](skills/topology-sanity-check/SKILL.md) -- Run sanity checks on the reduction graph: detect orphan (isolated) problems and redundant reduction rules.
   - `topology-sanity-check orphans` -- Detect isolated problem types (runs `examples/detect_isolated_problems.rs`)
   - `topology-sanity-check np-hardness` -- Verify NP-hardness proof chains from 3-SAT (runs `examples/detect_unreachable_from_3sat.rs`)
   - `topology-sanity-check redundancy [source target]` -- Check for dominated reduction rules
-- [project-pipeline](skills/project-pipeline/SKILL.md) -- Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr --execute -> Review pool.
-- [review-pipeline](skills/review-pipeline/SKILL.md) -- Pick a PR from Review pool column, fix Copilot review comments, run structural completeness check, fix CI, run agentic feature tests, move to Final review.
+- [review-pipeline](skills/review-pipeline/SKILL.md) -- Agentic review for PRs in Review pool: runs structural check, quality check, and agentic feature tests (no code changes), posts combined verdict, always moves to Final review.
 - [propose](skills/propose/SKILL.md) -- Interactive brainstorming to help domain experts propose a new model or rule. Asks one question at a time, uses mathematical language (no programming jargon), and files a GitHub issue.
-- [final-review](skills/final-review/SKILL.md) -- Interactive maintainer review for PRs in "Final review" column. Assesses usefulness, safety, completeness, quality ranking, then merge or hold.
+- [final-review](skills/final-review/SKILL.md) -- Interactive maintainer review for PRs in "Final review" column. Merges main, walks through agentic review bullets with human, then merge or hold.
 - [dev-setup](skills/dev-setup/SKILL.md) -- Interactive wizard to install and configure all development tools for new maintainers.
 - [tutorial](skills/tutorial/SKILL.md) -- Interactive tutorial — walk through the pred CLI to explore, reduce, and solve NP-hard problems. No Rust internals.
 
@@ -62,10 +64,10 @@ make run-issue N=42 # Run issue-to-pr --execute for a GitHub issue
 make run-pipeline  # Pick next Ready issue from project board, implement, move to Review pool
 make run-pipeline N=97 # Process a specific issue from the project board
 make run-pipeline-forever # Poll Ready column, run-pipeline when new issues appear
-make run-review    # Pick next PR from Review pool column, fix Copilot comments, fix CI, run agentic tests
+make run-review    # Pick next PR from Review pool column, run agentic review, move to Final review
 make run-review N=570 # Process a specific PR from the Review pool column
-make run-review-forever # Poll Review pool, auto-request Copilot reviews, dispatch run-review when reviewed
-make copilot-review # Request Copilot code review on current PR (requires: gh extension install ChrisCarini/gh-copilot-review)
+make run-review-forever # Poll Review pool for eligible PRs, dispatch run-review
+make copilot-review # (Optional) Request Copilot code review on current PR
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 # Set RUNNER=claude to use Claude instead of Codex (default: codex)
 # Default Codex model: CODEX_MODEL=gpt-5.4
@@ -207,7 +209,7 @@ New code must have >95% test coverage. Run `make coverage` to check.
 ### Naming
 
 - Reduction tests: `test_<source>_to_<target>_closed_loop`
-- Model tests: `test_<model>_basic`, `test_<model>_serialization`
+- Model tests: descriptive names — e.g., `test_<model>_creation`, `test_<model>_evaluate_*`, `test_<model>_direction`, `test_<model>_solver`, `test_<model>_serialization`. Use whichever are relevant; there is no fixed per-model naming set.
 - Solver tests: `test_<solver>_<problem>`
 
 ### Key Testing Patterns
@@ -217,6 +219,8 @@ See Key Patterns above for solver API signatures. Follow the reference files for
 ### File Organization
 
 Unit tests in `src/unit_tests/` linked via `#[path]` (see Core Modules above). Integration tests in `tests/suites/`, consolidated through `tests/main.rs`. Canonical example-db coverage lives in `src/unit_tests/example_db.rs`.
+
+Model review automation checks for a dedicated test file under `src/unit_tests/models/...` with at least 3 test functions. The exact split of coverage is judged per model during review.
 
 ## Documentation Locations
 - `README.md` — Project overview and quickstart
@@ -258,7 +262,7 @@ Also add to the `display-name` dictionary:
 ]
 ```
 
-Every directed reduction in the graph needs its own `reduction-rule` entry. The paper auto-checks completeness against `reduction_graph.json`.
+Every directed reduction in the graph needs its own `reduction-rule` entry. The paper auto-checks completeness against the generated `reduction_graph.json` export.
 
 ## Complexity Verification Requirements
 

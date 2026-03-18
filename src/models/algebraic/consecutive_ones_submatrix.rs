@@ -214,19 +214,18 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "consecutive_ones_submatrix",
-        build: || {
-            // Tucker matrix (3×4): full matrix lacks C1P, but K=3 works
-            let problem = ConsecutiveOnesSubmatrix::new(
-                vec![
-                    vec![true, true, false, true],
-                    vec![true, false, true, true],
-                    vec![false, true, true, false],
-                ],
-                3,
-            );
-            // Select columns {0,1,3} (config [1,1,0,1])
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![1, 1, 0, 1]])
-        },
+        // Tucker matrix (3×4): full matrix lacks C1P, but K=3 works
+        // Select columns {0,1,3} (config [1,1,0,1])
+        instance: Box::new(ConsecutiveOnesSubmatrix::new(
+            vec![
+                vec![true, true, false, true],
+                vec![true, false, true, true],
+                vec![false, true, true, false],
+            ],
+            3,
+        )),
+        optimal_config: vec![1, 1, 0, 1],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

@@ -170,12 +170,15 @@ Checklist: notation self-contained, complexity cited, overhead consistent, examp
 ## Step 6: Regenerate exports and verify
 
 ```bash
-cargo run --example export_graph    # Update reduction_graph.json
-cargo run --example export_schemas  # Update problem schemas
+cargo run --example export_graph    # Generate reduction_graph.json for docs/paper builds
+cargo run --example export_schemas  # Generate problem schemas for docs/paper builds
+make regenerate-fixtures            # Regenerate example_db/fixtures/examples.json (slow, needs ILP)
 make test clippy                    # Must pass
 ```
 
-If running standalone (not inside `make run-plan`), invoke [review-implementation](../review-implementation/SKILL.md) to verify all structural and semantic checks pass. When running inside a plan, the outer orchestrator handles the review.
+`make regenerate-fixtures` is required so the paper can load the new rule's example data from `src/example_db/fixtures/examples.json`. Without it, the `reduction-rule` entry in Step 5 will reference missing fixture data.
+
+Structural and quality review is handled by the `review-pipeline` stage, not here. The run stage just needs to produce working code.
 
 ## Solver Rules
 

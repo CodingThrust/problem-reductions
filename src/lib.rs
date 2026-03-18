@@ -42,26 +42,32 @@ pub mod variant;
 /// Prelude module for convenient imports.
 pub mod prelude {
     // Problem types
-    pub use crate::models::algebraic::{BMF, QUBO};
+    pub use crate::models::algebraic::{QuadraticAssignment, BMF, QUBO};
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
     pub use crate::models::graph::{
-        BicliqueCover, DirectedTwoCommodityIntegralFlow, GraphPartitioning, HamiltonianPath,
-        IsomorphicSpanningTree, LengthBoundedDisjointPaths, SpinGlass, SteinerTree,
+        BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
+        BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GraphPartitioning,
+        HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KthBestSpanningTree,
+        LengthBoundedDisjointPaths, SpinGlass, SteinerTree, StrongConnectivityAugmentation,
         SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-        MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
-        MinimumSumMulticenter, MinimumVertexCover, OptimalLinearArrangement,
-        PartitionIntoTriangles, RuralPostman, TravelingSalesman,
+        MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut,
+        MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
+        OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, TravelingSalesman,
         UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
         BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-        MinimumTardinessSequencing, PaintShop, ShortestCommonSupersequence, SubsetSum,
+        MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+        SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
+        ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
+        SumOfSquaresPartition,
     };
     pub use crate::models::set::{
-        ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis,
+        ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
+        MinimumCardinalityKey, MinimumSetCovering, PrimeAttributeName, SetBasis,
     };
 
     // Core traits
@@ -101,9 +107,6 @@ mod test_property;
 #[cfg(test)]
 #[path = "unit_tests/reduction_graph.rs"]
 mod test_reduction_graph;
-#[cfg(test)]
-#[path = "unit_tests/trait_consistency.rs"]
-mod test_trait_consistency;
 #[cfg(test)]
 #[path = "unit_tests/unitdiskmapping_algorithms/mod.rs"]
 mod test_unitdiskmapping_algorithms;

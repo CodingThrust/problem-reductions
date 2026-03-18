@@ -64,6 +64,7 @@ impl ReduceTo<MaximumSetPacking<i32>> for MaximumMatching<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
     use crate::models::set::MaximumSetPacking;
 
     vec![crate::example_db::specs::RuleExampleSpec {
@@ -71,9 +72,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             let (n, edges) = crate::topology::small_graphs::petersen();
             let source = MaximumMatching::unit_weights(SimpleGraph::new(n, edges));
-            crate::example_db::specs::direct_best_example::<_, MaximumSetPacking<i32>, _>(
+            crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<i32>>(
                 source,
-                |_, _| true,
+                SolutionPair {
+                    source_config: vec![0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
+                    target_config: vec![0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
+                },
             )
         },
     }]

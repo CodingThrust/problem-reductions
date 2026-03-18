@@ -156,11 +156,13 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "shortest_common_supersequence",
-        build: || {
-            let problem =
-                ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![1, 0, 2]], 4);
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![1, 0, 1, 2]])
-        },
+        instance: Box::new(ShortestCommonSupersequence::new(
+            3,
+            vec![vec![0, 1, 2], vec![1, 0, 2]],
+            4,
+        )),
+        optimal_config: vec![0, 1, 0, 2],
+        optimal_value: serde_json::json!(true),
     }]
 }
 
