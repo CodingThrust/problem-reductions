@@ -1860,8 +1860,8 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let fstar = sol.config
   let cost-star = sol.metric.Valid
-  // Format matrices as semicolon-separated rows
-  let fmt-mat(mat) = mat.map(row => row.map(v => str(v)).join(", ")).join("; ")
+  // Convert integer matrix to math.mat content
+  let to-mat(m) = math.mat(..m.map(row => row.map(v => $#v$)))
   // Compute identity assignment cost
   let id-cost = range(n).fold(0, (acc, i) =>
     range(n).fold(acc, (acc2, j) =>
@@ -1896,7 +1896,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     Applications include facility layout planning, keyboard and control panel design, scheduling, VLSI placement, and hospital floor planning. As a special case, when $D$ is a distance matrix on a line (i.e., $D_(k l) = |k - l|$), QAP reduces to the Optimal Linear Arrangement problem.
 
     *Example.* Consider $n = m = #n$ with flow matrix $C$ and distance matrix $D$:
-    $ C = mat(#fmt-mat(C)), quad D = mat(#fmt-mat(D)). $
+    $ C = #to-mat(C), quad D = #to-mat(D). $
     The identity assignment $f(i) = i$ gives cost #id-cost. The optimal assignment is $f^* = (#fstar-display)$ with cost #cost-star: it places the heavily interacting facilities $F_#(max-fi + 1)$ and $F_#(max-fj + 1)$ (highest flow $= #max-flow$) at locations $L_#(assigned-li + 1)$ and $L_#(assigned-lj + 1)$ (distance $= #dist-between$).
 
     #figure(
