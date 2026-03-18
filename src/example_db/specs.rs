@@ -12,7 +12,7 @@ use serde::Serialize;
 ///
 /// Stores a concrete problem instance and its known optimal solution.
 /// The instance is type-erased via `DynProblem` for heterogeneous collection.
-#[allow(dead_code)]
+#[allow(dead_code)] // `id` field is only read in tests
 pub struct ModelExampleSpec {
     /// Unique example identifier (used by uniqueness tests).
     pub id: &'static str,
@@ -25,7 +25,7 @@ pub struct ModelExampleSpec {
 }
 
 /// Specification for a canonical rule example.
-#[allow(dead_code)]
+#[allow(dead_code)] // `id` field is only read in tests
 pub struct RuleExampleSpec {
     /// Unique example identifier.
     pub id: &'static str,

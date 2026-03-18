@@ -189,10 +189,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             build: || {
                 let (n, edges) = crate::topology::small_graphs::petersen();
                 let source = MaxCut::unweighted(SimpleGraph::new(n, edges));
-                crate::example_db::specs::rule_example_with_witness::<
-                    _,
-                    SpinGlass<SimpleGraph, i32>,
-                >(
+                crate::example_db::specs::rule_example_with_witness::<_, SpinGlass<SimpleGraph, i32>>(
                     source,
                     SolutionPair {
                         source_config: vec![0, 1, 0, 1, 0, 1, 0, 0, 0, 1],

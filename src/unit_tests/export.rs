@@ -42,21 +42,8 @@ fn test_lookup_overhead_unknown_reduction() {
     assert!(result.is_none());
 }
 
-#[test]
-fn test_write_canonical_example_db() {
-    use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    let dir = std::env::temp_dir().join(format!(
-        "problemreductions-export-db-test-{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    fs::create_dir_all(&dir).unwrap();
-
-    let db = ExampleDb {
+fn sample_example_db() -> ExampleDb {
+    ExampleDb {
         models: vec![ModelExample {
             problem: "ModelProblem".to_string(),
             variant: variant_to_map(vec![("graph", "SimpleGraph")]),
@@ -77,7 +64,29 @@ fn test_write_canonical_example_db() {
             },
             solutions: vec![],
         }],
-    };
+    }
+}
+
+fn export_test_dir(label: &str) -> std::path::PathBuf {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let dir = std::env::temp_dir().join(format!(
+        "problemreductions-export-{}-{}",
+        label,
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+#[test]
+fn test_write_canonical_example_db() {
+    use std::fs;
+
+    let dir = export_test_dir("db-test");
+    let db = sample_example_db();
     write_example_db_to(&dir, &db);
 
     let examples_json: serde_json::Value =
@@ -101,94 +110,21 @@ fn test_write_canonical_example_db() {
 }
 
 #[test]
-fn test_write_example_db_uses_wrapped_json_contract() {
-    use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    let dir = std::env::temp_dir().join(format!(
-        "problemreductions-export-db-contract-test-{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    fs::create_dir_all(&dir).unwrap();
-
-    let db = ExampleDb {
-        models: vec![ModelExample {
-            problem: "ModelProblem".to_string(),
-            variant: variant_to_map(vec![("graph", "SimpleGraph")]),
-            instance: serde_json::json!({"n": 5}),
-            optimal_config: vec![],
-            optimal_value: serde_json::json!(null),
-        }],
-        rules: vec![RuleExample {
-            source: ProblemSide {
-                problem: "SourceProblem".to_string(),
-                variant: variant_to_map(vec![("graph", "SimpleGraph")]),
-                instance: serde_json::json!({"n": 3}),
-            },
-            target: ProblemSide {
-                problem: "TargetProblem".to_string(),
-                variant: variant_to_map(vec![("weight", "i32")]),
-                instance: serde_json::json!({"m": 4}),
-            },
-            solutions: vec![],
-        }],
-    };
-    write_example_db_to(&dir, &db);
-
-    let examples_json: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(dir.join("examples.json")).unwrap()).unwrap();
-
-    assert_eq!(
-        examples_json["rules"][0]["source"]["problem"],
-        "SourceProblem"
-    );
-    assert_eq!(examples_json["models"][0]["problem"], "ModelProblem");
-
-    let _ = fs::remove_dir_all(&dir);
-}
-
-#[test]
 fn test_write_example_db_uses_one_line_per_example_entry() {
     use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
 
-    let dir = std::env::temp_dir().join(format!(
-        "problemreductions-export-db-lines-test-{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    fs::create_dir_all(&dir).unwrap();
-
-    let db = ExampleDb {
-        models: vec![ModelExample {
-            problem: "ModelProblem".to_string(),
-            variant: variant_to_map(vec![("graph", "SimpleGraph")]),
-            instance: serde_json::json!({"n": 5, "edges": [[0, 1], [1, 2]]}),
-            optimal_config: vec![1, 0, 1],
-            optimal_value: serde_json::json!({"Valid": 2}),
-        }],
-        rules: vec![RuleExample {
-            source: ProblemSide {
-                problem: "SourceProblem".to_string(),
-                variant: variant_to_map(vec![("graph", "SimpleGraph")]),
-                instance: serde_json::json!({"n": 3, "edges": [[0, 1], [1, 2]]}),
-            },
-            target: ProblemSide {
-                problem: "TargetProblem".to_string(),
-                variant: variant_to_map(vec![("weight", "i32")]),
-                instance: serde_json::json!({"m": 4, "weights": [1, 2, 3, 4]}),
-            },
-            solutions: vec![SolutionPair {
-                source_config: vec![1, 0, 1],
-                target_config: vec![0, 1, 1, 0],
-            }],
-        }],
-    };
+    let dir = export_test_dir("db-lines-test");
+    let mut db = sample_example_db();
+    // Add richer data so the one-line-per-entry format is meaningful
+    db.models[0].instance = serde_json::json!({"n": 5, "edges": [[0, 1], [1, 2]]});
+    db.models[0].optimal_config = vec![1, 0, 1];
+    db.models[0].optimal_value = serde_json::json!({"Valid": 2});
+    db.rules[0].source.instance = serde_json::json!({"n": 3, "edges": [[0, 1], [1, 2]]});
+    db.rules[0].target.instance = serde_json::json!({"m": 4, "weights": [1, 2, 3, 4]});
+    db.rules[0].solutions = vec![SolutionPair {
+        source_config: vec![1, 0, 1],
+        target_config: vec![0, 1, 1, 0],
+    }];
     write_example_db_to(&dir, &db);
 
     let text = fs::read_to_string(dir.join("examples.json")).unwrap();
@@ -318,13 +254,7 @@ fn model_example_problem_ref() {
 #[test]
 fn write_rule_example_to_creates_json_file() {
     use std::fs;
-    let dir = std::env::temp_dir().join(format!(
-        "pr-export-rule-example-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
+    let dir = export_test_dir("rule-example");
     let example = RuleExample {
         source: ProblemSide {
             problem: "A".to_string(),
@@ -350,13 +280,7 @@ fn write_rule_example_to_creates_json_file() {
 #[test]
 fn write_model_example_to_creates_json_file() {
     use std::fs;
-    let dir = std::env::temp_dir().join(format!(
-        "pr-export-model-example-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
+    let dir = export_test_dir("model-example");
     let example = ModelExample {
         problem: "TestModel".to_string(),
         variant: variant_to_map(vec![("graph", "SimpleGraph")]),

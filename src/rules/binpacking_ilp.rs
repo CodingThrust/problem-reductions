@@ -107,7 +107,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 BinPacking::new(vec![6, 5, 5, 4, 3], 10),
                 SolutionPair {
                     source_config: vec![2, 1, 0, 0, 2],
-                    target_config: vec![0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0],
+                    target_config: vec![
+                        0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+                        1, 1, 1, 0, 0,
+                    ],
                 },
             )
         },

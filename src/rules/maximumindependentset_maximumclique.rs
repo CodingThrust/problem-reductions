@@ -72,10 +72,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
                 vec![1i32; 5],
             );
-            crate::example_db::specs::rule_example_with_witness::<
-                _,
-                MaximumClique<SimpleGraph, i32>,
-            >(
+            crate::example_db::specs::rule_example_with_witness::<_, MaximumClique<SimpleGraph, i32>>(
                 source,
                 SolutionPair {
                     source_config: vec![1, 0, 1, 0, 1],

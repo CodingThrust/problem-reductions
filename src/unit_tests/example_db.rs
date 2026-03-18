@@ -1,5 +1,8 @@
-use crate::example_db::{build_example_db, build_model_db, build_rule_db, find_model_example, find_rule_example};
+use crate::example_db::{
+    build_example_db, build_model_db, build_rule_db, find_model_example, find_rule_example,
+};
 use crate::export::ProblemRef;
+use crate::registry::{find_variant_entry, load_dyn};
 use crate::rules::{registry::reduction_entries, ReductionGraph};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
@@ -194,12 +197,6 @@ fn test_build_model_db_has_unique_structural_keys() {
 }
 
 #[test]
-fn test_build_rule_db_nonempty() {
-    let db = build_rule_db().expect("rule db should build");
-    assert!(!db.rules.is_empty(), "rule db should not be empty");
-}
-
-#[test]
 fn test_rule_examples_store_single_solution_pair() {
     let db = build_rule_db().expect("rule db should build");
     for rule in &db.rules {
@@ -213,28 +210,6 @@ fn test_rule_examples_store_single_solution_pair() {
             rule.target.variant
         );
     }
-}
-
-#[test]
-fn test_computed_rule_examples_store_single_solution_pair() {
-    let db = build_rule_db().expect("computed rule db should build");
-    for rule in &db.rules {
-        assert_eq!(
-            rule.solutions.len(),
-            1,
-            "computed canonical rule example should store one witness pair for {} {:?} -> {} {:?}",
-            rule.source.problem,
-            rule.source.variant,
-            rule.target.problem,
-            rule.target.variant
-        );
-    }
-}
-
-#[test]
-fn test_build_model_db_nonempty() {
-    let db = build_model_db().expect("model db should build");
-    assert!(!db.models.is_empty(), "model db should not be empty");
 }
 
 #[test]
@@ -360,26 +335,110 @@ fn model_specs_are_self_consistent() {
 }
 
 #[test]
+fn model_specs_are_optimal() {
+    let specs = crate::models::graph::canonical_model_example_specs()
+        .into_iter()
+        .chain(crate::models::formula::canonical_model_example_specs())
+        .chain(crate::models::set::canonical_model_example_specs())
+        .chain(crate::models::algebraic::canonical_model_example_specs())
+        .chain(crate::models::misc::canonical_model_example_specs());
+
+    for spec in specs {
+        let name = spec.instance.problem_name();
+        let variant = spec.instance.variant_map();
+        let entry = find_variant_entry(name, &variant)
+            .unwrap_or_else(|| panic!("No variant entry for spec '{}' ({name} {variant:?})", spec.id));
+
+        let (best_config, _) = (entry.solve_fn)(spec.instance.as_any())
+            .unwrap_or_else(|| panic!("Brute-force returned no solution for spec '{}'", spec.id));
+
+        let best_value = spec.instance.evaluate_json(&best_config);
+        assert_eq!(
+            best_value, spec.optimal_value,
+            "Model spec '{}': brute-force optimal = {} but stored optimal_value = {} \
+             (brute-force config: {:?}, stored config: {:?})",
+            spec.id, best_value, spec.optimal_value, best_config, spec.optimal_config
+        );
+    }
+}
+
+#[test]
 fn rule_specs_solution_pairs_are_consistent() {
     let db = build_rule_db().unwrap();
     for example in &db.rules {
+        let label = format!(
+            "{} {:?} -> {} {:?}",
+            example.source.problem,
+            example.source.variant,
+            example.target.problem,
+            example.target.variant
+        );
         assert!(
             !example.solutions.is_empty(),
-            "Rule {} -> {} has no solution pairs",
-            example.source.problem, example.target.problem
+            "Rule {label} has no solution pairs"
         );
+
+        // Deserialize source and target via the registry so we can evaluate configs
+        let source = load_dyn(
+            &example.source.problem,
+            &example.source.variant,
+            example.source.instance.clone(),
+        )
+        .unwrap_or_else(|e| panic!("Failed to load source for {label}: {e}"));
+        let target = load_dyn(
+            &example.target.problem,
+            &example.target.variant,
+            example.target.instance.clone(),
+        )
+        .unwrap_or_else(|e| panic!("Failed to load target for {label}: {e}"));
+
         for pair in &example.solutions {
             assert!(
                 !pair.source_config.is_empty(),
-                "Rule {} -> {} has empty source_config",
-                example.source.problem, example.target.problem
+                "Rule {label} has empty source_config"
             );
             assert!(
                 !pair.target_config.is_empty(),
-                "Rule {} -> {} has empty target_config",
-                example.source.problem, example.target.problem
+                "Rule {label} has empty target_config"
+            );
+            // Verify config lengths match problem dimensions
+            assert_eq!(
+                pair.source_config.len(),
+                source.dims_dyn().len(),
+                "Rule {label}: source_config length {} != dims length {}",
+                pair.source_config.len(),
+                source.dims_dyn().len()
+            );
+            assert_eq!(
+                pair.target_config.len(),
+                target.dims_dyn().len(),
+                "Rule {label}: target_config length {} != dims length {}",
+                pair.target_config.len(),
+                target.dims_dyn().len()
+            );
+            // Verify configs produce non-Invalid / non-false evaluations
+            let source_val = source.evaluate_json(&pair.source_config);
+            let target_val = target.evaluate_json(&pair.target_config);
+            assert_ne!(
+                source_val,
+                serde_json::json!("Invalid"),
+                "Rule {label}: source_config evaluates to Invalid"
+            );
+            assert_ne!(
+                target_val,
+                serde_json::json!("Invalid"),
+                "Rule {label}: target_config evaluates to Invalid"
+            );
+            assert_ne!(
+                source_val,
+                serde_json::json!(false),
+                "Rule {label}: source_config evaluates to false"
+            );
+            assert_ne!(
+                target_val,
+                serde_json::json!(false),
+                "Rule {label}: target_config evaluates to false"
             );
         }
     }
 }
-

@@ -196,7 +196,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 sat_seven_clause_example(),
                 SolutionPair {
                     source_config: vec![1, 1, 1, 1, 0],
-                    target_config: vec![1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0],
+                    target_config: vec![
+                        1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0,
+                    ],
                 },
             )
         },

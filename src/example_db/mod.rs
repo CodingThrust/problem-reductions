@@ -56,39 +56,24 @@ fn validate_model_uniqueness(models: &[ModelExample]) -> Result<()> {
 /// Fast — specs store concrete instances and pre-computed solutions,
 /// no solver is called.
 pub fn build_example_db() -> Result<ExampleDb> {
-    compute_example_db()
-}
-
-/// Build the model database from specs.
-pub fn build_model_db() -> Result<ModelDb> {
-    compute_model_db()
-}
-
-/// Build the rule database from specs.
-pub fn build_rule_db() -> Result<RuleDb> {
-    compute_rule_db()
-}
-
-/// Compute the full example database from builder code.
-pub fn compute_example_db() -> Result<ExampleDb> {
-    let model_db = compute_model_db()?;
-    let rule_db = compute_rule_db()?;
+    let model_db = build_model_db()?;
+    let rule_db = build_rule_db()?;
     Ok(ExampleDb {
         models: model_db.models,
         rules: rule_db.rules,
     })
 }
 
-/// Compute the model database from specs.
-pub fn compute_model_db() -> Result<ModelDb> {
+/// Build the model database from specs.
+pub fn build_model_db() -> Result<ModelDb> {
     let mut models = model_builders::build_model_examples();
     models.sort_by_key(model_key);
     validate_model_uniqueness(&models)?;
     Ok(ModelDb { models })
 }
 
-/// Compute the rule database from specs.
-pub fn compute_rule_db() -> Result<RuleDb> {
+/// Build the rule database from specs.
+pub fn build_rule_db() -> Result<RuleDb> {
     let mut rules = rule_builders::build_rule_examples();
     rules.sort_by_key(rule_key);
     validate_rule_uniqueness(&rules)?;

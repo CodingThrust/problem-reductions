@@ -259,8 +259,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 1), (1, 2)]),
             2,
         )),
-        optimal_config: vec![1, 0, 0, 1, 1, 0, 1, 1, 0, 1],
-        optimal_value: serde_json::json!({"Valid": 6}),
+        optimal_config: vec![0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+        optimal_value: serde_json::json!({"Valid": 5}),
     }]
 }
 
