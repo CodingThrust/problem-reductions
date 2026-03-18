@@ -203,7 +203,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 ),
                 vec![One; 10],
             )),
-            optimal_config: vec![1, 0, 0, 0, 1, 0, 1, 0, 1, 0],
+            optimal_config: vec![1, 0, 1, 0, 0, 0, 0, 0, 1, 1],
             optimal_value: serde_json::json!({"Valid": 4}),
         },
         crate::example_db::specs::ModelExampleSpec {
@@ -232,7 +232,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 vec![5, 1, 1, 1, 1, 3, 1, 1, 1, 3],
             )),
             optimal_config: vec![1, 0, 1, 0, 0, 0, 0, 0, 1, 1],
-            optimal_value: serde_json::json!({"Valid": 12}),
+            optimal_value: serde_json::json!({"Valid": 10}),
         },
     ]
 }
