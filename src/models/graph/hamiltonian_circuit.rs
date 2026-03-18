@@ -80,6 +80,11 @@ impl<G: Graph> HamiltonianCircuit<G> {
     pub fn num_edges(&self) -> usize {
         self.graph().num_edges()
     }
+
+    /// Check if a configuration is a valid Hamiltonian circuit.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        is_valid_hamiltonian_circuit(&self.graph, config)
+    }
 }
 
 impl<G> Problem for HamiltonianCircuit<G>
@@ -99,31 +104,40 @@ where
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
-        let n = self.graph.num_vertices();
-        if n < 3 || config.len() != n {
+        is_valid_hamiltonian_circuit(&self.graph, config)
+    }
+}
+
+/// Check if a configuration represents a valid Hamiltonian circuit in the graph.
+///
+/// A valid Hamiltonian circuit is a permutation of the vertices such that
+/// consecutive vertices in the permutation are adjacent in the graph,
+/// including a closing edge from the last vertex back to the first.
+pub(crate) fn is_valid_hamiltonian_circuit<G: Graph>(graph: &G, config: &[usize]) -> bool {
+    let n = graph.num_vertices();
+    if n < 3 || config.len() != n {
+        return false;
+    }
+
+    // Check that config is a valid permutation of 0..n
+    let mut seen = vec![false; n];
+    for &v in config {
+        if v >= n || seen[v] {
             return false;
         }
-
-        // Check that config is a valid permutation of 0..n
-        let mut seen = vec![false; n];
-        for &v in config {
-            if v >= n || seen[v] {
-                return false;
-            }
-            seen[v] = true;
-        }
-
-        // Check that consecutive vertices (including wrap-around) are connected by edges
-        for i in 0..n {
-            let u = config[i];
-            let v = config[(i + 1) % n];
-            if !self.graph.has_edge(u, v) {
-                return false;
-            }
-        }
-
-        true
+        seen[v] = true;
     }
+
+    // Check that consecutive vertices (including wrap-around) are connected by edges
+    for i in 0..n {
+        let u = config[i];
+        let v = config[(i + 1) % n];
+        if !graph.has_edge(u, v) {
+            return false;
+        }
+    }
+
+    true
 }
 
 impl<G: Graph + VariantParam> SatisfactionProblem for HamiltonianCircuit<G> {}

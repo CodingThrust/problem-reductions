@@ -595,21 +595,64 @@ Biconnectivity augmentation is a classical network-design problem: add backup li
   caption: [Biconnectivity Augmentation on a 6-vertex path with $B = 4$. Existing edges are black; green arcs show the selected augmentation $F'$ (total weight 4); dashed gray arcs are unselected candidates. The resulting graph $G' = (V, E union F')$ is biconnected.],
 ) <fig:biconnectivity-augmentation>
 ]
-#problem-def("HamiltonianCircuit")[
-  *Instance:* An undirected graph $G = (V, E)$.
+#{
+  let x = load-model-example("HamiltonianCircuit")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let sol = x.optimal.at(0)
+  let circuit = sol.config
+  // Build circuit edges from consecutive vertices (including wrap-around)
+  let circuit-edges = range(circuit.len()).map(i => (circuit.at(i), circuit.at(calc.rem(i + 1, circuit.len()))))
+  [
+    #problem-def("HamiltonianCircuit")[
+      *Instance:* An undirected graph $G = (V, E)$.
 
-  *Question:* Does $G$ contain a _Hamiltonian circuit_ --- a closed path that visits every vertex exactly once?
-][
-  The Hamiltonian Circuit problem is one of Karp's original 21 NP-complete problems @karp1972, and is listed as GT37 in Garey & Johnson @garey1979.
-  It is closely related to the Traveling Salesman Problem: while TSP seeks to minimize the total weight of a Hamiltonian cycle on a weighted complete graph, the Hamiltonian Circuit problem simply asks whether _any_ such cycle exists on a general (unweighted) graph.
+      *Question:* Does $G$ contain a _Hamiltonian circuit_ --- a closed path that visits every vertex exactly once?
+    ][
+      The Hamiltonian Circuit problem is one of Karp's original 21 NP-complete problems @karp1972, and is listed as GT37 in Garey & Johnson @garey1979.
+      It is closely related to the Traveling Salesman Problem: while TSP seeks to minimize the total weight of a Hamiltonian cycle on a weighted complete graph, the Hamiltonian Circuit problem simply asks whether _any_ such cycle exists on a general (unweighted) graph.
 
-  A configuration is a permutation $pi$ of the vertices, interpreted as the order in which they are visited.
-  The circuit is valid when every consecutive pair $(pi(i), pi(i+1 mod n))$ is an edge in $G$.
+      A configuration is a permutation $pi$ of the vertices, interpreted as the order in which they are visited.
+      The circuit is valid when every consecutive pair $(pi(i), pi(i+1 mod n))$ is an edge in $G$.
 
-  *Algorithms.*
-  The classical Held--Karp dynamic programming algorithm @heldkarp1962 solves the problem in $O(n^2 dot 2^n)$ time and $O(n dot 2^n)$ space.
-  Björklund's randomized "Determinant Sums" algorithm achieves $O^*(1.657^n)$ time for general graphs and $O^*(sqrt(2)^n)$ for bipartite graphs @bjorklund2014.
-]
+      *Algorithms.*
+      The classical Held--Karp dynamic programming algorithm @heldkarp1962 solves the problem in $O(n^2 dot 2^n)$ time and $O(n dot 2^n)$ space.
+      Björklund's randomized "Determinant Sums" algorithm achieves $O^*(1.657^n)$ time for general graphs and $O^*(sqrt(2)^n)$ for bipartite graphs @bjorklund2014.
+
+      *Example.* Consider the triangular prism graph $G$ on #nv vertices with #ne edges. The permutation $[#circuit.map(v => str(v)).join(", ")]$ forms a Hamiltonian circuit: each consecutive pair #circuit-edges.map(((u, v)) => $(#u, #v)$).join($,$) is an edge of $G$, and the path returns to the start.
+
+      #figure({
+        let blue = graph-colors.at(0)
+        let gray = luma(200)
+        canvas(length: 1cm, {
+          import draw: *
+          // Triangular prism: outer triangle + inner triangle
+          let r-out = 1.8
+          let r-in = 0.9
+          let verts = range(3).map(k => {
+            let angle = 90deg - k * 120deg
+            (calc.cos(angle) * r-out, calc.sin(angle) * r-out)
+          }) + range(3).map(k => {
+            let angle = 90deg - k * 120deg
+            (calc.cos(angle) * r-in, calc.sin(angle) * r-in)
+          })
+          for (u, v) in edges {
+            let on-circuit = circuit-edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
+            g-edge(verts.at(u), verts.at(v), stroke: if on-circuit { 2pt + blue } else { 1pt + gray })
+          }
+          for (k, pos) in verts.enumerate() {
+            g-node(pos, name: "v" + str(k),
+              fill: blue,
+              label: text(fill: white)[$v_#k$])
+          }
+        })
+      },
+      caption: [Hamiltonian Circuit in the triangular prism graph. Blue edges show the circuit $#circuit.map(v => $v_#v$).join($arrow$) arrow v_#(circuit.at(0))$.],
+      ) <fig:hamiltonian-circuit>
+    ]
+  ]
+}
 
 
 #problem-def("BoundedComponentSpanningForest")[
