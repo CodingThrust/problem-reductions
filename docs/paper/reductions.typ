@@ -2304,7 +2304,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
           // Step 1: after swap at positions 2,3
           stack(dir: ltr, spacing: 0pt,
             box(width: 2.2cm, height: 0.5cm, align(right + horizon, text(8pt)[swap$(2,3)$: quad])),
-            ..after-swap.map(c => cell(alpha-map.at(c), highlight: c != source.at(after-swap.position(cc => cc == c)))),
+            ..range(after-swap.len()).map(i => cell(alpha-map.at(after-swap.at(i)), highlight: after-swap.at(i) != source.at(i))),
           ),
           // Step 2: after delete at position 5
           stack(dir: ltr, spacing: 0pt,
