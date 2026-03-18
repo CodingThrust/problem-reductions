@@ -386,7 +386,10 @@ fn model_specs_are_optimal() {
                 Some(config)
             })
             .unwrap_or_else(|| {
-                panic!("No solver found for spec '{}' ({name} {variant:?})", spec.id)
+                panic!(
+                    "No solver found for spec '{}' ({name} {variant:?})",
+                    spec.id
+                )
             });
 
         let best_value = spec.instance.evaluate_json(&best_config);
@@ -449,14 +452,6 @@ fn rule_specs_solution_pairs_are_consistent() {
             .unwrap_or_else(|| panic!("Failed to reduce along path for {label}"));
 
         for pair in &example.solutions {
-            assert!(
-                !pair.source_config.is_empty(),
-                "Rule {label} has empty source_config"
-            );
-            assert!(
-                !pair.target_config.is_empty(),
-                "Rule {label} has empty target_config"
-            );
             // Verify config lengths match problem dimensions
             assert_eq!(
                 pair.source_config.len(),

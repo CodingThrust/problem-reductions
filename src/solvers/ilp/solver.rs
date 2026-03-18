@@ -211,9 +211,9 @@ impl ILPSolver {
 
         let mut best_path = None;
         for dv in &ilp_variants {
-            if let Some(path) = graph.find_cheapest_path(
-                name, variant, "ILP", dv, &input_size, &MinimizeSteps,
-            ) {
+            if let Some(path) =
+                graph.find_cheapest_path(name, variant, "ILP", dv, &input_size, &MinimizeSteps)
+            {
                 let is_better = best_path
                     .as_ref()
                     .is_none_or(|current: &crate::rules::ReductionPath| path.len() < current.len());

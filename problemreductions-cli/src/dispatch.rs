@@ -54,14 +54,7 @@ impl LoadedProblem {
             let input_size = ProblemSize::new(vec![]);
             ilp_variants.iter().any(|dv| {
                 graph
-                    .find_cheapest_path(
-                        name,
-                        &variant,
-                        "ILP",
-                        dv,
-                        &input_size,
-                        &MinimizeSteps,
-                    )
+                    .find_cheapest_path(name, &variant, "ILP", dv, &input_size, &MinimizeSteps)
                     .is_some()
             })
         }
