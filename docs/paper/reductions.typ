@@ -855,6 +855,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 #{
   let x = load-model-example("KthBestSpanningTree")
   let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let weights = x.instance.weights
   let m = edges.len()
   let sol = x.optimal.at(0).config
   let tree1 = sol.enumerate().filter(((i, v)) => i < m and v == 1).map(((i, _)) => edges.at(i))
@@ -868,21 +869,27 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 
       Variables: $k |E|$ binary values grouped into $k$ consecutive edge-selection blocks. Entry $x_(i, e) = 1$ means edge $e$ belongs to the $i$-th candidate tree. A configuration is satisfying exactly when each block selects a spanning tree, every selected tree has total weight at most $B$, and the $k$ blocks encode pairwise distinct edge sets.
 
-      *Example.* Consider the 5-vertex graph with weighted edges ${(0,1): 2, (0,2): 3, (1,2): 1, (1,3): 4, (2,3): 2, (2,4): 5, (3,4): 3, (0,4): 6}$. With $k = 3$ and $B = 12$, the spanning trees $T_1 = {(0,1), (1,2), (2,3), (3,4)}$, $T_2 = {(0,1), (1,2), (1,3), (3,4)}$, and $T_3 = {(0,2), (1,2), (2,3), (3,4)}$ have weights $8$, $10$, and $9$, respectively. They are all distinct and all satisfy the bound, so this instance is a YES-instance.
+      *Example.* Consider $K_4$ with edge weights $w = {(0,1): 1, (0,2): 1, (0,3): 2, (1,2): 2, (1,3): 2, (2,3): 3}$. With $k = 2$ and $B = 4$, exactly two of the $16$ spanning trees have total weight $lt.eq 4$: the star $T_1 = {(0,1), (0,2), (0,3)}$ with weight $4$ and $T_2 = {(0,1), (0,2), (1,3)}$ with weight $4$. Since two distinct bounded spanning trees exist, this is a YES-instance.
 
       #figure({
         canvas(length: 1cm, {
-          let pos = ((0.0, 1.2), (1.1, 2.0), (2.3, 1.2), (1.8, 0.0), (0.3, 0.0))
-          for (u, v) in edges {
+          import draw: *
+          let pos = ((0.0, 1.8), (2.4, 1.8), (2.4, 0.0), (0.0, 0.0))
+          for (idx, (u, v)) in edges.enumerate() {
             let in-tree1 = tree1.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
             g-edge(pos.at(u), pos.at(v), stroke: if in-tree1 { 2pt + blue } else { 1pt + gray })
+            let mid-x = (pos.at(u).at(0) + pos.at(v).at(0)) / 2
+            let mid-y = (pos.at(u).at(1) + pos.at(v).at(1)) / 2
+            // Offset diagonal edge labels to avoid overlap at center
+            let (ox, oy) = if u == 0 and v == 2 { (0.3, 0) } else if u == 1 and v == 3 { (-0.3, 0) } else { (0, 0) }
+            content((mid-x + ox, mid-y + oy), text(7pt)[#weights.at(idx)], fill: white, frame: "rect", padding: .06, stroke: none)
           }
           for (idx, p) in pos.enumerate() {
             g-node(p, name: "v" + str(idx), fill: white, label: $v_#idx$)
           }
         })
       },
-      caption: [Kth Best Spanning Tree example graph. Blue edges show $T_1 = {(0,1), (1,2), (2,3), (3,4)}$, one of the three bounded spanning trees used to certify the YES-instance for $k = 3$ and $B = 12$.],
+      caption: [Kth Best Spanning Tree on $K_4$. Blue edges show $T_1 = {(0,1), (0,2), (0,3)}$, one of two spanning trees with weight $lt.eq 4$.],
       ) <fig:kth-best-spanning-tree>
     ]
   ]

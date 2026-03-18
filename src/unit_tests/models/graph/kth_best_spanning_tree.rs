@@ -3,22 +3,13 @@ use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
+/// K4 with weights [1,1,2,2,2,3], k=2, B=4.
+/// 16 spanning trees; exactly 2 have weight ≤ 4:
+///   {01,02,03} (star at 0, w=4) and {01,02,13} (w=4).
+/// Satisfying configs = 2 (the two orderings).
 fn yes_instance() -> KthBestSpanningTree<i32> {
-    let graph = SimpleGraph::new(
-        5,
-        vec![
-            (0, 1),
-            (0, 2),
-            (1, 2),
-            (1, 3),
-            (2, 3),
-            (2, 4),
-            (3, 4),
-            (0, 4),
-        ],
-    );
-    let weights = vec![2, 3, 1, 4, 2, 5, 3, 6];
-    KthBestSpanningTree::new(graph, weights, 3, 12)
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+    KthBestSpanningTree::new(graph, vec![1, 1, 2, 2, 2, 3], 2, 4)
 }
 
 fn no_instance() -> KthBestSpanningTree<i32> {
@@ -33,24 +24,11 @@ fn small_yes_instance() -> KthBestSpanningTree<i32> {
     KthBestSpanningTree::new(graph, weights, 2, 2)
 }
 
+/// Star at 0: edges {01,02,03}, then {01,02,13}.
 fn yes_witness_config() -> Vec<usize> {
     vec![
-        1, 0, 1, 0, 1, 0, 1, 0, // {0,1}, {1,2}, {2,3}, {3,4}
-        1, 0, 1, 1, 0, 0, 1, 0, // {0,1}, {1,2}, {1,3}, {3,4}
-        0, 1, 1, 0, 1, 0, 1, 0, // {0,2}, {1,2}, {2,3}, {3,4}
-    ]
-}
-
-fn duplicate_tree_config() -> Vec<usize> {
-    vec![
-        1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0,
-    ]
-}
-
-fn overweight_tree_config() -> Vec<usize> {
-    vec![
-        1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0,
-        0, // {0,1}, {0,2}, {1,3}, {2,4} => 14
+        1, 1, 1, 0, 0, 0, // block 1: edges 0,1,2 = {01,02,03}
+        1, 1, 0, 0, 1, 0, // block 2: edges 0,1,4 = {01,02,13}
     ]
 }
 
@@ -58,14 +36,14 @@ fn overweight_tree_config() -> Vec<usize> {
 fn test_kthbestspanningtree_creation() {
     let problem = yes_instance();
 
-    assert_eq!(problem.dims(), vec![2; 24]);
-    assert_eq!(problem.graph().num_vertices(), 5);
-    assert_eq!(problem.graph().num_edges(), 8);
-    assert_eq!(problem.num_vertices(), 5);
-    assert_eq!(problem.num_edges(), 8);
-    assert_eq!(problem.k(), 3);
-    assert_eq!(problem.weights(), &[2, 3, 1, 4, 2, 5, 3, 6]);
-    assert_eq!(*problem.bound(), 12);
+    assert_eq!(problem.dims(), vec![2; 12]);
+    assert_eq!(problem.graph().num_vertices(), 4);
+    assert_eq!(problem.graph().num_edges(), 6);
+    assert_eq!(problem.num_vertices(), 4);
+    assert_eq!(problem.num_edges(), 6);
+    assert_eq!(problem.k(), 2);
+    assert_eq!(problem.weights(), &[1, 1, 2, 2, 2, 3]);
+    assert_eq!(*problem.bound(), 4);
     assert!(problem.is_weighted());
     assert_eq!(KthBestSpanningTree::<i32>::NAME, "KthBestSpanningTree");
 }
@@ -80,19 +58,23 @@ fn test_kthbestspanningtree_evaluation_yes_instance() {
 #[test]
 fn test_kthbestspanningtree_evaluation_rejects_duplicate_trees() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&duplicate_tree_config()));
+    // Same tree in both blocks: {01,02,03} twice
+    let dup = vec![1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0];
+    assert!(!problem.evaluate(&dup));
 }
 
 #[test]
 fn test_kthbestspanningtree_evaluation_rejects_overweight_tree() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&overweight_tree_config()));
+    // {01,03,12} w=5 and {01,02,03} w=4: first tree exceeds B=4
+    let config = vec![1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0];
+    assert!(!problem.evaluate(&config));
 }
 
 #[test]
 fn test_kthbestspanningtree_evaluation_rejects_wrong_length_config() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&yes_witness_config()[..23]));
+    assert!(!problem.evaluate(&yes_witness_config()[..11]));
 }
 
 #[test]
@@ -104,13 +86,14 @@ fn test_kthbestspanningtree_evaluation_rejects_nonbinary_value() {
 }
 
 #[test]
-fn test_kthbestspanningtree_solver_yes_instance() {
+fn test_kthbestspanningtree_solver_exhaustive() {
     let problem = yes_instance();
     let solver = BruteForce::new();
 
-    let solution = solver.find_satisfying(&problem);
-    assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    // Exactly 2 spanning trees have weight ≤ 4, so exactly 2! = 2 satisfying configs.
+    let all = solver.find_all_satisfying(&problem);
+    assert_eq!(all.len(), 2);
+    assert!(all.iter().all(|config| problem.evaluate(config)));
 }
 
 #[test]
@@ -144,18 +127,6 @@ fn test_kthbestspanningtree_serialization() {
     assert_eq!(restored.weights(), problem.weights());
     assert_eq!(restored.bound(), problem.bound());
     assert!(restored.evaluate(&yes_witness_config()));
-}
-
-#[test]
-fn test_kthbestspanningtree_paper_example() {
-    let problem = yes_instance();
-    let witness = yes_witness_config();
-
-    assert!(problem.evaluate(&witness));
-
-    let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem).unwrap();
-    assert!(problem.evaluate(&solution));
 }
 
 #[test]
