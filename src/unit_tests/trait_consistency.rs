@@ -150,6 +150,10 @@ fn test_all_problems_implement_trait_correctly() {
         "PartitionIntoPathsOfLength2",
     );
     check_problem_trait(
+        &ResourceConstrainedScheduling::new(3, vec![20], vec![vec![6], vec![7], vec![7]], 2),
+        "ResourceConstrainedScheduling",
+    );
+    check_problem_trait(
         &PartiallyOrderedKnapsack::new(vec![2, 3], vec![3, 2], vec![(0, 1)], 5),
         "PartiallyOrderedKnapsack",
     );

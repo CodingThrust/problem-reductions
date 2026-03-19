@@ -2,6 +2,7 @@
 //!
 //! Problems with unique input structures that don't fit other categories:
 //! - [`BinPacking`]: Bin Packing (minimize bins)
+//! - [`ConjunctiveBooleanQuery`]: Evaluate a conjunctive Boolean query over relations
 //! - [`Factoring`]: Integer factorization
 //! - [`FlowShopScheduling`]: Flow Shop Scheduling (meet deadline on m processors)
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
@@ -12,6 +13,7 @@
 //! - [`PartiallyOrderedKnapsack`]: Knapsack with precedence constraints
 //! - [`PrecedenceConstrainedScheduling`]: Schedule unit tasks on processors by deadline
 //! - [`RectilinearPictureCompression`]: Cover 1-entries with bounded rectangles
+//! - [`ResourceConstrainedScheduling`]: Schedule unit-length tasks on processors with resource constraints
 //! - [`SequencingWithReleaseTimesAndDeadlines`]: Single-machine scheduling feasibility
 //! - [`SequencingWithinIntervals`]: Schedule tasks within time windows
 //! - [`ShortestCommonSupersequence`]: Find a common supersequence of bounded length
@@ -20,6 +22,7 @@
 //! - [`SumOfSquaresPartition`]: Partition integers into K groups minimizing sum of squared group sums
 
 mod bin_packing;
+pub(crate) mod conjunctive_boolean_query;
 pub(crate) mod factoring;
 mod flow_shop_scheduling;
 mod knapsack;
@@ -30,6 +33,7 @@ pub(crate) mod paintshop;
 pub(crate) mod partially_ordered_knapsack;
 mod precedence_constrained_scheduling;
 mod rectilinear_picture_compression;
+pub(crate) mod resource_constrained_scheduling;
 mod sequencing_with_release_times_and_deadlines;
 mod sequencing_within_intervals;
 pub(crate) mod shortest_common_supersequence;
@@ -39,6 +43,7 @@ mod subset_sum;
 pub(crate) mod sum_of_squares_partition;
 
 pub use bin_packing::BinPacking;
+pub use conjunctive_boolean_query::{ConjunctiveBooleanQuery, QueryArg, Relation as CbqRelation};
 pub use factoring::Factoring;
 pub use flow_shop_scheduling::FlowShopScheduling;
 pub use knapsack::Knapsack;
@@ -49,6 +54,7 @@ pub use paintshop::PaintShop;
 pub use partially_ordered_knapsack::PartiallyOrderedKnapsack;
 pub use precedence_constrained_scheduling::PrecedenceConstrainedScheduling;
 pub use rectilinear_picture_compression::RectilinearPictureCompression;
+pub use resource_constrained_scheduling::ResourceConstrainedScheduling;
 pub use sequencing_with_release_times_and_deadlines::SequencingWithReleaseTimesAndDeadlines;
 pub use sequencing_within_intervals::SequencingWithinIntervals;
 pub use shortest_common_supersequence::ShortestCommonSupersequence;
@@ -60,6 +66,7 @@ pub use sum_of_squares_partition::SumOfSquaresPartition;
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let mut specs = Vec::new();
+    specs.extend(conjunctive_boolean_query::canonical_model_example_specs());
     specs.extend(factoring::canonical_model_example_specs());
     specs.extend(longest_common_subsequence::canonical_model_example_specs());
     specs.extend(multiprocessor_scheduling::canonical_model_example_specs());
@@ -68,6 +75,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(sequencing_within_intervals::canonical_model_example_specs());
     specs.extend(staff_scheduling::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
+    specs.extend(resource_constrained_scheduling::canonical_model_example_specs());
     specs.extend(partially_ordered_knapsack::canonical_model_example_specs());
     specs.extend(string_to_string_correction::canonical_model_example_specs());
     specs.extend(minimum_tardiness_sequencing::canonical_model_example_specs());

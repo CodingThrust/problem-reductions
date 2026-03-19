@@ -260,6 +260,7 @@ Flags by problem type:
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
   PartitionIntoPathsOfLength2     --graph
+  ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   QAP                             --matrix (cost), --distance-matrix
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
@@ -270,6 +271,7 @@ Flags by problem type:
   SCS                             --strings, --bound [--alphabet-size]
   StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
+  CBQ                              --domain-size, --relations, --conjuncts-spec
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -498,13 +500,19 @@ pub struct CreateArgs {
     /// Precedence pairs for MinimumTardinessSequencing (e.g., "0>3,1>3,1>4,2>4")
     #[arg(long)]
     pub precedence_pairs: Option<String>,
+    /// Resource bounds for ResourceConstrainedScheduling (comma-separated, e.g., "20,15")
+    #[arg(long)]
+    pub resource_bounds: Option<String>,
+    /// Resource requirements for ResourceConstrainedScheduling (semicolon-separated rows, each row comma-separated, e.g., "6,3;7,4;5,2")
+    #[arg(long)]
+    pub resource_requirements: Option<String>,
     /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
     #[arg(long)]
     pub task_lengths: Option<String>,
-    /// Deadline for FlowShopScheduling or MultiprocessorScheduling
+    /// Deadline for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
     #[arg(long)]
     pub deadline: Option<u64>,
-    /// Number of processors/machines for FlowShopScheduling or MultiprocessorScheduling
+    /// Number of processors/machines for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
     #[arg(long)]
     pub num_processors: Option<usize>,
     /// Binary schedule patterns for StaffScheduling (semicolon-separated rows, e.g., "1,1,0;0,1,1")
@@ -519,6 +527,15 @@ pub struct CreateArgs {
     /// Alphabet size for LCS, SCS, or StringToStringCorrection (optional; inferred from the input strings if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+    /// Domain size for ConjunctiveBooleanQuery
+    #[arg(long)]
+    pub domain_size: Option<usize>,
+    /// Relations for ConjunctiveBooleanQuery (format: "arity:tuple1|tuple2;arity:tuple1|tuple2")
+    #[arg(long)]
+    pub relations: Option<String>,
+    /// Conjuncts for ConjunctiveBooleanQuery (format: "rel:args;rel:args" where args use v0,v1 for variables, c0,c1 for constants)
+    #[arg(long)]
+    pub conjuncts_spec: Option<String>,
     /// Functional dependencies (semicolon-separated, each dep is lhs>rhs with comma-separated indices, e.g., "0,1>2,3;2,3>0,1")
     #[arg(long)]
     pub deps: Option<String>,

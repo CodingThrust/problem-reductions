@@ -188,7 +188,12 @@ fn test_partially_ordered_knapsack_invalid_precedence() {
 #[test]
 #[should_panic(expected = "precedences contain a cycle")]
 fn test_partially_ordered_knapsack_cycle() {
-    PartiallyOrderedKnapsack::new(vec![1, 2, 3], vec![1, 2, 3], vec![(0, 1), (1, 2), (2, 0)], 10);
+    PartiallyOrderedKnapsack::new(
+        vec![1, 2, 3],
+        vec![1, 2, 3],
+        vec![(0, 1), (1, 2), (2, 0)],
+        10,
+    );
 }
 
 #[test]
