@@ -15,6 +15,7 @@ from pipeline_pr import (
     edit_pr_body,
     extract_codecov_summary,
     extract_linked_issue_number,
+    fetch_linked_issue_bundle,
     format_issue_context,
     post_pr_comment,
     parse_args,
@@ -87,6 +88,87 @@ class PipelinePrHelpersTests(unittest.TestCase):
             "No explicit closing keyword here.",
         )
         self.assertEqual(linked_issue, 117)
+
+    @mock.patch("pipeline_pr.fetch_issue_data")
+    def test_fetch_linked_issue_bundle_prefers_closing_issue_references(
+        self,
+        fetch_issue_data: mock.Mock,
+    ) -> None:
+        fetch_issue_data.return_value = {
+            "number": 210,
+            "title": "[Model] Partition",
+        }
+
+        issue_number, issue = fetch_linked_issue_bundle(
+            "CodingThrust/problem-reductions",
+            {
+                "title": "Fix #19: stale title reference",
+                "body": "This PR still mentions Fixes #19 in copied text.",
+                "closingIssuesReferences": [
+                    {"number": 210, "title": "[Model] Partition"},
+                ],
+            },
+        )
+
+        self.assertEqual(issue_number, 210)
+        self.assertEqual(issue, {"number": 210, "title": "[Model] Partition"})
+        fetch_issue_data.assert_called_once_with("CodingThrust/problem-reductions", 210)
+
+    @mock.patch("pipeline_pr.fetch_issue_data")
+    def test_fetch_linked_issue_bundle_checks_all_candidates_and_prefers_title_match(
+        self,
+        fetch_issue_data: mock.Mock,
+    ) -> None:
+        issues = {
+            19: {"number": 19, "title": "[Rule] Coloring -> ILP"},
+            210: {"number": 210, "title": "[Model] Partition"},
+        }
+        fetch_issue_data.side_effect = lambda repo, number: issues[number]
+
+        issue_number, issue = fetch_linked_issue_bundle(
+            "CodingThrust/problem-reductions",
+            {
+                "title": "Fix #19: [Model] Partition",
+                "body": "Also closes #210.",
+                "closingIssuesReferences": [
+                    {"number": 19},
+                    {"number": 210},
+                ],
+            },
+        )
+
+        self.assertEqual(issue_number, 210)
+        self.assertEqual(issue, {"number": 210, "title": "[Model] Partition"})
+        self.assertEqual(fetch_issue_data.call_args_list, [
+            mock.call("CodingThrust/problem-reductions", 19),
+            mock.call("CodingThrust/problem-reductions", 210),
+        ])
+
+    @mock.patch("pipeline_pr.fetch_issue_data")
+    def test_fetch_linked_issue_bundle_uses_latest_issue_when_scores_tie(
+        self,
+        fetch_issue_data: mock.Mock,
+    ) -> None:
+        issues = {
+            19: {"number": 19, "title": "[Model] Old"},
+            210: {"number": 210, "title": "[Model] Newer"},
+        }
+        fetch_issue_data.side_effect = lambda repo, number: issues[number]
+
+        issue_number, issue = fetch_linked_issue_bundle(
+            "CodingThrust/problem-reductions",
+            {
+                "title": "Refresh implementation",
+                "body": "Touches multiple linked issues.",
+                "closingIssuesReferences": [
+                    {"number": 19},
+                    {"number": 210},
+                ],
+            },
+        )
+
+        self.assertEqual(issue_number, 210)
+        self.assertEqual(issue, {"number": 210, "title": "[Model] Newer"})
 
     def test_summarize_comments_splits_human_copilot_and_codecov_sources(self) -> None:
         summary = summarize_comments(
@@ -204,6 +286,48 @@ class PipelinePrHelpersTests(unittest.TestCase):
         self.assertEqual(snapshot["codecov"]["patch_coverage"], 84.21)
         self.assertEqual(snapshot["counts"]["files"], 1)
         self.assertEqual(snapshot["counts"]["commits"], 2)
+
+    def test_build_snapshot_prefers_closing_issue_references_when_inferring_link(self) -> None:
+        snapshot = build_snapshot(
+            {
+                "number": 664,
+                "title": "Fix #19: stale title reference",
+                "body": "Copied text still says Fixes #19.",
+                "state": "OPEN",
+                "url": "https://github.com/CodingThrust/problem-reductions/pull/664",
+                "headRefName": "issue-210-partition-v2",
+                "baseRefName": "main",
+                "mergeable": "CONFLICTING",
+                "headRefOid": "abc123",
+                "labels": [],
+                "files": [],
+                "commits": [],
+                "closingIssuesReferences": [{"number": 210}],
+            }
+        )
+
+        self.assertEqual(snapshot["linked_issue_number"], 210)
+
+    def test_build_snapshot_uses_latest_linked_issue_number_when_multiple_candidates_exist(self) -> None:
+        snapshot = build_snapshot(
+            {
+                "number": 700,
+                "title": "Refresh implementation",
+                "body": "References multiple issues.",
+                "state": "OPEN",
+                "url": "https://github.com/CodingThrust/problem-reductions/pull/700",
+                "headRefName": "refresh-linked-issues",
+                "baseRefName": "main",
+                "mergeable": "MERGEABLE",
+                "headRefOid": "def456",
+                "labels": [],
+                "files": [],
+                "commits": [],
+                "closingIssuesReferences": [{"number": 19}, {"number": 210}],
+            }
+        )
+
+        self.assertEqual(snapshot["linked_issue_number"], 210)
 
     def test_build_current_pr_context_includes_repo_and_pr_fields(self) -> None:
         current = build_current_pr_context(
@@ -406,7 +530,11 @@ class PipelinePrHelpersTests(unittest.TestCase):
         context = build_pr_context("CodingThrust/problem-reductions", 570)
 
         build_pr_snapshot.assert_called_once_with("CodingThrust/problem-reductions", 570)
-        build_comments_summary.assert_called_once_with("CodingThrust/problem-reductions", 570)
+        build_comments_summary.assert_called_once_with(
+            "CodingThrust/problem-reductions",
+            570,
+            linked_issue_number=117,
+        )
         build_linked_issue_context.assert_called_once()
         self.assertEqual(context["pr_number"], 570)
         self.assertEqual(context["issue_context_text"], "# [Model] GraphPartitioning")

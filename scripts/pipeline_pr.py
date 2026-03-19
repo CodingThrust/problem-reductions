@@ -49,17 +49,73 @@ def is_bot_login(login: str) -> bool:
 
 
 def extract_linked_issue_number(title: str | None, body: str | None) -> int | None:
-    for text in [body or "", title or ""]:
-        match = _CLOSING_ISSUE_RE.search(text)
-        if match:
-            return int(match.group(1))
+    issue_numbers = extract_linked_issue_numbers(title, body)
+    return issue_numbers[0] if issue_numbers else None
+
+
+def extract_linked_issue_numbers(title: str | None, body: str | None) -> list[int]:
+    issue_numbers: list[int] = []
+
+    def append_unique(number: int) -> None:
+        if number not in issue_numbers:
+            issue_numbers.append(number)
 
     for text in [body or "", title or ""]:
-        match = _GENERIC_ISSUE_RE.search(text)
-        if match:
-            return int(match.group(1))
+        for match in _CLOSING_ISSUE_RE.finditer(text):
+            append_unique(int(match.group(1)))
 
-    return None
+    for text in [body or "", title or ""]:
+        for match in _GENERIC_ISSUE_RE.finditer(text):
+            append_unique(int(match.group(1)))
+
+    return issue_numbers
+
+
+def extract_linked_issue_number_from_pr_data(pr_data: dict | None) -> int | None:
+    issue_numbers = extract_linked_issue_numbers_from_pr_data(pr_data)
+    return max(issue_numbers) if issue_numbers else None
+
+
+def extract_linked_issue_numbers_from_pr_data(pr_data: dict | None) -> list[int]:
+    issue_numbers: list[int] = []
+
+    def append_unique(number: int) -> None:
+        if number not in issue_numbers:
+            issue_numbers.append(number)
+
+    if pr_data:
+        for issue in pr_data.get("closingIssuesReferences") or []:
+            number = issue.get("number")
+            if number is not None:
+                append_unique(int(number))
+
+    if issue_numbers:
+        return issue_numbers
+
+    if not pr_data:
+        return []
+
+    return extract_linked_issue_numbers(pr_data.get("title"), pr_data.get("body"))
+
+
+def _normalized_match_text(text: str | None) -> str:
+    return " ".join((text or "").lower().split())
+
+
+def score_linked_issue_candidate(pr_data: dict, issue: dict) -> tuple[int, int]:
+    score = 0
+    pr_title = _normalized_match_text(pr_data.get("title"))
+    pr_body = _normalized_match_text(pr_data.get("body"))
+    issue_title = _normalized_match_text(issue.get("title"))
+    issue_number = int(issue.get("number") or -1)
+
+    if issue_title:
+        if issue_title in pr_title:
+            score += 100
+        if issue_title in pr_body:
+            score += 40
+
+    return score, issue_number
 
 
 def normalize_issue_thread_comment(comment: dict) -> dict:
@@ -292,10 +348,7 @@ def build_snapshot(
     codecov_summary: dict | None = None,
 ) -> dict:
     if linked_issue_number is None:
-        linked_issue_number = extract_linked_issue_number(
-            pr_data.get("title"),
-            pr_data.get("body"),
-        )
+        linked_issue_number = extract_linked_issue_number_from_pr_data(pr_data)
 
     labels = [label.get("name") for label in pr_data.get("labels", []) if label.get("name")]
     files = [
@@ -428,7 +481,11 @@ def build_context_result(
 
 def build_pr_context(repo: str, pr_number: int) -> dict:
     snapshot = build_pr_snapshot(repo, pr_number)
-    comments = build_comments_summary(repo, pr_number)
+    comments = build_comments_summary(
+        repo,
+        pr_number,
+        linked_issue_number=snapshot.get("linked_issue_number"),
+    )
     linked_issue_result = build_linked_issue_context(
         repo,
         pr_number,
@@ -478,7 +535,8 @@ def fetch_pr_data(repo: str, pr_number: int) -> dict:
         "--json",
         (
             "number,title,body,labels,files,additions,deletions,commits,"
-            "headRefName,baseRefName,headRefOid,url,state,mergeable,author"
+            "headRefName,baseRefName,headRefOid,url,state,mergeable,author,"
+            "closingIssuesReferences"
         ),
     )
 
@@ -562,10 +620,12 @@ def fetch_check_runs(repo: str, head_sha: str) -> dict:
 
 
 def fetch_linked_issue_bundle(repo: str, pr_data: dict) -> tuple[int | None, dict | None]:
-    issue_number = extract_linked_issue_number(pr_data.get("title"), pr_data.get("body"))
-    if issue_number is None:
+    issue_numbers = extract_linked_issue_numbers_from_pr_data(pr_data)
+    if not issue_numbers:
         return None, None
-    return issue_number, fetch_issue_data(repo, issue_number)
+    issues = [fetch_issue_data(repo, issue_number) for issue_number in issue_numbers]
+    best_issue = max(issues, key=lambda issue: score_linked_issue_candidate(pr_data, issue))
+    return int(best_issue["number"]), best_issue
 
 
 def fetch_ci_summary(repo: str, pr_number: int, pr_data: dict | None = None) -> dict:
@@ -580,12 +640,16 @@ def fetch_ci_summary(repo: str, pr_number: int, pr_data: dict | None = None) -> 
     return summary
 
 
-def build_comments_summary(repo: str, pr_number: int, pr_data: dict | None = None) -> dict:
+def build_comments_summary(
+    repo: str,
+    pr_number: int,
+    pr_data: dict | None = None,
+    *,
+    linked_issue_number: int | None = None,
+) -> dict:
     pr_data = pr_data or fetch_pr_data(repo, pr_number)
-    linked_issue_number = extract_linked_issue_number(
-        pr_data.get("title"),
-        pr_data.get("body"),
-    )
+    if linked_issue_number is None:
+        linked_issue_number = extract_linked_issue_number_from_pr_data(pr_data)
 
     summary = summarize_comments(
         inline_comments=fetch_inline_comments(repo, pr_number),

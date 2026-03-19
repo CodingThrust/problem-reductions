@@ -76,7 +76,7 @@ For `[Rule]` issues, `ISSUE_JSON` already includes `source_problem`, `target_pro
 
 ### 4. Research References
 
-Use `WebSearch` and `WebFetch` to look up the reference URL provided in the issue. This helps:
+Use web search to look up the reference URL provided in the issue. This helps:
 - Clarify the formal problem definition and notation
 - Understand the reduction algorithm in detail (variable mapping, penalty terms, proof of correctness)
 - Resolve any ambiguities in the issue description without bothering the contributor
@@ -104,8 +104,8 @@ Include the concrete details from the issue (problem definition, reduction algor
 - Otherwise, ensure the information provided is enough to implement a solver.
 
 **Example rules:**
-- Implement the user-provided example instance as an example program in `examples/`.
-- Run the example; verify JSON output against user-provided information.
+- Implement the user-provided example instance in the canonical `example_db` path for the issue (`src/example_db/model_builders.rs` or `src/example_db/rule_builders.rs`, as appropriate).
+- Run the relevant export and fixture regeneration steps; verify the generated example data against the user-provided information.
 - Present in `docs/paper/reductions.typ` in tutorial style with clear intuition (see KColoring->QUBO section for reference).
 
 ### 6. Create PR (or Resume Existing)
@@ -180,7 +180,7 @@ If execution fails, leave the PR open with the plan commit only — the user can
 
 Structural and quality review is handled by the `review-pipeline` stage, not here. The run stage just needs to produce working code.
 
-**Commit all changes** (implementation):
+Ensure all implementation changes are committed before cleanup. A small coherent commit stack is acceptable, especially when resuming an existing PR or integrating subagent work; do not rewrite history just to collapse commits. If there are still uncommitted implementation changes, commit them now:
 ```bash
 git add -A
 git commit -m "Implement #<number>: <title>"
