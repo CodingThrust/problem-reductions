@@ -4,50 +4,51 @@ use crate::traits::Problem;
 
 #[test]
 fn test_sequencing_within_intervals_creation() {
+    // 5 tasks with overlapping availability windows
     let problem = SequencingWithinIntervals::new(
-        vec![0, 0, 0, 0, 5],
-        vec![11, 11, 11, 11, 6],
-        vec![3, 1, 2, 4, 1],
+        vec![0, 1, 3, 6, 0],
+        vec![5, 8, 9, 12, 12],
+        vec![2, 2, 2, 3, 2],
     );
     assert_eq!(problem.num_tasks(), 5);
-    assert_eq!(problem.release_times(), &[0, 0, 0, 0, 5]);
-    assert_eq!(problem.deadlines(), &[11, 11, 11, 11, 6]);
-    assert_eq!(problem.lengths(), &[3, 1, 2, 4, 1]);
+    assert_eq!(problem.release_times(), &[0, 1, 3, 6, 0]);
+    assert_eq!(problem.deadlines(), &[5, 8, 9, 12, 12]);
+    assert_eq!(problem.lengths(), &[2, 2, 2, 3, 2]);
     // dims: d[i] - r[i] - l[i] + 1
-    // Task 0: 11 - 0 - 3 + 1 = 9
-    // Task 1: 11 - 0 - 1 + 1 = 11
-    // Task 2: 11 - 0 - 2 + 1 = 10
-    // Task 3: 11 - 0 - 4 + 1 = 8
-    // Task 4: 6 - 5 - 1 + 1 = 1
-    assert_eq!(problem.dims(), vec![9, 11, 10, 8, 1]);
+    // Task 0: 5 - 0 - 2 + 1 = 4
+    // Task 1: 8 - 1 - 2 + 1 = 6
+    // Task 2: 9 - 3 - 2 + 1 = 5
+    // Task 3: 12 - 6 - 3 + 1 = 4
+    // Task 4: 12 - 0 - 2 + 1 = 11
+    assert_eq!(problem.dims(), vec![4, 6, 5, 4, 11]);
 }
 
 #[test]
 fn test_sequencing_within_intervals_evaluation_feasible() {
     let problem = SequencingWithinIntervals::new(
-        vec![0, 0, 0, 0, 5],
-        vec![11, 11, 11, 11, 6],
-        vec![3, 1, 2, 4, 1],
+        vec![0, 1, 3, 6, 0],
+        vec![5, 8, 9, 12, 12],
+        vec![2, 2, 2, 3, 2],
     );
-    // Task 0: config=0 -> start=0, runs [0,3)
-    // Task 1: config=6 -> start=6, runs [6,7)
-    // Task 2: config=3 -> start=3, runs [3,5)
-    // Task 3: config=7 -> start=7, runs [7,11)
-    // Task 4: config=0 -> start=5, runs [5,6)
+    // Task 0: config=0 -> start=0, runs [0,2)
+    // Task 1: config=1 -> start=2, runs [2,4)
+    // Task 2: config=1 -> start=4, runs [4,6)
+    // Task 3: config=0 -> start=6, runs [6,9)
+    // Task 4: config=9 -> start=9, runs [9,11)
     // No overlaps.
-    assert!(problem.evaluate(&[0, 6, 3, 7, 0]));
+    assert!(problem.evaluate(&[0, 1, 1, 0, 9]));
 }
 
 #[test]
 fn test_sequencing_within_intervals_evaluation_infeasible_overlap() {
     let problem = SequencingWithinIntervals::new(
-        vec![0, 0, 0, 0, 5],
-        vec![11, 11, 11, 11, 6],
-        vec![3, 1, 2, 4, 1],
+        vec![0, 1, 3, 6, 0],
+        vec![5, 8, 9, 12, 12],
+        vec![2, 2, 2, 3, 2],
     );
-    // Task 0: config=0 -> start=0, runs [0,3)
-    // Task 1: config=1 -> start=1, runs [1,2) -- overlaps with task 0
-    assert!(!problem.evaluate(&[0, 1, 3, 7, 0]));
+    // Task 0: config=0 -> start=0, runs [0,2)
+    // Task 1: config=0 -> start=1, runs [1,3) -- overlaps with task 0
+    assert!(!problem.evaluate(&[0, 0, 1, 0, 9]));
 }
 
 #[test]
@@ -77,12 +78,12 @@ fn test_sequencing_within_intervals_solver() {
 }
 
 #[test]
-fn test_sequencing_within_intervals_solver_partition_example() {
-    // Instance from the plan (PARTITION reduction)
+fn test_sequencing_within_intervals_solver_canonical() {
+    // Canonical instance: 5 tasks with overlapping windows
     let problem = SequencingWithinIntervals::new(
-        vec![0, 0, 0, 0, 5],
-        vec![11, 11, 11, 11, 6],
-        vec![3, 1, 2, 4, 1],
+        vec![0, 1, 3, 6, 0],
+        vec![5, 8, 9, 12, 12],
+        vec![2, 2, 2, 3, 2],
     );
     let solver = BruteForce::new();
     let solution = solver.find_satisfying(&problem);
@@ -145,6 +146,33 @@ fn test_sequencing_within_intervals_single_task() {
     assert!(problem.evaluate(&[0]));
     assert!(problem.evaluate(&[1]));
     assert!(problem.evaluate(&[2]));
+}
+
+#[test]
+fn test_sequencing_within_intervals_find_all_satisfying() {
+    // Issue #219 canonical instance: 5 tasks with overlapping windows
+    // dims = [4, 6, 5, 4, 11], search space = 5280
+    let problem = SequencingWithinIntervals::new(
+        vec![0, 1, 3, 6, 0],
+        vec![5, 8, 9, 12, 12],
+        vec![2, 2, 2, 3, 2],
+    );
+    let solver = BruteForce::new();
+    let solutions = solver.find_all_satisfying(&problem);
+    for sol in &solutions {
+        assert!(problem.evaluate(sol));
+    }
+    // Canonical witness config must be among solutions
+    assert!(solutions.contains(&vec![0, 1, 1, 0, 9]));
+    assert_eq!(solutions.len(), 41);
+}
+
+#[test]
+fn test_sequencing_within_intervals_find_all_satisfying_empty() {
+    // Two tasks that must both use time [0,2), impossible without overlap
+    let problem = SequencingWithinIntervals::new(vec![0, 0], vec![2, 2], vec![2, 2]);
+    let solver = BruteForce::new();
+    assert!(solver.find_all_satisfying(&problem).is_empty());
 }
 
 #[test]

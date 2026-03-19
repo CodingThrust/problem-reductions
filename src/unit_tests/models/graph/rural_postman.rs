@@ -176,6 +176,39 @@ fn test_rural_postman_brute_force_no_solution() {
 }
 
 #[test]
+fn test_rural_postman_find_all_satisfying() {
+    // Issue #248 instance 1: hexagonal graph, 6 vertices, 8 edges
+    // Required edges E'={{0,1},{2,3},{4,5}}, B=6
+    // Search space = 3^8 = 6561
+    let problem = hexagon_rpp();
+    let solver = BruteForce::new();
+    let solutions = solver.find_all_satisfying(&problem);
+    for sol in &solutions {
+        assert!(problem.evaluate(sol));
+    }
+    // The issue witness (hexagon cycle, all multiplicity 1) must be among solutions
+    assert!(solutions.contains(&vec![1, 1, 1, 1, 1, 1, 0, 0]));
+    // Only the hexagon cycle (cost 6 = B) satisfies; diagonals cost 2 each
+    assert_eq!(solutions.len(), 1);
+}
+
+#[test]
+fn test_rural_postman_find_all_satisfying_empty() {
+    // Issue #248 instance 2: required edges {0,1} and {4,5} are far apart
+    // Minimum circuit cost ≥ 8 > B=4
+    let graph = SimpleGraph::new(
+        6,
+        vec![(0, 1), (1, 2), (2, 3), (3, 0), (3, 4), (4, 5), (5, 3)],
+    );
+    let edge_lengths = vec![1, 1, 1, 1, 3, 1, 3];
+    let required_edges = vec![0, 5];
+    let bound = 4;
+    let problem = RuralPostman::new(graph, edge_lengths, required_edges, bound);
+    let solver = BruteForce::new();
+    assert!(solver.find_all_satisfying(&problem).is_empty());
+}
+
+#[test]
 fn test_rural_postman_serialization() {
     let problem = chinese_postman_rpp();
     let json = serde_json::to_value(&problem).unwrap();
