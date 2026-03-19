@@ -259,6 +259,7 @@ Flags by problem type:
   LCS                             --strings, --bound [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
+  PartitionIntoPathsOfLength2     --graph
   ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   QAP                             --matrix (cost), --distance-matrix

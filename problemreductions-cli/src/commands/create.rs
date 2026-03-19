@@ -2149,6 +2149,25 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // PartitionIntoPathsOfLength2
+        "PartitionIntoPathsOfLength2" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create PartitionIntoPathsOfLength2 --graph 0-1,1-2,3-4,4-5"
+                )
+            })?;
+            if graph.num_vertices() % 3 != 0 {
+                bail!(
+                    "PartitionIntoPathsOfLength2 requires vertex count divisible by 3, got {}",
+                    graph.num_vertices()
+                );
+            }
+            (
+                ser(problemreductions::models::graph::PartitionIntoPathsOfLength2::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // ConjunctiveBooleanQuery
         "ConjunctiveBooleanQuery" => {
             let usage = "Usage: pred create CBQ --domain-size 6 --relations \"2:0,3|1,3;3:0,1,5|1,2,5\" --conjuncts-spec \"0:v0,c3;0:v1,c3;1:v0,v1,c5\"";

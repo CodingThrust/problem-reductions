@@ -55,8 +55,8 @@ pub mod prelude {
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
         MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut,
         MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
-        OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, TravelingSalesman,
-        UndirectedTwoCommodityIntegralFlow,
+        OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
+        RuralPostman, TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
         BinPacking, CbqRelation, ConjunctiveBooleanQuery, Factoring, FlowShopScheduling, Knapsack,
