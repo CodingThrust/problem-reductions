@@ -129,6 +129,8 @@ class MakeHelpersTests(unittest.TestCase):
                 "/tmp/state.json",
                 "--format",
                 "text",
+                "--repo-root",
+                ".",
             ],
         )
 
@@ -189,6 +191,8 @@ class MakeHelpersTests(unittest.TestCase):
                 "/tmp/state.json",
                 "--format",
                 "json",
+                "--repo-root",
+                ".",
             ],
         )
 
@@ -334,7 +338,7 @@ class MakeHelpersTests(unittest.TestCase):
                 (
                     ". scripts/make_helpers.sh; "
                     "python3() { printf '%s\\n' \"$@\"; }; "
-                    "review_pipeline_context CodingThrust/problem-reductions 570 /tmp/review.json"
+                    "review_pipeline_context CodingThrust/problem-reductions 570"
                 ),
             ],
             cwd=REPO_ROOT,
@@ -349,8 +353,6 @@ class MakeHelpersTests(unittest.TestCase):
                 "review-pipeline",
                 "--repo",
                 "CodingThrust/problem-reductions",
-                "--state-file",
-                "/tmp/review.json",
                 "--format",
                 "json",
                 "--pr",
@@ -377,8 +379,111 @@ class MakeHelpersTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn('board_next_json ready "" "" "$state_file"', proc.stdout)
+        self.assertIn('board_next_json ready "" "" "$tmp_state"', proc.stdout)
         self.assertIn('skill_prompt_with_context project-pipeline', proc.stdout)
+
+    def test_watch_and_dispatch_uses_persistent_default_state_file(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "poll_project_items() { printf 'state:%s\\n' \"$2\" >&2; return 2; }; "
+                    "watch_and_dispatch ready run-pipeline 'Ready issues'"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn(
+            "state:/tmp/problemreductions-ready-forever-state.json",
+            proc.stderr,
+        )
+
+    def test_watch_and_dispatch_sleeps_after_successful_dispatch(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "flag=/tmp/test-watch-and-dispatch-$$; "
+                    "rm -f \"$flag\"; "
+                    "date() { printf '2026-03-16 00:00:00'; }; "
+                    "poll_project_items() { "
+                    "  if [ ! -f \"$flag\" ]; then : > \"$flag\"; printf 'PVTI_1\\t42\\n'; return 0; fi; "
+                    "  return 2; "
+                    "}; "
+                    "make() { printf 'make:%s %s\\n' \"$1\" \"$2\"; return 0; }; "
+                    "ack_polled_item() { printf 'ack:%s\\n' \"$2\"; }; "
+                    "sleep() { printf 'sleep:%s\\n' \"$1\"; return 0; }; "
+                    "MAKE=make POLL_INTERVAL=600 "
+                    "watch_and_dispatch ready run-pipeline 'Ready issues'"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn("make:run-pipeline N=42", proc.stdout)
+        self.assertIn("ack:PVTI_1", proc.stdout)
+        self.assertIn("sleep:600", proc.stdout)
+
+    def test_watch_and_dispatch_calls_poll_with_correct_args(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "state_tmp=$(mktemp); "
+                    'printf \'{"pending":["a","b"],"visible":{}}\' > "$state_tmp"; '
+                    "poll_project_items() { printf 'mode:%s state:%s\\n' \"$1\" \"$2\" >&2; return 2; }; "
+                    "STATE_FILE=\"$state_tmp\" "
+                    "watch_and_dispatch ready run-pipeline 'Ready issues'"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn("mode:ready state:", proc.stderr)
+
+    def test_watch_and_dispatch_handles_missing_state_file(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "poll_project_items() { printf 'mode:%s\\n' \"$1\" >&2; return 2; }; "
+                    "STATE_FILE=/tmp/nonexistent-state-$$.json "
+                    "watch_and_dispatch ready run-pipeline 'Ready issues'"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn("mode:ready", proc.stderr)
 
     def test_pr_snapshot_uses_pipeline_pr_cli(self) -> None:
         if shutil.which("dash") is None:

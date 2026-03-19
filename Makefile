@@ -1,10 +1,13 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review arxiv-figures
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review arxiv-figures
 
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
 CODEX_MODEL ?= gpt-5.4
+
+# Cross-platform sed in-place: macOS needs -i '', Linux needs -i
+SED_I := sed -i$(shell if [ "$$(uname)" = "Darwin" ]; then echo " ''"; fi)
 
 # Default target
 help:
@@ -19,13 +22,12 @@ help:
 	@echo "  diagrams     - Generate SVG diagrams from Typst (light + dark)"
 	@echo "  arxiv-figures - Compile arxiv figure Typst files to PDF"
 	@echo "  mdbook       - Build and serve mdBook (with live reload)"
-	@echo "  paper        - Build Typst paper (requires typst)"
+	@echo "  paper        - Build Typst paper from checked-in fixtures (requires typst)"
 	@echo "  coverage     - Generate coverage report (requires cargo-llvm-cov)"
 	@echo "  clean        - Clean build artifacts"
 	@echo "  check        - Quick check (fmt + clippy + test)"
 	@echo "  rust-export  - Generate Rust mapping JSON exports"
 	@echo "  compare      - Generate and compare Rust mapping exports"
-	@echo "  examples     - Generate example JSON for paper"
 	@echo "  export-schemas - Export problem schemas to JSON"
 	@echo "  qubo-testdata - Regenerate QUBO test data (requires uv)"
 	@echo "  jl-testdata  - Regenerate Julia parity test data (requires julia)"
@@ -37,7 +39,7 @@ help:
 	@echo "  run-pipeline [N=<number>] - Pick a Ready issue, implement, move to Review pool"
 	@echo "  run-pipeline-forever - Loop: poll Ready column for new issues, run-pipeline when new ones appear"
 	@echo "  run-review [N=<number>] - Pick PR from Review pool, fix comments/CI, run agentic tests"
-	@echo "  run-review-forever - Loop: poll Review pool for Copilot-reviewed PRs, run-review when new ones appear"
+	@echo "  run-review-forever - Loop: poll Review pool for eligible PRs, dispatch run-review"
 	@echo "  board-next MODE=<ready|review|final-review> [NUMBER=<n>] [FORMAT=text|json] - Get the next eligible queued project item"
 	@echo "  board-claim MODE=<ready|review> [NUMBER=<n>] [FORMAT=text|json] - Claim and move the next eligible queued project item"
 	@echo "  board-ack MODE=<ready|review|final-review> ITEM=<id> - Acknowledge a queued project item"
@@ -123,20 +125,18 @@ mdbook:
 	python3 -m http.server 3001 -d book &
 	@sleep 1 && (command -v xdg-open >/dev/null && xdg-open http://localhost:3001 || open http://localhost:3001)
 
-# Generate all example JSON files for the paper
-examples:
-	cargo run --features "ilp-highs example-db" --example export_examples
-	cargo run --features ilp-highs --example export_petersen_mapping
 
 # Export problem schemas to JSON
 export-schemas:
 	cargo run --example export_schemas
 
-# Build Typst paper (generates examples first)
-paper: examples
+# Build Typst paper (generates example data on demand)
+paper:
+	cargo run --features "example-db" --example export_examples
+	cargo run --example export_petersen_mapping
 	cargo run --example export_graph
 	cargo run --example export_schemas
-	cd docs/paper && typst compile --root .. reductions.typ reductions.pdf
+	typst compile --root . docs/paper/reductions.typ docs/paper/reductions.pdf
 
 # Generate coverage report (requires: cargo install cargo-llvm-cov)
 coverage:
@@ -164,11 +164,11 @@ ifndef V
 	$(error Usage: make release V=x.y.z)
 endif
 	@echo "Releasing v$(V)..."
-	sed -i '' 's/^version = ".*"/version = "$(V)"/' Cargo.toml
-	sed -i '' 's/^version = ".*"/version = "$(V)"/' problemreductions-macros/Cargo.toml
-	sed -i '' 's/^version = ".*"/version = "$(V)"/' problemreductions-cli/Cargo.toml
-	sed -i '' 's/problemreductions-macros = { version = "[^"]*"/problemreductions-macros = { version = "$(V)"/' Cargo.toml
-	sed -i '' 's/problemreductions = { version = "[^"]*"/problemreductions = { version = "$(V)"/' problemreductions-cli/Cargo.toml
+	$(SED_I) 's/^version = ".*"/version = "$(V)"/' Cargo.toml
+	$(SED_I) 's/^version = ".*"/version = "$(V)"/' problemreductions-macros/Cargo.toml
+	$(SED_I) 's/^version = ".*"/version = "$(V)"/' problemreductions-cli/Cargo.toml
+	$(SED_I) 's/problemreductions-macros = { version = "[^"]*"/problemreductions-macros = { version = "$(V)"/' Cargo.toml
+	$(SED_I) 's/problemreductions = { version = "[^"]*"/problemreductions = { version = "$(V)"/' problemreductions-cli/Cargo.toml
 	cargo check
 	git add Cargo.toml problemreductions-macros/Cargo.toml problemreductions-cli/Cargo.toml
 	git commit -m "release: v$(V)"
@@ -394,12 +394,13 @@ cli-demo: cli
 #        make run-pipeline N=97     (processes specific issue)
 run-pipeline:
 	@. scripts/make_helpers.sh; \
-	state_file=$${STATE_FILE:-/tmp/problemreductions-ready-state.json}; \
 	if [ -n "$(N)" ]; then \
 		issue="$(N)"; \
 	else \
 		status=0; \
-		selection=$$(board_next_json ready "" "" "$$state_file") || status=$$?; \
+		tmp_state=$$(mktemp); \
+		selection=$$(board_next_json ready "" "" "$$tmp_state") || status=$$?; \
+		rm -f "$$tmp_state"; \
 		if [ "$$status" -eq 1 ]; then \
 			echo "No Ready issues are currently eligible."; \
 			exit 1; \
@@ -568,9 +569,8 @@ worktree-pr:
 run-review:
 	@. scripts/make_helpers.sh; \
 	repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
-	state_file=$${STATE_FILE:-/tmp/problemreductions-review-state.json}; \
 	pr="$(N)"; \
-	selection=$$(review_pipeline_context "$$repo" "$$pr" "$$state_file"); \
+	selection=$$(review_pipeline_context "$$repo" "$$pr"); \
 	status_name=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])"); \
 	if [ "$$status_name" = "empty" ]; then \
 		echo "No Review pool PRs are currently eligible."; \
@@ -587,12 +587,11 @@ run-review:
 	PROMPT=$$(skill_prompt_with_context review-pipeline "$$slash_cmd" "$$codex_desc" "Review pipeline context" "$$selection"); \
 	run_agent "review-output.log" "$$PROMPT"
 
-# Poll Review pool column for Copilot-reviewed PRs and run-review when new ones appear
-# Checks every 10 minutes; triggers make run-review when the eligible PR set gains new members
+# Poll Review pool column for eligible PRs and dispatch run-review
 run-review-forever:
 	@. scripts/make_helpers.sh; \
 	REPO=$$(gh repo view --json nameWithOwner --jq .nameWithOwner); \
-	MAKE=$(MAKE) watch_and_dispatch review run-review "Copilot-reviewed PRs" "$$REPO"
+	MAKE=$(MAKE) watch_and_dispatch review run-review "Review pool PRs" "$$REPO"
 
 # Request Copilot code review on the current PR
 # Requires: gh extension install ChrisCarini/gh-copilot-review

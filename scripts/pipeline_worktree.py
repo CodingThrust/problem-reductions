@@ -90,7 +90,7 @@ def run_git(repo_root: str | Path, *args: str) -> str:
 
 
 def run_git_checked(repo_root: str | Path, *args: str) -> None:
-    subprocess.check_call(["git", "-C", str(repo_root), *args])
+    subprocess.check_output(["git", "-C", str(repo_root), *args], stderr=subprocess.STDOUT)
 
 
 def run_gh_json(*args: str):
@@ -201,18 +201,38 @@ def checkout_pr_worktree(
         "--repo",
         repo,
         "--json",
-        "headRefName,headRefOid,baseRefOid",
+        "headRefName,headRefOid,baseRefName",
     )
+
+    # baseRefOid is not available via gh pr view --json; resolve it locally
+    run_git_checked(repo_root, "fetch", "origin", pr_data["baseRefName"])
+    base_sha = run_git(repo_root, "rev-parse", f"origin/{pr_data['baseRefName']}").strip()
 
     plan = plan_pr_worktree(
         repo_root,
         pr_number=pr_number,
         head_ref_name=pr_data["headRefName"],
-        base_sha=pr_data["baseRefOid"],
+        base_sha=base_sha,
         head_sha=pr_data["headRefOid"],
     )
 
-    Path(plan["worktree_dir"]).parent.mkdir(parents=True, exist_ok=True)
+    worktree_dir = Path(plan["worktree_dir"])
+
+    # If the worktree already exists from a previous run, remove it first
+    if worktree_dir.exists():
+        run_git_checked(repo_root, "worktree", "remove", "--force", str(worktree_dir))
+    # Also clean up the local branch if it exists (may be left over after worktree removal)
+    branch_check = subprocess.run(
+        ["git", "-C", str(repo_root), "rev-parse", "--verify", plan["local_branch"]],
+        capture_output=True,
+    )
+    if branch_check.returncode == 0:
+        subprocess.run(
+            ["git", "-C", str(repo_root), "branch", "-D", plan["local_branch"]],
+            capture_output=True,
+        )
+
+    worktree_dir.parent.mkdir(parents=True, exist_ok=True)
     run_git_checked(repo_root, "fetch", "origin", plan["fetch_ref"])
     run_git_checked(repo_root, "worktree", "add", plan["worktree_dir"], plan["local_branch"])
     return plan
@@ -259,15 +279,114 @@ def prepare_review(
     }
 
 
+def enter(
+    *,
+    name: str,
+    base_ref: str = "origin/main",
+    repo_root: str | Path | None = None,
+) -> dict:
+    """Create a named worktree from base_ref. Idempotent — removes stale worktree/branch if they exist."""
+    repo_root = Path(repo_root or repo_root_from(Path.cwd())).resolve()
+    branch = sanitize_component(name)
+    worktree_dir = str(repo_root / ".worktrees" / branch)
+
+    # Remove stale worktree if it exists from a previous run
+    if Path(worktree_dir).exists():
+        run_git_checked(repo_root, "worktree", "remove", "--force", worktree_dir)
+    # Clean up stale branch if it exists
+    if branch_exists(repo_root, branch):
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "branch", "-D", branch],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Failed to delete stale branch '{branch}': {result.stderr.strip()}"
+            )
+
+    # Fetch the base ref
+    remote, _, branch_name = base_ref.partition("/")
+    if remote and branch_name:
+        run_git_checked(repo_root, "fetch", remote, branch_name)
+
+    Path(worktree_dir).parent.mkdir(parents=True, exist_ok=True)
+    run_git_checked(repo_root, "worktree", "add", worktree_dir, "-b", branch, base_ref)
+
+    return {
+        "worktree_dir": worktree_dir,
+        "branch": branch,
+        "base_ref": base_ref,
+    }
+
+
+def prepare_review_from_cwd(*, repo: str, pr_number: int) -> dict:
+    """Build prep data from CWD (assumes PR branch already checked out via EnterWorktree + gh pr checkout)."""
+    cwd = str(Path.cwd())
+    run_git_checked(cwd, "fetch", "origin", "main")
+    base_sha = run_git(cwd, "merge-base", "origin/main", "HEAD").strip()
+    head_sha = run_git(cwd, "rev-parse", "HEAD").strip()
+    return {
+        "repo": repo,
+        "pr_number": pr_number,
+        "ready": True,
+        "checkout": {
+            "worktree_dir": cwd,
+            "base_sha": base_sha,
+            "head_sha": head_sha,
+        },
+        "merge": {"status": "skipped"},
+    }
+
+
 def cleanup_worktree(*, worktree: str | Path) -> dict:
     worktree = Path(worktree).resolve()
-    repo_root = repo_root_from(worktree)
-    subprocess.check_call(["git", "-C", str(repo_root), "worktree", "remove", str(worktree), "--force"])
-    branch = run_git(repo_root, "branch", "--list", "--format=%(refname:short)").splitlines()
+    # Determine repo root before cleanup — if the worktree is already gone,
+    # fall back to the parent .worktrees directory's repo.
+    if worktree.is_dir():
+        try:
+            repo_root = repo_root_from(worktree)
+        except Exception:
+            repo_root = worktree.parent.parent
+    else:
+        # Worktree dir already deleted; derive repo root from parent.
+        repo_root = worktree.parent.parent  # .worktrees/<branch> -> repo root
+    repo_root = Path(repo_root).resolve()
+
+    # Validate that repo_root is actually a git repository.
+    if not (repo_root / ".git").exists():
+        return {
+            "worktree": str(worktree),
+            "removed": not worktree.exists(),
+            "branch_still_exists": False,
+            "error": f"derived repo root {repo_root} is not a git repository",
+        }
+
+    # Always prune first — this cleans up stale worktree entries for
+    # directories that were already deleted outside of git.
+    subprocess.run(
+        ["git", "-C", str(repo_root), "worktree", "prune"],
+        capture_output=True,
+    )
+
+    # Remove worktree if it still exists in git's tracking.
+    subprocess.run(
+        ["git", "-C", str(repo_root), "worktree", "remove", str(worktree), "--force"],
+        capture_output=True,
+        text=True,
+    )
+
+    branch_name = worktree.name
+    try:
+        branch_list = run_git(
+            repo_root, "branch", "--list", "--format=%(refname:short)"
+        ).splitlines()
+    except subprocess.CalledProcessError:
+        branch_list = []
     return {
         "worktree": str(worktree),
         "removed": not worktree.exists(),
-        "branch_still_exists": worktree.name in branch,
+        "branch_still_exists": branch_name in branch_list,
     }
 
 
@@ -281,6 +400,12 @@ def emit_result(result: dict, fmt: str) -> None:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Pipeline worktree helpers.")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    enter_parser = subparsers.add_parser("enter")
+    enter_parser.add_argument("--name", required=True)
+    enter_parser.add_argument("--base", default="origin/main")
+    enter_parser.add_argument("--repo-root")
+    enter_parser.add_argument("--format", choices=["json", "text"], default="json")
 
     create_issue = subparsers.add_parser("create-issue")
     create_issue.add_argument("--issue", required=True, type=int)
@@ -321,6 +446,17 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
+
+    if args.command == "enter":
+        emit_result(
+            enter(
+                name=args.name,
+                base_ref=args.base,
+                repo_root=args.repo_root,
+            ),
+            args.format,
+        )
+        return 0
 
     if args.command == "create-issue":
         emit_result(

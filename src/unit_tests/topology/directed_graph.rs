@@ -98,6 +98,30 @@ fn test_directed_graph_is_dag_self_loop() {
 }
 
 #[test]
+fn test_is_strongly_connected_cycle() {
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    assert!(g.is_strongly_connected());
+}
+
+#[test]
+fn test_is_strongly_connected_path() {
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    assert!(!g.is_strongly_connected());
+}
+
+#[test]
+fn test_is_strongly_connected_single_vertex() {
+    let g = DirectedGraph::new(1, vec![]);
+    assert!(g.is_strongly_connected());
+}
+
+#[test]
+fn test_is_strongly_connected_empty() {
+    let g = DirectedGraph::empty(0);
+    assert!(g.is_strongly_connected());
+}
+
+#[test]
 fn test_directed_graph_is_acyclic_subgraph() {
     // Cycle: 0->1->2->0
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
@@ -182,6 +206,27 @@ fn test_directed_graph_serialization() {
     let json = serde_json::to_string(&g).expect("serialization failed");
     let restored: DirectedGraph = serde_json::from_str(&json).expect("deserialization failed");
     assert_eq!(g, restored);
+}
+
+#[test]
+fn test_directed_graph_json_roundtrip() {
+    let g = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let json = serde_json::to_value(&g).unwrap();
+    assert_eq!(json["num_vertices"], 4);
+    let arcs: Vec<(usize, usize)> = serde_json::from_value(json["arcs"].clone()).unwrap();
+    assert_eq!(arcs.len(), 3);
+    let roundtrip: DirectedGraph = serde_json::from_value(json).unwrap();
+    assert_eq!(g, roundtrip);
+}
+
+#[test]
+fn test_directed_graph_json_format() {
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let json_str = serde_json::to_string(&g).unwrap();
+    assert!(!json_str.contains("edge_property"));
+    assert!(!json_str.contains("node_holes"));
+    assert!(json_str.contains("num_vertices"));
+    assert!(json_str.contains("arcs"));
 }
 
 #[test]

@@ -228,11 +228,12 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "max_cut_simplegraph_i32",
-        build: || {
-            let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
-            let problem = MaxCut::<_, i32>::unweighted(graph);
-            crate::example_db::specs::optimization_example(problem, vec![vec![1, 0, 0, 1, 0]])
-        },
+        instance: Box::new(MaxCut::<_, i32>::unweighted(SimpleGraph::new(
+            5,
+            vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
+        ))),
+        optimal_config: vec![1, 0, 0, 1, 0],
+        optimal_value: serde_json::json!({"Valid": 5}),
     }]
 }
 

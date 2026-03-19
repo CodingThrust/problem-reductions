@@ -19,14 +19,14 @@
 \maketitle
 
 \begin{abstract}
-A unified library of reductions between NP-hard problems would let practitioners route any supported problem to a specialized solver---quantum hardware, commercial optimizers, or domain-specific algorithms---through a single interface.
-Yet building such a library by human effort alone is impractical: it requires many researchers to adopt a common language and conventions, and demands continuous full-time maintenance as new reduction rules are discovered.
-We show that AI coding agents, guided by a system of reusable \emph{skills}---versioned, composable workflow documents that encode project conventions and domain knowledge---can overcome these barriers.
-We demonstrate the approach by building a large library of problem reductions. During this process, we make three contributions.
-First, a \emph{no-code contribution route}: domain experts contribute reductions by filing structured issues with AI assistance, requiring no knowledge of the implementation language or codebase.
-Second, a \emph{seven-layer verification stack} that enforces mathematical correctness, culminating in \emph{agentic feature tests}---AI agents that act as first-time users, exercising the library end-to-end---replacing the years of community trial-and-error traditionally needed to surface integration bugs.
-Third, a \emph{fully automated pipeline} that enables sustainable maintenance by a single maintainer, with an onboarding path that lets a new maintainer take over the project in half a day.
-Building such a stack takes approximately ten weeks. Now we have $>100$ problems in the package. We show that AI agents can produce correct and maintainable software beyond the scale of human capabilities, while human developers can focus on the creative parts.
+A unified library of polynomial-time reductions between NP-hard problems would let practitioners route any supported problem to a specialized solver---quantum hardware, commercial optimizers, or domain heuristics---through a single interface.
+No such library exists, because building one by hand demands a shared formalism across many contributors and ongoing maintenance as the literature grows.
+We address this gap with AI coding agents steered by \emph{skills}: versioned, composable workflow documents that encode project conventions and domain knowledge.
+The approach yields a library of over 100 problem types, due to three changes.
+(1)~A \emph{no-code contribution route} lets domain experts add reductions by filing structured issues; no familiarity with the implementation language is needed.
+(2)~A \emph{multilayer verification stack} checks each reduction from type signatures through property-based tests to \emph{agentic feature tests}---automated agents that act as virtual users, exercising the library end-to-end.
+(3)~A \emph{fully automated pipeline} lets one maintainer run the project, and a new maintainer can on-board in half a day.
+The entire stack was built in ten weeks. The methodology shows that agents, given the right scaffolding, can produce verified software artifacts whose scope would be impractical to maintain by hand.
 \end{abstract}
 
 %======================================================================
@@ -318,24 +318,23 @@ Unlike unit tests (which verify internal correctness), agentic feature tests ver
 The maintainer makes the final quality judgment and merges.
 This is one of only two human decisions in the pipeline; the other is moving an issue from Backlog to Ready (Stage~3).
 
-\paragraph{Two agent types.}
-The pipeline uses agents in two distinct types, distinguished by the \emph{knowledge asymmetry} between agent and human.
+\paragraph{Three agent roles.}
+The pipeline uses agents in three distinct roles, each backed by a set of skills.
 
-\emph{Mentors} (4~skills) know more than the human about the project's conventions, architecture, and topology---and use that knowledge to guide humans toward high-quality contributions.
+\emph{Mentors} (4~skills) interact with humans.
 %
 \begin{center}
 \includegraphics[height=1.8cm]{figures/role-mentor.pdf}
 \end{center}
 %
 \noindent
-The \texttt{propose} skill analyzes the reduction graph's topology---orphan nodes, missing proof paths, redundant edges---to identify the highest-value contributions, then conducts an interactive session in mathematical language, asking one question at a time: what is the problem, what is the formal definition, what does a worked example look like?
-It proposes options, analyzes trade-offs, and recommends with reasons, so that even a newcomer can produce a publication-quality issue on their first attempt.
-The \texttt{fix-issue} skill brainstorms with contributors to resolve quality problems found during validation.
-The \texttt{final-review} skill guides the maintainer through merge decisions, surfacing quality signals the maintainer might miss.
-The \texttt{dev-setup} skill onboards new developers, configuring their environment interactively.
-In each case the human learns through the interaction---the agent acts as a domain-aware tutor who transfers project knowledge to the contributor.
+The \texttt{propose} skill conducts an interactive session in mathematical language, asking one question at a time: what is the problem, what is the formal definition, what does a worked example look like?
+Before filing, it pre-validates the draft against Stage~2's quality checks.
+The \texttt{fix-issue} skill brainstorms with contributors to resolve quality problems.
+The \texttt{final-review} skill guides the maintainer through merge decisions.
+The \texttt{dev-setup} skill onboards new developers.
 
-\emph{Workers} (12~skills) know less than the human about \emph{what} should be built, but execute routine heavy-lifting that follows fixed patterns.
+\emph{Orchestrators} (12~skills) know less than the human about \emph{what} should be built, but execute routine heavy-lifting that follows fixed patterns.
 %
 \begin{center}
 \includegraphics[width=\columnwidth]{figures/role-worker.pdf}

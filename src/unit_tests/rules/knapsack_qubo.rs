@@ -1,4 +1,5 @@
 use super::*;
+use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
@@ -10,18 +11,11 @@ fn test_knapsack_to_qubo_closed_loop() {
 
     assert_eq!(qubo.num_vars(), 7);
 
-    let solver = BruteForce::new();
-    let best_source = solver.find_all_best(&knapsack);
-    let best_target = solver.find_all_best(qubo);
-
-    let extracted: std::collections::HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| reduction.extract_solution(t))
-        .collect();
-    let source_set: std::collections::HashSet<Vec<usize>> = best_source.into_iter().collect();
-
-    assert!(extracted.is_subset(&source_set));
-    assert!(!extracted.is_empty());
+    assert_optimization_round_trip_from_optimization_target(
+        &knapsack,
+        &reduction,
+        "Knapsack->QUBO closed loop",
+    );
 }
 
 #[test]
