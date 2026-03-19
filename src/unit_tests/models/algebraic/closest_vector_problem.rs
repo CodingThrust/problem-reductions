@@ -57,6 +57,39 @@ fn test_cvp_dims() {
 }
 
 #[test]
+fn test_cvp_num_encoding_bits_uses_var_bound_ranges() {
+    let basis = vec![vec![1, 0, 0], vec![0, 1, 0], vec![0, 0, 1]];
+    let target = vec![0.0, 0.0, 0.0];
+    let bounds = vec![
+        VarBounds::bounded(-2, 4),
+        VarBounds::bounded(0, 5),
+        VarBounds::bounded(3, 3),
+    ];
+    let cvp = ClosestVectorProblem::new(basis, target, bounds);
+
+    assert_eq!(cvp.num_encoding_bits(), 6);
+}
+
+#[test]
+fn test_var_bounds_exact_encoding_weights_cap_non_power_of_two_ranges() {
+    let weights = VarBounds::bounded(0, 5).exact_encoding_weights();
+    let represented_offsets: std::collections::BTreeSet<i64> = (0..(1usize << weights.len()))
+        .map(|mask| {
+            weights
+                .iter()
+                .enumerate()
+                .filter(|(bit, _)| ((mask >> bit) & 1) == 1)
+                .map(|(_, &weight)| weight)
+                .sum()
+        })
+        .collect();
+
+    assert_eq!(weights, vec![1, 2, 2]);
+    assert_eq!(represented_offsets, (0..=5).collect());
+    assert!(VarBounds::bounded(4, 4).exact_encoding_weights().is_empty());
+}
+
+#[test]
 fn test_cvp_brute_force() {
     // b1=(2,0,0), b2=(1,2,0), b3=(0,1,2), target=(3,3,3)
     // Optimal: x=(1,1,1), Bx=(3,3,2), distance=1.0
