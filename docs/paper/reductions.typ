@@ -780,7 +780,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 }
 #{
   let x = load-model-example("GeneralizedHex")
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let source = x.instance.source
   let target = x.instance.target
   let winning-path = ((0, 1), (1, 4), (4, 5))
@@ -3410,8 +3410,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let conj = x.instance.conjuncts
   let nr = rels.len()
   let nc = conj.len()
-  let sol = x.optimal.at(0)
-  let assignment = sol.config
+  let assignment = x.optimal_config
   [
     #problem-def("ConjunctiveBooleanQuery")[
       Given a finite domain $D = {0, dots, d - 1}$, a collection of relations $R_0, R_1, dots, R_(m-1)$ where each $R_i$ is a set of $a_i$-tuples with entries from $D$, and a conjunctive Boolean query
