@@ -4989,6 +4989,150 @@ fn test_create_factoring_missing_bits() {
 }
 
 #[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--costs",
+            "2,-1,3,-2,1,-3",
+            "--precedence-pairs",
+            "0>2,1>2,1>3,2>4,3>5,4>5",
+            "--bound",
+            "4",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "SequencingToMinimizeMaximumCumulativeCost");
+    assert_eq!(
+        json["data"]["costs"],
+        serde_json::json!([2, -1, 3, -2, 1, -3])
+    );
+    assert_eq!(
+        json["data"]["precedences"],
+        serde_json::json!([[0, 2], [1, 2], [1, 3], [2, 4], [3, 5], [4, 5]])
+    );
+    assert_eq!(json["data"]["bound"], 4);
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_no_flags_shows_help() {
+    let output = pred()
+        .args(["create", "SequencingToMinimizeMaximumCumulativeCost"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--costs"),
+        "expected '--costs' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_missing_costs() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--bound",
+            "4",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("requires --costs"),
+        "expected missing --costs message, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_bad_precedence() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--costs",
+            "1,-1,2",
+            "--precedence-pairs",
+            "0>3",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("precedence"),
+        "expected precedence validation error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_invalid_precedence_pair() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--costs",
+            "1,-1,2",
+            "--precedence-pairs",
+            "a>b",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--precedence-pairs"),
+        "expected flag-specific precedence parse error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_allows_negative_values() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--costs",
+            "-1,2,-3",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["data"]["costs"], serde_json::json!([-1, 2, -3]));
+    assert_eq!(json["data"]["bound"], -1);
+}
+
+#[test]
 fn test_evaluate_multiprocessor_scheduling_rejects_zero_processors_json() {
     let problem_file =
         std::env::temp_dir().join("pred_test_eval_multiprocessor_zero_processors.json");
@@ -5943,4 +6087,67 @@ fn test_create_sequencing_within_intervals_rejects_empty_window() {
         .output()
         .unwrap();
     assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "expected graceful CLI error, got panic: {stderr}"
+    );
+    assert!(
+        stderr.contains("time window is empty"),
+        "expected empty-window validation error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_within_intervals_rejects_mismatched_lengths() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingWithinIntervals",
+            "--release-times",
+            "0,1",
+            "--deadlines",
+            "2",
+            "--lengths",
+            "1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "expected graceful CLI error, got panic: {stderr}"
+    );
+    assert!(
+        stderr.contains("must have the same length"),
+        "expected length validation error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_within_intervals_rejects_overflow() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingWithinIntervals",
+            "--release-times",
+            "18446744073709551615",
+            "--deadlines",
+            "18446744073709551615",
+            "--lengths",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "expected graceful CLI error, got panic: {stderr}"
+    );
+    assert!(
+        stderr.contains("overflow computing r(i) + l(i)"),
+        "expected overflow validation error, got: {stderr}"
+    );
 }

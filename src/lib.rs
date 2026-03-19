@@ -63,9 +63,10 @@ pub mod prelude {
         BinPacking, CbqRelation, ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, Factoring,
         FlowShopScheduling, Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing,
         MultiprocessorScheduling, PaintShop, QueryArg, RectilinearPictureCompression,
-        ResourceConstrainedScheduling, SequencingWithReleaseTimesAndDeadlines,
-        SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
-        StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term,
+        ResourceConstrainedScheduling, SequencingToMinimizeMaximumCumulativeCost,
+        SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
+        ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
+        SumOfSquaresPartition, Term,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,

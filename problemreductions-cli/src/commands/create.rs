@@ -17,8 +17,9 @@ use problemreductions::models::misc::{
     BinPacking, CbqRelation, ConjunctiveBooleanQuery, FlowShopScheduling, LongestCommonSubsequence,
     MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack,
     QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
+    SumOfSquaresPartition,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -85,6 +86,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.bound.is_none()
         && args.pattern.is_none()
         && args.strings.is_none()
+        && args.costs.is_none()
         && args.arcs.is_none()
         && args.source.is_none()
         && args.sink.is_none()
@@ -216,6 +218,50 @@ fn resolve_rule_example(
                 format_problem_ref(&target)
             )
         })
+}
+
+fn parse_precedence_pairs(raw: Option<&str>) -> Result<Vec<(usize, usize)>> {
+    raw.filter(|s| !s.is_empty())
+        .map(|s| {
+            s.split(',')
+                .map(|pair| {
+                    let pair = pair.trim();
+                    let (pred, succ) = pair.split_once('>').ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Invalid --precedence-pairs value '{}': expected 'u>v'",
+                            pair
+                        )
+                    })?;
+                    let pred = pred.trim().parse::<usize>().map_err(|_| {
+                        anyhow::anyhow!(
+                            "Invalid --precedence-pairs value '{}': expected 'u>v' with nonnegative integer indices",
+                            pair
+                        )
+                    })?;
+                    let succ = succ.trim().parse::<usize>().map_err(|_| {
+                        anyhow::anyhow!(
+                            "Invalid --precedence-pairs value '{}': expected 'u>v' with nonnegative integer indices",
+                            pair
+                        )
+                    })?;
+                    Ok((pred, succ))
+                })
+                .collect()
+        })
+        .unwrap_or_else(|| Ok(vec![]))
+}
+
+fn validate_precedence_pairs(precedences: &[(usize, usize)], num_tasks: usize) -> Result<()> {
+    for &(pred, succ) in precedences {
+        anyhow::ensure!(
+            pred < num_tasks && succ < num_tasks,
+            "precedence index out of range: ({}, {}) but num_tasks = {}",
+            pred,
+            succ,
+            num_tasks
+        );
+    }
+    Ok(())
 }
 
 fn create_from_example(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
@@ -371,6 +417,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
         }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
+        "SequencingToMinimizeMaximumCumulativeCost" => {
+            "--costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+        }
         "ConjunctiveQueryFoldability" => "(use --example ConjunctiveQueryFoldability)",
         "ConjunctiveBooleanQuery" => {
             "--domain-size 6 --relations \"2:0,3|1,3|2,4;3:0,1,5|1,2,5\" --conjuncts-spec \"0:v0,c3;0:v1,c3;1:v0,v1,c5\""
@@ -468,6 +517,41 @@ fn help_flag_hint(
 fn parse_nonnegative_usize_bound(bound: i64, problem_name: &str, usage: &str) -> Result<usize> {
     usize::try_from(bound)
         .map_err(|_| anyhow::anyhow!("{problem_name} requires nonnegative --bound\n\n{usage}"))
+}
+
+fn validate_sequencing_within_intervals_inputs(
+    release_times: &[u64],
+    deadlines: &[u64],
+    lengths: &[u64],
+    usage: &str,
+) -> Result<()> {
+    if release_times.len() != deadlines.len() {
+        bail!("release_times and deadlines must have the same length\n\n{usage}");
+    }
+    if release_times.len() != lengths.len() {
+        bail!("release_times and lengths must have the same length\n\n{usage}");
+    }
+
+    for (i, ((&release_time, &deadline), &length)) in release_times
+        .iter()
+        .zip(deadlines.iter())
+        .zip(lengths.iter())
+        .enumerate()
+    {
+        let end = release_time.checked_add(length).ok_or_else(|| {
+            anyhow::anyhow!("Task {i}: overflow computing r(i) + l(i)\n\n{usage}")
+        })?;
+        if end > deadline {
+            bail!(
+                "Task {i}: r({}) + l({}) > d({}), time window is empty\n\n{usage}",
+                release_time,
+                length,
+                deadline
+            );
+        }
+    }
+
+    Ok(())
 }
 
 fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
@@ -1800,44 +1884,46 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
-            let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
-                Some(s) if !s.is_empty() => s
-                    .split(',')
-                    .map(|pair| {
-                        let parts: Vec<&str> = pair.trim().split('>').collect();
-                        anyhow::ensure!(
-                            parts.len() == 2,
-                            "Invalid precedence format '{}', expected 'u>v'",
-                            pair.trim()
-                        );
-                        Ok((
-                            parts[0].trim().parse::<usize>()?,
-                            parts[1].trim().parse::<usize>()?,
-                        ))
-                    })
-                    .collect::<Result<Vec<_>>>()?,
-                _ => vec![],
-            };
+            let precedences = parse_precedence_pairs(args.precedence_pairs.as_deref())?;
             anyhow::ensure!(
                 deadlines.len() == num_tasks,
                 "deadlines length ({}) must equal num_tasks ({})",
                 deadlines.len(),
                 num_tasks
             );
-            for &(pred, succ) in &precedences {
-                anyhow::ensure!(
-                    pred < num_tasks && succ < num_tasks,
-                    "precedence index out of range: ({}, {}) but num_tasks = {}",
-                    pred,
-                    succ,
-                    num_tasks
-                );
-            }
+            validate_precedence_pairs(&precedences, num_tasks)?;
             (
                 ser(MinimumTardinessSequencing::new(
                     num_tasks,
                     deadlines,
                     precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingToMinimizeMaximumCumulativeCost
+        "SequencingToMinimizeMaximumCumulativeCost" => {
+            let costs_str = args.costs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeMaximumCumulativeCost requires --costs\n\n\
+                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeMaximumCumulativeCost requires --bound\n\n\
+                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+                )
+            })?;
+            let costs: Vec<i64> = util::parse_comma_list(costs_str)?;
+            let precedences = parse_precedence_pairs(args.precedence_pairs.as_deref())?;
+            validate_precedence_pairs(&precedences, costs.len())?;
+            (
+                ser(SequencingToMinimizeMaximumCumulativeCost::new(
+                    costs,
+                    precedences,
+                    bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -1858,6 +1944,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let release_times: Vec<u64> = util::parse_comma_list(rt_str)?;
             let deadlines: Vec<u64> = util::parse_comma_list(dl_str)?;
             let lengths: Vec<u64> = util::parse_comma_list(len_str)?;
+            validate_sequencing_within_intervals_inputs(
+                &release_times,
+                &deadlines,
+                &lengths,
+                usage,
+            )?;
             (
                 ser(SequencingWithinIntervals::new(
                     release_times,
@@ -4266,6 +4358,9 @@ mod tests {
             domain_size: None,
             relations: None,
             conjuncts_spec: None,
+            costs: None,
+            cut_bound: None,
+            size_bound: None,
         }
     }
 
