@@ -43,10 +43,10 @@ pub enum Term {
 /// The Conjunctive Query Foldability problem.
 ///
 /// Given a finite domain `D`, a set of relation symbols with fixed arities,
-/// distinguished variables `X`, and undistinguished variables `Y`, this problem
-/// asks: do there exist two conjunctive queries Q1 and Q2 (over `X ∪ Y`) such
-/// that a substitution `σ: Y → X ∪ Y ∪ D` maps every atom of Q1 to an atom
-/// of Q2?
+/// distinguished variables `X`, undistinguished variables `Y`, and two
+/// conjunctive queries Q1 and Q2 (over `X ∪ Y ∪ D`), this problem asks:
+/// does there exist a substitution `σ: Y → X ∪ Y ∪ D` that maps every atom
+/// of Q1 to an atom of Q2?
 ///
 /// This is equivalent to the *query containment* problem for conjunctive queries
 /// and is NP-complete (Chandra & Merlin, 1977; Garey & Johnson A4 SR30).
@@ -67,7 +67,7 @@ pub enum Term {
 /// use problemreductions::models::misc::{ConjunctiveQueryFoldability, Term};
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
-/// // Q1: R(x, u) ∧ R(u, u)    Q2: R(x, x)
+/// // Q1: R(x, u) ∧ R(u, u)    Q2: R(x, x)  (single atom; duplicates are irrelevant)
 /// // σ: u → x (index = domain_size + 0 = 1) folds Q1 to Q2
 /// let problem = ConjunctiveQueryFoldability::new(
 ///     0, 1, 1,
@@ -77,7 +77,6 @@ pub enum Term {
 ///         (0, vec![Term::Undistinguished(0), Term::Undistinguished(0)]),
 ///     ],
 ///     vec![
-///         (0, vec![Term::Distinguished(0), Term::Distinguished(0)]),
 ///         (0, vec![Term::Distinguished(0), Term::Distinguished(0)]),
 ///     ],
 /// );

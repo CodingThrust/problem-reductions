@@ -1,4 +1,4 @@
-use crate::models::misc::{ConjunctiveQueryFoldability, Term};
+use super::*;
 use crate::solvers::{BruteForce, Solver};
 use crate::traits::Problem;
 
@@ -166,4 +166,102 @@ fn test_conjunctive_query_foldability_with_constants() {
     assert!(problem.evaluate(&[1]));
     // σ(u→c0): index for C(0) = 0 → R(c0, c0) ∧ R(c0, x) ≠ Q2
     assert!(!problem.evaluate(&[0]));
+}
+
+#[test]
+fn test_conjunctive_query_foldability_getters() {
+    let problem = yes_instance();
+    assert_eq!(problem.domain_size(), 0);
+    assert_eq!(problem.num_distinguished(), 1);
+    assert_eq!(problem.num_undistinguished(), 3);
+    assert_eq!(problem.num_conjuncts_q1(), 4);
+    assert_eq!(problem.num_conjuncts_q2(), 3);
+    assert_eq!(problem.num_relations(), 1);
+    assert_eq!(problem.relation_arities(), &[2]);
+    assert_eq!(problem.query1_conjuncts().len(), 4);
+    assert_eq!(problem.query2_conjuncts().len(), 3);
+}
+
+#[test]
+fn test_conjunctive_query_foldability_evaluate_wrong_length() {
+    let problem = yes_instance();
+    assert!(!problem.evaluate(&[3, 3])); // too short
+    assert!(!problem.evaluate(&[3, 3, 3, 3])); // too long
+}
+
+#[test]
+fn test_conjunctive_query_foldability_evaluate_out_of_range() {
+    let problem = yes_instance();
+    // range = 0 + 1 + 3 = 4, so value 4 is out of range
+    assert!(!problem.evaluate(&[4, 3, 3]));
+}
+
+#[test]
+#[should_panic(expected = "relation index")]
+fn test_conjunctive_query_foldability_bad_relation_index() {
+    use Term::Distinguished as X;
+    ConjunctiveQueryFoldability::new(
+        0,
+        1,
+        0,
+        vec![2],
+        vec![(5, vec![X(0), X(0)])], // relation 5 doesn't exist
+        vec![],
+    );
+}
+
+#[test]
+#[should_panic(expected = "arity")]
+fn test_conjunctive_query_foldability_bad_arity() {
+    use Term::Distinguished as X;
+    ConjunctiveQueryFoldability::new(
+        0,
+        1,
+        0,
+        vec![2],
+        vec![(0, vec![X(0)])], // arity 2 but 1 arg
+        vec![],
+    );
+}
+
+#[test]
+#[should_panic(expected = "Distinguished")]
+fn test_conjunctive_query_foldability_bad_distinguished() {
+    use Term::Distinguished as X;
+    ConjunctiveQueryFoldability::new(
+        0,
+        1,
+        0,
+        vec![2],
+        vec![(0, vec![X(0), X(1)])], // X(1) out of range
+        vec![],
+    );
+}
+
+#[test]
+#[should_panic(expected = "Constant")]
+fn test_conjunctive_query_foldability_bad_constant() {
+    use Term::{Constant as C, Distinguished as X};
+    ConjunctiveQueryFoldability::new(
+        1,
+        1,
+        0,
+        vec![2],
+        vec![(0, vec![X(0), C(1)])], // C(1) out of range for domain_size=1
+        vec![],
+    );
+}
+
+#[test]
+#[should_panic(expected = "Undistinguished")]
+fn test_conjunctive_query_foldability_bad_undistinguished() {
+    use Term::{Distinguished as X, Undistinguished as U};
+    ConjunctiveQueryFoldability::new(
+        0,
+        1,
+        1,
+        vec![2],
+        vec![(0, vec![X(0), U(1)])], // U(1) out of range for num_undistinguished=1
+        vec![],
+    );
 }

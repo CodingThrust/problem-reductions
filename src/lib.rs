@@ -59,11 +59,12 @@ pub mod prelude {
         UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
-        BinPacking, CbqRelation, ConjunctiveBooleanQuery, Factoring, FlowShopScheduling, Knapsack,
-        LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
-        QueryArg, RectilinearPictureCompression, SequencingWithReleaseTimesAndDeadlines,
-        SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
-        StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
+        BinPacking, CbqRelation, ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, Factoring,
+        FlowShopScheduling, Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing,
+        MultiprocessorScheduling, PaintShop, QueryArg, RectilinearPictureCompression,
+        SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
+        ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
+        SumOfSquaresPartition, Term,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
