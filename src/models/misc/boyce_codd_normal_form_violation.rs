@@ -223,19 +223,18 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "boyce_codd_normal_form_violation",
-        build: || {
-            let problem = BoyceCoddNormalFormViolation::new(
-                6,
-                vec![
-                    (vec![0, 1], vec![2]),
-                    (vec![2], vec![3]),
-                    (vec![3, 4], vec![5]),
-                ],
-                vec![0, 1, 2, 3, 4, 5],
-            );
-            // X={2}: closure={2,3}, y=3 in closure, z=0 not in closure -> violation
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 0, 1, 0, 0, 0]])
-        },
+        instance: Box::new(BoyceCoddNormalFormViolation::new(
+            6,
+            vec![
+                (vec![0, 1], vec![2]),
+                (vec![2], vec![3]),
+                (vec![3, 4], vec![5]),
+            ],
+            vec![0, 1, 2, 3, 4, 5],
+        )),
+        // X={2}: closure={2,3}, y=3 in closure, z=0 not in closure -> violation
+        optimal_config: vec![0, 0, 1, 0, 0, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 
