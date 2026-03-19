@@ -27,14 +27,13 @@ pub use graph::{
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
-    AdditionalKey, BinPacking, CbqRelation, ConjunctiveBooleanQuery,
-    ConjunctiveQueryFoldability, Factoring, FlowShopScheduling, Knapsack,
-    LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
-    Partition, PrecedenceConstrainedScheduling, QueryArg, RectilinearPictureCompression,
-    ResourceConstrainedScheduling, SequencingToMinimizeMaximumCumulativeCost,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
-    ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
-    SumOfSquaresPartition, Term,
+    AdditionalKey, BinPacking, CbqRelation, ConjunctiveBooleanQuery, ConjunctiveQueryFoldability,
+    Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing,
+    MultiprocessorScheduling, PaintShop, Partition, PrecedenceConstrainedScheduling, QueryArg,
+    RectilinearPictureCompression, ResourceConstrainedScheduling,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term,
 };
 pub use set::{
     ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,

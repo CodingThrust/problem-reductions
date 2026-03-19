@@ -14,10 +14,10 @@ use problemreductions::models::graph::{
     MultipleChoiceBranching, SteinerTree, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
-    AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation,
-    ConjunctiveBooleanQuery, FlowShopScheduling, LongestCommonSubsequence,
-    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack,
-    QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
+    AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
+    FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
+    MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, QueryArg,
+    RectilinearPictureCompression, ResourceConstrainedScheduling,
     SequencingToMinimizeMaximumCumulativeCost, SequencingWithReleaseTimesAndDeadlines,
     SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
     SumOfSquaresPartition,
@@ -4489,6 +4489,8 @@ mod tests {
             domain_size: None,
             relations: None,
             conjuncts_spec: None,
+            relation_attrs: None,
+            known_keys: None,
             costs: None,
             cut_bound: None,
             size_bound: None,
