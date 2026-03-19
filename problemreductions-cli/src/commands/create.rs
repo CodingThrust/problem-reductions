@@ -3946,6 +3946,9 @@ mod tests {
             requirements: None,
             num_workers: None,
             num_groups: None,
+            domain_size: None,
+            relations: None,
+            conjuncts_spec: None,
         }
     }
 
