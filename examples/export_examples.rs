@@ -1,23 +1,24 @@
-use problemreductions::example_db::{build_model_db, build_rule_db, default_generated_dir};
-use problemreductions::export::{write_model_db_to, write_rule_db_to};
-use std::fs;
+/// Export the example database as JSON for the Typst paper.
+///
+/// Writes to `docs/paper/data/examples.json` (gitignored build artifact).
+///
+/// ```
+/// cargo run --features "example-db" --example export_examples
+/// ```
+use problemreductions::example_db::build_example_db;
+use problemreductions::export::write_example_db_to;
+use std::path::Path;
 
 fn main() {
-    let output_dir = default_generated_dir();
-    if output_dir.exists() {
-        fs::remove_dir_all(&output_dir).expect("Failed to clear generated examples directory");
-    }
-    fs::create_dir_all(&output_dir).expect("Failed to create generated examples directory");
+    let data_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/paper/data");
+    std::fs::create_dir_all(&data_dir).expect("Failed to create data directory");
 
-    let rule_db = build_rule_db().expect("Failed to build canonical rule database");
-    let model_db = build_model_db().expect("Failed to build canonical model database");
-
-    write_rule_db_to(&output_dir, &rule_db);
-    write_model_db_to(&output_dir, &model_db);
+    let db = build_example_db().expect("Failed to build example database");
+    write_example_db_to(&data_dir, &db);
 
     println!(
-        "Exported {} rule examples and {} model examples",
-        rule_db.rules.len(),
-        model_db.models.len()
+        "Exported {} models, {} rules",
+        db.models.len(),
+        db.rules.len()
     );
 }

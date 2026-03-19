@@ -65,6 +65,10 @@ pub fn validate_k_param(
         },
     };
 
+    if effective_k == 0 {
+        bail!("{problem_name}: --k must be positive");
+    }
+
     // Build the variant map with the effective k
     let mut variant = resolved_variant.clone();
     variant.insert("k".to_string(), k_variant_str(effective_k).to_string());
@@ -214,6 +218,20 @@ pub fn create_random_float_positions(num_vertices: usize, seed: Option<u64>) -> 
         .collect()
 }
 
+/// Choose `k` distinct elements from `0..n` using Fisher-Yates partial shuffle.
+/// Returns a sorted vector of chosen indices.
+pub fn lcg_choose(state: &mut u64, n: usize, k: usize) -> Vec<usize> {
+    assert!(k <= n, "k={k} exceeds n={n}");
+    let mut indices: Vec<usize> = (0..n).collect();
+    for i in 0..k {
+        let j = i + (lcg_step(state) * (n - i) as f64) as usize % (n - i);
+        indices.swap(i, j);
+    }
+    let mut chosen: Vec<usize> = indices[..k].to_vec();
+    chosen.sort_unstable();
+    chosen
+}
+
 // ---------------------------------------------------------------------------
 // Small shared helpers
 // ---------------------------------------------------------------------------
@@ -267,4 +285,20 @@ pub fn parse_edge_pairs(s: &str) -> Result<Vec<(usize, usize)>> {
             Ok((u, v))
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_k_param;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn test_validate_k_param_rejects_zero() {
+        let err = validate_k_param(&BTreeMap::new(), Some(0), None, "KthBestSpanningTree")
+            .expect_err("k=0 should be rejected before problem construction");
+        assert!(
+            err.to_string().contains("positive"),
+            "unexpected error message: {err}"
+        );
+    }
 }

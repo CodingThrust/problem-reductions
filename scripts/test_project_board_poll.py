@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -24,6 +23,15 @@ def make_pr_item(item_id: str, number: int, status: str = "Review pool") -> dict
         "status": status,
         "content": {"type": "PullRequest", "number": number},
     }
+
+
+def with_linked_prs(item: dict, *pr_numbers: int) -> dict:
+    updated = dict(item)
+    updated["linked pull requests"] = [
+        f"https://github.com/CodingThrust/problem-reductions/pull/{number}"
+        for number in pr_numbers
+    ]
+    return updated
 
 
 class ProjectBoardPollTests(unittest.TestCase):
@@ -86,11 +94,10 @@ class ProjectBoardPollTests(unittest.TestCase):
             self.assertEqual(repo, "CodingThrust/problem-reductions")
             return 570 if issue_number == 117 else None
 
-        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
+        def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
             self.assertEqual(repo, "CodingThrust/problem-reductions")
-            if pr_number == 570:
-                return [{"user": {"login": "copilot-pull-request-reviewer[bot]"}}]
-            return []
+            self.assertEqual(pr_number, 570)
+            return "OPEN"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             state_file = Path(tmpdir) / "review-state.json"
@@ -99,25 +106,57 @@ class ProjectBoardPollTests(unittest.TestCase):
                 {"items": [make_issue_item("PVTI_10", 117, status="Review pool")]},
                 state_file,
                 repo="CodingThrust/problem-reductions",
-                review_fetcher=fake_review_fetcher,
                 pr_resolver=fake_pr_resolver,
+                pr_state_fetcher=fake_pr_state_fetcher,
             )
             self.assertEqual((item_id, number), ("PVTI_10", 570))
 
-    def test_review_fetch_errors_are_not_suppressed(self) -> None:
-        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            raise subprocess.CalledProcessError(42, ["gh", "api"])
+    def test_review_queue_skips_closed_pr_cards(self) -> None:
+        def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
+            self.assertEqual(repo, "CodingThrust/problem-reductions")
+            self.assertEqual(pr_number, 570)
+            return "CLOSED"
 
         with tempfile.TemporaryDirectory() as tmpdir:
             state_file = Path(tmpdir) / "review-state.json"
-            with self.assertRaises(subprocess.CalledProcessError):
-                process_snapshot(
-                    "review",
-                    {"items": [make_pr_item("PVTI_10", 570)]},
-                    state_file,
-                    repo="CodingThrust/problem-reductions",
-                    review_fetcher=fake_review_fetcher,
-                )
+            no_item = process_snapshot(
+                "review",
+                {"items": [make_pr_item("PVTI_10", 570)]},
+                state_file,
+                repo="CodingThrust/problem-reductions",
+                pr_state_fetcher=fake_pr_state_fetcher,
+            )
+            self.assertIsNone(no_item)
+
+    def test_review_queue_skips_issue_cards_with_mixed_linked_pr_states(self) -> None:
+        def fake_pr_resolver(repo: str, issue_number: int) -> int | None:
+            self.assertEqual(repo, "CodingThrust/problem-reductions")
+            self.assertEqual(issue_number, 108)
+            return 173
+
+        def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
+            self.assertEqual(repo, "CodingThrust/problem-reductions")
+            return {170: "CLOSED", 173: "OPEN"}[pr_number]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "review-state.json"
+            no_item = process_snapshot(
+                "review",
+                {
+                    "items": [
+                        with_linked_prs(
+                            make_issue_item("PVTI_10", 108, status="Review pool"),
+                            170,
+                            173,
+                        )
+                    ]
+                },
+                state_file,
+                repo="CodingThrust/problem-reductions",
+                pr_resolver=fake_pr_resolver,
+                pr_state_fetcher=fake_pr_state_fetcher,
+            )
+            self.assertIsNone(no_item)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,13 @@
 
 use crate::models::algebraic::{Comparison, ObjectiveSense, VariableDomain, ILP};
 use crate::rules::{ReduceTo, ReductionResult};
-use good_lp::{default_solver, variable, ProblemVariables, Solution, SolverModel, Variable};
+#[cfg(not(feature = "ilp-highs"))]
+use good_lp::default_solver;
+#[cfg(feature = "ilp-highs")]
+use good_lp::highs;
+#[cfg(feature = "ilp-highs")]
+use good_lp::solvers::highs::HighsParallelType;
+use good_lp::{variable, ProblemVariables, Solution, SolverModel, Variable};
 
 /// An ILP solver using the HiGHS backend.
 ///
@@ -82,6 +88,20 @@ impl ILPSolver {
         };
 
         // Create the solver model
+        #[cfg(feature = "ilp-highs")]
+        let mut model = {
+            let mut model = unsolved
+                .using(highs)
+                .set_option("random_seed", 0i32)
+                .set_parallel(HighsParallelType::Off)
+                .set_threads(1);
+            if let Some(seconds) = self.time_limit {
+                model = model.set_time_limit(seconds);
+            }
+            model
+        };
+
+        #[cfg(not(feature = "ilp-highs"))]
         let mut model = unsolved.using(default_solver);
 
         // Add constraints
@@ -149,6 +169,64 @@ impl ILPSolver {
         let reduction = problem.reduce_to();
         let ilp_solution = self.solve(reduction.target_problem())?;
         Some(reduction.extract_solution(&ilp_solution))
+    }
+
+    /// Solve a type-erased ILP instance (`ILP<bool>` or `ILP<i32>`).
+    ///
+    /// Returns `None` if the input is not an ILP type or if the solver finds no solution.
+    pub fn solve_dyn(&self, any: &dyn std::any::Any) -> Option<Vec<usize>> {
+        if let Some(ilp) = any.downcast_ref::<ILP<bool>>() {
+            return self.solve(ilp);
+        }
+        if let Some(ilp) = any.downcast_ref::<ILP<i32>>() {
+            return self.solve(ilp);
+        }
+        None
+    }
+
+    /// Solve a type-erased problem by finding a reduction path to ILP.
+    ///
+    /// Tries all ILP variants, picks the cheapest path, reduces, solves,
+    /// and extracts the solution back. Falls back to direct ILP solve if
+    /// the problem is already an ILP type.
+    ///
+    /// Returns `None` if no path to ILP exists or the solver finds no solution.
+    pub fn solve_via_reduction(
+        &self,
+        name: &str,
+        variant: &std::collections::BTreeMap<String, String>,
+        instance: &dyn std::any::Any,
+    ) -> Option<Vec<usize>> {
+        // Direct ILP solve if the problem is already ILP
+        if let Some(config) = self.solve_dyn(instance) {
+            return Some(config);
+        }
+
+        use crate::rules::{MinimizeSteps, ReductionGraph};
+        use crate::types::ProblemSize;
+
+        let graph = ReductionGraph::new();
+        let ilp_variants = graph.variants_for("ILP");
+        let input_size = ProblemSize::new(vec![]);
+
+        let mut best_path = None;
+        for dv in &ilp_variants {
+            if let Some(path) =
+                graph.find_cheapest_path(name, variant, "ILP", dv, &input_size, &MinimizeSteps)
+            {
+                let is_better = best_path
+                    .as_ref()
+                    .is_none_or(|current: &crate::rules::ReductionPath| path.len() < current.len());
+                if is_better {
+                    best_path = Some(path);
+                }
+            }
+        }
+
+        let path = best_path?;
+        let chain = graph.reduce_along_path(&path, instance)?;
+        let ilp_solution = self.solve_dyn(chain.target_problem_any())?;
+        Some(chain.extract_solution(&ilp_solution))
     }
 }
 

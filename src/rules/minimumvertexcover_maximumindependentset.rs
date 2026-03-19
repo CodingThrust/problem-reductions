@@ -93,9 +93,7 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MinimumVertexCover<Si
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::models::algebraic::QUBO;
-    use crate::rules::{Minimize, MinimizeSteps};
-    use crate::types::ProblemSize;
+    use crate::export::SolutionPair;
 
     fn vc_petersen() -> MinimumVertexCover<SimpleGraph, i32> {
         let (n, edges) = crate::topology::small_graphs::petersen();
@@ -111,42 +109,30 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         crate::example_db::specs::RuleExampleSpec {
             id: "maximumindependentset_to_minimumvertexcover",
             build: || {
-                crate::example_db::specs::direct_best_example::<
+                crate::example_db::specs::rule_example_with_witness::<
                     _,
                     MinimumVertexCover<SimpleGraph, i32>,
-                    _,
-                >(mis_petersen(), |_, _| true)
+                >(
+                    mis_petersen(),
+                    SolutionPair {
+                        source_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+                        target_config: vec![0, 1, 1, 0, 1, 1, 0, 0, 1, 1],
+                    },
+                )
             },
         },
         crate::example_db::specs::RuleExampleSpec {
             id: "minimumvertexcover_to_maximumindependentset",
             build: || {
-                crate::example_db::specs::direct_best_example::<
+                crate::example_db::specs::rule_example_with_witness::<
                     _,
                     MaximumIndependentSet<SimpleGraph, i32>,
-                    _,
-                >(vc_petersen(), |_, _| true)
-            },
-        },
-        crate::example_db::specs::RuleExampleSpec {
-            id: "minimumvertexcover_to_ilp",
-            build: || {
-                crate::example_db::specs::path_ilp_example::<_, bool, _, _>(
+                >(
                     vc_petersen(),
-                    ProblemSize::new(vec![]),
-                    MinimizeSteps,
-                    |_, _| true,
-                )
-            },
-        },
-        crate::example_db::specs::RuleExampleSpec {
-            id: "minimumvertexcover_to_qubo",
-            build: || {
-                crate::example_db::specs::path_best_example::<_, QUBO<f64>, _, _>(
-                    vc_petersen(),
-                    ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 15)]),
-                    Minimize("num_vars"),
-                    |_, _| true,
+                    SolutionPair {
+                        source_config: vec![0, 1, 1, 0, 1, 1, 0, 0, 1, 1],
+                        target_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+                    },
                 )
             },
         },

@@ -1,9 +1,9 @@
 use super::*;
+use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::topology::Graph;
 use crate::traits::Problem;
 use crate::types::SolutionSize;
-use std::collections::HashSet;
 
 #[test]
 fn test_maximumclique_to_maximumindependentset_closed_loop() {
@@ -21,21 +21,11 @@ fn test_maximumclique_to_maximumindependentset_closed_loop() {
     assert_eq!(target.graph().num_vertices(), 4);
     assert_eq!(target.graph().num_edges(), 3); // 4*3/2 - 3 = 3
 
-    let solver = BruteForce::new();
-
-    // Solve target (MIS on complement graph)
-    let target_solutions = solver.find_all_best(target);
-    assert!(!target_solutions.is_empty());
-
-    // Solve source directly
-    let source_solutions: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    assert!(!source_solutions.is_empty());
-
-    // Extract solutions and verify they are optimal for source
-    for target_sol in &target_solutions {
-        let source_sol = reduction.extract_solution(target_sol);
-        assert!(source_solutions.contains(&source_sol));
-    }
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &reduction,
+        "MaximumClique->MaximumIndependentSet closed loop",
+    );
 }
 
 #[test]

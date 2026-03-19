@@ -1,54 +1,4 @@
 use super::*;
-use crate::expr::Expr;
-use crate::rules::registry::ReductionOverhead;
-
-#[test]
-fn test_overhead_to_json_empty() {
-    let overhead = ReductionOverhead::default();
-    let entries = overhead_to_json(&overhead);
-    assert!(entries.is_empty());
-}
-
-#[test]
-fn test_overhead_to_json_single_field() {
-    let overhead = ReductionOverhead::new(vec![("num_vertices", Expr::Var("n") + Expr::Var("m"))]);
-    let entries = overhead_to_json(&overhead);
-    assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].field, "num_vertices");
-    assert_eq!(entries[0].formula, "n + m");
-}
-
-#[test]
-fn test_overhead_to_json_constant() {
-    let overhead = ReductionOverhead::new(vec![("num_vars", Expr::Const(42.0))]);
-    let entries = overhead_to_json(&overhead);
-    assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].field, "num_vars");
-    assert_eq!(entries[0].formula, "42");
-}
-
-#[test]
-fn test_overhead_to_json_scaled_power() {
-    let overhead = ReductionOverhead::new(vec![(
-        "num_edges",
-        Expr::Const(3.0) * Expr::pow(Expr::Var("n"), Expr::Const(2.0)),
-    )]);
-    let entries = overhead_to_json(&overhead);
-    assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].formula, "3 * n^2");
-}
-
-#[test]
-fn test_overhead_to_json_multiple_fields() {
-    let overhead = ReductionOverhead::new(vec![
-        ("num_vertices", Expr::Var("n")),
-        ("num_edges", Expr::pow(Expr::Var("n"), Expr::Const(2.0))),
-    ]);
-    let entries = overhead_to_json(&overhead);
-    assert_eq!(entries.len(), 2);
-    assert_eq!(entries[0].field, "num_vertices");
-    assert_eq!(entries[1].field, "num_edges");
-}
 
 #[test]
 fn test_variant_to_map_empty() {
@@ -92,22 +42,15 @@ fn test_lookup_overhead_unknown_reduction() {
     assert!(result.is_none());
 }
 
-#[test]
-fn test_write_canonical_example_dbs() {
-    use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    let dir = std::env::temp_dir().join(format!(
-        "problemreductions-export-db-test-{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    fs::create_dir_all(&dir).unwrap();
-
-    let rule_db = RuleDb {
-        version: EXAMPLE_DB_VERSION,
+fn sample_example_db() -> ExampleDb {
+    ExampleDb {
+        models: vec![ModelExample {
+            problem: "ModelProblem".to_string(),
+            variant: variant_to_map(vec![("graph", "SimpleGraph")]),
+            instance: serde_json::json!({"n": 5}),
+            optimal_config: vec![],
+            optimal_value: serde_json::json!(null),
+        }],
         rules: vec![RuleExample {
             source: ProblemSide {
                 problem: "SourceProblem".to_string(),
@@ -119,35 +62,115 @@ fn test_write_canonical_example_dbs() {
                 variant: variant_to_map(vec![("weight", "i32")]),
                 instance: serde_json::json!({"m": 4}),
             },
-            overhead: vec![],
             solutions: vec![],
         }],
-    };
-    let model_db = ModelDb {
-        version: EXAMPLE_DB_VERSION,
-        models: vec![ModelExample {
-            problem: "ModelProblem".to_string(),
-            variant: variant_to_map(vec![("graph", "SimpleGraph")]),
-            instance: serde_json::json!({"n": 5}),
-            samples: vec![],
-            optimal: vec![],
-        }],
-    };
+    }
+}
 
-    write_rule_db_to(&dir, &rule_db);
-    write_model_db_to(&dir, &model_db);
+fn export_test_dir(label: &str) -> std::path::PathBuf {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let dir = std::env::temp_dir().join(format!(
+        "problemreductions-export-{}-{}",
+        label,
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
 
-    let rules_json: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(dir.join("rules.json")).unwrap()).unwrap();
-    let models_json: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(dir.join("models.json")).unwrap()).unwrap();
+#[test]
+fn test_write_canonical_example_db() {
+    use std::fs;
 
-    assert_eq!(rules_json["version"], EXAMPLE_DB_VERSION);
-    assert_eq!(rules_json["rules"][0]["source"]["problem"], "SourceProblem");
-    assert_eq!(models_json["version"], EXAMPLE_DB_VERSION);
-    assert_eq!(models_json["models"][0]["problem"], "ModelProblem");
+    let dir = export_test_dir("db-test");
+    let db = sample_example_db();
+    write_example_db_to(&dir, &db);
+
+    let examples_json: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(dir.join("examples.json")).unwrap()).unwrap();
+
+    assert_eq!(
+        examples_json["rules"][0]["source"]["problem"],
+        "SourceProblem"
+    );
+    assert_eq!(examples_json["models"][0]["problem"], "ModelProblem");
+    assert!(
+        !dir.join("rules.json").exists(),
+        "canonical export should not split rules into a separate file"
+    );
+    assert!(
+        !dir.join("models.json").exists(),
+        "canonical export should not split models into a separate file"
+    );
 
     let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn test_write_example_db_uses_one_line_per_example_entry() {
+    use std::fs;
+
+    let dir = export_test_dir("db-lines-test");
+    let mut db = sample_example_db();
+    // Add richer data so the one-line-per-entry format is meaningful
+    db.models[0].instance = serde_json::json!({"n": 5, "edges": [[0, 1], [1, 2]]});
+    db.models[0].optimal_config = vec![1, 0, 1];
+    db.models[0].optimal_value = serde_json::json!({"Valid": 2});
+    db.rules[0].source.instance = serde_json::json!({"n": 3, "edges": [[0, 1], [1, 2]]});
+    db.rules[0].target.instance = serde_json::json!({"m": 4, "weights": [1, 2, 3, 4]});
+    db.rules[0].solutions = vec![SolutionPair {
+        source_config: vec![1, 0, 1],
+        target_config: vec![0, 1, 1, 0],
+    }];
+    write_example_db_to(&dir, &db);
+
+    let text = fs::read_to_string(dir.join("examples.json")).unwrap();
+    let model_line = text
+        .lines()
+        .find(|line| line.contains("\"problem\":\"ModelProblem\""))
+        .expect("model entry should appear on a single line");
+    let rule_line = text
+        .lines()
+        .find(|line| line.contains("\"problem\":\"SourceProblem\""))
+        .expect("rule entry should appear on a single line");
+
+    assert!(
+        model_line.trim().starts_with('{')
+            && model_line.trim().trim_end_matches(',').ends_with('}'),
+        "model entry should be serialized as one compact JSON object line"
+    );
+    assert!(
+        rule_line.trim().starts_with('{') && rule_line.trim().trim_end_matches(',').ends_with('}'),
+        "rule entry should be serialized as one compact JSON object line"
+    );
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn rule_example_serialization_omits_overhead() {
+    let example = RuleExample {
+        source: ProblemSide {
+            problem: "A".to_string(),
+            variant: variant_to_map(vec![]),
+            instance: serde_json::json!({"x": 1}),
+        },
+        target: ProblemSide {
+            problem: "B".to_string(),
+            variant: variant_to_map(vec![]),
+            instance: serde_json::json!({"y": 2}),
+        },
+        solutions: vec![],
+    };
+
+    let json = serde_json::to_value(&example).unwrap();
+    assert!(
+        json.get("overhead").is_none(),
+        "RuleExample should not duplicate reduction metadata"
+    );
 }
 
 #[test]
@@ -184,7 +207,7 @@ fn export_variant_to_map_preserves_explicit_graph() {
     assert_eq!(map["weight"], "f64");
 }
 
-// ---- ProblemSide::from_problem / ModelExample::from_problem ----
+// ---- ProblemSide::from_problem / ModelExample::new ----
 
 #[test]
 fn problem_side_from_typed_problem() {
@@ -200,20 +223,17 @@ fn problem_side_from_typed_problem() {
 }
 
 #[test]
-fn model_example_from_typed_problem() {
-    use crate::models::graph::MaximumIndependentSet;
-    use crate::topology::SimpleGraph;
-
-    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let mis = MaximumIndependentSet::new(g, vec![1, 1, 1]);
-    let sample = SampleEval {
-        config: vec![1, 0, 1],
-        metric: serde_json::json!("Valid(2)"),
-    };
-    let example = ModelExample::from_problem(&mis, vec![sample.clone()], vec![sample]);
+fn model_example_new() {
+    let example = ModelExample::new(
+        "MaximumIndependentSet",
+        variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]),
+        serde_json::json!({"num_vertices": 3, "edges": [[0, 1], [1, 2]]}),
+        vec![1, 0, 1],
+        serde_json::json!({"Valid": 2}),
+    );
     assert_eq!(example.problem, "MaximumIndependentSet");
-    assert!(!example.samples.is_empty());
-    assert!(!example.optimal.is_empty());
+    assert_eq!(example.optimal_config, vec![1, 0, 1]);
+    assert_eq!(example.optimal_value, serde_json::json!({"Valid": 2}));
     assert!(example.instance.is_object());
 }
 
@@ -223,8 +243,8 @@ fn model_example_problem_ref() {
         problem: "TestProblem".to_string(),
         variant: variant_to_map(vec![("graph", "SimpleGraph")]),
         instance: serde_json::json!({}),
-        samples: vec![],
-        optimal: vec![],
+        optimal_config: vec![],
+        optimal_value: serde_json::json!(null),
     };
     let pref = example.problem_ref();
     assert_eq!(pref.name, "TestProblem");
@@ -232,47 +252,9 @@ fn model_example_problem_ref() {
 }
 
 #[test]
-fn default_expr_returns_zero() {
-    let expr = default_expr();
-    assert_eq!(expr, Expr::Const(0.0));
-}
-
-#[test]
-fn examples_output_dir_fallback() {
-    // Without PROBLEMREDUCTIONS_EXAMPLES_DIR set, should fallback
-    let dir = examples_output_dir();
-    let expected = std::path::PathBuf::from("docs/paper/examples/generated");
-    // Clean env first to ensure deterministic result
-    if std::env::var_os(EXAMPLES_DIR_ENV).is_none() {
-        assert_eq!(dir, expected);
-    }
-}
-
-#[test]
-fn examples_output_dir_env_override() {
-    // Temporarily set the env var and check it's respected
-    let key = EXAMPLES_DIR_ENV;
-    let old = std::env::var_os(key);
-    std::env::set_var(key, "/tmp/custom_examples");
-    let dir = examples_output_dir();
-    assert_eq!(dir, std::path::PathBuf::from("/tmp/custom_examples"));
-    // Restore
-    match old {
-        Some(v) => std::env::set_var(key, v),
-        None => std::env::remove_var(key),
-    }
-}
-
-#[test]
 fn write_rule_example_to_creates_json_file() {
     use std::fs;
-    let dir = std::env::temp_dir().join(format!(
-        "pr-export-rule-example-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
+    let dir = export_test_dir("rule-example");
     let example = RuleExample {
         source: ProblemSide {
             problem: "A".to_string(),
@@ -284,7 +266,6 @@ fn write_rule_example_to_creates_json_file() {
             variant: variant_to_map(vec![]),
             instance: serde_json::json!({"y": 2}),
         },
-        overhead: vec![],
         solutions: vec![],
     };
     write_rule_example_to(&dir, "test_rule", &example);
@@ -299,22 +280,13 @@ fn write_rule_example_to_creates_json_file() {
 #[test]
 fn write_model_example_to_creates_json_file() {
     use std::fs;
-    let dir = std::env::temp_dir().join(format!(
-        "pr-export-model-example-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
+    let dir = export_test_dir("model-example");
     let example = ModelExample {
         problem: "TestModel".to_string(),
         variant: variant_to_map(vec![("graph", "SimpleGraph")]),
         instance: serde_json::json!({"n": 3}),
-        samples: vec![SampleEval {
-            config: vec![1, 0, 1],
-            metric: serde_json::json!("Valid(2)"),
-        }],
-        optimal: vec![],
+        optimal_config: vec![1, 0, 1],
+        optimal_value: serde_json::json!({"Valid": 2}),
     };
     write_model_example_to(&dir, "test_model", &example);
     let path = dir.join("test_model.json");

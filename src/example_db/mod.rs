@@ -1,15 +1,15 @@
 //! Canonical example database assembly.
 //!
-//! `rule_builders` and `model_builders` are the canonical in-memory sources for
-//! all example data. This module assembles, validates, and looks up structural
-//! records from those builders — no filesystem round-trip or legacy bridge.
+//! Each model and rule has a canonical example spec that stores both the
+//! problem instance and its known optimal solution. The database is computed
+//! from these specs on demand — no static fixture file.
+//!
+//! Model specs are pure data (`Box<dyn DynProblem>` + optimal config + value).
+//! Rule specs run `reduce_to()` (fast, no solver) with pre-stored solution pairs.
 
 use crate::error::{ProblemError, Result};
-use crate::export::{
-    examples_output_dir, ModelDb, ModelExample, ProblemRef, RuleDb, RuleExample, EXAMPLE_DB_VERSION,
-};
+use crate::export::{ExampleDb, ModelDb, ModelExample, ProblemRef, RuleDb, RuleExample};
 use std::collections::BTreeSet;
-use std::path::PathBuf;
 
 mod model_builders;
 mod rule_builders;
@@ -51,24 +51,33 @@ fn validate_model_uniqueness(models: &[ModelExample]) -> Result<()> {
     Ok(())
 }
 
-pub fn build_rule_db() -> Result<RuleDb> {
-    let mut rules = rule_builders::build_rule_examples();
-    rules.sort_by_key(rule_key);
-    validate_rule_uniqueness(&rules)?;
-    Ok(RuleDb {
-        version: EXAMPLE_DB_VERSION,
-        rules,
+/// Build the full example database from specs.
+///
+/// Fast — specs store concrete instances and pre-computed solutions,
+/// no solver is called.
+pub fn build_example_db() -> Result<ExampleDb> {
+    let model_db = build_model_db()?;
+    let rule_db = build_rule_db()?;
+    Ok(ExampleDb {
+        models: model_db.models,
+        rules: rule_db.rules,
     })
 }
 
+/// Build the model database from specs.
 pub fn build_model_db() -> Result<ModelDb> {
     let mut models = model_builders::build_model_examples();
     models.sort_by_key(model_key);
     validate_model_uniqueness(&models)?;
-    Ok(ModelDb {
-        version: EXAMPLE_DB_VERSION,
-        models,
-    })
+    Ok(ModelDb { models })
+}
+
+/// Build the rule database from specs.
+pub fn build_rule_db() -> Result<RuleDb> {
+    let mut rules = rule_builders::build_rule_examples();
+    rules.sort_by_key(rule_key);
+    validate_rule_uniqueness(&rules)?;
+    Ok(RuleDb { rules })
 }
 
 pub fn find_rule_example(source: &ProblemRef, target: &ProblemRef) -> Result<RuleExample> {
@@ -96,11 +105,6 @@ pub fn find_model_example(problem: &ProblemRef) -> Result<ModelExample> {
             ))
         })
 }
-
-pub fn default_generated_dir() -> PathBuf {
-    examples_output_dir()
-}
-
 #[cfg(test)]
 #[path = "../unit_tests/example_db.rs"]
 mod tests;

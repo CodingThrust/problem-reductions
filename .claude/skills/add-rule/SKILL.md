@@ -155,28 +155,30 @@ Step-by-step walkthrough with concrete numbers from JSON data. Required steps:
 1. Show source instance (dimensions, structure, graph visualization if applicable)
 2. Walk through construction with intermediate values
 3. Verify a concrete solution end-to-end
-4. Solution count: `#src_tgt.solutions.len()` with combinatorial justification
+4. Witness semantics: state that the fixture stores one canonical witness; if multiplicity matters mathematically, explain it from the construction rather than from `solutions.len()`
 
 Use `graph-colors`, `g-node()`, `g-edge()` for graph visualization — see reference examples.
 
 ### 5d. Build and verify
 
 ```bash
-make examples  # Regenerate example JSON
 make paper     # Must compile without errors
 ```
 
-Checklist: notation self-contained, complexity cited, overhead consistent, example uses JSON data (not hardcoded), solution verified end-to-end, solution count stated, paper compiles.
+Checklist: notation self-contained, complexity cited, overhead consistent, example uses JSON data (not hardcoded), solution verified end-to-end, witness semantics respected, paper compiles.
 
 ## Step 6: Regenerate exports and verify
 
 ```bash
-cargo run --example export_graph    # Update reduction_graph.json
-cargo run --example export_schemas  # Update problem schemas
+cargo run --example export_graph    # Generate reduction_graph.json for docs/paper builds
+cargo run --example export_schemas  # Generate problem schemas for docs/paper builds
+make regenerate-fixtures            # Regenerate example_db/fixtures/examples.json (slow, needs ILP)
 make test clippy                    # Must pass
 ```
 
-If running standalone (not inside `make run-plan`), invoke [review-implementation](../review-implementation/SKILL.md) to verify all structural and semantic checks pass. When running inside a plan, the outer orchestrator handles the review.
+`make regenerate-fixtures` is required so the paper can load the new rule's example data from `src/example_db/fixtures/examples.json`. Without it, the `reduction-rule` entry in Step 5 will reference missing fixture data.
+
+Structural and quality review is handled by the `review-pipeline` stage, not here. The run stage just needs to produce working code.
 
 ## Solver Rules
 
