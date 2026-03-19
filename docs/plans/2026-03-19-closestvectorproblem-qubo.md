@@ -6,7 +6,7 @@
 
 **Architecture:** Follow the paper's Gram-matrix expansion `x^T G x - 2 h^T x`, but adapt the integer encoding to the repository's bounded `VarBounds` model. Use an exact in-range bit basis per variable so every QUBO assignment reconstructs a legal CVP coefficient without needing a separate out-of-range penalty term. Store the per-variable offsets and bit spans in the reduction result for `extract_solution()`, and drive correctness with round-trip brute-force tests plus a canonical example fixture.
 
-**Tech Stack:** Rust workspace, `cargo test`, `cargo run --example export_graph`, `cargo run --example export_schemas`, `make regenerate-fixtures`, `make paper`
+**Tech Stack:** Rust workspace, `cargo test`, `cargo run --features "example-db" --example export_examples`, `cargo run --example export_graph`, `cargo run --example export_schemas`, `make paper`
 
 ---
 
@@ -79,7 +79,7 @@ git commit -m "feat(cvp): add bounded encoding helpers for QUBO reduction"
 - Modify: `src/rules/mod.rs`
 - Create: `src/unit_tests/rules/closestvectorproblem_qubo.rs`
 
-- [ ] **Step 1: Write failing rule tests before touching the reduction**
+- [ ] **Step 1: Add the rule test file plus a minimal path-linked rule skeleton**
 
 Cover three behaviors:
 
@@ -103,11 +103,22 @@ The closed-loop test should:
 
 The matrix-shape test should assert the target has 6 QUBO variables for the canonical `[-2,4]` x `[-2,4]` example and that key diagonal/off-diagonal coefficients match the issue's worked example or the implementation's exact-range variant, whichever the final construction uses.
 
+Create a minimal `src/rules/closestvectorproblem_qubo.rs` skeleton at the same time so the new test file is actually compiled:
+
+```rust
+#[cfg(test)]
+#[path = "../unit_tests/rules/closestvectorproblem_qubo.rs"]
+mod tests;
+
+// temporary placeholder so the first test run fails for a real reason
+todo!("implement ClosestVectorProblem -> QUBO reduction");
+```
+
 - [ ] **Step 2: Run the focused rule tests to verify they fail**
 
 Run: `cargo test closestvectorproblem_qubo --lib`
 
-Expected: FAIL because the rule module is missing.
+Expected: FAIL because the rule skeleton is path-linked but still unimplemented.
 
 - [ ] **Step 3: Implement `src/rules/closestvectorproblem_qubo.rs`**
 
@@ -151,11 +162,12 @@ git add src/rules/closestvectorproblem_qubo.rs src/rules/mod.rs src/unit_tests/r
 git commit -m "feat(rules): add ClosestVectorProblem to QUBO reduction"
 ```
 
-### Task 3: Add the canonical example and regenerate machine-readable data
+### Task 3: Add the canonical example and regenerate ignored build artifacts
 
 **Files:**
 - Modify: `src/rules/closestvectorproblem_qubo.rs`
-- Generated/updated by commands: `docs/src/reductions/reduction_graph.json`, `docs/src/reductions/problem_schemas.json`, `src/example_db/fixtures/examples.json`
+- Modify: `src/rules/mod.rs`
+- Generated/updated by commands (ignored build artifacts): `docs/paper/data/examples.json`, `docs/src/reductions/reduction_graph.json`, `docs/src/reductions/problem_schemas.json`
 
 - [ ] **Step 1: Add the canonical example spec next to the rule**
 
@@ -166,21 +178,25 @@ Reuse the issue's 2D bounded instance:
 - bounds `[-2,4]` for both coefficients
 - source witness `(1,1)` encoded as the target bit vector produced by the exact bounded encoding used in the implementation
 
-Keep this in the rule file's `#[cfg(feature = "example-db")] canonical_rule_example_specs()` block, following other reductions that colocate the example with the rule.
+Keep this in the rule file's `#[cfg(feature = "example-db")] canonical_rule_example_specs()` block, following other reductions that colocate the example with the rule. Also extend the aggregator in `src/rules/mod.rs` with:
+
+```rust
+specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
+```
 
 - [ ] **Step 2: Run exports so the example and reduction graph exist for later paper work**
 
 Run:
 
 ```bash
+cargo run --features "example-db" --example export_examples
 cargo run --example export_graph
 cargo run --example export_schemas
-make regenerate-fixtures
 ```
 
 Expected:
 - the new `ClosestVectorProblem -> QUBO` edge appears in the reduction graph export
-- the example fixture contains the new rule example entry
+- `docs/paper/data/examples.json` contains the new rule example entry
 
 - [ ] **Step 3: Run a broader implementation verification pass**
 
@@ -193,11 +209,11 @@ make clippy
 
 Expected: PASS before moving to the paper batch.
 
-- [ ] **Step 4: Commit the example/export slice**
+- [ ] **Step 4: Commit only the source changes for the example slice**
 
 ```bash
-git add src/rules/closestvectorproblem_qubo.rs docs/src/reductions/reduction_graph.json docs/src/reductions/problem_schemas.json src/example_db/fixtures/examples.json
-git commit -m "chore(exports): add CVP to QUBO example data"
+git add src/rules/closestvectorproblem_qubo.rs src/rules/mod.rs
+git commit -m "feat(example-db): add CVP to QUBO canonical example"
 ```
 
 ## Chunk 2: Paper Entry
