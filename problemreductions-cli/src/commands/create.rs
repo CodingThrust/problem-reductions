@@ -2124,6 +2124,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 anyhow::anyhow!("ConjunctiveBooleanQuery requires --conjuncts-spec\n\n{usage}")
             })?;
             // Parse relations: "arity:t1,t2|t3,t4;arity:t5,t6,t7|t8,t9,t10"
+            // An empty tuple list (e.g., "2:") produces an empty relation.
             let relations: Vec<CbqRelation> = relations_str
                 .split(';')
                 .map(|rel_str| {
@@ -2137,19 +2138,37 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                         .trim()
                         .parse()
                         .map_err(|e| anyhow::anyhow!("Invalid arity '{arity_str}': {e}"))?;
-                    let tuples: Vec<Vec<usize>> = tuples_str
-                        .split('|')
-                        .map(|t| {
-                            t.trim()
-                                .split(',')
-                                .map(|v| {
-                                    v.trim()
-                                        .parse::<usize>()
-                                        .map_err(|e| anyhow::anyhow!("Invalid tuple value: {e}"))
-                                })
-                                .collect::<Result<Vec<_>>>()
-                        })
-                        .collect::<Result<Vec<_>>>()?;
+                    let tuples: Vec<Vec<usize>> = if tuples_str.trim().is_empty() {
+                        Vec::new()
+                    } else {
+                        tuples_str
+                            .split('|')
+                            .filter(|t| !t.trim().is_empty())
+                            .map(|t| {
+                                let tuple: Vec<usize> = t
+                                    .trim()
+                                    .split(',')
+                                    .map(|v| {
+                                        v.trim().parse::<usize>().map_err(|e| {
+                                            anyhow::anyhow!("Invalid tuple value: {e}")
+                                        })
+                                    })
+                                    .collect::<Result<Vec<_>>>()?;
+                                if tuple.len() != arity {
+                                    bail!(
+                                        "Relation tuple has {} entries, expected arity {arity}",
+                                        tuple.len()
+                                    );
+                                }
+                                for &val in &tuple {
+                                    if val >= domain_size {
+                                        bail!("Tuple value {val} >= domain-size {domain_size}");
+                                    }
+                                }
+                                Ok(tuple)
+                            })
+                            .collect::<Result<Vec<_>>>()?
+                    };
                     Ok(CbqRelation { arity, tuples })
                 })
                 .collect::<Result<Vec<_>>>()?;
@@ -2167,6 +2186,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     let rel_idx: usize = idx_str.trim().parse().map_err(|e| {
                         anyhow::anyhow!("Invalid relation index '{idx_str}': {e}")
                     })?;
+                    if rel_idx >= relations.len() {
+                        bail!(
+                            "Conjunct references relation {rel_idx}, but only {} relations exist",
+                            relations.len()
+                        );
+                    }
                     let query_args: Vec<QueryArg> = args_str
                         .split(',')
                         .map(|a| {
@@ -2183,6 +2208,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                                 let c: usize = rest.parse().map_err(|e| {
                                     anyhow::anyhow!("Invalid constant value '{rest}': {e}")
                                 })?;
+                                if c >= domain_size {
+                                    bail!(
+                                        "Constant {c} >= domain-size {domain_size}"
+                                    );
+                                }
                                 Ok(QueryArg::Constant(c))
                             } else {
                                 Err(anyhow::anyhow!(
@@ -2191,6 +2221,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                             }
                         })
                         .collect::<Result<Vec<_>>>()?;
+                    let expected_arity = relations[rel_idx].arity;
+                    if query_args.len() != expected_arity {
+                        bail!(
+                            "Conjunct has {} args, but relation {rel_idx} has arity {expected_arity}",
+                            query_args.len()
+                        );
+                    }
                     Ok((rel_idx, query_args))
                 })
                 .collect::<Result<Vec<_>>>()?;
