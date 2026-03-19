@@ -3721,7 +3721,11 @@ mod tests {
         let result = std::panic::catch_unwind(|| create(&args, &out));
         assert!(result.is_ok(), "create should return an error, not panic");
         let err = result.unwrap().unwrap_err().to_string();
-        assert!(err.contains("schedule 1 has 6 periods, expected 7"));
+        // parse_bool_rows catches ragged rows before validate_staff_scheduling_args
+        assert!(
+            err.contains("All rows") || err.contains("schedule 1 has 6 periods, expected 7"),
+            "expected row-length validation error, got: {err}"
+        );
     }
 
     fn empty_args() -> CreateArgs {
