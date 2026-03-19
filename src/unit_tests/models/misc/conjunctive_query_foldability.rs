@@ -117,6 +117,18 @@ fn test_conjunctive_query_foldability_serialization() {
     let json = serde_json::to_value(&problem).unwrap();
     let restored: ConjunctiveQueryFoldability = serde_json::from_value(json).unwrap();
     assert_eq!(restored.dims(), problem.dims());
+    assert_eq!(restored.domain_size(), problem.domain_size());
+    assert_eq!(restored.num_distinguished(), problem.num_distinguished());
+    assert_eq!(
+        restored.num_undistinguished(),
+        problem.num_undistinguished()
+    );
+    assert_eq!(restored.num_conjuncts_q1(), problem.num_conjuncts_q1());
+    assert_eq!(restored.num_conjuncts_q2(), problem.num_conjuncts_q2());
+    assert_eq!(restored.relation_arities(), problem.relation_arities());
+    // Verify the restored instance produces the same evaluation results
+    assert!(restored.evaluate(&[3, 3, 3]));
+    assert!(!restored.evaluate(&[0, 0, 0]));
 }
 
 #[test]
@@ -250,6 +262,37 @@ fn test_conjunctive_query_foldability_bad_constant() {
         vec![(0, vec![X(0), C(1)])], // C(1) out of range for domain_size=1
         vec![],
     );
+}
+
+#[test]
+fn test_conjunctive_query_foldability_no_undistinguished() {
+    use Term::Distinguished as X;
+    // Q1 = Q2 = {R(x, x)} — no undistinguished vars, trivially foldable
+    let problem = ConjunctiveQueryFoldability::new(
+        0,
+        1,
+        0,
+        vec![2],
+        vec![(0, vec![X(0), X(0)])],
+        vec![(0, vec![X(0), X(0)])],
+    );
+    assert_eq!(problem.dims(), Vec::<usize>::new());
+    assert!(problem.evaluate(&[]));
+}
+
+#[test]
+fn test_conjunctive_query_foldability_no_undistinguished_not_equal() {
+    use Term::Distinguished as X;
+    // Q1 = {R(x0, x1)}, Q2 = {R(x1, x0)} — different sets, not foldable
+    let problem = ConjunctiveQueryFoldability::new(
+        0,
+        2,
+        0,
+        vec![2],
+        vec![(0, vec![X(0), X(1)])],
+        vec![(0, vec![X(1), X(0)])],
+    );
+    assert!(!problem.evaluate(&[]));
 }
 
 #[test]

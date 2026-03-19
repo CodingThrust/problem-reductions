@@ -68,7 +68,7 @@ pub enum Term {
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Q1: R(x, u) ∧ R(u, u)    Q2: R(x, x)  (single atom; duplicates are irrelevant)
-/// // σ: u → x (index = domain_size + 0 = 1) folds Q1 to Q2
+/// // σ: u → x (index = domain_size + 0 = 0) folds Q1 to Q2
 /// let problem = ConjunctiveQueryFoldability::new(
 ///     0, 1, 1,
 ///     vec![2],
