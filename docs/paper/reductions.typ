@@ -3505,9 +3505,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let precs = x.instance.precedences
   let bound = x.instance.bound
   let ntasks = costs.len()
-  let sample = x.samples.at(0)
-  let satisfying-count = x.optimal.len()
-  let lehmer = sample.config
+  let lehmer = x.optimal_config
   let schedule = {
     let avail = range(ntasks)
     let result = ()
@@ -3536,7 +3534,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
       When the precedence constraints form a series-parallel digraph, #cite(<abdelWahabKameda1978>, form: "prose") gave a polynomial-time algorithm running in $O(n^2)$ time. #cite(<monmaSidney1979>, form: "prose") placed the problem in a broader family of sequencing objectives solvable efficiently on series-parallel precedence structures. The implementation here uses Lehmer-code enumeration of task orders, so the direct exact search induced by the model runs in $O(n!)$ time.
 
-      *Example.* Consider $n = #ntasks$ tasks with costs $(#costs.map(c => str(c)).join(", "))$, precedence constraints #{precs.map(p => [$t_#(p.at(0) + 1) prec.eq t_#(p.at(1) + 1)$]).join(", ")}, and bound $K = #bound$. The sample schedule $(#schedule.map(t => $t_#(t + 1)$).join(", "))$ has cumulative sums $(#prefix-sums.map(v => str(v)).join(", "))$, so every prefix stays at or below $K = #bound$. Our brute-force solver finds exactly #satisfying-count satisfying schedules for this instance.
+      *Example.* Consider $n = #ntasks$ tasks with costs $(#costs.map(c => str(c)).join(", "))$, precedence constraints #{precs.map(p => [$t_#(p.at(0) + 1) prec.eq t_#(p.at(1) + 1)$]).join(", ")}, and bound $K = #bound$. The sample schedule $(#schedule.map(t => $t_#(t + 1)$).join(", "))$ has cumulative sums $(#prefix-sums.map(v => str(v)).join(", "))$, so every prefix stays at or below $K = #bound$.
 
       #figure(
         {
