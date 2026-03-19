@@ -346,6 +346,8 @@ pred create KColoring --k 3 --graph 0-1,1-2,2-0 -o kcol.json
 pred create KthBestSpanningTree --graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3 -o kth.json
 pred create SpinGlass --graph 0-1,1-2 -o sg.json
 pred create MaxCut --graph 0-1,1-2,2-0 -o maxcut.json
+pred create RectilinearPictureCompression --matrix "1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1" --k 2 -o rpc.json
+pred solve rpc.json --solver brute-force
 pred create MinimumMultiwayCut --graph 0-1,1-2,2-3,3-0 --terminals 0,2 --edge-weights 3,1,2,4 -o mmc.json
 pred create SteinerTree --graph 0-1,0-3,1-2,1-3,2-3,2-4,3-4 --edge-weights 2,5,2,1,5,6,1 --terminals 0,2,4 -o steiner.json
 pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1 -o utcif.json

@@ -61,9 +61,9 @@ pub mod prelude {
     pub use crate::models::misc::{
         BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
         MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
-        SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
-        ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
-        SumOfSquaresPartition,
+        RectilinearPictureCompression, SequencingWithReleaseTimesAndDeadlines,
+        SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
+        StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
@@ -101,6 +101,9 @@ pub use inventory;
 #[cfg(test)]
 #[path = "unit_tests/graph_models.rs"]
 mod test_graph_models;
+#[cfg(test)]
+#[path = "unit_tests/prelude.rs"]
+mod test_prelude;
 #[cfg(test)]
 #[path = "unit_tests/property.rs"]
 mod test_property;

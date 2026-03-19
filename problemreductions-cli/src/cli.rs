@@ -265,6 +265,7 @@ Flags by problem type:
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   StaffScheduling                 --schedules, --requirements, --num-workers, --k
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
+  RectilinearPictureCompression   --matrix (0/1), --k
   SCS                             --strings, --bound [--alphabet-size]
   StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
@@ -343,10 +344,10 @@ pub struct CreateArgs {
     /// Number of variables (for SAT/KSAT)
     #[arg(long)]
     pub num_vars: Option<usize>,
-    /// Matrix for QUBO (semicolon-separated rows, e.g., "1,0.5;0.5,2")
+    /// Matrix input (semicolon-separated rows; use `pred create <PROBLEM>` for problem-specific formats)
     #[arg(long)]
     pub matrix: Option<String>,
-    /// Number of colors for KColoring
+    /// Shared integer parameter (use `pred create <PROBLEM>` for the problem-specific meaning)
     #[arg(long)]
     pub k: Option<usize>,
     /// Generate a random instance (graph-based problems only)

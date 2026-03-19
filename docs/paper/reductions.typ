@@ -130,6 +130,7 @@
   "SumOfSquaresPartition": [Sum of Squares Partition],
   "SequencingWithinIntervals": [Sequencing Within Intervals],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "RectilinearPictureCompression": [Rectilinear Picture Compression],
   "StringToStringCorrection": [String-to-String Correction],
 )
 
@@ -2484,6 +2485,60 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 
   *Example.* Let $n = 6$ items with weights $(2, 3, 4, 1, 2, 3)$, values $(3, 2, 5, 4, 3, 8)$, and capacity $C = 11$. The partial order has cover relations $0 prec 2$, $0 prec 3$, $1 prec 4$, $3 prec 5$, $4 prec 5$. Selecting $S = {0, 1, 3, 4, 5}$ is downward-closed (all predecessors included), has total weight $2 + 3 + 1 + 2 + 3 = 11 lt.eq C$, and total value $3 + 2 + 4 + 3 + 8 = 20$. Adding item 2 would exceed capacity ($15 > 11$).
 ]
+
+#{
+  let x = load-model-example("RectilinearPictureCompression")
+  let mat = x.instance.matrix
+  let m = mat.len()
+  let n = mat.at(0).len()
+  let K = x.instance.bound_k
+  // Convert bool matrix to int for display
+  let M = mat.map(row => row.map(v => if v { 1 } else { 0 }))
+  [
+    #problem-def("RectilinearPictureCompression")[
+      Given an $m times n$ binary matrix $M$ and a nonnegative integer $K$,
+      determine whether there exists a collection of at most $K$
+      axis-aligned rectangles that covers precisely the 1-entries of $M$.
+      Each rectangle is a quadruple $(a, b, c, d)$ with $a lt.eq b$ and $c lt.eq d$,
+      covering entries $M_(i j)$ for $a lt.eq i lt.eq b$ and $c lt.eq j lt.eq d$,
+      where every covered entry must satisfy $M_(i j) = 1$.
+    ][
+    Rectilinear Picture Compression is a classical NP-complete problem from Garey & Johnson (A4 SR25, p.~232) @garey1979. It arises naturally in image compression, DNA microarray design, integrated circuit manufacturing, and access control list minimization. NP-completeness was established by Masek (1978) via transformation from 3SAT. A straightforward exact baseline, including the brute-force solver in this crate, enumerates subsets of the maximal all-1 rectangles. If an instance has $R$ such rectangles, this gives an $O^*(2^R)$ exact search, so the worst-case behavior remains exponential in the instance size.
+
+    *Example.* Let $M = mat(#M.map(row => row.map(v => str(v)).join(", ")).join("; "))$ (a $#m times #n$ matrix) and $K = #K$. The two maximal all-1 rectangles cover rows $0..1$, columns $0..1$ and rows $2..3$, columns $2..3$. Selecting both gives $|{R_1, R_2}| = 2 lt.eq K = #K$ and their union covers all eight 1-entries, so the answer is YES.
+
+    #figure(
+      {
+        let cell-size = 0.5
+        let blue = graph-colors.at(0)
+        let teal = rgb("#76b7b2")
+        // Rectangle covers: R1 covers rows 0..1, cols 0..1; R2 covers rows 2..3, cols 2..3
+        let rect-color(r, c) = {
+          if r <= 1 and c <= 1 { blue.transparentize(40%) }
+          else if r >= 2 and c >= 2 { teal.transparentize(40%) }
+          else { white }
+        }
+        align(center, grid(
+          columns: n,
+          column-gutter: 0pt,
+          row-gutter: 0pt,
+          ..range(m).map(r =>
+            range(n).map(c => {
+              let val = M.at(r).at(c)
+              let fill = if val == 1 { rect-color(r, c) } else { white }
+              box(width: cell-size * 1cm, height: cell-size * 1cm,
+                fill: fill, stroke: 0.4pt + luma(180),
+                align(center + horizon, text(8pt, weight: if val == 1 { "bold" } else { "regular" },
+                  if val == 1 { "1" } else { "0" })))
+            })
+          ).flatten(),
+        ))
+      },
+      caption: [Rectilinear Picture Compression: matrix $M$ covered by two rectangles $R_1$ (blue, top-left $2 times 2$) and $R_2$ (teal, bottom-right $2 times 2$), with $|{R_1, R_2}| = 2 lt.eq K = #K$.],
+    ) <fig:rpc>
+    ]
+  ]
+}
 
 #problem-def("RuralPostman")[
   Given an undirected graph $G = (V, E)$ with edge lengths $l: E -> ZZ_(gt.eq 0)$, a subset $E' subset.eq E$ of required edges, and a bound $B in ZZ^+$, determine whether there exists a circuit (closed walk) in $G$ that traverses every edge in $E'$ and has total length at most $B$.
