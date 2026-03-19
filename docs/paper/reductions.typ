@@ -1203,7 +1203,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     ][
     Strong Connectivity Augmentation models network design problems where a partially connected directed communication graph may be repaired by buying additional arcs. Eswaran and Tarjan showed that the unweighted augmentation problem is solvable in linear time, while the weighted variant is substantially harder @eswarantarjan1976. The decision version recorded as ND19 in Garey and Johnson is NP-complete @garey1979. The implementation here uses one binary variable per candidate arc, so brute-force over the candidate set yields a worst-case bound of $O^*(2^m)$ where $m = "num_potential_arcs"$. #footnote[No exact algorithm improving on brute-force is claimed here for the weighted candidate-arc formulation implemented in the codebase.]
 
-    *Example.* The canonical instance has $n = #nv$ vertices, $|A| = #ne$ existing arcs, and bound $B = #bound$. The base graph is the directed path $v_0 -> v_1 -> v_2 -> v_3 -> v_4$ — every vertex can reach those ahead of it, but vertex $v_4$ is a sink with no outgoing arcs. The #candidates.len() candidate arcs with weights are: #candidates.map(a => $w(v_#(a.at(0)), v_#(a.at(1))) = #(a.at(2))$).join(", "). All are individually within budget, yet only the pair #chosen.map(a => $(v_#(a.at(0)), v_#(a.at(1)))$).join(" and ") with weights #chosen.map(a => $#(a.at(2))$).join($+$) $= #total-weight = B$ achieves strong connectivity. Alternative escape arcs from $v_4$ (to $v_3$ or $v_2$) are equally cheap but land on vertices from which reaching $v_0$ within the remaining budget is impossible.
+    *Example.* The canonical instance has $n = #nv$ vertices, $|A| = #ne$ existing arcs, and bound $B = #bound$. The base graph is the directed path $v_0 -> v_1 -> v_2 -> v_3 -> v_4$ — every vertex can reach those ahead of it, but vertex $v_4$ is a sink with no outgoing arcs. The #candidates.len() candidate arcs with weights are: #candidates.map(a => $w(v_#(a.at(0)), v_#(a.at(1))) = #(a.at(2))$).join(", "). The cheapest single arc that closes the cycle is $(v_4, v_0)$, but its weight $10 > B$ exceeds the budget, so strong connectivity must be achieved via a two-hop return path. The pair #chosen.map(a => $(v_#(a.at(0)), v_#(a.at(1)))$).join(" and ") with weights #chosen.map(a => $#(a.at(2))$).join($+$) $= #total-weight = B$ creates the path $v_4 -> v_1 -> v_0$, making the augmented graph strongly connected at exactly the budget limit. Alternative escape arcs from $v_4$ (to $v_3$ or $v_2$) are equally cheap but land on vertices from which reaching $v_0$ within the remaining budget is impossible.
 
     #figure({
       let verts = ((0, 0), (1.5, 0), (3.0, 0), (4.5, 0), (6.0, 0))
@@ -1676,9 +1676,8 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let n = x.instance.num_attributes
   let deps = x.instance.dependencies
   let q = x.instance.query_attribute
-  let sample = x.samples.at(0)
-  let key = sample.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let num-sat = x.optimal.len()
+  let key = x.optimal_config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let num-sat = 2  // candidate keys containing query attribute: {2,3} and {0,3}
   // Format a set as {e0, e1, ...} (0-indexed) — for use in text mode
   let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
   // Format a set for use inside math mode (no $ delimiters)
@@ -3213,9 +3212,8 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let K = x.instance.bound_k
   // Convert bool matrix to int for display
   let A-int = A.map(row => row.map(v => if v { 1 } else { 0 }))
-  // Use the canonical sample witness {0, 1, 3}
-  let sol = x.samples.at(0)
-  let cfg = sol.config
+  // Use the canonical witness {0, 1, 3}
+  let cfg = x.optimal_config
   // Selected column indices
   let selected = cfg.enumerate().filter(((i, v)) => v == 1).map(((i, v)) => i)
   [
