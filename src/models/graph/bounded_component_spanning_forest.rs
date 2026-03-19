@@ -211,8 +211,8 @@ where
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "bounded_component_spanning_forest_simplegraph_i32",
-        build: || {
-            let graph = SimpleGraph::new(
+        instance: Box::new(BoundedComponentSpanningForest::new(
+            SimpleGraph::new(
                 8,
                 vec![
                     (0, 1),
@@ -226,14 +226,13 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                     (1, 5),
                     (2, 6),
                 ],
-            );
-            let problem =
-                BoundedComponentSpanningForest::new(graph, vec![2, 3, 1, 2, 3, 1, 2, 1], 3, 6);
-            crate::example_db::specs::satisfaction_example(
-                problem,
-                vec![vec![0, 0, 1, 1, 1, 2, 2, 0]],
-            )
-        },
+            ),
+            vec![2, 3, 1, 2, 3, 1, 2, 1],
+            3,
+            6,
+        )),
+        optimal_config: vec![0, 0, 1, 1, 1, 2, 2, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

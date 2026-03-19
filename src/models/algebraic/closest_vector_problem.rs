@@ -259,14 +259,13 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "closest_vector_problem_i32",
-        build: || {
-            let problem = ClosestVectorProblem::new(
-                vec![vec![2, 0], vec![1, 2]],
-                vec![2.8, 1.5],
-                vec![VarBounds::bounded(-2, 4), VarBounds::bounded(-2, 4)],
-            );
-            crate::example_db::specs::optimization_example(problem, vec![vec![3, 3]])
-        },
+        instance: Box::new(ClosestVectorProblem::new(
+            vec![vec![2, 0], vec![1, 2]],
+            vec![2.8, 1.5],
+            vec![VarBounds::bounded(-2, 4), VarBounds::bounded(-2, 4)],
+        )),
+        optimal_config: vec![3, 3],
+        optimal_value: serde_json::json!({"Valid": 0.5385164807134505}),
     }]
 }
 

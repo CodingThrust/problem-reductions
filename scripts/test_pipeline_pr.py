@@ -110,7 +110,6 @@ class PipelinePrHelpersTests(unittest.TestCase):
         )
 
         self.assertEqual(summary["counts"]["inline_comments"], 2)
-        self.assertEqual(summary["counts"]["copilot_inline_comments"], 1)
         self.assertEqual(summary["counts"]["human_inline_comments"], 1)
         self.assertEqual(summary["counts"]["human_reviews"], 1)
         self.assertEqual(summary["counts"]["human_issue_comments"], 1)
@@ -335,7 +334,6 @@ class PipelinePrHelpersTests(unittest.TestCase):
             "head_sha": "abc123",
             "comments": {
                 "counts": {
-                    "copilot_inline_comments": 2,
                     "human_inline_comments": 1,
                     "human_issue_comments": 1,
                     "human_linked_issue_comments": 1,
@@ -363,7 +361,6 @@ class PipelinePrHelpersTests(unittest.TestCase):
         self.assertIn("- Repo: CodingThrust/problem-reductions", rendered)
         self.assertIn("- Head SHA: `abc123`", rendered)
         self.assertIn("## Comment Summary", rendered)
-        self.assertIn("- Copilot inline comments: 2", rendered)
         self.assertIn("## CI Summary", rendered)
         self.assertIn("- State: failure", rendered)
         self.assertIn("## Codecov", rendered)

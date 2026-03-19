@@ -179,6 +179,21 @@ crate::declare_variants! {
     default opt MinimumFeedbackArcSet<i32> => "2^num_vertices",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    use crate::topology::DirectedGraph;
+    // 3-node cycle, unit weights; remove one arc to break cycle, cost = 1
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "minimum_feedback_arc_set",
+        instance: Box::new(MinimumFeedbackArcSet::new(
+            DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+            vec![1i32, 1, 1],
+        )),
+        optimal_config: vec![0, 0, 1],
+        optimal_value: serde_json::json!({"Valid": 1}),
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/minimum_feedback_arc_set.rs"]
 mod tests;

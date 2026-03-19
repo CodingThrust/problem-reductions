@@ -167,6 +167,25 @@ crate::declare_variants! {
     default sat OptimalLinearArrangement<SimpleGraph> => "2^num_vertices",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    use crate::topology::SimpleGraph;
+    // 6 vertices, 7 edges (path + two long chords), bound K=11
+    // Identity permutation [0,1,2,3,4,5] gives cost 1+1+1+1+1+3+3 = 11
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "optimal_linear_arrangement",
+        instance: Box::new(OptimalLinearArrangement::new(
+            SimpleGraph::new(
+                6,
+                vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 3), (2, 5)],
+            ),
+            11,
+        )),
+        optimal_config: vec![0, 1, 2, 3, 4, 5],
+        optimal_value: serde_json::json!(true),
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/optimal_linear_arrangement.rs"]
 mod tests;
