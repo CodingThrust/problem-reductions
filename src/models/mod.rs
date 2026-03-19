@@ -26,9 +26,10 @@ pub use graph::{
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
-    BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
-    PrecedenceConstrainedScheduling, RectilinearPictureCompression, ResourceConstrainedScheduling,
+    BinPacking, CbqRelation, ConjunctiveBooleanQuery, Factoring, FlowShopScheduling, Knapsack,
+    LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+    PrecedenceConstrainedScheduling, QueryArg, RectilinearPictureCompression,
+    ResourceConstrainedScheduling,
     SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
     StaffScheduling, StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
 };

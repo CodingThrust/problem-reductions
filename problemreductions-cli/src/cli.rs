@@ -270,6 +270,7 @@ Flags by problem type:
   SCS                             --strings, --bound [--alphabet-size]
   StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
+  CBQ                              --domain-size, --relations, --conjuncts-spec
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -525,6 +526,15 @@ pub struct CreateArgs {
     /// Alphabet size for LCS, SCS, or StringToStringCorrection (optional; inferred from the input strings if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+    /// Domain size for ConjunctiveBooleanQuery
+    #[arg(long)]
+    pub domain_size: Option<usize>,
+    /// Relations for ConjunctiveBooleanQuery (format: "arity:tuple1|tuple2;arity:tuple1|tuple2")
+    #[arg(long)]
+    pub relations: Option<String>,
+    /// Conjuncts for ConjunctiveBooleanQuery (format: "rel:args;rel:args" where args use v0,v1 for variables, c0,c1 for constants)
+    #[arg(long)]
+    pub conjuncts_spec: Option<String>,
     /// Functional dependencies (semicolon-separated, each dep is lhs>rhs with comma-separated indices, e.g., "0,1>2,3;2,3>0,1")
     #[arg(long)]
     pub deps: Option<String>,

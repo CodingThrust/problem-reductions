@@ -13,9 +13,10 @@ use problemreductions::models::graph::{
     MinimumMultiwayCut, MultipleChoiceBranching, SteinerTree, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
-    BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, RectilinearPictureCompression,
-    ResourceConstrainedScheduling, SequencingWithReleaseTimesAndDeadlines,
+    BinPacking, CbqRelation, ConjunctiveBooleanQuery, FlowShopScheduling, LongestCommonSubsequence,
+    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack,
+    QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
+    SequencingWithReleaseTimesAndDeadlines,
     SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
     SumOfSquaresPartition,
 };
@@ -113,6 +114,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.sink_2.is_none()
         && args.requirement_1.is_none()
         && args.requirement_2.is_none()
+        && args.domain_size.is_none()
+        && args.relations.is_none()
+        && args.conjuncts_spec.is_none()
         && args.deps.is_none()
         && args.query.is_none()
 }
@@ -359,6 +363,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
         }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
+        "ConjunctiveBooleanQuery" => {
+            "--domain-size 6 --relations \"2:0,3|1,3|2,4;3:0,1,5|1,2,5\" --conjuncts-spec \"0:v0,c3;0:v1,c3;1:v0,v1,c5\""
+        }
         "StringToStringCorrection" => {
             "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
         }
@@ -2142,6 +2149,137 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // ConjunctiveBooleanQuery
+        "ConjunctiveBooleanQuery" => {
+            let usage = "Usage: pred create CBQ --domain-size 6 --relations \"2:0,3|1,3;3:0,1,5|1,2,5\" --conjuncts-spec \"0:v0,c3;0:v1,c3;1:v0,v1,c5\"";
+            let domain_size = args.domain_size.ok_or_else(|| {
+                anyhow::anyhow!("ConjunctiveBooleanQuery requires --domain-size\n\n{usage}")
+            })?;
+            let relations_str = args.relations.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("ConjunctiveBooleanQuery requires --relations\n\n{usage}")
+            })?;
+            let conjuncts_str = args.conjuncts_spec.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("ConjunctiveBooleanQuery requires --conjuncts-spec\n\n{usage}")
+            })?;
+            // Parse relations: "arity:t1,t2|t3,t4;arity:t5,t6,t7|t8,t9,t10"
+            // An empty tuple list (e.g., "2:") produces an empty relation.
+            let relations: Vec<CbqRelation> = relations_str
+                .split(';')
+                .map(|rel_str| {
+                    let rel_str = rel_str.trim();
+                    let (arity_str, tuples_str) = rel_str.split_once(':').ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Invalid relation format: expected 'arity:tuples', got '{rel_str}'"
+                        )
+                    })?;
+                    let arity: usize = arity_str
+                        .trim()
+                        .parse()
+                        .map_err(|e| anyhow::anyhow!("Invalid arity '{arity_str}': {e}"))?;
+                    let tuples: Vec<Vec<usize>> = if tuples_str.trim().is_empty() {
+                        Vec::new()
+                    } else {
+                        tuples_str
+                            .split('|')
+                            .filter(|t| !t.trim().is_empty())
+                            .map(|t| {
+                                let tuple: Vec<usize> = t
+                                    .trim()
+                                    .split(',')
+                                    .map(|v| {
+                                        v.trim().parse::<usize>().map_err(|e| {
+                                            anyhow::anyhow!("Invalid tuple value: {e}")
+                                        })
+                                    })
+                                    .collect::<Result<Vec<_>>>()?;
+                                if tuple.len() != arity {
+                                    bail!(
+                                        "Relation tuple has {} entries, expected arity {arity}",
+                                        tuple.len()
+                                    );
+                                }
+                                for &val in &tuple {
+                                    if val >= domain_size {
+                                        bail!("Tuple value {val} >= domain-size {domain_size}");
+                                    }
+                                }
+                                Ok(tuple)
+                            })
+                            .collect::<Result<Vec<_>>>()?
+                    };
+                    Ok(CbqRelation { arity, tuples })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            // Parse conjuncts: "rel_idx:arg1,arg2;rel_idx:arg1,arg2,arg3"
+            let mut num_vars_inferred: usize = 0;
+            let conjuncts: Vec<(usize, Vec<QueryArg>)> = conjuncts_str
+                .split(';')
+                .map(|conj_str| {
+                    let conj_str = conj_str.trim();
+                    let (idx_str, args_str) = conj_str.split_once(':').ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Invalid conjunct format: expected 'rel_idx:args', got '{conj_str}'"
+                        )
+                    })?;
+                    let rel_idx: usize = idx_str.trim().parse().map_err(|e| {
+                        anyhow::anyhow!("Invalid relation index '{idx_str}': {e}")
+                    })?;
+                    if rel_idx >= relations.len() {
+                        bail!(
+                            "Conjunct references relation {rel_idx}, but only {} relations exist",
+                            relations.len()
+                        );
+                    }
+                    let query_args: Vec<QueryArg> = args_str
+                        .split(',')
+                        .map(|a| {
+                            let a = a.trim();
+                            if let Some(rest) = a.strip_prefix('v') {
+                                let v: usize = rest.parse().map_err(|e| {
+                                    anyhow::anyhow!("Invalid variable index '{rest}': {e}")
+                                })?;
+                                if v + 1 > num_vars_inferred {
+                                    num_vars_inferred = v + 1;
+                                }
+                                Ok(QueryArg::Variable(v))
+                            } else if let Some(rest) = a.strip_prefix('c') {
+                                let c: usize = rest.parse().map_err(|e| {
+                                    anyhow::anyhow!("Invalid constant value '{rest}': {e}")
+                                })?;
+                                if c >= domain_size {
+                                    bail!(
+                                        "Constant {c} >= domain-size {domain_size}"
+                                    );
+                                }
+                                Ok(QueryArg::Constant(c))
+                            } else {
+                                Err(anyhow::anyhow!(
+                                    "Invalid query arg '{a}': expected vN (variable) or cN (constant)"
+                                ))
+                            }
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+                    let expected_arity = relations[rel_idx].arity;
+                    if query_args.len() != expected_arity {
+                        bail!(
+                            "Conjunct has {} args, but relation {rel_idx} has arity {expected_arity}",
+                            query_args.len()
+                        );
+                    }
+                    Ok((rel_idx, query_args))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            (
+                ser(ConjunctiveBooleanQuery::new(
+                    domain_size,
+                    relations,
+                    num_vars_inferred,
+                    conjuncts,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // PartiallyOrderedKnapsack
         "PartiallyOrderedKnapsack" => {
             let sizes_str = args.sizes.as_deref().ok_or_else(|| {
@@ -3894,6 +4032,9 @@ mod tests {
             requirements: None,
             num_workers: None,
             num_groups: None,
+            domain_size: None,
+            relations: None,
+            conjuncts_spec: None,
         }
     }
 
