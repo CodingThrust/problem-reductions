@@ -326,6 +326,7 @@ impl ReduceTo<QUBO<f64>> for KSatisfiability<K3> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
     use crate::models::algebraic::QUBO;
     use crate::models::formula::CNFClause;
 
@@ -342,9 +343,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                         CNFClause::new(vec![-3, -4]),
                     ],
                 );
-                crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(
+                crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
                     source,
-                    crate::example_db::specs::keep_bool_source,
+                    SolutionPair {
+                        source_config: vec![0, 1, 0, 1],
+                        target_config: vec![0, 1, 0, 1],
+                    },
                 )
             },
         },
@@ -363,9 +367,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                         CNFClause::new(vec![3, -4, -5]),
                     ],
                 );
-                crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(
+                crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
                     source,
-                    crate::example_db::specs::keep_bool_source,
+                    SolutionPair {
+                        source_config: vec![0, 0, 0, 0, 0],
+                        target_config: vec![0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+                    },
                 )
             },
         },
