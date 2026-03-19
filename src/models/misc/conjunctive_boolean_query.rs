@@ -231,8 +231,11 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "conjunctive_boolean_query",
-        build: || {
-            let relations = vec![
+        // D={0..5}, 2 relations (binary R0, ternary R1), 3 atoms, 2 variables.
+        // Satisfying assignment: y0=0, y1=1.
+        instance: Box::new(ConjunctiveBooleanQuery::new(
+            6,
+            vec![
                 Relation {
                     arity: 2,
                     tuples: vec![vec![0, 3], vec![1, 3], vec![2, 4], vec![3, 4], vec![4, 5]],
@@ -241,8 +244,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                     arity: 3,
                     tuples: vec![vec![0, 1, 5], vec![1, 2, 5], vec![2, 3, 4], vec![0, 4, 3]],
                 },
-            ];
-            let conjuncts = vec![
+            ],
+            2,
+            vec![
                 (0, vec![QueryArg::Variable(0), QueryArg::Constant(3)]),
                 (0, vec![QueryArg::Variable(1), QueryArg::Constant(3)]),
                 (
@@ -253,10 +257,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                         QueryArg::Constant(5),
                     ],
                 ),
-            ];
-            let problem = ConjunctiveBooleanQuery::new(6, relations, 2, conjuncts);
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 1]])
-        },
+            ],
+        )),
+        optimal_config: vec![0, 1],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

@@ -169,12 +169,12 @@ impl SatisfactionProblem for IsomorphicSpanningTree {}
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "isomorphic_spanning_tree",
-        build: || {
-            let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-            let tree = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
-            let problem = IsomorphicSpanningTree::new(graph, tree);
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 1, 2, 3]])
-        },
+        instance: Box::new(IsomorphicSpanningTree::new(
+            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
+        )),
+        optimal_config: vec![0, 1, 2, 3],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

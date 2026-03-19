@@ -273,8 +273,8 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "directed_two_commodity_integral_flow",
-        build: || {
-            let graph = DirectedGraph::new(
+        instance: Box::new(DirectedTwoCommodityIntegralFlow::new(
+            DirectedGraph::new(
                 6,
                 vec![
                     (0, 2),
@@ -286,17 +286,17 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                     (3, 4),
                     (3, 5),
                 ],
-            );
-            let problem =
-                DirectedTwoCommodityIntegralFlow::new(graph, vec![1; 8], 0, 4, 1, 5, 1, 1);
-            // Solution: commodity 1 path 0->2->4 (arcs 0,4), commodity 2 path 1->3->5 (arcs 3,7)
-            // config = [f1(a0)..f1(a7), f2(a0)..f2(a7)]
-            //        = [1,0,0,0,1,0,0,0, 0,0,0,1,0,0,0,1]
-            crate::example_db::specs::satisfaction_example(
-                problem,
-                vec![vec![1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1]],
-            )
-        },
+            ),
+            vec![1; 8],
+            0,
+            4,
+            1,
+            5,
+            1,
+            1,
+        )),
+        optimal_config: vec![1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

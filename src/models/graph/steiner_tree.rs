@@ -268,14 +268,16 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "steiner_tree_simplegraph_i32",
-        build: || {
-            let graph = SimpleGraph::new(
+        instance: Box::new(SteinerTree::new(
+            SimpleGraph::new(
                 5,
                 vec![(0, 1), (0, 3), (1, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
-            );
-            let problem = SteinerTree::new(graph, vec![2, 5, 2, 1, 5, 6, 1], vec![0, 2, 4]);
-            crate::example_db::specs::optimization_example(problem, vec![vec![1, 0, 1, 1, 0, 0, 1]])
-        },
+            ),
+            vec![2, 5, 2, 1, 5, 6, 1],
+            vec![0, 2, 4],
+        )),
+        optimal_config: vec![1, 0, 1, 1, 0, 0, 1],
+        optimal_value: serde_json::json!({"Valid": 6}),
     }]
 }
 
