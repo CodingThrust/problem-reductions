@@ -143,8 +143,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             use crate::models::algebraic::QUBO;
             use crate::models::graph::MinimumMultiwayCut;
             use crate::topology::SimpleGraph;
-            let graph =
-                SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
+            let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
             let source = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
             crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(source, |_, _| true)
         },
