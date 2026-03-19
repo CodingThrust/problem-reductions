@@ -2120,7 +2120,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let cap_str = args.capacity.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("PartiallyOrderedKnapsack requires --capacity (e.g., 11)")
             })?;
-            let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
+            let weights: Vec<i64> = util::parse_comma_list(sizes_str)?;
             let values: Vec<i64> = util::parse_comma_list(values_str)?;
             let capacity: i64 = cap_str.parse()?;
             let precedences = match args.precedences.as_deref() {
@@ -2143,7 +2143,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             };
             (
                 ser(PartiallyOrderedKnapsack::new(
-                    sizes,
+                    weights,
                     values,
                     precedences,
                     capacity,

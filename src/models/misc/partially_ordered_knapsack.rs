@@ -18,7 +18,7 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Select items to maximize total value subject to precedence constraints and weight capacity",
         fields: &[
-            FieldInfo { name: "sizes", type_name: "Vec<i64>", description: "Item sizes s(u) for each item" },
+            FieldInfo { name: "weights", type_name: "Vec<i64>", description: "Item weights w(u) for each item" },
             FieldInfo { name: "values", type_name: "Vec<i64>", description: "Item values v(u) for each item" },
             FieldInfo { name: "precedences", type_name: "Vec<(usize, usize)>", description: "Precedence pairs (a, b) meaning a must be included before b" },
             FieldInfo { name: "capacity", type_name: "i64", description: "Knapsack capacity B" },
@@ -28,10 +28,10 @@ inventory::submit! {
 
 /// The Partially Ordered Knapsack problem.
 ///
-/// Given `n` items, each with size `s(u)` and value `v(u)`, a partial order
-/// on the items (given as precedence pairs), and a capacity `B`, find a subset
-/// `U' ⊆ U` that is downward-closed (if `u ∈ U'` and `u' < u`, then `u' ∈ U'`),
-/// satisfies `∑_{u∈U'} s(u) ≤ B`, and maximizes `∑_{u∈U'} v(u)`.
+/// Given `n` items, each with weight `w(u)` and value `v(u)`, a partial order
+/// on the items (given as precedence pairs), and a capacity `C`, find a subset
+/// `S ⊆ {0,…,n-1}` that is downward-closed (if `i ∈ S` and `j ≺ i`, then `j ∈ S`),
+/// satisfies `∑_{i∈S} w_i ≤ C`, and maximizes `∑_{i∈S} v_i`.
 ///
 /// # Representation
 ///
@@ -46,7 +46,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// let problem = PartiallyOrderedKnapsack::new(
-///     vec![2, 3, 4, 1, 2, 3],  // sizes
+///     vec![2, 3, 4, 1, 2, 3],  // weights
 ///     vec![3, 2, 5, 4, 3, 8],  // values
 ///     vec![(0, 2), (0, 3), (1, 4), (3, 5), (4, 5)],  // precedences
 ///     11,  // capacity
@@ -55,10 +55,11 @@ inventory::submit! {
 /// let solution = solver.find_best(&problem);
 /// assert!(solution.is_some());
 /// ```
-/// Raw serialization helper for [`PartiallyOrderedKnapsack`].
+///
+// Raw serialization helper for [`PartiallyOrderedKnapsack`].
 #[derive(Serialize, Deserialize)]
 struct PartiallyOrderedKnapsackRaw {
-    sizes: Vec<i64>,
+    weights: Vec<i64>,
     values: Vec<i64>,
     precedences: Vec<(usize, usize)>,
     capacity: i64,
@@ -66,7 +67,7 @@ struct PartiallyOrderedKnapsackRaw {
 
 #[derive(Debug, Clone)]
 pub struct PartiallyOrderedKnapsack {
-    sizes: Vec<i64>,
+    weights: Vec<i64>,
     values: Vec<i64>,
     precedences: Vec<(usize, usize)>,
     capacity: i64,
@@ -78,7 +79,7 @@ pub struct PartiallyOrderedKnapsack {
 impl Serialize for PartiallyOrderedKnapsack {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         PartiallyOrderedKnapsackRaw {
-            sizes: self.sizes.clone(),
+            weights: self.weights.clone(),
             values: self.values.clone(),
             precedences: self.precedences.clone(),
             capacity: self.capacity,
@@ -91,7 +92,7 @@ impl<'de> Deserialize<'de> for PartiallyOrderedKnapsack {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let raw = PartiallyOrderedKnapsackRaw::deserialize(deserializer)?;
         Ok(Self::new(
-            raw.sizes,
+            raw.weights,
             raw.values,
             raw.precedences,
             raw.capacity,
@@ -103,31 +104,34 @@ impl PartiallyOrderedKnapsack {
     /// Create a new PartiallyOrderedKnapsack instance.
     ///
     /// # Arguments
-    /// * `sizes` - Size s(u) for each item
+    /// * `weights` - Weight w(u) for each item
     /// * `values` - Value v(u) for each item
     /// * `precedences` - Precedence pairs `(a, b)` meaning item `a` must be included before item `b`
-    /// * `capacity` - Knapsack capacity B
+    /// * `capacity` - Knapsack capacity C
     ///
     /// # Panics
-    /// Panics if `sizes` and `values` have different lengths, if any size or
-    /// capacity is negative, if any precedence index is out of bounds, or if
-    /// the precedences contain a cycle.
+    /// Panics if `weights` and `values` have different lengths, if any weight,
+    /// value, or capacity is negative, if any precedence index is out of bounds,
+    /// or if the precedences contain a cycle.
     pub fn new(
-        sizes: Vec<i64>,
+        weights: Vec<i64>,
         values: Vec<i64>,
         precedences: Vec<(usize, usize)>,
         capacity: i64,
     ) -> Self {
         assert_eq!(
-            sizes.len(),
+            weights.len(),
             values.len(),
-            "sizes and values must have the same length"
+            "weights and values must have the same length"
         );
         assert!(capacity >= 0, "capacity must be non-negative");
-        for (i, &s) in sizes.iter().enumerate() {
-            assert!(s >= 0, "size[{i}] must be non-negative, got {s}");
+        for (i, &w) in weights.iter().enumerate() {
+            assert!(w >= 0, "weight[{i}] must be non-negative, got {w}");
         }
-        let n = sizes.len();
+        for (i, &v) in values.iter().enumerate() {
+            assert!(v >= 0, "value[{i}] must be non-negative, got {v}");
+        }
+        let n = weights.len();
         for &(a, b) in &precedences {
             assert!(a < n, "precedence index {a} out of bounds (n={n})");
             assert!(b < n, "precedence index {b} out of bounds (n={n})");
@@ -141,7 +145,7 @@ impl PartiallyOrderedKnapsack {
             );
         }
         Self {
-            sizes,
+            weights,
             values,
             precedences,
             capacity,
@@ -169,9 +173,9 @@ impl PartiallyOrderedKnapsack {
             .collect()
     }
 
-    /// Returns the item sizes.
-    pub fn sizes(&self) -> &[i64] {
-        &self.sizes
+    /// Returns the item weights.
+    pub fn weights(&self) -> &[i64] {
+        &self.weights
     }
 
     /// Returns the item values.
@@ -191,7 +195,7 @@ impl PartiallyOrderedKnapsack {
 
     /// Returns the number of items.
     pub fn num_items(&self) -> usize {
-        self.sizes.len()
+        self.weights.len()
     }
 
     /// Returns the number of precedence relations.
@@ -241,13 +245,13 @@ impl Problem for PartiallyOrderedKnapsack {
             return SolutionSize::Invalid;
         }
         // Check capacity constraint
-        let total_size: i64 = config
+        let total_weight: i64 = config
             .iter()
             .enumerate()
             .filter(|(_, &x)| x == 1)
-            .map(|(i, _)| self.sizes[i])
+            .map(|(i, _)| self.weights[i])
             .sum();
-        if total_size > self.capacity {
+        if total_weight > self.capacity {
             return SolutionSize::Invalid;
         }
         // Compute total value
