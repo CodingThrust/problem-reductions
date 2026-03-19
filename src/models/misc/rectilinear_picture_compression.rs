@@ -296,19 +296,20 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "rectilinear_picture_compression",
-        build: || {
-            let matrix = vec![
+        // Config: select both maximal rectangles (the two 2x2 blocks).
+        // The maximal rectangles for this matrix are exactly:
+        // (0,0,1,1) and (2,2,3,3), so config [1,1] selects both.
+        instance: Box::new(RectilinearPictureCompression::new(
+            vec![
                 vec![true, true, false, false],
                 vec![true, true, false, false],
                 vec![false, false, true, true],
                 vec![false, false, true, true],
-            ];
-            let problem = RectilinearPictureCompression::new(matrix, 2);
-            // Config: select both maximal rectangles (the two 2x2 blocks).
-            // The maximal rectangles for this matrix are exactly:
-            // (0,0,1,1) and (2,2,3,3), so config [1,1] selects both.
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![1, 1], vec![0, 0]])
-        },
+            ],
+            2,
+        )),
+        optimal_config: vec![1, 1],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

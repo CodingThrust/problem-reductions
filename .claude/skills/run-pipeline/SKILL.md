@@ -1,17 +1,16 @@
 ---
-name: project-pipeline
+name: run-pipeline
 description: Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr -> Review pool
 ---
 
-# Project Pipeline
+# Run Pipeline
 
-Pick a "Ready" issue from the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1), claim it into "In Progress", run `issue-to-pr --execute`, then move it to "Review pool". The separate `review-pipeline` handles Copilot comments, CI fixes, and agentic testing.
+Pick a "Ready" issue from the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1), claim it into "In Progress", run `issue-to-pr`, then move it to "Review pool". The separate `review-pipeline` handles agentic review (structural check, quality check, agentic feature tests).
 
 ## Invocation
 
-- `/project-pipeline` -- pick the highest-ranked Ready issue (ranked by importance, relatedness, pending rules)
-- `/project-pipeline 97` -- process a specific issue number from the Ready column
-- `/project-pipeline --all` -- batch-process all Ready issues in ranked order
+- `/run-pipeline` -- pick the highest-ranked Ready issue (ranked by importance, relatedness, pending rules)
+- `/run-pipeline 97` -- process a specific issue number from the Ready column
 
 For Codex, open this `SKILL.md` directly and treat the slash-command forms above as aliases. The Makefile `run-pipeline` target already does this translation.
 
@@ -39,7 +38,7 @@ This skill runs **fully autonomously** — no confirmation prompts, no user ques
 ### 0. Generate the Project-Pipeline Report
 
 Step 0 should be a single report-generation step. Do not manually list Ready items, list In-progress items, grep model declarations, or re-derive blocked rules with separate shell commands.
-The expensive full-context call here is `python3 scripts/pipeline_skill_context.py project-pipeline ...` (backed by `build_project_pipeline_context()`). For a single top-level `project-pipeline` invocation, call it once and reuse the packet for scoring, ranking, and choosing the issue. Do not rerun it in the single-issue path after the packet exists.
+The expensive full-context call here is `python3 scripts/pipeline_skill_context.py project-pipeline ...` (backed by `build_project_pipeline_context()`). For a single top-level `run-pipeline` invocation, call it once and reuse the packet for scoring, ranking, and choosing the issue. Do not rerun it in the single-issue path after the packet exists.
 
 ```bash
 set -- python3 scripts/pipeline_skill_context.py project-pipeline --repo CodingThrust/problem-reductions --repo-root . --format text
@@ -72,6 +71,8 @@ The report already handled the deterministic setup:
 - it computed the pending-rule unblock counts used for C3
 
 #### 0a. Score Eligible Issues
+
+**Short-circuit:** If there is only 1 eligible issue, skip scoring and pick it directly. Print "Only 1 eligible issue, picking it." and jump to Step 0c.
 
 Score only **eligible** issues on three criteria. For `[Model]` issues, extract the problem name. For `[Rule]` issues, extract both source and target problem names.
 
@@ -118,8 +119,6 @@ The report should already have stopped you before this point if the requested is
 
 After successful validation, extract `ITEM_ID`, `ISSUE`, and `TITLE` from `CLAIM` using the same commands shown below.
 
-**If `--all`:** proceed with all eligible issues in ranked order (highest score first). Models before Rules at same score. Blocked rules are skipped. After each issue is processed, regenerate the report before the next claim, because a just-merged Model may unblock pending rules. This is the only normal case in this skill where a second full-context packet is expected.
-
 **Otherwise (no args):** score the eligible issues from the report, pick the highest-scored one, and proceed immediately (no confirmation). After picking the issue number, claim it through the scripted bundle:
 
 ```bash
@@ -137,69 +136,51 @@ TITLE=$(printf '%s\n' "$CLAIM" | python3 -c "import sys,json; print(json.load(sy
 
 ### 1. Create Worktree
 
-Create an isolated git worktree for this issue. The script automatically checks for an existing open PR — if one exists, it checks out that PR branch (treating it as an incomplete implementation); otherwise it creates a fresh worktree from `origin/main`:
+Create an isolated worktree for this issue:
 
 ```bash
-WORKTREE=$(python3 scripts/pipeline_worktree.py worktree-for-issue \
-  --repo "$REPO" --issue "$ISSUE" --slug <slug> --format json)
-ACTION=$(printf '%s\n' "$WORKTREE" | python3 -c "import sys,json; print(json.load(sys.stdin)['action'])")
-WORKTREE_DIR=$(printf '%s\n' "$WORKTREE" | python3 -c "import sys,json; print(json.load(sys.stdin)['worktree_dir'])")
+REPO_ROOT=$(pwd)
+WORKTREE_JSON=$(python3 scripts/pipeline_worktree.py enter --name "issue-$ISSUE" --format json)
+WORKTREE_DIR=$(printf '%s\n' "$WORKTREE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['worktree_dir'])")
 cd "$WORKTREE_DIR"
 ```
 
-If `worktree-for-issue` fails during the GraphQL-backed open-PR lookup, fall back to a REST search instead of creating a fresh branch blindly:
-
-```bash
-PR_JSON=$(gh api "search/issues?q=repo:$REPO+is:pr+is:open+%22Fix+%23$ISSUE%22")
-PR_NUMBER=$(printf '%s\n' "$PR_JSON" | python3 -c "import sys,json; items=json.load(sys.stdin).get('items', []); print(items[0]['number'] if items else '')")
-WORKTREE=$(python3 scripts/pipeline_worktree.py checkout-pr \
-  --repo "$REPO" --pr "$PR_NUMBER" --repo-root . --format json)
-```
-
-- `action == "resume-pr"`: existing PR checked out — `issue-to-pr` will skip plan creation and jump to execution
-- If the resumed branch later proves stale against `main` (for example, merge conflicts span registry/CLI/skill wiring or a merge helper reports `likely_complex: true`), STOP autonomous repair and move the issue to `Final review` for human triage instead of forcing a large migration inside project-pipeline
-- `action == "create-worktree"`: fresh branch from `origin/main`
-
 All subsequent steps run inside the worktree. This ensures the user's main checkout is never modified.
+
+`issue-to-pr` (Step 3) handles all PR detection and branch management — if an existing open PR exists, it checks out that branch and resumes; otherwise it creates a fresh branch from `origin/main`.
 
 ### 2. Claim Result
 
 `claim-next ready` has already moved the selected issue from `Ready` to `In progress`. Keep using `ITEM_ID` from the `CLAIM` JSON payload for later board transitions.
 
-### 3. Run issue-to-pr --execute
+### 3. Run issue-to-pr
 
-Invoke the `issue-to-pr` skill with `--execute` (working directory is the worktree):
+Invoke the `issue-to-pr` skill (working directory is the worktree):
 
 ```
-/issue-to-pr "$ISSUE" --execute
+/issue-to-pr "$ISSUE"
 ```
 
-This handles the full pipeline: fetch issue, verify Good label, research, write plan, create PR, implement, review, fix CI. If an existing PR was detected in Step 1, `issue-to-pr` will resume it (skip plan creation, jump to execution).
+This handles the full pipeline: fetch issue, verify Good label, research, write plan, create PR, implement. If an existing open PR is detected, `issue-to-pr` will resume it (skip plan creation, jump to execution).
 
-**If `issue-to-pr` fails after creating a PR:** record the failure, but still move the issue to "Final review" so it's visible for human triage. Report the failure to the user.
+**If `issue-to-pr` fails:** move the issue to OnHold with a diagnostic comment (see Step 4).
 
 ### 4. Move to "Review pool"
 
-After `issue-to-pr` succeeds, move the issue to the `Review pool` column and request a Copilot review so the review pipeline can pick it up:
+After `issue-to-pr` succeeds, move the issue to the `Review pool` column:
 
 ```bash
 python3 scripts/pipeline_board.py move <ITEM_ID> review-pool
-gh copilot-review <PR_NUMBER>
 ```
 
-The Copilot review request is required — without it, `run-review-forever` will not detect the PR as eligible.
-
-**If `issue-to-pr` failed after creating a PR:** move the issue to `Final review` instead so a human can take over:
+**If `issue-to-pr` failed (whether or not a PR was created):** move the issue to `OnHold` with a diagnostic comment explaining what went wrong:
 
 ```bash
-python3 scripts/pipeline_board.py move <ITEM_ID> final-review
+gh issue comment <ISSUE> --body "run-pipeline: implementation failed. <brief reason>"
+python3 scripts/pipeline_board.py move <ITEM_ID> on-hold
 ```
 
-**If no PR was created** (issue-to-pr failed before creating a PR): move the issue back to "Ready" instead:
-
-```bash
-python3 scripts/pipeline_board.py move <ITEM_ID> ready
-```
+**Forward-only rule:** never move items backward (e.g., back to Ready). All failures go to OnHold for human triage.
 
 ### 5. Clean Up Worktree
 
@@ -207,10 +188,10 @@ After the issue is processed (success or failure), clean up the worktree:
 
 ```bash
 cd "$REPO_ROOT"
-git worktree remove "$WORKTREE_DIR" --force
+python3 scripts/pipeline_worktree.py cleanup --worktree "$WORKTREE_DIR"
 ```
 
-### 6. Report (single issue)
+### 6. Report
 
 Print a summary:
 
@@ -222,25 +203,6 @@ Pipeline complete:
   Board:  Moved Ready -> In Progress -> Review pool
 ```
 
-### 7. Batch Mode (`--all`)
-
-If `--all` was specified, repeat Steps 1-6 for each issue in order. Each issue gets its own worktree (created and cleaned up per issue).
-
-After all issues, print a batch report:
-
-```
-=== Project Pipeline Batch Report ===
-
-| Issue | Title                              | PR   | Status      | Board       |
-|-------|------------------------------------|------|-------------|-------------|
-| #129  | [Model] MultivariateQuadratic      | #201 | CI green    | Review pool |
-| #97   | [Rule] BinPacking to ILP           | #202 | CI green    | Review pool |
-| #110  | [Rule] LCS to ILP                  | #203 | fix failed  | Review pool |
-| #126  | [Rule] KSat to SubsetSum           | -    | plan failed | Ready       |
-
-Completed: 2/4 | Review pool: 3 | Returned to Ready: 1
-```
-
 ## Common Mistakes
 
 | Mistake | Fix |
@@ -248,12 +210,9 @@ Completed: 2/4 | Review pool: 3 | Returned to Ready: 1
 | Issue not in Ready column | Verify status before processing; STOP if not Ready |
 | Picking a Rule whose model doesn't exist | Hard constraint: both source and target models must exist on `main` — pending Model issues do NOT count |
 | Missing project scopes | Run `gh auth refresh -s read:project,project` |
-| Forgetting to move back to Ready on total failure | Only move to Review pool if a PR exists |
-| Processing Rules before their Model dependencies | In `--all` mode, re-check eligibility after each issue — a just-merged Model may unblock rules |
+| Moving items backward to Ready | Never move backward — all failures go to OnHold with diagnostic comment |
 | Scoring a variant as "related" | Weighted/unweighted variants or graph-subtype specializations of existing problems score 0 on C2 |
-| Not syncing main between batch issues | Each issue gets a fresh worktree from `origin/main` |
-| Worktree left behind on failure | Always clean up with `git worktree remove` in Step 5 |
-| Working in main checkout | All work happens in `.worktrees/` — never modify the main checkout |
+| Worktree left behind on failure | Always run `pipeline_worktree.py cleanup` in Step 5 |
+| Working in main checkout | All work happens in the worktree — never modify the main checkout |
 | Missing items from project board | `gh project item-list` defaults to 30 items — always use `--limit 500` |
-| Creating a fresh branch when PR exists | Check `issue-context` action field first — use `checkout-pr` for existing PRs instead of `create-issue` |
-| Forcing a very stale resume PR through autonomous conflict repair | If a resumed PR has broad merge conflicts (`likely_complex: true`, registry/CLI/skill churn, etc.), stop and move it to `Final review` |
+| Inventing `pipeline_board.py` subcommands | Only `next`, `claim-next`, `ack`, `list`, `move`, `backlog` exist |

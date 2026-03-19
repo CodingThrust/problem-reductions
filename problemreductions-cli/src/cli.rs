@@ -13,7 +13,8 @@ Typical workflow:
   pred evaluate problem.json --config 1,0,1,0
 
 Piping (use - to read from stdin):
-  pred create MIS --graph 0-1,1-2 | pred solve -
+  pred create MIS --graph 0-1,1-2 | pred solve -                    # when an ILP reduction path exists
+  pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred create MIS --graph 0-1,1-2 | pred evaluate - --config 1,0,1
   pred create MIS --graph 0-1,1-2 | pred reduce - --to QUBO
 
@@ -221,36 +222,51 @@ Flags by problem type:
   QUBO                            --matrix
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
+  MinimumMultiwayCut              --graph, --terminals, --edge-weights
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
+  HamiltonianCircuit, HC          --graph
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   IsomorphicSpanningTree          --graph, --tree
+  KthBestSpanningTree             --graph, --edge-weights, --k, --bound
   LengthBoundedDisjointPaths      --graph, --source, --sink, --num-paths-required, --bound
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
   SubsetSum                       --sizes, --target
+  SumOfSquaresPartition           --sizes, --num-groups, --bound
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumSetCovering              --universe, --sets [--weights]
+  ComparativeContainment          --universe, --r-sets, --s-sets [--r-weights] [--s-weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   SetBasis                        --universe, --sets, --k
+  PrimeAttributeName              --universe, --deps, --query
+  MinimumCardinalityKey           --num-attributes, --dependencies, --k
   BicliqueCover                   --left, --right, --biedges, --k
+  BalancedCompleteBipartiteSubgraph --left, --right, --biedges, --k
+  BiconnectivityAugmentation      --graph, --potential-edges, --budget [--num-vertices]
   BMF                             --matrix (0/1), --rank
+  ConsecutiveOnesSubmatrix        --matrix (0/1), --k
   SteinerTree                     --graph, --edge-weights, --terminals
   CVP                             --basis, --target-vec [--bounds]
+  MultiprocessorScheduling        --lengths, --num-processors, --deadline
   SequencingWithinIntervals       --release-times, --deadlines, --lengths
   OptimalLinearArrangement        --graph, --bound
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
   MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
-  LCS                             --strings
+  LCS                             --strings, --bound [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
+  QAP                             --matrix (cost), --distance-matrix
+  StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
+  StaffScheduling                 --schedules, --requirements, --num-workers, --k
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
   RectilinearPictureCompression   --matrix (0/1), --k
   SCS                             --strings, --bound [--alphabet-size]
+  StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   ILP, CircuitSAT                 (via reduction only)
 
@@ -269,13 +285,18 @@ Examples:
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
   pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
+  pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
+  pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10
+  pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5
   pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1
   pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
   pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
-  pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3")]
+  pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3
+  pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3
+  pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT). Omit when using --example.
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -385,19 +406,31 @@ pub struct CreateArgs {
     /// Sets for SetPacking/SetCovering (semicolon-separated, e.g., "0,1;1,2;0,2")
     #[arg(long)]
     pub sets: Option<String>,
+    /// R-family sets for ComparativeContainment (semicolon-separated, e.g., "0,1;1,2")
+    #[arg(long)]
+    pub r_sets: Option<String>,
+    /// S-family sets for ComparativeContainment (semicolon-separated, e.g., "0,1;1,2")
+    #[arg(long)]
+    pub s_sets: Option<String>,
+    /// R-family weights for ComparativeContainment (comma-separated, e.g., "2,5")
+    #[arg(long)]
+    pub r_weights: Option<String>,
+    /// S-family weights for ComparativeContainment (comma-separated, e.g., "3,6")
+    #[arg(long)]
+    pub s_weights: Option<String>,
     /// Partition groups for arc-index partitions (semicolon-separated, e.g., "0,1;2,3")
     #[arg(long)]
     pub partition: Option<String>,
-    /// Universe size for MinimumSetCovering
+    /// Universe size for set-system problems such as MinimumSetCovering and ComparativeContainment
     #[arg(long)]
     pub universe: Option<usize>,
-    /// Bipartite graph edges for BicliqueCover (e.g., "0-0,0-1,1-2" for left-right pairs)
+    /// Bipartite graph edges for BicliqueCover / BalancedCompleteBipartiteSubgraph (e.g., "0-0,0-1,1-2" for left-right pairs)
     #[arg(long)]
     pub biedges: Option<String>,
-    /// Left partition size for BicliqueCover
+    /// Left partition size for BicliqueCover / BalancedCompleteBipartiteSubgraph
     #[arg(long)]
     pub left: Option<usize>,
-    /// Right partition size for BicliqueCover
+    /// Right partition size for BicliqueCover / BalancedCompleteBipartiteSubgraph
     #[arg(long)]
     pub right: Option<usize>,
     /// Rank for BMF
@@ -415,10 +448,10 @@ pub struct CreateArgs {
     /// Release times for SequencingWithinIntervals (comma-separated, e.g., "0,0,5")
     #[arg(long)]
     pub release_times: Option<String>,
-    /// Processing lengths for SequencingWithinIntervals (comma-separated, e.g., "3,1,1")
+    /// Processing lengths (comma-separated, e.g., "4,5,3,2,6")
     #[arg(long)]
     pub lengths: Option<String>,
-    /// Terminal vertices for SteinerTree (comma-separated indices, e.g., "0,2,4")
+    /// Terminal vertices for SteinerTree or MinimumMultiwayCut (comma-separated indices, e.g., "0,2,4")
     #[arg(long)]
     pub terminals: Option<String>,
     /// Tree edge list for IsomorphicSpanningTree (e.g., 0-1,1-2,2-3)
@@ -427,19 +460,31 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound or length bound (for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, or SCS)
+    /// Upper bound or length bound (for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
     #[arg(long)]
     pub pattern: Option<String>,
-    /// Input strings for LCS (e.g., "ABAC;BACA") or SCS (e.g., "0,1,2;1,2,0")
+    /// Input strings for LCS (e.g., "ABAC;BACA" or "0,1,0;1,0,1") or SCS (e.g., "0,1,2;1,2,0")
     #[arg(long)]
     pub strings: Option<String>,
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
-    /// Deadlines for MinimumTardinessSequencing (comma-separated, e.g., "5,5,5,3,3")
+    /// Distance matrix for QuadraticAssignment (semicolon-separated rows, e.g., "0,1,2;1,0,1;2,1,0")
+    #[arg(long)]
+    pub distance_matrix: Option<String>,
+    /// Weighted potential augmentation edges (e.g., 0-2:3,1-3:5)
+    #[arg(long)]
+    pub potential_edges: Option<String>,
+    /// Total budget for selected potential edges
+    #[arg(long)]
+    pub budget: Option<String>,
+    /// Candidate weighted arcs for StrongConnectivityAugmentation (e.g., 2>0:1,2>1:3)
+    #[arg(long)]
+    pub candidate_arcs: Option<String>,
+    /// Deadlines for scheduling problems (comma-separated, e.g., "5,5,5,3,3")
     #[arg(long)]
     pub deadlines: Option<String>,
     /// Precedence pairs for MinimumTardinessSequencing (e.g., "0>3,1>3,1>4,2>4")
@@ -448,15 +493,45 @@ pub struct CreateArgs {
     /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
     #[arg(long)]
     pub task_lengths: Option<String>,
-    /// Deadline for FlowShopScheduling
+    /// Deadline for FlowShopScheduling or MultiprocessorScheduling
     #[arg(long)]
     pub deadline: Option<u64>,
-    /// Number of processors/machines for FlowShopScheduling
+    /// Number of processors/machines for FlowShopScheduling or MultiprocessorScheduling
     #[arg(long)]
     pub num_processors: Option<usize>,
-    /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
+    /// Binary schedule patterns for StaffScheduling (semicolon-separated rows, e.g., "1,1,0;0,1,1")
+    #[arg(long)]
+    pub schedules: Option<String>,
+    /// Minimum staffing requirements per period for StaffScheduling
+    #[arg(long)]
+    pub requirements: Option<String>,
+    /// Number of available workers for StaffScheduling
+    #[arg(long)]
+    pub num_workers: Option<u64>,
+    /// Alphabet size for LCS, SCS, or StringToStringCorrection (optional; inferred from the input strings if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+    /// Functional dependencies (semicolon-separated, each dep is lhs>rhs with comma-separated indices, e.g., "0,1>2,3;2,3>0,1")
+    #[arg(long)]
+    pub deps: Option<String>,
+    /// Query attribute index for PrimeAttributeName
+    #[arg(long)]
+    pub query: Option<usize>,
+    /// Number of groups for SumOfSquaresPartition
+    #[arg(long)]
+    pub num_groups: Option<usize>,
+    /// Functional dependencies for MinimumCardinalityKey (semicolon-separated "lhs>rhs" pairs, e.g., "0,1>2;0,2>3")
+    #[arg(long)]
+    pub dependencies: Option<String>,
+    /// Number of attributes for MinimumCardinalityKey
+    #[arg(long)]
+    pub num_attributes: Option<usize>,
+    /// Source string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,2,3")
+    #[arg(long)]
+    pub source_string: Option<String>,
+    /// Target string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,3,2")
+    #[arg(long)]
+    pub target_string: Option<String>,
 }
 
 #[derive(clap::Args)]
@@ -466,7 +541,8 @@ Examples:
   pred solve problem.json --solver brute-force   # brute-force (exhaustive search)
   pred solve reduced.json                        # solve a reduction bundle
   pred solve reduced.json -o solution.json       # save result to file
-  pred create MIS --graph 0-1,1-2 | pred solve - # read from stdin
+  pred create MIS --graph 0-1,1-2 | pred solve - # read from stdin when an ILP path exists
+  pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred solve problem.json --timeout 10           # abort after 10 seconds
 
 Typical workflow:
@@ -480,6 +556,8 @@ Solve via explicit reduction:
 Input: a problem JSON from `pred create`, or a reduction bundle from `pred reduce`.
 When given a bundle, the target is solved and the solution is mapped back to the source.
 The ILP solver auto-reduces non-ILP problems before solving.
+Problems without an ILP reduction path, such as `LengthBoundedDisjointPaths` and
+`StringToStringCorrection`, currently need `--solver brute-force`.
 
 ILP backend (default: HiGHS). To use a different backend:
   cargo install problemreductions-cli --features coin-cbc
@@ -572,5 +650,48 @@ pub fn print_subcommand_help_hint(error_msg: &str) {
             }
             return;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_parses_biconnectivity_augmentation_flags() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "BiconnectivityAugmentation",
+            "--graph",
+            "0-1,1-2",
+            "--potential-edges",
+            "0-2:3,1-3:5",
+            "--budget",
+            "7",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        assert_eq!(args.problem.as_deref(), Some("BiconnectivityAugmentation"));
+        assert_eq!(args.graph.as_deref(), Some("0-1,1-2"));
+        assert_eq!(args.potential_edges.as_deref(), Some("0-2:3,1-3:5"));
+        assert_eq!(args.budget.as_deref(), Some("7"));
+    }
+
+    #[test]
+    fn test_create_help_mentions_biconnectivity_augmentation_flags() {
+        let cmd = Cli::command();
+        let create = cmd.find_subcommand("create").expect("create subcommand");
+        let help = create
+            .get_after_help()
+            .expect("create after_help")
+            .to_string();
+
+        assert!(help.contains("BiconnectivityAugmentation"));
+        assert!(help.contains("--potential-edges"));
+        assert!(help.contains("--budget"));
     }
 }

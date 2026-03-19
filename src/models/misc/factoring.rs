@@ -173,10 +173,9 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "factoring",
-        build: || {
-            let problem = Factoring::new(2, 3, 15);
-            crate::example_db::specs::optimization_example(problem, vec![vec![1, 1, 1, 0, 1]])
-        },
+        instance: Box::new(Factoring::new(2, 3, 15)),
+        optimal_config: vec![1, 1, 1, 0, 1],
+        optimal_value: serde_json::json!({"Valid": 0}),
     }]
 }
 
