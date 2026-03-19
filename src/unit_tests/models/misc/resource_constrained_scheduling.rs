@@ -62,14 +62,16 @@ fn test_resource_constrained_scheduling_evaluate_invalid_resource() {
 
 #[test]
 fn test_resource_constrained_scheduling_evaluate_wrong_config_length() {
-    let problem = ResourceConstrainedScheduling::new(3, vec![20], vec![vec![5], vec![5], vec![5]], 2);
+    let problem =
+        ResourceConstrainedScheduling::new(3, vec![20], vec![vec![5], vec![5], vec![5]], 2);
     assert!(!problem.evaluate(&[0, 1]));
     assert!(!problem.evaluate(&[0, 1, 0, 1]));
 }
 
 #[test]
 fn test_resource_constrained_scheduling_evaluate_out_of_range_slot() {
-    let problem = ResourceConstrainedScheduling::new(3, vec![20], vec![vec![5], vec![5], vec![5]], 2);
+    let problem =
+        ResourceConstrainedScheduling::new(3, vec![20], vec![vec![5], vec![5], vec![5]], 2);
     // Slot 2 is out of range for deadline=2 (valid: 0, 1)
     assert!(!problem.evaluate(&[0, 1, 2]));
 }
@@ -141,7 +143,10 @@ fn test_resource_constrained_scheduling_serialization() {
     assert_eq!(restored.num_tasks(), problem.num_tasks());
     assert_eq!(restored.num_processors(), problem.num_processors());
     assert_eq!(restored.resource_bounds(), problem.resource_bounds());
-    assert_eq!(restored.resource_requirements(), problem.resource_requirements());
+    assert_eq!(
+        restored.resource_requirements(),
+        problem.resource_requirements()
+    );
     assert_eq!(restored.deadline(), problem.deadline());
 }
 

@@ -16,9 +16,8 @@ use problemreductions::models::misc::{
     BinPacking, CbqRelation, ConjunctiveBooleanQuery, FlowShopScheduling, LongestCommonSubsequence,
     MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack,
     QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
-    SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
-    SumOfSquaresPartition,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -1638,18 +1637,24 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // ResourceConstrainedScheduling
         "ResourceConstrainedScheduling" => {
             let usage = "Usage: pred create ResourceConstrainedScheduling --num-processors 3 --resource-bounds \"20\" --resource-requirements \"6;7;7;6;8;6\" --deadline 2";
-            let num_processors = args
-                .num_processors
-                .ok_or_else(|| anyhow::anyhow!("ResourceConstrainedScheduling requires --num-processors\n\n{usage}"))?;
+            let num_processors = args.num_processors.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ResourceConstrainedScheduling requires --num-processors\n\n{usage}"
+                )
+            })?;
             let bounds_str = args.resource_bounds.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("ResourceConstrainedScheduling requires --resource-bounds\n\n{usage}")
+                anyhow::anyhow!(
+                    "ResourceConstrainedScheduling requires --resource-bounds\n\n{usage}"
+                )
             })?;
             let reqs_str = args.resource_requirements.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("ResourceConstrainedScheduling requires --resource-requirements\n\n{usage}")
+                anyhow::anyhow!(
+                    "ResourceConstrainedScheduling requires --resource-requirements\n\n{usage}"
+                )
             })?;
-            let deadline = args
-                .deadline
-                .ok_or_else(|| anyhow::anyhow!("ResourceConstrainedScheduling requires --deadline\n\n{usage}"))?;
+            let deadline = args.deadline.ok_or_else(|| {
+                anyhow::anyhow!("ResourceConstrainedScheduling requires --deadline\n\n{usage}")
+            })?;
 
             let resource_bounds: Vec<u64> = util::parse_comma_list(bounds_str)?;
             let resource_requirements: Vec<Vec<u64>> = reqs_str
