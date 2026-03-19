@@ -83,11 +83,21 @@ Solver is required for reduction rule verification purpose.
 ## Example Instance
 
 <!--
-A small but non-trivial instance with known optimal solution, for testing and the paper.
+A small but non-trivial instance for testing and the paper.
 Should be large enough to exercise the problem's constraints meaningfully (avoid trivial cases like triangle graphs).
-E.g. "Petersen graph: |V|=10, |E|=15, 3-regular. Optimal IS size = 4, and more details.."
+E.g. "Petersen graph: |V|=10, |E|=15, 3-regular."
 
 This example will be shown in our paper, where you could find some references.
+-->
+
+## Expected Outcome
+
+<!--
+Optimization: provide one optimal configuration and its objective value.
+Satisfaction: provide one valid / satisfying configuration and a brief justification.
+
+This will be stored as ground truth in the example database and cross-validated
+by an ILP solver.
 -->
 
 ## BibTeX

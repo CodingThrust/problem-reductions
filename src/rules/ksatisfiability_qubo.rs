@@ -326,30 +326,57 @@ impl ReduceTo<QUBO<f64>> for KSatisfiability<K3> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
     use crate::models::algebraic::QUBO;
     use crate::models::formula::CNFClause;
 
-    vec![crate::example_db::specs::RuleExampleSpec {
-        id: "ksatisfiability_to_qubo",
-        build: || {
-            let source = KSatisfiability::<K3>::new(
-                5,
-                vec![
-                    CNFClause::new(vec![1, 2, -3]),
-                    CNFClause::new(vec![-1, 3, 4]),
-                    CNFClause::new(vec![2, -4, 5]),
-                    CNFClause::new(vec![-2, 3, -5]),
-                    CNFClause::new(vec![1, -3, 5]),
-                    CNFClause::new(vec![-1, -2, 4]),
-                    CNFClause::new(vec![3, -4, -5]),
-                ],
-            );
-            crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(
-                source,
-                crate::example_db::specs::keep_bool_source,
-            )
+    vec![
+        crate::example_db::specs::RuleExampleSpec {
+            id: "ksatisfiability_k2_to_qubo",
+            build: || {
+                let source = KSatisfiability::<K2>::new(
+                    4,
+                    vec![
+                        CNFClause::new(vec![1, 2]),
+                        CNFClause::new(vec![-1, 3]),
+                        CNFClause::new(vec![-2, 4]),
+                        CNFClause::new(vec![-3, -4]),
+                    ],
+                );
+                crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+                    source,
+                    SolutionPair {
+                        source_config: vec![0, 1, 0, 1],
+                        target_config: vec![0, 1, 0, 1],
+                    },
+                )
+            },
         },
-    }]
+        crate::example_db::specs::RuleExampleSpec {
+            id: "ksatisfiability_to_qubo",
+            build: || {
+                let source = KSatisfiability::<K3>::new(
+                    5,
+                    vec![
+                        CNFClause::new(vec![1, 2, -3]),
+                        CNFClause::new(vec![-1, 3, 4]),
+                        CNFClause::new(vec![2, -4, 5]),
+                        CNFClause::new(vec![-2, 3, -5]),
+                        CNFClause::new(vec![1, -3, 5]),
+                        CNFClause::new(vec![-1, -2, 4]),
+                        CNFClause::new(vec![3, -4, -5]),
+                    ],
+                );
+                crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+                    source,
+                    SolutionPair {
+                        source_config: vec![0, 0, 0, 0, 0],
+                        target_config: vec![0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+                    },
+                )
+            },
+        },
+    ]
 }
 
 #[cfg(test)]
