@@ -13,14 +13,10 @@ use problemreductions::models::graph::{
     MinimumMultiwayCut, MultipleChoiceBranching, SteinerTree, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
-    BinPacking, FlowShopScheduling, LongestCommonSubsequence, PaintShop, PartiallyOrderedKnapsack,
-    ShortestCommonSupersequence, SubsetSum,
-};
-use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    MultiprocessorScheduling, PaintShop, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
-    SumOfSquaresPartition,
+    MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
+    ShortestCommonSupersequence, StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -3807,6 +3803,8 @@ mod tests {
             pattern: None,
             strings: None,
             arcs: None,
+            values: None,
+            precedences: None,
             distance_matrix: None,
             potential_edges: None,
             budget: None,
