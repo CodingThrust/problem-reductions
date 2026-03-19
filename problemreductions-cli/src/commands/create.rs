@@ -15,9 +15,9 @@ use problemreductions::models::graph::{
 use problemreductions::models::misc::{
     BinPacking, CbqRelation, ConjunctiveBooleanQuery, FlowShopScheduling, LongestCommonSubsequence,
     MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack,
-    QueryArg, RectilinearPictureCompression, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
-    SumOfSquaresPartition,
+    QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -92,6 +92,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.potential_edges.is_none()
         && args.budget.is_none()
         && args.precedence_pairs.is_none()
+        && args.resource_bounds.is_none()
+        && args.resource_requirements.is_none()
         && args.task_lengths.is_none()
         && args.deadline.is_none()
         && args.num_processors.is_none()
@@ -1633,6 +1635,45 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // ResourceConstrainedScheduling
+        "ResourceConstrainedScheduling" => {
+            let usage = "Usage: pred create ResourceConstrainedScheduling --num-processors 3 --resource-bounds \"20\" --resource-requirements \"6;7;7;6;8;6\" --deadline 2";
+            let num_processors = args.num_processors.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ResourceConstrainedScheduling requires --num-processors\n\n{usage}"
+                )
+            })?;
+            let bounds_str = args.resource_bounds.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ResourceConstrainedScheduling requires --resource-bounds\n\n{usage}"
+                )
+            })?;
+            let reqs_str = args.resource_requirements.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ResourceConstrainedScheduling requires --resource-requirements\n\n{usage}"
+                )
+            })?;
+            let deadline = args.deadline.ok_or_else(|| {
+                anyhow::anyhow!("ResourceConstrainedScheduling requires --deadline\n\n{usage}")
+            })?;
+
+            let resource_bounds: Vec<u64> = util::parse_comma_list(bounds_str)?;
+            let resource_requirements: Vec<Vec<u64>> = reqs_str
+                .split(';')
+                .map(|row| util::parse_comma_list(row.trim()))
+                .collect::<Result<Vec<_>>>()?;
+
+            (
+                ser(ResourceConstrainedScheduling::new(
+                    num_processors,
+                    resource_bounds,
+                    resource_requirements,
+                    deadline,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MultiprocessorScheduling
         "MultiprocessorScheduling" => {
             let usage = "Usage: pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10";
@@ -2119,6 +2160,25 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 "ConjunctiveQueryFoldability has complex nested input.\n\n\
                  Use: pred create --example ConjunctiveQueryFoldability\n\
                  Or provide a JSON file directly."
+            )
+        }
+
+        // PartitionIntoPathsOfLength2
+        "PartitionIntoPathsOfLength2" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create PartitionIntoPathsOfLength2 --graph 0-1,1-2,3-4,4-5"
+                )
+            })?;
+            if graph.num_vertices() % 3 != 0 {
+                bail!(
+                    "PartitionIntoPathsOfLength2 requires vertex count divisible by 3, got {}",
+                    graph.num_vertices()
+                );
+            }
+            (
+                ser(problemreductions::models::graph::PartitionIntoPathsOfLength2::new(graph))?,
+                resolved_variant.clone(),
             )
         }
 
@@ -3992,6 +4052,8 @@ mod tests {
             deadlines: None,
             precedence_pairs: None,
             task_lengths: None,
+            resource_bounds: None,
+            resource_requirements: None,
             deadline: None,
             num_processors: None,
             alphabet_size: None,

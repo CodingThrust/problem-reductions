@@ -112,9 +112,11 @@
   "SubsetSum": [Subset Sum],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
+  "MultipleChoiceBranching": [Multiple Choice Branching],
+  "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
+  "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
   "QuadraticAssignment": [Quadratic Assignment],
   "SequencingWithReleaseTimesAndDeadlines": [Sequencing with Release Times and Deadlines],
-  "MultipleChoiceBranching": [Multiple Choice Branching],
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
   "SteinerTree": [Steiner Tree],
@@ -1409,6 +1411,14 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   ]
 }
 
+#problem-def("PartitionIntoPathsOfLength2")[
+  Given $G = (V, E)$ with $|V| = 3q$, determine if $V$ can be partitioned into $q$ disjoint sets $V_1, ..., V_q$ of three vertices each, such that each $V_t$ induces at least two edges in $G$.
+][
+A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76], proved hard by reduction from 3-Dimensional Matching. Each triple in the partition must form a path of length 2 (exactly two edges, i.e., a $P_3$ subgraph) or a triangle (all three edges). The problem models constrained grouping scenarios where cluster connectivity is required. The best known exact approach uses subset DP in $O^*(3^n)$ time.
+
+*Example.* Consider the graph $G$ with $n = 9$ vertices and edges ${0,1}, {1,2}, {3,4}, {4,5}, {6,7}, {7,8}$ (plus cross-edges ${0,3}, {2,5}, {3,6}, {5,8}$). Setting $q = 3$, the partition $V_1 = {0,1,2}$, $V_2 = {3,4,5}$, $V_3 = {6,7,8}$ is valid: $V_1$ contains edges ${0,1}, {1,2}$ (path $0 dash.em 1 dash.em 2$), $V_2$ contains ${3,4}, {4,5}$, and $V_3$ contains ${6,7}, {7,8}$.
+]
+
 #{
   let x = load-model-example("MinimumSumMulticenter")
   let nv = graph-num-vertices(x.instance)
@@ -2676,6 +2686,14 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   *Example.* Let $A = {3, 7, 1, 8, 2, 4}$ ($n = 6$) and target $B = 11$. Selecting $A' = {3, 8}$ gives sum $3 + 8 = 11 = B$. Another solution: $A' = {7, 4}$ with sum $7 + 4 = 11 = B$.
 ]
 
+#problem-def("ResourceConstrainedScheduling")[
+  Given a set $T$ of $n$ unit-length tasks, $m$ identical processors, $r$ resources with bounds $B_i$ ($1 <= i <= r$), resource requirements $R_i (t)$ for each task $t$ and resource $i$ ($0 <= R_i (t) <= B_i$), and an overall deadline $D in ZZ^+$, determine whether there exists an $m$-processor schedule $sigma : T -> {0, dots, D-1}$ such that for every time slot $u$, at most $m$ tasks are scheduled at $u$ and $sum_(t : sigma(t) = u) R_i (t) <= B_i$ for each resource $i$.
+][
+  RESOURCE CONSTRAINED SCHEDULING is problem SS10 in Garey & Johnson's compendium @garey1979. It is NP-complete in the strong sense, even for $r = 1$ resource and $m = 3$ processors, by reduction from 3-PARTITION @garey1979. For $m = 2$ processors with arbitrary $r$, the problem is solvable in polynomial time via bipartite matching. The general case subsumes bin-packing-style constraints across multiple resource dimensions.
+
+  *Example.* Let $n = 6$ tasks, $m = 3$ processors, $r = 1$ resource with $B_1 = 20$, and deadline $D = 2$. Resource requirements: $R_1(t_1) = 6$, $R_1(t_2) = 7$, $R_1(t_3) = 7$, $R_1(t_4) = 6$, $R_1(t_5) = 8$, $R_1(t_6) = 6$. Schedule: slot 0 $arrow.l {t_1, t_2, t_3}$ (3 tasks, resource $= 20$), slot 1 $arrow.l {t_4, t_5, t_6}$ (3 tasks, resource $= 20$). Both constraints satisfied; answer: YES.
+]
+
 #problem-def("SumOfSquaresPartition")[
   Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$, a positive integer $K lt.eq |A|$ (number of groups), and a positive integer $J$ (bound), determine whether $A$ can be partitioned into $K$ disjoint sets $A_1, dots, A_K$ such that $sum_(i=1)^K (sum_(a in A_i) s(a))^2 lt.eq J$.
 ][
@@ -3787,10 +3805,10 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 #let mwc_qubo = load-example("MinimumMultiwayCut", "QUBO")
 #let mwc_qubo_sol = mwc_qubo.solutions.at(0)
-#let mwc_qubo_edges = mwc_qubo.source.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+#let mwc_qubo_edges = mwc_qubo.source.instance.graph.edges.map(e => (e.at(0), e.at(1)))
 #let mwc_qubo_weights = mwc_qubo.source.instance.edge_weights
 #let mwc_qubo_terminals = mwc_qubo.source.instance.terminals
-#let mwc_qubo_n = mwc_qubo.source.instance.graph.inner.nodes.len()
+#let mwc_qubo_n = mwc_qubo.source.instance.graph.num_vertices
 #let mwc_qubo_k = mwc_qubo_terminals.len()
 #let mwc_qubo_nq = mwc_qubo_n * mwc_qubo_k
 #let mwc_qubo_alpha = mwc_qubo_weights.fold(0, (a, w) => a + w) + 1

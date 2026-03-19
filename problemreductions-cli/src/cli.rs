@@ -259,6 +259,8 @@ Flags by problem type:
   LCS                             --strings, --bound [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
+  PartitionIntoPathsOfLength2     --graph
+  ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   QAP                             --matrix (cost), --distance-matrix
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
@@ -498,13 +500,19 @@ pub struct CreateArgs {
     /// Precedence pairs for MinimumTardinessSequencing (e.g., "0>3,1>3,1>4,2>4")
     #[arg(long)]
     pub precedence_pairs: Option<String>,
+    /// Resource bounds for ResourceConstrainedScheduling (comma-separated, e.g., "20,15")
+    #[arg(long)]
+    pub resource_bounds: Option<String>,
+    /// Resource requirements for ResourceConstrainedScheduling (semicolon-separated rows, each row comma-separated, e.g., "6,3;7,4;5,2")
+    #[arg(long)]
+    pub resource_requirements: Option<String>,
     /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
     #[arg(long)]
     pub task_lengths: Option<String>,
-    /// Deadline for FlowShopScheduling or MultiprocessorScheduling
+    /// Deadline for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
     #[arg(long)]
     pub deadline: Option<u64>,
-    /// Number of processors/machines for FlowShopScheduling or MultiprocessorScheduling
+    /// Number of processors/machines for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
     #[arg(long)]
     pub num_processors: Option<usize>,
     /// Binary schedule patterns for StaffScheduling (semicolon-separated rows, e.g., "1,1,0;0,1,1")

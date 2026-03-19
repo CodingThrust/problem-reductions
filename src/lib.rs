@@ -55,16 +55,16 @@ pub mod prelude {
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
         MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut,
         MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
-        OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, TravelingSalesman,
-        UndirectedTwoCommodityIntegralFlow,
+        OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
+        RuralPostman, TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
         BinPacking, CbqRelation, ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, Factoring,
         FlowShopScheduling, Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing,
         MultiprocessorScheduling, PaintShop, QueryArg, RectilinearPictureCompression,
-        SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
-        ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
-        SumOfSquaresPartition, Term,
+        ResourceConstrainedScheduling, SequencingWithReleaseTimesAndDeadlines,
+        SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
+        StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
