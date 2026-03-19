@@ -158,6 +158,17 @@ crate::declare_variants! {
     opt BinPacking<f64> => "2^num_items",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "bin_packing",
+        // 3 items of sizes [3,3,4], capacity 7 → optimal 2 bins
+        instance: Box::new(BinPacking::<i32>::new(vec![3, 3, 4], 7)),
+        optimal_config: vec![0, 1, 0],
+        optimal_value: serde_json::json!({"Valid": 2}),
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/misc/bin_packing.rs"]
 mod tests;

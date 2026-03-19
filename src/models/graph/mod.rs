@@ -141,5 +141,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(directed_two_commodity_integral_flow::canonical_model_example_specs());
     specs.extend(undirected_two_commodity_integral_flow::canonical_model_example_specs());
     specs.extend(strong_connectivity_augmentation::canonical_model_example_specs());
+    specs.extend(rural_postman::canonical_model_example_specs());
+    specs.extend(graph_partitioning::canonical_model_example_specs());
+    specs.extend(minimum_feedback_arc_set::canonical_model_example_specs());
+    specs.extend(optimal_linear_arrangement::canonical_model_example_specs());
+    specs.extend(subgraph_isomorphism::canonical_model_example_specs());
     specs
 }

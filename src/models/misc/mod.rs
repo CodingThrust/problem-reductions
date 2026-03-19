@@ -86,5 +86,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(sum_of_squares_partition::canonical_model_example_specs());
     specs.extend(precedence_constrained_scheduling::canonical_model_example_specs());
     specs.extend(sequencing_with_release_times_and_deadlines::canonical_model_example_specs());
+    specs.extend(flow_shop_scheduling::canonical_model_example_specs());
+    specs.extend(bin_packing::canonical_model_example_specs());
+    specs.extend(knapsack::canonical_model_example_specs());
+    specs.extend(subset_sum::canonical_model_example_specs());
     specs
 }
