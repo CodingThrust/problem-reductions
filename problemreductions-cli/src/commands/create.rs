@@ -4019,6 +4019,8 @@ mod tests {
             deadlines: None,
             precedence_pairs: None,
             task_lengths: None,
+            resource_bounds: None,
+            resource_requirements: None,
             deadline: None,
             num_processors: None,
             alphabet_size: None,
