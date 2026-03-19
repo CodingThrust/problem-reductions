@@ -226,13 +226,6 @@ class PipelineSkillContextTests(unittest.TestCase):
                 "whitelist": {"ok": True, "skipped": False},
                 "completeness": {"ok": False, "skipped": False, "missing": ["paper_display_name"]},
             },
-            "current_pr": {
-                "repo": "CodingThrust/problem-reductions",
-                "pr_number": 615,
-                "title": "Fix #117: [Model] GraphPartitioning",
-                "linked_issue_number": 117,
-                "issue_context_text": "# Add GraphPartitioning\n\nNeed canonical example.",
-            },
         }
 
         stdout = io.StringIO()
@@ -244,11 +237,9 @@ class PipelineSkillContextTests(unittest.TestCase):
         self.assertIn("- Base SHA: `abc123`", rendered)
         self.assertIn("- Review type: model", rendered)
         self.assertIn("- Name: GraphPartitioning", rendered)
-        self.assertIn("- PR: #615", rendered)
-        self.assertIn("- Linked issue: #117", rendered)
+        self.assertNotIn("## Current PR", rendered)
         self.assertIn("## Deterministic Checks", rendered)
         self.assertIn("- Completeness: fail", rendered)
-        self.assertIn("## Linked Issue Context", rendered)
 
     def test_emit_result_prints_project_pipeline_text_report(self) -> None:
         result = {
@@ -405,7 +396,6 @@ class PipelineSkillContextTests(unittest.TestCase):
             "status": "ready",
             "git": {"base_sha": "abc123", "head_sha": "def456"},
             "review_context": {"subject": {"kind": "generic"}},
-            "current_pr": None,
         }
 
         with mock.patch.object(
@@ -517,8 +507,6 @@ class PipelineSkillContextTests(unittest.TestCase):
         )
 
     def test_build_review_pipeline_context_disambiguates_explicit_pr_choice(self) -> None:
-        moves: list[tuple[str, str]] = []
-
         result = pipeline_skill_context.build_review_pipeline_context(
             repo="CodingThrust/problem-reductions",
             pr_number=173,
@@ -538,7 +526,6 @@ class PipelineSkillContextTests(unittest.TestCase):
                     ],
                 }
             ],
-            mover=lambda item_id, status: moves.append((item_id, status)),
             pr_context_builder=lambda repo, pr_number: {
                 "number": pr_number,
                 "title": "Fix #109: Add LCS reduction",
@@ -549,7 +536,6 @@ class PipelineSkillContextTests(unittest.TestCase):
             },
         )
 
-        self.assertEqual(moves, [("PVTI_10", "Under review")])
         self.assertEqual(
             result,
             {
@@ -562,8 +548,6 @@ class PipelineSkillContextTests(unittest.TestCase):
                     "pr_number": 173,
                     "status": "Review pool",
                     "title": "[Model] LongestCommonSubsequence",
-                    "claimed": True,
-                    "claimed_status": "Under review",
                 },
                 "pr": {
                     "number": 173,
@@ -577,8 +561,6 @@ class PipelineSkillContextTests(unittest.TestCase):
         )
 
     def test_build_review_pipeline_context_returns_ready_bundle_for_eligible_pr(self) -> None:
-        moves: list[tuple[str, str]] = []
-
         result = pipeline_skill_context.build_review_pipeline_context(
             repo="CodingThrust/problem-reductions",
             pr_number=None,
@@ -594,7 +576,6 @@ class PipelineSkillContextTests(unittest.TestCase):
                     "reason": "open PR",
                 }
             ],
-            mover=lambda item_id, status: moves.append((item_id, status)),
             pr_context_builder=lambda repo, pr_number: {
                 "number": pr_number,
                 "comments": {"counts": {"human_inline_comments": 0}},
@@ -605,10 +586,9 @@ class PipelineSkillContextTests(unittest.TestCase):
             },
         )
 
-        self.assertEqual(moves, [("PVTI_11", "Under review")])
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["selection"]["pr_number"], 570)
-        self.assertEqual(result["selection"]["claimed"], True)
+        self.assertNotIn("claimed", result["selection"])
         self.assertEqual(
             result["pr"],
             {"number": 570, "comments": {"counts": {"human_inline_comments": 0}}},
@@ -618,9 +598,8 @@ class PipelineSkillContextTests(unittest.TestCase):
             {"ready": True, "checkout": {"worktree_dir": "/tmp/review-pr-570"}},
         )
 
-    def test_build_review_pipeline_context_claims_via_mover(self) -> None:
-        moves: list[tuple[str, str]] = []
-
+    def test_build_review_pipeline_context_does_not_claim(self) -> None:
+        """Context generation is read-only — the agent claims after verifying."""
         result = pipeline_skill_context.build_review_pipeline_context(
             repo="CodingThrust/problem-reductions",
             pr_number=None,
@@ -636,18 +615,16 @@ class PipelineSkillContextTests(unittest.TestCase):
                     "reason": "open PR",
                 }
             ],
-            mover=lambda item_id, status: moves.append((item_id, status)),
             pr_context_builder=lambda repo, pr_number: {"number": pr_number},
             review_preparer=lambda repo, pr_number: {"ready": True},
         )
 
-        self.assertEqual(moves, [("PVTI_11", "Under review")])
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["selection"]["pr_number"], 570)
+        self.assertNotIn("claimed", result["selection"])
 
-    def test_build_review_pipeline_context_explicit_pr_claims_via_mover(self) -> None:
-        moves: list[tuple[str, str]] = []
-
+    def test_build_review_pipeline_context_explicit_pr_does_not_claim(self) -> None:
+        """Explicit PR selection is also read-only."""
         result = pipeline_skill_context.build_review_pipeline_context(
             repo="CodingThrust/problem-reductions",
             pr_number=570,
@@ -663,14 +640,13 @@ class PipelineSkillContextTests(unittest.TestCase):
                     "reason": "open PR",
                 }
             ],
-            mover=lambda item_id, status: moves.append((item_id, status)),
             pr_context_builder=lambda repo, pr_number: {"number": pr_number},
             review_preparer=lambda repo, pr_number: {"ready": True},
         )
 
-        self.assertEqual(moves, [("PVTI_11", "Under review")])
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["selection"]["pr_number"], 570)
+        self.assertNotIn("claimed", result["selection"])
 
     def test_build_final_review_context_reports_empty_queue(self) -> None:
         result = pipeline_skill_context.build_final_review_context(
@@ -832,7 +808,6 @@ class PipelineSkillContextTests(unittest.TestCase):
                 "src/unit_tests/lib.rs",
             ],
             added_files_getter=lambda repo_root, base_sha, head_sha: [],
-            current_pr_fetcher=lambda: None,
             review_context_builder=lambda repo_root, **kwargs: {
                 "scope": {"review_type": "generic", "models": [], "rules": [], "changed_files": kwargs["changed_files"]},
                 "subject": {"kind": "generic"},
@@ -846,7 +821,7 @@ class PipelineSkillContextTests(unittest.TestCase):
         self.assertEqual(result["skill"], "review-implementation")
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["git"]["base_sha"], "abc123")
-        self.assertEqual(result["current_pr"], None)
+        self.assertNotIn("current_pr", result)
         self.assertEqual(result["review_context"]["subject"]["kind"], "generic")
 
     def test_build_project_pipeline_context_reports_requested_blocked_issue(self) -> None:

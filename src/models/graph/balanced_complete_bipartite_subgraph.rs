@@ -151,34 +151,29 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "balanced_complete_bipartite_subgraph",
-        build: || {
-            let problem = BalancedCompleteBipartiteSubgraph::new(
-                BipartiteGraph::new(
-                    4,
-                    4,
-                    vec![
-                        (0, 0),
-                        (0, 1),
-                        (0, 2),
-                        (1, 0),
-                        (1, 1),
-                        (1, 2),
-                        (2, 0),
-                        (2, 1),
-                        (2, 2),
-                        (3, 0),
-                        (3, 1),
-                        (3, 3),
-                    ],
-                ),
-                3,
-            );
-
-            crate::example_db::specs::satisfaction_example(
-                problem,
-                vec![vec![1, 1, 1, 0, 1, 1, 1, 0]],
-            )
-        },
+        instance: Box::new(BalancedCompleteBipartiteSubgraph::new(
+            BipartiteGraph::new(
+                4,
+                4,
+                vec![
+                    (0, 0),
+                    (0, 1),
+                    (0, 2),
+                    (1, 0),
+                    (1, 1),
+                    (1, 2),
+                    (2, 0),
+                    (2, 1),
+                    (2, 2),
+                    (3, 0),
+                    (3, 1),
+                    (3, 3),
+                ],
+            ),
+            3,
+        )),
+        optimal_config: vec![1, 1, 1, 0, 1, 1, 1, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

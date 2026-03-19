@@ -42,13 +42,14 @@ pub mod variant;
 /// Prelude module for convenient imports.
 pub mod prelude {
     // Problem types
-    pub use crate::models::algebraic::{BMF, QUBO};
+    pub use crate::models::algebraic::{QuadraticAssignment, BMF, QUBO};
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
     pub use crate::models::graph::{
         BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
         BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GraphPartitioning,
-        HamiltonianPath, IsomorphicSpanningTree, LengthBoundedDisjointPaths, SpinGlass,
-        SteinerTree, StrongConnectivityAugmentation, SubgraphIsomorphism,
+        HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KthBestSpanningTree,
+        LengthBoundedDisjointPaths, SpinGlass, SteinerTree, StrongConnectivityAugmentation,
+        SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
@@ -59,11 +60,14 @@ pub mod prelude {
     };
     pub use crate::models::misc::{
         BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-        MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals,
-        ShortestCommonSupersequence, SubsetSum,
+        MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+        RectilinearPictureCompression, SequencingWithReleaseTimesAndDeadlines,
+        SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
+        StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
     };
     pub use crate::models::set::{
-        ComparativeContainment, ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis,
+        ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
+        MinimumCardinalityKey, MinimumSetCovering, PrimeAttributeName, SetBasis,
     };
 
     // Core traits
@@ -97,6 +101,9 @@ pub use inventory;
 #[cfg(test)]
 #[path = "unit_tests/graph_models.rs"]
 mod test_graph_models;
+#[cfg(test)]
+#[path = "unit_tests/prelude.rs"]
+mod test_prelude;
 #[cfg(test)]
 #[path = "unit_tests/property.rs"]
 mod test_property;

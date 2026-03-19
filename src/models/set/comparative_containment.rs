@@ -235,16 +235,15 @@ fn contains_selected_subset_unchecked(config: &[usize], set: &[usize]) -> bool {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "comparative_containment_i32",
-        build: || {
-            let problem = ComparativeContainment::with_weights(
-                4,
-                vec![vec![0, 1, 2, 3], vec![0, 1]],
-                vec![vec![0, 1, 2, 3], vec![2, 3]],
-                vec![2, 5],
-                vec![3, 6],
-            );
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![1, 0, 0, 0]])
-        },
+        instance: Box::new(ComparativeContainment::with_weights(
+            4,
+            vec![vec![0, 1, 2, 3], vec![0, 1]],
+            vec![vec![0, 1, 2, 3], vec![2, 3]],
+            vec![2, 5],
+            vec![3, 6],
+        )),
+        optimal_config: vec![0, 1, 0, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

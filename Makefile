@@ -1,10 +1,13 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review regenerate-fixtures
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review
 
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
 CODEX_MODEL ?= gpt-5.4
+
+# Cross-platform sed in-place: macOS needs -i '', Linux needs -i
+SED_I := sed -i$(shell if [ "$$(uname)" = "Darwin" ]; then echo " ''"; fi)
 
 # Default target
 help:
@@ -24,7 +27,6 @@ help:
 	@echo "  check        - Quick check (fmt + clippy + test)"
 	@echo "  rust-export  - Generate Rust mapping JSON exports"
 	@echo "  compare      - Generate and compare Rust mapping exports"
-	@echo "  regenerate-fixtures - Recompute example DB fixtures (BruteForce/ILP, slow)"
 	@echo "  export-schemas - Export problem schemas to JSON"
 	@echo "  qubo-testdata - Regenerate QUBO test data (requires uv)"
 	@echo "  jl-testdata  - Regenerate Julia parity test data (requires julia)"
@@ -113,16 +115,14 @@ mdbook:
 	python3 -m http.server 3001 -d book &
 	@sleep 1 && (command -v xdg-open >/dev/null && xdg-open http://localhost:3001 || open http://localhost:3001)
 
-# Regenerate example DB fixtures from code (runs BruteForce/ILP — slow)
-regenerate-fixtures:
-	cargo run --release --features "ilp-highs example-db" --example regenerate_fixtures
 
 # Export problem schemas to JSON
 export-schemas:
 	cargo run --example export_schemas
 
-# Build Typst paper (reads canonical examples directly from fixtures)
+# Build Typst paper (generates example data on demand)
 paper:
+	cargo run --features "example-db" --example export_examples
 	cargo run --example export_petersen_mapping
 	cargo run --example export_graph
 	cargo run --example export_schemas
@@ -154,11 +154,11 @@ ifndef V
 	$(error Usage: make release V=x.y.z)
 endif
 	@echo "Releasing v$(V)..."
-	sed -i '' 's/^version = ".*"/version = "$(V)"/' Cargo.toml
-	sed -i '' 's/^version = ".*"/version = "$(V)"/' problemreductions-macros/Cargo.toml
-	sed -i '' 's/^version = ".*"/version = "$(V)"/' problemreductions-cli/Cargo.toml
-	sed -i '' 's/problemreductions-macros = { version = "[^"]*"/problemreductions-macros = { version = "$(V)"/' Cargo.toml
-	sed -i '' 's/problemreductions = { version = "[^"]*"/problemreductions = { version = "$(V)"/' problemreductions-cli/Cargo.toml
+	$(SED_I) 's/^version = ".*"/version = "$(V)"/' Cargo.toml
+	$(SED_I) 's/^version = ".*"/version = "$(V)"/' problemreductions-macros/Cargo.toml
+	$(SED_I) 's/^version = ".*"/version = "$(V)"/' problemreductions-cli/Cargo.toml
+	$(SED_I) 's/problemreductions-macros = { version = "[^"]*"/problemreductions-macros = { version = "$(V)"/' Cargo.toml
+	$(SED_I) 's/problemreductions = { version = "[^"]*"/problemreductions = { version = "$(V)"/' problemreductions-cli/Cargo.toml
 	cargo check
 	git add Cargo.toml problemreductions-macros/Cargo.toml problemreductions-cli/Cargo.toml
 	git commit -m "release: v$(V)"
@@ -559,10 +559,8 @@ worktree-pr:
 run-review:
 	@. scripts/make_helpers.sh; \
 	repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
-	tmp_state=$$(mktemp); \
 	pr="$(N)"; \
-	selection=$$(review_pipeline_context "$$repo" "$$pr" "$$tmp_state"); \
-	rm -f "$$tmp_state"; \
+	selection=$$(review_pipeline_context "$$repo" "$$pr"); \
 	status_name=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])"); \
 	if [ "$$status_name" = "empty" ]; then \
 		echo "No Review pool PRs are currently eligible."; \

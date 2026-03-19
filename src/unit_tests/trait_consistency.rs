@@ -88,6 +88,10 @@ fn test_all_problems_implement_trait_correctly() {
         "BalancedCompleteBipartiteSubgraph",
     );
     check_problem_trait(&Factoring::new(6, 2, 2), "Factoring");
+    check_problem_trait(
+        &QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 1], vec![1, 0]]),
+        "QuadraticAssignment",
+    );
 
     let circuit = Circuit::new(vec![Assignment::new(
         vec!["x".to_string()],
@@ -101,6 +105,54 @@ fn test_all_problems_implement_trait_correctly() {
             1,
         ),
         "StrongConnectivityAugmentation",
+    );
+    check_problem_trait(
+        &KthBestSpanningTree::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+            vec![1, 1, 1],
+            1,
+            2,
+        ),
+        "KthBestSpanningTree",
+    );
+    check_problem_trait(
+        &HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)])),
+        "HamiltonianCircuit",
+    );
+    check_problem_trait(
+        &HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
+        "HamiltonianPath",
+    );
+    check_problem_trait(
+        &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 3),
+        "OptimalLinearArrangement",
+    );
+    check_problem_trait(
+        &IsomorphicSpanningTree::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        ),
+        "IsomorphicSpanningTree",
+    );
+    check_problem_trait(
+        &ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3),
+        "ShortestCommonSupersequence",
+    );
+    check_problem_trait(
+        &FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10),
+        "FlowShopScheduling",
+    );
+    check_problem_trait(
+        &SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]),
+        "SequencingWithReleaseTimesAndDeadlines",
+    );
+    check_problem_trait(
+        &SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240),
+        "SumOfSquaresPartition",
+    );
+    check_problem_trait(
+        &ConsecutiveOnesSubmatrix::new(vec![vec![true, false], vec![false, true]], 1),
+        "ConsecutiveOnesSubmatrix",
     );
 }
 
@@ -141,6 +193,11 @@ fn test_direction() {
     assert_eq!(Factoring::new(6, 2, 2).direction(), Direction::Minimize);
     assert_eq!(
         BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1).direction(),
+        Direction::Minimize
+    );
+    assert_eq!(
+        QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 1], vec![1, 0]])
+            .direction(),
         Direction::Minimize
     );
 

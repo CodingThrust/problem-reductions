@@ -215,3 +215,4 @@ Pipeline complete:
 | Worktree left behind on failure | Always run `pipeline_worktree.py cleanup` in Step 5 |
 | Working in main checkout | All work happens in the worktree — never modify the main checkout |
 | Missing items from project board | `gh project item-list` defaults to 30 items — always use `--limit 500` |
+| Inventing `pipeline_board.py` subcommands | Only `next`, `claim-next`, `ack`, `list`, `move`, `backlog` exist |

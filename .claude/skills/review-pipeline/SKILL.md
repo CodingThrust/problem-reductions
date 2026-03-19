@@ -47,7 +47,9 @@ REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 QUEUE=$(python3 scripts/pipeline_board.py list review --repo "$REPO" --format json)
 ```
 
-If `PR` was explicitly supplied (for example `/review-pipeline 570`), do **not** pick a different item from the queue. Triage only that PR.
+If `PR` was explicitly supplied (for example `/review-pipeline 570`), do **not** pick a different item from the queue. Find that PR in the `QUEUE` JSON output to get its `ITEM_ID` and confirm it is in Review pool.
+
+`pipeline_board.py` only supports these subcommands: `next`, `claim-next`, `ack`, `list`, `move`, `backlog`. To look up a specific PR's board status, use `list` and filter the JSON output.
 
 Pick one candidate with a lightweight heuristic:
 - prefer direct PR cards over issue cards
@@ -72,33 +74,19 @@ For explicit `PR` runs, STOP after reporting.
 
 If no candidate is both open and ready for review, STOP with `No Review pool PRs are currently ready for review-pipeline processing.`
 
-### 0b. Create Worktree and Generate Reports
+### 0b. Generate Review-Pipeline Report, Create Worktree, Generate Implementation Report
 
-Only after Step 0a has identified a review-ready PR should you create a worktree and spend the expensive context packets.
+Only after Step 0a has identified a review-ready PR should you spend the expensive context packets.
 
-**Create worktree and check out the PR branch:**
+**Generate review-pipeline context** (from the repo root, before entering the worktree — this queries GitHub APIs only):
 
 ```bash
 REPO_ROOT=$(pwd)
-WORKTREE_JSON=$(python3 scripts/pipeline_worktree.py enter --name "review-pr-$PR" --format json)
-WORKTREE_DIR=$(printf '%s\n' "$WORKTREE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['worktree_dir'])")
-cd "$WORKTREE_DIR"
-gh pr checkout "$PR"
-```
 
-**Generate both reports** (inside the worktree):
-
-The two expensive context calls are allowed exactly once each per top-level `review-pipeline` invocation:
-
-```bash
 # 1. Review-pipeline context (selection, comments, CI, linked issue)
 set -- python3 scripts/pipeline_skill_context.py review-pipeline --repo "$REPO" --pr "$PR" --format text
 REPORT=$("$@")
 printf '%s\n' "$REPORT"
-
-# 2. Review-implementation context (scope, checklists, diff, issue compliance)
-IMPL_REPORT=$(python3 scripts/pipeline_skill_context.py review-implementation --repo-root . --format text)
-printf '%s\n' "$IMPL_REPORT"
 ```
 
 The review-pipeline report should already include:
@@ -109,23 +97,43 @@ The review-pipeline report should already include:
 - PR head branch
 - Linked Issue Context
 
+**Create worktree and check out the PR branch:**
+
+```bash
+WORKTREE_JSON=$(python3 scripts/pipeline_worktree.py enter --name "review-pr-$PR" --format json)
+WORKTREE_DIR=$(printf '%s\n' "$WORKTREE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['worktree_dir'])")
+cd "$WORKTREE_DIR"
+gh pr checkout "$PR"
+```
+
+**Generate review-implementation context** (inside the worktree — needs git diff against main):
+
+```bash
+# 2. Review-implementation context (scope, checklists, diff)
+IMPL_REPORT=$(python3 scripts/pipeline_skill_context.py review-implementation --repo-root . --format text)
+printf '%s\n' "$IMPL_REPORT"
+```
+
 The review-implementation report should already include:
 - Review Range: base SHA, head SHA
 - Scope: review type (model/rule/generic), subject metadata
 - Deterministic Checks: whitelist + completeness status
 - Changed Files and Diff Stat
-- Linked Issue Context
 
-Both reports are reused for the rest of the skill — do not regenerate either.
+The two expensive context calls are allowed exactly once each per top-level `review-pipeline` invocation. Both reports are reused for the rest of the skill — do not regenerate either.
 
 Branch from the review-pipeline report:
 - `Bundle status: empty` => the selected PR is no longer eligible; run `cd "$REPO_ROOT" && python3 scripts/pipeline_worktree.py cleanup --worktree "$WORKTREE_DIR"`, then for untargeted runs return to Step 0a, for explicit `PR` runs STOP
 - `Bundle status: needs-user-choice` => run `cd "$REPO_ROOT" && python3 scripts/pipeline_worktree.py cleanup --worktree "$WORKTREE_DIR"`, STOP and ask the user which PR is intended
-- `Bundle status: ready` => continue
+- `Bundle status: ready` => claim the item and continue
 
-The bundle already handled the mechanical claim step (moved to Under review). Use the identifiers from the report for all subsequent operations.
+**Claim the item** (move to Under review) only after confirming `Bundle status: ready`:
 
-All subsequent steps run inside the worktree and should read facts from the reports instead of re-fetching them.
+```bash
+python3 scripts/pipeline_board.py move <ITEM_ID> under-review
+```
+
+Use the identifiers from the report for all subsequent operations. All subsequent steps run inside the worktree and should read facts from the reports instead of re-fetching them.
 
 ### 1. Run Three Sub-Reviews (Parallel)
 
@@ -255,3 +263,4 @@ python3 scripts/pipeline_worktree.py cleanup --worktree "$WORKTREE_DIR"
 | Pasting raw agent transcripts | Paste the structured report sections only — checklist tables, issue lists, test results — not internal reasoning or scratch work |
 | Regenerating context in subagents | Pass `IMPL_REPORT` to structural/quality subagents so they skip `pipeline_skill_context.py review-implementation` |
 | Always picking the same PR on retry | Use randomized tie-breaking when multiple candidates are eligible |
+| Inventing `pipeline_board.py` subcommands | Only `next`, `claim-next`, `ack`, `list`, `move`, `backlog` exist. Use `list` to look up a PR's board status |

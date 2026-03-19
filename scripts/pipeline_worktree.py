@@ -343,10 +343,13 @@ def cleanup_worktree(*, worktree: str | Path) -> dict:
     worktree = Path(worktree).resolve()
     # Determine repo root before cleanup — if the worktree is already gone,
     # fall back to the parent .worktrees directory's repo.
-    try:
-        repo_root = repo_root_from(worktree)
-    except Exception:
-        # Worktree dir may already be deleted; derive repo root from parent.
+    if worktree.is_dir():
+        try:
+            repo_root = repo_root_from(worktree)
+        except Exception:
+            repo_root = worktree.parent.parent
+    else:
+        # Worktree dir already deleted; derive repo root from parent.
         repo_root = worktree.parent.parent  # .worktrees/<branch> -> repo root
     repo_root = Path(repo_root).resolve()
 

@@ -294,3 +294,4 @@ Done! Issue #<NUMBER>:
 | Running check-issue more than once per iteration | Re-check exactly once after edits, then ask human |
 | Closing the issue | Never close. Labels and board status only |
 | Force-pushing or modifying git | This skill only edits GitHub issues via `gh`. No git operations |
+| Inventing `pipeline_board.py` subcommands | Only `next`, `claim-next`, `ack`, `list`, `move`, `backlog` exist |

@@ -267,27 +267,23 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "biconnectivity_augmentation",
-        build: || {
-            let problem = BiconnectivityAugmentation::new(
-                SimpleGraph::path(6),
-                vec![
-                    (0, 2, 1),
-                    (0, 3, 2),
-                    (0, 4, 3),
-                    (1, 3, 1),
-                    (1, 4, 2),
-                    (1, 5, 3),
-                    (2, 4, 1),
-                    (2, 5, 2),
-                    (3, 5, 1),
-                ],
-                4,
-            );
-            crate::example_db::specs::satisfaction_example(
-                problem,
-                vec![vec![1, 0, 0, 1, 0, 0, 1, 0, 1]],
-            )
-        },
+        instance: Box::new(BiconnectivityAugmentation::new(
+            SimpleGraph::path(6),
+            vec![
+                (0, 2, 1),
+                (0, 3, 2),
+                (0, 4, 3),
+                (1, 3, 1),
+                (1, 4, 2),
+                (1, 5, 3),
+                (2, 4, 1),
+                (2, 5, 2),
+                (3, 5, 1),
+            ],
+            4,
+        )),
+        optimal_config: vec![1, 0, 0, 1, 0, 0, 1, 0, 1],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

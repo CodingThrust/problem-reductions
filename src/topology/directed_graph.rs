@@ -36,7 +36,7 @@ use serde::{Deserialize, Serialize};
 /// let cyclic = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
 /// assert!(!cyclic.is_dag());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct DirectedGraph {
     inner: DiGraph<(), ()>,
 }
@@ -243,6 +243,29 @@ impl PartialEq for DirectedGraph {
 }
 
 impl Eq for DirectedGraph {}
+
+impl Serialize for DirectedGraph {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("DirectedGraph", 2)?;
+        state.serialize_field("num_vertices", &self.num_vertices())?;
+        let arcs: Vec<(usize, usize)> = self.arcs();
+        state.serialize_field("arcs", &arcs)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for DirectedGraph {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        struct GraphData {
+            num_vertices: usize,
+            arcs: Vec<(usize, usize)>,
+        }
+        let data = GraphData::deserialize(deserializer)?;
+        Ok(DirectedGraph::new(data.num_vertices, data.arcs))
+    }
+}
 
 use crate::impl_variant_param;
 impl_variant_param!(DirectedGraph, "graph");

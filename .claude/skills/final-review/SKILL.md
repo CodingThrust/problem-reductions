@@ -9,8 +9,14 @@ Interactive review with the maintainer for PRs in the `Final review` column on t
 
 **Rules:**
 - Every `AskUserQuestion` must include your recommendation (e.g., "My recommendation: **Merge** — clean implementation with full coverage").
-- Never just flag an issue — always describe the context (assume the reviewer hasn't seen the code), propose a concrete fix, and let the reviewer decide what to do.
 - **Skip questions when no issues found.** If a check (usefulness, safety, completeness) finds no concerns, report the positive result and continue to the next step without asking the reviewer. Only use `AskUserQuestion` when there are findings that need the reviewer's input or when the recommendation is not clearly positive.
+- **Issue presentation format** — whenever reporting an issue (in any step), use this format:
+  > **N. [Short title]** (`file:line`)
+  > ```rust
+  > // 5-15 lines showing the problem
+  > ```
+  > - **Why**: What's wrong and why it matters — assume the reviewer hasn't seen the code
+  > - **Suggested fix**: Concrete action or code sketch
 
 ## Invocation
 
@@ -111,9 +117,7 @@ Prepare a short summary:
 >
 > [N findings reviewed: X addressed, Y still open, Z false positive]
 >
-> Still open:
-> - [finding summary]
-> - ...
+> Still open: [list each using the issue presentation format]
 
 If no agentic review report exists (or the report is poorly structured / missing key sections), note this to the reviewer and perform the checks in Steps 2–5 yourself from scratch — read the full diff, verify correctness, check completeness, and assess quality as if no prior review had been done.
 
@@ -146,12 +150,12 @@ Use `AskUserQuestion` with your recommendation:
 
 Scan the PR diff for dangerous actions:
 
-- **Blacklisted files**: If the diff touches `docs/src/reductions/reduction_graph.json` or `docs/src/reductions/problem_schemas.json`, **block merge**. These files are auto-generated and must not be committed in PRs — they are rebuilt by CI/`make doc`. Flag immediately and recommend OnHold.
+- **Blacklisted files**: If the diff touches `docs/src/reductions/reduction_graph.json`, `docs/src/reductions/problem_schemas.json`, or `src/example_db/fixtures/examples.json` (legacy, no longer exists), **block merge**. These files are auto-generated and must not be committed in PRs — they are rebuilt by CI/`make doc`/`make paper`. Flag immediately and recommend OnHold.
 - **Removed features**: Any existing model, rule, test, or example deleted?
 - **Unrelated changes**: Files modified that don't belong to this PR (e.g., changes to unrelated models/rules, CI config, Cargo.toml dependency changes not needed for this PR)
 - **Force push indicators**: Any sign of history rewriting
 - **Broad modifications**: Changes to core traits, macros, or shared infrastructure that could affect other features
-- **`examples.json` one-line rule**: Each PR should add exactly one model or one rule entry to `examples.json`. Check the **PR diff** (`gh pr diff`), not the post-merge-with-main diff — after merging main, fixture regeneration may touch many lines from other PRs. Only flag if the PR's own changes add or modify more than one entry.
+- **No committed `examples.json`**: The example database is generated on demand by `make paper` (via `export_examples`). PRs should not commit `src/example_db/fixtures/examples.json` (legacy path, deleted) or `docs/paper/data/examples.json` (current output path) — both are gitignored build artifacts.
 
 Report findings with fix options for each concern:
 
@@ -213,10 +217,10 @@ Verify the PR includes all required components:
 
 **Paper-example consistency check (both Model and Rule PRs):**
 
-The paper example must use data from the canonical fixture JSON (`src/example_db/fixtures/examples.json`), not hand-written data. To verify:
-1. If the PR changes example builders/specs, run `make regenerate-fixtures` on the PR branch.
+The paper example must use data from the canonical example database (generated on demand by `make paper` via `export_examples`), not hand-written data. To verify:
+1. If the PR changes example specs, run `make paper` to regenerate `docs/paper/data/examples.json`.
 2. For **[Rule] PRs**: the paper's `reduction-rule` entry must call `load-example(source, target, ...)` (defined in `reductions.typ`) to load the canonical example from `examples.json`, and derive all concrete values from the loaded data using Typst array operations — no hand-written instance data.
-3. For **[Model] PRs**: read the problem's entry in `examples.json` under `models` and compare its `instance` field against the paper's `problem-def` example. The paper example must use the same instance (allowing 0-indexed JSON vs 1-indexed math notation). If they differ, flag: "Paper example does not match `example_db` canonical instance in `examples.json`."
+3. For **[Model] PRs**: run the export and read the problem's entry in the generated `examples.json` under `models`, compare its `instance` field against the paper's `problem-def` example. The paper example must use the same instance (allowing 0-indexed JSON vs 1-indexed math notation). If they differ, flag: "Paper example does not match `example_db` canonical instance."
 
 **Issue–test round-trip consistency check (both Model and Rule PRs):**
 
@@ -265,21 +269,11 @@ Present to reviewer:
 > Strengths:
 > - [bullet points]
 >
-> Issues (numbered):
->
-> **1. [Short title]** (`file:line`)
-> - **Context**: What the issue is, where it occurs, and why it matters (the reviewer should understand the problem without reading the code first)
-> - **Suggested fix**: Concrete steps or code sketch to resolve it
-> - **Pros/cons**: Tradeoffs of fixing now vs deferring (e.g., "Quick fix, low risk" or "Requires API redesign, better as follow-up")
+> Issues: [list each using the issue presentation format, plus for each:]
+> - **Pros/cons**: Tradeoffs of fixing now vs deferring
 > - **Recommendation**: Quick fix / Record for follow-up / Informational only
 >
-> **2. [Short title]** (`file:line`)
-> - **Context**: ...
-> - **Suggested fix**: ...
-> - **Pros/cons**: ...
-> - **Recommendation**: ...
->
-> Notable observations: [optional — anything else that caught your attention during the review: unusual design choices, clever techniques worth reusing elsewhere, potential impact on the reduction graph, or patterns that diverge from the rest of the codebase. Omit if nothing stands out.]
+> Notable observations: [optional — unusual design choices, clever techniques, or patterns that diverge from the codebase. Omit if nothing stands out.]
 
 ### Step 6: Confirm issues and fix plan
 
@@ -298,11 +292,7 @@ Then list all issues found (from Steps 1b–5) with the fix plan for each. Use `
 
 > **Issues found and proposed fixes:**
 >
-> 1. [issue title] — [fix plan summary]
-> 2. [issue title] — [fix plan summary]
-> ...
->
-> (If no issues: "No issues found.")
+> [List each using the issue presentation format. If no issues: "No issues found."]
 >
 > **Should I proceed with these fixes?**
 > - "Yes" — apply all fixes, commit (do not push yet)
@@ -348,13 +338,32 @@ Use `AskUserQuestion`:
    ```bash
    gh pr review <number> --approve || true
    ```
-5. Present the PR link for the reviewer to merge:
-   > CI green, commits pushed, PR approved. Please merge when ready:
+5. Post a community call validation checklist as a comment on the **linked issue** (not the PR). All CLI commands must be copy-pastable — substitute actual problem names from the PR diff (no angle-bracket placeholders). Example for a rule PR adding `Satisfiability` → `MaximumIndependentSet`:
+   ````bash
+   COMMENT_FILE=$(mktemp)
+   cat > "$COMMENT_FILE" <<'EOF'
+   Please kindly check the following items (PR #123):
+   - [ ] **Paper** ([PDF](https://github.com/CodingThrust/problem-reductions/blob/main/docs/paper/reductions.pdf)): check definition, proof sketch, and example figure
+   - [ ] **CLI demo** (build from source: `cargo install --path problemreductions-cli`):
+     ```bash
+     pred show Satisfiability
+     pred create --example Satisfiability -o instance.json
+     pred reduce instance.json Satisfiability MaximumIndependentSet -o reduced.json
+     pred solve reduced.json MaximumIndependentSet
+     ```
+   - [ ] **Implementation (Optional)**: spot-check the source files changed in this PR for correctness
+   EOF
+   gh issue comment <ISSUE_NUMBER> --body-file "$COMMENT_FILE"
+   rm -f "$COMMENT_FILE"
+   ````
+   For model PRs, omit the `pred reduce` / `pred solve` lines. If there is no linked issue, post the checklist as a PR comment instead.
+6. Present the PR link for the reviewer to merge:
+   > CI green, commits pushed, PR approved. Community call checklist posted on #<ISSUE_NUMBER>. Please merge when ready:
    > **<PR URL>**
-6. After the reviewer merges, use `AskUserQuestion` to confirm:
+7. After the reviewer merges, use `AskUserQuestion` to confirm:
    > **Merged? (continue to move card & cleanup worktree)** Once confirmed, I will move the board item to Done and clean up the worktree.
    > - "Yes" — proceed with cleanup
-7. Move the project board item to `Done` and clean up:
+8. Move the project board item to `Done` and clean up:
    ```bash
    python3 scripts/pipeline_board.py move <ITEM_ID> done
    cd "$REPO_ROOT"
@@ -376,3 +385,15 @@ Use `AskUserQuestion`:
    cd "$REPO_ROOT"
    python3 scripts/pipeline_worktree.py cleanup --worktree "$WORKTREE_DIR"
    ```
+
+## Pipeline Script Subcommands
+
+Only use subcommands that exist. Available subcommands per script:
+
+| Script | Subcommands |
+|--------|-------------|
+| `pipeline_board.py` | `next`, `claim-next`, `ack`, `list`, `move`, `backlog` |
+| `pipeline_pr.py` | `context`, `current`, `snapshot`, `comments`, `ci`, `wait-ci`, `codecov`, `linked-issue`, `create`, `comment`, `edit-body` |
+| `pipeline_worktree.py` | `enter`, `create-issue`, `prepare-issue-branch`, `checkout-pr`, `prepare-review`, `merge-main`, `cleanup` |
+| `pipeline_skill_context.py` | `review-pipeline`, `final-review`, `review-implementation`, `project-pipeline` |
+| `pipeline_checks.py` | `detect-scope`, `file-whitelist`, `completeness`, `review-context`, `issue-guards`, `issue-context` |

@@ -209,6 +209,27 @@ fn test_directed_graph_serialization() {
 }
 
 #[test]
+fn test_directed_graph_json_roundtrip() {
+    let g = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let json = serde_json::to_value(&g).unwrap();
+    assert_eq!(json["num_vertices"], 4);
+    let arcs: Vec<(usize, usize)> = serde_json::from_value(json["arcs"].clone()).unwrap();
+    assert_eq!(arcs.len(), 3);
+    let roundtrip: DirectedGraph = serde_json::from_value(json).unwrap();
+    assert_eq!(g, roundtrip);
+}
+
+#[test]
+fn test_directed_graph_json_format() {
+    let g = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let json_str = serde_json::to_string(&g).unwrap();
+    assert!(!json_str.contains("edge_property"));
+    assert!(!json_str.contains("node_holes"));
+    assert!(json_str.contains("num_vertices"));
+    assert!(json_str.contains("arcs"));
+}
+
+#[test]
 #[should_panic(expected = "arc (0, 5) references vertex >= num_vertices")]
 fn test_directed_graph_invalid_arc() {
     DirectedGraph::new(3, vec![(0, 5)]);

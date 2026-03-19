@@ -228,52 +228,26 @@ where
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "strong_connectivity_augmentation_i32",
-        build: || {
-            let problem = StrongConnectivityAugmentation::new(
-                DirectedGraph::new(
-                    6,
-                    vec![
-                        (0, 1),
-                        (1, 2),
-                        (2, 0),
-                        (3, 4),
-                        (4, 3),
-                        (2, 3),
-                        (4, 5),
-                        (5, 3),
-                    ],
-                ),
-                vec![
-                    (3, 0, 5),
-                    (3, 1, 3),
-                    (3, 2, 4),
-                    (4, 0, 6),
-                    (4, 1, 2),
-                    (4, 2, 7),
-                    (5, 0, 4),
-                    (5, 1, 3),
-                    (5, 2, 1),
-                    (0, 3, 8),
-                    (0, 4, 3),
-                    (0, 5, 2),
-                    (1, 3, 6),
-                    (1, 4, 4),
-                    (1, 5, 5),
-                    (2, 4, 3),
-                    (2, 5, 7),
-                    (1, 0, 2),
-                ],
-                1,
-            );
-
-            crate::example_db::specs::satisfaction_example(
-                problem,
-                vec![
-                    vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    vec![0; 18],
-                ],
-            )
-        },
+        // Path digraph 0→1→2→3→4 (not strongly connected — no back-edges).
+        // Nine candidate arcs are all individually affordable, but only the
+        // pair (4→1, w=3) + (1→0, w=5) = 8 = B achieves strong connectivity.
+        instance: Box::new(StrongConnectivityAugmentation::new(
+            DirectedGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+            vec![
+                (4, 0, 10), // direct fix, too expensive
+                (4, 3, 3),  // 4-escape to dead end
+                (4, 2, 3),  // 4-escape to dead end
+                (4, 1, 3),  // correct 4-escape
+                (3, 0, 7),  // too expensive to combine
+                (3, 1, 3),  // dead-end intermediate
+                (2, 0, 7),  // too expensive to combine
+                (2, 1, 3),  // dead-end intermediate
+                (1, 0, 5),  // the closing arc
+            ],
+            8,
+        )),
+        optimal_config: vec![0, 0, 0, 1, 0, 0, 0, 0, 1],
+        optimal_value: serde_json::json!(true),
     }]
 }
 
