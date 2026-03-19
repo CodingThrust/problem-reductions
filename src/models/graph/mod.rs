@@ -19,6 +19,7 @@
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`MinimumMultiwayCut`]: Minimum weight multiway cut
 //! - [`HamiltonianPath`]: Hamiltonian path (simple path visiting every vertex)
+//! - [`PartitionIntoPathsOfLength2`]: Partition vertices into triples with at least two edges each
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
 //! - [`BalancedCompleteBipartiteSubgraph`]: Balanced biclique decision problem
 //! - [`BiconnectivityAugmentation`]: Biconnectivity augmentation with weighted potential edges
@@ -40,6 +41,7 @@ pub(crate) mod biclique_cover;
 pub(crate) mod biconnectivity_augmentation;
 pub(crate) mod bounded_component_spanning_forest;
 pub(crate) mod directed_two_commodity_integral_flow;
+pub(crate) mod generalized_hex;
 pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_circuit;
 pub(crate) mod hamiltonian_path;
@@ -60,6 +62,7 @@ pub(crate) mod minimum_sum_multicenter;
 pub(crate) mod minimum_vertex_cover;
 pub(crate) mod multiple_choice_branching;
 pub(crate) mod optimal_linear_arrangement;
+pub(crate) mod partition_into_paths_of_length_2;
 pub(crate) mod partition_into_triangles;
 pub(crate) mod rural_postman;
 pub(crate) mod spin_glass;
@@ -74,6 +77,7 @@ pub use biclique_cover::BicliqueCover;
 pub use biconnectivity_augmentation::BiconnectivityAugmentation;
 pub use bounded_component_spanning_forest::BoundedComponentSpanningForest;
 pub use directed_two_commodity_integral_flow::DirectedTwoCommodityIntegralFlow;
+pub use generalized_hex::GeneralizedHex;
 pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_circuit::HamiltonianCircuit;
 pub use hamiltonian_path::HamiltonianPath;
@@ -94,6 +98,7 @@ pub use minimum_sum_multicenter::MinimumSumMulticenter;
 pub use minimum_vertex_cover::MinimumVertexCover;
 pub use multiple_choice_branching::MultipleChoiceBranching;
 pub use optimal_linear_arrangement::OptimalLinearArrangement;
+pub use partition_into_paths_of_length_2::PartitionIntoPathsOfLength2;
 pub use partition_into_triangles::PartitionIntoTriangles;
 pub use rural_postman::RuralPostman;
 pub use spin_glass::SpinGlass;
@@ -109,6 +114,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(maximum_independent_set::canonical_model_example_specs());
     specs.extend(minimum_vertex_cover::canonical_model_example_specs());
     specs.extend(max_cut::canonical_model_example_specs());
+    specs.extend(generalized_hex::canonical_model_example_specs());
     specs.extend(hamiltonian_circuit::canonical_model_example_specs());
     specs.extend(hamiltonian_path::canonical_model_example_specs());
     specs.extend(isomorphic_spanning_tree::canonical_model_example_specs());
@@ -130,6 +136,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(biconnectivity_augmentation::canonical_model_example_specs());
     specs.extend(bounded_component_spanning_forest::canonical_model_example_specs());
     specs.extend(partition_into_triangles::canonical_model_example_specs());
+    specs.extend(partition_into_paths_of_length_2::canonical_model_example_specs());
     specs.extend(steiner_tree::canonical_model_example_specs());
     specs.extend(directed_two_commodity_integral_flow::canonical_model_example_specs());
     specs.extend(undirected_two_commodity_integral_flow::canonical_model_example_specs());

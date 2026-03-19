@@ -66,6 +66,7 @@
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
   "GraphPartitioning": [Graph Partitioning],
+  "GeneralizedHex": [Generalized Hex],
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
@@ -91,6 +92,7 @@
   "Satisfiability": [SAT],
   "KSatisfiability": [$k$-SAT],
   "CircuitSAT": [CircuitSAT],
+  "ConjunctiveQueryFoldability": [Conjunctive Query Foldability],
   "Factoring": [Factoring],
   "KingsSubgraph": [King's Subgraph MIS],
   "TriangularSubgraph": [Triangular Subgraph MIS],
@@ -111,10 +113,11 @@
   "SubsetSum": [Subset Sum],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
+  "MultipleChoiceBranching": [Multiple Choice Branching],
+  "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
   "QuadraticAssignment": [Quadratic Assignment],
   "SequencingWithReleaseTimesAndDeadlines": [Sequencing with Release Times and Deadlines],
-  "MultipleChoiceBranching": [Multiple Choice Branching],
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
   "SteinerTree": [Steiner Tree],
@@ -783,6 +786,64 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   ]
 }
 #{
+  let x = load-model-example("GeneralizedHex")
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let source = x.instance.source
+  let target = x.instance.target
+  let winning-path = ((0, 1), (1, 4), (4, 5))
+  [
+    #problem-def("GeneralizedHex")[
+      Given an undirected graph $G = (V, E)$ and distinct terminals $s, t in V$, determine whether Player 1 has a forced win in the vertex-claiming Shannon switching game where the players alternately claim vertices of $V backslash {s, t}$, coloring them blue and red respectively, and Player 1 wins iff the final coloring contains an $s$-$t$ path whose internal vertices are all blue.
+    ][
+      Generalized Hex is the vertex version of the Shannon switching game listed by Garey & Johnson (A8 GP1). Even and Tarjan proved that deciding whether the first player has a winning strategy is PSPACE-complete @evenTarjan1976. The edge-claiming Shannon switching game is a classical contrast point: Bruno and Weinberg showed that the edge version is polynomial-time solvable via matroid methods @brunoWeinberg1970.
+
+      The implementation evaluates the decision problem directly rather than searching over candidate assignments. The instance has `dims() = []`, and `evaluate([])` runs a memoized minimax search over the ternary states (unclaimed, blue, red) of the nonterminal vertices. This preserves the alternating-game semantics of the original problem instead of collapsing the game into a static coloring predicate.
+
+      *Example.* The canonical fixture uses the six-vertex graph with terminals $s = v_#source$ and $t = v_#target$, and edges #edges.map(((u, v)) => $(v_#u, v_#v)$).join(", "). Vertex $v_4$ is the unique neighbor of $t$, so Player 1 opens by claiming $v_4$. Player 2 can then block at most one of $v_1$, $v_2$, and $v_3$; Player 1 responds by claiming one of the remaining branch vertices, completing a blue path $v_0 arrow v_i arrow v_4 arrow v_5$. The fixture database therefore has exactly one satisfying configuration: the empty configuration, which triggers the internal game-tree evaluator on the initial board.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let gray = luma(185)
+          let verts = (
+            (0, 1.0),
+            (1.6, 2.2),
+            (1.6, 1.0),
+            (1.6, -0.2),
+            (3.3, 1.0),
+            (5.0, 1.0),
+          )
+          for (u, v) in edges {
+            let on-path = winning-path.any(e =>
+              (e.at(0) == u and e.at(1) == v) or
+              (e.at(0) == v and e.at(1) == u)
+            )
+            g-edge(
+              verts.at(u),
+              verts.at(v),
+              stroke: if on-path { 2pt + blue } else { 1pt + gray },
+            )
+          }
+          for (k, pos) in verts.enumerate() {
+            let highlighted = k == source or k == 1 or k == 4 or k == target
+            g-node(
+              pos,
+              name: "v" + str(k),
+              fill: if highlighted { blue } else { white },
+              stroke: 1pt + if highlighted { blue } else { gray },
+              label: text(fill: if highlighted { white } else { black })[$v_#k$],
+            )
+          }
+          content((0, 1.55), text(8pt)[$s$])
+          content((5.0, 1.55), text(8pt)[$t$])
+        }),
+        caption: [A winning Generalized Hex instance. Player 1 first claims $v_4$, then answers any red move on $\{v_1, v_2, v_3\}$ by taking a different branch vertex and completing a blue path from $s = v_0$ to $t = v_5$.],
+      ) <fig:generalized-hex>
+    ]
+  ]
+}
+#{
   let x = load-model-example("HamiltonianPath")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
@@ -1427,6 +1488,14 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     ]
   ]
 }
+
+#problem-def("PartitionIntoPathsOfLength2")[
+  Given $G = (V, E)$ with $|V| = 3q$, determine if $V$ can be partitioned into $q$ disjoint sets $V_1, ..., V_q$ of three vertices each, such that each $V_t$ induces at least two edges in $G$.
+][
+A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76], proved hard by reduction from 3-Dimensional Matching. Each triple in the partition must form a path of length 2 (exactly two edges, i.e., a $P_3$ subgraph) or a triangle (all three edges). The problem models constrained grouping scenarios where cluster connectivity is required. The best known exact approach uses subset DP in $O^*(3^n)$ time.
+
+*Example.* Consider the graph $G$ with $n = 9$ vertices and edges ${0,1}, {1,2}, {3,4}, {4,5}, {6,7}, {7,8}$ (plus cross-edges ${0,3}, {2,5}, {3,6}, {5,8}$). Setting $q = 3$, the partition $V_1 = {0,1,2}$, $V_2 = {3,4,5}$, $V_3 = {6,7,8}$ is valid: $V_1$ contains edges ${0,1}, {1,2}$ (path $0 dash.em 1 dash.em 2$), $V_2$ contains ${3,4}, {4,5}$, and $V_3$ contains ${6,7}, {7,8}$.
+]
 
 #{
   let x = load-model-example("MinimumSumMulticenter")
@@ -2181,6 +2250,61 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     ]
   ]
 }
+
+#problem-def("ConjunctiveQueryFoldability")[
+  Given a finite domain $D$, relation symbols $R_1, dots, R_m$ with fixed arities $d_1, dots, d_m$, a set $X$ of _distinguished_ variables, a set $Y$ of _undistinguished_ variables (with $X inter Y = emptyset$), and two conjunctive queries $Q_1$ and $Q_2$ — each a set of atoms of the form $R_j (t_1, dots, t_(d_j))$ with $t_i in D union X union Y$ — determine whether there exists a substitution $sigma: Y -> D union X union Y$ such that $sigma(Q_1) = Q_2$ as sets of atoms, where $sigma$ fixes all elements of $D union X$.
+][
+  Conjunctive query foldability is equivalent to conjunctive query containment and was shown NP-complete by Chandra and Merlin (1977) via reduction from Graph 3-Colorability.#footnote[A. K. Chandra and P. M. Merlin, "Optimal implementation of conjunctive queries in relational data bases," _Proc. 9th ACM STOC_, 1977, pp. 77–90.] If $Q_1$ folds into $Q_2$, then $Q_1$ is subsumed by $Q_2$, making $Q_1$ redundant — a key step in query optimization. The brute-force algorithm enumerates all $|D union X union Y|^(|Y|)$ possible substitutions and checks set equality; no general exact algorithm with a better worst-case bound is known.#footnote[No algorithm improving on brute-force substitution enumeration is known for general conjunctive query foldability.]
+
+  *Example.* Let $D = emptyset$, $X = {x}$, $Y = {u, v, a}$, and $R$ a single binary relation. The query $Q_1 = {R(x, u), R(u, v), R(v, x), R(u, u)}$ is a directed triangle $(x, u, v)$ with a self-loop on $u$. The query $Q_2 = {R(x, a), R(a, a), R(a, x)}$ is a "lollipop": a self-loop on $a$ with edges $x -> a$ and $a -> x$. The substitution $sigma: u |-> a,\ v |-> a,\ a |-> a$ maps $Q_1$ to ${R(x, a), R(a, a), R(a, x), R(a, a)} = Q_2$ (as a set), so $Q_1$ folds into $Q_2$.
+
+  #figure(
+    canvas(length: 1cm, {
+      import draw: *
+      // Q1: triangle (x, u, v) with self-loop on u
+      // Place x at top-left, u at bottom-left, v at bottom-right
+      let px = (-2.5, 0.6)
+      let pu = (-3.2, -0.6)
+      let pv = (-1.8, -0.6)
+      circle(px, radius: 0.22, fill: white, stroke: 0.6pt, name: "x1")
+      content("x1", text(8pt)[$x$])
+      circle(pu, radius: 0.22, fill: white, stroke: 0.6pt, name: "u")
+      content("u", text(8pt)[$u$])
+      circle(pv, radius: 0.22, fill: white, stroke: 0.6pt, name: "v")
+      content("v", text(8pt)[$v$])
+      // edges: x->u, u->v, v->x
+      line("x1.south-west", "u.north", mark: (end: "straight", scale: 0.45))
+      line("u.east", "v.west", mark: (end: "straight", scale: 0.45))
+      line("v.north-west", "x1.south-east", mark: (end: "straight", scale: 0.45))
+      // self-loop on u: arc below u
+      arc((-3.2, -0.82), radius: 0.22, start: 200deg, stop: 340deg,
+        stroke: 0.6pt, mark: (end: "straight", scale: 0.45))
+      // Q1 label
+      content((-2.5, -1.4), text(8pt)[$Q_1$])
+
+      // Substitution arrow sigma in the middle
+      line((-1.1, 0.0), (-0.3, 0.0), mark: (end: "straight", scale: 0.6))
+      content((-0.7, 0.2), text(8pt)[$sigma$])
+
+      // Q2: lollipop — x and a, self-loop on a, edges x->a and a->x
+      let qx = (0.8, 0.3)
+      let qa = (1.8, -0.5)
+      circle(qx, radius: 0.22, fill: white, stroke: 0.6pt, name: "x2")
+      content("x2", text(8pt)[$x$])
+      circle(qa, radius: 0.22, fill: white, stroke: 0.6pt, name: "a")
+      content("a", text(8pt)[$a$])
+      // edges: x->a and a->x (use slightly bent anchors)
+      line("x2.south-east", "a.north-west", mark: (end: "straight", scale: 0.45))
+      line("a.north", (1.8, 0.1), "x2.east", mark: (end: "straight", scale: 0.45))
+      // self-loop on a
+      arc((1.8, -0.72), radius: 0.22, start: 200deg, stop: 340deg,
+        stroke: 0.6pt, mark: (end: "straight", scale: 0.45))
+      // Q2 label
+      content((1.3, -1.4), text(8pt)[$Q_2$])
+    }),
+    caption: [Conjunctive Query Foldability example. Left: query $Q_1$ — directed triangle $(x, u, v)$ with self-loop on $u$. Right: query $Q_2$ — lollipop with node $a$ having a self-loop and two edges to $x$. The substitution $sigma: u |-> a, v |-> a$ (with $a |-> a$) folds $Q_1$ into $Q_2$.],
+  ) <fig:cqf-example>
+]
 
 #{
   let x = load-model-example("Factoring")

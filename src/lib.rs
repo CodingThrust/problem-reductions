@@ -46,25 +46,25 @@ pub mod prelude {
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
     pub use crate::models::graph::{
         BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
-        BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GraphPartitioning,
-        HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KthBestSpanningTree,
-        LengthBoundedDisjointPaths, SpinGlass, SteinerTree, StrongConnectivityAugmentation,
-        SubgraphIsomorphism,
+        BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
+        GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree,
+        KthBestSpanningTree, LengthBoundedDisjointPaths, SpinGlass, SteinerTree,
+        StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
         MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut,
         MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
-        OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, TravelingSalesman,
-        UndirectedTwoCommodityIntegralFlow,
+        OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
+        RuralPostman, TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
-        BinPacking, CbqRelation, ConjunctiveBooleanQuery, Factoring, FlowShopScheduling, Knapsack,
-        LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
-        QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
-        SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
-        ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
-        SumOfSquaresPartition,
+        BinPacking, CbqRelation, ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, Factoring,
+        FlowShopScheduling, Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing,
+        MultiprocessorScheduling, PaintShop, QueryArg, RectilinearPictureCompression,
+        ResourceConstrainedScheduling, SequencingWithReleaseTimesAndDeadlines,
+        SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
+        StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,

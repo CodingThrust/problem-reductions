@@ -3,6 +3,7 @@
 //! Problems with unique input structures that don't fit other categories:
 //! - [`BinPacking`]: Bin Packing (minimize bins)
 //! - [`ConjunctiveBooleanQuery`]: Evaluate a conjunctive Boolean query over relations
+//! - [`ConjunctiveQueryFoldability`]: Conjunctive Query Foldability
 //! - [`Factoring`]: Integer factorization
 //! - [`FlowShopScheduling`]: Flow Shop Scheduling (meet deadline on m processors)
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
@@ -23,6 +24,7 @@
 
 mod bin_packing;
 pub(crate) mod conjunctive_boolean_query;
+pub(crate) mod conjunctive_query_foldability;
 pub(crate) mod factoring;
 mod flow_shop_scheduling;
 mod knapsack;
@@ -44,6 +46,7 @@ pub(crate) mod sum_of_squares_partition;
 
 pub use bin_packing::BinPacking;
 pub use conjunctive_boolean_query::{ConjunctiveBooleanQuery, QueryArg, Relation as CbqRelation};
+pub use conjunctive_query_foldability::{ConjunctiveQueryFoldability, Term};
 pub use factoring::Factoring;
 pub use flow_shop_scheduling::FlowShopScheduling;
 pub use knapsack::Knapsack;
@@ -67,6 +70,7 @@ pub use sum_of_squares_partition::SumOfSquaresPartition;
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let mut specs = Vec::new();
     specs.extend(conjunctive_boolean_query::canonical_model_example_specs());
+    specs.extend(conjunctive_query_foldability::canonical_model_example_specs());
     specs.extend(factoring::canonical_model_example_specs());
     specs.extend(longest_common_subsequence::canonical_model_example_specs());
     specs.extend(multiprocessor_scheduling::canonical_model_example_specs());

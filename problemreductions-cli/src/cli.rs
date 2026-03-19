@@ -225,6 +225,7 @@ Flags by problem type:
   MinimumMultiwayCut              --graph, --terminals, --edge-weights
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
+  GeneralizedHex                  --graph, --source, --sink
   HamiltonianCircuit, HC          --graph
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
@@ -259,6 +260,7 @@ Flags by problem type:
   LCS                             --strings, --bound [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
+  PartitionIntoPathsOfLength2     --graph
   ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   QAP                             --matrix (cost), --distance-matrix
@@ -287,6 +289,7 @@ Examples:
   pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
+  pred create GeneralizedHex --graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5
   pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
   pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
