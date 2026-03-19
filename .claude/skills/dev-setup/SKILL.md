@@ -31,7 +31,7 @@ When scanning, read these files for tool references:
 
 Organize tools into three tiers in `dependencies.md`:
 - **Core** — needed to build, test, and generate docs
-- **Skill** — needed for the AI-assisted pipeline (gh, claude, pred, copilot-review)
+- **Skill** — needed for the AI-assisted pipeline (gh, claude, pred)
 - **Optional** — nice to have but not required (julia)
 
 Each tool needs: name, check command, install command (macOS), install command (Linux), purpose.
@@ -54,7 +54,7 @@ For each tool in the **Core Tools** table of `dependencies.md`:
 3. **If missing** → print the install command for the detected platform, then execute it
 
 After all core tools are done, ask:
-> "Core tools are installed. Do you also want to set up the AI pipeline tools (gh, claude, pred, copilot-review)?"
+> "Core tools are installed. Do you also want to set up the AI pipeline tools (gh, claude, pred)?"
 
 - **Yes** → proceed to Step 4
 - **No** → skip to Step 6
@@ -148,14 +148,7 @@ If this fails, the user likely needs org-level project scopes:
 gh auth refresh -s read:project,project
 ```
 
-**6c: Test `make run-review` prerequisites**
-
-```bash
-# Verify gh-copilot-review works
-gh copilot-review --help
-```
-
-**6d: Test claude CLI**
+**6c: Test claude CLI**
 
 ```bash
 claude --version
@@ -170,16 +163,16 @@ If all pipeline checks pass, explain the project-based contribution pipeline:
 > This project uses a [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1) to track issues through an automated pipeline. Issues flow through these columns:
 >
 > ```
-> Ready → In Progress → review-agentic → In Review → Done
+> Ready → In Progress → Review pool → Under review → Final review → Done
 > ```
 >
 > Two `make` commands drive this pipeline:
 >
 > ### `make run-pipeline` (issue → PR)
-> Picks the next **Ready** issue, moves it to **In Progress**, implements it (using `/issue-to-pr` → `/add-model` or `/add-rule`), creates a PR, then moves it to **review-agentic**.
+> Picks the next **Ready** issue, moves it to **In Progress**, implements it (using `/issue-to-pr` → `/add-model` or `/add-rule`), creates a PR, then moves it to **Review pool**.
 >
 > ### `make run-review` (PR → review)
-> Picks the next **review-agentic** PR, waits for Copilot review, fixes comments and CI failures, runs agentic feature tests, then moves it to **In Review** for human approval.
+> Picks the next **Review pool** PR, runs agentic review (structural + quality + feature tests), then moves it to **Final review** for human approval.
 >
 > ### Targeting specific items
 > - `make run-pipeline N=42` — process issue #42

@@ -3,7 +3,7 @@
 //! The Traveling Salesman problem asks for a minimum-weight cycle
 //! that visits every vertex exactly once.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -13,6 +13,12 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "TravelingSalesman",
+        display_name: "Traveling Salesman",
+        aliases: &["TSP"],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find minimum weight Hamiltonian cycle in a graph (Traveling Salesman Problem)",
         fields: &[
@@ -252,8 +258,21 @@ pub(crate) fn is_hamiltonian_cycle<G: Graph>(graph: &G, selected: &[bool]) -> bo
     visit_count == n
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "traveling_salesman_simplegraph_i32",
+        instance: Box::new(TravelingSalesman::new(
+            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+            vec![1, 3, 2, 2, 3, 1],
+        )),
+        optimal_config: vec![1, 0, 1, 1, 0, 1],
+        optimal_value: serde_json::json!({"Valid": 6}),
+    }]
+}
+
 crate::declare_variants! {
-    TravelingSalesman<SimpleGraph, i32> => "2^num_vertices",
+    default opt TravelingSalesman<SimpleGraph, i32> => "2^num_vertices",
 }
 
 #[cfg(test)]

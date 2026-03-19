@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "Satisfiability",
+        display_name: "Satisfiability",
+        aliases: &["SAT"],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Find satisfying assignment for CNF formula",
         fields: &[
@@ -196,7 +199,7 @@ impl Problem for Satisfiability {
 impl SatisfactionProblem for Satisfiability {}
 
 crate::declare_variants! {
-    Satisfiability => "2^num_variables",
+    default sat Satisfiability => "2^num_variables",
 }
 
 /// Check if an assignment satisfies a SAT formula.
@@ -222,6 +225,23 @@ pub(crate) fn is_satisfying_assignment(
             }
         })
     })
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "satisfiability",
+        instance: Box::new(Satisfiability::new(
+            3,
+            vec![
+                CNFClause::new(vec![1, 2]),
+                CNFClause::new(vec![-1, 3]),
+                CNFClause::new(vec![-2, -3]),
+            ],
+        )),
+        optimal_config: vec![0, 1, 0],
+        optimal_value: serde_json::json!(true),
+    }]
 }
 
 #[cfg(test)]

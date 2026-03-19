@@ -36,6 +36,14 @@ digraph check_issue {
 }
 ```
 
+### Prerequisites
+
+This skill uses the `pred` CLI tool. If `pred` is not available, build it first:
+
+```bash
+pred --version 2>/dev/null || make cli
+```
+
 ### Step 0: Fetch and Parse Issue
 
 ```bash
@@ -187,6 +195,7 @@ If the algorithm is a high-level sketch rather than an implementable procedure �
 - **Non-trivial**: Must have enough structure to exercise the reduction meaningfully (not just 2 vertices)
 - **Brute-force solvable**: Small enough to verify by hand or with `pred solve`
 - **Fully worked**: Shows the source instance, the reduction construction step by step, and the target instance — not just "apply the reduction to get..."
+- **Round-trip testable**: The example must be complex enough to validate correctness via a closed-loop test: reduce the source instance → solve the target → extract the solution back → verify it is optimal for the source. A too-simple example (e.g., a single edge, a trivially satisfiable formula) can pass the round trip even with a buggy reduction. The example should have multiple feasible solutions with different objective values so that only a correct reduction maps to the true optimum. Rule of thumb: the source instance should have at least 2 suboptimal feasible solutions in addition to the optimal one.
 
 ---
 
@@ -297,7 +306,8 @@ Check all template sections are present and substantive:
 | Schema | Type name, variants, field table |
 | Complexity | Best known algorithm with citation **and** a concrete complexity expression in terms of problem parameters (e.g., `q^n`, `2^{0.8765n}`) |
 | How to solve | At least one solver method checked |
-| Example Instance | Concrete instance with known solution |
+| Example Instance | Concrete instance that exercises the core structure |
+| Expected Outcome | Satisfaction: one valid / satisfying solution with brief justification. Optimization: one optimal solution with the optimal objective value |
 
 Missing or placeholder sections → list them as **Fail** items.
 
@@ -319,8 +329,11 @@ The formal definition must be **precise and implementable**:
 
 - **Non-trivial**: Enough vertices/variables to exercise constraints meaningfully (not just a triangle)
 - **Exercises core structure**: Examples must use the defining features of the problem. For instance, a "MultivariateQuadratic" example that only has linear terms does not exercise the quadratic structure → **Fail**. If the problem's name or definition highlights a specific structural feature (quadratic, k-colorable, bipartite, etc.), at least one example must exercise that feature.
-- **Known optimal solution provided**: Must state the optimal value, not just the instance
+- **Expected outcome provided**:
+  - Satisfaction problems must include a concrete valid / satisfying solution and say why it is valid
+  - Optimization problems must include a concrete optimal solution and the optimal objective value
 - **Detailed enough for paper**: This example will appear in the paper — it needs to be illustrative
+- **Round-trip testable**: The example must be complex enough that a round-trip test (construct instance → solve → verify) can catch implementation bugs. A too-simple instance (e.g., 2 vertices, a single clause) may have a trivially correct solution that passes even with a wrong implementation. The example should have multiple feasible configurations with different objective values (for optimization) or a mix of satisfying and non-satisfying configurations (for satisfaction problems), so that correctness is meaningfully tested. Rule of thumb: the instance should have at least 2 suboptimal feasible solutions in addition to the optimal one.
 
 ### 4e: Representation Feasibility
 

@@ -1,6 +1,7 @@
 //! Shared utilities for CLI and MCP: parsing helpers and random generation.
 
 use anyhow::{bail, Result};
+use num_bigint::BigUint;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
 use problemreductions::variant::{K2, K3, KN};
@@ -63,6 +64,10 @@ pub fn validate_k_param(
             None => bail!("{problem_name} requires --k <value>"),
         },
     };
+
+    if effective_k == 0 {
+        bail!("{problem_name}: --k must be positive");
+    }
 
     // Build the variant map with the effective k
     let mut variant = resolved_variant.clone();
@@ -213,6 +218,20 @@ pub fn create_random_float_positions(num_vertices: usize, seed: Option<u64>) -> 
         .collect()
 }
 
+/// Choose `k` distinct elements from `0..n` using Fisher-Yates partial shuffle.
+/// Returns a sorted vector of chosen indices.
+pub fn lcg_choose(state: &mut u64, n: usize, k: usize) -> Vec<usize> {
+    assert!(k <= n, "k={k} exceeds n={n}");
+    let mut indices: Vec<usize> = (0..n).collect();
+    for i in 0..k {
+        let j = i + (lcg_step(state) * (n - i) as f64) as usize % (n - i);
+        indices.swap(i, j);
+    }
+    let mut chosen: Vec<usize> = indices[..k].to_vec();
+    chosen.sort_unstable();
+    chosen
+}
+
 // ---------------------------------------------------------------------------
 // Small shared helpers
 // ---------------------------------------------------------------------------
@@ -242,6 +261,17 @@ where
         .collect()
 }
 
+pub fn parse_decimal_biguint(s: &str) -> Result<BigUint> {
+    BigUint::parse_bytes(s.trim().as_bytes(), 10)
+        .ok_or_else(|| anyhow::anyhow!("Invalid decimal integer '{}'", s.trim()))
+}
+
+pub fn parse_biguint_list(s: &str) -> Result<Vec<BigUint>> {
+    s.split(',')
+        .map(|value| parse_decimal_biguint(value.trim()))
+        .collect()
+}
+
 /// Parse edge pairs like "0-1,1-2,2-3" into Vec<(usize, usize)>.
 pub fn parse_edge_pairs(s: &str) -> Result<Vec<(usize, usize)>> {
     s.split(',')
@@ -255,4 +285,20 @@ pub fn parse_edge_pairs(s: &str) -> Result<Vec<(usize, usize)>> {
             Ok((u, v))
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_k_param;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn test_validate_k_param_rejects_zero() {
+        let err = validate_k_param(&BTreeMap::new(), Some(0), None, "KthBestSpanningTree")
+            .expect_err("k=0 should be rejected before problem construction");
+        assert!(
+            err.to_string().contains("positive"),
+            "unexpected error message: {err}"
+        );
+    }
 }

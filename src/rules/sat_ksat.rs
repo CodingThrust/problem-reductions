@@ -218,6 +218,58 @@ impl ReduceTo<Satisfiability> for KSatisfiability<K2> {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+    use crate::models::formula::CNFClause;
+
+    vec![
+        crate::example_db::specs::RuleExampleSpec {
+            id: "satisfiability_to_ksatisfiability",
+            build: || {
+                let source = Satisfiability::new(
+                    5,
+                    vec![
+                        CNFClause::new(vec![1]),
+                        CNFClause::new(vec![2, -3]),
+                        CNFClause::new(vec![-1, 3, 4]),
+                        CNFClause::new(vec![2, -4, 5]),
+                        CNFClause::new(vec![1, -2, 3, -5]),
+                        CNFClause::new(vec![-1, 2, -3, 4, 5]),
+                    ],
+                );
+                crate::example_db::specs::rule_example_with_witness::<_, KSatisfiability<K3>>(
+                    source,
+                    SolutionPair {
+                        source_config: vec![1, 1, 1, 0, 1],
+                        target_config: vec![1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1],
+                    },
+                )
+            },
+        },
+        crate::example_db::specs::RuleExampleSpec {
+            id: "ksatisfiability_to_satisfiability",
+            build: || {
+                let source = KSatisfiability::<KN>::new(
+                    4,
+                    vec![
+                        CNFClause::new(vec![1, -2, 3]),
+                        CNFClause::new(vec![-1, 3, 4]),
+                        CNFClause::new(vec![2, -3, -4]),
+                    ],
+                );
+                crate::example_db::specs::rule_example_with_witness::<_, Satisfiability>(
+                    source,
+                    SolutionPair {
+                        source_config: vec![1, 1, 1, 0],
+                        target_config: vec![1, 1, 1, 0],
+                    },
+                )
+            },
+        },
+    ]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/sat_ksat.rs"]
 mod tests;

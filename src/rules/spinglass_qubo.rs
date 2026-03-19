@@ -146,6 +146,55 @@ impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
+    vec![
+        crate::example_db::specs::RuleExampleSpec {
+            id: "qubo_to_spinglass",
+            build: || {
+                let (n, edges) = crate::topology::small_graphs::petersen();
+                let mut matrix = vec![vec![0.0; n]; n];
+                for (i, row) in matrix.iter_mut().enumerate() {
+                    row[i] = -1.0 + 0.2 * i as f64;
+                }
+                for (idx, &(u, v)) in edges.iter().enumerate() {
+                    let (i, j) = if u < v { (u, v) } else { (v, u) };
+                    matrix[i][j] = if idx % 2 == 0 { 2.0 } else { -1.5 };
+                }
+                let source = QUBO::from_matrix(matrix);
+                crate::example_db::specs::rule_example_with_witness::<_, SpinGlass<SimpleGraph, f64>>(
+                    source,
+                    SolutionPair {
+                        source_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
+                        target_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
+                    },
+                )
+            },
+        },
+        crate::example_db::specs::RuleExampleSpec {
+            id: "spinglass_to_qubo",
+            build: || {
+                let (n, edges) = crate::topology::small_graphs::petersen();
+                let couplings: Vec<((usize, usize), f64)> = edges
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &(u, v))| ((u, v), if i % 2 == 0 { 1.0 } else { -1.0 }))
+                    .collect();
+                let source = SpinGlass::new(n, couplings, vec![0.0; n]);
+                crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+                    source,
+                    SolutionPair {
+                        source_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
+                        target_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
+                    },
+                )
+            },
+        },
+    ]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/spinglass_qubo.rs"]
 mod tests;

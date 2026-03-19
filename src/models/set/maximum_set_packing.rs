@@ -3,7 +3,7 @@
 //! The Set Packing problem asks for a maximum weight collection of
 //! pairwise disjoint sets.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, One, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -13,6 +13,9 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaximumSetPacking",
+        display_name: "Maximum Set Packing",
+        aliases: &[],
+        dimensions: &[VariantDimension::new("weight", "One", &["One", "i32", "f64"])],
         module_path: module_path!(),
         description: "Find maximum weight collection of disjoint sets",
         fields: &[
@@ -174,9 +177,9 @@ where
 }
 
 crate::declare_variants! {
-    MaximumSetPacking<One> => "2^num_sets",
-    MaximumSetPacking<i32> => "2^num_sets",
-    MaximumSetPacking<f64> => "2^num_sets",
+    default opt MaximumSetPacking<One> => "2^num_sets",
+    opt MaximumSetPacking<i32> => "2^num_sets",
+    opt MaximumSetPacking<f64> => "2^num_sets",
 }
 
 /// Check if a selection forms a valid set packing (pairwise disjoint).
@@ -209,6 +212,21 @@ pub(crate) fn is_set_packing(sets: &[Vec<usize>], selected: &[bool]) -> bool {
 
     let config: Vec<usize> = selected.iter().map(|&b| if b { 1 } else { 0 }).collect();
     is_valid_packing(sets, &config)
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "maximum_set_packing_i32",
+        instance: Box::new(MaximumSetPacking::<i32>::new(vec![
+            vec![0, 1],
+            vec![1, 2],
+            vec![2, 3],
+            vec![3, 4],
+        ])),
+        optimal_config: vec![0, 1, 0, 1],
+        optimal_value: serde_json::json!({"Valid": 2}),
+    }]
 }
 
 #[cfg(test)]

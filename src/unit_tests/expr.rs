@@ -654,6 +654,60 @@ fn test_parse_panics_on_invalid() {
     Expr::parse("@@@");
 }
 
+// -- Factorial --
+
+#[test]
+fn test_parse_factorial() {
+    assert_eq!(parse_eval("factorial(5)", &[]), 120.0);
+    assert_eq!(parse_eval("factorial(0)", &[]), 1.0);
+    assert_eq!(parse_eval("factorial(1)", &[]), 1.0);
+}
+
+#[test]
+fn test_parse_factorial_variable() {
+    assert_eq!(parse_eval("factorial(n)", &[("n", 6)]), 720.0);
+}
+
+#[test]
+fn test_expr_factorial_eval() {
+    let e = Expr::Factorial(Box::new(Expr::Const(4.0)));
+    let size = ProblemSize::new(vec![]);
+    assert_eq!(e.eval(&size), 24.0);
+}
+
+#[test]
+fn test_expr_factorial_display() {
+    let e = Expr::Factorial(Box::new(Expr::Var("n")));
+    assert_eq!(format!("{e}"), "factorial(n)");
+}
+
+#[test]
+fn test_expr_factorial_variables() {
+    let e = Expr::Factorial(Box::new(Expr::Var("n")));
+    assert_eq!(e.variables(), HashSet::from(["n"]));
+}
+
+#[test]
+fn test_expr_factorial_substitute() {
+    let replacement = Expr::Const(5.0);
+    let mut mapping = HashMap::new();
+    mapping.insert("n", &replacement);
+    let e = Expr::Factorial(Box::new(Expr::Var("n")));
+    let result = e.substitute(&mapping);
+    let size = ProblemSize::new(vec![]);
+    assert_eq!(result.eval(&size), 120.0);
+}
+
+#[test]
+fn test_expr_factorial_is_not_polynomial() {
+    assert!(!Expr::Factorial(Box::new(Expr::Var("n"))).is_polynomial());
+}
+
+#[test]
+fn test_expr_factorial_is_valid_complexity() {
+    assert!(Expr::parse("factorial(n)").is_valid_complexity_notation());
+}
+
 // -- Real-world complexity strings --
 
 #[test]
