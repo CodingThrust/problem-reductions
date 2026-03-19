@@ -3668,10 +3668,10 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 #let mwc_qubo = load-example("MinimumMultiwayCut", "QUBO")
 #let mwc_qubo_sol = mwc_qubo.solutions.at(0)
-#let mwc_qubo_edges = mwc_qubo.source.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+#let mwc_qubo_edges = mwc_qubo.source.instance.graph.edges.map(e => (e.at(0), e.at(1)))
 #let mwc_qubo_weights = mwc_qubo.source.instance.edge_weights
 #let mwc_qubo_terminals = mwc_qubo.source.instance.terminals
-#let mwc_qubo_n = mwc_qubo.source.instance.graph.inner.nodes.len()
+#let mwc_qubo_n = mwc_qubo.source.instance.graph.num_vertices
 #let mwc_qubo_k = mwc_qubo_terminals.len()
 #let mwc_qubo_nq = mwc_qubo_n * mwc_qubo_k
 #let mwc_qubo_alpha = mwc_qubo_weights.fold(0, (a, w) => a + w) + 1
