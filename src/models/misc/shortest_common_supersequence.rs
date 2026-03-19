@@ -158,10 +158,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         id: "shortest_common_supersequence",
         instance: Box::new(ShortestCommonSupersequence::new(
             3,
-            vec![vec![0, 1, 2], vec![1, 0, 2]],
-            4,
+            vec![vec![0, 1, 2, 1], vec![1, 2, 0, 1], vec![0, 2, 1, 0]],
+            7,
         )),
-        optimal_config: vec![0, 1, 0, 2],
+        optimal_config: vec![0, 1, 2, 0, 2, 1, 0],
         optimal_value: serde_json::json!(true),
     }]
 }

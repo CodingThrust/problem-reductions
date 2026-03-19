@@ -143,6 +143,21 @@ fn test_all_problems_implement_trait_correctly() {
         "FlowShopScheduling",
     );
     check_problem_trait(
+        &PartitionIntoPathsOfLength2::new(SimpleGraph::new(
+            6,
+            vec![(0, 1), (1, 2), (3, 4), (4, 5)],
+        )),
+        "PartitionIntoPathsOfLength2",
+    );
+    check_problem_trait(
+        &ResourceConstrainedScheduling::new(3, vec![20], vec![vec![6], vec![7], vec![7]], 2),
+        "ResourceConstrainedScheduling",
+    );
+    check_problem_trait(
+        &PartiallyOrderedKnapsack::new(vec![2, 3], vec![3, 2], vec![(0, 1)], 5),
+        "PartiallyOrderedKnapsack",
+    );
+    check_problem_trait(
         &SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]),
         "SequencingWithReleaseTimesAndDeadlines",
     );
@@ -224,6 +239,10 @@ fn test_direction() {
     );
     assert_eq!(
         MaximumClique::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
+        Direction::Maximize
+    );
+    assert_eq!(
+        PartiallyOrderedKnapsack::new(vec![2, 3], vec![3, 2], vec![(0, 1)], 5).direction(),
         Direction::Maximize
     );
 }

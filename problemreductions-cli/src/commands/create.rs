@@ -9,14 +9,16 @@ use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{ClosestVectorProblem, ConsecutiveOnesSubmatrix, BMF};
 use problemreductions::models::graph::{
-    GraphPartitioning, HamiltonianCircuit, HamiltonianPath, LengthBoundedDisjointPaths,
-    MinimumMultiwayCut, MultipleChoiceBranching, SteinerTree, StrongConnectivityAugmentation,
+    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
+    LengthBoundedDisjointPaths, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
+    MultipleChoiceBranching, SteinerTree, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
-    BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    MultiprocessorScheduling, PaintShop, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
-    SumOfSquaresPartition,
+    BinPacking, CbqRelation, ConjunctiveBooleanQuery, FlowShopScheduling, LongestCommonSubsequence,
+    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack,
+    QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -84,11 +86,19 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
+        && args.source.is_none()
+        && args.sink.is_none()
+        && args.size_bound.is_none()
+        && args.cut_bound.is_none()
+        && args.values.is_none()
+        && args.precedences.is_none()
         && args.distance_matrix.is_none()
         && args.candidate_arcs.is_none()
         && args.potential_edges.is_none()
         && args.budget.is_none()
         && args.precedence_pairs.is_none()
+        && args.resource_bounds.is_none()
+        && args.resource_requirements.is_none()
         && args.task_lengths.is_none()
         && args.deadline.is_none()
         && args.num_processors.is_none()
@@ -108,6 +118,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.sink_2.is_none()
         && args.requirement_1.is_none()
         && args.requirement_2.is_none()
+        && args.domain_size.is_none()
+        && args.relations.is_none()
+        && args.conjuncts_spec.is_none()
         && args.deps.is_none()
         && args.query.is_none()
 }
@@ -280,6 +293,10 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
+        "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
+        "MinimumCutIntoBoundedSets" => {
+            "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 3 --size-bound 3 --cut-bound 1"
+        }
         "BoundedComponentSpanningForest" => {
             "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6"
         }
@@ -335,6 +352,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
         }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
+        "RectilinearPictureCompression" => {
+            "--matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --k 2"
+        }
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "SumOfSquaresPartition" => "--sizes 5,3,8,2,7,1 --num-groups 3 --bound 240",
         "ComparativeContainment" => {
@@ -351,6 +371,10 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
         }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
+        "ConjunctiveQueryFoldability" => "(use --example ConjunctiveQueryFoldability)",
+        "ConjunctiveBooleanQuery" => {
+            "--domain-size 6 --relations \"2:0,3|1,3|2,4;3:0,1,5|1,2,5\" --conjuncts-spec \"0:v0,c3;0:v1,c3;1:v0,v1,c5\""
+        }
         "StringToStringCorrection" => {
             "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
         }
@@ -370,6 +394,8 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        ("LengthBoundedDisjointPaths", "max_length") => return "bound".to_string(),
+        ("RectilinearPictureCompression", "bound_k") => return "k".to_string(),
         ("PrimeAttributeName", "num_attributes") => return "universe".to_string(),
         ("PrimeAttributeName", "dependencies") => return "deps".to_string(),
         ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
@@ -520,6 +546,9 @@ fn problem_help_flag_name(
     }
     if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
         return "bound".to_string();
+    }
+    if canonical == "GeneralizedHex" && field_name == "target" {
+        return "sink".to_string();
     }
     if canonical == "StringToStringCorrection" {
         return match field_name {
@@ -677,6 +706,62 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(GraphPartitioning::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Generalized Hex (graph + source + sink)
+        "GeneralizedHex" => {
+            let usage =
+                "Usage: pred create GeneralizedHex --graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let num_vertices = graph.num_vertices();
+            let source = args
+                .source
+                .ok_or_else(|| anyhow::anyhow!("GeneralizedHex requires --source\n\n{usage}"))?;
+            let sink = args
+                .sink
+                .ok_or_else(|| anyhow::anyhow!("GeneralizedHex requires --sink\n\n{usage}"))?;
+            validate_vertex_index("source", source, num_vertices, usage)?;
+            validate_vertex_index("sink", sink, num_vertices, usage)?;
+            if source == sink {
+                bail!("GeneralizedHex requires distinct --source and --sink\n\n{usage}");
+            }
+            (
+                ser(GeneralizedHex::new(graph, source, sink))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Minimum cut into bounded sets (graph + edge weights + s/t/B/K)
+        "MinimumCutIntoBoundedSets" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MinimumCutIntoBoundedSets --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 2 --size-bound 2 --cut-bound 1"
+                )
+            })?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            let source = args
+                .source
+                .context("--source is required for MinimumCutIntoBoundedSets")?;
+            let sink = args
+                .sink
+                .context("--sink is required for MinimumCutIntoBoundedSets")?;
+            let size_bound = args
+                .size_bound
+                .context("--size-bound is required for MinimumCutIntoBoundedSets")?;
+            let cut_bound = args
+                .cut_bound
+                .context("--cut-bound is required for MinimumCutIntoBoundedSets")?;
+            (
+                ser(MinimumCutIntoBoundedSets::new(
+                    graph,
+                    edge_weights,
+                    source,
+                    sink,
+                    size_bound,
+                    cut_bound,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -1468,6 +1553,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (ser(BMF::new(matrix, rank))?, resolved_variant.clone())
         }
 
+        // RectilinearPictureCompression
+        "RectilinearPictureCompression" => {
+            let matrix = parse_bool_matrix(args)?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RectilinearPictureCompression requires --matrix and --k\n\n\
+                     Usage: pred create RectilinearPictureCompression --matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --k 2"
+                )
+            })?;
+            (
+                ser(RectilinearPictureCompression::new(matrix, k))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // ConsecutiveOnesSubmatrix
         "ConsecutiveOnesSubmatrix" => {
             let matrix = parse_bool_matrix(args)?;
@@ -1599,6 +1699,45 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ResourceConstrainedScheduling
+        "ResourceConstrainedScheduling" => {
+            let usage = "Usage: pred create ResourceConstrainedScheduling --num-processors 3 --resource-bounds \"20\" --resource-requirements \"6;7;7;6;8;6\" --deadline 2";
+            let num_processors = args.num_processors.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ResourceConstrainedScheduling requires --num-processors\n\n{usage}"
+                )
+            })?;
+            let bounds_str = args.resource_bounds.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ResourceConstrainedScheduling requires --resource-bounds\n\n{usage}"
+                )
+            })?;
+            let reqs_str = args.resource_requirements.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ResourceConstrainedScheduling requires --resource-requirements\n\n{usage}"
+                )
+            })?;
+            let deadline = args.deadline.ok_or_else(|| {
+                anyhow::anyhow!("ResourceConstrainedScheduling requires --deadline\n\n{usage}")
+            })?;
+
+            let resource_bounds: Vec<u64> = util::parse_comma_list(bounds_str)?;
+            let resource_requirements: Vec<Vec<u64>> = reqs_str
+                .split(';')
+                .map(|row| util::parse_comma_list(row.trim()))
+                .collect::<Result<Vec<_>>>()?;
+
+            (
+                ser(ResourceConstrainedScheduling::new(
+                    num_processors,
+                    resource_bounds,
+                    resource_requirements,
+                    deadline,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -2080,6 +2219,210 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let weights = parse_vertex_weights(args, num_v)?;
             (
                 ser(MinimumFeedbackVertexSet::new(graph, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        "ConjunctiveQueryFoldability" => {
+            bail!(
+                "ConjunctiveQueryFoldability has complex nested input.\n\n\
+                 Use: pred create --example ConjunctiveQueryFoldability\n\
+                 Or provide a JSON file directly."
+            )
+        }
+
+        // PartitionIntoPathsOfLength2
+        "PartitionIntoPathsOfLength2" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create PartitionIntoPathsOfLength2 --graph 0-1,1-2,3-4,4-5"
+                )
+            })?;
+            if graph.num_vertices() % 3 != 0 {
+                bail!(
+                    "PartitionIntoPathsOfLength2 requires vertex count divisible by 3, got {}",
+                    graph.num_vertices()
+                );
+            }
+            (
+                ser(problemreductions::models::graph::PartitionIntoPathsOfLength2::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ConjunctiveBooleanQuery
+        "ConjunctiveBooleanQuery" => {
+            let usage = "Usage: pred create CBQ --domain-size 6 --relations \"2:0,3|1,3;3:0,1,5|1,2,5\" --conjuncts-spec \"0:v0,c3;0:v1,c3;1:v0,v1,c5\"";
+            let domain_size = args.domain_size.ok_or_else(|| {
+                anyhow::anyhow!("ConjunctiveBooleanQuery requires --domain-size\n\n{usage}")
+            })?;
+            let relations_str = args.relations.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("ConjunctiveBooleanQuery requires --relations\n\n{usage}")
+            })?;
+            let conjuncts_str = args.conjuncts_spec.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("ConjunctiveBooleanQuery requires --conjuncts-spec\n\n{usage}")
+            })?;
+            // Parse relations: "arity:t1,t2|t3,t4;arity:t5,t6,t7|t8,t9,t10"
+            // An empty tuple list (e.g., "2:") produces an empty relation.
+            let relations: Vec<CbqRelation> = relations_str
+                .split(';')
+                .map(|rel_str| {
+                    let rel_str = rel_str.trim();
+                    let (arity_str, tuples_str) = rel_str.split_once(':').ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Invalid relation format: expected 'arity:tuples', got '{rel_str}'"
+                        )
+                    })?;
+                    let arity: usize = arity_str
+                        .trim()
+                        .parse()
+                        .map_err(|e| anyhow::anyhow!("Invalid arity '{arity_str}': {e}"))?;
+                    let tuples: Vec<Vec<usize>> = if tuples_str.trim().is_empty() {
+                        Vec::new()
+                    } else {
+                        tuples_str
+                            .split('|')
+                            .filter(|t| !t.trim().is_empty())
+                            .map(|t| {
+                                let tuple: Vec<usize> = t
+                                    .trim()
+                                    .split(',')
+                                    .map(|v| {
+                                        v.trim().parse::<usize>().map_err(|e| {
+                                            anyhow::anyhow!("Invalid tuple value: {e}")
+                                        })
+                                    })
+                                    .collect::<Result<Vec<_>>>()?;
+                                if tuple.len() != arity {
+                                    bail!(
+                                        "Relation tuple has {} entries, expected arity {arity}",
+                                        tuple.len()
+                                    );
+                                }
+                                for &val in &tuple {
+                                    if val >= domain_size {
+                                        bail!("Tuple value {val} >= domain-size {domain_size}");
+                                    }
+                                }
+                                Ok(tuple)
+                            })
+                            .collect::<Result<Vec<_>>>()?
+                    };
+                    Ok(CbqRelation { arity, tuples })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            // Parse conjuncts: "rel_idx:arg1,arg2;rel_idx:arg1,arg2,arg3"
+            let mut num_vars_inferred: usize = 0;
+            let conjuncts: Vec<(usize, Vec<QueryArg>)> = conjuncts_str
+                .split(';')
+                .map(|conj_str| {
+                    let conj_str = conj_str.trim();
+                    let (idx_str, args_str) = conj_str.split_once(':').ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Invalid conjunct format: expected 'rel_idx:args', got '{conj_str}'"
+                        )
+                    })?;
+                    let rel_idx: usize = idx_str.trim().parse().map_err(|e| {
+                        anyhow::anyhow!("Invalid relation index '{idx_str}': {e}")
+                    })?;
+                    if rel_idx >= relations.len() {
+                        bail!(
+                            "Conjunct references relation {rel_idx}, but only {} relations exist",
+                            relations.len()
+                        );
+                    }
+                    let query_args: Vec<QueryArg> = args_str
+                        .split(',')
+                        .map(|a| {
+                            let a = a.trim();
+                            if let Some(rest) = a.strip_prefix('v') {
+                                let v: usize = rest.parse().map_err(|e| {
+                                    anyhow::anyhow!("Invalid variable index '{rest}': {e}")
+                                })?;
+                                if v + 1 > num_vars_inferred {
+                                    num_vars_inferred = v + 1;
+                                }
+                                Ok(QueryArg::Variable(v))
+                            } else if let Some(rest) = a.strip_prefix('c') {
+                                let c: usize = rest.parse().map_err(|e| {
+                                    anyhow::anyhow!("Invalid constant value '{rest}': {e}")
+                                })?;
+                                if c >= domain_size {
+                                    bail!(
+                                        "Constant {c} >= domain-size {domain_size}"
+                                    );
+                                }
+                                Ok(QueryArg::Constant(c))
+                            } else {
+                                Err(anyhow::anyhow!(
+                                    "Invalid query arg '{a}': expected vN (variable) or cN (constant)"
+                                ))
+                            }
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+                    let expected_arity = relations[rel_idx].arity;
+                    if query_args.len() != expected_arity {
+                        bail!(
+                            "Conjunct has {} args, but relation {rel_idx} has arity {expected_arity}",
+                            query_args.len()
+                        );
+                    }
+                    Ok((rel_idx, query_args))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            (
+                ser(ConjunctiveBooleanQuery::new(
+                    domain_size,
+                    relations,
+                    num_vars_inferred,
+                    conjuncts,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // PartiallyOrderedKnapsack
+        "PartiallyOrderedKnapsack" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PartiallyOrderedKnapsack requires --sizes, --values, and --capacity (--precedences is optional)\n\n\
+                     Usage: pred create PartiallyOrderedKnapsack --sizes 2,3,4,1,2,3 --values 3,2,5,4,3,8 --precedences \"0>2,0>3,1>4,3>5,4>5\" --capacity 11"
+                )
+            })?;
+            let values_str = args.values.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("PartiallyOrderedKnapsack requires --values (e.g., 3,2,5,4,3,8)")
+            })?;
+            let cap_str = args.capacity.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("PartiallyOrderedKnapsack requires --capacity (e.g., 11)")
+            })?;
+            let weights: Vec<i64> = util::parse_comma_list(sizes_str)?;
+            let values: Vec<i64> = util::parse_comma_list(values_str)?;
+            let capacity: i64 = cap_str.parse()?;
+            let precedences = match args.precedences.as_deref() {
+                Some(s) if !s.trim().is_empty() => s
+                    .split(',')
+                    .map(|pair| {
+                        let parts: Vec<&str> = pair.trim().split('>').collect();
+                        anyhow::ensure!(
+                            parts.len() == 2,
+                            "Invalid precedence format '{}', expected 'a>b'",
+                            pair.trim()
+                        );
+                        Ok((
+                            parts[0].trim().parse::<usize>()?,
+                            parts[1].trim().parse::<usize>()?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                _ => vec![],
+            };
+            (
+                ser(PartiallyOrderedKnapsack::new(
+                    weights,
+                    values,
+                    precedences,
+                    capacity,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -2942,7 +3285,7 @@ fn parse_schedules(args: &CreateArgs, usage: &str) -> Result<Vec<Vec<bool>>> {
 }
 
 fn parse_bool_rows(rows_str: &str) -> Result<Vec<Vec<bool>>> {
-    rows_str
+    let matrix: Vec<Vec<bool>> = rows_str
         .split(';')
         .map(|row| {
             row.trim()
@@ -2956,7 +3299,16 @@ fn parse_bool_rows(rows_str: &str) -> Result<Vec<Vec<bool>>> {
                 })
                 .collect()
         })
-        .collect()
+        .collect::<Result<_>>()?;
+
+    if let Some(expected_width) = matrix.first().map(Vec::len) {
+        anyhow::ensure!(
+            matrix.iter().all(|row| row.len() == expected_width),
+            "All rows in --matrix must have the same length"
+        );
+    }
+
+    Ok(matrix)
 }
 
 fn parse_requirements(args: &CreateArgs, usage: &str) -> Result<Vec<u64>> {
@@ -3304,6 +3656,37 @@ fn create_random(
             }
         }
 
+        // MinimumCutIntoBoundedSets (graph + edge weights + s/t/B/K)
+        "MinimumCutIntoBoundedSets" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let num_edges = graph.num_edges();
+            let edge_weights = vec![1i32; num_edges];
+            let source = 0;
+            let sink = if num_vertices > 1 {
+                num_vertices - 1
+            } else {
+                0
+            };
+            let size_bound = num_vertices; // no effective size constraint
+            let cut_bound = num_edges as i32; // generous bound
+            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+            (
+                ser(MinimumCutIntoBoundedSets::new(
+                    graph,
+                    edge_weights,
+                    source,
+                    sink,
+                    size_bound,
+                    cut_bound,
+                ))?,
+                variant,
+            )
+        }
+
         // GraphPartitioning (graph only, no weights; requires even vertex count)
         "GraphPartitioning" => {
             let num_vertices = if num_vertices % 2 != 0 {
@@ -3345,6 +3728,26 @@ fn create_random(
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (ser(HamiltonianPath::new(graph))?, variant)
+        }
+
+        // GeneralizedHex (graph only, with source/sink defaults)
+        "GeneralizedHex" => {
+            let num_vertices = num_vertices.max(2);
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let source = args.source.unwrap_or(0);
+            let sink = args.sink.unwrap_or(num_vertices - 1);
+            let usage = "Usage: pred create GeneralizedHex --random --num-vertices 6 [--edge-prob 0.5] [--seed 42] [--source 0] [--sink 5]";
+            validate_vertex_index("source", source, num_vertices, usage)?;
+            validate_vertex_index("sink", sink, num_vertices, usage)?;
+            if source == sink {
+                bail!("GeneralizedHex requires distinct --source and --sink\n\n{usage}");
+            }
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (ser(GeneralizedHex::new(graph, source, sink))?, variant)
         }
 
         // LengthBoundedDisjointPaths (graph only, with path defaults)
@@ -3487,7 +3890,7 @@ fn create_random(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
              MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman, \
-             HamiltonianCircuit, SteinerTree, OptimalLinearArrangement, HamiltonianPath)"
+             HamiltonianCircuit, SteinerTree, OptimalLinearArrangement, HamiltonianPath, GeneralizedHex)"
         ),
     };
 
@@ -3502,15 +3905,26 @@ fn create_random(
 
 #[cfg(test)]
 mod tests {
-    use super::create;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use clap::Parser;
+
     use super::help_flag_hint;
     use super::help_flag_name;
     use super::parse_bool_rows;
-    use super::problem_help_flag_name;
     use super::*;
     use crate::cli::{Cli, Commands};
-    use clap::Parser;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use crate::output::OutputConfig;
+
+    fn temp_output_path(name: &str) -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("{}_{}.json", name, suffix))
+    }
 
     #[test]
     fn test_problem_help_uses_bound_for_length_bounded_disjoint_paths() {
@@ -3692,7 +4106,77 @@ mod tests {
         let result = std::panic::catch_unwind(|| create(&args, &out));
         assert!(result.is_ok(), "create should return an error, not panic");
         let err = result.unwrap().unwrap_err().to_string();
-        assert!(err.contains("schedule 1 has 6 periods, expected 7"));
+        // parse_bool_rows catches ragged rows before validate_staff_scheduling_args
+        assert!(
+            err.contains("All rows") || err.contains("schedule 1 has 6 periods, expected 7"),
+            "expected row-length validation error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_create_generalized_hex_serializes_problem_json() {
+        let output = temp_output_path("generalized_hex_create");
+        let cli = Cli::try_parse_from([
+            "pred",
+            "-o",
+            output.to_str().unwrap(),
+            "create",
+            "GeneralizedHex",
+            "--graph",
+            "0-1,0-2,0-3,1-4,2-4,3-4,4-5",
+            "--source",
+            "0",
+            "--sink",
+            "5",
+        ])
+        .unwrap();
+        let out = OutputConfig {
+            output: cli.output.clone(),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output).unwrap()).unwrap();
+        fs::remove_file(&output).unwrap();
+        assert_eq!(json["type"], "GeneralizedHex");
+        assert_eq!(json["variant"]["graph"], "SimpleGraph");
+        assert_eq!(json["data"]["source"], 0);
+        assert_eq!(json["data"]["target"], 5);
+    }
+
+    #[test]
+    fn test_create_generalized_hex_requires_sink() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "GeneralizedHex",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--source",
+            "0",
+        ])
+        .unwrap();
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err();
+        assert!(err.to_string().contains("GeneralizedHex requires --sink"));
     }
 
     fn empty_args() -> CreateArgs {
@@ -3755,6 +4239,8 @@ mod tests {
             pattern: None,
             strings: None,
             arcs: None,
+            values: None,
+            precedences: None,
             distance_matrix: None,
             potential_edges: None,
             budget: None,
@@ -3762,6 +4248,8 @@ mod tests {
             deadlines: None,
             precedence_pairs: None,
             task_lengths: None,
+            resource_bounds: None,
+            resource_requirements: None,
             deadline: None,
             num_processors: None,
             alphabet_size: None,
@@ -3775,6 +4263,9 @@ mod tests {
             requirements: None,
             num_workers: None,
             num_groups: None,
+            domain_size: None,
+            relations: None,
+            conjuncts_spec: None,
         }
     }
 

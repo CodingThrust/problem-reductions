@@ -180,11 +180,11 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "sequencing_within_intervals",
         instance: Box::new(SequencingWithinIntervals::new(
-            vec![0, 0, 0, 0, 5],
-            vec![11, 11, 11, 11, 6],
-            vec![3, 1, 2, 4, 1],
+            vec![0, 1, 3, 6, 0],
+            vec![5, 8, 9, 12, 12],
+            vec![2, 2, 2, 3, 2],
         )),
-        optimal_config: vec![0, 6, 3, 7, 0],
+        optimal_config: vec![0, 1, 1, 0, 9],
         optimal_value: serde_json::json!(true),
     }]
 }

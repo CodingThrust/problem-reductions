@@ -225,6 +225,8 @@ Flags by problem type:
   MinimumMultiwayCut              --graph, --terminals, --edge-weights
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
+  GeneralizedHex                  --graph, --source, --sink
+  MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound, --cut-bound
   HamiltonianCircuit, HC          --graph
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
@@ -259,14 +261,19 @@ Flags by problem type:
   LCS                             --strings, --bound [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
+  PartitionIntoPathsOfLength2     --graph
+  ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
+  PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   QAP                             --matrix (cost), --distance-matrix
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   StaffScheduling                 --schedules, --requirements, --num-workers, --k
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
+  RectilinearPictureCompression   --matrix (0/1), --k
   SCS                             --strings, --bound [--alphabet-size]
   StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
+  CBQ                              --domain-size, --relations, --conjuncts-spec
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -283,6 +290,7 @@ Examples:
   pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
+  pred create GeneralizedHex --graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5
   pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
   pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
@@ -321,10 +329,10 @@ pub struct CreateArgs {
     /// Edge capacities for multicommodity flow problems (e.g., 1,1,2)
     #[arg(long)]
     pub capacities: Option<String>,
-    /// Source vertex for path-based graph problems
+    /// Source vertex for path-based graph problems and MinimumCutIntoBoundedSets
     #[arg(long)]
     pub source: Option<usize>,
-    /// Sink vertex for path-based graph problems
+    /// Sink vertex for path-based graph problems and MinimumCutIntoBoundedSets
     #[arg(long)]
     pub sink: Option<usize>,
     /// Required number of paths for LengthBoundedDisjointPaths
@@ -342,10 +350,10 @@ pub struct CreateArgs {
     /// Number of variables (for SAT/KSAT)
     #[arg(long)]
     pub num_vars: Option<usize>,
-    /// Matrix for QUBO (semicolon-separated rows, e.g., "1,0.5;0.5,2")
+    /// Matrix input (semicolon-separated rows; use `pred create <PROBLEM>` for problem-specific formats)
     #[arg(long)]
     pub matrix: Option<String>,
-    /// Number of colors for KColoring
+    /// Shared integer parameter (use `pred create <PROBLEM>` for the problem-specific meaning)
     #[arg(long)]
     pub k: Option<usize>,
     /// Generate a random instance (graph-based problems only)
@@ -471,6 +479,18 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Size bound for partition sets (for MinimumCutIntoBoundedSets)
+    #[arg(long)]
+    pub size_bound: Option<usize>,
+    /// Cut weight bound (for MinimumCutIntoBoundedSets)
+    #[arg(long)]
+    pub cut_bound: Option<i32>,
+    /// Item values (e.g., 3,4,5,7) for PartiallyOrderedKnapsack
+    #[arg(long)]
+    pub values: Option<String>,
+    /// Precedence pairs (e.g., "0>2,0>3,1>4") for PartiallyOrderedKnapsack
+    #[arg(long, alias = "item-precedences")]
+    pub precedences: Option<String>,
     /// Distance matrix for QuadraticAssignment (semicolon-separated rows, e.g., "0,1,2;1,0,1;2,1,0")
     #[arg(long)]
     pub distance_matrix: Option<String>,
@@ -489,13 +509,19 @@ pub struct CreateArgs {
     /// Precedence pairs for MinimumTardinessSequencing (e.g., "0>3,1>3,1>4,2>4")
     #[arg(long)]
     pub precedence_pairs: Option<String>,
+    /// Resource bounds for ResourceConstrainedScheduling (comma-separated, e.g., "20,15")
+    #[arg(long)]
+    pub resource_bounds: Option<String>,
+    /// Resource requirements for ResourceConstrainedScheduling (semicolon-separated rows, each row comma-separated, e.g., "6,3;7,4;5,2")
+    #[arg(long)]
+    pub resource_requirements: Option<String>,
     /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
     #[arg(long)]
     pub task_lengths: Option<String>,
-    /// Deadline for FlowShopScheduling or MultiprocessorScheduling
+    /// Deadline for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
     #[arg(long)]
     pub deadline: Option<u64>,
-    /// Number of processors/machines for FlowShopScheduling or MultiprocessorScheduling
+    /// Number of processors/machines for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
     #[arg(long)]
     pub num_processors: Option<usize>,
     /// Binary schedule patterns for StaffScheduling (semicolon-separated rows, e.g., "1,1,0;0,1,1")
@@ -510,6 +536,15 @@ pub struct CreateArgs {
     /// Alphabet size for LCS, SCS, or StringToStringCorrection (optional; inferred from the input strings if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+    /// Domain size for ConjunctiveBooleanQuery
+    #[arg(long)]
+    pub domain_size: Option<usize>,
+    /// Relations for ConjunctiveBooleanQuery (format: "arity:tuple1|tuple2;arity:tuple1|tuple2")
+    #[arg(long)]
+    pub relations: Option<String>,
+    /// Conjuncts for ConjunctiveBooleanQuery (format: "rel:args;rel:args" where args use v0,v1 for variables, c0,c1 for constants)
+    #[arg(long)]
+    pub conjuncts_spec: Option<String>,
     /// Functional dependencies (semicolon-separated, each dep is lhs>rhs with comma-separated indices, e.g., "0,1>2,3;2,3>0,1")
     #[arg(long)]
     pub deps: Option<String>,

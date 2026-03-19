@@ -1085,6 +1085,47 @@ fn test_solve_d2cif_default_solver_suggests_bruteforce() {
 }
 
 #[test]
+fn test_inspect_rectilinear_picture_compression_lists_bruteforce_only() {
+    let output_file = std::env::temp_dir().join("pred_test_inspect_rpc.json");
+    let create_output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "RectilinearPictureCompression",
+            "--matrix",
+            "1,1;1,1",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_output.stderr)
+    );
+
+    let inspect_output = pred()
+        .args(["inspect", output_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        inspect_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&inspect_output.stderr)
+    );
+    let stdout = String::from_utf8(inspect_output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(
+        json["solvers"] == serde_json::json!(["brute-force"]),
+        "inspect should list only usable solvers, got: {json}"
+    );
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
 fn test_create_x3c_rejects_duplicate_subset_elements() {
     let output = pred()
         .args(["create", "X3C", "--universe", "6", "--sets", "0,0,1;3,4,5"])
@@ -2780,7 +2821,11 @@ fn test_create_model_example_steiner_tree() {
 #[test]
 fn test_create_missing_model_example() {
     let output = pred()
-        .args(["create", "--example", "GraphPartitioning/SimpleGraph"])
+        .args([
+            "create",
+            "--example",
+            "MaximumIndependentSet/KingsSubgraph/One",
+        ])
         .output()
         .unwrap();
     assert!(!output.status.success());
@@ -2857,6 +2902,94 @@ fn test_create_set_basis_no_flags_uses_actual_cli_flag_names() {
     assert!(
         !stderr.contains("--collection"),
         "help should not advertise schema field names: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_rectilinear_picture_compression_help_uses_k_flag() {
+    let output = pred()
+        .args(["create", "RectilinearPictureCompression"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--matrix"),
+        "expected '--matrix' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--k"),
+        "expected '--k' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--bound-k"),
+        "help should advertise the actual CLI flag name, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_rectilinear_picture_compression_rejects_ragged_matrix() {
+    let output = pred()
+        .args([
+            "create",
+            "RectilinearPictureCompression",
+            "--matrix",
+            "1,0;1",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("All rows in --matrix must have the same length"),
+        "expected rectangular-matrix validation error, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("panicked at"),
+        "ragged matrix should not crash the CLI, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_help_uses_generic_matrix_and_k_descriptions() {
+    let output = pred().args(["create", "--help"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Matrix input"),
+        "expected generic matrix help, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Shared integer parameter"),
+        "expected generic k help, got: {stdout}"
+    );
+    assert!(
+        !stdout.contains("Matrix for QUBO"),
+        "create --help should not imply --matrix is QUBO-only, got: {stdout}"
+    );
+    assert!(
+        !stdout.contains("Number of colors for KColoring"),
+        "create --help should not imply --k is KColoring-only, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_create_length_bounded_disjoint_paths_help_uses_bound_flag() {
+    let output = pred()
+        .args(["create", "LengthBoundedDisjointPaths"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--max-length"),
+        "help should advertise the actual CLI flag name, got: {stderr}"
     );
 }
 

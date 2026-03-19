@@ -66,6 +66,7 @@
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
   "GraphPartitioning": [Graph Partitioning],
+  "GeneralizedHex": [Generalized Hex],
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
@@ -87,9 +88,11 @@
   "QUBO": [QUBO],
   "ILP": [Integer Linear Programming],
   "Knapsack": [Knapsack],
+  "PartiallyOrderedKnapsack": [Partially Ordered Knapsack],
   "Satisfiability": [SAT],
   "KSatisfiability": [$k$-SAT],
   "CircuitSAT": [CircuitSAT],
+  "ConjunctiveQueryFoldability": [Conjunctive Query Foldability],
   "Factoring": [Factoring],
   "KingsSubgraph": [King's Subgraph MIS],
   "TriangularSubgraph": [Triangular Subgraph MIS],
@@ -110,9 +113,12 @@
   "SubsetSum": [Subset Sum],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
+  "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
+  "MultipleChoiceBranching": [Multiple Choice Branching],
+  "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
+  "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
   "QuadraticAssignment": [Quadratic Assignment],
   "SequencingWithReleaseTimesAndDeadlines": [Sequencing with Release Times and Deadlines],
-  "MultipleChoiceBranching": [Multiple Choice Branching],
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
   "SteinerTree": [Steiner Tree],
@@ -129,6 +135,8 @@
   "SumOfSquaresPartition": [Sum of Squares Partition],
   "SequencingWithinIntervals": [Sequencing Within Intervals],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "ConjunctiveBooleanQuery": [Conjunctive Boolean Query],
+  "RectilinearPictureCompression": [Rectilinear Picture Compression],
   "StringToStringCorrection": [String-to-String Correction],
 )
 
@@ -504,56 +512,73 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ]
   ]
 }
-#problem-def("GraphPartitioning")[
-  Given an undirected graph $G = (V, E)$ with $|V| = n$ (even), find a partition of $V$ into two disjoint sets $A$ and $B$ with $|A| = |B| = n slash 2$ that minimizes the number of edges crossing the partition:
-  $ "cut"(A, B) = |{(u, v) in E : u in A, v in B}|. $
+#{
+  let x = load-model-example("GraphPartitioning")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let config = x.optimal_config
+  let cut-val = x.optimal_value.Valid
+  let side-a = range(nv).filter(i => config.at(i) == 0)
+  let side-b = range(nv).filter(i => config.at(i) == 1)
+  let cut-edges = edges.filter(e => config.at(e.at(0)) != config.at(e.at(1)))
+  [
+    #problem-def("GraphPartitioning")[
+      Given an undirected graph $G = (V, E)$ with $|V| = n$ (even), find a partition of $V$ into two disjoint sets $A$ and $B$ with $|A| = |B| = n slash 2$ that minimizes the number of edges crossing the partition:
+      $ "cut"(A, B) = |{(u, v) in E : u in A, v in B}|. $
+    ][
+      Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel computing, and scientific simulation, where balanced workload distribution with minimal communication is essential. Closely related to Max-Cut (which _maximizes_ rather than _minimizes_ the cut) and to the Ising Spin Glass model. NP-completeness was proved by Garey, Johnson and Stockmeyer @garey1976. Arora, Rao and Vazirani @arora2009 gave an $O(sqrt(log n))$-approximation algorithm. The best known unconditional exact algorithm is brute-force enumeration of all $binom(n, n slash 2) = O^*(2^n)$ balanced partitions; no faster worst-case algorithm is known. Cygan et al. @cygan2014 showed that Minimum Bisection is fixed-parameter tractable in $O(2^(O(k^3)) dot n^3 log^3 n)$ time parameterized by bisection width $k$. Standard partitioning tools include METIS, KaHIP, and Scotch.
+
+      *Example.* Consider the graph $G$ with $n = #nv$ vertices and #ne edges. The optimal balanced partition is $A = {#side-a.map(i => $v_#i$).join($,$)}$, $B = {#side-b.map(i => $v_#i$).join($,$)}$, with cut value #cut-val.
+
+      #figure(
+        canvas(length: 1cm, {
+          // Two-column layout for balanced partition
+          let half = int(nv / 2)
+          let verts = (
+            ..range(half).map(i => (0, (half - 1 - i))),
+            ..range(half).map(i => (2.5, (half - 1 - i))),
+          )
+          // Draw edges
+          for (u, v) in edges {
+            let crossing = config.at(u) != config.at(v)
+            g-edge(verts.at(u), verts.at(v),
+              stroke: if crossing { 2pt + graph-colors.at(1) } else { 1pt + luma(180) })
+          }
+          // Draw partition regions
+          import draw: *
+          on-layer(-1, {
+            rect((-0.5, -0.5), (0.5, half - 0.5),
+              fill: graph-colors.at(0).transparentize(90%),
+              stroke: (dash: "dashed", paint: graph-colors.at(0), thickness: 0.8pt))
+            content((0, half - 0.2), text(8pt, fill: graph-colors.at(0))[$A$])
+            rect((2.0, -0.5), (3.0, half - 0.5),
+              fill: graph-colors.at(1).transparentize(90%),
+              stroke: (dash: "dashed", paint: graph-colors.at(1), thickness: 0.8pt))
+            content((2.5, half - 0.2), text(8pt, fill: graph-colors.at(1))[$B$])
+          })
+          // Draw nodes
+          for (k, pos) in verts.enumerate() {
+            let in-a = config.at(k) == 0
+            g-node(pos, name: "v" + str(k),
+              fill: if in-a { graph-colors.at(0) } else { graph-colors.at(1) },
+              label: text(fill: white)[$v_#k$])
+          }
+        }),
+        caption: [Graph with $n = #nv$ vertices partitioned into $A$ (blue) and $B$ (red). The #cut-val crossing edges are shown in bold red; internal edges are gray.],
+      ) <fig:graph-partitioning>
+    ]
+  ]
+}
+#problem-def("MinimumCutIntoBoundedSets")[
+  Given an undirected graph $G = (V, E)$ with edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, a positive integer $B <= |V|$, and a positive integer $K$, determine whether there exists a partition of $V$ into disjoint sets $V_1$ and $V_2$ such that $s in V_1$, $t in V_2$, $|V_1| <= B$, $|V_2| <= B$, and
+  $ sum_({u,v} in E: u in V_1, v in V_2) w({u,v}) <= K. $
 ][
-Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel computing, and scientific simulation, where balanced workload distribution with minimal communication is essential. Closely related to Max-Cut (which _maximizes_ rather than _minimizes_ the cut) and to the Ising Spin Glass model. NP-completeness was proved by Garey, Johnson and Stockmeyer @garey1976. Arora, Rao and Vazirani @arora2009 gave an $O(sqrt(log n))$-approximation algorithm. The best known unconditional exact algorithm is brute-force enumeration of all $binom(n, n slash 2) = O^*(2^n)$ balanced partitions; no faster worst-case algorithm is known. Cygan et al. @cygan2014 showed that Minimum Bisection is fixed-parameter tractable in $O(2^(O(k^3)) dot n^3 log^3 n)$ time parameterized by bisection width $k$. Standard partitioning tools include METIS, KaHIP, and Scotch.
+Minimum Cut Into Bounded Sets (Garey & Johnson ND17) combines the classical minimum $s$-$t$ cut problem with a balance constraint on partition sizes. Without the balance constraint ($B = |V|$), the problem reduces to standard minimum $s$-$t$ cut, solvable in polynomial time via network flow. Adding the requirement $|V_1| <= B$ and $|V_2| <= B$ makes the problem NP-complete; it remains NP-complete even for $B = |V| slash 2$ and unit edge weights (the minimum bisection problem) @garey1976. Applications include VLSI layout, load balancing, and graph bisection.
 
-*Example.* Consider the graph $G$ with $n = 6$ vertices and 9 edges: $(v_0, v_1)$, $(v_0, v_2)$, $(v_1, v_2)$, $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$, $(v_3, v_4)$, $(v_3, v_5)$, $(v_4, v_5)$. The optimal balanced partition is $A = {v_0, v_1, v_2}$, $B = {v_3, v_4, v_5}$, with cut value 3: the crossing edges are $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$. All other balanced partitions yield a cut of at least 3.
+The best known exact algorithm is brute-force enumeration of all $2^n$ vertex partitions in $O(2^n)$ time. For the special case of minimum bisection, Cygan et al. @cygan2014 showed fixed-parameter tractability with respect to the cut size. No polynomial-time finite approximation factor exists for balanced graph partition unless $P = N P$ (Andreev and Racke, 2006). Arora, Rao, and Vazirani @arora2009 gave an $O(sqrt(log n))$-approximation for balanced separator.
 
-#figure(
-  canvas(length: 1cm, {
-    // 6-vertex layout: two columns of 3
-    let verts = (
-      (0, 2),     // v0: top-left
-      (0, 1),     // v1: mid-left
-      (0, 0),     // v2: bottom-left
-      (2.5, 2),   // v3: top-right
-      (2.5, 1),   // v4: mid-right
-      (2.5, 0),   // v5: bottom-right
-    )
-    let edges = ((0,1),(0,2),(1,2),(1,3),(2,3),(2,4),(3,4),(3,5),(4,5))
-    let side-a = (0, 1, 2)
-    let cut-edges = edges.filter(e => side-a.contains(e.at(0)) != side-a.contains(e.at(1)))
-    // Draw edges
-    for (u, v) in edges {
-      let crossing = cut-edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
-      g-edge(verts.at(u), verts.at(v),
-        stroke: if crossing { 2pt + graph-colors.at(1) } else { 1pt + luma(180) })
-    }
-    // Draw partition regions
-    import draw: *
-    on-layer(-1, {
-      rect((-0.5, -0.5), (0.5, 2.5),
-        fill: graph-colors.at(0).transparentize(90%),
-        stroke: (dash: "dashed", paint: graph-colors.at(0), thickness: 0.8pt))
-      content((0, 2.8), text(8pt, fill: graph-colors.at(0))[$A$])
-      rect((2.0, -0.5), (3.0, 2.5),
-        fill: graph-colors.at(1).transparentize(90%),
-        stroke: (dash: "dashed", paint: graph-colors.at(1), thickness: 0.8pt))
-      content((2.5, 2.8), text(8pt, fill: graph-colors.at(1))[$B$])
-    })
-    // Draw nodes
-    for (k, pos) in verts.enumerate() {
-      let in-a = side-a.contains(k)
-      g-node(pos, name: "v" + str(k),
-        fill: if in-a { graph-colors.at(0) } else { graph-colors.at(1) },
-        label: text(fill: white)[$v_#k$])
-    }
-  }),
-  caption: [Graph with $n = 6$ vertices partitioned into $A = {v_0, v_1, v_2}$ (blue) and $B = {v_3, v_4, v_5}$ (red). The 3 crossing edges $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$ are shown in bold red; internal edges are gray.],
-) <fig:graph-partitioning>
+*Example.* Consider $G$ with 4 vertices and edges $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$ with unit weights, $s = v_0$, $t = v_3$, $B = 3$, $K = 1$. The partition $V_1 = {v_0, v_1}$, $V_2 = {v_2, v_3}$ gives cut weight $w({v_1, v_2}) = 1 <= K$. Both $|V_1| = 2 <= 3$ and $|V_2| = 2 <= 3$. Answer: YES.
 ]
 #problem-def("BiconnectivityAugmentation")[
   Given an undirected graph $G = (V, E)$, a set $F$ of candidate edges on $V$ with $F inter E = emptyset$, weights $w: F -> RR$, and a budget $B in RR$, find $F' subset.eq F$ such that $sum_(e in F') w(e) <= B$ and the augmented graph $G' = (V, E union F')$ is biconnected, meaning $G'$ is connected and deleting any single vertex leaves it connected.
@@ -768,6 +793,64 @@ is feasible: each set induces a connected subgraph, the component weights are $2
         }),
         caption: [A satisfying Length-Bounded Disjoint Paths instance with $s = v_0$, $t = v_6$, $J = 2$, and $K = 3$. The highlighted paths are $v_0 arrow v_1 arrow v_6$ and $v_0 arrow v_2 arrow v_3 arrow v_6$; the lower branch through $v_4, v_5$ remains unused.],
       ) <fig:length-bounded-disjoint-paths>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("GeneralizedHex")
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let source = x.instance.source
+  let target = x.instance.target
+  let winning-path = ((0, 1), (1, 4), (4, 5))
+  [
+    #problem-def("GeneralizedHex")[
+      Given an undirected graph $G = (V, E)$ and distinct terminals $s, t in V$, determine whether Player 1 has a forced win in the vertex-claiming Shannon switching game where the players alternately claim vertices of $V backslash {s, t}$, coloring them blue and red respectively, and Player 1 wins iff the final coloring contains an $s$-$t$ path whose internal vertices are all blue.
+    ][
+      Generalized Hex is the vertex version of the Shannon switching game listed by Garey & Johnson (A8 GP1). Even and Tarjan proved that deciding whether the first player has a winning strategy is PSPACE-complete @evenTarjan1976. The edge-claiming Shannon switching game is a classical contrast point: Bruno and Weinberg showed that the edge version is polynomial-time solvable via matroid methods @brunoWeinberg1970.
+
+      The implementation evaluates the decision problem directly rather than searching over candidate assignments. The instance has `dims() = []`, and `evaluate([])` runs a memoized minimax search over the ternary states (unclaimed, blue, red) of the nonterminal vertices. This preserves the alternating-game semantics of the original problem instead of collapsing the game into a static coloring predicate.
+
+      *Example.* The canonical fixture uses the six-vertex graph with terminals $s = v_#source$ and $t = v_#target$, and edges #edges.map(((u, v)) => $(v_#u, v_#v)$).join(", "). Vertex $v_4$ is the unique neighbor of $t$, so Player 1 opens by claiming $v_4$. Player 2 can then block at most one of $v_1$, $v_2$, and $v_3$; Player 1 responds by claiming one of the remaining branch vertices, completing a blue path $v_0 arrow v_i arrow v_4 arrow v_5$. The fixture database therefore has exactly one satisfying configuration: the empty configuration, which triggers the internal game-tree evaluator on the initial board.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let gray = luma(185)
+          let verts = (
+            (0, 1.0),
+            (1.6, 2.2),
+            (1.6, 1.0),
+            (1.6, -0.2),
+            (3.3, 1.0),
+            (5.0, 1.0),
+          )
+          for (u, v) in edges {
+            let on-path = winning-path.any(e =>
+              (e.at(0) == u and e.at(1) == v) or
+              (e.at(0) == v and e.at(1) == u)
+            )
+            g-edge(
+              verts.at(u),
+              verts.at(v),
+              stroke: if on-path { 2pt + blue } else { 1pt + gray },
+            )
+          }
+          for (k, pos) in verts.enumerate() {
+            let highlighted = k == source or k == 1 or k == 4 or k == target
+            g-node(
+              pos,
+              name: "v" + str(k),
+              fill: if highlighted { blue } else { white },
+              stroke: 1pt + if highlighted { blue } else { gray },
+              label: text(fill: if highlighted { white } else { black })[$v_#k$],
+            )
+          }
+          content((0, 1.55), text(8pt)[$s$])
+          content((5.0, 1.55), text(8pt)[$t$])
+        }),
+        caption: [A winning Generalized Hex instance. Player 1 first claims $v_4$, then answers any red move on $\{v_1, v_2, v_3\}$ by taking a different branch vertex and completing a blue path from $s = v_0$ to $t = v_5$.],
+      ) <fig:generalized-hex>
     ]
   ]
 }
@@ -1300,15 +1383,27 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     ]
   ]
 }
-#problem-def("OptimalLinearArrangement")[
-  Given an undirected graph $G=(V,E)$ and a non-negative integer $K$, is there a bijection $f: V -> {0, 1, dots, |V|-1}$ such that $sum_({u,v} in E) |f(u) - f(v)| <= K$?
-][
-A classical NP-complete decision problem from Garey & Johnson (GT42) @garey1979, with applications in VLSI design, graph drawing, and sparse matrix reordering. The problem asks whether vertices can be placed on a line so that the total "stretch" of all edges is at most $K$.
+#{
+  let x = load-model-example("OptimalLinearArrangement")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let K = x.instance.bound
+  let config = x.optimal_config
+  // Compute total cost
+  let total-cost = edges.map(e => calc.abs(config.at(e.at(0)) - config.at(e.at(1)))).sum()
+  [
+    #problem-def("OptimalLinearArrangement")[
+      Given an undirected graph $G=(V,E)$ and a non-negative integer $K$, is there a bijection $f: V -> {0, 1, dots, |V|-1}$ such that $sum_({u,v} in E) |f(u) - f(v)| <= K$?
+    ][
+      A classical NP-complete decision problem from Garey & Johnson (GT42) @garey1979, with applications in VLSI design, graph drawing, and sparse matrix reordering. The problem asks whether vertices can be placed on a line so that the total "stretch" of all edges is at most $K$.
 
-NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-complete on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
+      NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-complete on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
 
-*Example.* Consider the path graph $P_3$: vertices ${v_0, v_1, v_2}$ with edges ${v_0, v_1}$ and ${v_1, v_2}$. The identity arrangement $f(v_i) = i$ gives cost $|0-1| + |1-2| = 2$. With bound $K = 2$, this is a YES instance. For a triangle $K_3$ with the same vertex set plus edge ${v_0, v_2}$, any arrangement yields cost 4, so a bound of $K = 3$ gives a NO instance.
-]
+      *Example.* Consider a graph with #nv vertices and #ne edges, with bound $K = #K$. The arrangement $f = (#config.map(c => str(c)).join(", "))$ gives total cost $#edges.map(e => $|#config.at(e.at(0)) - #config.at(e.at(1))|$).join($+$) = #total-cost lt.eq #K$, so this is a YES instance.
+    ]
+  ]
+}
 #{
   let x = load-model-example("MaximumClique")
   let nv = graph-num-vertices(x.instance)
@@ -1404,6 +1499,14 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     ]
   ]
 }
+
+#problem-def("PartitionIntoPathsOfLength2")[
+  Given $G = (V, E)$ with $|V| = 3q$, determine if $V$ can be partitioned into $q$ disjoint sets $V_1, ..., V_q$ of three vertices each, such that each $V_t$ induces at least two edges in $G$.
+][
+A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76], proved hard by reduction from 3-Dimensional Matching. Each triple in the partition must form a path of length 2 (exactly two edges, i.e., a $P_3$ subgraph) or a triangle (all three edges). The problem models constrained grouping scenarios where cluster connectivity is required. The best known exact approach uses subset DP in $O^*(3^n)$ time.
+
+*Example.* Consider the graph $G$ with $n = 9$ vertices and edges ${0,1}, {1,2}, {3,4}, {4,5}, {6,7}, {7,8}$ (plus cross-edges ${0,3}, {2,5}, {3,6}, {5,8}$). Setting $q = 3$, the partition $V_1 = {0,1,2}$, $V_2 = {3,4,5}$, $V_3 = {6,7,8}$ is valid: $V_1$ contains edges ${0,1}, {1,2}$ (path $0 dash.em 1 dash.em 2$), $V_2$ contains ${3,4}, {4,5}$, and $V_3$ contains ${6,7}, {7,8}$.
+]
 
 #{
   let x = load-model-example("MinimumSumMulticenter")
@@ -2159,6 +2262,61 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   ]
 }
 
+#problem-def("ConjunctiveQueryFoldability")[
+  Given a finite domain $D$, relation symbols $R_1, dots, R_m$ with fixed arities $d_1, dots, d_m$, a set $X$ of _distinguished_ variables, a set $Y$ of _undistinguished_ variables (with $X inter Y = emptyset$), and two conjunctive queries $Q_1$ and $Q_2$ — each a set of atoms of the form $R_j (t_1, dots, t_(d_j))$ with $t_i in D union X union Y$ — determine whether there exists a substitution $sigma: Y -> D union X union Y$ such that $sigma(Q_1) = Q_2$ as sets of atoms, where $sigma$ fixes all elements of $D union X$.
+][
+  Conjunctive query foldability is equivalent to conjunctive query containment and was shown NP-complete by Chandra and Merlin (1977) via reduction from Graph 3-Colorability.#footnote[A. K. Chandra and P. M. Merlin, "Optimal implementation of conjunctive queries in relational data bases," _Proc. 9th ACM STOC_, 1977, pp. 77–90.] If $Q_1$ folds into $Q_2$, then $Q_1$ is subsumed by $Q_2$, making $Q_1$ redundant — a key step in query optimization. The brute-force algorithm enumerates all $|D union X union Y|^(|Y|)$ possible substitutions and checks set equality; no general exact algorithm with a better worst-case bound is known.#footnote[No algorithm improving on brute-force substitution enumeration is known for general conjunctive query foldability.]
+
+  *Example.* Let $D = emptyset$, $X = {x}$, $Y = {u, v, a}$, and $R$ a single binary relation. The query $Q_1 = {R(x, u), R(u, v), R(v, x), R(u, u)}$ is a directed triangle $(x, u, v)$ with a self-loop on $u$. The query $Q_2 = {R(x, a), R(a, a), R(a, x)}$ is a "lollipop": a self-loop on $a$ with edges $x -> a$ and $a -> x$. The substitution $sigma: u |-> a,\ v |-> a,\ a |-> a$ maps $Q_1$ to ${R(x, a), R(a, a), R(a, x), R(a, a)} = Q_2$ (as a set), so $Q_1$ folds into $Q_2$.
+
+  #figure(
+    canvas(length: 1cm, {
+      import draw: *
+      // Q1: triangle (x, u, v) with self-loop on u
+      // Place x at top-left, u at bottom-left, v at bottom-right
+      let px = (-2.5, 0.6)
+      let pu = (-3.2, -0.6)
+      let pv = (-1.8, -0.6)
+      circle(px, radius: 0.22, fill: white, stroke: 0.6pt, name: "x1")
+      content("x1", text(8pt)[$x$])
+      circle(pu, radius: 0.22, fill: white, stroke: 0.6pt, name: "u")
+      content("u", text(8pt)[$u$])
+      circle(pv, radius: 0.22, fill: white, stroke: 0.6pt, name: "v")
+      content("v", text(8pt)[$v$])
+      // edges: x->u, u->v, v->x
+      line("x1.south-west", "u.north", mark: (end: "straight", scale: 0.45))
+      line("u.east", "v.west", mark: (end: "straight", scale: 0.45))
+      line("v.north-west", "x1.south-east", mark: (end: "straight", scale: 0.45))
+      // self-loop on u: arc below u
+      arc((-3.2, -0.82), radius: 0.22, start: 200deg, stop: 340deg,
+        stroke: 0.6pt, mark: (end: "straight", scale: 0.45))
+      // Q1 label
+      content((-2.5, -1.4), text(8pt)[$Q_1$])
+
+      // Substitution arrow sigma in the middle
+      line((-1.1, 0.0), (-0.3, 0.0), mark: (end: "straight", scale: 0.6))
+      content((-0.7, 0.2), text(8pt)[$sigma$])
+
+      // Q2: lollipop — x and a, self-loop on a, edges x->a and a->x
+      let qx = (0.8, 0.3)
+      let qa = (1.8, -0.5)
+      circle(qx, radius: 0.22, fill: white, stroke: 0.6pt, name: "x2")
+      content("x2", text(8pt)[$x$])
+      circle(qa, radius: 0.22, fill: white, stroke: 0.6pt, name: "a")
+      content("a", text(8pt)[$a$])
+      // edges: x->a and a->x (use slightly bent anchors)
+      line("x2.south-east", "a.north-west", mark: (end: "straight", scale: 0.45))
+      line("a.north", (1.8, 0.1), "x2.east", mark: (end: "straight", scale: 0.45))
+      // self-loop on a
+      arc((1.8, -0.72), radius: 0.22, start: 200deg, stop: 340deg,
+        stroke: 0.6pt, mark: (end: "straight", scale: 0.45))
+      // Q2 label
+      content((1.3, -1.4), text(8pt)[$Q_2$])
+    }),
+    caption: [Conjunctive Query Foldability example. Left: query $Q_1$ — directed triangle $(x, u, v)$ with self-loop on $u$. Right: query $Q_2$ — lollipop with node $a$ having a self-loop and two edges to $x$. The substitution $sigma: u |-> a, v |-> a$ (with $a |-> a$) folds $Q_1$ into $Q_2$.],
+  ) <fig:cqf-example>
+]
+
 #{
   let x = load-model-example("Factoring")
   let N = x.instance.target
@@ -2428,69 +2586,219 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   ]
 }
 
-#problem-def("BinPacking")[
-  Given $n$ items with sizes $s_1, dots, s_n in RR^+$ and bin capacity $C > 0$, find an assignment $x: {1, dots, n} -> NN$ minimizing $|{x(i) : i = 1, dots, n}|$ (the number of distinct bins used) subject to $forall j: sum_(i: x(i) = j) s_i lt.eq C$.
+#{
+  let x = load-model-example("BinPacking")
+  let sizes = x.instance.sizes
+  let n = sizes.len()
+  let C = x.instance.capacity
+  let config = x.optimal_config
+  let num-bins = x.optimal_value.Valid
+  // Group items by bin
+  let bins-contents = range(num-bins).map(b =>
+    range(n).filter(i => config.at(i) == b)
+  )
+  let bin-loads = bins-contents.map(items => items.map(i => sizes.at(i)).sum())
+  [
+    #problem-def("BinPacking")[
+      Given $n$ items with sizes $s_1, dots, s_n in RR^+$ and bin capacity $C > 0$, find an assignment $x: {1, dots, n} -> NN$ minimizing $|{x(i) : i = 1, dots, n}|$ (the number of distinct bins used) subject to $forall j: sum_(i: x(i) = j) s_i lt.eq C$.
+    ][
+      Bin Packing is one of the classical NP-hard optimization problems @garey1979, with applications in logistics, cutting stock, and cloud resource allocation. The best known exact algorithm runs in $O^*(2^n)$ time via inclusion-exclusion over set partitions @bjorklund2009.
+
+      *Example.* Consider $n = #n$ items with sizes $(#sizes.map(s => str(s)).join(", "))$ and capacity $C = #C$. An optimal packing uses #num-bins bins.
+
+      #figure({
+        canvas(length: 1cm, {
+          let s = 0.35
+          let w = 1.0
+          let gap = 0.6
+          let item-colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"), rgb("#b07aa1"))
+          for bi in range(num-bins) {
+            let bx = bi * (w + gap)
+            draw.rect((bx, 0), (bx + w, C * s), stroke: 0.8pt + black)
+            let y = 0
+            for item-idx in bins-contents.at(bi) {
+              let sz = sizes.at(item-idx)
+              let c = item-colors.at(calc.rem(item-idx, item-colors.len()))
+              draw.rect((bx, y), (bx + w, y + sz * s), stroke: 0.4pt, fill: c)
+              draw.content((bx + w / 2, y + sz * s / 2), text(8pt, fill: white)[#sz])
+              y += sz * s
+            }
+            draw.content((bx + w / 2, -0.3), text(8pt)[$B_#(bi + 1)$])
+          }
+          let total-w = (num-bins - 1) * (w + gap) + w
+          draw.line((-0.15, C * s), (total-w + 0.15, C * s),
+            stroke: (dash: "dashed", paint: luma(150), thickness: 0.5pt))
+          draw.content((-0.5, C * s), text(7pt)[$C$])
+        })
+      },
+      caption: [Optimal packing of #n items into #num-bins bins of capacity $C = #C$. Numbers indicate item sizes.],
+      ) <fig:binpacking-example>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("Knapsack")
+  let weights = x.instance.weights
+  let values = x.instance.values
+  let C = x.instance.capacity
+  let n = weights.len()
+  let config = x.optimal_config
+  let opt-val = x.optimal_value.Valid
+  let selected = range(n).filter(i => config.at(i) == 1)
+  let total-w = selected.map(i => weights.at(i)).sum()
+  let total-v = selected.map(i => values.at(i)).sum()
+  [
+    #problem-def("Knapsack")[
+      Given $n$ items with weights $w_0, dots, w_(n-1) in NN$ and values $v_0, dots, v_(n-1) in NN$, and a capacity $C in NN$, find $S subset.eq {0, dots, n - 1}$ maximizing $sum_(i in S) v_i$ subject to $sum_(i in S) w_i lt.eq C$.
+    ][
+      One of Karp's 21 NP-complete problems @karp1972. Knapsack is only _weakly_ NP-hard: a classical dynamic-programming algorithm runs in $O(n C)$ pseudo-polynomial time, and a fully polynomial-time approximation scheme (FPTAS) achieves $(1 - epsilon)$-optimal value in $O(n^2 slash epsilon)$ time @ibarra1975. The special case $v_i = w_i$ for all $i$ is the Subset Sum problem. Knapsack is also a special case of Integer Linear Programming with a single constraint. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974, which partitions items into two halves and combines sorted sublists.
+
+      *Example.* Let $n = #n$ items with weights $(#weights.map(w => str(w)).join(", "))$, values $(#values.map(v => str(v)).join(", "))$, and capacity $C = #C$. Selecting $S = {#selected.map(i => str(i)).join(", ")}$ gives total weight $#total-w lt.eq C$ and total value $#total-v$, which is optimal.
+    ]
+  ]
+}
+
+#problem-def("PartiallyOrderedKnapsack")[
+  Given $n$ items with weights $w_0, dots, w_(n-1) in NN$ and values $v_0, dots, v_(n-1) in NN$, a partial order $prec$ on the items (given by its cover relations), and a capacity $C in NN$, find a downward-closed subset $S subset.eq {0, dots, n - 1}$ (i.e., if $i in S$ and $j prec i$ then $j in S$) maximizing $sum_(i in S) v_i$ subject to $sum_(i in S) w_i lt.eq C$.
 ][
-  Bin Packing is one of the classical NP-hard optimization problems @garey1979, with applications in logistics, cutting stock, and cloud resource allocation. The best known exact algorithm runs in $O^*(2^n)$ time via inclusion-exclusion over set partitions @bjorklund2009.
+  Garey and Johnson's problem A6 MP12 @garey1979. Unlike standard Knapsack, the partial order constraint makes the problem _strongly_ NP-complete --- it remains NP-complete even when $w_i = v_i$ for all $i$, so no pseudo-polynomial algorithm exists unless $P = N P$. The problem arises in manufacturing scheduling, project selection, and mining operations. For tree partial orders, Johnson and Niemi @johnson1983 gave pseudo-polynomial $O(n dot C)$ tree DP and an FPTAS. Kolliopoulos and Steiner @kolliopoulos2007 extended the FPTAS to 2-dimensional partial orders with $O(n^4 slash epsilon)$ running time.
 
-  *Example.* Consider $n = 6$ items with sizes $(6, 6, 5, 5, 4, 4)$ and capacity $C = 10$. The lower bound is $ceil(30 slash 10) = 3$ bins. An optimal packing uses exactly 3 bins: $B_1 = {6, 4}$, $B_2 = {6, 4}$, $B_3 = {5, 5}$, each with total load $10 = C$.
+  *Example.* Let $n = 6$ items with weights $(2, 3, 4, 1, 2, 3)$, values $(3, 2, 5, 4, 3, 8)$, and capacity $C = 11$. The partial order has cover relations $0 prec 2$, $0 prec 3$, $1 prec 4$, $3 prec 5$, $4 prec 5$. Selecting $S = {0, 1, 3, 4, 5}$ is downward-closed (all predecessors included), has total weight $2 + 3 + 1 + 2 + 3 = 11 lt.eq C$, and total value $3 + 2 + 4 + 3 + 8 = 20$. Adding item 2 would exceed capacity ($15 > 11$).
+]
 
-  #figure({
-    canvas(length: 1cm, {
-      let s = 0.28
-      let w = 1.0
-      let gap = 0.6
-      let bins = ((6, 4), (6, 4), (5, 5))
-      let fills = (
-        (graph-colors.at(0), graph-colors.at(1)),
-        (graph-colors.at(0), graph-colors.at(1)),
-        (graph-colors.at(2), graph-colors.at(2)),
-      )
-      for i in range(3) {
-        let x = i * (w + gap)
-        draw.rect((x, 0), (x + w, 10 * s), stroke: 0.8pt + black)
-        let y = 0
-        for j in range(bins.at(i).len()) {
-          let sz = bins.at(i).at(j)
-          let c = fills.at(i).at(j)
-          draw.rect((x, y), (x + w, y + sz * s), stroke: 0.4pt, fill: c)
-          draw.content((x + w / 2, y + sz * s / 2), text(8pt, fill: white)[#sz])
-          y += sz * s
+#{
+  let x = load-model-example("RectilinearPictureCompression")
+  let mat = x.instance.matrix
+  let m = mat.len()
+  let n = mat.at(0).len()
+  let K = x.instance.bound_k
+  // Convert bool matrix to int for display
+  let M = mat.map(row => row.map(v => if v { 1 } else { 0 }))
+  [
+    #problem-def("RectilinearPictureCompression")[
+      Given an $m times n$ binary matrix $M$ and a nonnegative integer $K$,
+      determine whether there exists a collection of at most $K$
+      axis-aligned rectangles that covers precisely the 1-entries of $M$.
+      Each rectangle is a quadruple $(a, b, c, d)$ with $a lt.eq b$ and $c lt.eq d$,
+      covering entries $M_(i j)$ for $a lt.eq i lt.eq b$ and $c lt.eq j lt.eq d$,
+      where every covered entry must satisfy $M_(i j) = 1$.
+    ][
+    Rectilinear Picture Compression is a classical NP-complete problem from Garey & Johnson (A4 SR25, p.~232) @garey1979. It arises naturally in image compression, DNA microarray design, integrated circuit manufacturing, and access control list minimization. NP-completeness was established by Masek (1978) via transformation from 3SAT. A straightforward exact baseline, including the brute-force solver in this crate, enumerates subsets of the maximal all-1 rectangles. If an instance has $R$ such rectangles, this gives an $O^*(2^R)$ exact search, so the worst-case behavior remains exponential in the instance size.
+
+    *Example.* Let $M = mat(#M.map(row => row.map(v => str(v)).join(", ")).join("; "))$ (a $#m times #n$ matrix) and $K = #K$. The two maximal all-1 rectangles cover rows $0..1$, columns $0..1$ and rows $2..3$, columns $2..3$. Selecting both gives $|{R_1, R_2}| = 2 lt.eq K = #K$ and their union covers all eight 1-entries, so the answer is YES.
+
+    #figure(
+      {
+        let cell-size = 0.5
+        let blue = graph-colors.at(0)
+        let teal = rgb("#76b7b2")
+        // Rectangle covers: R1 covers rows 0..1, cols 0..1; R2 covers rows 2..3, cols 2..3
+        let rect-color(r, c) = {
+          if r <= 1 and c <= 1 { blue.transparentize(40%) }
+          else if r >= 2 and c >= 2 { teal.transparentize(40%) }
+          else { white }
         }
-        draw.content((x + w / 2, -0.3), text(8pt)[$B_#(i + 1)$])
-      }
-      draw.line((-0.15, 10 * s), (2 * (w + gap) + w + 0.15, 10 * s),
-        stroke: (dash: "dashed", paint: luma(150), thickness: 0.5pt))
-      draw.content((-0.5, 10 * s), text(7pt)[$C$])
-    })
-  },
-  caption: [Optimal packing of items with sizes $(6, 6, 5, 5, 4, 4)$ into 3 bins of capacity $C = 10$. Numbers indicate item sizes; all bins are fully utilized.],
-  ) <fig:binpacking-example>
-]
+        align(center, grid(
+          columns: n,
+          column-gutter: 0pt,
+          row-gutter: 0pt,
+          ..range(m).map(r =>
+            range(n).map(c => {
+              let val = M.at(r).at(c)
+              let fill = if val == 1 { rect-color(r, c) } else { white }
+              box(width: cell-size * 1cm, height: cell-size * 1cm,
+                fill: fill, stroke: 0.4pt + luma(180),
+                align(center + horizon, text(8pt, weight: if val == 1 { "bold" } else { "regular" },
+                  if val == 1 { "1" } else { "0" })))
+            })
+          ).flatten(),
+        ))
+      },
+      caption: [Rectilinear Picture Compression: matrix $M$ covered by two rectangles $R_1$ (blue, top-left $2 times 2$) and $R_2$ (teal, bottom-right $2 times 2$), with $|{R_1, R_2}| = 2 lt.eq K = #K$.],
+    ) <fig:rpc>
+    ]
+  ]
+}
 
-#problem-def("Knapsack")[
-  Given $n$ items with weights $w_0, dots, w_(n-1) in NN$ and values $v_0, dots, v_(n-1) in NN$, and a capacity $C in NN$, find $S subset.eq {0, dots, n - 1}$ maximizing $sum_(i in S) v_i$ subject to $sum_(i in S) w_i lt.eq C$.
-][
-  One of Karp's 21 NP-complete problems @karp1972. Knapsack is only _weakly_ NP-hard: a classical dynamic-programming algorithm runs in $O(n C)$ pseudo-polynomial time, and a fully polynomial-time approximation scheme (FPTAS) achieves $(1 - epsilon)$-optimal value in $O(n^2 slash epsilon)$ time @ibarra1975. The special case $v_i = w_i$ for all $i$ is the Subset Sum problem. Knapsack is also a special case of Integer Linear Programming with a single constraint. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974, which partitions items into two halves and combines sorted sublists.
+#{
+  let x = load-model-example("RuralPostman")
+  let nv = x.instance.graph.num_vertices
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let ne = edges.len()
+  let edge-lengths = x.instance.edge_lengths
+  let required = x.instance.required_edges
+  let nr = required.len()
+  let B = x.instance.bound
+  let config = x.optimal_config
+  // Selected edges (multiplicity >= 1)
+  let selected = range(ne).filter(i => config.at(i) >= 1)
+  let total-cost = selected.map(i => config.at(i) * edge-lengths.at(i)).sum()
+  [
+    #problem-def("RuralPostman")[
+      Given an undirected graph $G = (V, E)$ with edge lengths $l: E -> ZZ_(gt.eq 0)$, a subset $E' subset.eq E$ of required edges, and a bound $B in ZZ^+$, determine whether there exists a circuit (closed walk) in $G$ that traverses every edge in $E'$ and has total length at most $B$.
+    ][
+      The Rural Postman Problem (RPP) is a fundamental NP-complete arc-routing problem @lenstra1976 that generalizes the Chinese Postman Problem. When $E' = E$, the problem reduces to finding an Eulerian circuit with minimum augmentation (polynomial-time solvable via $T$-join matching). For general $E' subset.eq E$, exact algorithms use dynamic programming over subsets of required edges in $O(n^2 dot 2^r)$ time, where $r = |E'|$ and $n = |V|$, analogous to the Held-Karp algorithm for TSP. The problem admits a $3 slash 2$-approximation for metric instances @frederickson1979.
 
-  *Example.* Let $n = 4$ items with weights $(2, 3, 4, 5)$, values $(3, 4, 5, 7)$, and capacity $C = 7$. Selecting $S = {1, 2}$ (items with weights 3 and 4) gives total weight $3 + 4 = 7 lt.eq C$ and total value $4 + 5 = 9$. Selecting $S = {0, 3}$ (weights 2 and 5) gives weight $2 + 5 = 7 lt.eq C$ and value $3 + 7 = 10$, which is optimal.
-]
+      *Example.* Consider a graph with #nv vertices and #ne edges, where #(ne - 2) outer edges have length 1 and 2 diagonal edges have length 2. The required edges are $E' = {#required.map(i => {let e = edges.at(i); $(v_#(e.at(0)), v_#(e.at(1)))$}).join($,$)}$ with bound $B = #B$. The outer cycle #range(nv).map(i => $v_#i$).join($->$)$-> v_0$ covers all #nr required edges with total length $#total-cost = B$, so the answer is YES.
 
-#problem-def("RuralPostman")[
-  Given an undirected graph $G = (V, E)$ with edge lengths $l: E -> ZZ_(gt.eq 0)$, a subset $E' subset.eq E$ of required edges, and a bound $B in ZZ^+$, determine whether there exists a circuit (closed walk) in $G$ that traverses every edge in $E'$ and has total length at most $B$.
-][
-  The Rural Postman Problem (RPP) is a fundamental NP-complete arc-routing problem @lenstra1976 that generalizes the Chinese Postman Problem. When $E' = E$, the problem reduces to finding an Eulerian circuit with minimum augmentation (polynomial-time solvable via $T$-join matching). For general $E' subset.eq E$, exact algorithms use dynamic programming over subsets of required edges in $O(n^2 dot 2^r)$ time, where $r = |E'|$ and $n = |V|$, analogous to the Held-Karp algorithm for TSP. The problem admits a $3 slash 2$-approximation for metric instances @frederickson1979.
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (
+            required: rgb("#e15759"),
+            optional: rgb("#4e79a7"),
+            unused: luma(200),
+          )
+          let r = 1.5
+          // Place vertices on a hexagon
+          let positions = range(nv).map(i => {
+            let angle = 90deg - i * 360deg / nv
+            (calc.cos(angle) * r, calc.sin(angle) * r)
+          })
 
-  *Example.* Consider a hexagonal graph with 6 vertices and 8 edges, where all outer edges have length 1 and two diagonal edges have length 2. The required edges are $E' = {(v_0, v_1), (v_2, v_3), (v_4, v_5)}$ with bound $B = 6$. The outer cycle $v_0 -> v_1 -> v_2 -> v_3 -> v_4 -> v_5 -> v_0$ covers all three required edges with total length $6 times 1 = 6 = B$, so the answer is YES.
-]
+          // Draw edges
+          for (ei, (u, v)) in edges.enumerate() {
+            let is-required = required.contains(ei)
+            let is-selected = config.at(ei) >= 1
+            let col = if is-required { colors.required } else if is-selected { colors.optional } else { colors.unused }
+            let thickness = if is-selected { 1.2pt } else { 0.5pt }
+            let dash = if not is-selected { "dashed" } else { "solid" }
+            line(positions.at(u), positions.at(v), stroke: (paint: col, thickness: thickness, dash: dash), name: "e" + str(ei))
+            // Edge length label
+            let mid = ((positions.at(u).at(0) + positions.at(v).at(0)) / 2, (positions.at(u).at(1) + positions.at(v).at(1)) / 2)
+            content(mid, text(6pt, fill: col)[#edge-lengths.at(ei)], fill: white, frame: "rect", padding: 0.05, stroke: none)
+          }
 
-#problem-def("SubgraphIsomorphism")[
-  Given graphs $G = (V_1, E_1)$ (host) and $H = (V_2, E_2)$ (pattern), determine whether $G$ contains a subgraph isomorphic to $H$: does there exist an injective function $f: V_2 -> V_1$ such that ${u, v} in E_2 arrow.double {f(u), f(v)} in E_1$?
-][
-  Subgraph Isomorphism (GT48 in Garey & Johnson @garey1979) is NP-complete by transformation from Clique @garey1979. It strictly generalizes Clique (where $H = K_k$) and also contains Hamiltonian Circuit ($H = C_n$) and Hamiltonian Path ($H = P_n$) as special cases. Brute-force enumeration of all injective mappings $f: V_2 -> V_1$ runs in $O(|V_1|^(|V_2|) dot |E_2|)$ time. For fixed-size patterns, the color-coding technique of Alon, Yuster, and Zwick @alon1995 gives a randomized algorithm in $2^(O(|V_2|)) dot |V_1|^(O("tw"(H)))$ time. Practical algorithms include VF2 @cordella2004 and VF2++ @juttner2018.
+          // Draw vertices
+          for (i, pos) in positions.enumerate() {
+            circle(pos, radius: 0.18, fill: white, stroke: 0.6pt + black)
+            content(pos, text(7pt)[$v_#i$])
+          }
+        }),
+        caption: [Rural Postman instance: #nv vertices, #ne edges, #nr required edges (red, bold). The outer cycle (blue + red edges) has total cost #total-cost $= B$, covering all required edges.],
+      ) <fig:rural-postman>
+    ]
+  ]
+}
 
-  *Example.* Consider host graph $G$ with 7 vertices: a $K_4$ clique on ${0, 1, 2, 3}$ and a triangle on ${4, 5, 6}$ connected via edge $(3, 4)$. Pattern $H = K_4$ with vertices ${a, b, c, d}$. The mapping $f(a) = 0, f(b) = 1, f(c) = 2, f(d) = 3$ preserves all 6 edges of $K_4$, confirming a subgraph isomorphism exists.
-]
+#{
+  let x = load-model-example("SubgraphIsomorphism")
+  let nv-host = x.instance.host_graph.num_vertices
+  let ne-host = x.instance.host_graph.edges.len()
+  let nv-pat = x.instance.pattern_graph.num_vertices
+  let ne-pat = x.instance.pattern_graph.edges.len()
+  let config = x.optimal_config
+  [
+    #problem-def("SubgraphIsomorphism")[
+      Given graphs $G = (V_1, E_1)$ (host) and $H = (V_2, E_2)$ (pattern), determine whether $G$ contains a subgraph isomorphic to $H$: does there exist an injective function $f: V_2 -> V_1$ such that ${u, v} in E_2 arrow.double {f(u), f(v)} in E_1$?
+    ][
+      Subgraph Isomorphism (GT48 in Garey & Johnson @garey1979) is NP-complete by transformation from Clique @garey1979. It strictly generalizes Clique (where $H = K_k$) and also contains Hamiltonian Circuit ($H = C_n$) and Hamiltonian Path ($H = P_n$) as special cases. Brute-force enumeration of all injective mappings $f: V_2 -> V_1$ runs in $O(|V_1|^(|V_2|) dot |E_2|)$ time. For fixed-size patterns, the color-coding technique of Alon, Yuster, and Zwick @alon1995 gives a randomized algorithm in $2^(O(|V_2|)) dot |V_1|^(O("tw"(H)))$ time. Practical algorithms include VF2 @cordella2004 and VF2++ @juttner2018.
+
+      *Example.* Host graph $G = K_#nv-host$ (#nv-host vertices, #ne-host edges), pattern $H = K_#nv-pat$ (#nv-pat vertices, #ne-pat edges). The mapping $f = (#range(nv-pat).map(i => $#i arrow.bar #config.at(i)$).join($,$))$ is injective and preserves all #ne-pat pattern edges, confirming a subgraph isomorphism exists.
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("LongestCommonSubsequence")
@@ -2547,12 +2855,31 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   ]
 }
 
-#problem-def("SubsetSum")[
-  Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$ and a target $B in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ such that $sum_(a in A') s(a) = B$.
-][
-  One of Karp's 21 NP-complete problems @karp1972. Subset Sum is the special case of Knapsack where $v_i = w_i$ for all items and we seek an exact sum rather than an inequality. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n B)$ pseudo-polynomial time. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974.
+#{
+  let x = load-model-example("SubsetSum")
+  let sizes = x.instance.sizes
+  let target = x.instance.target
+  let n = sizes.len()
+  let config = x.optimal_config
+  let selected = range(n).filter(i => config.at(i) == 1)
+  let sel-sizes = selected.map(i => sizes.at(i))
+  [
+    #problem-def("SubsetSum")[
+      Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$ and a target $B in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ such that $sum_(a in A') s(a) = B$.
+    ][
+      One of Karp's 21 NP-complete problems @karp1972. Subset Sum is the special case of Knapsack where $v_i = w_i$ for all items and we seek an exact sum rather than an inequality. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n B)$ pseudo-polynomial time. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974.
 
-  *Example.* Let $A = {3, 7, 1, 8, 2, 4}$ ($n = 6$) and target $B = 11$. Selecting $A' = {3, 8}$ gives sum $3 + 8 = 11 = B$. Another solution: $A' = {7, 4}$ with sum $7 + 4 = 11 = B$.
+      *Example.* Let $A = {#sizes.map(s => str(s)).join(", ")}$ ($n = #n$) and target $B = #target$. Selecting $A' = {#sel-sizes.map(s => str(s)).join(", ")}$ gives sum $#sel-sizes.map(s => str(s)).join(" + ") = #target = B$.
+    ]
+  ]
+}
+
+#problem-def("ResourceConstrainedScheduling")[
+  Given a set $T$ of $n$ unit-length tasks, $m$ identical processors, $r$ resources with bounds $B_i$ ($1 <= i <= r$), resource requirements $R_i (t)$ for each task $t$ and resource $i$ ($0 <= R_i (t) <= B_i$), and an overall deadline $D in ZZ^+$, determine whether there exists an $m$-processor schedule $sigma : T -> {0, dots, D-1}$ such that for every time slot $u$, at most $m$ tasks are scheduled at $u$ and $sum_(t : sigma(t) = u) R_i (t) <= B_i$ for each resource $i$.
+][
+  RESOURCE CONSTRAINED SCHEDULING is problem SS10 in Garey & Johnson's compendium @garey1979. It is NP-complete in the strong sense, even for $r = 1$ resource and $m = 3$ processors, by reduction from 3-PARTITION @garey1979. For $m = 2$ processors with arbitrary $r$, the problem is solvable in polynomial time via bipartite matching. The general case subsumes bin-packing-style constraints across multiple resource dimensions.
+
+  *Example.* Let $n = 6$ tasks, $m = 3$ processors, $r = 1$ resource with $B_1 = 20$, and deadline $D = 2$. Resource requirements: $R_1(t_1) = 6$, $R_1(t_2) = 7$, $R_1(t_3) = 7$, $R_1(t_4) = 6$, $R_1(t_5) = 8$, $R_1(t_6) = 6$. Schedule: slot 0 $arrow.l {t_1, t_2, t_3}$ (3 tasks, resource $= 20$), slot 1 $arrow.l {t_4, t_5, t_6}$ (3 tasks, resource $= 20$). Both constraints satisfied; answer: YES.
 ]
 
 #problem-def("SumOfSquaresPartition")[
@@ -2643,18 +2970,17 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 
       For $|R| = 2$ strings, the problem is solvable in polynomial time via the duality with the Longest Common Subsequence (LCS): if $"LCS"(r_1, r_2)$ has length $ell$, then the shortest common supersequence has length $|r_1| + |r_2| - ell$, computable in $O(|r_1| dot |r_2|)$ time by dynamic programming. For general $|R| = m$, the brute-force search over all strings of length at most $K$ takes $O(|Sigma|^K)$ time. Applications include bioinformatics (reconstructing ancestral sequences from fragments), data compression (representing multiple strings compactly), and scheduling (merging instruction sequences).
 
-      *Example.* Let $Sigma = {#alpha-map.join(", ")}$ and $R = {#r-strs.join(", ")}$. We seek the shortest string $w$ containing both #r-strs.join(" and ") as subsequences.
+      *Example.* Let $Sigma = {#alpha-map.join(", ")}$ and $R = {#r-strs.join(", ")}$. We seek a string $w$ of length at most $K = #bound$ that contains every $r_i$ as a subsequence.
 
       #figure({
-        let blue = graph-colors.at(0)
-        let teal = rgb("#76b7b2")
+        let r-colors = (graph-colors.at(0), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#e15759"), rgb("#b07aa1"))
         align(center, stack(dir: ttb, spacing: 0.6cm,
           stack(dir: ltr, spacing: 0pt,
             box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt)[$w =$])),
             ..w.enumerate().map(((i, ch)) => {
-              let is1 = embeds.at(0).contains(i)
-              let is2 = embeds.at(1).contains(i)
-              let fill = if is1 and is2 { blue.transparentize(60%) } else if is1 { blue.transparentize(80%) } else if is2 { teal.transparentize(80%) } else { white }
+              // Count how many strings use this position
+              let used = range(nr).filter(ri => embeds.at(ri).contains(i)).len()
+              let fill = if used >= 2 { r-colors.at(0).transparentize(50%) } else if used == 1 { r-colors.at(0).transparentize(80%) } else { white }
               box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
                 align(center + horizon, text(9pt, weight: "bold", ch)))
             }),
@@ -2662,7 +2988,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
           ..range(nr).map(ri => {
             let embed = embeds.at(ri)
             let r = r-chars.at(ri)
-            let col = if ri == 0 { blue } else { teal }
+            let col = r-colors.at(ri)
             stack(dir: ltr, spacing: 0pt,
               box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt, fill: col)[$r_#(ri + 1) =$])),
               ..range(w-len).map(i => {
@@ -2676,10 +3002,10 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
           }),
         ))
       },
-      caption: [Shortest Common Supersequence: $w = #w-str$ (length #w-len) contains #range(nr).map(ri => [$r_#(ri + 1) = #r-strs.at(ri)$ (#if ri == 0 [blue] else [teal], positions #embeds.at(ri).map(p => str(p)).join(","))]).join(" and ") as subsequences. Dots mark unused positions in each embedding.],
+      caption: [Shortest Common Supersequence: $w = #w-str$ (length #w-len) contains #range(nr).map(ri => [$r_#(ri + 1) = #r-strs.at(ri)$ (positions #embeds.at(ri).map(p => str(p)).join(","))]).join(", ") as subsequences. Dots mark unused positions.],
       ) <fig:scs>
 
-      The supersequence $w = #w-str$ has length #w-len and contains both input strings as subsequences. This is optimal because $"LCS"(#r-strs.join(", ")) = "ac"$ (length 2), so the shortest common supersequence has length $#strings.at(0).len() + #strings.at(1).len() - 2 = #w-len$.
+      The supersequence $w = #w-str$ has length #w-len $lt.eq K = #bound$ and contains all #nr input strings as subsequences.
     ]
   ]
 }
@@ -2750,13 +3076,25 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   ]
 }
 
-#problem-def("MinimumFeedbackArcSet")[
-  Given a directed graph $G = (V, A)$, find a minimum-size subset $A' subset.eq A$ such that $G - A'$ is a directed acyclic graph (DAG). Equivalently, $A'$ must contain at least one arc from every directed cycle in $G$.
-][
-  Feedback Arc Set (FAS) is a classical NP-complete problem from Karp's original list @karp1972 (via transformation from Vertex Cover, as presented in Garey & Johnson GT8). The problem arises in ranking aggregation, sports scheduling, deadlock avoidance, and causal inference. Unlike the undirected analogue (which is trivially polynomial --- the number of non-tree edges in a spanning forest), the directed version is NP-hard due to the richer structure of directed cycles. The best known exact algorithm uses dynamic programming over vertex subsets in $O^*(2^n)$ time, generalizing the Held--Karp TSP technique to vertex ordering problems @bodlaender2012. FAS is fixed-parameter tractable with parameter $k = |A'|$: an $O(4^k dot k! dot n^(O(1)))$ algorithm exists via iterative compression @chen2008. Polynomial-time solvable for planar digraphs via the Lucchesi--Younger theorem @lucchesi1978.
+#{
+  let x = load-model-example("MinimumFeedbackArcSet")
+  let nv = x.instance.graph.num_vertices
+  let arcs = x.instance.graph.arcs.map(a => (a.at(0), a.at(1)))
+  let na = arcs.len()
+  let weights = x.instance.weights
+  let config = x.optimal_config
+  let opt-val = x.optimal_value.Valid
+  let removed = range(na).filter(i => config.at(i) == 1)
+  [
+    #problem-def("MinimumFeedbackArcSet")[
+      Given a directed graph $G = (V, A)$, find a minimum-size subset $A' subset.eq A$ such that $G - A'$ is a directed acyclic graph (DAG). Equivalently, $A'$ must contain at least one arc from every directed cycle in $G$.
+    ][
+      Feedback Arc Set (FAS) is a classical NP-complete problem from Karp's original list @karp1972 (via transformation from Vertex Cover, as presented in Garey & Johnson GT8). The problem arises in ranking aggregation, sports scheduling, deadlock avoidance, and causal inference. Unlike the undirected analogue (which is trivially polynomial --- the number of non-tree edges in a spanning forest), the directed version is NP-hard due to the richer structure of directed cycles. The best known exact algorithm uses dynamic programming over vertex subsets in $O^*(2^n)$ time, generalizing the Held--Karp TSP technique to vertex ordering problems @bodlaender2012. FAS is fixed-parameter tractable with parameter $k = |A'|$: an $O(4^k dot k! dot n^(O(1)))$ algorithm exists via iterative compression @chen2008. Polynomial-time solvable for planar digraphs via the Lucchesi--Younger theorem @lucchesi1978.
 
-  *Example.* Consider $G$ with $V = {0, 1, 2, 3, 4, 5}$ and arcs $(0 arrow 1), (1 arrow 2), (2 arrow 0), (1 arrow 3), (3 arrow 4), (4 arrow 1), (2 arrow 5), (5 arrow 3), (3 arrow 0)$. This graph contains four directed cycles: $0 arrow 1 arrow 2 arrow 0$, $1 arrow 3 arrow 4 arrow 1$, $0 arrow 1 arrow 3 arrow 0$, and $2 arrow 5 arrow 3 arrow 0 arrow 1 arrow 2$. Removing $A' = {(0 arrow 1), (3 arrow 4)}$ breaks all four cycles (vertex 0 becomes a sink in the residual graph), giving a minimum FAS of size 2.
-]
+      *Example.* Consider $G$ with $V = {#range(nv).map(v => str(v)).join(", ")}$ and arcs #arcs.map(a => $(#(a.at(0)) arrow #(a.at(1)))$).join($,$). Removing $A' = {#removed.map(i => {let a = arcs.at(i); $(#(a.at(0)) arrow #(a.at(1)))$}).join($,$)}$ (weight #opt-val) breaks all directed cycles, yielding a DAG.
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("MultipleChoiceBranching")
@@ -2797,76 +3135,98 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   ]
 }
 
-#problem-def("FlowShopScheduling")[
-  Given $m$ processors and a set $J$ of $n$ jobs, where each job $j in J$ consists of $m$ tasks $t_1 [j], t_2 [j], dots, t_m [j]$ with lengths $ell(t_i [j]) in ZZ^+_0$, and a deadline $D in ZZ^+$, determine whether there exists a permutation schedule $pi$ of the jobs such that all jobs complete by time $D$. Each job must be processed on machines $1, 2, dots, m$ in order, and job $j$ cannot start on machine $i+1$ until its task on machine $i$ is completed.
-][
-  Flow Shop Scheduling is a classical NP-complete problem from Garey & Johnson (A5 SS15), strongly NP-hard for $m >= 3$ @garey1976. For $m = 2$, it is solvable in $O(n log n)$ by Johnson's rule @johnson1954. The problem is fundamental in operations research, manufacturing planning, and VLSI design. When restricted to permutation schedules (same job order on all machines), the search space is $n!$ orderings. The best known exact algorithm for $m = 3$ runs in $O^*(3^n)$ time @shang2018; for general $m$, brute-force over $n!$ permutations gives $O(n! dot m n)$.
+#{
+  let x = load-model-example("FlowShopScheduling")
+  let m = x.instance.num_processors
+  let task-lengths = x.instance.task_lengths
+  let n = task-lengths.len()
+  let D = x.instance.deadline
+  let lehmer = x.optimal_config
+  // Decode Lehmer code to job permutation
+  let job-order = {
+    let avail = range(n)
+    let result = ()
+    for c in lehmer {
+      result.push(avail.at(c))
+      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
+    }
+    result
+  }
+  // Compute Gantt schedule greedily
+  let machine-end = range(m).map(_ => 0)
+  let job-end = range(n).map(_ => 0)
+  let blocks = ()
+  for ji in job-order {
+    let lengths = task-lengths.at(ji)
+    for mi in range(m) {
+      let start = calc.max(machine-end.at(mi), job-end.at(ji))
+      let end = start + lengths.at(mi)
+      blocks.push((mi, ji, start, end))
+      machine-end.at(mi) = end
+      job-end.at(ji) = end
+    }
+  }
+  let makespan = calc.max(..job-end)
+  [
+    #problem-def("FlowShopScheduling")[
+      Given $m$ processors and a set $J$ of $n$ jobs, where each job $j in J$ consists of $m$ tasks $t_1 [j], t_2 [j], dots, t_m [j]$ with lengths $ell(t_i [j]) in ZZ^+_0$, and a deadline $D in ZZ^+$, determine whether there exists a permutation schedule $pi$ of the jobs such that all jobs complete by time $D$. Each job must be processed on machines $1, 2, dots, m$ in order, and job $j$ cannot start on machine $i+1$ until its task on machine $i$ is completed.
+    ][
+      Flow Shop Scheduling is a classical NP-complete problem from Garey & Johnson (A5 SS15), strongly NP-hard for $m >= 3$ @garey1976. For $m = 2$, it is solvable in $O(n log n)$ by Johnson's rule @johnson1954. The problem is fundamental in operations research, manufacturing planning, and VLSI design. When restricted to permutation schedules (same job order on all machines), the search space is $n!$ orderings. The best known exact algorithm for $m = 3$ runs in $O^*(3^n)$ time @shang2018; for general $m$, brute-force over $n!$ permutations gives $O(n! dot m n)$.
 
-  *Example.* Let $m = 3$ machines, $n = 5$ jobs with task lengths:
-  $ ell = mat(
-    3, 4, 2;
-    2, 3, 5;
-    4, 1, 3;
-    1, 5, 4;
-    3, 2, 3;
-  ) $
-  and deadline $D = 25$. The job order $pi = (j_4, j_1, j_5, j_3, j_2)$ (0-indexed: $3, 0, 4, 2, 1$) yields makespan $23 <= 25$, so a feasible schedule exists.
+      *Example.* Let $m = #m$ machines, $n = #n$ jobs with task lengths:
+      #align(center, math.equation([$ell = #math.mat(..task-lengths.map(row => row.map(v => [#v])))$]))
+      and deadline $D = #D$. The job order $pi = (#job-order.map(j => $j_#(j + 1)$).join($,$))$ yields makespan $#makespan <= #D$, so a feasible schedule exists.
 
-  #figure(
-    canvas(length: 1cm, {
-      import draw: *
-      // Gantt chart for job order [3, 0, 4, 2, 1] on 3 machines
-      // Schedule computed greedily:
-      // M1: j3[0,1], j0[1,4], j4[4,7], j2[7,11], j1[11,13]
-      // M2: j3[1,6], j0[6,10], j4[10,12], j2[12,13], j1[13,16]
-      // M3: j3[6,10], j0[10,12], j4[12,15], j2[15,18], j1[18,23]
-      let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"))
-      let job-names = ("$j_1$", "$j_2$", "$j_3$", "$j_4$", "$j_5$")
-      let scale = 0.38
-      let row-h = 0.6
-      let gap = 0.15
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"))
+          let scale = 0.38
+          let row-h = 0.6
+          let gap = 0.15
 
-      // Machine labels
-      for (mi, label) in ("M1", "M2", "M3").enumerate() {
-        let y = -mi * (row-h + gap)
-        content((-0.8, y), text(8pt, label))
-      }
+          // Machine labels
+          for mi in range(m) {
+            let y = -mi * (row-h + gap)
+            content((-0.8, y), text(8pt, "M" + str(mi + 1)))
+          }
 
-      // Draw schedule blocks: (machine, job-index, start, end)
-      let blocks = (
-        (0, 3, 0, 1), (0, 0, 1, 4), (0, 4, 4, 7), (0, 2, 7, 11), (0, 1, 11, 13),
-        (1, 3, 1, 6), (1, 0, 6, 10), (1, 4, 10, 12), (1, 2, 12, 13), (1, 1, 13, 16),
-        (2, 3, 6, 10), (2, 0, 10, 12), (2, 4, 12, 15), (2, 2, 15, 18), (2, 1, 18, 23),
-      )
+          // Draw schedule blocks
+          for (mi, ji, s, e) in blocks {
+            let x0 = s * scale
+            let x1 = e * scale
+            let y = -mi * (row-h + gap)
+            rect((x0, y - row-h / 2), (x1, y + row-h / 2),
+              fill: colors.at(ji).transparentize(30%), stroke: 0.4pt + colors.at(ji))
+            content(((x0 + x1) / 2, y), text(6pt, [$j_#(ji + 1)$]))
+          }
 
-      for (mi, ji, s, e) in blocks {
-        let x0 = s * scale
-        let x1 = e * scale
-        let y = -mi * (row-h + gap)
-        rect((x0, y - row-h / 2), (x1, y + row-h / 2),
-          fill: colors.at(ji).transparentize(30%), stroke: 0.4pt + colors.at(ji))
-        content(((x0 + x1) / 2, y), text(6pt, job-names.at(ji)))
-      }
+          // Time axis
+          let y-axis = -(m - 1) * (row-h + gap) - row-h / 2 - 0.2
+          line((0, y-axis), (makespan * scale, y-axis), stroke: 0.4pt)
+          for t in range(calc.ceil(makespan / 5) + 1).map(i => calc.min(i * 5, makespan)) {
+            let x = t * scale
+            line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
+            content((x, y-axis - 0.25), text(6pt, str(t)))
+          }
+          // Add makespan tick if not already shown
+          if calc.rem(makespan, 5) != 0 {
+            let x = makespan * scale
+            line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
+            content((x, y-axis - 0.25), text(6pt, str(makespan)))
+          }
+          content((makespan * scale / 2, y-axis - 0.5), text(7pt)[$t$])
 
-      // Time axis
-      let max-t = 23
-      let y-axis = -2 * (row-h + gap) - row-h / 2 - 0.2
-      line((0, y-axis), (max-t * scale, y-axis), stroke: 0.4pt)
-      for t in (0, 5, 10, 15, 20, 23) {
-        let x = t * scale
-        line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
-        content((x, y-axis - 0.25), text(6pt, str(t)))
-      }
-      content((max-t * scale / 2, y-axis - 0.5), text(7pt)[$t$])
-
-      // Deadline marker
-      let dl-x = 25 * scale
-      line((dl-x, row-h / 2 + 0.1), (dl-x, y-axis), stroke: (paint: red, thickness: 0.8pt, dash: "dashed"))
-      content((dl-x, row-h / 2 + 0.25), text(6pt, fill: red)[$D = 25$])
-    }),
-    caption: [Flow shop schedule for 5 jobs on 3 machines. Job order $(j_4, j_1, j_5, j_3, j_2)$ achieves makespan 23, within deadline $D = 25$ (dashed red line).],
-  ) <fig:flowshop>
-]
+          // Deadline marker
+          let dl-x = D * scale
+          line((dl-x, row-h / 2 + 0.1), (dl-x, y-axis), stroke: (paint: red, thickness: 0.8pt, dash: "dashed"))
+          content((dl-x, row-h / 2 + 0.25), text(6pt, fill: red)[$D = #D$])
+        }),
+        caption: [Flow shop schedule for #n jobs on #m machines. Job order $(#job-order.map(j => $j_#(j + 1)$).join($,$))$ achieves makespan #makespan, within deadline $D = #D$ (dashed red line).],
+      ) <fig:flowshop>
+    ]
+  ]
+}
 
 #problem-def("StaffScheduling")[
   Given a collection $C$ of binary schedule patterns of length $m$, where each pattern has exactly $k$ ones, a requirement vector $overline(R) in ZZ_(>= 0)^m$, and a worker budget $n in ZZ_(>= 0)$, determine whether there exists a function $f: C -> ZZ_(>= 0)$ such that $sum_(c in C) f(c) <= n$ and $sum_(c in C) f(c) dot c >= overline(R)$ component-wise.
@@ -2996,69 +3356,56 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   // Compute start times from config offsets: start_i = release_i + config_i
   let starts = range(ntasks).map(i => release.at(i) + sol.config.at(i))
-  // Identify the enforcer task: the one with the tightest window (deadline - release == length)
-  let enforcer = range(ntasks).filter(i => deadline.at(i) - release.at(i) == lengths.at(i)).at(0)
-  let regular = range(ntasks).filter(i => i != enforcer)
-  // Partition sum B = total length of regular tasks
-  let B = regular.map(i => lengths.at(i)).sum()
+  let max-t = calc.max(..range(ntasks).map(i => deadline.at(i)))
   [
     #problem-def("SequencingWithinIntervals")[
       Given a finite set $T$ of tasks and, for each $t in T$, a release time $r(t) >= 0$, a deadline $d(t) >= 0$, and a processing length $ell(t) in ZZ^+$ satisfying $r(t) + ell(t) <= d(t)$, determine whether there exists a feasible schedule $sigma: T -> ZZ_(>= 0)$ such that for each $t in T$: (1) $sigma(t) >= r(t)$, (2) $sigma(t) + ell(t) <= d(t)$, and (3) for all $t' in T backslash {t}$, either $sigma(t') + ell(t') <= sigma(t)$ or $sigma(t') >= sigma(t) + ell(t)$.
     ][
-      Sequencing Within Intervals is problem SS1 in Garey & Johnson @garey1979, proved NP-complete via reduction from Partition (Theorem 3.8). Each task $t$ must execute non-preemptively during the interval $[r(t), d(t))$, occupying $ell(t)$ consecutive time units, and no two tasks may overlap. The problem is a canonical single-machine scheduling problem and one of the earliest NP-completeness results for scheduling theory.
+      Sequencing Within Intervals is problem SS1 in Garey & Johnson @garey1979, proved NP-complete via reduction from Partition (Theorem 3.8). Each task $t$ must execute non-preemptively during the interval $[r(t), d(t))$, occupying $ell(t)$ consecutive time units on a single machine, and no two tasks may overlap.
 
-      The NP-completeness proof uses an "enforcer" task pinned at the midpoint of the time horizon, forcing the remaining tasks to split into two balanced groups --- directly encoding the Partition problem.
-
-      *Example.* Consider #ntasks tasks derived from a Partition instance with $A = {#regular.map(i => str(lengths.at(i))).join(", ")}$ (sum $B = #B$):
+      *Example.* Consider #ntasks tasks with overlapping availability windows:
       #align(center, table(
         columns: ntasks + 1,
         align: center,
-        table.header([$"Task"$], ..regular.map(i => [$t_#(i + 1)$]), [$overline(t)$]),
-        [$r(t)$], ..regular.map(i => [#release.at(i)]), [#release.at(enforcer)],
-        [$d(t)$], ..regular.map(i => [#deadline.at(i)]), [#deadline.at(enforcer)],
-        [$ell(t)$], ..regular.map(i => [#lengths.at(i)]), [#lengths.at(enforcer)],
+        table.header([$"Task"$], ..range(ntasks).map(i => [$t_#(i + 1)$])),
+        [$r(t)$], ..range(ntasks).map(i => [#release.at(i)]),
+        [$d(t)$], ..range(ntasks).map(i => [#deadline.at(i)]),
+        [$ell(t)$], ..range(ntasks).map(i => [#lengths.at(i)]),
       ))
-      The enforcer task $overline(t)$ must run in $[#release.at(enforcer), #deadline.at(enforcer))$, splitting the schedule into $[0, #release.at(enforcer))$ and $[#deadline.at(enforcer), #deadline.at(0))$. Each side has #(B / 2) time units, and tasks with total length $#(B / 2)$ must fill each side --- corresponding to a partition of $A$.
+      Each task can only start within its window $[r(t), d(t) - ell(t)]$, and the windows overlap, so finding a non-overlapping assignment is non-trivial. One feasible schedule places the tasks at #range(ntasks).map(i => $[#starts.at(i), #(starts.at(i) + lengths.at(i)))$).join($,$):
 
       #figure(
         canvas(length: 1cm, {
           import draw: *
-          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"))
-          let enforcer-color = rgb("#b07aa1")
-          let task-labels = regular.map(i => "$t_" + str(i + 1) + "$") + ("$overline(t)$",)
-          let task-order = regular + (enforcer,)
-          let scale = 0.7
+          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#b07aa1"))
+          let scale = 0.65
           let row-h = 0.6
 
-          // Single-row Gantt chart: all tasks on one timeline
-          for (k, i) in task-order.enumerate() {
+          // Single-row Gantt chart
+          for i in range(ntasks) {
             let s = starts.at(i)
             let e = s + lengths.at(i)
             let x0 = s * scale
             let x1 = e * scale
-            let col = if i == enforcer { enforcer-color } else { colors.at(regular.position(j => j == i)) }
+            let col = colors.at(i)
             rect((x0, -row-h / 2), (x1, row-h / 2),
               fill: col.transparentize(30%), stroke: 0.4pt + col)
-            content(((x0 + x1) / 2, 0), text(6pt, task-labels.at(k)))
+            content(((x0 + x1) / 2, 0), text(6pt, [$t_#(i + 1)$]))
           }
 
-          // Release-time and deadline markers for each task
-          for (k, i) in task-order.enumerate() {
-            let col = if i == enforcer { enforcer-color } else { colors.at(regular.position(j => j == i)) }
-            // Release time: upward triangle below axis
+          // Release-time and deadline markers
+          for i in range(ntasks) {
+            let col = colors.at(i)
             let rx = release.at(i) * scale
             line((rx, -row-h / 2 - 0.05), (rx, -row-h / 2 - 0.18), stroke: 0.5pt + col)
-            // Deadline: downward tick above axis
             let dx = deadline.at(i) * scale
             line((dx, row-h / 2 + 0.05), (dx, row-h / 2 + 0.18), stroke: 0.5pt + col)
           }
 
-          // Release / deadline group labels
           content((-0.5, -row-h / 2 - 0.12), text(5pt)[$r$])
           content((-0.5, row-h / 2 + 0.12), text(5pt)[$d$])
 
           // Time axis
-          let max-t = 11
           let y-axis = -row-h / 2 - 0.35
           line((0, y-axis), (max-t * scale, y-axis), stroke: 0.4pt)
           for t in range(max-t + 1) {
@@ -3069,14 +3416,8 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
             }
           }
           content((max-t * scale / 2, y-axis - 0.45), text(7pt)[$t$])
-
-          // Enforcer region highlight
-          let ex0 = release.at(enforcer) * scale
-          let ex1 = deadline.at(enforcer) * scale
-          line((ex0, row-h / 2 + 0.3), (ex0, y-axis), stroke: (paint: enforcer-color, thickness: 0.6pt, dash: "dashed"))
-          line((ex1, row-h / 2 + 0.3), (ex1, y-axis), stroke: (paint: enforcer-color, thickness: 0.6pt, dash: "dashed"))
         }),
-        caption: [Feasible schedule for the SWI instance. The enforcer task $overline(t)$ (purple) is pinned at $[#release.at(enforcer), #deadline.at(enforcer))$, splitting the timeline into two halves of #(B / 2) time units each.],
+        caption: [A feasible schedule for the SWI instance. Ticks below and above mark release times $r$ and deadlines $d$ for each task.],
       ) <fig:swi>
     ]
   ]
@@ -3203,6 +3544,67 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     caption: [Two-commodity flow: commodity 1 (blue, $s_1 -> 2 -> t_1$) and commodity 2 (red, $s_2 -> 3 -> t_2$).],
   ) <fig:d2cif>
 ]
+
+#{
+  let x = load-model-example("ConjunctiveBooleanQuery")
+  let d = x.instance.domain_size
+  let nv = x.instance.num_variables
+  let rels = x.instance.relations
+  let conj = x.instance.conjuncts
+  let nr = rels.len()
+  let nc = conj.len()
+  let assignment = x.optimal_config
+  [
+    #problem-def("ConjunctiveBooleanQuery")[
+      Given a finite domain $D = {0, dots, d - 1}$, a collection of relations $R_0, R_1, dots, R_(m-1)$ where each $R_i$ is a set of $a_i$-tuples with entries from $D$, and a conjunctive Boolean query
+      $ Q = (exists y_0, y_1, dots, y_(l-1))(A_0 and A_1 and dots.c and A_(r-1)) $
+      where each _atom_ $A_j$ has the form $R_(i_j)(u_0, u_1, dots)$ with every $u$ in ${y_0, dots, y_(l-1)} union D$, determine whether there exists an assignment to the variables that makes $Q$ true --- i.e., the resolved tuple of every atom belongs to its relation.
+    ][
+      The Conjunctive Boolean Query (CBQ) problem is one of the most fundamental problems in database theory and finite model theory. #cite(<chandra1977>, form: "prose") showed that evaluating conjunctive queries is NP-complete by reduction from the Clique problem. CBQ is equivalent to the Constraint Satisfaction Problem (CSP) and to the homomorphism problem for relational structures; this equivalence connects database query evaluation, constraint programming, and graph theory under a single computational framework @kolaitis1998.
+
+      For queries of bounded _hypertree-width_, evaluation becomes polynomial-time @gottlob2002. The general brute-force algorithm enumerates all $d^l$ variable assignments and checks every atom, running in $O(d^l dot r dot max_i a_i)$ time.#footnote[No substantially faster general algorithm is known for arbitrary conjunctive Boolean queries.]
+
+      *Example.* Let $D = {0, dots, #(d - 1)}$ ($d = #d$), with #nr relations:
+
+      #align(center, grid(
+        columns: nr,
+        gutter: 1.5em,
+        ..range(nr).map(ri => {
+          let rel = rels.at(ri)
+          let arity = rel.arity
+          let header = range(arity).map(j => [$c_#j$])
+          table(
+            columns: arity + 1,
+            align: center,
+            inset: (x: 4pt, y: 3pt),
+            table.header([$R_#ri$], ..header),
+            table.hline(stroke: 0.3pt),
+            ..rel.tuples.enumerate().map(((ti, tup)) => {
+              let cells = tup.map(v => [#v])
+              ([$tau_#ti$], ..cells)
+            }).flatten()
+          )
+        })
+      ))
+
+      The query has #nv variables $(y_0, y_1)$ and #nc atoms:
+      #{
+        let fmt-arg(a) = {
+          if "Variable" in a { $y_#(a.Variable)$ }
+          else { $#(a.Constant)$ }
+        }
+        let atoms = conj.enumerate().map(((j, c)) => {
+          let ri = c.at(0)
+          let args = c.at(1)
+          [$A_#j = R_#ri (#args.map(fmt-arg).join($, $))$]
+        })
+        [$ Q = (exists y_0, y_1)(#atoms.join($ and $)) $]
+      }
+
+      Under the assignment $y_0 = #assignment.at(0)$, $y_1 = #assignment.at(1)$: atom $A_0$ resolves to $(#assignment.at(0), 3) in R_0$ (row $tau_0$), atom $A_1$ resolves to $(#assignment.at(1), 3) in R_0$ (row $tau_1$), and atom $A_2$ resolves to $(#assignment.at(0), #assignment.at(1), 5) in R_1$ (row $tau_0$). All three atoms are satisfied, so $Q$ is true.
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("ConsecutiveOnesSubmatrix")
@@ -3600,6 +4002,54 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) If $bold(x)^*$ is a feasible knapsack solution with value $V^*$, then there exist slack values $bold(s)^*$ satisfying the equality constraint (encoding $C - sum w_i x_i^*$ in binary), so $f(bold(z)^*) = -V^*$. ($arrow.l.double$) If the equality constraint is violated, the penalty $(sum a_k z_k - C)^2 gt.eq 1$ contributes at least $P > sum_i v_i$ to the objective. Since all values are nonnegative, every feasible assignment has objective in the range $[-sum_i v_i, 0]$, so that penalty exceeds the entire feasible value range. Among feasible assignments (penalty zero), $f$ reduces to $-sum v_i x_i$, minimized at the knapsack optimum.
 
   _Solution extraction._ Discard slack variables: return $bold(z)[0..n]$.
+]
+
+#let mwc_qubo = load-example("MinimumMultiwayCut", "QUBO")
+#let mwc_qubo_sol = mwc_qubo.solutions.at(0)
+#let mwc_qubo_edges = mwc_qubo.source.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+#let mwc_qubo_weights = mwc_qubo.source.instance.edge_weights
+#let mwc_qubo_terminals = mwc_qubo.source.instance.terminals
+#let mwc_qubo_n = mwc_qubo.source.instance.graph.num_vertices
+#let mwc_qubo_k = mwc_qubo_terminals.len()
+#let mwc_qubo_nq = mwc_qubo_n * mwc_qubo_k
+#let mwc_qubo_alpha = mwc_qubo_weights.fold(0, (a, w) => a + w) + 1
+#let mwc_qubo_cut_indices = mwc_qubo_sol.source_config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+#let mwc_qubo_cut_cost = mwc_qubo_cut_indices.fold(0, (a, i) => a + mwc_qubo_weights.at(i))
+#reduction-rule("MinimumMultiwayCut", "QUBO",
+  example: true,
+  example-caption: [$n = #mwc_qubo_n$ vertices, $k = #mwc_qubo_k$ terminals $T = {#mwc_qubo_terminals.map(str).join(", ")}$, $|E| = #mwc_qubo_edges.len()$ edges],
+  extra: [
+    *Step 1 -- Source instance.* The canonical graph has $n = #mwc_qubo_n$ vertices, $m = #mwc_qubo_edges.len()$ edges with weights $(#mwc_qubo_weights.map(str).join(", "))$, and $k = #mwc_qubo_k$ terminals $T = {#mwc_qubo_terminals.map(str).join(", ")}$.
+
+    *Step 2 -- Introduce binary variables.* Assign $k = #mwc_qubo_k$ indicator variables per vertex: $x_(u,t) = 1$ means vertex $u$ belongs to terminal $t$'s component. This gives $n k = #mwc_qubo_n times #mwc_qubo_k = #mwc_qubo_nq$ QUBO variables:
+    $ underbrace(x_(0,0) x_(0,1) x_(0,2), "vertex 0") #h(4pt) underbrace(x_(1,0) x_(1,1) x_(1,2), "vertex 1") #h(4pt) dots.c #h(4pt) underbrace(x_(4,0) x_(4,1) x_(4,2), "vertex 4") $
+
+    *Step 3 -- Penalty coefficient.* $alpha = 1 + sum_(e in E) w(e) = 1 + #mwc_qubo_weights.map(str).join(" + ") = #mwc_qubo_alpha$.
+
+    *Step 4 -- Build $H_A$ (constraints).* One-hot: diagonal entries $Q_(u k+t, u k+t) = -#mwc_qubo_alpha$, off-diagonal $Q_(u k+s, u k+t) = #(2 * mwc_qubo_alpha)$ within each vertex's group. Terminal pinning: for each terminal vertex $t_i$, the wrong-position diagonal entries $Q_(t_i k+s, t_i k+s) += #mwc_qubo_alpha$ for $s != i$, effectively canceling the one-hot incentive for those positions.\
+
+    *Step 5 -- Build $H_B$ (cut cost).* For each edge $(u,v)$ with weight $w$ and each pair $s != t$, add $w$ to $Q_(u k+s, v k+t)$. For example, edge $(0,1)$ with weight $2$ contributes $2$ to positions $(x_(0,0), x_(1,1))$, $(x_(0,0), x_(1,2))$, $(x_(0,1), x_(1,0))$, $(x_(0,1), x_(1,2))$, $(x_(0,2), x_(1,0))$, and $(x_(0,2), x_(1,1))$.\
+
+    *Step 6 -- Verify a solution.* The QUBO ground state $bold(x) = (#mwc_qubo_sol.target_config.map(str).join(", "))$ decodes to the partition: vertex 0 in component 0, vertices 1--3 in component 1, vertex 4 in component 2. Cut edges: $\{#mwc_qubo_cut_indices.map(i => "(" + str(mwc_qubo_edges.at(i).at(0)) + "," + str(mwc_qubo_edges.at(i).at(1)) + ")").join(", ")\}$ with total weight #mwc_qubo_cut_indices.map(i => str(mwc_qubo_weights.at(i))).join(" + ") $= #mwc_qubo_cut_cost$ #sym.checkmark.
+  ],
+)[
+  The multiway cut problem requires a partition of vertices into $k$ components — one per terminal — minimizing the total weight of edges crossing components. The penalty method (@sec:penalty-method) encodes two constraints as QUBO penalties: (1) each vertex belongs to exactly one component (one-hot), and (2) each terminal is pinned to its own component. The cut-cost Hamiltonian counts edge weight across distinct components. Reference: @Heidari2022.
+][
+  _Construction._ Given $G = (V, E)$ with $n = |V|$, edge weights $w: E -> RR_(>0)$, and $k$ terminals $T = {t_0, ..., t_(k-1)}$. Introduce $n k$ binary variables $x_(u,t) in {0,1}$ (indexed by $u dot k + t$), where $x_(u,t) = 1$ means vertex $u$ is in terminal $t$'s component. Let $alpha = 1 + sum_(e in E) w(e)$.
+
+  The QUBO Hamiltonian is $H = H_A + H_B$ where:
+  $ H_A = alpha (sum_(u in V) (1 - sum_(t=0)^(k-1) x_(u,t))^2 + sum_(i=0)^(k-1) sum_(s != i) x_(t_i, s)) $
+  The first term is a _one-hot constraint_ ensuring each vertex is assigned to exactly one component. The second term _pins_ each terminal $t_i$ to position $i$ by penalizing any other assignment. Expanding the one-hot term using $x^2 = x$:
+  $ Q_(u k+t, u k+t) = -alpha, quad Q_(u k+s, u k+t) = 2 alpha quad (s < t) $
+  Terminal pinning adds $alpha$ to the diagonal $Q_(t_i k+s, t_i k+s)$ for $s != i$, canceling the one-hot incentive.
+
+  The cut-cost Hamiltonian:
+  $ H_B = sum_((u,v) in E) sum_(s != t) w(u,v) dot x_(u,s) dot x_(v,t) $
+  counts the total weight of edges whose endpoints lie in different components.
+
+  _Correctness._ ($arrow.r.double$) A valid multiway cut with cost $C$ maps to a QUBO solution with $H_A = 0$ (valid partition with correct terminal pinning) and $H_B = C$. ($arrow.l.double$) If $H_A > 0$, the penalty $alpha > sum_e w(e)$ exceeds the entire cut-cost range, so any QUBO minimizer has $H_A = 0$, encoding a valid partition. Among valid partitions, $H_B$ equals the cut cost, and the minimizer achieves the minimum multiway cut.
+
+  _Solution extraction._ For each vertex $u$, find terminal position $t$ with $x_(u,t) = 1$. For each edge $(u,v)$, output 1 (cut) if $u$ and $v$ are in different components, 0 otherwise.
 ]
 
 #let qubo_ilp = load-example("QUBO", "ILP")
