@@ -2821,7 +2821,7 @@ fn test_create_model_example_steiner_tree() {
 #[test]
 fn test_create_missing_model_example() {
     let output = pred()
-        .args(["create", "--example", "GraphPartitioning/SimpleGraph"])
+        .args(["create", "--example", "MaximumIndependentSet/KingsSubgraph/One"])
         .output()
         .unwrap();
     assert!(!output.status.success());
