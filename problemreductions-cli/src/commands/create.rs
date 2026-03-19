@@ -19,8 +19,8 @@ use problemreductions::models::misc::{
     MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, QueryArg,
     RectilinearPictureCompression, ResourceConstrainedScheduling,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedTardiness,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
-    ShortestCommonSupersequence, StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;

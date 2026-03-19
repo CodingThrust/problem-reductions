@@ -3520,15 +3520,13 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
-#{
   let x = load-model-example("SequencingToMinimizeWeightedTardiness")
   let lengths = x.instance.lengths
   let weights = x.instance.weights
   let deadlines = x.instance.deadlines
   let bound = x.instance.bound
   let njobs = lengths.len()
-  let sol = x.optimal.at(0)
-  let lehmer = sol.config
+  let lehmer = x.optimal_config
   let schedule = {
     let avail = range(njobs)
     let result = ()
@@ -3602,6 +3600,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("SequencingToMinimizeMaximumCumulativeCost")
   let costs = x.instance.costs
   let precs = x.instance.precedences
   let bound = x.instance.bound
@@ -3616,6 +3615,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     }
     result
   }
+  let prefix-sums = {
     let running = 0
     let result = ()
     for task in schedule {

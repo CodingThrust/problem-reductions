@@ -180,15 +180,14 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "sequencing_to_minimize_weighted_tardiness",
-        build: || {
-            let problem = SequencingToMinimizeWeightedTardiness::new(
-                vec![3, 4, 2, 5, 3],
-                vec![2, 3, 1, 4, 2],
-                vec![5, 8, 4, 15, 10],
-                13,
-            );
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 0, 2, 1, 0]])
-        },
+        instance: Box::new(SequencingToMinimizeWeightedTardiness::new(
+            vec![3, 4, 2, 5, 3],
+            vec![2, 3, 1, 4, 2],
+            vec![5, 8, 4, 15, 10],
+            13,
+        )),
+        optimal_config: vec![0, 0, 2, 1, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

@@ -32,9 +32,8 @@ pub use misc::{
     MultiprocessorScheduling, PaintShop, Partition, PrecedenceConstrainedScheduling, QueryArg,
     RectilinearPictureCompression, ResourceConstrainedScheduling,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedTardiness,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
-    ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
-    SumOfSquaresPartition, Term,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StaffScheduling, StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term,
 };
 pub use set::{
     ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
