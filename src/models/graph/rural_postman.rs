@@ -278,6 +278,37 @@ crate::declare_variants! {
     default sat RuralPostman<SimpleGraph, i32> => "2^num_vertices * num_vertices^2",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    use crate::topology::SimpleGraph;
+    // Issue #248 instance 1: hexagonal graph, 8 edges, E'={e0,e2,e4}, B=6
+    // Solution: hexagon cycle with all 6 unit-cost edges, config [1,1,1,1,1,1,0,0]
+    let graph = SimpleGraph::new(
+        6,
+        vec![
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 4),
+            (4, 5),
+            (5, 0),
+            (0, 3),
+            (1, 4),
+        ],
+    );
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "rural_postman",
+        instance: Box::new(RuralPostman::new(
+            graph,
+            vec![1, 1, 1, 1, 1, 1, 2, 2],
+            vec![0, 2, 4],
+            6,
+        )),
+        optimal_config: vec![1, 1, 1, 1, 1, 1, 0, 0],
+        optimal_value: serde_json::json!(true),
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/rural_postman.rs"]
 mod tests;

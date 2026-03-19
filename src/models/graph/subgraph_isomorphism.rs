@@ -183,6 +183,21 @@ crate::declare_variants! {
     default sat SubgraphIsomorphism => "num_host_vertices ^ num_pattern_vertices",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    use crate::topology::SimpleGraph;
+    // Host: K4, Pattern: K3 → map [0,1,2] preserves all edges
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "subgraph_isomorphism",
+        instance: Box::new(SubgraphIsomorphism::new(
+            SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+            SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]),
+        )),
+        optimal_config: vec![0, 1, 2],
+        optimal_value: serde_json::json!(true),
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/subgraph_isomorphism.rs"]
 mod tests;
