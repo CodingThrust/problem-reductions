@@ -1,16 +1,12 @@
 //! JSON export schema for example payloads.
 
-use crate::expr::Expr;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::ReductionGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
-
-pub const EXAMPLES_DIR_ENV: &str = "PROBLEMREDUCTIONS_EXAMPLES_DIR";
+use std::path::Path;
 
 /// One side (source or target) of a reduction.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -52,19 +48,6 @@ pub struct ProblemRef {
     pub variant: BTreeMap<String, String>,
 }
 
-/// One output field mapped to an expression.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct OverheadEntry {
-    pub field: String,
-    #[serde(skip_deserializing, default = "default_expr")]
-    pub expr: Expr,
-    pub formula: String,
-}
-
-fn default_expr() -> Expr {
-    Expr::Const(0.0)
-}
-
 /// One source↔target solution pair.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SolutionPair {
@@ -77,36 +60,36 @@ pub struct SolutionPair {
 pub struct RuleExample {
     pub source: ProblemSide,
     pub target: ProblemSide,
-    pub overhead: Vec<OverheadEntry>,
     pub solutions: Vec<SolutionPair>,
 }
 
-/// A complete model example: instance + evaluations.
+/// A complete model example: instance + known optimal solution.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ModelExample {
     pub problem: String,
     pub variant: BTreeMap<String, String>,
     pub instance: serde_json::Value,
-    pub samples: Vec<SampleEval>,
-    pub optimal: Vec<SampleEval>,
+    pub optimal_config: Vec<usize>,
+    pub optimal_value: serde_json::Value,
 }
 
 impl ModelExample {
-    /// Build a serializable model example from a typed problem plus evaluated configs.
-    pub fn from_problem<P>(problem: &P, samples: Vec<SampleEval>, optimal: Vec<SampleEval>) -> Self
-    where
-        P: Problem + Serialize,
-    {
+    pub fn new(
+        problem: &str,
+        variant: BTreeMap<String, String>,
+        instance: serde_json::Value,
+        optimal_config: Vec<usize>,
+        optimal_value: serde_json::Value,
+    ) -> Self {
         Self {
-            problem: P::NAME.to_string(),
-            variant: variant_to_map(P::variant()),
-            instance: serde_json::to_value(problem).expect("Failed to serialize problem instance"),
-            samples,
-            optimal,
+            problem: problem.to_string(),
+            variant,
+            instance,
+            optimal_config,
+            optimal_value,
         }
     }
 
-    /// Extract the structural identity of this model example.
     pub fn problem_ref(&self) -> ProblemRef {
         ProblemRef {
             name: self.problem.clone(),
@@ -118,36 +101,20 @@ impl ModelExample {
 /// Canonical exported database of rule examples.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct RuleDb {
-    pub version: u32,
     pub rules: Vec<RuleExample>,
 }
 
 /// Canonical exported database of model examples.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ModelDb {
-    pub version: u32,
     pub models: Vec<ModelExample>,
 }
 
-pub const EXAMPLE_DB_VERSION: u32 = 1;
-
+/// Canonical exported database of model and rule examples.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct SampleEval {
-    pub config: Vec<usize>,
-    pub metric: serde_json::Value,
-}
-
-/// Convert a `ReductionOverhead` to JSON-serializable entries.
-pub fn overhead_to_json(overhead: &ReductionOverhead) -> Vec<OverheadEntry> {
-    overhead
-        .output_size
-        .iter()
-        .map(|(field, expr)| OverheadEntry {
-            field: field.to_string(),
-            formula: expr.to_string(),
-            expr: expr.clone(),
-        })
-        .collect()
+pub struct ExampleDb {
+    pub models: Vec<ModelExample>,
+    pub rules: Vec<RuleExample>,
 }
 
 /// Look up `ReductionOverhead` for a direct reduction using `ReductionGraph::find_best_entry`.
@@ -181,19 +148,40 @@ pub fn variant_to_map(variant: Vec<(&str, &str)>) -> BTreeMap<String, String> {
         .collect()
 }
 
-/// Default output directory for generated example JSON.
-pub fn examples_output_dir() -> PathBuf {
-    if let Some(dir) = env::var_os(EXAMPLES_DIR_ENV) {
-        PathBuf::from(dir)
-    } else {
-        PathBuf::from("docs/paper/examples/generated")
-    }
-}
-
 fn write_json_file<T: Serialize>(dir: &Path, name: &str, payload: &T) {
     fs::create_dir_all(dir).expect("Failed to create examples directory");
     let path = dir.join(format!("{name}.json"));
     let json = serde_json::to_string_pretty(payload).expect("Failed to serialize example");
+    fs::write(&path, json).expect("Failed to write example JSON");
+    println!("Exported: {}", path.display());
+}
+
+fn render_compact_array<T: Serialize>(items: &[T]) -> String {
+    if items.is_empty() {
+        "[]".to_string()
+    } else {
+        let rows = items
+            .iter()
+            .map(|item| {
+                format!(
+                    "    {}",
+                    serde_json::to_string(item).expect("Failed to serialize example entry")
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",\n");
+        format!("[\n{rows}\n  ]")
+    }
+}
+
+fn write_example_db_file(dir: &Path, db: &ExampleDb) {
+    fs::create_dir_all(dir).expect("Failed to create examples directory");
+    let path = dir.join("examples.json");
+    let json = format!(
+        "{{\n  \"models\": {},\n  \"rules\": {}\n}}\n",
+        render_compact_array(&db.models),
+        render_compact_array(&db.rules)
+    );
     fs::write(&path, json).expect("Failed to write example JSON");
     println!("Exported: {}", path.display());
 }
@@ -203,29 +191,24 @@ pub fn write_rule_example_to(dir: &Path, name: &str, example: &RuleExample) {
     write_json_file(dir, name, example);
 }
 
-/// Write a merged rule example JSON file to the configured output directory.
-pub fn write_rule_example(name: &str, example: &RuleExample) {
-    write_rule_example_to(&examples_output_dir(), name, example);
-}
-
 /// Write a model example JSON file to a target directory.
 pub fn write_model_example_to(dir: &Path, name: &str, example: &ModelExample) {
     write_json_file(dir, name, example);
 }
 
-/// Write a model example JSON file to the configured output directory.
-pub fn write_model_example(name: &str, example: &ModelExample) {
-    write_model_example_to(&examples_output_dir(), name, example);
-}
-
-/// Write the canonical rule database to `rules.json`.
+/// Write the canonical rule database as a wrapped JSON object.
 pub fn write_rule_db_to(dir: &Path, db: &RuleDb) {
     write_json_file(dir, "rules", db);
 }
 
-/// Write the canonical model database to `models.json`.
+/// Write the canonical model database as a wrapped JSON object.
 pub fn write_model_db_to(dir: &Path, db: &ModelDb) {
     write_json_file(dir, "models", db);
+}
+
+/// Write the canonical example database as a wrapped JSON object.
+pub fn write_example_db_to(dir: &Path, db: &ExampleDb) {
+    write_example_db_file(dir, db);
 }
 
 #[cfg(test)]

@@ -168,6 +168,7 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for Satisfiability {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
     use crate::models::formula::CNFClause;
 
     fn sat_seven_clause_example() -> Satisfiability {
@@ -188,13 +189,17 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "satisfiability_to_maximumindependentset",
         build: || {
-            crate::example_db::specs::direct_best_example::<
+            crate::example_db::specs::rule_example_with_witness::<
                 _,
                 MaximumIndependentSet<SimpleGraph, One>,
-                _,
             >(
                 sat_seven_clause_example(),
-                crate::example_db::specs::keep_bool_source,
+                SolutionPair {
+                    source_config: vec![1, 1, 1, 1, 0],
+                    target_config: vec![
+                        1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0,
+                    ],
+                },
             )
         },
     }]
