@@ -10,6 +10,7 @@
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
 //! - [`MinimumTardinessSequencing`]: Minimize tardy tasks in single-machine scheduling
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
+//! - [`PartiallyOrderedKnapsack`]: Knapsack with precedence constraints
 //! - [`PrecedenceConstrainedScheduling`]: Schedule unit tasks on processors by deadline
 //! - [`RectilinearPictureCompression`]: Cover 1-entries with bounded rectangles
 //! - [`SequencingWithReleaseTimesAndDeadlines`]: Single-machine scheduling feasibility
@@ -28,6 +29,7 @@ mod longest_common_subsequence;
 mod minimum_tardiness_sequencing;
 mod multiprocessor_scheduling;
 pub(crate) mod paintshop;
+pub(crate) mod partially_ordered_knapsack;
 mod precedence_constrained_scheduling;
 mod rectilinear_picture_compression;
 mod sequencing_with_release_times_and_deadlines;
@@ -47,6 +49,7 @@ pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use multiprocessor_scheduling::MultiprocessorScheduling;
 pub use paintshop::PaintShop;
+pub use partially_ordered_knapsack::PartiallyOrderedKnapsack;
 pub use precedence_constrained_scheduling::PrecedenceConstrainedScheduling;
 pub use rectilinear_picture_compression::RectilinearPictureCompression;
 pub use sequencing_with_release_times_and_deadlines::SequencingWithReleaseTimesAndDeadlines;
@@ -69,6 +72,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(sequencing_within_intervals::canonical_model_example_specs());
     specs.extend(staff_scheduling::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
+    specs.extend(partially_ordered_knapsack::canonical_model_example_specs());
     specs.extend(string_to_string_correction::canonical_model_example_specs());
     specs.extend(minimum_tardiness_sequencing::canonical_model_example_specs());
     specs.extend(sum_of_squares_partition::canonical_model_example_specs());
