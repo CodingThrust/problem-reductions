@@ -260,6 +260,7 @@ Flags by problem type:
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
   ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
+  PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   QAP                             --matrix (cost), --distance-matrix
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
@@ -473,6 +474,12 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Item values (e.g., 3,4,5,7) for PartiallyOrderedKnapsack
+    #[arg(long)]
+    pub values: Option<String>,
+    /// Precedence pairs (e.g., "0>2,0>3,1>4") for PartiallyOrderedKnapsack
+    #[arg(long, alias = "item-precedences")]
+    pub precedences: Option<String>,
     /// Distance matrix for QuadraticAssignment (semicolon-separated rows, e.g., "0,1,2;1,0,1;2,1,0")
     #[arg(long)]
     pub distance_matrix: Option<String>,

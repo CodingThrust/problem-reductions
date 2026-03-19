@@ -24,6 +24,7 @@ pub use graph::{
     StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
     UndirectedTwoCommodityIntegralFlow,
 };
+pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
     BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
     MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
