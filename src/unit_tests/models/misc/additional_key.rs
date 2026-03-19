@@ -33,6 +33,12 @@ fn test_additional_key_creation() {
     assert_eq!(problem.dims(), vec![2, 2, 2, 2, 2, 2]);
     assert_eq!(<AdditionalKey as Problem>::NAME, "AdditionalKey");
     assert_eq!(<AdditionalKey as Problem>::variant(), vec![]);
+    // Data getters
+    assert_eq!(problem.dependencies().len(), 5);
+    assert_eq!(problem.dependencies()[0], (vec![0, 1], vec![2, 3]));
+    assert_eq!(problem.relation_attrs(), &[0, 1, 2, 3, 4, 5]);
+    assert_eq!(problem.known_keys().len(), 3);
+    assert_eq!(problem.known_keys()[0], vec![0, 1]);
 }
 
 #[test]
