@@ -173,12 +173,6 @@ class PipelineBoardPollTests(unittest.TestCase):
             self.assertEqual(repo, "CodingThrust/problem-reductions")
             return 570 if issue_number == 117 else None
 
-        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            self.assertEqual(repo, "CodingThrust/problem-reductions")
-            if pr_number == 570:
-                return [{"user": {"login": "copilot-pull-request-reviewer[bot]"}}]
-            return []
-
         def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
             self.assertEqual(repo, "CodingThrust/problem-reductions")
             self.assertEqual(pr_number, 570)
@@ -191,16 +185,12 @@ class PipelineBoardPollTests(unittest.TestCase):
                 {"items": [make_issue_item("PVTI_10", 117, status="Review pool")]},
                 state_file,
                 repo="CodingThrust/problem-reductions",
-                review_fetcher=fake_review_fetcher,
                 pr_resolver=fake_pr_resolver,
                 pr_state_fetcher=fake_pr_state_fetcher,
             )
             self.assertEqual((item_id, number), ("PVTI_10", 570))
 
     def test_review_queue_skips_closed_pr_cards(self) -> None:
-        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            return [{"user": {"login": "copilot-pull-request-reviewer[bot]"}}]
-
         def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
             self.assertEqual(repo, "CodingThrust/problem-reductions")
             self.assertEqual(pr_number, 570)
@@ -213,7 +203,6 @@ class PipelineBoardPollTests(unittest.TestCase):
                 {"items": [make_pr_item("PVTI_10", 570)]},
                 state_file,
                 repo="CodingThrust/problem-reductions",
-                review_fetcher=fake_review_fetcher,
                 pr_state_fetcher=fake_pr_state_fetcher,
             )
             self.assertIsNone(no_item)
@@ -381,12 +370,12 @@ class PipelineBoardRecoveryTests(unittest.TestCase):
         issues = [make_issue(101, labels=["Good"])]
         prs = [make_pr(615, state="MERGED", merged=True)]
 
-        plan = build_recovery_plan(board_data, issues, prs, pr_reviews={})
+        plan = build_recovery_plan(board_data, issues, prs)
 
         self.assertEqual(len(plan), 1)
         self.assertEqual(plan[0]["proposed_status"], STATUS_DONE)
 
-    def test_recovery_plan_marks_green_copilot_reviewed_prs_final_review(self) -> None:
+    def test_recovery_plan_marks_green_open_prs_final_review(self) -> None:
         board_data = {
             "items": [
                 make_issue_item(
@@ -400,13 +389,13 @@ class PipelineBoardRecoveryTests(unittest.TestCase):
         }
         issues = [make_issue(101, labels=["Good"])]
         prs = [make_pr(621, checks=[success_check()])]
-        pr_reviews = {621: [{"user": {"login": "copilot-pull-request-reviewer[bot]"}}]}
 
-        plan = build_recovery_plan(board_data, issues, prs, pr_reviews=pr_reviews)
+        plan = build_recovery_plan(board_data, issues, prs)
 
         self.assertEqual(plan[0]["proposed_status"], STATUS_FINAL_REVIEW)
+        self.assertIn("green open PR", plan[0]["reason"])
 
-    def test_recovery_plan_marks_open_pr_without_copilot_review_review_pool(self) -> None:
+    def test_recovery_plan_marks_open_pr_with_failing_checks_review_pool(self) -> None:
         board_data = {
             "items": [
                 make_issue_item(
@@ -419,9 +408,9 @@ class PipelineBoardRecoveryTests(unittest.TestCase):
             ]
         }
         issues = [make_issue(101, labels=["Good"])]
-        prs = [make_pr(192, checks=[success_check()])]
+        prs = [make_pr(192, checks=[])]  # no checks → not green
 
-        plan = build_recovery_plan(board_data, issues, prs, pr_reviews={192: []})
+        plan = build_recovery_plan(board_data, issues, prs)
 
         self.assertEqual(plan[0]["proposed_status"], STATUS_REVIEW_POOL)
 
@@ -438,7 +427,7 @@ class PipelineBoardRecoveryTests(unittest.TestCase):
         }
         issues = [make_issue(101, labels=["Good"])]
 
-        plan = build_recovery_plan(board_data, issues, prs=[], pr_reviews={})
+        plan = build_recovery_plan(board_data, issues, prs=[])
 
         self.assertEqual(plan[0]["proposed_status"], STATUS_READY)
 
@@ -495,11 +484,6 @@ class PipelineBoardOutputTests(unittest.TestCase):
     def test_claim_next_review_moves_selected_item_to_under_review(self) -> None:
         moves: list[tuple[str, str]] = []
 
-        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            self.assertEqual(repo, "CodingThrust/problem-reductions")
-            self.assertEqual(pr_number, 570)
-            return [{"user": {"login": "copilot-pull-request-reviewer[bot]"}}]
-
         def fake_pr_resolver(repo: str, issue_number: int) -> int | None:
             self.assertEqual(repo, "CodingThrust/problem-reductions")
             self.assertEqual(issue_number, 117)
@@ -529,7 +513,6 @@ class PipelineBoardOutputTests(unittest.TestCase):
                 },
                 state_file,
                 repo="CodingThrust/problem-reductions",
-                review_fetcher=fake_review_fetcher,
                 pr_resolver=fake_pr_resolver,
                 pr_state_fetcher=fake_pr_state_fetcher,
                 mover=fake_mover,
@@ -610,11 +593,6 @@ class PipelineBoardOutputTests(unittest.TestCase):
             self.assertEqual(issue_number, 117)
             return 570
 
-        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            self.assertEqual(repo, "CodingThrust/problem-reductions")
-            self.assertEqual(pr_number, 570)
-            return [{"user": {"login": "copilot-pull-request-reviewer[bot]"}}]
-
         def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
             self.assertEqual(repo, "CodingThrust/problem-reductions")
             self.assertEqual(pr_number, 570)
@@ -636,7 +614,6 @@ class PipelineBoardOutputTests(unittest.TestCase):
                 },
                 state_file,
                 repo="CodingThrust/problem-reductions",
-                review_fetcher=fake_review_fetcher,
                 pr_resolver=fake_pr_resolver,
                 pr_state_fetcher=fake_pr_state_fetcher,
             )
@@ -685,9 +662,6 @@ class PipelineBoardOutputTests(unittest.TestCase):
 
 class PipelineBoardReviewCandidateTests(unittest.TestCase):
     def test_review_candidates_report_ambiguous_issue_cards(self) -> None:
-        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            raise AssertionError("ambiguous cards should not fetch reviews")
-
         def fake_pr_resolver(repo: str, issue_number: int) -> int | None:
             raise AssertionError("ambiguous cards should not resolve by issue search")
 
@@ -715,7 +689,6 @@ class PipelineBoardReviewCandidateTests(unittest.TestCase):
                 ]
             },
             "CodingThrust/problem-reductions",
-            fake_review_fetcher,
             fake_pr_resolver,
             fake_pr_info_fetcher,
         )
@@ -748,12 +721,7 @@ class PipelineBoardReviewCandidateTests(unittest.TestCase):
             },
         )
 
-    def test_review_candidates_report_waiting_for_copilot(self) -> None:
-        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            self.assertEqual(repo, "CodingThrust/problem-reductions")
-            self.assertEqual(pr_number, 570)
-            return []
-
+    def test_review_candidates_report_eligible_for_open_pr(self) -> None:
         def fake_pr_resolver(repo: str, issue_number: int) -> int | None:
             self.assertEqual(repo, "CodingThrust/problem-reductions")
             self.assertEqual(issue_number, 117)
@@ -780,13 +748,12 @@ class PipelineBoardReviewCandidateTests(unittest.TestCase):
                 ]
             },
             "CodingThrust/problem-reductions",
-            fake_review_fetcher,
             fake_pr_resolver,
             fake_pr_info_fetcher,
         )
 
-        self.assertEqual(candidates[0]["eligibility"], "waiting-for-copilot")
-        self.assertEqual(candidates[0]["reason"], "open PR #570 waiting for Copilot review")
+        self.assertEqual(candidates[0]["eligibility"], "eligible")
+        self.assertEqual(candidates[0]["reason"], "open PR")
 
 
 class PipelineBoardStatusListTests(unittest.TestCase):
@@ -863,9 +830,6 @@ class ReviewCandidatesBatchTests(unittest.TestCase):
     def test_review_candidates_uses_batch_fetcher(self) -> None:
         """When batch_pr_fetcher is provided, individual fetchers are NOT called."""
 
-        def fail_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            raise AssertionError("should not be called when batch is available")
-
         def fail_pr_info_fetcher(repo: str, pr_number: int) -> dict:
             raise AssertionError("should not be called when batch is available")
 
@@ -878,12 +842,7 @@ class ReviewCandidatesBatchTests(unittest.TestCase):
                     "state": "OPEN",
                     "title": "Fix #117",
                     "url": "https://github.com/o/r/pull/570",
-                    "reviews": [
-                        {
-                            "author": {"login": "copilot-pull-request-reviewer"},
-                            "state": "COMMENTED",
-                        },
-                    ],
+                    "reviews": [],
                 }
             }
 
@@ -894,7 +853,6 @@ class ReviewCandidatesBatchTests(unittest.TestCase):
                 ]
             },
             "CodingThrust/problem-reductions",
-            fail_review_fetcher,
             None,
             fail_pr_info_fetcher,
             batch_pr_fetcher=fake_batch_pr_fetcher,
@@ -910,14 +868,6 @@ class ReviewCandidatesBatchTests(unittest.TestCase):
         def fake_pr_resolver(repo: str, issue_number: int) -> int | None:
             resolve_called.append(issue_number)
             return 580
-
-        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            return [
-                {
-                    "author": {"login": "copilot-pull-request-reviewer"},
-                    "state": "COMMENTED",
-                }
-            ]
 
         def fake_pr_info_fetcher(repo: str, pr_number: int) -> dict:
             return {"number": 580, "state": "OPEN", "title": "Fix #120"}
@@ -937,7 +887,6 @@ class ReviewCandidatesBatchTests(unittest.TestCase):
                 ]
             },
             "CodingThrust/problem-reductions",
-            fake_review_fetcher,
             fake_pr_resolver,
             fake_pr_info_fetcher,
             batch_pr_fetcher=fake_batch_pr_fetcher,
@@ -953,10 +902,6 @@ class ReviewEntriesBatchTests(unittest.TestCase):
         """review_entries should use batch_pr_fetcher and skip individual calls."""
         individual_called: list[int] = []
 
-        def fail_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            individual_called.append(pr_number)
-            raise AssertionError("should not be called when batch cache has the PR")
-
         def fail_pr_state_fetcher(repo: str, pr_number: int) -> str:
             individual_called.append(pr_number)
             raise AssertionError("should not be called when batch cache has the PR")
@@ -969,19 +914,13 @@ class ReviewEntriesBatchTests(unittest.TestCase):
                     "number": 570,
                     "state": "OPEN",
                     "title": "Fix #117",
-                    "reviews": [
-                        {
-                            "author": {"login": "copilot-pull-request-reviewer"},
-                            "state": "COMMENTED",
-                        },
-                    ],
+                    "reviews": [],
                 }
             }
 
         entries = review_entries(
             {"items": [make_pr_item("PVTI_1", 570, status="Review pool")]},
             "CodingThrust/problem-reductions",
-            fail_review_fetcher,
             None,
             fail_pr_state_fetcher,
             batch_pr_fetcher=fake_batch_pr_fetcher,
@@ -993,22 +932,13 @@ class ReviewEntriesBatchTests(unittest.TestCase):
         self.assertEqual(individual_called, [])
 
     def test_review_entries_falls_back_without_batch(self) -> None:
-        """Without batch_pr_fetcher, individual fetchers are used."""
-        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
-            return [
-                {
-                    "author": {"login": "copilot-pull-request-reviewer"},
-                    "state": "COMMENTED",
-                }
-            ]
-
+        """Without batch_pr_fetcher, individual pr_state_fetcher is used."""
         def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
             return "OPEN"
 
         entries = review_entries(
             {"items": [make_pr_item("PVTI_1", 570, status="Review pool")]},
             "CodingThrust/problem-reductions",
-            fake_review_fetcher,
             None,
             fake_pr_state_fetcher,
         )

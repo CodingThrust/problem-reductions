@@ -2,8 +2,8 @@ name: Community Call Reminder
 
 on:
   schedule:
-    # Every Tuesday at 00:00 UTC = 08:00 HKT (2 hours before 10:00 HKT call)
-    - cron: '0 0 * * 2'
+    # Every Monday at 02:00 UTC = exactly 24 hours before Tuesday 10:00 HKT (02:00 UTC)
+    - cron: '0 2 * * 1'
   workflow_dispatch: # Manual trigger for testing
 
 jobs:
@@ -13,7 +13,7 @@ jobs:
       - name: Collect agenda from project board
         id: agenda
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROJECT_READ_TOKEN }}
         run: |
           # Fetch issues in "Review pool", "Final review", and "Ready" columns
           QUERY='query {
@@ -64,9 +64,27 @@ jobs:
 
           {
             echo 'AGENDA<<EOF'
-            build_section "Review pool" "Ready for review"
-            build_section "Final review" "Final review"
-            build_section "Ready" "Up next"
+            build_section "OnHold" "On hold"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Collect closed issues from last week
+        id: closed
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_READ_TOKEN }}
+        run: |
+          SINCE=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          ITEMS=$(gh issue list --repo "$GITHUB_REPOSITORY" --state closed \
+            --search "closed:>=$SINCE" --json number,title,url,author \
+            --jq '.[] | "- [#\(.number)](\(.url)) \(.title) (by @\(.author.login))"')
+
+          {
+            echo 'CLOSED<<EOF'
+            if [ -n "$ITEMS" ]; then
+              echo "**Closed this week:**"
+              echo "$ITEMS"
+              echo ""
+            fi
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
@@ -75,16 +93,19 @@ jobs:
           ZULIP_BOT_EMAIL: ${{ secrets.ZULIP_BOT_EMAIL }}
           ZULIP_BOT_API_KEY: ${{ secrets.ZULIP_BOT_API_KEY }}
         run: |
-          TODAY=$(TZ=Asia/Hong_Kong date +%Y-%m-%d)
+          TOMORROW=$(TZ=Asia/Hong_Kong date -d '+1 day' +%Y-%m-%d)
           CALL_TIME="10:00 HKT (UTC+8)"
 
-          TOPIC="Community Call ${TODAY}"
+          TOPIC="Community Call ${TOMORROW}"
 
-          BODY="**Community Call — ${TODAY} at ${CALL_TIME}**
+          BODY="**Community Call — ${TOMORROW} at ${CALL_TIME}**
 
           **Join:** ${{ secrets.CALL_LINK }}
 
+          **Latest documentation:** [reductions.pdf](https://codingthrust.github.io/problem-reductions/reductions.pdf)
+
           ## Agenda
+          ${{ steps.closed.outputs.CLOSED }}
           ${{ steps.agenda.outputs.AGENDA }}
           **Open discussion** — bring your questions and ideas!
 
@@ -95,6 +116,6 @@ jobs:
           curl -s -X POST "https://problem-reductions.zulipchat.com/api/v1/messages" \
             -u "${ZULIP_BOT_EMAIL}:${ZULIP_BOT_API_KEY}" \
             --data-urlencode "type=stream" \
-            --data-urlencode "to=community-calls" \
+            --data-urlencode "to=community-call" \
             --data-urlencode "topic=${TOPIC}" \
             --data-urlencode "content=${BODY}"

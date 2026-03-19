@@ -9,20 +9,31 @@ pub mod misc;
 pub mod set;
 
 // Re-export commonly used types
-pub use algebraic::{ClosestVectorProblem, BMF, ILP, QUBO};
+pub use algebraic::{
+    ClosestVectorProblem, ConsecutiveOnesSubmatrix, QuadraticAssignment, BMF, ILP, QUBO,
+};
 pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
-    BicliqueCover, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
-    GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, KColoring,
+    BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
+    BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GraphPartitioning,
+    HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KColoring, KthBestSpanningTree,
     LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
     MaximumMatching, MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
-    MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching, OptimalLinearArrangement,
-    PartitionIntoTriangles, RuralPostman, SpinGlass, SteinerTree, SubgraphIsomorphism,
-    TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
+    MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
+    OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, SpinGlass, SteinerTree,
+    StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
+    UndirectedTwoCommodityIntegralFlow,
 };
+pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
-    BinPacking, ConjunctiveQueryFoldability, Factoring, FlowShopScheduling, Knapsack,
-    LongestCommonSubsequence, MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals,
-    ShortestCommonSupersequence, SubsetSum, Term,
+    BinPacking, CbqRelation, ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, Factoring,
+    FlowShopScheduling, Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing,
+    MultiprocessorScheduling, PaintShop, PrecedenceConstrainedScheduling, QueryArg,
+    RectilinearPictureCompression, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term,
 };
-pub use set::{ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis};
+pub use set::{
+    ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
+    MinimumCardinalityKey, MinimumSetCovering, PrimeAttributeName, SetBasis,
+};

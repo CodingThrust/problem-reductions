@@ -322,45 +322,34 @@ crate::declare_variants! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    // YES instance: triangle + self-loop folds to lollipop.
+    //
+    // Q1: R(x, u) ∧ R(u, v) ∧ R(v, x) ∧ R(u, u)
+    // Q2: R(x, a) ∧ R(a, a) ∧ R(a, x)
+    //
+    // The substitution σ: U(0) → U(2), U(1) → U(2), U(2) → U(2)
+    // maps Q1 → Q2 (as a set). Config = [3, 3, 3].
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "conjunctive_query_foldability",
-        build: || {
-            use crate::example_db::specs::satisfaction_example;
-            // YES instance: triangle + self-loop folds to lollipop.
-            //
-            // Q1: R(x, u) ∧ R(u, v) ∧ R(v, x) ∧ R(u, u)
-            // Q2: R(x, a) ∧ R(a, a) ∧ R(a, x)
-            //
-            // domain_size = 0, num_distinguished = 1 (x = X(0)),
-            // num_undistinguished = 3  (u = U(0), v = U(1), a = U(2))
-            //
-            // The substitution σ: U(0) → U(2), U(1) → U(2), U(2) → U(2)
-            // maps Q1 → { R(x,a), R(a,a), R(a,x), R(a,a) } = Q2 (as a set).
-            //
-            // Config encoding:
-            //   range = domain_size + num_distinguished + num_undistinguished = 0 + 1 + 3 = 4
-            //   U(2) has encoded index = 0 + 1 + 2 = 3
-            //   config = [3, 3, 3]
-            let problem = ConjunctiveQueryFoldability::new(
-                0,       // domain_size
-                1,       // num_distinguished (x)
-                3,       // num_undistinguished (u, v, a)
-                vec![2], // one binary relation R
-                vec![
-                    (0, vec![Term::Distinguished(0), Term::Undistinguished(0)]), // R(x, u)
-                    (0, vec![Term::Undistinguished(0), Term::Undistinguished(1)]), // R(u, v)
-                    (0, vec![Term::Undistinguished(1), Term::Distinguished(0)]), // R(v, x)
-                    (0, vec![Term::Undistinguished(0), Term::Undistinguished(0)]), // R(u, u)
-                ],
-                vec![
-                    (0, vec![Term::Distinguished(0), Term::Undistinguished(2)]), // R(x, a)
-                    (0, vec![Term::Undistinguished(2), Term::Undistinguished(2)]), // R(a, a)
-                    (0, vec![Term::Undistinguished(2), Term::Distinguished(0)]), // R(a, x)
-                ],
-            );
-            // Satisfying config: U(0)→U(2), U(1)→U(2), U(2)→U(2) = [3, 3, 3]
-            satisfaction_example(problem, vec![vec![3, 3, 3]])
-        },
+        instance: Box::new(ConjunctiveQueryFoldability::new(
+            0,       // domain_size
+            1,       // num_distinguished (x)
+            3,       // num_undistinguished (u, v, a)
+            vec![2], // one binary relation R
+            vec![
+                (0, vec![Term::Distinguished(0), Term::Undistinguished(0)]), // R(x, u)
+                (0, vec![Term::Undistinguished(0), Term::Undistinguished(1)]), // R(u, v)
+                (0, vec![Term::Undistinguished(1), Term::Distinguished(0)]), // R(v, x)
+                (0, vec![Term::Undistinguished(0), Term::Undistinguished(0)]), // R(u, u)
+            ],
+            vec![
+                (0, vec![Term::Distinguished(0), Term::Undistinguished(2)]), // R(x, a)
+                (0, vec![Term::Undistinguished(2), Term::Undistinguished(2)]), // R(a, a)
+                (0, vec![Term::Undistinguished(2), Term::Distinguished(0)]), // R(a, x)
+            ],
+        )),
+        optimal_config: vec![3, 3, 3],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

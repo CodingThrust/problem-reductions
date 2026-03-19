@@ -117,7 +117,7 @@ impl<G: Graph> GraphCast<SimpleGraph> for G {
 /// assert!(graph.has_edge(0, 1));
 /// assert!(!graph.has_edge(0, 2));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct SimpleGraph {
     inner: UnGraph<(), ()>,
 }
@@ -277,6 +277,29 @@ impl PartialEq for SimpleGraph {
 }
 
 impl Eq for SimpleGraph {}
+
+impl Serialize for SimpleGraph {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("SimpleGraph", 2)?;
+        state.serialize_field("num_vertices", &self.num_vertices())?;
+        let edges: Vec<(usize, usize)> = self.edges();
+        state.serialize_field("edges", &edges)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for SimpleGraph {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        struct GraphData {
+            num_vertices: usize,
+            edges: Vec<(usize, usize)>,
+        }
+        let data = GraphData::deserialize(deserializer)?;
+        Ok(SimpleGraph::new(data.num_vertices, data.edges))
+    }
+}
 
 use crate::impl_variant_param;
 impl_variant_param!(SimpleGraph, "graph");

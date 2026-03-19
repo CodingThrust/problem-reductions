@@ -13,7 +13,6 @@ from project_board_recover import (
     STATUS_REVIEW_POOL,
     all_checks_green,
     build_recovery_plan,
-    has_copilot_review,
     infer_issue_status,
 )
 
@@ -87,29 +86,18 @@ class ProjectBoardRecoverTests(unittest.TestCase):
         self.assertFalse(all_checks_green(pending))
         self.assertFalse(all_checks_green(failing))
 
-    def test_has_copilot_review_detects_bot_review(self) -> None:
-        self.assertTrue(
-            has_copilot_review(
-                [
-                    {"author": {"login": "copilot-pull-request-reviewer"}},
-                    {"author": {"login": "someone-else"}},
-                ]
-            )
-        )
-        self.assertFalse(has_copilot_review([{"author": {"login": "someone-else"}}]))
-
     def test_closed_issue_recovers_to_done(self) -> None:
-        status, reason = infer_issue_status(make_issue(10, state="CLOSED"), [], {})
+        status, reason = infer_issue_status(make_issue(10, state="CLOSED"), [])
         self.assertEqual(status, STATUS_DONE)
         self.assertIn("closed", reason)
 
     def test_good_issue_without_pr_recovers_to_ready(self) -> None:
-        status, reason = infer_issue_status(make_issue(10, labels=["Good"]), [], {})
+        status, reason = infer_issue_status(make_issue(10, labels=["Good"]), [])
         self.assertEqual(status, STATUS_READY)
         self.assertIn("Good", reason)
 
     def test_unchecked_issue_without_pr_recovers_to_backlog(self) -> None:
-        status, reason = infer_issue_status(make_issue(10), [], {})
+        status, reason = infer_issue_status(make_issue(10), [])
         self.assertEqual(status, STATUS_BACKLOG)
         self.assertIn("no linked PR", reason)
 
@@ -117,22 +105,20 @@ class ProjectBoardRecoverTests(unittest.TestCase):
         status, reason = infer_issue_status(
             make_issue(10, labels=["PoorWritten", "Wrong"]),
             [],
-            {},
         )
         self.assertEqual(status, STATUS_BACKLOG)
         self.assertIn("failure", reason)
 
-    def test_issue_with_open_pr_without_copilot_review_recovers_to_review_pool(self) -> None:
+    def test_issue_with_open_pr_no_green_checks_recovers_to_review_pool(self) -> None:
         pr = make_pr(200)
         status, reason = infer_issue_status(
             make_issue(10, labels=["Good"]),
             [pr],
-            {200: []},
         )
         self.assertEqual(status, STATUS_REVIEW_POOL)
-        self.assertIn("waiting for Copilot", reason)
+        self.assertIn("still implementing", reason)
 
-    def test_issue_with_green_open_pr_after_copilot_review_recovers_to_final_review(self) -> None:
+    def test_issue_with_green_open_pr_recovers_to_final_review(self) -> None:
         pr = make_pr(
             200,
             checks=[
@@ -146,12 +132,11 @@ class ProjectBoardRecoverTests(unittest.TestCase):
         status, reason = infer_issue_status(
             make_issue(10, labels=["Good"]),
             [pr],
-            {200: [{"author": {"login": "copilot-pull-request-reviewer"}}]},
         )
         self.assertEqual(status, STATUS_FINAL_REVIEW)
-        self.assertIn("Copilot reviewed", reason)
+        self.assertIn("green open PR", reason)
 
-    def test_issue_with_non_green_open_pr_after_copilot_review_stays_in_review_pool(self) -> None:
+    def test_issue_with_non_green_open_pr_stays_in_review_pool(self) -> None:
         pr = make_pr(
             200,
             checks=[
@@ -165,14 +150,13 @@ class ProjectBoardRecoverTests(unittest.TestCase):
         status, reason = infer_issue_status(
             make_issue(10, labels=["Good"]),
             [pr],
-            {200: [{"author": {"login": "copilot-pull-request-reviewer"}}]},
         )
         self.assertEqual(status, STATUS_REVIEW_POOL)
-        self.assertIn("implementing", reason)
+        self.assertIn("still implementing", reason)
 
     def test_issue_with_closed_unmerged_pr_falls_back_to_backlog(self) -> None:
         pr = make_pr(200, state="CLOSED")
-        status, reason = infer_issue_status(make_issue(10), [pr], {200: []})
+        status, reason = infer_issue_status(make_issue(10), [pr])
         self.assertEqual(status, STATUS_BACKLOG)
         self.assertIn("default", reason)
 
@@ -197,7 +181,6 @@ class ProjectBoardRecoverTests(unittest.TestCase):
                 make_issue(11, labels=["Good"]) | {"title": "Meta task"},
             ],
             [],
-            {},
         )
         self.assertEqual([entry["issue_number"] for entry in plan], [10])
 

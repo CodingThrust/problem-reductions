@@ -325,6 +325,7 @@ impl ReduceTo<KColoring<K3, SimpleGraph>> for Satisfiability {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
     use crate::models::formula::{CNFClause, Satisfiability};
 
     vec![crate::example_db::specs::RuleExampleSpec {
@@ -338,9 +339,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     CNFClause::new(vec![5]),
                 ],
             );
-            crate::example_db::specs::direct_satisfying_example::<_, KColoring<K3, SimpleGraph>, _>(
+            crate::example_db::specs::rule_example_with_witness::<_, KColoring<K3, SimpleGraph>>(
                 source,
-                |_, _| true,
+                SolutionPair {
+                    source_config: vec![1, 1, 0, 1, 1],
+                    target_config: vec![2, 1, 0, 2, 2, 1, 2, 2, 1, 1, 2, 1, 1],
+                },
             )
         },
     }]
