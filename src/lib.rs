@@ -42,25 +42,36 @@ pub mod variant;
 /// Prelude module for convenient imports.
 pub mod prelude {
     // Problem types
-    pub use crate::models::algebraic::{BMF, QUBO};
+    pub use crate::models::algebraic::{QuadraticAssignment, BMF, QUBO};
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
     pub use crate::models::graph::{
-        BicliqueCover, GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, SpinGlass,
-        SteinerTree, SubgraphIsomorphism,
+        BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
+        BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
+        GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree,
+        KthBestSpanningTree, LengthBoundedDisjointPaths, SpinGlass, SteinerTree,
+        StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-        MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
-        MinimumSumMulticenter, MinimumVertexCover, OptimalLinearArrangement,
+        MinimumCutIntoBoundedSets, MinimumDominatingSet, MinimumFeedbackArcSet,
+        MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover,
+        MultipleChoiceBranching, OptimalLinearArrangement, PartitionIntoPathsOfLength2,
         PartitionIntoTriangles, RuralPostman, TravelingSalesman,
+        UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
-        BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-        MinimumTardinessSequencing, PaintShop, SequencingToMinimizeWeightedTardiness,
-        ShortestCommonSupersequence, SubsetSum,
+        AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation,
+        ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, Factoring, FlowShopScheduling,
+        Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
+        PaintShop, Partition, QueryArg, RectilinearPictureCompression,
+        ResourceConstrainedScheduling, SequencingToMinimizeMaximumCumulativeCost,
+        SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
+        SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
+        StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term,
     };
     pub use crate::models::set::{
-        ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis,
+        ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
+        MinimumCardinalityKey, MinimumSetCovering, PrimeAttributeName, SetBasis,
     };
 
     // Core traits
@@ -95,14 +106,14 @@ pub use inventory;
 #[path = "unit_tests/graph_models.rs"]
 mod test_graph_models;
 #[cfg(test)]
+#[path = "unit_tests/prelude.rs"]
+mod test_prelude;
+#[cfg(test)]
 #[path = "unit_tests/property.rs"]
 mod test_property;
 #[cfg(test)]
 #[path = "unit_tests/reduction_graph.rs"]
 mod test_reduction_graph;
-#[cfg(test)]
-#[path = "unit_tests/trait_consistency.rs"]
-mod test_trait_consistency;
 #[cfg(test)]
 #[path = "unit_tests/unitdiskmapping_algorithms/mod.rs"]
 mod test_unitdiskmapping_algorithms;

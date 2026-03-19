@@ -16,8 +16,8 @@ fn check_problem_trait<P: Problem>(problem: &P, name: &str) {
     );
     for d in &dims {
         assert!(
-            *d >= 1,
-            "{} should have at least 1 choice per dimension",
+            *d >= 2,
+            "{} should have at least 2 choices per dimension",
             name
         );
     }
@@ -54,12 +54,8 @@ fn test_all_problems_implement_trait_correctly() {
         "MaximumMatching",
     );
     check_problem_trait(
-        &SteinerTree::new(
-            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-            vec![1i32; 2],
-            vec![0, 2],
-        ),
-        "SteinerTree",
+        &BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 3, 2)], 2),
+        "BiconnectivityAugmentation",
     );
     check_problem_trait(
         &Satisfiability::new(3, vec![CNFClause::new(vec![1])]),
@@ -78,21 +74,25 @@ fn test_all_problems_implement_trait_correctly() {
         &MaximumSetPacking::<i32>::new(vec![vec![0, 1]]),
         "MaximumSetPacking",
     );
-    check_problem_trait(
-        &ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]),
-        "ExactCoverBy3Sets",
-    );
-    check_problem_trait(
-        &SetBasis::new(3, vec![vec![0, 1], vec![1, 2]], 2),
-        "SetBasis",
-    );
     check_problem_trait(&PaintShop::new(vec!["a", "a"]), "PaintShop");
     check_problem_trait(&BMF::new(vec![vec![true]], 1), "BMF");
     check_problem_trait(
         &BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1),
         "BicliqueCover",
     );
+    check_problem_trait(
+        &BalancedCompleteBipartiteSubgraph::new(
+            BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]),
+            2,
+        ),
+        "BalancedCompleteBipartiteSubgraph",
+    );
     check_problem_trait(&Factoring::new(6, 2, 2), "Factoring");
+    check_problem_trait(&Partition::new(vec![3, 1, 1, 2, 2, 1]), "Partition");
+    check_problem_trait(
+        &QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 1], vec![1, 0]]),
+        "QuadraticAssignment",
+    );
 
     let circuit = Circuit::new(vec![Assignment::new(
         vec!["x".to_string()],
@@ -100,20 +100,25 @@ fn test_all_problems_implement_trait_correctly() {
     )]);
     check_problem_trait(&CircuitSAT::new(circuit), "CircuitSAT");
     check_problem_trait(
-        &MinimumFeedbackArcSet::new(
+        &StrongConnectivityAugmentation::new(
             DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
-            vec![1i32; 3],
-        ),
-        "MinimumFeedbackArcSet",
-    );
-    check_problem_trait(
-        &MinimumSumMulticenter::new(
-            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-            vec![1i32; 3],
-            vec![1i32; 2],
+            vec![(0, 2, 1)],
             1,
         ),
-        "MinimumSumMulticenter",
+        "StrongConnectivityAugmentation",
+    );
+    check_problem_trait(
+        &KthBestSpanningTree::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+            vec![1, 1, 1],
+            1,
+            2,
+        ),
+        "KthBestSpanningTree",
+    );
+    check_problem_trait(
+        &HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)])),
+        "HamiltonianCircuit",
     );
     check_problem_trait(
         &HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
@@ -145,6 +150,33 @@ fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
         &MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]),
         "MinimumTardinessSequencing",
+    );
+    check_problem_trait(
+        &PartitionIntoPathsOfLength2::new(SimpleGraph::new(
+            6,
+            vec![(0, 1), (1, 2), (3, 4), (4, 5)],
+        )),
+        "PartitionIntoPathsOfLength2",
+    );
+    check_problem_trait(
+        &ResourceConstrainedScheduling::new(3, vec![20], vec![vec![6], vec![7], vec![7]], 2),
+        "ResourceConstrainedScheduling",
+    );
+    check_problem_trait(
+        &PartiallyOrderedKnapsack::new(vec![2, 3], vec![3, 2], vec![(0, 1)], 5),
+        "PartiallyOrderedKnapsack",
+    );
+    check_problem_trait(
+        &SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]),
+        "SequencingWithReleaseTimesAndDeadlines",
+    );
+    check_problem_trait(
+        &SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240),
+        "SumOfSquaresPartition",
+    );
+    check_problem_trait(
+        &ConsecutiveOnesSubmatrix::new(vec![vec![true, false], vec![false, true]], 1),
+        "ConsecutiveOnesSubmatrix",
     );
 }
 
@@ -184,38 +216,12 @@ fn test_direction() {
     );
     assert_eq!(Factoring::new(6, 2, 2).direction(), Direction::Minimize);
     assert_eq!(
-        MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]).direction(),
-        Direction::Minimize
-    );
-    assert_eq!(
         BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1).direction(),
         Direction::Minimize
     );
     assert_eq!(
-        MinimumFeedbackArcSet::new(
-            DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
-            vec![1i32; 3]
-        )
-        .direction(),
-        Direction::Minimize
-    );
-    assert_eq!(
-        MinimumSumMulticenter::new(
-            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-            vec![1i32; 3],
-            vec![1i32; 2],
-            1
-        )
-        .direction(),
-        Direction::Minimize
-    );
-    assert_eq!(
-        SteinerTree::new(
-            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-            vec![1i32; 2],
-            vec![0, 2]
-        )
-        .direction(),
+        QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 1], vec![1, 0]])
+            .direction(),
         Direction::Minimize
     );
 
@@ -242,6 +248,10 @@ fn test_direction() {
     );
     assert_eq!(
         MaximumClique::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
+        Direction::Maximize
+    );
+    assert_eq!(
+        PartiallyOrderedKnapsack::new(vec![2, 3], vec![3, 2], vec![(0, 1)], 5).direction(),
         Direction::Maximize
     );
 }

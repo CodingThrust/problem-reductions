@@ -199,6 +199,27 @@ crate::declare_variants! {
     default sat FlowShopScheduling => "factorial(num_jobs)",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "flow_shop_scheduling",
+        instance: Box::new(FlowShopScheduling::new(
+            3,
+            vec![
+                vec![3, 4, 2],
+                vec![2, 3, 5],
+                vec![4, 1, 3],
+                vec![1, 5, 4],
+                vec![3, 2, 3],
+            ],
+            25,
+        )),
+        // Job order [3,0,4,2,1] = Lehmer code [3,0,2,1,0], makespan 23
+        optimal_config: vec![3, 0, 2, 1, 0],
+        optimal_value: serde_json::json!(true),
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/misc/flow_shop_scheduling.rs"]
 mod tests;

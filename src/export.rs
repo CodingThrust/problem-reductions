@@ -63,32 +63,33 @@ pub struct RuleExample {
     pub solutions: Vec<SolutionPair>,
 }
 
-/// A complete model example: instance + evaluations.
+/// A complete model example: instance + known optimal solution.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ModelExample {
     pub problem: String,
     pub variant: BTreeMap<String, String>,
     pub instance: serde_json::Value,
-    pub samples: Vec<SampleEval>,
-    pub optimal: Vec<SampleEval>,
+    pub optimal_config: Vec<usize>,
+    pub optimal_value: serde_json::Value,
 }
 
 impl ModelExample {
-    /// Build a serializable model example from a typed problem plus evaluated configs.
-    pub fn from_problem<P>(problem: &P, samples: Vec<SampleEval>, optimal: Vec<SampleEval>) -> Self
-    where
-        P: Problem + Serialize,
-    {
+    pub fn new(
+        problem: &str,
+        variant: BTreeMap<String, String>,
+        instance: serde_json::Value,
+        optimal_config: Vec<usize>,
+        optimal_value: serde_json::Value,
+    ) -> Self {
         Self {
-            problem: P::NAME.to_string(),
-            variant: variant_to_map(P::variant()),
-            instance: serde_json::to_value(problem).expect("Failed to serialize problem instance"),
-            samples,
-            optimal,
+            problem: problem.to_string(),
+            variant,
+            instance,
+            optimal_config,
+            optimal_value,
         }
     }
 
-    /// Extract the structural identity of this model example.
     pub fn problem_ref(&self) -> ProblemRef {
         ProblemRef {
             name: self.problem.clone(),
@@ -114,12 +115,6 @@ pub struct ModelDb {
 pub struct ExampleDb {
     pub models: Vec<ModelExample>,
     pub rules: Vec<RuleExample>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct SampleEval {
-    pub config: Vec<usize>,
-    pub metric: serde_json::Value,
 }
 
 /// Look up `ReductionOverhead` for a direct reduction using `ReductionGraph::find_best_entry`.

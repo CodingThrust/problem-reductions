@@ -200,16 +200,9 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "paintshop",
-        build: || {
-            use crate::solvers::BruteForce;
-            let problem = PaintShop::new(vec!["A", "B", "A", "C", "B", "C"]);
-            let sample = BruteForce::new()
-                .find_all_best(&problem)
-                .into_iter()
-                .next()
-                .expect("paintshop example should solve");
-            crate::example_db::specs::optimization_example(problem, vec![sample])
-        },
+        instance: Box::new(PaintShop::new(vec!["A", "B", "A", "C", "B", "C"])),
+        optimal_config: vec![0, 0, 1],
+        optimal_value: serde_json::json!({"Valid": 2}),
     }]
 }
 

@@ -741,7 +741,10 @@ impl ReductionGraph {
     /// source, its size fields are the input variables referenced in the overhead
     /// expressions. When it's a target, its size fields are the output field names.
     pub fn size_field_names(&self, name: &str) -> Vec<&'static str> {
-        let mut fields = std::collections::HashSet::new();
+        let mut fields: std::collections::HashSet<&'static str> =
+            crate::registry::declared_size_fields(name)
+                .into_iter()
+                .collect();
         for entry in inventory::iter::<ReductionEntry> {
             if entry.source_name == name {
                 // Source's size fields are the input variables of the overhead.
