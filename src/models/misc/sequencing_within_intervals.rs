@@ -6,7 +6,6 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
-use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -54,20 +53,13 @@ inventory::submit! {
 /// let solution = solver.find_satisfying(&problem);
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SequencingWithinIntervals {
     /// Release times for each task.
     release_times: Vec<u64>,
     /// Deadlines for each task.
     deadlines: Vec<u64>,
     /// Processing lengths for each task.
-    lengths: Vec<u64>,
-}
-
-#[derive(Debug, Deserialize)]
-struct SequencingWithinIntervalsUnchecked {
-    release_times: Vec<u64>,
-    deadlines: Vec<u64>,
     lengths: Vec<u64>,
 }
 
@@ -78,7 +70,28 @@ impl SequencingWithinIntervals {
     /// Panics if the three vectors have different lengths, or if any task has
     /// `r(i) + l(i) > d(i)` (empty time window).
     pub fn new(release_times: Vec<u64>, deadlines: Vec<u64>, lengths: Vec<u64>) -> Self {
-        validate_time_windows(&release_times, &deadlines, &lengths);
+        assert_eq!(
+            release_times.len(),
+            deadlines.len(),
+            "release_times and deadlines must have the same length"
+        );
+        assert_eq!(
+            release_times.len(),
+            lengths.len(),
+            "release_times and lengths must have the same length"
+        );
+        for i in 0..release_times.len() {
+            let sum = release_times[i]
+                .checked_add(lengths[i])
+                .expect("overflow computing r(i) + l(i)");
+            assert!(
+                sum <= deadlines[i],
+                "Task {i}: r({}) + l({}) > d({}), time window is empty",
+                release_times[i],
+                lengths[i],
+                deadlines[i]
+            );
+        }
         Self {
             release_times,
             deadlines,
@@ -105,66 +118,6 @@ impl SequencingWithinIntervals {
     pub fn num_tasks(&self) -> usize {
         self.release_times.len()
     }
-}
-
-impl<'de> Deserialize<'de> for SequencingWithinIntervals {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let unchecked = SequencingWithinIntervalsUnchecked::deserialize(deserializer)?;
-        if let Some(message) = time_window_validation_error(
-            &unchecked.release_times,
-            &unchecked.deadlines,
-            &unchecked.lengths,
-        ) {
-            return Err(D::Error::custom(message));
-        }
-        Ok(Self {
-            release_times: unchecked.release_times,
-            deadlines: unchecked.deadlines,
-            lengths: unchecked.lengths,
-        })
-    }
-}
-
-fn validate_time_windows(release_times: &[u64], deadlines: &[u64], lengths: &[u64]) {
-    if let Some(message) = time_window_validation_error(release_times, deadlines, lengths) {
-        panic!("{message}");
-    }
-}
-
-fn time_window_validation_error(
-    release_times: &[u64],
-    deadlines: &[u64],
-    lengths: &[u64],
-) -> Option<String> {
-    if release_times.len() != deadlines.len() {
-        return Some("release_times and deadlines must have the same length".to_string());
-    }
-    if release_times.len() != lengths.len() {
-        return Some("release_times and lengths must have the same length".to_string());
-    }
-
-    for (i, ((&release_time, &deadline), &length)) in release_times
-        .iter()
-        .zip(deadlines.iter())
-        .zip(lengths.iter())
-        .enumerate()
-    {
-        let end = match release_time.checked_add(length) {
-            Some(end) => end,
-            None => return Some(format!("Task {i}: overflow computing r(i) + l(i)")),
-        };
-        if end > deadline {
-            return Some(format!(
-                "Task {i}: r({}) + l({}) > d({}), time window is empty",
-                release_time, length, deadline
-            ));
-        }
-    }
-
-    None
 }
 
 impl Problem for SequencingWithinIntervals {

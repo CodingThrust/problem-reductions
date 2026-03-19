@@ -181,29 +181,3 @@ fn test_sequencing_within_intervals_invalid_window() {
     // r + l > d: impossible task
     SequencingWithinIntervals::new(vec![5], vec![3], vec![2]);
 }
-
-#[test]
-fn test_sequencing_within_intervals_deserialize_rejects_mismatched_lengths() {
-    let result: Result<SequencingWithinIntervals, _> = serde_json::from_value(serde_json::json!({
-        "release_times": [0, 1],
-        "deadlines": [2],
-        "lengths": [1, 1]
-    }));
-    let err = result.unwrap_err().to_string();
-    assert!(
-        err.contains("release_times and deadlines must have the same length")
-            || err.contains("release_times and lengths must have the same length"),
-        "got: {err}"
-    );
-}
-
-#[test]
-fn test_sequencing_within_intervals_deserialize_rejects_empty_window() {
-    let result: Result<SequencingWithinIntervals, _> = serde_json::from_value(serde_json::json!({
-        "release_times": [5],
-        "deadlines": [3],
-        "lengths": [2]
-    }));
-    let err = result.unwrap_err().to_string();
-    assert!(err.contains("time window is empty"), "got: {err}");
-}
