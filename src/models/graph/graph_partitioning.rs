@@ -142,6 +142,31 @@ crate::declare_variants! {
     default opt GraphPartitioning<SimpleGraph> => "2^num_vertices",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    use crate::topology::SimpleGraph;
+    // Two triangles connected by 3 edges; balanced cut = 3
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "graph_partitioning",
+        instance: Box::new(GraphPartitioning::new(SimpleGraph::new(
+            6,
+            vec![
+                (0, 1),
+                (0, 2),
+                (1, 2),
+                (1, 3),
+                (2, 3),
+                (2, 4),
+                (3, 4),
+                (3, 5),
+                (4, 5),
+            ],
+        ))),
+        optimal_config: vec![0, 0, 0, 1, 1, 1],
+        optimal_value: serde_json::json!({"Valid": 3}),
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/graph_partitioning.rs"]
 mod tests;

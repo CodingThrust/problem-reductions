@@ -61,11 +61,8 @@ Categorize all findings:
 | Priority | Type | Action |
 |----------|------|--------|
 | 1 | CI failures (clippy/test/coverage) | Fix immediately — blocks merge |
-| 2 | User inline/review comments | Address each one — highest review priority |
-| 3 | Copilot inline suggestions | Evaluate validity, fix if correct |
-| 4 | Codecov coverage gaps | Add tests for uncovered lines |
-
-**User comments always take priority over bot comments.** A user inline comment requesting file deletion is just as important as a user review requesting a code change.
+| 2 | Inline/review comments | Address each one — evaluate validity, fix if correct |
+| 3 | Codecov coverage gaps | Add tests for uncovered lines |
 
 ## Step 3: Fix CI Failures
 
@@ -87,9 +84,9 @@ For each review comment:
 
 **Do NOT respond on the PR** -- just fix and commit. The user will push and respond.
 
-### Handling Copilot Suggestions
+### Handling Suggestions
 
-Copilot suggestions with `suggestion` blocks contain exact code. Evaluate each:
+Review suggestions with `suggestion` blocks contain exact code. Evaluate each:
 - **Correct**: Apply the suggestion
 - **Partially correct**: Apply the spirit, adjust details
 - **Wrong**: Skip, note why in commit message
@@ -150,4 +147,4 @@ Run `/review-implementation` first to catch issues before push. Then `/fix-pr` a
 
 ### With executing-plans / finishing-a-development-branch
 
-After creating a PR and running `make copilot-review`, use `/fix-pr` to address the resulting feedback.
+After creating a PR, use `/fix-pr` to address review feedback and CI failures.

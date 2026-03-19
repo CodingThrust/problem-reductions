@@ -22,6 +22,30 @@ fn test_list() {
 }
 
 #[test]
+fn test_list_includes_undirected_two_commodity_integral_flow() {
+    let output = pred().args(["list"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("UndirectedTwoCommodityIntegralFlow"));
+}
+
+#[test]
+fn test_solve_help_mentions_string_to_string_correction_bruteforce() {
+    let output = pred().args(["solve", "--help"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("StringToStringCorrection"),
+        "stdout: {stdout}"
+    );
+    assert!(stdout.contains("--solver brute-force"), "stdout: {stdout}");
+}
+
+#[test]
 fn test_list_rules() {
     let output = pred().args(["list", "--rules"]).output().unwrap();
     assert!(
@@ -65,6 +89,24 @@ fn test_show() {
 }
 
 #[test]
+fn test_show_undirected_two_commodity_integral_flow() {
+    let output = pred()
+        .args(["show", "UndirectedTwoCommodityIntegralFlow"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("UndirectedTwoCommodityIntegralFlow"));
+    assert!(stdout.contains("capacities"));
+    assert!(stdout.contains("source_1"));
+    assert!(stdout.contains("requirement_2"));
+}
+
+#[test]
 fn test_show_variant_info() {
     let output = pred().args(["show", "MIS"]).output().unwrap();
     assert!(output.status.success());
@@ -74,6 +116,49 @@ fn test_show_variant_info() {
         stdout.contains("Complexity:"),
         "should show complexity: {stdout}"
     );
+}
+
+#[test]
+fn test_show_balanced_complete_bipartite_subgraph_complexity() {
+    let output = pred()
+        .args(["show", "BalancedCompleteBipartiteSubgraph"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("1.3803^num_vertices"),
+        "expected updated complexity metadata, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_solve_balanced_complete_bipartite_subgraph_suggests_bruteforce() {
+    let tmp = std::env::temp_dir().join("pred_test_bcbs_problem.json");
+    let create = pred()
+        .args([
+            "create",
+            "--example",
+            "BalancedCompleteBipartiteSubgraph",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(create.status.success());
+    std::fs::write(&tmp, create.stdout).unwrap();
+
+    let solve = pred()
+        .args(["solve", tmp.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!solve.status.success());
+    let stderr = String::from_utf8(solve.stderr).unwrap();
+    assert!(
+        stderr.contains("--solver brute-force"),
+        "expected brute-force hint, got: {stderr}"
+    );
+
+    std::fs::remove_file(tmp).ok();
 }
 
 #[test]
@@ -180,6 +265,22 @@ fn test_show_includes_fields() {
 }
 
 #[test]
+fn test_create_balanced_complete_bipartite_subgraph_help_uses_bipartite_flags() {
+    let output = pred()
+        .args(["create", "BalancedCompleteBipartiteSubgraph"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--left"), "stderr: {stderr}");
+    assert!(stderr.contains("--right"), "stderr: {stderr}");
+    assert!(stderr.contains("--biedges"), "stderr: {stderr}");
+    assert!(!stderr.contains("--left-size"), "stderr: {stderr}");
+    assert!(!stderr.contains("--right-size"), "stderr: {stderr}");
+    assert!(!stderr.contains("--edges"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_list_json() {
     let tmp = std::env::temp_dir().join("pred_test_list.json");
     let output = pred()
@@ -239,7 +340,7 @@ fn test_evaluate() {
         "type": "MaximumIndependentSet",
         "variant": {"graph": "SimpleGraph", "weight": "i32"},
         "data": {
-            "graph": {"inner": {"nodes": [null, null, null, null], "node_holes": [], "edge_property": "undirected", "edges": [[0,1,null],[1,2,null],[2,3,null]]}},
+            "graph": {"num_vertices": 4, "edges": [[0,1],[1,2],[2,3]]},
             "weights": [1, 1, 1, 1]
         }
     }"#;
@@ -281,12 +382,245 @@ fn test_evaluate_sat() {
 }
 
 #[test]
+fn test_evaluate_multiple_choice_branching_rejects_invalid_partition_without_panicking() {
+    let problem_json = r#"{
+        "type": "MultipleChoiceBranching",
+        "variant": {"weight": "i32"},
+        "data": {
+            "graph": {"num_vertices": 2, "arcs": [[0,1]]},
+            "weights": [1],
+            "partition": [[1]],
+            "threshold": 1
+        }
+    }"#;
+    let tmp = std::env::temp_dir().join("pred_test_eval_invalid_mcb_partition.json");
+    std::fs::write(&tmp, problem_json).unwrap();
+
+    let output = pred()
+        .args(["evaluate", tmp.to_str().unwrap(), "--config", "1"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        !stderr.contains("panicked at"),
+        "invalid partition should return a user error, got panic output: {stderr}"
+    );
+    assert!(
+        stderr.contains("partition"),
+        "stderr should mention the invalid partition: {stderr}"
+    );
+
+    std::fs::remove_file(&tmp).ok();
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow() {
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--capacities",
+            "1,1,2",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "UndirectedTwoCommodityIntegralFlow");
+    assert_eq!(json["variant"], serde_json::json!({}));
+    assert_eq!(json["data"]["capacities"], serde_json::json!([1, 1, 2]));
+    assert_eq!(json["data"]["source_1"], 0);
+    assert_eq!(json["data"]["sink_1"], 3);
+    assert_eq!(json["data"]["source_2"], 1);
+    assert_eq!(json["data"]["sink_2"], 3);
+    assert_eq!(json["data"]["requirement_1"], 1);
+    assert_eq!(json["data"]["requirement_2"], 1);
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow_missing_capacities_shows_usage() {
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("requires --capacities"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow_rejects_invalid_capacity_token() {
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--capacities",
+            "1,x,2",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Invalid capacity `x`"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow_rejects_wrong_capacity_count() {
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--capacities",
+            "1,2",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Expected 3 capacities but got 2"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow_rejects_oversized_capacity() {
+    let oversized = ((usize::MAX as u128) + 1).to_string();
+    let capacities = format!("1,1,{oversized}");
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--capacities",
+            capacities.as_str(),
+            "--source-1",
+            "0",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains(format!("Invalid capacity `{oversized}`").as_str()));
+    assert!(stderr.contains("number too large to fit in target type"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow_rejects_out_of_range_terminal() {
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--capacities",
+            "1,1,2",
+            "--source-1",
+            "99",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("source-1 must be less than num_vertices (4)"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_reduce() {
     let problem_json = r#"{
         "type": "MIS",
         "variant": {"graph": "SimpleGraph", "weight": "i32"},
         "data": {
-            "graph": {"inner": {"nodes": [null, null, null, null], "node_holes": [], "edge_property": "undirected", "edges": [[0,1,null],[1,2,null],[2,3,null]]}},
+            "graph": {"num_vertices": 4, "edges": [[0,1],[1,2],[2,3]]},
             "weights": [1, 1, 1, 1]
         }
     }"#;
@@ -565,6 +899,68 @@ fn test_create_mis() {
 }
 
 #[test]
+fn test_create_multiprocessor_scheduling() {
+    let output_file = std::env::temp_dir().join("pred_test_create_multiprocessor_scheduling.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MultiprocessorScheduling",
+            "--lengths",
+            "4,5,3,2,6",
+            "--num-processors",
+            "2",
+            "--deadline",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MultiprocessorScheduling");
+    assert_eq!(json["data"]["lengths"], serde_json::json!([4, 5, 3, 2, 6]));
+    assert_eq!(json["data"]["num_processors"], 2);
+    assert_eq!(json["data"]["deadline"], 10);
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_multiprocessor_scheduling_rejects_zero_processors() {
+    let output = pred()
+        .args([
+            "create",
+            "MultiprocessorScheduling",
+            "--lengths",
+            "4,5,3,2,6",
+            "--num-processors",
+            "0",
+            "--deadline",
+            "10",
+        ])
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "zero processors should return a user error, got panic output: {stderr}"
+    );
+    assert!(
+        stderr.contains("requires --num-processors > 0"),
+        "expected a validation error for zero processors, got: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_x3c_alias() {
     let output_file = std::env::temp_dir().join("pred_test_create_x3c.json");
     let output = pred()
@@ -595,6 +991,141 @@ fn test_create_x3c_alias() {
 }
 
 #[test]
+fn test_create_d2cif_alias() {
+    let output_file = std::env::temp_dir().join("pred_test_create_d2cif.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "D2CIF",
+            "--arcs",
+            "0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5",
+            "--capacities",
+            "1,1,1,1,1,1,1,1",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "4",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "5",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "DirectedTwoCommodityIntegralFlow");
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_solve_d2cif_default_solver_suggests_bruteforce() {
+    let output_file = std::env::temp_dir().join("pred_test_solve_d2cif.json");
+    let create_output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "D2CIF",
+            "--arcs",
+            "0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5",
+            "--capacities",
+            "1,1,1,1,1,1,1,1",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "4",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "5",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_output.stderr)
+    );
+
+    let solve_output = pred()
+        .args(["solve", output_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        !solve_output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&solve_output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&solve_output.stderr);
+    assert!(
+        stderr.contains("--solver brute-force"),
+        "expected brute-force hint, got: {stderr}"
+    );
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_inspect_rectilinear_picture_compression_lists_bruteforce_only() {
+    let output_file = std::env::temp_dir().join("pred_test_inspect_rpc.json");
+    let create_output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "RectilinearPictureCompression",
+            "--matrix",
+            "1,1;1,1",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_output.stderr)
+    );
+
+    let inspect_output = pred()
+        .args(["inspect", output_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        inspect_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&inspect_output.stderr)
+    );
+    let stdout = String::from_utf8(inspect_output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(
+        json["solvers"] == serde_json::json!(["brute-force"]),
+        "inspect should list only usable solvers, got: {json}"
+    );
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
 fn test_create_x3c_rejects_duplicate_subset_elements() {
     let output = pred()
         .args(["create", "X3C", "--universe", "6", "--sets", "0,0,1;3,4,5"])
@@ -610,6 +1141,355 @@ fn test_create_x3c_rejects_duplicate_subset_elements() {
         stderr.contains("contains duplicate elements"),
         "stderr: {stderr}"
     );
+}
+
+#[test]
+fn test_create_comparative_containment() {
+    let output_file = std::env::temp_dir().join("pred_test_create_comparative_containment.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "ComparativeContainment",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,2,3;0,1",
+            "--s-sets",
+            "0,1,2,3;2,3",
+            "--r-weights",
+            "2,5",
+            "--s-weights",
+            "3,6",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "ComparativeContainment");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["universe_size"], 4);
+    assert_eq!(
+        json["data"]["r_sets"],
+        serde_json::json!([[0, 1, 2, 3], [0, 1]])
+    );
+    assert_eq!(
+        json["data"]["s_sets"],
+        serde_json::json!([[0, 1, 2, 3], [2, 3]])
+    );
+    assert_eq!(json["data"]["r_weights"], serde_json::json!([2, 5]));
+    assert_eq!(json["data"]["s_weights"], serde_json::json!([3, 6]));
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_comparative_containment_rejects_out_of_range_elements_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "ComparativeContainment",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,4",
+            "--s-sets",
+            "0,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("outside universe of size 4"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_comparative_containment_rejects_nonpositive_weights_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "ComparativeContainment",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1",
+            "--s-sets",
+            "0,1",
+            "--r-weights",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("positive"), "stderr: {stderr}");
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_set_basis() {
+    let output_file = std::env::temp_dir().join("pred_test_create_set_basis.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SetBasis",
+            "--universe",
+            "4",
+            "--sets",
+            "0,1;1,2;0,2;0,1,2",
+            "--k",
+            "3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SetBasis");
+    assert_eq!(json["data"]["universe_size"], 4);
+    assert_eq!(json["data"]["k"], 3);
+    assert_eq!(json["data"]["collection"][0], serde_json::json!([0, 1]));
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_comparative_containment_f64() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_comparative_containment_f64.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "ComparativeContainment/f64",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,2,3;0,1",
+            "--s-sets",
+            "0,1,2,3;2,3",
+            "--r-weights",
+            "2.5,5.0",
+            "--s-weights",
+            "3.5,6.0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "ComparativeContainment");
+    assert_eq!(json["variant"]["weight"], "f64");
+    assert_eq!(json["data"]["r_weights"], serde_json::json!([2.5, 5.0]));
+    assert_eq!(json["data"]["s_weights"], serde_json::json!([3.5, 6.0]));
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_comparative_containment_one_rejects_nonunit_weights() {
+    let output = pred()
+        .args([
+            "create",
+            "ComparativeContainment/One",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,2,3;0,1",
+            "--s-sets",
+            "0,1,2,3;2,3",
+            "--r-weights",
+            "2,5",
+            "--s-weights",
+            "3,6",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Non-unit weights are not supported for ComparativeContainment/One"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_comparative_containment_no_flags_shows_help() {
+    let output = pred()
+        .args(["create", "ComparativeContainment"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--universe"), "stderr: {stderr}");
+    assert!(stderr.contains("--r-sets"), "stderr: {stderr}");
+    assert!(stderr.contains("--s-sets"), "stderr: {stderr}");
+    assert!(!stderr.contains("--universe-size"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_set_basis_requires_k() {
+    let output = pred()
+        .args([
+            "create",
+            "SetBasis",
+            "--universe",
+            "4",
+            "--sets",
+            "0,1;1,2;0,2;0,1,2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("SetBasis requires --k"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_set_basis_rejects_out_of_range_elements() {
+    let output = pred()
+        .args([
+            "create",
+            "SetBasis",
+            "--universe",
+            "4",
+            "--sets",
+            "0,4",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("outside universe of size 4"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_sum_of_squares_partition_rejects_negative_bound_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "SumOfSquaresPartition",
+            "--sizes",
+            "1,2,3",
+            "--num-groups",
+            "2",
+            "--bound=-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Bound must be nonnegative"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
+    let output = pred()
+        .args(["create", "MinimumCardinalityKey"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--num-attributes"), "stderr: {stderr}");
+    assert!(stderr.contains("--dependencies"), "stderr: {stderr}");
+    assert!(stderr.contains("--k"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("semicolon-separated dependencies"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("--bound-k"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_minimum_cardinality_key_allows_empty_lhs_dependency() {
+    let output = pred()
+        .args([
+            "create",
+            "MinimumCardinalityKey",
+            "--num-attributes",
+            "1",
+            "--dependencies",
+            ">0",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MinimumCardinalityKey");
+    assert_eq!(json["data"]["num_attributes"], 1);
+    assert_eq!(json["data"]["bound_k"], 1);
+    assert_eq!(json["data"]["dependencies"][0][0], serde_json::json!([]));
+    assert_eq!(json["data"]["dependencies"][0][1], serde_json::json!([0]));
+}
+
+#[test]
+fn test_create_minimum_cardinality_key_missing_num_attributes_message() {
+    let output = pred()
+        .args([
+            "create",
+            "MinimumCardinalityKey",
+            "--dependencies",
+            "0>0",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("MinimumCardinalityKey requires --num-attributes"));
+    assert!(!stderr.contains("--num-vertices"), "stderr: {stderr}");
 }
 
 #[test]
@@ -684,6 +1564,186 @@ fn test_create_sat() {
     assert_eq!(json["type"], "Satisfiability");
 
     std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_multiple_choice_branching() {
+    let output_file = std::env::temp_dir().join("pred_test_create_mcb.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MultipleChoiceBranching/i32",
+            "--arcs",
+            "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
+            "--weights",
+            "3,2,4,1,2,3,1,3",
+            "--partition",
+            "0,1;2,3;4,7;5,6",
+            "--bound",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MultipleChoiceBranching");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(
+        json["data"]["weights"],
+        serde_json::json!([3, 2, 4, 1, 2, 3, 1, 3])
+    );
+    assert_eq!(
+        json["data"]["partition"],
+        serde_json::json!([[0, 1], [2, 3], [4, 7], [5, 6]])
+    );
+    assert_eq!(json["data"]["threshold"], 10);
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_model_example_multiple_choice_branching() {
+    let output = pred()
+        .args(["create", "--example", "MultipleChoiceBranching/i32"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MultipleChoiceBranching");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["threshold"], 10);
+    assert_eq!(json["data"]["partition"].as_array().unwrap().len(), 4);
+}
+
+#[test]
+fn test_create_model_example_multiple_choice_branching_round_trips_into_solve() {
+    let path = std::env::temp_dir().join(format!(
+        "pred_test_model_example_mcb_{}.json",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let create = pred()
+        .args([
+            "create",
+            "--example",
+            "MultipleChoiceBranching/i32",
+            "-o",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create.stderr)
+    );
+
+    let solve = pred()
+        .args(["solve", path.to_str().unwrap(), "--solver", "brute-force"])
+        .output()
+        .unwrap();
+    assert!(
+        solve.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&solve.stderr)
+    );
+
+    std::fs::remove_file(&path).ok();
+}
+
+#[test]
+fn test_create_multiple_choice_branching_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "MultipleChoiceBranching/i32",
+            "--arcs",
+            "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
+            "--weights",
+            "3,2,4,1,2,3,1,3",
+            "--partition",
+            "0,1;2,3;4,7;5,6",
+            "--bound=-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("threshold") || stderr.contains("--bound"),
+        "stderr should mention the invalid threshold: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_multiple_choice_branching_rejects_overflowing_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "MultipleChoiceBranching/i32",
+            "--arcs",
+            "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
+            "--weights",
+            "3,2,4,1,2,3,1,3",
+            "--partition",
+            "0,1;2,3;4,7;5,6",
+            "--bound",
+            "2147483648",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("threshold") || stderr.contains("--bound"),
+        "stderr should mention the overflowing threshold: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_multiple_choice_branching_rejects_invalid_partition_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "MultipleChoiceBranching/i32",
+            "--arcs",
+            "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
+            "--weights",
+            "3,2,4,1,2,3,1,3",
+            "--partition",
+            "0,1;2,3;4,7;5,7",
+            "--bound",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        !stderr.contains("panicked at"),
+        "invalid partition should return a user error, got panic output: {stderr}"
+    );
+    assert!(
+        stderr.contains("partition"),
+        "stderr should mention the invalid partition: {stderr}"
+    );
 }
 
 #[test]
@@ -1135,6 +2195,315 @@ fn test_create_kcoloring() {
 }
 
 #[test]
+fn test_create_bounded_component_spanning_forest() {
+    let output_file = std::env::temp_dir().join("pred_test_create_bcsf.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6",
+            "--weights",
+            "2,3,1,2,3,1,2,1",
+            "--k",
+            "3",
+            "--bound",
+            "6",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "BoundedComponentSpanningForest");
+    assert_eq!(json["data"]["max_components"], 3);
+    assert_eq!(json["data"]["max_weight"], 6);
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_zero_k() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "0",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--k >= 1"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_accepts_k_larger_than_num_vertices() {
+    let out = std::env::temp_dir().join("pred_test_bcsf_large_k.json");
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "5",
+            "--bound",
+            "2",
+            "-o",
+        ])
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(out.exists());
+    let _ = std::fs::remove_file(&out);
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_negative_weights() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,-1,1,1",
+            "--k",
+            "2",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --weights"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "2",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("positive --bound"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_out_of_range_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "2",
+            "--bound",
+            "3000000000",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("within i32 range"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_no_flags_shows_actual_cli_flags() {
+    let output = pred()
+        .args(["create", "BoundedComponentSpanningForest"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--k"),
+        "expected '--k' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--max-components"),
+        "help should not advertise nonexistent '--max-components' flag: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--max-weight"),
+        "help should not advertise nonexistent '--max-weight' flag: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_ola_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "OptimalLinearArrangement",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "negative bound should be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_scs_rejects_negative_bound() {
+    let output = pred()
+        .args(["create", "SCS", "--strings", "0,1,2;1,2,0", "--bound", "-1"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "negative bound should be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_string_to_string_correction() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_string_to_string_correction.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "StringToStringCorrection",
+            "--source-string",
+            "0,1,2,3,1,0",
+            "--target-string",
+            "0,1,3,2,1",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "StringToStringCorrection");
+    assert_eq!(
+        json["data"]["source"],
+        serde_json::json!([0, 1, 2, 3, 1, 0])
+    );
+    assert_eq!(json["data"]["target"], serde_json::json!([0, 1, 3, 2, 1]));
+    assert_eq!(json["data"]["bound"], 2);
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_model_example_string_to_string_correction() {
+    let output = pred()
+        .args(["create", "--example", "StringToStringCorrection"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "StringToStringCorrection");
+    assert_eq!(
+        json["data"]["source"],
+        serde_json::json!([0, 1, 2, 3, 1, 0])
+    );
+    assert_eq!(json["data"]["target"], serde_json::json!([0, 1, 3, 2, 1]));
+    assert_eq!(json["data"]["bound"], 2);
+}
+
+#[test]
+fn test_create_string_to_string_correction_help_uses_cli_flags() {
+    let output = pred()
+        .args(["create", "StringToStringCorrection"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--source-string"), "stderr: {stderr}");
+    assert!(stderr.contains("--target-string"), "stderr: {stderr}");
+    assert!(stderr.contains("--bound"), "stderr: {stderr}");
+    assert!(!stderr.contains("--bound-k"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_string_to_string_correction_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "StringToStringCorrection",
+            "--source-string",
+            "0,1,2,3,1,0",
+            "--target-string",
+            "0,1,3,2,1",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "negative bound should be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_spinglass() {
     let output_file = std::env::temp_dir().join("pred_test_create_sg.json");
     let output = pred()
@@ -1452,7 +2821,11 @@ fn test_create_model_example_steiner_tree() {
 #[test]
 fn test_create_missing_model_example() {
     let output = pred()
-        .args(["create", "--example", "GraphPartitioning/SimpleGraph"])
+        .args([
+            "create",
+            "--example",
+            "MaximumIndependentSet/KingsSubgraph/One",
+        ])
         .output()
         .unwrap();
     assert!(!output.status.success());
@@ -1484,6 +2857,243 @@ fn test_create_no_flags_shows_help() {
 }
 
 #[test]
+fn test_create_multiple_choice_branching_help_uses_bound_flag() {
+    let output = pred()
+        .args(["create", "MultipleChoiceBranching/i32"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--threshold"),
+        "help output should not advertise '--threshold', got: {stderr}"
+    );
+    assert!(
+        stderr.contains("semicolon-separated groups"),
+        "expected '--partition' help to describe groups, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_set_basis_no_flags_uses_actual_cli_flag_names() {
+    let output = pred().args(["create", "SetBasis"]).output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--universe"),
+        "expected '--universe' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--sets"),
+        "expected '--sets' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--k"),
+        "expected '--k' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--universe-size"),
+        "help should not advertise schema field names: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--collection"),
+        "help should not advertise schema field names: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_rectilinear_picture_compression_help_uses_k_flag() {
+    let output = pred()
+        .args(["create", "RectilinearPictureCompression"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--matrix"),
+        "expected '--matrix' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--k"),
+        "expected '--k' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--bound-k"),
+        "help should advertise the actual CLI flag name, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_rectilinear_picture_compression_rejects_ragged_matrix() {
+    let output = pred()
+        .args([
+            "create",
+            "RectilinearPictureCompression",
+            "--matrix",
+            "1,0;1",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("All rows in --matrix must have the same length"),
+        "expected rectangular-matrix validation error, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("panicked at"),
+        "ragged matrix should not crash the CLI, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_help_uses_generic_matrix_and_k_descriptions() {
+    let output = pred().args(["create", "--help"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Matrix input"),
+        "expected generic matrix help, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Shared integer parameter"),
+        "expected generic k help, got: {stdout}"
+    );
+    assert!(
+        !stdout.contains("Matrix for QUBO"),
+        "create --help should not imply --matrix is QUBO-only, got: {stdout}"
+    );
+    assert!(
+        !stdout.contains("Number of colors for KColoring"),
+        "create --help should not imply --k is KColoring-only, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_create_length_bounded_disjoint_paths_help_uses_bound_flag() {
+    let output = pred()
+        .args(["create", "LengthBoundedDisjointPaths"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--max-length"),
+        "help should advertise the actual CLI flag name, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_consecutive_ones_submatrix_no_flags_uses_actual_cli_help() {
+    let output = pred()
+        .args(["create", "ConsecutiveOnesSubmatrix"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--matrix"),
+        "expected '--matrix' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--k"),
+        "expected '--k' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--bound-k"),
+        "help should not advertise schema field names: {stderr}"
+    );
+    assert!(
+        stderr.contains("semicolon-separated 0/1 rows: \"1,0;0,1\""),
+        "expected bool matrix format hint in help output, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_prime_attribute_name_no_flags_uses_actual_cli_flag_names() {
+    let output = pred()
+        .args(["create", "PrimeAttributeName"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--universe"),
+        "expected '--universe' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--deps"),
+        "expected '--deps' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--query"),
+        "expected '--query' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--num-attributes"),
+        "help should not advertise schema field names: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--dependencies"),
+        "help should not advertise schema field names: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--query-attribute"),
+        "help should not advertise schema field names: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_lcs_with_raw_strings_infers_alphabet() {
+    let output = pred()
+        .args(["create", "LCS", "--strings", "ABAC;BACA", "--bound", "2"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "LongestCommonSubsequence");
+    assert_eq!(json["data"]["alphabet_size"], 3);
+    assert_eq!(json["data"]["bound"], 2);
+    assert_eq!(
+        json["data"]["strings"],
+        serde_json::json!([[0, 1, 0, 2], [1, 0, 2, 0]])
+    );
+}
+
+#[test]
+fn test_create_lcs_rejects_empty_strings_with_positive_bound_without_panicking() {
+    let output = pred()
+        .args(["create", "LCS", "--strings", "", "--bound", "1"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Provide --alphabet-size when all strings are empty and --bound > 0"),
+        "expected user-facing validation error, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("panicked at"),
+        "create command should reject invalid LCS input without panicking: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_kcoloring_missing_k() {
     let output = pred()
         .args(["create", "KColoring", "--graph", "0-1,1-2"])
@@ -1492,6 +3102,216 @@ fn test_create_kcoloring_missing_k() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--k"));
+}
+
+#[test]
+fn test_create_consecutive_ones_submatrix_succeeds() {
+    let output = pred()
+        .args([
+            "create",
+            "ConsecutiveOnesSubmatrix",
+            "--matrix",
+            "1,1,0,1;1,0,1,1;0,1,1,0",
+            "--k",
+            "3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "ConsecutiveOnesSubmatrix");
+    assert_eq!(json["data"]["bound_k"], 3);
+    assert_eq!(
+        json["data"]["matrix"][0],
+        serde_json::json!([true, true, false, true])
+    );
+}
+
+#[test]
+fn test_create_kth_best_spanning_tree_rejects_zero_k() {
+    let output = pred()
+        .args([
+            "create",
+            "KthBestSpanningTree",
+            "--graph",
+            "0-1,1-2,0-2",
+            "--edge-weights",
+            "2,3,1",
+            "--k",
+            "0",
+            "--bound",
+            "3",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("must be positive"),
+        "expected positive-k validation error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_kth_best_spanning_tree_help_uses_edge_weights() {
+    let output = pred()
+        .args(["create", "KthBestSpanningTree"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--edge-weights"),
+        "expected edge-weight help, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("\n  --weights"),
+        "vertex-weight flag should not be suggested, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_kth_best_spanning_tree_rejects_vertex_weights_flag() {
+    let output = pred()
+        .args([
+            "create",
+            "KthBestSpanningTree",
+            "--graph",
+            "0-1,0-2,1-2",
+            "--weights",
+            "9,9,9",
+            "--k",
+            "1",
+            "--bound",
+            "3",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--edge-weights"),
+        "expected guidance toward edge weights, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_length_bounded_disjoint_paths_rejects_equal_terminals() {
+    let output = pred()
+        .args([
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--graph",
+            "0-1,1-2",
+            "--source",
+            "0",
+            "--sink",
+            "0",
+            "--num-paths-required",
+            "1",
+            "--bound",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--source and --sink must be distinct"),
+        "expected user-facing validation error, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("panicked at"),
+        "create command should reject equal terminals without panicking: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_length_bounded_disjoint_paths_succeeds() {
+    let output = pred()
+        .args([
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--graph",
+            "0-1,1-3,0-2,2-3",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--num-paths-required",
+            "2",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "LengthBoundedDisjointPaths");
+    assert_eq!(json["data"]["source"], 0);
+    assert_eq!(json["data"]["sink"], 3);
+    assert_eq!(json["data"]["num_paths_required"], 2);
+    assert_eq!(json["data"]["max_length"], 2);
+}
+
+#[test]
+fn test_create_length_bounded_disjoint_paths_rejects_negative_bound_value() {
+    let output = pred()
+        .args([
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--graph",
+            "0-1,1-2",
+            "--source",
+            "0",
+            "--sink",
+            "1",
+            "--num-paths-required",
+            "1",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--bound must be a nonnegative integer for LengthBoundedDisjointPaths"),
+        "expected user-facing negative-bound error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_random_length_bounded_disjoint_paths_rejects_negative_bound_value() {
+    let output = pred()
+        .args([
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--random",
+            "--num-vertices",
+            "3",
+            "--seed",
+            "7",
+            "--bound=-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--bound must be a nonnegative integer for LengthBoundedDisjointPaths"),
+        "expected shared negative-bound validation, got: {stderr}"
+    );
 }
 
 #[test]
@@ -2344,6 +4164,84 @@ fn test_create_pipe_to_solve() {
 }
 
 #[test]
+fn test_solve_ilp_error_suggests_brute_force_fallback() {
+    let problem_json = r#"{
+        "type": "SumOfSquaresPartition",
+        "data": {
+            "sizes": [5, 3, 8, 2, 7, 1],
+            "num_groups": 3,
+            "bound": 240
+        }
+    }"#;
+    let tmp = std::env::temp_dir().join("pred_test_sum_of_squares_partition.json");
+    std::fs::write(&tmp, problem_json).unwrap();
+
+    let output = pred()
+        .args(["solve", tmp.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--solver brute-force"),
+        "stderr should suggest the brute-force fallback, got: {stderr}"
+    );
+
+    std::fs::remove_file(&tmp).ok();
+}
+
+#[test]
+fn test_create_multiple_choice_branching_pipe_to_solve() {
+    let create_out = pred()
+        .args([
+            "create",
+            "MultipleChoiceBranching/i32",
+            "--arcs",
+            "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
+            "--weights",
+            "3,2,4,1,2,3,1,3",
+            "--partition",
+            "0,1;2,3;4,7;5,6",
+            "--bound",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    use std::io::Write;
+    let mut child = pred()
+        .args(["solve", "-", "--solver", "brute-force"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&create_out.stdout)
+        .unwrap();
+    let solve_result = child.wait_with_output().unwrap();
+    assert!(
+        solve_result.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&solve_result.stderr)
+    );
+    let stdout = String::from_utf8(solve_result.stdout).unwrap();
+    assert!(
+        stdout.contains("\"solution\""),
+        "stdout should contain solution, got: {stdout}"
+    );
+}
+
+#[test]
 fn test_create_pipe_to_evaluate() {
     // pred create MIS --graph 0-1,1-2 | pred evaluate - --config 1,0,1
     let create_out = pred()
@@ -2623,6 +4521,123 @@ fn test_inspect_json_output() {
     );
     assert!(json["solvers"].is_array());
     assert!(json["reduces_to"].is_array());
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&result_file).ok();
+}
+
+#[test]
+fn test_inspect_multiprocessor_scheduling_reports_only_brute_force_solver() {
+    let problem_file = std::env::temp_dir().join("pred_test_inspect_mps_in.json");
+    let result_file = std::env::temp_dir().join("pred_test_inspect_mps_out.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MultiprocessorScheduling",
+            "--lengths",
+            "4,5,3,2,6",
+            "--num-processors",
+            "2",
+            "--deadline",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args([
+            "-o",
+            result_file.to_str().unwrap(),
+            "inspect",
+            problem_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&result_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let solvers: Vec<&str> = json["solvers"]
+        .as_array()
+        .expect("solvers should be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert_eq!(
+        solvers,
+        vec!["brute-force"],
+        "unexpected solvers: {solvers:?}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&result_file).ok();
+}
+
+#[test]
+fn test_inspect_undirected_two_commodity_integral_flow_reports_size_fields() {
+    let problem_file = std::env::temp_dir().join("pred_test_utcif_inspect_in.json");
+    let result_file = std::env::temp_dir().join("pred_test_utcif_inspect_out.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "--example",
+            "UndirectedTwoCommodityIntegralFlow",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args([
+            "-o",
+            result_file.to_str().unwrap(),
+            "inspect",
+            problem_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(result_file.exists());
+
+    let content = std::fs::read_to_string(&result_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let size_fields: Vec<&str> = json["size_fields"]
+        .as_array()
+        .expect("size_fields should be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(
+        size_fields.contains(&"num_vertices"),
+        "UndirectedTwoCommodityIntegralFlow size_fields should contain num_vertices, got: {:?}",
+        size_fields
+    );
+    assert!(
+        size_fields.contains(&"num_edges"),
+        "UndirectedTwoCommodityIntegralFlow size_fields should contain num_edges, got: {:?}",
+        size_fields
+    );
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();
@@ -2971,6 +4986,235 @@ fn test_create_factoring_missing_bits() {
         stderr.contains("--m"),
         "expected '--m' in error, got: {stderr}"
     );
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--costs",
+            "2,-1,3,-2,1,-3",
+            "--precedence-pairs",
+            "0>2,1>2,1>3,2>4,3>5,4>5",
+            "--bound",
+            "4",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "SequencingToMinimizeMaximumCumulativeCost");
+    assert_eq!(
+        json["data"]["costs"],
+        serde_json::json!([2, -1, 3, -2, 1, -3])
+    );
+    assert_eq!(
+        json["data"]["precedences"],
+        serde_json::json!([[0, 2], [1, 2], [1, 3], [2, 4], [3, 5], [4, 5]])
+    );
+    assert_eq!(json["data"]["bound"], 4);
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_no_flags_shows_help() {
+    let output = pred()
+        .args(["create", "SequencingToMinimizeMaximumCumulativeCost"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--costs"),
+        "expected '--costs' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_missing_costs() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--bound",
+            "4",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("requires --costs"),
+        "expected missing --costs message, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_bad_precedence() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--costs",
+            "1,-1,2",
+            "--precedence-pairs",
+            "0>3",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("precedence"),
+        "expected precedence validation error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_invalid_precedence_pair() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--costs",
+            "1,-1,2",
+            "--precedence-pairs",
+            "a>b",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--precedence-pairs"),
+        "expected flag-specific precedence parse error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_maximum_cumulative_cost_allows_negative_values() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeMaximumCumulativeCost",
+            "--costs",
+            "-1,2,-3",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["data"]["costs"], serde_json::json!([-1, 2, -3]));
+    assert_eq!(json["data"]["bound"], -1);
+}
+
+#[test]
+fn test_evaluate_multiprocessor_scheduling_rejects_zero_processors_json() {
+    let problem_file =
+        std::env::temp_dir().join("pred_test_eval_multiprocessor_zero_processors.json");
+    std::fs::write(
+        &problem_file,
+        r#"{
+  "type": "MultiprocessorScheduling",
+  "variant": {},
+  "data": {
+    "lengths": [1, 2],
+    "num_processors": 0,
+    "deadline": 5
+  }
+}"#,
+    )
+    .unwrap();
+
+    let output = pred()
+        .args([
+            "evaluate",
+            problem_file.to_str().unwrap(),
+            "--config",
+            "0,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("expected positive integer, got 0"),
+        "stderr: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_multiprocessor_scheduling_default_solver_suggests_brute_force() {
+    let problem_file =
+        std::env::temp_dir().join("pred_test_solve_multiprocessor_default_solver.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MultiprocessorScheduling",
+            "--lengths",
+            "4,5,3,2,6",
+            "--num-processors",
+            "2",
+            "--deadline",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args(["solve", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("No reduction path from MultiprocessorScheduling to ILP"),
+        "stderr: {stderr}"
+    );
+    assert!(stderr.contains("--solver brute-force"), "stderr: {stderr}");
+
+    std::fs::remove_file(&problem_file).ok();
 }
 
 // ---- Timeout tests (H3) ----
@@ -3680,4 +5924,230 @@ fn test_create_weighted_mis_round_trips_into_solve() {
     let stdout = String::from_utf8(solve_output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["evaluation"], "Valid(5)");
+}
+
+#[test]
+fn test_create_minimum_multiway_cut() {
+    let output_file = std::env::temp_dir().join("pred_test_create_minimum_multiway_cut.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MinimumMultiwayCut",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--terminals",
+            "0,2",
+            "--edge-weights",
+            "1,1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MinimumMultiwayCut");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["terminals"], serde_json::json!([0, 2]));
+    assert_eq!(json["data"]["edge_weights"], serde_json::json!([1, 1, 1]));
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_sequencing_within_intervals() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_sequencing_within_intervals.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SequencingWithinIntervals",
+            "--release-times",
+            "0,0,0,0,5",
+            "--deadlines",
+            "11,11,11,11,6",
+            "--lengths",
+            "3,1,2,4,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SequencingWithinIntervals");
+    assert_eq!(
+        json["data"]["release_times"],
+        serde_json::json!([0, 0, 0, 0, 5])
+    );
+    assert_eq!(
+        json["data"]["deadlines"],
+        serde_json::json!([11, 11, 11, 11, 6])
+    );
+    assert_eq!(json["data"]["lengths"], serde_json::json!([3, 1, 2, 4, 1]));
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_model_example_multiprocessor_scheduling() {
+    let output = pred()
+        .args(["create", "--example", "MultiprocessorScheduling"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MultiprocessorScheduling");
+}
+
+#[test]
+fn test_create_model_example_minimum_multiway_cut() {
+    let output = pred()
+        .args(["create", "--example", "MinimumMultiwayCut"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MinimumMultiwayCut");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "i32");
+}
+
+#[test]
+fn test_create_model_example_sequencing_within_intervals() {
+    let output = pred()
+        .args(["create", "--example", "SequencingWithinIntervals"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "SequencingWithinIntervals");
+}
+
+#[test]
+fn test_create_minimum_multiway_cut_rejects_single_terminal() {
+    let output = pred()
+        .args([
+            "create",
+            "MinimumMultiwayCut",
+            "--graph",
+            "0-1,1-2",
+            "--edge-weights",
+            "1,1",
+            "--terminals",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("terminal") || stderr.contains("Terminal"),
+        "expected terminal-related error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_within_intervals_rejects_empty_window() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingWithinIntervals",
+            "--release-times",
+            "5",
+            "--deadlines",
+            "3",
+            "--lengths",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "expected graceful CLI error, got panic: {stderr}"
+    );
+    assert!(
+        stderr.contains("time window is empty"),
+        "expected empty-window validation error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_within_intervals_rejects_mismatched_lengths() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingWithinIntervals",
+            "--release-times",
+            "0,1",
+            "--deadlines",
+            "2",
+            "--lengths",
+            "1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "expected graceful CLI error, got panic: {stderr}"
+    );
+    assert!(
+        stderr.contains("must have the same length"),
+        "expected length validation error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_within_intervals_rejects_overflow() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingWithinIntervals",
+            "--release-times",
+            "18446744073709551615",
+            "--deadlines",
+            "18446744073709551615",
+            "--lengths",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "expected graceful CLI error, got panic: {stderr}"
+    );
+    assert!(
+        stderr.contains("overflow computing r(i) + l(i)"),
+        "expected overflow validation error, got: {stderr}"
+    );
 }

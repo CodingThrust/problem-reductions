@@ -199,14 +199,13 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "qubo_f64",
-        build: || {
-            let problem = QUBO::from_matrix(vec![
-                vec![-1.0, 2.0, 0.0],
-                vec![0.0, -1.0, 2.0],
-                vec![0.0, 0.0, -1.0],
-            ]);
-            crate::example_db::specs::optimization_example(problem, vec![vec![1, 0, 1]])
-        },
+        instance: Box::new(QUBO::from_matrix(vec![
+            vec![-1.0, 2.0, 0.0],
+            vec![0.0, -1.0, 2.0],
+            vec![0.0, 0.0, -1.0],
+        ])),
+        optimal_config: vec![1, 0, 1],
+        optimal_value: serde_json::json!({"Valid": -2.0}),
     }]
 }
 

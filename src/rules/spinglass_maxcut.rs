@@ -181,15 +181,20 @@ impl ReduceTo<MaxCut<SimpleGraph, i32>> for SpinGlass<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
     vec![
         crate::example_db::specs::RuleExampleSpec {
             id: "maxcut_to_spinglass",
             build: || {
                 let (n, edges) = crate::topology::small_graphs::petersen();
                 let source = MaxCut::unweighted(SimpleGraph::new(n, edges));
-                crate::example_db::specs::direct_best_example::<_, SpinGlass<SimpleGraph, i32>, _>(
+                crate::example_db::specs::rule_example_with_witness::<_, SpinGlass<SimpleGraph, i32>>(
                     source,
-                    |_, _| true,
+                    SolutionPair {
+                        source_config: vec![0, 1, 0, 1, 0, 1, 0, 0, 0, 1],
+                        target_config: vec![0, 1, 0, 1, 0, 1, 0, 0, 0, 1],
+                    },
                 )
             },
         },
@@ -203,9 +208,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .map(|(i, &(u, v))| ((u, v), if i % 2 == 0 { 1 } else { -1 }))
                     .collect();
                 let source = SpinGlass::new(n, couplings, vec![0; n]);
-                crate::example_db::specs::direct_best_example::<_, MaxCut<SimpleGraph, i32>, _>(
+                crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i32>>(
                     source,
-                    |_, _| true,
+                    SolutionPair {
+                        source_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
+                        target_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 0, 1],
+                    },
                 )
             },
         },
