@@ -119,13 +119,9 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "partition",
-        build: || {
-            let problem = Partition::new(vec![3, 1, 1, 2, 2, 1]);
-            crate::example_db::specs::satisfaction_example(
-                problem,
-                vec![vec![1, 0, 0, 1, 0, 0], vec![0, 0, 0, 0, 0, 0]],
-            )
-        },
+        instance: Box::new(Partition::new(vec![3, 1, 1, 2, 2, 1])),
+        optimal_config: vec![1, 0, 0, 1, 0, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 
