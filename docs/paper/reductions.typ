@@ -2623,7 +2623,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 #problem-def("ResourceConstrainedScheduling")[
   Given a set $T$ of $n$ unit-length tasks, $m$ identical processors, $r$ resources with bounds $B_i$ ($1 <= i <= r$), resource requirements $R_i (t)$ for each task $t$ and resource $i$ ($0 <= R_i (t) <= B_i$), and an overall deadline $D in ZZ^+$, determine whether there exists an $m$-processor schedule $sigma : T -> {0, dots, D-1}$ such that for every time slot $u$, at most $m$ tasks are scheduled at $u$ and $sum_(t : sigma(t) = u) R_i (t) <= B_i$ for each resource $i$.
 ][
-  RESOURCE CONSTRAINED SCHEDULING is problem SS10 in Garey & Johnson's compendium @garey1979. It is NP-complete in the strong sense, even for $r = 1$ resource and $m = 3$ processors, by reduction from 3-PARTITION @garey1975. For $m = 2$ processors with arbitrary $r$, the problem is solvable in polynomial time via bipartite matching. The general case subsumes bin-packing-style constraints across multiple resource dimensions.
+  RESOURCE CONSTRAINED SCHEDULING is problem SS10 in Garey & Johnson's compendium @garey1979. It is NP-complete in the strong sense, even for $r = 1$ resource and $m = 3$ processors, by reduction from 3-PARTITION @garey1979. For $m = 2$ processors with arbitrary $r$, the problem is solvable in polynomial time via bipartite matching. The general case subsumes bin-packing-style constraints across multiple resource dimensions.
 
   *Example.* Let $n = 6$ tasks, $m = 3$ processors, $r = 1$ resource with $B_1 = 20$, and deadline $D = 2$. Resource requirements: $R_1(t_1) = 6$, $R_1(t_2) = 7$, $R_1(t_3) = 7$, $R_1(t_4) = 6$, $R_1(t_5) = 8$, $R_1(t_6) = 6$. Schedule: slot 0 $arrow.l {t_1, t_2, t_3}$ (3 tasks, resource $= 20$), slot 1 $arrow.l {t_4, t_5, t_6}$ (3 tasks, resource $= 20$). Both constraints satisfied; answer: YES.
 ]
@@ -3677,10 +3677,10 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 #let mwc_qubo = load-example("MinimumMultiwayCut", "QUBO")
 #let mwc_qubo_sol = mwc_qubo.solutions.at(0)
-#let mwc_qubo_edges = mwc_qubo.source.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+#let mwc_qubo_edges = mwc_qubo.source.instance.graph.edges.map(e => (e.at(0), e.at(1)))
 #let mwc_qubo_weights = mwc_qubo.source.instance.edge_weights
 #let mwc_qubo_terminals = mwc_qubo.source.instance.terminals
-#let mwc_qubo_n = mwc_qubo.source.instance.graph.inner.nodes.len()
+#let mwc_qubo_n = mwc_qubo.source.instance.graph.num_vertices
 #let mwc_qubo_k = mwc_qubo_terminals.len()
 #let mwc_qubo_nq = mwc_qubo_n * mwc_qubo_k
 #let mwc_qubo_alpha = mwc_qubo_weights.fold(0, (a, w) => a + w) + 1
