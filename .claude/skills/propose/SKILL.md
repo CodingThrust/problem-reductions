@@ -45,11 +45,14 @@ digraph propose {
     "Done" [shape=doublecircle];
 
     "Study conventions" [shape=box];
+    "Overlap check" [shape=diamond];
 
     "Start" -> "Detect type";
     "Detect type" -> "Study conventions" [label="model or rule"];
     "Detect type" -> "Start" [label="ask user"];
-    "Study conventions" -> "Brainstorm Model" [label="model"];
+    "Study conventions" -> "Overlap check" [label="model"];
+    "Overlap check" -> "Brainstorm Model" [label="new or variant"];
+    "Overlap check" -> "Select rule pair" [label="pivot to rules"];
     "Study conventions" -> "Select rule pair" [label="rule"];
     "Select rule pair" -> "Study models";
     "Study models" -> "Literature check";
@@ -119,6 +122,27 @@ Right after the user picks model or rule, **study at least one existing case** i
    - How the "Reduction Rule Crossref" section is structured
 
    Use these conventions to guide the brainstorming questions and draft formatting in later steps.
+
+4. **Check for overlap with existing problems.** If the most similar problem is the *same problem* the user described (or a close generalization/restriction), surface this immediately via `AskUserQuestion` before continuing brainstorming:
+
+   ```
+   AskUserQuestion:
+     question: "I found that <ExistingProblem> already exists [status]. Your idea looks like a [variant/restriction/generalization]. How should we proceed?"
+     header: "Overlap"
+     options:
+       - label: "Propose a specialized variant"
+         description: "Define a new problem type for the restricted case (e.g., tournament restriction of a general digraph problem)"
+       - label: "Propose rules for the existing problem"
+         description: "Connect the existing problem to the graph — switches to the rule proposal flow"
+       - label: "Both — variant + rules"
+         description: "Propose the specialized variant AND rules connecting both versions"
+   ```
+
+   - If the user picks **"Propose rules"**, pivot to the **For Rules** flow (Step 3 for Rules). This is the only supported mid-flow type pivot.
+   - If the user picks **"Both"**, continue the model flow and flag that companion rules should also connect the existing problem.
+   - **Show the existing problem's schema** so the user can design for compatibility:
+     > "Here's how <ExistingProblem> is defined: [field summary from `pred show`]. Your variant can mirror this structure where applicable."
+   - If the existing problem is an orphan, mention this — it increases the value of connecting both problems.
 
 ### For Rules
 
@@ -199,7 +223,12 @@ Ask questions **one at a time**. Prefer multiple-choice when possible. Use mathe
 
 Work through these topics in order, using `AskUserQuestion` where multiple-choice is natural. Adapt based on answers. (The orienting "What problem?" question was already asked in Step 1b.)
 
-1. **Why useful?** — Use `AskUserQuestion`:
+**Auto-inference rule:** For questions 1 (motivation), 2 (problem type), 3 (variables), and 7 (data representation), the answer is often determinable from the user's orienting description. When this is the case, **state the inferred answer as a brief confirmation** instead of presenting an open-ended `AskUserQuestion`:
+> "Based on your description, this is a minimization problem on a graph input with permutation variables — correct?"
+
+Only fall back to the full `AskUserQuestion` if the inference is genuinely ambiguous. Expert users find obvious multiple-choice questions annoying.
+
+1. **Why useful?** — If the user already explained the motivation in the orienting question, acknowledge it and move on. Only use `AskUserQuestion` if the motivation is unclear:
    ```
    AskUserQuestion:
      question: "What's the motivation for this problem? Where does it appear?"
@@ -215,7 +244,7 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
          description: "I'll describe the domain"
    ```
 
-2. **Definition** — Use `AskUserQuestion` to clarify problem type, then free text for formal definition. Infer the recommendation from the user's problem description (e.g., "find the largest..." → maximize, "find the smallest..." → minimize, "does there exist..." → satisfaction). Mark the inferred option as "(Recommended)":
+2. **Definition** — Infer the problem type from the user's description (e.g., "find the largest..." → maximize, "find the smallest..." → minimize, "does there exist..." → satisfaction). If the inference is clear, confirm it inline: "This is a minimization problem — correct?" Only use the full `AskUserQuestion` if ambiguous:
    ```
    AskUserQuestion:
      question: "What kind of problem is this?"
@@ -228,9 +257,9 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
        - label: "Satisfaction (yes/no)"
          description: "Find any solution that meets all constraints, or decide if one exists"
    ```
-   Then ask: "Can you state the problem formally? What's the input, constraints, and objective?"
+   Then ask: "Can you state the problem formally? What's the input, constraints, and objective?" (Skip if the user already provided a formal definition in the orienting question.)
 
-3. **Variables** — Infer the recommendation from the problem structure (e.g., vertex/edge selection → binary, coloring → k-valued, routing → permutation). Mark the inferred option as "(Recommended)":
+3. **Variables** — Infer from the problem structure (vertex/edge selection → binary, coloring → k-valued, routing/ranking → permutation). If the inference is clear, confirm inline. Only use `AskUserQuestion` if ambiguous:
    ```
    AskUserQuestion:
      question: "How would you represent a solution? What are the decision variables?"
@@ -268,30 +297,24 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
    - Every option must include a link to the paper or resource
    - After the user picks one, fetch the BibTeX entry for the chosen reference (from the paper's page, DOI resolver, or Google Scholar) and record it — the BibTeX will be included in the filed issue
 
-5. **Solving strategy** — Before presenting options, analyze the problem to determine the best recommendation based on:
-   - If the problem has linear constraints and a linear objective → recommend ILP
-   - If the problem has binary variables and quadratic interactions → recommend QUBO
-   - If the problem is on a small configuration space or has no natural ILP/QUBO formulation → recommend brute-force
-   - If a well-known specialized algorithm exists (e.g., polynomial-time for matching, 2-SAT) → recommend that
+5. **Solving strategy** — The library's brute-force solver works on every problem by enumerating the configuration space. **Auto-fill "Brute-force" as the baseline** — do not present it as a choice.
 
-   Mark the recommended option with "(Recommended)" in the label:
+   If the problem has a natural ILP or QUBO formulation, note it for the companion rules section (Step 3b), not here:
+   > "Brute-force is the baseline solver. A natural ILP formulation also exists — we'll propose that as a companion reduction rule later."
+
+   **Only use `AskUserQuestion`** if the problem is polynomial-time solvable or has a specialized exact algorithm that should replace brute-force:
    ```
    AskUserQuestion:
-     question: "How can this problem be solved computationally?"
-     header: "Solving strategy"
+     question: "This problem appears to be solvable in polynomial time. Which algorithm should be the primary solver?"
+     header: "Solver"
      options:
-       - label: "<option> (Recommended)"
-         description: "<why this is the best fit for this problem>"
-       - label: "<option>"
-         description: "<description>"
-       - label: "<option>"
-         description: "<description>"
-       - label: "Specialized algorithm"
-         description: "A problem-specific algorithm exists — I'll describe it"
+       - label: "<algorithm> (Recommended)"
+         description: "<why — e.g., runs in O(n^3) via Hungarian method>"
+       - label: "Brute-force anyway"
+         description: "Use generic brute-force even though faster algorithms exist"
    ```
-   This determines the "How to solve" section in the issue. At least one option is required — check-issue rejects issues without a solver path.
 
-   **Important:** If the user chooses "Reduce to ILP" or "Reduce to QUBO", remind them that this requires a reduction rule issue. Either cross-reference an existing rule issue, or plan to file one as a companion rule (which will be proposed in Step 3b Topology Analysis). The model issue's "How to solve" section must reference the rule issue number.
+   **Do not present ILP/QUBO as solver options.** These are reductions to other problems, handled as companion rules in Step 3b. The "How to solve" section in the issue always says "Brute-force" for NP-hard problems.
 
 6. **Example** — Generate **at least 3** candidate examples yourself (varying in size and structure), then present via `AskUserQuestion`. **3 options is the minimum — never fewer.** Always include a "Generate new batch" escape hatch:
 
@@ -312,11 +335,13 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
 
    If the user picks "Generate new batch", create 3 new examples with different sizes/structures and re-present.
 
-   After the user picks a concrete example, provide a complete instance with its known optimal solution.
+   After the user picks a concrete example, provide a complete instance with its expected outcome.
+   - For optimization problems: give at least one optimal solution and the optimal objective value
+   - For satisfaction problems: give at least one valid / satisfying solution and explain briefly why it is valid
    - Must exercise the problem's core structure
    - Must be small enough to verify by hand
 
-7. **Data representation** — Infer the recommendation from the problem definition (e.g., "vertices and edges" → graph, "rows and columns" → matrix, "universe and subsets" → set system). Mark the inferred option as "(Recommended)":
+7. **Data representation** — Infer from the problem definition (e.g., "vertices and edges" → graph, "rows and columns" → matrix, "universe and subsets" → set system). If the inference is clear from the user's description, confirm inline: "The input is a graph — correct?" Only use `AskUserQuestion` if ambiguous:
    ```
    AskUserQuestion:
      question: "What data defines an instance of this problem?"
@@ -488,7 +513,7 @@ If the reduction is well-known, use the literature to **pre-fill** answers in St
    - Must define all symbols before using them
    - Must be detailed enough that someone could implement it
 
-3. **Explanation** — Present a correctness argument explaining why the reduction preserves optimal solutions, then ask for feedback via `AskUserQuestion`:
+3. **Explanation** — Present a correctness argument explaining why the reduction preserves feasibility (for satisfaction problems) or optimality (for optimization problems), then ask for feedback via `AskUserQuestion`:
    ```
    AskUserQuestion:
      question: "How does this explanation look?"
@@ -525,7 +550,8 @@ If the reduction is well-known, use the literature to **pre-fill** answers in St
 
    If the user picks "Generate new batch", create 3 new examples with different sizes/structures and re-present.
 
-   After the user picks a concrete example, fully work out the example: show source instance, each construction step, resulting target instance, and the optimal solution.
+   After the user picks a concrete example, fully work out the example: show source instance, each construction step, and the resulting target instance.
+   - Do not ask the user to provide solved witnesses manually
    - Must be non-trivial but hand-verifiable
    - Must exercise the core structure of the reduction
 
@@ -637,6 +663,9 @@ If proposing a model + rules, present all drafts together:
 - Reduction Rule Crossref (linking to companion rule issues or noting planned rules)
 - How to solve (brute-force, ILP, or other — if ILP/QUBO, must cross-reference rule issue)
 - Example Instance
+- Expected Outcome
+  - Optimization problems: optimal solution + optimal objective value
+  - Satisfaction problems: valid / satisfying solution + brief justification
 - BibTeX (include the BibTeX entry for the complexity/definition reference at the end of the issue)
 
 **For rules**, the draft must include:
@@ -644,7 +673,7 @@ If proposing a model + rules, present all drafts together:
 - Reduction Algorithm (numbered steps, all symbols defined)
 - Size Overhead (table with target metrics and formulas)
 - Validation Method
-- Example (fully worked)
+- Example (fully worked: source instance, construction, target instance)
 - BibTeX (include the BibTeX entry for the reference at the end of the issue)
 
 ---
@@ -665,7 +694,7 @@ Apply all 4 checks from `/check-issue` against the draft content:
 1. **Usefulness:** `pred show <name>` must fail (problem doesn't exist). At least one reduction planned.
 2. **Non-trivial:** Not isomorphic to existing problem.
 3. **Correctness:** Complexity expression verified against literature.
-4. **Well-written:** All template sections present, symbols consistent, example exercises core structure.
+4. **Well-written:** All template sections present, symbols consistent, example exercises core structure, and Expected Outcome matches the problem type (valid solution for satisfaction, optimal solution/value for optimization).
 
 **If any check fails:** Fix the draft automatically if possible. If user input is needed, ask. Loop back to Step 4 with the corrected draft.
 
@@ -730,6 +759,7 @@ Print all issue URLs when done.
 ## Key Principles
 
 - **Use `AskUserQuestion` only when genuine user input is needed** — use it for choices where the answer is NOT determinable from context (type detection, problem selection, example selection, approval). Do NOT use it when the answer is already clear from topology analysis, model inspection, or literature (e.g., don't ask "why is this useful?" when the topology analysis already shows it connects an orphan).
+- **Auto-infer obvious answers** — When the user's orienting description clearly determines the answer (problem type, data representation, variable structure, motivation), confirm inline rather than presenting an open-ended `AskUserQuestion`. Expert users find obvious multiple-choice questions patronizing.
 - **Study models before brainstorming** — always run `pred show <source> --json` and `pred show <target> --json` before asking questions. This reveals field types, size getters, and schema details that are essential for correct overhead tables.
 - **Pre-fill well-known reductions** — if the reduction appears in standard textbooks, pre-fill answers from literature but still present each step to the user for confirmation. Never skip brainstorming steps.
 - **One question at a time** — don't overwhelm; each `AskUserQuestion` call has one focused question
@@ -743,7 +773,7 @@ Print all issue URLs when done.
 
 ## Common Mistakes
 
-- **Don't ask questions with obvious answers.** If the topology analysis shows the rule connects an orphan, don't ask "What makes this reduction valuable?" — state it. Only use `AskUserQuestion` when the answer requires genuine user input.
+- **Don't ask questions with obvious answers.** If the topology analysis shows the rule connects an orphan, don't ask "What makes this reduction valuable?" — state it. If the user described "minimizing backward arcs," don't present a 3-option problem-type question — just confirm "This is a minimization problem — correct?" Only use full `AskUserQuestion` when the answer requires genuine user input or is ambiguous.
 - **Don't skip model inspection.** Always run `pred show <source> --json` and `pred show <target> --json` before brainstorming. Missing this leads to wrong overhead tables and missed type mismatches (e.g., `BigUint` vs `i64`).
 - **Don't skip confirmation for textbook reductions.** Even if SubsetSum → Knapsack is in Garey & Johnson, still present each brainstorming step with pre-filled answers for the user to confirm or revise. Never jump straight to the draft.
 - **Don't rebuild `pred` unnecessarily.** Use `command -v pred` to check if it's installed before running `make cli` (which takes >1 minute).

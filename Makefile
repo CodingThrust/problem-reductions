@@ -1,10 +1,13 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever diagrams jl-testdata cli cli-demo copilot-review
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review
 
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
 CODEX_MODEL ?= gpt-5.4
+
+# Cross-platform sed in-place: macOS needs -i '', Linux needs -i
+SED_I := sed -i$(shell if [ "$$(uname)" = "Darwin" ]; then echo " ''"; fi)
 
 # Default target
 help:
@@ -18,13 +21,12 @@ help:
 	@echo "  doc          - Build mdBook documentation"
 	@echo "  diagrams     - Generate SVG diagrams from Typst (light + dark)"
 	@echo "  mdbook       - Build and serve mdBook (with live reload)"
-	@echo "  paper        - Build Typst paper (requires typst)"
+	@echo "  paper        - Build Typst paper from checked-in fixtures (requires typst)"
 	@echo "  coverage     - Generate coverage report (requires cargo-llvm-cov)"
 	@echo "  clean        - Clean build artifacts"
 	@echo "  check        - Quick check (fmt + clippy + test)"
 	@echo "  rust-export  - Generate Rust mapping JSON exports"
 	@echo "  compare      - Generate and compare Rust mapping exports"
-	@echo "  examples     - Generate example JSON for paper"
 	@echo "  export-schemas - Export problem schemas to JSON"
 	@echo "  qubo-testdata - Regenerate QUBO test data (requires uv)"
 	@echo "  jl-testdata  - Regenerate Julia parity test data (requires julia)"
@@ -36,7 +38,17 @@ help:
 	@echo "  run-pipeline [N=<number>] - Pick a Ready issue, implement, move to Review pool"
 	@echo "  run-pipeline-forever - Loop: poll Ready column for new issues, run-pipeline when new ones appear"
 	@echo "  run-review [N=<number>] - Pick PR from Review pool, fix comments/CI, run agentic tests"
-	@echo "  run-review-forever - Loop: poll Review pool for Copilot-reviewed PRs, run-review when new ones appear"
+	@echo "  run-review-forever - Loop: poll Review pool for eligible PRs, dispatch run-review"
+	@echo "  board-next MODE=<ready|review|final-review> [NUMBER=<n>] [FORMAT=text|json] - Get the next eligible queued project item"
+	@echo "  board-claim MODE=<ready|review> [NUMBER=<n>] [FORMAT=text|json] - Claim and move the next eligible queued project item"
+	@echo "  board-ack MODE=<ready|review|final-review> ITEM=<id> - Acknowledge a queued project item"
+	@echo "  board-move ITEM=<id> STATUS=<status> - Move a project item to a named status"
+	@echo "  issue-context ISSUE=<number> [REPO=<owner/repo>] - Fetch structured issue preflight JSON"
+	@echo "  issue-guards ISSUE=<number> [REPO=<owner/repo>] - Backward-compatible alias for issue-context"
+	@echo "  pr-context PR=<number> [REPO=<owner/repo>] - Fetch structured PR snapshot JSON"
+	@echo "  pr-wait-ci PR=<number> [REPO=<owner/repo>] - Poll CI until terminal state and print JSON"
+	@echo "  worktree-issue ISSUE=<number> SLUG=<slug> - Create an issue worktree from origin/main"
+	@echo "  worktree-pr PR=<number> [REPO=<owner/repo>] - Checkout a PR into an isolated worktree"
 	@echo "  copilot-review - Request Copilot code review on current PR"
 	@echo ""
 	@echo "  Set RUNNER=claude to use Claude instead of Codex (default: codex)"
@@ -103,20 +115,18 @@ mdbook:
 	python3 -m http.server 3001 -d book &
 	@sleep 1 && (command -v xdg-open >/dev/null && xdg-open http://localhost:3001 || open http://localhost:3001)
 
-# Generate all example JSON files for the paper
-examples:
-	cargo run --features "ilp-highs example-db" --example export_examples
-	cargo run --features ilp-highs --example export_petersen_mapping
 
 # Export problem schemas to JSON
 export-schemas:
 	cargo run --example export_schemas
 
-# Build Typst paper (generates examples first)
-paper: examples
+# Build Typst paper (generates example data on demand)
+paper:
+	cargo run --features "example-db" --example export_examples
+	cargo run --example export_petersen_mapping
 	cargo run --example export_graph
 	cargo run --example export_schemas
-	cd docs/paper && typst compile --root .. reductions.typ reductions.pdf
+	typst compile --root . docs/paper/reductions.typ docs/paper/reductions.pdf
 
 # Generate coverage report (requires: cargo install cargo-llvm-cov)
 coverage:
@@ -144,11 +154,11 @@ ifndef V
 	$(error Usage: make release V=x.y.z)
 endif
 	@echo "Releasing v$(V)..."
-	sed -i '' 's/^version = ".*"/version = "$(V)"/' Cargo.toml
-	sed -i '' 's/^version = ".*"/version = "$(V)"/' problemreductions-macros/Cargo.toml
-	sed -i '' 's/^version = ".*"/version = "$(V)"/' problemreductions-cli/Cargo.toml
-	sed -i '' 's/problemreductions-macros = { version = "[^"]*"/problemreductions-macros = { version = "$(V)"/' Cargo.toml
-	sed -i '' 's/problemreductions = { version = "[^"]*"/problemreductions = { version = "$(V)"/' problemreductions-cli/Cargo.toml
+	$(SED_I) 's/^version = ".*"/version = "$(V)"/' Cargo.toml
+	$(SED_I) 's/^version = ".*"/version = "$(V)"/' problemreductions-macros/Cargo.toml
+	$(SED_I) 's/^version = ".*"/version = "$(V)"/' problemreductions-cli/Cargo.toml
+	$(SED_I) 's/problemreductions-macros = { version = "[^"]*"/problemreductions-macros = { version = "$(V)"/' Cargo.toml
+	$(SED_I) 's/problemreductions = { version = "[^"]*"/problemreductions = { version = "$(V)"/' problemreductions-cli/Cargo.toml
 	cargo check
 	git add Cargo.toml problemreductions-macros/Cargo.toml problemreductions-cli/Cargo.toml
 	git commit -m "release: v$(V)"
@@ -375,10 +385,21 @@ cli-demo: cli
 run-pipeline:
 	@. scripts/make_helpers.sh; \
 	if [ -n "$(N)" ]; then \
-		PROMPT=$$(skill_prompt project-pipeline "/project-pipeline $(N)" "process GitHub issue $(N)"); \
+		issue="$(N)"; \
 	else \
-		PROMPT=$$(skill_prompt project-pipeline "/project-pipeline" "pick and process the next Ready issue"); \
+		status=0; \
+		tmp_state=$$(mktemp); \
+		selection=$$(board_next_json ready "" "" "$$tmp_state") || status=$$?; \
+		rm -f "$$tmp_state"; \
+		if [ "$$status" -eq 1 ]; then \
+			echo "No Ready issues are currently eligible."; \
+			exit 1; \
+		elif [ "$$status" -ne 0 ]; then \
+			exit "$$status"; \
+		fi; \
+		issue=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['issue_number'] or data['number'])"); \
 	fi; \
+	PROMPT=$$(skill_prompt_with_context project-pipeline "/project-pipeline $$issue" "process GitHub issue $$issue" "Selected queue item" "$$selection"); \
 	run_agent "pipeline-output.log" "$$PROMPT"
 
 # Poll Ready column for new issues and run-pipeline when new ones appear
@@ -387,24 +408,180 @@ run-pipeline-forever:
 	@. scripts/make_helpers.sh; \
 	MAKE=$(MAKE) watch_and_dispatch ready run-pipeline "Ready issues"
 
+# Get the next eligible board item from the scripted queue logic
+# Usage: make board-next MODE=ready
+#        make board-next MODE=review REPO=CodingThrust/problem-reductions
+#        make board-next MODE=final-review REPO=CodingThrust/problem-reductions
+#        make board-next MODE=review REPO=CodingThrust/problem-reductions NUMBER=570 FORMAT=json
+#        STATE_FILE=/tmp/custom.json make board-next MODE=ready
+board-next:
+	@if [ -z "$(MODE)" ]; then \
+		echo "MODE=ready|review|final-review is required"; \
+		exit 2; \
+	fi
+	@. scripts/make_helpers.sh; \
+	state_file=$${STATE_FILE:-/tmp/problemreductions-$(MODE)-state.json}; \
+	case "$(MODE)" in \
+		review|final-review) \
+		repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
+		poll_project_items "$(MODE)" "$$state_file" "$$repo" "$(NUMBER)" "$(if $(FORMAT),$(FORMAT),text)"; \
+		;; \
+	*) \
+		poll_project_items "$(MODE)" "$$state_file" "" "$(NUMBER)" "$(if $(FORMAT),$(FORMAT),text)"; \
+		;; \
+	esac
+
+# Claim and move the next eligible board item through the scripted queue logic
+# Usage: make board-claim MODE=ready
+#        make board-claim MODE=review REPO=CodingThrust/problem-reductions
+#        make board-claim MODE=review REPO=CodingThrust/problem-reductions NUMBER=570 FORMAT=json
+#        STATE_FILE=/tmp/custom.json make board-claim MODE=ready
+board-claim:
+	@if [ -z "$(MODE)" ]; then \
+		echo "MODE=ready|review is required"; \
+		exit 2; \
+	fi
+	@. scripts/make_helpers.sh; \
+	state_file=$${STATE_FILE:-/tmp/problemreductions-$(MODE)-state.json}; \
+	case "$(MODE)" in \
+		review) \
+		repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
+		claim_project_items "$(MODE)" "$$state_file" "$$repo" "$(NUMBER)" "$(if $(FORMAT),$(FORMAT),json)"; \
+		;; \
+		ready) \
+		claim_project_items "$(MODE)" "$$state_file" "" "$(NUMBER)" "$(if $(FORMAT),$(FORMAT),json)"; \
+		;; \
+		*) \
+		echo "MODE=ready|review is required"; \
+		exit 2; \
+		;; \
+	esac
+
+# Advance a scripted board queue after an item is processed
+# Usage: make board-ack MODE=ready ITEM=PVTI_xxx
+#        STATE_FILE=/tmp/custom.json make board-ack MODE=review ITEM=PVTI_xxx
+#        STATE_FILE=/tmp/custom.json make board-ack MODE=final-review ITEM=PVTI_xxx
+board-ack:
+	@if [ -z "$(MODE)" ] || [ -z "$(ITEM)" ]; then \
+		echo "MODE=ready|review|final-review and ITEM=<project-item-id> are required"; \
+		exit 2; \
+	fi
+	@. scripts/make_helpers.sh; \
+	state_file=$${STATE_FILE:-/tmp/problemreductions-$(MODE)-state.json}; \
+	ack_polled_item "$$state_file" "$(ITEM)"
+
+# Move a project board item to a named status through the shared board script
+# Usage: make board-move ITEM=PVTI_xxx STATUS=under-review
+board-move:
+	@if [ -z "$(ITEM)" ] || [ -z "$(STATUS)" ]; then \
+		echo "ITEM=<project-item-id> and STATUS=<backlog|ready|in-progress|review-pool|under-review|final-review|on-hold|done> are required"; \
+		exit 2; \
+	fi
+	@. scripts/make_helpers.sh; \
+	move_board_item "$(ITEM)" "$(STATUS)"
+
+# Fetch deterministic issue preflight JSON for issue-to-pr
+# Usage: make issue-context ISSUE=117
+#        make issue-context ISSUE=117 REPO=CodingThrust/problem-reductions
+issue-context:
+	@if [ -z "$(ISSUE)" ]; then \
+		echo "ISSUE=<number> is required"; \
+		exit 2; \
+	fi
+	@. scripts/make_helpers.sh; \
+	repo=$${REPO:-CodingThrust/problem-reductions}; \
+	issue_context "$$repo" "$(ISSUE)"
+
+# Fetch deterministic issue preflight JSON for issue-to-pr
+# Usage: make issue-guards ISSUE=117
+#        make issue-guards ISSUE=117 REPO=CodingThrust/problem-reductions
+issue-guards:
+	@if [ -z "$(ISSUE)" ]; then \
+		echo "ISSUE=<number> is required"; \
+		exit 2; \
+	fi
+	@. scripts/make_helpers.sh; \
+	repo=$${REPO:-CodingThrust/problem-reductions}; \
+	issue_guards "$$repo" "$(ISSUE)"
+
+# Fetch structured PR snapshot JSON from the shared helper
+# Usage: make pr-context PR=570
+#        make pr-context PR=570 REPO=CodingThrust/problem-reductions
+pr-context:
+	@if [ -z "$(PR)" ]; then \
+		echo "PR=<number> is required"; \
+		exit 2; \
+	fi
+	@. scripts/make_helpers.sh; \
+	repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
+	pr_snapshot "$$repo" "$(PR)"
+
+# Poll CI for a PR until it reaches a terminal state
+# Usage: make pr-wait-ci PR=570
+#        make pr-wait-ci PR=570 TIMEOUT=1200 INTERVAL=15
+pr-wait-ci:
+	@if [ -z "$(PR)" ]; then \
+		echo "PR=<number> is required"; \
+		exit 2; \
+	fi
+	@. scripts/make_helpers.sh; \
+	repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
+	timeout=$${TIMEOUT:-900}; \
+	interval=$${INTERVAL:-30}; \
+	pr_wait_ci "$$repo" "$(PR)" "$$timeout" "$$interval"
+
+# Create an issue worktree from origin/main
+# Usage: make worktree-issue ISSUE=117 SLUG=graph-partitioning
+worktree-issue:
+	@if [ -z "$(ISSUE)" ] || [ -z "$(SLUG)" ]; then \
+		echo "ISSUE=<number> and SLUG=<slug> are required"; \
+		exit 2; \
+	fi
+	@. scripts/make_helpers.sh; \
+	base=$${BASE:-origin/main}; \
+	create_issue_worktree "$(ISSUE)" "$(SLUG)" "$$base"
+
+# Checkout a PR into an isolated worktree
+# Usage: make worktree-pr PR=570
+#        make worktree-pr PR=570 REPO=CodingThrust/problem-reductions
+worktree-pr:
+	@if [ -z "$(PR)" ]; then \
+		echo "PR=<number> is required"; \
+		exit 2; \
+	fi
+	@. scripts/make_helpers.sh; \
+	repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
+	checkout_pr_worktree "$$repo" "$(PR)"
+
 # Usage: make run-review              (picks next Review pool PR automatically)
 #        make run-review N=570        (processes specific PR)
 #        RUNNER=claude make run-review (use Claude instead of Codex)
 run-review:
 	@. scripts/make_helpers.sh; \
-	if [ -n "$(N)" ]; then \
-		PROMPT=$$(skill_prompt review-pipeline "/review-pipeline $(N)" "process PR #$(N)"); \
-	else \
-		PROMPT=$$(skill_prompt review-pipeline "/review-pipeline" "pick and process the next Review pool PR"); \
+	repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
+	pr="$(N)"; \
+	selection=$$(review_pipeline_context "$$repo" "$$pr"); \
+	status_name=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])"); \
+	if [ "$$status_name" = "empty" ]; then \
+		echo "No Review pool PRs are currently eligible."; \
+		exit 1; \
 	fi; \
+	if [ "$$status_name" = "ready" ]; then \
+		pr=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; print(json.load(sys.stdin)['selection']['pr_number'])"); \
+		slash_cmd="/review-pipeline $$pr"; \
+		codex_desc="process PR #$$pr"; \
+	else \
+		slash_cmd="/review-pipeline"; \
+		codex_desc="inspect the review pipeline bundle and resolve the next action"; \
+	fi; \
+	PROMPT=$$(skill_prompt_with_context review-pipeline "$$slash_cmd" "$$codex_desc" "Review pipeline context" "$$selection"); \
 	run_agent "review-output.log" "$$PROMPT"
 
-# Poll Review pool column for Copilot-reviewed PRs and run-review when new ones appear
-# Checks every 10 minutes; triggers make run-review when the eligible PR set gains new members
+# Poll Review pool column for eligible PRs and dispatch run-review
 run-review-forever:
 	@. scripts/make_helpers.sh; \
 	REPO=$$(gh repo view --json nameWithOwner --jq .nameWithOwner); \
-	MAKE=$(MAKE) watch_and_dispatch review run-review "Copilot-reviewed PRs" "$$REPO"
+	MAKE=$(MAKE) watch_and_dispatch review run-review "Review pool PRs" "$$REPO"
 
 # Request Copilot code review on the current PR
 # Requires: gh extension install ChrisCarini/gh-copilot-review

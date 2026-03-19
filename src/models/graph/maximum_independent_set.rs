@@ -180,9 +180,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![
         crate::example_db::specs::ModelExampleSpec {
             id: "maximum_independent_set_simplegraph_one",
-            build: || {
-                // Petersen graph (10 vertices, 15 edges) — MIS = 4
-                let graph = SimpleGraph::new(
+            instance: Box::new(MaximumIndependentSet::new(
+                SimpleGraph::new(
                     10,
                     vec![
                         (0, 1),
@@ -201,19 +200,16 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                         (3, 8),
                         (4, 9),
                     ],
-                );
-                let problem = MaximumIndependentSet::new(graph, vec![One; 10]);
-                crate::example_db::specs::optimization_example(
-                    problem,
-                    vec![vec![0, 1, 0, 1, 0, 1, 0, 0, 0, 1]],
-                )
-            },
+                ),
+                vec![One; 10],
+            )),
+            optimal_config: vec![1, 0, 1, 0, 0, 0, 0, 0, 1, 1],
+            optimal_value: serde_json::json!({"Valid": 4}),
         },
         crate::example_db::specs::ModelExampleSpec {
             id: "maximum_independent_set_simplegraph_i32",
-            build: || {
-                // Petersen graph (10 vertices, 15 edges), non-uniform weights — MWIS = 10
-                let graph = SimpleGraph::new(
+            instance: Box::new(MaximumIndependentSet::new(
+                SimpleGraph::new(
                     10,
                     vec![
                         (0, 1),
@@ -232,14 +228,11 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                         (3, 8),
                         (4, 9),
                     ],
-                );
-                let problem =
-                    MaximumIndependentSet::new(graph, vec![5, 1, 1, 1, 1, 3, 1, 1, 1, 3]);
-                crate::example_db::specs::optimization_example(
-                    problem,
-                    vec![vec![1, 0, 1, 0, 0, 0, 0, 0, 1, 1]],
-                )
-            },
+                ),
+                vec![5, 1, 1, 1, 1, 3, 1, 1, 1, 3],
+            )),
+            optimal_config: vec![1, 0, 1, 0, 0, 0, 0, 0, 1, 1],
+            optimal_value: serde_json::json!({"Valid": 10}),
         },
     ]
 }

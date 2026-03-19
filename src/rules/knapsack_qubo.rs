@@ -100,12 +100,17 @@ impl ReduceTo<QUBO<f64>> for Knapsack {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "knapsack_to_qubo",
         build: || {
-            crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(
+            crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
                 Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7),
-                |_, _| true,
+                SolutionPair {
+                    source_config: vec![1, 0, 0, 1],
+                    target_config: vec![1, 0, 0, 1, 0, 0, 0],
+                },
             )
         },
     }]

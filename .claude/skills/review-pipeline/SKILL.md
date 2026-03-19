@@ -1,17 +1,18 @@
 ---
 name: review-pipeline
-description: Pick a PR from the Review pool board column, fix Copilot review comments, check issue/human comments, fix CI, run agentic feature tests, then move to Final review
+description: Agentic review for PRs in the Review pool — runs structural, quality, and agentic-test sub-reviews (no code changes), posts combined verdict, moves to Final review
 ---
 
 # Review Pipeline
 
-Pick PRs from the `Review pool` column on the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1). For each PR: wait for Copilot review, fix Copilot comments, check and address issue/human comments, fix CI, run agentic feature tests, then move to `Final review`.
+Pick PRs from the `Review pool` column on the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1). For each PR: claim it into `Under review`, run three read-only sub-reviews in parallel (structural check, quality check, agentic feature tests), post a combined verdict as a PR comment, then move to `Final review`.
+
+**This skill does NOT modify the PR.** No commits, no pushes, no merging main. It only evaluates and reports.
 
 ## Invocation
 
 - `/review-pipeline` -- pick the next Review pool item
 - `/review-pipeline 570` -- process a specific PR number
-- `/review-pipeline --all` -- batch-process all Review pool items
 
 For Codex, open this `SKILL.md` directly and treat the slash-command forms above as aliases. The Makefile `run-review` target already does this translation.
 
@@ -26,7 +27,6 @@ GitHub Project board IDs (for `gh project item-edit`):
 | `STATUS_REVIEW_POOL` | `7082ed60` |
 | `STATUS_UNDER_REVIEW` | `f04790ca` |
 | `STATUS_FINAL_REVIEW` | `51a3d8bb` |
-| `STATUS_READY` | `f37d0d80` |
 
 ## Prerequisites
 
@@ -34,346 +34,214 @@ GitHub Project board IDs (for `gh project item-edit`):
 
 ## Autonomous Mode
 
-This skill runs **fully autonomously** -- no confirmation prompts, no user questions.
+This skill runs **fully autonomously** except for one case: if a Review pool card links multiple repo PRs and the intended target is unclear, STOP and ask the user which PR is the intended target.
 
 ## Steps
 
-### 0. Discover Review pool Items
+### 0a. Triage Review Pool
 
-```bash
-gh project item-list 8 --owner CodingThrust --format json --limit 500
-```
-
-Filter items where `status == "Review pool"`. Each item should have an associated PR. Extract the PR number from the item title or linked issue.
-
-#### 0a. Check Copilot Review Status
-
-For each candidate PR, check whether Copilot has already submitted a review:
+Before spending the expensive full-context packet, do one lightweight Review-pool scan:
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-gh api repos/$REPO/pulls/$PR/reviews --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")] | length'
+QUEUE=$(python3 scripts/pipeline_board.py list review --repo "$REPO" --format json)
 ```
 
-A PR is **eligible** only if the count is ≥ 1 (Copilot has submitted at least one review). PRs without a Copilot review yet are marked `[waiting for Copilot]` and skipped.
+If `PR` was explicitly supplied (for example `/review-pipeline 570`), do **not** pick a different item from the queue. Find that PR in the `QUEUE` JSON output to get its `ITEM_ID` and confirm it is in Review pool.
 
-#### 0b. Print the List
+`pipeline_board.py` only supports these subcommands: `next`, `claim-next`, `ack`, `list`, `move`, `backlog`. To look up a specific PR's board status, use `list` and filter the JSON output.
 
-Print all Review pool items with their Copilot status:
+Pick one candidate with a lightweight heuristic:
+- prefer direct PR cards over issue cards
+- any open PR in Review pool is eligible
+- if multiple candidates are tied, pick one at random (e.g., use the current minute mod candidate count) to avoid always picking the same item on retries
 
-```
-Review pool PRs:
-  #570  Fix #117: [Model] GraphPartitioning     [copilot reviewed]
-  #571  Fix #97: [Rule] BinPacking to ILP       [waiting for Copilot]
-```
+**Review-ready criteria** — a PR is ready for review if all of these hold:
+- PR state is `OPEN` (not draft, not closed)
+- The diff contains at least one model file (`src/models/`) or rule file (`src/rules/`) or other substantive code
+- A test file exists for the new code
+- The PR body does not say "WIP" or "DO NOT REVIEW"
 
-**If a specific PR number was provided:** verify it is in the Review pool column. If it is waiting for Copilot, STOP with a message: `PR #N is waiting for Copilot review. Re-run after Copilot has reviewed.`
-
-**If `--all`:** process only eligible (Copilot-reviewed) items in order (lowest PR number first). Skip waiting items.
-
-**Otherwise:** pick the first eligible item. If no items are eligible, STOP with: `No Review pool PRs have been reviewed by Copilot yet.`
-
-### 0g. Claim: Move to "Under review"
-
-**Immediately** move the chosen PR to the `Under review` column to signal that an agent is actively working on it. This prevents other agents from picking the same PR:
+If the PR is not review-ready, post a diagnostic comment and move to Final review for human triage:
 
 ```bash
-gh project item-edit \
-  --id <ITEM_ID> \
-  --project-id PVT_kwDOBrtarc4BRNVy \
-  --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id f04790ca
+gh pr comment <PR_NUMBER> --body "review-pipeline: PR not review-ready. <brief concrete reason>. Skipping full review, moving to Final review for human triage."
+python3 scripts/pipeline_board.py move <ITEM_ID> final-review
 ```
 
-In `--all` mode, claim each PR right before processing it (not all at once).
+For untargeted runs, then return to Step 0a to pick another item.
+For explicit `PR` runs, STOP after reporting.
 
-### 1. Create Worktree and Checkout PR Branch
+If no candidate is both open and ready for review, STOP with `No Review pool PRs are currently ready for review-pipeline processing.`
 
-Create an isolated git worktree so the main working directory stays clean:
+### 0b. Generate Review-Pipeline Report, Create Worktree, Generate Implementation Report
+
+Only after Step 0a has identified a review-ready PR should you spend the expensive context packets.
+
+**Generate review-pipeline context** (from the repo root, before entering the worktree — this queries GitHub APIs only):
 
 ```bash
-REPO_ROOT=$(git rev-parse --show-toplevel)
-REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-BRANCH=$(gh pr view $PR --json headRefName --jq .headRefName)
-WORKTREE_DIR=".worktrees/review-$BRANCH"
-mkdir -p .worktrees
-git fetch origin $BRANCH
-git worktree add "$WORKTREE_DIR" $BRANCH
+REPO_ROOT=$(pwd)
+
+# 1. Review-pipeline context (selection, comments, CI, linked issue)
+set -- python3 scripts/pipeline_skill_context.py review-pipeline --repo "$REPO" --pr "$PR" --format text
+REPORT=$("$@")
+printf '%s\n' "$REPORT"
+```
+
+The review-pipeline report should already include:
+- Selection: board item, PR number, linked issue, title, URL
+- Recommendation Seed: suggested mode and deterministic blockers
+- Comment Summary
+- CI / Coverage
+- PR head branch
+- Linked Issue Context
+
+**Create worktree and check out the PR branch:**
+
+```bash
+WORKTREE_JSON=$(python3 scripts/pipeline_worktree.py enter --name "review-pr-$PR" --format json)
+WORKTREE_DIR=$(printf '%s\n' "$WORKTREE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['worktree_dir'])")
 cd "$WORKTREE_DIR"
+gh pr checkout "$PR"
 ```
 
-All subsequent steps run inside the worktree.
-
-### 1a. Resolve Conflicts with Main
-
-**IMPORTANT:** The `add-model` and `add-rule` skills evolve frequently. When merging main into a PR branch, conflicts in skill-generated code are common. Before resolving conflicts:
-
-1. Run `git diff origin/main...HEAD -- .claude/skills/add-model/ .claude/skills/add-rule/` to see if these skills changed on main since the PR was created.
-2. If they changed, read the current versions on main (`git show origin/main:.claude/skills/add-model/SKILL.md` and `git show origin/main:.claude/skills/add-rule/SKILL.md`) to understand what's different.
-3. When resolving conflicts in model/rule implementation files, prefer the patterns from main's current skills — the PR's implementation may be based on outdated skill instructions.
-
-Check if the branch has merge conflicts with main:
+**Generate review-implementation context** (inside the worktree — needs git diff against main):
 
 ```bash
-git fetch origin main
-git merge origin/main --no-edit
+# 2. Review-implementation context (scope, checklists, diff)
+IMPL_REPORT=$(python3 scripts/pipeline_skill_context.py review-implementation --repo-root . --format text)
+printf '%s\n' "$IMPL_REPORT"
 ```
 
-- If the merge succeeds cleanly: push the merge commit and continue.
-- If there are conflicts:
-  1. Inspect the conflicting files with `git diff --name-only --diff-filter=U`.
-  2. Compare the current skill versions on main vs the PR branch to understand which patterns are current.
-  3. Resolve conflicts (prefer main's patterns for skill-generated code, the PR branch for problem-specific logic, main for regenerated artifacts like JSON).
-  4. Stage resolved files, commit, and push.
-- If conflicts are too complex to resolve automatically (e.g., overlapping logic changes in the same function):
-  1. Abort the merge: `git merge --abort`
-  2. Move the project item back to `Review pool`:
-     ```bash
-     gh project item-edit \
-       --id <ITEM_ID> \
-       --project-id PVT_kwDOBrtarc4BRNVy \
-       --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-       --single-select-option-id 7082ed60
-     ```
-  3. Report: `PR #N has complex merge conflicts with main — needs manual resolution.`
-  4. STOP processing this PR.
+The review-implementation report should already include:
+- Review Range: base SHA, head SHA
+- Scope: review type (model/rule/generic), subject metadata
+- Deterministic Checks: whitelist + completeness status
+- Changed Files and Diff Stat
 
-### 2. Fix Copilot Review Comments
+The two expensive context calls are allowed exactly once each per top-level `review-pipeline` invocation. Both reports are reused for the rest of the skill — do not regenerate either.
 
-Copilot review is guaranteed to exist (verified in Step 0). Fetch the comments:
+Branch from the review-pipeline report:
+- `Bundle status: empty` => the selected PR is no longer eligible; run `cd "$REPO_ROOT" && python3 scripts/pipeline_worktree.py cleanup --worktree "$WORKTREE_DIR"`, then for untargeted runs return to Step 0a, for explicit `PR` runs STOP
+- `Bundle status: needs-user-choice` => run `cd "$REPO_ROOT" && python3 scripts/pipeline_worktree.py cleanup --worktree "$WORKTREE_DIR"`, STOP and ask the user which PR is intended
+- `Bundle status: ready` => claim the item and continue
+
+**Claim the item** (move to Under review) only after confirming `Bundle status: ready`:
 
 ```bash
-COMMENTS=$(gh api repos/$REPO/pulls/$PR/comments --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")]')
+python3 scripts/pipeline_board.py move <ITEM_ID> under-review
 ```
 
-If there are actionable comments: invoke `/fix-pr` to address them, then push:
+Use the identifiers from the report for all subsequent operations. All subsequent steps run inside the worktree and should read facts from the reports instead of re-fetching them.
 
-```bash
-git push
-```
+### 1. Run Three Sub-Reviews (Parallel)
 
-If Copilot approved with no actionable comments: skip to next step.
+Run three independent sub-reviews. All three are **read-only** — they evaluate the PR but do NOT commit or push anything. Dispatch them as parallel subagents where possible.
 
-### 2a. Check Issue Comments and Human PR Reviews
+**Pass `IMPL_REPORT` to both structural and quality subagents** so they skip their own context generation step. Include the full text of `IMPL_REPORT` in each subagent prompt with a prefix like:
 
-Extract the linked issue number from the PR title (pattern: `Fix #N:`):
+> The review-implementation context has already been generated. Use this report instead of running `pipeline_skill_context.py review-implementation` yourself:
+>
+> ```
+> <IMPL_REPORT content>
+> ```
 
-```bash
-ISSUE=$(gh pr view $PR --json title --jq .title | grep -oP '(?<=Fix #)\d+')
-```
+#### 1a. Structural Check (project-specific)
 
-Fetch all comment sources:
+Invoke `/review-structural` (file: `.claude/skills/review-structural/SKILL.md`) with the pre-generated `IMPL_REPORT`. This runs the model/rule checklists, build checks, semantic review, and issue compliance checks.
 
-```bash
-# 1. Linked issue comments (from contributors, excluding bots)
-if [ -n "$ISSUE" ]; then
-    gh api repos/$REPO/issues/$ISSUE/comments | python3 -c "
-import sys,json
-comments = [c for c in json.load(sys.stdin) if not c['user']['login'].endswith('[bot]')]
-print(f'=== Issue #{sys.argv[1]} comments: {len(comments)} ===')
-for c in comments:
-    print(f'[{c[\"user\"][\"login\"]}] {c[\"body\"][:300]}')
-    print('---')
-" "$ISSUE"
-fi
+**Mathematical correctness is critical.** In addition to the standard structural checks, verify:
+- **For rules**: Is the reduction mathematically correct? Trace through the `reduce_to()` logic with a small example and confirm the target instance encodes the same problem. Check that `extract_solution` correctly inverts the mapping. Verify the paper proof sketch is sound — not just present, but logically valid.
+- **For models**: Does `evaluate()` correctly compute the objective for the mathematical definition? Are edge cases handled (empty graph, zero weights, infeasible configs)?
+- **Overhead expressions**: Manually count the sizes in `reduce_to()` output and verify they match the `overhead = { ... }` formulas.
 
-# 2. Human PR review comments (inline, excluding Copilot)
-gh api repos/$REPO/pulls/$PR/comments | python3 -c "
-import sys,json
-comments = [c for c in json.load(sys.stdin) if not c['user']['login'].endswith('[bot]')]
-print(f'=== Human PR inline comments: {len(comments)} ===')
-for c in comments:
-    line = c.get('line') or c.get('original_line') or '?'
-    print(f'[{c[\"user\"][\"login\"]}] {c[\"path\"]}:{line} — {c[\"body\"][:300]}')
-"
+**Do NOT auto-fix anything.** Collect the output report for Step 2.
 
-# 3. Human PR conversation comments (general discussion, excluding bots)
-gh api repos/$REPO/issues/$PR/comments | python3 -c "
-import sys,json
-comments = [c for c in json.load(sys.stdin) if not c['user']['login'].endswith('[bot]')]
-print(f'=== Human PR conversation comments: {len(comments)} ===')
-for c in comments:
-    print(f'[{c[\"user\"][\"login\"]}] {c[\"body\"][:300]}')
-"
+#### 1b. Quality Check (generic)
 
-# 4. Human review-level comments (top-level review body)
-gh api repos/$REPO/pulls/$PR/reviews | python3 -c "
-import sys,json
-reviews = [r for r in json.load(sys.stdin) if not r['user']['login'].endswith('[bot]') and r.get('body')]
-print(f'=== Human reviews: {len(reviews)} ===')
-for r in reviews:
-    print(f'[{r[\"user\"][\"login\"]}] {r[\"state\"]}: {r[\"body\"][:300]}')
-"
-```
+Invoke `/review-quality` (file: `.claude/skills/review-quality/SKILL.md`) with the pre-generated `IMPL_REPORT`. This runs DRY/KISS/HC-LC checks, test quality review, and HCI checks (if CLI changed).
 
-For each actionable comment found:
+**Do NOT auto-fix anything.** Collect the output report for Step 2.
 
-1. **Read the relevant source files** referenced by the comment.
-2. **Check if the comment's feedback is already addressed** in the current code.
-3. **If not addressed:** fix the code to respect the comment, commit, and push.
-4. **If already addressed:** move on.
+#### 1c. Agentic Feature Tests
 
-Actionable comments include: code suggestions, bug reports, requests for additional tests, naming feedback, algorithmic corrections, and missing edge cases. Ignore comments that are purely informational or questions that have already been answered.
-
-If there are no actionable unaddressed comments: skip to next step.
-
-### 2b. Structural Completeness Check (REQUIRED)
-
-Run `/review-implementation` to catch structural gaps (missing paper entries, missing registrations, missing tests) that Copilot and human reviewers may not flag:
-
-```
-/review-implementation
-```
-
-This dispatches structural + quality subagents with fresh context. If findings include FAIL items:
-
-1. **Auto-fix** structural FAILs (missing registrations, missing test files, etc.)
-2. **For missing paper entries** (checks #15/#16 for models, check #14 for rules): invoke `/write-model-in-paper` or `/write-rule-in-paper` as appropriate — do NOT skip these as "unfixable"
-3. **Commit and push** all fixes before proceeding
-
-If all structural checks pass: continue to next step.
-
-### 3. Agentic Feature Test (REQUIRED)
-
-**This step is mandatory — do NOT skip or substitute with manual testing.**
-
-Run agentic feature tests on the modified feature:
+**This step is mandatory — do NOT skip.**
 
 1. **Identify the feature** from the PR title and changed files:
    - `[Model]` PRs: the new problem model name
    - `[Rule]` PRs: the new reduction rule (source -> target)
 
-2. **Invoke `/agentic-tests:test-feature`** with the identified feature. This simulates a downstream user exercising the feature from docs and examples. You MUST use the Skill tool to invoke `agentic-tests:test-feature`.
+2. **Invoke `/agentic-tests:test-feature`** (file: `~/.claude/commands/agentic-tests:test-feature.md`) with the identified feature. This simulates a downstream user exercising the feature from docs and examples.
 
-3. **If test-feature reports issues:** treat every reported issue as real until you have checked it in the **current PR worktree/branch**.
-   - Reproduce each issue from the current PR branch/worktree before acting. If it does not reproduce there, classify it as `not reproducible in current worktree`.
-   - Auto-fix every objective issue you reasonably can: code bugs, tests, docs, help text, examples, discoverability gaps, and validation/error-message problems. Do **not** leave "minor docs issues" unfixed by default.
-   - If you changed user-facing behavior, docs, or CLI help, re-run `/agentic-tests:test-feature`.
-   - Classify every reported issue as exactly one of:
-     - `fixed`
-     - `not reproducible in current worktree`
-     - `needs human decision`
+   **Minimum test checklist** for the agentic tester:
+   - `pred list` — verify the new model/rule appears in the catalog
+   - `pred show <Name>` — verify details display correctly
+   - `pred create --example <Name>` — verify example instance creation works
+   - `pred solve <instance>` — verify solving works on the example
+   - For rules: `pred reduce <source-instance>` — verify reduction produces valid target
 
-4. **Only `needs human decision` issues may remain unresolved.** If any remain:
-   - continue to the next step only after you have written them down for the final PR report
-   - include why they were not auto-fixed
-   - include your recommended maintainer decision
+3. **Collect the test report.** For each issue found:
+   - Reproduce it from the current PR worktree to confirm it's real
+   - Classify as: `confirmed` / `not reproducible in current worktree`
+   - For confirmed issues, note severity and recommended fix
 
-5. **If test-feature passes with no remaining issues:** continue to next step.
+**Do NOT fix any issues.** Only report them.
 
-### 4. Fix Loop (max 3 retries)
+### 2. Compose Combined Review Comment
 
-For each retry:
+Merge the results from all three sub-reviews into one structured PR comment.
 
-1. **Wait for CI to complete** (poll every 30s, up to 15 minutes):
-   ```bash
-   for i in $(seq 1 30); do
-       sleep 30
-       HEAD_SHA=$(gh api repos/$REPO/pulls/$PR | python3 -c "import sys,json; print(json.load(sys.stdin)['head']['sha'])")
-       STATUS=$(gh api repos/$REPO/commits/$HEAD_SHA/check-runs | python3 -c "
-   import sys,json
-   runs = json.load(sys.stdin)['check_runs']
-   if not runs:
-       print('PENDING')
-   else:
-       failed = [r['name'] for r in runs if r.get('conclusion') not in ('success', 'skipped', None)]
-       pending = [r['name'] for r in runs if r.get('conclusion') is None and r['status'] != 'completed']
-       if pending:
-           print('PENDING')
-       elif failed:
-           print('FAILED')
-       else:
-           print('GREEN')
-   ")
-       if [ "$STATUS" != "PENDING" ]; then break; fi
-   done
-   ```
+Paste the **structured report section** from each subagent — the formatted output (checklist tables, issue lists, test results), not raw transcripts or internal reasoning. The human in final-review reads these reports to make merge/hold decisions, so every finding matters.
 
-   - If `GREEN` on the **first** iteration (before any fix-pr): skip the fix loop, done.
-   - If `GREEN` after a fix-pr pass: break, done.
-   - If `FAILED`: continue to step 2.
-   - If still `PENDING` after 15 min: treat as `FAILED`.
+If the report's `Merge Prep` section indicates merge conflicts with main, include a note at the top:
 
-2. **Invoke `/fix-pr`** to address CI failures and coverage gaps.
+> **Note:** This PR has merge conflicts with `main`. These must be resolved before merging (handled in final-review Step 1).
 
-3. **Push fixes:**
-   ```bash
-   git push
-   ```
+```bash
+COMMENT_FILE=$(mktemp)
+cat > "$COMMENT_FILE" <<'EOF'
+## Agentic Review Report
 
-4. Increment retry counter. If `< 3`, go back to step 1. If `= 3`, give up.
+### Structural Check
 
-**After 3 failed retries:** leave PR open, still move to Final review for human triage.
+[Paste structured report from `/review-structural` here — full checklist table, build status, semantic review, issue compliance. Do not include internal reasoning.]
 
-### 5. Clean Up Worktree
+---
+
+### Quality Check
+
+[Paste structured report from `/review-quality` here — design principles review, HCI (if applicable), test quality, all issues with severity and file:line references.]
+
+---
+
+### Agentic Feature Tests
+
+[Paste structured report from `/agentic-tests:test-feature` here — test results with all findings, reproduction results, and classifications.]
+
+---
+
+Generated by review-pipeline
+EOF
+python3 scripts/pipeline_pr.py comment --repo "$REPO" --pr "$PR" --body-file "$COMMENT_FILE"
+rm -f "$COMMENT_FILE"
+```
+
+The review stage does not judge pass/fail — it reports findings. The human in final-review decides.
+
+### 3. Move PR to Final Review
+
+Always move to Final review — the human decides what to do with the findings:
+
+```bash
+python3 scripts/pipeline_board.py move <ITEM_ID> final-review
+```
+
+### 4. Clean Up Worktree
 
 ```bash
 cd "$REPO_ROOT"
-git worktree remove "$WORKTREE_DIR" --force
-```
-
-### 6. Move to "Final review"
-
-```bash
-gh project item-edit \
-  --id <ITEM_ID> \
-  --project-id PVT_kwDOBrtarc4BRNVy \
-  --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id 51a3d8bb
-```
-
-### 7. Report
-
-Post the review summary as a PR comment so it's visible to human reviewers:
-
-```bash
-gh pr comment $PR --body "$(cat <<'EOF'
-## Review Pipeline Report
-
-| Check | Result |
-|-------|--------|
-| Copilot comments | 3 fixed |
-| Issue/human comments | 2 checked, 1 fixed |
-| Structural review | 17/17 passed |
-| CI | green |
-| Agentic test | passed |
-| Needs human decision | none |
-| Board | Review pool → Under review → Final review |
-
-### Remaining issues for final review
-
-- None.
-
-🤖 Generated by review-pipeline
-EOF
-)"
-```
-
-Adapt the table values to match the actual results for the PR. If CI failed after 3 retries, report `failed (3 retries)` instead of `green`.
-
-This section is **mandatory**:
-- `Needs human decision` must be `none` or `N item(s)`
-- `### Remaining issues for final review` must always be present
-- If there are unresolved issues, list each one as a bullet with:
-  - the concrete problem
-  - why it was not auto-fixed
-  - the recommended maintainer decision
-
-If unresolved issues remain, do **not** write `Agentic test | passed`. Use `passed with notes` or another accurate status.
-
-### 8. Batch Mode (`--all`)
-
-If `--all` was specified, repeat Steps 1-7 for each PR (including posting a PR comment per Step 7). After all PRs, print a batch summary to console:
-
-```
-=== Review Pipeline Batch Report ===
-
-| PR   | Title                              | Copilot | Issue/Human | Structural | CI      | Agentic Test | Board      |
-|------|------------------------------------|---------|-------------|------------|---------|--------------|------------|
-| #570 | Fix #117: [Model] GraphPartitioning| 3 fixed | 1 fixed     | 17/17      | green   | passed       | Final review  |
-| #571 | Fix #97: [Rule] BinPacking to ILP  | 0       | 0           | 14/14      | green   | passed       | Final review  |
-
-Completed: 2/2 | All moved to Final review
+python3 scripts/pipeline_worktree.py cleanup --worktree "$WORKTREE_DIR"
 ```
 
 ## Common Mistakes
@@ -381,14 +249,18 @@ Completed: 2/2 | All moved to Final review
 | Mistake | Fix |
 |---------|-----|
 | PR not in Review pool column | Verify status before processing; STOP if not Review pool |
-| Picking a PR before Copilot has reviewed | Check `pulls/$PR/reviews` for copilot-pull-request-reviewer[bot]; skip if absent |
+| Processing a closed PR from a stale issue card | Require PR state `OPEN`; skip stale closed PRs |
+| Guessing on an issue card with multiple linked repo PRs | Stop, show options to the user, and recommend the most likely correct OPEN PR |
+| Committing or pushing changes | This skill is read-only — evaluate and report only, never modify the PR |
+| Moving items backward to Ready | Never move backward — always forward to Final review |
 | Missing project scopes | Run `gh auth refresh -s read:project,project` |
-| Skipping review-implementation | Always run structural completeness check in Step 2b — it catches gaps Copilot misses (paper entries, CLI registration, trait_consistency) |
-| Skipping agentic tests | Always run test-feature even if CI is green |
-| Not checking out the right branch | Use `gh pr view` to get the exact branch name |
-| Worktree left behind on failure | Always clean up with `git worktree remove` in Step 5 |
-| Working in main checkout | All work happens in `.worktrees/` — never modify the main checkout |
-| Skipping merge with main | Always merge origin/main in Step 1a to catch conflicts before fixing comments |
-| Ignoring issue comments | Always check the linked issue (`Fix #N`) for human feedback in Step 2a |
-| Only checking Copilot comments | Step 2a checks human PR reviews and linked issue comments too — bot-only review is insufficient |
-| Saying "passed" while deferring issues | If anything remains for maintainer judgment, list it explicitly under `Remaining issues for final review` and mark the agentic result accordingly |
+| Skipping structural check | Always run `/review-structural` — it catches gaps in paper entries, registrations, tests |
+| Skipping agentic tests | Always run `/agentic-tests:test-feature` even if CI is green |
+| Not checking out the right branch | Use `gh pr checkout <PR_NUMBER>` after `pipeline_worktree.py enter` |
+| Worktree left behind on failure | Always run `pipeline_worktree.py cleanup` in Step 4 |
+| Working in main checkout | All work happens in the worktree — never modify the main checkout |
+| Fixing issues instead of reporting them | The review stage judges, it does not fix. Report findings for human/final-review to act on |
+| Pasting raw agent transcripts | Paste the structured report sections only — checklist tables, issue lists, test results — not internal reasoning or scratch work |
+| Regenerating context in subagents | Pass `IMPL_REPORT` to structural/quality subagents so they skip `pipeline_skill_context.py review-implementation` |
+| Always picking the same PR on retry | Use randomized tie-breaking when multiple candidates are eligible |
+| Inventing `pipeline_board.py` subcommands | Only `next`, `claim-next`, `ack`, `list`, `move`, `backlog` exist. Use `list` to look up a PR's board status |

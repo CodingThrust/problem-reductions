@@ -35,14 +35,16 @@ jobs:
 
       - name: Generate data
         run: |
+          cargo run --features "example-db" --example export_examples
+          cargo run --example export_petersen_mapping
           cargo run --example export_graph
           cargo run --example export_schemas
 
       - name: Build mdBook
         run: mdbook build
 
-      - name: Build examples and PDF
-        run: make examples && typst compile --root docs docs/paper/reductions.typ book/reductions.pdf
+      - name: Build PDF
+        run: typst compile --root . docs/paper/reductions.typ book/reductions.pdf
 
       - name: Build rustdoc
         run: RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps
