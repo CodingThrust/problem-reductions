@@ -35,6 +35,8 @@ jobs:
 
       - name: Generate data
         run: |
+          cargo run --features "example-db" --example export_examples
+          cargo run --example export_petersen_mapping
           cargo run --example export_graph
           cargo run --example export_schemas
 

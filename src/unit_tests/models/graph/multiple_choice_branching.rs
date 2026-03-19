@@ -205,7 +205,7 @@ fn test_multiple_choice_branching_serialization() {
 #[test]
 fn test_multiple_choice_branching_deserialize_rejects_weight_length_mismatch() {
     let json = r#"{
-        "graph": {"inner": {"nodes": [null, null], "node_holes": [], "edge_property": "directed", "edges": [[0, 1, null]]}},
+        "graph": {"num_vertices": 2, "arcs": [[0, 1]]},
         "weights": [1, 2],
         "partition": [[0]],
         "threshold": 1
@@ -218,7 +218,7 @@ fn test_multiple_choice_branching_deserialize_rejects_weight_length_mismatch() {
 #[test]
 fn test_multiple_choice_branching_deserialize_rejects_invalid_partition() {
     let json = r#"{
-        "graph": {"inner": {"nodes": [null, null], "node_holes": [], "edge_property": "directed", "edges": [[0, 1, null]]}},
+        "graph": {"num_vertices": 2, "arcs": [[0, 1]]},
         "weights": [1],
         "partition": [[1]],
         "threshold": 1

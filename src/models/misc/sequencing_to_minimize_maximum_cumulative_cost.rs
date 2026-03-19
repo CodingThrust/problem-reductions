@@ -200,14 +200,13 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "sequencing_to_minimize_maximum_cumulative_cost",
-        build: || {
-            let problem = SequencingToMinimizeMaximumCumulativeCost::new(
-                vec![2, -1, 3, -2, 1, -3],
-                vec![(0, 2), (1, 2), (1, 3), (2, 4), (3, 5), (4, 5)],
-                4,
-            );
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![1, 0, 1, 0, 0, 0]])
-        },
+        instance: Box::new(SequencingToMinimizeMaximumCumulativeCost::new(
+            vec![2, -1, 3, -2, 1, -3],
+            vec![(0, 2), (1, 2), (1, 3), (2, 4), (3, 5), (4, 5)],
+            4,
+        )),
+        optimal_config: vec![1, 0, 1, 0, 0, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

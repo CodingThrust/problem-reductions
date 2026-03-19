@@ -93,6 +93,8 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MinimumVertexCover<Si
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
     fn vc_petersen() -> MinimumVertexCover<SimpleGraph, i32> {
         let (n, edges) = crate::topology::small_graphs::petersen();
         MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i32; 10])
@@ -107,21 +109,31 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         crate::example_db::specs::RuleExampleSpec {
             id: "maximumindependentset_to_minimumvertexcover",
             build: || {
-                crate::example_db::specs::direct_best_example::<
+                crate::example_db::specs::rule_example_with_witness::<
                     _,
                     MinimumVertexCover<SimpleGraph, i32>,
-                    _,
-                >(mis_petersen(), |_, _| true)
+                >(
+                    mis_petersen(),
+                    SolutionPair {
+                        source_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+                        target_config: vec![0, 1, 1, 0, 1, 1, 0, 0, 1, 1],
+                    },
+                )
             },
         },
         crate::example_db::specs::RuleExampleSpec {
             id: "minimumvertexcover_to_maximumindependentset",
             build: || {
-                crate::example_db::specs::direct_best_example::<
+                crate::example_db::specs::rule_example_with_witness::<
                     _,
                     MaximumIndependentSet<SimpleGraph, i32>,
-                    _,
-                >(vc_petersen(), |_, _| true)
+                >(
+                    vc_petersen(),
+                    SolutionPair {
+                        source_config: vec![0, 1, 1, 0, 1, 1, 0, 0, 1, 1],
+                        target_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+                    },
+                )
             },
         },
     ]

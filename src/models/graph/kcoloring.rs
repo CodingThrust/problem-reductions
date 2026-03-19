@@ -193,12 +193,12 @@ pub(crate) fn is_valid_coloring<G: Graph>(
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "kcoloring_k3_simplegraph",
-        build: || {
-            use crate::topology::SimpleGraph;
-            let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
-            let problem = KColoring::<K3, _>::new(graph);
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 1, 1, 0, 2]])
-        },
+        instance: Box::new(KColoring::<K3, _>::new(SimpleGraph::new(
+            5,
+            vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
+        ))),
+        optimal_config: vec![0, 1, 1, 0, 2],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

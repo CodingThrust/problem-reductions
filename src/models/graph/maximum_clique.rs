@@ -184,11 +184,12 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "maximum_clique_simplegraph_i32",
-        build: || {
-            let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
-            let problem = MaximumClique::new(graph, vec![1i32; 5]);
-            crate::example_db::specs::optimization_example(problem, vec![vec![0, 0, 1, 1, 1]])
-        },
+        instance: Box::new(MaximumClique::new(
+            SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
+            vec![1i32; 5],
+        )),
+        optimal_config: vec![0, 0, 1, 1, 1],
+        optimal_value: serde_json::json!({"Valid": 3}),
     }]
 }
 
