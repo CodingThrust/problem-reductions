@@ -100,23 +100,6 @@ fn test_resource_constrained_scheduling_empty_tasks() {
 }
 
 #[test]
-fn test_resource_constrained_scheduling_brute_force_solver() {
-    // 4 tasks, 2 processors, 1 resource B_1=10, deadline 2
-    // Tasks: [5, 5, 5, 5] -- each slot can hold 2 tasks (resource: 10=10)
-    let problem = ResourceConstrainedScheduling::new(
-        2,
-        vec![10],
-        vec![vec![5], vec![5], vec![5], vec![5]],
-        2,
-    );
-    let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
-    assert!(solution.is_some());
-    let sol = solution.unwrap();
-    assert!(problem.evaluate(&sol));
-}
-
-#[test]
 fn test_resource_constrained_scheduling_brute_force_infeasible() {
     // 4 tasks, 1 processor, deadline 2 -> can only do 2 tasks total, but we have 4
     let problem = ResourceConstrainedScheduling::new(
@@ -189,6 +172,22 @@ fn test_resource_constrained_scheduling_single_task_exceeds_bound() {
 fn test_resource_constrained_scheduling_single_task() {
     let problem = ResourceConstrainedScheduling::new(1, vec![5], vec![vec![5]], 1);
     assert!(problem.evaluate(&[0]));
+}
+
+#[test]
+fn test_resource_constrained_scheduling_canonical_brute_force() {
+    // Verify the canonical example via brute-force enumeration
+    let problem = ResourceConstrainedScheduling::new(
+        3,
+        vec![20],
+        vec![vec![6], vec![7], vec![7], vec![6], vec![8], vec![6]],
+        2,
+    );
+    let solver = BruteForce::new();
+    let all = solver.find_all_satisfying(&problem);
+    assert!(!all.is_empty());
+    // Verify the hardcoded canonical solution is among the brute-force results
+    assert!(all.contains(&vec![0, 0, 0, 1, 1, 1]));
 }
 
 #[test]
