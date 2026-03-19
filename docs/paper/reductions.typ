@@ -130,6 +130,7 @@
   "SumOfSquaresPartition": [Sum of Squares Partition],
   "SequencingWithinIntervals": [Sequencing Within Intervals],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "ConjunctiveBooleanQuery": [Conjunctive Boolean Query],
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
   "StringToStringCorrection": [String-to-String Correction],
 )
@@ -3267,6 +3268,68 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     caption: [Two-commodity flow: commodity 1 (blue, $s_1 -> 2 -> t_1$) and commodity 2 (red, $s_2 -> 3 -> t_2$).],
   ) <fig:d2cif>
 ]
+
+#{
+  let x = load-model-example("ConjunctiveBooleanQuery")
+  let d = x.instance.domain_size
+  let nv = x.instance.num_variables
+  let rels = x.instance.relations
+  let conj = x.instance.conjuncts
+  let nr = rels.len()
+  let nc = conj.len()
+  let sol = x.optimal.at(0)
+  let assignment = sol.config
+  [
+    #problem-def("ConjunctiveBooleanQuery")[
+      Given a finite domain $D = {0, dots, d - 1}$, a collection of relations $R_0, R_1, dots, R_(m-1)$ where each $R_i$ is a set of $a_i$-tuples with entries from $D$, and a conjunctive Boolean query
+      $ Q = (exists y_0, y_1, dots, y_(l-1))(A_0 and A_1 and dots.c and A_(r-1)) $
+      where each _atom_ $A_j$ has the form $R_(i_j)(u_0, u_1, dots)$ with every $u$ in ${y_0, dots, y_(l-1)} union D$, determine whether there exists an assignment to the variables that makes $Q$ true --- i.e., the resolved tuple of every atom belongs to its relation.
+    ][
+      The Conjunctive Boolean Query (CBQ) problem is one of the most fundamental problems in database theory and finite model theory. #cite(<chandra1977>, form: "prose") showed that evaluating conjunctive queries is NP-complete by reduction from the Clique problem. CBQ is equivalent to the Constraint Satisfaction Problem (CSP) and to the homomorphism problem for relational structures; this equivalence connects database query evaluation, constraint programming, and graph theory under a single computational framework @kolaitis1998.
+
+      For queries of bounded _hypertree-width_, evaluation becomes polynomial-time @gottlob2002. The general brute-force algorithm enumerates all $d^l$ variable assignments and checks every atom, running in $O(d^l dot r dot max_i a_i)$ time.#footnote[No substantially faster general algorithm is known for arbitrary conjunctive Boolean queries.]
+
+      *Example.* Let $D = {0, dots, #(d - 1)}$ ($d = #d$), with #nr relations:
+
+      #align(center, grid(
+        columns: nr,
+        gutter: 1.5em,
+        ..range(nr).map(ri => {
+          let rel = rels.at(ri)
+          let arity = rel.arity
+          let header = range(arity).map(j => [$c_#j$])
+          table(
+            columns: arity + 1,
+            align: center,
+            inset: (x: 4pt, y: 3pt),
+            table.header([$R_#ri$], ..header),
+            table.hline(stroke: 0.3pt),
+            ..rel.tuples.enumerate().map(((ti, tup)) => {
+              let cells = tup.map(v => [#v])
+              ([$tau_#ti$], ..cells)
+            }).flatten()
+          )
+        })
+      ))
+
+      The query has #nv variables $(y_0, y_1)$ and #nc atoms:
+      #{
+        let fmt-arg(a) = {
+          if "Variable" in a { $y_#(a.Variable)$ }
+          else { $#(a.Constant)$ }
+        }
+        let atoms = conj.enumerate().map(((j, c)) => {
+          let ri = c.at(0)
+          let args = c.at(1)
+          [$A_#j = R_#ri (#args.map(fmt-arg).join($, $))$]
+        })
+        [$ Q = (exists y_0, y_1)(#atoms.join($ and $)) $]
+      }
+
+      Under the assignment $y_0 = #assignment.at(0)$, $y_1 = #assignment.at(1)$: atom $A_0$ resolves to $(#assignment.at(0), 3) in R_0$ (row $tau_0$), atom $A_1$ resolves to $(#assignment.at(1), 3) in R_0$ (row $tau_1$), and atom $A_2$ resolves to $(#assignment.at(0), #assignment.at(1), 5) in R_1$ (row $tau_0$). All three atoms are satisfied, so $Q$ is true.
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("ConsecutiveOnesSubmatrix")
