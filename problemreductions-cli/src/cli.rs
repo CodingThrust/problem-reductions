@@ -257,7 +257,7 @@ Flags by problem type:
   OptimalLinearArrangement        --graph, --bound
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
   MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
-  AdditionalKey                   --num-attributes, --dependencies, --relation-attrs, --known-keys
+  AdditionalKey                   --num-attributes, --dependencies, --relation-attrs [--known-keys]
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
   LCS                             --strings, --bound [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]

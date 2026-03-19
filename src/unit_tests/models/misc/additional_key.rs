@@ -107,7 +107,8 @@ fn test_additional_key_brute_force_all() {
     let problem = instance1();
     let solver = BruteForce::new();
     let solutions = solver.find_all_satisfying(&problem);
-    assert!(!solutions.is_empty());
+    // Exactly 2 additional keys: {0,2} and {0,3,5}
+    assert_eq!(solutions.len(), 2);
     for sol in &solutions {
         assert!(problem.evaluate(sol));
     }
@@ -130,22 +131,38 @@ fn test_additional_key_serialization() {
 }
 
 #[test]
-fn test_additional_key_paper_example() {
-    let problem = instance1();
-    // Verify {0,2} is a valid additional key
-    assert!(problem.evaluate(&[1, 0, 1, 0, 0, 0]));
-    // Count all satisfying solutions
-    let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
-    assert!(!solutions.is_empty());
-    for sol in &solutions {
-        assert!(problem.evaluate(sol));
-    }
-}
-
-#[test]
 fn test_additional_key_empty_selection() {
     let problem = instance1();
     // All zeros = no attributes selected = not a key
     assert!(!problem.evaluate(&[0, 0, 0, 0, 0, 0]));
+}
+
+#[test]
+#[should_panic(expected = "relation_attrs element")]
+fn test_additional_key_panic_relation_attrs_out_of_bounds() {
+    AdditionalKey::new(3, vec![], vec![0, 1, 5], vec![]);
+}
+
+#[test]
+#[should_panic(expected = "relation_attrs contains duplicates")]
+fn test_additional_key_panic_relation_attrs_duplicates() {
+    AdditionalKey::new(3, vec![], vec![0, 1, 1], vec![]);
+}
+
+#[test]
+#[should_panic(expected = "dependency lhs attribute")]
+fn test_additional_key_panic_dependency_lhs_out_of_bounds() {
+    AdditionalKey::new(3, vec![(vec![5], vec![0])], vec![0, 1, 2], vec![]);
+}
+
+#[test]
+#[should_panic(expected = "dependency rhs attribute")]
+fn test_additional_key_panic_dependency_rhs_out_of_bounds() {
+    AdditionalKey::new(3, vec![(vec![0], vec![5])], vec![0, 1, 2], vec![]);
+}
+
+#[test]
+#[should_panic(expected = "known_keys attribute")]
+fn test_additional_key_panic_known_keys_out_of_bounds() {
+    AdditionalKey::new(3, vec![], vec![0, 1, 2], vec![vec![5]]);
 }
