@@ -496,6 +496,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         "num_tasks" => "n".to_string(),
         "precedences" => "precedence-pairs".to_string(),
         "threshold" => "bound".to_string(),
+        "lengths" => "sizes".to_string(),
         _ => field_name.replace('_', "-"),
     }
 }
