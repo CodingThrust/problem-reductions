@@ -277,21 +277,14 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "partially_ordered_knapsack",
-        build: || {
-            use crate::solvers::BruteForce;
-            let problem = PartiallyOrderedKnapsack::new(
-                vec![2, 3, 4, 1, 2, 3],
-                vec![3, 2, 5, 4, 3, 8],
-                vec![(0, 2), (0, 3), (1, 4), (3, 5), (4, 5)],
-                11,
-            );
-            let sample = BruteForce::new()
-                .find_all_best(&problem)
-                .into_iter()
-                .next()
-                .expect("partially_ordered_knapsack example should solve");
-            crate::example_db::specs::optimization_example(problem, vec![sample])
-        },
+        instance: Box::new(PartiallyOrderedKnapsack::new(
+            vec![2, 3, 4, 1, 2, 3],
+            vec![3, 2, 5, 4, 3, 8],
+            vec![(0, 2), (0, 3), (1, 4), (3, 5), (4, 5)],
+            11,
+        )),
+        optimal_config: vec![1, 1, 0, 1, 1, 1],
+        optimal_value: serde_json::json!({"Valid": 20}),
     }]
 }
 
