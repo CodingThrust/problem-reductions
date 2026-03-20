@@ -10,6 +10,7 @@ use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExamp
 use problemreductions::models::algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesSubmatrix, BMF,
 };
+use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
     LengthBoundedDisjointPaths, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
@@ -97,6 +98,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.strings.is_none()
         && args.costs.is_none()
         && args.arcs.is_none()
+        && args.quantifiers.is_none()
         && args.usage.is_none()
         && args.storage.is_none()
         && args.source.is_none()
@@ -394,6 +396,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5"
         }
         "Satisfiability" => "--num-vars 3 --clauses \"1,2;-1,3\"",
+        "QuantifiedBooleanFormulas" => {
+            "--num-vars 3 --clauses \"1,2;-1,3\" --quantifiers \"E,A,E\""
+        }
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
         "QuadraticAssignment" => "--matrix \"0,5;5,0\" --distance-matrix \"0,1;1,0\"",
@@ -1311,6 +1316,26 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let (k, _variant) =
                 util::validate_k_param(&resolved_variant, args.k, Some(3), "KSatisfiability")?;
             util::ser_ksat(num_vars, clauses, k)?
+        }
+
+        // QBF
+        "QuantifiedBooleanFormulas" => {
+            let num_vars = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuantifiedBooleanFormulas requires --num-vars, --clauses, and --quantifiers\n\n\
+                     Usage: pred create QBF --num-vars 3 --clauses \"1,2;-1,3\" --quantifiers \"E,A,E\""
+                )
+            })?;
+            let clauses = parse_clauses(args)?;
+            let quantifiers = parse_quantifiers(args, num_vars)?;
+            (
+                ser(QuantifiedBooleanFormulas::new(
+                    num_vars,
+                    quantifiers,
+                    clauses,
+                ))?,
+                resolved_variant.clone(),
+            )
         }
 
         // QuadraticAssignment
@@ -3948,6 +3973,36 @@ fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
         .collect()
 }
 
+/// Parse `--quantifiers` as comma-separated quantifier labels (E/A or Exists/ForAll).
+/// E.g., "E,A,E" or "Exists,ForAll,Exists"
+fn parse_quantifiers(args: &CreateArgs, num_vars: usize) -> Result<Vec<Quantifier>> {
+    let q_str = args
+        .quantifiers
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("QBF requires --quantifiers (e.g., \"E,A,E\")"))?;
+
+    let quantifiers: Vec<Quantifier> = q_str
+        .split(',')
+        .map(|s| match s.trim().to_lowercase().as_str() {
+            "e" | "exists" => Ok(Quantifier::Exists),
+            "a" | "forall" => Ok(Quantifier::ForAll),
+            other => Err(anyhow::anyhow!(
+                "Invalid quantifier '{}': expected E/Exists or A/ForAll",
+                other
+            )),
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    if quantifiers.len() != num_vars {
+        bail!(
+            "Expected {} quantifiers but got {}",
+            num_vars,
+            quantifiers.len()
+        );
+    }
+    Ok(quantifiers)
+}
+
 /// Parse a semicolon-separated matrix of i64 values.
 /// E.g., "0,5;5,0"
 fn parse_i64_matrix(s: &str) -> Result<Vec<Vec<i64>>> {
@@ -4921,6 +4976,7 @@ mod tests {
             size_bound: None,
             usage: None,
             storage: None,
+            quantifiers: None,
         }
     }
 

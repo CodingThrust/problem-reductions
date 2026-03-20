@@ -13,7 +13,9 @@ pub use algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesSubmatrix,
     QuadraticAssignment, BMF, ILP, QUBO,
 };
-pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
+pub use formula::{
+    CNFClause, CircuitSAT, KSatisfiability, QuantifiedBooleanFormulas, Quantifier, Satisfiability,
+};
 pub use graph::{
     BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
     BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
