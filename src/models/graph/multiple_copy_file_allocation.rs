@@ -200,11 +200,14 @@ impl SatisfactionProblem for MultipleCopyFileAllocation {}
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "multiple_copy_file_allocation",
-        build: || {
-            let problem =
-                MultipleCopyFileAllocation::new(SimpleGraph::cycle(6), vec![10; 6], vec![1; 6], 33);
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 1, 0, 1, 0, 1]])
-        },
+        instance: Box::new(MultipleCopyFileAllocation::new(
+            SimpleGraph::cycle(6),
+            vec![10; 6],
+            vec![1; 6],
+            33,
+        )),
+        optimal_config: vec![0, 1, 0, 1, 0, 1],
+        optimal_value: serde_json::json!(true),
     }]
 }
 
