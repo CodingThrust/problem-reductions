@@ -7,6 +7,7 @@ pub use cost::{CustomCost, Minimize, MinimizeSteps, PathCostFn};
 pub use registry::{ReductionEntry, ReductionOverhead};
 
 pub(crate) mod circuit_spinglass;
+mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
 pub(crate) mod factoring_circuit;
 mod graph;
@@ -89,6 +90,7 @@ pub use traits::{ReduceTo, ReductionAutoCast, ReductionResult};
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     let mut specs = Vec::new();
     specs.extend(circuit_spinglass::canonical_rule_example_specs());
+    specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
     specs.extend(factoring_circuit::canonical_rule_example_specs());
     specs.extend(knapsack_qubo::canonical_rule_example_specs());
