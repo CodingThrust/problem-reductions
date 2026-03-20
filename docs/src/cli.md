@@ -350,7 +350,6 @@ pred create RectilinearPictureCompression --matrix "1,1,0,0;1,1,0,0;0,0,1,1;0,0,
 pred solve rpc.json --solver brute-force
 pred create MinimumMultiwayCut --graph 0-1,1-2,2-3,3-0 --terminals 0,2 --edge-weights 3,1,2,4 -o mmc.json
 pred create SteinerTree --graph 0-1,0-3,1-2,1-3,2-3,2-4,3-4 --edge-weights 2,5,2,1,5,6,1 --terminals 0,2,4 -o steiner.json
-pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8 -o mcfa.json
 pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1 -o utcif.json
 pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3 -o lbdp.json
 pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
@@ -361,9 +360,6 @@ pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 --precedence-
 pred create StringToStringCorrection --source-string "0,1,2,3,1,0" --target-string "0,1,3,2,1" --bound 2 | pred solve - --solver brute-force
 pred create StrongConnectivityAugmentation --arcs "0>1,1>2,2>0,3>4,4>3,2>3,4>5,5>3" --candidate-arcs "3>0:5,3>1:3,3>2:4,4>0:6,4>1:2,4>2:7,5>0:4,5>1:3,5>2:1,0>3:8,0>4:3,0>5:2,1>3:6,1>4:4,1>5:5,2>4:3,2>5:7,1>0:2" --bound 1 -o sca.json
 ```
-
-To see the required flags and a concrete example for one problem type, run `pred create <PROBLEM>`
-with no additional data flags. The command exits non-zero after printing problem-specific help.
 
 For `LengthBoundedDisjointPaths`, the CLI flag `--bound` maps to the JSON field
 `max_length`.
@@ -488,10 +484,10 @@ The bundle contains everything needed to map solutions back:
 
 ### `pred solve` — Solve a problem
 
-Solve a problem instance using the default available solver or pick one explicitly:
+Solve a problem instance using ILP (default) or brute-force:
 
 ```bash
-pred solve problem.json                         # ILP when reachable, otherwise brute-force
+pred solve problem.json                         # ILP solver (default)
 pred solve problem.json --solver brute-force    # brute-force solver
 pred solve problem.json --timeout 30            # abort after 30 seconds
 ```
@@ -503,7 +499,7 @@ pred create MIS --graph 0-1,1-2,2-3 | pred solve -
 pred create MIS --graph 0-1,1-2,2-3 | pred solve - --solver brute-force
 ```
 
-When an ILP path exists, `pred solve` prefers ILP by default and automatically reduces non-ILP problems to ILP before solving. If no ILP path exists, it falls back to brute-force. The auto-reduction is shown in the output:
+When the problem is not ILP, the solver automatically reduces it to ILP, solves, and maps the solution back. The auto-reduction is shown in the output:
 
 ```bash
 $ pred solve problem.json

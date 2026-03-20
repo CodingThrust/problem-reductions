@@ -60,22 +60,6 @@ impl LoadedProblem {
         }
     }
 
-    pub fn available_solvers(&self) -> Vec<&'static str> {
-        if self.supports_ilp_solver() {
-            vec!["ilp", "brute-force"]
-        } else {
-            vec!["brute-force"]
-        }
-    }
-
-    pub fn default_solver(&self) -> &'static str {
-        if self.supports_ilp_solver() {
-            "ilp"
-        } else {
-            "brute-force"
-        }
-    }
-
     /// Solve using the ILP solver. If the problem is not ILP, auto-reduce to ILP first.
     pub fn solve_with_ilp(&self) -> Result<SolveResult> {
         let name = self.problem_name();

@@ -40,21 +40,17 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
     }
     text.push_str(&format!("Variables: {}\n", problem.num_variables_dyn()));
 
-    // Solvers
-    let solvers = problem.available_solvers();
-    let solver_text = solvers
-        .iter()
-        .enumerate()
-        .map(|(index, solver)| {
-            if index == 0 {
-                format!("{solver} (default)")
-            } else {
-                solver.to_string()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
-    text.push_str(&format!("Solvers: {solver_text}\n"));
+    let solvers = if problem.supports_ilp_solver() {
+        vec!["ilp", "brute-force"]
+    } else {
+        vec!["brute-force"]
+    };
+    let solver_summary = if solvers.first() == Some(&"ilp") {
+        "ilp (default), brute-force".to_string()
+    } else {
+        "brute-force".to_string()
+    };
+    text.push_str(&format!("Solvers: {solver_summary}\n"));
 
     // Reductions
     let outgoing = graph.outgoing_reductions(name);

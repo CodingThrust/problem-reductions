@@ -4784,7 +4784,7 @@ fn test_inspect_multiple_copy_file_allocation_reports_size_fields() {
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
-    assert_eq!(solvers, vec!["brute-force"]);
+    assert_eq!(solvers, vec!["ilp", "brute-force"]);
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();
@@ -5559,8 +5559,8 @@ fn test_evaluate_multiprocessor_scheduling_rejects_zero_processors_json() {
 }
 
 #[test]
-fn test_solve_multiple_copy_file_allocation_defaults_to_bruteforce() {
-    let problem_file = std::env::temp_dir().join("pred_test_solve_mcfa_default.json");
+fn test_solve_multiple_copy_file_allocation_brute_force() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_mcfa_bf.json");
     let create_out = pred()
         .args([
             "-o",
@@ -5578,7 +5578,12 @@ fn test_solve_multiple_copy_file_allocation_defaults_to_bruteforce() {
     );
 
     let output = pred()
-        .args(["solve", problem_file.to_str().unwrap()])
+        .args([
+            "solve",
+            problem_file.to_str().unwrap(),
+            "--solver",
+            "brute-force",
+        ])
         .output()
         .unwrap();
     assert!(
@@ -5589,52 +5594,8 @@ fn test_solve_multiple_copy_file_allocation_defaults_to_bruteforce() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
         stdout.contains("\"solver\": \"brute-force\""),
-        "MultipleCopyFileAllocation should default to brute-force: {stdout}"
+        "MultipleCopyFileAllocation should solve with brute-force: {stdout}"
     );
-
-    std::fs::remove_file(&problem_file).ok();
-}
-
-#[test]
-fn test_solve_multiprocessor_scheduling_default_solver_suggests_brute_force() {
-    let problem_file =
-        std::env::temp_dir().join("pred_test_solve_multiprocessor_default_solver.json");
-    let create_out = pred()
-        .args([
-            "-o",
-            problem_file.to_str().unwrap(),
-            "create",
-            "MultiprocessorScheduling",
-            "--lengths",
-            "4,5,3,2,6",
-            "--num-processors",
-            "2",
-            "--deadline",
-            "10",
-        ])
-        .output()
-        .unwrap();
-    assert!(
-        create_out.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&create_out.stderr)
-    );
-
-    let output = pred()
-        .args(["solve", problem_file.to_str().unwrap()])
-        .output()
-        .unwrap();
-    assert!(
-        !output.status.success(),
-        "stdout: {}",
-        String::from_utf8_lossy(&output.stdout)
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("No reduction path from MultiprocessorScheduling to ILP"),
-        "stderr: {stderr}"
-    );
-    assert!(stderr.contains("--solver brute-force"), "stderr: {stderr}");
 
     std::fs::remove_file(&problem_file).ok();
 }

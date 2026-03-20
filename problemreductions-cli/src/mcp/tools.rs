@@ -101,9 +101,7 @@ pub struct ReduceParams {
 pub struct SolveParams {
     #[schemars(description = "Problem JSON string (from create_problem or reduce)")]
     pub problem_json: String,
-    #[schemars(
-        description = "Solver: 'ilp' or 'brute-force'. Defaults to ilp when reachable, otherwise brute-force"
-    )]
+    #[schemars(description = "Solver: 'ilp' (default) or 'brute-force'")]
     pub solver: Option<String>,
     #[schemars(description = "Timeout in seconds (0 = no limit, default: 0)")]
     pub timeout: Option<u64>,
@@ -699,7 +697,7 @@ impl McpServer {
             "variant": variant,
             "size_fields": size_fields,
             "num_variables": problem.num_variables_dyn(),
-            "solvers": problem.available_solvers(),
+            "solvers": ["ilp", "brute-force"],
             "reduces_to": targets,
         });
         Ok(serde_json::to_string_pretty(&result)?)
@@ -796,13 +794,12 @@ impl McpServer {
         solver: Option<&str>,
         timeout: Option<u64>,
     ) -> anyhow::Result<String> {
-        if let Some(solver_name) = solver {
-            if solver_name != "brute-force" && solver_name != "ilp" {
-                anyhow::bail!(
-                    "Unknown solver: {}. Available solvers: brute-force, ilp",
-                    solver_name
-                );
-            }
+        let solver_name = solver.unwrap_or("ilp");
+        if solver_name != "brute-force" && solver_name != "ilp" {
+            anyhow::bail!(
+                "Unknown solver: {}. Available solvers: brute-force, ilp",
+                solver_name
+            );
         }
 
         let json: serde_json::Value = serde_json::from_str(problem_json)?;
@@ -812,27 +809,10 @@ impl McpServer {
         let is_bundle = json.get("source").is_some()
             && json.get("target").is_some()
             && json.get("path").is_some();
-        let solver_name = if let Some(solver_name) = solver {
-            solver_name.to_string()
-        } else if is_bundle {
-            let bundle: ReductionBundle = serde_json::from_value(json.clone())?;
-            load_problem(
-                &bundle.target.problem_type,
-                &bundle.target.variant,
-                bundle.target.data.clone(),
-            )?
-            .default_solver()
-            .to_string()
-        } else {
-            let pj: ProblemJson = serde_json::from_value(json.clone())?;
-            load_problem(&pj.problem_type, &pj.variant, pj.data.clone())?
-                .default_solver()
-                .to_string()
-        };
 
         if timeout_secs > 0 {
             let json_clone = json.clone();
-            let solver_name = solver_name.clone();
+            let solver_name = solver_name.to_string();
             let (tx, rx) = std::sync::mpsc::channel();
             std::thread::spawn(move || {
                 let result = if is_bundle {
@@ -1390,11 +1370,6 @@ fn solve_problem_inner(
             Ok(serde_json::to_string_pretty(&json)?)
         }
         "ilp" => {
-            if !problem.supports_ilp() {
-                anyhow::bail!(
-                    "ILP solver is not available for {name}\n\nTry `solver = \"brute-force\"` instead."
-                );
-            }
             let result = problem.solve_with_ilp()?;
             let mut json = serde_json::json!({
                 "problem": name,
@@ -1422,14 +1397,7 @@ fn solve_bundle_inner(bundle: ReductionBundle, solver_name: &str) -> anyhow::Res
 
     let target_result = match solver_name {
         "brute-force" => target.solve_brute_force()?,
-        "ilp" => {
-            if !target.supports_ilp() {
-                anyhow::bail!(
-                    "ILP solver is not available for bundle target {target_name}\n\nTry `solver = \"brute-force\"` instead."
-                );
-            }
-            target.solve_with_ilp()?
-        }
+        "ilp" => target.solve_with_ilp()?,
         _ => unreachable!(),
     };
 

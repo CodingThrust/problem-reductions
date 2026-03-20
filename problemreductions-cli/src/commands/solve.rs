@@ -29,40 +29,18 @@ fn parse_input(path: &Path) -> Result<SolveInput> {
     }
 }
 
-pub fn solve(
-    input: &Path,
-    solver_name: Option<&str>,
-    timeout: u64,
-    out: &OutputConfig,
-) -> Result<()> {
-    if let Some(solver_name) = solver_name {
-        if solver_name != "brute-force" && solver_name != "ilp" {
-            anyhow::bail!(
-                "Unknown solver: {}. Available solvers: brute-force, ilp",
-                solver_name
-            );
-        }
+pub fn solve(input: &Path, solver_name: &str, timeout: u64, out: &OutputConfig) -> Result<()> {
+    if solver_name != "brute-force" && solver_name != "ilp" {
+        anyhow::bail!(
+            "Unknown solver: {}. Available solvers: brute-force, ilp",
+            solver_name
+        );
     }
 
     let parsed = parse_input(input)?;
-    let resolved_solver = match (&parsed, solver_name) {
-        (_, Some(solver_name)) => solver_name.to_string(),
-        (SolveInput::Problem(pj), None) => {
-            load_problem(&pj.problem_type, &pj.variant, pj.data.clone())?
-                .default_solver()
-                .to_string()
-        }
-        (SolveInput::Bundle(bundle), None) => load_problem(
-            &bundle.target.problem_type,
-            &bundle.target.variant,
-            bundle.target.data.clone(),
-        )?
-        .default_solver()
-        .to_string(),
-    };
 
     if timeout > 0 {
-        let solver_name = resolved_solver.clone();
+        let solver_name = solver_name.to_string();
         let out = out.clone();
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
@@ -80,14 +58,10 @@ pub fn solve(
         }
     } else {
         match parsed {
-            SolveInput::Problem(pj) => solve_problem(
-                &pj.problem_type,
-                &pj.variant,
-                pj.data,
-                &resolved_solver,
-                out,
-            ),
-            SolveInput::Bundle(b) => solve_bundle(b, &resolved_solver, out),
+            SolveInput::Problem(pj) => {
+                solve_problem(&pj.problem_type, &pj.variant, pj.data, solver_name, out)
+            }
+            SolveInput::Bundle(b) => solve_bundle(b, solver_name, out),
         }
     }
 }

@@ -590,7 +590,7 @@ pub struct CreateArgs {
 #[derive(clap::Args)]
 #[command(after_help = "\
 Examples:
-  pred solve problem.json                        # auto-select solver (ILP when reachable, otherwise brute-force)
+  pred solve problem.json                        # ILP solver (default, auto-reduces to ILP)
   pred solve problem.json --solver brute-force   # brute-force (exhaustive search)
   pred solve reduced.json                        # solve a reduction bundle
   pred solve reduced.json -o solution.json       # save result to file
@@ -608,7 +608,6 @@ Solve via explicit reduction:
 
 Input: a problem JSON from `pred create`, or a reduction bundle from `pred reduce`.
 When given a bundle, the target is solved and the solution is mapped back to the source.
-When --solver is omitted, `pred solve` picks ILP if the problem can reduce to ILP and otherwise falls back to brute-force.
 The ILP solver auto-reduces non-ILP problems before solving.
 Problems without an ILP reduction path, such as `LengthBoundedDisjointPaths` and
 `StringToStringCorrection`, currently need `--solver brute-force`.
@@ -620,9 +619,9 @@ ILP backend (default: HiGHS). To use a different backend:
 pub struct SolveArgs {
     /// Problem JSON file (from `pred create`) or reduction bundle (from `pred reduce`). Use - for stdin.
     pub input: PathBuf,
-    /// Solver: ilp or brute-force. Defaults to ilp when reachable, otherwise brute-force.
-    #[arg(long)]
-    pub solver: Option<String>,
+    /// Solver: ilp (default) or brute-force
+    #[arg(long, default_value = "ilp")]
+    pub solver: String,
     /// Timeout in seconds (0 = no limit)
     #[arg(long, default_value = "0")]
     pub timeout: u64,
