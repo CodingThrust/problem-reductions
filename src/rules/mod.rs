@@ -9,6 +9,7 @@ pub use registry::{ReductionEntry, ReductionOverhead};
 pub(crate) mod circuit_spinglass;
 pub(crate) mod coloring_qubo;
 pub(crate) mod factoring_circuit;
+pub(crate) mod graphpartitioning_qubo;
 mod graph;
 mod kcoloring_casts;
 mod knapsack_qubo;
@@ -87,6 +88,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(circuit_spinglass::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
     specs.extend(factoring_circuit::canonical_rule_example_specs());
+    specs.extend(graphpartitioning_qubo::canonical_rule_example_specs());
     specs.extend(knapsack_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_subsetsum::canonical_rule_example_specs());
