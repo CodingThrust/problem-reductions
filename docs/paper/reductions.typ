@@ -105,6 +105,7 @@
   "BoundedComponentSpanningForest": [Bounded Component Spanning Forest],
   "BinPacking": [Bin Packing],
   "BoyceCoddNormalFormViolation": [Boyce-Codd Normal Form Violation],
+  "ConsistencyOfDatabaseFrequencyTables": [Consistency of Database Frequency Tables],
   "ClosestVectorProblem": [Closest Vector Problem],
   "ConsecutiveSets": [Consecutive Sets],
   "MinimumMultiwayCut": [Minimum Multiway Cut],
@@ -3091,6 +3092,61 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 ][
   A relation satisfies _Boyce-Codd Normal Form_ (BCNF) if every non-trivial functional dependency $X arrow.r Y$ has $X$ as a superkey --- that is, $X^+$ = $A'$. This classical NP-complete problem from database theory asks whether the given attribute subset $A'$ violates BCNF. The NP-completeness was established by Beeri and Bernstein (1979) via reduction from Hitting Set. It appears as problem SR29 in Garey and Johnson's compendium (category A4: Storage and Retrieval).
 ]
+
+#{
+  let x = load-model-example("ConsistencyOfDatabaseFrequencyTables")
+  let num_objects = x.instance.num_objects
+  let num_attrs = x.instance.attribute_domains.len()
+  let domains = x.instance.attribute_domains
+  let table01 = x.instance.frequency_tables.at(0).counts
+  let table12 = x.instance.frequency_tables.at(1).counts
+  let config = x.optimal_config
+  let value = (object, attr) => config.at(object * num_attrs + attr)
+  [
+    #problem-def("ConsistencyOfDatabaseFrequencyTables")[
+      Given a finite set $V$ of objects, a finite set $A$ of attributes, a domain $D_a$ for each $a in A$, a collection of pairwise frequency tables $f_(a,b): D_a times D_b -> ZZ^(>=0)$ whose entries sum to $|V|$, and a set $K subset.eq V times A times union_(a in A) D_a$ of known triples $(v, a, x)$, determine whether there exist functions $g_a: V -> D_a$ such that $g_a(v) = x$ for every $(v, a, x) in K$ and, for every published table $f_(a,b)$, exactly $f_(a,b)(x, y)$ objects satisfy $(g_a(v), g_b(v)) = (x, y)$.
+    ][
+      Consistency of Database Frequency Tables is Garey and Johnson's storage-and-retrieval problem SR35 @garey1979. It asks whether released pairwise marginals can come from some hidden microdata table while respecting already known individual attribute values, making it a natural decision problem in statistical disclosure control. The direct witness space implemented in this crate assigns one categorical variable to each object-attribute pair, so exhaustive search runs in $O^*((product_(a in A) |D_a|)^(|V|))$. #footnote[This is the exact search bound induced by the implementation's configuration space; no faster general exact worst-case algorithm is claimed here.]
+
+      *Example.* Let $|V| = #num_objects$ with attributes $a_0, a_1, a_2$ having domain sizes $#domains.at(0)$, $#domains.at(1)$, and $#domains.at(2)$ respectively. Publish the pairwise tables
+
+      #align(center, table(
+        columns: 4,
+        align: center,
+        table.header([$f_(a_0, a_1)$], [$0$], [$1$], [$2$]),
+        [$0$], [#table01.at(0).at(0)], [#table01.at(0).at(1)], [#table01.at(0).at(2)],
+        [$1$], [#table01.at(1).at(0)], [#table01.at(1).at(1)], [#table01.at(1).at(2)],
+      ))
+
+      and
+
+      #align(center, table(
+        columns: 3,
+        align: center,
+        table.header([$f_(a_1, a_2)$], [$0$], [$1$]),
+        [$0$], [#table12.at(0).at(0)], [#table12.at(0).at(1)],
+        [$1$], [#table12.at(1).at(0)], [#table12.at(1).at(1)],
+        [$2$], [#table12.at(2).at(0)], [#table12.at(2).at(1)],
+      ))
+
+      together with the known values $K = {(v_0, a_0, 0), (v_3, a_0, 1), (v_1, a_2, 1)}$. One consistent completion is:
+
+      #align(center, table(
+        columns: 4,
+        align: center,
+        table.header([object], [$a_0$], [$a_1$], [$a_2$]),
+        [$v_0$], [#value(0, 0)], [#value(0, 1)], [#value(0, 2)],
+        [$v_1$], [#value(1, 0)], [#value(1, 1)], [#value(1, 2)],
+        [$v_2$], [#value(2, 0)], [#value(2, 1)], [#value(2, 2)],
+        [$v_3$], [#value(3, 0)], [#value(3, 1)], [#value(3, 2)],
+        [$v_4$], [#value(4, 0)], [#value(4, 1)], [#value(4, 2)],
+        [$v_5$], [#value(5, 0)], [#value(5, 1)], [#value(5, 2)],
+      ))
+
+      This witness satisfies every published count: in $f_(a_0, a_1)$ each of the six cells appears exactly once, while in $f_(a_1, a_2)$ the five occupied cells have multiplicities $1, 1, 2, 1, 1$ exactly as listed above. It also respects all three known triples, so the answer is YES.
+    ]
+  ]
+}
 
 #problem-def("SumOfSquaresPartition")[
   Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$, a positive integer $K lt.eq |A|$ (number of groups), and a positive integer $J$ (bound), determine whether $A$ can be partitioned into $K$ disjoint sets $A_1, dots, A_K$ such that $sum_(i=1)^K (sum_(a in A_i) s(a))^2 lt.eq J$.
