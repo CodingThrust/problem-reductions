@@ -7,9 +7,11 @@ pub use cost::{CustomCost, Minimize, MinimizeSteps, PathCostFn};
 pub use registry::{ReductionEntry, ReductionOverhead};
 
 pub(crate) mod circuit_spinglass;
+mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
 pub(crate) mod factoring_circuit;
 mod graph;
+pub(crate) mod graphpartitioning_maxcut;
 mod kcoloring_casts;
 mod knapsack_qubo;
 mod ksatisfiability_casts;
@@ -35,6 +37,7 @@ pub(crate) mod sat_minimumdominatingset;
 mod spinglass_casts;
 pub(crate) mod spinglass_maxcut;
 pub(crate) mod spinglass_qubo;
+pub(crate) mod subsetsum_closestvectorproblem;
 #[cfg(test)]
 pub(crate) mod test_helpers;
 mod traits;
@@ -50,6 +53,8 @@ pub(crate) mod circuit_ilp;
 pub(crate) mod coloring_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod factoring_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod graphpartitioning_ilp;
 #[cfg(feature = "ilp-solver")]
 mod ilp_bool_ilp_i32;
 #[cfg(feature = "ilp-solver")]
@@ -75,6 +80,8 @@ pub(crate) mod minimumsetcovering_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod qubo_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod sequencingtominimizeweightedcompletiontime_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod steinertree_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod travelingsalesman_ilp;
@@ -89,8 +96,10 @@ pub use traits::{ReduceTo, ReductionAutoCast, ReductionResult};
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     let mut specs = Vec::new();
     specs.extend(circuit_spinglass::canonical_rule_example_specs());
+    specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
     specs.extend(factoring_circuit::canonical_rule_example_specs());
+    specs.extend(graphpartitioning_maxcut::canonical_rule_example_specs());
     specs.extend(knapsack_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_subsetsum::canonical_rule_example_specs());
@@ -109,6 +118,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(sat_minimumdominatingset::canonical_rule_example_specs());
     specs.extend(spinglass_maxcut::canonical_rule_example_specs());
     specs.extend(spinglass_qubo::canonical_rule_example_specs());
+    specs.extend(subsetsum_closestvectorproblem::canonical_rule_example_specs());
     specs.extend(travelingsalesman_qubo::canonical_rule_example_specs());
     #[cfg(feature = "ilp-solver")]
     {
@@ -116,6 +126,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(circuit_ilp::canonical_rule_example_specs());
         specs.extend(coloring_ilp::canonical_rule_example_specs());
         specs.extend(factoring_ilp::canonical_rule_example_specs());
+        specs.extend(graphpartitioning_ilp::canonical_rule_example_specs());
         specs.extend(ilp_qubo::canonical_rule_example_specs());
         specs.extend(knapsack_ilp::canonical_rule_example_specs());
         specs.extend(longestcommonsubsequence_ilp::canonical_rule_example_specs());
@@ -127,6 +138,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(minimumfeedbackvertexset_ilp::canonical_rule_example_specs());
         specs.extend(minimumsetcovering_ilp::canonical_rule_example_specs());
         specs.extend(qubo_ilp::canonical_rule_example_specs());
+        specs
+            .extend(sequencingtominimizeweightedcompletiontime_ilp::canonical_rule_example_specs());
         specs.extend(steinertree_ilp::canonical_rule_example_specs());
         specs.extend(travelingsalesman_ilp::canonical_rule_example_specs());
     }

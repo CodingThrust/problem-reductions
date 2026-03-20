@@ -16,6 +16,7 @@ pub(crate) mod minimum_cardinality_key;
 pub(crate) mod minimum_set_covering;
 pub(crate) mod prime_attribute_name;
 pub(crate) mod set_basis;
+pub(crate) mod two_dimensional_consecutive_sets;
 
 pub use comparative_containment::ComparativeContainment;
 pub use consecutive_sets::ConsecutiveSets;
@@ -25,6 +26,7 @@ pub use minimum_cardinality_key::MinimumCardinalityKey;
 pub use minimum_set_covering::MinimumSetCovering;
 pub use prime_attribute_name::PrimeAttributeName;
 pub use set_basis::SetBasis;
+pub use two_dimensional_consecutive_sets::TwoDimensionalConsecutiveSets;
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
@@ -37,5 +39,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(minimum_cardinality_key::canonical_model_example_specs());
     specs.extend(prime_attribute_name::canonical_model_example_specs());
     specs.extend(set_basis::canonical_model_example_specs());
+    specs.extend(two_dimensional_consecutive_sets::canonical_model_example_specs());
     specs
 }

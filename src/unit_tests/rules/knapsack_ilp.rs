@@ -86,7 +86,13 @@ fn test_knapsack_to_ilp_canonical_example_spec() {
     assert_eq!(example.target.problem, "ILP");
     assert_eq!(example.source.instance["capacity"], 7);
     assert_eq!(example.target.instance["num_vars"], 4);
-    assert_eq!(example.target.instance["constraints"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        example.target.instance["constraints"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
     assert_eq!(
         example.solutions,
         vec![crate::export::SolutionPair {

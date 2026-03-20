@@ -243,12 +243,14 @@ Flags by problem type:
   ComparativeContainment          --universe, --r-sets, --s-sets [--r-weights] [--s-weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   SetBasis                        --universe, --sets, --k
-  PrimeAttributeName              --universe, --deps, --query
   MinimumCardinalityKey           --num-attributes, --dependencies, --k
+  PrimeAttributeName              --universe, --deps, --query
+  TwoDimensionalConsecutiveSets   --alphabet-size, --sets
   BicliqueCover                   --left, --right, --biedges, --k
   BalancedCompleteBipartiteSubgraph --left, --right, --biedges, --k
   BiconnectivityAugmentation      --graph, --potential-edges, --budget [--num-vertices]
   BMF                             --matrix (0/1), --rank
+  ConsecutiveBlockMinimization    --matrix (JSON 2D bool), --bound-k
   ConsecutiveOnesSubmatrix        --matrix (0/1), --k
   SteinerTree                     --graph, --edge-weights, --terminals
   MultipleCopyFileAllocation      --graph, --usage, --storage, --bound
@@ -263,6 +265,8 @@ Flags by problem type:
   LCS                             --strings, --bound [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
+  QBF                             --num-vars, --clauses, --quantifiers
+  SteinerTreeInGraphs             --graph, --edge-weights, --terminals
   PartitionIntoPathsOfLength2     --graph
   ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
@@ -271,9 +275,11 @@ Flags by problem type:
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   StaffScheduling                 --schedules, --requirements, --num-workers, --k
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
-  SequencingToMinimizeMaximumCumulativeCost --costs, --bound [--precedence-pairs]
-  SequencingToMinimizeWeightedTardiness --sizes, --weights, --deadlines, --bound
   RectilinearPictureCompression   --matrix (0/1), --k
+  SchedulingWithIndividualDeadlines --n, --num-processors/--m, --deadlines [--precedence-pairs]
+  SequencingToMinimizeMaximumCumulativeCost --costs, --bound [--precedence-pairs]
+  SequencingToMinimizeWeightedCompletionTime --lengths, --weights [--precedence-pairs]
+  SequencingToMinimizeWeightedTardiness --sizes, --weights, --deadlines, --bound
   SCS                             --strings, --bound [--alphabet-size]
   StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
@@ -306,8 +312,9 @@ Examples:
   pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
   pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
   pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3
+  pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2
   pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3
-  pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2")]
+  pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\"")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT). Omit when using --example.
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -354,7 +361,8 @@ pub struct CreateArgs {
     /// Number of variables (for SAT/KSAT)
     #[arg(long)]
     pub num_vars: Option<usize>,
-    /// Matrix input (semicolon-separated rows; use `pred create <PROBLEM>` for problem-specific formats)
+    /// Matrix input. QUBO uses semicolon-separated numeric rows ("1,0.5;0.5,2");
+    /// ConsecutiveBlockMinimization uses a JSON 2D bool array ('[[true,false],[false,true]]')
     #[arg(long)]
     pub matrix: Option<String>,
     /// Shared integer parameter (use `pred create <PROBLEM>` for the problem-specific meaning)
@@ -375,7 +383,7 @@ pub struct CreateArgs {
     /// Target value (for Factoring and SubsetSum)
     #[arg(long)]
     pub target: Option<String>,
-    /// Bits for first factor (for Factoring)
+    /// Bits for first factor (for Factoring); also accepted as a processor-count alias for scheduling create commands
     #[arg(long)]
     pub m: Option<usize>,
     /// Bits for second factor (for Factoring)
@@ -486,6 +494,9 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Quantifiers for QBF (comma-separated, E=Exists, A=ForAll, e.g., "E,A,E")
+    #[arg(long)]
+    pub quantifiers: Option<String>,
     /// Size bound for partition sets (for MinimumCutIntoBoundedSets)
     #[arg(long)]
     pub size_bound: Option<usize>,
@@ -516,10 +527,10 @@ pub struct CreateArgs {
     /// Storage costs for MultipleCopyFileAllocation (comma-separated, e.g., "1,1,1,1")
     #[arg(long)]
     pub storage: Option<String>,
-    /// Deadlines for scheduling problems (comma-separated, e.g., "5,5,5,3,3")
+    /// Deadlines for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines (comma-separated, e.g., "5,5,5,3,3")
     #[arg(long)]
     pub deadlines: Option<String>,
-    /// Precedence pairs for MinimumTardinessSequencing (e.g., "0>3,1>3,1>4,2>4")
+    /// Precedence pairs for MinimumTardinessSequencing, SchedulingWithIndividualDeadlines, or SequencingToMinimizeWeightedCompletionTime (e.g., "0>3,1>3,1>4,2>4")
     #[arg(long)]
     pub precedence_pairs: Option<String>,
     /// Resource bounds for ResourceConstrainedScheduling (comma-separated, e.g., "20,15")
@@ -534,7 +545,7 @@ pub struct CreateArgs {
     /// Deadline for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
     #[arg(long)]
     pub deadline: Option<u64>,
-    /// Number of processors/machines for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
+    /// Number of processors/machines for FlowShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines
     #[arg(long)]
     pub num_processors: Option<usize>,
     /// Binary schedule patterns for StaffScheduling (semicolon-separated rows, e.g., "1,1,0;0,1,1")
@@ -546,9 +557,10 @@ pub struct CreateArgs {
     /// Number of available workers for StaffScheduling
     #[arg(long)]
     pub num_workers: Option<u64>,
-    /// Alphabet size for LCS, SCS, or StringToStringCorrection (optional; inferred from the input strings if omitted)
+    /// Alphabet size for LCS, SCS, StringToStringCorrection, or TwoDimensionalConsecutiveSets (optional; inferred from the input strings if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+
     /// Number of attributes for AdditionalKey or MinimumCardinalityKey
     #[arg(long)]
     pub num_attributes: Option<usize>,
@@ -596,6 +608,7 @@ Examples:
   pred solve reduced.json -o solution.json       # save result to file
   pred create MIS --graph 0-1,1-2 | pred solve - # read from stdin when an ILP path exists
   pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
+  pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\" | pred solve - --solver brute-force
   pred solve problem.json --timeout 10           # abort after 10 seconds
 
 Typical workflow:
@@ -708,7 +721,38 @@ pub fn print_subcommand_help_hint(error_msg: &str) {
 
 #[cfg(test)]
 mod tests {
+    use super::Cli;
     use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn test_create_help_mentions_scheduling_with_individual_deadlines_shared_flags() {
+        let mut cmd = Cli::command();
+        let create = cmd
+            .find_subcommand_mut("create")
+            .expect("create subcommand");
+        let mut help = Vec::new();
+        create
+            .write_long_help(&mut help)
+            .expect("render create help");
+        let help = String::from_utf8(help).expect("utf8 help");
+
+        assert!(help.contains(
+            "Deadlines for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines"
+        ));
+        assert!(help.contains(
+            "Precedence pairs for MinimumTardinessSequencing, SchedulingWithIndividualDeadlines, or SequencingToMinimizeWeightedCompletionTime"
+        ));
+        assert!(
+            help.contains(
+                "Number of processors/machines for FlowShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines"
+            ),
+            "create help should describe --num-processors for both scheduling models"
+        );
+        assert!(help.contains(
+            "SchedulingWithIndividualDeadlines --n, --num-processors/--m, --deadlines [--precedence-pairs]"
+        ));
+    }
 
     #[test]
     fn test_create_parses_biconnectivity_augmentation_flags() {
