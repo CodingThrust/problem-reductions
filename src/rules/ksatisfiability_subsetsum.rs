@@ -138,6 +138,7 @@ impl ReduceTo<SubsetSum> for KSatisfiability<K3> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
     use crate::models::formula::CNFClause;
     use crate::models::misc::SubsetSum;
 
@@ -151,9 +152,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     CNFClause::new(vec![-1, -2, 3]),
                 ],
             );
-            crate::example_db::specs::direct_satisfying_example::<_, SubsetSum, _>(
+            crate::example_db::specs::rule_example_with_witness::<_, SubsetSum>(
                 source,
-                |_, _| true,
+                SolutionPair {
+                    source_config: vec![0, 0, 1],
+                    target_config: vec![0, 1, 0, 1, 1, 0, 1, 1, 1, 0],
+                },
             )
         },
     }]

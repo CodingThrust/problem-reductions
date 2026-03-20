@@ -290,31 +290,27 @@ fn encode_paths(num_vertices: usize, slots: &[&[usize]]) -> Vec<usize> {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "length_bounded_disjoint_paths_simplegraph",
-        build: || {
-            let problem = LengthBoundedDisjointPaths::new(
-                SimpleGraph::new(
-                    7,
-                    vec![
-                        (0, 1),
-                        (1, 6),
-                        (0, 2),
-                        (2, 3),
-                        (3, 6),
-                        (0, 4),
-                        (4, 5),
-                        (5, 6),
-                    ],
-                ),
-                0,
-                6,
-                2,
-                3,
-            );
-            crate::example_db::specs::satisfaction_example(
-                problem,
-                vec![encode_paths(7, &[&[0, 1, 6], &[0, 2, 3, 6]])],
-            )
-        },
+        instance: Box::new(LengthBoundedDisjointPaths::new(
+            SimpleGraph::new(
+                7,
+                vec![
+                    (0, 1),
+                    (1, 6),
+                    (0, 2),
+                    (2, 3),
+                    (3, 6),
+                    (0, 4),
+                    (4, 5),
+                    (5, 6),
+                ],
+            ),
+            0,
+            6,
+            2,
+            3,
+        )),
+        optimal_config: encode_paths(7, &[&[0, 1, 6], &[0, 2, 3, 6]]),
+        optimal_value: serde_json::json!(true),
     }]
 }
 

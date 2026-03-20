@@ -24,6 +24,7 @@ mod maximumindependentset_triangular;
 pub(crate) mod maximummatching_maximumsetpacking;
 mod maximumsetpacking_casts;
 pub(crate) mod maximumsetpacking_qubo;
+pub(crate) mod minimummultiwaycut_qubo;
 pub(crate) mod minimumvertexcover_maximumindependentset;
 pub(crate) mod minimumvertexcover_minimumsetcovering;
 pub(crate) mod sat_circuitsat;
@@ -54,6 +55,8 @@ mod ilp_bool_ilp_i32;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod ilp_qubo;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod knapsack_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod longestcommonsubsequence_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumclique_ilp;
@@ -63,6 +66,10 @@ pub(crate) mod maximummatching_ilp;
 pub(crate) mod maximumsetpacking_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumdominatingset_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod minimumfeedbackvertexset_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod minimummultiwaycut_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumsetcovering_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -92,6 +99,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(maximumindependentset_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maximummatching_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maximumsetpacking_qubo::canonical_rule_example_specs());
+    specs.extend(minimummultiwaycut_qubo::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_maximumindependentset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumsetcovering::canonical_rule_example_specs());
     specs.extend(sat_circuitsat::canonical_rule_example_specs());
@@ -109,11 +117,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(coloring_ilp::canonical_rule_example_specs());
         specs.extend(factoring_ilp::canonical_rule_example_specs());
         specs.extend(ilp_qubo::canonical_rule_example_specs());
+        specs.extend(knapsack_ilp::canonical_rule_example_specs());
         specs.extend(longestcommonsubsequence_ilp::canonical_rule_example_specs());
         specs.extend(maximumclique_ilp::canonical_rule_example_specs());
         specs.extend(maximummatching_ilp::canonical_rule_example_specs());
+        specs.extend(minimummultiwaycut_ilp::canonical_rule_example_specs());
         specs.extend(maximumsetpacking_ilp::canonical_rule_example_specs());
         specs.extend(minimumdominatingset_ilp::canonical_rule_example_specs());
+        specs.extend(minimumfeedbackvertexset_ilp::canonical_rule_example_specs());
         specs.extend(minimumsetcovering_ilp::canonical_rule_example_specs());
         specs.extend(qubo_ilp::canonical_rule_example_specs());
         specs
