@@ -153,7 +153,6 @@ impl QuantifiedBooleanFormulas {
             }
         }
     }
-
 }
 
 impl Problem for QuantifiedBooleanFormulas {

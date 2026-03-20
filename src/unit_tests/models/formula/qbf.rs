@@ -255,10 +255,7 @@ fn test_qbf_quantifier_clone() {
 #[test]
 fn test_qbf_empty_clause() {
     // An empty clause (disjunction of zero literals) is always false
-    let problem = QuantifiedBooleanFormulas::new(
-        1,
-        vec![Quantifier::Exists],
-        vec![CNFClause::new(vec![])],
-    );
+    let problem =
+        QuantifiedBooleanFormulas::new(1, vec![Quantifier::Exists], vec![CNFClause::new(vec![])]);
     assert!(!problem.is_true());
 }
