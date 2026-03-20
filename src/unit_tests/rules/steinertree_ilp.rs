@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{ILP, ObjectiveSense};
+use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::SteinerTree;
 use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};
@@ -61,8 +61,8 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
     let reduction: ReductionSteinerTreeToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
 
     let target_solution = vec![
-        1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0,
-        0, 0, 0, 0, 0, 0,
+        1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0,
+        0, 0, 0, 0, 0,
     ];
 
     assert_eq!(

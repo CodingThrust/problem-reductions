@@ -7,7 +7,7 @@
 //!   `f^t_(u,v) <= y_e`
 //! - Objective: minimize the total weight of selected edges
 
-use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::SteinerTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -142,8 +142,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 SolutionPair {
                     source_config: vec![1, 1, 1, 1, 0, 0, 0],
                     target_config: vec![
-                        1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
-                        0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+                        1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+                        1, 0, 1, 0, 0, 0, 0, 0, 0, 0,
                     ],
                 },
             )
