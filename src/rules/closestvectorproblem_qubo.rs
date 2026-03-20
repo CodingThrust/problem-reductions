@@ -3,11 +3,11 @@
 //! Encodes each bounded CVP coefficient with an exact in-range binary basis and
 //! expands the squared-distance objective into a QUBO over those bits.
 
+#[cfg(feature = "example-db")]
+use crate::export::SolutionPair;
 use crate::models::algebraic::{ClosestVectorProblem, QUBO};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-#[cfg(feature = "example-db")]
-use crate::export::SolutionPair;
 
 #[derive(Debug, Clone)]
 struct EncodingSpan {
@@ -135,7 +135,11 @@ impl ReduceTo<QUBO<f64>> for ClosestVectorProblem<i32> {
         let lowers = self
             .bounds()
             .iter()
-            .map(|bounds| bounds.lower.expect("CVP QUBO reduction requires finite lower bounds"))
+            .map(|bounds| {
+                bounds
+                    .lower
+                    .expect("CVP QUBO reduction requires finite lower bounds")
+            })
             .map(|lower| lower as f64)
             .collect::<Vec<_>>();
         let g_lo_minus_h = (0..self.num_basis_vectors())

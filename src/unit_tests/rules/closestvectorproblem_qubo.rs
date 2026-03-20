@@ -78,5 +78,8 @@ fn test_duplicate_target_encodings_have_equal_qubo_value() {
     let best = solver.find_all_best(qubo);
 
     assert!(best.contains(&vec![0, 0, 1, 0, 0, 1]) || best.contains(&vec![1, 1, 0, 1, 1, 0]));
-    assert_close(qubo.evaluate(&[0, 0, 1, 0, 0, 1]), qubo.evaluate(&[1, 1, 0, 1, 1, 0]));
+    assert_close(
+        qubo.evaluate(&[0, 0, 1, 0, 0, 1]),
+        qubo.evaluate(&[1, 1, 0, 1, 1, 0]),
+    );
 }
