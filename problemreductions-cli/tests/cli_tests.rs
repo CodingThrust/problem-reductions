@@ -224,20 +224,6 @@ fn test_path_all_save() {
 }
 
 #[test]
-fn test_path_suggests_variant_when_default_target_has_no_path() {
-    let output = pred()
-        .args(["path", "SequencingToMinimizeWeightedCompletionTime", "ILP"])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("ILP/i32"),
-        "expected variant-qualified hint, got: {stderr}"
-    );
-}
-
-#[test]
 fn test_export() {
     let tmp = std::env::temp_dir().join("pred_test_export.json");
     let output = pred()

@@ -550,57 +550,15 @@ pub fn path(
             out.emit_with_default_name("", &text, &json)
         }
         None => {
-            let variant_hint = if dst_spec.variant_values.is_empty() {
-                let alternatives = dst_variants
-                    .iter()
-                    .filter(|variant| *variant != &dst_ref.variant)
-                    .filter(|variant| match cost_choice {
-                        CostChoice::Steps => graph
-                            .find_cheapest_path(
-                                &src_ref.name,
-                                &src_ref.variant,
-                                &dst_ref.name,
-                                variant,
-                                &input_size,
-                                &MinimizeSteps,
-                            )
-                            .is_some(),
-                        CostChoice::Field(f) => graph
-                            .find_cheapest_path(
-                                &src_ref.name,
-                                &src_ref.variant,
-                                &dst_ref.name,
-                                variant,
-                                &input_size,
-                                &Minimize(f),
-                            )
-                            .is_some(),
-                    })
-                    .map(|variant| format!("{}{}", dst_ref.name, variant_to_full_slash(variant)))
-                    .take(3)
-                    .collect::<Vec<_>>();
-
-                if alternatives.is_empty() {
-                    String::new()
-                } else {
-                    format!(
-                        "\n\nTry a variant-qualified target such as {}.",
-                        alternatives.join(", ")
-                    )
-                }
-            } else {
-                String::new()
-            };
             anyhow::bail!(
                 "No reduction path from {} to {}\n\n\
                  Usage: pred path <SOURCE> <TARGET>\n\
                  Example: pred path MIS QUBO\n\n\
-                 Run `pred show {}` and `pred show {}` to check available reductions.{}",
+                 Run `pred show {}` and `pred show {}` to check available reductions.",
                 src_spec.name,
                 dst_spec.name,
                 src_spec.name,
                 dst_spec.name,
-                variant_hint,
             );
         }
     }
