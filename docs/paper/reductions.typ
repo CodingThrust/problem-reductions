@@ -3415,8 +3415,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let nproc = x.instance.num_processors
   let deadlines = x.instance.deadlines
   let precs = x.instance.precedences
-  let sample = x.samples.at(0)
-  let start = sample.config
+  let start = x.optimal_config
   let horizon = deadlines.fold(0, (acc, d) => if d > acc { d } else { acc })
   let slot-groups = range(horizon).map(slot => range(ntasks).filter(t => start.at(t) == slot))
   let tight-tasks = range(ntasks).filter(t => start.at(t) + 1 == deadlines.at(t))
@@ -4276,6 +4275,42 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) If $bold(x)'^*$ is an optimal ILP solution, then $A' bold(x)'^* = bold(b)$ and all penalty terms vanish, so $f(bold(x)'^*) = -bold(c')^top bold(x)'^*$. ($arrow.l.double$) If any constraint is violated, $(bold(a)'_k^(top) bold(x)' - b_k)^2 >= 1$ and the penalty $P > ||bold(c)||_1$ exceeds the entire objective range, so $bold(x)'$ cannot be a QUBO minimizer. Among feasible assignments (all penalties zero), $f$ reduces to $-bold(c')^top bold(x)'$, minimized at the ILP optimum.
 
   _Solution extraction._ Discard slack variables: return $bold(x)' [0..n]$.
+]
+
+#let ss_kn = load-example("SubsetSum", "Knapsack")
+#let ss_kn_sol = ss_kn.solutions.at(0)
+#let ss_kn_sizes = ss_kn.source.instance.sizes
+#let ss_kn_selected = range(ss_kn_sizes.len()).filter(i => ss_kn_sol.source_config.at(i) == 1)
+#let ss_kn_sel_sizes = ss_kn_selected.map(i => ss_kn_sizes.at(i))
+#reduction-rule("SubsetSum", "Knapsack",
+  example: true,
+  example-caption: [$n = #ss_kn_sizes.len()$ elements, target $B = #ss_kn.source.instance.target$],
+  extra: [
+    *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#ss_kn_sizes.map(str).join(", "))$ and target $B = #ss_kn.source.instance.target$.
+
+    *Step 2 -- Build Knapsack.* Reuse the same numbers as both weights and values:
+    $bold(w) = (#ss_kn.target.instance.weights.map(str).join(", "))$, $bold(v) = (#ss_kn.target.instance.values.map(str).join(", "))$, and capacity $C = #ss_kn.target.instance.capacity$.
+
+    *Step 3 -- Verify a witness.* The canonical witness $bold(x) = (#ss_kn_sol.source_config.map(str).join(", "))$ selects $\{#ss_kn_sel_sizes.map(str).join(", ")\}$, so the total selected weight and value are $#ss_kn_sel_sizes.map(str).join(" + ") = #ss_kn.source.instance.target$.
+
+    *Witness semantics.* The fixture stores one canonical witness. Other subsets can also sum to $B$ for this instance, and every such subset maps to an optimal Knapsack solution by the same identity extraction.
+  ],
+)[
+  This is the direct special-case embedding between the classical formulations of Subset Sum and Knapsack @karp1972 @garey1979. Given positive integers $a_0, dots, a_(n-1)$ and target $B$, create one knapsack item per element with weight $w_i = a_i$ and value $v_i = a_i$, and set the capacity to $C = B$. The reduction preserves the number of variables/items exactly. In the present library implementation, this embedding applies when all source integers fit in signed 64-bit storage, because `Knapsack` uses `i64` weights, values, and capacity.
+][
+  _Construction._ For a Subset Sum instance with binary choice variables $x_0, dots, x_(n-1)$, create a Knapsack instance with the same binary variables and define
+  $ w_i = a_i, quad v_i = a_i quad (0 <= i < n), quad C = B. $
+  No auxiliary items or constraints are added: the target has exactly $n$ items.
+
+  _Correctness._ ($arrow.r.double$) If a subset $A' subset.eq A$ satisfies $sum_(a_i in A') a_i = B$, select exactly those corresponding knapsack items. The total weight is $B$, so the choice is feasible, and because $v_i = w_i$ for every item, its total value is also $B$. Any feasible knapsack solution satisfies
+  $ sum_i v_i x_i = sum_i w_i x_i <= C = B, $
+  so this feasible solution already attains the maximum possible value $B$. ($arrow.l.double$) If the Knapsack optimum has value $B$, then the optimal selection satisfies
+  $ B = sum_i v_i x_i = sum_i w_i x_i <= C = B, $
+  hence the selected items have total weight exactly $B$, giving a valid Subset Sum witness. If no subset sums to $B$, then every feasible knapsack solution has value strictly less than $B$, so extracting any optimum does _not_ satisfy the source instance.
+
+  _Variable mapping._ The binary variables are reused unchanged: $x_i = 1$ means “choose element $a_i$” in Subset Sum and “take item $i$” in Knapsack.
+
+  _Solution extraction._ Return the target selection vector unchanged.
 ]
 
 #let ks_qubo = load-example("Knapsack", "QUBO")
