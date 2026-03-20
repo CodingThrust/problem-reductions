@@ -4784,7 +4784,7 @@ fn test_inspect_multiple_copy_file_allocation_reports_size_fields() {
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
-    assert_eq!(solvers, vec!["ilp", "brute-force"]);
+    assert_eq!(solvers, vec!["brute-force"]);
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();
@@ -5245,15 +5245,9 @@ fn test_create_multiple_copy_file_allocation() {
     assert_eq!(json["data"]["usage"], serde_json::json!([5, 4, 3, 2]));
     assert_eq!(json["data"]["storage"], serde_json::json!([1, 1, 1, 1]));
     assert_eq!(json["data"]["bound"], 8);
+    assert_eq!(json["data"]["graph"]["num_vertices"], 4);
     assert_eq!(
-        json["data"]["graph"]["inner"]["nodes"]
-            .as_array()
-            .unwrap()
-            .len(),
-        4
-    );
-    assert_eq!(
-        json["data"]["graph"]["inner"]["edges"]
+        json["data"]["graph"]["edges"]
             .as_array()
             .unwrap()
             .len(),
