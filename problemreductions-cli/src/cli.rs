@@ -243,8 +243,9 @@ Flags by problem type:
   ComparativeContainment          --universe, --r-sets, --s-sets [--r-weights] [--s-weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   SetBasis                        --universe, --sets, --k
-  PrimeAttributeName              --universe, --deps, --query
   MinimumCardinalityKey           --num-attributes, --dependencies, --k
+  PrimeAttributeName              --universe, --deps, --query
+  TwoDimensionalConsecutiveSets   --alphabet-size, --sets
   BicliqueCover                   --left, --right, --biedges, --k
   BalancedCompleteBipartiteSubgraph --left, --right, --biedges, --k
   BiconnectivityAugmentation      --graph, --potential-edges, --budget [--num-vertices]
@@ -307,8 +308,9 @@ Examples:
   pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
   pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
   pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3
+  pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2
   pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3
-  pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2")]
+  pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\"")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT). Omit when using --example.
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -547,7 +549,7 @@ pub struct CreateArgs {
     /// Number of available workers for StaffScheduling
     #[arg(long)]
     pub num_workers: Option<u64>,
-    /// Alphabet size for LCS, SCS, or StringToStringCorrection (optional; inferred from the input strings if omitted)
+    /// Alphabet size for LCS, SCS, StringToStringCorrection, or TwoDimensionalConsecutiveSets (optional; inferred from the input strings if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
     /// Number of attributes for AdditionalKey or MinimumCardinalityKey
@@ -597,6 +599,7 @@ Examples:
   pred solve reduced.json -o solution.json       # save result to file
   pred create MIS --graph 0-1,1-2 | pred solve - # read from stdin when an ILP path exists
   pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
+  pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\" | pred solve - --solver brute-force
   pred solve problem.json --timeout 10           # abort after 10 seconds
 
 Typical workflow:

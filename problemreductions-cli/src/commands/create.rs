@@ -445,14 +445,17 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
         }
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
-        "PrimeAttributeName" => {
-            "--universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
-        }
         "LongestCommonSubsequence" => {
             "--strings \"010110;100101;001011\" --bound 3 --alphabet-size 2"
         }
         "MinimumCardinalityKey" => {
             "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
+        }
+        "PrimeAttributeName" => {
+            "--universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
+        }
+        "TwoDimensionalConsecutiveSets" => {
+            "--alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
         }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         "SequencingToMinimizeMaximumCumulativeCost" => {
@@ -1790,6 +1793,27 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     dependencies,
                     k,
                 ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // TwoDimensionalConsecutiveSets
+        "TwoDimensionalConsecutiveSets" => {
+            let alphabet_size = args.alphabet_size.or(args.universe).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "TwoDimensionalConsecutiveSets requires --alphabet-size (or --universe) and --sets\n\n\
+                     Usage: pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
+                )
+            })?;
+            let sets = parse_sets(args)?;
+            (
+                ser(
+                    problemreductions::models::set::TwoDimensionalConsecutiveSets::try_new(
+                        alphabet_size,
+                        sets,
+                    )
+                    .map_err(anyhow::Error::msg)?,
+                )?,
                 resolved_variant.clone(),
             )
         }
