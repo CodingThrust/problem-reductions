@@ -2491,8 +2491,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let K = x.instance.bound_k
   let n-rows = mat.len()
   let n-cols = if n-rows > 0 { mat.at(0).len() } else { 0 }
-  let sol = x.optimal.at(0)
-  let perm = sol.config
+  let perm = x.optimal_config
   // Count blocks under the satisfying permutation
   let total-blocks = 0
   for row in mat {

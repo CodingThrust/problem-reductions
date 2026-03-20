@@ -226,13 +226,22 @@ fn validate_matrix_dimensions(matrix: &[Vec<bool>]) -> Result<(usize, usize), St
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    // Adjacency matrix of path graph P_6, K=6 (one block per row).
+    // Issue #420 Instance 2.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "consecutive_block_minimization",
         instance: Box::new(ConsecutiveBlockMinimization::new(
-            vec![vec![true, false, true], vec![false, true, true]],
-            2,
+            vec![
+                vec![false, true, false, false, false, false],
+                vec![true, false, true, false, false, false],
+                vec![false, true, false, true, false, false],
+                vec![false, false, true, false, true, false],
+                vec![false, false, false, true, false, true],
+                vec![false, false, false, false, true, false],
+            ],
+            6,
         )),
-        optimal_config: vec![0, 2, 1],
+        optimal_config: vec![0, 2, 4, 1, 3, 5],
         optimal_value: serde_json::json!(true),
     }]
 }
