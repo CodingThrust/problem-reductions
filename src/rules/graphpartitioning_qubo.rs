@@ -45,13 +45,10 @@ impl ReduceTo<QUBO<f64>> for GraphPartitioning<SimpleGraph> {
             degrees[v] += 1;
         }
 
-        for i in 0..n {
-            matrix[i][i] = degrees[i] as f64 + penalty * (1.0 - n as f64);
-        }
-
-        for i in 0..n {
-            for j in (i + 1)..n {
-                matrix[i][j] = 2.0 * penalty;
+        for (i, row) in matrix.iter_mut().enumerate() {
+            row[i] = degrees[i] as f64 + penalty * (1.0 - n as f64);
+            for value in row.iter_mut().skip(i + 1) {
+                *value = 2.0 * penalty;
             }
         }
 
