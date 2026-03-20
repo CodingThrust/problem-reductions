@@ -77,6 +77,10 @@ fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(&PaintShop::new(vec!["a", "a"]), "PaintShop");
     check_problem_trait(&BMF::new(vec![vec![true]], 1), "BMF");
     check_problem_trait(
+        &ConsecutiveBlockMinimization::new(vec![vec![true, false], vec![false, true]], 2),
+        "ConsecutiveBlockMinimization",
+    );
+    check_problem_trait(
         &BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1),
         "BicliqueCover",
     );
@@ -88,6 +92,7 @@ fn test_all_problems_implement_trait_correctly() {
         "BalancedCompleteBipartiteSubgraph",
     );
     check_problem_trait(&Factoring::new(6, 2, 2), "Factoring");
+    check_problem_trait(&Partition::new(vec![3, 1, 1, 2, 2, 1]), "Partition");
     check_problem_trait(
         &QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 1], vec![1, 0]]),
         "QuadraticAssignment",
@@ -124,6 +129,38 @@ fn test_all_problems_implement_trait_correctly() {
         "HamiltonianPath",
     );
     check_problem_trait(
+        &MultipleCopyFileAllocation::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![1; 3],
+            vec![1; 3],
+            3,
+        ),
+        "MultipleCopyFileAllocation",
+    );
+    check_problem_trait(
+        &UndirectedTwoCommodityIntegralFlow::new(
+            SimpleGraph::new(4, vec![(0, 2), (1, 2), (2, 3)]),
+            vec![1, 1, 2],
+            0,
+            3,
+            1,
+            3,
+            1,
+            1,
+        ),
+        "UndirectedTwoCommodityIntegralFlow",
+    );
+    check_problem_trait(
+        &LengthBoundedDisjointPaths::new(
+            SimpleGraph::new(4, vec![(0, 1), (1, 3), (0, 2), (2, 3)]),
+            0,
+            3,
+            2,
+            2,
+        ),
+        "LengthBoundedDisjointPaths",
+    );
+    check_problem_trait(
         &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 3),
         "OptimalLinearArrangement",
     );
@@ -141,6 +178,14 @@ fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
         &FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10),
         "FlowShopScheduling",
+    );
+    check_problem_trait(
+        &SequencingToMinimizeWeightedTardiness::new(vec![3, 4, 2], vec![2, 3, 1], vec![5, 8, 4], 4),
+        "SequencingToMinimizeWeightedTardiness",
+    );
+    check_problem_trait(
+        &MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]),
+        "MinimumTardinessSequencing",
     );
     check_problem_trait(
         &PartitionIntoPathsOfLength2::new(SimpleGraph::new(

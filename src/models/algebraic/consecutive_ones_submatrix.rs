@@ -20,7 +20,7 @@ inventory::submit! {
         description: "Find K columns of a binary matrix that can be permuted to have the consecutive ones property",
         fields: &[
             FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "m×n binary matrix A" },
-            FieldInfo { name: "bound_k", type_name: "usize", description: "Required number of columns K" },
+            FieldInfo { name: "bound", type_name: "i64", description: "Required number of columns K" },
         ],
     }
 }
@@ -60,7 +60,7 @@ inventory::submit! {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsecutiveOnesSubmatrix {
     matrix: Vec<Vec<bool>>,
-    bound_k: usize,
+    bound: i64,
 }
 
 impl ConsecutiveOnesSubmatrix {
@@ -68,8 +68,8 @@ impl ConsecutiveOnesSubmatrix {
     ///
     /// # Panics
     ///
-    /// Panics if `bound_k > n`, or if rows have inconsistent lengths.
-    pub fn new(matrix: Vec<Vec<bool>>, bound_k: usize) -> Self {
+    /// Panics if `bound > n`, or if rows have inconsistent lengths.
+    pub fn new(matrix: Vec<Vec<bool>>, bound: i64) -> Self {
         let n = if matrix.is_empty() {
             0
         } else {
@@ -79,10 +79,10 @@ impl ConsecutiveOnesSubmatrix {
             assert_eq!(row.len(), n, "All rows must have the same length");
         }
         assert!(
-            bound_k <= n,
-            "bound_k ({bound_k}) must be <= number of columns ({n})"
+            bound <= n as i64,
+            "bound ({bound}) must be <= number of columns ({n})"
         );
-        Self { matrix, bound_k }
+        Self { matrix, bound }
     }
 
     /// Returns the binary matrix.
@@ -90,9 +90,9 @@ impl ConsecutiveOnesSubmatrix {
         &self.matrix
     }
 
-    /// Returns K (the required number of columns).
-    pub fn bound_k(&self) -> usize {
-        self.bound_k
+    /// Returns the bound (the required number of columns).
+    pub fn bound(&self) -> i64 {
+        self.bound
     }
 
     /// Returns the number of rows (m).
@@ -197,7 +197,7 @@ impl Problem for ConsecutiveOnesSubmatrix {
             .filter(|(_, &v)| v == 1)
             .map(|(i, _)| i)
             .collect();
-        if selected.len() != self.bound_k {
+        if (selected.len() as i64) != self.bound {
             return false;
         }
         self.any_permutation_has_c1p(&selected)

@@ -167,7 +167,7 @@ This handles the full pipeline: fetch issue, verify Good label, research, write 
 
 ### 4. Move to "Review pool"
 
-After `issue-to-pr` succeeds, move the issue to the `Review pool` column:
+After `issue-to-pr` fully succeeds, move the issue to the `Review pool` column. "Fully succeeds" means the implementation work is committed, the temporary plan file has been deleted, the PR implementation summary comment has been posted, the branch has been pushed, and the working tree is clean aside from ignored/generated files:
 
 ```bash
 python3 scripts/pipeline_board.py move <ITEM_ID> review-pool

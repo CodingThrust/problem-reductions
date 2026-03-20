@@ -7,16 +7,21 @@ use crate::problem_name::{
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
-use problemreductions::models::algebraic::{ClosestVectorProblem, ConsecutiveOnesSubmatrix, BMF};
+use problemreductions::models::algebraic::{
+    ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesSubmatrix, BMF,
+};
 use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
     LengthBoundedDisjointPaths, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
-    MultipleChoiceBranching, SteinerTree, StrongConnectivityAugmentation,
+    MultipleChoiceBranching, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
-    BinPacking, CbqRelation, ConjunctiveBooleanQuery, FlowShopScheduling, LongestCommonSubsequence,
-    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack,
-    QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
+    AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
+    FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
+    MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, QueryArg,
+    RectilinearPictureCompression, ResourceConstrainedScheduling,
+    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
     SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
     StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
 };
@@ -29,6 +34,11 @@ use problemreductions::topology::{
 };
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
+
+const MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS: &str =
+    "--graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8";
+const MULTIPLE_COPY_FILE_ALLOCATION_USAGE: &str =
+    "Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8";
 
 /// Check if all data flags are None (no problem-specific input provided).
 fn all_data_flags_empty(args: &CreateArgs) -> bool {
@@ -85,7 +95,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.bound.is_none()
         && args.pattern.is_none()
         && args.strings.is_none()
+        && args.costs.is_none()
         && args.arcs.is_none()
+        && args.usage.is_none()
+        && args.storage.is_none()
         && args.source.is_none()
         && args.sink.is_none()
         && args.size_bound.is_none()
@@ -96,6 +109,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.candidate_arcs.is_none()
         && args.potential_edges.is_none()
         && args.budget.is_none()
+        && args.deadlines.is_none()
+        && args.lengths.is_none()
         && args.precedence_pairs.is_none()
         && args.resource_bounds.is_none()
         && args.resource_requirements.is_none()
@@ -118,6 +133,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.sink_2.is_none()
         && args.requirement_1.is_none()
         && args.requirement_2.is_none()
+        && args.num_attributes.is_none()
+        && args.dependencies.is_none()
+        && args.relation_attrs.is_none()
+        && args.known_keys.is_none()
         && args.domain_size.is_none()
         && args.relations.is_none()
         && args.conjuncts_spec.is_none()
@@ -150,6 +169,20 @@ fn format_problem_ref(problem: &ProblemRef) -> String {
         .collect::<Vec<_>>()
         .join("/");
     format!("{}/{}", problem.name, values)
+}
+
+fn ensure_attribute_indices_in_range(
+    indices: &[usize],
+    num_attributes: usize,
+    context: &str,
+) -> Result<()> {
+    for &attr in indices {
+        anyhow::ensure!(
+            attr < num_attributes,
+            "{context} contains attribute index {attr}, which is out of range for --n {num_attributes}"
+        );
+    }
+    Ok(())
 }
 
 fn resolve_example_problem_ref(
@@ -218,6 +251,50 @@ fn resolve_rule_example(
         })
 }
 
+fn parse_precedence_pairs(raw: Option<&str>) -> Result<Vec<(usize, usize)>> {
+    raw.filter(|s| !s.is_empty())
+        .map(|s| {
+            s.split(',')
+                .map(|pair| {
+                    let pair = pair.trim();
+                    let (pred, succ) = pair.split_once('>').ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Invalid --precedence-pairs value '{}': expected 'u>v'",
+                            pair
+                        )
+                    })?;
+                    let pred = pred.trim().parse::<usize>().map_err(|_| {
+                        anyhow::anyhow!(
+                            "Invalid --precedence-pairs value '{}': expected 'u>v' with nonnegative integer indices",
+                            pair
+                        )
+                    })?;
+                    let succ = succ.trim().parse::<usize>().map_err(|_| {
+                        anyhow::anyhow!(
+                            "Invalid --precedence-pairs value '{}': expected 'u>v' with nonnegative integer indices",
+                            pair
+                        )
+                    })?;
+                    Ok((pred, succ))
+                })
+                .collect()
+        })
+        .unwrap_or_else(|| Ok(vec![]))
+}
+
+fn validate_precedence_pairs(precedences: &[(usize, usize)], num_tasks: usize) -> Result<()> {
+    for &(pred, succ) in precedences {
+        anyhow::ensure!(
+            pred < num_tasks && succ < num_tasks,
+            "precedence index out of range: ({}, {}) but num_tasks = {}",
+            pred,
+            succ,
+            num_tasks
+        );
+    }
+    Ok(())
+}
+
 fn create_from_example(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     let example_spec = args
         .example
@@ -268,7 +345,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         }
         "Vec<Vec<usize>>" => "semicolon-separated sets: \"0,1;1,2;0,2\"",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
-        "Vec<Vec<bool>>" => "semicolon-separated binary rows: \"1,1,0;0,1,1\"",
+        "Vec<Vec<bool>>" => "JSON 2D bool array: '[[true,false],[false,true]]'",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "usize" | "W::Sum" => "integer",
         "u64" => "integer",
@@ -312,6 +389,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
+        "SteinerTreeInGraphs" => "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --terminals 0,3",
         "BiconnectivityAugmentation" => {
             "--graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5"
         }
@@ -337,6 +415,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--schedules \"1,1,1,1,1,0,0;0,1,1,1,1,1,0;0,0,1,1,1,1,1;1,0,0,1,1,1,1;1,1,0,0,1,1,1\" --requirements 2,2,2,3,3,2,1 --num-workers 4 --k 5"
         }
         "SteinerTree" => "--graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4",
+        "MultipleCopyFileAllocation" => {
+            MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS
+        }
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
         "DirectedTwoCommodityIntegralFlow" => {
             "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
@@ -351,29 +432,45 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MultipleChoiceBranching" => {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
         }
+        "AdditionalKey" => "--num-attributes 6 --dependencies \"0,1:2,3;2,3:4,5;4,5:0,1\" --relation-attrs 0,1,2,3,4,5 --known-keys \"0,1;2,3;4,5\"",
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "RectilinearPictureCompression" => {
-            "--matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --k 2"
+            "--matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --bound 2"
+        }
+        "SequencingToMinimizeWeightedTardiness" => {
+            "--sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
         }
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "BoyceCoddNormalFormViolation" => {
+            "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
+        }
         "SumOfSquaresPartition" => "--sizes 5,3,8,2,7,1 --num-groups 3 --bound 240",
         "ComparativeContainment" => {
             "--universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
         }
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
-        "PrimeAttributeName" => {
-            "--universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
-        }
         "LongestCommonSubsequence" => {
             "--strings \"010110;100101;001011\" --bound 3 --alphabet-size 2"
         }
         "MinimumCardinalityKey" => {
-            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
+            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --bound 2"
+        }
+        "PrimeAttributeName" => {
+            "--universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
+        }
+        "TwoDimensionalConsecutiveSets" => {
+            "--alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
         }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
-        "ConjunctiveQueryFoldability" => "(use --example ConjunctiveQueryFoldability)",
+        "ConsecutiveBlockMinimization" => {
+            "--matrix '[[true,false,true],[false,true,true]]' --bound 2"
+        }
         "ConjunctiveBooleanQuery" => {
             "--domain-size 6 --relations \"2:0,3|1,3|2,4;3:0,1,5|1,2,5\" --conjuncts-spec \"0:v0,c3;0:v1,c3;1:v0,v1,c5\""
+        }
+        "ConjunctiveQueryFoldability" => "(use --example ConjunctiveQueryFoldability)",
+        "SequencingToMinimizeMaximumCumulativeCost" => {
+            "--costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
         }
         "StringToStringCorrection" => {
             "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
@@ -394,13 +491,16 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        ("FlowShopScheduling", "num_processors")
+        | ("SchedulingWithIndividualDeadlines", "num_processors") => {
+            return "num-processors/--m".to_string();
+        }
         ("LengthBoundedDisjointPaths", "max_length") => return "bound".to_string(),
-        ("RectilinearPictureCompression", "bound_k") => return "k".to_string(),
+        ("RectilinearPictureCompression", "bound") => return "bound".to_string(),
         ("PrimeAttributeName", "num_attributes") => return "universe".to_string(),
         ("PrimeAttributeName", "dependencies") => return "deps".to_string(),
         ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
-        ("MinimumCardinalityKey", "bound_k") => return "k".to_string(),
-        ("ConsecutiveOnesSubmatrix", "bound_k") => return "k".to_string(),
+        ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
         ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
         _ => {}
     }
@@ -421,6 +521,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         "num_tasks" => "n".to_string(),
         "precedences" => "precedence-pairs".to_string(),
         "threshold" => "bound".to_string(),
+        "lengths" => "sizes".to_string(),
         _ => field_name.replace('_', "-"),
     }
 }
@@ -452,6 +553,7 @@ fn help_flag_hint(
 ) -> &'static str {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_weight") => "integer",
+        ("SequencingWithinIntervals", "release_times") => "comma-separated integers: 0,0,5",
         ("PrimeAttributeName", "dependencies") => {
             "semicolon-separated dependencies: \"0,1>2,3;2,3>0,1\""
         }
@@ -468,6 +570,61 @@ fn help_flag_hint(
 fn parse_nonnegative_usize_bound(bound: i64, problem_name: &str, usage: &str) -> Result<usize> {
     usize::try_from(bound)
         .map_err(|_| anyhow::anyhow!("{problem_name} requires nonnegative --bound\n\n{usage}"))
+}
+
+fn resolve_processor_count_flags(
+    problem_name: &str,
+    usage: &str,
+    num_processors: Option<usize>,
+    m_alias: Option<usize>,
+) -> Result<Option<usize>> {
+    match (num_processors, m_alias) {
+        (Some(num_processors), Some(m_alias)) => {
+            anyhow::ensure!(
+                num_processors == m_alias,
+                "{problem_name} received conflicting processor counts: --num-processors={num_processors} but --m={m_alias}\n\n{usage}"
+            );
+            Ok(Some(num_processors))
+        }
+        (Some(num_processors), None) => Ok(Some(num_processors)),
+        (None, Some(m_alias)) => Ok(Some(m_alias)),
+        (None, None) => Ok(None),
+    }
+}
+
+fn validate_sequencing_within_intervals_inputs(
+    release_times: &[u64],
+    deadlines: &[u64],
+    lengths: &[u64],
+    usage: &str,
+) -> Result<()> {
+    if release_times.len() != deadlines.len() {
+        bail!("release_times and deadlines must have the same length\n\n{usage}");
+    }
+    if release_times.len() != lengths.len() {
+        bail!("release_times and lengths must have the same length\n\n{usage}");
+    }
+
+    for (i, ((&release_time, &deadline), &length)) in release_times
+        .iter()
+        .zip(deadlines.iter())
+        .zip(lengths.iter())
+        .enumerate()
+    {
+        let end = release_time.checked_add(length).ok_or_else(|| {
+            anyhow::anyhow!("Task {i}: overflow computing r(i) + l(i)\n\n{usage}")
+        })?;
+        if end > deadline {
+            bail!(
+                "Task {i}: r({}) + l({}) > d({}), time window is empty\n\n{usage}",
+                release_time,
+                length,
+                deadline
+            );
+        }
+    }
+
+    Ok(())
 }
 
 fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
@@ -846,6 +1003,37 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
         }
 
+        // MultipleCopyFileAllocation (graph + usage + storage + bound)
+        "MultipleCopyFileAllocation" => {
+            let (graph, num_vertices) = parse_graph(args)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{MULTIPLE_COPY_FILE_ALLOCATION_USAGE}"))?;
+            let usage = parse_vertex_i64_values(
+                args.usage.as_deref(),
+                "usage",
+                num_vertices,
+                "MultipleCopyFileAllocation",
+                MULTIPLE_COPY_FILE_ALLOCATION_USAGE,
+            )?;
+            let storage = parse_vertex_i64_values(
+                args.storage.as_deref(),
+                "storage",
+                num_vertices,
+                "MultipleCopyFileAllocation",
+                MULTIPLE_COPY_FILE_ALLOCATION_USAGE,
+            )?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MultipleCopyFileAllocation requires --bound\n\n{MULTIPLE_COPY_FILE_ALLOCATION_USAGE}"
+                )
+            })?;
+            (
+                ser(MultipleCopyFileAllocation::new(
+                    graph, usage, storage, bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // UndirectedTwoCommodityIntegralFlow (graph + capacities + terminals + requirements)
         "UndirectedTwoCommodityIntegralFlow" => {
             let usage = "Usage: pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1";
@@ -1020,6 +1208,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 _ => unreachable!(),
             };
             (data, resolved_variant.clone())
+        }
+
+        // SteinerTreeInGraphs (graph + edge weights + terminals)
+        "SteinerTreeInGraphs" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create SteinerTreeInGraphs --graph 0-1,1-2,2-3 --terminals 0,3 [--edge-weights 1,1,1]"
+                )
+            })?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            let terminals = parse_terminals(args, graph.num_vertices())?;
+            (
+                ser(SteinerTreeInGraphs::new(graph, terminals, edge_weights))?,
+                resolved_variant.clone(),
+            )
         }
 
         // RuralPostman
@@ -1217,6 +1420,58 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             create_vertex_weight_problem(args, canonical, graph_type, &resolved_variant)?
         }
 
+        // BoyceCoddNormalFormViolation
+        "BoyceCoddNormalFormViolation" => {
+            let n = args.n.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "BoyceCoddNormalFormViolation requires --n, --sets, and --target\n\n\
+                     Usage: pred create BoyceCoddNormalFormViolation --n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
+                )
+            })?;
+            let sets_str = args.sets.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "BoyceCoddNormalFormViolation requires --sets (functional deps as lhs:rhs;...)\n\n\
+                     Usage: pred create BoyceCoddNormalFormViolation --n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
+                )
+            })?;
+            let target_str = args.target.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "BoyceCoddNormalFormViolation requires --target (comma-separated attribute indices)\n\n\
+                     Usage: pred create BoyceCoddNormalFormViolation --n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
+                )
+            })?;
+            let fds: Vec<(Vec<usize>, Vec<usize>)> = sets_str
+                .split(';')
+                .map(|fd_str| {
+                    let parts: Vec<&str> = fd_str.split(':').collect();
+                    anyhow::ensure!(
+                        parts.len() == 2,
+                        "Each FD must be lhs:rhs, got '{}'",
+                        fd_str
+                    );
+                    let lhs: Vec<usize> = util::parse_comma_list(parts[0])?;
+                    let rhs: Vec<usize> = util::parse_comma_list(parts[1])?;
+                    ensure_attribute_indices_in_range(
+                        &lhs,
+                        n,
+                        &format!("Functional dependency '{fd_str}' lhs"),
+                    )?;
+                    ensure_attribute_indices_in_range(
+                        &rhs,
+                        n,
+                        &format!("Functional dependency '{fd_str}' rhs"),
+                    )?;
+                    Ok((lhs, rhs))
+                })
+                .collect::<Result<_>>()?;
+            let target: Vec<usize> = util::parse_comma_list(target_str)?;
+            ensure_attribute_indices_in_range(&target, n, "Target subset")?;
+            (
+                ser(BoyceCoddNormalFormViolation::new(n, fds, target))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // BinPacking
         "BinPacking" => {
             let sizes_str = args.sizes.as_deref().ok_or_else(|| {
@@ -1246,6 +1501,51 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     resolved_variant.clone(),
                 )
             }
+        }
+
+        // AdditionalKey
+        "AdditionalKey" => {
+            let usage = "Usage: pred create AdditionalKey --num-attributes 6 --dependencies \"0,1:2,3;2,3:4,5\" --relation-attrs \"0,1,2,3,4,5\" --known-keys \"0,1;2,3\"";
+            let num_attributes = args.num_attributes.ok_or_else(|| {
+                anyhow::anyhow!("AdditionalKey requires --num-attributes\n\n{usage}")
+            })?;
+            let deps_str = args.dependencies.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("AdditionalKey requires --dependencies\n\n{usage}")
+            })?;
+            let ra_str = args.relation_attrs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("AdditionalKey requires --relation-attrs\n\n{usage}")
+            })?;
+            let dependencies: Vec<(Vec<usize>, Vec<usize>)> = deps_str
+                .split(';')
+                .map(|dep| {
+                    let parts: Vec<&str> = dep.trim().split(':').collect();
+                    anyhow::ensure!(
+                        parts.len() == 2,
+                        "Invalid dependency format '{}', expected 'lhs:rhs' (e.g., '0,1:2,3')",
+                        dep.trim()
+                    );
+                    let lhs: Vec<usize> = util::parse_comma_list(parts[0].trim())?;
+                    let rhs: Vec<usize> = util::parse_comma_list(parts[1].trim())?;
+                    Ok((lhs, rhs))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let relation_attrs: Vec<usize> = util::parse_comma_list(ra_str)?;
+            let known_keys: Vec<Vec<usize>> = match args.known_keys.as_deref() {
+                Some(s) if !s.is_empty() => s
+                    .split(';')
+                    .map(|k| util::parse_comma_list(k.trim()))
+                    .collect::<Result<Vec<_>>>()?,
+                _ => vec![],
+            };
+            (
+                ser(AdditionalKey::new(
+                    num_attributes,
+                    dependencies,
+                    relation_attrs,
+                    known_keys,
+                ))?,
+                resolved_variant.clone(),
+            )
         }
 
         // SubsetSum
@@ -1495,12 +1795,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "MinimumCardinalityKey" => {
             let num_attributes = args.num_attributes.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "MinimumCardinalityKey requires --num-attributes, --dependencies, and --k\n\n\
-                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
+                    "MinimumCardinalityKey requires --num-attributes, --dependencies, and --bound\n\n\
+                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --bound 2"
                 )
             })?;
-            let k = args.k.ok_or_else(|| {
-                anyhow::anyhow!("MinimumCardinalityKey requires --k (bound on key cardinality)")
+            let k = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("MinimumCardinalityKey requires --bound (bound on key cardinality)")
             })?;
             let deps_str = args.dependencies.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
@@ -1514,6 +1814,27 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     dependencies,
                     k,
                 ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // TwoDimensionalConsecutiveSets
+        "TwoDimensionalConsecutiveSets" => {
+            let alphabet_size = args.alphabet_size.or(args.universe).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "TwoDimensionalConsecutiveSets requires --alphabet-size (or --universe) and --sets\n\n\
+                     Usage: pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
+                )
+            })?;
+            let sets = parse_sets(args)?;
+            (
+                ser(
+                    problemreductions::models::set::TwoDimensionalConsecutiveSets::try_new(
+                        alphabet_size,
+                        sets,
+                    )
+                    .map_err(anyhow::Error::msg)?,
+                )?,
                 resolved_variant.clone(),
             )
         }
@@ -1553,17 +1874,40 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (ser(BMF::new(matrix, rank))?, resolved_variant.clone())
         }
 
-        // RectilinearPictureCompression
-        "RectilinearPictureCompression" => {
-            let matrix = parse_bool_matrix(args)?;
-            let k = args.k.ok_or_else(|| {
+        // ConsecutiveBlockMinimization
+        "ConsecutiveBlockMinimization" => {
+            let usage = "Usage: pred create ConsecutiveBlockMinimization --matrix '[[true,false,true],[false,true,true]]' --bound 2";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "RectilinearPictureCompression requires --matrix and --k\n\n\
-                     Usage: pred create RectilinearPictureCompression --matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --k 2"
+                    "ConsecutiveBlockMinimization requires --matrix as a JSON 2D bool array and --bound\n\n{usage}"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("ConsecutiveBlockMinimization requires --bound\n\n{usage}")
+            })?;
+            let matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str).map_err(|err| {
+                anyhow::anyhow!(
+                    "ConsecutiveBlockMinimization requires --matrix as a JSON 2D bool array (e.g., '[[true,false,true],[false,true,true]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
                 )
             })?;
             (
-                ser(RectilinearPictureCompression::new(matrix, k))?,
+                ser(ConsecutiveBlockMinimization::try_new(matrix, bound)
+                    .map_err(|err| anyhow::anyhow!("{err}\n\n{usage}"))?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // RectilinearPictureCompression
+        "RectilinearPictureCompression" => {
+            let matrix = parse_bool_matrix(args)?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RectilinearPictureCompression requires --matrix and --bound\n\n\
+                     Usage: pred create RectilinearPictureCompression --matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --bound 2"
+                )
+            })?;
+            (
+                ser(RectilinearPictureCompression::new(matrix, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -1571,14 +1915,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // ConsecutiveOnesSubmatrix
         "ConsecutiveOnesSubmatrix" => {
             let matrix = parse_bool_matrix(args)?;
-            let k = args.k.ok_or_else(|| {
+            let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "ConsecutiveOnesSubmatrix requires --matrix and --k\n\n\
-                     Usage: pred create ConsecutiveOnesSubmatrix --matrix \"1,1,0,1;1,0,1,1;0,1,1,0\" --k 3"
+                    "ConsecutiveOnesSubmatrix requires --matrix and --bound\n\n\
+                     Usage: pred create ConsecutiveOnesSubmatrix --matrix \"1,1,0,1;1,0,1,1;0,1,1,0\" --bound 3"
                 )
             })?;
             (
-                ser(ConsecutiveOnesSubmatrix::new(matrix, k))?,
+                ser(ConsecutiveOnesSubmatrix::new(matrix, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -1800,6 +2144,49 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
+            let precedences = parse_precedence_pairs(args.precedence_pairs.as_deref())?;
+            anyhow::ensure!(
+                deadlines.len() == num_tasks,
+                "deadlines length ({}) must equal num_tasks ({})",
+                deadlines.len(),
+                num_tasks
+            );
+            validate_precedence_pairs(&precedences, num_tasks)?;
+            (
+                ser(MinimumTardinessSequencing::new(
+                    num_tasks,
+                    deadlines,
+                    precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SchedulingWithIndividualDeadlines
+        "SchedulingWithIndividualDeadlines" => {
+            let usage = "Usage: pred create SchedulingWithIndividualDeadlines --n 7 --deadlines 2,1,2,2,3,3,2 [--num-processors 3 | --m 3] [--precedence-pairs \"0>3,1>3,1>4,2>4,2>5\"]";
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingWithIndividualDeadlines requires --deadlines, --n, and a processor count (--num-processors or --m)\n\n{usage}"
+                )
+            })?;
+            let num_tasks = args.n.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingWithIndividualDeadlines requires --n (number of tasks)\n\n{usage}"
+                )
+            })?;
+            let num_processors = resolve_processor_count_flags(
+                "SchedulingWithIndividualDeadlines",
+                usage,
+                args.num_processors,
+                args.m,
+            )?
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingWithIndividualDeadlines requires --num-processors or --m\n\n{usage}"
+                )
+            })?;
+            let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
             let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
                 Some(s) if !s.is_empty() => s
                     .split(',')
@@ -1834,10 +2221,158 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 );
             }
             (
-                ser(MinimumTardinessSequencing::new(
+                ser(SchedulingWithIndividualDeadlines::new(
                     num_tasks,
+                    num_processors,
                     deadlines,
                     precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingToMinimizeWeightedCompletionTime
+        "SequencingToMinimizeWeightedCompletionTime" => {
+            let lengths_str = args.lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeWeightedCompletionTime requires --lengths and --weights\n\n\
+                     Usage: pred create SequencingToMinimizeWeightedCompletionTime --lengths 2,1,3,1,2 --weights 3,5,1,4,2 [--precedence-pairs \"0>2,1>4\"]"
+                )
+            })?;
+            let weights_str = args.weights.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeWeightedCompletionTime requires --weights\n\n\
+                     Usage: pred create SequencingToMinimizeWeightedCompletionTime --lengths 2,1,3,1,2 --weights 3,5,1,4,2"
+                )
+            })?;
+            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
+            let weights: Vec<u64> = util::parse_comma_list(weights_str)?;
+            anyhow::ensure!(
+                lengths.len() == weights.len(),
+                "lengths length ({}) must equal weights length ({})",
+                lengths.len(),
+                weights.len()
+            );
+            anyhow::ensure!(
+                lengths.iter().all(|&length| length > 0),
+                "task lengths must be positive"
+            );
+            let num_tasks = lengths.len();
+            let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
+                Some(s) if !s.is_empty() => s
+                    .split(',')
+                    .map(|pair| {
+                        let parts: Vec<&str> = pair.trim().split('>').collect();
+                        anyhow::ensure!(
+                            parts.len() == 2,
+                            "Invalid precedence format '{}', expected 'u>v'",
+                            pair.trim()
+                        );
+                        Ok((
+                            parts[0].trim().parse::<usize>()?,
+                            parts[1].trim().parse::<usize>()?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                _ => vec![],
+            };
+            for &(pred, succ) in &precedences {
+                anyhow::ensure!(
+                    pred < num_tasks && succ < num_tasks,
+                    "precedence index out of range: ({}, {}) but num_tasks = {}",
+                    pred,
+                    succ,
+                    num_tasks
+                );
+            }
+            (
+                ser(SequencingToMinimizeWeightedCompletionTime::new(
+                    lengths,
+                    weights,
+                    precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingToMinimizeWeightedTardiness
+        "SequencingToMinimizeWeightedTardiness" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeWeightedTardiness requires --sizes, --weights, --deadlines, and --bound\n\n\
+                     Usage: pred create SequencingToMinimizeWeightedTardiness --sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+                )
+            })?;
+            let weights_str = args.weights.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeWeightedTardiness requires --weights (comma-separated tardiness weights)\n\n\
+                     Usage: pred create SequencingToMinimizeWeightedTardiness --sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+                )
+            })?;
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeWeightedTardiness requires --deadlines (comma-separated job deadlines)\n\n\
+                     Usage: pred create SequencingToMinimizeWeightedTardiness --sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeWeightedTardiness requires --bound\n\n\
+                     Usage: pred create SequencingToMinimizeWeightedTardiness --sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+                )
+            })?;
+            anyhow::ensure!(bound >= 0, "--bound must be non-negative");
+
+            let lengths: Vec<u64> = util::parse_comma_list(sizes_str)?;
+            let weights: Vec<u64> = util::parse_comma_list(weights_str)?;
+            let deadlines: Vec<u64> = util::parse_comma_list(deadlines_str)?;
+
+            anyhow::ensure!(
+                lengths.len() == weights.len(),
+                "sizes length ({}) must equal weights length ({})",
+                lengths.len(),
+                weights.len()
+            );
+            anyhow::ensure!(
+                lengths.len() == deadlines.len(),
+                "sizes length ({}) must equal deadlines length ({})",
+                lengths.len(),
+                deadlines.len()
+            );
+
+            (
+                ser(SequencingToMinimizeWeightedTardiness::new(
+                    lengths,
+                    weights,
+                    deadlines,
+                    bound as u64,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingToMinimizeMaximumCumulativeCost
+        "SequencingToMinimizeMaximumCumulativeCost" => {
+            let costs_str = args.costs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeMaximumCumulativeCost requires --costs\n\n\
+                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeMaximumCumulativeCost requires --bound\n\n\
+                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+                )
+            })?;
+            let costs: Vec<i64> = util::parse_comma_list(costs_str)?;
+            let precedences = parse_precedence_pairs(args.precedence_pairs.as_deref())?;
+            validate_precedence_pairs(&precedences, costs.len())?;
+            (
+                ser(SequencingToMinimizeMaximumCumulativeCost::new(
+                    costs,
+                    precedences,
+                    bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -1858,6 +2393,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let release_times: Vec<u64> = util::parse_comma_list(rt_str)?;
             let deadlines: Vec<u64> = util::parse_comma_list(dl_str)?;
             let lengths: Vec<u64> = util::parse_comma_list(len_str)?;
+            validate_sequencing_within_intervals_inputs(
+                &release_times,
+                &deadlines,
+                &lengths,
+                usage,
+            )?;
             (
                 ser(SequencingWithinIntervals::new(
                     release_times,
@@ -1903,15 +2444,18 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 .split(';')
                 .map(|row| util::parse_comma_list(row.trim()))
                 .collect::<Result<Vec<_>>>()?;
-            let num_processors = if let Some(np) = args.num_processors {
-                np
-            } else if let Some(m) = args.m {
-                m
-            } else if let Some(first) = task_lengths.first() {
-                first.len()
-            } else {
-                bail!("Cannot infer num_processors from empty task list; use --num-processors");
-            };
+            let num_processors = resolve_processor_count_flags(
+                "FlowShopScheduling",
+                "Usage: pred create FlowShopScheduling --task-lengths \"3,4,2;2,3,5;4,1,3\" --deadline 25 --num-processors 3",
+                args.num_processors,
+                args.m,
+            )?
+            .or_else(|| task_lengths.first().map(Vec::len))
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Cannot infer num_processors from empty task list; use --num-processors"
+                )
+            })?;
             for (j, row) in task_lengths.iter().enumerate() {
                 if row.len() != num_processors {
                     bail!(
@@ -2831,6 +3375,29 @@ fn parse_vertex_weights(args: &CreateArgs, num_vertices: usize) -> Result<Vec<i3
         }
         None => Ok(vec![1i32; num_vertices]),
     }
+}
+
+fn parse_vertex_i64_values(
+    raw: Option<&str>,
+    field_name: &str,
+    num_vertices: usize,
+    problem_name: &str,
+    usage: &str,
+) -> Result<Vec<i64>> {
+    let raw =
+        raw.ok_or_else(|| anyhow::anyhow!("{problem_name} requires --{field_name}\n\n{usage}"))?;
+    let values: Vec<i64> = util::parse_comma_list(raw)
+        .map_err(|e| anyhow::anyhow!("invalid {field_name} list: {e}\n\n{usage}"))?;
+    if values.len() != num_vertices {
+        bail!(
+            "Expected {} {} values but got {}\n\n{}",
+            num_vertices,
+            field_name,
+            values.len(),
+            usage
+        );
+    }
+    Ok(values)
 }
 
 /// Parse `--terminals` as comma-separated vertex indices.
@@ -3810,6 +4377,25 @@ fn create_random(
             (data, variant)
         }
 
+        // SteinerTreeInGraphs
+        "SteinerTreeInGraphs" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let num_edges = graph.num_edges();
+            let edge_weights = vec![1i32; num_edges];
+            // Use first half of vertices as terminals (at least 2)
+            let num_terminals = std::cmp::max(2, num_vertices / 2);
+            let terminals: Vec<usize> = (0..num_terminals).collect();
+            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+            (
+                ser(SteinerTreeInGraphs::new(graph, terminals, edge_weights))?,
+                variant,
+            )
+        }
+
         // SteinerTree
         "SteinerTree" => {
             anyhow::ensure!(
@@ -3890,7 +4476,7 @@ fn create_random(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
              MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman, \
-             HamiltonianCircuit, SteinerTree, OptimalLinearArrangement, HamiltonianPath, GeneralizedHex)"
+             SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, OptimalLinearArrangement, HamiltonianPath, GeneralizedHex)"
         ),
     };
 
@@ -3915,6 +4501,7 @@ mod tests {
     use super::help_flag_name;
     use super::parse_bool_rows;
     use super::*;
+    use super::{ensure_attribute_indices_in_range, problem_help_flag_name};
     use crate::cli::{Cli, Commands};
     use crate::output::OutputConfig;
 
@@ -3945,6 +4532,67 @@ mod tests {
             ),
             "num-paths-required"
         );
+    }
+
+    #[test]
+    fn test_help_flag_name_mentions_m_alias_for_scheduling_processors() {
+        assert_eq!(
+            help_flag_name("SchedulingWithIndividualDeadlines", "num_processors"),
+            "num-processors/--m"
+        );
+        assert_eq!(
+            help_flag_name("FlowShopScheduling", "num_processors"),
+            "num-processors/--m"
+        );
+    }
+
+    #[test]
+    fn test_ensure_attribute_indices_in_range_rejects_out_of_range_index() {
+        let err = ensure_attribute_indices_in_range(&[0, 4], 3, "Functional dependency '0:4' rhs")
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("out of range"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_create_scheduling_with_individual_deadlines_accepts_m_alias() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "SchedulingWithIndividualDeadlines",
+            "--n",
+            "3",
+            "--deadlines",
+            "1,1,2",
+            "--m",
+            "2",
+        ])
+        .expect("parse create command");
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create subcommand");
+        };
+
+        let out = OutputConfig {
+            output: Some(
+                std::env::temp_dir()
+                    .join("pred_test_create_scheduling_with_individual_deadlines_m_alias.json"),
+            ),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        create(&args, &out).expect("`--m` should satisfy --num-processors alias");
+
+        let created: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(out.output.as_ref().unwrap()).unwrap())
+                .unwrap();
+        std::fs::remove_file(out.output.as_ref().unwrap()).ok();
+
+        assert_eq!(created["type"], "SchedulingWithIndividualDeadlines");
+        assert_eq!(created["data"]["num_processors"], 2);
     }
 
     #[test]
@@ -4266,6 +4914,13 @@ mod tests {
             domain_size: None,
             relations: None,
             conjuncts_spec: None,
+            relation_attrs: None,
+            known_keys: None,
+            costs: None,
+            cut_bound: None,
+            size_bound: None,
+            usage: None,
+            storage: None,
         }
     }
 

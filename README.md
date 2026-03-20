@@ -42,6 +42,17 @@ make cli    # builds target/release/pred
 
 See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples, the reduction workflow, and [CLI usage](https://codingthrust.github.io/problem-reductions/cli.html).
 
+Try a model directly from the CLI:
+
+```bash
+# Show the Consecutive Block Minimization model (alias: CBM)
+pred show CBM
+
+# Create and solve a small CBM instance (currently with brute-force)
+pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound 2 \
+  | pred solve - --solver brute-force
+```
+
 ## MCP Server (AI Integration)
 
 The `pred` CLI includes a built-in [MCP](https://modelcontextprotocol.io/) server for AI assistant integration (Claude Code, Cursor, Windsurf, OpenCode, etc.).

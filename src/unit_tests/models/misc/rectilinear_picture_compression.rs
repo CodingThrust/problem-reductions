@@ -28,7 +28,7 @@ fn test_rectilinear_picture_compression_basic() {
     let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
     assert_eq!(problem.num_rows(), 4);
     assert_eq!(problem.num_cols(), 4);
-    assert_eq!(problem.bound_k(), 2);
+    assert_eq!(problem.bound(), 2);
     assert_eq!(
         <RectilinearPictureCompression as Problem>::NAME,
         "RectilinearPictureCompression"
@@ -145,13 +145,13 @@ fn test_rectilinear_picture_compression_serialization() {
                 [false, false, true, true],
                 [false, false, true, true],
             ],
-            "bound_k": 2,
+            "bound": 2,
         })
     );
     let restored: RectilinearPictureCompression = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_rows(), problem.num_rows());
     assert_eq!(restored.num_cols(), problem.num_cols());
-    assert_eq!(restored.bound_k(), problem.bound_k());
+    assert_eq!(restored.bound(), problem.bound());
     assert_eq!(restored.matrix(), problem.matrix());
 }
 

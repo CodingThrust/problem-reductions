@@ -62,6 +62,7 @@
 
 // Problem display names for theorem headers
 #let display-name = (
+  "AdditionalKey": [Additional Key],
   "MaximumIndependentSet": [Maximum Independent Set],
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
@@ -103,6 +104,7 @@
   "BalancedCompleteBipartiteSubgraph": [Balanced Complete Bipartite Subgraph],
   "BoundedComponentSpanningForest": [Bounded Component Spanning Forest],
   "BinPacking": [Bin Packing],
+  "BoyceCoddNormalFormViolation": [Boyce-Codd Normal Form Violation],
   "ClosestVectorProblem": [Closest Vector Problem],
   "ConsecutiveSets": [Consecutive Sets],
   "MinimumMultiwayCut": [Minimum Multiway Cut],
@@ -111,8 +113,10 @@
   "LongestCommonSubsequence": [Longest Common Subsequence],
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "SubsetSum": [Subset Sum],
+  "Partition": [Partition],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
+  "SteinerTreeInGraphs": [Steiner Tree in Graphs],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
   "MultipleChoiceBranching": [Multiple Choice Branching],
   "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
@@ -121,19 +125,26 @@
   "SequencingWithReleaseTimesAndDeadlines": [Sequencing with Release Times and Deadlines],
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
+  "MultipleCopyFileAllocation": [Multiple Copy File Allocation],
   "SteinerTree": [Steiner Tree],
   "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "PartitionIntoTriangles": [Partition Into Triangles],
   "PrimeAttributeName": [Prime Attribute Name],
   "FlowShopScheduling": [Flow Shop Scheduling],
-  "StaffScheduling": [Staff Scheduling],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
   "PrecedenceConstrainedScheduling": [Precedence Constrained Scheduling],
+  "SchedulingWithIndividualDeadlines": [Scheduling With Individual Deadlines],
+  "StaffScheduling": [Staff Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
+  "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
-  "SumOfSquaresPartition": [Sum of Squares Partition],
+  "SequencingToMinimizeMaximumCumulativeCost": [Sequencing to Minimize Maximum Cumulative Cost],
+  "SequencingToMinimizeWeightedCompletionTime": [Sequencing to Minimize Weighted Completion Time],
+  "SequencingToMinimizeWeightedTardiness": [Sequencing to Minimize Weighted Tardiness],
   "SequencingWithinIntervals": [Sequencing Within Intervals],
+  "SumOfSquaresPartition": [Sum of Squares Partition],
+  "TwoDimensionalConsecutiveSets": [2-Dimensional Consecutive Sets],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
   "ConjunctiveBooleanQuery": [Conjunctive Boolean Query],
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
@@ -1509,6 +1520,58 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 ]
 
 #{
+  let x = load-model-example("SteinerTreeInGraphs")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges
+  let ne = edges.len()
+  let terminals = x.instance.terminals
+  let weights = x.instance.edge_weights
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let opt-weight = sol.metric.Valid
+  // Derive tree edges from optimal config
+  let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let tree-edges = tree-edge-indices.map(i => edges.at(i))
+  // Steiner vertices: non-terminal vertices that appear in tree edges
+  let steiner-verts = range(nv).filter(v => not terminals.contains(v) and tree-edges.any(e => e.at(0) == v or e.at(1) == v))
+  [
+    #problem-def("SteinerTreeInGraphs")[
+      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> RR_(>= 0)$ and a set of terminal vertices $R subset.eq V$, find a subtree $T$ of $G$ that spans all terminals in $R$ and minimizes the total edge weight $sum_(e in T) w(e)$.
+    ][
+    A classical NP-complete problem from Karp's list (as "Steiner Tree in Graphs," Garey & Johnson ND12) @karp1972. Central to network design, VLSI layout, and phylogenetic reconstruction. The problem generalizes minimum spanning tree (where $R = V$) and shortest path (where $|R| = 2$). The Dreyfus--Wagner dynamic programming algorithm @dreyfuswagner1971 solves it in $O(3^k dot n + 2^k dot n^2 + n^3)$ time, where $k = |R|$ and $n = |V|$. Bjorklund et al. @bjorklund2007 achieved $O^*(2^k)$ using subset convolution over the Mobius algebra, and Nederlof @nederlof2009 gave an $O^*(2^k)$ polynomial-space algorithm.
+
+    *Example.* Consider a graph $G$ with $n = #nv$ vertices and $|E| = #ne$ edges. The terminals are $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue). The optimal Steiner tree uses Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (gray, dashed border) and edges #tree-edges.map(e => [$\{v_#(e.at(0)), v_#(e.at(1))\}$]).join(", ") with total weight #tree-edge-indices.map(i => str(weights.at(i))).join(" + ") $= #opt-weight$.
+
+    #figure({
+      // Graph: 6 vertices arranged in two rows (layout positions)
+      let verts = ((0, 1), (1.5, 1), (3, 1), (1.5, -0.5), (3, -0.5), (4.5, 0.25))
+      canvas(length: 1cm, {
+        // Draw edges
+        for (idx, (u, v)) in edges.enumerate() {
+          let on-tree = tree-edges.any(t => (t.at(0) == u and t.at(1) == v) or (t.at(0) == v and t.at(1) == u))
+          g-edge(verts.at(u), verts.at(v),
+            stroke: if on-tree { 2pt + graph-colors.at(0) } else { 1pt + luma(200) })
+          let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+          let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+          draw.content((mx, my), text(7pt, fill: luma(80))[#weights.at(idx)])
+        }
+        // Draw vertices
+        for (k, pos) in verts.enumerate() {
+          let is-terminal = terminals.contains(k)
+          let is-steiner = steiner-verts.contains(k)
+          g-node(pos, name: "v" + str(k),
+            fill: if is-terminal { graph-colors.at(0) } else if is-steiner { luma(220) } else { white },
+            stroke: if is-steiner { (dash: "dashed", paint: graph-colors.at(0)) } else { 1pt + black },
+            label: if is-terminal { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+        }
+      })
+    },
+    caption: [Steiner Tree: terminals $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue), Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (dashed). Optimal tree (blue edges) has weight #opt-weight.],
+    ) <fig:steiner-tree-example>
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("MinimumSumMulticenter")
   let nv = graph-num-vertices(x.instance)
   let edges = x.instance.graph.edges
@@ -1548,6 +1611,45 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     },
     caption: [Minimum Sum Multicenter with $K = #K$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) achieve optimal total weighted distance #opt-cost.],
     ) <fig:minimum-sum-multicenter>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MultipleCopyFileAllocation")
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let K = x.instance.bound
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let copies = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  [
+    #problem-def("MultipleCopyFileAllocation")[
+      Given a graph $G = (V, E)$, usage values $u: V -> ZZ_(> 0)$, storage costs $s: V -> ZZ_(> 0)$, and a positive integer $K$, determine whether there exists a subset $V' subset.eq V$ such that
+      $sum_(v in V') s(v) + sum_(v in V) u(v) dot d(v, V') <= K,$
+      where $d(v, V') = min_(w in V') d_G(v, w)$ is the shortest-path distance from $v$ to the nearest copy vertex.
+    ][
+    Multiple Copy File Allocation appears in the storage-and-retrieval section of Garey and Johnson (SR6) @garey1979. The model combines two competing costs: each chosen copy vertex incurs a storage charge, while every vertex pays an access cost weighted by its demand and graph distance to the nearest copy. Garey and Johnson record the problem as NP-complete in the strong sense, even when usage and storage costs are uniform @garey1979.
+
+    *Example.* Consider the 6-cycle $C_6$ with uniform usage $u(v) = 10$, uniform storage $s(v) = 1$, and bound $K = #K$. Placing copies at $V' = {#copies.map(i => $v_#i$).join(", ")}$ gives storage cost $1 + 1 + 1 = 3$. The remaining vertices $v_0, v_2, v_4$ are each at distance 1 from the nearest copy, so the access cost is $10 + 10 + 10 = 30$. Thus the total cost is $3 + 30 = 33 <= #K$, so this placement is satisfying. The alternating placement shown below is one symmetric witness.
+
+    #figure({
+      let blue = graph-colors.at(0)
+      let gray = luma(200)
+      canvas(length: 1cm, {
+        import draw: *
+        let verts = ((0, 1.6), (1.35, 0.8), (1.35, -0.8), (0, -1.6), (-1.35, -0.8), (-1.35, 0.8))
+        for (u, v) in edges {
+          g-edge(verts.at(u), verts.at(v), stroke: 1pt + gray)
+        }
+        for (k, pos) in verts.enumerate() {
+          let has-copy = copies.any(c => c == k)
+          g-node(pos, name: "v" + str(k),
+            fill: if has-copy { blue } else { white },
+            label: if has-copy { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+        }
+      })
+    },
+    caption: [Multiple Copy File Allocation on a 6-cycle. Copy vertices $v_1$, $v_3$, and $v_5$ are shown in blue; every white vertex is one hop from the nearest copy, so the total cost is $33$.],
+    ) <fig:multiple-copy-file-allocation>
     ]
   ]
 }
@@ -1844,7 +1946,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let n = x.instance.num_attributes
   let deps = x.instance.dependencies
   let m = deps.len()
-  let bound = x.instance.bound_k
+  let bound = x.instance.bound
   let key-attrs = range(n).filter(i => x.optimal_config.at(i) == 1)
   let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
   let fmt-fd(d) = fmt-set(d.at(0)) + " $arrow.r$ " + fmt-set(d.at(1))
@@ -1856,6 +1958,52 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
     *Example.* Let $A = {0, 1, ..., #(n - 1)}$ ($|A| = #n$) with $M = #bound$ and functional dependencies $F = {#deps.enumerate().map(((i, d)) => fmt-fd(d)).join(", ")}$.
     The candidate key $K = #fmt-set(key-attrs)$ has $|K| = #key-attrs.len() <= #bound$. Its closure: start with ${0, 1}$; apply ${0, 1} arrow.r {2}$ to get ${0, 1, 2}$; apply ${0, 2} arrow.r {3}$ to get ${0, 1, 2, 3}$; apply ${1, 3} arrow.r {4}$ to get ${0, 1, 2, 3, 4}$; apply ${2, 4} arrow.r {5}$ to get $A$. Neither ${0}$ nor ${1}$ alone determines $A$, so $K$ is minimal.
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("TwoDimensionalConsecutiveSets")
+  let n = x.instance.alphabet_size
+  let subs = x.instance.subsets
+  let m = subs.len()
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let config = sol.config
+  // Build groups from config: groups.at(g) = list of symbols in group g
+  let groups = range(n).map(g => range(n).filter(s => config.at(s) == g))
+  // Only non-empty groups
+  let nonempty = groups.enumerate().filter(((_, g)) => g.len() > 0)
+  let k = nonempty.len()
+  let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
+  [
+    #problem-def("TwoDimensionalConsecutiveSets")[
+      Given finite alphabet $Sigma = {0, 1, dots, n - 1}$ and collection $cal(C) = {Sigma_1, dots, Sigma_m}$ of subsets of $Sigma$, determine whether $Sigma$ can be partitioned into disjoint sets $X_1, X_2, dots, X_k$ such that each $X_i$ has at most one element in common with each $Sigma_j$, and for each $Sigma_j in cal(C)$ there is an index $l(j)$ with $Sigma_j subset.eq X_(l(j)) union X_(l(j)+1) union dots.c union X_(l(j)+|Sigma_j|-1)$.
+    ][
+    This problem generalizes the Consecutive Sets problem (SR18) by requiring not just that each subset's elements appear consecutively in an ordering, but that they be spread across consecutive groups of a partition where each group contributes at most one element per subset. Shown NP-complete by Lipski @lipski1977fct via transformation from Graph 3-Colorability. The problem arises in information storage and retrieval where records must be organized in contiguous blocks. It remains NP-complete if all subsets have at most 5 elements, but is solvable in polynomial time if all subsets have at most 2 elements. The brute-force algorithm assigns each of $n$ symbols to one of up to $n$ groups, giving $O^*(n^n)$ time#footnote[No algorithm improving on brute-force enumeration is known for this problem.].
+
+    *Example.* Let $Sigma = {0, 1, dots, #(n - 1)}$ and $cal(C) = {#range(m).map(i => $Sigma_#(i + 1)$).join(", ")}$ with #subs.enumerate().map(((i, s)) => $Sigma_#(i + 1) = #fmt-set(s)$).join(", "). A valid partition uses $k = #k$ groups: #nonempty.map(((g, elems)) => $X_#(g + 1) = #fmt-set(elems)$).join(", "). Each group intersects every subset in at most one element, and each subset's elements span exactly $|Sigma_j|$ consecutive groups. For instance, $Sigma_1 = {0, 1, 2}$ maps to groups $X_1, X_2, X_3$ (consecutive), and $Sigma_5 = {0, 5}$ maps to groups $X_1, X_2$ (consecutive). Multiple valid partitions exist for this instance, differing only by unused or shifted group labels.
+
+    #figure(
+      canvas(length: 1cm, {
+        import draw: *
+        // Draw groups as labeled columns
+        let gw = 1.4
+        let gh = 0.45
+        for (col, (g, elems)) in nonempty.enumerate() {
+          let x0 = col * (gw + 0.3)
+          // Group header
+          content((x0 + gw / 2, 0.5), $X_#(g + 1)$, anchor: "south")
+          // Draw box for the group
+          rect((x0, -elems.len() * gh), (x0 + gw, 0),
+            stroke: 0.5pt + black, fill: rgb("#e8f0fe"))
+          // Elements inside
+          for (row, elem) in elems.enumerate() {
+            content((x0 + gw / 2, -row * gh - gh / 2), text(size: 9pt, str(elem)))
+          }
+        }
+      }),
+      caption: [2-Dimensional Consecutive Sets: partition of $Sigma = {0, dots, 5}$ into #k groups satisfying intersection and consecutiveness constraints for all #m subsets.],
+    ) <fig:two-dim-consecutive-sets>
     ]
   ]
 }
@@ -2392,6 +2540,39 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("ConsecutiveBlockMinimization")
+  let mat = x.instance.matrix
+  let K = x.instance.bound
+  let n-rows = mat.len()
+  let n-cols = if n-rows > 0 { mat.at(0).len() } else { 0 }
+  let perm = x.optimal_config
+  // Count blocks under the satisfying permutation
+  let total-blocks = 0
+  for row in mat {
+    let in-block = false
+    for p in perm {
+      if row.at(p) {
+        if not in-block {
+          total-blocks += 1
+          in-block = true
+        }
+      } else {
+        in-block = false
+      }
+    }
+  }
+  [
+    #problem-def("ConsecutiveBlockMinimization")[
+      Given an $m times n$ binary matrix $A$ and a positive integer $K$, determine whether there exists a permutation of the columns of $A$ such that the resulting matrix has at most $K$ maximal blocks of consecutive 1-entries (summed over all rows). A _block_ is a maximal contiguous run of 1-entries within a single row.
+    ][
+    Consecutive Block Minimization (SR17 in Garey & Johnson) arises in consecutive file organization for information retrieval systems, where records stored on a linear medium must be arranged so that each query's relevant records form a contiguous segment. Applications also include scheduling, production planning, the glass cutting industry, and data compression. NP-complete by reduction from Hamiltonian Path @kou1977. When $K$ equals the number of non-all-zero rows, the problem reduces to testing the _consecutive ones property_, solvable in polynomial time via PQ-trees @booth1975. A 1.5-approximation is known @haddadi2008. The best known exact algorithm runs in $O^*(n!)$ by brute-force enumeration of all column permutations.
+
+    *Example.* Let $A$ be the #n-rows$times$#n-cols matrix with rows #mat.enumerate().map(((i, row)) => [$r_#i = (#row.map(v => if v {$1$} else {$0$}).join($,$))$]).join(", ") and $K = #K$. The column permutation $pi = (#perm.map(p => str(p)).join(", "))$ yields #total-blocks total blocks, so #total-blocks $<= #K$ and the answer is YES.
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("PaintShop")
   let n-cars = x.instance.num_cars
   let labels = x.instance.car_labels
@@ -2672,7 +2853,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let mat = x.instance.matrix
   let m = mat.len()
   let n = mat.at(0).len()
-  let K = x.instance.bound_k
+  let K = x.instance.bound
   // Convert bool matrix to int for display
   let M = mat.map(row => row.map(v => if v { 1 } else { 0 }))
   [
@@ -2882,6 +3063,14 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   *Example.* Let $n = 6$ tasks, $m = 3$ processors, $r = 1$ resource with $B_1 = 20$, and deadline $D = 2$. Resource requirements: $R_1(t_1) = 6$, $R_1(t_2) = 7$, $R_1(t_3) = 7$, $R_1(t_4) = 6$, $R_1(t_5) = 8$, $R_1(t_6) = 6$. Schedule: slot 0 $arrow.l {t_1, t_2, t_3}$ (3 tasks, resource $= 20$), slot 1 $arrow.l {t_4, t_5, t_6}$ (3 tasks, resource $= 20$). Both constraints satisfied; answer: YES.
 ]
 
+#problem-def("BoyceCoddNormalFormViolation")[
+  *Instance:* A set $A$ of attribute names, a collection $F$ of functional dependencies on $A$, and a subset $A' subset.eq A$.
+
+  *Question:* Is there a subset $X subset.eq A'$ and two attributes $y, z in A' backslash X$ such that $y in X^+$ but $z in.not X^+$, where $X^+$ is the closure of $X$ under $F$?
+][
+  A relation satisfies _Boyce-Codd Normal Form_ (BCNF) if every non-trivial functional dependency $X arrow.r Y$ has $X$ as a superkey --- that is, $X^+$ = $A'$. This classical NP-complete problem from database theory asks whether the given attribute subset $A'$ violates BCNF. The NP-completeness was established by Beeri and Bernstein (1979) via reduction from Hitting Set. It appears as problem SR29 in Garey and Johnson's compendium (category A4: Storage and Retrieval).
+]
+
 #problem-def("SumOfSquaresPartition")[
   Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$, a positive integer $K lt.eq |A|$ (number of groups), and a positive integer $J$ (bound), determine whether $A$ can be partitioned into $K$ disjoint sets $A_1, dots, A_K$ such that $sum_(i=1)^K (sum_(a in A_i) s(a))^2 lt.eq J$.
 ][
@@ -2931,6 +3120,14 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     ]
   ]
 }
+
+#problem-def("Partition")[
+  Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ such that $sum_(a in A') s(a) = sum_(a in A without A') s(a)$.
+][
+  One of Karp's 21 NP-complete problems @karp1972, listed as SP12 in Garey & Johnson @garey1979. Partition is the special case of Subset Sum where the target equals half the total sum. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n dot B_"total")$ pseudo-polynomial time, where $B_"total" = sum_i s(a_i)$. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Schroeppel and Shamir (1981).
+
+  *Example.* Let $A = {3, 1, 1, 2, 2, 1}$ ($n = 6$, total sum $= 10$). Setting $A' = {3, 2}$ (indices 0, 3) gives sum $3 + 2 = 5 = 10 slash 2$, and $A without A' = {1, 1, 2, 1}$ also sums to 5. Hence a balanced partition exists.
+]
 
 #{
   let x = load-model-example("ShortestCommonSupersequence")
@@ -3348,6 +3545,81 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("SchedulingWithIndividualDeadlines")
+  let ntasks = x.instance.num_tasks
+  let nproc = x.instance.num_processors
+  let deadlines = x.instance.deadlines
+  let precs = x.instance.precedences
+  let start = x.optimal_config
+  let horizon = deadlines.fold(0, (acc, d) => if d > acc { d } else { acc })
+  let slot-groups = range(horizon).map(slot => range(ntasks).filter(t => start.at(t) == slot))
+  let tight-tasks = range(ntasks).filter(t => start.at(t) + 1 == deadlines.at(t))
+  let start-label = start.map(v => str(v)).join(", ")
+  let deadline-pairs = deadlines.enumerate().map(((t, d)) => [$d(t_#(t + 1)) = #d$])
+  let slot-summaries = slot-groups.enumerate().map(((slot, tasks)) => [slot #slot: #tasks.map(task => $t_#(task + 1)$).join(", ")])
+  let tight-task-labels = tight-tasks.map(task => $t_#(task + 1)$)
+  [
+    #problem-def("SchedulingWithIndividualDeadlines")[
+      Given a set $T$ of $n$ unit-length tasks, a number $m in ZZ^+$ of identical processors, a deadline function $d: T -> ZZ^+$, and a partial order $prec.eq$ on $T$, determine whether there exists a schedule $sigma: T -> {0, 1, dots, D - 1}$, where $D = max_(t in T) d(t)$, such that every task meets its own deadline ($sigma(t) + 1 <= d(t)$), every precedence constraint is respected (if $t_i prec.eq t_j$ then $sigma(t_i) + 1 <= sigma(t_j)$), and at most $m$ tasks are scheduled in each time slot.
+    ][
+      Scheduling With Individual Deadlines is the parallel-machine feasibility problem catalogued as A5 SS11 in Garey & Johnson @garey1979. Garey & Johnson record NP-completeness via reduction from Vertex Cover, and Brucker, Garey, and Johnson sharpen the complexity picture: the problem remains NP-complete for out-tree precedence constraints, but becomes polynomial-time solvable for in-trees @bruckerGareyJohnson1977. The two-processor case is also polynomial-time solvable @garey1979.
+
+      The direct encoding in this library uses one start-time variable per task, with each variable ranging over its allowable deadline window. If $D = max_t d(t)$, exhaustive search over that encoding yields an $O^*(D^n)$ brute-force bound.#footnote[This is the worst-case search bound induced by the implementation's configuration space; deadlines can be smaller on individual tasks, so practical instances may enumerate fewer than $D^n$ assignments.]
+
+      *Example.* Consider $n = #ntasks$ tasks on $m = #nproc$ processors with deadlines #{deadline-pairs.join(", ")} and precedence constraints #{precs.map(p => [$t_#(p.at(0) + 1) prec.eq t_#(p.at(1) + 1)$]).join(", ")}. The sample schedule $sigma = [#start-label]$ assigns #{slot-summaries.join("; ")}. Every slot uses at most #nproc processors, and the tight tasks #{tight-task-labels.join(", ")} finish exactly at their deadlines.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (
+            rgb("#4e79a7"),
+            rgb("#e15759"),
+            rgb("#76b7b2"),
+            rgb("#f28e2b"),
+            rgb("#59a14f"),
+            rgb("#edc948"),
+            rgb("#b07aa1"),
+          )
+          let scale = 1.25
+          let row-h = 0.58
+          let gap = 0.18
+
+          for lane in range(nproc) {
+            let y = -lane * (row-h + gap)
+            content((-0.8, y), text(7pt, "P" + str(lane + 1)))
+          }
+
+          for (slot, tasks) in slot-groups.enumerate() {
+            for (lane, task) in tasks.enumerate() {
+              let x0 = slot * scale
+              let x1 = (slot + 1) * scale
+              let y = -lane * (row-h + gap)
+              let color = colors.at(calc.rem(task, colors.len()))
+              rect(
+                (x0, y - row-h / 2),
+                (x1, y + row-h / 2),
+                fill: color.transparentize(30%),
+                stroke: 0.4pt + color,
+              )
+              content(((x0 + x1) / 2, y), text(7pt)[$t_#(task + 1)$])
+            }
+          }
+
+          let y-axis = -(nproc - 1) * (row-h + gap) - row-h / 2 - 0.2
+          line((0, y-axis), (horizon * scale, y-axis), stroke: 0.4pt)
+          for t in range(horizon + 1) {
+            let x = t * scale
+            line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
+            content((x, y-axis - 0.24), text(6pt, str(t)))
+          }
+          content((horizon * scale / 2, y-axis - 0.46), text(7pt)[time slot])
+        }),
+        caption: [A feasible 3-processor schedule for Scheduling With Individual Deadlines. Tasks sharing a column run in the same unit-length time slot; the sample assignment uses slots $0, 1, 2$ and meets every deadline.],
+      ) <fig:scheduling-with-individual-deadlines>
+    ]
+  ]
+}
+#{
   let x = load-model-example("SequencingWithinIntervals")
   let ntasks = x.instance.lengths.len()
   let release = x.instance.release_times
@@ -3498,6 +3770,226 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 
+#{
+  let x = load-model-example("SequencingToMinimizeWeightedCompletionTime")
+  let lengths = x.instance.lengths
+  let weights = x.instance.weights
+  let precs = x.instance.precedences
+  let ntasks = lengths.len()
+  let sol = x.optimal.at(0)
+  let opt = sol.metric.Valid
+  let lehmer = sol.config
+  let schedule = {
+    let avail = range(ntasks)
+    let result = ()
+    for c in lehmer {
+      result.push(avail.at(c))
+      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
+    }
+    result
+  }
+  let starts = ()
+  let finishes = ()
+  let elapsed = 0
+  for task in schedule {
+    starts.push(elapsed)
+    elapsed += lengths.at(task)
+    finishes.push(elapsed)
+  }
+  let total-time = elapsed
+  [
+    #problem-def("SequencingToMinimizeWeightedCompletionTime")[
+      Given a set $T$ of $n$ tasks, a processing-time function $l: T -> ZZ^+$, a weight function $w: T -> ZZ^+$, and a partial order $prec.eq$ on $T$, find a one-machine schedule minimizing $sum_(t in T) w(t) C(t)$, where $C(t)$ is the completion time of task $t$ and every precedence relation $t_i prec.eq t_j$ requires task $t_i$ to complete before task $t_j$ starts.
+    ][
+      Sequencing to Minimize Weighted Completion Time is the single-machine precedence-constrained scheduling problem catalogued as SS4 in Garey & Johnson @garey1979, usually written $1 | "prec" | sum w_j C_j$. Lawler showed that arbitrary precedence constraints make the problem NP-complete, while series-parallel precedence orders admit an $O(n log n)$ algorithm @lawler1978. Without precedence constraints, Smith's ratio rule orders jobs by non-increasing $w_j / l_j$ and is optimal @smith1956.
+
+      *Example.* Consider tasks with lengths $l = (#lengths.map(v => str(v)).join(", "))$, weights $w = (#weights.map(v => str(v)).join(", "))$, and precedence constraints #{precs.map(p => [$t_#(p.at(0)) prec.eq t_#(p.at(1))$]).join(", ")}. An optimal schedule is $(#schedule.map(t => $t_#t$).join(", "))$, with completion times $(#finishes.map(v => str(v)).join(", "))$ along the machine timeline and objective value $#opt$.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"))
+          let scale = 0.55
+          let row-h = 0.7
+
+          for (pos, task) in schedule.enumerate() {
+            let x0 = starts.at(pos) * scale
+            let x1 = finishes.at(pos) * scale
+            let color = colors.at(calc.rem(task, colors.len()))
+            rect((x0, -row-h / 2), (x1, row-h / 2),
+              fill: color.transparentize(30%), stroke: 0.4pt + color)
+            content(((x0 + x1) / 2, 0), text(7pt, $t_#task$))
+          }
+
+          let y-axis = -row-h / 2 - 0.22
+          line((0, y-axis), (total-time * scale, y-axis), stroke: 0.4pt)
+          for t in range(total-time + 1) {
+            let x = t * scale
+            line((x, y-axis), (x, y-axis - 0.08), stroke: 0.4pt)
+            content((x, y-axis - 0.22), text(6pt, str(t)))
+          }
+          content((total-time * scale / 2, y-axis - 0.45), text(7pt)[time])
+        }),
+        caption: [Optimal single-machine schedule for the canonical weighted-completion-time instance. Each block width equals the processing time $l_j$.],
+      ) <fig:stmwct>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SequencingToMinimizeWeightedTardiness")
+  let lengths = x.instance.lengths
+  let weights = x.instance.weights
+  let deadlines = x.instance.deadlines
+  let bound = x.instance.bound
+  let njobs = lengths.len()
+  let lehmer = x.optimal_config
+  let schedule = {
+    let avail = range(njobs)
+    let result = ()
+    for c in lehmer {
+      result.push(avail.at(c))
+      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
+    }
+    result
+  }
+  let completions = {
+    let t = 0
+    let result = ()
+    for job in schedule {
+      t += lengths.at(job)
+      result.push(t)
+    }
+    result
+  }
+  let tardiness = schedule.enumerate().map(((pos, job)) => calc.max(0, completions.at(pos) - deadlines.at(job)))
+  let weighted = schedule.enumerate().map(((pos, job)) => tardiness.at(pos) * weights.at(job))
+  let total-weighted = weighted.fold(0, (acc, v) => acc + v)
+  let tardy-jobs = schedule.enumerate().filter(((pos, job)) => tardiness.at(pos) > 0).map(((pos, job)) => job)
+  [
+    #problem-def("SequencingToMinimizeWeightedTardiness")[
+      Given a set $J$ of $n$ jobs, processing times $ell_j in ZZ^+$, tardiness weights $w_j in ZZ^+$, deadlines $d_j in ZZ^+$, and a bound $K in ZZ^+$, determine whether there exists a one-machine schedule whose total weighted tardiness
+      $sum_(j in J) w_j max(0, C_j - d_j)$
+      is at most $K$, where $C_j$ is the completion time of job $j$.
+    ][
+      Sequencing to Minimize Weighted Tardiness is the classical single-machine scheduling problem $1 || sum w_j T_j$, where $T_j = max(0, C_j - d_j)$. It appears as SS5 in Garey & Johnson @garey1979 and is strongly NP-complete via transformation from 3-Partition, which rules out pseudo-polynomial algorithms in general. When all weights are equal, the special case reduces to ordinary total tardiness and admits a pseudo-polynomial dynamic program @lawler1977. Garey & Johnson also note that the equal-length case is polynomial-time solvable by bipartite matching @garey1979.
+
+      Exact algorithms remain exponential in the worst case. Brute-force over all $n!$ schedules evaluates the implementation's decision encoding in $O(n! dot n)$ time. More refined exact methods include the branch-and-bound algorithm of Potts and Van Wassenhove @potts1985 and the dynamic-programming style exact algorithm of Tanaka, Fujikuma, and Araki @tanaka2009.
+
+      *Example.* Consider the five jobs with processing times $ell = (#lengths.map(v => str(v)).join(", "))$, weights $w = (#weights.map(v => str(v)).join(", "))$, deadlines $d = (#deadlines.map(v => str(v)).join(", "))$, and bound $K = #bound$. The unique satisfying schedule is $(#schedule.map(job => $t_#(job + 1)$).join(", "))$, with completion times $(#completions.map(v => str(v)).join(", "))$. Only job $t_#(tardy-jobs.at(0) + 1)$ is tardy; the per-job weighted tardiness contributions are $(#weighted.map(v => str(v)).join(", "))$, so the total weighted tardiness is $#total-weighted <= K$.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"))
+          let scale = 0.34
+          let row-h = 0.7
+          let y = 0
+
+          for (pos, job) in schedule.enumerate() {
+            let start = if pos == 0 { 0 } else { completions.at(pos - 1) }
+            let end = completions.at(pos)
+            let is-tardy = tardiness.at(pos) > 0
+            let fill = colors.at(calc.rem(job, colors.len())).transparentize(if is-tardy { 70% } else { 30% })
+            let stroke = colors.at(calc.rem(job, colors.len()))
+            rect((start * scale, y - row-h / 2), (end * scale, y + row-h / 2),
+              fill: fill, stroke: 0.4pt + stroke)
+            content(((start + end) * scale / 2, y), text(7pt, $t_#(job + 1)$))
+
+            let dl = deadlines.at(job)
+            line((dl * scale, y + row-h / 2 + 0.05), (dl * scale, y + row-h / 2 + 0.2),
+              stroke: (paint: if is-tardy { red } else { green.darken(20%) }, thickness: 0.6pt))
+          }
+
+          let axis-y = -row-h / 2 - 0.25
+          line((0, axis-y), (completions.at(completions.len() - 1) * scale, axis-y), stroke: 0.4pt)
+          for t in range(completions.at(completions.len() - 1) + 1) {
+            let x = t * scale
+            line((x, axis-y), (x, axis-y - 0.08), stroke: 0.4pt)
+            content((x, axis-y - 0.22), text(6pt, str(t)))
+          }
+          content((completions.at(completions.len() - 1) * scale / 2, axis-y - 0.42), text(7pt)[time])
+        }),
+        caption: [Single-machine schedule for the canonical weighted-tardiness example. The faded job is tardy; colored ticks mark the individual deadlines $d_j$.],
+      ) <fig:weighted-tardiness>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SequencingToMinimizeMaximumCumulativeCost")
+  let costs = x.instance.costs
+  let precs = x.instance.precedences
+  let bound = x.instance.bound
+  let ntasks = costs.len()
+  let lehmer = x.optimal_config
+  let schedule = {
+    let avail = range(ntasks)
+    let result = ()
+    for c in lehmer {
+      result.push(avail.at(c))
+      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
+    }
+    result
+  }
+  let prefix-sums = {
+    let running = 0
+    let result = ()
+    for task in schedule {
+      running += costs.at(task)
+      result.push(running)
+    }
+    result
+  }
+  [
+    #problem-def("SequencingToMinimizeMaximumCumulativeCost")[
+      Given a set $T$ of $n$ tasks, a precedence relation $prec.eq$ on $T$, an integer cost function $c: T -> ZZ$ (negative values represent profits), and a bound $K in ZZ$, determine whether there exists a one-machine schedule $sigma: T -> {1, 2, dots, n}$ that respects the precedence constraints and satisfies
+      $sum_(sigma(t') lt.eq sigma(t)) c(t') lt.eq K$
+      for every task $t in T$.
+    ][
+      Sequencing to Minimize Maximum Cumulative Cost is the scheduling problem SS7 in Garey & Johnson @garey1979. It is NP-complete by transformation from Register Sufficiency, even when every task cost is in ${-1, 0, 1}$ @garey1979. The problem models precedence-constrained task systems with resource consumption and release, where a negative cost corresponds to a profit or resource refund accumulated as the schedule proceeds.
+
+      When the precedence constraints form a series-parallel digraph, #cite(<abdelWahabKameda1978>, form: "prose") gave a polynomial-time algorithm running in $O(n^2)$ time. #cite(<monmaSidney1979>, form: "prose") placed the problem in a broader family of sequencing objectives solvable efficiently on series-parallel precedence structures. The implementation here uses Lehmer-code enumeration of task orders, so the direct exact search induced by the model runs in $O(n!)$ time.
+
+      *Example.* Consider $n = #ntasks$ tasks with costs $(#costs.map(c => str(c)).join(", "))$, precedence constraints #{precs.map(p => [$t_#(p.at(0) + 1) prec.eq t_#(p.at(1) + 1)$]).join(", ")}, and bound $K = #bound$. The sample schedule $(#schedule.map(t => $t_#(t + 1)$).join(", "))$ has cumulative sums $(#prefix-sums.map(v => str(v)).join(", "))$, so every prefix stays at or below $K = #bound$.
+
+      #figure(
+        {
+          let pos = rgb("#f28e2b")
+          let neg = rgb("#76b7b2")
+          let zero = rgb("#bab0ab")
+          align(center, stack(dir: ttb, spacing: 0.35cm,
+            stack(dir: ltr, spacing: 0.08cm,
+              ..schedule.enumerate().map(((i, task)) => {
+                let cost = costs.at(task)
+                let fill = if cost > 0 {
+                  pos.transparentize(70%)
+                } else if cost < 0 {
+                  neg.transparentize(65%)
+                } else {
+                  zero.transparentize(65%)
+                }
+                stack(dir: ttb, spacing: 0.05cm,
+                  box(width: 1.0cm, height: 0.6cm, fill: fill, stroke: 0.4pt + luma(120),
+                    align(center + horizon, text(8pt, weight: "bold")[$t_#(task + 1)$])),
+                  text(6pt, if cost >= 0 { $+ #cost$ } else { $#cost$ }),
+                )
+              }),
+            ),
+            stack(dir: ltr, spacing: 0.08cm,
+              ..prefix-sums.map(v => {
+                box(width: 1.0cm, align(center + horizon, text(7pt)[$#v$]))
+              }),
+            ),
+            text(7pt, [prefix sums after each scheduled task]),
+          ))
+        },
+        caption: [A satisfying schedule for Sequencing to Minimize Maximum Cumulative Cost. Orange boxes add cost, teal boxes release cost, and the displayed prefix sums $(#prefix-sums.map(v => str(v)).join(", "))$ never exceed $K = #bound$.],
+      ) <fig:seq-max-cumulative>
+    ]
+  ]
+}
+
 #problem-def("DirectedTwoCommodityIntegralFlow")[
   Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) flow $f_i$ is conserved at every vertex except $s_1, s_2, t_1, t_2$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$ for $i in {1, 2}$.
 ][
@@ -3544,6 +4036,29 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     caption: [Two-commodity flow: commodity 1 (blue, $s_1 -> 2 -> t_1$) and commodity 2 (red, $s_2 -> 3 -> t_2$).],
   ) <fig:d2cif>
 ]
+
+#problem-def("AdditionalKey")[
+  Given a set $A$ of attribute names, a collection $F$ of functional dependencies on $A$,
+  a subset $R subset.eq A$, and a set $K$ of candidate keys for the relational scheme $chevron.l R, F chevron.r$,
+  determine whether there exists a subset $R' subset.eq R$ such that $R' in.not K$,
+  the closure $R'^+$ under $F$ equals $R$, and no proper subset of $R'$ also has this property.
+][
+  A classical NP-complete problem from relational database theory @beeri1979.
+  Enumerating all candidate keys is necessary to verify Boyce-Codd Normal Form (BCNF),
+  and the NP-completeness of Additional Key implies that BCNF testing is intractable in general.
+  The best known exact algorithm is brute-force enumeration of all $2^(|R|)$ subsets,
+  checking each for the key property via closure computation under Armstrong's axioms.
+  #footnote[No algorithm improving on brute-force is known for the Additional Key problem.]
+
+  *Example.* Consider attribute set $A = {0, 1, 2, 3, 4, 5}$ with functional dependencies
+  $F = {{0,1} -> {2,3}, {2,3} -> {4,5}, {4,5} -> {0,1}, {0,2} -> {3}, {3,5} -> {1}}$,
+  relation $R = A$, and known keys $K = {{0,1}, {2,3}, {4,5}}$.
+  The subset ${0,2}$ is an additional key: starting from ${0,2}$, we apply ${0,2} -> {3}$
+  to get ${0,2,3}$, then ${2,3} -> {4,5}$ to get ${0,2,3,4,5}$, then ${4,5} -> {0,1}$
+  to reach $R^+ = A$. The set ${0,2}$ is minimal (neither ${0}$ nor ${2}$ alone determines $A$)
+  and ${0,2} in.not K$, so the answer is YES.
+]
+
 
 #{
   let x = load-model-example("ConjunctiveBooleanQuery")
@@ -3611,7 +4126,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let A = x.instance.matrix
   let m = A.len()
   let n = A.at(0).len()
-  let K = x.instance.bound_k
+  let K = x.instance.bound
   // Convert bool matrix to int for display
   let A-int = A.map(row => row.map(v => if v { 1 } else { 0 }))
   // Use the canonical witness {0, 1, 3}
@@ -4497,6 +5012,42 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $K = {v : x_v = 1}$.
 ]
 
+#let ks_ilp = load-example("Knapsack", "ILP")
+#let ks_ilp_sol = ks_ilp.solutions.at(0)
+#let ks_ilp_selected = ks_ilp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let ks_ilp_sel_weight = ks_ilp_selected.fold(0, (a, i) => a + ks_ilp.source.instance.weights.at(i))
+#let ks_ilp_sel_value = ks_ilp_selected.fold(0, (a, i) => a + ks_ilp.source.instance.values.at(i))
+#reduction-rule("Knapsack", "ILP",
+  example: true,
+  example-caption: [$n = #ks_ilp.source.instance.weights.len()$ items, capacity $C = #ks_ilp.source.instance.capacity$],
+  extra: [
+    *Step 1 -- Source instance.* The canonical knapsack instance has weights $(#ks_ilp.source.instance.weights.map(str).join(", "))$, values $(#ks_ilp.source.instance.values.map(str).join(", "))$, and capacity $C = #ks_ilp.source.instance.capacity$.
+
+    *Step 2 -- Build the binary ILP.* Introduce one binary variable per item:
+    $#range(ks_ilp.source.instance.weights.len()).map(i => $x_#i$).join(", ") in {0,1}$.
+    The objective is
+    $ max #ks_ilp.source.instance.values.enumerate().map(((i, v)) => $#v x_#i$).join($+$) $
+    subject to the single capacity inequality
+    $ #ks_ilp.source.instance.weights.enumerate().map(((i, w)) => $#w x_#i$).join($+$) <= #ks_ilp.source.instance.capacity $.
+
+    *Step 3 -- Verify a solution.* The ILP optimum $bold(x)^* = (#ks_ilp_sol.target_config.map(str).join(", "))$ extracts directly to the knapsack selection $bold(x)^* = (#ks_ilp_sol.source_config.map(str).join(", "))$, choosing items $\{#ks_ilp_selected.map(str).join(", ")\}$. Their total weight is $#ks_ilp_selected.map(i => str(ks_ilp.source.instance.weights.at(i))).join(" + ") = #ks_ilp_sel_weight$ and their total value is $#ks_ilp_selected.map(i => str(ks_ilp.source.instance.values.at(i))).join(" + ") = #ks_ilp_sel_value$ #sym.checkmark.
+
+    *Uniqueness:* The fixture stores one canonical optimal witness. For this instance the optimum is unique: items $\{#ks_ilp_selected.map(str).join(", ")\}$ are the only feasible choice achieving value #ks_ilp_sel_value.
+  ],
+)[
+  A 0-1 Knapsack instance is already a binary Integer Linear Program @papadimitriou-steiglitz1982: each item-selection bit becomes a binary variable, the capacity condition is a single linear inequality, and the value objective is linear. The reduction preserves the number of decision variables exactly, producing an ILP with $n$ variables and one constraint.
+][
+  _Construction._ Given nonnegative weights $w_0, dots, w_(n-1)$, nonnegative values $v_0, dots, v_(n-1)$, and capacity $C$, introduce binary variables $x_0, dots, x_(n-1) in {0,1}$ where $x_i = 1$ iff item $i$ is selected. Construct the binary ILP:
+  $ max sum_(i=0)^(n-1) v_i x_i $
+  subject to
+  $ sum_(i=0)^(n-1) w_i x_i <= C $
+  and $x_i in {0,1}$ for all $i$. The target therefore has exactly $n$ variables and one linear constraint.
+
+  _Correctness._ ($arrow.r.double$) Any feasible knapsack solution $bold(x)$ satisfies $sum_i w_i x_i <= C$, so the same binary vector is feasible for the ILP and attains identical objective value $sum_i v_i x_i$. ($arrow.l.double$) Any feasible binary ILP solution selects exactly the items with $x_i = 1$; the single inequality guarantees the chosen set fits in the knapsack, and the ILP objective equals the knapsack value. Therefore optimal solutions correspond one-to-one and preserve the optimum value.
+
+  _Solution extraction._ Identity: return the binary variable vector $bold(x)$ as the knapsack selection.
+]
+
 #reduction-rule("MaximumClique", "MaximumIndependentSet",
   example: true,
   example-caption: [Path graph $P_4$: clique in $G$ maps to independent set in complement $overline(G)$.],
@@ -4524,6 +5075,28 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A valid packing assigns each item to exactly one bin (satisfying (1)); each bin's load is at most $C$ and $y_j = 1$ for any used bin (satisfying (2)). ($arrow.l.double$) Any feasible solution assigns each item to one bin by (1), respects capacity by (2), and the objective counts the number of open bins.
 
   _Solution extraction._ For each item $i$, find the unique $j$ with $x_(i j) = 1$; assign item $i$ to bin $j$.
+]
+
+#reduction-rule("SequencingToMinimizeWeightedCompletionTime", "ILP")[
+  Completion times are natural integer variables, precedence constraints compare those completion times directly, and one binary order variable per task pair enforces that a single machine cannot overlap two jobs.
+][
+  _Construction._ For each task $j$, introduce an integer completion-time variable $C_j$. For each unordered pair $i < j$, introduce a binary order variable $y_(i j)$ with $y_(i j) = 1$ meaning task $i$ finishes before task $j$. Let $M = sum_h l_h$.
+
+  _Bounds._ $l_j <= C_j <= M$ for every task $j$, and $y_(i j) in {0, 1}$.
+
+  _Precedence constraints._ If $i prec.eq j$, require $C_j - C_i >= l_j$.
+
+  _Single-machine disjunction._ For every pair $i < j$, require
+  $C_j - C_i + M (1 - y_(i j)) >= l_j$
+  and
+  $C_i - C_j + M y_(i j) >= l_i$.
+  Exactly one of the two orderings is therefore active.
+
+  _Objective._ Minimize $sum_j w_j C_j$.
+
+  _Correctness._ ($arrow.r.double$) Any feasible schedule defines completion times and pairwise order values satisfying the bounds, precedence inequalities, and disjunctive machine constraints; its weighted completion time is exactly the ILP objective. ($arrow.l.double$) Any feasible ILP solution assigns a strict order to every task pair and forbids overlap, so the completion times correspond to a valid single-machine schedule that respects all precedences. Minimizing the ILP objective therefore minimizes the original weighted completion-time objective.
+
+  _Solution extraction._ Sort tasks by their completion times $C_j$ and encode that order back into the source schedule representation.
 ]
 
 #reduction-rule("TravelingSalesman", "ILP",

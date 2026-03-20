@@ -219,6 +219,18 @@ mod all_problems_solvable {
     }
 
     #[test]
+    fn test_bcnf_violation_available_from_prelude() {
+        let problem = problemreductions::prelude::BoyceCoddNormalFormViolation::new(
+            3,
+            vec![(vec![0], vec![1])],
+            vec![0, 1, 2],
+        );
+        let solver = BruteForce::new();
+        let solutions = solver.find_all_satisfying(&problem);
+        assert!(solutions.contains(&vec![1, 0, 0]));
+    }
+
+    #[test]
     fn test_paintshop_solvable() {
         let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
         let solver = BruteForce::new();
