@@ -3747,9 +3747,8 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let weights = x.instance.weights
   let precs = x.instance.precedences
   let ntasks = lengths.len()
-  let sol = x.optimal.at(0)
-  let opt = sol.metric.Valid
-  let lehmer = sol.config
+  let opt = x.optimal_value.Valid
+  let lehmer = x.optimal_config
   let schedule = {
     let avail = range(ntasks)
     let result = ()
