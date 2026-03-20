@@ -555,7 +555,6 @@ pub struct CreateArgs {
     #[arg(long)]
     pub alphabet_size: Option<usize>,
 
-
     /// Upper bound K on consecutive blocks for ConsecutiveBlockMinimization
     #[arg(long)]
     pub bound_k: Option<usize>,

@@ -104,7 +104,13 @@ impl TwoDimensionalConsecutiveSets {
     /// Create a new 2-Dimensional Consecutive Sets instance, returning validation errors.
     pub fn try_new(alphabet_size: usize, subsets: Vec<Vec<usize>>) -> Result<Self, String> {
         validate(alphabet_size, &subsets)?;
-        let subsets = subsets.into_iter().map(|mut s| { s.sort(); s }).collect();
+        let subsets = subsets
+            .into_iter()
+            .map(|mut s| {
+                s.sort();
+                s
+            })
+            .collect();
         Ok(Self {
             alphabet_size,
             subsets,
