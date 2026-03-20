@@ -51,6 +51,8 @@ pub(crate) mod coloring_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod factoring_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod graphpartitioning_ilp;
+#[cfg(feature = "ilp-solver")]
 mod ilp_bool_ilp_i32;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod ilp_qubo;
@@ -112,6 +114,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(circuit_ilp::canonical_rule_example_specs());
         specs.extend(coloring_ilp::canonical_rule_example_specs());
         specs.extend(factoring_ilp::canonical_rule_example_specs());
+        specs.extend(graphpartitioning_ilp::canonical_rule_example_specs());
         specs.extend(ilp_qubo::canonical_rule_example_specs());
         specs.extend(longestcommonsubsequence_ilp::canonical_rule_example_specs());
         specs.extend(maximumclique_ilp::canonical_rule_example_specs());
