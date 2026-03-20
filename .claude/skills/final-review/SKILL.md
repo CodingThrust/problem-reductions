@@ -87,13 +87,11 @@ git fetch origin main
 git merge origin/main --no-edit
 ```
 
-- **Merge clean** — merge commit is ready locally. Run `cargo check` to verify the merge didn't introduce API incompatibilities (e.g., functions renamed/removed on main that the PR still calls). If `cargo check` fails, fix the compile errors before proceeding.
-- **Merge conflicted** — most conflicts in this codebase are "both sides added new entries in ordered lists" (in `mod.rs`, `lib.rs`, `create.rs`, `dispatch.rs`, `reductions.typ`). These are mechanical: keep both sides, maintain alphabetical order. Delegate to a subagent for resolution, then run `cargo check` to verify. Continue with the review; if conflicts are too complex, decide whether to hold in Step 5.
+- **Merge clean** — merge commit is ready locally. Run `make check && make paper` to verify the merge didn't break anything (API incompatibilities, formatting, test failures, paper compilation). If any step fails, fix the errors before proceeding. For `.bib` conflicts, also check for duplicate BibTeX keys (`grep '^@' docs/paper/references.bib | sed 's/@[a-z]*{//' | sed 's/,$//' | sort | uniq -d`) and remove duplicates.
+- **Merge conflicted** — most conflicts in this codebase are "both sides added new entries in ordered lists" (in `mod.rs`, `lib.rs`, `create.rs`, `dispatch.rs`, `reductions.typ`). These are mechanical: keep both sides, maintain alphabetical order. Delegate to a subagent for resolution, then run `make check && make paper` to verify. Continue with the review; if conflicts are too complex, decide whether to hold in Step 5.
 - **Merge failed** — note the error and continue.
 
 **0d. Sanity check**: verify the diff touches `src/models/` or `src/rules/` (for model/rule PRs). If the diff only contains unrelated files, STOP and flag the mismatch.
-
-**0e. Documentation build check**: if the PR touches `docs/paper/reductions.typ`, `docs/paper/references.bib`, or example specs, run `make paper` to verify the Typst paper compiles with the merged code. If compilation fails, check whether the error is in files touched by this PR. If not, note "pre-existing paper error from [source model/rule]" and continue — do not block the review on errors from other merged PRs. Only fix errors caused by this PR.
 
 ### Step 1: Gather Context
 
@@ -380,12 +378,13 @@ Use `AskUserQuestion` only when needed:
 ### Step 8: Execute decision
 
 **If Push and fix CI:**
-1. Push all commits (merge-with-main + any fixes) from the worktree:
+1. **Pre-push verification** — run `make check && make paper` locally before pushing. Both must pass. Fix any failures, commit, then push:
    ```bash
    cd <worktree path>
+   make check && make paper
    git push
    ```
-2. Wait for CI — but **do not poll excessively**. Check once after ~60 seconds. If CI hasn't triggered or is still pending, run `make check` locally (fmt + clippy + test). If local checks pass, proceed to step 4 immediately and note "CI pending, local checks pass" when presenting the merge link. The reviewer can admin-merge or wait for CI at their discretion. Do not spend more than 1–2 CI poll attempts. If CI does run and fails, fix the issues, commit, and push again.
+2. Wait for CI — but **do not poll excessively**. Check once after ~60 seconds. If CI hasn't triggered or is still pending, note "CI pending, local checks pass" when presenting the merge link (since pre-push already verified). The reviewer can admin-merge or wait for CI at their discretion. Do not spend more than 1–2 CI poll attempts. If CI does run and fails, fix the issues, commit, and push again.
 3. If any follow-up items were noted during the review, post them as a comment:
    ```bash
    COMMENT_FILE=$(mktemp)
