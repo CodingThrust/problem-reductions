@@ -44,7 +44,8 @@ pub mod prelude {
     // Problem types
     pub use crate::models::algebraic::{QuadraticAssignment, BMF, QUBO};
     pub use crate::models::formula::{
-        CNFClause, CircuitSAT, KSatisfiability, QuantifiedBooleanFormulas, Satisfiability,
+        CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, QuantifiedBooleanFormulas,
+        Satisfiability,
     };
     pub use crate::models::graph::{
         BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,

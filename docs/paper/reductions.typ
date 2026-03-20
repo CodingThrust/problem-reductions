@@ -91,6 +91,7 @@
   "Knapsack": [Knapsack],
   "PartiallyOrderedKnapsack": [Partially Ordered Knapsack],
   "Satisfiability": [SAT],
+  "NAESatisfiability": [NAE-SAT],
   "KSatisfiability": [$k$-SAT],
   "CircuitSAT": [CircuitSAT],
   "ConjunctiveQueryFoldability": [Conjunctive Query Foldability],
@@ -2335,6 +2336,29 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     The Boolean Satisfiability Problem (SAT) is the first problem proven NP-complete @cook1971. SAT serves as the foundation of NP-completeness theory: showing a new problem NP-hard typically proceeds by reduction from SAT or one of its variants. Despite worst-case hardness, conflict-driven clause learning (CDCL) solvers handle industrial instances with millions of variables. The Strong Exponential Time Hypothesis (SETH) @impagliazzo2001 conjectures that no $O^*((2-epsilon)^n)$ algorithm exists for general CNF-SAT, and the best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[SETH conjectures this is optimal; no $O^*((2-epsilon)^n)$ algorithm is known.].
 
     *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",") ) = (#assign.map(v => str(v)).join(", "))$ satisfies all clauses: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #c.literals.map(l => str(eval-lit(l))).join($or$) paren.r = 1$).join(", "). Hence $phi(#assign.map(v => str(v)).join(", ")) = 1$.
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("NAESatisfiability")
+  let n = x.instance.num_vars
+  let m = x.instance.clauses.len()
+  let clauses = x.instance.clauses
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let assign = sol.config
+  let complement = assign.map(v => 1 - v)
+  let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
+  let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
+  let clause-values(c) = c.literals.map(l => str(eval-lit(l)))
+  [
+    #problem-def("NAESatisfiability")[
+      Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that every clause contains at least one true literal and at least one false literal.
+    ][
+    Not-All-Equal Satisfiability (NAE-SAT) is a canonical variant in Schaefer's dichotomy theorem @schaefer1978. Unlike ordinary SAT, each clause forbids the all-true and all-false patterns, giving the problem a complement symmetry: if an assignment is NAE-satisfying, then flipping every bit is also NAE-satisfying. This makes NAE-SAT a natural intermediate for cut and partition reductions such as Max-Cut. A straightforward exact algorithm enumerates all $2^n$ assignments; complement symmetry can halve the search space in practice by fixing one variable, but the asymptotic worst-case bound remains $O^*(2^n)$.
+
+    *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ is NAE-satisfying because each clause evaluates to a tuple containing both $0$ and $1$: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #clause-values(c).join(", ") paren.r$).join(", "). The complementary assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#complement.map(v => str(v)).join(", "))$ is therefore also NAE-satisfying, illustrating the paired-solution structure characteristic of NAE-SAT.
     ]
   ]
 }

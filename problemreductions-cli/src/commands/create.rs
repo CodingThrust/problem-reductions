@@ -396,6 +396,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5"
         }
         "Satisfiability" => "--num-vars 3 --clauses \"1,2;-1,3\"",
+        "NAESatisfiability" => "--num-vars 3 --clauses \"1,2,-3;-1,2,3\"",
         "QuantifiedBooleanFormulas" => {
             "--num-vars 3 --clauses \"1,2;-1,3\" --quantifiers \"E,A,E\""
         }
@@ -1302,6 +1303,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let clauses = parse_clauses(args)?;
             (
                 ser(Satisfiability::new(num_vars, clauses))?,
+                resolved_variant.clone(),
+            )
+        }
+        "NAESatisfiability" => {
+            let num_vars = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "NAESatisfiability requires --num-vars\n\n\
+                     Usage: pred create NAESAT --num-vars 3 --clauses \"1,2,-3;-1,2,3\""
+                )
+            })?;
+            let clauses = parse_clauses(args)?;
+            (
+                ser(NAESatisfiability::try_new(num_vars, clauses).map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
         }

@@ -218,7 +218,8 @@ Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
   MaxCut, MaxMatching, TSP        --graph, --edge-weights
   MaximalIS                       --graph, --weights
-  SAT, KSAT                       --num-vars, --clauses [--k]
+  SAT, NAESAT                     --num-vars, --clauses
+  KSAT                            --num-vars, --clauses [--k]
   QUBO                            --matrix
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
