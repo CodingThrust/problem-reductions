@@ -18,7 +18,9 @@
 //! - [`PrecedenceConstrainedScheduling`]: Schedule unit tasks on processors by deadline
 //! - [`RectilinearPictureCompression`]: Cover 1-entries with bounded rectangles
 //! - [`ResourceConstrainedScheduling`]: Schedule unit-length tasks on processors with resource constraints
+//! - [`SchedulingWithIndividualDeadlines`]: Meet per-task deadlines on parallel processors
 //! - [`SequencingToMinimizeMaximumCumulativeCost`]: Keep every cumulative schedule cost prefix under a bound
+//! - [`SequencingToMinimizeWeightedCompletionTime`]: Minimize total weighted completion time
 //! - [`SequencingToMinimizeWeightedTardiness`]: Decide whether a schedule meets a weighted tardiness bound
 //! - [`SequencingWithReleaseTimesAndDeadlines`]: Single-machine scheduling feasibility
 //! - [`SequencingWithinIntervals`]: Schedule tasks within time windows
@@ -44,7 +46,9 @@ pub(crate) mod partition;
 mod precedence_constrained_scheduling;
 mod rectilinear_picture_compression;
 pub(crate) mod resource_constrained_scheduling;
+mod scheduling_with_individual_deadlines;
 mod sequencing_to_minimize_maximum_cumulative_cost;
+mod sequencing_to_minimize_weighted_completion_time;
 mod sequencing_to_minimize_weighted_tardiness;
 mod sequencing_with_release_times_and_deadlines;
 mod sequencing_within_intervals;
@@ -71,7 +75,9 @@ pub use partition::Partition;
 pub use precedence_constrained_scheduling::PrecedenceConstrainedScheduling;
 pub use rectilinear_picture_compression::RectilinearPictureCompression;
 pub use resource_constrained_scheduling::ResourceConstrainedScheduling;
+pub use scheduling_with_individual_deadlines::SchedulingWithIndividualDeadlines;
 pub use sequencing_to_minimize_maximum_cumulative_cost::SequencingToMinimizeMaximumCumulativeCost;
+pub use sequencing_to_minimize_weighted_completion_time::SequencingToMinimizeWeightedCompletionTime;
 pub use sequencing_to_minimize_weighted_tardiness::SequencingToMinimizeWeightedTardiness;
 pub use sequencing_with_release_times_and_deadlines::SequencingWithReleaseTimesAndDeadlines;
 pub use sequencing_within_intervals::SequencingWithinIntervals;
@@ -93,6 +99,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(paintshop::canonical_model_example_specs());
     specs.extend(partition::canonical_model_example_specs());
     specs.extend(rectilinear_picture_compression::canonical_model_example_specs());
+    specs.extend(scheduling_with_individual_deadlines::canonical_model_example_specs());
     specs.extend(sequencing_within_intervals::canonical_model_example_specs());
     specs.extend(staff_scheduling::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
@@ -100,6 +107,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(partially_ordered_knapsack::canonical_model_example_specs());
     specs.extend(string_to_string_correction::canonical_model_example_specs());
     specs.extend(minimum_tardiness_sequencing::canonical_model_example_specs());
+    specs.extend(sequencing_to_minimize_weighted_completion_time::canonical_model_example_specs());
     specs.extend(sequencing_to_minimize_weighted_tardiness::canonical_model_example_specs());
     specs.extend(additional_key::canonical_model_example_specs());
     specs.extend(sequencing_to_minimize_maximum_cumulative_cost::canonical_model_example_specs());

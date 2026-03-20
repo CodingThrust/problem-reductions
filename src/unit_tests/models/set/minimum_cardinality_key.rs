@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 /// Instance 1 from the issue: 6 attributes, FDs {0,1}->{2}, {0,2}->{3},
 /// {1,3}->{4}, {2,4}->{5}. K={0,1} is a candidate key of size 2.
-fn instance1(bound_k: usize) -> MinimumCardinalityKey {
+fn instance1(bound: i64) -> MinimumCardinalityKey {
     MinimumCardinalityKey::new(
         6,
         vec![
@@ -14,7 +14,7 @@ fn instance1(bound_k: usize) -> MinimumCardinalityKey {
             (vec![1, 3], vec![4]),
             (vec![2, 4], vec![5]),
         ],
-        bound_k,
+        bound,
     )
 }
 
@@ -29,7 +29,7 @@ fn test_minimum_cardinality_key_creation() {
     let problem = instance1(2);
     assert_eq!(problem.num_attributes(), 6);
     assert_eq!(problem.num_dependencies(), 4);
-    assert_eq!(problem.bound_k(), 2);
+    assert_eq!(problem.bound(), 2);
     assert_eq!(problem.num_variables(), 6);
     assert_eq!(problem.dims(), vec![2; 6]);
 }
@@ -61,7 +61,7 @@ fn test_minimum_cardinality_key_non_minimal_rejected() {
 #[test]
 fn test_minimum_cardinality_key_exceeds_bound() {
     let problem = instance1(1);
-    // K={0,1} has |K|=2 > bound_k=1, so it must be rejected.
+    // K={0,1} has |K|=2 > bound=1, so it must be rejected.
     assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0]));
 }
 
@@ -85,7 +85,7 @@ fn test_minimum_cardinality_key_serialization() {
 
     assert_eq!(deserialized.num_attributes(), problem.num_attributes());
     assert_eq!(deserialized.num_dependencies(), problem.num_dependencies());
-    assert_eq!(deserialized.bound_k(), problem.bound_k());
+    assert_eq!(deserialized.bound(), problem.bound());
     assert_eq!(deserialized.dependencies(), problem.dependencies());
 }
 
