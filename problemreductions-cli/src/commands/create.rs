@@ -4619,6 +4619,8 @@ mod tests {
             costs: None,
             cut_bound: None,
             size_bound: None,
+            usage: None,
+            storage: None,
         }
     }
 
