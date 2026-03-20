@@ -52,7 +52,6 @@ impl ReductionResult for ReductionCVPToQUBO {
     }
 }
 
-#[cfg(any(test, feature = "example-db"))]
 #[cfg(feature = "example-db")]
 fn canonical_cvp_instance() -> ClosestVectorProblem<i32> {
     ClosestVectorProblem::new(
