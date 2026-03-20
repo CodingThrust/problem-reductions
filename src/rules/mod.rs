@@ -88,6 +88,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(circuit_spinglass::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
     specs.extend(factoring_circuit::canonical_rule_example_specs());
+    specs.extend(graphpartitioning_maxcut::canonical_rule_example_specs());
     specs.extend(knapsack_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_subsetsum::canonical_rule_example_specs());

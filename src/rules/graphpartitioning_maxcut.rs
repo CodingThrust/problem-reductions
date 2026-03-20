@@ -57,6 +57,38 @@ impl ReduceTo<MaxCut<SimpleGraph, i32>> for GraphPartitioning<SimpleGraph> {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "graphpartitioning_to_maxcut",
+        build: || {
+            let source = GraphPartitioning::new(SimpleGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (0, 2),
+                    (1, 2),
+                    (1, 3),
+                    (2, 3),
+                    (2, 4),
+                    (3, 4),
+                    (3, 5),
+                    (4, 5),
+                ],
+            ));
+            crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i32>>(
+                source,
+                SolutionPair {
+                    source_config: vec![0, 0, 0, 1, 1, 1],
+                    target_config: vec![0, 0, 0, 1, 1, 1],
+                },
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/graphpartitioning_maxcut.rs"]
 mod tests;
