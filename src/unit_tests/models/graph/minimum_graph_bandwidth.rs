@@ -120,3 +120,17 @@ fn test_minimumgraphbandwidth_problem_name() {
         "MinimumGraphBandwidth"
     );
 }
+
+#[test]
+fn test_minimumgraphbandwidth_paper_example() {
+    let problem = issue_example();
+    let column_major = vec![0, 2, 4, 1, 3, 5];
+    let row_major = vec![0, 1, 2, 3, 4, 5];
+
+    assert_eq!(problem.evaluate(&column_major), SolutionSize::Valid(2));
+    assert_eq!(problem.evaluate(&row_major), SolutionSize::Valid(3));
+
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&best), SolutionSize::Valid(2));
+}

@@ -109,6 +109,7 @@
   "ConsecutiveSets": [Consecutive Sets],
   "MinimumMultiwayCut": [Minimum Multiway Cut],
   "OptimalLinearArrangement": [Optimal Linear Arrangement],
+  "MinimumGraphBandwidth": [Minimum Graph Bandwidth],
   "RuralPostman": [Rural Postman],
   "LongestCommonSubsequence": [Longest Common Subsequence],
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
@@ -1410,6 +1411,62 @@ is feasible: each set induces a connected subgraph, the component weights are $2
       NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-complete on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
 
       *Example.* Consider a graph with #nv vertices and #ne edges, with bound $K = #K$. The arrangement $f = (#config.map(c => str(c)).join(", "))$ gives total cost $#edges.map(e => $|#config.at(e.at(0)) - #config.at(e.at(1))|$).join($+$) = #total-cost lt.eq #K$, so this is a YES instance.
+    ]
+  ]
+}
+#{
+  let x = load-model-example("MinimumGraphBandwidth")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let config = x.optimal_config
+  let bandwidth = x.optimal_value.Valid
+  let row-major = (0, 1, 2, 3, 4, 5)
+  let row-major-bandwidth = edges.fold(0, (acc, e) =>
+    calc.max(acc, calc.abs(row-major.at(e.at(0)) - row-major.at(e.at(1)))))
+  let blue = graph-colors.at(0)
+  [
+    #problem-def("MinimumGraphBandwidth")[
+      Given an undirected graph $G=(V,E)$, find a bijection $f: V -> {0, 1, dots, |V|-1}$ minimizing $max_({u,v} in E) |f(u) - f(v)|$.
+    ][
+      Minimum Graph Bandwidth is a classical graph layout problem with applications to sparse matrix reordering, VLSI placement, and memory-locality-aware graph processing. Garey and Johnson list it as GT40 @garey1979, and Papadimitriou proved NP-completeness for general graphs @papadimitriou1976bandwidth. The best exact algorithm currently recorded in the codebase runs in $O^*(4.473^n)$ time @cyganpilipczuk2010bandwidth.
+
+      Unlike Optimal Linear Arrangement, which minimizes the _sum_ of all edge spans, bandwidth is a minimax objective: one long edge determines the score. This makes the model a useful representative for reduction targets whose correctness depends on capping every edge stretch rather than averaging them.
+
+      *Example.* Consider the $2 times 3$ grid with $n = #nv$ vertices and $m = #ne$ edges. The column-major ordering $f(v_0)=0$, $f(v_3)=1$, $f(v_1)=2$, $f(v_4)=3$, $f(v_2)=4$, $f(v_5)=5$ gives horizontal edge spans $2, 2, 2, 2$ and vertical edge spans $1, 1, 1$, so the bandwidth is $#bandwidth$. The more obvious row-major ordering $(0, 1, 2, 3, 4, 5)$ stretches each vertical edge by $3$, giving bandwidth $#row-major-bandwidth$ instead.
+
+      #figure({
+        let verts = ((0, 1.0), (1.4, 1.0), (2.8, 1.0), (0, 0), (1.4, 0), (2.8, 0))
+        canvas(length: 1cm, {
+          for (u, v) in edges {
+            let span = calc.abs(config.at(u) - config.at(v))
+            let highlighted = span == bandwidth
+            g-edge(
+              verts.at(u),
+              verts.at(v),
+              stroke: if highlighted { 2pt + blue } else { 1pt + luma(180) },
+            )
+            let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+            let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+            let dy = if u == 0 and v == 3 { -0.22 } else if u == 1 and v == 4 { -0.22 } else if u == 2 and v == 5 { -0.22 } else { 0.18 }
+            draw.content(
+              (mx, my + dy),
+              text(7pt, fill: if highlighted { blue } else { luma(90) })[$#span$],
+            )
+          }
+          for (k, pos) in verts.enumerate() {
+            g-node(
+              pos,
+              name: "v" + str(k),
+              fill: white,
+              stroke: 1pt + blue,
+              label: text(7pt)[v#k -> #config.at(k)],
+            )
+          }
+        })
+      },
+      caption: [A $2 times 3$ grid ordered column-by-column. Blue edges realize the maximum span $#bandwidth$, while the row-major ordering would increase the bandwidth to $#row-major-bandwidth$.],
+      ) <fig:minimum-graph-bandwidth>
     ]
   ]
 }
