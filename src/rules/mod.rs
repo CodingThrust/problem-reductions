@@ -42,6 +42,10 @@ pub(crate) mod travelingsalesman_qubo;
 
 pub mod unitdiskmapping;
 
+#[cfg(test)]
+#[path = "../unit_tests/rules/graphpartitioning_maxcut.rs"]
+mod graphpartitioning_maxcut_tests;
+
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod binpacking_ilp;
 #[cfg(feature = "ilp-solver")]
