@@ -5,7 +5,7 @@
 //! - Constraint: the total selected weight must not exceed capacity
 //! - Objective: maximize the total selected value
 
-use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::Knapsack;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

@@ -5246,13 +5246,7 @@ fn test_create_multiple_copy_file_allocation() {
     assert_eq!(json["data"]["storage"], serde_json::json!([1, 1, 1, 1]));
     assert_eq!(json["data"]["bound"], 8);
     assert_eq!(json["data"]["graph"]["num_vertices"], 4);
-    assert_eq!(
-        json["data"]["graph"]["edges"]
-            .as_array()
-            .unwrap()
-            .len(),
-        3
-    );
+    assert_eq!(json["data"]["graph"]["edges"].as_array().unwrap().len(), 3);
 }
 
 #[test]
