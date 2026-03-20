@@ -11,6 +11,7 @@ pub struct ReductionGPToMaxCut {
     target: MaxCut<SimpleGraph, i32>,
 }
 
+#[cfg(any(test, feature = "example-db"))]
 const ISSUE_EXAMPLE_WITNESS: [usize; 6] = [0, 0, 0, 1, 1, 1];
 
 impl ReductionResult for ReductionGPToMaxCut {
@@ -26,6 +27,7 @@ impl ReductionResult for ReductionGPToMaxCut {
     }
 }
 
+#[cfg(any(test, feature = "example-db"))]
 fn issue_example() -> GraphPartitioning<SimpleGraph> {
     GraphPartitioning::new(SimpleGraph::new(
         6,
