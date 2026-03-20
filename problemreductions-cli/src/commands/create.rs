@@ -4941,6 +4941,7 @@ mod tests {
             size_bound: None,
             usage: None,
             storage: None,
+            quantifiers: None,
         }
     }
 
