@@ -21,7 +21,10 @@ use std::collections::BTreeMap;
 use crate::dispatch::{
     load_problem, serialize_any_problem, PathStep, ProblemJson, ProblemJsonOutput, ReductionBundle,
 };
-use crate::problem_name::{aliases_for, resolve_problem_ref, unknown_problem_error};
+use crate::problem_name::{
+    aliases_for, parse_problem_spec, resolve_catalog_problem_ref, resolve_problem_ref,
+    unknown_problem_error,
+};
 
 // ---------------------------------------------------------------------------
 // Parameter structs — graph query tools
@@ -366,7 +369,28 @@ impl McpServer {
         params: &serde_json::Value,
     ) -> anyhow::Result<String> {
         let rgraph = ReductionGraph::new();
-        let resolved = resolve_problem_ref(problem_type, &rgraph)?;
+        let resolved = match resolve_problem_ref(problem_type, &rgraph) {
+            Ok(resolved) => resolved,
+            Err(graph_err) => match resolve_catalog_problem_ref(problem_type) {
+                Ok(catalog_resolved) => {
+                    if rgraph.variants_for(catalog_resolved.name()).is_empty() {
+                        problemreductions::export::ProblemRef {
+                            name: catalog_resolved.name().to_string(),
+                            variant: catalog_resolved.variant().clone(),
+                        }
+                    } else {
+                        return Err(graph_err);
+                    }
+                }
+                Err(catalog_err) => {
+                    let spec = parse_problem_spec(problem_type)?;
+                    if rgraph.variants_for(&spec.name).is_empty() {
+                        return Err(catalog_err);
+                    }
+                    return Err(graph_err);
+                }
+            },
+        };
         let canonical = resolved.name.clone();
         let resolved_variant = resolved.variant;
         let graph_type = resolved_variant
@@ -1031,6 +1055,27 @@ impl rmcp::ServerHandler for McpServer {
         super::prompts::get_prompt(&request.name, &args).ok_or_else(|| {
             rmcp::ErrorData::invalid_params(format!("Unknown prompt: {}", request.name), None)
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::McpServer;
+
+    #[test]
+    fn test_create_problem_inner_minimum_graph_bandwidth_uses_catalog_fallback() {
+        let server = McpServer::new();
+        let json = server
+            .create_problem_inner(
+                "MinimumGraphBandwidth",
+                &serde_json::json!({"edges": "0-1,1-2,2-3"}),
+            )
+            .unwrap();
+
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(value["type"], "MinimumGraphBandwidth");
+        assert_eq!(value["variant"]["graph"], "SimpleGraph");
+        assert_eq!(value["data"]["graph"]["num_vertices"], 4);
     }
 }
 

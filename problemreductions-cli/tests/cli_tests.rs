@@ -5023,7 +5023,7 @@ fn test_create_random_minimum_graph_bandwidth() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MinimumGraphBandwidth");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert!(json["data"]["graph"]["num_vertices"].as_u64().unwrap() >= 5);
+    assert_eq!(json["data"]["graph"]["num_vertices"], 5);
 }
 
 #[test]
