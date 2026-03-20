@@ -184,6 +184,23 @@ crate::declare_variants! {
     default sat QuantifiedBooleanFormulas => "2^num_vars",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "quantified_boolean_formulas",
+        instance: Box::new(QuantifiedBooleanFormulas::new(
+            2,
+            vec![Quantifier::Exists, Quantifier::ForAll],
+            vec![
+                CNFClause::new(vec![1, 2]),  // u_1 OR u_2
+                CNFClause::new(vec![1, -2]), // u_1 OR NOT u_2
+            ],
+        )),
+        optimal_config: vec![1, 0],
+        optimal_value: serde_json::json!(true),
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/formula/qbf.rs"]
 mod tests;

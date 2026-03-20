@@ -22,5 +22,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(sat::canonical_model_example_specs());
     specs.extend(ksat::canonical_model_example_specs());
     specs.extend(circuit::canonical_model_example_specs());
+    specs.extend(qbf::canonical_model_example_specs());
     specs
 }
