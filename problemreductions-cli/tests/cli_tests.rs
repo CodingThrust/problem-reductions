@@ -2371,6 +2371,34 @@ fn test_create_mvc() {
 }
 
 #[test]
+fn test_create_minimum_graph_bandwidth() {
+    let output_file = std::env::temp_dir().join("pred_test_create_minimum_graph_bandwidth.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MinimumGraphBandwidth",
+            "--graph",
+            "0-1,1-2,2-3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MinimumGraphBandwidth");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["data"]["graph"]["num_vertices"], 4);
+    assert_eq!(json["data"]["graph"]["edges"].as_array().unwrap().len(), 3);
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
 fn test_create_kcoloring() {
     let output_file = std::env::temp_dir().join("pred_test_create_kcol.json");
     let output = pred()
@@ -3055,6 +3083,31 @@ fn test_create_no_flags_shows_help() {
     assert!(
         stderr.contains("Example:"),
         "expected 'Example:' in help output, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_minimum_graph_bandwidth_no_flags_shows_help() {
+    let output = pred()
+        .args(["create", "MinimumGraphBandwidth"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--graph"),
+        "expected '--graph' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("Example:"),
+        "expected 'Example:' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("0-1,1-2,2-3"),
+        "expected graph example in help output, got: {stderr}"
     );
 }
 
@@ -4945,6 +4998,32 @@ fn test_create_random_mis() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MaximumIndependentSet");
     assert!(json["data"].is_object());
+}
+
+#[test]
+fn test_create_random_minimum_graph_bandwidth() {
+    let output = pred()
+        .args([
+            "create",
+            "MinimumGraphBandwidth",
+            "--random",
+            "--num-vertices",
+            "5",
+            "--seed",
+            "42",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MinimumGraphBandwidth");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert!(json["data"]["graph"]["num_vertices"].as_u64().unwrap() >= 5);
 }
 
 #[test]

@@ -3,7 +3,7 @@ use problemreductions::models::algebraic::QUBO;
 use problemreductions::models::formula::{CNFClause, Satisfiability};
 use problemreductions::models::graph::{
     MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
-    MinimumSumMulticenter, MinimumVertexCover, SpinGlass, TravelingSalesman,
+    MinimumGraphBandwidth, MinimumSumMulticenter, MinimumVertexCover, SpinGlass, TravelingSalesman,
 };
 use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
@@ -398,6 +398,12 @@ impl McpServer {
                 ser_edge_weight_problem(&canonical, graph, edge_weights)?
             }
 
+            "MinimumGraphBandwidth" => {
+                let (graph, _) = parse_graph_from_params(params)?;
+                let variant = variant_map(&[("graph", "SimpleGraph")]);
+                (ser(MinimumGraphBandwidth::new(graph))?, variant)
+            }
+
             "KColoring" => {
                 let (graph, _) = parse_graph_from_params(params)?;
                 let k_flag = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
@@ -581,6 +587,18 @@ impl McpServer {
                 let edge_weights = vec![1i32; num_edges];
                 ser_edge_weight_problem(canonical, graph, edge_weights)?
             }
+            "MinimumGraphBandwidth" => {
+                let edge_prob = params
+                    .get("edge_prob")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.5);
+                if !(0.0..=1.0).contains(&edge_prob) {
+                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
+                }
+                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
+                let variant = variant_map(&[("graph", "SimpleGraph")]);
+                (ser(MinimumGraphBandwidth::new(graph))?, variant)
+            }
             "SpinGlass" => {
                 let edge_prob = params
                     .get("edge_prob")
@@ -645,7 +663,7 @@ impl McpServer {
                 "Random generation is not supported for {}. \
                  Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
                  MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, \
-                 TravelingSalesman, MinimumSumMulticenter)",
+                 TravelingSalesman, MinimumSumMulticenter, MinimumGraphBandwidth)",
                 canonical
             ),
         };
