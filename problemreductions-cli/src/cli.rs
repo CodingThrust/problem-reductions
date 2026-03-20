@@ -525,7 +525,7 @@ pub struct CreateArgs {
     /// Deadlines for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines (comma-separated, e.g., "5,5,5,3,3")
     #[arg(long)]
     pub deadlines: Option<String>,
-    /// Precedence pairs for scheduling problems (e.g., "0>3,1>3,1>4,2>4")
+    /// Precedence pairs for MinimumTardinessSequencing, SchedulingWithIndividualDeadlines, or SequencingToMinimizeWeightedCompletionTime (e.g., "0>3,1>3,1>4,2>4")
     #[arg(long)]
     pub precedence_pairs: Option<String>,
     /// Resource bounds for ResourceConstrainedScheduling (comma-separated, e.g., "20,15")
@@ -736,7 +736,7 @@ mod tests {
             "Deadlines for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines"
         ));
         assert!(help.contains(
-            "Precedence pairs for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines"
+            "Precedence pairs for MinimumTardinessSequencing, SchedulingWithIndividualDeadlines, or SequencingToMinimizeWeightedCompletionTime"
         ));
         assert!(
             help.contains(
