@@ -81,9 +81,17 @@ fn test_solve_reduced_uses_new_rule() {
 }
 
 #[test]
-#[should_panic(expected = "SteinerTree -> ILP requires nonnegative edge weights")]
+#[should_panic(expected = "SteinerTree -> ILP requires strictly positive edge weights")]
 fn test_reduction_rejects_negative_weights() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let problem = SteinerTree::new(graph, vec![1, -2, 3], vec![0, 1]);
+    let _ = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+}
+
+#[test]
+#[should_panic(expected = "SteinerTree -> ILP requires strictly positive edge weights")]
+fn test_reduction_rejects_zero_weights() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = SteinerTree::new(graph, vec![0, 0, 0], vec![0, 1]);
     let _ = ReduceTo::<ILP<bool>>::reduce_to(&problem);
 }

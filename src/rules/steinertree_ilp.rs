@@ -49,8 +49,8 @@ impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i32> {
 
     fn reduce_to(&self) -> Self::Result {
         assert!(
-            self.edge_weights().iter().all(|&weight| weight >= 0),
-            "SteinerTree -> ILP requires nonnegative edge weights"
+            self.edge_weights().iter().all(|&weight| weight > 0),
+            "SteinerTree -> ILP requires strictly positive edge weights (zero-weight edges should be contracted beforehand)"
         );
 
         let n = self.num_vertices();
