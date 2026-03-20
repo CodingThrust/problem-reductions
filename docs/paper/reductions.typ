@@ -5123,6 +5123,41 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $K = {v : x_v = 1}$.
 ]
 
+#let gp_ilp = load-example("GraphPartitioning", "ILP")
+#let gp_ilp_sol = gp_ilp.solutions.at(0)
+#let gp_n = graph-num-vertices(gp_ilp.source.instance)
+#let gp_edges = gp_ilp.source.instance.graph.edges
+#let gp_m = gp_edges.len()
+#let gp_part_a = range(gp_n).filter(i => gp_ilp_sol.source_config.at(i) == 0)
+#let gp_part_b = range(gp_n).filter(i => gp_ilp_sol.source_config.at(i) == 1)
+#let gp_crossing = range(gp_m).filter(i => gp_ilp_sol.target_config.at(gp_n + i) == 1)
+#let gp_crossing_edges = gp_crossing.map(i => gp_edges.at(i))
+#reduction-rule("GraphPartitioning", "ILP",
+  example: true,
+  example-caption: [Two triangles linked by three crossing edges encoded as a 15-variable ILP.],
+  extra: [
+    *Step 1 -- Balanced partition variables.* Introduce $x_v in {0,1}$ for each vertex. In the canonical witness, $A = {#gp_part_a.map(str).join(", ")}$ and $B = {#gp_part_b.map(str).join(", ")}$, so $bold(x) = (#gp_ilp_sol.source_config.map(str).join(", "))$.\
+
+    *Step 2 -- Crossing indicators.* Add one binary variable per edge, so the target has $#gp_ilp.target.instance.num_vars$ binary variables and #gp_ilp.target.instance.constraints.len() constraints in total. The three active crossing indicators correspond to edges $\{#gp_crossing_edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")\}$.\
+
+    *Step 3 -- Verify the objective.* The target witness $bold(z) = (#gp_ilp_sol.target_config.map(str).join(", "))$ sets exactly #gp_crossing.len() edge-indicator variables to 1, so the ILP objective equals the bisection width #gp_crossing.len() #sym.checkmark
+  ],
+)[
+  The node-and-edge integer-programming formulation of Chopra and Rao @chopra1993 models a balanced cut with one binary variable per vertex and one binary crossing indicator per edge. A single balance equality enforces the bisection, and two linear inequalities per edge linearize $|x_u - x_v|$ so that the objective can minimize the number of crossing edges directly.
+][
+  _Construction._ Given graph $G = (V, E)$ with $n = |V|$ and $m = |E|$:
+
+  _Variables._ Binary $x_v in {0, 1}$ for each $v in V$, where $x_v = 1$ means vertex $v$ is placed in side $B$. For each edge $e = (u, v) in E$, binary $y_e in {0, 1}$ indicates whether $e$ crosses the partition. Total: $n + m$ variables.
+
+  _Constraints._ (1) Balance: $sum_(v in V) x_v = n / 2$. If $n$ is odd, the right-hand side is fractional, so the ILP is infeasible exactly when Graph Partitioning has no valid balanced partition. (2) For each edge $e = (u, v)$: $y_e >= x_u - x_v$ and $y_e >= x_v - x_u$. Since $y_e$ is binary and the objective minimizes $sum_e y_e$, these inequalities force $y_e = 1$ exactly for crossing edges. Total: $2m + 1$ constraints.
+
+  _Objective._ Minimize $sum_(e in E) y_e$.
+
+  _Correctness._ ($arrow.r.double$) Given a balanced partition $(A, B)$, set $x_v = 1$ iff $v in B$, and set $y_e = 1$ iff edge $e$ has one endpoint in each side. The balance constraint holds because $|B| = n / 2$, and the linking inequalities hold because $|x_u - x_v| = 1$ exactly on crossing edges. The objective is therefore the cut size. ($arrow.l.double$) Any feasible ILP solution satisfies the balance equation, so exactly half the vertices have $x_v = 1$ when $n$ is even. For each edge, the linking inequalities imply $y_e >= |x_u - x_v|$; minimization therefore chooses $y_e = |x_u - x_v|$, making the objective count precisely the crossing edges of the extracted partition.
+
+  _Solution extraction._ Return the first $n$ variables $(x_v)_(v in V)$ as the Graph Partitioning configuration; the edge-indicator variables are auxiliary.
+]
+
 #let ks_ilp = load-example("Knapsack", "ILP")
 #let ks_ilp_sol = ks_ilp.solutions.at(0)
 #let ks_ilp_selected = ks_ilp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
