@@ -3723,7 +3723,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let weights = x.instance.weights
   let precs = x.instance.precedences
   let ntasks = lengths.len()
-  let sol = x.optimal.at(0)
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
   let opt = sol.metric.Valid
   let lehmer = sol.config
   let schedule = {
@@ -4176,6 +4176,28 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Correctness._ ($arrow.r.double$) If $C$ is a vertex cover, then for any $u, v in V backslash C$, the edge $(u, v) in.not E$ (otherwise $C$ would miss it), so $V backslash C$ is independent. ($arrow.l.double$) If $S$ is independent, then for any $(u, v) in E$, at most one endpoint lies in $S$, so $V backslash S$ covers every edge. Since $|S| + |C| = |V|$ is constant, a minimum vertex cover corresponds to a maximum independent set.
 
   _Solution extraction._ For IS solution $S$, return $C = V backslash S$, i.e.\ flip each variable: $c_v = 1 - s_v$.
+]
+
+#let mvc_fvs = load-example("MinimumVertexCover", "MinimumFeedbackVertexSet")
+#let mvc_fvs_sol = mvc_fvs.solutions.at(0)
+#let mvc_fvs_cover = mvc_fvs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let mvc_fvs_fvs = mvc_fvs_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#reduction-rule("MinimumVertexCover", "MinimumFeedbackVertexSet",
+  example: true,
+  example-caption: [7-vertex graph: each source edge becomes a directed 2-cycle],
+  extra: [
+    Source VC: $C = {#mvc_fvs_cover.map(str).join(", ")}$ (size #mvc_fvs_cover.len()) on a graph with $n = #graph-num-vertices(mvc_fvs.source.instance)$ vertices and $|E| = #graph-num-edges(mvc_fvs.source.instance)$ edges \
+    Target FVS: $F = {#mvc_fvs_fvs.map(str).join(", ")}$ (size #mvc_fvs_fvs.len()) on a digraph with the same $n = #graph-num-vertices(mvc_fvs.target.instance)$ vertices and $|A| = #mvc_fvs.target.instance.graph.arcs.len() = 2 |E|$ arcs \
+    Canonical witness is preserved exactly: $C = F$ #sym.checkmark
+  ],
+)[
+  Each undirected edge $\{u, v\}$ can be viewed as the directed 2-cycle $u -> v -> u$. Replacing every source edge this way turns the task "hit every edge with a chosen endpoint" into "hit every directed cycle with a chosen vertex." The vertex set, weights, and budget are preserved, so the reduction is size-preserving up to doubling the edge count into arcs.
+][
+  _Construction._ Given a Minimum Vertex Cover instance $(G = (V, E), bold(w))$, build the directed graph $D = (V, A)$ on the same vertex set, where for every undirected edge $\{u, v\} in E$ we add both arcs $(u, v)$ and $(v, u)$ to $A$. Keep the vertex weights unchanged and reuse the same decision variables $x_v in {0,1}$.
+
+  _Correctness._ ($arrow.r.double$) If $C subset.eq V$ is a vertex cover of $G$, then every source edge $\{u, v\}$ has an endpoint in $C$, so the corresponding 2-cycle $u -> v -> u$ in $D$ is hit by $C$. Any longer directed cycle in $D$ is also made from source edges, so one of its vertices lies in $C$ as well. Therefore removing $C$ destroys all directed cycles, and $C$ is a feedback vertex set of $D$. ($arrow.l.double$) If $F subset.eq V$ is a feedback vertex set of $D$, then for every source edge $\{u, v\}$ the digraph contains the 2-cycle $u -> v -> u$, which must be hit by $F$. Hence at least one of $u, v$ lies in $F$, so $F$ covers every edge of $G$ and is a vertex cover.
+
+  _Solution extraction._ Return the target solution vector unchanged: a selected vertex in the feedback vertex set is selected in the vertex cover, and vice versa.
 ]
 
 #reduction-rule("MaximumIndependentSet", "MinimumVertexCover")[
