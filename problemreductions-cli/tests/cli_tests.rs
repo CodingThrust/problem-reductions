@@ -2681,7 +2681,6 @@ fn test_create_string_to_string_correction_help_uses_cli_flags() {
     assert!(stderr.contains("--source-string"), "stderr: {stderr}");
     assert!(stderr.contains("--target-string"), "stderr: {stderr}");
     assert!(stderr.contains("--bound"), "stderr: {stderr}");
-    assert!(!stderr.contains("--bound"), "stderr: {stderr}");
 }
 
 #[test]
