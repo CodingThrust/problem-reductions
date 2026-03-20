@@ -22,7 +22,7 @@ inventory::submit! {
         description: "Permute columns of a binary matrix to have at most K consecutive blocks of 1s",
         fields: &[
             FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "Binary matrix A (m x n)" },
-            FieldInfo { name: "bound_k", type_name: "usize", description: "Upper bound K on total consecutive blocks" },
+            FieldInfo { name: "bound_k", type_name: "i64", description: "Upper bound K on total consecutive blocks" },
         ],
     }
 }
@@ -67,7 +67,7 @@ pub struct ConsecutiveBlockMinimization {
     /// Number of columns (n).
     num_cols: usize,
     /// Upper bound K on total consecutive blocks.
-    bound_k: usize,
+    bound_k: i64,
 }
 
 impl ConsecutiveBlockMinimization {
@@ -79,13 +79,13 @@ impl ConsecutiveBlockMinimization {
     ///
     /// # Panics
     /// Panics if rows have inconsistent lengths.
-    pub fn new(matrix: Vec<Vec<bool>>, bound_k: usize) -> Self {
+    pub fn new(matrix: Vec<Vec<bool>>, bound_k: i64) -> Self {
         Self::try_new(matrix, bound_k).unwrap_or_else(|err| panic!("{err}"))
     }
 
     /// Create a new ConsecutiveBlockMinimization problem, returning an error
     /// instead of panicking when the matrix is ragged.
-    pub fn try_new(matrix: Vec<Vec<bool>>, bound_k: usize) -> Result<Self, String> {
+    pub fn try_new(matrix: Vec<Vec<bool>>, bound_k: i64) -> Result<Self, String> {
         let (num_rows, num_cols) = validate_matrix_dimensions(&matrix)?;
         Ok(Self {
             matrix,
@@ -111,7 +111,7 @@ impl ConsecutiveBlockMinimization {
     }
 
     /// Get the upper bound K.
-    pub fn bound_k(&self) -> usize {
+    pub fn bound_k(&self) -> i64 {
         self.bound_k
     }
 
@@ -164,7 +164,7 @@ impl Problem for ConsecutiveBlockMinimization {
 
     fn evaluate(&self, config: &[usize]) -> bool {
         match self.count_consecutive_blocks(config) {
-            Some(total) => total <= self.bound_k,
+            Some(total) => (total as i64) <= self.bound_k,
             None => false,
         }
     }
@@ -189,7 +189,7 @@ struct ConsecutiveBlockMinimizationDef {
     matrix: Vec<Vec<bool>>,
     num_rows: usize,
     num_cols: usize,
-    bound_k: usize,
+    bound_k: i64,
 }
 
 impl TryFrom<ConsecutiveBlockMinimizationDef> for ConsecutiveBlockMinimization {
