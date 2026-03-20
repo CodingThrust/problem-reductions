@@ -22,6 +22,7 @@
 //! - [`HamiltonianPath`]: Hamiltonian path (simple path visiting every vertex)
 //! - [`PartitionIntoPathsOfLength2`]: Partition vertices into triples with at least two edges each
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
+//! - [`SteinerTreeInGraphs`]: Minimum weight Steiner tree connecting terminal vertices
 //! - [`BalancedCompleteBipartiteSubgraph`]: Balanced biclique decision problem
 //! - [`BiconnectivityAugmentation`]: Biconnectivity augmentation with weighted potential edges
 //! - [`BoundedComponentSpanningForest`]: Partition vertices into bounded-weight connected components
@@ -71,6 +72,7 @@ pub(crate) mod partition_into_triangles;
 pub(crate) mod rural_postman;
 pub(crate) mod spin_glass;
 pub(crate) mod steiner_tree;
+pub(crate) mod steiner_tree_in_graphs;
 pub(crate) mod strong_connectivity_augmentation;
 pub(crate) mod subgraph_isomorphism;
 pub(crate) mod traveling_salesman;
@@ -109,6 +111,7 @@ pub use partition_into_triangles::PartitionIntoTriangles;
 pub use rural_postman::RuralPostman;
 pub use spin_glass::SpinGlass;
 pub use steiner_tree::SteinerTree;
+pub use steiner_tree_in_graphs::SteinerTreeInGraphs;
 pub use strong_connectivity_augmentation::StrongConnectivityAugmentation;
 pub use subgraph_isomorphism::SubgraphIsomorphism;
 pub use traveling_salesman::TravelingSalesman;
@@ -146,6 +149,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(partition_into_triangles::canonical_model_example_specs());
     specs.extend(partition_into_paths_of_length_2::canonical_model_example_specs());
     specs.extend(steiner_tree::canonical_model_example_specs());
+    specs.extend(steiner_tree_in_graphs::canonical_model_example_specs());
     specs.extend(directed_two_commodity_integral_flow::canonical_model_example_specs());
     specs.extend(undirected_two_commodity_integral_flow::canonical_model_example_specs());
     specs.extend(strong_connectivity_augmentation::canonical_model_example_specs());

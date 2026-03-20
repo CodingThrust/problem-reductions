@@ -23,7 +23,7 @@ inventory::submit! {
         description: "Cover all 1-entries of a binary matrix with at most K axis-aligned all-1 rectangles",
         fields: &[
             FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "m x n binary matrix" },
-            FieldInfo { name: "bound_k", type_name: "usize", description: "Maximum number of rectangles allowed" },
+            FieldInfo { name: "bound", type_name: "i64", description: "Maximum number of rectangles allowed" },
         ],
     }
 }
@@ -61,7 +61,7 @@ inventory::submit! {
 #[derive(Debug, Clone, Serialize)]
 pub struct RectilinearPictureCompression {
     matrix: Vec<Vec<bool>>,
-    bound_k: usize,
+    bound: i64,
     #[serde(skip)]
     maximal_rects: Vec<Rectangle>,
 }
@@ -74,10 +74,10 @@ impl<'de> Deserialize<'de> for RectilinearPictureCompression {
         #[derive(Deserialize)]
         struct Inner {
             matrix: Vec<Vec<bool>>,
-            bound_k: usize,
+            bound: i64,
         }
         let inner = Inner::deserialize(deserializer)?;
-        Ok(Self::new(inner.matrix, inner.bound_k))
+        Ok(Self::new(inner.matrix, inner.bound))
     }
 }
 
@@ -87,7 +87,7 @@ impl RectilinearPictureCompression {
     /// # Panics
     ///
     /// Panics if `matrix` is empty or has inconsistent row lengths.
-    pub fn new(matrix: Vec<Vec<bool>>, bound_k: usize) -> Self {
+    pub fn new(matrix: Vec<Vec<bool>>, bound: i64) -> Self {
         assert!(!matrix.is_empty(), "Matrix must not be empty");
         let cols = matrix[0].len();
         assert!(cols > 0, "Matrix must have at least one column");
@@ -97,7 +97,7 @@ impl RectilinearPictureCompression {
         );
         let mut instance = Self {
             matrix,
-            bound_k,
+            bound,
             maximal_rects: Vec::new(),
         };
         instance.maximal_rects = instance.compute_maximal_rectangles();
@@ -115,8 +115,8 @@ impl RectilinearPictureCompression {
     }
 
     /// Returns the bound K.
-    pub fn bound_k(&self) -> usize {
-        self.bound_k
+    pub fn bound(&self) -> i64 {
+        self.bound
     }
 
     /// Returns a reference to the binary matrix.
@@ -255,7 +255,7 @@ impl Problem for RectilinearPictureCompression {
 
         // Count selected rectangles.
         let selected_count: usize = config.iter().sum();
-        if selected_count > self.bound_k {
+        if (selected_count as i64) > self.bound {
             return false;
         }
 

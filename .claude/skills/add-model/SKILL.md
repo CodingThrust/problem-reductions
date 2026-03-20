@@ -186,9 +186,11 @@ Update `problemreductions-cli/src/commands/create.rs` so `pred create <ProblemNa
 
 Add a builder function in `src/example_db/model_builders.rs` that constructs a small, canonical instance for this model. Register it in `build_model_examples()`.
 
+Also add `canonical_model_example_specs()` **in the model file itself** (gated by `#[cfg(feature = "example-db")]`), and register it in the category `mod.rs` example chain (e.g., `specs.extend(<module>::canonical_model_example_specs());`). See any existing model in `src/models/graph/` for the pattern.
+
 This example is now the canonical source for:
 - `pred create --example <PROBLEM_SPEC>`
-- paper/example exports
+- paper/example exports via `load-model-example()` in `reductions.typ`
 - example-db invariants tested in `src/unit_tests/example_db.rs`
 
 ## Step 5: Write unit tests
