@@ -3,16 +3,22 @@
 //! The Steiner Tree problem asks for a minimum-weight subtree of a graph
 //! that connects all terminal vertices.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::types::{Direction, One, SolutionSize, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "SteinerTreeInGraphs",
+        display_name: "Steiner Tree in Graphs",
+        aliases: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["One", "i32"]),
+        ],
         module_path: module_path!(),
         description: "Find minimum weight subtree connecting all terminal vertices",
         fields: &[
@@ -284,8 +290,8 @@ pub(crate) fn is_steiner_tree<G: Graph>(
 }
 
 crate::declare_variants! {
-    SteinerTreeInGraphs<SimpleGraph, i32> => "3^num_terminals * num_vertices",
-    SteinerTreeInGraphs<SimpleGraph, f64> => "3^num_terminals * num_vertices",
+    default opt SteinerTreeInGraphs<SimpleGraph, i32> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
+    opt SteinerTreeInGraphs<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
 }
 
 #[cfg(test)]

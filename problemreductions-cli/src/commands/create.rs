@@ -13,7 +13,7 @@ use problemreductions::models::algebraic::{
 use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
     LengthBoundedDisjointPaths, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
-    MultipleChoiceBranching, SteinerTree, StrongConnectivityAugmentation,
+    MultipleChoiceBranching, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
@@ -1218,7 +1218,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
-            let terminals = parse_terminals(args)?;
+            let terminals = parse_terminals(args, graph.num_vertices())?;
             (
                 ser(SteinerTreeInGraphs::new(graph, terminals, edge_weights))?,
                 resolved_variant.clone(),
@@ -3570,23 +3570,6 @@ fn parse_fields_f64(args: &CreateArgs, num_vertices: usize) -> Result<Vec<f64>> 
         }
         None => Ok(vec![0.0f64; num_vertices]),
     }
-}
-
-/// Parse `--terminals` as comma-separated terminal vertex indices.
-fn parse_terminals(args: &CreateArgs) -> Result<Vec<usize>> {
-    let terminals_str = args.terminals.as_deref().ok_or_else(|| {
-        anyhow::anyhow!(
-            "SteinerTreeInGraphs requires --terminals (comma-separated vertex indices, e.g., 0,3,5)"
-        )
-    })?;
-    terminals_str
-        .split(',')
-        .map(|s| {
-            s.trim()
-                .parse::<usize>()
-                .map_err(|e| anyhow::anyhow!("Invalid terminal vertex: {}", e))
-        })
-        .collect()
 }
 
 /// Parse `--clauses` as semicolon-separated clauses of comma-separated literals.
