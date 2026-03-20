@@ -241,14 +241,13 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "sequencing_to_minimize_weighted_completion_time",
-        build: || {
-            let problem = SequencingToMinimizeWeightedCompletionTime::new(
-                vec![2, 1, 3, 1, 2],
-                vec![3, 5, 1, 4, 2],
-                vec![(0, 2), (1, 4)],
-            );
-            crate::example_db::specs::optimization_example(problem, vec![vec![1, 2, 0, 1, 0]])
-        },
+        instance: Box::new(SequencingToMinimizeWeightedCompletionTime::new(
+            vec![2, 1, 3, 1, 2],
+            vec![3, 5, 1, 4, 2],
+            vec![(0, 2), (1, 4)],
+        )),
+        optimal_config: vec![1, 2, 0, 1, 0],
+        optimal_value: serde_json::json!({"Valid": 46}),
     }]
 }
 

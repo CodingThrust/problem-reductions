@@ -165,16 +165,21 @@ impl ReduceTo<ILP<i32>> for SequencingToMinimizeWeightedCompletionTime {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "sequencingtominimizeweightedcompletiontime_to_ilp",
         build: || {
-            crate::example_db::specs::direct_ilp_example::<_, i32, _>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
                 SequencingToMinimizeWeightedCompletionTime::new(
-                    vec![2, 1, 3, 1, 2],
-                    vec![3, 5, 1, 4, 2],
-                    vec![(0, 2), (1, 4)],
+                    vec![2, 1],
+                    vec![3, 5],
+                    vec![],
                 ),
-                |_, _| true,
+                SolutionPair {
+                    source_config: vec![1, 0],
+                    target_config: vec![3, 1, 0],
+                },
             )
         },
     }]

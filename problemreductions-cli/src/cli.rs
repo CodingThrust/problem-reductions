@@ -525,9 +525,6 @@ pub struct CreateArgs {
     /// Deadlines for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines (comma-separated, e.g., "5,5,5,3,3")
     #[arg(long)]
     pub deadlines: Option<String>,
-    /// Task lengths for SequencingToMinimizeWeightedCompletionTime (comma-separated, e.g., "2,1,3,1,2")
-    #[arg(long)]
-    pub lengths: Option<String>,
     /// Precedence pairs for scheduling problems (e.g., "0>3,1>3,1>4,2>4")
     #[arg(long)]
     pub precedence_pairs: Option<String>,
