@@ -16,6 +16,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "QuantifiedBooleanFormulas",
+        display_name: "Quantified Boolean Formulas",
+        aliases: &["QBF"],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Determine if a quantified Boolean formula is true",
         fields: &[
@@ -178,7 +181,7 @@ impl Problem for QuantifiedBooleanFormulas {
 impl SatisfactionProblem for QuantifiedBooleanFormulas {}
 
 crate::declare_variants! {
-    QuantifiedBooleanFormulas => "2^num_vars",
+    default sat QuantifiedBooleanFormulas => "2^num_vars",
 }
 
 #[cfg(test)]
