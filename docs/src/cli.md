@@ -439,31 +439,12 @@ pred create MIS --graph 0-1,1-2,2-3 | pred evaluate - --config 1,0,1,0
 
 ### `pred inspect` — Inspect a problem file
 
-Show JSON metadata about what's inside a problem JSON or reduction bundle:
+Show a summary of what's inside a problem JSON or reduction bundle:
 
 ```bash
 $ pred inspect problem.json
-{
-  "kind": "problem",
-  "num_variables": 4,
-  "reduces_to": [
-    "MaximumSetPacking",
-    "MinimumVertexCover"
-  ],
-  "size_fields": [
-    "num_vertices",
-    "num_edges"
-  ],
-  "solvers": [
-    "ilp",
-    "brute-force"
-  ],
-  "type": "MaximumIndependentSet",
-  "variant": {
-    "graph": "SimpleGraph",
-    "weight": "i32"
-  }
-}
+Type: MaximumIndependentSet {graph=SimpleGraph, weight=i32}
+Size: 5 vertices, 5 edges
 ```
 
 Works with reduction bundles and stdin:

@@ -37,7 +37,7 @@ Or build from source:
 ```bash
 git clone https://github.com/CodingThrust/problem-reductions
 cd problem-reductions
-make cli    # installs `pred` from the local workspace
+make cli    # builds target/release/pred
 ```
 
 See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples, the reduction workflow, and [CLI usage](https://codingthrust.github.io/problem-reductions/cli.html).
