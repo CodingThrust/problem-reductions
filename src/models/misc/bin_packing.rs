@@ -3,7 +3,7 @@
 //! The Bin Packing problem asks for an assignment of items to bins
 //! that minimizes the number of bins used while respecting capacity constraints.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use serde::{Deserialize, Serialize};
@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "BinPacking",
+        display_name: "Bin Packing",
+        aliases: &[],
+        dimensions: &[VariantDimension::new("weight", "i32", &["i32", "f64"])],
         module_path: module_path!(),
         description: "Assign items to bins minimizing number of bins used, subject to capacity",
         fields: &[
@@ -151,8 +154,19 @@ fn count_bins(config: &[usize]) -> usize {
 }
 
 crate::declare_variants! {
-    BinPacking<i32> => "2^num_items",
-    BinPacking<f64> => "2^num_items",
+    default opt BinPacking<i32> => "2^num_items",
+    opt BinPacking<f64> => "2^num_items",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "bin_packing",
+        // 3 items of sizes [3,3,4], capacity 7 → optimal 2 bins
+        instance: Box::new(BinPacking::<i32>::new(vec![3, 3, 4], 7)),
+        optimal_config: vec![0, 1, 0],
+        optimal_value: serde_json::json!({"Valid": 2}),
+    }]
 }
 
 #[cfg(test)]

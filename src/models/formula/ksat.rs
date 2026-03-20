@@ -5,7 +5,7 @@
 //! version - for the optimization variant (MAX-K-SAT), see the separate
 //! MaxKSatisfiability type (if available).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::variant::{KValue, K2, K3, KN};
 use serde::{Deserialize, Serialize};
@@ -15,6 +15,9 @@ use super::CNFClause;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "KSatisfiability",
+        display_name: "K-Satisfiability",
+        aliases: &["KSAT"],
+        dimensions: &[VariantDimension::new("k", "KN", &["KN", "K2", "K3"])],
         module_path: module_path!(),
         description: "SAT with exactly k literals per clause",
         fields: &[
@@ -184,9 +187,27 @@ impl<K: KValue> Problem for KSatisfiability<K> {
 impl<K: KValue> SatisfactionProblem for KSatisfiability<K> {}
 
 crate::declare_variants! {
-    KSatisfiability<KN> => "2^num_variables",
-    KSatisfiability<K2> => "num_variables + num_clauses",
-    KSatisfiability<K3> => "1.307^num_variables",
+    default sat KSatisfiability<KN> => "2^num_variables",
+    sat KSatisfiability<K2> => "num_variables + num_clauses",
+    sat KSatisfiability<K3> => "1.307^num_variables",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    use super::CNFClause;
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "ksatisfiability_k3",
+        instance: Box::new(KSatisfiability::<K3>::new(
+            3,
+            vec![
+                CNFClause::new(vec![1, 2, 3]),
+                CNFClause::new(vec![-1, -2, 3]),
+                CNFClause::new(vec![1, -2, -3]),
+            ],
+        )),
+        optimal_config: vec![0, 0, 1],
+        optimal_value: serde_json::json!(true),
+    }]
 }
 
 #[cfg(test)]

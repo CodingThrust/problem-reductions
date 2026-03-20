@@ -3,10 +3,45 @@
 use super::FieldInfo;
 use serde::Serialize;
 
+/// A declared variant dimension for a problem type.
+///
+/// Describes one axis of variation (e.g., graph type, weight type) with
+/// its default value and the set of allowed values.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VariantDimension {
+    /// Dimension key (e.g., `"graph"`, `"weight"`, `"k"`).
+    pub key: &'static str,
+    /// Default value for this dimension (e.g., `"SimpleGraph"`).
+    pub default_value: &'static str,
+    /// All allowed values for this dimension.
+    pub allowed_values: &'static [&'static str],
+}
+
+impl VariantDimension {
+    /// Create a new variant dimension.
+    pub const fn new(
+        key: &'static str,
+        default_value: &'static str,
+        allowed_values: &'static [&'static str],
+    ) -> Self {
+        Self {
+            key,
+            default_value,
+            allowed_values,
+        }
+    }
+}
+
 /// A registered problem schema entry for static inventory registration.
 pub struct ProblemSchemaEntry {
     /// Problem name (e.g., "MaximumIndependentSet").
     pub name: &'static str,
+    /// Human-readable display name (e.g., "Maximum Independent Set").
+    pub display_name: &'static str,
+    /// Short aliases for CLI/MCP lookup (e.g., `&["MIS"]`).
+    pub aliases: &'static [&'static str],
+    /// Declared variant dimensions with defaults and allowed values.
+    pub dimensions: &'static [VariantDimension],
     /// Module path from `module_path!()` (e.g., "problemreductions::models::graph::maximum_independent_set").
     pub module_path: &'static str,
     /// Human-readable description.
@@ -16,6 +51,19 @@ pub struct ProblemSchemaEntry {
 }
 
 inventory::collect!(ProblemSchemaEntry);
+
+/// Optional static size-field metadata for problem types.
+///
+/// This is used when a problem has meaningful size fields even before it
+/// participates in any reduction overhead expressions.
+pub struct ProblemSizeFieldEntry {
+    /// Problem name (e.g., "MaximumIndependentSet").
+    pub name: &'static str,
+    /// Size field names (e.g., `&["num_vertices", "num_edges"]`).
+    pub fields: &'static [&'static str],
+}
+
+inventory::collect!(ProblemSizeFieldEntry);
 
 /// JSON-serializable problem schema.
 #[derive(Debug, Clone, Serialize)]
@@ -59,6 +107,14 @@ pub fn collect_schemas() -> Vec<ProblemSchemaJson> {
         .collect();
     schemas.sort_by(|a, b| a.name.cmp(&b.name));
     schemas
+}
+
+/// Collect explicitly declared size fields for a problem type.
+pub fn declared_size_fields(name: &str) -> Vec<&'static str> {
+    inventory::iter::<ProblemSizeFieldEntry>()
+        .filter(|entry| entry.name == name)
+        .flat_map(|entry| entry.fields.iter().copied())
+        .collect()
 }
 
 #[cfg(test)]

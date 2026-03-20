@@ -146,6 +146,91 @@ impl_variant_param!(K3, "k", parent: KN, cast: |_| KN, k: Some(3));
 impl_variant_param!(K2, "k", parent: KN, cast: |_| KN, k: Some(2));
 impl_variant_param!(K1, "k", parent: KN, cast: |_| KN, k: Some(1));
 
+// --- VariantSpec: canonical runtime representation of a problem variant ---
+
+use std::collections::BTreeMap;
+
+/// Canonical runtime representation of a problem variant.
+///
+/// Used for validated runtime lookups and normalization. Unlike raw
+/// `BTreeMap<String, String>`, a `VariantSpec` validates its dimensions
+/// at construction time and can normalize default values.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct VariantSpec {
+    dims: BTreeMap<String, String>,
+}
+
+/// Default dimension values used for normalization and default detection.
+const DEFAULT_VALUES: &[&str] = &["SimpleGraph", "One", "KN"];
+
+impl VariantSpec {
+    /// Create a `VariantSpec` from key-value pairs, rejecting duplicate dimensions.
+    ///
+    /// Returns an error if the same dimension key appears more than once.
+    pub fn try_from_pairs<I, K, V>(pairs: I) -> std::result::Result<Self, String>
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<String>,
+        V: Into<String>,
+    {
+        let mut dims = BTreeMap::new();
+        for (k, v) in pairs {
+            let key = k.into();
+            let val = v.into();
+            if dims.insert(key.clone(), val).is_some() {
+                return Err(format!("duplicate dimension: {}", key));
+            }
+        }
+        Ok(Self { dims })
+    }
+
+    /// Create a `VariantSpec` from an existing `BTreeMap`.
+    pub fn try_from_map(map: BTreeMap<String, String>) -> std::result::Result<Self, String> {
+        Ok(Self { dims: map })
+    }
+
+    /// View the dimensions as a map.
+    pub fn as_map(&self) -> &BTreeMap<String, String> {
+        &self.dims
+    }
+
+    /// Consume this `VariantSpec` and return the underlying map.
+    pub fn into_map(self) -> BTreeMap<String, String> {
+        self.dims
+    }
+
+    /// Update or add a single dimension.
+    pub fn update_dimension(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.dims.insert(key.into(), value.into());
+    }
+
+    /// Normalize the variant by filling in default values for empty dimensions.
+    ///
+    /// If a dimension has an empty string value, it is replaced with its
+    /// canonical default:
+    /// - `"graph"` → `"SimpleGraph"`
+    pub fn normalize(&self) -> Self {
+        let mut dims = self.dims.clone();
+        if let Some(v) = dims.get_mut("graph") {
+            if v.is_empty() {
+                *v = "SimpleGraph".to_string();
+            }
+        }
+        Self { dims }
+    }
+
+    /// Check whether this variant uses only default dimension values.
+    ///
+    /// Returns `true` if every dimension value is one of the recognized
+    /// defaults: `"SimpleGraph"`, `"One"`, `"KN"`. An empty variant
+    /// (no dimensions) is also considered default.
+    pub fn is_default(&self) -> bool {
+        self.dims
+            .values()
+            .all(|v| DEFAULT_VALUES.contains(&v.as_str()))
+    }
+}
+
 #[cfg(test)]
 #[path = "unit_tests/variant.rs"]
 mod tests;

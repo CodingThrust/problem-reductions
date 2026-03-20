@@ -3,7 +3,7 @@
 //! The Maximum Cut problem asks for a partition of vertices into two sets
 //! that maximizes the total weight of edges crossing the partition.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -13,6 +13,12 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaxCut",
+        display_name: "Max Cut",
+        aliases: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find maximum weight cut in a graph",
         fields: &[
@@ -215,7 +221,20 @@ where
 }
 
 crate::declare_variants! {
-    MaxCut<SimpleGraph, i32> => "2^(2.372 * num_vertices / 3)",
+    default opt MaxCut<SimpleGraph, i32> => "2^(2.372 * num_vertices / 3)",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "max_cut_simplegraph_i32",
+        instance: Box::new(MaxCut::<_, i32>::unweighted(SimpleGraph::new(
+            5,
+            vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
+        ))),
+        optimal_config: vec![1, 0, 0, 1, 0],
+        optimal_value: serde_json::json!({"Valid": 5}),
+    }]
 }
 
 #[cfg(test)]

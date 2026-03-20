@@ -167,6 +167,38 @@ impl ReduceTo<QUBO<f64>> for ILP<bool> {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+    use crate::models::algebraic::{LinearConstraint, ObjectiveSense};
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "ilp_to_qubo",
+        build: || {
+            let source = ILP::new(
+                6,
+                vec![
+                    LinearConstraint::le(
+                        vec![(0, 3.0), (1, 2.0), (2, 5.0), (3, 4.0), (4, 2.0), (5, 3.0)],
+                        10.0,
+                    ),
+                    LinearConstraint::le(vec![(0, 1.0), (1, 1.0), (2, 1.0)], 2.0),
+                    LinearConstraint::le(vec![(3, 1.0), (4, 1.0), (5, 1.0)], 2.0),
+                ],
+                vec![(0, 10.0), (1, 7.0), (2, 12.0), (3, 8.0), (4, 6.0), (5, 9.0)],
+                ObjectiveSense::Maximize,
+            );
+            crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+                source,
+                SolutionPair {
+                    source_config: vec![1, 1, 0, 0, 1, 1],
+                    target_config: vec![1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                },
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/ilp_qubo.rs"]
 mod tests;

@@ -7,6 +7,8 @@ description: Use when writing or improving a reduction-rule entry in the Typst p
 
 Full authoring guide for writing a `reduction-rule` entry in `docs/paper/reductions.typ`. Covers Typst mechanics, writing quality, and verification.
 
+> **Note:** This content is also inlined in `add-rule` Step 5 (condensed form). This standalone version has more detail and is useful for improving existing entries.
+
 ## Reference Example
 
 **KColoring → QUBO** in `docs/paper/reductions.typ` is the gold-standard reduction example. Search for `reduction-rule("KColoring", "QUBO"` to see the complete entry. Use it as a template for style, depth, and structure.
@@ -15,22 +17,21 @@ Full authoring guide for writing a `reduction-rule` entry in `docs/paper/reducti
 
 Before using this skill, ensure:
 - The reduction is implemented and tested (`src/rules/<source>_<target>.rs`)
-- An example program exists (`examples/reduction_<source>_to_<target>.rs`)
-- Example JSON is generated (`make examples`)
+- A canonical example exists in `src/example_db/rule_builders.rs`
+- If the canonical example changed, fixtures are regenerated (`make regenerate-fixtures`)
 - The reduction graph and schemas are up to date (`cargo run --example export_graph && cargo run --example export_schemas`)
 
 ## Step 1: Load Example Data
 
 ```typst
-#let src_tgt = load-example("<source>_to_<target>")
-#let src_tgt_r = load-results("<source>_to_<target>")
-#let src_tgt_sol = src_tgt_r.solutions.at(0)
+#let src_tgt = load-example("Source", "Target")
+#let src_tgt_sol = src_tgt.solutions.at(0)
 ```
 
 Where:
-- `load-example(name)` loads `examples/{name}.json` — contains source/target problem instances
-- `load-results(name)` loads `examples/{name}.result.json` — contains solution configs
-- Access fields: `src_tgt.source.instance`, `src_tgt_sol.source_config`, `src_tgt_sol.target_config`
+- `load-example(source, target, ...)` looks up the canonical rule entry from `src/example_db/fixtures/examples.json`
+- The returned record contains `source`, `target`, and `solutions`
+- Access fields: `src_tgt.source.instance`, `src_tgt.target.instance`, `src_tgt_sol.source_config`, `src_tgt_sol.target_config`
 
 ## Step 2: Write the Theorem Body (Rule Statement)
 
@@ -157,7 +158,7 @@ Detailed by default. Only use a brief example for trivially obvious reductions (
 
     *Step N -- Verify a solution.* [end-to-end verification]
 
-    *Count:* #src_tgt_r.solutions.len() optimal solutions ...
+    *Multiplicity:* The fixture stores one canonical witness. If total multiplicity matters, explain it from the construction.
   ],
 )
 ```
@@ -176,7 +177,7 @@ Each step should:
 | First | Show the source instance (dimensions, structure). Include graph visualization if applicable. |
 | Middle | Walk through the construction. Show intermediate values. Explicitly quantify overhead. |
 | Second-to-last | Verify a concrete solution end-to-end (source config → target config, check validity). |
-| Last | Solution count: `#src_tgt_r.solutions.len()` with brief combinatorial justification. |
+| Last | State that the fixture stores one canonical witness; if multiplicity matters, justify it mathematically from the construction. |
 
 ### 4d. Graph Visualization (if applicable)
 
@@ -201,8 +202,8 @@ Each step should:
 // Target configuration (e.g., binary encoding)
 #src_tgt_sol.target_config.map(str).join(", ")
 
-// Number of optimal solutions
-#src_tgt_r.solutions.len()
+// The canonical witness pair
+#src_tgt.solutions.at(0)
 
 // Source instance fields
 #src_tgt.source.instance.num_vertices
@@ -219,9 +220,6 @@ If this is a new problem not yet in the paper, add to the `display-name` diction
 ## Step 6: Build and Verify
 
 ```bash
-# Regenerate example JSON (if not already done)
-make examples
-
 # Build the paper
 make paper
 ```
@@ -233,7 +231,7 @@ make paper
 - [ ] **Overhead consistent**: prose dimensions match auto-derived overhead from JSON edge data
 - [ ] **Example uses JSON data**: concrete values come from `load-example`/`load-results`, not hardcoded
 - [ ] **Solution verified**: at least one solution checked end-to-end in the example
-- [ ] **Solution count**: `solutions.len()` stated with combinatorial explanation
+- [ ] **Witness semantics**: text treats `solutions.at(0)` as the canonical witness; any multiplicity claim is derived mathematically, not from fixture length
 - [ ] **Paper compiles**: `make paper` succeeds without errors
 - [ ] **Completeness check**: no new warnings about missing edges in the paper
 

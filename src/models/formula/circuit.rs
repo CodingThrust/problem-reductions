@@ -11,6 +11,9 @@ use std::collections::HashMap;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "CircuitSAT",
+        display_name: "Circuit SAT",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Find satisfying input to a boolean circuit",
         fields: &[
@@ -304,7 +307,30 @@ impl Problem for CircuitSAT {
 impl SatisfactionProblem for CircuitSAT {}
 
 crate::declare_variants! {
-    CircuitSAT => "2^num_variables",
+    default sat CircuitSAT => "2^num_variables",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "circuit_sat",
+        instance: Box::new(CircuitSAT::new(Circuit::new(vec![
+            Assignment::new(
+                vec!["a".to_string()],
+                BooleanExpr::and(vec![BooleanExpr::var("x1"), BooleanExpr::var("x2")]),
+            ),
+            Assignment::new(
+                vec!["b".to_string()],
+                BooleanExpr::or(vec![BooleanExpr::var("x1"), BooleanExpr::var("x2")]),
+            ),
+            Assignment::new(
+                vec!["c".to_string()],
+                BooleanExpr::xor(vec![BooleanExpr::var("a"), BooleanExpr::var("b")]),
+            ),
+        ]))),
+        optimal_config: vec![0, 0, 0, 0, 0],
+        optimal_value: serde_json::json!(true),
+    }]
 }
 
 #[cfg(test)]

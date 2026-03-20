@@ -55,11 +55,11 @@ impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i32> {
         // Constraints: For each vertex v, sum of incident edge variables <= 1
         // This ensures at most one incident edge is selected per vertex
         let v2e = self.vertex_to_edges();
-        let constraints: Vec<LinearConstraint> = v2e
-            .into_iter()
-            .filter(|(_, edges)| !edges.is_empty())
-            .map(|(_, edges)| {
-                let terms: Vec<(usize, f64)> = edges.into_iter().map(|e| (e, 1.0)).collect();
+        let constraints: Vec<LinearConstraint> = (0..self.graph().num_vertices())
+            .filter_map(|vertex| v2e.get(&vertex))
+            .filter(|edges| !edges.is_empty())
+            .map(|edges| {
+                let terms: Vec<(usize, f64)> = edges.iter().map(|&e| (e, 1.0)).collect();
                 LinearConstraint::le(terms, 1.0)
             })
             .collect();
@@ -76,6 +76,26 @@ impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i32> {
 
         ReductionMatchingToILP { target }
     }
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "maximummatching_to_ilp",
+        build: || {
+            let (n, edges) = crate::topology::small_graphs::petersen();
+            let source = MaximumMatching::unit_weights(SimpleGraph::new(n, edges));
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
+                source,
+                SolutionPair {
+                    source_config: vec![0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
+                    target_config: vec![0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
+                },
+            )
+        },
+    }]
 }
 
 #[cfg(test)]
