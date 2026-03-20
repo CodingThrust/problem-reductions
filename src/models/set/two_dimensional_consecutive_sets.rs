@@ -208,22 +208,18 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "two_dimensional_consecutive_sets",
-        build: || {
-            let problem = TwoDimensionalConsecutiveSets::new(
-                6,
-                vec![
-                    vec![0, 1, 2],
-                    vec![3, 4, 5],
-                    vec![1, 3],
-                    vec![2, 4],
-                    vec![0, 5],
-                ],
-            );
-            crate::example_db::specs::satisfaction_example(
-                problem,
-                vec![vec![0, 1, 2, 2, 3, 1], vec![0, 0, 0, 0, 0, 0]],
-            )
-        },
+        instance: Box::new(TwoDimensionalConsecutiveSets::new(
+            6,
+            vec![
+                vec![0, 1, 2],
+                vec![3, 4, 5],
+                vec![1, 3],
+                vec![2, 4],
+                vec![0, 5],
+            ],
+        )),
+        optimal_config: vec![0, 1, 2, 2, 3, 1],
+        optimal_value: serde_json::json!(true),
     }]
 }
 
