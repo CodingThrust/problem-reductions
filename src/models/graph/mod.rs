@@ -27,6 +27,7 @@
 //! - [`BoundedComponentSpanningForest`]: Partition vertices into bounded-weight connected components
 //! - [`MultipleCopyFileAllocation`]: File-copy placement under storage and access costs
 //! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
+//! - [`MinimumGraphBandwidth`]: Vertex ordering minimizing the maximum edge span
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
 //! - [`MultipleChoiceBranching`]: Directed branching with partition constraints
@@ -60,6 +61,7 @@ pub(crate) mod minimum_cut_into_bounded_sets;
 pub(crate) mod minimum_dominating_set;
 pub(crate) mod minimum_feedback_arc_set;
 pub(crate) mod minimum_feedback_vertex_set;
+pub(crate) mod minimum_graph_bandwidth;
 pub(crate) mod minimum_multiway_cut;
 pub(crate) mod minimum_sum_multicenter;
 pub(crate) mod minimum_vertex_cover;
@@ -98,6 +100,7 @@ pub use minimum_cut_into_bounded_sets::MinimumCutIntoBoundedSets;
 pub use minimum_dominating_set::MinimumDominatingSet;
 pub use minimum_feedback_arc_set::MinimumFeedbackArcSet;
 pub use minimum_feedback_vertex_set::MinimumFeedbackVertexSet;
+pub use minimum_graph_bandwidth::MinimumGraphBandwidth;
 pub use minimum_multiway_cut::MinimumMultiwayCut;
 pub use minimum_sum_multicenter::MinimumSumMulticenter;
 pub use minimum_vertex_cover::MinimumVertexCover;
@@ -152,6 +155,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(rural_postman::canonical_model_example_specs());
     specs.extend(graph_partitioning::canonical_model_example_specs());
     specs.extend(minimum_feedback_arc_set::canonical_model_example_specs());
+    specs.extend(minimum_graph_bandwidth::canonical_model_example_specs());
     specs.extend(optimal_linear_arrangement::canonical_model_example_specs());
     specs.extend(subgraph_isomorphism::canonical_model_example_specs());
     specs
