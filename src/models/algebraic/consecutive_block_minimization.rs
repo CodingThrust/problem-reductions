@@ -228,13 +228,12 @@ fn validate_matrix_dimensions(matrix: &[Vec<bool>]) -> Result<(usize, usize), St
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "consecutive_block_minimization",
-        build: || {
-            let problem = ConsecutiveBlockMinimization::new(
-                vec![vec![true, false, true], vec![false, true, true]],
-                2,
-            );
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 2, 1]])
-        },
+        instance: Box::new(ConsecutiveBlockMinimization::new(
+            vec![vec![true, false, true], vec![false, true, true]],
+            2,
+        )),
+        optimal_config: vec![0, 2, 1],
+        optimal_value: serde_json::json!(true),
     }]
 }
 
