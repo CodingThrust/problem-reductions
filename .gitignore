@@ -78,6 +78,7 @@ pkgref/
 
 # Generated example outputs
 docs/paper/examples/
+docs/paper/data/
 
 # Claude Code logs
 claude-output.log
@@ -87,3 +88,5 @@ claude-output.log
 .claude/worktrees/
 docs/test-reports/
 docs/superpowers/
+*.log
+docs/src/reductions/*.json

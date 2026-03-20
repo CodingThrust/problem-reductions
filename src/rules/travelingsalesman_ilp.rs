@@ -196,6 +196,32 @@ impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i32> {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "travelingsalesman_to_ilp",
+        build: || {
+            let source = TravelingSalesman::new(
+                SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+                vec![10, 15, 20, 35, 25, 30],
+            );
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
+                source,
+                SolutionPair {
+                    source_config: vec![1, 1, 0, 0, 1, 1],
+                    target_config: vec![
+                        1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
+                    ],
+                },
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/travelingsalesman_ilp.rs"]
 mod tests;

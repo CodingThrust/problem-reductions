@@ -1,4 +1,5 @@
 use super::*;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::variant::K3;
@@ -130,10 +131,11 @@ fn test_sat_to_ksat_closed_loop() {
 
     // Extract solutions should map back correctly
     if ksat_satisfiable {
-        for ksat_sol in &ksat_solutions {
-            let sat_sol = reduction.extract_solution(ksat_sol);
-            assert_eq!(sat_sol.len(), 3); // Original variable count
-        }
+        assert_satisfaction_round_trip_from_satisfaction_target(
+            &sat,
+            &reduction,
+            "SAT->KSat closed loop",
+        );
     }
 }
 
@@ -285,14 +287,11 @@ fn test_mixed_clause_sizes() {
     }
 
     // Verify satisfiability is preserved - use find_all_satisfying for satisfaction problems
-    let solver = BruteForce::new();
-    let best_target = solver.find_all_satisfying(ksat);
-    let best_source: HashSet<Vec<usize>> = solver.find_all_satisfying(&sat).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| reduction.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_satisfaction_round_trip_from_satisfaction_target(
+        &sat,
+        &reduction,
+        "SAT->KSat mixed clause sizes",
+    );
 }
 
 #[test]
@@ -325,14 +324,13 @@ fn test_jl_parity_sat_to_ksat() {
     let source = Satisfiability::new(num_vars, clauses);
     let result = ReduceTo::<KSatisfiability<K3>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_satisfying(result.target_problem());
     let best_source: HashSet<Vec<usize>> =
         solver.find_all_satisfying(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_satisfaction_round_trip_from_satisfaction_target(
+        &source,
+        &result,
+        "JL parity SAT->KSat",
+    );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }
@@ -351,14 +349,13 @@ fn test_jl_parity_ksat_to_sat() {
     let source = KSatisfiability::<K3>::new(num_vars, clauses);
     let result = ReduceTo::<Satisfiability>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_satisfying(result.target_problem());
     let best_source: HashSet<Vec<usize>> =
         solver.find_all_satisfying(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_satisfaction_round_trip_from_satisfaction_target(
+        &source,
+        &result,
+        "JL parity KSat->SAT",
+    );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }
@@ -377,14 +374,13 @@ fn test_jl_parity_rule_sat_to_ksat() {
     let source = Satisfiability::new(num_vars, clauses);
     let result = ReduceTo::<KSatisfiability<K3>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_satisfying(result.target_problem());
     let best_source: HashSet<Vec<usize>> =
         solver.find_all_satisfying(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target
-        .iter()
-        .map(|t| result.extract_solution(t))
-        .collect();
-    assert!(extracted.is_subset(&best_source));
+    assert_satisfaction_round_trip_from_satisfaction_target(
+        &source,
+        &result,
+        "JL parity rule SAT->KSat",
+    );
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }

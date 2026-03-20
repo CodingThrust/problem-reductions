@@ -42,6 +42,17 @@ make cli    # builds target/release/pred
 
 See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples, the reduction workflow, and [CLI usage](https://codingthrust.github.io/problem-reductions/cli.html).
 
+Try a model directly from the CLI:
+
+```bash
+# Show the Consecutive Block Minimization model (alias: CBM)
+pred show CBM
+
+# Create and solve a small CBM instance (currently with brute-force)
+pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound 2 \
+  | pred solve - --solver brute-force
+```
+
 ## MCP Server (AI Integration)
 
 The `pred` CLI includes a built-in [MCP](https://modelcontextprotocol.io/) server for AI assistant integration (Claude Code, Cursor, Windsurf, OpenCode, etc.).
@@ -67,15 +78,17 @@ See the [MCP documentation](https://codingthrust.github.io/problem-reductions/mc
 
 1. **File an issue** — use the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template. Describe the problem or reduction you have in mind — the template guides you through the details.
 2. **We implement it** — for reasonable requests, maintainers tag the issue `implement` and AI agents generate a tested implementation.
-3. **We present it to you** — all issue contributors are invited to community calls (via [Zulip](https://problem-reductions.zulipchat.com/)), where maintainers walk through the implementation — documentation, CLI behavior, correctness — and you provide feedback.
+3. **We present it to you** — all issue contributors are invited to our **weekly community call** (Tuesdays 10:00 HKT) via [Zulip](https://problem-reductions.zulipchat.com/), where we walk through implementations, resolve open issues, and collect feedback.
 
 **Which rules matter most?** Run `cargo run --example detect_isolated_problems` and `cargo run --example detect_unreachable_from_3sat` to see which problems are disconnected or lack NP-hardness proof chains from 3-SAT. Rules that connect isolated problems or complete proof chains are especially valuable.
 
 **Authorship:** contribute 10 non-trivial reduction rules and you'll be added to the author list of the [paper](https://codingthrust.github.io/problem-reductions/reductions.pdf).
 
-> **Tip:** If you use Claude Code / OpenCode / Codex, you can file issues interactively:
+> **Tip:** If you use Claude Code / OpenCode / Codex, run `/propose` to file issues interactively — it guides you one question at a time, suggests the most needed reductions based on graph topology, and runs quality checks before filing:
 > ```
-> File an issue on CodingThrust/problem-reductions, using the "Model" issue template, about the Closest Vector Problem. Brainstorm with me.
+> /propose              # brainstorm a new model or rule
+> /propose model        # propose a new problem
+> /propose rule         # propose a new reduction
 > ```
 
 If you prefer to **implement yourself**, see the [Design](https://codingthrust.github.io/problem-reductions/design.html) guide. Run `make help` to see available developer commands.

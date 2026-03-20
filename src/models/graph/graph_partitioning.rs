@@ -3,7 +3,7 @@
 //! The Graph Partitioning (Minimum Bisection) problem asks for a balanced partition
 //! of vertices into two equal halves minimizing the number of crossing edges.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
@@ -12,6 +12,11 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "GraphPartitioning",
+        display_name: "Graph Partitioning",
+        aliases: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+        ],
         module_path: module_path!(),
         description: "Find minimum cut balanced bisection of a graph",
         fields: &[
@@ -134,7 +139,32 @@ where
 }
 
 crate::declare_variants! {
-    GraphPartitioning<SimpleGraph> => "2^num_vertices",
+    default opt GraphPartitioning<SimpleGraph> => "2^num_vertices",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    use crate::topology::SimpleGraph;
+    // Two triangles connected by 3 edges; balanced cut = 3
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "graph_partitioning",
+        instance: Box::new(GraphPartitioning::new(SimpleGraph::new(
+            6,
+            vec![
+                (0, 1),
+                (0, 2),
+                (1, 2),
+                (1, 3),
+                (2, 3),
+                (2, 4),
+                (3, 4),
+                (3, 5),
+                (4, 5),
+            ],
+        ))),
+        optimal_config: vec![0, 0, 0, 1, 1, 1],
+        optimal_value: serde_json::json!({"Valid": 3}),
+    }]
 }
 
 #[cfg(test)]

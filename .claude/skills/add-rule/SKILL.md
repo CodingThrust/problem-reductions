@@ -32,8 +32,6 @@ If any item is missing, ask the user to provide it. Put a high standard on item 
 Read these first to understand the patterns:
 - **Reduction rule:** `src/rules/minimumvertexcover_maximumindependentset.rs`
 - **Reduction tests:** `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs`
-- **Example program:** `examples/reduction_minimumvertexcover_to_maximumindependentset.rs`
-- **Example registration:** `tests/suites/examples.rs`
 - **Paper entry:** search `docs/paper/reductions.typ` for `MinimumVertexCover` `MaximumIndependentSet`
 - **Traits:** `src/rules/traits.rs` (`ReduceTo<T>`, `ReductionResult`)
 
@@ -84,6 +82,8 @@ impl ReduceTo<TargetType> for SourceType {
 }
 ```
 
+Each primitive reduction is determined by the exact source/target variant pair. Keep one primitive registration per endpoint pair and use only the `overhead` form of `#[reduction]`.
+
 ## Step 2: Register in mod.rs
 
 Add to `src/rules/mod.rs`:
@@ -110,36 +110,75 @@ Additional recommended tests:
 
 Link via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the rule file.
 
-## Step 4: Write example program
+## Step 4: Add canonical example to example_db
 
-Create `examples/reduction_<source>_to_<target>.rs`:
-
-Required structure:
-- `pub fn run()` -- main logic (required for test harness)
-- `fn main() { run() }` -- entry point
-- Use regular comments (`//`), not doc comments
-- Create source instance, reduce, solve, extract, verify, export JSON
-
-Register in `tests/suites/examples.rs`:
-```rust
-example_test!(reduction_<source>_to_<target>);
-// ...
-example_fn!(test_<source>_to_<target>, reduction_<source>_to_<target>);
-```
+Add a builder function in `src/example_db/rule_builders.rs` that constructs a small, canonical instance for this reduction. Follow the existing patterns in that file. Register the builder in `build_rule_examples()`.
 
 ## Step 5: Document in paper
 
-Invoke the `/write-rule-in-paper` skill to write the reduction-rule entry in `docs/paper/reductions.typ`. That skill covers the full authoring process: complexity citation, self-contained proof, detailed worked example, and verification checklist.
+Write a `reduction-rule` entry in `docs/paper/reductions.typ`. **Reference example:** search for `reduction-rule("KColoring", "QUBO"` to see the gold-standard entry — use it as a template. For a minimal example, see MinimumVertexCover -> MaximumIndependentSet.
+
+### 5a. Write theorem body (rule statement)
+
+```typst
+#reduction-rule("Source", "Target",
+  example: true,
+  example-caption: [Description ($n = ...$, $|E| = ...$)],
+)[
+  This $O(...)$ reduction @citation constructs [target structure] ... ($n k$ variables indexed by ...).
+]
+```
+
+Three parts: complexity with citation, construction summary, overhead hint.
+
+### 5b. Write proof body
+
+Use these subsections with italic labels:
+
+```typst
+][
+  _Construction._ [Full mathematical construction — enough detail to reimplement]
+
+  _Correctness._ ($arrow.r.double$) If ... ($arrow.l.double$) If ...
+
+  _Variable mapping._ [Only if non-trivial mapping]
+
+  _Solution extraction._ [How to convert target solution back to source]
+]
+```
+
+Must be self-contained (all notation defined) and reproducible.
+
+### 5c. Write worked example (extra block)
+
+Step-by-step walkthrough with concrete numbers from JSON data. Required steps:
+1. Show source instance (dimensions, structure, graph visualization if applicable)
+2. Walk through construction with intermediate values
+3. Verify a concrete solution end-to-end
+4. Witness semantics: state that the fixture stores one canonical witness; if multiplicity matters mathematically, explain it from the construction rather than from `solutions.len()`
+
+Use `graph-colors`, `g-node()`, `g-edge()` for graph visualization — see reference examples.
+
+### 5d. Build and verify
+
+```bash
+make paper     # Must compile without errors
+```
+
+Checklist: notation self-contained, complexity cited, overhead consistent, example uses JSON data (not hardcoded), solution verified end-to-end, witness semantics respected, paper compiles.
 
 ## Step 6: Regenerate exports and verify
 
 ```bash
-cargo run --example export_graph    # Update reduction_graph.json
-cargo run --example export_schemas  # Update problem schemas
+cargo run --example export_graph    # Generate reduction_graph.json for docs/paper builds
+cargo run --example export_schemas  # Generate problem schemas for docs/paper builds
+make regenerate-fixtures            # Regenerate example_db/fixtures/examples.json (slow, needs ILP)
 make test clippy                    # Must pass
 ```
 
-If running standalone (not inside `make run-plan`), invoke [review-implementation](../review-implementation/SKILL.md) to verify all structural and semantic checks pass. When running inside a plan, the outer orchestrator handles the review.
+`make regenerate-fixtures` is required so the paper can load the new rule's example data from `src/example_db/fixtures/examples.json`. Without it, the `reduction-rule` entry in Step 5 will reference missing fixture data.
+
+Structural and quality review is handled by the `review-pipeline` stage, not here. The run stage just needs to produce working code.
 
 ## Solver Rules
 
@@ -149,15 +188,14 @@ If running standalone (not inside `make run-plan`), invoke [review-implementatio
 
 ## CLI Impact
 
-Adding a reduction rule does NOT require CLI changes -- the reduction graph is auto-generated from `#[reduction]` macros and the CLI discovers paths dynamically. However, both source and target models must already be registered in the CLI dispatch table (see `add-model` skill).
+Adding a reduction rule does NOT require CLI changes -- the reduction graph is auto-generated from `#[reduction]` macros and the CLI discovers paths dynamically. However, both source and target models must already be fully registered through their model files (`declare_variants!`), aliases as needed in `problem_name.rs`, and `pred create` support where applicable (see `add-model` skill).
 
 ## File Naming
 
 - Rule file: `src/rules/<sourcelower>_<targetlower>.rs` -- no underscores within a problem name
   - e.g., `maximumindependentset_qubo.rs`, `minimumvertexcover_maximumindependentset.rs`
-- Example file: `examples/reduction_<source>_to_<target>.rs`
-  - e.g., `reduction_minimumvertexcover_to_maximumindependentset.rs`
 - Test file: `src/unit_tests/rules/<sourcelower>_<targetlower>.rs`
+- Canonical example: builder function in `src/example_db/rule_builders.rs`
 
 ## Common Mistakes
 
@@ -165,8 +203,8 @@ Adding a reduction rule does NOT require CLI changes -- the reduction graph is a
 |---------|-----|
 | Forgetting `#[reduction(...)]` macro | Required for compile-time registration in the reduction graph |
 | Wrong overhead expression | Must accurately reflect the size relationship |
+| Adding extra reduction metadata or duplicate primitive endpoint registration | Keep one primitive registration per endpoint pair and use only the `overhead` form of `#[reduction]` |
 | Missing `extract_solution` mapping state | Store any index maps needed in the ReductionResult struct |
-| Example missing `pub fn run()` | Required for the test harness (`include!` pattern) |
-| Not registering example in `tests/suites/examples.rs` | Must add both `example_test!` and `example_fn!` |
+| Not adding canonical example to `example_db` | Add builder in `src/example_db/rule_builders.rs` |
 | Not regenerating reduction graph | Run `cargo run --example export_graph` after adding a rule |
-| Source/target model not in CLI dispatch | Both problems must be registered -- use `add-model` skill first |
+| Source/target model not fully registered | Both problems must already have `declare_variants!`, aliases as needed, and CLI create support -- use `add-model` skill first |

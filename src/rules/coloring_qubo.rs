@@ -127,6 +127,27 @@ macro_rules! impl_kcoloring_to_qubo {
 
 impl_kcoloring_to_qubo!(K2, K3);
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+    use crate::models::algebraic::QUBO;
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "kcoloring_to_qubo",
+        build: || {
+            let (n, edges) = crate::topology::small_graphs::house();
+            let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, edges), 3);
+            crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+                source,
+                SolutionPair {
+                    source_config: vec![1, 2, 2, 1, 0],
+                    target_config: vec![0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0],
+                },
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/coloring_qubo.rs"]
 mod tests;

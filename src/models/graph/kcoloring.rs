@@ -3,7 +3,7 @@
 //! The K-Coloring problem asks whether a graph can be colored with K colors
 //! such that no two adjacent vertices have the same color.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::variant::{KValue, VariantParam, K2, K3, K4, K5, KN};
@@ -12,6 +12,12 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "KColoring",
+        display_name: "K-Coloring",
+        aliases: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("k", "KN", &["KN", "K2", "K3", "K4", "K5"]),
+        ],
         module_path: module_path!(),
         description: "Find valid k-coloring of a graph",
         fields: &[
@@ -183,13 +189,26 @@ pub(crate) fn is_valid_coloring<G: Graph>(
     true
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "kcoloring_k3_simplegraph",
+        instance: Box::new(KColoring::<K3, _>::new(SimpleGraph::new(
+            5,
+            vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
+        ))),
+        optimal_config: vec![0, 1, 1, 0, 2],
+        optimal_value: serde_json::json!(true),
+    }]
+}
+
 crate::declare_variants! {
-    KColoring<KN, SimpleGraph> => "2^num_vertices",
-    KColoring<K2, SimpleGraph> => "num_vertices + num_edges",
-    KColoring<K3, SimpleGraph> => "1.3289^num_vertices",
-    KColoring<K4, SimpleGraph> => "1.7159^num_vertices",
+    default sat KColoring<KN, SimpleGraph> => "2^num_vertices",
+    sat KColoring<K2, SimpleGraph> => "num_vertices + num_edges",
+    sat KColoring<K3, SimpleGraph> => "1.3289^num_vertices",
+    sat KColoring<K4, SimpleGraph> => "1.7159^num_vertices",
     // Best known: O*((2-ε)^n) for some ε > 0 (Zamir 2021), concrete ε unknown
-    KColoring<K5, SimpleGraph> => "2^num_vertices",
+    sat KColoring<K5, SimpleGraph> => "2^num_vertices",
 }
 
 #[cfg(test)]

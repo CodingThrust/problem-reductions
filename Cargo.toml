@@ -3,7 +3,7 @@ members = [".", "problemreductions-macros", "problemreductions-cli"]
 
 [package]
 name = "problemreductions"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "A library for reducing NP-hard problems"
 license = "MIT"
@@ -13,6 +13,7 @@ categories = ["algorithms", "science"]
 
 [features]
 default = ["ilp-highs"]
+example-db = []
 ilp = ["ilp-highs"]  # backward compat shorthand
 ilp-solver = []      # marker: enables ILP solver code
 ilp-highs = ["ilp-solver", "dep:good_lp", "good_lp/highs"]
@@ -28,12 +29,13 @@ bitvec = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
+num-bigint = "0.4"
 num-traits = "0.2"
 good_lp = { version = "1.8", default-features = false, optional = true }
 inventory = "0.3"
 ordered-float = "5.0"
 rand = "0.10"
-problemreductions-macros = { version = "0.3.0", path = "problemreductions-macros" }
+problemreductions-macros = { version = "0.4.0", path = "problemreductions-macros" }
 
 [dev-dependencies]
 proptest = "1.0"
@@ -42,6 +44,11 @@ criterion = "0.8"
 [[bench]]
 name = "solver_benchmarks"
 harness = false
+
+[[example]]
+name = "export_examples"
+path = "examples/export_examples.rs"
+required-features = ["example-db"]
 
 [profile.release]
 lto = true

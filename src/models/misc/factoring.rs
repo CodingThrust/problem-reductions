@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "Factoring",
+        display_name: "Factoring",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Factor a composite integer into two factors",
         fields: &[
@@ -163,7 +166,17 @@ impl OptimizationProblem for Factoring {
 }
 
 crate::declare_variants! {
-    Factoring => "exp((m + n)^(1/3) * log(m + n)^(2/3))",
+    default opt Factoring => "exp((m + n)^(1/3) * log(m + n)^(2/3))",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "factoring",
+        instance: Box::new(Factoring::new(2, 3, 15)),
+        optimal_config: vec![1, 1, 1, 0, 1],
+        optimal_value: serde_json::json!({"Valid": 0}),
+    }]
 }
 
 #[cfg(test)]

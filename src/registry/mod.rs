@@ -44,10 +44,58 @@
 //! println!("Problem: {}", info.name);
 //! ```
 
+mod dyn_problem;
 mod info;
+pub mod problem_ref;
+pub mod problem_type;
 mod schema;
 pub mod variant;
 
+pub use dyn_problem::{DynProblem, LoadedDynProblem, SolveFn};
 pub use info::{ComplexityClass, FieldInfo, ProblemInfo, ProblemMetadata};
-pub use schema::{collect_schemas, FieldInfoJson, ProblemSchemaEntry, ProblemSchemaJson};
-pub use variant::VariantEntry;
+pub use problem_ref::{parse_catalog_problem_ref, require_graph_variant, ProblemRef};
+pub use problem_type::{find_problem_type, find_problem_type_by_alias, problem_types, ProblemType};
+pub use schema::{
+    collect_schemas, declared_size_fields, FieldInfoJson, ProblemSchemaEntry, ProblemSchemaJson,
+    ProblemSizeFieldEntry, VariantDimension,
+};
+pub use variant::{find_variant_entry, VariantEntry};
+
+use std::any::Any;
+use std::collections::BTreeMap;
+
+/// Load a problem from JSON by exact problem name and exact variant map.
+///
+/// No alias resolution or default fallback. Returns `Err` if the entry is not found.
+pub fn load_dyn(
+    name: &str,
+    variant: &BTreeMap<String, String>,
+    data: serde_json::Value,
+) -> Result<LoadedDynProblem, String> {
+    let entry = find_variant_entry(name, variant).ok_or_else(|| {
+        format!(
+            "No registered variant for `{name}` with variant {:?}",
+            variant
+        )
+    })?;
+
+    let inner =
+        (entry.factory)(data).map_err(|e| format!("Failed to deserialize `{name}`: {e}"))?;
+    Ok(LoadedDynProblem::new(inner, entry.solve_fn))
+}
+
+/// Serialize a `&dyn Any` by exact problem name and exact variant map.
+///
+/// Returns `None` if the entry is not found or the downcast fails.
+pub fn serialize_any(
+    name: &str,
+    variant: &BTreeMap<String, String>,
+    any: &dyn Any,
+) -> Option<serde_json::Value> {
+    let entry = find_variant_entry(name, variant)?;
+    (entry.serialize_fn)(any)
+}
+
+#[cfg(test)]
+#[path = "../unit_tests/registry/dispatch.rs"]
+mod dispatch_tests;
