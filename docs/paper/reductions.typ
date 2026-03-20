@@ -4183,6 +4183,50 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ For each $i$: if $y_i$ is selected ($x_(2i) = 1$), set $x_i = 1$; if $z_i$ is selected ($x_(2i+1) = 1$), set $x_i = 0$.
 ]
 
+#{
+  let ss-cvp = load-example("SubsetSum", "ClosestVectorProblem")
+  let ss-cvp-sol = ss-cvp.solutions.at(0)
+  let ss-cvp-sizes = ss-cvp.source.instance.sizes
+  let ss-cvp-target = ss-cvp.source.instance.target
+  let ss-cvp-basis = ss-cvp.target.instance.basis
+  let ss-cvp-target-vec = ss-cvp.target.instance.target
+  let ss-cvp-n = ss-cvp-sizes.len()
+  let ss-cvp-x = ss-cvp-sol.target_config
+  let to-mat(m) = math.mat(..m.map(row => row.map(v => $#v$)))
+  [
+    #reduction-rule("SubsetSum", "ClosestVectorProblem",
+      example: true,
+      example-caption: [#ss-cvp-n elements, target sum $B = #ss-cvp-target$],
+      extra: [
+        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#ss-cvp-sizes.map(str).join(", "))$ and target $B = #ss-cvp-target$.
+
+        *Step 2 -- Build the lattice.* The reduction creates the basis
+        $ bold(B) = #to-mat(ss-cvp-basis) $
+        together with target $ bold(t) = (#ss-cvp-target-vec.map(str).join(", "))^top $
+        and binary bounds $x_i in {0,1}$ for all $#ss-cvp-n$ coordinates.
+
+        *Step 3 -- Verify the canonical witness.* The fixture stores $bold(x) = (#ss-cvp-x.map(str).join(", "))$, which selects sizes $3$ and $8$ and therefore satisfies $3 + 8 = #ss-cvp-target$. Since $bold(B) bold(x) = (1, 0, 0, 1, #ss-cvp-target)^top$, the difference vector is $(0.5, -0.5, -0.5, 0.5, 0)^top$ and the Euclidean distance is $sqrt(#ss-cvp-n / 4) = 1$.
+
+        *Witness semantics.* The example DB stores one canonical minimizer. This source instance also has another satisfying subset, $(1, 1, 1, 0)$, so the reduction has multiple optimal CVP witnesses even though only one is serialized.
+      ],
+    )[
+      Classical lattice embedding for Subset Sum following Lagarias and Odlyzko @lagarias1985, with the $1/2$-target CVP formulation in the style of Coster et al. @coster1992. For an instance with $n$ elements, the reduction produces $n$ basis vectors in ambient dimension $n + 1$: the first $n$ coordinates enforce binary structure and the last coordinate records the subset sum error.
+    ][
+      _Construction._ Given sizes $s_0, dots, s_(n-1) in ZZ^+$ and target $B in ZZ^+$, define one basis vector per element:
+      $ bold(b)_i = bold(e)_i + s_i bold(e)_(n+1) $
+      for $i in {0, dots, n-1}$. Equivalently, the basis matrix has columns $bold(b)_0, dots, bold(b)_(n-1)$, so its first $n$ rows form the identity matrix and its last row is $(s_0, dots, s_(n-1))$. Set the target vector to
+      $ bold(t) = (1/2, dots, 1/2, B)^top $
+      and restrict every CVP variable to $x_i in {0, 1}$.
+
+      _Correctness._ ($arrow.r.double$) If $bold(x) in {0,1}^n$ is a satisfying Subset Sum solution, then $sum_i s_i x_i = B$ and
+      $ norm(bold(B) bold(x) - bold(t))_2^2 = sum_(i=0)^(n-1) (x_i - 1/2)^2 + (sum_i s_i x_i - B)^2 = n/4. $
+      Hence every satisfying subset becomes a CVP solution at distance $sqrt(n / 4)$. ($arrow.l.double$) Conversely, binary bounds force every CVP candidate to lie in ${0,1}^n$. The first $n$ coordinates always contribute exactly $n/4$ to the squared distance, so a CVP minimizer attains distance $sqrt(n/4)$ if and only if the last coordinate contributes $0$, i.e. $sum_i s_i x_i = B$. When the Subset Sum instance is unsatisfiable, every binary vector has strictly larger distance.
+
+      _Solution extraction._ Return the binary CVP vector unchanged.
+    ]
+  ]
+}
+
 #reduction-rule("ILP", "QUBO")[
   A binary ILP optimizes a linear objective over binary variables subject to linear constraints. The penalty method converts each equality constraint $bold(a)_k^top bold(x) = b_k$ into the quadratic penalty $(bold(a)_k^top bold(x) - b_k)^2$, which is zero if and only if the constraint is satisfied. Inequality constraints are first converted to equalities using binary slack variables with powers-of-two coefficients. The resulting unconstrained quadratic over binary variables is a QUBO whose matrix $Q$ combines the negated objective (as diagonal terms) with the expanded constraint penalties (as a Gram matrix $A^top A$).
 ][

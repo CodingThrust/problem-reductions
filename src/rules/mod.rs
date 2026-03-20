@@ -35,6 +35,7 @@ pub(crate) mod sat_minimumdominatingset;
 mod spinglass_casts;
 pub(crate) mod spinglass_maxcut;
 pub(crate) mod spinglass_qubo;
+pub(crate) mod subsetsum_closestvectorproblem;
 #[cfg(test)]
 pub(crate) mod test_helpers;
 mod traits;
@@ -107,6 +108,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(sat_minimumdominatingset::canonical_rule_example_specs());
     specs.extend(spinglass_maxcut::canonical_rule_example_specs());
     specs.extend(spinglass_qubo::canonical_rule_example_specs());
+    specs.extend(subsetsum_closestvectorproblem::canonical_rule_example_specs());
     specs.extend(travelingsalesman_qubo::canonical_rule_example_specs());
     #[cfg(feature = "ilp-solver")]
     {
