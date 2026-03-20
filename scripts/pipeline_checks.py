@@ -183,6 +183,15 @@ def check_entry(
     }
 
 
+def _extract_complexity_strings(model_text: str) -> str:
+    """Extract complexity strings from declare_variants! for issue comparison."""
+    matches = re.findall(r'=>\s*"([^"]+)"', model_text)
+    if matches:
+        unique = list(dict.fromkeys(matches))
+        return "complexity: " + "; ".join(unique)
+    return "complexity: not found"
+
+
 def model_completeness(repo_root: Path, name: str) -> dict:
     file_stem = camel_to_snake(name)
     model_file = find_model_file(repo_root, file_stem)
@@ -206,7 +215,8 @@ def model_completeness(repo_root: Path, name: str) -> dict:
             else check_entry(status="fail", detail="missing ProblemSchemaEntry for model")
         ),
         "declare_variants": (
-            check_entry(status="pass", path=str(model_file.relative_to(repo_root)))
+            check_entry(status="pass", path=str(model_file.relative_to(repo_root)),
+                        detail=_extract_complexity_strings(model_text))
             if model_file is not None
             and "crate::declare_variants!" in model_text
             and re.search(r"\b(?:default\s+)?(?:opt|sat)\b", model_text)
