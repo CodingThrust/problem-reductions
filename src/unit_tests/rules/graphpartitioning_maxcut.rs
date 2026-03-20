@@ -52,7 +52,10 @@ fn test_graphpartitioning_to_maxcut_extract_solution_identity() {
     let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
     let target_solution = super::ISSUE_EXAMPLE_WITNESS.to_vec();
 
-    assert_eq!(reduction.extract_solution(&target_solution), target_solution);
+    assert_eq!(
+        reduction.extract_solution(&target_solution),
+        target_solution
+    );
 }
 
 #[test]

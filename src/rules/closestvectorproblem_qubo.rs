@@ -163,8 +163,7 @@ impl ReduceTo<QUBO<f64>> for ClosestVectorProblem<i32> {
             matrix[u][u] =
                 gram[var_u][var_u] * weight_u * weight_u + 2.0 * weight_u * g_lo_minus_h[var_u];
 
-            for v in (u + 1)..total_bits {
-                let (var_v, weight_v) = bit_terms[v];
+            for (v, &(var_v, weight_v)) in bit_terms.iter().enumerate().skip(u + 1) {
                 matrix[u][v] = 2.0 * gram[var_u][var_v] * weight_u * weight_v;
             }
         }
