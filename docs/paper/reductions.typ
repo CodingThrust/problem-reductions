@@ -1519,45 +1519,57 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 *Example.* Consider the graph $G$ with $n = 9$ vertices and edges ${0,1}, {1,2}, {3,4}, {4,5}, {6,7}, {7,8}$ (plus cross-edges ${0,3}, {2,5}, {3,6}, {5,8}$). Setting $q = 3$, the partition $V_1 = {0,1,2}$, $V_2 = {3,4,5}$, $V_3 = {6,7,8}$ is valid: $V_1$ contains edges ${0,1}, {1,2}$ (path $0 dash.em 1 dash.em 2$), $V_2$ contains ${3,4}, {4,5}$, and $V_3$ contains ${6,7}, {7,8}$.
 ]
 
-#problem-def("SteinerTreeInGraphs")[
-  Given an undirected graph $G = (V, E)$ with edge weights $w: E -> RR_(>= 0)$ and a set of terminal vertices $R subset.eq V$, find a subtree $T$ of $G$ that spans all terminals in $R$ and minimizes the total edge weight $sum_(e in T) w(e)$.
-][
-A classical NP-complete problem from Karp's list (as "Steiner Tree in Graphs," Garey & Johnson ND12) @karp1972. Central to network design, VLSI layout, and phylogenetic reconstruction. The problem generalizes minimum spanning tree (where $R = V$) and shortest path (where $|R| = 2$). The Dreyfus--Wagner dynamic programming algorithm @dreyfuswagner1971 solves it in $O(3^k dot n + 2^k dot n^2 + n^3)$ time, where $k = |R|$ and $n = |V|$. Bjorklund et al. @bjorklund2007 achieved $O^*(2^k)$ using subset convolution over the Mobius algebra, and Nederlof @nederlof2009 gave an $O^*(2^k)$ polynomial-space algorithm.
+#{
+  let x = load-model-example("SteinerTreeInGraphs")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges
+  let ne = edges.len()
+  let terminals = x.instance.terminals
+  let weights = x.instance.edge_weights
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let opt-weight = sol.metric.Valid
+  // Derive tree edges from optimal config
+  let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let tree-edges = tree-edge-indices.map(i => edges.at(i))
+  // Steiner vertices: non-terminal vertices that appear in tree edges
+  let steiner-verts = range(nv).filter(v => not terminals.contains(v) and tree-edges.any(e => e.at(0) == v or e.at(1) == v))
+  [
+    #problem-def("SteinerTreeInGraphs")[
+      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> RR_(>= 0)$ and a set of terminal vertices $R subset.eq V$, find a subtree $T$ of $G$ that spans all terminals in $R$ and minimizes the total edge weight $sum_(e in T) w(e)$.
+    ][
+    A classical NP-complete problem from Karp's list (as "Steiner Tree in Graphs," Garey & Johnson ND12) @karp1972. Central to network design, VLSI layout, and phylogenetic reconstruction. The problem generalizes minimum spanning tree (where $R = V$) and shortest path (where $|R| = 2$). The Dreyfus--Wagner dynamic programming algorithm @dreyfuswagner1971 solves it in $O(3^k dot n + 2^k dot n^2 + n^3)$ time, where $k = |R|$ and $n = |V|$. Bjorklund et al. @bjorklund2007 achieved $O^*(2^k)$ using subset convolution over the Mobius algebra, and Nederlof @nederlof2009 gave an $O^*(2^k)$ polynomial-space algorithm.
 
-*Example.* Consider a graph $G$ with $n = 6$ vertices and $|E| = 7$ edges. The terminals are $R = {v_0, v_3, v_5}$ (blue). The optimal Steiner tree uses Steiner vertex $v_2$ (gray, dashed border) and edges ${v_0, v_2}$, ${v_2, v_3}$, ${v_2, v_5}$ with total weight $2 + 1 + 2 = 5$. The direct path $v_0 -> v_1 -> v_3$ plus $v_3 -> v_4 -> v_5$ would cost $3 + 2 + 3 + 1 = 9$.
+    *Example.* Consider a graph $G$ with $n = #nv$ vertices and $|E| = #ne$ edges. The terminals are $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue). The optimal Steiner tree uses Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (gray, dashed border) and edges #tree-edges.map(e => [$\{v_#(e.at(0)), v_#(e.at(1))\}$]).join(", ") with total weight #tree-edge-indices.map(i => str(weights.at(i))).join(" + ") $= #opt-weight$.
 
-#figure({
-  // Graph: 6 vertices arranged in two rows
-  let verts = ((0, 1), (1.5, 1), (3, 1), (1.5, -0.5), (3, -0.5), (4.5, 0.25))
-  let edges = ((0, 1), (0, 2), (1, 3), (2, 3), (2, 5), (3, 4), (4, 5))
-  let weights = ("3", "2", "4", "1", "2", "3", "1")
-  let terminals = (0, 3, 5)
-  let steiner-verts = (2,)
-  let tree-edges = ((0, 2), (2, 3), (2, 5))  // optimal Steiner tree
-  canvas(length: 1cm, {
-    // Draw edges
-    for (idx, (u, v)) in edges.enumerate() {
-      let on-tree = tree-edges.any(t => (t.at(0) == u and t.at(1) == v) or (t.at(0) == v and t.at(1) == u))
-      g-edge(verts.at(u), verts.at(v),
-        stroke: if on-tree { 2pt + graph-colors.at(0) } else { 1pt + luma(200) })
-      let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
-      let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
-      draw.content((mx, my), text(7pt, fill: luma(80))[#weights.at(idx)])
-    }
-    // Draw vertices
-    for (k, pos) in verts.enumerate() {
-      let is-terminal = terminals.contains(k)
-      let is-steiner = steiner-verts.contains(k)
-      g-node(pos, name: "v" + str(k),
-        fill: if is-terminal { graph-colors.at(0) } else if is-steiner { luma(220) } else { white },
-        stroke: if is-steiner { (dash: "dashed", paint: graph-colors.at(0)) } else { 1pt + black },
-        label: if is-terminal { text(fill: white)[$v_#k$] } else { [$v_#k$] })
-    }
-  })
-},
-caption: [Steiner Tree: terminals $R = {v_0, v_3, v_5}$ (blue), Steiner vertex $v_2$ (dashed). Optimal tree (blue edges) has weight 5.],
-) <fig:steiner-tree-example>
-]
+    #figure({
+      // Graph: 6 vertices arranged in two rows (layout positions)
+      let verts = ((0, 1), (1.5, 1), (3, 1), (1.5, -0.5), (3, -0.5), (4.5, 0.25))
+      canvas(length: 1cm, {
+        // Draw edges
+        for (idx, (u, v)) in edges.enumerate() {
+          let on-tree = tree-edges.any(t => (t.at(0) == u and t.at(1) == v) or (t.at(0) == v and t.at(1) == u))
+          g-edge(verts.at(u), verts.at(v),
+            stroke: if on-tree { 2pt + graph-colors.at(0) } else { 1pt + luma(200) })
+          let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+          let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+          draw.content((mx, my), text(7pt, fill: luma(80))[#weights.at(idx)])
+        }
+        // Draw vertices
+        for (k, pos) in verts.enumerate() {
+          let is-terminal = terminals.contains(k)
+          let is-steiner = steiner-verts.contains(k)
+          g-node(pos, name: "v" + str(k),
+            fill: if is-terminal { graph-colors.at(0) } else if is-steiner { luma(220) } else { white },
+            stroke: if is-steiner { (dash: "dashed", paint: graph-colors.at(0)) } else { 1pt + black },
+            label: if is-terminal { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+        }
+      })
+    },
+    caption: [Steiner Tree: terminals $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue), Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (dashed). Optimal tree (blue edges) has weight #opt-weight.],
+    ) <fig:steiner-tree-example>
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("MinimumSumMulticenter")

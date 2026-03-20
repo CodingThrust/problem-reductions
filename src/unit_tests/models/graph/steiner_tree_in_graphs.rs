@@ -132,8 +132,7 @@ fn test_steiner_tree_serialization() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = SteinerTreeInGraphs::new(graph, vec![0, 2], vec![1i32; 2]);
     let json = serde_json::to_string(&problem).unwrap();
-    let deserialized: SteinerTreeInGraphs<SimpleGraph, i32> =
-        serde_json::from_str(&json).unwrap();
+    let deserialized: SteinerTreeInGraphs<SimpleGraph, i32> = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.graph().num_vertices(), 3);
     assert_eq!(deserialized.terminals(), &[0, 2]);
     assert_eq!(deserialized.num_edges(), 2);
@@ -209,8 +208,14 @@ fn test_steiner_tree_example_from_issue() {
         ],
     );
     let weights = vec![2, 3, 1, 4, 2, 3, 5, 1, 2, 3, 4, 1];
-    let problem =
-        SteinerTreeInGraphs::new(graph, vec![0, 3, 5, 7], weights);
+    let problem = SteinerTreeInGraphs::new(graph, vec![0, 3, 5, 7], weights);
+
+    // Brute-force verification: independently confirm optimal weight is 12
+    let solver = BruteForce::new();
+    let solution = solver.find_best(&problem).unwrap();
+    let value = problem.evaluate(&solution);
+    assert!(value.is_valid());
+    assert_eq!(value.unwrap(), 12);
 
     // Verify the claimed optimal solution from the issue:
     // Edges: {0,1}(2) + {1,2}(1) + {2,4}(2) + {3,4}(3) + {4,5}(1) + {4,6}(2) + {6,7}(1) = 12

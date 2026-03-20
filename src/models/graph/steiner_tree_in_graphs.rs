@@ -228,11 +228,7 @@ where
 ///
 /// # Panics
 /// Panics if `selected.len() != graph.num_edges()`.
-pub(crate) fn is_steiner_tree<G: Graph>(
-    graph: &G,
-    terminals: &[usize],
-    selected: &[bool],
-) -> bool {
+pub(crate) fn is_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], selected: &[bool]) -> bool {
     assert_eq!(
         selected.len(),
         graph.num_edges(),
@@ -290,8 +286,26 @@ pub(crate) fn is_steiner_tree<G: Graph>(
 }
 
 crate::declare_variants! {
-    default opt SteinerTreeInGraphs<SimpleGraph, i32> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
-    opt SteinerTreeInGraphs<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
+    default opt SteinerTreeInGraphs<SimpleGraph, i32> => "2^num_terminals * num_vertices^3",
+    opt SteinerTreeInGraphs<SimpleGraph, One> => "2^num_terminals * num_vertices^3",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "steiner_tree_in_graphs_simplegraph_i32",
+        instance: Box::new(SteinerTreeInGraphs::new(
+            SimpleGraph::new(
+                6,
+                vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 5), (3, 4), (4, 5)],
+            ),
+            vec![0, 3, 5],
+            vec![3, 2, 4, 1, 2, 3, 1],
+        )),
+        // Optimal: edges {0,2}(w=2), {2,3}(w=1), {2,5}(w=2) = weight 5
+        optimal_config: vec![0, 1, 0, 1, 1, 0, 0],
+        optimal_value: serde_json::json!({"Valid": 5}),
+    }]
 }
 
 #[cfg(test)]
