@@ -67,28 +67,27 @@ struct TwoDimensionalConsecutiveSetsUnchecked {
     subsets: Vec<Vec<usize>>,
 }
 
-fn validation_error(alphabet_size: usize, subsets: &mut [Vec<usize>]) -> Option<String> {
+fn validate(alphabet_size: usize, subsets: &[Vec<usize>]) -> Result<(), String> {
     if alphabet_size == 0 {
-        return Some("Alphabet size must be positive".to_string());
+        return Err("Alphabet size must be positive".to_string());
     }
 
-    for (i, subset) in subsets.iter_mut().enumerate() {
+    for (i, subset) in subsets.iter().enumerate() {
         let mut seen = HashSet::new();
-        for &elem in subset.iter() {
+        for &elem in subset {
             if elem >= alphabet_size {
-                return Some(format!(
+                return Err(format!(
                     "Subset {} contains element {} which is outside alphabet of size {}",
                     i, elem, alphabet_size
                 ));
             }
             if !seen.insert(elem) {
-                return Some(format!("Subset {} contains duplicate element {}", i, elem));
+                return Err(format!("Subset {} contains duplicate element {}", i, elem));
             }
         }
-        subset.sort();
     }
 
-    None
+    Ok(())
 }
 
 impl<'de> Deserialize<'de> for TwoDimensionalConsecutiveSets {
@@ -104,10 +103,8 @@ impl<'de> Deserialize<'de> for TwoDimensionalConsecutiveSets {
 impl TwoDimensionalConsecutiveSets {
     /// Create a new 2-Dimensional Consecutive Sets instance, returning validation errors.
     pub fn try_new(alphabet_size: usize, subsets: Vec<Vec<usize>>) -> Result<Self, String> {
-        let mut subsets = subsets;
-        if let Some(message) = validation_error(alphabet_size, &mut subsets) {
-            return Err(message);
-        }
+        validate(alphabet_size, &subsets)?;
+        let subsets = subsets.into_iter().map(|mut s| { s.sort(); s }).collect();
         Ok(Self {
             alphabet_size,
             subsets,
