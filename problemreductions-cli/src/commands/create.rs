@@ -433,7 +433,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "AdditionalKey" => "--num-attributes 6 --dependencies \"0,1:2,3;2,3:4,5;4,5:0,1\" --relation-attrs 0,1,2,3,4,5 --known-keys \"0,1;2,3;4,5\"",
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "RectilinearPictureCompression" => {
-            "--matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --k 2"
+            "--matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --bound 2"
         }
         "SequencingToMinimizeWeightedTardiness" => {
             "--sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
@@ -451,7 +451,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--strings \"010110;100101;001011\" --bound 3 --alphabet-size 2"
         }
         "MinimumCardinalityKey" => {
-            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
+            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --bound 2"
         }
         "PrimeAttributeName" => {
             "--universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
@@ -494,13 +494,11 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
             return "num-processors/--m".to_string();
         }
         ("LengthBoundedDisjointPaths", "max_length") => return "bound".to_string(),
-        ("RectilinearPictureCompression", "bound_k") => return "k".to_string(),
+        ("RectilinearPictureCompression", "bound") => return "bound".to_string(),
         ("PrimeAttributeName", "num_attributes") => return "universe".to_string(),
         ("PrimeAttributeName", "dependencies") => return "deps".to_string(),
         ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
-        ("MinimumCardinalityKey", "bound_k") => return "k".to_string(),
-        ("ConsecutiveBlockMinimization", "bound_k") => return "bound".to_string(),
-        ("ConsecutiveOnesSubmatrix", "bound_k") => return "k".to_string(),
+        ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
         ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
         _ => {}
     }
@@ -1780,12 +1778,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "MinimumCardinalityKey" => {
             let num_attributes = args.num_attributes.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "MinimumCardinalityKey requires --num-attributes, --dependencies, and --k\n\n\
-                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
+                    "MinimumCardinalityKey requires --num-attributes, --dependencies, and --bound\n\n\
+                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --bound 2"
                 )
             })?;
-            let k = args.k.ok_or_else(|| {
-                anyhow::anyhow!("MinimumCardinalityKey requires --k (bound on key cardinality)")
+            let k = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("MinimumCardinalityKey requires --bound (bound on key cardinality)")
             })?;
             let deps_str = args.dependencies.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
@@ -1867,7 +1865,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     "ConsecutiveBlockMinimization requires --matrix as a JSON 2D bool array and --bound\n\n{usage}"
                 )
             })?;
-            let bound_k = args.bound.ok_or_else(|| {
+            let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!("ConsecutiveBlockMinimization requires --bound\n\n{usage}")
             })?;
             let matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str).map_err(|err| {
@@ -1876,7 +1874,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             (
-                ser(ConsecutiveBlockMinimization::try_new(matrix, bound_k)
+                ser(ConsecutiveBlockMinimization::try_new(matrix, bound)
                     .map_err(|err| anyhow::anyhow!("{err}\n\n{usage}"))?)?,
                 resolved_variant.clone(),
             )
@@ -1885,14 +1883,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // RectilinearPictureCompression
         "RectilinearPictureCompression" => {
             let matrix = parse_bool_matrix(args)?;
-            let k = args.k.ok_or_else(|| {
+            let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "RectilinearPictureCompression requires --matrix and --k\n\n\
-                     Usage: pred create RectilinearPictureCompression --matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --k 2"
+                    "RectilinearPictureCompression requires --matrix and --bound\n\n\
+                     Usage: pred create RectilinearPictureCompression --matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --bound 2"
                 )
             })?;
             (
-                ser(RectilinearPictureCompression::new(matrix, k))?,
+                ser(RectilinearPictureCompression::new(matrix, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -1900,14 +1898,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // ConsecutiveOnesSubmatrix
         "ConsecutiveOnesSubmatrix" => {
             let matrix = parse_bool_matrix(args)?;
-            let k = args.k.ok_or_else(|| {
+            let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "ConsecutiveOnesSubmatrix requires --matrix and --k\n\n\
-                     Usage: pred create ConsecutiveOnesSubmatrix --matrix \"1,1,0,1;1,0,1,1;0,1,1,0\" --k 3"
+                    "ConsecutiveOnesSubmatrix requires --matrix and --bound\n\n\
+                     Usage: pred create ConsecutiveOnesSubmatrix --matrix \"1,1,0,1;1,0,1,1;0,1,1,0\" --bound 3"
                 )
             })?;
             (
-                ser(ConsecutiveOnesSubmatrix::new(matrix, k))?,
+                ser(ConsecutiveOnesSubmatrix::new(matrix, bound))?,
                 resolved_variant.clone(),
             )
         }

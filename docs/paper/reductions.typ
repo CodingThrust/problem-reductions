@@ -1892,7 +1892,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let n = x.instance.num_attributes
   let deps = x.instance.dependencies
   let m = deps.len()
-  let bound = x.instance.bound_k
+  let bound = x.instance.bound
   let key-attrs = range(n).filter(i => x.optimal_config.at(i) == 1)
   let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
   let fmt-fd(d) = fmt-set(d.at(0)) + " $arrow.r$ " + fmt-set(d.at(1))
@@ -2488,7 +2488,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 #{
   let x = load-model-example("ConsecutiveBlockMinimization")
   let mat = x.instance.matrix
-  let K = x.instance.bound_k
+  let K = x.instance.bound
   let n-rows = mat.len()
   let n-cols = if n-rows > 0 { mat.at(0).len() } else { 0 }
   let perm = x.optimal_config
@@ -2799,7 +2799,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let mat = x.instance.matrix
   let m = mat.len()
   let n = mat.at(0).len()
-  let K = x.instance.bound_k
+  let K = x.instance.bound
   // Convert bool matrix to int for display
   let M = mat.map(row => row.map(v => if v { 1 } else { 0 }))
   [
@@ -4006,7 +4006,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let A = x.instance.matrix
   let m = A.len()
   let n = A.at(0).len()
-  let K = x.instance.bound_k
+  let K = x.instance.bound
   // Convert bool matrix to int for display
   let A-int = A.map(row => row.map(v => if v { 1 } else { 0 }))
   // Use the canonical witness {0, 1, 3}

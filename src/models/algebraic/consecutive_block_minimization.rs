@@ -22,7 +22,7 @@ inventory::submit! {
         description: "Permute columns of a binary matrix to have at most K consecutive blocks of 1s",
         fields: &[
             FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "Binary matrix A (m x n)" },
-            FieldInfo { name: "bound_k", type_name: "i64", description: "Upper bound K on total consecutive blocks" },
+            FieldInfo { name: "bound", type_name: "i64", description: "Upper bound K on total consecutive blocks" },
         ],
     }
 }
@@ -67,7 +67,7 @@ pub struct ConsecutiveBlockMinimization {
     /// Number of columns (n).
     num_cols: usize,
     /// Upper bound K on total consecutive blocks.
-    bound_k: i64,
+    bound: i64,
 }
 
 impl ConsecutiveBlockMinimization {
@@ -75,23 +75,23 @@ impl ConsecutiveBlockMinimization {
     ///
     /// # Arguments
     /// * `matrix` - The m x n binary matrix
-    /// * `bound_k` - Upper bound on total consecutive blocks
+    /// * `bound` - Upper bound on total consecutive blocks
     ///
     /// # Panics
     /// Panics if rows have inconsistent lengths.
-    pub fn new(matrix: Vec<Vec<bool>>, bound_k: i64) -> Self {
-        Self::try_new(matrix, bound_k).unwrap_or_else(|err| panic!("{err}"))
+    pub fn new(matrix: Vec<Vec<bool>>, bound: i64) -> Self {
+        Self::try_new(matrix, bound).unwrap_or_else(|err| panic!("{err}"))
     }
 
     /// Create a new ConsecutiveBlockMinimization problem, returning an error
     /// instead of panicking when the matrix is ragged.
-    pub fn try_new(matrix: Vec<Vec<bool>>, bound_k: i64) -> Result<Self, String> {
+    pub fn try_new(matrix: Vec<Vec<bool>>, bound: i64) -> Result<Self, String> {
         let (num_rows, num_cols) = validate_matrix_dimensions(&matrix)?;
         Ok(Self {
             matrix,
             num_rows,
             num_cols,
-            bound_k,
+            bound,
         })
     }
 
@@ -111,8 +111,8 @@ impl ConsecutiveBlockMinimization {
     }
 
     /// Get the upper bound K.
-    pub fn bound_k(&self) -> i64 {
-        self.bound_k
+    pub fn bound(&self) -> i64 {
+        self.bound
     }
 
     /// Count the total number of maximal consecutive blocks of 1s
@@ -164,7 +164,7 @@ impl Problem for ConsecutiveBlockMinimization {
 
     fn evaluate(&self, config: &[usize]) -> bool {
         match self.count_consecutive_blocks(config) {
-            Some(total) => (total as i64) <= self.bound_k,
+            Some(total) => (total as i64) <= self.bound,
             None => false,
         }
     }
@@ -189,14 +189,14 @@ struct ConsecutiveBlockMinimizationDef {
     matrix: Vec<Vec<bool>>,
     num_rows: usize,
     num_cols: usize,
-    bound_k: i64,
+    bound: i64,
 }
 
 impl TryFrom<ConsecutiveBlockMinimizationDef> for ConsecutiveBlockMinimization {
     type Error = String;
 
     fn try_from(value: ConsecutiveBlockMinimizationDef) -> Result<Self, Self::Error> {
-        let problem = Self::try_new(value.matrix, value.bound_k)?;
+        let problem = Self::try_new(value.matrix, value.bound)?;
         if value.num_rows != problem.num_rows {
             return Err(format!(
                 "num_rows must match matrix row count ({})",

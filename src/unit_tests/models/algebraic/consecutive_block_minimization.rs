@@ -10,7 +10,7 @@ fn test_consecutive_block_minimization_basic() {
     );
     assert_eq!(problem.num_rows(), 2);
     assert_eq!(problem.num_cols(), 3);
-    assert_eq!(problem.bound_k(), 2);
+    assert_eq!(problem.bound(), 2);
     assert_eq!(problem.num_variables(), 3);
     assert_eq!(problem.dims(), vec![3; 3]);
 }
@@ -23,7 +23,7 @@ fn test_consecutive_block_minimization_evaluate() {
     // Permutation [0, 2, 1] reorders columns to:
     //   [1, 1, 0]  -> 1 block
     //   [0, 1, 1]  -> 1 block
-    // Total = 2 blocks, bound_k = 2 => satisfies
+    // Total = 2 blocks, bound = 2 => satisfies
     let problem = ConsecutiveBlockMinimization::new(
         vec![vec![true, false, true], vec![false, true, true]],
         2,
@@ -33,7 +33,7 @@ fn test_consecutive_block_minimization_evaluate() {
     // Identity permutation [0, 1, 2]:
     //   [1, 0, 1]  -> 2 blocks
     //   [0, 1, 1]  -> 1 block
-    // Total = 3 blocks, bound_k = 2 => does not satisfy
+    // Total = 3 blocks, bound = 2 => does not satisfy
     assert!(!problem.evaluate(&[0, 1, 2]));
 }
 
@@ -86,13 +86,13 @@ fn test_consecutive_block_minimization_serialization() {
     let deserialized: ConsecutiveBlockMinimization = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.num_rows(), problem.num_rows());
     assert_eq!(deserialized.num_cols(), problem.num_cols());
-    assert_eq!(deserialized.bound_k(), problem.bound_k());
+    assert_eq!(deserialized.bound(), problem.bound());
     assert_eq!(deserialized.matrix(), problem.matrix());
 }
 
 #[test]
 fn test_consecutive_block_minimization_deserialization_rejects_inconsistent_dimensions() {
-    let json = r#"{"matrix":[[true]],"num_rows":1,"num_cols":2,"bound_k":1}"#;
+    let json = r#"{"matrix":[[true]],"num_rows":1,"num_cols":2,"bound":1}"#;
     let err = serde_json::from_str::<ConsecutiveBlockMinimization>(json).unwrap_err();
     assert!(err.to_string().contains("num_cols"));
 }
