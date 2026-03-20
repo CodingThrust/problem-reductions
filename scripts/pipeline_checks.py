@@ -17,6 +17,7 @@ MODEL_WHITELIST = [
     "src/example_db/model_builders.rs",
     "src/example_db/rule_builders.rs",
     "docs/paper/reductions.typ",
+    "docs/paper/references.bib",
 ]
 
 RULE_WHITELIST = [
@@ -25,6 +26,7 @@ RULE_WHITELIST = [
     "src/example_db/rule_builders.rs",
     "src/models/",
     "docs/paper/reductions.typ",
+    "docs/paper/references.bib",
 ]
 
 IGNORED_RULE_FILES = {

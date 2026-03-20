@@ -62,6 +62,14 @@ gh pr list --repo "$REPO" --state open --search "Fix #<ISSUE_NUMBER>" --json num
 
 Extract the `PR` number from the first matched open PR and its `ITEM_ID` from the board list.
 
+**Claim the item** by moving it to OnHold immediately, so no other reviewer picks it up:
+
+```bash
+python3 scripts/pipeline_board.py move <ITEM_ID> on-hold
+```
+
+If the review completes successfully the item moves to Done; if abandoned, move it back to Final review (`python3 scripts/pipeline_board.py move <ITEM_ID> final-review`).
+
 **0b. Create worktree and check out the PR branch:**
 
 ```bash
@@ -154,7 +162,7 @@ Use `AskUserQuestion` with your recommendation:
 >
 > **Do you agree with this usefulness assessment?**
 > - "Agree" — continue review
-> - "Not useful, hold" — move to OnHold (skip remaining steps, go to Step 8)
+> - "Not useful, hold" — keep OnHold, post reason (skip remaining steps, go to Step 8)
 > - Reviewer provides their own reasoning — agent updates verdict accordingly and continues
 > - "Skip" — skip this check
 
@@ -187,7 +195,7 @@ Use `AskUserQuestion` with your recommendation:
 >
 > **Do you agree with the safety assessment?**
 > - "Agree" — continue
-> - "Unsafe, hold" — move to OnHold (skip remaining steps, go to Step 8)
+> - "Unsafe, hold" — keep OnHold, post reason (skip remaining steps, go to Step 8)
 > - Reviewer flags additional concerns — agent adds them to the fix plan
 > - "Skip" — skip this check
 
@@ -258,7 +266,7 @@ Use `AskUserQuestion` with your recommendation:
 >
 > **Is the completeness acceptable?**
 > - "Agree" — continue
-> - "Incomplete, hold" — move to OnHold (skip remaining steps, go to Step 8)
+> - "Incomplete, hold" — keep OnHold, post reason (skip remaining steps, go to Step 8)
 > - Reviewer flags additional gaps or overrides — agent updates the fix plan accordingly
 > - "Skip" — skip this check
 
@@ -367,7 +375,7 @@ Use `AskUserQuestion` only when needed:
 >
 > **Final decision:**
 > - **1** — Push and fix CI: push all commits, fix any CI failures, then present the merge link
-> - **2** — OnHold: move to OnHold column with a reason
+> - **2** — OnHold: keep in OnHold column, post reason
 
 ### Step 8: Execute decision
 
@@ -428,6 +436,7 @@ Use `AskUserQuestion` only when needed:
    ```
 
 **If OnHold:**
+The item is already in the OnHold column (claimed in Step 0a), so no board move is needed.
 1. Ask the reviewer for the reason (use `AskUserQuestion` with free text).
 2. Post a comment on the PR (or linked issue) with the reason:
    ```bash
@@ -436,9 +445,8 @@ Use `AskUserQuestion` only when needed:
    python3 scripts/pipeline_pr.py comment --repo "$REPO" --pr "<number>" --body-file "$COMMENT_FILE"
    rm -f "$COMMENT_FILE"
    ```
-3. Move the project board item to `OnHold` and clean up:
+3. Clean up the worktree:
    ```bash
-   python3 scripts/pipeline_board.py move <ITEM_ID> on-hold
    cd "$REPO_ROOT"
    python3 scripts/pipeline_worktree.py cleanup --worktree "$WORKTREE_DIR"
    ```
