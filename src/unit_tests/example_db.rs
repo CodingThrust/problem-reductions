@@ -1,14 +1,9 @@
 use crate::example_db::{
-    build_example_db, build_model_db, build_rule_db, compute_model_db, compute_rule_db,
-    find_model_example, find_rule_example,
+    build_example_db, build_model_db, build_rule_db, find_model_example, find_rule_example,
 };
 use crate::export::ProblemRef;
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP, QUBO};
-use crate::models::graph::{MaximumMatching, SpinGlass};
 use crate::registry::load_dyn;
 use crate::rules::{registry::reduction_entries, ReductionGraph};
-use crate::topology::SimpleGraph;
-use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 #[test]
@@ -45,7 +40,7 @@ fn test_find_model_example_mis_simplegraph_i32() {
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
     assert!(
-        !example.optimal.is_empty(),
+        !example.optimal_config.is_empty(),
         "canonical example should include optima"
     );
 }
@@ -62,7 +57,59 @@ fn test_find_model_example_exact_cover_by_3_sets() {
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
     assert!(
-        !example.optimal.is_empty(),
+        !example.optimal_config.is_empty(),
+        "canonical example should include satisfying assignments"
+    );
+}
+
+#[test]
+fn test_find_model_example_staff_scheduling() {
+    let problem = ProblemRef {
+        name: "StaffScheduling".to_string(),
+        variant: BTreeMap::new(),
+    };
+
+    let example = find_model_example(&problem).expect("StaffScheduling example should exist");
+    assert_eq!(example.problem, "StaffScheduling");
+    assert_eq!(example.variant, problem.variant);
+    assert_eq!(example.instance["num_workers"], 4);
+    assert!(example.instance["schedules"].is_array());
+    assert!(
+        !example.optimal_config.is_empty(),
+        "canonical example should include satisfying assignments"
+    );
+}
+
+#[test]
+fn test_find_model_example_multiprocessor_scheduling() {
+    let problem = ProblemRef {
+        name: "MultiprocessorScheduling".to_string(),
+        variant: BTreeMap::new(),
+    };
+
+    let example = find_model_example(&problem).expect("MultiprocessorScheduling example exists");
+    assert_eq!(example.problem, "MultiprocessorScheduling");
+    assert_eq!(example.variant, problem.variant);
+    assert!(example.instance.is_object());
+    assert!(
+        !example.optimal_config.is_empty(),
+        "canonical example should include satisfying assignments"
+    );
+}
+
+#[test]
+fn test_find_model_example_strong_connectivity_augmentation() {
+    let problem = ProblemRef {
+        name: "StrongConnectivityAugmentation".to_string(),
+        variant: BTreeMap::from([("weight".to_string(), "i32".to_string())]),
+    };
+
+    let example = find_model_example(&problem).expect("SCA example should exist");
+    assert_eq!(example.problem, "StrongConnectivityAugmentation");
+    assert_eq!(example.variant, problem.variant);
+    assert!(example.instance.is_object());
+    assert!(
+        !example.optimal_config.is_empty(),
         "canonical example should include satisfying assignments"
     );
 }
@@ -168,12 +215,6 @@ fn test_build_model_db_has_unique_structural_keys() {
 }
 
 #[test]
-fn test_build_rule_db_nonempty() {
-    let db = build_rule_db().expect("rule db should build");
-    assert!(!db.rules.is_empty(), "rule db should not be empty");
-}
-
-#[test]
 fn test_rule_examples_store_single_solution_pair() {
     let db = build_rule_db().expect("rule db should build");
     for rule in &db.rules {
@@ -187,28 +228,6 @@ fn test_rule_examples_store_single_solution_pair() {
             rule.target.variant
         );
     }
-}
-
-#[test]
-fn test_computed_rule_examples_store_single_solution_pair() {
-    let db = compute_rule_db().expect("computed rule db should build");
-    for rule in &db.rules {
-        assert_eq!(
-            rule.solutions.len(),
-            1,
-            "computed canonical rule example should store one witness pair for {} {:?} -> {} {:?}",
-            rule.source.problem,
-            rule.source.variant,
-            rule.target.problem,
-            rule.target.variant
-        );
-    }
-}
-
-#[test]
-fn test_build_model_db_nonempty() {
-    let db = build_model_db().expect("model db should build");
-    assert!(!db.models.is_empty(), "model db should not be empty");
 }
 
 #[test]
@@ -246,7 +265,7 @@ fn canonical_rule_example_ids_are_unique() {
 
 #[test]
 fn canonical_rule_examples_cover_exactly_authored_direct_reductions() {
-    let computed = compute_rule_db().expect("computed rule db should build");
+    let computed = build_rule_db().expect("computed rule db should build");
     let example_keys: BTreeSet<_> = computed
         .rules
         .iter()
@@ -312,75 +331,134 @@ fn find_model_example_nonexistent_returns_error() {
     );
 }
 
-fn problem_json_key(value: &Value) -> String {
-    serde_json::to_string(value).expect("json value should serialize")
-}
+// ---- Self-consistency tests ----
 
-fn edge_key(edge: &Value) -> (u64, u64, String) {
-    let values = edge
-        .as_array()
-        .expect("graph edge should serialize as a JSON array");
-    let u = values.first().and_then(Value::as_u64).unwrap_or(u64::MAX);
-    let v = values.get(1).and_then(Value::as_u64).unwrap_or(u64::MAX);
-    (u, v, problem_json_key(edge))
-}
+#[test]
+fn model_specs_are_self_consistent() {
+    let specs = crate::models::graph::canonical_model_example_specs()
+        .into_iter()
+        .chain(crate::models::formula::canonical_model_example_specs())
+        .chain(crate::models::set::canonical_model_example_specs())
+        .chain(crate::models::algebraic::canonical_model_example_specs())
+        .chain(crate::models::misc::canonical_model_example_specs());
 
-fn term_key(term: &Value) -> (u64, String) {
-    let values = term
-        .as_array()
-        .expect("ILP term should serialize as a JSON array");
-    let variable = values.first().and_then(Value::as_u64).unwrap_or(u64::MAX);
-    (variable, problem_json_key(term))
-}
-
-fn graph_edges_mut(object: &mut serde_json::Map<String, Value>) -> Option<&mut Vec<Value>> {
-    let graph = object.get_mut("graph")?.as_object_mut()?;
-    if graph.contains_key("inner") {
-        return graph
-            .get_mut("inner")?
-            .as_object_mut()?
-            .get_mut("edges")?
-            .as_array_mut();
-    }
-    graph.get_mut("edges")?.as_array_mut()
-}
-
-fn reorder_array(values: &mut Vec<Value>, old_indices: &[usize]) {
-    let reordered: Vec<Value> = old_indices.iter().map(|&idx| values[idx].clone()).collect();
-    *values = reordered;
-}
-
-fn edge_aligned_fields(problem_name: &str) -> &'static [&'static str] {
-    match problem_name {
-        "MaximumMatching" | "MaxCut" | "TravelingSalesman" => &["edge_weights"],
-        "SpinGlass" => &["couplings"],
-        _ => &[],
+    for spec in specs {
+        let actual = spec.instance.evaluate_json(&spec.optimal_config);
+        assert_eq!(
+            actual, spec.optimal_value,
+            "Model spec '{}': evaluate(optimal_config) = {} but stored optimal_value = {}",
+            spec.id, actual, spec.optimal_value
+        );
     }
 }
 
-fn normalize_graph_instance(problem_name: &str, instance: &mut Value) {
-    let Some(object) = instance.as_object_mut() else {
-        return;
-    };
-    let edge_order = {
-        let Some(edges) = graph_edges_mut(object) else {
-            return;
-        };
-        let mut indexed_edges: Vec<(usize, Value)> = edges.iter().cloned().enumerate().collect();
-        indexed_edges.sort_by_key(|(_, edge)| edge_key(edge));
-        *edges = indexed_edges.iter().map(|(_, edge)| edge.clone()).collect();
-        indexed_edges
-            .into_iter()
-            .map(|(old_index, _)| old_index)
-            .collect::<Vec<_>>()
-    };
+#[cfg(feature = "ilp-solver")]
+#[test]
+fn model_specs_are_optimal() {
+    use crate::registry::find_variant_entry;
+    use crate::solvers::ILPSolver;
 
-    for field in edge_aligned_fields(problem_name) {
-        if let Some(values) = object.get_mut(*field).and_then(Value::as_array_mut) {
+    let ilp_solver = ILPSolver::new();
+
+    let specs = crate::models::graph::canonical_model_example_specs()
+        .into_iter()
+        .chain(crate::models::formula::canonical_model_example_specs())
+        .chain(crate::models::set::canonical_model_example_specs())
+        .chain(crate::models::algebraic::canonical_model_example_specs())
+        .chain(crate::models::misc::canonical_model_example_specs());
+
+    for spec in specs {
+        let name = spec.instance.problem_name();
+        let variant = spec.instance.variant_map();
+
+        // Try ILP (direct or via reduction), fall back to brute force for small instances
+        let best_config = ilp_solver
+            .solve_via_reduction(name, &variant, spec.instance.as_any())
+            .or_else(|| {
+                // Only brute-force if search space is small (≤ 2^20 configs)
+                let dims = spec.instance.dims_dyn();
+                let log_space: f64 = dims.iter().map(|&d| (d as f64).log2()).sum();
+                if log_space > 20.0 {
+                    return None;
+                }
+                let entry = find_variant_entry(name, &variant)?;
+                let (config, _) = (entry.solve_fn)(spec.instance.as_any())?;
+                Some(config)
+            })
+            .unwrap_or_else(|| {
+                panic!(
+                    "No solver found for spec '{}' ({name} {variant:?})",
+                    spec.id
+                )
+            });
+
+        let best_value = spec.instance.evaluate_json(&best_config);
+        assert_eq!(
+            best_value, spec.optimal_value,
+            "Model spec '{}': solver optimal = {} but stored optimal_value = {} \
+             (solver config: {:?}, stored config: {:?})",
+            spec.id, best_value, spec.optimal_value, best_config, spec.optimal_config
+        );
+    }
+}
+
+#[test]
+fn rule_specs_solution_pairs_are_consistent() {
+    let graph = ReductionGraph::new();
+
+    let db = build_rule_db().unwrap();
+    for example in &db.rules {
+        let label = format!(
+            "{} {:?} -> {} {:?}",
+            example.source.problem,
+            example.source.variant,
+            example.target.problem,
+            example.target.variant
+        );
+        assert!(
+            !example.solutions.is_empty(),
+            "Rule {label} has no solution pairs"
+        );
+
+        // Deserialize source and target via the registry so we can evaluate configs
+        let source = load_dyn(
+            &example.source.problem,
+            &example.source.variant,
+            example.source.instance.clone(),
+        )
+        .unwrap_or_else(|e| panic!("Failed to load source for {label}: {e}"));
+        let target = load_dyn(
+            &example.target.problem,
+            &example.target.variant,
+            example.target.instance.clone(),
+        )
+        .unwrap_or_else(|e| panic!("Failed to load target for {label}: {e}"));
+
+        // Re-run the reduction to get extract_solution for round-trip check
+        let chain = graph
+            .reduce_along_path(
+                &graph
+                    .find_cheapest_path(
+                        &example.source.problem,
+                        &example.source.variant,
+                        &example.target.problem,
+                        &example.target.variant,
+                        &crate::types::ProblemSize::new(vec![]),
+                        &crate::rules::MinimizeSteps,
+                    )
+                    .unwrap_or_else(|| panic!("No reduction path for {label}")),
+                source.as_any(),
+            )
+            .unwrap_or_else(|| panic!("Failed to reduce along path for {label}"));
+
+        for pair in &example.solutions {
+            // Verify config lengths match problem dimensions
             assert_eq!(
-                values.len(),
-                edge_order.len(),
-                "{problem_name}.{field} should stay aligned with graph edges",
+                pair.source_config.len(),
+                source.dims_dyn().len(),
+                "Rule {label}: source_config length {} != dims length {}",
+                pair.source_config.len(),
+                source.dims_dyn().len()
             );
             reorder_array(values, &edge_order);
         }
@@ -726,8 +804,45 @@ fn verify_rule_fixtures_match_computed() {
             let loaded_energy = loaded_target_problem.evaluate_dyn(&loaded_pair.target_config);
             let computed_energy = loaded_target_problem.evaluate_dyn(&computed_pair.target_config);
             assert_eq!(
-                loaded_energy, computed_energy,
-                "{label}: target energy mismatch — regenerate fixtures"
+                pair.target_config.len(),
+                target.dims_dyn().len(),
+                "Rule {label}: target_config length {} != dims length {}",
+                pair.target_config.len(),
+                target.dims_dyn().len()
+            );
+            // Verify configs produce non-Invalid / non-false evaluations
+            let source_val = source.evaluate_json(&pair.source_config);
+            let target_val = target.evaluate_json(&pair.target_config);
+            assert_ne!(
+                source_val,
+                serde_json::json!("Invalid"),
+                "Rule {label}: source_config evaluates to Invalid"
+            );
+            assert_ne!(
+                target_val,
+                serde_json::json!("Invalid"),
+                "Rule {label}: target_config evaluates to Invalid"
+            );
+            assert_ne!(
+                source_val,
+                serde_json::json!(false),
+                "Rule {label}: source_config evaluates to false"
+            );
+            assert_ne!(
+                target_val,
+                serde_json::json!(false),
+                "Rule {label}: target_config evaluates to false"
+            );
+            // Round-trip: extract_solution(target_config) must produce a valid
+            // source config with the same evaluation value
+            let extracted = chain.extract_solution(&pair.target_config);
+            let extracted_val = source.evaluate_json(&extracted);
+            assert_eq!(
+                extracted_val, source_val,
+                "Rule {label}: round-trip value mismatch: \
+                 evaluate(extract_solution(target_config)) = {} but evaluate(source_config) = {} \
+                 (extracted: {:?}, stored: {:?})",
+                extracted_val, source_val, extracted, pair.source_config
             );
         }
     }

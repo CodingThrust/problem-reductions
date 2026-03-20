@@ -7,9 +7,11 @@ pub use cost::{CustomCost, Minimize, MinimizeSteps, PathCostFn};
 pub use registry::{ReductionEntry, ReductionOverhead};
 
 pub(crate) mod circuit_spinglass;
+mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
 pub(crate) mod factoring_circuit;
 mod graph;
+pub(crate) mod graphpartitioning_maxcut;
 mod kcoloring_casts;
 mod knapsack_qubo;
 mod ksatisfiability_casts;
@@ -24,6 +26,7 @@ mod maximumindependentset_triangular;
 pub(crate) mod maximummatching_maximumsetpacking;
 mod maximumsetpacking_casts;
 pub(crate) mod maximumsetpacking_qubo;
+pub(crate) mod minimummultiwaycut_qubo;
 pub(crate) mod minimumvertexcover_maximumindependentset;
 pub(crate) mod minimumvertexcover_minimumsetcovering;
 pub(crate) mod sat_circuitsat;
@@ -34,6 +37,7 @@ pub(crate) mod sat_minimumdominatingset;
 mod spinglass_casts;
 pub(crate) mod spinglass_maxcut;
 pub(crate) mod spinglass_qubo;
+pub(crate) mod subsetsum_closestvectorproblem;
 #[cfg(test)]
 pub(crate) mod test_helpers;
 mod traits;
@@ -50,9 +54,13 @@ pub(crate) mod coloring_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod factoring_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod graphpartitioning_ilp;
+#[cfg(feature = "ilp-solver")]
 mod ilp_bool_ilp_i32;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod ilp_qubo;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod knapsack_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod longestcommonsubsequence_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -64,9 +72,17 @@ pub(crate) mod maximumsetpacking_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumdominatingset_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod minimumfeedbackvertexset_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod minimummultiwaycut_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumsetcovering_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod qubo_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod sequencingtominimizeweightedcompletiontime_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod steinertree_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod travelingsalesman_ilp;
 
@@ -80,8 +96,10 @@ pub use traits::{ReduceTo, ReductionAutoCast, ReductionResult};
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     let mut specs = Vec::new();
     specs.extend(circuit_spinglass::canonical_rule_example_specs());
+    specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
     specs.extend(factoring_circuit::canonical_rule_example_specs());
+    specs.extend(graphpartitioning_maxcut::canonical_rule_example_specs());
     specs.extend(knapsack_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_subsetsum::canonical_rule_example_specs());
@@ -90,6 +108,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(maximumindependentset_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maximummatching_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maximumsetpacking_qubo::canonical_rule_example_specs());
+    specs.extend(minimummultiwaycut_qubo::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_maximumindependentset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumsetcovering::canonical_rule_example_specs());
     specs.extend(sat_circuitsat::canonical_rule_example_specs());
@@ -99,6 +118,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(sat_minimumdominatingset::canonical_rule_example_specs());
     specs.extend(spinglass_maxcut::canonical_rule_example_specs());
     specs.extend(spinglass_qubo::canonical_rule_example_specs());
+    specs.extend(subsetsum_closestvectorproblem::canonical_rule_example_specs());
     specs.extend(travelingsalesman_qubo::canonical_rule_example_specs());
     #[cfg(feature = "ilp-solver")]
     {
@@ -106,14 +126,21 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(circuit_ilp::canonical_rule_example_specs());
         specs.extend(coloring_ilp::canonical_rule_example_specs());
         specs.extend(factoring_ilp::canonical_rule_example_specs());
+        specs.extend(graphpartitioning_ilp::canonical_rule_example_specs());
         specs.extend(ilp_qubo::canonical_rule_example_specs());
+        specs.extend(knapsack_ilp::canonical_rule_example_specs());
         specs.extend(longestcommonsubsequence_ilp::canonical_rule_example_specs());
         specs.extend(maximumclique_ilp::canonical_rule_example_specs());
         specs.extend(maximummatching_ilp::canonical_rule_example_specs());
+        specs.extend(minimummultiwaycut_ilp::canonical_rule_example_specs());
         specs.extend(maximumsetpacking_ilp::canonical_rule_example_specs());
         specs.extend(minimumdominatingset_ilp::canonical_rule_example_specs());
+        specs.extend(minimumfeedbackvertexset_ilp::canonical_rule_example_specs());
         specs.extend(minimumsetcovering_ilp::canonical_rule_example_specs());
         specs.extend(qubo_ilp::canonical_rule_example_specs());
+        specs
+            .extend(sequencingtominimizeweightedcompletiontime_ilp::canonical_rule_example_specs());
+        specs.extend(steinertree_ilp::canonical_rule_example_specs());
         specs.extend(travelingsalesman_ilp::canonical_rule_example_specs());
     }
     specs

@@ -241,5 +241,56 @@ class PipelineWorktreeTests(unittest.TestCase):
         self.assertIn(("checkout", "issue-117-graph-partitioning"), tails)
 
 
+    @mock.patch("pipeline_worktree.run_git_checked")
+    @mock.patch("pipeline_worktree.branch_exists", return_value=False)
+    def test_enter_creates_worktree_from_base_ref(
+        self,
+        branch_exists: mock.Mock,
+        run_git_checked: mock.Mock,
+    ) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = pipeline_worktree.enter(
+                name="issue-42",
+                base_ref="origin/main",
+                repo_root=tmpdir,
+            )
+
+        self.assertEqual(result["branch"], "issue-42")
+        self.assertIn("issue-42", result["worktree_dir"])
+        self.assertIn(".worktrees", result["worktree_dir"])
+        self.assertEqual(result["base_ref"], "origin/main")
+        # Should have called fetch + worktree add
+        calls = [c.args[1:] for c in run_git_checked.call_args_list]
+        self.assertIn(("fetch", "origin", "main"), calls)
+
+    @mock.patch("pipeline_worktree.run_git")
+    @mock.patch("pipeline_worktree.run_git_checked")
+    @mock.patch("pipeline_worktree.Path")
+    def test_prepare_review_from_cwd_builds_prep_from_current_dir(
+        self,
+        mock_path: mock.Mock,
+        run_git_checked: mock.Mock,
+        run_git: mock.Mock,
+    ) -> None:
+        mock_path.cwd.return_value = "/tmp/worktree"
+        run_git.side_effect = [
+            "base_abc\n",  # merge-base
+            "head_def\n",  # rev-parse HEAD
+        ]
+
+        result = pipeline_worktree.prepare_review_from_cwd(
+            repo="CodingThrust/problem-reductions",
+            pr_number=42,
+        )
+
+        self.assertTrue(result["ready"])
+        self.assertEqual(result["checkout"]["worktree_dir"], "/tmp/worktree")
+        self.assertEqual(result["checkout"]["base_sha"], "base_abc")
+        self.assertEqual(result["checkout"]["head_sha"], "head_def")
+        self.assertEqual(result["merge"]["status"], "skipped")
+        run_git_checked.assert_called_once_with("/tmp/worktree", "fetch", "origin", "main")
+
+
 if __name__ == "__main__":
     unittest.main()

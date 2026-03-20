@@ -203,6 +203,18 @@ mod nonnegative_i64_vec {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    // 4 items: weights [2,3,4,5], values [3,4,5,7], capacity 7
+    // Optimal: items 0,3 → weight=7, value=10
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "knapsack",
+        instance: Box::new(Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7)),
+        optimal_config: vec![1, 0, 0, 1],
+        optimal_value: serde_json::json!({"Valid": 10}),
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/misc/knapsack.rs"]
 mod tests;
