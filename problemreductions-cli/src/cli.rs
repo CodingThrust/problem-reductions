@@ -555,9 +555,6 @@ pub struct CreateArgs {
     #[arg(long)]
     pub alphabet_size: Option<usize>,
 
-    /// Upper bound K on consecutive blocks for ConsecutiveBlockMinimization
-    #[arg(long)]
-    pub bound_k: Option<usize>,
     /// Number of attributes for AdditionalKey or MinimumCardinalityKey
     #[arg(long)]
     pub num_attributes: Option<usize>,

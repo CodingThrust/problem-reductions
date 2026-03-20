@@ -120,7 +120,6 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.requirements.is_none()
         && args.num_workers.is_none()
         && args.alphabet_size.is_none()
-        && args.bound_k.is_none()
         && args.num_groups.is_none()
         && args.dependencies.is_none()
         && args.num_attributes.is_none()
@@ -462,7 +461,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         "ConsecutiveBlockMinimization" => {
-            "--matrix '[[true,false,true],[false,true,true]]' --bound-k 2"
+            "--matrix '[[true,false,true],[false,true,true]]' --bound 2"
         }
         "ConjunctiveBooleanQuery" => {
             "--domain-size 6 --relations \"2:0,3|1,3|2,4;3:0,1,5|1,2,5\" --conjuncts-spec \"0:v0,c3;0:v1,c3;1:v0,v1,c5\""
@@ -500,6 +499,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("PrimeAttributeName", "dependencies") => return "deps".to_string(),
         ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
         ("MinimumCardinalityKey", "bound_k") => return "k".to_string(),
+        ("ConsecutiveBlockMinimization", "bound_k") => return "bound".to_string(),
         ("ConsecutiveOnesSubmatrix", "bound_k") => return "k".to_string(),
         ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
         _ => {}
@@ -1861,14 +1861,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // ConsecutiveBlockMinimization
         "ConsecutiveBlockMinimization" => {
-            let usage = "Usage: pred create ConsecutiveBlockMinimization --matrix '[[true,false,true],[false,true,true]]' --bound-k 2";
+            let usage = "Usage: pred create ConsecutiveBlockMinimization --matrix '[[true,false,true],[false,true,true]]' --bound 2";
             let matrix_str = args.matrix.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "ConsecutiveBlockMinimization requires --matrix as a JSON 2D bool array and --bound-k\n\n{usage}"
+                    "ConsecutiveBlockMinimization requires --matrix as a JSON 2D bool array and --bound\n\n{usage}"
                 )
             })?;
-            let bound_k = args.bound_k.ok_or_else(|| {
-                anyhow::anyhow!("ConsecutiveBlockMinimization requires --bound-k\n\n{usage}")
+            let bound_k = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("ConsecutiveBlockMinimization requires --bound\n\n{usage}")
             })?;
             let matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str).map_err(|err| {
                 anyhow::anyhow!(

@@ -646,7 +646,7 @@ fn test_create_consecutive_block_minimization_rejects_ragged_matrix() {
             "ConsecutiveBlockMinimization",
             "--matrix",
             "[[true],[true,false]]",
-            "--bound-k",
+            "--bound",
             "2",
         ])
         .output()
@@ -1571,7 +1571,7 @@ fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
         stderr.contains("semicolon-separated dependencies"),
         "stderr: {stderr}"
     );
-    assert!(!stderr.contains("--bound-k"), "stderr: {stderr}");
+    assert!(!stderr.contains("--bound"), "stderr: {stderr}");
 }
 
 #[test]
@@ -2681,7 +2681,7 @@ fn test_create_string_to_string_correction_help_uses_cli_flags() {
     assert!(stderr.contains("--source-string"), "stderr: {stderr}");
     assert!(stderr.contains("--target-string"), "stderr: {stderr}");
     assert!(stderr.contains("--bound"), "stderr: {stderr}");
-    assert!(!stderr.contains("--bound-k"), "stderr: {stderr}");
+    assert!(!stderr.contains("--bound"), "stderr: {stderr}");
 }
 
 #[test]
@@ -3141,7 +3141,7 @@ fn test_create_rectilinear_picture_compression_help_uses_k_flag() {
         "expected '--k' in help output, got: {stderr}"
     );
     assert!(
-        !stderr.contains("--bound-k"),
+        !stderr.contains("--bound"),
         "help should advertise the actual CLI flag name, got: {stderr}"
     );
 }
@@ -3229,7 +3229,7 @@ fn test_create_consecutive_ones_submatrix_no_flags_uses_actual_cli_help() {
         "expected '--k' in help output, got: {stderr}"
     );
     assert!(
-        !stderr.contains("--bound-k"),
+        !stderr.contains("--bound"),
         "help should not advertise schema field names: {stderr}"
     );
     assert!(
