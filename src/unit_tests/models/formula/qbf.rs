@@ -20,7 +20,7 @@ fn test_qbf_creation() {
     );
     assert_eq!(problem.num_vars(), 3);
     assert_eq!(problem.num_clauses(), 2);
-    assert_eq!(problem.num_variables(), 3);
+    assert_eq!(problem.num_variables(), 0);
     assert_eq!(problem.quantifiers().len(), 3);
     assert_eq!(problem.clauses().len(), 2);
 }
@@ -36,27 +36,7 @@ fn test_qbf_creation_mismatch() {
 }
 
 #[test]
-fn test_qbf_evaluate() {
-    // F = ∃u_1 ∀u_2 (u_1 ∨ u_2) ∧ (u_1 ∨ ¬u_2)
-    let problem = QuantifiedBooleanFormulas::new(
-        2,
-        vec![Quantifier::Exists, Quantifier::ForAll],
-        vec![
-            CNFClause::new(vec![1, 2]),  // u_1 OR u_2
-            CNFClause::new(vec![1, -2]), // u_1 OR NOT u_2
-        ],
-    );
-
-    // evaluate() just checks if the CNF is satisfied under the given assignment
-    assert!(problem.evaluate(&[1, 0])); // u_1=T, u_2=F: (T∨F)∧(T∨T) = T
-    assert!(problem.evaluate(&[1, 1])); // u_1=T, u_2=T: (T∨T)∧(T∨F) = T
-    assert!(!problem.evaluate(&[0, 0])); // u_1=F, u_2=F: (F∨F)∧(F∨T) = F
-                                         // u_1=F, u_2=T: clause1=(F∨T)=T, clause2=(F∨F)=F → false
-    assert!(!problem.evaluate(&[0, 1]));
-}
-
-#[test]
-fn test_qbf_is_true_simple_true() {
+fn test_qbf_evaluate_true() {
     // F = ∃u_1 ∀u_2 (u_1 ∨ u_2) ∧ (u_1 ∨ ¬u_2)
     // Setting u_1=T satisfies both clauses regardless of u_2
     let problem = QuantifiedBooleanFormulas::new(
@@ -64,19 +44,36 @@ fn test_qbf_is_true_simple_true() {
         vec![Quantifier::Exists, Quantifier::ForAll],
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![1, -2])],
     );
+
+    // dims() is empty; evaluate([]) runs the game-tree search
+    assert_eq!(problem.dims(), Vec::<usize>::new());
+    assert!(problem.evaluate(&[]));
     assert!(problem.is_true());
 }
 
 #[test]
-fn test_qbf_is_true_simple_false() {
+fn test_qbf_evaluate_false() {
     // F = ∀u_1 ∃u_2 (u_1) ∧ (¬u_1)
-    // This is always false: no assignment can satisfy both u_1 and NOT u_1
+    // Always false: no assignment can satisfy both u_1 and NOT u_1
     let problem = QuantifiedBooleanFormulas::new(
         2,
         vec![Quantifier::ForAll, Quantifier::Exists],
         vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
     );
+
+    assert!(!problem.evaluate(&[]));
     assert!(!problem.is_true());
+}
+
+#[test]
+fn test_qbf_evaluate_nonempty_config_returns_false() {
+    // Non-empty config is always false (no external variables)
+    let problem = QuantifiedBooleanFormulas::new(
+        2,
+        vec![Quantifier::Exists, Quantifier::ForAll],
+        vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![1, -2])],
+    );
+    assert!(!problem.evaluate(&[1, 0]));
 }
 
 #[test]
@@ -121,7 +118,7 @@ fn test_qbf_empty_formula() {
     // Empty CNF is trivially true
     let problem =
         QuantifiedBooleanFormulas::new(2, vec![Quantifier::Exists, Quantifier::ForAll], vec![]);
-    assert!(problem.evaluate(&[0, 0]));
+    assert!(problem.evaluate(&[]));
     assert!(problem.is_true());
 }
 
@@ -144,7 +141,7 @@ fn test_qbf_zero_vars_unsat() {
 
 #[test]
 fn test_qbf_solver() {
-    // F = ∃u_1 ∀u_2 (u_1 ∨ u_2) ∧ (u_1 ∨ ¬u_2)
+    // F = ∃u_1 ∀u_2 (u_1 ∨ u_2) ∧ (u_1 ∨ ¬u_2) — TRUE
     let problem = QuantifiedBooleanFormulas::new(
         2,
         vec![Quantifier::Exists, Quantifier::ForAll],
@@ -152,16 +149,31 @@ fn test_qbf_solver() {
     );
 
     let solver = BruteForce::new();
-    // find_satisfying finds any config where evaluate() returns true
+    // With dims()=[], there is exactly one config: []. evaluate([]) = is_true() = true
     let solution = solver.find_satisfying(&problem);
     assert!(solution.is_some());
     let sol = solution.unwrap();
+    assert_eq!(sol, Vec::<usize>::new());
     assert!(problem.evaluate(&sol));
 }
 
 #[test]
+fn test_qbf_solver_false() {
+    // F = ∀u_1 ∃u_2 (u_1) ∧ (¬u_1) — FALSE
+    let problem = QuantifiedBooleanFormulas::new(
+        2,
+        vec![Quantifier::ForAll, Quantifier::Exists],
+        vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
+    );
+
+    let solver = BruteForce::new();
+    let solution = solver.find_satisfying(&problem);
+    assert!(solution.is_none());
+}
+
+#[test]
 fn test_qbf_solver_all_satisfying() {
-    // F = ∃u_1 ∀u_2 (u_1 ∨ u_2) ∧ (u_1 ∨ ¬u_2)
+    // F = ∃u_1 ∀u_2 (u_1 ∨ u_2) ∧ (u_1 ∨ ¬u_2) — TRUE
     let problem = QuantifiedBooleanFormulas::new(
         2,
         vec![Quantifier::Exists, Quantifier::ForAll],
@@ -170,12 +182,9 @@ fn test_qbf_solver_all_satisfying() {
 
     let solver = BruteForce::new();
     let solutions = solver.find_all_satisfying(&problem);
-    // u_1=T makes both clauses satisfied regardless of u_2
-    // So configs [1,0] and [1,1] should satisfy
-    assert_eq!(solutions.len(), 2);
-    for sol in &solutions {
-        assert!(problem.evaluate(sol));
-    }
+    // Only one config exists (the empty config []), and it satisfies
+    assert_eq!(solutions.len(), 1);
+    assert_eq!(solutions[0], Vec::<usize>::new());
 }
 
 #[test]
@@ -225,7 +234,8 @@ fn test_qbf_dims() {
         ],
         vec![CNFClause::new(vec![1, 2, 3, 4])],
     );
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
+    // dims() is always empty — QBF has no external config variables
+    assert_eq!(problem.dims(), Vec::<usize>::new());
 }
 
 #[test]
@@ -234,8 +244,21 @@ fn test_qbf_variant() {
 }
 
 #[test]
-fn test_qbf_quantifier_debug() {
+fn test_qbf_quantifier_clone() {
     let q = Quantifier::Exists;
-    let debug = format!("{:?}", q);
-    assert!(debug.contains("Exists"));
+    let q2 = q;
+    assert_eq!(q, q2);
+    let q3 = Quantifier::ForAll;
+    assert_ne!(q, q3);
+}
+
+#[test]
+fn test_qbf_empty_clause() {
+    // An empty clause (disjunction of zero literals) is always false
+    let problem = QuantifiedBooleanFormulas::new(
+        1,
+        vec![Quantifier::Exists],
+        vec![CNFClause::new(vec![])],
+    );
+    assert!(!problem.is_true());
 }

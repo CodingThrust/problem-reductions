@@ -154,10 +154,6 @@ impl QuantifiedBooleanFormulas {
         }
     }
 
-    /// Convert a usize config to boolean assignment.
-    fn config_to_assignment(config: &[usize]) -> Vec<bool> {
-        config.iter().map(|&v| v == 1).collect()
-    }
 }
 
 impl Problem for QuantifiedBooleanFormulas {
@@ -165,12 +161,14 @@ impl Problem for QuantifiedBooleanFormulas {
     type Metric = bool;
 
     fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
+        vec![]
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
-        let assignment = Self::config_to_assignment(config);
-        self.clauses.iter().all(|c| c.is_satisfied(&assignment))
+        if !config.is_empty() {
+            return false;
+        }
+        self.is_true()
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -196,7 +194,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 CNFClause::new(vec![1, -2]), // u_1 OR NOT u_2
             ],
         )),
-        optimal_config: vec![1, 0],
+        optimal_config: vec![],
         optimal_value: serde_json::json!(true),
     }]
 }

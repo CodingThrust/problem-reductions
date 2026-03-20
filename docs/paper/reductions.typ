@@ -2439,19 +2439,16 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let m = x.instance.clauses.len()
   let clauses = x.instance.clauses
   let quantifiers = x.instance.quantifiers
-  let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let assign = sol.config
   let fmt-lit(l) = if l > 0 { $u_#l$ } else { $not u_#(-l)$ }
   let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
   let fmt-quant(q, i) = if q == "Exists" { $exists u_#(i + 1)$ } else { $forall u_#(i + 1)$ }
-  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
   [
     #problem-def("QuantifiedBooleanFormulas")[
       Given a set $U = {u_1, dots, u_n}$ of Boolean variables and a fully quantified Boolean formula $F = (Q_1 u_1)(Q_2 u_2) dots.c (Q_n u_n) E$, where each $Q_i in {exists, forall}$ is a quantifier and $E$ is a Boolean expression in CNF with $m$ clauses, determine whether $F$ is true.
     ][
     Quantified Boolean Formulas (QBF) is the canonical PSPACE-complete problem, established by #cite(<stockmeyer1973>, form: "prose"). QBF generalizes SAT by adding universal quantifiers ($forall$) alongside existential ones ($exists$), creating a two-player game semantics: the existential player chooses values for $exists$-variables, the universal player for $forall$-variables, and the formula is true iff the existential player has a winning strategy ensuring all clauses are satisfied. This quantifier alternation is the source of PSPACE-hardness and makes QBF the primary source of PSPACE-completeness reductions for combinatorial game problems. The problem remains PSPACE-complete even when $E$ is restricted to 3-CNF (Quantified 3-SAT), but is polynomial-time solvable when each clause has at most 2 literals @schaefer1978. The best known exact algorithm is brute-force game-tree evaluation in $O^*(2^n)$ time. For QBF with $m$ CNF clauses, #cite(<williams2002>, form: "prose") achieves $O^*(1.709^m)$ time.
 
-    *Example.* Consider $F = #quantifiers.enumerate().map(((i, q)) => fmt-quant(q, i)).join($space$) space #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. Setting $u_1 = #assign.at(0)$: clause $C_1 = paren.l #clauses.at(0).literals.map(l => str(eval-lit(l))).join($or$) paren.r = 1$ and $C_2 = paren.l #clauses.at(1).literals.map(l => str(eval-lit(l))).join($or$) paren.r = 1$ for any $u_2$. Hence $F$ is true -- the existential player wins by choosing $u_1 = 1$.
+    *Example.* Consider $F = #quantifiers.enumerate().map(((i, q)) => fmt-quant(q, i)).join($space$) space #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The existential player chooses $u_1 = 1$: then $C_1 = (1 or u_2) = 1$ and $C_2 = (1 or not u_2) = 1$ for any value of $u_2$. Hence $F$ is #x.optimal_value --- the existential player has a winning strategy.
     ]
   ]
 }
