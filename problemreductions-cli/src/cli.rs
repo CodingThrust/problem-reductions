@@ -266,6 +266,7 @@ Flags by problem type:
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
   QBF                             --num-vars, --clauses, --quantifiers
+  SteinerTreeInGraphs             --graph, --edge-weights, --terminals
   PartitionIntoPathsOfLength2     --graph
   ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences

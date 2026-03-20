@@ -25,8 +25,8 @@ pub use graph::{
     MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter,
     MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
     OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman,
-    SpinGlass, SteinerTree, StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
-    UndirectedTwoCommodityIntegralFlow,
+    SpinGlass, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    SubgraphIsomorphism, TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{

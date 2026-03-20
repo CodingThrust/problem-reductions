@@ -144,6 +144,7 @@
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
   "StaffScheduling": [Staff Scheduling],
   "SteinerTree": [Steiner Tree],
+  "SteinerTreeInGraphs": [Steiner Tree in Graphs],
   "StringToStringCorrection": [String-to-String Correction],
   "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
@@ -1518,6 +1519,58 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
 *Example.* Consider the graph $G$ with $n = 9$ vertices and edges ${0,1}, {1,2}, {3,4}, {4,5}, {6,7}, {7,8}$ (plus cross-edges ${0,3}, {2,5}, {3,6}, {5,8}$). Setting $q = 3$, the partition $V_1 = {0,1,2}$, $V_2 = {3,4,5}$, $V_3 = {6,7,8}$ is valid: $V_1$ contains edges ${0,1}, {1,2}$ (path $0 dash.em 1 dash.em 2$), $V_2$ contains ${3,4}, {4,5}$, and $V_3$ contains ${6,7}, {7,8}$.
 ]
+
+#{
+  let x = load-model-example("SteinerTreeInGraphs")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges
+  let ne = edges.len()
+  let terminals = x.instance.terminals
+  let weights = x.instance.edge_weights
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let opt-weight = sol.metric.Valid
+  // Derive tree edges from optimal config
+  let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let tree-edges = tree-edge-indices.map(i => edges.at(i))
+  // Steiner vertices: non-terminal vertices that appear in tree edges
+  let steiner-verts = range(nv).filter(v => not terminals.contains(v) and tree-edges.any(e => e.at(0) == v or e.at(1) == v))
+  [
+    #problem-def("SteinerTreeInGraphs")[
+      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> RR_(>= 0)$ and a set of terminal vertices $R subset.eq V$, find a subtree $T$ of $G$ that spans all terminals in $R$ and minimizes the total edge weight $sum_(e in T) w(e)$.
+    ][
+    A classical NP-complete problem from Karp's list (as "Steiner Tree in Graphs," Garey & Johnson ND12) @karp1972. Central to network design, VLSI layout, and phylogenetic reconstruction. The problem generalizes minimum spanning tree (where $R = V$) and shortest path (where $|R| = 2$). The Dreyfus--Wagner dynamic programming algorithm @dreyfuswagner1971 solves it in $O(3^k dot n + 2^k dot n^2 + n^3)$ time, where $k = |R|$ and $n = |V|$. Bjorklund et al. @bjorklund2007 achieved $O^*(2^k)$ using subset convolution over the Mobius algebra, and Nederlof @nederlof2009 gave an $O^*(2^k)$ polynomial-space algorithm.
+
+    *Example.* Consider a graph $G$ with $n = #nv$ vertices and $|E| = #ne$ edges. The terminals are $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue). The optimal Steiner tree uses Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (gray, dashed border) and edges #tree-edges.map(e => [$\{v_#(e.at(0)), v_#(e.at(1))\}$]).join(", ") with total weight #tree-edge-indices.map(i => str(weights.at(i))).join(" + ") $= #opt-weight$.
+
+    #figure({
+      // Graph: 6 vertices arranged in two rows (layout positions)
+      let verts = ((0, 1), (1.5, 1), (3, 1), (1.5, -0.5), (3, -0.5), (4.5, 0.25))
+      canvas(length: 1cm, {
+        // Draw edges
+        for (idx, (u, v)) in edges.enumerate() {
+          let on-tree = tree-edges.any(t => (t.at(0) == u and t.at(1) == v) or (t.at(0) == v and t.at(1) == u))
+          g-edge(verts.at(u), verts.at(v),
+            stroke: if on-tree { 2pt + graph-colors.at(0) } else { 1pt + luma(200) })
+          let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+          let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+          draw.content((mx, my), text(7pt, fill: luma(80))[#weights.at(idx)])
+        }
+        // Draw vertices
+        for (k, pos) in verts.enumerate() {
+          let is-terminal = terminals.contains(k)
+          let is-steiner = steiner-verts.contains(k)
+          g-node(pos, name: "v" + str(k),
+            fill: if is-terminal { graph-colors.at(0) } else if is-steiner { luma(220) } else { white },
+            stroke: if is-steiner { (dash: "dashed", paint: graph-colors.at(0)) } else { 1pt + black },
+            label: if is-terminal { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+        }
+      })
+    },
+    caption: [Steiner Tree: terminals $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue), Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (dashed). Optimal tree (blue edges) has weight #opt-weight.],
+    ) <fig:steiner-tree-example>
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("MinimumSumMulticenter")
@@ -3744,8 +3797,9 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let weights = x.instance.weights
   let precs = x.instance.precedences
   let ntasks = lengths.len()
-  let opt = x.optimal_value.Valid
-  let lehmer = x.optimal_config
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let opt = sol.metric.Valid
+  let lehmer = sol.config
   let schedule = {
     let avail = range(ntasks)
     let result = ()
@@ -4302,6 +4356,65 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
 
   _Solution extraction._ Convert binary to spins: $s_i = 2x_i - 1$, i.e.\ $x_i = 1 arrow.r s_i = +1$, $x_i = 0 arrow.r s_i = -1$.
 ]
+
+#let cvp_qubo = load-example("ClosestVectorProblem", "QUBO")
+#let cvp_qubo_sol = cvp_qubo.solutions.at(0)
+#{
+  let basis = cvp_qubo.source.instance.basis
+  let bounds = cvp_qubo.source.instance.bounds
+  let target = cvp_qubo.source.instance.target
+  let offsets = cvp_qubo_sol.source_config
+  let coords = offsets.enumerate().map(((i, off)) => off + bounds.at(i).lower)
+  let matrix = cvp_qubo.target.instance.matrix
+  let bits = cvp_qubo_sol.target_config
+  let lo = bounds.map(b => b.lower)
+  let anchor = range(target.len()).map(d => lo.enumerate().fold(0.0, (acc, (i, x)) => acc + x * basis.at(i).at(d)))
+  let constant = range(target.len()).fold(0.0, (acc, d) => acc + calc.pow(anchor.at(d) - target.at(d), 2))
+  let qubo-value = range(bits.len()).fold(0.0, (acc, i) => acc + if bits.at(i) == 0 { 0.0 } else {
+    range(bits.len() - i).fold(0.0, (row-acc, delta) => row-acc + if bits.at(i + delta) == 0 { 0.0 } else { matrix.at(i).at(i + delta) })
+  })
+  let fmt-vec(v) = $paren.l #v.map(e => str(e)).join(", ") paren.r^top$
+  let rounded-constant = calc.round(constant, digits: 2)
+  let rounded-qubo = calc.round(qubo-value, digits: 1)
+  let rounded-distance-sq = calc.round(qubo-value + constant, digits: 2)
+  [
+    #reduction-rule("ClosestVectorProblem", "QUBO",
+      example: true,
+      example-caption: [2D bounded CVP with two 3-bit exact-range encodings],
+      extra: [
+        *Step 1 -- Source instance.* The canonical CVP example uses basis columns $bold(b)_1 = #fmt-vec(basis.at(0))$ and $bold(b)_2 = #fmt-vec(basis.at(1))$, target $bold(t) = #fmt-vec(target)$, and bounds $x_1, x_2 in [#bounds.at(0).lower, #bounds.at(0).upper]$.
+
+        *Step 2 -- Exact bounded encoding.* Each variable has #bounds.at(0).upper - bounds.at(0).lower + 1 admissible values, so the implementation uses the capped binary basis $(1, 2, 3)$ rather than $(1, 2, 4)$: the first two bits are powers of two, and the last weight is capped so every bit pattern reconstructs an offset in ${0, dots, 6}$. Thus
+        $ x_1 = #bounds.at(0).lower + z_0 + 2 z_1 + 3 z_2, quad x_2 = #bounds.at(1).lower + z_3 + 2 z_4 + 3 z_5 $
+        giving #cvp_qubo.target.instance.num_vars QUBO variables in total.
+
+        *Step 3 -- Build the QUBO.* For this instance, $G = A^top A = ((4, 2), (2, 5))$ and $h = A^top bold(t) = (5.6, 5.8)^top$. Expanding the shifted quadratic form yields the exported upper-triangular matrix with representative entries $Q_(0,0) = #matrix.at(0).at(0)$, $Q_(0,1) = #matrix.at(0).at(1)$, $Q_(0,2) = #matrix.at(0).at(2)$, $Q_(2,5) = #matrix.at(2).at(5)$, and $Q_(5,5) = #matrix.at(5).at(5)$.
+
+        *Step 4 -- Verify a solution.* The fixture stores the canonical witness $bold(z) = (#bits.map(str).join(", "))$, which extracts to source offsets $bold(c) = (#offsets.map(str).join(", "))$ and actual lattice coordinates $bold(x) = (#coords.map(str).join(", "))$. The QUBO value is $bold(z)^top Q bold(z) = #rounded-qubo$; adding back the dropped constant #rounded-constant yields the original squared distance #(rounded-distance-sq), so the extracted point is the closest lattice vector #sym.checkmark.
+
+        *Multiplicity.* Offset $3$ has two bit encodings ($(0, 0, 1)$ and $(1, 1, 0)$), so the fixture stores one canonical witness even though the QUBO has multiple optimal binary assignments representing the same CVP solution.
+      ],
+    )[
+      A bounded Closest Vector Problem instance already supplies a finite integer box $x_i in [ell_i, u_i]$ for each coefficient. Following the direct quadratic-form reduction of Canale, Qureshi, and Viola @canale2023qubo, encoding each offset $c_i = x_i - ell_i$ with an exact in-range binary basis turns the squared-distance objective into an unconstrained quadratic over binary variables. Unlike penalty-method encodings, no auxiliary feasibility penalty is needed: every bit pattern decodes to a legal coefficient vector by construction.
+    ][
+      _Construction._ Let $A in ZZ^(m times n)$ be the basis matrix with columns $bold(a)_1, dots, bold(a)_n$, let $bold(t) in RR^m$ be the target, and let $x_i in [ell_i, u_i]$ with range $r_i = u_i - ell_i$. Define $L_i = ceil(log_2(r_i + 1))$ when $r_i > 0$ and omit bits when $r_i = 0$. For each variable, introduce binary variables $z_(i,0), dots, z_(i,L_i-1)$ with exact-range weights
+      $ w_(i,p) = 2^p quad (0 <= p < L_i - 1), quad w_(i,L_i-1) = r_i + 1 - 2^(L_i - 1) $
+      so that every bit vector represents an offset in ${0, dots, r_i}$. Then
+      $ x_i = ell_i + sum_(p=0)^(L_i-1) w_(i,p) z_(i,p) $
+      and the total number of QUBO variables is $N = sum_i L_i$, exactly the exported overhead `num_vars = num_encoding_bits`.
+
+      Let $G = A^top A$ and $h = A^top bold(t)$. Writing $bold(x) = bold(ell) + B bold(z)$ for the encoding matrix $B in RR^(n times N)$ gives
+      $ norm(A bold(x) - bold(t))_2^2 = bold(z)^top (B^top G B) bold(z) + 2 bold(z)^top B^top (G bold(ell) - h) + "const" $
+      where the constant $norm(A bold(ell) - bold(t))_2^2$ is dropped. Therefore the QUBO coefficients are
+      $ Q_(u,u) = (B^top G B)_(u,u) + 2 (B^top (G bold(ell) - h))_u, quad Q_(u,v) = 2 (B^top G B)_(u,v) quad (u < v) $
+      using the usual upper-triangular convention.
+
+      _Correctness._ ($arrow.r.double$) Every binary vector $bold(z) in {0,1}^N$ decodes to a coefficient vector $bold(x)$ inside the prescribed bounds because each exact-range basis reaches only offsets in ${0, dots, r_i}$. Substituting this decoding into the CVP objective yields $bold(z)^top Q bold(z) + "const"$, so any QUBO minimizer maps to a bounded CVP minimizer. ($arrow.l.double$) Every bounded CVP solution $bold(x)$ has at least one bit encoding for each coordinate offset, hence at least one binary vector $bold(z)$ with the same objective value up to the dropped constant. Thus the minimizers correspond exactly, although several binary witnesses may decode to the same CVP solution.
+
+      _Solution extraction._ For each source variable, sum its selected encoding weights to recover the source configuration offset $c_i = x_i - ell_i$. This is exactly the configuration format expected by the `ClosestVectorProblem` model.
+    ]
+  ]
+}
 
 == Penalty-Method QUBO Reductions <sec:penalty-method>
 
@@ -5217,6 +5330,7 @@ The following table shows concrete variable overhead for example instances, take
   (source: "SpinGlass", target: "MaxCut"),
   (source: "SpinGlass", target: "QUBO"),
   (source: "QUBO", target: "SpinGlass"),
+  (source: "ClosestVectorProblem", target: "QUBO"),
   (source: "KColoring", target: "QUBO"),
   (source: "MaximumSetPacking", target: "QUBO"),
   (
