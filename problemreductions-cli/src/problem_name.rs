@@ -279,6 +279,10 @@ mod tests {
         assert_eq!(resolve_alias("3SAT"), "3SAT"); // pass-through
         assert_eq!(resolve_alias("QUBO"), "QUBO");
         assert_eq!(resolve_alias("MaxCut"), "MaxCut");
+        assert_eq!(
+            resolve_alias("biconnectivityaugmentation"),
+            "BiconnectivityAugmentation"
+        );
         // Pass-through for full names
         assert_eq!(
             resolve_alias("MaximumIndependentSet"),

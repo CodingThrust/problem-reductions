@@ -223,12 +223,19 @@ impl ReduceTo<ILP<i32>> for Factoring {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "factoring_to_ilp",
         build: || {
-            crate::example_db::specs::direct_ilp_example::<_, i32, _>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
                 Factoring::new(3, 3, 35),
-                |_, _| true,
+                SolutionPair {
+                    source_config: vec![1, 0, 1, 1, 1, 1],
+                    target_config: vec![
+                        1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0,
+                    ],
+                },
             )
         },
     }]
