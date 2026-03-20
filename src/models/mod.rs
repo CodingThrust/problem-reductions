@@ -34,9 +34,8 @@ pub use misc::{
     RectilinearPictureCompression, ResourceConstrainedScheduling,
     SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
     SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
-    ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
-    SumOfSquaresPartition, Term,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StaffScheduling, StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term,
 };
 pub use set::{
     ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,

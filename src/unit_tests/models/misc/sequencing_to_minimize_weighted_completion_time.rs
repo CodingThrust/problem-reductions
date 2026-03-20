@@ -99,12 +99,13 @@ fn test_sequencing_to_minimize_weighted_completion_time_serialization() {
 
 #[test]
 fn test_sequencing_to_minimize_weighted_completion_time_deserialization_rejects_zero_length_task() {
-    let err = serde_json::from_value::<SequencingToMinimizeWeightedCompletionTime>(serde_json::json!({
-        "lengths": [0, 1, 3],
-        "weights": [3, 5, 1],
-        "precedences": [],
-    }))
-    .unwrap_err();
+    let err =
+        serde_json::from_value::<SequencingToMinimizeWeightedCompletionTime>(serde_json::json!({
+            "lengths": [0, 1, 3],
+            "weights": [3, 5, 1],
+            "precedences": [],
+        }))
+        .unwrap_err();
 
     assert!(err.to_string().contains("task lengths must be positive"));
 }

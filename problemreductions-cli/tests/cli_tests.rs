@@ -2324,7 +2324,10 @@ fn test_solve_direct_ilp_i32_problem() {
         String::from_utf8_lossy(&create_out.stderr)
     );
 
-    let output = pred().args(["solve", problem_file.to_str().unwrap()]).output().unwrap();
+    let output = pred()
+        .args(["solve", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -2339,8 +2342,8 @@ fn test_solve_direct_ilp_i32_problem() {
 
 #[test]
 fn test_solve_sequencing_to_minimize_weighted_completion_time_default_solver() {
-    let problem_file =
-        std::env::temp_dir().join("pred_test_solve_sequencing_to_minimize_weighted_completion_time.json");
+    let problem_file = std::env::temp_dir()
+        .join("pred_test_solve_sequencing_to_minimize_weighted_completion_time.json");
 
     let create_out = pred()
         .args([
@@ -2363,7 +2366,10 @@ fn test_solve_sequencing_to_minimize_weighted_completion_time_default_solver() {
         String::from_utf8_lossy(&create_out.stderr)
     );
 
-    let output = pred().args(["solve", problem_file.to_str().unwrap()]).output().unwrap();
+    let output = pred()
+        .args(["solve", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -4838,7 +4844,11 @@ fn test_inspect_stdin() {
 #[test]
 fn test_inspect_rejects_zero_length_sequencing_problem_from_stdin() {
     let create_out = pred()
-        .args(["create", "--example", "SequencingToMinimizeWeightedCompletionTime"])
+        .args([
+            "create",
+            "--example",
+            "SequencingToMinimizeWeightedCompletionTime",
+        ])
         .output()
         .unwrap();
     assert!(

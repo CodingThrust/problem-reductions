@@ -171,11 +171,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "sequencingtominimizeweightedcompletiontime_to_ilp",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
-                SequencingToMinimizeWeightedCompletionTime::new(
-                    vec![2, 1],
-                    vec![3, 5],
-                    vec![],
-                ),
+                SequencingToMinimizeWeightedCompletionTime::new(vec![2, 1], vec![3, 5], vec![]),
                 SolutionPair {
                     source_config: vec![1, 0],
                     target_config: vec![3, 1, 0],

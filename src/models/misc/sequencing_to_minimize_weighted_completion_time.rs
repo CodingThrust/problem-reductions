@@ -170,8 +170,7 @@ impl SequencingToMinimizeWeightedCompletionTime {
             .iter()
             .enumerate()
             .try_fold(0u64, |acc, (task, &completion)| -> Option<u64> {
-                let weighted_completion = completion
-                    .checked_mul(self.weights[task])?;
+                let weighted_completion = completion.checked_mul(self.weights[task])?;
                 acc.checked_add(weighted_completion)
             })
             .expect("weighted completion time overflowed u64");
@@ -184,7 +183,9 @@ impl TryFrom<SequencingToMinimizeWeightedCompletionTimeSerde>
 {
     type Error = String;
 
-    fn try_from(value: SequencingToMinimizeWeightedCompletionTimeSerde) -> Result<Self, Self::Error> {
+    fn try_from(
+        value: SequencingToMinimizeWeightedCompletionTimeSerde,
+    ) -> Result<Self, Self::Error> {
         Self::validate(&value.lengths, &value.weights, &value.precedences)?;
         Ok(Self {
             lengths: value.lengths,

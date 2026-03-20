@@ -22,8 +22,8 @@ use problemreductions::models::misc::{
     RectilinearPictureCompression, ResourceConstrainedScheduling,
     SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
     SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
-    ShortestCommonSupersequence, StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
