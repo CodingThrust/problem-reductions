@@ -5,24 +5,23 @@ description: Use when you have a GitHub issue and want to create a PR with an im
 
 # Issue to PR
 
-Convert a GitHub issue into an actionable PR with a plan. Optionally execute the plan immediately using subagent-driven-development.
+Convert a GitHub issue into a PR: write a plan, create the PR, then execute the plan using subagent-driven-development.
 
 ## Invocation
 
-- `/issue-to-pr 42` — create PR with plan only
-- `/issue-to-pr 42 --execute` — create PR, then execute the plan and review
+- `/issue-to-pr 42` — create PR with plan, then execute
 
 For Codex, open this `SKILL.md` directly and treat the slash-command forms above as aliases. The Makefile `run-issue` target already does this translation.
 
 ## Workflow
 
 ```
-Receive issue number [+ --execute flag]
+Receive issue number
     -> Fetch structured issue preflight report
     -> Verify Good label and rule-model guards
     -> If guards fail: STOP
     -> If guards pass: research references, write plan, create or resume PR
-    -> If --execute: run plan via subagent-driven-development, then review-implementation
+    -> Execute plan via subagent-driven-development
 ```
 
 ## Steps
@@ -30,8 +29,7 @@ Receive issue number [+ --execute flag]
 ### 1. Parse Input
 
 Extract issue number, repo, and flags from arguments:
-- `123` -> issue #123, plan only
-- `123 --execute` -> issue #123, plan + execute
+- `123` -> issue #123
 - `https://github.com/owner/repo/issues/123` -> issue #123
 - `owner/repo#123` -> issue #123 in owner/repo
 
@@ -78,7 +76,7 @@ For `[Rule]` issues, `ISSUE_JSON` already includes `source_problem`, `target_pro
 
 ### 4. Research References
 
-Use `WebSearch` and `WebFetch` to look up the reference URL provided in the issue. This helps:
+Use web search to look up the reference URL provided in the issue. This helps:
 - Clarify the formal problem definition and notation
 - Understand the reduction algorithm in detail (variable mapping, penalty terms, proof of correctness)
 - Resolve any ambiguities in the issue description without bothering the contributor
@@ -87,7 +85,7 @@ If the reference is a paper or textbook, search for accessible summaries, lectur
 
 ### 5. Write Plan
 
-Write plan to `docs/plans/YYYY-MM-DD-<slug>.md` using `superpowers:writing-plans`.
+Write implementation plan to `docs/plans/YYYY-MM-DD-<slug>.md` using `superpowers`.
 
 The plan MUST reference the appropriate implementation skill and follow its steps:
 
@@ -97,7 +95,7 @@ The plan MUST reference the appropriate implementation skill and follow its step
 Include the concrete details from the issue (problem definition, reduction algorithm, example, etc.) mapped onto each step.
 
 **Plan batching:** The paper writing step (add-model Step 6 / add-rule Step 5) MUST be in a **separate batch** from the implementation steps, so it gets its own subagent with fresh context. It depends on the implementation being complete (needs exports). Example batch structure for a `[Model]` plan:
-- Batch 1: Steps 1-5.5 (implement model, register, CLI, tests, trait_consistency)
+- Batch 1: Steps 1-5.5 (implement model, register, CLI, tests)
 - Batch 2: Step 6 (write paper entry — depends on batch 1 for exports)
 
 **Solver rules:**
@@ -106,29 +104,35 @@ Include the concrete details from the issue (problem definition, reduction algor
 - Otherwise, ensure the information provided is enough to implement a solver.
 
 **Example rules:**
-- Implement the user-provided example instance as an example program in `examples/`.
-- Run the example; verify JSON output against user-provided information.
+- Implement the user-provided example instance in the canonical `example_db` path for the issue (`src/example_db/model_builders.rs` or `src/example_db/rule_builders.rs`, as appropriate).
+- Run the relevant export and fixture regeneration steps; verify the generated example data against the user-provided information.
 - Present in `docs/paper/reductions.typ` in tutorial style with clear intuition (see KColoring->QUBO section for reference).
 
 ### 6. Create PR (or Resume Existing)
 
 Use the `ISSUE_JSON.action` and `ISSUE_JSON.resume_pr` fields from Step 2.
 
-**If an open PR already exists** (`action == "resume-pr"`):
+**Validate `resume_pr` before trusting it:** If `action == "resume-pr"`, verify that `resume_pr.head_ref_name` contains the current issue number (e.g., branch name includes `issue-{N}`). If it doesn't match, treat as `action = "create-pr"` instead — the script may have matched an unrelated PR.
+
+**If an open PR already exists** (`action == "resume-pr"`, validated):
 - Switch to its branch: `git checkout <resume_pr.head_ref_name>`
 - Capture `PR=<resume_pr.number>`
 - Skip plan creation — jump directly to Step 7 (execute)
 
+**Worktree-aware branching:** If you are already inside a `run-pipeline` worktree (the CWD is under `.worktrees/`), the branch is already created — skip `prepare-issue-branch` and use the current branch directly. Only call `prepare-issue-branch` when running standalone (not inside a worktree).
+
 **If no open PR exists** (`action == "create-pr"`) — create one with only the plan file:
 
 ```bash
-# Prepare or reuse the issue branch (this enforces a clean working tree)
+# If NOT inside a worktree: prepare or reuse the issue branch
+# (skip this if already in a run-pipeline worktree — branch already exists)
 BRANCH_JSON=$(python3 scripts/pipeline_worktree.py prepare-issue-branch \
   --issue <number> \
   --slug <slug> \
   --base main \
   --format json)
 BRANCH=$(printf '%s\n' "$BRANCH_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['branch'])")
+# If inside a worktree, just use: BRANCH=$(git branch --show-current)
 
 # Stage the plan file
 git add docs/plans/<plan-file>.md
@@ -160,9 +164,7 @@ PR=$(printf '%s\n' "$PR_JSON" | python3 -c "import sys,json; print(json.load(sys
 rm -f "$PR_BODY_FILE"
 ```
 
-### 7. Execute Plan (only with `--execute`)
-
-Skip this step if `--execute` was not provided.
+### 7. Execute Plan
 
 #### 7a. Implement
 
@@ -174,17 +176,11 @@ Execute the plan using `superpowers:subagent-driven-development`:
 
 If execution fails, leave the PR open with the plan commit only — the user can run `make run-plan` manually later. Skip remaining sub-steps.
 
-#### 7b. Review
+#### 7b. Commit
 
-Run review-implementation to verify the code:
+Structural and quality review is handled by the `review-pipeline` stage, not here. The run stage just needs to produce working code.
 
-```
-/review-implementation
-```
-
-Auto-fix any issues found. If unfixable issues remain, report them to the user.
-
-**Commit all changes** (implementation + review fixes):
+Ensure all implementation changes are committed before cleanup. A small coherent commit stack is acceptable, especially when resuming an existing PR or integrating subagent work; do not rewrite history just to collapse commits. If there are still uncommitted implementation changes, commit them now:
 ```bash
 git add -A
 git commit -m "Implement #<number>: <title>"
@@ -199,7 +195,7 @@ git rm docs/plans/<plan-file>.md
 git commit -m "chore: remove plan file after implementation"
 ```
 
-#### 7d. Push, Post Summary, and Request Copilot Review
+#### 7d. Push and Post Summary
 
 Post an implementation summary comment on the PR **before** pushing. This comment should:
 - Summarize what was implemented (files added/changed)
@@ -223,18 +219,16 @@ EOF
 python3 scripts/pipeline_pr.py comment --repo "$REPO" --pr "$PR" --body-file "$COMMENT_FILE"
 rm -f "$COMMENT_FILE"
 
-# Repo verification may regenerate tracked exports (notably after `make paper`).
+# Repo verification may regenerate ignored doc exports (notably after `make paper`).
 # Inspect the tree once more before pushing.
 git status --short
 
-# If expected generated exports changed, stage them before push.
-git add docs/src/reductions/problem_schemas.json docs/src/reductions/reduction_graph.json
+# Generated doc exports under docs/src/reductions/ are ignored; do not stage them.
 
 # The issue plan file must be gone before push.
 test ! -e docs/plans/<plan-file>.md
 
 git push
-gh copilot-review "$PR"
 ```
 
 #### 7e. Done
@@ -243,7 +237,7 @@ Report final status:
 - PR URL and number
 - Implementation summary
 
-The PR is **not merged** and CI/review fixes are **not** handled here. The separate `review-pipeline` skill picks up PRs from the `Review pool` board column to handle Copilot review comments, CI fixes, and agentic testing.
+The PR is **not merged** and review is **not** handled here. The separate `review-pipeline` skill picks up PRs from the `Review pool` board column to run agentic review (structural check, quality check, agentic feature tests).
 
 ## Example
 
@@ -263,17 +257,24 @@ Created PR #45: Fix #42: Add IndependentSet -> QUBO reduction
 ```
 
 ```
-User: /issue-to-pr 42 --execute
+User: /issue-to-pr 42
 
-Claude: [Same as above, then continues...]
+Claude: Let me fetch issue #42...
+
+[Fetches issue: "[Rule] IndependentSet to QUBO"]
+[Verifies Good label — passed]
+[Researches references]
+[Writes docs/plans/2026-02-09-independentset-to-qubo.md]
+[Creates branch, commits, pushes]
+[Creates PR]
+[Continues to execute...]
 
 Executing plan via subagent-driven-development...
 [Subagents implement the plan steps]
-[Runs review-implementation — all checks pass, auto-fixes applied]
-[Pushes + requests Copilot review]
+[Pushes]
 
-PR #45 created and pushed. Copilot review requested.
-Run /review-pipeline to process Copilot comments, fix CI, and run agentic tests.
+PR #45 created and pushed.
+Run /review-pipeline to run agentic review (structural check, quality check, agentic tests).
 ```
 
 ## Common Mistakes
@@ -288,7 +289,8 @@ Run /review-pipeline to process Copilot comments, fix CI, and run agentic tests.
 | Not verifying facts from issue | Use WebSearch/WebFetch to cross-check claims |
 | Branch already exists on retry | Use `pipeline_worktree.py prepare-issue-branch` — it will reuse the existing branch instead of failing on `git checkout -b` |
 | Dirty working tree | Use `pipeline_worktree.py prepare-issue-branch` — it stops before branching if the worktree is dirty |
+| Resuming wrong PR | Always validate `resume_pr.head_ref_name` contains `issue-{N}` before trusting it — GitHub search can return false positives |
+| `prepare-issue-branch` inside worktree | Skip it when inside a `run-pipeline` worktree (CWD under `.worktrees/`) — the branch already exists |
 | Bundling model + rule in one PR | Each PR must contain exactly one model or one rule — STOP and block if model is missing (Step 3.5) |
 | Plan files left in PR | Delete plan files before final push (Step 7c) |
 | `make paper` or export steps changed tracked JSON after verification | Run `git status --short`, stage expected generated exports, and STOP if unexpected files remain before push |
-| `make copilot-review` cannot find a resumed PR branch | Request review with `gh copilot-review "$PR"` so resumed local branch names do not matter |

@@ -1,6 +1,7 @@
 use super::*;
-use crate::models::algebraic::QUBO;
+use crate::models::algebraic::{ILP, QUBO};
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
+use crate::models::misc::Knapsack;
 use crate::models::set::MaximumSetPacking;
 use crate::rules::cost::{Minimize, MinimizeSteps};
 use crate::rules::graph::{classify_problem_category, ReductionStep};
@@ -48,6 +49,29 @@ fn test_find_shortest_path() {
     assert!(path.is_some());
     let path = path.unwrap();
     assert_eq!(path.len(), 1); // Direct path exists
+}
+
+#[test]
+fn test_knapsack_to_ilp_path_exists() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&Knapsack::variant());
+    let dst = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
+    let path = graph.find_cheapest_path(
+        "Knapsack",
+        &src,
+        "ILP",
+        &dst,
+        &ProblemSize::new(vec![]),
+        &MinimizeSteps,
+    );
+
+    let path = path.expect("Knapsack should reduce to ILP");
+    assert_eq!(
+        path.type_names(),
+        vec!["Knapsack", "ILP"],
+        "Knapsack should have a direct ILP reduction"
+    );
+    assert_eq!(path.len(), 1, "Knapsack -> ILP should be one direct step");
 }
 
 #[test]

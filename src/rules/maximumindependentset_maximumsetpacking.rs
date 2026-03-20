@@ -123,15 +123,20 @@ impl_sp_to_is!(One);
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
     vec![
         crate::example_db::specs::RuleExampleSpec {
             id: "maximumindependentset_to_maximumsetpacking",
             build: || {
                 let (n, edges) = crate::topology::small_graphs::petersen();
                 let source = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i32; 10]);
-                crate::example_db::specs::direct_best_example::<_, MaximumSetPacking<i32>, _>(
+                crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<i32>>(
                     source,
-                    |_, _| true,
+                    SolutionPair {
+                        source_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+                        target_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+                    },
                 )
             },
         },
@@ -140,9 +145,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             build: || {
                 let (n, edges) = crate::topology::small_graphs::petersen();
                 let source = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![One; 10]);
-                crate::example_db::specs::direct_best_example::<_, MaximumSetPacking<One>, _>(
+                crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<One>>(
                     source,
-                    |_, _| true,
+                    SolutionPair {
+                        source_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+                        target_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+                    },
                 )
             },
         },
@@ -157,11 +165,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     vec![3, 6],
                 ];
                 let source = MaximumSetPacking::with_weights(sets, vec![1i32; 5]);
-                crate::example_db::specs::direct_best_example::<
+                crate::example_db::specs::rule_example_with_witness::<
                     _,
                     MaximumIndependentSet<SimpleGraph, i32>,
-                    _,
-                >(source, |_, _| true)
+                >(
+                    source,
+                    SolutionPair {
+                        source_config: vec![1, 0, 0, 0, 1],
+                        target_config: vec![1, 0, 0, 0, 1],
+                    },
+                )
             },
         },
         crate::example_db::specs::RuleExampleSpec {
@@ -175,11 +188,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     vec![3, 6],
                 ];
                 let source = MaximumSetPacking::with_weights(sets, vec![One; 5]);
-                crate::example_db::specs::direct_best_example::<
+                crate::example_db::specs::rule_example_with_witness::<
                     _,
                     MaximumIndependentSet<SimpleGraph, One>,
-                    _,
-                >(source, |_, _| true)
+                >(
+                    source,
+                    SolutionPair {
+                        source_config: vec![1, 0, 0, 0, 1],
+                        target_config: vec![1, 0, 0, 0, 1],
+                    },
+                )
             },
         },
     ]

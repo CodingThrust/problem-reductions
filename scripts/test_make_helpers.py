@@ -338,7 +338,7 @@ class MakeHelpersTests(unittest.TestCase):
                 (
                     ". scripts/make_helpers.sh; "
                     "python3() { printf '%s\\n' \"$@\"; }; "
-                    "review_pipeline_context CodingThrust/problem-reductions 570 /tmp/review.json"
+                    "review_pipeline_context CodingThrust/problem-reductions 570"
                 ),
             ],
             cwd=REPO_ROOT,
@@ -353,8 +353,6 @@ class MakeHelpersTests(unittest.TestCase):
                 "review-pipeline",
                 "--repo",
                 "CodingThrust/problem-reductions",
-                "--state-file",
-                "/tmp/review.json",
                 "--format",
                 "json",
                 "--pr",
@@ -381,7 +379,7 @@ class MakeHelpersTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn('board_next_json ready "" "" "$state_file"', proc.stdout)
+        self.assertIn('board_next_json ready "" "" "$tmp_state"', proc.stdout)
         self.assertIn('skill_prompt_with_context project-pipeline', proc.stdout)
 
     def test_watch_and_dispatch_uses_persistent_default_state_file(self) -> None:
@@ -441,32 +439,7 @@ class MakeHelpersTests(unittest.TestCase):
         self.assertIn("ack:PVTI_1", proc.stdout)
         self.assertIn("sleep:600", proc.stdout)
 
-    def test_watch_and_dispatch_uses_long_cache_when_pending_above_threshold(self) -> None:
-        if shutil.which("dash") is None:
-            self.skipTest("dash is not installed")
-
-        proc = subprocess.run(
-            [
-                "dash",
-                "-c",
-                (
-                    ". scripts/make_helpers.sh; "
-                    "state_tmp=$(mktemp); "
-                    'printf \'{"pending":["a","b","c","d","e"],"visible":{}}\' > "$state_tmp"; '
-                    "poll_project_items() { printf 'max_age:%s\\n' \"$7\" >&2; return 2; }; "
-                    "STATE_FILE=\"$state_tmp\" CACHE_THRESHOLD=5 "
-                    "watch_and_dispatch ready run-pipeline 'Ready issues'"
-                ),
-            ],
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(proc.returncode, 2, proc.stderr)
-        # Above threshold: cache is reused but max_age is still the poll interval
-        self.assertIn("max_age:600", proc.stderr)
-
-    def test_watch_and_dispatch_invalidates_cache_when_pending_below_threshold(self) -> None:
+    def test_watch_and_dispatch_calls_poll_with_correct_args(self) -> None:
         if shutil.which("dash") is None:
             self.skipTest("dash is not installed")
 
@@ -478,8 +451,8 @@ class MakeHelpersTests(unittest.TestCase):
                     ". scripts/make_helpers.sh; "
                     "state_tmp=$(mktemp); "
                     'printf \'{"pending":["a","b"],"visible":{}}\' > "$state_tmp"; '
-                    "poll_project_items() { printf 'max_age:%s\\n' \"$7\" >&2; return 2; }; "
-                    "STATE_FILE=\"$state_tmp\" CACHE_THRESHOLD=5 "
+                    "poll_project_items() { printf 'mode:%s state:%s\\n' \"$1\" \"$2\" >&2; return 2; }; "
+                    "STATE_FILE=\"$state_tmp\" "
                     "watch_and_dispatch ready run-pipeline 'Ready issues'"
                 ),
             ],
@@ -488,10 +461,9 @@ class MakeHelpersTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(proc.returncode, 2, proc.stderr)
-        # Below threshold: cache is invalidated but max_age is still the poll interval
-        self.assertIn("max_age:600", proc.stderr)
+        self.assertIn("mode:ready state:", proc.stderr)
 
-    def test_watch_and_dispatch_requests_copilot_reviews_in_review_mode(self) -> None:
+    def test_watch_and_dispatch_handles_missing_state_file(self) -> None:
         if shutil.which("dash") is None:
             self.skipTest("dash is not installed")
 
@@ -501,58 +473,8 @@ class MakeHelpersTests(unittest.TestCase):
                 "-c",
                 (
                     ". scripts/make_helpers.sh; "
-                    "state_tmp=$(mktemp); "
-                    'printf \'{"pending":[],"visible":{}}\' > "$state_tmp"; '
-                    "request_copilot_reviews() { printf 'copilot_reviews:%s\\n' \"$1\" >&2; }; "
-                    "poll_project_items() { return 2; }; "
-                    "STATE_FILE=\"$state_tmp\" CACHE_THRESHOLD=5 "
-                    "watch_and_dispatch review run-review 'Copilot-reviewed PRs' myorg/myrepo"
-                ),
-            ],
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(proc.returncode, 2, proc.stderr)
-        self.assertIn("copilot_reviews:myorg/myrepo", proc.stderr)
-
-    def test_watch_and_dispatch_skips_copilot_reviews_when_pending_above_threshold(self) -> None:
-        if shutil.which("dash") is None:
-            self.skipTest("dash is not installed")
-
-        proc = subprocess.run(
-            [
-                "dash",
-                "-c",
-                (
-                    ". scripts/make_helpers.sh; "
-                    "state_tmp=$(mktemp); "
-                    'printf \'{"pending":["a","b","c","d","e"],"visible":{}}\' > "$state_tmp"; '
-                    "request_copilot_reviews() { printf 'copilot_reviews_called\\n' >&2; }; "
-                    "poll_project_items() { return 2; }; "
-                    "STATE_FILE=\"$state_tmp\" CACHE_THRESHOLD=5 "
-                    "watch_and_dispatch review run-review 'Copilot-reviewed PRs' myorg/myrepo"
-                ),
-            ],
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(proc.returncode, 2, proc.stderr)
-        self.assertNotIn("copilot_reviews_called", proc.stderr)
-
-    def test_watch_and_dispatch_pending_count_handles_missing_state_file(self) -> None:
-        if shutil.which("dash") is None:
-            self.skipTest("dash is not installed")
-
-        proc = subprocess.run(
-            [
-                "dash",
-                "-c",
-                (
-                    ". scripts/make_helpers.sh; "
-                    "poll_project_items() { printf 'max_age:%s\\n' \"$7\" >&2; return 2; }; "
-                    "STATE_FILE=/tmp/nonexistent-state-$$.json CACHE_THRESHOLD=5 "
+                    "poll_project_items() { printf 'mode:%s\\n' \"$1\" >&2; return 2; }; "
+                    "STATE_FILE=/tmp/nonexistent-state-$$.json "
                     "watch_and_dispatch ready run-pipeline 'Ready issues'"
                 ),
             ],
@@ -561,8 +483,7 @@ class MakeHelpersTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(proc.returncode, 2, proc.stderr)
-        # pending_count=0 < threshold=5, so cache should be invalidated; max_age = poll interval
-        self.assertIn("max_age:600", proc.stderr)
+        self.assertIn("mode:ready", proc.stderr)
 
     def test_pr_snapshot_uses_pipeline_pr_cli(self) -> None:
         if shutil.which("dash") is None:
