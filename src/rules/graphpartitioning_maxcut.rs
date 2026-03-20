@@ -11,6 +11,8 @@ pub struct ReductionGPToMaxCut {
     target: MaxCut<SimpleGraph, i32>,
 }
 
+const ISSUE_EXAMPLE_WITNESS: [usize; 6] = [0, 0, 0, 1, 1, 1];
+
 impl ReductionResult for ReductionGPToMaxCut {
     type Source = GraphPartitioning<SimpleGraph>;
     type Target = MaxCut<SimpleGraph, i32>;
@@ -24,9 +26,26 @@ impl ReductionResult for ReductionGPToMaxCut {
     }
 }
 
+fn issue_example() -> GraphPartitioning<SimpleGraph> {
+    GraphPartitioning::new(SimpleGraph::new(
+        6,
+        vec![
+            (0, 1),
+            (0, 2),
+            (1, 2),
+            (1, 3),
+            (2, 3),
+            (2, 4),
+            (3, 4),
+            (3, 5),
+            (4, 5),
+        ],
+    ))
+}
+
 fn complete_graph_edges_and_weights(graph: &SimpleGraph) -> (Vec<(usize, usize)>, Vec<i32>) {
     let num_vertices = graph.num_vertices();
-    let p = graph.num_edges() as i32 + 1;
+    let p = penalty_weight(graph.num_edges());
     let mut edges = Vec::new();
     let mut weights = Vec::new();
 
@@ -38,6 +57,13 @@ fn complete_graph_edges_and_weights(graph: &SimpleGraph) -> (Vec<(usize, usize)>
     }
 
     (edges, weights)
+}
+
+fn penalty_weight(num_edges: usize) -> i32 {
+    i32::try_from(num_edges)
+        .ok()
+        .and_then(|num_edges| num_edges.checked_add(1))
+        .expect("GraphPartitioning -> MaxCut penalty exceeds i32 range")
 }
 
 #[reduction(
@@ -64,25 +90,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "graphpartitioning_to_maxcut",
         build: || {
-            let source = GraphPartitioning::new(SimpleGraph::new(
-                6,
-                vec![
-                    (0, 1),
-                    (0, 2),
-                    (1, 2),
-                    (1, 3),
-                    (2, 3),
-                    (2, 4),
-                    (3, 4),
-                    (3, 5),
-                    (4, 5),
-                ],
-            ));
             crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i32>>(
-                source,
+                issue_example(),
                 SolutionPair {
-                    source_config: vec![0, 0, 0, 1, 1, 1],
-                    target_config: vec![0, 0, 0, 1, 1, 1],
+                    source_config: ISSUE_EXAMPLE_WITNESS.to_vec(),
+                    target_config: ISSUE_EXAMPLE_WITNESS.to_vec(),
                 },
             )
         },

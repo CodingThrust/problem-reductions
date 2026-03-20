@@ -4,20 +4,7 @@ use crate::rules::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
 fn issue_example() -> GraphPartitioning<SimpleGraph> {
-    GraphPartitioning::new(SimpleGraph::new(
-        6,
-        vec![
-            (0, 1),
-            (0, 2),
-            (1, 2),
-            (1, 3),
-            (2, 3),
-            (2, 4),
-            (3, 4),
-            (3, 5),
-            (4, 5),
-        ],
-    ))
+    super::issue_example()
 }
 
 #[test]
@@ -38,13 +25,18 @@ fn test_graphpartitioning_to_maxcut_target_structure() {
     let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
     let target = reduction.target_problem();
     let num_vertices = source.num_vertices();
+    let penalty = i32::try_from(source.num_edges()).unwrap() + 1;
 
     assert_eq!(target.num_vertices(), num_vertices);
     assert_eq!(target.num_edges(), num_vertices * (num_vertices - 1) / 2);
 
     for u in 0..num_vertices {
         for v in (u + 1)..num_vertices {
-            let expected_weight = if source.graph().has_edge(u, v) { 9 } else { 10 };
+            let expected_weight = if source.graph().has_edge(u, v) {
+                penalty - 1
+            } else {
+                penalty
+            };
             assert_eq!(
                 target.edge_weight(u, v),
                 Some(&expected_weight),
@@ -58,7 +50,13 @@ fn test_graphpartitioning_to_maxcut_target_structure() {
 fn test_graphpartitioning_to_maxcut_extract_solution_identity() {
     let source = issue_example();
     let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
-    let target_solution = vec![0, 0, 0, 1, 1, 1];
+    let target_solution = super::ISSUE_EXAMPLE_WITNESS.to_vec();
 
     assert_eq!(reduction.extract_solution(&target_solution), target_solution);
+}
+
+#[test]
+fn test_graphpartitioning_to_maxcut_penalty_overflow_panics() {
+    let result = std::panic::catch_unwind(|| super::penalty_weight(i32::MAX as usize));
+    assert!(result.is_err());
 }
