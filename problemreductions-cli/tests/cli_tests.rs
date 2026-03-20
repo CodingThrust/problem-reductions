@@ -2967,7 +2967,7 @@ fn test_create_help_describes_precedence_pairs_generically() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Precedence pairs for scheduling problems"));
+    assert!(stdout.contains("Precedence pairs for MinimumTardinessSequencing, SchedulingWithIndividualDeadlines, or SequencingToMinimizeWeightedCompletionTime"));
 }
 
 #[test]
