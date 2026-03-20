@@ -4,6 +4,7 @@
 //! - [`AdditionalKey`]: Determine whether a relational schema has an additional candidate key
 //! - [`BinPacking`]: Bin Packing (minimize bins)
 //! - [`BoyceCoddNormalFormViolation`]: Boyce-Codd Normal Form Violation (BCNF)
+//! - [`ConsistencyOfDatabaseFrequencyTables`]: Pairwise frequency-table consistency
 //! - [`ConjunctiveBooleanQuery`]: Evaluate a conjunctive Boolean query over relations
 //! - [`ConjunctiveQueryFoldability`]: Conjunctive Query Foldability
 //! - [`Factoring`]: Integer factorization
@@ -32,6 +33,7 @@
 pub(crate) mod additional_key;
 mod bin_packing;
 mod boyce_codd_normal_form_violation;
+mod consistency_of_database_frequency_tables;
 pub(crate) mod conjunctive_boolean_query;
 pub(crate) mod conjunctive_query_foldability;
 pub(crate) mod factoring;
@@ -61,6 +63,9 @@ pub(crate) mod sum_of_squares_partition;
 pub use additional_key::AdditionalKey;
 pub use bin_packing::BinPacking;
 pub use boyce_codd_normal_form_violation::BoyceCoddNormalFormViolation;
+pub use consistency_of_database_frequency_tables::{
+    ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue,
+};
 pub use conjunctive_boolean_query::{ConjunctiveBooleanQuery, QueryArg, Relation as CbqRelation};
 pub use conjunctive_query_foldability::{ConjunctiveQueryFoldability, Term};
 pub use factoring::Factoring;
@@ -91,6 +96,7 @@ pub use sum_of_squares_partition::SumOfSquaresPartition;
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let mut specs = Vec::new();
     specs.extend(boyce_codd_normal_form_violation::canonical_model_example_specs());
+    specs.extend(consistency_of_database_frequency_tables::canonical_model_example_specs());
     specs.extend(conjunctive_boolean_query::canonical_model_example_specs());
     specs.extend(conjunctive_query_foldability::canonical_model_example_specs());
     specs.extend(factoring::canonical_model_example_specs());
