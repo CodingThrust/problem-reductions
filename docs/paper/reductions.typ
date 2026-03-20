@@ -3496,8 +3496,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let nproc = x.instance.num_processors
   let deadlines = x.instance.deadlines
   let precs = x.instance.precedences
-  let sample = x.samples.at(0)
-  let start = sample.config
+  let start = x.optimal_config
   let horizon = deadlines.fold(0, (acc, d) => if d > acc { d } else { acc })
   let slot-groups = range(horizon).map(slot => range(ntasks).filter(t => start.at(t) == slot))
   let tight-tasks = range(ntasks).filter(t => start.at(t) + 1 == deadlines.at(t))
