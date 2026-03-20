@@ -4826,6 +4826,51 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each edge $e$ at index $"idx"$, read $x_e = x^*_(k n + "idx")$. The source configuration is $"config"[e] = x_e$ (1 = cut, 0 = keep).
 ]
 
+#let st_ilp = load-example("SteinerTree", "ILP")
+#let st_ilp_sol = st_ilp.solutions.at(0)
+#let st_edges = st_ilp.source.instance.graph.edges
+#let st_weights = st_ilp.source.instance.edge_weights
+#let st_terminals = st_ilp.source.instance.terminals
+#let st_root = st_terminals.at(0)
+#let st_non_root_terminals = range(1, st_terminals.len()).map(i => st_terminals.at(i))
+#let st_selected_edge_indices = st_ilp_sol.source_config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+#let st_selected_edges = st_selected_edge_indices.map(i => st_edges.at(i))
+#let st_cost = st_selected_edge_indices.map(i => st_weights.at(i)).sum()
+
+#reduction-rule("SteinerTree", "ILP",
+  example: true,
+  example-caption: [Canonical Steiner tree instance ($n = #st_ilp.source.instance.graph.num_vertices$, $m = #st_edges.len()$, $|T| = #st_terminals.len()$)],
+  extra: [
+    *Step 1 -- Choose a root and one commodity per remaining terminal.* The canonical source instance has terminals $T = {#st_terminals.map(t => $v_#t$).join(", ")}$. The reduction fixes the first terminal as root $r = v_#st_root$ and creates one flow commodity for each remaining terminal: $v_#st_non_root_terminals.at(0)$ and $v_#st_non_root_terminals.at(1)$.
+
+    *Step 2 -- Count the variables from the source edge order.* The first #st_edges.len() target variables are the edge selectors $bold(y) = (#st_ilp_sol.target_config.slice(0, st_edges.len()).map(str).join(", "))$, one per source edge in the order #st_edges.enumerate().map(((i, e)) => [$e_#i = (#(e.at(0)), #(e.at(1)))$]).join(", "). The remaining #(st_ilp.target.instance.num_vars - st_edges.len()) variables are directed flow indicators: $2 m (|T| - 1) = 2 times #st_edges.len() times #st_non_root_terminals.len() = #(st_ilp.target.instance.num_vars - st_edges.len())$.
+
+    *Step 3 -- Count the constraints commodity-by-commodity.* Each non-root terminal contributes one flow-conservation equality per vertex and two capacity inequalities per source edge. For this fixture that is $#st_ilp.source.instance.graph.num_vertices times #st_non_root_terminals.len() = #(st_ilp.source.instance.graph.num_vertices * st_non_root_terminals.len())$ equalities plus $#(2 * st_edges.len()) times #st_non_root_terminals.len() = #(2 * st_edges.len() * st_non_root_terminals.len())$ inequalities, totaling #st_ilp.target.instance.constraints.len() constraints.
+
+    *Step 4 -- Read the canonical witness pair.* The source witness selects edges ${#st_selected_edges.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")}$, so $bold(y)$ already encodes the Steiner tree. In the target witness, the commodity for $v_2$ routes along $v_0 arrow v_1 arrow v_2$, while the commodity for $v_4$ routes along $v_0 arrow v_1 arrow v_3 arrow v_4$. Every flow 1-entry therefore sits under a selected edge variable #sym.checkmark
+
+    *Step 5 -- Verify the objective end-to-end.* The selected-edge prefix is $bold(y) = (#st_ilp_sol.target_config.slice(0, st_edges.len()).map(str).join(", "))$, matching the source witness $(#st_ilp_sol.source_config.map(str).join(", "))$. The ILP objective is #st_selected_edge_indices.map(i => $#(st_weights.at(i))$).join($+$) $= #st_cost$, exactly the Steiner tree optimum stored in the fixture.
+
+    *Multiplicity:* The fixture stores one canonical witness. Other optimal Steiner trees could yield different feasible ILP witnesses, but every valid witness still exposes the source solution in the first $m$ variables.
+  ],
+)[
+  The rooted multi-commodity flow formulation @wong1984steiner @kochmartin1998steiner introduces one binary selector $y_e$ for each source edge and, for every non-root terminal $t$, one binary flow variable on each directed source edge. Flow conservation sends one unit from the root to each terminal, while the linking inequalities $f^t_(u,v) <= y_e$ ensure that every used flow arc is backed by a selected source edge. The resulting binary ILP has $m + 2 m (k - 1)$ variables and $n (k - 1) + 2 m (k - 1)$ constraints.
+][
+  _Construction._ Given an undirected weighted graph $G = (V, E, w)$ with nonnegative edge weights, terminals $T = {t_0, dots, t_(k-1)}$, and root $r = t_0$, introduce binary edge selectors $y_e in {0,1}$ for every $e in E$. For each non-root terminal $t in T backslash {r}$ and each directed copy of an undirected edge $(u, v) in E$, introduce a binary flow variable $f^t_(u,v) in {0,1}$. The target objective is
+  $ min sum_(e in E) w_e y_e. $
+  For every commodity $t$ and vertex $v$, enforce flow conservation:
+  $ sum_(u : (u, v) in A) f^t_(u,v) - sum_(u : (v, u) in A) f^t_(v,u) = b_(t,v), $
+  where $A$ contains both orientations of every undirected edge, $b_(t,v) = -1$ at the root $v = r$, $b_(t,v) = 1$ at the sink $v = t$, and $b_(t,v) = 0$ otherwise. For every commodity $t$ and undirected edge $e = {u, v}$, add the capacity-linking inequalities
+  $ f^t_(u,v) <= y_e quad "and" quad f^t_(v,u) <= y_e. $
+  Binary flow variables suffice because any Steiner tree yields a unique simple root-to-terminal path for each commodity, so every commodity can be realized as a 0/1 path indicator.
+
+  _Correctness._ ($arrow.r.double$) If $S subset.eq E$ is a Steiner tree, set $y_e = 1$ exactly for $e in S$. For each non-root terminal $t$, the unique path from $r$ to $t$ inside the tree defines a binary flow assignment satisfying the conservation equations, and every used arc lies on a selected edge, so all linking inequalities hold. The ILP objective equals $sum_(e in S) w_e$. ($arrow.l.double$) Any feasible ILP solution with edge selector set $Y = {e in E : y_e = 1}$ supports one unit of flow from $r$ to every non-root terminal, so the selected edges contain a connected subgraph spanning all terminals. Because all edge weights are nonnegative, deleting any cycle edge from that connected subgraph cannot increase the objective; pruning repeatedly yields a Steiner tree with cost at most the ILP objective. Therefore an optimal ILP solution induces a minimum-cost Steiner tree.
+
+  _Variable mapping._ The first $m$ ILP variables are the source-edge indicators $y_0, dots, y_(m-1)$ in source edge order. For terminal $t_p$ with $p in {1, dots, k-1}$, the next block of $2 m$ variables stores the directed arc indicators $f^(t_p)_(u,v)$ and $f^(t_p)_(v,u)$ for each source edge $(u, v)$.
+
+  _Solution extraction._ Read the first $m$ target variables as the source edge-selection vector. Since those coordinates are exactly the $y_e$ variables, the extracted source configuration is valid whenever the selected subgraph is pruned to its Steiner tree witness.
+]
+
 == Unit Disk Mapping
 
 #reduction-rule("MaximumIndependentSet", "KingsSubgraph")[
