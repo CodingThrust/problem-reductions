@@ -9,6 +9,7 @@ pub use registry::{ReductionEntry, ReductionOverhead};
 pub(crate) mod circuit_spinglass;
 pub(crate) mod coloring_qubo;
 pub(crate) mod factoring_circuit;
+pub(crate) mod graphpartitioning_maxcut;
 mod graph;
 mod kcoloring_casts;
 mod knapsack_qubo;
@@ -41,10 +42,6 @@ mod traits;
 pub(crate) mod travelingsalesman_qubo;
 
 pub mod unitdiskmapping;
-
-#[cfg(test)]
-#[path = "../unit_tests/rules/graphpartitioning_maxcut.rs"]
-mod graphpartitioning_maxcut_tests;
 
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod binpacking_ilp;
