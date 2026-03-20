@@ -5,7 +5,7 @@
 //! - Constraints: one balance equality plus two linking inequalities per edge
 //! - Objective: minimize the number of crossing edges
 
-use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::GraphPartitioning;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
