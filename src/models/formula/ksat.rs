@@ -194,20 +194,19 @@ crate::declare_variants! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    use super::CNFClause;
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "ksatisfiability_k3",
-        build: || {
-            use super::CNFClause;
-            let problem = KSatisfiability::<K3>::new(
-                3,
-                vec![
-                    CNFClause::new(vec![1, 2, 3]),
-                    CNFClause::new(vec![-1, -2, 3]),
-                    CNFClause::new(vec![1, -2, -3]),
-                ],
-            );
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![1, 0, 1]])
-        },
+        instance: Box::new(KSatisfiability::<K3>::new(
+            3,
+            vec![
+                CNFClause::new(vec![1, 2, 3]),
+                CNFClause::new(vec![-1, -2, 3]),
+                CNFClause::new(vec![1, -2, -3]),
+            ],
+        )),
+        optimal_config: vec![0, 0, 1],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

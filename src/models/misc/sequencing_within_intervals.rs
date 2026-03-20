@@ -179,21 +179,13 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "sequencing_within_intervals",
-        build: || {
-            use crate::solvers::BruteForce;
-            // Instance from the PARTITION reduction example (GJ Theorem 3.8)
-            let problem = SequencingWithinIntervals::new(
-                vec![0, 0, 0, 0, 5],
-                vec![11, 11, 11, 11, 6],
-                vec![3, 1, 2, 4, 1],
-            );
-            let sample = BruteForce::new()
-                .find_all_satisfying(&problem)
-                .into_iter()
-                .next()
-                .expect("sequencing_within_intervals example should solve");
-            crate::example_db::specs::satisfaction_example(problem, vec![sample])
-        },
+        instance: Box::new(SequencingWithinIntervals::new(
+            vec![0, 1, 3, 6, 0],
+            vec![5, 8, 9, 12, 12],
+            vec![2, 2, 2, 3, 2],
+        )),
+        optimal_config: vec![0, 1, 1, 0, 9],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

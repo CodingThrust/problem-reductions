@@ -304,30 +304,26 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "multiple_choice_branching_i32",
-        build: || {
-            let problem = MultipleChoiceBranching::new(
-                DirectedGraph::new(
-                    6,
-                    vec![
-                        (0, 1),
-                        (0, 2),
-                        (1, 3),
-                        (2, 3),
-                        (1, 4),
-                        (3, 5),
-                        (4, 5),
-                        (2, 4),
-                    ],
-                ),
-                vec![3, 2, 4, 1, 2, 3, 1, 3],
-                vec![vec![0, 1], vec![2, 3], vec![4, 7], vec![5, 6]],
-                10,
-            );
-            crate::example_db::specs::satisfaction_example(
-                problem,
-                vec![vec![1, 0, 1, 0, 0, 1, 0, 1]],
-            )
-        },
+        instance: Box::new(MultipleChoiceBranching::new(
+            DirectedGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (0, 2),
+                    (1, 3),
+                    (2, 3),
+                    (1, 4),
+                    (3, 5),
+                    (4, 5),
+                    (2, 4),
+                ],
+            ),
+            vec![3, 2, 4, 1, 2, 3, 1, 3],
+            vec![vec![0, 1], vec![2, 3], vec![4, 7], vec![5, 6]],
+            10,
+        )),
+        optimal_config: vec![1, 0, 1, 0, 0, 1, 0, 1],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

@@ -123,6 +123,45 @@ fn test_shortestcommonsupersequence_paper_example() {
 }
 
 #[test]
+fn test_shortestcommonsupersequence_find_all_satisfying() {
+    // Issue #412 instance 1: Σ={a,b,c}, R={"abcb","bcab","acba"}, K=7
+    // Search space = 3^7 = 2187
+    let problem = ShortestCommonSupersequence::new(
+        3,
+        vec![vec![0, 1, 2, 1], vec![1, 2, 0, 1], vec![0, 2, 1, 0]],
+        7,
+    );
+    let solver = BruteForce::new();
+    let solutions = solver.find_all_satisfying(&problem);
+    for sol in &solutions {
+        assert!(problem.evaluate(sol));
+    }
+    // The issue witness "abcacba" = [0,1,2,0,2,1,0] must be among solutions
+    assert!(solutions.contains(&vec![0, 1, 2, 0, 2, 1, 0]));
+    assert_eq!(solutions.len(), 42);
+}
+
+#[test]
+fn test_shortestcommonsupersequence_find_all_satisfying_empty() {
+    // Issue #412 instance 3: all 6 permutations of {a,b,c}, bound 5
+    // Minimum SCS length is 7, so bound 5 is infeasible
+    let problem = ShortestCommonSupersequence::new(
+        3,
+        vec![
+            vec![0, 1, 2],
+            vec![1, 2, 0],
+            vec![2, 0, 1],
+            vec![0, 2, 1],
+            vec![1, 0, 2],
+            vec![2, 1, 0],
+        ],
+        5,
+    );
+    let solver = BruteForce::new();
+    assert!(solver.find_all_satisfying(&problem).is_empty());
+}
+
+#[test]
 fn test_shortestcommonsupersequence_serialization() {
     let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![2, 1, 0]], 5);
     let json = serde_json::to_value(&problem).unwrap();

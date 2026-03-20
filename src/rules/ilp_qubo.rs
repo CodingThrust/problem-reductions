@@ -169,6 +169,7 @@ impl ReduceTo<QUBO<f64>> for ILP<bool> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
     use crate::models::algebraic::{LinearConstraint, ObjectiveSense};
 
     vec![crate::example_db::specs::RuleExampleSpec {
@@ -187,7 +188,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![(0, 10.0), (1, 7.0), (2, 12.0), (3, 8.0), (4, 6.0), (5, 9.0)],
                 ObjectiveSense::Maximize,
             );
-            crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(source, |_, _| true)
+            crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
+                source,
+                SolutionPair {
+                    source_config: vec![1, 1, 0, 0, 1, 1],
+                    target_config: vec![1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                },
+            )
         },
     }]
 }

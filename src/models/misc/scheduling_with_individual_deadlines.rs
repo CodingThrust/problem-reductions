@@ -152,15 +152,14 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "scheduling_with_individual_deadlines",
-        build: || {
-            let problem = SchedulingWithIndividualDeadlines::new(
-                7,
-                3,
-                vec![2, 1, 2, 2, 3, 3, 2],
-                vec![(0, 3), (1, 3), (1, 4), (2, 4), (2, 5)],
-            );
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 0, 0, 1, 2, 1, 1]])
-        },
+        instance: Box::new(SchedulingWithIndividualDeadlines::new(
+            7,
+            3,
+            vec![2, 1, 2, 2, 3, 3, 2],
+            vec![(0, 3), (1, 3), (1, 4), (2, 4), (2, 5)],
+        )),
+        optimal_config: vec![0, 0, 0, 1, 2, 1, 1],
+        optimal_value: serde_json::json!(true),
     }]
 }
 
