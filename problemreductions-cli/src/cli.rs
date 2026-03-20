@@ -261,6 +261,7 @@ Flags by problem type:
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
   MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
   AdditionalKey                   --num-attributes, --dependencies, --relation-attrs [--known-keys]
+  ConsistencyOfDatabaseFrequencyTables --num-objects, --attribute-domains, --frequency-tables [--known-values]
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
   LCS                             --strings, --bound [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]
@@ -307,6 +308,7 @@ Examples:
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
   pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10
+  pred create ConsistencyOfDatabaseFrequencyTables --num-objects 6 --attribute-domains \"2,3,2\" --frequency-tables \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\" --known-values \"0,0,0;3,0,1;1,2,1\"
   pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5
   pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1
   pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
@@ -573,6 +575,18 @@ pub struct CreateArgs {
     /// Known candidate keys for AdditionalKey (e.g., "0,1;2,3")
     #[arg(long)]
     pub known_keys: Option<String>,
+    /// Number of objects for ConsistencyOfDatabaseFrequencyTables
+    #[arg(long)]
+    pub num_objects: Option<usize>,
+    /// Attribute-domain sizes for ConsistencyOfDatabaseFrequencyTables (comma-separated, e.g., "2,3,2")
+    #[arg(long)]
+    pub attribute_domains: Option<String>,
+    /// Pairwise frequency tables for ConsistencyOfDatabaseFrequencyTables (e.g., "0,1:1,1|0,1;1,2:1,0|0,1")
+    #[arg(long)]
+    pub frequency_tables: Option<String>,
+    /// Known value triples for ConsistencyOfDatabaseFrequencyTables (e.g., "0,0,0;3,1,2")
+    #[arg(long)]
+    pub known_values: Option<String>,
     /// Domain size for ConjunctiveBooleanQuery
     #[arg(long)]
     pub domain_size: Option<usize>,

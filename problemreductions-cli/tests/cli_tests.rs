@@ -5539,6 +5539,64 @@ fn test_create_bcnf_rejects_out_of_range_target_attribute_indices() {
 }
 
 #[test]
+fn test_create_consistency_of_database_frequency_tables() {
+    let output = pred()
+        .args([
+            "create",
+            "ConsistencyOfDatabaseFrequencyTables",
+            "--num-objects",
+            "6",
+            "--attribute-domains",
+            "2,3,2",
+            "--frequency-tables",
+            "0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1",
+            "--known-values",
+            "0,0,0;3,0,1;1,2,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "ConsistencyOfDatabaseFrequencyTables");
+    assert_eq!(json["data"]["num_objects"], 6);
+    assert_eq!(json["data"]["attribute_domains"], serde_json::json!([2, 3, 2]));
+    assert_eq!(json["data"]["frequency_tables"][0]["attribute_a"], 0);
+    assert_eq!(json["data"]["frequency_tables"][0]["attribute_b"], 1);
+    assert_eq!(
+        json["data"]["frequency_tables"][0]["counts"],
+        serde_json::json!([[1, 1, 1], [1, 1, 1]])
+    );
+    assert_eq!(
+        json["data"]["known_values"],
+        serde_json::json!([
+            {"object": 0, "attribute": 0, "value": 0},
+            {"object": 3, "attribute": 0, "value": 1},
+            {"object": 1, "attribute": 2, "value": 1}
+        ])
+    );
+}
+
+#[test]
+fn test_create_consistency_of_database_frequency_tables_problem_help_uses_supported_flags() {
+    let output = pred()
+        .args(["create", "ConsistencyOfDatabaseFrequencyTables"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--num-objects"), "stderr: {stderr}");
+    assert!(stderr.contains("--attribute-domains"), "stderr: {stderr}");
+    assert!(stderr.contains("--frequency-tables"), "stderr: {stderr}");
+    assert!(stderr.contains("--known-values"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_multiple_copy_file_allocation() {
     let output = pred()
         .args([
@@ -6780,6 +6838,24 @@ fn test_create_model_example_multiprocessor_scheduling() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MultiprocessorScheduling");
+}
+
+#[test]
+fn test_create_model_example_consistency_of_database_frequency_tables() {
+    let output = pred()
+        .args(["create", "--example", "ConsistencyOfDatabaseFrequencyTables"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "ConsistencyOfDatabaseFrequencyTables");
+    assert_eq!(json["data"]["num_objects"], 6);
 }
 
 #[test]

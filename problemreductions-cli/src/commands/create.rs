@@ -18,9 +18,10 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
-    FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, QueryArg,
-    RectilinearPictureCompression, ResourceConstrainedScheduling,
+    ConsistencyOfDatabaseFrequencyTables, FlowShopScheduling, FrequencyTable, KnownValue,
+    LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+    PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
+    ResourceConstrainedScheduling,
     SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
     SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
     SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
@@ -139,6 +140,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.dependencies.is_none()
         && args.relation_attrs.is_none()
         && args.known_keys.is_none()
+        && args.num_objects.is_none()
+        && args.attribute_domains.is_none()
+        && args.frequency_tables.is_none()
+        && args.known_values.is_none()
         && args.domain_size.is_none()
         && args.relations.is_none()
         && args.conjuncts_spec.is_none()
@@ -185,6 +190,126 @@ fn ensure_attribute_indices_in_range(
         );
     }
     Ok(())
+}
+
+fn parse_cdft_frequency_tables(
+    raw: &str,
+    attribute_domains: &[usize],
+    num_objects: usize,
+) -> Result<Vec<FrequencyTable>> {
+    let num_attributes = attribute_domains.len();
+    let mut seen_pairs = BTreeSet::new();
+
+    raw.split(';')
+        .filter(|entry| !entry.trim().is_empty())
+        .map(|entry| {
+            let (pair_str, counts_str) = entry.trim().split_once(':').ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Invalid frequency table '{entry}', expected 'a,b:row0|row1|...'"
+                )
+            })?;
+            let pair: Vec<usize> = util::parse_comma_list(pair_str.trim())?;
+            anyhow::ensure!(
+                pair.len() == 2,
+                "Frequency table '{entry}' must start with exactly two attribute indices"
+            );
+
+            let attribute_a = pair[0];
+            let attribute_b = pair[1];
+            ensure_attribute_indices_in_range(
+                &[attribute_a, attribute_b],
+                num_attributes,
+                &format!("Frequency table '{entry}'"),
+            )?;
+            anyhow::ensure!(
+                attribute_a != attribute_b,
+                "Frequency table '{entry}' must use two distinct attributes"
+            );
+
+            let pair_key = if attribute_a < attribute_b {
+                (attribute_a, attribute_b)
+            } else {
+                (attribute_b, attribute_a)
+            };
+            anyhow::ensure!(
+                seen_pairs.insert(pair_key),
+                "Duplicate frequency table pair ({}, {})",
+                pair_key.0,
+                pair_key.1
+            );
+
+            let rows: Vec<Vec<usize>> = counts_str
+                .split('|')
+                .map(|row| util::parse_comma_list(row.trim()))
+                .collect::<Result<_>>()?;
+
+            let expected_rows = attribute_domains[attribute_a];
+            anyhow::ensure!(
+                rows.len() == expected_rows,
+                "Frequency table '{entry}' has {} rows but attribute {attribute_a} has domain size {expected_rows}",
+                rows.len()
+            );
+
+            let expected_cols = attribute_domains[attribute_b];
+            for (row_index, row) in rows.iter().enumerate() {
+                anyhow::ensure!(
+                    row.len() == expected_cols,
+                    "Frequency table '{entry}' row {row_index} has {} columns but attribute {attribute_b} has domain size {expected_cols}",
+                    row.len()
+                );
+            }
+
+            let total: usize = rows.iter().flatten().copied().sum();
+            anyhow::ensure!(
+                total == num_objects,
+                "Frequency table '{entry}' sums to {total}, expected num_objects={num_objects}"
+            );
+
+            Ok(FrequencyTable::new(attribute_a, attribute_b, rows))
+        })
+        .collect()
+}
+
+fn parse_cdft_known_values(
+    raw: Option<&str>,
+    num_objects: usize,
+    attribute_domains: &[usize],
+) -> Result<Vec<KnownValue>> {
+    let num_attributes = attribute_domains.len();
+    match raw {
+        None => Ok(vec![]),
+        Some(s) if s.trim().is_empty() => Ok(vec![]),
+        Some(s) => s
+            .split(';')
+            .filter(|entry| !entry.trim().is_empty())
+            .map(|entry| {
+                let triple: Vec<usize> = util::parse_comma_list(entry.trim())?;
+                anyhow::ensure!(
+                    triple.len() == 3,
+                    "Known value '{entry}' must be an 'object,attribute,value' triple"
+                );
+                let object = triple[0];
+                let attribute = triple[1];
+                let value = triple[2];
+
+                anyhow::ensure!(
+                    object < num_objects,
+                    "Known value '{entry}' has object index {object} out of range for num_objects={num_objects}"
+                );
+                anyhow::ensure!(
+                    attribute < num_attributes,
+                    "Known value '{entry}' has attribute index {attribute} out of range for {num_attributes} attributes"
+                );
+                let domain_size = attribute_domains[attribute];
+                anyhow::ensure!(
+                    value < domain_size,
+                    "Known value '{entry}' has value {value} out of range for attribute {attribute} with domain size {domain_size}"
+                );
+
+                Ok(KnownValue::new(object, attribute, value))
+            })
+            .collect(),
+    }
 }
 
 fn resolve_example_problem_ref(
@@ -438,6 +563,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
         }
         "AdditionalKey" => "--num-attributes 6 --dependencies \"0,1:2,3;2,3:4,5;4,5:0,1\" --relation-attrs 0,1,2,3,4,5 --known-keys \"0,1;2,3;4,5\"",
+        "ConsistencyOfDatabaseFrequencyTables" => {
+            "--num-objects 6 --attribute-domains \"2,3,2\" --frequency-tables \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\" --known-values \"0,0,0;3,0,1;1,2,1\""
+        }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "RectilinearPictureCompression" => {
             "--matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --bound 2"
@@ -567,6 +695,15 @@ fn help_flag_hint(
         }
         ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
+        ("ConsistencyOfDatabaseFrequencyTables", "attribute_domains") => {
+            "comma-separated domain sizes: 2,3,2"
+        }
+        ("ConsistencyOfDatabaseFrequencyTables", "frequency_tables") => {
+            "semicolon-separated tables: \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\""
+        }
+        ("ConsistencyOfDatabaseFrequencyTables", "known_values") => {
+            "semicolon-separated triples: \"0,0,0;3,0,1;1,2,1\""
+        }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         _ => type_format_hint(type_name, graph_type),
     }
@@ -1568,6 +1705,49 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     dependencies,
                     relation_attrs,
                     known_keys,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        "ConsistencyOfDatabaseFrequencyTables" => {
+            let usage = "Usage: pred create ConsistencyOfDatabaseFrequencyTables --num-objects 6 --attribute-domains \"2,3,2\" --frequency-tables \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\" --known-values \"0,0,0;3,0,1;1,2,1\"";
+            let num_objects = args.num_objects.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ConsistencyOfDatabaseFrequencyTables requires --num-objects\n\n{usage}"
+                )
+            })?;
+            let attribute_domains_str = args.attribute_domains.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ConsistencyOfDatabaseFrequencyTables requires --attribute-domains\n\n{usage}"
+                )
+            })?;
+            let frequency_tables_str = args.frequency_tables.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ConsistencyOfDatabaseFrequencyTables requires --frequency-tables\n\n{usage}"
+                )
+            })?;
+
+            let attribute_domains: Vec<usize> = util::parse_comma_list(attribute_domains_str)?;
+            for (index, &domain_size) in attribute_domains.iter().enumerate() {
+                anyhow::ensure!(
+                    domain_size > 0,
+                    "attribute domain at index {index} must be positive\n\n{usage}"
+                );
+            }
+            let frequency_tables =
+                parse_cdft_frequency_tables(frequency_tables_str, &attribute_domains, num_objects)
+                    .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let known_values =
+                parse_cdft_known_values(args.known_values.as_deref(), num_objects, &attribute_domains)
+                    .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+
+            (
+                ser(ConsistencyOfDatabaseFrequencyTables::new(
+                    num_objects,
+                    attribute_domains,
+                    frequency_tables,
+                    known_values,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -4971,6 +5151,10 @@ mod tests {
             conjuncts_spec: None,
             relation_attrs: None,
             known_keys: None,
+            num_objects: None,
+            attribute_domains: None,
+            frequency_tables: None,
+            known_values: None,
             costs: None,
             cut_bound: None,
             size_bound: None,
