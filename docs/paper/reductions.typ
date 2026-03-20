@@ -76,6 +76,7 @@
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
   "KthBestSpanningTree": [Kth Best Spanning Tree],
   "KColoring": [$k$-Coloring],
+  "KClique": [$k$-Clique],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MaximumMatching": [Maximum Matching],
   "TravelingSalesman": [Traveling Salesman],
@@ -1413,6 +1414,32 @@ is feasible: each set induces a connected subgraph, the component weights are $2
       NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-complete on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
 
       *Example.* Consider a graph with #nv vertices and #ne edges, with bound $K = #K$. The arrangement $f = (#config.map(c => str(c)).join(", "))$ gives total cost $#edges.map(e => $|#config.at(e.at(0)) - #config.at(e.at(1))|$).join($+$) = #total-cost lt.eq #K$, so this is a YES instance.
+    ]
+  ]
+}
+#{
+  let x = load-model-example("KClique")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let k = x.instance.k
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let K = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let clique-edges = edges.filter(e => K.contains(e.at(0)) and K.contains(e.at(1)))
+  [
+    #problem-def("KClique")[
+      Given an undirected graph $G = (V, E)$ and an integer $k$, determine whether there exists a subset $K subset.eq V$ with $|K| >= k$ such that every pair of distinct vertices in $K$ is adjacent.
+    ][
+    $k$-Clique is the classical decision version of Clique, one of Karp's original NP-complete problems @karp1972 and listed as GT19 in Garey and Johnson @garey1979. Unlike Maximum Clique, the threshold $k$ is part of the input, so this formulation is the natural target for decision-to-decision reductions such as $3$SAT $arrow.r$ Clique. The best known exact algorithm matches Maximum Clique via the complement reduction to Maximum Independent Set and runs in $O^*(1.1996^n)$ @xiao2017.
+
+    *Example.* Consider the house graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, and threshold $k = #k$. The set $K = {#K.map(i => $v_#i$).join(", ")}$ is a valid witness because all three pairs #clique-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ") are edges, so $|K| = 3 >= #k$ and this is a YES instance. This witness is unique, and no $4$-clique exists because every vertex outside $K$ misses at least one edge to the other selected vertices.
+
+    #figure({
+      let hg = house-graph()
+      draw-edge-highlight(hg.vertices, hg.edges, clique-edges, K)
+    },
+    caption: [The house graph with satisfying witness $K = {#K.map(i => $v_#i$).join(", ")}$ for $k = #k$. The selected vertices and their internal clique edges are highlighted in blue.],
+    ) <fig:house-kclique>
     ]
   ]
 }

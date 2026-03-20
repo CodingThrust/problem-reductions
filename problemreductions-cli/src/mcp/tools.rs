@@ -2,7 +2,7 @@ use crate::util;
 use problemreductions::models::algebraic::QUBO;
 use problemreductions::models::formula::{CNFClause, Satisfiability};
 use problemreductions::models::graph::{
-    MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
+    KClique, MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
     MinimumSumMulticenter, MinimumVertexCover, SpinGlass, TravelingSalesman,
 };
 use problemreductions::models::misc::Factoring;
@@ -68,7 +68,7 @@ pub struct CreateProblemParams {
     )]
     pub problem_type: String,
     #[schemars(
-        description = "Problem parameters as JSON object. Graph problems: {\"edges\": \"0-1,1-2\", \"weights\": \"1,2,3\"}. SAT: {\"num_vars\": 3, \"clauses\": \"1,2;-1,3\"}. QUBO: {\"matrix\": \"1,0.5;0.5,2\"}. KColoring: {\"edges\": \"0-1,1-2\", \"k\": 3}. Factoring: {\"target\": 15, \"bits_m\": 4, \"bits_n\": 4}. Random graph: {\"random\": true, \"num_vertices\": 10, \"edge_prob\": 0.3}. Geometry graphs (use with MIS/KingsSubgraph etc.): {\"positions\": \"0,0;1,0;1,1\"}. UnitDiskGraph: {\"positions\": \"0.0,0.0;1.0,0.0\", \"radius\": 1.5}"
+        description = "Problem parameters as JSON object. Graph problems: {\"edges\": \"0-1,1-2\", \"weights\": \"1,2,3\"}. SAT: {\"num_vars\": 3, \"clauses\": \"1,2;-1,3\"}. QUBO: {\"matrix\": \"1,0.5;0.5,2\"}. KColoring: {\"edges\": \"0-1,1-2\", \"k\": 3}. KClique: {\"edges\": \"0-1,0-2,1-3,2-3,2-4,3-4\", \"k\": 3}. Factoring: {\"target\": 15, \"bits_m\": 4, \"bits_n\": 4}. Random graph: {\"random\": true, \"num_vertices\": 10, \"edge_prob\": 0.3}. Geometry graphs (use with MIS/KingsSubgraph etc.): {\"positions\": \"0,0;1,0;1,1\"}. UnitDiskGraph: {\"positions\": \"0.0,0.0;1.0,0.0\", \"radius\": 1.5}"
     )]
     pub params: serde_json::Value,
 }
@@ -406,6 +406,16 @@ impl McpServer {
                 util::ser_kcoloring(graph, k)?
             }
 
+            "KClique" => {
+                let (graph, _) = parse_graph_from_params(params)?;
+                let k_flag = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
+                let k = parse_kclique_threshold(k_flag, graph.num_vertices())?;
+                (
+                    ser(KClique::new(graph, k))?,
+                    variant_map(&[("graph", "SimpleGraph")]),
+                )
+            }
+
             // SAT
             "Satisfiability" => {
                 let num_vars = params
@@ -613,6 +623,22 @@ impl McpServer {
                     util::validate_k_param(resolved_variant, k_flag, Some(3), "KColoring")?;
                 util::ser_kcoloring(graph, k)?
             }
+            "KClique" => {
+                let edge_prob = params
+                    .get("edge_prob")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.5);
+                if !(0.0..=1.0).contains(&edge_prob) {
+                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
+                }
+                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
+                let k_flag = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
+                let k = parse_kclique_threshold(k_flag, graph.num_vertices())?;
+                (
+                    ser(KClique::new(graph, k))?,
+                    variant_map(&[("graph", "SimpleGraph")]),
+                )
+            }
             "MinimumSumMulticenter" => {
                 let edge_prob = params
                     .get("edge_prob")
@@ -644,7 +670,7 @@ impl McpServer {
             _ => anyhow::bail!(
                 "Random generation is not supported for {}. \
                  Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
-                 MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, \
+                 MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, \
                  TravelingSalesman, MinimumSumMulticenter)",
                 canonical
             ),
@@ -1228,6 +1254,17 @@ fn parse_graph_from_params(params: &serde_json::Value) -> anyhow::Result<(Simple
         .unwrap_or(0);
 
     Ok((SimpleGraph::new(num_vertices, edges), num_vertices))
+}
+
+fn parse_kclique_threshold(k_flag: Option<usize>, num_vertices: usize) -> anyhow::Result<usize> {
+    let k = k_flag.ok_or_else(|| anyhow::anyhow!("KClique requires 'k'"))?;
+    if k == 0 {
+        anyhow::bail!("KClique: 'k' must be positive");
+    }
+    if k > num_vertices {
+        anyhow::bail!("KClique: k must be <= graph num_vertices");
+    }
+    Ok(k)
 }
 
 /// Parse `weights` field from JSON params as vertex weights (i32), defaulting to all 1s.

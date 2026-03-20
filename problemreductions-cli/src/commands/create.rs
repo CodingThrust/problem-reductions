@@ -371,6 +371,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             Some("UnitDiskGraph") => "--positions \"0,0;1,0;0.5,0.8\" --radius 1.5",
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
+        "KClique" => "--graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3",
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
         "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
         "MinimumCutIntoBoundedSets" => {
@@ -1289,6 +1290,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let (k, _variant) =
                 util::validate_k_param(&resolved_variant, args.k, None, "KColoring")?;
             util::ser_kcoloring(graph, k)?
+        }
+
+        "KClique" => {
+            let usage = "Usage: pred create KClique --graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let k = parse_kclique_threshold(args.k, graph.num_vertices(), usage)?;
+            (ser(KClique::new(graph, k))?, resolved_variant.clone())
         }
 
         // SAT
@@ -3261,6 +3269,21 @@ fn ser<T: Serialize>(problem: T) -> Result<serde_json::Value> {
     util::ser(problem)
 }
 
+fn parse_kclique_threshold(
+    k_flag: Option<usize>,
+    num_vertices: usize,
+    usage: &str,
+) -> Result<usize> {
+    let k = k_flag.ok_or_else(|| anyhow::anyhow!("KClique requires --k\n\n{usage}"))?;
+    if k == 0 {
+        bail!("KClique: --k must be positive");
+    }
+    if k > num_vertices {
+        bail!("KClique: k must be <= graph num_vertices");
+    }
+    Ok(k)
+}
+
 fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
     util::variant_map(pairs)
 }
@@ -4278,6 +4301,21 @@ fn create_random(
             }
         }
 
+        "KClique" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let usage =
+                "Usage: pred create KClique --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] --k 3";
+            let k = parse_kclique_threshold(args.k, graph.num_vertices(), usage)?;
+            (
+                ser(KClique::new(graph, k))?,
+                variant_map(&[("graph", "SimpleGraph")]),
+            )
+        }
+
         // MinimumCutIntoBoundedSets (graph + edge weights + s/t/B/K)
         "MinimumCutIntoBoundedSets" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
@@ -4530,7 +4568,7 @@ fn create_random(
         _ => bail!(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
-             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman, \
+             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, TravelingSalesman, \
              SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, OptimalLinearArrangement, HamiltonianPath, GeneralizedHex)"
         ),
     };
@@ -5171,5 +5209,70 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("out of bounds for left partition size 4"));
+    }
+
+    #[test]
+    fn test_create_kclique() {
+        use crate::dispatch::ProblemJsonOutput;
+        use problemreductions::models::graph::KClique;
+
+        let mut args = empty_args();
+        args.problem = Some("KClique".to_string());
+        args.graph = Some("0-1,0-2,1-3,2-3,2-4,3-4".to_string());
+        args.k = Some(3);
+
+        let output_path =
+            std::env::temp_dir().join(format!("kclique-create-{}.json", std::process::id()));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = std::fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "KClique");
+        assert_eq!(
+            created.variant.get("graph").map(String::as_str),
+            Some("SimpleGraph")
+        );
+
+        let problem: KClique<SimpleGraph> = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.k(), 3);
+        assert_eq!(problem.num_vertices(), 5);
+        assert!(problem.evaluate(&[0, 0, 1, 1, 1]));
+
+        let _ = std::fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_kclique_requires_valid_k() {
+        let mut args = empty_args();
+        args.problem = Some("KClique".to_string());
+        args.graph = Some("0-1,0-2,1-3,2-3,2-4,3-4".to_string());
+        args.k = None;
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err();
+        assert!(
+            err.to_string().contains("KClique requires --k"),
+            "unexpected error: {err}"
+        );
+
+        args.k = Some(6);
+        let err = create(&args, &out).unwrap_err();
+        assert!(
+            err.to_string().contains("k must be <= graph num_vertices"),
+            "unexpected error: {err}"
+        );
     }
 }

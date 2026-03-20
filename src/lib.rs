@@ -49,7 +49,7 @@ pub mod prelude {
     pub use crate::models::graph::{
         BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
         BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
-        GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree,
+        GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KClique,
         KthBestSpanningTree, LengthBoundedDisjointPaths, SpinGlass, SteinerTree,
         StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
