@@ -1022,18 +1022,16 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 #{
   let x = load-model-example("ShortestWeightConstrainedPath")
   let nv = graph-num-vertices(x.instance)
-  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let lengths = x.instance.edge_lengths
   let weights = x.instance.edge_weights
   let s = x.instance.source_vertex
   let t = x.instance.target_vertex
   let K = x.instance.length_bound
   let W = x.instance.weight_bound
-  let sample = x.samples.at(0)
-  let path-config = sample.config
+  let path-config = x.optimal_config
   let path-edges = edges.enumerate().filter(((idx, _)) => path-config.at(idx) == 1).map(((idx, e)) => e)
   let path-order = (0, 2, 3, 5)
-  let satisfying-count = x.optimal.len()
   [
     #problem-def("ShortestWeightConstrainedPath")[
       Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$, positive edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, and bounds $K, W in ZZ^+$, determine whether there exists a simple path $P$ from $s$ to $t$ such that $sum_(e in P) l(e) <= K$ and $sum_(e in P) w(e) <= W$.
@@ -1042,7 +1040,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 
       The implementation catalog reports the natural brute-force complexity of the edge-subset encoding used here: with $m = |E|$ binary variables, exhaustive search over all candidate subsets costs $O^*(2^m)$. A configuration is satisfying precisely when the selected edges form a single simple $s$-$t$ path and both resource sums stay within their bounds.
 
-      *Example.* Consider the graph on #nv vertices with source $s = v_#s$, target $t = v_#t$, length bound $K = #K$, and weight bound $W = #W$. Edge labels are written as $(l(e), w(e))$. The highlighted path $#path-order.map(v => $v_#v$).join($arrow$)$ uses edges ${#path-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, so its total length is $4 + 1 + 4 = 9 <= #K$ and its total weight is $1 + 3 + 3 = 7 <= #W$. This instance has #satisfying-count satisfying edge selections; another feasible path is $v_0 arrow v_1 arrow v_4 arrow v_5$.
+      *Example.* Consider the graph on #nv vertices with source $s = v_#s$, target $t = v_#t$, length bound $K = #K$, and weight bound $W = #W$. Edge labels are written as $(l(e), w(e))$. The highlighted path $#path-order.map(v => $v_#v$).join($arrow$)$ uses edges ${#path-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, so its total length is $4 + 1 + 4 = 9 <= #K$ and its total weight is $1 + 3 + 3 = 7 <= #W$. This instance has 2 satisfying edge selections; another feasible path is $v_0 arrow v_1 arrow v_4 arrow v_5$.
 
       #figure({
         let blue = graph-colors.at(0)

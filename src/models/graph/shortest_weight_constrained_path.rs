@@ -334,33 +334,29 @@ where
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "shortest_weight_constrained_path_simplegraph_i32",
-        build: || {
-            let problem = ShortestWeightConstrainedPath::new(
-                SimpleGraph::new(
-                    6,
-                    vec![
-                        (0, 1),
-                        (0, 2),
-                        (1, 3),
-                        (2, 3),
-                        (2, 4),
-                        (3, 5),
-                        (4, 5),
-                        (1, 4),
-                    ],
-                ),
-                vec![2, 4, 3, 1, 5, 4, 2, 6],
-                vec![5, 1, 2, 3, 2, 3, 1, 1],
-                0,
-                5,
-                10,
-                8,
-            );
-            crate::example_db::specs::satisfaction_example(
-                problem,
-                vec![vec![0, 1, 0, 1, 0, 1, 0, 0]],
-            )
-        },
+        instance: Box::new(ShortestWeightConstrainedPath::new(
+            SimpleGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (0, 2),
+                    (1, 3),
+                    (2, 3),
+                    (2, 4),
+                    (3, 5),
+                    (4, 5),
+                    (1, 4),
+                ],
+            ),
+            vec![2, 4, 3, 1, 5, 4, 2, 6],
+            vec![5, 1, 2, 3, 2, 3, 1, 1],
+            0,
+            5,
+            10,
+            8,
+        )),
+        optimal_config: vec![0, 1, 0, 1, 0, 1, 0, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 
