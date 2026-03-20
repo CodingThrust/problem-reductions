@@ -442,6 +442,7 @@ impl ReduceTo<SpinGlass<SimpleGraph, i32>> for CircuitSAT {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
     use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
 
     fn full_adder_circuit_sat() -> CircuitSAT {
@@ -473,9 +474,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "circuitsat_to_spinglass",
         build: || {
-            crate::example_db::specs::direct_best_example::<_, SpinGlass<SimpleGraph, i32>, _>(
+            crate::example_db::specs::rule_example_with_witness::<_, SpinGlass<SimpleGraph, i32>>(
                 full_adder_circuit_sat(),
-                crate::example_db::specs::keep_bool_source,
+                SolutionPair {
+                    source_config: vec![0, 0, 0, 0, 0, 0, 0, 0],
+                    target_config: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                },
             )
         },
     }]

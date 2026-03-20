@@ -95,6 +95,9 @@ This example will be shown in our paper, where you could find some references.
 <!--
 Optimization: provide one optimal configuration and its objective value.
 Satisfaction: provide one valid / satisfying configuration and a brief justification.
+
+This will be stored as ground truth in the example database and cross-validated
+by an ILP solver.
 -->
 
 ## BibTeX

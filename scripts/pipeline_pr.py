@@ -12,10 +12,6 @@ import time
 from typing import Callable
 from urllib.parse import unquote
 
-COPILOT_REVIEWERS = {
-    "copilot-pull-request-reviewer",
-    "copilot-pull-request-reviewer[bot]",
-}
 CODECOV_REVIEWER = "codecov[bot]"
 
 _CLOSING_ISSUE_RE = re.compile(
@@ -49,21 +45,77 @@ def login_for(entry: dict) -> str:
 
 
 def is_bot_login(login: str) -> bool:
-    return login.endswith("[bot]") or login in COPILOT_REVIEWERS
+    return login.endswith("[bot]")
 
 
 def extract_linked_issue_number(title: str | None, body: str | None) -> int | None:
-    for text in [body or "", title or ""]:
-        match = _CLOSING_ISSUE_RE.search(text)
-        if match:
-            return int(match.group(1))
+    issue_numbers = extract_linked_issue_numbers(title, body)
+    return issue_numbers[0] if issue_numbers else None
+
+
+def extract_linked_issue_numbers(title: str | None, body: str | None) -> list[int]:
+    issue_numbers: list[int] = []
+
+    def append_unique(number: int) -> None:
+        if number not in issue_numbers:
+            issue_numbers.append(number)
 
     for text in [body or "", title or ""]:
-        match = _GENERIC_ISSUE_RE.search(text)
-        if match:
-            return int(match.group(1))
+        for match in _CLOSING_ISSUE_RE.finditer(text):
+            append_unique(int(match.group(1)))
 
-    return None
+    for text in [body or "", title or ""]:
+        for match in _GENERIC_ISSUE_RE.finditer(text):
+            append_unique(int(match.group(1)))
+
+    return issue_numbers
+
+
+def extract_linked_issue_number_from_pr_data(pr_data: dict | None) -> int | None:
+    issue_numbers = extract_linked_issue_numbers_from_pr_data(pr_data)
+    return max(issue_numbers) if issue_numbers else None
+
+
+def extract_linked_issue_numbers_from_pr_data(pr_data: dict | None) -> list[int]:
+    issue_numbers: list[int] = []
+
+    def append_unique(number: int) -> None:
+        if number not in issue_numbers:
+            issue_numbers.append(number)
+
+    if pr_data:
+        for issue in pr_data.get("closingIssuesReferences") or []:
+            number = issue.get("number")
+            if number is not None:
+                append_unique(int(number))
+
+    if issue_numbers:
+        return issue_numbers
+
+    if not pr_data:
+        return []
+
+    return extract_linked_issue_numbers(pr_data.get("title"), pr_data.get("body"))
+
+
+def _normalized_match_text(text: str | None) -> str:
+    return " ".join((text or "").lower().split())
+
+
+def score_linked_issue_candidate(pr_data: dict, issue: dict) -> tuple[int, int]:
+    score = 0
+    pr_title = _normalized_match_text(pr_data.get("title"))
+    pr_body = _normalized_match_text(pr_data.get("body"))
+    issue_title = _normalized_match_text(issue.get("title"))
+    issue_number = int(issue.get("number") or -1)
+
+    if issue_title:
+        if issue_title in pr_title:
+            score += 100
+        if issue_title in pr_body:
+            score += 40
+
+    return score, issue_number
 
 
 def normalize_issue_thread_comment(comment: dict) -> dict:
@@ -120,7 +172,6 @@ def summarize_comments(
                 "path": comment.get("path"),
                 "line": comment.get("line") or comment.get("original_line"),
                 "is_bot": is_bot_login(login),
-                "is_copilot": login in COPILOT_REVIEWERS,
             }
         )
 
@@ -133,7 +184,6 @@ def summarize_comments(
                 "body": review.get("body", ""),
                 "state": review.get("state"),
                 "is_bot": is_bot_login(login),
-                "is_copilot": login in COPILOT_REVIEWERS,
             }
         )
 
@@ -177,9 +227,6 @@ def summarize_comments(
         "human_inline_comments": [
             comment for comment in normalized_inline if not comment["is_bot"]
         ],
-        "copilot_inline_comments": [
-            comment for comment in normalized_inline if comment["is_copilot"]
-        ],
         "human_reviews": human_reviews,
         "human_issue_comments": [
             comment
@@ -194,9 +241,6 @@ def summarize_comments(
         "codecov_comments": codecov_comments,
         "counts": {
             "inline_comments": len(normalized_inline),
-            "copilot_inline_comments": sum(
-                1 for comment in normalized_inline if comment["is_copilot"]
-            ),
             "human_inline_comments": sum(
                 1 for comment in normalized_inline if not comment["is_bot"]
             ),
@@ -304,10 +348,7 @@ def build_snapshot(
     codecov_summary: dict | None = None,
 ) -> dict:
     if linked_issue_number is None:
-        linked_issue_number = extract_linked_issue_number(
-            pr_data.get("title"),
-            pr_data.get("body"),
-        )
+        linked_issue_number = extract_linked_issue_number_from_pr_data(pr_data)
 
     labels = [label.get("name") for label in pr_data.get("labels", []) if label.get("name")]
     files = [
@@ -440,7 +481,11 @@ def build_context_result(
 
 def build_pr_context(repo: str, pr_number: int) -> dict:
     snapshot = build_pr_snapshot(repo, pr_number)
-    comments = build_comments_summary(repo, pr_number)
+    comments = build_comments_summary(
+        repo,
+        pr_number,
+        linked_issue_number=snapshot.get("linked_issue_number"),
+    )
     linked_issue_result = build_linked_issue_context(
         repo,
         pr_number,
@@ -490,7 +535,8 @@ def fetch_pr_data(repo: str, pr_number: int) -> dict:
         "--json",
         (
             "number,title,body,labels,files,additions,deletions,commits,"
-            "headRefName,baseRefName,headRefOid,url,state,mergeable,author"
+            "headRefName,baseRefName,headRefOid,url,state,mergeable,author,"
+            "closingIssuesReferences"
         ),
     )
 
@@ -507,7 +553,25 @@ def fetch_current_pr_data() -> dict:
     return run_gh_json("pr", "view", "--json", "number,title,headRefName,url")
 
 
-def fetch_current_pr_data_for_repo(repo: str) -> dict:
+def fetch_current_pr_data_for_repo(repo: str, *, head: str | None = None) -> dict:
+    if head:
+        # In worktrees, `gh pr view --repo` can't infer the current branch.
+        # Use `gh pr list --head <branch>` which works regardless of CWD.
+        data = run_gh_json(
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--head",
+            head,
+            "--state",
+            "open",
+            "--json",
+            "number,title,headRefName,url",
+        )
+        if isinstance(data, list) and data:
+            return data[0]
+        raise ValueError(f"No open PR found for head branch {head!r} in {repo}")
     return run_gh_json(
         "pr",
         "view",
@@ -556,10 +620,12 @@ def fetch_check_runs(repo: str, head_sha: str) -> dict:
 
 
 def fetch_linked_issue_bundle(repo: str, pr_data: dict) -> tuple[int | None, dict | None]:
-    issue_number = extract_linked_issue_number(pr_data.get("title"), pr_data.get("body"))
-    if issue_number is None:
+    issue_numbers = extract_linked_issue_numbers_from_pr_data(pr_data)
+    if not issue_numbers:
         return None, None
-    return issue_number, fetch_issue_data(repo, issue_number)
+    issues = [fetch_issue_data(repo, issue_number) for issue_number in issue_numbers]
+    best_issue = max(issues, key=lambda issue: score_linked_issue_candidate(pr_data, issue))
+    return int(best_issue["number"]), best_issue
 
 
 def fetch_ci_summary(repo: str, pr_number: int, pr_data: dict | None = None) -> dict:
@@ -574,12 +640,16 @@ def fetch_ci_summary(repo: str, pr_number: int, pr_data: dict | None = None) -> 
     return summary
 
 
-def build_comments_summary(repo: str, pr_number: int, pr_data: dict | None = None) -> dict:
+def build_comments_summary(
+    repo: str,
+    pr_number: int,
+    pr_data: dict | None = None,
+    *,
+    linked_issue_number: int | None = None,
+) -> dict:
     pr_data = pr_data or fetch_pr_data(repo, pr_number)
-    linked_issue_number = extract_linked_issue_number(
-        pr_data.get("title"),
-        pr_data.get("body"),
-    )
+    if linked_issue_number is None:
+        linked_issue_number = extract_linked_issue_number_from_pr_data(pr_data)
 
     summary = summarize_comments(
         inline_comments=fetch_inline_comments(repo, pr_number),
@@ -637,7 +707,7 @@ def create_pr(
     if head:
         args.extend(["--head", head])
     run_gh_checked(*args)
-    return build_current_pr_context(repo, fetch_current_pr_data_for_repo(repo))
+    return build_current_pr_context(repo, fetch_current_pr_data_for_repo(repo, head=head))
 
 
 def post_pr_comment(repo: str, pr_number: int, body_file: str) -> None:
@@ -690,7 +760,6 @@ def render_context_text(result: dict) -> str:
         [
             "",
             "## Comment Summary",
-            f"- Copilot inline comments: {counts.get('copilot_inline_comments', 0)}",
             f"- Human inline comments: {counts.get('human_inline_comments', 0)}",
             f"- Human PR issue comments: {counts.get('human_issue_comments', 0)}",
             f"- Human linked-issue comments: {counts.get('human_linked_issue_comments', 0)}",
