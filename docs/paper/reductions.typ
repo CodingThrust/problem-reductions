@@ -116,6 +116,7 @@
   "Partition": [Partition],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
+  "SteinerTreeInGraphs": [Steiner Tree in Graphs],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
   "MultipleChoiceBranching": [Multiple Choice Branching],
   "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
@@ -124,21 +125,26 @@
   "SequencingWithReleaseTimesAndDeadlines": [Sequencing with Release Times and Deadlines],
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
+  "MultipleCopyFileAllocation": [Multiple Copy File Allocation],
   "SteinerTree": [Steiner Tree],
   "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "PartitionIntoTriangles": [Partition Into Triangles],
   "PrimeAttributeName": [Prime Attribute Name],
   "FlowShopScheduling": [Flow Shop Scheduling],
-  "StaffScheduling": [Staff Scheduling],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
   "PrecedenceConstrainedScheduling": [Precedence Constrained Scheduling],
+  "SchedulingWithIndividualDeadlines": [Scheduling With Individual Deadlines],
+  "StaffScheduling": [Staff Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
-  "SequencingToMinimizeWeightedTardiness": [Sequencing to Minimize Weighted Tardiness],
-  "SequencingToMinimizeMaximumCumulativeCost": [Sequencing to Minimize Maximum Cumulative Cost],
+  "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
-  "SumOfSquaresPartition": [Sum of Squares Partition],
+  "SequencingToMinimizeMaximumCumulativeCost": [Sequencing to Minimize Maximum Cumulative Cost],
+  "SequencingToMinimizeWeightedCompletionTime": [Sequencing to Minimize Weighted Completion Time],
+  "SequencingToMinimizeWeightedTardiness": [Sequencing to Minimize Weighted Tardiness],
   "SequencingWithinIntervals": [Sequencing Within Intervals],
+  "SumOfSquaresPartition": [Sum of Squares Partition],
+  "TwoDimensionalConsecutiveSets": [2-Dimensional Consecutive Sets],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
   "ConjunctiveBooleanQuery": [Conjunctive Boolean Query],
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
@@ -1514,6 +1520,58 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 ]
 
 #{
+  let x = load-model-example("SteinerTreeInGraphs")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges
+  let ne = edges.len()
+  let terminals = x.instance.terminals
+  let weights = x.instance.edge_weights
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let opt-weight = sol.metric.Valid
+  // Derive tree edges from optimal config
+  let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let tree-edges = tree-edge-indices.map(i => edges.at(i))
+  // Steiner vertices: non-terminal vertices that appear in tree edges
+  let steiner-verts = range(nv).filter(v => not terminals.contains(v) and tree-edges.any(e => e.at(0) == v or e.at(1) == v))
+  [
+    #problem-def("SteinerTreeInGraphs")[
+      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> RR_(>= 0)$ and a set of terminal vertices $R subset.eq V$, find a subtree $T$ of $G$ that spans all terminals in $R$ and minimizes the total edge weight $sum_(e in T) w(e)$.
+    ][
+    A classical NP-complete problem from Karp's list (as "Steiner Tree in Graphs," Garey & Johnson ND12) @karp1972. Central to network design, VLSI layout, and phylogenetic reconstruction. The problem generalizes minimum spanning tree (where $R = V$) and shortest path (where $|R| = 2$). The Dreyfus--Wagner dynamic programming algorithm @dreyfuswagner1971 solves it in $O(3^k dot n + 2^k dot n^2 + n^3)$ time, where $k = |R|$ and $n = |V|$. Bjorklund et al. @bjorklund2007 achieved $O^*(2^k)$ using subset convolution over the Mobius algebra, and Nederlof @nederlof2009 gave an $O^*(2^k)$ polynomial-space algorithm.
+
+    *Example.* Consider a graph $G$ with $n = #nv$ vertices and $|E| = #ne$ edges. The terminals are $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue). The optimal Steiner tree uses Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (gray, dashed border) and edges #tree-edges.map(e => [$\{v_#(e.at(0)), v_#(e.at(1))\}$]).join(", ") with total weight #tree-edge-indices.map(i => str(weights.at(i))).join(" + ") $= #opt-weight$.
+
+    #figure({
+      // Graph: 6 vertices arranged in two rows (layout positions)
+      let verts = ((0, 1), (1.5, 1), (3, 1), (1.5, -0.5), (3, -0.5), (4.5, 0.25))
+      canvas(length: 1cm, {
+        // Draw edges
+        for (idx, (u, v)) in edges.enumerate() {
+          let on-tree = tree-edges.any(t => (t.at(0) == u and t.at(1) == v) or (t.at(0) == v and t.at(1) == u))
+          g-edge(verts.at(u), verts.at(v),
+            stroke: if on-tree { 2pt + graph-colors.at(0) } else { 1pt + luma(200) })
+          let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+          let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+          draw.content((mx, my), text(7pt, fill: luma(80))[#weights.at(idx)])
+        }
+        // Draw vertices
+        for (k, pos) in verts.enumerate() {
+          let is-terminal = terminals.contains(k)
+          let is-steiner = steiner-verts.contains(k)
+          g-node(pos, name: "v" + str(k),
+            fill: if is-terminal { graph-colors.at(0) } else if is-steiner { luma(220) } else { white },
+            stroke: if is-steiner { (dash: "dashed", paint: graph-colors.at(0)) } else { 1pt + black },
+            label: if is-terminal { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+        }
+      })
+    },
+    caption: [Steiner Tree: terminals $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue), Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (dashed). Optimal tree (blue edges) has weight #opt-weight.],
+    ) <fig:steiner-tree-example>
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("MinimumSumMulticenter")
   let nv = graph-num-vertices(x.instance)
   let edges = x.instance.graph.edges
@@ -1553,6 +1611,45 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     },
     caption: [Minimum Sum Multicenter with $K = #K$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) achieve optimal total weighted distance #opt-cost.],
     ) <fig:minimum-sum-multicenter>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MultipleCopyFileAllocation")
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let K = x.instance.bound
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let copies = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  [
+    #problem-def("MultipleCopyFileAllocation")[
+      Given a graph $G = (V, E)$, usage values $u: V -> ZZ_(> 0)$, storage costs $s: V -> ZZ_(> 0)$, and a positive integer $K$, determine whether there exists a subset $V' subset.eq V$ such that
+      $sum_(v in V') s(v) + sum_(v in V) u(v) dot d(v, V') <= K,$
+      where $d(v, V') = min_(w in V') d_G(v, w)$ is the shortest-path distance from $v$ to the nearest copy vertex.
+    ][
+    Multiple Copy File Allocation appears in the storage-and-retrieval section of Garey and Johnson (SR6) @garey1979. The model combines two competing costs: each chosen copy vertex incurs a storage charge, while every vertex pays an access cost weighted by its demand and graph distance to the nearest copy. Garey and Johnson record the problem as NP-complete in the strong sense, even when usage and storage costs are uniform @garey1979.
+
+    *Example.* Consider the 6-cycle $C_6$ with uniform usage $u(v) = 10$, uniform storage $s(v) = 1$, and bound $K = #K$. Placing copies at $V' = {#copies.map(i => $v_#i$).join(", ")}$ gives storage cost $1 + 1 + 1 = 3$. The remaining vertices $v_0, v_2, v_4$ are each at distance 1 from the nearest copy, so the access cost is $10 + 10 + 10 = 30$. Thus the total cost is $3 + 30 = 33 <= #K$, so this placement is satisfying. The alternating placement shown below is one symmetric witness.
+
+    #figure({
+      let blue = graph-colors.at(0)
+      let gray = luma(200)
+      canvas(length: 1cm, {
+        import draw: *
+        let verts = ((0, 1.6), (1.35, 0.8), (1.35, -0.8), (0, -1.6), (-1.35, -0.8), (-1.35, 0.8))
+        for (u, v) in edges {
+          g-edge(verts.at(u), verts.at(v), stroke: 1pt + gray)
+        }
+        for (k, pos) in verts.enumerate() {
+          let has-copy = copies.any(c => c == k)
+          g-node(pos, name: "v" + str(k),
+            fill: if has-copy { blue } else { white },
+            label: if has-copy { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+        }
+      })
+    },
+    caption: [Multiple Copy File Allocation on a 6-cycle. Copy vertices $v_1$, $v_3$, and $v_5$ are shown in blue; every white vertex is one hop from the nearest copy, so the total cost is $33$.],
+    ) <fig:multiple-copy-file-allocation>
     ]
   ]
 }
@@ -1849,7 +1946,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let n = x.instance.num_attributes
   let deps = x.instance.dependencies
   let m = deps.len()
-  let bound = x.instance.bound_k
+  let bound = x.instance.bound
   let key-attrs = range(n).filter(i => x.optimal_config.at(i) == 1)
   let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
   let fmt-fd(d) = fmt-set(d.at(0)) + " $arrow.r$ " + fmt-set(d.at(1))
@@ -1861,6 +1958,52 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
     *Example.* Let $A = {0, 1, ..., #(n - 1)}$ ($|A| = #n$) with $M = #bound$ and functional dependencies $F = {#deps.enumerate().map(((i, d)) => fmt-fd(d)).join(", ")}$.
     The candidate key $K = #fmt-set(key-attrs)$ has $|K| = #key-attrs.len() <= #bound$. Its closure: start with ${0, 1}$; apply ${0, 1} arrow.r {2}$ to get ${0, 1, 2}$; apply ${0, 2} arrow.r {3}$ to get ${0, 1, 2, 3}$; apply ${1, 3} arrow.r {4}$ to get ${0, 1, 2, 3, 4}$; apply ${2, 4} arrow.r {5}$ to get $A$. Neither ${0}$ nor ${1}$ alone determines $A$, so $K$ is minimal.
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("TwoDimensionalConsecutiveSets")
+  let n = x.instance.alphabet_size
+  let subs = x.instance.subsets
+  let m = subs.len()
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let config = sol.config
+  // Build groups from config: groups.at(g) = list of symbols in group g
+  let groups = range(n).map(g => range(n).filter(s => config.at(s) == g))
+  // Only non-empty groups
+  let nonempty = groups.enumerate().filter(((_, g)) => g.len() > 0)
+  let k = nonempty.len()
+  let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
+  [
+    #problem-def("TwoDimensionalConsecutiveSets")[
+      Given finite alphabet $Sigma = {0, 1, dots, n - 1}$ and collection $cal(C) = {Sigma_1, dots, Sigma_m}$ of subsets of $Sigma$, determine whether $Sigma$ can be partitioned into disjoint sets $X_1, X_2, dots, X_k$ such that each $X_i$ has at most one element in common with each $Sigma_j$, and for each $Sigma_j in cal(C)$ there is an index $l(j)$ with $Sigma_j subset.eq X_(l(j)) union X_(l(j)+1) union dots.c union X_(l(j)+|Sigma_j|-1)$.
+    ][
+    This problem generalizes the Consecutive Sets problem (SR18) by requiring not just that each subset's elements appear consecutively in an ordering, but that they be spread across consecutive groups of a partition where each group contributes at most one element per subset. Shown NP-complete by Lipski @lipski1977fct via transformation from Graph 3-Colorability. The problem arises in information storage and retrieval where records must be organized in contiguous blocks. It remains NP-complete if all subsets have at most 5 elements, but is solvable in polynomial time if all subsets have at most 2 elements. The brute-force algorithm assigns each of $n$ symbols to one of up to $n$ groups, giving $O^*(n^n)$ time#footnote[No algorithm improving on brute-force enumeration is known for this problem.].
+
+    *Example.* Let $Sigma = {0, 1, dots, #(n - 1)}$ and $cal(C) = {#range(m).map(i => $Sigma_#(i + 1)$).join(", ")}$ with #subs.enumerate().map(((i, s)) => $Sigma_#(i + 1) = #fmt-set(s)$).join(", "). A valid partition uses $k = #k$ groups: #nonempty.map(((g, elems)) => $X_#(g + 1) = #fmt-set(elems)$).join(", "). Each group intersects every subset in at most one element, and each subset's elements span exactly $|Sigma_j|$ consecutive groups. For instance, $Sigma_1 = {0, 1, 2}$ maps to groups $X_1, X_2, X_3$ (consecutive), and $Sigma_5 = {0, 5}$ maps to groups $X_1, X_2$ (consecutive). Multiple valid partitions exist for this instance, differing only by unused or shifted group labels.
+
+    #figure(
+      canvas(length: 1cm, {
+        import draw: *
+        // Draw groups as labeled columns
+        let gw = 1.4
+        let gh = 0.45
+        for (col, (g, elems)) in nonempty.enumerate() {
+          let x0 = col * (gw + 0.3)
+          // Group header
+          content((x0 + gw / 2, 0.5), $X_#(g + 1)$, anchor: "south")
+          // Draw box for the group
+          rect((x0, -elems.len() * gh), (x0 + gw, 0),
+            stroke: 0.5pt + black, fill: rgb("#e8f0fe"))
+          // Elements inside
+          for (row, elem) in elems.enumerate() {
+            content((x0 + gw / 2, -row * gh - gh / 2), text(size: 9pt, str(elem)))
+          }
+        }
+      }),
+      caption: [2-Dimensional Consecutive Sets: partition of $Sigma = {0, dots, 5}$ into #k groups satisfying intersection and consecutiveness constraints for all #m subsets.],
+    ) <fig:two-dim-consecutive-sets>
     ]
   ]
 }
@@ -2397,6 +2540,39 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("ConsecutiveBlockMinimization")
+  let mat = x.instance.matrix
+  let K = x.instance.bound
+  let n-rows = mat.len()
+  let n-cols = if n-rows > 0 { mat.at(0).len() } else { 0 }
+  let perm = x.optimal_config
+  // Count blocks under the satisfying permutation
+  let total-blocks = 0
+  for row in mat {
+    let in-block = false
+    for p in perm {
+      if row.at(p) {
+        if not in-block {
+          total-blocks += 1
+          in-block = true
+        }
+      } else {
+        in-block = false
+      }
+    }
+  }
+  [
+    #problem-def("ConsecutiveBlockMinimization")[
+      Given an $m times n$ binary matrix $A$ and a positive integer $K$, determine whether there exists a permutation of the columns of $A$ such that the resulting matrix has at most $K$ maximal blocks of consecutive 1-entries (summed over all rows). A _block_ is a maximal contiguous run of 1-entries within a single row.
+    ][
+    Consecutive Block Minimization (SR17 in Garey & Johnson) arises in consecutive file organization for information retrieval systems, where records stored on a linear medium must be arranged so that each query's relevant records form a contiguous segment. Applications also include scheduling, production planning, the glass cutting industry, and data compression. NP-complete by reduction from Hamiltonian Path @kou1977. When $K$ equals the number of non-all-zero rows, the problem reduces to testing the _consecutive ones property_, solvable in polynomial time via PQ-trees @booth1975. A 1.5-approximation is known @haddadi2008. The best known exact algorithm runs in $O^*(n!)$ by brute-force enumeration of all column permutations.
+
+    *Example.* Let $A$ be the #n-rows$times$#n-cols matrix with rows #mat.enumerate().map(((i, row)) => [$r_#i = (#row.map(v => if v {$1$} else {$0$}).join($,$))$]).join(", ") and $K = #K$. The column permutation $pi = (#perm.map(p => str(p)).join(", "))$ yields #total-blocks total blocks, so #total-blocks $<= #K$ and the answer is YES.
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("PaintShop")
   let n-cars = x.instance.num_cars
   let labels = x.instance.car_labels
@@ -2677,7 +2853,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let mat = x.instance.matrix
   let m = mat.len()
   let n = mat.at(0).len()
-  let K = x.instance.bound_k
+  let K = x.instance.bound
   // Convert bool matrix to int for display
   let M = mat.map(row => row.map(v => if v { 1 } else { 0 }))
   [
@@ -3369,6 +3545,81 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("SchedulingWithIndividualDeadlines")
+  let ntasks = x.instance.num_tasks
+  let nproc = x.instance.num_processors
+  let deadlines = x.instance.deadlines
+  let precs = x.instance.precedences
+  let start = x.optimal_config
+  let horizon = deadlines.fold(0, (acc, d) => if d > acc { d } else { acc })
+  let slot-groups = range(horizon).map(slot => range(ntasks).filter(t => start.at(t) == slot))
+  let tight-tasks = range(ntasks).filter(t => start.at(t) + 1 == deadlines.at(t))
+  let start-label = start.map(v => str(v)).join(", ")
+  let deadline-pairs = deadlines.enumerate().map(((t, d)) => [$d(t_#(t + 1)) = #d$])
+  let slot-summaries = slot-groups.enumerate().map(((slot, tasks)) => [slot #slot: #tasks.map(task => $t_#(task + 1)$).join(", ")])
+  let tight-task-labels = tight-tasks.map(task => $t_#(task + 1)$)
+  [
+    #problem-def("SchedulingWithIndividualDeadlines")[
+      Given a set $T$ of $n$ unit-length tasks, a number $m in ZZ^+$ of identical processors, a deadline function $d: T -> ZZ^+$, and a partial order $prec.eq$ on $T$, determine whether there exists a schedule $sigma: T -> {0, 1, dots, D - 1}$, where $D = max_(t in T) d(t)$, such that every task meets its own deadline ($sigma(t) + 1 <= d(t)$), every precedence constraint is respected (if $t_i prec.eq t_j$ then $sigma(t_i) + 1 <= sigma(t_j)$), and at most $m$ tasks are scheduled in each time slot.
+    ][
+      Scheduling With Individual Deadlines is the parallel-machine feasibility problem catalogued as A5 SS11 in Garey & Johnson @garey1979. Garey & Johnson record NP-completeness via reduction from Vertex Cover, and Brucker, Garey, and Johnson sharpen the complexity picture: the problem remains NP-complete for out-tree precedence constraints, but becomes polynomial-time solvable for in-trees @bruckerGareyJohnson1977. The two-processor case is also polynomial-time solvable @garey1979.
+
+      The direct encoding in this library uses one start-time variable per task, with each variable ranging over its allowable deadline window. If $D = max_t d(t)$, exhaustive search over that encoding yields an $O^*(D^n)$ brute-force bound.#footnote[This is the worst-case search bound induced by the implementation's configuration space; deadlines can be smaller on individual tasks, so practical instances may enumerate fewer than $D^n$ assignments.]
+
+      *Example.* Consider $n = #ntasks$ tasks on $m = #nproc$ processors with deadlines #{deadline-pairs.join(", ")} and precedence constraints #{precs.map(p => [$t_#(p.at(0) + 1) prec.eq t_#(p.at(1) + 1)$]).join(", ")}. The sample schedule $sigma = [#start-label]$ assigns #{slot-summaries.join("; ")}. Every slot uses at most #nproc processors, and the tight tasks #{tight-task-labels.join(", ")} finish exactly at their deadlines.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (
+            rgb("#4e79a7"),
+            rgb("#e15759"),
+            rgb("#76b7b2"),
+            rgb("#f28e2b"),
+            rgb("#59a14f"),
+            rgb("#edc948"),
+            rgb("#b07aa1"),
+          )
+          let scale = 1.25
+          let row-h = 0.58
+          let gap = 0.18
+
+          for lane in range(nproc) {
+            let y = -lane * (row-h + gap)
+            content((-0.8, y), text(7pt, "P" + str(lane + 1)))
+          }
+
+          for (slot, tasks) in slot-groups.enumerate() {
+            for (lane, task) in tasks.enumerate() {
+              let x0 = slot * scale
+              let x1 = (slot + 1) * scale
+              let y = -lane * (row-h + gap)
+              let color = colors.at(calc.rem(task, colors.len()))
+              rect(
+                (x0, y - row-h / 2),
+                (x1, y + row-h / 2),
+                fill: color.transparentize(30%),
+                stroke: 0.4pt + color,
+              )
+              content(((x0 + x1) / 2, y), text(7pt)[$t_#(task + 1)$])
+            }
+          }
+
+          let y-axis = -(nproc - 1) * (row-h + gap) - row-h / 2 - 0.2
+          line((0, y-axis), (horizon * scale, y-axis), stroke: 0.4pt)
+          for t in range(horizon + 1) {
+            let x = t * scale
+            line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
+            content((x, y-axis - 0.24), text(6pt, str(t)))
+          }
+          content((horizon * scale / 2, y-axis - 0.46), text(7pt)[time slot])
+        }),
+        caption: [A feasible 3-processor schedule for Scheduling With Individual Deadlines. Tasks sharing a column run in the same unit-length time slot; the sample assignment uses slots $0, 1, 2$ and meets every deadline.],
+      ) <fig:scheduling-with-individual-deadlines>
+    ]
+  ]
+}
+#{
   let x = load-model-example("SequencingWithinIntervals")
   let ntasks = x.instance.lengths.len()
   let release = x.instance.release_times
@@ -3515,6 +3766,72 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }),
         caption: [Optimal schedule for #ntasks tasks. #if tardy-tasks.len() > 0 [Faded #if tardy-tasks.len() == 1 [block indicates the] else [blocks indicate] tardy #if tardy-tasks.len() == 1 [task] else [tasks] (finish time exceeds deadline).] else [All tasks meet their deadlines.]],
       ) <fig:mts>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SequencingToMinimizeWeightedCompletionTime")
+  let lengths = x.instance.lengths
+  let weights = x.instance.weights
+  let precs = x.instance.precedences
+  let ntasks = lengths.len()
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let opt = sol.metric.Valid
+  let lehmer = sol.config
+  let schedule = {
+    let avail = range(ntasks)
+    let result = ()
+    for c in lehmer {
+      result.push(avail.at(c))
+      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
+    }
+    result
+  }
+  let starts = ()
+  let finishes = ()
+  let elapsed = 0
+  for task in schedule {
+    starts.push(elapsed)
+    elapsed += lengths.at(task)
+    finishes.push(elapsed)
+  }
+  let total-time = elapsed
+  [
+    #problem-def("SequencingToMinimizeWeightedCompletionTime")[
+      Given a set $T$ of $n$ tasks, a processing-time function $l: T -> ZZ^+$, a weight function $w: T -> ZZ^+$, and a partial order $prec.eq$ on $T$, find a one-machine schedule minimizing $sum_(t in T) w(t) C(t)$, where $C(t)$ is the completion time of task $t$ and every precedence relation $t_i prec.eq t_j$ requires task $t_i$ to complete before task $t_j$ starts.
+    ][
+      Sequencing to Minimize Weighted Completion Time is the single-machine precedence-constrained scheduling problem catalogued as SS4 in Garey & Johnson @garey1979, usually written $1 | "prec" | sum w_j C_j$. Lawler showed that arbitrary precedence constraints make the problem NP-complete, while series-parallel precedence orders admit an $O(n log n)$ algorithm @lawler1978. Without precedence constraints, Smith's ratio rule orders jobs by non-increasing $w_j / l_j$ and is optimal @smith1956.
+
+      *Example.* Consider tasks with lengths $l = (#lengths.map(v => str(v)).join(", "))$, weights $w = (#weights.map(v => str(v)).join(", "))$, and precedence constraints #{precs.map(p => [$t_#(p.at(0)) prec.eq t_#(p.at(1))$]).join(", ")}. An optimal schedule is $(#schedule.map(t => $t_#t$).join(", "))$, with completion times $(#finishes.map(v => str(v)).join(", "))$ along the machine timeline and objective value $#opt$.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"))
+          let scale = 0.55
+          let row-h = 0.7
+
+          for (pos, task) in schedule.enumerate() {
+            let x0 = starts.at(pos) * scale
+            let x1 = finishes.at(pos) * scale
+            let color = colors.at(calc.rem(task, colors.len()))
+            rect((x0, -row-h / 2), (x1, row-h / 2),
+              fill: color.transparentize(30%), stroke: 0.4pt + color)
+            content(((x0 + x1) / 2, 0), text(7pt, $t_#task$))
+          }
+
+          let y-axis = -row-h / 2 - 0.22
+          line((0, y-axis), (total-time * scale, y-axis), stroke: 0.4pt)
+          for t in range(total-time + 1) {
+            let x = t * scale
+            line((x, y-axis), (x, y-axis - 0.08), stroke: 0.4pt)
+            content((x, y-axis - 0.22), text(6pt, str(t)))
+          }
+          content((total-time * scale / 2, y-axis - 0.45), text(7pt)[time])
+        }),
+        caption: [Optimal single-machine schedule for the canonical weighted-completion-time instance. Each block width equals the processing time $l_j$.],
+      ) <fig:stmwct>
     ]
   ]
 }
@@ -3809,7 +4126,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let A = x.instance.matrix
   let m = A.len()
   let n = A.at(0).len()
-  let K = x.instance.bound_k
+  let K = x.instance.bound
   // Convert bool matrix to int for display
   let A-int = A.map(row => row.map(v => if v { 1 } else { 0 }))
   // Use the canonical witness {0, 1, 3}
@@ -4018,6 +4335,65 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
 
   _Solution extraction._ Convert binary to spins: $s_i = 2x_i - 1$, i.e.\ $x_i = 1 arrow.r s_i = +1$, $x_i = 0 arrow.r s_i = -1$.
 ]
+
+#let cvp_qubo = load-example("ClosestVectorProblem", "QUBO")
+#let cvp_qubo_sol = cvp_qubo.solutions.at(0)
+#{
+  let basis = cvp_qubo.source.instance.basis
+  let bounds = cvp_qubo.source.instance.bounds
+  let target = cvp_qubo.source.instance.target
+  let offsets = cvp_qubo_sol.source_config
+  let coords = offsets.enumerate().map(((i, off)) => off + bounds.at(i).lower)
+  let matrix = cvp_qubo.target.instance.matrix
+  let bits = cvp_qubo_sol.target_config
+  let lo = bounds.map(b => b.lower)
+  let anchor = range(target.len()).map(d => lo.enumerate().fold(0.0, (acc, (i, x)) => acc + x * basis.at(i).at(d)))
+  let constant = range(target.len()).fold(0.0, (acc, d) => acc + calc.pow(anchor.at(d) - target.at(d), 2))
+  let qubo-value = range(bits.len()).fold(0.0, (acc, i) => acc + if bits.at(i) == 0 { 0.0 } else {
+    range(bits.len() - i).fold(0.0, (row-acc, delta) => row-acc + if bits.at(i + delta) == 0 { 0.0 } else { matrix.at(i).at(i + delta) })
+  })
+  let fmt-vec(v) = $paren.l #v.map(e => str(e)).join(", ") paren.r^top$
+  let rounded-constant = calc.round(constant, digits: 2)
+  let rounded-qubo = calc.round(qubo-value, digits: 1)
+  let rounded-distance-sq = calc.round(qubo-value + constant, digits: 2)
+  [
+    #reduction-rule("ClosestVectorProblem", "QUBO",
+      example: true,
+      example-caption: [2D bounded CVP with two 3-bit exact-range encodings],
+      extra: [
+        *Step 1 -- Source instance.* The canonical CVP example uses basis columns $bold(b)_1 = #fmt-vec(basis.at(0))$ and $bold(b)_2 = #fmt-vec(basis.at(1))$, target $bold(t) = #fmt-vec(target)$, and bounds $x_1, x_2 in [#bounds.at(0).lower, #bounds.at(0).upper]$.
+
+        *Step 2 -- Exact bounded encoding.* Each variable has #bounds.at(0).upper - bounds.at(0).lower + 1 admissible values, so the implementation uses the capped binary basis $(1, 2, 3)$ rather than $(1, 2, 4)$: the first two bits are powers of two, and the last weight is capped so every bit pattern reconstructs an offset in ${0, dots, 6}$. Thus
+        $ x_1 = #bounds.at(0).lower + z_0 + 2 z_1 + 3 z_2, quad x_2 = #bounds.at(1).lower + z_3 + 2 z_4 + 3 z_5 $
+        giving #cvp_qubo.target.instance.num_vars QUBO variables in total.
+
+        *Step 3 -- Build the QUBO.* For this instance, $G = A^top A = ((4, 2), (2, 5))$ and $h = A^top bold(t) = (5.6, 5.8)^top$. Expanding the shifted quadratic form yields the exported upper-triangular matrix with representative entries $Q_(0,0) = #matrix.at(0).at(0)$, $Q_(0,1) = #matrix.at(0).at(1)$, $Q_(0,2) = #matrix.at(0).at(2)$, $Q_(2,5) = #matrix.at(2).at(5)$, and $Q_(5,5) = #matrix.at(5).at(5)$.
+
+        *Step 4 -- Verify a solution.* The fixture stores the canonical witness $bold(z) = (#bits.map(str).join(", "))$, which extracts to source offsets $bold(c) = (#offsets.map(str).join(", "))$ and actual lattice coordinates $bold(x) = (#coords.map(str).join(", "))$. The QUBO value is $bold(z)^top Q bold(z) = #rounded-qubo$; adding back the dropped constant #rounded-constant yields the original squared distance #(rounded-distance-sq), so the extracted point is the closest lattice vector #sym.checkmark.
+
+        *Multiplicity.* Offset $3$ has two bit encodings ($(0, 0, 1)$ and $(1, 1, 0)$), so the fixture stores one canonical witness even though the QUBO has multiple optimal binary assignments representing the same CVP solution.
+      ],
+    )[
+      A bounded Closest Vector Problem instance already supplies a finite integer box $x_i in [ell_i, u_i]$ for each coefficient. Following the direct quadratic-form reduction of Canale, Qureshi, and Viola @canale2023qubo, encoding each offset $c_i = x_i - ell_i$ with an exact in-range binary basis turns the squared-distance objective into an unconstrained quadratic over binary variables. Unlike penalty-method encodings, no auxiliary feasibility penalty is needed: every bit pattern decodes to a legal coefficient vector by construction.
+    ][
+      _Construction._ Let $A in ZZ^(m times n)$ be the basis matrix with columns $bold(a)_1, dots, bold(a)_n$, let $bold(t) in RR^m$ be the target, and let $x_i in [ell_i, u_i]$ with range $r_i = u_i - ell_i$. Define $L_i = ceil(log_2(r_i + 1))$ when $r_i > 0$ and omit bits when $r_i = 0$. For each variable, introduce binary variables $z_(i,0), dots, z_(i,L_i-1)$ with exact-range weights
+      $ w_(i,p) = 2^p quad (0 <= p < L_i - 1), quad w_(i,L_i-1) = r_i + 1 - 2^(L_i - 1) $
+      so that every bit vector represents an offset in ${0, dots, r_i}$. Then
+      $ x_i = ell_i + sum_(p=0)^(L_i-1) w_(i,p) z_(i,p) $
+      and the total number of QUBO variables is $N = sum_i L_i$, exactly the exported overhead `num_vars = num_encoding_bits`.
+
+      Let $G = A^top A$ and $h = A^top bold(t)$. Writing $bold(x) = bold(ell) + B bold(z)$ for the encoding matrix $B in RR^(n times N)$ gives
+      $ norm(A bold(x) - bold(t))_2^2 = bold(z)^top (B^top G B) bold(z) + 2 bold(z)^top B^top (G bold(ell) - h) + "const" $
+      where the constant $norm(A bold(ell) - bold(t))_2^2$ is dropped. Therefore the QUBO coefficients are
+      $ Q_(u,u) = (B^top G B)_(u,u) + 2 (B^top (G bold(ell) - h))_u, quad Q_(u,v) = 2 (B^top G B)_(u,v) quad (u < v) $
+      using the usual upper-triangular convention.
+
+      _Correctness._ ($arrow.r.double$) Every binary vector $bold(z) in {0,1}^N$ decodes to a coefficient vector $bold(x)$ inside the prescribed bounds because each exact-range basis reaches only offsets in ${0, dots, r_i}$. Substituting this decoding into the CVP objective yields $bold(z)^top Q bold(z) + "const"$, so any QUBO minimizer maps to a bounded CVP minimizer. ($arrow.l.double$) Every bounded CVP solution $bold(x)$ has at least one bit encoding for each coordinate offset, hence at least one binary vector $bold(z)$ with the same objective value up to the dropped constant. Thus the minimizers correspond exactly, although several binary witnesses may decode to the same CVP solution.
+
+      _Solution extraction._ For each source variable, sum its selected encoding weights to recover the source configuration offset $c_i = x_i - ell_i$. This is exactly the configuration format expected by the `ClosestVectorProblem` model.
+    ]
+  ]
+}
 
 == Penalty-Method QUBO Reductions <sec:penalty-method>
 
@@ -4649,9 +5025,9 @@ The following reductions to Integer Linear Programming are straightforward formu
   example: true,
   example-caption: [Two triangles linked by three crossing edges encoded as a 15-variable ILP.],
   extra: [
-    *Step 1 -- Balanced partition variables.* Introduce $x_v in {0,1}$ for each vertex. In the canonical witness, $A = {#gp_part_a.map(str).join(", ")}$ and $B = {#gp_part_b.map(str).join(", ")}$, so $bold(x) = (#gp_ilp_sol.source_config.map(str).join(", "))$.\ 
+    *Step 1 -- Balanced partition variables.* Introduce $x_v in {0,1}$ for each vertex. In the canonical witness, $A = {#gp_part_a.map(str).join(", ")}$ and $B = {#gp_part_b.map(str).join(", ")}$, so $bold(x) = (#gp_ilp_sol.source_config.map(str).join(", "))$.\
 
-    *Step 2 -- Crossing indicators.* Add one binary variable per edge, so the target has $#gp_ilp.target.instance.num_vars$ binary variables and #gp_ilp.target.instance.constraints.len() constraints in total. The three active crossing indicators correspond to edges $\{#gp_crossing_edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")\}$.\ 
+    *Step 2 -- Crossing indicators.* Add one binary variable per edge, so the target has $#gp_ilp.target.instance.num_vars$ binary variables and #gp_ilp.target.instance.constraints.len() constraints in total. The three active crossing indicators correspond to edges $\{#gp_crossing_edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")\}$.\
 
     *Step 3 -- Verify the objective.* The target witness $bold(z) = (#gp_ilp_sol.target_config.map(str).join(", "))$ sets exactly #gp_crossing.len() edge-indicator variables to 1, so the ILP objective equals the bisection width #gp_crossing.len() #sym.checkmark
   ],
@@ -4669,6 +5045,42 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) Given a balanced partition $(A, B)$, set $x_v = 1$ iff $v in B$, and set $y_e = 1$ iff edge $e$ has one endpoint in each side. The balance constraint holds because $|B| = n / 2$, and the linking inequalities hold because $|x_u - x_v| = 1$ exactly on crossing edges. The objective is therefore the cut size. ($arrow.l.double$) Any feasible ILP solution satisfies the balance equation, so exactly half the vertices have $x_v = 1$ when $n$ is even. For each edge, the linking inequalities imply $y_e >= |x_u - x_v|$; minimization therefore chooses $y_e = |x_u - x_v|$, making the objective count precisely the crossing edges of the extracted partition.
 
   _Solution extraction._ Return the first $n$ variables $(x_v)_(v in V)$ as the Graph Partitioning configuration; the edge-indicator variables are auxiliary.
+]
+
+#let ks_ilp = load-example("Knapsack", "ILP")
+#let ks_ilp_sol = ks_ilp.solutions.at(0)
+#let ks_ilp_selected = ks_ilp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let ks_ilp_sel_weight = ks_ilp_selected.fold(0, (a, i) => a + ks_ilp.source.instance.weights.at(i))
+#let ks_ilp_sel_value = ks_ilp_selected.fold(0, (a, i) => a + ks_ilp.source.instance.values.at(i))
+#reduction-rule("Knapsack", "ILP",
+  example: true,
+  example-caption: [$n = #ks_ilp.source.instance.weights.len()$ items, capacity $C = #ks_ilp.source.instance.capacity$],
+  extra: [
+    *Step 1 -- Source instance.* The canonical knapsack instance has weights $(#ks_ilp.source.instance.weights.map(str).join(", "))$, values $(#ks_ilp.source.instance.values.map(str).join(", "))$, and capacity $C = #ks_ilp.source.instance.capacity$.
+
+    *Step 2 -- Build the binary ILP.* Introduce one binary variable per item:
+    $#range(ks_ilp.source.instance.weights.len()).map(i => $x_#i$).join(", ") in {0,1}$.
+    The objective is
+    $ max #ks_ilp.source.instance.values.enumerate().map(((i, v)) => $#v x_#i$).join($+$) $
+    subject to the single capacity inequality
+    $ #ks_ilp.source.instance.weights.enumerate().map(((i, w)) => $#w x_#i$).join($+$) <= #ks_ilp.source.instance.capacity $.
+
+    *Step 3 -- Verify a solution.* The ILP optimum $bold(x)^* = (#ks_ilp_sol.target_config.map(str).join(", "))$ extracts directly to the knapsack selection $bold(x)^* = (#ks_ilp_sol.source_config.map(str).join(", "))$, choosing items $\{#ks_ilp_selected.map(str).join(", ")\}$. Their total weight is $#ks_ilp_selected.map(i => str(ks_ilp.source.instance.weights.at(i))).join(" + ") = #ks_ilp_sel_weight$ and their total value is $#ks_ilp_selected.map(i => str(ks_ilp.source.instance.values.at(i))).join(" + ") = #ks_ilp_sel_value$ #sym.checkmark.
+
+    *Uniqueness:* The fixture stores one canonical optimal witness. For this instance the optimum is unique: items $\{#ks_ilp_selected.map(str).join(", ")\}$ are the only feasible choice achieving value #ks_ilp_sel_value.
+  ],
+)[
+  A 0-1 Knapsack instance is already a binary Integer Linear Program @papadimitriou-steiglitz1982: each item-selection bit becomes a binary variable, the capacity condition is a single linear inequality, and the value objective is linear. The reduction preserves the number of decision variables exactly, producing an ILP with $n$ variables and one constraint.
+][
+  _Construction._ Given nonnegative weights $w_0, dots, w_(n-1)$, nonnegative values $v_0, dots, v_(n-1)$, and capacity $C$, introduce binary variables $x_0, dots, x_(n-1) in {0,1}$ where $x_i = 1$ iff item $i$ is selected. Construct the binary ILP:
+  $ max sum_(i=0)^(n-1) v_i x_i $
+  subject to
+  $ sum_(i=0)^(n-1) w_i x_i <= C $
+  and $x_i in {0,1}$ for all $i$. The target therefore has exactly $n$ variables and one linear constraint.
+
+  _Correctness._ ($arrow.r.double$) Any feasible knapsack solution $bold(x)$ satisfies $sum_i w_i x_i <= C$, so the same binary vector is feasible for the ILP and attains identical objective value $sum_i v_i x_i$. ($arrow.l.double$) Any feasible binary ILP solution selects exactly the items with $x_i = 1$; the single inequality guarantees the chosen set fits in the knapsack, and the ILP objective equals the knapsack value. Therefore optimal solutions correspond one-to-one and preserve the optimum value.
+
+  _Solution extraction._ Identity: return the binary variable vector $bold(x)$ as the knapsack selection.
 ]
 
 #reduction-rule("MaximumClique", "MaximumIndependentSet",
@@ -4698,6 +5110,28 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A valid packing assigns each item to exactly one bin (satisfying (1)); each bin's load is at most $C$ and $y_j = 1$ for any used bin (satisfying (2)). ($arrow.l.double$) Any feasible solution assigns each item to one bin by (1), respects capacity by (2), and the objective counts the number of open bins.
 
   _Solution extraction._ For each item $i$, find the unique $j$ with $x_(i j) = 1$; assign item $i$ to bin $j$.
+]
+
+#reduction-rule("SequencingToMinimizeWeightedCompletionTime", "ILP")[
+  Completion times are natural integer variables, precedence constraints compare those completion times directly, and one binary order variable per task pair enforces that a single machine cannot overlap two jobs.
+][
+  _Construction._ For each task $j$, introduce an integer completion-time variable $C_j$. For each unordered pair $i < j$, introduce a binary order variable $y_(i j)$ with $y_(i j) = 1$ meaning task $i$ finishes before task $j$. Let $M = sum_h l_h$.
+
+  _Bounds._ $l_j <= C_j <= M$ for every task $j$, and $y_(i j) in {0, 1}$.
+
+  _Precedence constraints._ If $i prec.eq j$, require $C_j - C_i >= l_j$.
+
+  _Single-machine disjunction._ For every pair $i < j$, require
+  $C_j - C_i + M (1 - y_(i j)) >= l_j$
+  and
+  $C_i - C_j + M y_(i j) >= l_i$.
+  Exactly one of the two orderings is therefore active.
+
+  _Objective._ Minimize $sum_j w_j C_j$.
+
+  _Correctness._ ($arrow.r.double$) Any feasible schedule defines completion times and pairwise order values satisfying the bounds, precedence inequalities, and disjunctive machine constraints; its weighted completion time is exactly the ILP objective. ($arrow.l.double$) Any feasible ILP solution assigns a strict order to every task pair and forbids overlap, so the completion times correspond to a valid single-machine schedule that respects all precedences. Minimizing the ILP objective therefore minimizes the original weighted completion-time objective.
+
+  _Solution extraction._ Sort tasks by their completion times $C_j$ and encode that order back into the source schedule representation.
 ]
 
 #reduction-rule("TravelingSalesman", "ILP",
@@ -4910,6 +5344,7 @@ The following table shows concrete variable overhead for example instances, take
   (source: "SpinGlass", target: "MaxCut"),
   (source: "SpinGlass", target: "QUBO"),
   (source: "QUBO", target: "SpinGlass"),
+  (source: "ClosestVectorProblem", target: "QUBO"),
   (source: "KColoring", target: "QUBO"),
   (source: "MaximumSetPacking", target: "QUBO"),
   (

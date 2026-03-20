@@ -812,7 +812,7 @@ def build_review_implementation_context(
     review_context_builder: Callable[..., dict] | None = None,
 ) -> dict:
     merge_base_getter = merge_base_getter or (
-        lambda repo_root: git_text_in(repo_root, "merge-base", "main", "HEAD").strip()
+        lambda repo_root: git_text_in(repo_root, "merge-base", "origin/main", "HEAD").strip()
     )
     head_sha_getter = head_sha_getter or (
         lambda repo_root: git_text_in(repo_root, "rev-parse", "HEAD").strip()
