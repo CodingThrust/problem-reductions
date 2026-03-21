@@ -277,7 +277,7 @@ impl Problem for StackerCrane {
 impl SatisfactionProblem for StackerCrane {}
 
 crate::declare_variants! {
-    default sat StackerCrane => "num_vertices * 2^num_arcs",
+    default sat StackerCrane => "num_vertices^2 * 2^num_arcs",
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -106,6 +106,48 @@ fn test_stacker_crane_serialization_round_trip() {
 }
 
 #[test]
+fn test_stacker_crane_try_new_validation_errors() {
+    // Mismatched arc_lengths length
+    assert!(StackerCrane::try_new(3, vec![(0, 1)], vec![], vec![1, 2], vec![], 5).is_err());
+
+    // Mismatched edge_lengths length
+    assert!(StackerCrane::try_new(3, vec![], vec![(0, 1)], vec![], vec![], 5).is_err());
+
+    // Negative bound
+    assert!(StackerCrane::try_new(3, vec![], vec![], vec![], vec![], -1).is_err());
+
+    // Arc endpoint out of range
+    assert!(StackerCrane::try_new(2, vec![(0, 5)], vec![], vec![1], vec![], 5).is_err());
+
+    // Edge endpoint out of range
+    assert!(StackerCrane::try_new(2, vec![], vec![(0, 5)], vec![], vec![1], 5).is_err());
+
+    // Negative arc length
+    assert!(StackerCrane::try_new(3, vec![(0, 1)], vec![], vec![-1], vec![], 5).is_err());
+
+    // Negative edge length
+    assert!(StackerCrane::try_new(3, vec![], vec![(0, 1)], vec![], vec![-1], 5).is_err());
+}
+
+#[test]
+fn test_stacker_crane_unreachable_connector() {
+    // Two disconnected components: arc 0→1 and arc 2→3 with no connecting edges.
+    let problem = StackerCrane::new(4, vec![(0, 1), (2, 3)], vec![], vec![1, 1], vec![], 100);
+
+    // No permutation can find a connector path from vertex 1 to vertex 2 (or 3 to 0).
+    assert_eq!(problem.closed_walk_length(&[0, 1]), None);
+    assert_eq!(problem.closed_walk_length(&[1, 0]), None);
+    assert!(!problem.evaluate(&[0, 1]));
+    assert!(!problem.evaluate(&[1, 0]));
+}
+
+#[test]
+fn test_stacker_crane_deserialization_rejects_invalid() {
+    let bad_json = r#"{"num_vertices":2,"arcs":[[0,5]],"edges":[],"arc_lengths":[1],"edge_lengths":[],"bound":5}"#;
+    assert!(serde_json::from_str::<StackerCrane>(bad_json).is_err());
+}
+
+#[test]
 fn test_stacker_crane_is_available_in_prelude() {
     let problem = crate::prelude::StackerCrane::new(
         3,
