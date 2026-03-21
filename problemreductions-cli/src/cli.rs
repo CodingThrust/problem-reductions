@@ -266,6 +266,7 @@ Flags by problem type:
   OptimalLinearArrangement        --graph, --bound
   MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k, --bound
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
+  StackerCrane                    --arcs, --graph, --arc-costs, --edge-lengths, --bound [--num-vertices]
   MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
   AdditionalKey                   --num-attributes, --dependencies, --relation-attrs [--known-keys]
   ConsistencyOfDatabaseFrequencyTables --num-objects, --attribute-domains, --frequency-tables [--known-values]
@@ -848,5 +849,23 @@ mod tests {
         assert!(help.contains("BiconnectivityAugmentation"));
         assert!(help.contains("--potential-edges"));
         assert!(help.contains("--budget"));
+    }
+
+    #[test]
+    fn test_create_help_mentions_stacker_crane_flags() {
+        let cmd = Cli::command();
+        let create = cmd.find_subcommand("create").expect("create subcommand");
+        let help = create
+            .get_after_help()
+            .expect("create after_help")
+            .to_string();
+
+        assert!(help.contains("StackerCrane"));
+        assert!(help.contains("--arcs"));
+        assert!(help.contains("--graph"));
+        assert!(help.contains("--arc-costs"));
+        assert!(help.contains("--edge-lengths"));
+        assert!(help.contains("--bound"));
+        assert!(help.contains("--num-vertices"));
     }
 }

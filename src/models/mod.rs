@@ -39,7 +39,7 @@ pub use misc::{
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StackerCrane, StaffScheduling,
     StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, TimetableDesign,
 };
 pub use set::{

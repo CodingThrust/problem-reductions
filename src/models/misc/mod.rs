@@ -20,6 +20,7 @@
 //! - [`RectilinearPictureCompression`]: Cover 1-entries with bounded rectangles
 //! - [`ResourceConstrainedScheduling`]: Schedule unit-length tasks on processors with resource constraints
 //! - [`SchedulingWithIndividualDeadlines`]: Meet per-task deadlines on parallel processors
+//! - [`StackerCrane`]: Route a crane through required arcs within a length bound
 //! - [`SequencingToMinimizeMaximumCumulativeCost`]: Keep every cumulative schedule cost prefix under a bound
 //! - [`SequencingToMinimizeWeightedCompletionTime`]: Minimize total weighted completion time
 //! - [`SequencingToMinimizeWeightedTardiness`]: Decide whether a schedule meets a weighted tardiness bound
@@ -57,6 +58,7 @@ mod sequencing_to_minimize_weighted_tardiness;
 mod sequencing_with_release_times_and_deadlines;
 mod sequencing_within_intervals;
 pub(crate) mod shortest_common_supersequence;
+mod stacker_crane;
 mod staff_scheduling;
 pub(crate) mod string_to_string_correction;
 mod subset_sum;
@@ -91,6 +93,7 @@ pub use sequencing_to_minimize_weighted_tardiness::SequencingToMinimizeWeightedT
 pub use sequencing_with_release_times_and_deadlines::SequencingWithReleaseTimesAndDeadlines;
 pub use sequencing_within_intervals::SequencingWithinIntervals;
 pub use shortest_common_supersequence::ShortestCommonSupersequence;
+pub use stacker_crane::StackerCrane;
 pub use staff_scheduling::StaffScheduling;
 pub use string_to_string_correction::StringToStringCorrection;
 pub use subset_sum::SubsetSum;
@@ -114,6 +117,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(scheduling_with_individual_deadlines::canonical_model_example_specs());
     specs.extend(sequencing_within_intervals::canonical_model_example_specs());
     specs.extend(staff_scheduling::canonical_model_example_specs());
+    specs.extend(stacker_crane::canonical_model_example_specs());
     specs.extend(timetable_design::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
     specs.extend(resource_constrained_scheduling::canonical_model_example_specs());
