@@ -2070,6 +2070,121 @@ fn test_create_model_example_acyclic_partition_round_trips_into_solve() {
 }
 
 #[test]
+fn test_create_mixed_chinese_postman() {
+    let output = pred()
+        .args([
+            "create",
+            "MixedChinesePostman",
+            "--graph",
+            "0-2,1-3,0-4,4-2",
+            "--arcs",
+            "0>1,1>2,2>3,3>0",
+            "--edge-weights",
+            "2,3,1,2",
+            "--arc-costs",
+            "2,3,1,4",
+            "--bound",
+            "24",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MixedChinesePostman");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["graph"]["num_vertices"], 5);
+    assert_eq!(json["data"]["arc_weights"], serde_json::json!([2, 3, 1, 4]));
+    assert_eq!(
+        json["data"]["edge_weights"],
+        serde_json::json!([2, 3, 1, 2])
+    );
+    assert_eq!(json["data"]["bound"], 24);
+}
+
+#[test]
+fn test_create_model_example_mixed_chinese_postman() {
+    let output = pred()
+        .args(["create", "--example", "MixedChinesePostman/i32"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MixedChinesePostman");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["bound"], 24);
+}
+
+#[test]
+fn test_create_mixed_chinese_postman_missing_arcs_shows_usage() {
+    let output = pred()
+        .args([
+            "create",
+            "MixedChinesePostman",
+            "--graph",
+            "0-2,1-3,0-4,4-2",
+            "--edge-weights",
+            "2,3,1,2",
+            "--arc-costs",
+            "2,3,1,4",
+            "--bound",
+            "24",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("MixedChinesePostman requires --arcs"),
+        "expected missing --arcs error, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("Usage: pred create MixedChinesePostman"),
+        "expected recovery usage hint, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_mixed_chinese_postman_rejects_edge_weight_length_mismatch() {
+    let output = pred()
+        .args([
+            "create",
+            "MixedChinesePostman",
+            "--graph",
+            "0-2,1-3,0-4,4-2",
+            "--arcs",
+            "0>1,1>2,2>3,3>0",
+            "--edge-weights",
+            "2,3",
+            "--arc-costs",
+            "2,3,1,4",
+            "--bound",
+            "24",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Expected 4 edge weight"),
+        "expected edge-weight mismatch diagnostic, got: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_multiple_choice_branching_rejects_negative_bound() {
     let output = pred()
         .args([

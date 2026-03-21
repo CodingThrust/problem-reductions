@@ -13,7 +13,7 @@ use problemreductions::models::algebraic::{
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
-    LengthBoundedDisjointPaths, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
+    LengthBoundedDisjointPaths, MinimumCutIntoBoundedSets, MinimumMultiwayCut, MixedChinesePostman,
     MultipleChoiceBranching, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
@@ -31,8 +31,8 @@ use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
-    BipartiteGraph, DirectedGraph, Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph,
-    UnitDiskGraph,
+    BipartiteGraph, DirectedGraph, Graph, KingsSubgraph, MixedGraph, SimpleGraph,
+    TriangularSubgraph, UnitDiskGraph,
 };
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -584,6 +584,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "StrongConnectivityAugmentation" => {
             "--arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1"
         }
+        "MixedChinesePostman" => {
+            "--graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 --bound 24"
+        }
         "RuralPostman" => {
             "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
         }
@@ -646,7 +649,12 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
 fn uses_edge_weights_flag(canonical: &str) -> bool {
     matches!(
         canonical,
-        "KthBestSpanningTree" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" | "RuralPostman"
+        "KthBestSpanningTree"
+            | "MaxCut"
+            | "MaximumMatching"
+            | "TravelingSalesman"
+            | "RuralPostman"
+            | "MixedChinesePostman"
     )
 }
 
@@ -664,6 +672,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("PrimeAttributeName", "num_attributes") => return "universe".to_string(),
         ("PrimeAttributeName", "dependencies") => return "deps".to_string(),
         ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
+        ("MixedChinesePostman", "arc_weights") => return "arc-costs".to_string(),
         ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
         ("StackerCrane", "edges") => return "graph".to_string(),
         ("StackerCrane", "arc_lengths") => return "arc-costs".to_string(),
@@ -833,6 +842,15 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 // DirectedGraph fields use --arcs, not --graph
                 let hint = type_format_hint(&field.type_name, graph_type);
                 eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
+            } else if field.type_name == "MixedGraph" {
+                eprintln!(
+                    "  --{:<16} {} ({})",
+                    "graph", "Undirected edges E of the mixed graph", "edge list: 0-1,1-2,2-3"
+                );
+                eprintln!(
+                    "  --{:<16} {} ({})",
+                    "arcs", "Directed arcs A of the mixed graph", "directed arcs: 0>1,1>2,2>0"
+                );
             } else if field.type_name == "BipartiteGraph" {
                 eprintln!(
                     "  --{:<16} {} ({})",
@@ -881,6 +899,9 @@ fn problem_help_flag_name(
     }
     if field_type == "DirectedGraph" {
         return "arcs".to_string();
+    }
+    if field_type == "MixedGraph" {
+        return "graph".to_string();
     }
     if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
         return "bound".to_string();
@@ -3161,6 +3182,46 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MixedChinesePostman
+        "MixedChinesePostman" => {
+            let usage = "Usage: pred create MixedChinesePostman --graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 --bound 24 [--num-vertices N]";
+            let graph = parse_mixed_graph(args, usage)?;
+            let arc_costs = parse_arc_costs(args, graph.num_arcs())?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("MixedChinesePostman requires --bound\n\n{usage}")
+            })?;
+            let bound = i32::try_from(bound).map_err(|_| {
+                anyhow::anyhow!(
+                    "MixedChinesePostman --bound must fit in i32 (got {bound})\n\n{usage}"
+                )
+            })?;
+            if arc_costs.iter().any(|&cost| cost < 0) {
+                bail!("MixedChinesePostman --arc-costs must be non-negative\n\n{usage}");
+            }
+            if edge_weights.iter().any(|&weight| weight < 0) {
+                bail!("MixedChinesePostman --edge-weights must be non-negative\n\n{usage}");
+            }
+            if resolved_variant.get("weight").map(|w| w.as_str()) == Some("One")
+                && (arc_costs.iter().any(|&cost| cost != 1)
+                    || edge_weights.iter().any(|&weight| weight != 1))
+            {
+                bail!(
+                    "Non-unit lengths are not supported for MixedChinesePostman/One.\n\n\
+                     Use the weighted variant instead:\n  pred create MixedChinesePostman/i32 --graph ... --arcs ... --edge-weights ... --arc-costs ..."
+                );
+            }
+            (
+                ser(MixedChinesePostman::new(
+                    graph,
+                    arc_costs,
+                    edge_weights,
+                    bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumSumMulticenter (p-median)
         "MinimumSumMulticenter" => {
             let (graph, n) = parse_graph(args).map_err(|e| {
@@ -4809,6 +4870,22 @@ fn parse_directed_graph(
     };
     let num_arcs = arcs.len();
     Ok((DirectedGraph::new(num_v, arcs), num_arcs))
+}
+
+fn parse_mixed_graph(args: &CreateArgs, usage: &str) -> Result<MixedGraph> {
+    let (undirected_graph, num_vertices) =
+        parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+    let arcs_str = args
+        .arcs
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("MixedChinesePostman requires --arcs\n\n{usage}"))?;
+    let (directed_graph, _) = parse_directed_graph(arcs_str, Some(num_vertices))
+        .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+    Ok(MixedGraph::new(
+        num_vertices,
+        directed_graph.arcs(),
+        undirected_graph.edges(),
+    ))
 }
 
 /// Parse `--weights` as arc weights (i32), defaulting to all 1s.

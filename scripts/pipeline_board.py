@@ -1499,6 +1499,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     fix_parser.add_argument("--limit", type=int, default=500)
     fix_parser.add_argument("--format", choices=["text", "json"], default="json")
 
+    find_parser = subparsers.add_parser("find")
+    find_parser.add_argument("number", type=int, help="Issue or PR number to look up")
+    find_parser.add_argument("--owner", default="CodingThrust")
+    find_parser.add_argument("--project-number", type=int, default=8)
+    find_parser.add_argument("--limit", type=int, default=500)
+
     return parser.parse_args(argv)
 
 
@@ -1528,6 +1534,24 @@ def main(argv: list[str] | None = None) -> int:
                 good = "Good" if r["has_good"] else ""
                 print(f"#{r['number']:<5} {good:5s} {r['title']}")
         return 0 if results else 1
+
+    if args.command == "find":
+        board_data = fetch_board_items(
+            args.owner, args.project_number, args.limit, lite=True,
+        )
+        for item in board_data.get("items", []):
+            content = item.get("content") or {}
+            if content.get("number") == args.number:
+                result = {
+                    "item_id": item["id"],
+                    "status": item.get("status"),
+                    "number": content["number"],
+                    "title": content.get("title"),
+                }
+                print(json.dumps(result))
+                return 0
+        print(json.dumps({"error": f"Issue #{args.number} not found on project board"}))
+        return 1
 
     if args.command == "claim-next":
         if args.mode == "review" and not args.repo:

@@ -222,7 +222,7 @@ watch_and_dispatch() {
     make_target=$2
     label=$3
     repo=${4-}
-    interval=${POLL_INTERVAL:-600}
+    interval=${POLL_INTERVAL:-1800}
     max_retries=${MAX_RETRIES:-3}
 
     state_file=${STATE_FILE:-/tmp/problemreductions-${mode}-forever-state.json}

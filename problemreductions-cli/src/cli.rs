@@ -265,6 +265,7 @@ Flags by problem type:
   SequencingWithinIntervals       --release-times, --deadlines, --lengths
   OptimalLinearArrangement        --graph, --bound
   MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k, --bound
+  MixedChinesePostman (MCPP)      --graph, --arcs, --edge-weights, --arc-costs, --bound [--num-vertices]
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
   StackerCrane                    --arcs, --graph, --arc-costs, --edge-lengths, --bound [--num-vertices]
   MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
