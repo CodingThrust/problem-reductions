@@ -153,11 +153,9 @@ fn test_timetable_design_unsat_instance_returns_none_via_ilp_solver_dispatch() {
         vec![vec![1], vec![1]],
     );
 
-    assert!(
-        crate::solvers::ILPSolver::new()
-            .solve_via_reduction("TimetableDesign", &BTreeMap::new(), &problem)
-            .is_none()
-    );
+    assert!(crate::solvers::ILPSolver::new()
+        .solve_via_reduction("TimetableDesign", &BTreeMap::new(), &problem)
+        .is_none());
 }
 
 #[test]

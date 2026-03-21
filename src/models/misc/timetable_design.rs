@@ -228,7 +228,12 @@ impl TimetableDesign {
         }
 
         impl SearchState<'_> {
-            fn search_pair(&mut self, pair_index: usize, period_offset: usize, remaining: usize) -> bool {
+            fn search_pair(
+                &mut self,
+                pair_index: usize,
+                period_offset: usize,
+                remaining: usize,
+            ) -> bool {
                 if pair_index == self.pairs.len() {
                     return true;
                 }
