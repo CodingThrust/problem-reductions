@@ -172,18 +172,23 @@ Detailed by default. Only use a brief example for trivially obvious reductions (
 
 ### 4a2. Reproducibility Commands
 
-Add a `pred-commands()` block at the top of the `extra:` content, before any data display or visualization. Commands are constructed dynamically from loaded example data:
+Add a `pred-commands()` block at the top of the `extra:` content, before any data display or visualization. The source-side `pred create --example ...` spec must be derived from the loaded example data, not handwritten:
 
 ```typst
+#let problem-spec(data) = {
+  if data.variant.len() == 0 { data.problem }
+  else { data.problem + "/" + data.variant.values().join("/") }
+}
+
 #pred-commands(
-  "pred create --example <SOURCE_ALIAS> -o <source>.json",
+  "pred create --example " + problem-spec(src_tgt.source) + " -o <source>.json",
   "pred reduce <source>.json --to " + target-spec(src_tgt) + " -o bundle.json",
   "pred solve bundle.json",
   "pred evaluate <source>.json --config " + src_tgt_sol.source_config.map(str).join(","),
 )
 ```
 
-Where `<SOURCE_ALIAS>` is the shortest alias for the source problem (e.g., `MVC`, `MIS`, `SAT`). Use the bare alias when the default variant matches; use the full variant path (e.g., `MIS/SimpleGraph/i32`) when a non-default variant is needed. Check `pred list` for available aliases.
+If `docs/paper/reductions.typ` already defines a shared `problem-spec()` helper, reuse it instead of duplicating it. Do **not** guess whether the default variant matches the canonical example; canonical rule fixtures can point at non-default source variants, and handwritten bare aliases can silently break the reproducibility block.
 
 The `target-spec()` helper handles empty variant dicts automatically. The `--config` is composed from `src_tgt_sol.source_config`.
 

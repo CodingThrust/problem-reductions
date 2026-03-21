@@ -159,7 +159,7 @@ Step-by-step walkthrough with concrete numbers from JSON data. Required steps:
 
 Use `graph-colors`, `g-node()`, `g-edge()` for graph visualization — see reference examples.
 
-**Reproducibility:** The `extra:` block must start with a `pred-commands()` call showing the create/reduce/solve/evaluate pipeline. See `write-rule-in-paper` skill for the full pattern.
+**Reproducibility:** The `extra:` block must start with a `pred-commands()` call showing the create/reduce/solve/evaluate pipeline. The source-side `pred create --example ...` spec must be derived from the loaded canonical example data via the helper pattern in `write-rule-in-paper`; do not hand-write a bare alias and assume the default variant matches.
 
 ### 5d. Build and verify
 

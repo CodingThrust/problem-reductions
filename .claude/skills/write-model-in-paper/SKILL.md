@@ -159,17 +159,22 @@ caption: [Caption describing the figure with key parameters],
 
 #### Reproducibility Commands
 
-Add a `pred-commands()` block after the `*Example.*` paragraph and before the `#figure`. Commands are constructed dynamically from loaded example data:
+Add a `pred-commands()` block after the `*Example.*` paragraph and before the `#figure`. The `pred create --example ...` spec must be derived from the loaded example data, not handwritten:
 
 ```typst
+#let problem-spec(data) = {
+  if data.variant.len() == 0 { data.problem }
+  else { data.problem + "/" + data.variant.values().join("/") }
+}
+
 #pred-commands(
-  "pred create --example <ALIAS> -o <name>.json",
+  "pred create --example " + problem-spec(x) + " -o <name>.json",
   "pred solve <name>.json",
   "pred evaluate <name>.json --config " + x.optimal_config.map(str).join(","),
 )
 ```
 
-Where `<ALIAS>` is the shortest alias for the problem (e.g., `MIS`, `MVC`, `SAT`). Use the bare alias when the default variant matches the loaded example; use the full variant path (e.g., `MIS/SimpleGraph/i32`) when a non-default variant is needed. Check `pred list` for available aliases.
+If `docs/paper/reductions.typ` already defines a shared `problem-spec()` helper, reuse it instead of reintroducing it locally. Do **not** guess whether the default variant matches the canonical example; canonical fixtures may live on non-default variants, and handwritten bare aliases can silently produce broken commands.
 
 For satisfaction problems, replace `pred solve` with `pred solve <name>.json --solver brute-force` if the problem has no ILP reduction path.
 
