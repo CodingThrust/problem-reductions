@@ -38,6 +38,7 @@ pub use misc::{
     SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
     SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
     StaffScheduling, StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term,
+    TimetableDesign,
 };
 pub use set::{
     ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,

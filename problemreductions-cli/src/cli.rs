@@ -274,6 +274,7 @@ Flags by problem type:
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   StaffScheduling                 --schedules, --requirements, --num-workers, --k
+  TimetableDesign                 --num-periods, --num-craftsmen, --num-tasks, --craftsman-avail, --task-avail, --requirements
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
   RectilinearPictureCompression   --matrix (0/1), --k
   SchedulingWithIndividualDeadlines --n, --num-processors/--m, --deadlines [--precedence-pairs]
@@ -551,12 +552,27 @@ pub struct CreateArgs {
     /// Binary schedule patterns for StaffScheduling (semicolon-separated rows, e.g., "1,1,0;0,1,1")
     #[arg(long)]
     pub schedules: Option<String>,
-    /// Minimum staffing requirements per period for StaffScheduling
+    /// Requirements for StaffScheduling (comma-separated) or TimetableDesign (semicolon-separated rows)
     #[arg(long)]
     pub requirements: Option<String>,
     /// Number of available workers for StaffScheduling
     #[arg(long)]
     pub num_workers: Option<u64>,
+    /// Number of work periods for TimetableDesign
+    #[arg(long)]
+    pub num_periods: Option<usize>,
+    /// Number of craftsmen for TimetableDesign
+    #[arg(long)]
+    pub num_craftsmen: Option<usize>,
+    /// Number of tasks for TimetableDesign
+    #[arg(long)]
+    pub num_tasks: Option<usize>,
+    /// Craftsman availability rows for TimetableDesign (semicolon-separated 0/1 rows)
+    #[arg(long)]
+    pub craftsman_avail: Option<String>,
+    /// Task availability rows for TimetableDesign (semicolon-separated 0/1 rows)
+    #[arg(long)]
+    pub task_avail: Option<String>,
     /// Alphabet size for LCS, SCS, StringToStringCorrection, or TwoDimensionalConsecutiveSets (optional; inferred from the input strings if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,

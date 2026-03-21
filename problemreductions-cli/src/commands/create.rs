@@ -24,7 +24,7 @@ use problemreductions::models::misc::{
     SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
     SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
     SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -122,6 +122,11 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.schedules.is_none()
         && args.requirements.is_none()
         && args.num_workers.is_none()
+        && args.num_periods.is_none()
+        && args.num_craftsmen.is_none()
+        && args.num_tasks.is_none()
+        && args.craftsman_avail.is_none()
+        && args.task_avail.is_none()
         && args.alphabet_size.is_none()
         && args.num_groups.is_none()
         && args.dependencies.is_none()
@@ -419,6 +424,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "StaffScheduling" => {
             "--schedules \"1,1,1,1,1,0,0;0,1,1,1,1,1,0;0,0,1,1,1,1,1;1,0,0,1,1,1,1;1,1,0,0,1,1,1\" --requirements 2,2,2,3,3,2,1 --num-workers 4 --k 5"
         }
+        "TimetableDesign" => {
+            "--num-periods 3 --num-craftsmen 5 --num-tasks 5 --craftsman-avail \"1,1,1;1,1,0;0,1,1;1,0,1;1,1,1\" --task-avail \"1,1,0;0,1,1;1,0,1;1,1,1;1,1,1\" --requirements \"1,0,1,0,0;0,1,0,0,1;0,0,0,1,0;0,0,0,0,1;0,1,0,0,0\""
+        }
         "SteinerTree" => "--graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4",
         "MultipleCopyFileAllocation" => {
             MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS
@@ -507,6 +515,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
         ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
         ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
+        ("TimetableDesign", "num_tasks") => return "num-tasks".to_string(),
         _ => {}
     }
     // Edge-weight problems use --edge-weights instead of --weights
@@ -568,6 +577,10 @@ fn help_flag_hint(
         ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
+            "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
+        }
+        ("TimetableDesign", "requirements") => "semicolon-separated rows: \"1,0,1;0,1,0\"",
         _ => type_format_hint(type_name, graph_type),
     }
 }
@@ -2531,6 +2544,46 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // TimetableDesign
+        "TimetableDesign" => {
+            let usage = "Usage: pred create TimetableDesign --num-periods 3 --num-craftsmen 5 --num-tasks 5 --craftsman-avail \"1,1,1;1,1,0;0,1,1;1,0,1;1,1,1\" --task-avail \"1,1,0;0,1,1;1,0,1;1,1,1;1,1,1\" --requirements \"1,0,1,0,0;0,1,0,0,1;0,0,0,1,0;0,0,0,0,1;0,1,0,0,0\"";
+            let num_periods = args.num_periods.ok_or_else(|| {
+                anyhow::anyhow!("TimetableDesign requires --num-periods\n\n{usage}")
+            })?;
+            let num_craftsmen = args.num_craftsmen.ok_or_else(|| {
+                anyhow::anyhow!("TimetableDesign requires --num-craftsmen\n\n{usage}")
+            })?;
+            let num_tasks = args.num_tasks.ok_or_else(|| {
+                anyhow::anyhow!("TimetableDesign requires --num-tasks\n\n{usage}")
+            })?;
+            let craftsman_avail =
+                parse_named_bool_rows(args.craftsman_avail.as_deref(), "--craftsman-avail", usage)?;
+            let task_avail =
+                parse_named_bool_rows(args.task_avail.as_deref(), "--task-avail", usage)?;
+            let requirements = parse_timetable_requirements(args.requirements.as_deref(), usage)?;
+            validate_timetable_design_args(
+                num_periods,
+                num_craftsmen,
+                num_tasks,
+                &craftsman_avail,
+                &task_avail,
+                &requirements,
+                usage,
+            )?;
+
+            (
+                ser(TimetableDesign::new(
+                    num_periods,
+                    num_craftsmen,
+                    num_tasks,
+                    craftsman_avail,
+                    task_avail,
+                    requirements,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // DirectedTwoCommodityIntegralFlow
         "DirectedTwoCommodityIntegralFlow" => {
             let arcs_str = args.arcs.as_deref().ok_or_else(|| {
@@ -3950,6 +4003,94 @@ fn validate_staff_scheduling_args(
     Ok(())
 }
 
+fn parse_named_bool_rows(rows: Option<&str>, flag: &str, usage: &str) -> Result<Vec<Vec<bool>>> {
+    let rows = rows.ok_or_else(|| anyhow::anyhow!("TimetableDesign requires {flag}\n\n{usage}"))?;
+    parse_bool_rows(rows)
+}
+
+fn parse_timetable_requirements(requirements: Option<&str>, usage: &str) -> Result<Vec<Vec<u64>>> {
+    let requirements = requirements
+        .ok_or_else(|| anyhow::anyhow!("TimetableDesign requires --requirements\n\n{usage}"))?;
+    let matrix: Vec<Vec<u64>> = requirements
+        .split(';')
+        .map(|row| util::parse_comma_list(row.trim()))
+        .collect::<Result<_>>()?;
+
+    if let Some(expected_width) = matrix.first().map(Vec::len) {
+        anyhow::ensure!(
+            matrix.iter().all(|row| row.len() == expected_width),
+            "All rows in --requirements must have the same length"
+        );
+    }
+
+    Ok(matrix)
+}
+
+fn validate_timetable_design_args(
+    num_periods: usize,
+    num_craftsmen: usize,
+    num_tasks: usize,
+    craftsman_avail: &[Vec<bool>],
+    task_avail: &[Vec<bool>],
+    requirements: &[Vec<u64>],
+    usage: &str,
+) -> Result<()> {
+    anyhow::ensure!(
+        craftsman_avail.len() == num_craftsmen,
+        "craftsman availability row count ({}) must equal num_craftsmen ({})\n\n{}",
+        craftsman_avail.len(),
+        num_craftsmen,
+        usage
+    );
+    anyhow::ensure!(
+        task_avail.len() == num_tasks,
+        "task availability row count ({}) must equal num_tasks ({})\n\n{}",
+        task_avail.len(),
+        num_tasks,
+        usage
+    );
+    anyhow::ensure!(
+        requirements.len() == num_craftsmen,
+        "requirements row count ({}) must equal num_craftsmen ({})\n\n{}",
+        requirements.len(),
+        num_craftsmen,
+        usage
+    );
+
+    for (index, row) in craftsman_avail.iter().enumerate() {
+        anyhow::ensure!(
+            row.len() == num_periods,
+            "craftsman availability row {} has {} periods, expected {}\n\n{}",
+            index,
+            row.len(),
+            num_periods,
+            usage
+        );
+    }
+    for (index, row) in task_avail.iter().enumerate() {
+        anyhow::ensure!(
+            row.len() == num_periods,
+            "task availability row {} has {} periods, expected {}\n\n{}",
+            index,
+            row.len(),
+            num_periods,
+            usage
+        );
+    }
+    for (index, row) in requirements.iter().enumerate() {
+        anyhow::ensure!(
+            row.len() == num_tasks,
+            "requirements row {} has {} tasks, expected {}\n\n{}",
+            index,
+            row.len(),
+            num_tasks,
+            usage
+        );
+    }
+
+    Ok(())
+}
+
 /// Parse `--matrix` as semicolon-separated rows of comma-separated f64 values.
 /// E.g., "1,0.5;0.5,2"
 fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
@@ -4817,6 +4958,110 @@ mod tests {
     }
 
     #[test]
+    fn test_problem_help_uses_num_tasks_for_timetable_design() {
+        assert_eq!(
+            problem_help_flag_name("TimetableDesign", "num_tasks", "usize", false),
+            "num-tasks"
+        );
+        assert_eq!(
+            help_flag_hint("TimetableDesign", "craftsman_avail", "Vec<Vec<bool>>", None),
+            "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
+        );
+    }
+
+    #[test]
+    fn test_create_timetable_design_outputs_problem_json() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "TimetableDesign",
+            "--num-periods",
+            "3",
+            "--num-craftsmen",
+            "5",
+            "--num-tasks",
+            "5",
+            "--craftsman-avail",
+            "1,1,1;1,1,0;0,1,1;1,0,1;1,1,1",
+            "--task-avail",
+            "1,1,0;0,1,1;1,0,1;1,1,1;1,1,1",
+            "--requirements",
+            "1,0,1,0,0;0,1,0,0,1;0,0,0,1,0;0,0,0,0,1;0,1,0,0,0",
+        ])
+        .unwrap();
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let output_path =
+            std::env::temp_dir().join(format!("timetable-design-create-{suffix}.json"));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&output_path).unwrap()).unwrap();
+        assert_eq!(json["type"], "TimetableDesign");
+        assert_eq!(json["data"]["num_periods"], 3);
+        assert_eq!(json["data"]["num_craftsmen"], 5);
+        assert_eq!(json["data"]["num_tasks"], 5);
+        std::fs::remove_file(output_path).unwrap();
+    }
+
+    #[test]
+    fn test_create_timetable_design_reports_invalid_matrix_without_panic() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "TimetableDesign",
+            "--num-periods",
+            "3",
+            "--num-craftsmen",
+            "5",
+            "--num-tasks",
+            "5",
+            "--craftsman-avail",
+            "1,1,1;1,1",
+            "--task-avail",
+            "1,1,0;0,1,1;1,0,1;1,1,1;1,1,1",
+            "--requirements",
+            "1,0,1,0,0;0,1,0,0,1;0,0,0,1,0;0,0,0,0,1;0,1,0,0,0",
+        ])
+        .unwrap();
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let result = std::panic::catch_unwind(|| create(&args, &out));
+        assert!(result.is_ok(), "create should return an error, not panic");
+        let err = result.unwrap().unwrap_err().to_string();
+        assert!(
+            err.contains("All rows") || err.contains("craftsman availability row count"),
+            "expected timetable matrix validation error, got: {err}"
+        );
+    }
+
+    #[test]
     fn test_create_generalized_hex_serializes_problem_json() {
         let output = temp_output_path("generalized_hex_create");
         let cli = Cli::try_parse_from([
@@ -4965,6 +5210,11 @@ mod tests {
             schedules: None,
             requirements: None,
             num_workers: None,
+            num_periods: None,
+            num_craftsmen: None,
+            num_tasks: None,
+            craftsman_avail: None,
+            task_avail: None,
             num_groups: None,
             domain_size: None,
             relations: None,
