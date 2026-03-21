@@ -25,6 +25,7 @@ GitHub Project board IDs:
 | `PROJECT_ID` | `PVT_kwDOBrtarc4BRNVy` |
 | `STATUS_FIELD_ID` | `PVTSSF_lADOBrtarc4BRNVyzg_GmQc` |
 | `STATUS_BACKLOG` | `ab337660` |
+| `STATUS_ON_HOLD` | `48dfe446` |
 | `STATUS_READY` | `f37d0d80` |
 
 ## Process
@@ -33,6 +34,7 @@ GitHub Project board IDs:
 digraph fix_issue {
     rankdir=TB;
     "Pick issue from Backlog" [shape=box];
+    "Move card to OnHold (claim lock)" [shape=box];
     "Fetch issue + check comment" [shape=box];
     "Parse failures & warnings" [shape=box];
     "Auto-fix mechanical issues" [shape=box];
@@ -44,7 +46,8 @@ digraph fix_issue {
     "Ask what to change (free-form)" [shape=box];
     "Apply changes + re-check locally" [shape=box];
 
-    "Pick issue from Backlog" -> "Fetch issue + check comment";
+    "Pick issue from Backlog" -> "Move card to OnHold (claim lock)";
+    "Move card to OnHold (claim lock)" -> "Fetch issue + check comment";
     "Fetch issue + check comment" -> "Parse failures & warnings";
     "Parse failures & warnings" -> "Auto-fix mechanical issues";
     "Auto-fix mechanical issues" -> "Present auto-fixes to human";
@@ -60,7 +63,7 @@ digraph fix_issue {
 
 ---
 
-## Step 1: Pick Next Issue from Backlog
+## Step 1: Pick and Claim the Issue
 
 The argument is `model`, `rule`, or a specific issue number.
 
@@ -79,19 +82,48 @@ Returns all Backlog issues of the requested type, sorted by `Good` label first t
 {
   "issue_type": "rule",
   "items": [
-    {"number": 246, "title": "[Rule] A → B", "has_good": true, "labels": ["Good", "rule"]},
-    {"number": 91, "title": "[Rule] C to D", "has_good": false, "labels": ["rule"]}
+    {"number": 246, "title": "[Rule] A → B", "item_id": "PVTI_xxx", "has_good": true, "labels": ["Good", "rule"]},
+    {"number": 91, "title": "[Rule] C to D", "item_id": "PVTI_yyy", "has_good": false, "labels": ["rule"]}
   ]
 }
 ```
 
 ### 1b: Pick the top issue
 
-Pick the first item from the list. If the list is empty, STOP with message: "No `[Model]`/`[Rule]` issues in Backlog."
+Pick the first item from the list and retain both `<NUMBER>` and `<ITEM_ID>`. If the list is empty, STOP with message: "No `[Model]`/`[Rule]` issues in Backlog."
 
 If the top issue already has the `Good` label and its check report has **0 failures and 0 warnings**, skip to Step 8 (just move it to Ready — no edits needed). If it has warnings, proceed normally.
 
-### 1c: Fetch the chosen issue
+### 1c: For a specific issue number, locate the board item and validate status
+
+When `/fix-issue <NUMBER>` is used, do **not** start editing immediately. First look up the card:
+
+```bash
+uv run --project scripts scripts/pipeline_board.py find <NUMBER>
+```
+
+Returns JSON: `{"item_id": "PVTI_xxx", "status": "Backlog", "number": 207, "title": "..."}` or an error if not found.
+
+- If the status is `Backlog`, continue and claim it in Step 1d.
+- If the status is `OnHold`, continue only as a **resume** of in-progress `fix-issue` work.
+- If the status is anything else (`Ready`, `In progress`, `Review pool`, etc.), STOP with message: "Issue #<NUMBER> is not available for `/fix-issue` because its board status is <STATUS>."
+- If an error is returned, STOP with message: "Issue #<NUMBER> is not on the project board."
+
+### 1d: Move the card to OnHold immediately
+
+Claim the work item **before any further action** (before `gh issue view`, before parsing comments, before drafting edits):
+
+```bash
+uv run --project scripts scripts/pipeline_board.py move <ITEM_ID> OnHold
+```
+
+This is a temporary lock to avoid two agents or humans editing the same issue concurrently. Do not leave the card in Backlog while you inspect or modify it.
+
+Use `OnHold` as the in-progress state for `/fix-issue`. Once claimed, do not move the issue back to `Backlog` automatically; keep it in `OnHold` until Step 8 or explicit human re-triage.
+
+If the issue is already in `OnHold` because you are resuming previously started `fix-issue` work, do not move it again; just continue.
+
+### 1e: Fetch the chosen issue and related context
 
 ```bash
 gh issue view <NUMBER> --json title,body,labels,comments
@@ -99,6 +131,25 @@ gh issue view <NUMBER> --json title,body,labels,comments
 
 - Find the **most recent** comment that starts with `## Issue Quality Check` — this is the check-issue report
 - If no check comment found, run `/check-issue <NUMBER>` first, then re-fetch the issue
+
+**Cross-reference lookup (required):**
+
+- **For `[Model]` issues:** Fetch **all** associated `[Rule]` issues that reference this problem as source or target. Search broadly — the problem name may appear in different forms (CamelCase, spaces, abbreviations):
+  ```bash
+  gh issue list --search "<ProblemName> in:title label:rule" --state open --json number,title,body --limit 50
+  ```
+  Read the body of each matching rule issue to understand how the model is used (what fields the rule constructs, whether it relies on decision vs optimization framing, what overhead expressions reference). This context is essential for making informed decisions about schema, framing, and naming.
+
+- **For `[Rule]` issues:** Check whether the source and target models exist in the codebase or as issues:
+  ```bash
+  # Check if models exist in pred
+  pred show <SourceModel> 2>&1
+  pred show <TargetModel> 2>&1
+  # Check for model issues if not in pred
+  gh issue list --search "<SourceModel> in:title label:model" --state open --json number,title,body --limit 10
+  gh issue list --search "<TargetModel> in:title label:model" --state open --json number,title,body --limit 10
+  ```
+  Read relevant model issue bodies to understand schema fields, variants, and framing. This informs whether the rule's overhead expressions, field names, and algorithm are consistent with the models.
 
 ---
 
@@ -169,54 +220,16 @@ Use `cargo run -p problemreductions-cli --bin pred -- show <problem>` (or `./tar
 
 ## Step 4: Present Full Context and Auto-Fixes to Human
 
-**IMPORTANT: Show all context BEFORE asking for any decisions.** The human needs full visibility into the check report findings, research results, and classification before being asked to choose.
+**IMPORTANT: Show all context BEFORE asking for any decisions.**
 
-### 4a: Show the check report summary
+Present everything in one block so the human has full visibility:
 
-Print the parsed check report summary table (from Step 2) so the human can see the starting state:
-
-```
-## Check Report Summary (Issue #<NUMBER>)
-
-| Check | Result | Details |
-|-------|--------|---------|
-| Usefulness | ✅ Pass | ... |
-| Non-trivial | ✅ Pass | ... |
-| Correctness | ⚠️ Warn | ... |
-| Well-written | ⚠️ Warn | ... |
-```
-
-For each `Fail` or `Warn` result, include the key details from the check report's detailed section (not just the one-liner — include the specific sub-issues identified).
-
-### 4b: Show research results
-
-If web searches, `pred show` lookups, or other research was performed during classification (Step 2–3), present those findings now. For example:
-- Web search results that confirm or contradict references
-- `pred show` output for source/target problems
-- Companion issue status (exists / missing)
-
-This ensures the human has all the evidence before any decisions.
-
-### 4c: Show auto-fixes and substantive issues
-
-Print a summary of all mechanical fixes applied:
-
-```
-## Auto-fixes applied
-
-| # | Section | Issue | Fix |
-|---|---------|-------|-----|
-| 1 | Size Overhead | Symbol `m` undefined | Added ... |
-```
-
-Then list the substantive issues that need discussion:
-
-```
-## Issues requiring your input
-
-1. **Decision vs optimization:** ...
-2. **Reference accuracy:** ...
-```
+1. **Full problem definition** — quote the issue's Definition and Schema sections verbatim so the human can see exactly what is being discussed without switching to the browser. For rule issues, include the Reduction Algorithm and Size Overhead sections instead.
+2. **Check report summary** — the parsed table from Step 2 (Check / Result / Details). For `Fail` or `Warn` results, include the specific sub-issues from the detailed section, not just the one-liner.
+3. **Related issues** — for model issues, list all associated rule issues found in Step 1e with a one-line summary of how each rule uses this model (fields referenced, framing assumed). For rule issues, state whether the source and target models exist in `pred` or as open issues, and note any schema/framing mismatches.
+4. **Research results** — any web searches, `pred show` lookups, or other research gathered during Steps 2–3.
+5. **Auto-fixes applied** — table of mechanical fixes (Section / Issue / Fix).
+6. **Substantive issues requiring input** — numbered list of issues that need human judgment, with enough context for the human to evaluate each one.
 
 ---
 
@@ -224,11 +237,13 @@ Then list the substantive issues that need discussion:
 
 For each substantive issue, present it to the human **one at a time**:
 
-1. **Show the evidence first** — quote the relevant check report section, web research results, or `pred show` output that informs this decision. The human should be able to evaluate the options based on the evidence shown, not just the option labels.
+1. **Show the evidence first** — quote the relevant check report section, web research results, `pred show` output, or related rule/model issue findings that inform this decision. The human should be able to evaluate the options based on the evidence shown, not just the option labels. If the issue's Definition or Schema is relevant to the decision, quote the relevant sections inline.
 2. State the problem clearly
 3. Offer 2-3 concrete options when possible (with your recommendation)
 4. Wait for the human's response
 5. Apply the chosen fix to the draft issue body
+
+**Example instances require special handling:** If the example is flagged as incorrect, incomplete, or trivial, you MUST present **3 concrete example options** using `AskUserQuestion` with previews. Each preview should show the full graph/instance specification, optimal value, suboptimal cases, and an invalid configuration. Do NOT silently reuse or fix the existing example without offering alternatives — the human must choose.
 
 Use web search if needed to help resolve issues:
 - Literature search for correct complexity bounds
@@ -245,6 +260,8 @@ Re-run the 4 quality checks (Usefulness, Non-trivial, Correctness, Well-written)
 
 Print results to the human as a summary table (Check / Result / Details).
 
+If the issue cannot be completed in this session because the check report is missing, the issue body is malformed, required context is unavailable, or the proposed fix turns out to be wrong, STOP and tell the human exactly what blocked completion. Leave the card in `OnHold`.
+
 ---
 
 ## Step 7: Ask Human for Decision
@@ -255,7 +272,7 @@ Use `AskUserQuestion` to present the options:
 
 > The issue has been re-checked locally. What would you like to do?
 >
-> 1. **Looks good** — I'll push the edits to GitHub, update labels, and move it to Ready
+> 1. **Looks good** — I'll push the edits to GitHub, update labels, and move it from OnHold to Ready
 > 2. **Modify again** — tell me what else you'd like to change
 
 ### If human picks 2: Modify Again
@@ -265,6 +282,8 @@ Ask the human (free-form) what they want to change:
 > What would you like to modify? Describe the changes you want.
 
 Apply the requested changes to the draft issue body, re-check locally (Step 6), then ask again (Step 7). Repeat until the human picks "Looks good".
+
+If the session pauses without approval, leave the card in `OnHold`. Do **not** move it back to Backlog automatically; `OnHold` is the conflict-avoidance state for partially completed `fix-issue` work.
 
 ---
 
@@ -317,9 +336,9 @@ gh issue edit <NUMBER> --remove-label "Useless,Trivial,Wrong,PoorWritten" 2>/dev
 gh issue edit <NUMBER> --add-label "Good"
 ```
 
-### 8d: Move to Ready on project board
+### 8d: Move from OnHold to Ready on project board
 
-Use the `item_id` obtained from Step 1a:
+Use the `item_id` obtained from Step 1b/1c:
 
 ```bash
 uv run --project scripts scripts/pipeline_board.py move <ITEM_ID> Ready
@@ -331,7 +350,7 @@ uv run --project scripts scripts/pipeline_board.py move <ITEM_ID> Ready
 Done! Issue #<NUMBER>:
   - Body updated on GitHub
   - Labels: removed failure labels, added "Good"
-  - Board: moved to Ready
+  - Board: moved OnHold -> Ready
 ```
 
 ---
@@ -346,7 +365,12 @@ Done! Issue #<NUMBER>:
 | Overwriting human's original content | Preserve original text; only modify the specific sections flagged |
 | Not preserving `<!-- Unverified -->` markers | Keep existing provenance markers; add new ones for AI-filled content |
 | Running check-issue more than once per iteration | Re-check exactly once after edits, then ask human |
+| Leaving the card in Backlog while you inspect/edit | Move it to OnHold before `gh issue view` or any drafting, and keep blocked work there |
 | Closing the issue | Never close. Labels and board status only |
 | Force-pushing or modifying git | This skill only edits GitHub issues via `gh`. No git operations |
-| Inventing `pipeline_board.py` subcommands | Only `next`, `claim-next`, `ack`, `list`, `move`, `backlog` exist |
+| Inventing `pipeline_board.py` subcommands | Only `next`, `claim-next`, `ack`, `list`, `move`, `backlog`, `find` exist |
 | Forgetting to update the issue title | If the problem name changed, update the title with `gh issue edit <N> --title "..."` and find all related issues referencing the old name |
+| Asking questions without context | Before every `AskUserQuestion`, show the relevant issue content (definition, example, constraints) so the human can make an informed decision |
+| Not showing the full problem definition in Step 4 | Always quote the Definition and Schema (or Reduction Algorithm and Size Overhead for rules) verbatim in Step 4 so the human has the full picture without switching to the browser |
+| Skipping cross-reference lookup for models | For model issues, fetch and read **all** associated rule issues to understand how the model is used before making framing/schema decisions |
+| Skipping cross-reference lookup for rules | For rule issues, check whether source and target models exist in `pred` or as open issues, and read their schema/framing to ensure consistency |

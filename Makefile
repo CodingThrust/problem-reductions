@@ -403,7 +403,7 @@ run-pipeline:
 	run_agent "pipeline-output.log" "$$PROMPT"
 
 # Poll Ready column for new issues and run-pipeline when new ones appear
-# Checks every 10 minutes; triggers make run-pipeline when the eligible Ready-item set gains new members
+# Checks every 30 minutes; triggers make run-pipeline when the eligible Ready-item set gains new members
 run-pipeline-forever:
 	@. scripts/make_helpers.sh; \
 	MAKE=$(MAKE) watch_and_dispatch ready run-pipeline "Ready issues"

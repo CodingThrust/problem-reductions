@@ -38,14 +38,15 @@
 //! - [`MultipleChoiceBranching`]: Directed branching with partition constraints
 //! - [`LengthBoundedDisjointPaths`]: Length-bounded internally disjoint s-t paths
 //! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
+//! - [`MixedChinesePostman`]: Mixed-graph postman tour with bounded total length
 //! - [`SteinerTree`]: Minimum-weight tree spanning all required terminals
 //! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
 //! - [`DirectedTwoCommodityIntegralFlow`]: Directed two-commodity integral flow (satisfaction)
 //! - [`UndirectedTwoCommodityIntegralFlow`]: Two-commodity integral flow on undirected graphs
 //! - [`StrongConnectivityAugmentation`]: Strong connectivity augmentation with weighted candidate arcs
 
-pub(crate) mod balanced_complete_bipartite_subgraph;
 pub(crate) mod acyclic_partition;
+pub(crate) mod balanced_complete_bipartite_subgraph;
 pub(crate) mod biclique_cover;
 pub(crate) mod biconnectivity_augmentation;
 pub(crate) mod bottleneck_traveling_salesman;
@@ -73,6 +74,7 @@ pub(crate) mod minimum_feedback_vertex_set;
 pub(crate) mod minimum_multiway_cut;
 pub(crate) mod minimum_sum_multicenter;
 pub(crate) mod minimum_vertex_cover;
+pub(crate) mod mixed_chinese_postman;
 pub(crate) mod multiple_choice_branching;
 pub(crate) mod multiple_copy_file_allocation;
 pub(crate) mod optimal_linear_arrangement;
@@ -117,6 +119,7 @@ pub use minimum_feedback_vertex_set::MinimumFeedbackVertexSet;
 pub use minimum_multiway_cut::MinimumMultiwayCut;
 pub use minimum_sum_multicenter::MinimumSumMulticenter;
 pub use minimum_vertex_cover::MinimumVertexCover;
+pub use mixed_chinese_postman::MixedChinesePostman;
 pub use multiple_choice_branching::MultipleChoiceBranching;
 pub use multiple_copy_file_allocation::MultipleCopyFileAllocation;
 pub use optimal_linear_arrangement::OptimalLinearArrangement;
@@ -177,6 +180,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(graph_partitioning::canonical_model_example_specs());
     specs.extend(minimum_feedback_arc_set::canonical_model_example_specs());
     specs.extend(optimal_linear_arrangement::canonical_model_example_specs());
+    specs.extend(mixed_chinese_postman::canonical_model_example_specs());
     specs.extend(subgraph_isomorphism::canonical_model_example_specs());
     specs
 }

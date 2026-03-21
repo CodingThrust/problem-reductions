@@ -25,7 +25,7 @@ pub use graph::{
     LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
     MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
     MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter,
-    MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
+    MinimumVertexCover, MixedChinesePostman, MultipleChoiceBranching, MultipleCopyFileAllocation,
     OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman,
     ShortestWeightConstrainedPath, SpinGlass, SteinerTree, SteinerTreeInGraphs,
     StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
@@ -40,7 +40,7 @@ pub use misc::{
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StackerCrane, StaffScheduling,
     StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, TimetableDesign,
 };
 pub use set::{

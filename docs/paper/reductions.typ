@@ -118,6 +118,8 @@
   "MinimumMultiwayCut": [Minimum Multiway Cut],
   "OptimalLinearArrangement": [Optimal Linear Arrangement],
   "RuralPostman": [Rural Postman],
+  "MixedChinesePostman": [Mixed Chinese Postman],
+  "StackerCrane": [Stacker Crane],
   "LongestCommonSubsequence": [Longest Common Subsequence],
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "SubsetSum": [Subset Sum],
@@ -3657,6 +3659,157 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }),
         caption: [Rural Postman instance: #nv vertices, #ne edges, #nr required edges (red, bold). The outer cycle (blue + red edges) has total cost #total-cost $= B$, covering all required edges.],
       ) <fig:rural-postman>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MixedChinesePostman", variant: (weight: "i32"))
+  let nv = x.instance.graph.num_vertices
+  let arcs = x.instance.graph.arcs
+  let edges = x.instance.graph.edges
+  let arc-weights = x.instance.arc_weights
+  let edge-weights = x.instance.edge_weights
+  let B = x.instance.bound
+  let config = x.optimal_config
+  let oriented = edges.enumerate().map(((i, e)) => if config.at(i) == 0 { e } else { (e.at(1), e.at(0)) })
+  let base-cost = arc-weights.sum() + edge-weights.sum()
+  let total-cost = 22
+  [
+    #problem-def("MixedChinesePostman")[
+      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, integer lengths $l(e) >= 0$ for every $e in A union E$, and a bound $B in ZZ^+$, determine whether there exists a closed walk in $G$ that traverses every arc in its prescribed direction and every undirected edge at least once in some direction with total length at most $B$.
+    ][
+      Mixed Chinese Postman is the mixed-graph arc-routing problem ND25 in Garey and Johnson @garey1979. Papadimitriou proved the mixed case NP-complete even when all lengths are 1, the graph is planar, and the maximum degree is 3 @papadimitriou1976edge. In contrast, the pure undirected and pure directed cases are polynomial-time solvable via matching / circulation machinery @edmondsjohnson1973. The implementation here uses one binary variable per undirected edge orientation, so the search space contributes the $2^|E|$ factor visible in the registered exact bound.
+
+      *Example.* Consider the instance on #nv vertices with directed arcs $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_0)$ of lengths $2, 3, 1, 4$ and undirected edges $\{v_0, v_2\}$, $\{v_1, v_3\}$, $\{v_0, v_4\}$, $\{v_4, v_2\}$ of lengths $2, 3, 1, 2$. The config $(1, 1, 0, 0)$ orients those edges as $(v_2, v_0)$, $(v_3, v_1)$, $(v_0, v_4)$, and $(v_4, v_2)$, producing a strongly connected digraph. The base traversal cost is #base-cost, and duplicating the shortest path $v_1 arrow v_2 arrow v_3$ adds 4 more, so the total cost is $#total-cost <= B = #B$, proving the answer is YES.
+
+      #pred-commands(
+        "pred create --example MixedChinesePostman/i32 -o mixed-chinese-postman.json",
+        "pred solve mixed-chinese-postman.json --solver brute-force",
+        "pred evaluate mixed-chinese-postman.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let positions = (
+            (-1.25, 0.85),
+            (1.25, 0.85),
+            (1.25, -0.85),
+            (-1.25, -0.85),
+            (0.25, 0.0),
+          )
+
+          for (idx, (u, v)) in arcs.enumerate() {
+            line(
+              positions.at(u),
+              positions.at(v),
+              stroke: 0.8pt + luma(80),
+              mark: (end: "straight", scale: 0.45),
+            )
+            let mid = (
+              (positions.at(u).at(0) + positions.at(v).at(0)) / 2,
+              (positions.at(u).at(1) + positions.at(v).at(1)) / 2,
+            )
+            content(
+              mid,
+              text(6pt, fill: luma(40))[#arc-weights.at(idx)],
+              fill: white,
+              frame: "rect",
+              padding: 0.04,
+              stroke: none,
+            )
+          }
+
+          for (idx, (u, v)) in oriented.enumerate() {
+            line(
+              positions.at(u),
+              positions.at(v),
+              stroke: 1.3pt + graph-colors.at(0),
+              mark: (end: "straight", scale: 0.5),
+            )
+            let mid = (
+              (positions.at(u).at(0) + positions.at(v).at(0)) / 2,
+              (positions.at(u).at(1) + positions.at(v).at(1)) / 2,
+            )
+            let offset = if idx == 0 { (-0.18, 0.12) } else if idx == 1 { (0.18, 0.12) } else if idx == 2 { (-0.12, -0.1) } else { (0.12, -0.1) }
+            content(
+              (mid.at(0) + offset.at(0), mid.at(1) + offset.at(1)),
+              text(6pt, fill: graph-colors.at(0))[#edge-weights.at(idx)],
+              fill: white,
+              frame: "rect",
+              padding: 0.04,
+              stroke: none,
+            )
+          }
+
+          for (i, pos) in positions.enumerate() {
+            circle(pos, radius: 0.18, fill: white, stroke: 0.6pt + black)
+            content(pos, text(7pt)[$v_#i$])
+          }
+        }),
+        caption: [Mixed Chinese Postman example. Gray arrows are the original directed arcs, while blue arrows are the chosen orientations of the former undirected edges under config $(1, 1, 0, 0)$. Duplicating the path $v_1 arrow v_2 arrow v_3$ yields total cost #total-cost.],
+      ) <fig:mixed-chinese-postman>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("StackerCrane")
+  let arcs = x.instance.arcs.map(a => (a.at(0), a.at(1)))
+  let edges = x.instance.edges.map(e => (e.at(0), e.at(1)))
+  let B = x.instance.bound
+  let config = x.optimal_config
+  let positions = (
+    (-2.0, 0.9),
+    (-2.0, -0.9),
+    (0.0, -1.5),
+    (2.0, -0.9),
+    (0.0, 1.5),
+    (2.0, 0.9),
+  )
+  [
+    #problem-def("StackerCrane")[
+      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, nonnegative lengths $l: A union E -> ZZ_(gt.eq 0)$, and a bound $B in ZZ^+$, determine whether there exists a closed walk in $G$ that traverses every arc in $A$ in its prescribed direction and has total length at most $B$.
+    ][
+      Stacker Crane is the mixed-graph arc-routing problem listed as ND26 in Garey and Johnson @garey1979. Frederickson, Hecht, and Kim prove the problem NP-complete via reduction from Hamiltonian Circuit and give the classical $9 slash 5$-approximation for the metric case @frederickson1978routing. The problem stays difficult even on trees @fredericksonguan1993. The standard Held-Karp-style dynamic program over (current vertex, covered-arc subset) runs in $O(|V|^2 dot 2^|A|)$ time#footnote[Included as a straightforward exact dynamic-programming baseline over subsets of required arcs; no sharper exact bound was independently verified while preparing this entry.].
+
+      A configuration is a permutation of the required arcs, interpreted as the order in which those arcs are forced into the tour. The verifier traverses each chosen arc, then inserts the shortest available connector path from that arc's head to the tail of the next arc, wrapping around at the end to close the walk.
+
+      *Example.* The canonical instance has 6 vertices, 5 required arcs, 7 undirected edges, and bound $B = #B$. The witness configuration $[#config.map(str).join(", ")]$ orders the required arcs as $a_0, a_2, a_1, a_4, a_3$. Traversing those arcs contributes 17 units of required-arc length, and the shortest connector paths contribute $1 + 1 + 1 + 0 + 0 = 3$, so the resulting closed walk has total length $20 = B$. Reducing the bound to 19 makes the same instance unsatisfiable.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o stacker-crane.json",
+        "pred solve stacker-crane.json --solver brute-force",
+        "pred evaluate stacker-crane.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let gray = luma(200)
+
+          for (u, v) in edges {
+            line(positions.at(u), positions.at(v), stroke: (paint: gray, thickness: 0.7pt))
+          }
+
+          for (i, (u, v)) in arcs.enumerate() {
+            line(positions.at(u), positions.at(v), stroke: (paint: blue, thickness: 1.7pt))
+            let mid = (
+              (positions.at(u).at(0) + positions.at(v).at(0)) / 2,
+              (positions.at(u).at(1) + positions.at(v).at(1)) / 2,
+            )
+            content(mid, text(6pt, fill: blue)[$a_#i$], fill: white, frame: "rect", padding: 0.05, stroke: none)
+          }
+
+          for (i, pos) in positions.enumerate() {
+            circle(pos, radius: 0.18, fill: white, stroke: 0.6pt + black)
+            content(pos, text(7pt)[$v_#i$])
+          }
+        }),
+        caption: [Stacker Crane hourglass instance. Required directed arcs are shown in blue and labeled $a_0$ through $a_4$; undirected connector edges are gray. The satisfying order $a_0, a_2, a_1, a_4, a_3$ yields total length 20.],
+      ) <fig:stacker-crane>
     ]
   ]
 }

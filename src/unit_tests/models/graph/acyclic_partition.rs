@@ -1,6 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
 use crate::registry::declared_size_fields;
+use crate::solvers::{BruteForce, Solver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde_json;
@@ -98,13 +98,7 @@ fn test_acyclic_partition_creation_and_accessors() {
 #[test]
 fn test_acyclic_partition_rejects_weight_length_mismatch() {
     let result = std::panic::catch_unwind(|| {
-        AcyclicPartition::new(
-            DirectedGraph::new(2, vec![(0, 1)]),
-            vec![1],
-            vec![1],
-            2,
-            1,
-        )
+        AcyclicPartition::new(DirectedGraph::new(2, vec![(0, 1)]), vec![1], vec![1], 2, 1)
     });
     assert!(result.is_err());
 }
