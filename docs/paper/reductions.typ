@@ -77,11 +77,13 @@
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
   "KthBestSpanningTree": [Kth Best Spanning Tree],
   "KColoring": [$k$-Coloring],
+  "KClique": [$k$-Clique],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MaximumMatching": [Maximum Matching],
   "TravelingSalesman": [Traveling Salesman],
   "MaximumClique": [Maximum Clique],
   "MaximumSetPacking": [Maximum Set Packing],
+  "MinimumHittingSet": [Minimum Hitting Set],
   "MinimumSetCovering": [Minimum Set Covering],
   "ComparativeContainment": [Comparative Containment],
   "SetBasis": [Set Basis],
@@ -108,6 +110,7 @@
   "BoundedComponentSpanningForest": [Bounded Component Spanning Forest],
   "BinPacking": [Bin Packing],
   "BoyceCoddNormalFormViolation": [Boyce-Codd Normal Form Violation],
+  "ConsistencyOfDatabaseFrequencyTables": [Consistency of Database Frequency Tables],
   "ClosestVectorProblem": [Closest Vector Problem],
   "ConsecutiveSets": [Consecutive Sets],
   "MinimumMultiwayCut": [Minimum Multiway Cut],
@@ -153,6 +156,7 @@
   "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "SumOfSquaresPartition": [Sum of Squares Partition],
+  "TimetableDesign": [Timetable Design],
   "TwoDimensionalConsecutiveSets": [2-Dimensional Consecutive Sets],
 )
 
@@ -1433,6 +1437,32 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   ]
 }
 #{
+  let x = load-model-example("KClique")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let k = x.instance.k
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let K = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let clique-edges = edges.filter(e => K.contains(e.at(0)) and K.contains(e.at(1)))
+  [
+    #problem-def("KClique")[
+      Given an undirected graph $G = (V, E)$ and an integer $k$, determine whether there exists a subset $K subset.eq V$ with $|K| >= k$ such that every pair of distinct vertices in $K$ is adjacent.
+    ][
+    $k$-Clique is the classical decision version of Clique, one of Karp's original NP-complete problems @karp1972 and listed as GT19 in Garey and Johnson @garey1979. Unlike Maximum Clique, the threshold $k$ is part of the input, so this formulation is the natural target for decision-to-decision reductions such as $3$SAT $arrow.r$ Clique. The best known exact algorithm matches Maximum Clique via the complement reduction to Maximum Independent Set and runs in $O^*(1.1996^n)$ @xiao2017.
+
+    *Example.* Consider the house graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, and threshold $k = #k$. The set $K = {#K.map(i => $v_#i$).join(", ")}$ is a valid witness because all three pairs #clique-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ") are edges, so $|K| = 3 >= #k$ and this is a YES instance. This witness is unique, and no $4$-clique exists because every vertex outside $K$ misses at least one edge to the other selected vertices.
+
+    #figure({
+      let hg = house-graph()
+      draw-edge-highlight(hg.vertices, hg.edges, clique-edges, K)
+    },
+    caption: [The house graph with satisfying witness $K = {#K.map(i => $v_#i$).join(", ")}$ for $k = #k$. The selected vertices and their internal clique edges are highlighted in blue.],
+    ) <fig:house-kclique>
+    ]
+  ]
+}
+#{
   let x = load-model-example("MaximumClique")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
@@ -1791,6 +1821,56 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       }),
       caption: [Minimum set covering: $cal(C) = {#selected.map(i => $S_#(i + 1)$).join(", ")}$ (blue) cover all of $U$; #range(m).filter(i => i not in selected).map(i => $S_#(i + 1)$).join(", ") (gray) #if m - selected.len() == 1 [is] else [are] redundant.],
     ) <fig:set-covering>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumHittingSet")
+  let sets = x.instance.sets
+  let m = sets.len()
+  let U-size = x.instance.universe_size
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let hit-size = sol.metric.Valid
+  let fmt-set(s) = if s.len() == 0 {
+    $emptyset$
+  } else {
+    "${" + s.map(e => str(e + 1)).join(", ") + "}$"
+  }
+  let elems = (
+    (-2.0, 0.7),
+    (-0.9, 1.4),
+    (-1.2, -0.4),
+    (0.2, 0.1),
+    (1.2, 1.0),
+    (1.5, -0.9),
+  )
+  [
+    #problem-def("MinimumHittingSet")[
+      Given a finite universe $U$ and a collection $cal(S) = {S_1, dots, S_m}$ of subsets of $U$, find a subset $H subset.eq U$ minimizing $|H|$ such that $H inter S_i != emptyset$ for every $i in {1, dots, m}$.
+    ][
+    Minimum Hitting Set is one of Karp's 21 NP-complete problems @karp1972. It is the incidence-dual of Set Covering: transposing the set-element incidence matrix swaps the choice of sets with the choice of universe elements. Vertex Cover is the special case in which every set has size $2$, so every edge is "hit" by selecting one of its endpoints.
+
+    A direct exact algorithm enumerates all $2^n$ subsets $H subset.eq U$ for $n = |U|$ and checks whether each subset intersects every member of $cal(S)$. This yields an $O^*(2^n)$ exact algorithm#footnote[No exact worst-case algorithm improving on brute-force enumeration over the universe elements is recorded in the standard references used for this catalog entry.].
+
+    *Example.* Let $U = {1, 2, dots, #U-size}$ and $cal(S) = {#range(m).map(i => $S_#(i + 1)$).join(", ")}$ with #range(m).map(i => $S_#(i + 1) = #fmt-set(sets.at(i))$).join(", "). A minimum hitting set is $H = #fmt-set(selected)$ with $|H| = #hit-size$: every set in $cal(S)$ contains at least one of the selected elements. No $2$-element subset of $U$ hits all #m sets, so the optimum is exactly $#hit-size$.
+
+    #figure(
+      canvas(length: 1cm, {
+        sregion((elems.at(0), elems.at(1), elems.at(2)), pad: 0.45, label: [$S_1$], ..sregion-dimmed)
+        sregion((elems.at(0), elems.at(3), elems.at(4)), pad: 0.48, label: [$S_2$], ..sregion-dimmed)
+        sregion((elems.at(1), elems.at(3), elems.at(5)), pad: 0.48, label: [$S_3$], ..sregion-dimmed)
+        sregion((elems.at(2), elems.at(4), elems.at(5)), pad: 0.48, label: [$S_4$], ..sregion-dimmed)
+        sregion((elems.at(0), elems.at(1), elems.at(5)), pad: 0.48, label: [$S_5$], ..sregion-dimmed)
+        sregion((elems.at(2), elems.at(3)), pad: 0.34, label: [$S_6$], ..sregion-dimmed)
+        sregion((elems.at(1), elems.at(4)), pad: 0.34, label: [$S_7$], ..sregion-dimmed)
+        for (k, pos) in elems.enumerate() {
+          selem(pos, label: [#(k + 1)], fill: if selected.contains(k) { graph-colors.at(0) } else { black })
+        }
+      }),
+      caption: [Minimum hitting set: the blue elements $#fmt-set(selected)$ intersect every set region $S_1, dots, S_#m$, so they hit the entire collection $cal(S)$.]
+    ) <fig:min-hitting-set>
     ]
   ]
 }
@@ -3224,6 +3304,77 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   A relation satisfies _Boyce-Codd Normal Form_ (BCNF) if every non-trivial functional dependency $X arrow.r Y$ has $X$ as a superkey --- that is, $X^+$ = $A'$. This classical NP-complete problem from database theory asks whether the given attribute subset $A'$ violates BCNF. The NP-completeness was established by Beeri and Bernstein (1979) via reduction from Hitting Set. It appears as problem SR29 in Garey and Johnson's compendium (category A4: Storage and Retrieval).
 ]
 
+#{
+  let x = load-model-example("ConsistencyOfDatabaseFrequencyTables")
+  let num_objects = x.instance.num_objects
+  let num_attrs = x.instance.attribute_domains.len()
+  let domains = x.instance.attribute_domains
+  let table01 = x.instance.frequency_tables.at(0).counts
+  let table12 = x.instance.frequency_tables.at(1).counts
+  let config = x.optimal_config
+  let value = (object, attr) => config.at(object * num_attrs + attr)
+  [
+    #problem-def("ConsistencyOfDatabaseFrequencyTables")[
+      Given a finite set $V$ of objects, a finite set $A$ of attributes, a domain $D_a$ for each $a in A$, a collection of pairwise frequency tables $f_(a,b): D_a times D_b -> ZZ^(>=0)$ whose entries sum to $|V|$, and a set $K subset.eq V times A times union_(a in A) D_a$ of known triples $(v, a, x)$, determine whether there exist functions $g_a: V -> D_a$ such that $g_a(v) = x$ for every $(v, a, x) in K$ and, for every published table $f_(a,b)$, exactly $f_(a,b)(x, y)$ objects satisfy $(g_a(v), g_b(v)) = (x, y)$.
+    ][
+      Consistency of Database Frequency Tables is Garey and Johnson's storage-and-retrieval problem SR35 @garey1979. It asks whether released pairwise marginals can come from some hidden microdata table while respecting already known individual attribute values, making it a natural decision problem in statistical disclosure control. The direct witness space implemented in this crate assigns one categorical variable to each object-attribute pair, so exhaustive search runs in $O^*((product_(a in A) |D_a|)^(|V|))$. #footnote[This is the exact search bound induced by the implementation's configuration space; no faster general exact worst-case algorithm is claimed here.]
+
+      *Example.* Let $|V| = #num_objects$ with attributes $a_0, a_1, a_2$ having domain sizes $#domains.at(0)$, $#domains.at(1)$, and $#domains.at(2)$ respectively. Publish the pairwise tables
+
+      #align(center, table(
+        columns: 4,
+        align: center,
+        table.header([$f_(a_0, a_1)$], [$0$], [$1$], [$2$]),
+        [$0$], [#table01.at(0).at(0)], [#table01.at(0).at(1)], [#table01.at(0).at(2)],
+        [$1$], [#table01.at(1).at(0)], [#table01.at(1).at(1)], [#table01.at(1).at(2)],
+      ))
+
+      and
+
+      #align(center, table(
+        columns: 3,
+        align: center,
+        table.header([$f_(a_1, a_2)$], [$0$], [$1$]),
+        [$0$], [#table12.at(0).at(0)], [#table12.at(0).at(1)],
+        [$1$], [#table12.at(1).at(0)], [#table12.at(1).at(1)],
+        [$2$], [#table12.at(2).at(0)], [#table12.at(2).at(1)],
+      ))
+
+      together with the known values $K = {(v_0, a_0, 0), (v_3, a_0, 1), (v_1, a_2, 1)}$. One consistent completion is:
+
+      #align(center, table(
+        columns: 4,
+        align: center,
+        table.header([object], [$a_0$], [$a_1$], [$a_2$]),
+        [$v_0$], [#value(0, 0)], [#value(0, 1)], [#value(0, 2)],
+        [$v_1$], [#value(1, 0)], [#value(1, 1)], [#value(1, 2)],
+        [$v_2$], [#value(2, 0)], [#value(2, 1)], [#value(2, 2)],
+        [$v_3$], [#value(3, 0)], [#value(3, 1)], [#value(3, 2)],
+        [$v_4$], [#value(4, 0)], [#value(4, 1)], [#value(4, 2)],
+        [$v_5$], [#value(5, 0)], [#value(5, 1)], [#value(5, 2)],
+      ))
+
+      This witness satisfies every published count: in $f_(a_0, a_1)$ each of the six cells appears exactly once, while in $f_(a_1, a_2)$ the five occupied cells have multiplicities $1, 1, 2, 1, 1$ exactly as listed above. It also respects all three known triples, so the answer is YES.
+    ]
+  ]
+}
+
+#reduction-rule("ConsistencyOfDatabaseFrequencyTables", "ILP")[
+  Each object-attribute pair is encoded by a one-hot binary vector over its domain, and each pairwise frequency count becomes a linear equality over McCormick auxiliary variables that linearize the product of two one-hot indicators. Known values are fixed by pinning the corresponding indicator to 1. The resulting ILP is a pure feasibility problem (trivial objective).
+][
+  _Construction._ Let $V$ be the set of objects, $A$ the set of attributes with domains $D_a$, $cal(T)$ the set of published frequency tables, and $K$ the set of known triples $(v, a, x)$.
+
+  _Variables:_ (1) Binary one-hot indicators $y_(v,a,x) in {0, 1}$ for each object $v in V$, attribute $a in A$, and value $x in D_a$: $y_(v,a,x) = 1$ iff object $v$ takes value $x$ for attribute $a$. (2) Binary auxiliary variables $z_(t,v,x,x') in {0, 1}$ for each table $t in cal(T)$ (with attribute pair $(a, b)$), object $v in V$, and cell $(x, x') in D_a times D_b$: $z_(t,v,x,x') = 1$ iff object $v$ realizes cell $(x, x')$ in table $t$.
+
+  _Constraints:_ (1) One-hot: $sum_(x in D_a) y_(v,a,x) = 1$ for all $v in V$, $a in A$. (2) Known values: $y_(v,a,x) = 1$ for each $(v, a, x) in K$. (3) McCormick linearization for $z_(t,v,x,x') = y_(v,a,x) dot y_(v,b,x')$: $z_(t,v,x,x') lt.eq y_(v,a,x)$, $z_(t,v,x,x') lt.eq y_(v,b,x')$, $z_(t,v,x,x') gt.eq y_(v,a,x) + y_(v,b,x') - 1$. (4) Frequency counts: $sum_(v in V) z_(t,v,x,x') = f_t (x, x')$ for each table $t$ and cell $(x, x')$.
+
+  _Objective:_ Minimize $0$ (feasibility problem).
+
+  _Correctness._ ($arrow.r.double$) A consistent assignment defines one-hot indicators and their products; all constraints hold by construction, and the frequency equalities match the published counts. ($arrow.l.double$) Any feasible binary solution assigns exactly one value per object-attribute (one-hot), respects known values, and the McCormick constraints force $z_(t,v,x,x') = y_(v,a,x) dot y_(v,b,x')$ for binary variables, so the frequency equalities certify consistency.
+
+  _Solution extraction._ For each object $v$ and attribute $a$, find $x$ with $y_(v,a,x) = 1$; assign value $x$ to $(v, a)$.
+]
+
 #problem-def("SumOfSquaresPartition")[
   Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$, a positive integer $K lt.eq |A|$ (number of groups), and a positive integer $J$ (bound), determine whether $A$ can be partitioned into $K$ disjoint sets $A_1, dots, A_K$ such that $sum_(i=1)^K (sum_(a in A_i) s(a))^2 lt.eq J$.
 ][
@@ -3605,6 +3756,53 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     caption: [Worked Staff Scheduling instance. The last column shows the chosen multiplicities $f(c_i)$; the final row verifies that daily coverage dominates the requirement vector while using 4 workers.],
   ) <fig:staff-scheduling>
 ]
+
+#{
+  let x = load-model-example("TimetableDesign")
+  let assignments = x.optimal_config.enumerate().filter(((idx, value)) => value == 1).map(((idx, value)) => (
+    calc.floor(idx / (x.instance.num_tasks * x.instance.num_periods)),
+    calc.floor(calc.rem(idx, x.instance.num_tasks * x.instance.num_periods) / x.instance.num_periods),
+    calc.rem(idx, x.instance.num_periods),
+  ))
+  let fmt-assignment(entry) = $(c_#(entry.at(0) + 1), t_#(entry.at(1) + 1))$
+  let period-0 = assignments.filter(entry => entry.at(2) == 0)
+  let period-1 = assignments.filter(entry => entry.at(2) == 1)
+  let period-2 = assignments.filter(entry => entry.at(2) == 2)
+  [
+    #problem-def("TimetableDesign")[
+      Given a set $H$ of work periods, a set $C$ of craftsmen, a set $T$ of tasks, availability sets $A_C(c) subset.eq H$ for each craftsman $c in C$, availability sets $A_T(t) subset.eq H$ for each task $t in T$, and exact workload requirements $R: C times T -> ZZ_(>= 0)$, determine whether there exists a function $f: C times T times H -> {0, 1}$ such that:
+      $
+        f(c, t, h) = 1 => h in A_C(c) inter A_T(t),
+      $
+      $
+        forall c in C, h in H: sum_(t in T) f(c, t, h) <= 1,
+      $
+      $
+        forall t in T, h in H: sum_(c in C) f(c, t, h) <= 1,
+      $
+      and
+      $
+        forall c in C, t in T: sum_(h in H) f(c, t, h) = R(c, t).
+      $
+    ][
+      Timetable Design is the classical timetabling feasibility problem catalogued as SS19 in Garey & Johnson @garey1979. Even, Itai, and Shamir showed that it is NP-complete even when there are only three work periods, every task is available in every period, and every requirement is binary @evenItaiShamir1976. The same paper also identifies polynomial-time islands, including cases where each craftsman is available in at most two periods or where all craftsmen and tasks are available in every period @evenItaiShamir1976. The implementation in this repository uses one binary variable for each triple $(c, t, h)$, so the registered baseline explores a configuration space of size $2^(|C| |T| |H|)$.
+
+      *Example.* The canonical instance has three periods $H = {h_1, h_2, h_3}$, five craftsmen, five tasks, and seven nonzero workload requirements. The satisfying timetable stored in the example database assigns #period-0.map(fmt-assignment).join(", ") during $h_1$, #period-1.map(fmt-assignment).join(", ") during $h_2$, and #period-2.map(fmt-assignment).join(", ") during $h_3$. Every listed assignment lies in the corresponding availability intersection $A_C(c) inter A_T(t)$, no craftsman or task appears twice in the same period, and each required pair is scheduled exactly once, so the verifier returns YES.
+
+      #figure(
+        align(center, table(
+          columns: 2,
+          align: center,
+          table.header([Period], [Assignments]),
+          [$h_1$], [#period-0.map(fmt-assignment).join(", ")],
+          [$h_2$], [#period-1.map(fmt-assignment).join(", ")],
+          [$h_3$], [#period-2.map(fmt-assignment).join(", ")],
+        )),
+        caption: [Worked Timetable Design instance derived from the canonical example DB. Each row lists the craftsman-task pairs assigned in one work period.],
+      ) <fig:timetable-design>
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("MultiprocessorScheduling")

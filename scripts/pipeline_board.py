@@ -61,8 +61,38 @@ STATUS_ALIASES = {
 FAILURE_LABELS = {"PoorWritten", "Wrong", "Trivial", "Useless"}
 
 
-def run_gh(*args: str) -> str:
-    return subprocess.check_output(["gh", *args], text=True)
+def run_gh(*args: str, retries: int = 3, retry_delay: float = 5.0) -> str:
+    """Run a ``gh`` CLI command, retrying on transient failures.
+
+    The ``gh project`` subcommands occasionally fail with cryptic errors
+    like "unknown owner type" due to transient API issues or token
+    refresh races (see cli/cli#7985, cli/cli#8885).  Retrying after a
+    short delay resolves these reliably.
+    """
+    last_exc: subprocess.CalledProcessError | None = None
+    for attempt in range(retries):
+        try:
+            return subprocess.check_output(
+                ["gh", *args], text=True, stderr=subprocess.PIPE,
+            )
+        except subprocess.CalledProcessError as exc:
+            last_exc = exc
+            stderr = (exc.stderr or "").strip()
+            if attempt < retries - 1:
+                print(
+                    f"[run_gh] attempt {attempt + 1}/{retries} failed "
+                    f"(rc={exc.returncode}, stderr={stderr!r}), "
+                    f"retrying in {retry_delay}s…",
+                    file=sys.stderr,
+                )
+                time.sleep(retry_delay)
+            else:
+                print(
+                    f"[run_gh] all {retries} attempts failed "
+                    f"(stderr={stderr!r})",
+                    file=sys.stderr,
+                )
+    raise last_exc  # type: ignore[misc]
 
 
 def _graphql_board_query(project_id: str, page_size: int, cursor: str | None) -> str:

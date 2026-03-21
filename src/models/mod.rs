@@ -20,8 +20,8 @@ pub use formula::{
 pub use graph::{
     BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
     BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
-    GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KColoring,
-    KthBestSpanningTree, LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique,
+    GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KClique,
+    KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique,
     MaximumIndependentSet, MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets,
     MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut,
     MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
@@ -33,17 +33,17 @@ pub use graph::{
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
     AdditionalKey, BinPacking, CbqRelation, ConjunctiveBooleanQuery, ConjunctiveQueryFoldability,
-    EnsembleComputation, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, Partition,
-    PrecedenceConstrainedScheduling, QueryArg, RectilinearPictureCompression,
+    ConsistencyOfDatabaseFrequencyTables, EnsembleComputation, Factoring, FlowShopScheduling,
+    Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
+    PaintShop, Partition, PrecedenceConstrainedScheduling, QueryArg, RectilinearPictureCompression,
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
     SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
-    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, TimetableDesign,
 };
 pub use set::{
     ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
-    MinimumCardinalityKey, MinimumSetCovering, PrimeAttributeName, SetBasis,
+    MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering, PrimeAttributeName, SetBasis,
     TwoDimensionalConsecutiveSets,
 };

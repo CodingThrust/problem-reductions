@@ -50,7 +50,7 @@ pub mod prelude {
     pub use crate::models::graph::{
         BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
         BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
-        GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree,
+        GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KClique,
         KthBestSpanningTree, LengthBoundedDisjointPaths, SpinGlass, SteinerTree,
         StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
@@ -65,18 +65,19 @@ pub mod prelude {
     };
     pub use crate::models::misc::{
         AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation,
-        ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, EnsembleComputation, Factoring,
-        FlowShopScheduling, Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing,
-        MultiprocessorScheduling, PaintShop, Partition, QueryArg, RectilinearPictureCompression,
-        ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
-        SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
-        SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
-        SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
-        StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term,
+        ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables,
+        EnsembleComputation, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
+        MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, Partition, QueryArg,
+        RectilinearPictureCompression, ResourceConstrainedScheduling,
+        SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+        SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+        SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
+        ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
+        SumOfSquaresPartition, Term, TimetableDesign,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
-        MinimumCardinalityKey, MinimumSetCovering, PrimeAttributeName, SetBasis,
+        MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering, PrimeAttributeName, SetBasis,
     };
 
     // Core traits
