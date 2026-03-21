@@ -71,6 +71,10 @@ fn test_all_problems_implement_trait_correctly() {
         "MinimumSetCovering",
     );
     check_problem_trait(
+        &MinimumHittingSet::new(3, vec![vec![0, 1]]),
+        "MinimumHittingSet",
+    );
+    check_problem_trait(
         &MaximumSetPacking::<i32>::new(vec![vec![0, 1]]),
         "MaximumSetPacking",
     );
@@ -254,6 +258,10 @@ fn test_direction() {
     );
     assert_eq!(
         MinimumSetCovering::<i32>::new(2, vec![vec![0, 1]]).direction(),
+        Direction::Minimize
+    );
+    assert_eq!(
+        MinimumHittingSet::new(2, vec![vec![0, 1]]).direction(),
         Direction::Minimize
     );
     assert_eq!(
