@@ -3229,6 +3229,22 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 
+#reduction-rule("ConsistencyOfDatabaseFrequencyTables", "ILP")[
+  Each object-attribute pair is encoded by a one-hot binary vector over its domain, and each pairwise frequency count becomes a linear equality over McCormick auxiliary variables that linearize the product of two one-hot indicators. Known values are fixed by pinning the corresponding indicator to 1. The resulting ILP is a pure feasibility problem (trivial objective).
+][
+  _Construction._ Let $V$ be the set of objects, $A$ the set of attributes with domains $D_a$, $cal(T)$ the set of published frequency tables, and $K$ the set of known triples $(v, a, x)$.
+
+  _Variables:_ (1) Binary one-hot indicators $y_(v,a,x) in {0, 1}$ for each object $v in V$, attribute $a in A$, and value $x in D_a$: $y_(v,a,x) = 1$ iff object $v$ takes value $x$ for attribute $a$. (2) Binary auxiliary variables $z_(t,v,x,x') in {0, 1}$ for each table $t in cal(T)$ (with attribute pair $(a, b)$), object $v in V$, and cell $(x, x') in D_a times D_b$: $z_(t,v,x,x') = 1$ iff object $v$ realizes cell $(x, x')$ in table $t$.
+
+  _Constraints:_ (1) One-hot: $sum_(x in D_a) y_(v,a,x) = 1$ for all $v in V$, $a in A$. (2) Known values: $y_(v,a,x) = 1$ for each $(v, a, x) in K$. (3) McCormick linearization for $z_(t,v,x,x') = y_(v,a,x) dot y_(v,b,x')$: $z_(t,v,x,x') lt.eq y_(v,a,x)$, $z_(t,v,x,x') lt.eq y_(v,b,x')$, $z_(t,v,x,x') gt.eq y_(v,a,x) + y_(v,b,x') - 1$. (4) Frequency counts: $sum_(v in V) z_(t,v,x,x') = f_t (x, x')$ for each table $t$ and cell $(x, x')$.
+
+  _Objective:_ Minimize $0$ (feasibility problem).
+
+  _Correctness._ ($arrow.r.double$) A consistent assignment defines one-hot indicators and their products; all constraints hold by construction, and the frequency equalities match the published counts. ($arrow.l.double$) Any feasible binary solution assigns exactly one value per object-attribute (one-hot), respects known values, and the McCormick constraints force $z_(t,v,x,x') = y_(v,a,x) dot y_(v,b,x')$ for binary variables, so the frequency equalities certify consistency.
+
+  _Solution extraction._ For each object $v$ and attribute $a$, find $x$ with $y_(v,a,x) = 1$; assign value $x$ to $(v, a)$.
+]
+
 #problem-def("SumOfSquaresPartition")[
   Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$, a positive integer $K lt.eq |A|$ (number of groups), and a positive integer $J$ (bound), determine whether $A$ can be partitioned into $K$ disjoint sets $A_1, dots, A_K$ such that $sum_(i=1)^K (sum_(a in A_i) s(a))^2 lt.eq J$.
 ][
