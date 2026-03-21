@@ -36,6 +36,7 @@
 //! - [`MultipleChoiceBranching`]: Directed branching with partition constraints
 //! - [`LengthBoundedDisjointPaths`]: Length-bounded internally disjoint s-t paths
 //! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
+//! - [`NetworkReliability`]: Terminal connectivity under independent edge failures
 //! - [`SteinerTree`]: Minimum-weight tree spanning all required terminals
 //! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
 //! - [`DirectedTwoCommodityIntegralFlow`]: Directed two-commodity integral flow (satisfaction)
@@ -71,6 +72,7 @@ pub(crate) mod minimum_sum_multicenter;
 pub(crate) mod minimum_vertex_cover;
 pub(crate) mod multiple_choice_branching;
 pub(crate) mod multiple_copy_file_allocation;
+pub(crate) mod network_reliability;
 pub(crate) mod optimal_linear_arrangement;
 pub(crate) mod partition_into_paths_of_length_2;
 pub(crate) mod partition_into_triangles;
@@ -113,6 +115,7 @@ pub use minimum_sum_multicenter::MinimumSumMulticenter;
 pub use minimum_vertex_cover::MinimumVertexCover;
 pub use multiple_choice_branching::MultipleChoiceBranching;
 pub use multiple_copy_file_allocation::MultipleCopyFileAllocation;
+pub use network_reliability::NetworkReliability;
 pub use optimal_linear_arrangement::OptimalLinearArrangement;
 pub use partition_into_paths_of_length_2::PartitionIntoPathsOfLength2;
 pub use partition_into_triangles::PartitionIntoTriangles;
@@ -147,6 +150,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(maximal_is::canonical_model_example_specs());
     specs.extend(minimum_cut_into_bounded_sets::canonical_model_example_specs());
     specs.extend(multiple_copy_file_allocation::canonical_model_example_specs());
+    specs.extend(network_reliability::canonical_model_example_specs());
     specs.extend(minimum_feedback_vertex_set::canonical_model_example_specs());
     specs.extend(min_max_multicenter::canonical_model_example_specs());
     specs.extend(minimum_multiway_cut::canonical_model_example_specs());

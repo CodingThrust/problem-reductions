@@ -58,9 +58,9 @@ pub mod prelude {
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
         MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet, MinimumFeedbackArcSet,
         MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover,
-        MultipleChoiceBranching, MultipleCopyFileAllocation, OptimalLinearArrangement,
-        PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman,
-        ShortestWeightConstrainedPath, SteinerTreeInGraphs, TravelingSalesman,
+        MultipleChoiceBranching, MultipleCopyFileAllocation, NetworkReliability,
+        OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
+        RuralPostman, ShortestWeightConstrainedPath, SteinerTreeInGraphs, TravelingSalesman,
         UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
