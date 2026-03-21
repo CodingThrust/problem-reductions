@@ -2404,6 +2404,19 @@ fn test_solve_unknown_solver() {
     std::fs::remove_file(&problem_file).ok();
 }
 
+#[test]
+fn test_solve_help_mentions_bruteforce_only_models() {
+    let output = pred().args(["solve", "--help"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("MinMaxMulticenter"), "stdout: {stdout}");
+    assert!(stdout.contains("--solver brute-force"), "stdout: {stdout}");
+}
+
 // ---- Create command: more problem types ----
 
 #[test]
@@ -3463,6 +3476,177 @@ fn test_create_kcoloring_missing_k() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--k"));
+}
+
+#[test]
+fn test_create_minmaxmulticenter_bound_out_of_range() {
+    let output = pred()
+        .args([
+            "create",
+            "MinMaxMulticenter",
+            "--graph",
+            "0-1",
+            "--k",
+            "1",
+            "--bound",
+            "2147483648",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success(), "expected bound overflow to fail");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("must fit in i32"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_minmaxmulticenter_success() {
+    let output = pred()
+        .args([
+            "create",
+            "MinMaxMulticenter",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,2,3,4",
+            "--edge-weights",
+            "5,6,7",
+            "--k",
+            "2",
+            "--bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MinMaxMulticenter");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["k"], 2);
+    assert_eq!(json["data"]["bound"], 8);
+    assert_eq!(
+        json["data"]["vertex_weights"],
+        serde_json::json!([1, 2, 3, 4])
+    );
+    assert_eq!(json["data"]["edge_lengths"], serde_json::json!([5, 6, 7]));
+}
+
+#[test]
+fn test_create_minmaxmulticenter_help_uses_cli_flag_names() {
+    let output = pred()
+        .args(["create", "MinMaxMulticenter"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--weights"), "stderr: {stderr}");
+    assert!(stderr.contains("--edge-weights"), "stderr: {stderr}");
+    assert!(!stderr.contains("--vertex-weights"), "stderr: {stderr}");
+    assert!(!stderr.contains("--edge-lengths"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_minmaxmulticenter_negative_inputs_rejected() {
+    let vertex_weights = pred()
+        .args([
+            "create",
+            "MinMaxMulticenter",
+            "--graph",
+            "0-1",
+            "--weights",
+            "1,-1",
+            "--edge-weights",
+            "1",
+            "--k",
+            "1",
+            "--bound",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!vertex_weights.status.success());
+    assert!(String::from_utf8_lossy(&vertex_weights.stderr).contains("must be non-negative"));
+
+    let edge_weights = pred()
+        .args([
+            "create",
+            "MinMaxMulticenter",
+            "--graph",
+            "0-1",
+            "--weights",
+            "1,1",
+            "--edge-weights=-1",
+            "--k",
+            "1",
+            "--bound",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!edge_weights.status.success());
+    assert!(String::from_utf8_lossy(&edge_weights.stderr).contains("must be non-negative"));
+
+    let bound = pred()
+        .args([
+            "create",
+            "MinMaxMulticenter",
+            "--graph",
+            "0-1",
+            "--weights",
+            "1,1",
+            "--edge-weights",
+            "1",
+            "--k",
+            "1",
+            "--bound=-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!bound.status.success());
+    assert!(String::from_utf8_lossy(&bound.stderr).contains("must be non-negative"));
+}
+
+#[test]
+fn test_solve_minmaxmulticenter_ilp_error_suggests_bruteforce() {
+    let problem_file = std::env::temp_dir().join("pred_test_minmaxmulticenter_solve.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MinMaxMulticenter",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--edge-weights",
+            "1,1,1",
+            "--k",
+            "2",
+            "--bound",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let solve_out = pred()
+        .args(["solve", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!solve_out.status.success());
+    let stderr = String::from_utf8_lossy(&solve_out.stderr);
+    assert!(stderr.contains("--solver brute-force"), "stderr: {stderr}");
+
+    std::fs::remove_file(&problem_file).ok();
 }
 
 #[test]
@@ -4724,6 +4908,52 @@ fn test_inspect_problem() {
         serde_json::from_str::<serde_json::Value>(&stdout).is_ok(),
         "expected valid JSON, got: {stdout}"
     );
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_inspect_minmaxmulticenter_lists_bruteforce_only() {
+    let problem_file = std::env::temp_dir().join("pred_test_inspect_minmaxmulticenter.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MinMaxMulticenter",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--edge-weights",
+            "1,1,1",
+            "--k",
+            "2",
+            "--bound",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args(["inspect", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let solvers: Vec<&str> = json["solvers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert_eq!(solvers, vec!["brute-force"]);
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -6528,6 +6758,280 @@ fn test_create_bare_mis_default_variant() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MaximumIndependentSet");
+}
+
+#[test]
+fn test_create_shortest_weight_constrained_path() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestWeightConstrainedPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4",
+            "--edge-lengths",
+            "2,4,3,1,5,4,2,6",
+            "--edge-weights",
+            "5,1,2,3,2,3,1,1",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "5",
+            "--length-bound",
+            "10",
+            "--weight-bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "ShortestWeightConstrainedPath");
+    assert_eq!(json["data"]["source_vertex"], 0);
+    assert_eq!(json["data"]["target_vertex"], 5);
+    assert_eq!(json["data"]["length_bound"], 10);
+    assert_eq!(json["data"]["weight_bound"], 8);
+}
+
+#[test]
+fn test_create_shortest_weight_constrained_path_missing_source_vertex() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestWeightConstrainedPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4",
+            "--edge-lengths",
+            "2,4,3,1,5,4,2,6",
+            "--edge-weights",
+            "5,1,2,3,2,3,1,1",
+            "--target-vertex",
+            "5",
+            "--length-bound",
+            "10",
+            "--weight-bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--source-vertex"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_shortest_weight_constrained_path_edge_length_count_mismatch() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestWeightConstrainedPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4",
+            "--edge-lengths",
+            "2,4,3,1,5,4,2",
+            "--edge-weights",
+            "5,1,2,3,2,3,1,1",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "5",
+            "--length-bound",
+            "10",
+            "--weight-bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Expected 8 edge length values but got 7"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_shortest_weight_constrained_path_no_flags_shows_vector_hints() {
+    let output = pred()
+        .args(["create", "ShortestWeightConstrainedPath"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--edge-lengths"),
+        "expected '--edge-lengths' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.match_indices("comma-separated: 1,2,3").count() >= 2,
+        "expected vector hints for edge lengths and weights, got: {stderr}"
+    );
+    assert!(
+        stderr.match_indices("numeric value: 10").count() >= 2,
+        "expected numeric hints for length and weight bounds, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_shortest_weight_constrained_path_rejects_out_of_bounds_source_vertex() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestWeightConstrainedPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4",
+            "--edge-lengths",
+            "2,4,3,1,5,4,2,6",
+            "--edge-weights",
+            "5,1,2,3,2,3,1,1",
+            "--source-vertex",
+            "9",
+            "--target-vertex",
+            "5",
+            "--length-bound",
+            "10",
+            "--weight-bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("source_vertex 9 out of bounds"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        !stderr.contains("panicked at"),
+        "out-of-bounds input should produce a normal CLI error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_shortest_weight_constrained_path_requires_edge_lengths() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestWeightConstrainedPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4",
+            "--edge-weights",
+            "5,1,2,3,2,3,1,1",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "5",
+            "--length-bound",
+            "10",
+            "--weight-bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("ShortestWeightConstrainedPath requires --edge-lengths"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_shortest_weight_constrained_path_rejects_weights_flag_typo() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestWeightConstrainedPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4",
+            "--edge-lengths",
+            "2,4,3,1,5,4,2,6",
+            "--weights",
+            "5,1,2,3,2,3,1,1",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "5",
+            "--length-bound",
+            "10",
+            "--weight-bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("uses --edge-weights, not --weights"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_shortest_weight_constrained_path_rejects_non_positive_edge_lengths() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestWeightConstrainedPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4",
+            "--edge-lengths=-2,4,3,1,5,4,2,6",
+            "--edge-weights",
+            "5,1,2,3,2,3,1,1",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "5",
+            "--length-bound",
+            "10",
+            "--weight-bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("All edge lengths must be positive (> 0)"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_show_shortest_weight_constrained_path_uses_weight_schema_type_names() {
+    let output = pred()
+        .args(["show", "ShortestWeightConstrainedPath"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("edge_lengths (Vec<W>)"),
+        "expected Vec<W> schema type for edge_lengths, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("edge_weights (Vec<W>)"),
+        "expected Vec<W> schema type for edge_weights, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("length_bound (W::Sum)"),
+        "expected W::Sum schema type for length_bound, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("weight_bound (W::Sum)"),
+        "expected W::Sum schema type for weight_bound, got: {stdout}"
+    );
 }
 
 // ---- Show JSON includes default annotation ----
