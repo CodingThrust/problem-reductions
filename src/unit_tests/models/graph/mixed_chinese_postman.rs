@@ -58,16 +58,33 @@ fn test_mixed_chinese_postman_evaluate_no_issue_example() {
 }
 
 #[test]
-fn test_mixed_chinese_postman_rejects_non_strongly_connected_orientation() {
+fn test_mixed_chinese_postman_single_edge_walk() {
+    // V={0,1}, A=∅, E={{0,1}}, weight=1, B=2.
+    // Walk 0→1→0 is valid: traverses the edge at least once, total cost 2 ≤ 2.
+    let problem =
+        MixedChinesePostman::new(MixedGraph::new(2, vec![], vec![(0, 1)]), vec![], vec![1], 2);
+
+    assert!(problem.evaluate(&[0]));
+    assert!(problem.evaluate(&[1]));
+
+    let solver = BruteForce::new();
+    assert!(solver.find_satisfying(&problem).is_some());
+}
+
+#[test]
+fn test_mixed_chinese_postman_rejects_disconnected_graph() {
+    // Two disconnected components {0,1} and {2,3}: no closed walk can cover all edges.
     let problem = MixedChinesePostman::new(
-        MixedGraph::new(3, vec![(0, 1), (1, 2)], vec![(0, 2)]),
+        MixedGraph::new(4, vec![], vec![(0, 1), (2, 3)]),
+        vec![],
         vec![1, 1],
-        vec![1],
-        10,
+        100,
     );
 
-    assert!(!problem.evaluate(&[0]));
-    assert!(problem.evaluate(&[1]));
+    assert!(!problem.evaluate(&[0, 0]));
+    assert!(!problem.evaluate(&[0, 1]));
+    assert!(!problem.evaluate(&[1, 0]));
+    assert!(!problem.evaluate(&[1, 1]));
 }
 
 #[test]

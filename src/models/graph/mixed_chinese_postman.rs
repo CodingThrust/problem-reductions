@@ -36,9 +36,10 @@ inventory::submit! {
 
 /// Mixed Chinese Postman.
 ///
-/// Each configuration picks an orientation for every undirected edge. Once the
-/// undirected edges are oriented, the instance becomes a directed Chinese
-/// Postman subproblem.
+/// Each configuration picks a required traversal direction for every undirected
+/// edge. The minimum-cost closed walk is then computed via the directed Chinese
+/// Postman subproblem, using all available arcs (including both directions of
+/// every undirected edge) for degree-balancing detours.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MixedChinesePostman<W: WeightElement<Sum = i32>> {
     graph: MixedGraph,
@@ -162,11 +163,16 @@ impl<W: WeightElement<Sum = i32>> MixedChinesePostman<W> {
         Some(arcs)
     }
 
-    fn weighted_oriented_arcs(&self, config: &[usize]) -> Option<Vec<(usize, usize, i64)>> {
-        if config.len() != self.graph.num_edges() {
-            return None;
+    fn available_arc_pairs(&self) -> Vec<(usize, usize)> {
+        let mut arcs = self.graph.arcs();
+        for &(u, v) in self.graph.edges().iter() {
+            arcs.push((u, v));
+            arcs.push((v, u));
         }
+        arcs
+    }
 
+    fn weighted_available_arcs(&self) -> Vec<(usize, usize, i64)> {
         let mut arcs: Vec<(usize, usize, i64)> = self
             .graph
             .arcs()
@@ -175,22 +181,13 @@ impl<W: WeightElement<Sum = i32>> MixedChinesePostman<W> {
             .map(|((u, v), weight)| (u, v, i64::from(weight.to_sum())))
             .collect();
 
-        for (((u, v), weight), &direction) in self
-            .graph
-            .edges()
-            .iter()
-            .zip(self.edge_weights.iter())
-            .zip(config.iter())
-        {
+        for ((u, v), weight) in self.graph.edges().iter().zip(self.edge_weights.iter()) {
             let cost = i64::from(weight.to_sum());
-            match direction {
-                0 => arcs.push((*u, *v, cost)),
-                1 => arcs.push((*v, *u, cost)),
-                _ => return None,
-            }
+            arcs.push((*u, *v, cost));
+            arcs.push((*v, *u, cost));
         }
 
-        Some(arcs)
+        arcs
     }
 
     fn base_cost(&self) -> i64 {
@@ -236,17 +233,20 @@ where
             return false;
         };
 
-        if !DirectedGraph::new(self.graph.num_vertices(), oriented_pairs.clone())
+        // Connectivity uses the full available graph: original arcs plus both
+        // directions of every undirected edge.
+        if !DirectedGraph::new(self.graph.num_vertices(), self.available_arc_pairs())
             .is_strongly_connected()
         {
             return false;
         }
 
-        let Some(weighted_arcs) = self.weighted_oriented_arcs(config) else {
-            return false;
-        };
-
-        let distances = all_pairs_shortest_paths(self.graph.num_vertices(), &weighted_arcs);
+        // Shortest paths also use the full available graph so that balancing
+        // can route through undirected edges in either direction.
+        let distances =
+            all_pairs_shortest_paths(self.graph.num_vertices(), &self.weighted_available_arcs());
+        // Degree imbalance is computed from the required arcs only (original
+        // arcs plus the chosen orientation of each undirected edge).
         let balance = degree_imbalances(self.graph.num_vertices(), &oriented_pairs);
         let Some(extra_cost) = minimum_balancing_cost(&balance, &distances) else {
             return false;

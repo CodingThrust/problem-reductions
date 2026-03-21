@@ -3593,7 +3593,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
       #pred-commands(
         "pred create --example MixedChinesePostman/i32 -o mixed-chinese-postman.json",
-        "pred solve mixed-chinese-postman.json",
+        "pred solve mixed-chinese-postman.json --solver brute-force",
         "pred evaluate mixed-chinese-postman.json --config " + x.optimal_config.map(str).join(","),
       )
 
