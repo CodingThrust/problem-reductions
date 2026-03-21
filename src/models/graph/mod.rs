@@ -22,6 +22,7 @@
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`MinimumMultiwayCut`]: Minimum weight multiway cut
 //! - [`HamiltonianPath`]: Hamiltonian path (simple path visiting every vertex)
+//! - [`LongestPath`]: Maximum-length simple s-t path
 //! - [`ShortestWeightConstrainedPath`]: Bicriteria simple s-t path with length and weight bounds
 //! - [`PartitionIntoPathsOfLength2`]: Partition vertices into triples with at least two edges each
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
@@ -59,6 +60,7 @@ pub(crate) mod kclique;
 pub(crate) mod kcoloring;
 pub(crate) mod kth_best_spanning_tree;
 pub(crate) mod length_bounded_disjoint_paths;
+pub(crate) mod longest_path;
 pub(crate) mod max_cut;
 pub(crate) mod maximal_is;
 pub(crate) mod maximum_clique;
@@ -103,6 +105,7 @@ pub use kclique::KClique;
 pub use kcoloring::KColoring;
 pub use kth_best_spanning_tree::KthBestSpanningTree;
 pub use length_bounded_disjoint_paths::LengthBoundedDisjointPaths;
+pub use longest_path::LongestPath;
 pub use max_cut::MaxCut;
 pub use maximal_is::MaximalIS;
 pub use maximum_clique::MaximumClique;
@@ -147,6 +150,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(kcoloring::canonical_model_example_specs());
     specs.extend(kth_best_spanning_tree::canonical_model_example_specs());
     specs.extend(length_bounded_disjoint_paths::canonical_model_example_specs());
+    specs.extend(longest_path::canonical_model_example_specs());
     specs.extend(minimum_dominating_set::canonical_model_example_specs());
     specs.extend(maximum_matching::canonical_model_example_specs());
     specs.extend(traveling_salesman::canonical_model_example_specs());
