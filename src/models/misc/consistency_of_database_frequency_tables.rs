@@ -260,7 +260,10 @@ impl ConsistencyOfDatabaseFrequencyTables {
 
     /// Returns the total number of published frequency-table cells.
     pub fn num_frequency_cells(&self) -> usize {
-        self.frequency_tables.iter().map(FrequencyTable::num_cells).sum()
+        self.frequency_tables
+            .iter()
+            .map(FrequencyTable::num_cells)
+            .sum()
     }
 
     /// Returns the number of auxiliary ILP indicators used for frequency-cell counting.

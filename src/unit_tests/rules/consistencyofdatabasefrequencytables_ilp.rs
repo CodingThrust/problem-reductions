@@ -1,8 +1,6 @@
 use super::*;
-use crate::models::algebraic::{ILP, ObjectiveSense};
-use crate::models::misc::{
-    ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue,
-};
+use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::misc::{ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::ILPSolver;

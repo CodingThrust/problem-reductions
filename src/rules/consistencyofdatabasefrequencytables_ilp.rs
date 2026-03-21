@@ -6,7 +6,7 @@
 //!
 //! The pair-count equalities are linearized with standard McCormick constraints.
 
-use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ConsistencyOfDatabaseFrequencyTables;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -177,10 +177,8 @@ impl ReduceTo<ILP<bool>> for ConsistencyOfDatabaseFrequencyTables {
 
                     for object in 0..source.num_objects() {
                         let z = helper.auxiliary_var_index(table_index, object, value_a, value_b);
-                        let y_a =
-                            helper.assignment_var_index(object, table.attribute_a(), value_a);
-                        let y_b =
-                            helper.assignment_var_index(object, table.attribute_b(), value_b);
+                        let y_a = helper.assignment_var_index(object, table.attribute_a(), value_a);
+                        let y_b = helper.assignment_var_index(object, table.attribute_b(), value_b);
 
                         constraints.push(LinearConstraint::le(vec![(z, 1.0), (y_a, -1.0)], 0.0));
                         constraints.push(LinearConstraint::le(vec![(z, 1.0), (y_b, -1.0)], 0.0));

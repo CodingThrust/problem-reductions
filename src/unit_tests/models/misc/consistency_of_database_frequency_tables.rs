@@ -63,7 +63,10 @@ fn test_cdft_creation_and_getters() {
 #[test]
 fn test_cdft_dims_repeat_attribute_domains_for_each_object() {
     let problem = issue_yes_instance();
-    assert_eq!(problem.dims(), vec![2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2]);
+    assert_eq!(
+        problem.dims(),
+        vec![2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2]
+    );
 }
 
 #[test]

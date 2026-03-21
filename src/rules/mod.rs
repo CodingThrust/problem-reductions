@@ -52,9 +52,9 @@ pub(crate) mod binpacking_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod circuit_ilp;
 #[cfg(feature = "ilp-solver")]
-pub(crate) mod consistencyofdatabasefrequencytables_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod coloring_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod consistencyofdatabasefrequencytables_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod factoring_ilp;
 #[cfg(feature = "ilp-solver")]

@@ -33,9 +33,9 @@
 pub(crate) mod additional_key;
 mod bin_packing;
 mod boyce_codd_normal_form_violation;
-mod consistency_of_database_frequency_tables;
 pub(crate) mod conjunctive_boolean_query;
 pub(crate) mod conjunctive_query_foldability;
+mod consistency_of_database_frequency_tables;
 pub(crate) mod factoring;
 mod flow_shop_scheduling;
 mod knapsack;
@@ -63,11 +63,11 @@ pub(crate) mod sum_of_squares_partition;
 pub use additional_key::AdditionalKey;
 pub use bin_packing::BinPacking;
 pub use boyce_codd_normal_form_violation::BoyceCoddNormalFormViolation;
+pub use conjunctive_boolean_query::{ConjunctiveBooleanQuery, QueryArg, Relation as CbqRelation};
+pub use conjunctive_query_foldability::{ConjunctiveQueryFoldability, Term};
 pub use consistency_of_database_frequency_tables::{
     ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue,
 };
-pub use conjunctive_boolean_query::{ConjunctiveBooleanQuery, QueryArg, Relation as CbqRelation};
-pub use conjunctive_query_foldability::{ConjunctiveQueryFoldability, Term};
 pub use factoring::Factoring;
 pub use flow_shop_scheduling::FlowShopScheduling;
 pub use knapsack::Knapsack;

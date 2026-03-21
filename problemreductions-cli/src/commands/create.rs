@@ -21,11 +21,11 @@ use problemreductions::models::misc::{
     ConsistencyOfDatabaseFrequencyTables, FlowShopScheduling, FrequencyTable, KnownValue,
     LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
     PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
-    ResourceConstrainedScheduling,
-    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
+    ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
+    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
+    SumOfSquaresPartition,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -1822,9 +1822,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let frequency_tables =
                 parse_cdft_frequency_tables(frequency_tables_str, &attribute_domains, num_objects)
                     .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let known_values =
-                parse_cdft_known_values(args.known_values.as_deref(), num_objects, &attribute_domains)
-                    .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let known_values = parse_cdft_known_values(
+                args.known_values.as_deref(),
+                num_objects,
+                &attribute_domains,
+            )
+            .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
 
             (
                 ser(ConsistencyOfDatabaseFrequencyTables::new(

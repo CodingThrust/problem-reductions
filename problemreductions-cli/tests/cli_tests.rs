@@ -5795,7 +5795,10 @@ fn test_create_consistency_of_database_frequency_tables() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "ConsistencyOfDatabaseFrequencyTables");
     assert_eq!(json["data"]["num_objects"], 6);
-    assert_eq!(json["data"]["attribute_domains"], serde_json::json!([2, 3, 2]));
+    assert_eq!(
+        json["data"]["attribute_domains"],
+        serde_json::json!([2, 3, 2])
+    );
     assert_eq!(json["data"]["frequency_tables"][0]["attribute_a"], 0);
     assert_eq!(json["data"]["frequency_tables"][0]["attribute_b"], 1);
     assert_eq!(
@@ -7347,7 +7350,11 @@ fn test_create_model_example_multiprocessor_scheduling() {
 #[test]
 fn test_create_model_example_consistency_of_database_frequency_tables() {
     let output = pred()
-        .args(["create", "--example", "ConsistencyOfDatabaseFrequencyTables"])
+        .args([
+            "create",
+            "--example",
+            "ConsistencyOfDatabaseFrequencyTables",
+        ])
         .output()
         .unwrap();
     assert!(
