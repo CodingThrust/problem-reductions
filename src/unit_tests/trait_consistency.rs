@@ -125,8 +125,30 @@ fn test_all_problems_implement_trait_correctly() {
         "HamiltonianCircuit",
     );
     check_problem_trait(
+        &MinMaxMulticenter::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![1i32; 3],
+            vec![1i32; 2],
+            1,
+            1,
+        ),
+        "MinMaxMulticenter",
+    );
+    check_problem_trait(
         &HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
         "HamiltonianPath",
+    );
+    check_problem_trait(
+        &ShortestWeightConstrainedPath::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![1i32; 2],
+            vec![1i32; 2],
+            0,
+            2,
+            2,
+            2,
+        ),
+        "ShortestWeightConstrainedPath",
     );
     check_problem_trait(
         &MultipleCopyFileAllocation::new(

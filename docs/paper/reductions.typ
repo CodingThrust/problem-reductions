@@ -71,6 +71,7 @@
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
+  "ShortestWeightConstrainedPath": [Shortest Weight-Constrained Path],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
   "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
@@ -92,6 +93,7 @@
   "Knapsack": [Knapsack],
   "PartiallyOrderedKnapsack": [Partially Ordered Knapsack],
   "Satisfiability": [SAT],
+  "NAESatisfiability": [NAE-SAT],
   "KSatisfiability": [$k$-SAT],
   "CircuitSAT": [CircuitSAT],
   "ConjunctiveQueryFoldability": [Conjunctive Query Foldability],
@@ -121,6 +123,7 @@
   "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "MinMaxMulticenter": [Min-Max Multicenter],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
@@ -1020,44 +1023,56 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   ]
 }
 #{
-  let x = load-model-example("KthBestSpanningTree")
+  let x = load-model-example("ShortestWeightConstrainedPath")
+  let nv = graph-num-vertices(x.instance)
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-  let weights = x.instance.weights
-  let m = edges.len()
-  let sol = x.optimal_config
-  let tree1 = sol.enumerate().filter(((i, v)) => i < m and v == 1).map(((i, _)) => edges.at(i))
-  let blue = graph-colors.at(0)
-  let gray = luma(190)
+  let lengths = x.instance.edge_lengths
+  let weights = x.instance.edge_weights
+  let s = x.instance.source_vertex
+  let t = x.instance.target_vertex
+  let K = x.instance.length_bound
+  let W = x.instance.weight_bound
+  let path-config = x.optimal_config
+  let path-edges = edges.enumerate().filter(((idx, _)) => path-config.at(idx) == 1).map(((idx, e)) => e)
+  let path-order = (0, 2, 3, 5)
   [
-    #problem-def("KthBestSpanningTree")[
-      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> ZZ_(gt.eq 0)$, a positive integer $k$, and a bound $B in ZZ_(gt.eq 0)$, determine whether there exist $k$ distinct spanning trees $T_1, dots, T_k subset.eq E$ such that $sum_(e in T_i) w(e) lt.eq B$ for every $i$.
+    #problem-def("ShortestWeightConstrainedPath")[
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$, positive edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, and bounds $K, W in ZZ^+$, determine whether there exists a simple path $P$ from $s$ to $t$ such that $sum_(e in P) l(e) <= K$ and $sum_(e in P) w(e) <= W$.
     ][
-      Kth Best Spanning Tree is catalogued as ND9 in Garey and Johnson @garey1979 and is marked there with an asterisk because the general problem is NP-hard but not known to lie in NP. For any fixed value of $k$, Lawler's $k$-best enumeration framework gives a polynomial-time algorithm when combined with minimum-spanning-tree subroutines @lawler1972. For output-sensitive enumeration, Eppstein gave an algorithm that lists the $k$ smallest spanning trees of a weighted graph in $O(m log beta(m, n) + k^2)$ time @eppstein1992.
+      Also called the _restricted shortest path_ or _resource-constrained shortest path_ problem. Garey and Johnson list it as ND30 and show NP-completeness via transformation from Partition @garey1979. The model captures bicriteria routing: one resource measures path length or delay, while the other captures a second consumable budget such as cost, risk, or bandwidth. Because pseudo-polynomial dynamic programming formulations are known @joksch1966, the hardness is weak rather than strong; approximation schemes were later developed by Hassin @hassin1992 and improved by Lorenz and Raz @lorenzraz2001.
 
-      Variables: $k |E|$ binary values grouped into $k$ consecutive edge-selection blocks. Entry $x_(i, e) = 1$ means edge $e$ belongs to the $i$-th candidate tree. A configuration is satisfying exactly when each block selects a spanning tree, every selected tree has total weight at most $B$, and the $k$ blocks encode pairwise distinct edge sets.
+      The implementation catalog reports the natural brute-force complexity of the edge-subset encoding used here: with $m = |E|$ binary variables, exhaustive search over all candidate subsets costs $O^*(2^m)$. A configuration is satisfying precisely when the selected edges form a single simple $s$-$t$ path and both resource sums stay within their bounds.
 
-      *Example.* Consider $K_4$ with edge weights $w = {(0,1): 1, (0,2): 1, (0,3): 2, (1,2): 2, (1,3): 2, (2,3): 3}$. With $k = 2$ and $B = 4$, exactly two of the $16$ spanning trees have total weight $lt.eq 4$: the star $T_1 = {(0,1), (0,2), (0,3)}$ with weight $4$ and $T_2 = {(0,1), (0,2), (1,3)}$ with weight $4$. Since two distinct bounded spanning trees exist, this is a YES-instance.
+      *Example.* Consider the graph on #nv vertices with source $s = v_#s$, target $t = v_#t$, length bound $K = #K$, and weight bound $W = #W$. Edge labels are written as $(l(e), w(e))$. The highlighted path $#path-order.map(v => $v_#v$).join($arrow$)$ uses edges ${#path-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, so its total length is $4 + 1 + 4 = 9 <= #K$ and its total weight is $1 + 3 + 3 = 7 <= #W$. This instance has 2 satisfying edge selections; another feasible path is $v_0 arrow v_1 arrow v_4 arrow v_5$.
 
       #figure({
+        let blue = graph-colors.at(0)
+        let gray = luma(200)
+        let verts = ((0, 1), (1.5, 1.8), (1.5, 0.2), (3, 1.8), (3, 0.2), (4.5, 1))
         canvas(length: 1cm, {
           import draw: *
-          let pos = ((0.0, 1.8), (2.4, 1.8), (2.4, 0.0), (0.0, 0.0))
           for (idx, (u, v)) in edges.enumerate() {
-            let in-tree1 = tree1.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
-            g-edge(pos.at(u), pos.at(v), stroke: if in-tree1 { 2pt + blue } else { 1pt + gray })
-            let mid-x = (pos.at(u).at(0) + pos.at(v).at(0)) / 2
-            let mid-y = (pos.at(u).at(1) + pos.at(v).at(1)) / 2
-            // Offset diagonal edge labels to avoid overlap at center
-            let (ox, oy) = if u == 0 and v == 2 { (0.3, 0) } else if u == 1 and v == 3 { (-0.3, 0) } else { (0, 0) }
-            content((mid-x + ox, mid-y + oy), text(7pt)[#weights.at(idx)], fill: white, frame: "rect", padding: .06, stroke: none)
+            let on-path = path-config.at(idx) == 1
+            g-edge(verts.at(u), verts.at(v), stroke: if on-path { 2pt + blue } else { 1pt + gray })
+            let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+            let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+            let dx = if idx == 7 { -0.25 } else if idx == 5 or idx == 6 { 0.15 } else { 0 }
+            let dy = if idx == 0 or idx == 2 or idx == 5 { 0.16 } else if idx == 1 or idx == 4 or idx == 6 { -0.16 } else if idx == 7 { 0.12 } else { 0 }
+            draw.content(
+              (mx + dx, my + dy),
+              text(7pt, fill: luma(80))[#("(" + str(int(lengths.at(idx))) + ", " + str(int(weights.at(idx))) + ")")]
+            )
           }
-          for (idx, p) in pos.enumerate() {
-            g-node(p, name: "v" + str(idx), fill: white, label: $v_#idx$)
+          for (k, pos) in verts.enumerate() {
+            let on-path = path-order.any(v => v == k)
+            g-node(pos, name: "v" + str(k),
+              fill: if on-path { blue } else { white },
+              label: if on-path { text(fill: white)[$v_#k$] } else { [$v_#k$] })
           }
         })
       },
-      caption: [Kth Best Spanning Tree on $K_4$. Blue edges show $T_1 = {(0,1), (0,2), (0,3)}$, one of two spanning trees with weight $lt.eq 4$.],
-      ) <fig:kth-best-spanning-tree>
+      caption: [Shortest Weight-Constrained Path instance with edge labels $(l(e), w(e))$. The highlighted path $v_0 arrow v_2 arrow v_3 arrow v_5$ satisfies both bounds.],
+      ) <fig:shortest-weight-constrained-path>
     ]
   ]
 }
@@ -1639,6 +1654,49 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     },
     caption: [Minimum Sum Multicenter with $K = #K$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) achieve optimal total weighted distance #opt-cost.],
     ) <fig:minimum-sum-multicenter>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinMaxMulticenter")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let K = x.instance.k
+  let B = x.instance.bound
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let centers = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  [
+    #problem-def("MinMaxMulticenter")[
+      Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, a positive integer $K <= |V|$, and a rational bound $B > 0$, does there exist $S subset.eq V$ with $|S| = K$ such that $max_(v in V) w(v) dot d(v, S) <= B$, where $d(v, S) = min_(s in S) d(v, s)$ is the shortest weighted-path distance from $v$ to the nearest vertex in $S$?
+    ][
+    Also known as the _vertex p-center problem_ (Garey & Johnson A2 ND50). The goal is to place $K$ facilities so that the worst-case weighted distance from any demand point to its nearest facility is at most $B$. NP-complete even with unit weights and unit edge lengths (Kariv and Hakimi, 1979).
+
+    Closely related to Dominating Set: on unweighted unit-length graphs, a $K$-center with radius $B = 1$ is exactly a dominating set of size $K$. The best known exact algorithm runs in $O^*(1.4969^n)$ via binary search over distance thresholds combined with dominating set computation @vanrooij2011. An optimal 2-approximation exists (Hochbaum and Shmoys, 1985); no $(2 - epsilon)$-approximation is possible unless $P = "NP"$ (Hsu and Nemhauser, 1979).
+
+    Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. A configuration is satisfying when exactly $K$ centers are selected and $max_(v in V) w(v) dot d(v, S) <= B$.
+
+    *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$, unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, $K = #K$, and $B = #B$. Placing centers at $S = {#centers.map(i => $v_#i$).join(", ")}$ gives maximum distance $max_v d(v, S) = 1 <= B$, so this is a feasible solution.
+
+    #figure({
+      let blue = graph-colors.at(0)
+      let gray = luma(200)
+      canvas(length: 1cm, {
+        import draw: *
+        let verts = ((-1.5, 0.8), (0, 1.5), (1.5, 0.8), (1.5, -0.8), (0, -1.5), (-1.5, -0.8))
+        for (u, v) in edges {
+          g-edge(verts.at(u), verts.at(v), stroke: 1pt + gray)
+        }
+        for (k, pos) in verts.enumerate() {
+          let is-center = centers.any(c => c == k)
+          g-node(pos, name: "v" + str(k),
+            fill: if is-center { blue } else { white },
+            label: if is-center { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+        }
+      })
+    },
+    caption: [Min-Max Multicenter with $K = #K$, $B = #B$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) ensure every vertex is within distance $B$ of some center.],
+    ) <fig:min-max-multicenter>
     ]
   ]
 }
@@ -2362,6 +2420,29 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     The Boolean Satisfiability Problem (SAT) is the first problem proven NP-complete @cook1971. SAT serves as the foundation of NP-completeness theory: showing a new problem NP-hard typically proceeds by reduction from SAT or one of its variants. Despite worst-case hardness, conflict-driven clause learning (CDCL) solvers handle industrial instances with millions of variables. The Strong Exponential Time Hypothesis (SETH) @impagliazzo2001 conjectures that no $O^*((2-epsilon)^n)$ algorithm exists for general CNF-SAT, and the best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[SETH conjectures this is optimal; no $O^*((2-epsilon)^n)$ algorithm is known.].
 
     *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",") ) = (#assign.map(v => str(v)).join(", "))$ satisfies all clauses: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #c.literals.map(l => str(eval-lit(l))).join($or$) paren.r = 1$).join(", "). Hence $phi(#assign.map(v => str(v)).join(", ")) = 1$.
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("NAESatisfiability")
+  let n = x.instance.num_vars
+  let m = x.instance.clauses.len()
+  let clauses = x.instance.clauses
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let assign = sol.config
+  let complement = assign.map(v => 1 - v)
+  let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
+  let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
+  let clause-values(c) = c.literals.map(l => str(eval-lit(l)))
+  [
+    #problem-def("NAESatisfiability")[
+      Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that every clause contains at least one true literal and at least one false literal.
+    ][
+    Not-All-Equal Satisfiability (NAE-SAT) is a canonical variant in Schaefer's dichotomy theorem @schaefer1978. Unlike ordinary SAT, each clause forbids the all-true and all-false patterns, giving the problem a complement symmetry: if an assignment is NAE-satisfying, then flipping every bit is also NAE-satisfying. This makes NAE-SAT a natural intermediate for cut and partition reductions such as Max-Cut. A straightforward exact algorithm enumerates all $2^n$ assignments; complement symmetry can halve the search space in practice by fixing one variable, but the asymptotic worst-case bound remains $O^*(2^n)$.
+
+    *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ is NAE-satisfying because each clause evaluates to a tuple containing both $0$ and $1$: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #clause-values(c).join(", ") paren.r$).join(", "). The complementary assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#complement.map(v => str(v)).join(", "))$ is therefore also NAE-satisfying, illustrating the paired-solution structure characteristic of NAE-SAT.
     ]
   ]
 }
@@ -4279,6 +4360,28 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ For IS solution $S$, return $C = V backslash S$, i.e.\ flip each variable: $c_v = 1 - s_v$.
 ]
 
+#let mvc_fvs = load-example("MinimumVertexCover", "MinimumFeedbackVertexSet")
+#let mvc_fvs_sol = mvc_fvs.solutions.at(0)
+#let mvc_fvs_cover = mvc_fvs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let mvc_fvs_fvs = mvc_fvs_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#reduction-rule("MinimumVertexCover", "MinimumFeedbackVertexSet",
+  example: true,
+  example-caption: [7-vertex graph: each source edge becomes a directed 2-cycle],
+  extra: [
+    Source VC: $C = {#mvc_fvs_cover.map(str).join(", ")}$ (size #mvc_fvs_cover.len()) on a graph with $n = #graph-num-vertices(mvc_fvs.source.instance)$ vertices and $|E| = #graph-num-edges(mvc_fvs.source.instance)$ edges \
+    Target FVS: $F = {#mvc_fvs_fvs.map(str).join(", ")}$ (size #mvc_fvs_fvs.len()) on a digraph with the same $n = #graph-num-vertices(mvc_fvs.target.instance)$ vertices and $|A| = #mvc_fvs.target.instance.graph.arcs.len() = 2 |E|$ arcs \
+    Canonical witness is preserved exactly: $C = F$ #sym.checkmark
+  ],
+)[
+  Each undirected edge $\{u, v\}$ can be viewed as the directed 2-cycle $u -> v -> u$. Replacing every source edge this way turns the task "hit every edge with a chosen endpoint" into "hit every directed cycle with a chosen vertex." The vertex set, weights, and budget are preserved, so the reduction is size-preserving up to doubling the edge count into arcs.
+][
+  _Construction._ Given a Minimum Vertex Cover instance $(G = (V, E), bold(w))$, build the directed graph $D = (V, A)$ on the same vertex set, where for every undirected edge $\{u, v\} in E$ we add both arcs $(u, v)$ and $(v, u)$ to $A$. Keep the vertex weights unchanged and reuse the same decision variables $x_v in {0,1}$.
+
+  _Correctness._ ($arrow.r.double$) If $C subset.eq V$ is a vertex cover of $G$, then every source edge $\{u, v\}$ has an endpoint in $C$, so the corresponding 2-cycle $u -> v -> u$ in $D$ is hit by $C$. Any longer directed cycle in $D$ is also made from source edges, so one of its vertices lies in $C$ as well. Therefore removing $C$ destroys all directed cycles, and $C$ is a feedback vertex set of $D$. ($arrow.l.double$) If $F subset.eq V$ is a feedback vertex set of $D$, then for every source edge $\{u, v\}$ the digraph contains the 2-cycle $u -> v -> u$, which must be hit by $F$. Hence at least one of $u, v$ lies in $F$, so $F$ covers every edge of $G$ and is a vertex cover.
+
+  _Solution extraction._ Return the target solution vector unchanged: a selected vertex in the feedback vertex set is selected in the vertex cover, and vice versa.
+]
+
 #reduction-rule("MaximumIndependentSet", "MinimumVertexCover")[
   The exact reverse of VC $arrow.r$ IS: complementing an independent set yields a vertex cover. The graph and weights are preserved unchanged, and $|"IS"| + |"VC"| = |V|$ ensures optimality carries over.
 ][
@@ -4762,6 +4865,48 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) A valid multiway cut with cost $C$ maps to a QUBO solution with $H_A = 0$ (valid partition with correct terminal pinning) and $H_B = C$. ($arrow.l.double$) If $H_A > 0$, the penalty $alpha > sum_e w(e)$ exceeds the entire cut-cost range, so any QUBO minimizer has $H_A = 0$, encoding a valid partition. Among valid partitions, $H_B$ equals the cut cost, and the minimizer achieves the minimum multiway cut.
 
   _Solution extraction._ For each vertex $u$, find terminal position $t$ with $x_(u,t) = 1$. For each edge $(u,v)$, output 1 (cut) if $u$ and $v$ are in different components, 0 otherwise.
+]
+
+#let gp_qubo = load-example("GraphPartitioning", "QUBO")
+#let gp_qubo_sol = gp_qubo.solutions.at(0)
+#let gp_qubo_edges = gp_qubo.source.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+#let gp_qubo_n = gp_qubo.source.instance.graph.num_vertices
+#let gp_qubo_m = gp_qubo_edges.len()
+#let gp_qubo_penalty = gp_qubo_m + 1
+#let gp_qubo_diag = range(0, gp_qubo_n).map(i => gp_qubo.target.instance.matrix.at(i).at(i))
+#let gp_qubo_cut_edges = gp_qubo_edges.filter(e => gp_qubo_sol.source_config.at(e.at(0)) != gp_qubo_sol.source_config.at(e.at(1)))
+#let gp_qubo_cut_size = gp_qubo_cut_edges.len()
+#reduction-rule("GraphPartitioning", "QUBO",
+  example: true,
+  example-caption: [6-vertex balanced partition instance ($n = #gp_qubo_n$, $|E| = #gp_qubo_m$)],
+  extra: [
+    *Step 1 -- Binary partition variables.* Introduce one binary variable per vertex: $x_i = 0$ means vertex $i$ is in the left block, $x_i = 1$ means it is in the right block. For the canonical instance, this gives $n = #gp_qubo_n$ QUBO variables:
+    $ x_0, x_1, x_2, x_3, x_4, x_5 $
+
+    *Step 2 -- Choose the balance penalty.* The source graph has $m = #gp_qubo_m$ edges, so the construction uses $P = m + 1 = #gp_qubo_penalty$. Any imbalance contributes at least $P$, which is already larger than the maximum possible cut size of any balanced partition.
+
+    *Step 3 -- Fill the QUBO matrix.* The diagonal entries are $Q_(i i) = deg(i) + P(1 - n)$, which evaluates here to $(#gp_qubo_diag.map(str).join(", "))$. For every pair $i < j$, start from $Q_(i j) = 2P = #(2 * gp_qubo_penalty)$, then subtract $2$ when $(i,j)$ is an edge. Hence edge coefficients become $18$ while non-edge coefficients stay $20$; the exported upper-triangular matrix matches the issue example exactly.\
+
+    *Step 4 -- Verify a solution.* The exported witness is $bold(x) = (#gp_qubo_sol.target_config.map(str).join(", "))$, which is also the source partition encoding. The cut edges are #gp_qubo_cut_edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", "), so the cut size is $#gp_qubo_cut_size$ and the balance penalty vanishes because exactly #(gp_qubo_n / 2) vertices are assigned to the right block #sym.checkmark.
+  ],
+)[
+  Graph Partitioning (minimum bisection) asks for a balanced bipartition minimizing the number of crossing edges. Lucas's Ising formulation @lucas2014 translates directly to a QUBO by combining a cut-counting quadratic objective with a quadratic equality penalty enforcing $sum_i x_i = n / 2$. The reduction uses one binary variable per source vertex, so the QUBO has exactly $n$ variables.
+][
+  _Construction._ Given an undirected graph $G = (V, E)$ with even $n = |V|$ and $m = |E|$, introduce binary variables $x_i in {0,1}$ for each vertex $i in V$. Interpret $x_i = 0$ as $i in A$ and $x_i = 1$ as $i in B$. The cut objective is:
+  $ H_"cut" = sum_((u,v) in E) (x_u + x_v - 2 x_u x_v) $
+  because the term equals $1$ exactly when edge $(u,v)$ crosses the partition. To enforce balance, add:
+  $ H_"bal" = P (sum_i x_i - n/2)^2 $
+  with penalty $P = m + 1$. The QUBO objective is $H = H_"cut" + H_"bal"$.
+
+  Expanding $H_"bal"$ with $x_i^2 = x_i$ gives:
+  $ H_"bal" = P (1 - n) sum_i x_i + 2 P sum_(i < j) x_i x_j + P n^2 / 4 $
+  so the upper-triangular QUBO coefficients are:
+  $ Q_(i i) = deg(i) + P (1 - n) $
+  and for $i < j$, $Q_(i j) = 2 P$ for every pair, then subtract $2$ whenever $(i,j) in E$. Equivalently, edge pairs have coefficient $2P - 2$ and non-edge pairs have coefficient $2P$. The additive constant $P n^2 / 4$ does not affect the minimizer.
+
+  _Correctness._ ($arrow.r.double$) If $bold(x)$ encodes a balanced partition, then $sum_i x_i = n/2$ and $H_"bal" = 0$, so the QUBO objective equals the cut size exactly. ($arrow.l.double$) If $bold(x)$ is imbalanced, then $|sum_i x_i - n/2| >= 1$, hence $H_"bal" >= P = m + 1$. Every balanced partition has cut size at most $m$, so any imbalanced assignment has objective strictly larger than at least one balanced assignment. Therefore every QUBO minimizer is balanced, and among balanced assignments minimizing $H$ is identical to minimizing the cut size.
+
+  _Solution extraction._ Return the QUBO bit-vector directly: the same binary assignment already records the source partition.
 ]
 
 #let qubo_ilp = load-example("QUBO", "ILP")
@@ -5355,6 +5500,53 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A multiway cut $C$ partitions $V$ into $k$ components, one per terminal. Setting $y_(i v) = 1$ iff $v$ is in $t_i$'s component and $x_e = 1$ iff $e in C$ satisfies all constraints: partition by construction, terminal fixing by definition, and linking because any edge with endpoints in different components is in $C$. The objective equals the cut weight. ($arrow.l.double$) Any feasible ILP solution defines a valid partition (by constraint (2)) separating all terminals (by constraint (1)). The linking constraints (3) force $x_e = 1$ for all cross-component edges, so the objective is at least the multiway cut weight; minimization ensures optimality.
 
   _Solution extraction._ For each edge $e$ at index $"idx"$, read $x_e = x^*_(k n + "idx")$. The source configuration is $"config"[e] = x_e$ (1 = cut, 0 = keep).
+]
+
+#let st_ilp = load-example("SteinerTree", "ILP")
+#let st_ilp_sol = st_ilp.solutions.at(0)
+#let st_edges = st_ilp.source.instance.graph.edges
+#let st_weights = st_ilp.source.instance.edge_weights
+#let st_terminals = st_ilp.source.instance.terminals
+#let st_root = st_terminals.at(0)
+#let st_non_root_terminals = range(1, st_terminals.len()).map(i => st_terminals.at(i))
+#let st_selected_edge_indices = st_ilp_sol.source_config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+#let st_selected_edges = st_selected_edge_indices.map(i => st_edges.at(i))
+#let st_cost = st_selected_edge_indices.map(i => st_weights.at(i)).sum()
+
+#reduction-rule("SteinerTree", "ILP",
+  example: true,
+  example-caption: [Canonical Steiner tree instance ($n = #st_ilp.source.instance.graph.num_vertices$, $m = #st_edges.len()$, $|T| = #st_terminals.len()$)],
+  extra: [
+    *Step 1 -- Choose a root and one commodity per remaining terminal.* The canonical source instance has terminals $T = {#st_terminals.map(t => $v_#t$).join(", ")}$. The reduction fixes the first terminal as root $r = v_#st_root$ and creates one flow commodity for each remaining terminal: $v_#st_non_root_terminals.at(0)$ and $v_#st_non_root_terminals.at(1)$.
+
+    *Step 2 -- Count the variables from the source edge order.* The first #st_edges.len() target variables are the edge selectors $bold(y) = (#st_ilp_sol.target_config.slice(0, st_edges.len()).map(str).join(", "))$, one per source edge in the order #st_edges.enumerate().map(((i, e)) => [$e_#i = (#(e.at(0)), #(e.at(1)))$]).join(", "). The remaining #(st_ilp.target.instance.num_vars - st_edges.len()) variables are directed flow indicators: $2 m (|T| - 1) = 2 times #st_edges.len() times #st_non_root_terminals.len() = #(st_ilp.target.instance.num_vars - st_edges.len())$.
+
+    *Step 3 -- Count the constraints commodity-by-commodity.* Each non-root terminal contributes one flow-conservation equality per vertex and two capacity inequalities per source edge. For this fixture that is $#st_ilp.source.instance.graph.num_vertices times #st_non_root_terminals.len() = #(st_ilp.source.instance.graph.num_vertices * st_non_root_terminals.len())$ equalities plus $#(2 * st_edges.len()) times #st_non_root_terminals.len() = #(2 * st_edges.len() * st_non_root_terminals.len())$ inequalities, totaling #st_ilp.target.instance.constraints.len() constraints.
+
+    *Step 4 -- Read the canonical witness pair.* The source witness selects edges ${#st_selected_edges.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")}$, so $bold(y)$ already encodes the Steiner tree. In the target witness, the commodity for $v_2$ routes along $v_0 arrow v_1 arrow v_2$, while the commodity for $v_4$ routes along $v_0 arrow v_1 arrow v_3 arrow v_4$. Every flow 1-entry therefore sits under a selected edge variable #sym.checkmark
+
+    *Step 5 -- Verify the objective end-to-end.* The selected-edge prefix is $bold(y) = (#st_ilp_sol.target_config.slice(0, st_edges.len()).map(str).join(", "))$, matching the source witness $(#st_ilp_sol.source_config.map(str).join(", "))$. The ILP objective is #st_selected_edge_indices.map(i => $#(st_weights.at(i))$).join($+$) $= #st_cost$, exactly the Steiner tree optimum stored in the fixture.
+
+    *Multiplicity:* The fixture stores one canonical witness. Other optimal Steiner trees could yield different feasible ILP witnesses, but every valid witness still exposes the source solution in the first $m$ variables.
+  ],
+)[
+  The rooted multi-commodity flow formulation @wong1984steiner @kochmartin1998steiner introduces one binary selector $y_e$ for each source edge and, for every non-root terminal $t$, one binary flow variable on each directed source edge. Flow conservation sends one unit from the root to each terminal, while the linking inequalities $f^t_(u,v) <= y_e$ ensure that every used flow arc is backed by a selected source edge. The resulting binary ILP has $m + 2 m (k - 1)$ variables and $n (k - 1) + 2 m (k - 1)$ constraints.
+][
+  _Construction._ Given an undirected weighted graph $G = (V, E, w)$ with strictly positive edge weights, terminals $T = {t_0, dots, t_(k-1)}$, and root $r = t_0$, introduce binary edge selectors $y_e in {0,1}$ for every $e in E$. For each non-root terminal $t in T backslash {r}$ and each directed copy of an undirected edge $(u, v) in E$, introduce a binary flow variable $f^t_(u,v) in {0,1}$. The target objective is
+  $ min sum_(e in E) w_e y_e. $
+  For every commodity $t$ and vertex $v$, enforce flow conservation:
+  $ sum_(u : (u, v) in A) f^t_(u,v) - sum_(u : (v, u) in A) f^t_(v,u) = b_(t,v), $
+  where $A$ contains both orientations of every undirected edge, $b_(t,v) = -1$ at the root $v = r$, $b_(t,v) = 1$ at the sink $v = t$, and $b_(t,v) = 0$ otherwise. For every commodity $t$ and undirected edge $e = {u, v}$, add the capacity-linking inequalities
+  $ f^t_(u,v) <= y_e quad "and" quad f^t_(v,u) <= y_e. $
+  Binary flow variables suffice because any Steiner tree yields a unique simple root-to-terminal path for each commodity, so every commodity can be realized as a 0/1 path indicator.
+
+  _Correctness._ ($arrow.r.double$) If $S subset.eq E$ is a Steiner tree, set $y_e = 1$ exactly for $e in S$. For each non-root terminal $t$, the unique path from $r$ to $t$ inside the tree defines a binary flow assignment satisfying the conservation equations, and every used arc lies on a selected edge, so all linking inequalities hold. The ILP objective equals $sum_(e in S) w_e$. ($arrow.l.double$) Any feasible ILP solution with edge selector set $Y = {e in E : y_e = 1}$ supports one unit of flow from $r$ to every non-root terminal, so the selected edges contain a connected subgraph spanning all terminals. Because all edge weights are strictly positive, any cycle in the selected subgraph has positive total cost; the optimizer therefore never includes redundant edges, so the selected subgraph is already a Steiner tree. Therefore an optimal ILP solution induces a minimum-cost Steiner tree.
+
+  _Variable mapping._ The first $m$ ILP variables are the source-edge indicators $y_0, dots, y_(m-1)$ in source edge order. For terminal $t_p$ with $p in {1, dots, k-1}$, the next block of $2 m$ variables stores the directed arc indicators $f^(t_p)_(u,v)$ and $f^(t_p)_(v,u)$ for each source edge $(u, v)$.
+
+  _Solution extraction._ Read the first $m$ target variables as the source edge-selection vector. Since those coordinates are exactly the $y_e$ variables, the extracted source configuration is valid whenever the selected subgraph is pruned to its Steiner tree witness.
+
+  _Remark._ Zero-weight edges are excluded because they allow degenerate optimal ILP solutions containing redundant cycles at no cost; following the convention of practical solvers (e.g., SCIP-Jack @kochmartin1998steiner), such edges should be contracted before applying the reduction.
 ]
 
 == Unit Disk Mapping

@@ -21,6 +21,7 @@
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`MinimumMultiwayCut`]: Minimum weight multiway cut
 //! - [`HamiltonianPath`]: Hamiltonian path (simple path visiting every vertex)
+//! - [`ShortestWeightConstrainedPath`]: Bicriteria simple s-t path with length and weight bounds
 //! - [`PartitionIntoPathsOfLength2`]: Partition vertices into triples with at least two edges each
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
 //! - [`SteinerTreeInGraphs`]: Minimum weight Steiner tree connecting terminal vertices
@@ -30,6 +31,7 @@
 //! - [`MultipleCopyFileAllocation`]: File-copy placement under storage and access costs
 //! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
+//! - [`MinMaxMulticenter`]: Min-max multicenter (vertex p-center, satisfaction)
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
 //! - [`MultipleChoiceBranching`]: Directed branching with partition constraints
 //! - [`LengthBoundedDisjointPaths`]: Length-bounded internally disjoint s-t paths
@@ -59,6 +61,7 @@ pub(crate) mod maximal_is;
 pub(crate) mod maximum_clique;
 pub(crate) mod maximum_independent_set;
 pub(crate) mod maximum_matching;
+pub(crate) mod min_max_multicenter;
 pub(crate) mod minimum_cut_into_bounded_sets;
 pub(crate) mod minimum_dominating_set;
 pub(crate) mod minimum_feedback_arc_set;
@@ -72,6 +75,7 @@ pub(crate) mod optimal_linear_arrangement;
 pub(crate) mod partition_into_paths_of_length_2;
 pub(crate) mod partition_into_triangles;
 pub(crate) mod rural_postman;
+pub(crate) mod shortest_weight_constrained_path;
 pub(crate) mod spin_glass;
 pub(crate) mod steiner_tree;
 pub(crate) mod steiner_tree_in_graphs;
@@ -99,6 +103,7 @@ pub use maximal_is::MaximalIS;
 pub use maximum_clique::MaximumClique;
 pub use maximum_independent_set::MaximumIndependentSet;
 pub use maximum_matching::MaximumMatching;
+pub use min_max_multicenter::MinMaxMulticenter;
 pub use minimum_cut_into_bounded_sets::MinimumCutIntoBoundedSets;
 pub use minimum_dominating_set::MinimumDominatingSet;
 pub use minimum_feedback_arc_set::MinimumFeedbackArcSet;
@@ -112,6 +117,7 @@ pub use optimal_linear_arrangement::OptimalLinearArrangement;
 pub use partition_into_paths_of_length_2::PartitionIntoPathsOfLength2;
 pub use partition_into_triangles::PartitionIntoTriangles;
 pub use rural_postman::RuralPostman;
+pub use shortest_weight_constrained_path::ShortestWeightConstrainedPath;
 pub use spin_glass::SpinGlass;
 pub use steiner_tree::SteinerTree;
 pub use steiner_tree_in_graphs::SteinerTreeInGraphs;
@@ -142,8 +148,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(minimum_cut_into_bounded_sets::canonical_model_example_specs());
     specs.extend(multiple_copy_file_allocation::canonical_model_example_specs());
     specs.extend(minimum_feedback_vertex_set::canonical_model_example_specs());
+    specs.extend(min_max_multicenter::canonical_model_example_specs());
     specs.extend(minimum_multiway_cut::canonical_model_example_specs());
     specs.extend(minimum_sum_multicenter::canonical_model_example_specs());
+    specs.extend(shortest_weight_constrained_path::canonical_model_example_specs());
     specs.extend(multiple_choice_branching::canonical_model_example_specs());
     specs.extend(spin_glass::canonical_model_example_specs());
     specs.extend(biclique_cover::canonical_model_example_specs());

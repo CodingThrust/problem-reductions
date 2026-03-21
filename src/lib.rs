@@ -44,7 +44,8 @@ pub mod prelude {
     // Problem types
     pub use crate::models::algebraic::{QuadraticAssignment, BMF, QUBO};
     pub use crate::models::formula::{
-        CNFClause, CircuitSAT, KSatisfiability, QuantifiedBooleanFormulas, Satisfiability,
+        CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, QuantifiedBooleanFormulas,
+        Satisfiability,
     };
     pub use crate::models::graph::{
         BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
@@ -55,11 +56,12 @@ pub mod prelude {
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-        MinimumCutIntoBoundedSets, MinimumDominatingSet, MinimumFeedbackArcSet,
+        MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet, MinimumFeedbackArcSet,
         MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover,
         MultipleChoiceBranching, MultipleCopyFileAllocation, OptimalLinearArrangement,
-        PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman, SteinerTreeInGraphs,
-        TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
+        PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman,
+        ShortestWeightConstrainedPath, SteinerTreeInGraphs, TravelingSalesman,
+        UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
         AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation,

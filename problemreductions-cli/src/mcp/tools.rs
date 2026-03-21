@@ -716,6 +716,7 @@ impl McpServer {
         let mut targets: Vec<String> = outgoing.iter().map(|e| e.target_name.to_string()).collect();
         targets.sort();
         targets.dedup();
+        let solvers = problem.available_solvers();
 
         let result = serde_json::json!({
             "kind": "problem",
@@ -723,7 +724,7 @@ impl McpServer {
             "variant": variant,
             "size_fields": size_fields,
             "num_variables": problem.num_variables_dyn(),
-            "solvers": ["ilp", "brute-force"],
+            "solvers": solvers,
             "reduces_to": targets,
         });
         Ok(serde_json::to_string_pretty(&result)?)

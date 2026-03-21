@@ -12,6 +12,7 @@ pub(crate) mod coloring_qubo;
 pub(crate) mod factoring_circuit;
 mod graph;
 pub(crate) mod graphpartitioning_maxcut;
+pub(crate) mod graphpartitioning_qubo;
 mod kcoloring_casts;
 mod knapsack_qubo;
 mod ksatisfiability_casts;
@@ -28,6 +29,7 @@ mod maximumsetpacking_casts;
 pub(crate) mod maximumsetpacking_qubo;
 pub(crate) mod minimummultiwaycut_qubo;
 pub(crate) mod minimumvertexcover_maximumindependentset;
+pub(crate) mod minimumvertexcover_minimumfeedbackvertexset;
 pub(crate) mod minimumvertexcover_minimumsetcovering;
 pub(crate) mod sat_circuitsat;
 pub(crate) mod sat_coloring;
@@ -82,6 +84,8 @@ pub(crate) mod qubo_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingtominimizeweightedcompletiontime_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod steinertree_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod travelingsalesman_ilp;
 
 pub use graph::{
@@ -98,6 +102,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(coloring_qubo::canonical_rule_example_specs());
     specs.extend(factoring_circuit::canonical_rule_example_specs());
     specs.extend(graphpartitioning_maxcut::canonical_rule_example_specs());
+    specs.extend(graphpartitioning_qubo::canonical_rule_example_specs());
     specs.extend(knapsack_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_subsetsum::canonical_rule_example_specs());
@@ -108,6 +113,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(maximumsetpacking_qubo::canonical_rule_example_specs());
     specs.extend(minimummultiwaycut_qubo::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_maximumindependentset::canonical_rule_example_specs());
+    specs.extend(minimumvertexcover_minimumfeedbackvertexset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumsetcovering::canonical_rule_example_specs());
     specs.extend(sat_circuitsat::canonical_rule_example_specs());
     specs.extend(sat_coloring::canonical_rule_example_specs());
@@ -138,6 +144,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(qubo_ilp::canonical_rule_example_specs());
         specs
             .extend(sequencingtominimizeweightedcompletiontime_ilp::canonical_rule_example_specs());
+        specs.extend(steinertree_ilp::canonical_rule_example_specs());
         specs.extend(travelingsalesman_ilp::canonical_rule_example_specs());
     }
     specs
