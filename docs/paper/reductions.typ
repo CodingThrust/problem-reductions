@@ -292,6 +292,12 @@
   else { data.target.problem + "/" + data.target.variant.values().join("/") }
 }
 
+// Format a canonical example's problem spec for pred create --example
+#let problem-spec(data) = {
+  if data.variant.len() == 0 { data.problem }
+  else { data.problem + "/" + data.variant.values().join("/") }
+}
+
 #let theorem = thmplain("theorem", [#h(-1.2em)Rule], base_level: 1)
 #let proof = thmproof("proof", "Proof")
 #let definition = thmbox(
@@ -1182,7 +1188,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     *Example.* Consider the house graph $G$ with $k = #k$ colors. The coloring #range(nv).map(i => $c(v_#i) = #(coloring.at(i) + 1)$).join(", ") is proper: no adjacent pair shares a color, so the number of conflicts is 0. The house graph has chromatic number $chi(G) = #k$ because the triangle $(v_2, v_3, v_4)$ requires #k colors.
 
     #pred-commands(
-      "pred create --example KColoring -o kcoloring.json",
+      "pred create --example " + problem-spec(x) + " -o kcoloring.json",
       "pred solve kcoloring.json",
       "pred evaluate kcoloring.json --config " + x.optimal_config.map(str).join(","),
     )
@@ -1948,7 +1954,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     *Example.* Let $U = {1, 2, dots, #U-size}$ and $cal(S) = {#range(m).map(i => $S_#(i + 1)$).join(", ")}$ with #range(m).map(i => $S_#(i + 1) = #fmt-set(sets.at(i))$).join(", "), and unit weights $w(S_i) = 1$. A maximum packing is $cal(P) = {#selected.map(i => $S_#(i + 1)$).join(", ")}$ with $w(cal(P)) = #wP$: $S_#(selected.at(0) + 1) inter S_#(selected.at(1) + 1) = emptyset$. Adding $S_2$ would conflict with both ($S_1 inter S_2 = {2}$, $S_2 inter S_3 = {3}$), and $S_4$ conflicts with $S_3$ ($S_3 inter S_4 = {4}$). The alternative packing ${S_2, S_4}$ also achieves weight #wP.
 
     #pred-commands(
-      "pred create --example MaximumSetPacking -o maximum-set-packing.json",
+      "pred create --example " + problem-spec(x) + " -o maximum-set-packing.json",
       "pred solve maximum-set-packing.json",
       "pred evaluate maximum-set-packing.json --config " + x.optimal_config.map(str).join(","),
     )
@@ -2512,7 +2518,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     *Example.* Minimize $bold(c)^top bold(x) = #fmt-obj$ subject to #constraints.map(fmt-constraint).join(", "), $#range(nv).map(i => $x_#(i + 1)$).join(",") >= 0$, $bold(x) in ZZ^#nv$. The LP relaxation optimum is $p_1 = (7 slash 3, 8 slash 3) approx (2.33, 2.67)$ with value $approx -27.67$, which is non-integral. Branch-and-bound yields the ILP optimum $bold(x)^* = (#xstar.map(v => str(v)).join(", "))$ with $bold(c)^top bold(x)^* = #fstar$.
 
     #pred-commands(
-      "pred create --example ILP -o ilp.json",
+      "pred create --example " + problem-spec(x) + " -o ilp.json",
       "pred solve ilp.json",
       "pred evaluate ilp.json --config " + x.optimal_config.map(str).join(","),
     )
@@ -2804,7 +2810,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     *Example.* Consider the #{k}-SAT formula $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses, each containing exactly #k literals. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ satisfies all clauses: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #c.literals.map(l => str(eval-lit(l))).join($or$) paren.r = 1$).join(", ").
 
     #pred-commands(
-      "pred create --example KSAT -o ksat.json",
+      "pred create --example " + problem-spec(x) + " -o ksat.json",
       "pred solve ksat.json",
       "pred evaluate ksat.json --config " + x.optimal_config.map(str).join(","),
     )
@@ -5306,7 +5312,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [House graph ($n = 5$, $|E| = 6$, $chi = 3$) with $k = 3$ colors],
   extra: [
     #pred-commands(
-      "pred create --example KColoring -o kcoloring.json",
+      "pred create --example " + problem-spec(kc_qubo.source) + " -o kcoloring.json",
       "pred reduce kcoloring.json --to " + target-spec(kc_qubo) + " -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kcoloring.json --config " + kc_qubo_sol.source_config.map(str).join(","),
@@ -5404,7 +5410,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [3-SAT with 3 variables and 2 clauses],
   extra: [
     #pred-commands(
-      "pred create --example KSAT -o ksat.json",
+      "pred create --example " + problem-spec(ksat_ss.source) + " -o ksat.json",
       "pred reduce ksat.json --to " + target-spec(ksat_ss) + " -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_ss_sol.source_config.map(str).join(","),
