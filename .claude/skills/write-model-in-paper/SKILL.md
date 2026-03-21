@@ -157,6 +157,22 @@ caption: [Caption describing the figure with key parameters],
 ) <fig:problem-example>
 ```
 
+#### Reproducibility Commands
+
+Add a `pred-commands()` block after the `*Example.*` paragraph and before the `#figure`. Commands are constructed dynamically from loaded example data:
+
+```typst
+#pred-commands(
+  "pred create --example <ALIAS> -o <name>.json",
+  "pred solve <name>.json",
+  "pred evaluate <name>.json --config " + x.optimal_config.map(str).join(","),
+)
+```
+
+Where `<ALIAS>` is the shortest alias for the problem (e.g., `MIS`, `MVC`, `SAT`). Use the bare alias when the default variant matches the loaded example; use the full variant path (e.g., `MIS/SimpleGraph/i32`) when a non-default variant is needed. Check `pred list` for available aliases.
+
+For satisfaction problems, replace `pred solve` with `pred solve <name>.json --solver brute-force` if the problem has no ILP reduction path.
+
 **For graph problems**, use the paper's existing graph helpers:
 - `petersen-graph()`, `house-graph()` or define custom vertex/edge lists
 - `canvas(length: ..., { ... })` with `g-node()` and `g-edge()`
@@ -189,4 +205,5 @@ make paper
 - [ ] **Evaluation shown**: objective/verifier computed on the example solution
 - [ ] **Diagram included**: figure with caption and label for graph/matrix/set visualization
 - [ ] **Paper compiles**: `make paper` succeeds without errors
+- [ ] **Pred commands present**: `pred-commands()` block after example text, before figure, with create/solve/evaluate pipeline
 - [ ] **Complexity consistency**: written complexity and auto-generated variant table are compatible (note any discrepancies for later review)
