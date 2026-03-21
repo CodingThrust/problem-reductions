@@ -22,12 +22,13 @@ pub use graph::{
     BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
     GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KColoring,
     KthBestSpanningTree, LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique,
-    MaximumIndependentSet, MaximumMatching, MinimumCutIntoBoundedSets, MinimumDominatingSet,
-    MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter,
-    MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
+    MaximumIndependentSet, MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets,
+    MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut,
+    MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
     OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman,
-    SpinGlass, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
-    SubgraphIsomorphism, TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
+    ShortestWeightConstrainedPath, SpinGlass, SteinerTree, SteinerTreeInGraphs,
+    StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
+    UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
