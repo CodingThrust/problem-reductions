@@ -623,8 +623,8 @@ Solve via explicit reduction:
 Input: a problem JSON from `pred create`, or a reduction bundle from `pred reduce`.
 When given a bundle, the target is solved and the solution is mapped back to the source.
 The ILP solver auto-reduces non-ILP problems before solving.
-Problems without an ILP reduction path, such as `LengthBoundedDisjointPaths` and
-`StringToStringCorrection`, currently need `--solver brute-force`.
+Problems without an ILP reduction path, such as `LengthBoundedDisjointPaths`,
+`MinMaxMulticenter`, and `StringToStringCorrection`, currently need `--solver brute-force`.
 
 ILP backend (default: HiGHS). To use a different backend:
   cargo install problemreductions-cli --features coin-cbc
