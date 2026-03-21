@@ -1765,7 +1765,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     }
                 }
             }
-            (ser(MinimumHittingSet::new(universe, sets))?, resolved_variant.clone())
+            (
+                ser(MinimumHittingSet::new(universe, sets))?,
+                resolved_variant.clone(),
+            )
         }
 
         // MinimumSetCovering

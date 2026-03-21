@@ -59,7 +59,10 @@ impl MinimumHittingSet {
             }
         }
 
-        Self { universe_size, sets }
+        Self {
+            universe_size,
+            sets,
+        }
     }
 
     /// Get the universe size.
@@ -105,9 +108,10 @@ impl MinimumHittingSet {
             return false;
         };
 
-        self.sets
-            .iter()
-            .all(|set| set.iter().any(|element| selected.binary_search(element).is_ok()))
+        self.sets.iter().all(|set| {
+            set.iter()
+                .any(|element| selected.binary_search(element).is_ok())
+        })
     }
 }
 
@@ -124,11 +128,10 @@ impl Problem for MinimumHittingSet {
             return SolutionSize::Invalid;
         };
 
-        if self
-            .sets
-            .iter()
-            .all(|set| set.iter().any(|element| selected.binary_search(element).is_ok()))
-        {
+        if self.sets.iter().all(|set| {
+            set.iter()
+                .any(|element| selected.binary_search(element).is_ok())
+        }) {
             SolutionSize::Valid(selected.len())
         } else {
             SolutionSize::Invalid

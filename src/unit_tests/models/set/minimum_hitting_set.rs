@@ -84,11 +84,9 @@ fn test_minimum_hitting_set_bruteforce_optimum_issue_example() {
     let best_solutions = solver.find_all_best(&problem);
     let best_solution_set: HashSet<Vec<usize>> = best_solutions.iter().cloned().collect();
     assert!(best_solution_set.contains(&issue_example_config()));
-    assert!(
-        best_solutions
-            .iter()
-            .all(|config| problem.evaluate(config) == SolutionSize::Valid(3))
-    );
+    assert!(best_solutions
+        .iter()
+        .all(|config| problem.evaluate(config) == SolutionSize::Valid(3)));
 }
 
 #[test]
@@ -110,7 +108,10 @@ fn test_minimum_hitting_set_serialization_round_trip() {
 fn test_minimum_hitting_set_paper_example_consistency() {
     let problem = issue_example_problem();
 
-    assert_eq!(problem.evaluate(&issue_example_config()), SolutionSize::Valid(3));
+    assert_eq!(
+        problem.evaluate(&issue_example_config()),
+        SolutionSize::Valid(3)
+    );
 }
 
 #[test]
@@ -121,12 +122,10 @@ fn test_minimum_hitting_set_direction() {
 
 #[test]
 fn test_minimum_hitting_set_declares_problem_size_fields() {
-    let fields: HashSet<&'static str> =
-        declared_size_fields("MinimumHittingSet").into_iter().collect();
-    assert_eq!(
-        fields,
-        HashSet::from(["num_sets", "universe_size"]),
-    );
+    let fields: HashSet<&'static str> = declared_size_fields("MinimumHittingSet")
+        .into_iter()
+        .collect();
+    assert_eq!(fields, HashSet::from(["num_sets", "universe_size"]),);
 }
 
 #[cfg(feature = "example-db")]
@@ -140,7 +139,8 @@ fn test_minimum_hitting_set_canonical_example_spec() {
     assert_eq!(spec.optimal_config, issue_example_config());
     assert_eq!(spec.optimal_value, serde_json::json!({"Valid": 3}));
 
-    let problem: MinimumHittingSet = serde_json::from_value(spec.instance.serialize_json()).unwrap();
+    let problem: MinimumHittingSet =
+        serde_json::from_value(spec.instance.serialize_json()).unwrap();
     assert_eq!(problem.universe_size(), 6);
     assert_eq!(problem.sets().len(), 7);
 
