@@ -7,6 +7,7 @@
 //! - [`ConsistencyOfDatabaseFrequencyTables`]: Pairwise frequency-table consistency
 //! - [`ConjunctiveBooleanQuery`]: Evaluate a conjunctive Boolean query over relations
 //! - [`ConjunctiveQueryFoldability`]: Conjunctive Query Foldability
+//! - [`ExpectedRetrievalCost`]: Allocate records to circular sectors within a latency bound
 //! - [`Factoring`]: Integer factorization
 //! - [`FlowShopScheduling`]: Flow Shop Scheduling (meet deadline on m processors)
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
@@ -39,6 +40,7 @@ pub(crate) mod conjunctive_boolean_query;
 pub(crate) mod conjunctive_query_foldability;
 mod consistency_of_database_frequency_tables;
 mod ensemble_computation;
+pub(crate) mod expected_retrieval_cost;
 pub(crate) mod factoring;
 mod flow_shop_scheduling;
 mod knapsack;
@@ -74,6 +76,7 @@ pub use consistency_of_database_frequency_tables::{
     ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue,
 };
 pub use ensemble_computation::EnsembleComputation;
+pub use expected_retrieval_cost::ExpectedRetrievalCost;
 pub use factoring::Factoring;
 pub use flow_shop_scheduling::FlowShopScheduling;
 pub use knapsack::Knapsack;
@@ -108,6 +111,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(conjunctive_boolean_query::canonical_model_example_specs());
     specs.extend(conjunctive_query_foldability::canonical_model_example_specs());
     specs.extend(ensemble_computation::canonical_model_example_specs());
+    specs.extend(expected_retrieval_cost::canonical_model_example_specs());
     specs.extend(factoring::canonical_model_example_specs());
     specs.extend(longest_common_subsequence::canonical_model_example_specs());
     specs.extend(multiprocessor_scheduling::canonical_model_example_specs());

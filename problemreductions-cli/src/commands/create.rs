@@ -19,14 +19,14 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
-    ConsistencyOfDatabaseFrequencyTables, EnsembleComputation, FlowShopScheduling, FrequencyTable,
-    KnownValue, LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
-    PaintShop, PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
-    ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
-    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
-    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
-    SumOfSquaresPartition, TimetableDesign,
+    ConsistencyOfDatabaseFrequencyTables, EnsembleComputation, ExpectedRetrievalCost,
+    FlowShopScheduling, FrequencyTable, KnownValue, LongestCommonSubsequence,
+    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack,
+    QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
+    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -42,6 +42,10 @@ const MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS: &str =
     "--graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8";
 const MULTIPLE_COPY_FILE_ALLOCATION_USAGE: &str =
     "Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8";
+const EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS: &str =
+    "--probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3 --latency-bound 1.01";
+const EXPECTED_RETRIEVAL_COST_USAGE: &str =
+    "Usage: pred create ExpectedRetrievalCost --probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3 --latency-bound 1.01";
 
 /// Check if all data flags are None (no problem-specific input provided).
 fn all_data_flags_empty(args: &CreateArgs) -> bool {
@@ -76,6 +80,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.requirement_1.is_none()
         && args.requirement_2.is_none()
         && args.sizes.is_none()
+        && args.probabilities.is_none()
         && args.capacity.is_none()
         && args.sequence.is_none()
         && args.sets.is_none()
@@ -99,6 +104,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.tree.is_none()
         && args.required_edges.is_none()
         && args.bound.is_none()
+        && args.latency_bound.is_none()
         && args.length_bound.is_none()
         && args.weight_bound.is_none()
         && args.cost_bound.is_none()
@@ -138,6 +144,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.task_avail.is_none()
         && args.alphabet_size.is_none()
         && args.num_groups.is_none()
+        && args.num_sectors.is_none()
         && args.dependencies.is_none()
         && args.num_attributes.is_none()
         && args.source_string.is_none()
@@ -566,6 +573,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "Factoring" => "--target 15 --m 4 --n 4",
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
         "MinimumMultiwayCut" => "--graph 0-1,1-2,2-3 --terminals 0,2 --edge-weights 1,1,1",
+        "ExpectedRetrievalCost" => EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS,
         "SequencingWithinIntervals" => "--release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1",
         "StaffScheduling" => {
             "--schedules \"1,1,1,1,1,0,0;0,1,1,1,1,1,0;0,0,1,1,1,1,1;1,0,0,1,1,1,1;1,1,0,0,1,1,1\" --requirements 2,2,2,3,3,2,1 --num-workers 4 --k 5"
@@ -1319,6 +1327,59 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (
                 ser(MultipleCopyFileAllocation::new(
                     graph, usage, storage, bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ExpectedRetrievalCost (probabilities + sectors + latency bound)
+        "ExpectedRetrievalCost" => {
+            let probabilities_str = args.probabilities.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ExpectedRetrievalCost requires --probabilities\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+                )
+            })?;
+            let probabilities: Vec<f64> = util::parse_comma_list(probabilities_str)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"))?;
+            anyhow::ensure!(
+                !probabilities.is_empty(),
+                "ExpectedRetrievalCost requires at least one probability\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+            );
+            anyhow::ensure!(
+                probabilities.iter().all(|p| p.is_finite() && (0.0..=1.0).contains(p)),
+                "ExpectedRetrievalCost probabilities must be finite values in [0, 1]\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+            );
+            let total_probability: f64 = probabilities.iter().sum();
+            anyhow::ensure!(
+                (total_probability - 1.0).abs() <= 1e-9,
+                "ExpectedRetrievalCost probabilities must sum to 1.0\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+            );
+
+            let num_sectors = args.num_sectors.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ExpectedRetrievalCost requires --num-sectors\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+                )
+            })?;
+            anyhow::ensure!(
+                num_sectors >= 2,
+                "ExpectedRetrievalCost requires at least two sectors\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+            );
+
+            let latency_bound = args.latency_bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ExpectedRetrievalCost requires --latency-bound\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+                )
+            })?;
+            anyhow::ensure!(
+                latency_bound.is_finite() && latency_bound >= 0.0,
+                "ExpectedRetrievalCost requires a finite non-negative --latency-bound\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+            );
+
+            (
+                ser(ExpectedRetrievalCost::new(
+                    probabilities,
+                    num_sectors,
+                    latency_bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -5898,6 +5959,7 @@ mod tests {
             requirement_1: None,
             requirement_2: None,
             sizes: None,
+            probabilities: None,
             capacity: None,
             sequence: None,
             sets: None,
@@ -5920,6 +5982,7 @@ mod tests {
             tree: None,
             required_edges: None,
             bound: None,
+            latency_bound: None,
             length_bound: None,
             weight_bound: None,
             cost_bound: None,
@@ -5956,6 +6019,7 @@ mod tests {
             craftsman_avail: None,
             task_avail: None,
             num_groups: None,
+            num_sectors: None,
             domain_size: None,
             relations: None,
             conjuncts_spec: None,
@@ -6136,6 +6200,61 @@ mod tests {
         assert_eq!(json["data"]["budget"], 4);
 
         std::fs::remove_file(output_path).ok();
+    }
+
+    #[test]
+    fn test_create_expected_retrieval_cost_json() {
+        use crate::dispatch::ProblemJsonOutput;
+        use problemreductions::models::misc::ExpectedRetrievalCost;
+
+        let mut args = empty_args();
+        args.problem = Some("ExpectedRetrievalCost".to_string());
+        args.probabilities = Some("0.2,0.15,0.15,0.2,0.1,0.2".to_string());
+        args.num_sectors = Some(3);
+        args.latency_bound = Some(1.01);
+
+        let output_path = std::env::temp_dir().join(format!(
+            "expected-retrieval-cost-{}.json",
+            std::process::id()
+        ));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = std::fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "ExpectedRetrievalCost");
+
+        let problem: ExpectedRetrievalCost = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.num_records(), 6);
+        assert_eq!(problem.num_sectors(), 3);
+        assert!(problem.evaluate(&[0, 1, 2, 1, 0, 2]));
+
+        let _ = std::fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_expected_retrieval_cost_requires_latency_bound() {
+        let mut args = empty_args();
+        args.problem = Some("ExpectedRetrievalCost".to_string());
+        args.probabilities = Some("0.2,0.15,0.15,0.2,0.1,0.2".to_string());
+        args.num_sectors = Some(3);
+        args.latency_bound = None;
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("ExpectedRetrievalCost requires --latency-bound"));
     }
 
     #[test]

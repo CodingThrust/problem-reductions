@@ -138,6 +138,7 @@
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
   "MultipleChoiceBranching": [Multiple Choice Branching],
   "MultipleCopyFileAllocation": [Multiple Copy File Allocation],
+  "ExpectedRetrievalCost": [Expected Retrieval Cost],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
   "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
   "PartitionIntoTriangles": [Partition Into Triangles],
@@ -2096,6 +2097,45 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     },
     caption: [Multiple Copy File Allocation on a 6-cycle. Copy vertices $v_1$, $v_3$, and $v_5$ are shown in blue; every white vertex is one hop from the nearest copy, so the total cost is $33$.],
     ) <fig:multiple-copy-file-allocation>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("ExpectedRetrievalCost")
+  let K = x.instance.bound
+  [
+    #problem-def("ExpectedRetrievalCost")[
+      Given a set $R = {r_1, dots, r_n}$ of records, access probabilities $p(r) in [0, 1]$ with $sum_(r in R) p(r) = 1$, a positive integer $m$ of circular storage sectors, and a bound $K$, determine whether there exists a partition $R_1, dots, R_m$ of $R$ such that
+      $sum_(i=1)^m sum_(j=1)^m p(R_i) p(R_j) d(i, j) <= K,$
+      where $p(R_i) = sum_(r in R_i) p(r)$ and
+      $d(i, j) = j - i - 1$ for $1 <= i < j <= m$, while $d(i, j) = m - i + j - 1$ for $1 <= j <= i <= m$.
+    ][
+    Expected Retrieval Cost is storage-and-retrieval problem SR4 in Garey and Johnson @garey1979. The model abstracts a drum-like storage device with fixed read heads: placing probability mass evenly around the cycle reduces the expected waiting time until the next requested sector rotates under the head. Cody and Coffman introduced the formulation and analyzed exact and heuristic record-allocation algorithms for fixed numbers of sectors @codycoffman1976. Garey and Johnson record that the general decision problem is NP-complete in the strong sense via transformations from Partition and 3-Partition @garey1979. The implementation in this repository uses one $m$-ary variable per record, so the registered exact baseline enumerates $m^n$ assignments. For practicality, the code stores the probabilities and bound as floating-point values even though the book states $K$ as an integer.
+
+    *Example.* Take six records with probabilities $(0.2, 0.15, 0.15, 0.2, 0.1, 0.2)$, three sectors, and $K = #K$. Assign
+    $R_1 = {r_1, r_5}$, $R_2 = {r_2, r_4}$, and $R_3 = {r_3, r_6}$.
+    Then the sector masses are $(p(R_1), p(R_2), p(R_3)) = (0.3, 0.35, 0.35)$.
+    For $m = 3$, the non-zero latencies are $d(1, 1) = d(2, 2) = d(3, 3) = 2$, $d(1, 3) = d(2, 1) = d(3, 2) = 1$, and the remaining pairs contribute 0. Hence the expected retrieval cost is $1.0025 <= #K$, so the allocation is satisfying.
+
+    #pred-commands(
+      "pred create --example ExpectedRetrievalCost -o expected-retrieval-cost.json",
+      "pred solve expected-retrieval-cost.json --solver brute-force",
+      "pred evaluate expected-retrieval-cost.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure(
+      table(
+        columns: 3,
+        inset: 6pt,
+        stroke: 0.5pt + luma(180),
+        [Sector], [Records], [Mass],
+        [$S_1$], [$r_1, r_5$], [$0.3$],
+        [$S_2$], [$r_2, r_4$], [$0.35$],
+        [$S_3$], [$r_3, r_6$], [$0.35$],
+      ),
+      caption: [Expected Retrieval Cost example with cyclic sector order $S_1 -> S_2 -> S_3 -> S_1$. The satisfying allocation yields masses $(0.3, 0.35, 0.35)$ and total cost $1.0025$.],
+    ) <fig:expected-retrieval-cost>
     ]
   ]
 }
