@@ -216,7 +216,7 @@ TIP: Run `pred create <PROBLEM>` (no other flags) to see problem-specific help.
 
 Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
-  MaxCut, MaxMatching, TSP        --graph, --edge-weights
+  MaxCut, MaxMatching, TSP, BottleneckTravelingSalesman --graph, --edge-weights
   ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --length-bound, --weight-bound
   MaximalIS                       --graph, --weights
   SAT, NAESAT                     --num-vars, --clauses
@@ -266,7 +266,9 @@ Flags by problem type:
   SequencingWithinIntervals       --release-times, --deadlines, --lengths
   OptimalLinearArrangement        --graph, --bound
   MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k, --bound
+  MixedChinesePostman (MCPP)      --graph, --arcs, --edge-weights, --arc-costs, --bound [--num-vertices]
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
+  StackerCrane                    --arcs, --graph, --arc-costs, --edge-lengths, --bound [--num-vertices]
   MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
   AdditionalKey                   --num-attributes, --dependencies, --relation-attrs [--known-keys]
   ConsistencyOfDatabaseFrequencyTables --num-objects, --attribute-domains, --frequency-tables [--known-values]
@@ -849,5 +851,23 @@ mod tests {
         assert!(help.contains("BiconnectivityAugmentation"));
         assert!(help.contains("--potential-edges"));
         assert!(help.contains("--budget"));
+    }
+
+    #[test]
+    fn test_create_help_mentions_stacker_crane_flags() {
+        let cmd = Cli::command();
+        let create = cmd.find_subcommand("create").expect("create subcommand");
+        let help = create
+            .get_after_help()
+            .expect("create after_help")
+            .to_string();
+
+        assert!(help.contains("StackerCrane"));
+        assert!(help.contains("--arcs"));
+        assert!(help.contains("--graph"));
+        assert!(help.contains("--arc-costs"));
+        assert!(help.contains("--edge-lengths"));
+        assert!(help.contains("--bound"));
+        assert!(help.contains("--num-vertices"));
     }
 }

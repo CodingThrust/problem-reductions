@@ -14,6 +14,7 @@ use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
     LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
+    MixedChinesePostman,
     MultipleChoiceBranching, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
@@ -31,8 +32,8 @@ use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
-    BipartiteGraph, DirectedGraph, Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph,
-    UnitDiskGraph,
+    BipartiteGraph, DirectedGraph, Graph, KingsSubgraph, MixedGraph, SimpleGraph,
+    TriangularSubgraph, UnitDiskGraph,
 };
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -530,7 +531,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "LongestCircuit" => {
             "--graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2 --bound 17"
         }
-        "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
+        "BottleneckTravelingSalesman" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
         "ShortestWeightConstrainedPath" => {
@@ -587,8 +588,14 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "StrongConnectivityAugmentation" => {
             "--arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1"
         }
+        "MixedChinesePostman" => {
+            "--graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 --bound 24"
+        }
         "RuralPostman" => {
             "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
+        }
+        "StackerCrane" => {
+            "--arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --bound 20 --num-vertices 6"
         }
         "MultipleChoiceBranching" => {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
@@ -646,12 +653,14 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
 fn uses_edge_weights_flag(canonical: &str) -> bool {
     matches!(
         canonical,
-        "KthBestSpanningTree"
+        "BottleneckTravelingSalesman"
+            | "KthBestSpanningTree"
             | "LongestCircuit"
             | "MaxCut"
             | "MaximumMatching"
-            | "TravelingSalesman"
+            | "MixedChinesePostman"
             | "RuralPostman"
+            | "TravelingSalesman"
     )
 }
 
@@ -669,7 +678,11 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("PrimeAttributeName", "num_attributes") => return "universe".to_string(),
         ("PrimeAttributeName", "dependencies") => return "deps".to_string(),
         ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
+        ("MixedChinesePostman", "arc_weights") => return "arc-costs".to_string(),
         ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
+        ("StackerCrane", "edges") => return "graph".to_string(),
+        ("StackerCrane", "arc_lengths") => return "arc-costs".to_string(),
+        ("StackerCrane", "edge_lengths") => return "edge-lengths".to_string(),
         ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
         ("TimetableDesign", "num_tasks") => return "num-tasks".to_string(),
         _ => {}
@@ -835,6 +848,15 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 // DirectedGraph fields use --arcs, not --graph
                 let hint = type_format_hint(&field.type_name, graph_type);
                 eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
+            } else if field.type_name == "MixedGraph" {
+                eprintln!(
+                    "  --{:<16} {} ({})",
+                    "graph", "Undirected edges E of the mixed graph", "edge list: 0-1,1-2,2-3"
+                );
+                eprintln!(
+                    "  --{:<16} {} ({})",
+                    "arcs", "Directed arcs A of the mixed graph", "directed arcs: 0>1,1>2,2>0"
+                );
             } else if field.type_name == "BipartiteGraph" {
                 eprintln!(
                     "  --{:<16} {} ({})",
@@ -883,6 +905,9 @@ fn problem_help_flag_name(
     }
     if field_type == "DirectedGraph" {
         return "arcs".to_string();
+    }
+    if field_type == "MixedGraph" {
+        return "graph".to_string();
     }
     if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
         return "bound".to_string();
@@ -1457,7 +1482,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         }
 
         // Graph problems with edge weights
-        "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
+        "BottleneckTravelingSalesman" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
@@ -1467,6 +1492,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
             let data = match canonical {
+                "BottleneckTravelingSalesman" => ser(BottleneckTravelingSalesman::new(graph, edge_weights))?,
                 "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
                 "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
                 "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,
@@ -1546,6 +1572,51 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             }
             (
                 ser(LongestCircuit::new(graph, edge_lengths, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // StackerCrane
+        "StackerCrane" => {
+            let usage = "Usage: pred create StackerCrane --arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --bound 20 --num-vertices 6";
+            let arcs_str = args
+                .arcs
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("StackerCrane requires --arcs\n\n{usage}"))?;
+            let (arcs_graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let (edges_graph, num_vertices) =
+                parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            anyhow::ensure!(
+                edges_graph.num_vertices() == num_vertices,
+                "internal error: inconsistent graph vertex count"
+            );
+            anyhow::ensure!(
+                num_vertices == arcs_graph.num_vertices(),
+                "StackerCrane requires the directed and undirected inputs to agree on --num-vertices\n\n{usage}"
+            );
+            let arc_lengths = parse_arc_costs(args, num_arcs)?;
+            let edge_lengths = parse_i32_edge_values(
+                args.edge_lengths.as_ref(),
+                edges_graph.num_edges(),
+                "edge length",
+            )?;
+            let bound_raw = args
+                .bound
+                .ok_or_else(|| anyhow::anyhow!("StackerCrane requires --bound\n\n{usage}"))?;
+            let bound = parse_nonnegative_usize_bound(bound_raw, "StackerCrane", usage)?;
+            let bound = i32::try_from(bound).map_err(|_| {
+                anyhow::anyhow!("StackerCrane --bound must fit in i32 (got {bound_raw})\n\n{usage}")
+            })?;
+            (
+                ser(StackerCrane::try_new(
+                    num_vertices,
+                    arcs_graph.arcs(),
+                    edges_graph.edges(),
+                    arc_lengths,
+                    edge_lengths,
+                    bound,
+                )
+                .map_err(|e| anyhow::anyhow!(e))?)?,
                 resolved_variant.clone(),
             )
         }
@@ -3056,9 +3127,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // AcyclicPartition
         "AcyclicPartition" => {
             let usage = "Usage: pred create AcyclicPartition/i32 --arcs \"0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5\" --weights 2,3,2,1,3,1 --arc-costs 1,1,1,1,1,1,1,1 --weight-bound 5 --cost-bound 5";
-            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("AcyclicPartition requires --arcs\n\n{usage}")
-            })?;
+            let arcs_str = args
+                .arcs
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("AcyclicPartition requires --arcs\n\n{usage}"))?;
             let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
             let vertex_weights = parse_vertex_weights(args, graph.num_vertices())?;
             let arc_costs = parse_arc_costs(args, num_arcs)?;
@@ -3158,6 +3230,46 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     StrongConnectivityAugmentation::try_new(graph, candidate_arcs, bound)
                         .map_err(|e| anyhow::anyhow!(e))?,
                 )?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MixedChinesePostman
+        "MixedChinesePostman" => {
+            let usage = "Usage: pred create MixedChinesePostman --graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 --bound 24 [--num-vertices N]";
+            let graph = parse_mixed_graph(args, usage)?;
+            let arc_costs = parse_arc_costs(args, graph.num_arcs())?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("MixedChinesePostman requires --bound\n\n{usage}")
+            })?;
+            let bound = i32::try_from(bound).map_err(|_| {
+                anyhow::anyhow!(
+                    "MixedChinesePostman --bound must fit in i32 (got {bound})\n\n{usage}"
+                )
+            })?;
+            if arc_costs.iter().any(|&cost| cost < 0) {
+                bail!("MixedChinesePostman --arc-costs must be non-negative\n\n{usage}");
+            }
+            if edge_weights.iter().any(|&weight| weight < 0) {
+                bail!("MixedChinesePostman --edge-weights must be non-negative\n\n{usage}");
+            }
+            if resolved_variant.get("weight").map(|w| w.as_str()) == Some("One")
+                && (arc_costs.iter().any(|&cost| cost != 1)
+                    || edge_weights.iter().any(|&weight| weight != 1))
+            {
+                bail!(
+                    "Non-unit lengths are not supported for MixedChinesePostman/One.\n\n\
+                     Use the weighted variant instead:\n  pred create MixedChinesePostman/i32 --graph ... --arcs ... --edge-weights ... --arc-costs ..."
+                );
+            }
+            (
+                ser(MixedChinesePostman::new(
+                    graph,
+                    arc_costs,
+                    edge_weights,
+                    bound,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -4812,6 +4924,22 @@ fn parse_directed_graph(
     Ok((DirectedGraph::new(num_v, arcs), num_arcs))
 }
 
+fn parse_mixed_graph(args: &CreateArgs, usage: &str) -> Result<MixedGraph> {
+    let (undirected_graph, num_vertices) =
+        parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+    let arcs_str = args
+        .arcs
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("MixedChinesePostman requires --arcs\n\n{usage}"))?;
+    let (directed_graph, _) = parse_directed_graph(arcs_str, Some(num_vertices))
+        .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+    Ok(MixedGraph::new(
+        num_vertices,
+        directed_graph.arcs(),
+        undirected_graph.edges(),
+    ))
+}
+
 /// Parse `--weights` as arc weights (i32), defaulting to all 1s.
 fn parse_arc_weights(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
     match &args.weights {
@@ -4842,11 +4970,7 @@ fn parse_arc_costs(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
                 .map(|s| s.trim().parse::<i32>())
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             if parsed.len() != num_arcs {
-                bail!(
-                    "Expected {} arc costs but got {}",
-                    num_arcs,
-                    parsed.len()
-                );
+                bail!("Expected {} arc costs but got {}", num_arcs, parsed.len());
             }
             Ok(parsed)
         }
@@ -5131,7 +5255,7 @@ fn create_random(
         }
 
         // Graph problems with edge weights
-        "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
+        "BottleneckTravelingSalesman" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
@@ -5139,8 +5263,14 @@ fn create_random(
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let num_edges = graph.num_edges();
             let edge_weights = vec![1i32; num_edges];
-            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+            let variant = match canonical {
+                "BottleneckTravelingSalesman" => variant_map(&[]),
+                _ => variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]),
+            };
             let data = match canonical {
+                "BottleneckTravelingSalesman" => {
+                    ser(BottleneckTravelingSalesman::new(graph, edge_weights))?
+                }
                 "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
                 "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
                 "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,
@@ -5248,8 +5378,8 @@ fn create_random(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
              MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, TravelingSalesman, \
-             SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, OptimalLinearArrangement, \
-             HamiltonianPath, LongestCircuit, GeneralizedHex)"
+             BottleneckTravelingSalesman, SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, \
+             OptimalLinearArrangement, HamiltonianPath, LongestCircuit, GeneralizedHex)"
         ),
     };
 
@@ -6011,6 +6141,82 @@ mod tests {
         assert_eq!(json["data"]["budget"], 4);
 
         std::fs::remove_file(output_path).ok();
+    }
+
+    #[test]
+    fn test_create_stacker_crane_json() {
+        let mut args = empty_args();
+        args.problem = Some("StackerCrane".to_string());
+        args.num_vertices = Some(6);
+        args.arcs = Some("0>4,2>5,5>1,3>0,4>3".to_string());
+        args.graph = Some("0-1,1-2,2-3,3-5,4-5,0-3,1-5".to_string());
+        args.arc_costs = Some("3,4,2,5,3".to_string());
+        args.edge_lengths = Some("2,1,3,2,1,4,3".to_string());
+        args.bound = Some(20);
+
+        let output_path = std::env::temp_dir().join("pred_test_create_stacker_crane.json");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let content = std::fs::read_to_string(&output_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(json["type"], "StackerCrane");
+        assert_eq!(json["data"]["num_vertices"], 6);
+        assert_eq!(json["data"]["bound"], 20);
+        assert_eq!(json["data"]["arcs"][0], serde_json::json!([0, 4]));
+        assert_eq!(json["data"]["edge_lengths"][6], 3);
+
+        std::fs::remove_file(output_path).ok();
+    }
+
+    #[test]
+    fn test_create_stacker_crane_rejects_mismatched_arc_lengths() {
+        let mut args = empty_args();
+        args.problem = Some("StackerCrane".to_string());
+        args.num_vertices = Some(6);
+        args.arcs = Some("0>4,2>5,5>1,3>0,4>3".to_string());
+        args.graph = Some("0-1,1-2,2-3,3-5,4-5,0-3,1-5".to_string());
+        args.arc_costs = Some("3,4,2,5".to_string());
+        args.edge_lengths = Some("2,1,3,2,1,4,3".to_string());
+        args.bound = Some(20);
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("Expected 5 arc costs but got 4"));
+    }
+
+    #[test]
+    fn test_create_stacker_crane_rejects_out_of_range_vertices() {
+        let mut args = empty_args();
+        args.problem = Some("StackerCrane".to_string());
+        args.num_vertices = Some(5);
+        args.arcs = Some("0>4,2>5,5>1,3>0,4>3".to_string());
+        args.graph = Some("0-1,1-2,2-3,3-5,4-5,0-3,1-5".to_string());
+        args.arc_costs = Some("3,4,2,5,3".to_string());
+        args.edge_lengths = Some("2,1,3,2,1,4,3".to_string());
+        args.bound = Some(20);
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("--num-vertices (5) is too small for the arcs"));
     }
 
     #[test]

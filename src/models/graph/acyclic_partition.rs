@@ -178,7 +178,10 @@ where
     }
 }
 
-impl<W> SatisfactionProblem for AcyclicPartition<W> where W: WeightElement + crate::variant::VariantParam {}
+impl<W> SatisfactionProblem for AcyclicPartition<W> where
+    W: WeightElement + crate::variant::VariantParam
+{
+}
 
 fn is_valid_acyclic_partition<W: WeightElement>(
     graph: &DirectedGraph,

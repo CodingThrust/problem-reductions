@@ -133,6 +133,24 @@ fn test_show_balanced_complete_bipartite_subgraph_complexity() {
 }
 
 #[test]
+fn test_create_stacker_crane_schema_help_uses_documented_flags() {
+    let output = pred().args(["create", "StackerCrane"]).output().unwrap();
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("StackerCrane"), "stderr: {stderr}");
+    assert!(stderr.contains("--arcs"), "stderr: {stderr}");
+    assert!(stderr.contains("--graph"), "stderr: {stderr}");
+    assert!(stderr.contains("--arc-costs"), "stderr: {stderr}");
+    assert!(stderr.contains("--edge-lengths"), "stderr: {stderr}");
+    assert!(stderr.contains("--bound"), "stderr: {stderr}");
+    assert!(stderr.contains("--num-vertices"), "stderr: {stderr}");
+    assert!(!stderr.contains("--biedges"), "stderr: {stderr}");
+    assert!(!stderr.contains("--arc-lengths"), "stderr: {stderr}");
+    assert!(!stderr.contains("--edge-weights"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_solve_balanced_complete_bipartite_subgraph_suggests_bruteforce() {
     let tmp = std::env::temp_dir().join("pred_test_bcbs_problem.json");
     let create = pred()
@@ -1980,8 +1998,14 @@ fn test_create_acyclic_partition() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "AcyclicPartition");
     assert_eq!(json["variant"]["weight"], "i32");
-    assert_eq!(json["data"]["vertex_weights"], serde_json::json!([2, 3, 2, 1, 3, 1]));
-    assert_eq!(json["data"]["arc_costs"], serde_json::json!([1, 1, 1, 1, 1, 1, 1, 1]));
+    assert_eq!(
+        json["data"]["vertex_weights"],
+        serde_json::json!([2, 3, 2, 1, 3, 1])
+    );
+    assert_eq!(
+        json["data"]["arc_costs"],
+        serde_json::json!([1, 1, 1, 1, 1, 1, 1, 1])
+    );
     assert_eq!(json["data"]["weight_bound"], 5);
     assert_eq!(json["data"]["cost_bound"], 5);
 }
@@ -2043,6 +2067,121 @@ fn test_create_model_example_acyclic_partition_round_trips_into_solve() {
     );
 
     std::fs::remove_file(&path).ok();
+}
+
+#[test]
+fn test_create_mixed_chinese_postman() {
+    let output = pred()
+        .args([
+            "create",
+            "MixedChinesePostman",
+            "--graph",
+            "0-2,1-3,0-4,4-2",
+            "--arcs",
+            "0>1,1>2,2>3,3>0",
+            "--edge-weights",
+            "2,3,1,2",
+            "--arc-costs",
+            "2,3,1,4",
+            "--bound",
+            "24",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MixedChinesePostman");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["graph"]["num_vertices"], 5);
+    assert_eq!(json["data"]["arc_weights"], serde_json::json!([2, 3, 1, 4]));
+    assert_eq!(
+        json["data"]["edge_weights"],
+        serde_json::json!([2, 3, 1, 2])
+    );
+    assert_eq!(json["data"]["bound"], 24);
+}
+
+#[test]
+fn test_create_model_example_mixed_chinese_postman() {
+    let output = pred()
+        .args(["create", "--example", "MixedChinesePostman/i32"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MixedChinesePostman");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["bound"], 24);
+}
+
+#[test]
+fn test_create_mixed_chinese_postman_missing_arcs_shows_usage() {
+    let output = pred()
+        .args([
+            "create",
+            "MixedChinesePostman",
+            "--graph",
+            "0-2,1-3,0-4,4-2",
+            "--edge-weights",
+            "2,3,1,2",
+            "--arc-costs",
+            "2,3,1,4",
+            "--bound",
+            "24",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("MixedChinesePostman requires --arcs"),
+        "expected missing --arcs error, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("Usage: pred create MixedChinesePostman"),
+        "expected recovery usage hint, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_mixed_chinese_postman_rejects_edge_weight_length_mismatch() {
+    let output = pred()
+        .args([
+            "create",
+            "MixedChinesePostman",
+            "--graph",
+            "0-2,1-3,0-4,4-2",
+            "--arcs",
+            "0>1,1>2,2>3,3>0",
+            "--edge-weights",
+            "2,3",
+            "--arc-costs",
+            "2,3,1,4",
+            "--bound",
+            "24",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Expected 4 edge weight"),
+        "expected edge-weight mismatch diagnostic, got: {stderr}"
+    );
 }
 
 #[test]

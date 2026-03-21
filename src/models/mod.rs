@@ -19,14 +19,15 @@ pub use formula::{
 };
 pub use graph::{
     AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
-    BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
-    GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KClique,
-    KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths, LongestCircuit, MaxCut, MaximalIS,
-    MaximumClique, MaximumIndependentSet, MaximumMatching, MinMaxMulticenter,
-    MinimumCutIntoBoundedSets, MinimumDominatingSet, MinimumFeedbackArcSet,
-    MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover,
-    MultipleChoiceBranching, MultipleCopyFileAllocation, OptimalLinearArrangement,
-    PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman,
+    BottleneckTravelingSalesman, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
+    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
+    IsomorphicSpanningTree, KClique, KColoring, KthBestSpanningTree,
+    LengthBoundedDisjointPaths, LongestCircuit, MaxCut, MaximalIS, MaximumClique,
+    MaximumIndependentSet, MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets,
+    MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut,
+    MinimumSumMulticenter, MinimumVertexCover, MixedChinesePostman, MultipleChoiceBranching,
+    MultipleCopyFileAllocation, OptimalLinearArrangement, PartitionIntoPathsOfLength2,
+    PartitionIntoTriangles, RuralPostman,
     ShortestWeightConstrainedPath, SpinGlass, SteinerTree, SteinerTreeInGraphs,
     StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
     UndirectedTwoCommodityIntegralFlow,
@@ -40,7 +41,7 @@ pub use misc::{
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StackerCrane, StaffScheduling,
     StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, TimetableDesign,
 };
 pub use set::{

@@ -49,11 +49,11 @@ pub mod prelude {
     };
     pub use crate::models::graph::{
         AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover,
-        BiconnectivityAugmentation, BoundedComponentSpanningForest,
+        BiconnectivityAugmentation, BottleneckTravelingSalesman, BoundedComponentSpanningForest,
         DirectedTwoCommodityIntegralFlow, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
         HamiltonianPath, IsomorphicSpanningTree, KClique, KthBestSpanningTree,
-        LengthBoundedDisjointPaths, SpinGlass, SteinerTree, StrongConnectivityAugmentation,
-        SubgraphIsomorphism,
+        LengthBoundedDisjointPaths, MixedChinesePostman, SpinGlass, SteinerTree,
+        StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, LongestCircuit, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
@@ -73,8 +73,8 @@ pub mod prelude {
         SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
         SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
         SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
-        ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
-        SumOfSquaresPartition, Term, TimetableDesign,
+        ShortestCommonSupersequence, StackerCrane, StaffScheduling, StringToStringCorrection,
+        SubsetSum, SumOfSquaresPartition, Term, TimetableDesign,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,

@@ -81,6 +81,21 @@ fn test_find_model_example_staff_scheduling() {
 }
 
 #[test]
+fn test_find_model_example_stacker_crane() {
+    let problem = ProblemRef {
+        name: "StackerCrane".to_string(),
+        variant: BTreeMap::new(),
+    };
+
+    let example = find_model_example(&problem).expect("StackerCrane example should exist");
+    assert_eq!(example.problem, "StackerCrane");
+    assert_eq!(example.variant, problem.variant);
+    assert_eq!(example.optimal_config, vec![0, 2, 1, 4, 3]);
+    assert_eq!(example.instance["num_vertices"], 6);
+    assert_eq!(example.instance["bound"], 20);
+}
+
+#[test]
 fn test_find_model_example_multiprocessor_scheduling() {
     let problem = ProblemRef {
         name: "MultiprocessorScheduling".to_string(),
