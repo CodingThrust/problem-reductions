@@ -33,9 +33,9 @@ pub use graph::{
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
     AdditionalKey, BinPacking, CbqRelation, ConjunctiveBooleanQuery, ConjunctiveQueryFoldability,
-    ConsistencyOfDatabaseFrequencyTables, Factoring, FlowShopScheduling, Knapsack,
-    LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
-    Partition, PrecedenceConstrainedScheduling, QueryArg, RectilinearPictureCompression,
+    ConsistencyOfDatabaseFrequencyTables, EnsembleComputation, Factoring, FlowShopScheduling,
+    Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
+    PaintShop, Partition, PrecedenceConstrainedScheduling, QueryArg, RectilinearPictureCompression,
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,

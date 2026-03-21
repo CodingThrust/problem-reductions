@@ -66,7 +66,7 @@ pub mod prelude {
     pub use crate::models::misc::{
         AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation,
         ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables,
-        Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
+        EnsembleComputation, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
         MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, Partition, QueryArg,
         RectilinearPictureCompression, ResourceConstrainedScheduling,
         SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,

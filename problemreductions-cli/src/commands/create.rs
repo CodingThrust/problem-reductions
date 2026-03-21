@@ -18,9 +18,9 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
-    ConsistencyOfDatabaseFrequencyTables, FlowShopScheduling, FrequencyTable, KnownValue,
-    LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
-    PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
+    ConsistencyOfDatabaseFrequencyTables, EnsembleComputation, FlowShopScheduling, FrequencyTable,
+    KnownValue, LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
+    PaintShop, PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
@@ -500,6 +500,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
 
 fn cli_flag_name(field_name: &str) -> String {
     match field_name {
+        "universe_size" => "universe".to_string(),
         "vertex_weights" => "weights".to_string(),
         "edge_lengths" => "edge-weights".to_string(),
         _ => field_name.replace('_', "-"),
@@ -556,6 +557,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "HamiltonianCircuit" => "--graph 0-1,1-2,2-3,3-0",
+        "EnsembleComputation" => "--universe 4 --sets \"0,1,2;0,1,3\" --budget 4",
         "MinMaxMulticenter" => {
             "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 --bound 2"
         }
@@ -1993,6 +1995,31 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let weights = parse_set_weights(args, num_sets)?;
             (
                 ser(MinimumSetCovering::with_weights(universe, sets, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // EnsembleComputation
+        "EnsembleComputation" => {
+            let usage =
+                "Usage: pred create EnsembleComputation --universe 4 --sets \"0,1,2;0,1,3\" --budget 4";
+            let universe_size = args.universe.ok_or_else(|| {
+                anyhow::anyhow!("EnsembleComputation requires --universe\n\n{usage}")
+            })?;
+            let subsets = parse_sets(args)?;
+            let budget = args
+                .budget
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("EnsembleComputation requires --budget\n\n{usage}"))?
+                .parse::<usize>()
+                .map_err(|e| {
+                    anyhow::anyhow!(
+                        "Invalid --budget value for EnsembleComputation: {e}\n\n{usage}"
+                    )
+                })?;
+            (
+                ser(EnsembleComputation::try_new(universe_size, subsets, budget)
+                    .map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
         }
@@ -5889,6 +5916,37 @@ mod tests {
         assert_eq!(problem.num_vertices(), 3);
         assert_eq!(problem.potential_weights(), &[(1, 2, 1)]);
         assert_eq!(problem.budget(), &1);
+
+        std::fs::remove_file(output_path).ok();
+    }
+
+    #[test]
+    fn test_create_ensemble_computation_json() {
+        let mut args = empty_args();
+        args.problem = Some("EnsembleComputation".to_string());
+        args.universe = Some(4);
+        args.sets = Some("0,1,2;0,1,3".to_string());
+        args.budget = Some("4".to_string());
+
+        let output_path = std::env::temp_dir().join("pred_test_create_ensemble_computation.json");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let content = std::fs::read_to_string(&output_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(json["type"], "EnsembleComputation");
+        assert_eq!(json["data"]["universe_size"], 4);
+        assert_eq!(
+            json["data"]["subsets"],
+            serde_json::json!([[0, 1, 2], [0, 1, 3]])
+        );
+        assert_eq!(json["data"]["budget"], 4);
 
         std::fs::remove_file(output_path).ok();
     }

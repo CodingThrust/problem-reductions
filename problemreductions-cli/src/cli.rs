@@ -244,6 +244,7 @@ Flags by problem type:
   MaximumSetPacking               --sets [--weights]
   MinimumHittingSet               --universe, --sets
   MinimumSetCovering              --universe, --sets [--weights]
+  EnsembleComputation             --universe, --sets, --budget
   ComparativeContainment          --universe, --r-sets, --s-sets [--r-weights] [--s-weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   SetBasis                        --universe, --sets, --k

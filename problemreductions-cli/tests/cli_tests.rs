@@ -7489,6 +7489,97 @@ fn test_create_sequencing_within_intervals() {
 }
 
 #[test]
+fn test_create_ensemble_computation() {
+    let output_file = std::env::temp_dir().join("pred_test_create_ensemble_computation.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "EnsembleComputation",
+            "--universe",
+            "4",
+            "--sets",
+            "0,1,2;0,1,3",
+            "--budget",
+            "4",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "EnsembleComputation");
+    assert_eq!(json["data"]["universe_size"], 4);
+    assert_eq!(
+        json["data"]["subsets"],
+        serde_json::json!([[0, 1, 2], [0, 1, 3]])
+    );
+    assert_eq!(json["data"]["budget"], 4);
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_ensemble_computation_no_flags_uses_cli_flag_names() {
+    let output = pred()
+        .args(["create", "EnsembleComputation"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "problem-specific help should exit non-zero"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--universe"),
+        "expected --universe in help, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--sets"),
+        "expected --sets in help, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--budget"),
+        "expected --budget in help, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--universe-size"),
+        "help should use actual CLI flags, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_ensemble_computation_rejects_out_of_range_elements_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "EnsembleComputation",
+            "--universe",
+            "4",
+            "--sets",
+            "0,1,5",
+            "--budget",
+            "4",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "expected graceful CLI error, got panic: {stderr}"
+    );
+    assert!(
+        stderr.contains("outside universe") || stderr.contains("universe of size"),
+        "expected out-of-range subset error, got: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_scheduling_with_individual_deadlines_with_m_alias() {
     let output_file =
         std::env::temp_dir().join("pred_test_create_scheduling_with_individual_deadlines.json");
@@ -7634,6 +7725,22 @@ fn test_create_model_example_sequencing_within_intervals() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "SequencingWithinIntervals");
+}
+
+#[test]
+fn test_create_model_example_ensemble_computation() {
+    let output = pred()
+        .args(["create", "--example", "EnsembleComputation"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "EnsembleComputation");
 }
 
 #[test]
