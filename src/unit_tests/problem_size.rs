@@ -218,11 +218,3 @@ fn test_problem_size_set_covering() {
     assert_eq!(size.get("num_sets"), Some(3));
     assert_eq!(size.get("universe_size"), Some(4));
 }
-
-#[test]
-fn test_problem_size_minimum_hitting_set() {
-    let hs = MinimumHittingSet::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
-    let size = problem_size(&hs);
-    assert_eq!(size.get("num_sets"), Some(3));
-    assert_eq!(size.get("universe_size"), Some(4));
-}

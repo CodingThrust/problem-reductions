@@ -1,7 +1,8 @@
 use super::*;
+use crate::registry::declared_size_fields;
 use crate::solvers::{BruteForce, Solver};
-use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use std::collections::HashSet;
 
 fn issue_example_problem() -> MinimumHittingSet {
@@ -110,6 +111,22 @@ fn test_minimum_hitting_set_paper_example_consistency() {
     let problem = issue_example_problem();
 
     assert_eq!(problem.evaluate(&issue_example_config()), SolutionSize::Valid(3));
+}
+
+#[test]
+fn test_minimum_hitting_set_direction() {
+    let problem = MinimumHittingSet::new(3, vec![vec![0, 1], vec![1, 2]]);
+    assert_eq!(problem.direction(), Direction::Minimize);
+}
+
+#[test]
+fn test_minimum_hitting_set_declares_problem_size_fields() {
+    let fields: HashSet<&'static str> =
+        declared_size_fields("MinimumHittingSet").into_iter().collect();
+    assert_eq!(
+        fields,
+        HashSet::from(["num_sets", "universe_size"]),
+    );
 }
 
 #[cfg(feature = "example-db")]
