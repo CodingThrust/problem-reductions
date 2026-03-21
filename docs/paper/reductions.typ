@@ -96,6 +96,7 @@
   "KSatisfiability": [$k$-SAT],
   "CircuitSAT": [CircuitSAT],
   "ConjunctiveQueryFoldability": [Conjunctive Query Foldability],
+  "EnsembleComputation": [Ensemble Computation],
   "Factoring": [Factoring],
   "KingsSubgraph": [King's Subgraph MIS],
   "TriangularSubgraph": [Triangular Subgraph MIS],
@@ -2545,6 +2546,56 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     }),
     caption: [Conjunctive Query Foldability example. Left: query $Q_1$ — directed triangle $(x, u, v)$ with self-loop on $u$. Right: query $Q_2$ — lollipop with node $a$ having a self-loop and two edges to $x$. The substitution $sigma: u |-> a, v |-> a$ (with $a |-> a$) folds $Q_1$ into $Q_2$.],
   ) <fig:cqf-example>
+]
+
+#problem-def("EnsembleComputation")[
+  Given a finite set $A$, a collection $C$ of subsets of $A$, and a positive integer $J$, determine whether there exists a sequence $S = (z_1 <- x_1 union y_1, z_2 <- x_2 union y_2, dots, z_j <- x_j union y_j)$ of $j <= J$ union operations such that each operand $x_i, y_i$ is either a singleton ${a}$ for some $a in A$ or a previously computed set $z_k$ with $k < i$, the two operands are disjoint for every step, and every target subset $c in C$ is equal to some computed set $z_i$.
+][
+  Ensemble Computation is problem PO9 in Garey and Johnson @garey1979. It can be viewed as monotone circuit synthesis over set union: each operation introduces one reusable intermediate set, and the objective is simply to realize all targets within the given budget. The implementation in this library uses $2J$ operand variables with domain size $|A| + J$ and accepts as soon as some valid prefix has produced every target set, so the original "$j <= J$" semantics are preserved under brute-force enumeration. The resulting search space yields a straightforward exact upper bound of $(|A| + J)^(2J)$. Järvisalo, Kaski, Koivisto, and Korhonen study SAT encodings for finding efficient ensemble computations in a monotone-circuit setting @jarvisalo2012.
+
+  *Example.* Let $A = {0, 1, 2, 3}$, $C = {{0, 1, 2}, {0, 1, 3}}$, and $J = 4$. A satisfying witness uses three essential unions:
+  $z_1 = {0} union {1} = {0, 1}$,
+  $z_2 = z_1 union {2} = {0, 1, 2}$, and
+  $z_3 = z_1 union {3} = {0, 1, 3}$.
+  Thus both target subsets appear among the computed $z_i$ values while staying within the budget.
+
+  #figure(
+    canvas(length: 1cm, {
+      import draw: *
+      let node(pos, label, name, fill) = {
+        rect(
+          (pos.at(0) - 0.45, pos.at(1) - 0.18),
+          (pos.at(0) + 0.45, pos.at(1) + 0.18),
+          radius: 0.08,
+          fill: fill,
+          stroke: 0.5pt + luma(140),
+          name: name,
+        )
+        content(name, text(7pt, label))
+      }
+
+      let base = rgb("#4e79a7").transparentize(78%)
+      let target = rgb("#59a14f").transparentize(72%)
+      let aux = rgb("#f28e2b").transparentize(74%)
+
+      node((0.0, 1.4), [\{0\}], "a0", base)
+      node((1.2, 1.4), [\{1\}], "a1", base)
+      node((2.4, 1.4), [\{2\}], "a2", base)
+      node((3.6, 1.4), [\{3\}], "a3", base)
+
+      node((0.6, 0.6), [$z_1 = \{0,1\}$], "z1", aux)
+      node((1.8, -0.2), [$z_2 = \{0,1,2\}$], "z2", target)
+      node((3.0, -0.2), [$z_3 = \{0,1,3\}$], "z3", target)
+
+      line("a0.south", "z1.north-west", stroke: 0.5pt + luma(120), mark: (end: "straight", scale: 0.4))
+      line("a1.south", "z1.north-east", stroke: 0.5pt + luma(120), mark: (end: "straight", scale: 0.4))
+      line("z1.south-west", "z2.north-west", stroke: 0.5pt + luma(120), mark: (end: "straight", scale: 0.4))
+      line("a2.south", "z2.north-east", stroke: 0.5pt + luma(120), mark: (end: "straight", scale: 0.4))
+      line("z1.south-east", "z3.north-west", stroke: 0.5pt + luma(120), mark: (end: "straight", scale: 0.4))
+      line("a3.south", "z3.north-east", stroke: 0.5pt + luma(120), mark: (end: "straight", scale: 0.4))
+    }),
+    caption: [An ensemble computation for $A = {0,1,2,3}$ and $C = {{0,1,2}, {0,1,3}}$. The intermediate set $z_1 = {0,1}$ is reused to produce both target subsets.],
+  ) <fig:ensemble-computation>
 ]
 
 #{

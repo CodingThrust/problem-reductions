@@ -242,6 +242,7 @@ Flags by problem type:
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumSetCovering              --universe, --sets [--weights]
+  EnsembleComputation             --universe, --sets, --budget
   ComparativeContainment          --universe, --r-sets, --s-sets [--r-weights] [--s-weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   SetBasis                        --universe, --sets, --k
