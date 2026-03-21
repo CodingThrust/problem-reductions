@@ -763,11 +763,7 @@ impl McpServer {
         let mut targets: Vec<String> = outgoing.iter().map(|e| e.target_name.to_string()).collect();
         targets.sort();
         targets.dedup();
-        let solvers = if problem.supports_ilp_solver() {
-            vec!["ilp", "brute-force"]
-        } else {
-            vec!["brute-force"]
-        };
+        let solvers = problem.available_solvers();
 
         let result = serde_json::json!({
             "kind": "problem",
@@ -1372,8 +1368,8 @@ fn parse_edge_lengths_from_params(
     params: &serde_json::Value,
     num_edges: usize,
 ) -> anyhow::Result<Vec<i32>> {
-    match params.get("edge_lengths") {
-        Some(serde_json::Value::String(w)) => {
+    match params.get("edge_lengths").and_then(|v| v.as_str()) {
+        Some(w) => {
             let lengths: Vec<i32> = w
                 .split(',')
                 .map(|s| s.trim().parse::<i32>())
@@ -1386,30 +1382,6 @@ fn parse_edge_lengths_from_params(
                 );
             }
             Ok(lengths)
-        }
-        Some(serde_json::Value::Array(values)) => {
-            let lengths: Vec<i32> = values
-                .iter()
-                .map(|value| {
-                    let raw = value.as_i64().ok_or_else(|| {
-                        anyhow::anyhow!("edge_lengths array must contain only integers")
-                    })?;
-                    i32::try_from(raw).map_err(|_| {
-                        anyhow::anyhow!("edge_lengths values must fit in i32 (got {raw})")
-                    })
-                })
-                .collect::<anyhow::Result<Vec<_>>>()?;
-            if lengths.len() != num_edges {
-                anyhow::bail!(
-                    "Expected {} edge lengths but got {}",
-                    num_edges,
-                    lengths.len()
-                );
-            }
-            Ok(lengths)
-        }
-        Some(_) => {
-            anyhow::bail!("edge_lengths must be a comma-separated string or array of integers")
         }
         None => Ok(vec![1i32; num_edges]),
     }

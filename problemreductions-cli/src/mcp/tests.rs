@@ -229,21 +229,6 @@ mod tests {
     }
 
     #[test]
-    fn test_create_problem_longest_circuit_accepts_edge_lengths_array() {
-        let server = McpServer::new();
-        let params = serde_json::json!({
-            "edges": "0-1,1-2,2-0",
-            "edge_lengths": [2, 3, 4],
-            "bound": 3
-        });
-        let result = server.create_problem_inner("LongestCircuit", &params);
-        assert!(result.is_ok());
-        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        assert_eq!(json["type"], "LongestCircuit");
-        assert_eq!(json["data"]["edge_lengths"], serde_json::json!([2, 3, 4]));
-    }
-
-    #[test]
     fn test_create_problem_longest_circuit_random() {
         let server = McpServer::new();
         let params = serde_json::json!({

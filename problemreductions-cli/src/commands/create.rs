@@ -1564,14 +1564,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!("LongestCircuit requires --bound\n\nUsage: {usage}")
             })?;
-            let bound = i32::try_from(bound).map_err(|_| {
-                anyhow::anyhow!(
-                    "LongestCircuit --bound must fit in i32 (got {bound})\n\nUsage: {usage}"
-                )
-            })?;
-            if bound <= 0 {
-                bail!("LongestCircuit --bound must be positive (> 0)");
-            }
+            let bound = validate_longest_circuit_bound(bound, Some(usage))?;
             (
                 ser(LongestCircuit::new(graph, edge_lengths, bound))?,
                 resolved_variant.clone(),
