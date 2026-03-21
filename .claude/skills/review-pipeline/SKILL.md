@@ -186,7 +186,7 @@ Invoke `/review-quality` (file: `.claude/skills/review-quality/SKILL.md`) with t
    - Classify as: `confirmed` / `not reproducible in current worktree`
    - For confirmed issues, note severity and recommended fix
 
-**Do NOT fix any issues.** Only report them.
+**Do NOT fix any issues.** Only report them. When dispatching the agentic-test subagent, explicitly instruct it: "This is a read-only review run. Do NOT offer to fix issues, do NOT select option (a) 'Review together and fix', and do NOT modify any files. Report findings only and stop after generating the report."
 
 ### 2. Compose Combined Review Comment
 

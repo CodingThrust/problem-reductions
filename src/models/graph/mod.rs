@@ -12,6 +12,7 @@
 //! - [`MinimumCutIntoBoundedSets`]: Minimum cut into bounded sets (Garey & Johnson ND17)
 //! - [`HamiltonianCircuit`]: Hamiltonian circuit (decision problem)
 //! - [`IsomorphicSpanningTree`]: Isomorphic spanning tree (satisfaction)
+//! - [`KClique`]: Clique decision problem with threshold k
 //! - [`KthBestSpanningTree`]: K distinct bounded spanning trees (satisfaction)
 //! - [`KColoring`]: K-vertex coloring
 //! - [`PartitionIntoTriangles`]: Partition vertices into triangles
@@ -51,6 +52,7 @@ pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_circuit;
 pub(crate) mod hamiltonian_path;
 pub(crate) mod isomorphic_spanning_tree;
+pub(crate) mod kclique;
 pub(crate) mod kcoloring;
 pub(crate) mod kth_best_spanning_tree;
 pub(crate) mod length_bounded_disjoint_paths;
@@ -92,6 +94,7 @@ pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_circuit::HamiltonianCircuit;
 pub use hamiltonian_path::HamiltonianPath;
 pub use isomorphic_spanning_tree::IsomorphicSpanningTree;
+pub use kclique::KClique;
 pub use kcoloring::KColoring;
 pub use kth_best_spanning_tree::KthBestSpanningTree;
 pub use length_bounded_disjoint_paths::LengthBoundedDisjointPaths;
@@ -133,6 +136,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(hamiltonian_circuit::canonical_model_example_specs());
     specs.extend(hamiltonian_path::canonical_model_example_specs());
     specs.extend(isomorphic_spanning_tree::canonical_model_example_specs());
+    specs.extend(kclique::canonical_model_example_specs());
     specs.extend(kcoloring::canonical_model_example_specs());
     specs.extend(kth_best_spanning_tree::canonical_model_example_specs());
     specs.extend(length_bounded_disjoint_paths::canonical_model_example_specs());

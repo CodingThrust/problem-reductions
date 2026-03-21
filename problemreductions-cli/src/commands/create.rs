@@ -18,13 +18,14 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
-    FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, QueryArg,
-    RectilinearPictureCompression, ResourceConstrainedScheduling,
-    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
+    ConsistencyOfDatabaseFrequencyTables, FlowShopScheduling, FrequencyTable, KnownValue,
+    LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+    PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
+    ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
+    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
+    SumOfSquaresPartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -127,6 +128,11 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.schedules.is_none()
         && args.requirements.is_none()
         && args.num_workers.is_none()
+        && args.num_periods.is_none()
+        && args.num_craftsmen.is_none()
+        && args.num_tasks.is_none()
+        && args.craftsman_avail.is_none()
+        && args.task_avail.is_none()
         && args.alphabet_size.is_none()
         && args.num_groups.is_none()
         && args.dependencies.is_none()
@@ -144,6 +150,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.dependencies.is_none()
         && args.relation_attrs.is_none()
         && args.known_keys.is_none()
+        && args.num_objects.is_none()
+        && args.attribute_domains.is_none()
+        && args.frequency_tables.is_none()
+        && args.known_values.is_none()
         && args.domain_size.is_none()
         && args.relations.is_none()
         && args.conjuncts_spec.is_none()
@@ -190,6 +200,126 @@ fn ensure_attribute_indices_in_range(
         );
     }
     Ok(())
+}
+
+fn parse_cdft_frequency_tables(
+    raw: &str,
+    attribute_domains: &[usize],
+    num_objects: usize,
+) -> Result<Vec<FrequencyTable>> {
+    let num_attributes = attribute_domains.len();
+    let mut seen_pairs = BTreeSet::new();
+
+    raw.split(';')
+        .filter(|entry| !entry.trim().is_empty())
+        .map(|entry| {
+            let (pair_str, counts_str) = entry.trim().split_once(':').ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Invalid frequency table '{entry}', expected 'a,b:row0|row1|...'"
+                )
+            })?;
+            let pair: Vec<usize> = util::parse_comma_list(pair_str.trim())?;
+            anyhow::ensure!(
+                pair.len() == 2,
+                "Frequency table '{entry}' must start with exactly two attribute indices"
+            );
+
+            let attribute_a = pair[0];
+            let attribute_b = pair[1];
+            ensure_attribute_indices_in_range(
+                &[attribute_a, attribute_b],
+                num_attributes,
+                &format!("Frequency table '{entry}'"),
+            )?;
+            anyhow::ensure!(
+                attribute_a != attribute_b,
+                "Frequency table '{entry}' must use two distinct attributes"
+            );
+
+            let pair_key = if attribute_a < attribute_b {
+                (attribute_a, attribute_b)
+            } else {
+                (attribute_b, attribute_a)
+            };
+            anyhow::ensure!(
+                seen_pairs.insert(pair_key),
+                "Duplicate frequency table pair ({}, {})",
+                pair_key.0,
+                pair_key.1
+            );
+
+            let rows: Vec<Vec<usize>> = counts_str
+                .split('|')
+                .map(|row| util::parse_comma_list(row.trim()))
+                .collect::<Result<_>>()?;
+
+            let expected_rows = attribute_domains[attribute_a];
+            anyhow::ensure!(
+                rows.len() == expected_rows,
+                "Frequency table '{entry}' has {} rows but attribute {attribute_a} has domain size {expected_rows}",
+                rows.len()
+            );
+
+            let expected_cols = attribute_domains[attribute_b];
+            for (row_index, row) in rows.iter().enumerate() {
+                anyhow::ensure!(
+                    row.len() == expected_cols,
+                    "Frequency table '{entry}' row {row_index} has {} columns but attribute {attribute_b} has domain size {expected_cols}",
+                    row.len()
+                );
+            }
+
+            let total: usize = rows.iter().flatten().copied().sum();
+            anyhow::ensure!(
+                total == num_objects,
+                "Frequency table '{entry}' sums to {total}, expected num_objects={num_objects}"
+            );
+
+            Ok(FrequencyTable::new(attribute_a, attribute_b, rows))
+        })
+        .collect()
+}
+
+fn parse_cdft_known_values(
+    raw: Option<&str>,
+    num_objects: usize,
+    attribute_domains: &[usize],
+) -> Result<Vec<KnownValue>> {
+    let num_attributes = attribute_domains.len();
+    match raw {
+        None => Ok(vec![]),
+        Some(s) if s.trim().is_empty() => Ok(vec![]),
+        Some(s) => s
+            .split(';')
+            .filter(|entry| !entry.trim().is_empty())
+            .map(|entry| {
+                let triple: Vec<usize> = util::parse_comma_list(entry.trim())?;
+                anyhow::ensure!(
+                    triple.len() == 3,
+                    "Known value '{entry}' must be an 'object,attribute,value' triple"
+                );
+                let object = triple[0];
+                let attribute = triple[1];
+                let value = triple[2];
+
+                anyhow::ensure!(
+                    object < num_objects,
+                    "Known value '{entry}' has object index {object} out of range for num_objects={num_objects}"
+                );
+                anyhow::ensure!(
+                    attribute < num_attributes,
+                    "Known value '{entry}' has attribute index {attribute} out of range for {num_attributes} attributes"
+                );
+                let domain_size = attribute_domains[attribute];
+                anyhow::ensure!(
+                    value < domain_size,
+                    "Known value '{entry}' has value {value} out of range for attribute {attribute} with domain size {domain_size}"
+                );
+
+                Ok(KnownValue::new(object, attribute, value))
+            })
+            .collect(),
+    }
 }
 
 fn resolve_example_problem_ref(
@@ -385,6 +515,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             Some("UnitDiskGraph") => "--positions \"0,0;1,0;0.5,0.8\" --radius 1.5",
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
+        "KClique" => "--graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3",
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
         "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
         "MinimumCutIntoBoundedSets" => {
@@ -440,6 +571,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "StaffScheduling" => {
             "--schedules \"1,1,1,1,1,0,0;0,1,1,1,1,1,0;0,0,1,1,1,1,1;1,0,0,1,1,1,1;1,1,0,0,1,1,1\" --requirements 2,2,2,3,3,2,1 --num-workers 4 --k 5"
         }
+        "TimetableDesign" => {
+            "--num-periods 3 --num-craftsmen 5 --num-tasks 5 --craftsman-avail \"1,1,1;1,1,0;0,1,1;1,0,1;1,1,1\" --task-avail \"1,1,0;0,1,1;1,0,1;1,1,1;1,1,1\" --requirements \"1,0,1,0,0;0,1,0,0,1;0,0,0,1,0;0,0,0,0,1;0,1,0,0,0\""
+        }
         "SteinerTree" => "--graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4",
         "MultipleCopyFileAllocation" => {
             MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS
@@ -459,6 +593,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
         }
         "AdditionalKey" => "--num-attributes 6 --dependencies \"0,1:2,3;2,3:4,5;4,5:0,1\" --relation-attrs 0,1,2,3,4,5 --known-keys \"0,1;2,3;4,5\"",
+        "ConsistencyOfDatabaseFrequencyTables" => {
+            "--num-objects 6 --attribute-domains \"2,3,2\" --frequency-tables \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\" --known-values \"0,0,0;3,0,1;1,2,1\""
+        }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "RectilinearPictureCompression" => {
             "--matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --bound 2"
@@ -528,6 +665,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
         ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
         ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
+        ("TimetableDesign", "num_tasks") => return "num-tasks".to_string(),
         _ => {}
     }
     // Edge-weight problems use --edge-weights instead of --weights
@@ -588,7 +726,20 @@ fn help_flag_hint(
         }
         ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
+        ("ConsistencyOfDatabaseFrequencyTables", "attribute_domains") => {
+            "comma-separated domain sizes: 2,3,2"
+        }
+        ("ConsistencyOfDatabaseFrequencyTables", "frequency_tables") => {
+            "semicolon-separated tables: \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\""
+        }
+        ("ConsistencyOfDatabaseFrequencyTables", "known_values") => {
+            "semicolon-separated triples: \"0,0,0;3,0,1;1,2,1\""
+        }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
+            "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
+        }
+        ("TimetableDesign", "requirements") => "semicolon-separated rows: \"1,0,1;0,1,0\"",
         _ => type_format_hint(type_name, graph_type),
     }
 }
@@ -1376,6 +1527,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             util::ser_kcoloring(graph, k)?
         }
 
+        "KClique" => {
+            let usage = "Usage: pred create KClique --graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let k = parse_kclique_threshold(args.k, graph.num_vertices(), usage)?;
+            (ser(KClique::new(graph, k))?, resolved_variant.clone())
+        }
+
         // SAT
         "Satisfiability" => {
             let num_vars = args.num_vars.ok_or_else(|| {
@@ -1671,6 +1829,52 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        "ConsistencyOfDatabaseFrequencyTables" => {
+            let usage = "Usage: pred create ConsistencyOfDatabaseFrequencyTables --num-objects 6 --attribute-domains \"2,3,2\" --frequency-tables \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\" --known-values \"0,0,0;3,0,1;1,2,1\"";
+            let num_objects = args.num_objects.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ConsistencyOfDatabaseFrequencyTables requires --num-objects\n\n{usage}"
+                )
+            })?;
+            let attribute_domains_str = args.attribute_domains.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ConsistencyOfDatabaseFrequencyTables requires --attribute-domains\n\n{usage}"
+                )
+            })?;
+            let frequency_tables_str = args.frequency_tables.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ConsistencyOfDatabaseFrequencyTables requires --frequency-tables\n\n{usage}"
+                )
+            })?;
+
+            let attribute_domains: Vec<usize> = util::parse_comma_list(attribute_domains_str)?;
+            for (index, &domain_size) in attribute_domains.iter().enumerate() {
+                anyhow::ensure!(
+                    domain_size > 0,
+                    "attribute domain at index {index} must be positive\n\n{usage}"
+                );
+            }
+            let frequency_tables =
+                parse_cdft_frequency_tables(frequency_tables_str, &attribute_domains, num_objects)
+                    .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let known_values = parse_cdft_known_values(
+                args.known_values.as_deref(),
+                num_objects,
+                &attribute_domains,
+            )
+            .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+
+            (
+                ser(ConsistencyOfDatabaseFrequencyTables::new(
+                    num_objects,
+                    attribute_domains,
+                    frequency_tables,
+                    known_values,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // SubsetSum
         "SubsetSum" => {
             let sizes_str = args.sizes.as_deref().ok_or_else(|| {
@@ -1740,6 +1944,33 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let weights = parse_set_weights(args, num_sets)?;
             (
                 ser(MaximumSetPacking::with_weights(sets, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumHittingSet
+        "MinimumHittingSet" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumHittingSet requires --universe and --sets\n\n\
+                     Usage: pred create MinimumHittingSet --universe 6 --sets \"0,1,2;0,3,4;1,3,5;2,4,5;0,1,5;2,3;1,4\""
+                )
+            })?;
+            let sets = parse_sets(args)?;
+            for (i, set) in sets.iter().enumerate() {
+                for &element in set {
+                    if element >= universe {
+                        bail!(
+                            "Set {} contains element {} which is outside universe of size {}",
+                            i,
+                            element,
+                            universe
+                        );
+                    }
+                }
+            }
+            (
+                ser(MinimumHittingSet::new(universe, sets))?,
                 resolved_variant.clone(),
             )
         }
@@ -2629,6 +2860,46 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // TimetableDesign
+        "TimetableDesign" => {
+            let usage = "Usage: pred create TimetableDesign --num-periods 3 --num-craftsmen 5 --num-tasks 5 --craftsman-avail \"1,1,1;1,1,0;0,1,1;1,0,1;1,1,1\" --task-avail \"1,1,0;0,1,1;1,0,1;1,1,1;1,1,1\" --requirements \"1,0,1,0,0;0,1,0,0,1;0,0,0,1,0;0,0,0,0,1;0,1,0,0,0\"";
+            let num_periods = args.num_periods.ok_or_else(|| {
+                anyhow::anyhow!("TimetableDesign requires --num-periods\n\n{usage}")
+            })?;
+            let num_craftsmen = args.num_craftsmen.ok_or_else(|| {
+                anyhow::anyhow!("TimetableDesign requires --num-craftsmen\n\n{usage}")
+            })?;
+            let num_tasks = args.num_tasks.ok_or_else(|| {
+                anyhow::anyhow!("TimetableDesign requires --num-tasks\n\n{usage}")
+            })?;
+            let craftsman_avail =
+                parse_named_bool_rows(args.craftsman_avail.as_deref(), "--craftsman-avail", usage)?;
+            let task_avail =
+                parse_named_bool_rows(args.task_avail.as_deref(), "--task-avail", usage)?;
+            let requirements = parse_timetable_requirements(args.requirements.as_deref(), usage)?;
+            validate_timetable_design_args(
+                num_periods,
+                num_craftsmen,
+                num_tasks,
+                &craftsman_avail,
+                &task_avail,
+                &requirements,
+                usage,
+            )?;
+
+            (
+                ser(TimetableDesign::new(
+                    num_periods,
+                    num_craftsmen,
+                    num_tasks,
+                    craftsman_avail,
+                    task_avail,
+                    requirements,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // DirectedTwoCommodityIntegralFlow
         "DirectedTwoCommodityIntegralFlow" => {
             let arcs_str = args.arcs.as_deref().ok_or_else(|| {
@@ -3403,6 +3674,21 @@ fn ser<T: Serialize>(problem: T) -> Result<serde_json::Value> {
     util::ser(problem)
 }
 
+fn parse_kclique_threshold(
+    k_flag: Option<usize>,
+    num_vertices: usize,
+    usage: &str,
+) -> Result<usize> {
+    let k = k_flag.ok_or_else(|| anyhow::anyhow!("KClique requires --k\n\n{usage}"))?;
+    if k == 0 {
+        bail!("KClique: --k must be positive");
+    }
+    if k > num_vertices {
+        bail!("KClique: k must be <= graph num_vertices");
+    }
+    Ok(k)
+}
+
 fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
     util::variant_map(pairs)
 }
@@ -4122,6 +4408,97 @@ fn validate_staff_scheduling_args(
     Ok(())
 }
 
+fn parse_named_bool_rows(rows: Option<&str>, flag: &str, usage: &str) -> Result<Vec<Vec<bool>>> {
+    let rows = rows.ok_or_else(|| anyhow::anyhow!("TimetableDesign requires {flag}\n\n{usage}"))?;
+    parse_bool_rows(rows).map_err(|err| {
+        let message = err.to_string().replace("--matrix", flag);
+        anyhow::anyhow!("{message}\n\n{usage}")
+    })
+}
+
+fn parse_timetable_requirements(requirements: Option<&str>, usage: &str) -> Result<Vec<Vec<u64>>> {
+    let requirements = requirements
+        .ok_or_else(|| anyhow::anyhow!("TimetableDesign requires --requirements\n\n{usage}"))?;
+    let matrix: Vec<Vec<u64>> = requirements
+        .split(';')
+        .map(|row| util::parse_comma_list(row.trim()))
+        .collect::<Result<_>>()?;
+
+    if let Some(expected_width) = matrix.first().map(Vec::len) {
+        anyhow::ensure!(
+            matrix.iter().all(|row| row.len() == expected_width),
+            "All rows in --requirements must have the same length"
+        );
+    }
+
+    Ok(matrix)
+}
+
+fn validate_timetable_design_args(
+    num_periods: usize,
+    num_craftsmen: usize,
+    num_tasks: usize,
+    craftsman_avail: &[Vec<bool>],
+    task_avail: &[Vec<bool>],
+    requirements: &[Vec<u64>],
+    usage: &str,
+) -> Result<()> {
+    anyhow::ensure!(
+        craftsman_avail.len() == num_craftsmen,
+        "craftsman availability row count ({}) must equal num_craftsmen ({})\n\n{}",
+        craftsman_avail.len(),
+        num_craftsmen,
+        usage
+    );
+    anyhow::ensure!(
+        task_avail.len() == num_tasks,
+        "task availability row count ({}) must equal num_tasks ({})\n\n{}",
+        task_avail.len(),
+        num_tasks,
+        usage
+    );
+    anyhow::ensure!(
+        requirements.len() == num_craftsmen,
+        "requirements row count ({}) must equal num_craftsmen ({})\n\n{}",
+        requirements.len(),
+        num_craftsmen,
+        usage
+    );
+
+    for (index, row) in craftsman_avail.iter().enumerate() {
+        anyhow::ensure!(
+            row.len() == num_periods,
+            "craftsman availability row {} has {} periods, expected {}\n\n{}",
+            index,
+            row.len(),
+            num_periods,
+            usage
+        );
+    }
+    for (index, row) in task_avail.iter().enumerate() {
+        anyhow::ensure!(
+            row.len() == num_periods,
+            "task availability row {} has {} periods, expected {}\n\n{}",
+            index,
+            row.len(),
+            num_periods,
+            usage
+        );
+    }
+    for (index, row) in requirements.iter().enumerate() {
+        anyhow::ensure!(
+            row.len() == num_tasks,
+            "requirements row {} has {} tasks, expected {}\n\n{}",
+            index,
+            row.len(),
+            num_tasks,
+            usage
+        );
+    }
+
+    Ok(())
+}
+
 /// Parse `--matrix` as semicolon-separated rows of comma-separated f64 values.
 /// E.g., "1,0.5;0.5,2"
 fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
@@ -4450,6 +4827,21 @@ fn create_random(
             }
         }
 
+        "KClique" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let usage =
+                "Usage: pred create KClique --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] --k 3";
+            let k = parse_kclique_threshold(args.k, graph.num_vertices(), usage)?;
+            (
+                ser(KClique::new(graph, k))?,
+                variant_map(&[("graph", "SimpleGraph")]),
+            )
+        }
+
         // MinimumCutIntoBoundedSets (graph + edge weights + s/t/B/K)
         "MinimumCutIntoBoundedSets" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
@@ -4702,7 +5094,7 @@ fn create_random(
         _ => bail!(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
-             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman, \
+             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, TravelingSalesman, \
              SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, OptimalLinearArrangement, HamiltonianPath, GeneralizedHex)"
         ),
     };
@@ -4989,6 +5381,141 @@ mod tests {
     }
 
     #[test]
+    fn test_problem_help_uses_num_tasks_for_timetable_design() {
+        assert_eq!(
+            problem_help_flag_name("TimetableDesign", "num_tasks", "usize", false),
+            "num-tasks"
+        );
+        assert_eq!(
+            help_flag_hint("TimetableDesign", "craftsman_avail", "Vec<Vec<bool>>", None),
+            "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
+        );
+    }
+
+    #[test]
+    fn test_create_timetable_design_outputs_problem_json() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "TimetableDesign",
+            "--num-periods",
+            "3",
+            "--num-craftsmen",
+            "5",
+            "--num-tasks",
+            "5",
+            "--craftsman-avail",
+            "1,1,1;1,1,0;0,1,1;1,0,1;1,1,1",
+            "--task-avail",
+            "1,1,0;0,1,1;1,0,1;1,1,1;1,1,1",
+            "--requirements",
+            "1,0,1,0,0;0,1,0,0,1;0,0,0,1,0;0,0,0,0,1;0,1,0,0,0",
+        ])
+        .unwrap();
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let output_path =
+            std::env::temp_dir().join(format!("timetable-design-create-{suffix}.json"));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&output_path).unwrap()).unwrap();
+        assert_eq!(json["type"], "TimetableDesign");
+        assert_eq!(json["data"]["num_periods"], 3);
+        assert_eq!(json["data"]["num_craftsmen"], 5);
+        assert_eq!(json["data"]["num_tasks"], 5);
+        assert_eq!(
+            json["data"]["craftsman_avail"],
+            serde_json::json!([
+                [true, true, true],
+                [true, true, false],
+                [false, true, true],
+                [true, false, true],
+                [true, true, true]
+            ])
+        );
+        assert_eq!(
+            json["data"]["task_avail"],
+            serde_json::json!([
+                [true, true, false],
+                [false, true, true],
+                [true, false, true],
+                [true, true, true],
+                [true, true, true]
+            ])
+        );
+        assert_eq!(
+            json["data"]["requirements"],
+            serde_json::json!([
+                [1, 0, 1, 0, 0],
+                [0, 1, 0, 0, 1],
+                [0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 1],
+                [0, 1, 0, 0, 0]
+            ])
+        );
+        std::fs::remove_file(output_path).unwrap();
+    }
+
+    #[test]
+    fn test_create_timetable_design_reports_invalid_matrix_without_panic() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "TimetableDesign",
+            "--num-periods",
+            "3",
+            "--num-craftsmen",
+            "5",
+            "--num-tasks",
+            "5",
+            "--craftsman-avail",
+            "1,1,1;1,1",
+            "--task-avail",
+            "1,1,0;0,1,1;1,0,1;1,1,1;1,1,1",
+            "--requirements",
+            "1,0,1,0,0;0,1,0,0,1;0,0,0,1,0;0,0,0,0,1;0,1,0,0,0",
+        ])
+        .unwrap();
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let result = std::panic::catch_unwind(|| create(&args, &out));
+        assert!(result.is_ok(), "create should return an error, not panic");
+        let err = result.unwrap().unwrap_err().to_string();
+        assert!(
+            err.contains("--craftsman-avail"),
+            "expected timetable matrix validation error, got: {err}"
+        );
+        assert!(err.contains("Usage: pred create TimetableDesign"));
+    }
+
+    #[test]
     fn test_create_generalized_hex_serializes_problem_json() {
         let output = temp_output_path("generalized_hex_create");
         let cli = Cli::try_parse_from([
@@ -5142,12 +5669,21 @@ mod tests {
             schedules: None,
             requirements: None,
             num_workers: None,
+            num_periods: None,
+            num_craftsmen: None,
+            num_tasks: None,
+            craftsman_avail: None,
+            task_avail: None,
             num_groups: None,
             domain_size: None,
             relations: None,
             conjuncts_spec: None,
             relation_attrs: None,
             known_keys: None,
+            num_objects: None,
+            attribute_domains: None,
+            frequency_tables: None,
+            known_values: None,
             costs: None,
             cut_bound: None,
             size_bound: None,
@@ -5348,5 +5884,70 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("out of bounds for left partition size 4"));
+    }
+
+    #[test]
+    fn test_create_kclique() {
+        use crate::dispatch::ProblemJsonOutput;
+        use problemreductions::models::graph::KClique;
+
+        let mut args = empty_args();
+        args.problem = Some("KClique".to_string());
+        args.graph = Some("0-1,0-2,1-3,2-3,2-4,3-4".to_string());
+        args.k = Some(3);
+
+        let output_path =
+            std::env::temp_dir().join(format!("kclique-create-{}.json", std::process::id()));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = std::fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "KClique");
+        assert_eq!(
+            created.variant.get("graph").map(String::as_str),
+            Some("SimpleGraph")
+        );
+
+        let problem: KClique<SimpleGraph> = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.k(), 3);
+        assert_eq!(problem.num_vertices(), 5);
+        assert!(problem.evaluate(&[0, 0, 1, 1, 1]));
+
+        let _ = std::fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_kclique_requires_valid_k() {
+        let mut args = empty_args();
+        args.problem = Some("KClique".to_string());
+        args.graph = Some("0-1,0-2,1-3,2-3,2-4,3-4".to_string());
+        args.k = None;
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err();
+        assert!(
+            err.to_string().contains("KClique requires --k"),
+            "unexpected error: {err}"
+        );
+
+        args.k = Some(6);
+        let err = create(&args, &out).unwrap_err();
+        assert!(
+            err.to_string().contains("k must be <= graph num_vertices"),
+            "unexpected error: {err}"
+        );
     }
 }

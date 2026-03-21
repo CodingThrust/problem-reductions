@@ -54,6 +54,8 @@ pub(crate) mod circuit_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod coloring_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod consistencyofdatabasefrequencytables_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod factoring_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod graphpartitioning_ilp;
@@ -128,6 +130,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     {
         specs.extend(binpacking_ilp::canonical_rule_example_specs());
         specs.extend(circuit_ilp::canonical_rule_example_specs());
+        specs.extend(consistencyofdatabasefrequencytables_ilp::canonical_rule_example_specs());
         specs.extend(coloring_ilp::canonical_rule_example_specs());
         specs.extend(factoring_ilp::canonical_rule_example_specs());
         specs.extend(graphpartitioning_ilp::canonical_rule_example_specs());
