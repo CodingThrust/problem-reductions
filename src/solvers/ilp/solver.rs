@@ -1,6 +1,7 @@
 //! ILP solver implementation using HiGHS.
 
 use crate::models::algebraic::{Comparison, ObjectiveSense, VariableDomain, ILP};
+use crate::models::misc::TimetableDesign;
 use crate::rules::{ReduceTo, ReductionResult};
 #[cfg(not(feature = "ilp-highs"))]
 use good_lp::default_solver;
@@ -171,15 +172,18 @@ impl ILPSolver {
         Some(reduction.extract_solution(&ilp_solution))
     }
 
-    /// Solve a type-erased ILP instance (`ILP<bool>` or `ILP<i32>`).
+    /// Solve a type-erased problem directly when a native solver hook exists.
     ///
-    /// Returns `None` if the input is not an ILP type or if the solver finds no solution.
+    /// Returns `None` if the input type has no direct solver or the solver finds no solution.
     pub fn solve_dyn(&self, any: &dyn std::any::Any) -> Option<Vec<usize>> {
         if let Some(ilp) = any.downcast_ref::<ILP<bool>>() {
             return self.solve(ilp);
         }
         if let Some(ilp) = any.downcast_ref::<ILP<i32>>() {
             return self.solve(ilp);
+        }
+        if let Some(problem) = any.downcast_ref::<TimetableDesign>() {
+            return problem.solve_via_required_assignments();
         }
         None
     }

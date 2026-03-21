@@ -50,7 +50,7 @@ pub mod prelude {
     pub use crate::models::graph::{
         BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
         BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
-        GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree,
+        GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KClique,
         KthBestSpanningTree, LengthBoundedDisjointPaths, SpinGlass, SteinerTree,
         StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
@@ -73,7 +73,7 @@ pub mod prelude {
         SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
         SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
         ShortestCommonSupersequence, StaffScheduling, StringToStringCorrection, SubsetSum,
-        SumOfSquaresPartition, Term,
+        SumOfSquaresPartition, Term, TimetableDesign,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,

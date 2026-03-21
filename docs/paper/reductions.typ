@@ -77,6 +77,7 @@
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
   "KthBestSpanningTree": [Kth Best Spanning Tree],
   "KColoring": [$k$-Coloring],
+  "KClique": [$k$-Clique],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MaximumMatching": [Maximum Matching],
   "TravelingSalesman": [Traveling Salesman],
@@ -153,6 +154,7 @@
   "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "SumOfSquaresPartition": [Sum of Squares Partition],
+  "TimetableDesign": [Timetable Design],
   "TwoDimensionalConsecutiveSets": [2-Dimensional Consecutive Sets],
 )
 
@@ -1429,6 +1431,32 @@ is feasible: each set induces a connected subgraph, the component weights are $2
       NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-complete on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
 
       *Example.* Consider a graph with #nv vertices and #ne edges, with bound $K = #K$. The arrangement $f = (#config.map(c => str(c)).join(", "))$ gives total cost $#edges.map(e => $|#config.at(e.at(0)) - #config.at(e.at(1))|$).join($+$) = #total-cost lt.eq #K$, so this is a YES instance.
+    ]
+  ]
+}
+#{
+  let x = load-model-example("KClique")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let k = x.instance.k
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let K = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let clique-edges = edges.filter(e => K.contains(e.at(0)) and K.contains(e.at(1)))
+  [
+    #problem-def("KClique")[
+      Given an undirected graph $G = (V, E)$ and an integer $k$, determine whether there exists a subset $K subset.eq V$ with $|K| >= k$ such that every pair of distinct vertices in $K$ is adjacent.
+    ][
+    $k$-Clique is the classical decision version of Clique, one of Karp's original NP-complete problems @karp1972 and listed as GT19 in Garey and Johnson @garey1979. Unlike Maximum Clique, the threshold $k$ is part of the input, so this formulation is the natural target for decision-to-decision reductions such as $3$SAT $arrow.r$ Clique. The best known exact algorithm matches Maximum Clique via the complement reduction to Maximum Independent Set and runs in $O^*(1.1996^n)$ @xiao2017.
+
+    *Example.* Consider the house graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, and threshold $k = #k$. The set $K = {#K.map(i => $v_#i$).join(", ")}$ is a valid witness because all three pairs #clique-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ") are edges, so $|K| = 3 >= #k$ and this is a YES instance. This witness is unique, and no $4$-clique exists because every vertex outside $K$ misses at least one edge to the other selected vertices.
+
+    #figure({
+      let hg = house-graph()
+      draw-edge-highlight(hg.vertices, hg.edges, clique-edges, K)
+    },
+    caption: [The house graph with satisfying witness $K = {#K.map(i => $v_#i$).join(", ")}$ for $k = #k$. The selected vertices and their internal clique edges are highlighted in blue.],
+    ) <fig:house-kclique>
     ]
   ]
 }
@@ -3626,6 +3654,53 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     caption: [Worked Staff Scheduling instance. The last column shows the chosen multiplicities $f(c_i)$; the final row verifies that daily coverage dominates the requirement vector while using 4 workers.],
   ) <fig:staff-scheduling>
 ]
+
+#{
+  let x = load-model-example("TimetableDesign")
+  let assignments = x.optimal_config.enumerate().filter(((idx, value)) => value == 1).map(((idx, value)) => (
+    calc.floor(idx / (x.instance.num_tasks * x.instance.num_periods)),
+    calc.floor(calc.rem(idx, x.instance.num_tasks * x.instance.num_periods) / x.instance.num_periods),
+    calc.rem(idx, x.instance.num_periods),
+  ))
+  let fmt-assignment(entry) = $(c_#(entry.at(0) + 1), t_#(entry.at(1) + 1))$
+  let period-0 = assignments.filter(entry => entry.at(2) == 0)
+  let period-1 = assignments.filter(entry => entry.at(2) == 1)
+  let period-2 = assignments.filter(entry => entry.at(2) == 2)
+  [
+    #problem-def("TimetableDesign")[
+      Given a set $H$ of work periods, a set $C$ of craftsmen, a set $T$ of tasks, availability sets $A_C(c) subset.eq H$ for each craftsman $c in C$, availability sets $A_T(t) subset.eq H$ for each task $t in T$, and exact workload requirements $R: C times T -> ZZ_(>= 0)$, determine whether there exists a function $f: C times T times H -> {0, 1}$ such that:
+      $
+        f(c, t, h) = 1 => h in A_C(c) inter A_T(t),
+      $
+      $
+        forall c in C, h in H: sum_(t in T) f(c, t, h) <= 1,
+      $
+      $
+        forall t in T, h in H: sum_(c in C) f(c, t, h) <= 1,
+      $
+      and
+      $
+        forall c in C, t in T: sum_(h in H) f(c, t, h) = R(c, t).
+      $
+    ][
+      Timetable Design is the classical timetabling feasibility problem catalogued as SS19 in Garey & Johnson @garey1979. Even, Itai, and Shamir showed that it is NP-complete even when there are only three work periods, every task is available in every period, and every requirement is binary @evenItaiShamir1976. The same paper also identifies polynomial-time islands, including cases where each craftsman is available in at most two periods or where all craftsmen and tasks are available in every period @evenItaiShamir1976. The implementation in this repository uses one binary variable for each triple $(c, t, h)$, so the registered baseline explores a configuration space of size $2^(|C| |T| |H|)$.
+
+      *Example.* The canonical instance has three periods $H = {h_1, h_2, h_3}$, five craftsmen, five tasks, and seven nonzero workload requirements. The satisfying timetable stored in the example database assigns #period-0.map(fmt-assignment).join(", ") during $h_1$, #period-1.map(fmt-assignment).join(", ") during $h_2$, and #period-2.map(fmt-assignment).join(", ") during $h_3$. Every listed assignment lies in the corresponding availability intersection $A_C(c) inter A_T(t)$, no craftsman or task appears twice in the same period, and each required pair is scheduled exactly once, so the verifier returns YES.
+
+      #figure(
+        align(center, table(
+          columns: 2,
+          align: center,
+          table.header([Period], [Assignments]),
+          [$h_1$], [#period-0.map(fmt-assignment).join(", ")],
+          [$h_2$], [#period-1.map(fmt-assignment).join(", ")],
+          [$h_3$], [#period-2.map(fmt-assignment).join(", ")],
+        )),
+        caption: [Worked Timetable Design instance derived from the canonical example DB. Each row lists the craftsman-task pairs assigned in one work period.],
+      ) <fig:timetable-design>
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("MultiprocessorScheduling")
