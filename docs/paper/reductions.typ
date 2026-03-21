@@ -273,6 +273,25 @@
   ]
 }
 
+// Render a block of pred CLI commands for reproducibility
+#let pred-commands(..cmds) = {
+  block(
+    width: 100%,
+    fill: luma(245),
+    inset: (x: 0.8em, y: 0.5em),
+    radius: 3pt,
+    stroke: 0.5pt + luma(200),
+  )[
+    #cmds.pos().map(c => raw("$ " + c)).join(linebreak())
+  ]
+}
+
+// Format target problem spec for pred reduce --to (handles empty variant dicts)
+#let target-spec(data) = {
+  if data.target.variant.len() == 0 { data.target.problem }
+  else { data.target.problem + "/" + data.target.variant.values().join("/") }
+}
+
 #let theorem = thmplain("theorem", [#h(-1.2em)Rule], base_level: 1)
 #let proof = thmproof("proof", "Proof")
 #let definition = thmbox(
@@ -458,6 +477,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     One of Karp's 21 NP-complete problems @karp1972, MIS appears in wireless network scheduling, register allocation, and coding theory @shannon1956. Solvable in polynomial time on bipartite graphs (König's theorem), interval graphs, chordal graphs, and cographs. The best known algorithm runs in $O^*(1.1996^n)$ time via measure-and-conquer branching @xiao2017. On geometric graphs (King's subgraph, triangular subgraph, unit disk graphs), MIS admits subexponential $O^*(c^sqrt(n))$ algorithms for some constant $c$, via geometric separation @alber2004.
 
     *Example.* Consider the Petersen graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, and unit weights $w(v) = 1$ for all $v in V$. The graph is 3-regular (every vertex has degree 3). A maximum independent set is $S = {#S.map(i => $v_#i$).join(", ")}$ with $w(S) = sum_(v in S) w(v) = #alpha = alpha(G)$. No two vertices in $S$ share an edge, and no vertex can be added without violating independence.
+
+    #pred-commands(
+      "pred create --example MIS -o mis.json",
+      "pred solve mis.json",
+      "pred evaluate mis.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure({
       let pg = petersen-graph()
@@ -4517,6 +4542,12 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   example: true,
   example-caption: [Petersen graph ($n = 10$): VC $arrow.l.r$ IS],
   extra: [
+    #pred-commands(
+      "pred create --example MVC -o mvc.json",
+      "pred reduce mvc.json --to " + target-spec(mvc_mis) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate mvc.json --config " + mvc_mis_sol.source_config.map(str).join(","),
+    )
     Source VC: $C = {#mvc_mis_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mvc_mis_sol.source_config.filter(x => x == 1).len()) #h(1em)
     Target IS: $S = {#mvc_mis_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mvc_mis_sol.target_config.filter(x => x == 1).len()) \
     $|"VC"| + |"IS"| = #graph-num-vertices(mvc_mis.source.instance) = |V|$ #sym.checkmark
