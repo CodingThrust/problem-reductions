@@ -90,3 +90,4 @@ docs/test-reports/
 docs/superpowers/
 *.log
 docs/src/reductions/*.json
+.claude/projects/

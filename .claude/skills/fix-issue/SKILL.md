@@ -130,7 +130,7 @@ Tag each issue as:
 |--------------|-------------|
 | Undefined symbol in overhead/algorithm | Add definition derived from context (e.g., "let n = \|V\|") |
 | Inconsistent notation across sections | Standardize to the most common usage in the issue |
-| Missing/wrong code metric names | Look up correct names via `pred show <target> --json` → `size_fields` |
+| Missing/wrong code metric names | Look up correct names via `pred show <target> --json` → `size_fields`. If `size_fields` is empty, use the plain-text `pred show <target>` output which lists Fields directly |
 | Formatting issues (broken tables, missing headers) | Reformat to match issue template |
 | Incomplete `(TBD)` in fields derivable from other sections | Fill from context |
 | Incorrect DOI format | Reformat to `https://doi.org/...` |
@@ -158,16 +158,46 @@ For each `mechanical` issue:
 2. Apply the fix
 3. Record what was changed (for presenting to human in Step 4)
 
-Use `pred show <problem> --json` to look up:
+Use `cargo run -p problemreductions-cli --bin pred -- show <problem>` (or `./target/debug/pred show <problem>` after `make cli`) to look up:
 - Valid problem names and aliases
-- `size_fields` for correct metric names
+- `size_fields` for correct metric names (via `--json`); if empty, use plain-text output which lists Fields directly
 - Existing variants and fields
 
 **Do NOT edit the issue on GitHub yet** — collect all fixes (mechanical + substantive) first.
 
 ---
 
-## Step 4: Present Auto-Fixes to Human
+## Step 4: Present Full Context and Auto-Fixes to Human
+
+**IMPORTANT: Show all context BEFORE asking for any decisions.** The human needs full visibility into the check report findings, research results, and classification before being asked to choose.
+
+### 4a: Show the check report summary
+
+Print the parsed check report summary table (from Step 2) so the human can see the starting state:
+
+```
+## Check Report Summary (Issue #<NUMBER>)
+
+| Check | Result | Details |
+|-------|--------|---------|
+| Usefulness | ✅ Pass | ... |
+| Non-trivial | ✅ Pass | ... |
+| Correctness | ⚠️ Warn | ... |
+| Well-written | ⚠️ Warn | ... |
+```
+
+For each `Fail` or `Warn` result, include the key details from the check report's detailed section (not just the one-liner — include the specific sub-issues identified).
+
+### 4b: Show research results
+
+If web searches, `pred show` lookups, or other research was performed during classification (Step 2–3), present those findings now. For example:
+- Web search results that confirm or contradict references
+- `pred show` output for source/target problems
+- Companion issue status (exists / missing)
+
+This ensures the human has all the evidence before any decisions.
+
+### 4c: Show auto-fixes and substantive issues
 
 Print a summary of all mechanical fixes applied:
 
@@ -179,12 +209,13 @@ Print a summary of all mechanical fixes applied:
 | 1 | Size Overhead | Symbol `m` undefined | Added ... |
 ```
 
-Then present the substantive issues that need discussion:
+Then list the substantive issues that need discussion:
 
 ```
 ## Issues requiring your input
 
 1. **Decision vs optimization:** ...
+2. **Reference accuracy:** ...
 ```
 
 ---
@@ -193,10 +224,11 @@ Then present the substantive issues that need discussion:
 
 For each substantive issue, present it to the human **one at a time**:
 
-1. State the problem clearly
-2. Offer 2-3 concrete options when possible (with your recommendation)
-3. Wait for the human's response
-4. Apply the chosen fix to the draft issue body
+1. **Show the evidence first** — quote the relevant check report section, web research results, or `pred show` output that informs this decision. The human should be able to evaluate the options based on the evidence shown, not just the option labels.
+2. State the problem clearly
+3. Offer 2-3 concrete options when possible (with your recommendation)
+4. Wait for the human's response
+5. Apply the chosen fix to the draft issue body
 
 Use web search if needed to help resolve issues:
 - Literature search for correct complexity bounds
