@@ -77,3 +77,47 @@ fn test_cdft_to_ilp_solve_reduced() {
         .expect("solve_reduced should find a satisfying assignment");
     assert!(problem.evaluate(&solution));
 }
+
+fn issue_instance() -> ConsistencyOfDatabaseFrequencyTables {
+    ConsistencyOfDatabaseFrequencyTables::new(
+        6,
+        vec![2, 3, 2],
+        vec![
+            FrequencyTable::new(0, 1, vec![vec![1, 1, 1], vec![1, 1, 1]]),
+            FrequencyTable::new(1, 2, vec![vec![1, 1], vec![0, 2], vec![1, 1]]),
+        ],
+        vec![
+            KnownValue::new(0, 0, 0),
+            KnownValue::new(3, 0, 1),
+            KnownValue::new(1, 2, 1),
+        ],
+    )
+}
+
+fn issue_witness() -> Vec<usize> {
+    vec![0, 0, 0, 0, 1, 1, 0, 2, 1, 1, 0, 1, 1, 1, 1, 1, 2, 0]
+}
+
+#[test]
+fn test_cdft_to_ilp_issue_instance_closed_loop() {
+    let problem = issue_instance();
+    let reduction: ReductionCDFTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let solver = ILPSolver::new();
+    let target_solution = solver
+        .solve(reduction.target_problem())
+        .expect("ILP solver should find a feasible solution for the issue instance");
+    let source_solution = reduction.extract_solution(&target_solution);
+    assert!(
+        problem.evaluate(&source_solution),
+        "extracted source solution must satisfy the original CDFT instance"
+    );
+}
+
+#[test]
+fn test_cdft_to_ilp_issue_instance_encoding_round_trip() {
+    let problem = issue_instance();
+    let reduction: ReductionCDFTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let ilp_solution = reduction.encode_source_solution(&issue_witness());
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(extracted, issue_witness());
+}
