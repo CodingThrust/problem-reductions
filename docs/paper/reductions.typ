@@ -5929,6 +5929,48 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Discard slack variables: return $bold(x)' [0..n]$.
 ]
 
+#let part_ks = load-example("Partition", "Knapsack")
+#let part_ks_sol = part_ks.solutions.at(0)
+#let part_ks_sizes = part_ks.source.instance.sizes
+#let part_ks_n = part_ks_sizes.len()
+#let part_ks_total = part_ks_sizes.fold(0, (a, b) => a + b)
+#let part_ks_capacity = part_ks.target.instance.capacity
+#let part_ks_selected = part_ks_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_ks_selected_sizes = part_ks_selected.map(i => part_ks_sizes.at(i))
+#let part_ks_selected_sum = part_ks_selected_sizes.fold(0, (a, b) => a + b)
+#reduction-rule("Partition", "Knapsack",
+  example: true,
+  example-caption: [#part_ks_n elements, total sum $S = #part_ks_total$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_ks.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_ks) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_ks_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_ks_sizes.map(str).join(", "))$ with total sum $S = #part_ks_total$, so a balanced witness must hit exactly $S / 2 = #part_ks_capacity$.
+
+    *Step 2 -- Build the knapsack instance.* The reduction copies each size into both the weight and the value list, producing weights $(#part_ks.target.instance.weights.map(str).join(", "))$, values $(#part_ks.target.instance.values.map(str).join(", "))$, and capacity $C = #part_ks_capacity$. No auxiliary variables are introduced, so the target has the same $#part_ks_n$ binary coordinates as the source.
+
+    *Step 3 -- Verify the canonical witness.* The serialized witness uses the same binary vector on both sides, $bold(x) = (#part_ks_sol.source_config.map(str).join(", "))$. It selects elements at indices $\{#part_ks_selected.map(str).join(", ")\}$ with sizes $(#part_ks_selected_sizes.map(str).join(", "))$, so the chosen subset has total weight and value $#part_ks_selected_sum = #part_ks_capacity$. Hence the knapsack solution saturates the capacity and certifies a balanced partition.
+
+    *Witness semantics.* The example DB stores one canonical balanced subset. This instance has multiple balanced partitions because several different subsets sum to $#part_ks_capacity$, but one witness is enough to demonstrate the reduction.
+  ],
+)[
+  This $O(n)$ reduction#footnote[The linear-time bound follows from a single pass that copies the source sizes into item weights and values.] @garey1979[MP9] constructs a 0-1 Knapsack instance by copying each Partition size into both the item weight and item value and setting the capacity to half the total size sum. For $n$ source elements it produces $n$ knapsack items.
+][
+  _Construction._ Given positive sizes $s_0, dots, s_(n-1)$ with total sum $S = sum_(i=0)^(n-1) s_i$, create one knapsack item per element and set
+  $ w_i = s_i, quad v_i = s_i $
+  for every $i in {0, dots, n-1}$. Set the knapsack capacity to
+  $ C = floor(S / 2). $
+  Every feasible knapsack solution is therefore a subset of the original elements, and because $w_i = v_i$, its objective value equals the same subset sum.
+
+  _Correctness._ ($arrow.r.double$) If the Partition instance is satisfiable, some subset $A'$ has sum $S / 2$. In particular $S$ is even, so $C = S / 2$, and selecting exactly the corresponding knapsack items is feasible with value $S / 2$. No feasible knapsack solution can have value larger than $C$, because value equals weight for every item and total weight is bounded by $C$. Thus the knapsack optimum is exactly $S / 2$. ($arrow.l.double$) If the knapsack optimum is $S / 2$, then the optimum is an integer and hence $S$ must be even. The selected items have total value $S / 2$, so they also have total weight $S / 2$ because $w_i = v_i$ itemwise. Those items therefore form a subset of the original multiset whose complement has the same sum, giving a valid balanced partition.
+
+  _Solution extraction._ Return the same binary selection vector on the original elements: item $i$ is selected in the knapsack witness if and only if element $i$ belongs to the extracted partition subset.
+]
+
 #let ks_qubo = load-example("Knapsack", "QUBO")
 #let ks_qubo_sol = ks_qubo.solutions.at(0)
 #let ks_qubo_num_items = ks_qubo.source.instance.weights.len()
