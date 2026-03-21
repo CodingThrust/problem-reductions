@@ -217,6 +217,7 @@ TIP: Run `pred create <PROBLEM>` (no other flags) to see problem-specific help.
 Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
   MaxCut, MaxMatching, TSP        --graph, --edge-weights
+  NetworkReliability              --graph, --terminals, --failure-probs, --threshold
   ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --length-bound, --weight-bound
   MaximalIS                       --graph, --weights
   SAT, NAESAT                     --num-vars, --clauses
@@ -345,6 +346,9 @@ pub struct CreateArgs {
     /// Edge weights (e.g., 2,3,1) [default: all 1s]
     #[arg(long)]
     pub edge_weights: Option<String>,
+    /// Edge failure probabilities for NetworkReliability (e.g., 0.1,0.2,0.1)
+    #[arg(long)]
+    pub failure_probs: Option<String>,
     /// Edge lengths (e.g., 2,3,1) [default: all 1s]
     #[arg(long)]
     pub edge_lengths: Option<String>,
@@ -499,6 +503,9 @@ pub struct CreateArgs {
     /// Upper bound or length bound (for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleCopyFileAllocation, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
+    /// Reliability threshold q for NetworkReliability
+    #[arg(long)]
+    pub threshold: Option<f64>,
     /// Upper bound on total path length
     #[arg(long)]
     pub length_bound: Option<i32>,

@@ -47,6 +47,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
     args.graph.is_none()
         && args.weights.is_none()
         && args.edge_weights.is_none()
+        && args.failure_probs.is_none()
         && args.edge_lengths.is_none()
         && args.capacities.is_none()
         && args.source.is_none()
@@ -98,6 +99,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.tree.is_none()
         && args.required_edges.is_none()
         && args.bound.is_none()
+        && args.threshold.is_none()
         && args.length_bound.is_none()
         && args.weight_bound.is_none()
         && args.pattern.is_none()
@@ -539,6 +541,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "ShortestWeightConstrainedPath" => {
             "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
         }
+        "NetworkReliability" => {
+            "--graph 0-1,0-2,1-3,2-3,1-4,3-4,3-5,4-5 --terminals 0,5 --failure-probs 0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1 --threshold 0.95"
+        }
         "SteinerTreeInGraphs" => "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --terminals 0,3",
         "BiconnectivityAugmentation" => {
             "--graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5"
@@ -654,6 +659,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        ("NetworkReliability", "threshold") => return "threshold".to_string(),
         ("FlowShopScheduling", "num_processors")
         | ("SchedulingWithIndividualDeadlines", "num_processors") => {
             return "num-processors/--m".to_string();
@@ -726,6 +732,8 @@ fn help_flag_hint(
         }
         ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
+        ("NetworkReliability", "failure_probs") => "comma-separated probabilities: 0.1,0.1,0.2",
+        ("NetworkReliability", "threshold") => "number in [0,1]",
         ("ConsistencyOfDatabaseFrequencyTables", "attribute_domains") => {
             "comma-separated domain sizes: 2,3,2"
         }
@@ -1462,6 +1470,25 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let terminals = parse_terminals(args, graph.num_vertices())?;
             (
                 ser(SteinerTreeInGraphs::new(graph, terminals, edge_weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // NetworkReliability (graph + terminals + failure probabilities + threshold)
+        "NetworkReliability" => {
+            let usage = "Usage: pred create NetworkReliability --graph 0-1,0-2,1-3,2-3,1-4,3-4,3-5,4-5 --terminals 0,5 --failure-probs 0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1 --threshold 0.95";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let terminals = parse_terminals(args, graph.num_vertices())
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let failure_probs = parse_failure_probs(args, graph.num_edges(), usage)?;
+            let threshold = parse_network_reliability_threshold(args, usage)?;
+            (
+                ser(NetworkReliability::new(
+                    graph,
+                    terminals,
+                    failure_probs,
+                    threshold,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -3930,6 +3957,47 @@ fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
     parse_i32_edge_values(args.edge_weights.as_ref(), num_edges, "edge weight")
 }
 
+fn parse_failure_probs(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<Vec<f64>> {
+    let raw = args
+        .failure_probs
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("NetworkReliability requires --failure-probs\n\n{usage}"))?;
+    let failure_probs: Vec<f64> = raw
+        .split(',')
+        .map(|entry| {
+            let trimmed = entry.trim();
+            trimmed
+                .parse::<f64>()
+                .with_context(|| format!("invalid failure probability `{trimmed}`\n\n{usage}"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if failure_probs.len() != num_edges {
+        bail!(
+            "Expected {} failure probabilities but got {}\n\n{}",
+            num_edges,
+            failure_probs.len(),
+            usage
+        );
+    }
+    if failure_probs
+        .iter()
+        .any(|prob| !prob.is_finite() || !(0.0..=1.0).contains(prob))
+    {
+        bail!("All failure probabilities must be finite values in [0,1]\n\n{usage}");
+    }
+    Ok(failure_probs)
+}
+
+fn parse_network_reliability_threshold(args: &CreateArgs, usage: &str) -> Result<f64> {
+    let threshold = args
+        .threshold
+        .ok_or_else(|| anyhow::anyhow!("NetworkReliability requires --threshold\n\n{usage}"))?;
+    if !threshold.is_finite() || !(0.0..=1.0).contains(&threshold) {
+        bail!("NetworkReliability threshold must be in [0,1]\n\n{usage}");
+    }
+    Ok(threshold)
+}
+
 fn validate_vertex_index(
     label: &str,
     vertex: usize,
@@ -5590,6 +5658,7 @@ mod tests {
             graph: None,
             weights: None,
             edge_weights: None,
+            failure_probs: None,
             edge_lengths: None,
             capacities: None,
             source: None,
@@ -5641,6 +5710,7 @@ mod tests {
             tree: None,
             required_edges: None,
             bound: None,
+            threshold: None,
             length_bound: None,
             weight_bound: None,
             pattern: None,
