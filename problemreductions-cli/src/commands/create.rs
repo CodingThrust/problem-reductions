@@ -100,9 +100,11 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.bound.is_none()
         && args.length_bound.is_none()
         && args.weight_bound.is_none()
+        && args.cost_bound.is_none()
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.costs.is_none()
+        && args.arc_costs.is_none()
         && args.arcs.is_none()
         && args.quantifiers.is_none()
         && args.usage.is_none()
@@ -577,6 +579,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SteinerTree" => "--graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4",
         "MultipleCopyFileAllocation" => {
             MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS
+        }
+        "AcyclicPartition" => {
+            "--arcs \"0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5\" --weights 2,3,2,1,3,1 --arc-costs 1,1,1,1,1,1,1,1 --weight-bound 5 --cost-bound 5"
         }
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
         "DirectedTwoCommodityIntegralFlow" => {
@@ -2977,6 +2982,45 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // AcyclicPartition
+        "AcyclicPartition" => {
+            let usage = "Usage: pred create AcyclicPartition/i32 --arcs \"0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5\" --weights 2,3,2,1,3,1 --arc-costs 1,1,1,1,1,1,1,1 --weight-bound 5 --cost-bound 5";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("AcyclicPartition requires --arcs\n\n{usage}")
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let vertex_weights = parse_vertex_weights(args, graph.num_vertices())?;
+            let arc_costs = parse_arc_costs(args, num_arcs)?;
+            let weight_bound = args.weight_bound.ok_or_else(|| {
+                anyhow::anyhow!("AcyclicPartition requires --weight-bound\n\n{usage}")
+            })?;
+            let cost_bound = args.cost_bound.ok_or_else(|| {
+                anyhow::anyhow!("AcyclicPartition requires --cost-bound\n\n{usage}")
+            })?;
+            if vertex_weights.iter().any(|&weight| weight < 0) {
+                bail!("AcyclicPartition --weights must be non-negative");
+            }
+            if arc_costs.iter().any(|&cost| cost < 0) {
+                bail!("AcyclicPartition --arc-costs must be non-negative");
+            }
+            if weight_bound < 0 {
+                bail!("AcyclicPartition --weight-bound must be non-negative");
+            }
+            if cost_bound < 0 {
+                bail!("AcyclicPartition --cost-bound must be non-negative");
+            }
+            (
+                ser(AcyclicPartition::new(
+                    graph,
+                    vertex_weights,
+                    arc_costs,
+                    weight_bound,
+                    cost_bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinMaxMulticenter (vertex p-center)
         "MinMaxMulticenter" => {
             let usage = "Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 [--weights 1,1,1,1] [--edge-weights 1,1,1] --k 2 --bound 2";
@@ -4718,6 +4762,27 @@ fn parse_arc_weights(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
     }
 }
 
+/// Parse `--arc-costs` as per-arc costs (i32), defaulting to all 1s.
+fn parse_arc_costs(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
+    match &args.arc_costs {
+        Some(costs) => {
+            let parsed: Vec<i32> = costs
+                .split(',')
+                .map(|s| s.trim().parse::<i32>())
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            if parsed.len() != num_arcs {
+                bail!(
+                    "Expected {} arc costs but got {}",
+                    num_arcs,
+                    parsed.len()
+                );
+            }
+            Ok(parsed)
+        }
+        None => Ok(vec![1i32; num_arcs]),
+    }
+}
+
 /// Parse `--candidate-arcs` as `u>v:w` entries for StrongConnectivityAugmentation.
 fn parse_candidate_arcs(
     args: &CreateArgs,
@@ -5643,8 +5708,10 @@ mod tests {
             bound: None,
             length_bound: None,
             weight_bound: None,
+            cost_bound: None,
             pattern: None,
             strings: None,
+            arc_costs: None,
             arcs: None,
             values: None,
             precedences: None,

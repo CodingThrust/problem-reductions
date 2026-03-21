@@ -258,6 +258,7 @@ Flags by problem type:
   ConsecutiveOnesSubmatrix        --matrix (0/1), --k
   SteinerTree                     --graph, --edge-weights, --terminals
   MultipleCopyFileAllocation      --graph, --usage, --storage, --bound
+  AcyclicPartition                --arcs [--weights] [--arc-costs] --weight-bound --cost-bound [--num-vertices]
   CVP                             --basis, --target-vec [--bounds]
   MultiprocessorScheduling        --lengths, --num-processors, --deadline
   SequencingWithinIntervals       --release-times, --deadlines, --lengths
@@ -505,6 +506,9 @@ pub struct CreateArgs {
     /// Upper bound on total path weight
     #[arg(long)]
     pub weight_bound: Option<i32>,
+    /// Upper bound on total inter-partition arc cost
+    #[arg(long)]
+    pub cost_bound: Option<i32>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
     #[arg(long)]
     pub pattern: Option<String>,
@@ -514,6 +518,9 @@ pub struct CreateArgs {
     /// Task costs for SequencingToMinimizeMaximumCumulativeCost (comma-separated, e.g., "2,-1,3,-2,1,-3")
     #[arg(long, allow_hyphen_values = true)]
     pub costs: Option<String>,
+    /// Arc costs for directed graph problems with per-arc costs (comma-separated, e.g., "1,1,2,3")
+    #[arg(long)]
+    pub arc_costs: Option<String>,
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
