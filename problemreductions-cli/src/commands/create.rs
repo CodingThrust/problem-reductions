@@ -536,7 +536,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "KthBestSpanningTree" => "--graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3",
-        "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
+        "BottleneckTravelingSalesman" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
         "ShortestWeightConstrainedPath" => {
@@ -652,7 +652,12 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
 fn uses_edge_weights_flag(canonical: &str) -> bool {
     matches!(
         canonical,
-        "KthBestSpanningTree" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" | "RuralPostman"
+        "BottleneckTravelingSalesman"
+            | "KthBestSpanningTree"
+            | "MaxCut"
+            | "MaximumMatching"
+            | "TravelingSalesman"
+            | "RuralPostman"
     )
 }
 
@@ -1440,7 +1445,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         }
 
         // Graph problems with edge weights
-        "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
+        "BottleneckTravelingSalesman" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
@@ -1450,6 +1455,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
             let data = match canonical {
+                "BottleneckTravelingSalesman" => ser(BottleneckTravelingSalesman::new(graph, edge_weights))?,
                 "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
                 "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
                 "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,
@@ -5070,7 +5076,7 @@ fn create_random(
         }
 
         // Graph problems with edge weights
-        "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
+        "BottleneckTravelingSalesman" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
@@ -5078,8 +5084,14 @@ fn create_random(
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let num_edges = graph.num_edges();
             let edge_weights = vec![1i32; num_edges];
-            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+            let variant = match canonical {
+                "BottleneckTravelingSalesman" => variant_map(&[]),
+                _ => variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]),
+            };
             let data = match canonical {
+                "BottleneckTravelingSalesman" => {
+                    ser(BottleneckTravelingSalesman::new(graph, edge_weights))?
+                }
                 "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
                 "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
                 "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,
@@ -5187,7 +5199,8 @@ fn create_random(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
              MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, TravelingSalesman, \
-             SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, OptimalLinearArrangement, HamiltonianPath, GeneralizedHex)"
+             BottleneckTravelingSalesman, SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, \
+             OptimalLinearArrangement, HamiltonianPath, GeneralizedHex)"
         ),
     };
 

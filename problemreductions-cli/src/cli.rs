@@ -216,7 +216,7 @@ TIP: Run `pred create <PROBLEM>` (no other flags) to see problem-specific help.
 
 Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
-  MaxCut, MaxMatching, TSP        --graph, --edge-weights
+  MaxCut, MaxMatching, TSP, BottleneckTravelingSalesman --graph, --edge-weights
   ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --length-bound, --weight-bound
   MaximalIS                       --graph, --weights
   SAT, NAESAT                     --num-vars, --clauses

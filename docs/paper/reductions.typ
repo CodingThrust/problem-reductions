@@ -81,6 +81,7 @@
   "KClique": [$k$-Clique],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MaximumMatching": [Maximum Matching],
+  "BottleneckTravelingSalesman": [Bottleneck Traveling Salesman],
   "TravelingSalesman": [Traveling Salesman],
   "MaximumClique": [Maximum Clique],
   "MaximumSetPacking": [Maximum Set Packing],
@@ -1171,6 +1172,96 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     },
     caption: [The house graph with a maximum matching $M = {#matched-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$ (blue edges, $w(M) = #wM$). Matched vertices shown in blue; #unmatched.map(i => $v_#i$).join(", ") #if unmatched.len() == 1 [is] else [are] unmatched.],
     ) <fig:house-matching>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("BottleneckTravelingSalesman")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges
+  let ew = x.instance.edge_weights
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let tour-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
+  let bottleneck = sol.metric.Valid
+  let tour-weights = tour-edges.map(((u, v)) => {
+    let idx = edges.position(e => e == (u, v) or e == (v, u))
+    int(ew.at(idx))
+  })
+  let tour-total = tour-weights.sum()
+  let tour-order = (0,)
+  let remaining = tour-edges
+  for _ in range(nv - 1) {
+    let curr = tour-order.last()
+    let next-edge = remaining.find(e => e.at(0) == curr or e.at(1) == curr)
+    let next-v = if next-edge.at(0) == curr { next-edge.at(1) } else { next-edge.at(0) }
+    tour-order.push(next-v)
+    remaining = remaining.filter(e => e != next-edge)
+  }
+  let tsp-order = (0, 2, 3, 1, 4)
+  let tsp-total = 13
+  let tsp-bottleneck = 5
+  let weight-labels = edges.map(((u, v)) => {
+    let idx = edges.position(e => e == (u, v))
+    (u: u, v: v, w: ew.at(idx))
+  })
+  [
+    #problem-def("BottleneckTravelingSalesman")[
+      Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $max_(e in C) w(e)$.
+    ][
+    This min-max variant models routing where the worst leg matters more than the total distance. Garey and Johnson list the threshold decision version as ND24 @garey1979: given a bound $B$, ask whether some Hamiltonian tour has every edge weight at most $B$. The optimization version implemented here subsumes that decision problem. The classical Held--Karp dynamic programming algorithm still yields an exact $O(n^2 dot 2^n)$-time algorithm @heldkarp1962, while Garey and Johnson note the polynomial-time special case of Gilmore and Gomory @gilmore1964.
+
+    *Example.* Consider the complete graph $K_#nv$ with vertices ${#range(nv).map(i => $v_#i$).join(", ")}$ and edge weights #weight-labels.map(l => $w(v_#(l.u), v_#(l.v)) = #(int(l.w))$).join(", "). The unique optimal bottleneck tour is $#tour-order.map(v => $v_#v$).join($arrow$) arrow v_#(tour-order.at(0))$ with edge weights #tour-weights.map(w => str(w)).join(", ") and bottleneck #bottleneck. Its total weight is #tour-total. By contrast, the minimum-total-weight TSP tour $#tsp-order.map(v => $v_#v$).join($arrow$) arrow v_#(tsp-order.at(0))$ has total weight #tsp-total but bottleneck #tsp-bottleneck, because it uses the weight-5 edge $(v_0, v_4)$. Here every other Hamiltonian tour in $K_#nv$ contains a weight-5 edge, so the blue tour is the only one that keeps the maximum edge weight at 4.
+
+    #figure({
+      let verts = ((0, 1.8), (1.7, 0.55), (1.05, -1.45), (-1.05, -1.45), (-1.7, 0.55))
+      canvas(length: 1cm, {
+        for (idx, (u, v)) in edges.enumerate() {
+          let on-tour = tour-edges.any(t => (t.at(0) == u and t.at(1) == v) or (t.at(0) == v and t.at(1) == u))
+          let on-tsp-only = (u == 0 and v == 4) or (u == 4 and v == 0)
+          g-edge(
+            verts.at(u),
+            verts.at(v),
+            stroke: if on-tour {
+              2pt + graph-colors.at(0)
+            } else if on-tsp-only {
+              1.5pt + rgb("#c44e38")
+            } else {
+              0.8pt + luma(200)
+            },
+          )
+          let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+          let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+          let (dx, dy) = if u == 0 and v == 1 {
+            (0.16, 0.2)
+          } else if u == 0 and v == 2 {
+            (0.25, 0.03)
+          } else if u == 0 and v == 3 {
+            (-0.25, 0.03)
+          } else if u == 0 and v == 4 {
+            (-0.16, 0.2)
+          } else if u == 1 and v == 2 {
+            (0.22, -0.05)
+          } else if u == 1 and v == 3 {
+            (0.12, -0.18)
+          } else if u == 1 and v == 4 {
+            (0, 0.12)
+          } else if u == 2 and v == 3 {
+            (0, -0.2)
+          } else if u == 2 and v == 4 {
+            (-0.12, -0.18)
+          } else {
+            (-0.22, -0.05)
+          }
+          draw.content((mx + dx, my + dy), text(7pt, fill: luma(80))[#str(int(ew.at(idx)))])
+        }
+        for (k, pos) in verts.enumerate() {
+          g-node(pos, name: "v" + str(k), fill: graph-colors.at(0), label: text(fill: white)[$v_#k$])
+        }
+      })
+    },
+    caption: [The $K_5$ bottleneck-TSP instance. Blue edges form the unique optimal bottleneck tour; the red edge $(v_0, v_4)$ is the weight-5 edge used by the minimum-total-weight TSP tour.],
+    ) <fig:k5-btsp>
     ]
   ]
 }
