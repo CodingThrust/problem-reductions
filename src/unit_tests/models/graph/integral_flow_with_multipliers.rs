@@ -135,5 +135,15 @@ fn test_integral_flow_with_multipliers_canonical_example_spec() {
 
 #[test]
 fn test_integral_flow_with_multipliers_paper_example() {
-    assert!(yes_instance().evaluate(&yes_config()));
+    let problem = yes_instance();
+    let config = yes_config();
+    let solver = BruteForce::new();
+
+    assert!(problem.evaluate(&config));
+    assert_eq!([config[0], config[2], config[4]], [1, 1, 1]);
+    assert_eq!([config[6], config[8], config[10]], [2, 4, 6]);
+    assert_eq!(config[6] + config[8] + config[10], 12);
+
+    let all_solutions = solver.find_all_satisfying(&problem);
+    assert!(all_solutions.iter().any(|solution| solution == &config));
 }

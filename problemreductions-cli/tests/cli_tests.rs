@@ -752,6 +752,60 @@ fn test_create_integral_flow_with_multipliers_rejects_wrong_multiplier_count() {
 }
 
 #[test]
+fn test_create_integral_flow_with_multipliers_rejects_zero_nonterminal_multiplier() {
+    let output = pred()
+        .args([
+            "create",
+            "IntegralFlowWithMultipliers",
+            "--arcs",
+            "0>1,0>2,1>3,2>3",
+            "--capacities",
+            "1,1,2,2",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--multipliers",
+            "1,0,3,1",
+            "--requirement",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("non-terminal multipliers must be positive"));
+    assert!(stderr.contains("Usage: pred create IntegralFlowWithMultipliers"));
+}
+
+#[test]
+fn test_create_integral_flow_with_multipliers_rejects_identical_source_and_sink() {
+    let output = pred()
+        .args([
+            "create",
+            "IntegralFlowWithMultipliers",
+            "--arcs",
+            "0>1,0>2,1>3,2>3",
+            "--capacities",
+            "1,1,2,2",
+            "--source",
+            "0",
+            "--sink",
+            "0",
+            "--multipliers",
+            "1,2,3,1",
+            "--requirement",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("requires distinct --source and --sink"));
+    assert!(stderr.contains("Usage: pred create IntegralFlowWithMultipliers"));
+}
+
+#[test]
 fn test_create_consecutive_block_minimization_rejects_ragged_matrix() {
     let output = pred()
         .args([

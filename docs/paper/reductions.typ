@@ -130,6 +130,7 @@
   "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "IntegralFlowWithMultipliers": [Integral Flow With Multipliers],
   "MinMaxMulticenter": [Min-Max Multicenter],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
@@ -5175,6 +5176,71 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     caption: [Two-commodity flow: commodity 1 (blue, $s_1 -> 2 -> t_1$) and commodity 2 (red, $s_2 -> 3 -> t_2$).],
   ) <fig:d2cif>
 ]
+
+#{
+  let x = load-model-example("IntegralFlowWithMultipliers")
+  let config = x.optimal_config
+  [
+    #problem-def("IntegralFlowWithMultipliers")[
+      Given a directed graph $G = (V, A)$, distinguished vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, vertex multipliers $h: V backslash {s, t} -> ZZ^+$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that (1) $f(a) <= c(a)$ for every $a in A$, (2) for each nonterminal vertex $v in V backslash {s, t}$, the value $h(v)$ times the total inflow into $v$ equals the total outflow from $v$, and (3) the net flow into $t$ is at least $R$.
+    ][
+      Integral Flow With Multipliers is Garey and Johnson's gain/loss network problem ND33 @garey1979. Sahni includes the same integral vertex-multiplier formulation among his computationally related problems, where partition-style reductions show that adding discrete gain factors destroys the ordinary max-flow structure @sahni1974. The key wrinkle is that conservation is no longer symmetric: one unit entering a vertex may force several units to leave, so the feasible integral solutions behave more like multiplicative gadgets than classical flow balances.
+
+      When every multiplier equals $1$, the model collapses to ordinary single-commodity max flow and becomes polynomial-time solvable by the standard network-flow machinery summarized in Garey and Johnson @garey1979. Jewell studies a different continuous flow-with-gains model in which gain factors live on arcs and the flow may be fractional @jewell1962. That continuous relaxation remains polynomially tractable, so it should not be conflated with the NP-complete integral vertex-multiplier decision problem catalogued here. In this implementation the witness stores one bounded integer variable per arc, giving the direct exact-search bound $O((C + 1)^m)$ where $m = |A|$ and $C = max_(a in A) c(a)$.
+
+      *Example.* The canonical fixture encodes the Partition multiset ${2, 3, 4, 5, 6, 4}$ using source $s = v_0$, sink $t = v_7$, six unit-capacity arcs out of $s$, six sink arcs with capacities $(2, 3, 4, 5, 6, 4)$, and multipliers $(2, 3, 4, 5, 6, 4)$ on the intermediate vertices. Setting the source arcs to $v_1$, $v_3$, and $v_5$ to $1$ forces outgoing sink arcs of $2$, $4$, and $6$, respectively. The sink therefore receives net inflow $2 + 4 + 6 = 12$, exactly meeting the requirement $R = 12$.
+
+      #pred-commands(
+        "pred create --example IntegralFlowWithMultipliers -o integral-flow-with-multipliers.json",
+        "pred solve integral-flow-with-multipliers.json",
+        "pred evaluate integral-flow-with-multipliers.json --config " + config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 0.9cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let gray = luma(180)
+          let source = (0, 0)
+          let sink = (6, 0)
+          let mids = (
+            (2.4, 2.5),
+            (2.4, 1.5),
+            (2.4, 0.5),
+            (2.4, -0.5),
+            (2.4, -1.5),
+            (2.4, -2.5),
+          )
+          let labels = (
+            [$v_1, h = 2$],
+            [$v_2, h = 3$],
+            [$v_3, h = 4$],
+            [$v_4, h = 5$],
+            [$v_5, h = 6$],
+            [$v_6, h = 4$],
+          )
+          let active = (0, 2, 4)
+
+          for (i, pos) in mids.enumerate() {
+            let chosen = active.contains(i)
+            let color = if chosen { blue } else { gray }
+            let thickness = if chosen { 1.3pt } else { 0.6pt }
+            line(source, pos, stroke: (paint: color, thickness: thickness), mark: (end: "straight", scale: 0.45))
+            line(pos, sink, stroke: (paint: color, thickness: thickness), mark: (end: "straight", scale: 0.45))
+            circle(pos, radius: 0.22, fill: if chosen { blue.lighten(75%) } else { white }, stroke: 0.6pt)
+            content((pos.at(0) + 0.85, pos.at(1)), text(6.5pt, labels.at(i)))
+          }
+
+          circle(source, radius: 0.24, fill: blue.lighten(75%), stroke: 0.6pt)
+          circle(sink, radius: 0.24, fill: blue.lighten(75%), stroke: 0.6pt)
+          content(source, text(7pt, [$s = v_0$]))
+          content(sink, text(7pt, [$t = v_7$]))
+        }),
+        caption: [Integral Flow With Multipliers: the blue branches send one unit from $s$ into $v_1$, $v_3$, and $v_5$, forcing sink inflow $2 + 4 + 6 = 12$ at $t$.],
+      ) <fig:ifwm>
+    ]
+  ]
+}
 
 #problem-def("AdditionalKey")[
   Given a set $A$ of attribute names, a collection $F$ of functional dependencies on $A$,
