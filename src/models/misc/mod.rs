@@ -25,6 +25,7 @@
 //! - [`SequencingWithReleaseTimesAndDeadlines`]: Single-machine scheduling feasibility
 //! - [`SequencingWithinIntervals`]: Schedule tasks within time windows
 //! - [`ShortestCommonSupersequence`]: Find a common supersequence of bounded length
+//! - [`TimetableDesign`]: Schedule craftsmen on tasks across work periods
 //! - [`StringToStringCorrection`]: String-to-String Correction (derive target via deletions and swaps)
 //! - [`SubsetSum`]: Find a subset summing to exactly a target value
 //! - [`SumOfSquaresPartition`]: Partition integers into K groups minimizing sum of squared group sums
@@ -57,6 +58,7 @@ mod staff_scheduling;
 pub(crate) mod string_to_string_correction;
 mod subset_sum;
 pub(crate) mod sum_of_squares_partition;
+mod timetable_design;
 
 pub use additional_key::AdditionalKey;
 pub use bin_packing::BinPacking;
@@ -86,6 +88,7 @@ pub use staff_scheduling::StaffScheduling;
 pub use string_to_string_correction::StringToStringCorrection;
 pub use subset_sum::SubsetSum;
 pub use sum_of_squares_partition::SumOfSquaresPartition;
+pub use timetable_design::TimetableDesign;
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
@@ -102,6 +105,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(scheduling_with_individual_deadlines::canonical_model_example_specs());
     specs.extend(sequencing_within_intervals::canonical_model_example_specs());
     specs.extend(staff_scheduling::canonical_model_example_specs());
+    specs.extend(timetable_design::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
     specs.extend(resource_constrained_scheduling::canonical_model_example_specs());
     specs.extend(partially_ordered_knapsack::canonical_model_example_specs());
