@@ -219,7 +219,8 @@ Flags by problem type:
   MaxCut, MaxMatching, TSP        --graph, --edge-weights
   ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --length-bound, --weight-bound
   MaximalIS                       --graph, --weights
-  SAT, KSAT                       --num-vars, --clauses [--k]
+  SAT, NAESAT                     --num-vars, --clauses
+  KSAT                            --num-vars, --clauses [--k]
   QUBO                            --matrix
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
