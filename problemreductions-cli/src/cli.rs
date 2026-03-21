@@ -231,6 +231,7 @@ Flags by problem type:
   GeneralizedHex                  --graph, --source, --sink
   MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound, --cut-bound
   HamiltonianCircuit, HC          --graph
+  LongestCircuit                  --graph, --edge-weights, --bound
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   IsomorphicSpanningTree          --graph, --tree
@@ -498,7 +499,7 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound or length bound (for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleCopyFileAllocation, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
+    /// Bound parameter (lower bound for LongestCircuit; upper or length bound for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleCopyFileAllocation, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Upper bound on total path length

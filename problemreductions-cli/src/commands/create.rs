@@ -13,7 +13,7 @@ use problemreductions::models::algebraic::{
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
-    LengthBoundedDisjointPaths, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
+    LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
     MultipleChoiceBranching, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
@@ -527,6 +527,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "KthBestSpanningTree" => "--graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3",
+        "LongestCircuit" => {
+            "--graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2 --bound 17"
+        }
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
@@ -643,7 +646,12 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
 fn uses_edge_weights_flag(canonical: &str) -> bool {
     matches!(
         canonical,
-        "KthBestSpanningTree" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" | "RuralPostman"
+        "KthBestSpanningTree"
+            | "LongestCircuit"
+            | "MaxCut"
+            | "MaximumMatching"
+            | "TravelingSalesman"
+            | "RuralPostman"
     )
 }
 
@@ -936,6 +944,24 @@ fn validate_length_bounded_disjoint_paths_args(
         return Err(lbdp_validation_error("--bound must be positive", usage));
     }
     Ok(max_length)
+}
+
+fn validate_longest_circuit_bound(bound: i64, usage: Option<&str>) -> Result<i32> {
+    let bound = i32::try_from(bound).map_err(|_| match usage {
+        Some(usage) => {
+            anyhow::anyhow!("--bound must be a positive integer for LongestCircuit\n\n{usage}")
+        }
+        None => anyhow::anyhow!("--bound must be a positive integer for LongestCircuit"),
+    })?;
+    if bound <= 0 {
+        return Err(match usage {
+            Some(usage) => {
+                anyhow::anyhow!("--bound must be a positive integer for LongestCircuit\n\n{usage}")
+            }
+            None => anyhow::anyhow!("--bound must be a positive integer for LongestCircuit"),
+        });
+    }
+    Ok(bound)
 }
 
 /// Resolve the graph type from the variant map (e.g., "KingsSubgraph", "UnitDiskGraph", or "SimpleGraph").
@@ -1493,6 +1519,33 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     required_edges,
                     bound,
                 ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // LongestCircuit
+        "LongestCircuit" => {
+            reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
+            let usage = "pred create LongestCircuit --graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2 --bound 17";
+            let (graph, _) =
+                parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
+            let edge_lengths = parse_edge_weights(args, graph.num_edges())?;
+            if edge_lengths.iter().any(|&length| length <= 0) {
+                bail!("LongestCircuit --edge-weights must be positive (> 0)");
+            }
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("LongestCircuit requires --bound\n\nUsage: {usage}")
+            })?;
+            let bound = i32::try_from(bound).map_err(|_| {
+                anyhow::anyhow!(
+                    "LongestCircuit --bound must fit in i32 (got {bound})\n\nUsage: {usage}"
+                )
+            })?;
+            if bound <= 0 {
+                bail!("LongestCircuit --bound must be positive (> 0)");
+            }
+            (
+                ser(LongestCircuit::new(graph, edge_lengths, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -4999,6 +5052,23 @@ fn create_random(
             (ser(HamiltonianPath::new(graph))?, variant)
         }
 
+        // LongestCircuit (graph + unit edge lengths + positive bound)
+        "LongestCircuit" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let edge_lengths = vec![1i32; graph.num_edges()];
+            let usage = "Usage: pred create LongestCircuit --random --num-vertices 6 [--edge-prob 0.5] [--seed 42] --bound 4";
+            let bound = validate_longest_circuit_bound(
+                args.bound.unwrap_or(num_vertices.max(3) as i64),
+                Some(usage),
+            )?;
+            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+            (ser(LongestCircuit::new(graph, edge_lengths, bound))?, variant)
+        }
+
         // GeneralizedHex (graph only, with source/sink defaults)
         "GeneralizedHex" => {
             let num_vertices = num_vertices.max(2);
@@ -5178,7 +5248,8 @@ fn create_random(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
              MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, TravelingSalesman, \
-             SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, OptimalLinearArrangement, HamiltonianPath, GeneralizedHex)"
+             SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, OptimalLinearArrangement, \
+             HamiltonianPath, LongestCircuit, GeneralizedHex)"
         ),
     };
 

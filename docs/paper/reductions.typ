@@ -72,6 +72,7 @@
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
+  "LongestCircuit": [Longest Circuit],
   "ShortestWeightConstrainedPath": [Shortest Weight-Constrained Path],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
   "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
@@ -757,6 +758,80 @@ Biconnectivity augmentation is a classical network-design problem: add backup li
       },
       caption: [Hamiltonian Circuit in the triangular prism graph. Blue edges show the circuit $#circuit.map(v => $v_#v$).join($arrow$) arrow v_#(circuit.at(0))$.],
       ) <fig:hamiltonian-circuit>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("LongestCircuit")
+  let nv = x.instance.graph.num_vertices
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let ne = edges.len()
+  let edge-lengths = x.instance.edge_lengths
+  let K = x.instance.bound
+  let config = x.optimal_config
+  let selected = range(ne).filter(i => config.at(i) == 1)
+  let total-length = selected.map(i => edge-lengths.at(i)).sum()
+  let cycle-order = (0, 1, 2, 3, 4, 5)
+  [
+    #problem-def("LongestCircuit")[
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$ and a positive bound $K$, determine whether there exists a simple circuit $C subset.eq E$ such that $sum_(e in C) l(e) >= K$.
+    ][
+      Longest Circuit is the decision version of the classical longest-cycle problem. Hamiltonian Circuit is the special case where every edge has unit length and $K = |V|$, so Longest Circuit is NP-complete via Karp's original Hamiltonicity result @karp1972. A standard exact baseline uses Held--Karp-style subset dynamic programming in $O(n^2 dot 2^n)$ time @heldkarp1962; unlike Hamiltonicity, the goal here is to certify a sufficiently long simple cycle rather than specifically a spanning one.
+
+      In the implementation, a configuration selects a subset of edges. It is satisfying exactly when the selected edges induce one connected 2-regular subgraph and the total selected length reaches the threshold $K$.
+
+      *Example.* Consider the canonical 6-vertex instance with bound $K = #K$. The outer cycle $v_0 arrow v_1 arrow v_2 arrow v_3 arrow v_4 arrow v_5 arrow v_0$ uses edge lengths $3 + 2 + 4 + 1 + 5 + 2 = #total-length$, so it is a satisfying circuit with total length exactly $K$. The extra chords $(v_0, v_3)$, $(v_1, v_4)$, $(v_2, v_5)$, and $(v_3, v_5)$ provide alternative routes but are not needed for this witness.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o longest-circuit.json",
+        "pred solve longest-circuit.json",
+        "pred evaluate longest-circuit.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (
+            selected: graph-colors.at(0),
+            unused: luma(200),
+          )
+          let r = 1.5
+          let positions = range(nv).map(i => {
+            let angle = 90deg - i * 360deg / nv
+            (calc.cos(angle) * r, calc.sin(angle) * r)
+          })
+
+          for (ei, (u, v)) in edges.enumerate() {
+            let is-selected = config.at(ei) == 1
+            let col = if is-selected { colors.selected } else { colors.unused }
+            let thickness = if is-selected { 1.3pt } else { 0.5pt }
+            let dash = if is-selected { "solid" } else { "dashed" }
+            line(positions.at(u), positions.at(v), stroke: (paint: col, thickness: thickness, dash: dash))
+
+            let mid = (
+              (positions.at(u).at(0) + positions.at(v).at(0)) / 2,
+              (positions.at(u).at(1) + positions.at(v).at(1)) / 2,
+            )
+            let dx = if ei == 6 { -0.28 } else if ei == 7 { 0.24 } else if ei == 8 { -0.24 } else if ei == 9 { 0.24 } else { 0 }
+            let dy = if ei == 6 { 0 } else if ei == 7 { 0.18 } else if ei == 8 { 0.18 } else if ei == 9 { -0.15 } else { 0 }
+            content(
+              (mid.at(0) + dx, mid.at(1) + dy),
+              text(6pt, fill: col)[#edge-lengths.at(ei)],
+              fill: white,
+              frame: "rect",
+              padding: 0.05,
+              stroke: none,
+            )
+          }
+
+          for (i, pos) in positions.enumerate() {
+            circle(pos, radius: 0.18, fill: white, stroke: 0.7pt + black)
+            content(pos, text(7pt)[$v_#i$])
+          }
+        }),
+        caption: [Longest Circuit instance on #nv vertices. The highlighted cycle $#cycle-order.map(v => $v_#v$).join($arrow$) arrow v_#(cycle-order.at(0))$ has total length #total-length $= K$; the gray dashed chords are available but unused.],
+      ) <fig:longest-circuit>
     ]
   ]
 }
