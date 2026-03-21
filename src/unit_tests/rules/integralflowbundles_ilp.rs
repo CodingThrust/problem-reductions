@@ -84,7 +84,10 @@ fn test_integral_flow_bundles_to_ilp_closed_loop() {
 fn test_integral_flow_bundles_to_ilp_extract_solution_is_identity() {
     let problem = yes_instance();
     let reduction: ReductionIFBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
-    assert_eq!(reduction.extract_solution(&satisfying_config()), satisfying_config());
+    assert_eq!(
+        reduction.extract_solution(&satisfying_config()),
+        satisfying_config()
+    );
 }
 
 #[test]

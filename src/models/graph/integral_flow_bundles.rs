@@ -59,8 +59,14 @@ impl IntegralFlowBundles {
         let num_vertices = graph.num_vertices();
         let num_arcs = graph.num_arcs();
 
-        assert!(source < num_vertices, "source ({source}) >= num_vertices ({num_vertices})");
-        assert!(sink < num_vertices, "sink ({sink}) >= num_vertices ({num_vertices})");
+        assert!(
+            source < num_vertices,
+            "source ({source}) >= num_vertices ({num_vertices})"
+        );
+        assert!(
+            sink < num_vertices,
+            "sink ({sink}) >= num_vertices ({num_vertices})"
+        );
         assert!(source != sink, "source and sink must be distinct");
         assert_eq!(
             bundles.len(),
@@ -72,8 +78,13 @@ impl IntegralFlowBundles {
         let mut arc_covered = vec![false; num_arcs];
         let mut arc_upper_bounds = vec![u64::MAX; num_arcs];
 
-        for (bundle_index, (bundle, &capacity)) in bundles.iter().zip(&bundle_capacities).enumerate() {
-            assert!(capacity > 0, "bundle capacity at index {bundle_index} must be positive");
+        for (bundle_index, (bundle, &capacity)) in
+            bundles.iter().zip(&bundle_capacities).enumerate()
+        {
+            assert!(
+                capacity > 0,
+                "bundle capacity at index {bundle_index} must be positive"
+            );
 
             let mut seen = BTreeSet::new();
             for &arc_index in bundle {
@@ -91,7 +102,10 @@ impl IntegralFlowBundles {
         }
 
         for (arc_index, covered) in arc_covered.iter().copied().enumerate() {
-            assert!(covered, "arc {arc_index} must belong to at least one bundle");
+            assert!(
+                covered,
+                "arc {arc_index} must belong to at least one bundle"
+            );
             let domain = usize::try_from(arc_upper_bounds[arc_index])
                 .ok()
                 .and_then(|bound| bound.checked_add(1));

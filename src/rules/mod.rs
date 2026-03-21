@@ -60,11 +60,11 @@ pub(crate) mod factoring_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod graphpartitioning_ilp;
 #[cfg(feature = "ilp-solver")]
-pub(crate) mod integralflowbundles_ilp;
-#[cfg(feature = "ilp-solver")]
 mod ilp_bool_ilp_i32;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod ilp_qubo;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod integralflowbundles_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod knapsack_ilp;
 #[cfg(feature = "ilp-solver")]

@@ -72,6 +72,7 @@
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
+  "IntegralFlowBundles": [Integral Flow with Bundles],
   "LongestCircuit": [Longest Circuit],
   "ShortestWeightConstrainedPath": [Shortest Weight-Constrained Path],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
@@ -5251,6 +5252,64 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ) <fig:d2cif>
 ]
 
+#{
+  let x = load-model-example("IntegralFlowBundles")
+  let source = x.instance.source
+  let sink = x.instance.sink
+  [
+    #problem-def("IntegralFlowBundles")[
+      Given a directed graph $G = (V, A)$, specified vertices $s, t in V$, a family of arc bundles $I_1, dots, I_k subset.eq A$ whose union covers $A$, positive bundle capacities $c_1, dots, c_k$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow $f: A -> ZZ_(>= 0)$ such that (1) $sum_(a in I_j) f(a) <= c_j$ for every bundle $j$, (2) flow is conserved at every vertex in $V backslash {s, t}$, and (3) the net flow into $t$ is at least $R$.
+    ][
+      Integral Flow with Bundles is the shared-capacity single-commodity flow problem listed as ND36 in Garey \& Johnson @garey1979. Sahni introduced it as one of a family of computationally related network problems and showed that the bundled-capacity variant is NP-complete even in a very sparse unit-capacity regime @sahni1974.
+
+      The implementation keeps one non-negative integer variable per directed arc. Unlike ordinary max-flow, the usable range of an arc is not determined by an intrinsic per-arc capacity; it is bounded instead by the smallest bundle capacity among the bundles that contain that arc. The registered $O(2^m)$ catalog bound therefore reflects the unit-capacity case with $m = |A|$, which is exactly the regime highlighted by Garey \& Johnson and Sahni.#footnote[No exact worst-case algorithm improving on brute-force is claimed here for the bundled-capacity formulation.]
+
+      *Example.* The canonical YES instance has source $s = v_#source$, sink $t = v_#sink$, and arcs $(0,1)$, $(0,2)$, $(1,3)$, $(2,3)$, $(1,2)$, $(2,1)$. The three bundles are $I_1 = {(0,1), (0,2)}$, $I_2 = {(1,3), (2,1)}$, and $I_3 = {(2,3), (1,2)}$, each with capacity 1. Sending one unit along the path $0 -> 1 -> 3$ yields the flow vector $(1, 0, 1, 0, 0, 0)$: bundle $I_1$ contributes $1 + 0 = 1$, bundle $I_2$ contributes $1 + 0 = 1$, bundle $I_3$ contributes $0 + 0 = 0$, and the only nonterminal vertices $v_1, v_2$ satisfy conservation. If the requirement is raised from $R = 1$ to $R = 2$, the same gadget becomes infeasible because $I_1$ caps the total outflow leaving the source at one unit.
+
+      #pred-commands(
+        "pred create --example IntegralFlowBundles -o integral-flow-bundles.json",
+        "pred solve integral-flow-bundles.json",
+        "pred evaluate integral-flow-bundles.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let orange = rgb("#f28e2b")
+          let teal = rgb("#76b7b2")
+          let gray = luma(185)
+          let positions = (
+            (0, 0),
+            (2.2, 1.3),
+            (2.2, -1.3),
+            (4.4, 0),
+          )
+
+          line(positions.at(0), positions.at(1), stroke: (paint: blue, thickness: 2pt), mark: (end: "straight", scale: 0.5))
+          line(positions.at(0), positions.at(2), stroke: (paint: blue.lighten(35%), thickness: 1.0pt), mark: (end: "straight", scale: 0.5))
+          line(positions.at(1), positions.at(3), stroke: (paint: orange, thickness: 2pt), mark: (end: "straight", scale: 0.5))
+          line(positions.at(2), positions.at(3), stroke: (paint: teal, thickness: 1.0pt), mark: (end: "straight", scale: 0.5))
+          line((2.0, 1.0), (3.0, 0.0), (2.0, -1.0), stroke: (paint: teal, thickness: 1.0pt), mark: (end: "straight", scale: 0.5))
+          line((2.4, -1.0), (1.4, 0.0), (2.4, 1.0), stroke: (paint: orange, thickness: 1.0pt), mark: (end: "straight", scale: 0.5))
+
+          for (i, pos) in positions.enumerate() {
+            let fill = if i == source { blue } else if i == sink { rgb("#e15759") } else { white }
+            g-node(pos, name: "ifb-" + str(i), fill: fill, label: if i == source or i == sink { text(fill: white)[$v_#i$] } else { [$v_#i$] })
+          }
+
+          content((1.0, 1.0), text(8pt, fill: blue)[$I_1, c = 1$])
+          content((3.3, 1.0), text(8pt, fill: orange)[$I_2, c = 1$])
+          content((3.3, -1.0), text(8pt, fill: teal)[$I_3, c = 1$])
+          content((2.2, 1.8), text(8pt)[$f(0,1) = 1$])
+          content((3.4, 1.55), text(8pt)[$f(1,3) = 1$])
+        }),
+        caption: [Canonical YES instance for Integral Flow with Bundles. Thick blue/orange arcs carry the satisfying flow $0 -> 1 -> 3$, while the lighter arcs show the two unused alternatives coupled into bundles $I_1$, $I_2$, and $I_3$.],
+      ) <fig:integral-flow-bundles>
+    ]
+  ]
+}
+
 #problem-def("AdditionalKey")[
   Given a set $A$ of attribute names, a collection $F$ of functional dependencies on $A$,
   a subset $R subset.eq A$, and a set $K$ of candidate keys for the relational scheme $chevron.l R, F chevron.r$,
@@ -6656,6 +6715,27 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A valid packing assigns each item to exactly one bin (satisfying (1)); each bin's load is at most $C$ and $y_j = 1$ for any used bin (satisfying (2)). ($arrow.l.double$) Any feasible solution assigns each item to one bin by (1), respects capacity by (2), and the objective counts the number of open bins.
 
   _Solution extraction._ For each item $i$, find the unique $j$ with $x_(i j) = 1$; assign item $i$ to bin $j$.
+]
+
+#reduction-rule("IntegralFlowBundles", "ILP")[
+  The feasibility conditions are already linear: one integer variable per arc, one inequality per bundle, one conservation equality per nonterminal vertex, and one lower bound on sink inflow.
+][
+  _Construction._ Given Integral Flow with Bundles instance $(G = (V, A), s, t, (I_j, c_j)_(j=1)^k, R)$ with arc set $A = {a_0, dots, a_(m-1)}$, create one non-negative integer variable $x_i$ for each arc $a_i$. The ILP therefore has $m$ variables.
+
+  _Bundle constraints._ For every bundle $I_j$, add
+  $sum_(a_i in I_j) x_i <= c_j$.
+
+  _Flow conservation._ For every nonterminal vertex $v in V backslash {s, t}$, add
+  $sum_(a_i = (u, v) in A) x_i - sum_(a_i = (v, w) in A) x_i = 0$.
+
+  _Requirement constraint._ Add the sink inflow lower bound
+  $sum_(a_i = (u, t) in A) x_i - sum_(a_i = (t, w) in A) x_i >= R$.
+
+  _Objective._ Minimize 0. The target is a pure feasibility ILP, so any constant objective works.
+
+  _Correctness._ ($arrow.r.double$) Any satisfying bundled flow assigns a non-negative integer to each arc, satisfies every bundle inequality by definition, satisfies every nonterminal conservation equality, and yields sink inflow at least $R$, so it is a feasible ILP solution. ($arrow.l.double$) Any feasible ILP solution gives non-negative integral arc values obeying the same bundle, conservation, and sink-inflow constraints, hence it is a satisfying solution to the original Integral Flow with Bundles instance.
+
+  _Solution extraction._ Identity: read the ILP vector $(x_0, dots, x_(m-1))$ directly as the arc-flow vector of the source problem.
 ]
 
 #reduction-rule("SequencingToMinimizeWeightedCompletionTime", "ILP")[

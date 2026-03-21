@@ -93,5 +93,8 @@ fn test_integral_flow_bundles_serialization() {
 
 #[test]
 fn test_integral_flow_bundles_problem_name() {
-    assert_eq!(<IntegralFlowBundles as Problem>::NAME, "IntegralFlowBundles");
+    assert_eq!(
+        <IntegralFlowBundles as Problem>::NAME,
+        "IntegralFlowBundles"
+    );
 }

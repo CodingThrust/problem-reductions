@@ -690,8 +690,14 @@ fn test_create_integral_flow_bundles() {
     assert_eq!(json["variant"], serde_json::json!({}));
     assert_eq!(json["data"]["graph"]["num_vertices"], 4);
     assert_eq!(json["data"]["graph"]["arcs"].as_array().unwrap().len(), 6);
-    assert_eq!(json["data"]["bundles"], serde_json::json!([[0, 1], [2, 5], [3, 4]]));
-    assert_eq!(json["data"]["bundle_capacities"], serde_json::json!([1, 1, 1]));
+    assert_eq!(
+        json["data"]["bundles"],
+        serde_json::json!([[0, 1], [2, 5], [3, 4]])
+    );
+    assert_eq!(
+        json["data"]["bundle_capacities"],
+        serde_json::json!([1, 1, 1])
+    );
     assert_eq!(json["data"]["source"], 0);
     assert_eq!(json["data"]["sink"], 3);
     assert_eq!(json["data"]["requirement"], 1);

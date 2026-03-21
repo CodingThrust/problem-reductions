@@ -12,10 +12,10 @@ use problemreductions::models::algebraic::{
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
-    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
-    IntegralFlowBundles, LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets,
-    MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching, SteinerTree,
-    SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IntegralFlowBundles,
+    LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
+    MixedChinesePostman, MultipleChoiceBranching, SteinerTree, SteinerTreeInGraphs,
+    StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
@@ -760,9 +760,7 @@ fn help_flag_hint(
         ("ConsistencyOfDatabaseFrequencyTables", "known_values") => {
             "semicolon-separated triples: \"0,0,0;3,0,1;1,2,1\""
         }
-        ("IntegralFlowBundles", "bundles") => {
-            "semicolon-separated groups: \"0,1;2,5;3,4\""
-        }
+        ("IntegralFlowBundles", "bundles") => "semicolon-separated groups: \"0,1;2,5;3,4\"",
         ("IntegralFlowBundles", "bundle_capacities") => "comma-separated capacities: 1,1,1",
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
@@ -1388,9 +1386,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // IntegralFlowBundles (directed graph + bundles + source/sink + requirement)
         "IntegralFlowBundles" => {
             let usage = "Usage: pred create IntegralFlowBundles --arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4";
-            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("IntegralFlowBundles requires --arcs\n\n{usage}")
-            })?;
+            let arcs_str = args
+                .arcs
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("IntegralFlowBundles requires --arcs\n\n{usage}"))?;
             let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)
                 .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let bundles = parse_bundles(args, num_arcs, usage)?;
@@ -4538,9 +4537,10 @@ fn parse_partition_groups(args: &CreateArgs, num_arcs: usize) -> Result<Vec<Vec<
 }
 
 fn parse_bundles(args: &CreateArgs, num_arcs: usize, usage: &str) -> Result<Vec<Vec<usize>>> {
-    let bundles_str = args.bundles.as_deref().ok_or_else(|| {
-        anyhow::anyhow!("IntegralFlowBundles requires --bundles\n\n{usage}")
-    })?;
+    let bundles_str = args
+        .bundles
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("IntegralFlowBundles requires --bundles\n\n{usage}"))?;
 
     let bundles: Vec<Vec<usize>> = bundles_str
         .split(';')

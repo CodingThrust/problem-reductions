@@ -4,7 +4,7 @@
 //! the bundle-capacity inequalities, flow-conservation equalities at
 //! nonterminals, and the sink inflow lower bound from the source problem.
 
-use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::IntegralFlowBundles;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -72,13 +72,15 @@ impl ReduceTo<ILP<i32>> for IntegralFlowBundles {
                 sink_terms.push((arc_index, 1.0));
             }
         }
-        constraints.push(LinearConstraint::ge(
-            sink_terms,
-            self.requirement() as f64,
-        ));
+        constraints.push(LinearConstraint::ge(sink_terms, self.requirement() as f64));
 
         ReductionIFBToILP {
-            target: ILP::new(self.num_arcs(), constraints, vec![], ObjectiveSense::Minimize),
+            target: ILP::new(
+                self.num_arcs(),
+                constraints,
+                vec![],
+                ObjectiveSense::Minimize,
+            ),
         }
     }
 }
@@ -93,10 +95,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
                 IntegralFlowBundles::new(
-                    DirectedGraph::new(
-                        4,
-                        vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)],
-                    ),
+                    DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]),
                     0,
                     3,
                     vec![vec![0, 1], vec![2, 5], vec![3, 4]],
