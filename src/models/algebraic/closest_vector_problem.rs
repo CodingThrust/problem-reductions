@@ -98,6 +98,42 @@ impl VarBounds {
             _ => None,
         }
     }
+
+    /// Returns an exact bounded binary basis for offsets in this range.
+    ///
+    /// For a bounded variable with offsets `0..=hi-lo`, the returned weights
+    /// ensure that every bit-pattern reconstructs an in-range offset. Low-order
+    /// weights use powers of two; the final weight is capped so the maximum
+    /// reachable offset is exactly `hi-lo`.
+    pub(crate) fn exact_encoding_weights(&self) -> Vec<i64> {
+        let Some(num_values) = self.num_values() else {
+            panic!("CVP QUBO encoding requires finite variable bounds");
+        };
+        if num_values <= 1 {
+            return Vec::new();
+        }
+
+        let max_offset = (num_values - 1) as i64;
+        let num_bits = (usize::BITS - (num_values - 1).leading_zeros()) as usize;
+        let mut weights = Vec::with_capacity(num_bits);
+
+        for bit in 0..num_bits.saturating_sub(1) {
+            weights.push(1_i64 << bit);
+        }
+
+        let covered_by_lower_bits = if num_bits <= 1 {
+            0
+        } else {
+            (1_i64 << (num_bits - 1)) - 1
+        };
+        weights.push(max_offset - covered_by_lower_bits);
+        weights
+    }
+
+    /// Returns the number of encoding bits needed for the exact bounded basis.
+    pub(crate) fn num_encoding_bits(&self) -> usize {
+        self.exact_encoding_weights().len()
+    }
 }
 
 /// Closest Vector Problem (CVP).
@@ -173,6 +209,11 @@ impl<T> ClosestVectorProblem<T> {
     /// Access the variable bounds.
     pub fn bounds(&self) -> &[VarBounds] {
         &self.bounds
+    }
+
+    /// Returns the total number of bounded-encoding bits used by the QUBO form.
+    pub fn num_encoding_bits(&self) -> usize {
+        self.bounds.iter().map(VarBounds::num_encoding_bits).sum()
     }
 
     /// Convert a configuration (offsets from lower bounds) to integer values.

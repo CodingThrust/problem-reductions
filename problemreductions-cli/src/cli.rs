@@ -265,6 +265,8 @@ Flags by problem type:
   LCS                             --strings, --bound [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
+  QBF                             --num-vars, --clauses, --quantifiers
+  SteinerTreeInGraphs             --graph, --edge-weights, --terminals
   PartitionIntoPathsOfLength2     --graph
   ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
@@ -492,6 +494,9 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Quantifiers for QBF (comma-separated, E=Exists, A=ForAll, e.g., "E,A,E")
+    #[arg(long)]
+    pub quantifiers: Option<String>,
     /// Size bound for partition sets (for MinimumCutIntoBoundedSets)
     #[arg(long)]
     pub size_bound: Option<usize>,

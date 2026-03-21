@@ -116,38 +116,40 @@
   "Partition": [Partition],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
-  "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
-  "MultipleChoiceBranching": [Multiple Choice Branching],
-  "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
-  "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
-  "QuadraticAssignment": [Quadratic Assignment],
-  "SequencingWithReleaseTimesAndDeadlines": [Sequencing with Release Times and Deadlines],
-  "ShortestCommonSupersequence": [Shortest Common Supersequence],
-  "MinimumSumMulticenter": [Minimum Sum Multicenter],
-  "MultipleCopyFileAllocation": [Multiple Copy File Allocation],
-  "SteinerTree": [Steiner Tree],
-  "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
-  "SubgraphIsomorphism": [Subgraph Isomorphism],
-  "PartitionIntoTriangles": [Partition Into Triangles],
-  "PrimeAttributeName": [Prime Attribute Name],
-  "FlowShopScheduling": [Flow Shop Scheduling],
-  "MultiprocessorScheduling": [Multiprocessor Scheduling],
-  "PrecedenceConstrainedScheduling": [Precedence Constrained Scheduling],
-  "SchedulingWithIndividualDeadlines": [Scheduling With Individual Deadlines],
-  "StaffScheduling": [Staff Scheduling],
-  "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
+  "ConjunctiveBooleanQuery": [Conjunctive Boolean Query],
   "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
+  "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "FlowShopScheduling": [Flow Shop Scheduling],
+  "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
+  "MinimumSumMulticenter": [Minimum Sum Multicenter],
+  "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
+  "MultipleChoiceBranching": [Multiple Choice Branching],
+  "MultipleCopyFileAllocation": [Multiple Copy File Allocation],
+  "MultiprocessorScheduling": [Multiprocessor Scheduling],
+  "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
+  "PartitionIntoTriangles": [Partition Into Triangles],
+  "PrecedenceConstrainedScheduling": [Precedence Constrained Scheduling],
+  "PrimeAttributeName": [Prime Attribute Name],
+  "QuadraticAssignment": [Quadratic Assignment],
+  "QuantifiedBooleanFormulas": [Quantified Boolean Formulas (QBF)],
+  "RectilinearPictureCompression": [Rectilinear Picture Compression],
+  "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
+  "SchedulingWithIndividualDeadlines": [Scheduling With Individual Deadlines],
   "SequencingToMinimizeMaximumCumulativeCost": [Sequencing to Minimize Maximum Cumulative Cost],
   "SequencingToMinimizeWeightedCompletionTime": [Sequencing to Minimize Weighted Completion Time],
   "SequencingToMinimizeWeightedTardiness": [Sequencing to Minimize Weighted Tardiness],
+  "SequencingWithReleaseTimesAndDeadlines": [Sequencing with Release Times and Deadlines],
   "SequencingWithinIntervals": [Sequencing Within Intervals],
+  "ShortestCommonSupersequence": [Shortest Common Supersequence],
+  "StaffScheduling": [Staff Scheduling],
+  "SteinerTree": [Steiner Tree],
+  "SteinerTreeInGraphs": [Steiner Tree in Graphs],
+  "StringToStringCorrection": [String-to-String Correction],
+  "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
+  "SubgraphIsomorphism": [Subgraph Isomorphism],
   "SumOfSquaresPartition": [Sum of Squares Partition],
   "TwoDimensionalConsecutiveSets": [2-Dimensional Consecutive Sets],
-  "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
-  "ConjunctiveBooleanQuery": [Conjunctive Boolean Query],
-  "RectilinearPictureCompression": [Rectilinear Picture Compression],
-  "StringToStringCorrection": [String-to-String Correction],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -1519,6 +1521,58 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 ]
 
 #{
+  let x = load-model-example("SteinerTreeInGraphs")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges
+  let ne = edges.len()
+  let terminals = x.instance.terminals
+  let weights = x.instance.edge_weights
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let opt-weight = sol.metric.Valid
+  // Derive tree edges from optimal config
+  let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let tree-edges = tree-edge-indices.map(i => edges.at(i))
+  // Steiner vertices: non-terminal vertices that appear in tree edges
+  let steiner-verts = range(nv).filter(v => not terminals.contains(v) and tree-edges.any(e => e.at(0) == v or e.at(1) == v))
+  [
+    #problem-def("SteinerTreeInGraphs")[
+      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> RR_(>= 0)$ and a set of terminal vertices $R subset.eq V$, find a subtree $T$ of $G$ that spans all terminals in $R$ and minimizes the total edge weight $sum_(e in T) w(e)$.
+    ][
+    A classical NP-complete problem from Karp's list (as "Steiner Tree in Graphs," Garey & Johnson ND12) @karp1972. Central to network design, VLSI layout, and phylogenetic reconstruction. The problem generalizes minimum spanning tree (where $R = V$) and shortest path (where $|R| = 2$). The Dreyfus--Wagner dynamic programming algorithm @dreyfuswagner1971 solves it in $O(3^k dot n + 2^k dot n^2 + n^3)$ time, where $k = |R|$ and $n = |V|$. Bjorklund et al. @bjorklund2007 achieved $O^*(2^k)$ using subset convolution over the Mobius algebra, and Nederlof @nederlof2009 gave an $O^*(2^k)$ polynomial-space algorithm.
+
+    *Example.* Consider a graph $G$ with $n = #nv$ vertices and $|E| = #ne$ edges. The terminals are $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue). The optimal Steiner tree uses Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (gray, dashed border) and edges #tree-edges.map(e => [$\{v_#(e.at(0)), v_#(e.at(1))\}$]).join(", ") with total weight #tree-edge-indices.map(i => str(weights.at(i))).join(" + ") $= #opt-weight$.
+
+    #figure({
+      // Graph: 6 vertices arranged in two rows (layout positions)
+      let verts = ((0, 1), (1.5, 1), (3, 1), (1.5, -0.5), (3, -0.5), (4.5, 0.25))
+      canvas(length: 1cm, {
+        // Draw edges
+        for (idx, (u, v)) in edges.enumerate() {
+          let on-tree = tree-edges.any(t => (t.at(0) == u and t.at(1) == v) or (t.at(0) == v and t.at(1) == u))
+          g-edge(verts.at(u), verts.at(v),
+            stroke: if on-tree { 2pt + graph-colors.at(0) } else { 1pt + luma(200) })
+          let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+          let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+          draw.content((mx, my), text(7pt, fill: luma(80))[#weights.at(idx)])
+        }
+        // Draw vertices
+        for (k, pos) in verts.enumerate() {
+          let is-terminal = terminals.contains(k)
+          let is-steiner = steiner-verts.contains(k)
+          g-node(pos, name: "v" + str(k),
+            fill: if is-terminal { graph-colors.at(0) } else if is-steiner { luma(220) } else { white },
+            stroke: if is-steiner { (dash: "dashed", paint: graph-colors.at(0)) } else { 1pt + black },
+            label: if is-terminal { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+        }
+      })
+    },
+    caption: [Steiner Tree: terminals $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue), Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (dashed). Optimal tree (blue edges) has weight #opt-weight.],
+    ) <fig:steiner-tree-example>
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("MinimumSumMulticenter")
   let nv = graph-num-vertices(x.instance)
   let edges = x.instance.graph.edges
@@ -2428,6 +2482,26 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     The hardness of integer factorization underpins RSA cryptography and other public-key systems. Unlike most problems in this collection, Factoring is not known to be NP-complete; it lies in NP $inter$ co-NP, suggesting it may be of intermediate complexity. The best classical algorithm is the General Number Field Sieve @lenstra1993 running in sub-exponential time $e^(O(b^(1 slash 3)(log b)^(2 slash 3)))$ where $b$ is the bit length. Shor's algorithm @shor1994 solves Factoring in polynomial time on a quantum computer.
 
     *Example.* Let $N = #N$ with $m = #mb$ bits and $n = #nb$ bits, so $p in [2, #(calc.pow(2, mb) - 1)]$ and $q in [2, #(calc.pow(2, nb) - 1)]$. The solution is $p = #p$, $q = #q$, since $#p times #q = #N = N$. Note $p = #p$ fits in #mb bits and $q = #q$ fits in #nb bits. The alternative factorization $#q times #p$ requires $m = #nb$, $n = #mb$.
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("QuantifiedBooleanFormulas")
+  let n = x.instance.num_vars
+  let m = x.instance.clauses.len()
+  let clauses = x.instance.clauses
+  let quantifiers = x.instance.quantifiers
+  let fmt-lit(l) = if l > 0 { $u_#l$ } else { $not u_#(-l)$ }
+  let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
+  let fmt-quant(q, i) = if q == "Exists" { $exists u_#(i + 1)$ } else { $forall u_#(i + 1)$ }
+  [
+    #problem-def("QuantifiedBooleanFormulas")[
+      Given a set $U = {u_1, dots, u_n}$ of Boolean variables and a fully quantified Boolean formula $F = (Q_1 u_1)(Q_2 u_2) dots.c (Q_n u_n) E$, where each $Q_i in {exists, forall}$ is a quantifier and $E$ is a Boolean expression in CNF with $m$ clauses, determine whether $F$ is true.
+    ][
+    Quantified Boolean Formulas (QBF) is the canonical PSPACE-complete problem, established by #cite(<stockmeyer1973>, form: "prose"). QBF generalizes SAT by adding universal quantifiers ($forall$) alongside existential ones ($exists$), creating a two-player game semantics: the existential player chooses values for $exists$-variables, the universal player for $forall$-variables, and the formula is true iff the existential player has a winning strategy ensuring all clauses are satisfied. This quantifier alternation is the source of PSPACE-hardness and makes QBF the primary source of PSPACE-completeness reductions for combinatorial game problems. The problem remains PSPACE-complete even when $E$ is restricted to 3-CNF (Quantified 3-SAT), but is polynomial-time solvable when each clause has at most 2 literals @schaefer1978. The best known exact algorithm is brute-force game-tree evaluation in $O^*(2^n)$ time. For QBF with $m$ CNF clauses, #cite(<williams2002>, form: "prose") achieves $O^*(1.709^m)$ time.
+
+    *Example.* Consider $F = #quantifiers.enumerate().map(((i, q)) => fmt-quant(q, i)).join($space$) space #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The existential player chooses $u_1 = 1$: then $C_1 = (1 or u_2) = 1$ and $C_2 = (1 or not u_2) = 1$ for any value of $u_2$. Hence $F$ is #x.optimal_value --- the existential player has a winning strategy.
     ]
   ]
 }
@@ -4210,6 +4284,52 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ For VC solution $C$, return $S = V backslash C$, i.e.\ flip each variable: $s_v = 1 - c_v$.
 ]
 
+#let gp_mc = load-example("GraphPartitioning", "MaxCut")
+#let gp_mc_sol = gp_mc.solutions.at(0)
+#let gp_mc_source_edges = gp_mc.source.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+#let gp_mc_target_edges = gp_mc.target.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+#let gp_mc_weights = gp_mc.target.instance.edge_weights
+#let gp_mc_nv = gp_mc.source.instance.graph.num_vertices
+#let gp_mc_ne = gp_mc_source_edges.len()
+#let gp_mc_penalty = gp_mc_ne + 1
+#let gp_mc_side_a = range(gp_mc_nv).filter(i => gp_mc_sol.source_config.at(i) == 0)
+#let gp_mc_side_b = range(gp_mc_nv).filter(i => gp_mc_sol.source_config.at(i) == 1)
+#let gp_mc_weight_lo = gp_mc_target_edges.enumerate().filter(((i, e)) => gp_mc_weights.at(i) == gp_mc_penalty - 1).map(((i, e)) => e)
+#let gp_mc_weight_hi = gp_mc_target_edges.enumerate().filter(((i, e)) => gp_mc_weights.at(i) == gp_mc_penalty).map(((i, e)) => e)
+#let gp_mc_source_cross = gp_mc_source_edges.filter(e => gp_mc_sol.source_config.at(e.at(0)) != gp_mc_sol.source_config.at(e.at(1)))
+#let gp_mc_cut_lo = gp_mc_target_edges.enumerate().filter(((i, e)) =>
+  gp_mc_weights.at(i) == gp_mc_penalty - 1 and
+  gp_mc_sol.target_config.at(e.at(0)) != gp_mc_sol.target_config.at(e.at(1))
+).map(((i, e)) => e)
+#let gp_mc_cut_hi = gp_mc_target_edges.enumerate().filter(((i, e)) =>
+  gp_mc_weights.at(i) == gp_mc_penalty and
+  gp_mc_sol.target_config.at(e.at(0)) != gp_mc_sol.target_config.at(e.at(1))
+).map(((i, e)) => e)
+#let gp_mc_cut_value = gp_mc_target_edges.enumerate().filter(((i, e)) =>
+  gp_mc_sol.target_config.at(e.at(0)) != gp_mc_sol.target_config.at(e.at(1))
+).map(((i, e)) => gp_mc_weights.at(i)).sum(default: 0)
+#reduction-rule("GraphPartitioning", "MaxCut",
+  example: true,
+  example-caption: [6-vertex minimum bisection to weighted Max-Cut],
+  extra: [
+    Here $m = #gp_mc_ne$, so $P = m + 1 = #gp_mc_penalty$ \
+    Weight $#(gp_mc_penalty - 1)$ edges (original edges): {#gp_mc_weight_lo.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")} \
+    Weight $#gp_mc_penalty$ edges (non-edges): {#gp_mc_weight_hi.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")} \
+    Canonical witness $A = {#gp_mc_side_a.map(i => $v_#i$).join(", ")}$, $B = {#gp_mc_side_b.map(i => $v_#i$).join(", ")}$ cuts source edges {#gp_mc_source_cross.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")} and attains weighted cut $#gp_mc_cut_lo.len() * #(gp_mc_penalty - 1) + #gp_mc_cut_hi.len() * #gp_mc_penalty = #gp_mc_cut_value$ #sym.checkmark
+  ],
+)[
+  @garey1976 Graph Partitioning minimizes cut edges subject to a perfect-balance constraint, while Max-Cut maximizes a weighted cut without any balance constraint. A standard folklore construction in combinatorial optimization removes that constraint by rewarding every cross-pair equally and then subtracting one unit on original edges. The resulting weighted complete graph forces every optimum to be balanced first, and among balanced cuts it exactly minimizes the original bisection width.
+][
+  _Construction._ Given a Graph Partitioning instance $G = (V, E)$ with $n = |V|$ and $m = |E|$, set $P = m + 1$. Build the complete graph $G' = (V, E')$ on the same vertex set, where $E'$ contains every unordered pair $\{u, v\}$ with $u != v$. Assign weight $w'_(u, v) = P - 1$ when $(u, v) in E$, and $w'_(u, v) = P$ otherwise. For any partition $(A, B)$ of $V$, the weighted cut in $G'$ is
+  $ "cut"_(G')(A, B) = P |A| |B| - "cut"_G(A, B). $
+
+  _Correctness._ ($arrow.r.double$) Let $(A, B)$ be a maximum cut of $G'$. If it were unbalanced, then $|A| |B|$ would be at least one smaller than for a balanced partition $(A', B')$. Hence
+  $ "cut"_(G')(A', B') - "cut"_(G')(A, B) >= P - ("cut"_G(A', B') - "cut"_G(A, B)) >= P - m > 0, $
+  because $0 <= "cut"_G(·, ·) <= m$ and $P = m + 1$. Therefore every maximum cut of $G'$ is balanced. Among balanced partitions, $P |A| |B| = P (n slash 2)^2$ is constant, so maximizing $"cut"_(G')(A, B)$ is equivalent to minimizing $"cut"_G(A, B)$. ($arrow.l.double$) Conversely, every minimum bisection of $G$ is balanced and therefore maximizes $P |A| |B| - "cut"_G(A, B)$ in $G'$.
+
+  _Solution extraction._ Read off the same partition vector on the original vertex set: the Max-Cut bit for vertex $v$ is already the Graph Partitioning bit for $v$.
+]
+
 #let mis_clique = load-example("MaximumIndependentSet", "MaximumClique")
 #let mis_clique_sol = mis_clique.solutions.at(0)
 #reduction-rule("MaximumIndependentSet", "MaximumClique",
@@ -4304,6 +4424,65 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
 
   _Solution extraction._ Convert binary to spins: $s_i = 2x_i - 1$, i.e.\ $x_i = 1 arrow.r s_i = +1$, $x_i = 0 arrow.r s_i = -1$.
 ]
+
+#let cvp_qubo = load-example("ClosestVectorProblem", "QUBO")
+#let cvp_qubo_sol = cvp_qubo.solutions.at(0)
+#{
+  let basis = cvp_qubo.source.instance.basis
+  let bounds = cvp_qubo.source.instance.bounds
+  let target = cvp_qubo.source.instance.target
+  let offsets = cvp_qubo_sol.source_config
+  let coords = offsets.enumerate().map(((i, off)) => off + bounds.at(i).lower)
+  let matrix = cvp_qubo.target.instance.matrix
+  let bits = cvp_qubo_sol.target_config
+  let lo = bounds.map(b => b.lower)
+  let anchor = range(target.len()).map(d => lo.enumerate().fold(0.0, (acc, (i, x)) => acc + x * basis.at(i).at(d)))
+  let constant = range(target.len()).fold(0.0, (acc, d) => acc + calc.pow(anchor.at(d) - target.at(d), 2))
+  let qubo-value = range(bits.len()).fold(0.0, (acc, i) => acc + if bits.at(i) == 0 { 0.0 } else {
+    range(bits.len() - i).fold(0.0, (row-acc, delta) => row-acc + if bits.at(i + delta) == 0 { 0.0 } else { matrix.at(i).at(i + delta) })
+  })
+  let fmt-vec(v) = $paren.l #v.map(e => str(e)).join(", ") paren.r^top$
+  let rounded-constant = calc.round(constant, digits: 2)
+  let rounded-qubo = calc.round(qubo-value, digits: 1)
+  let rounded-distance-sq = calc.round(qubo-value + constant, digits: 2)
+  [
+    #reduction-rule("ClosestVectorProblem", "QUBO",
+      example: true,
+      example-caption: [2D bounded CVP with two 3-bit exact-range encodings],
+      extra: [
+        *Step 1 -- Source instance.* The canonical CVP example uses basis columns $bold(b)_1 = #fmt-vec(basis.at(0))$ and $bold(b)_2 = #fmt-vec(basis.at(1))$, target $bold(t) = #fmt-vec(target)$, and bounds $x_1, x_2 in [#bounds.at(0).lower, #bounds.at(0).upper]$.
+
+        *Step 2 -- Exact bounded encoding.* Each variable has #bounds.at(0).upper - bounds.at(0).lower + 1 admissible values, so the implementation uses the capped binary basis $(1, 2, 3)$ rather than $(1, 2, 4)$: the first two bits are powers of two, and the last weight is capped so every bit pattern reconstructs an offset in ${0, dots, 6}$. Thus
+        $ x_1 = #bounds.at(0).lower + z_0 + 2 z_1 + 3 z_2, quad x_2 = #bounds.at(1).lower + z_3 + 2 z_4 + 3 z_5 $
+        giving #cvp_qubo.target.instance.num_vars QUBO variables in total.
+
+        *Step 3 -- Build the QUBO.* For this instance, $G = A^top A = ((4, 2), (2, 5))$ and $h = A^top bold(t) = (5.6, 5.8)^top$. Expanding the shifted quadratic form yields the exported upper-triangular matrix with representative entries $Q_(0,0) = #matrix.at(0).at(0)$, $Q_(0,1) = #matrix.at(0).at(1)$, $Q_(0,2) = #matrix.at(0).at(2)$, $Q_(2,5) = #matrix.at(2).at(5)$, and $Q_(5,5) = #matrix.at(5).at(5)$.
+
+        *Step 4 -- Verify a solution.* The fixture stores the canonical witness $bold(z) = (#bits.map(str).join(", "))$, which extracts to source offsets $bold(c) = (#offsets.map(str).join(", "))$ and actual lattice coordinates $bold(x) = (#coords.map(str).join(", "))$. The QUBO value is $bold(z)^top Q bold(z) = #rounded-qubo$; adding back the dropped constant #rounded-constant yields the original squared distance #(rounded-distance-sq), so the extracted point is the closest lattice vector #sym.checkmark.
+
+        *Multiplicity.* Offset $3$ has two bit encodings ($(0, 0, 1)$ and $(1, 1, 0)$), so the fixture stores one canonical witness even though the QUBO has multiple optimal binary assignments representing the same CVP solution.
+      ],
+    )[
+      A bounded Closest Vector Problem instance already supplies a finite integer box $x_i in [ell_i, u_i]$ for each coefficient. Following the direct quadratic-form reduction of Canale, Qureshi, and Viola @canale2023qubo, encoding each offset $c_i = x_i - ell_i$ with an exact in-range binary basis turns the squared-distance objective into an unconstrained quadratic over binary variables. Unlike penalty-method encodings, no auxiliary feasibility penalty is needed: every bit pattern decodes to a legal coefficient vector by construction.
+    ][
+      _Construction._ Let $A in ZZ^(m times n)$ be the basis matrix with columns $bold(a)_1, dots, bold(a)_n$, let $bold(t) in RR^m$ be the target, and let $x_i in [ell_i, u_i]$ with range $r_i = u_i - ell_i$. Define $L_i = ceil(log_2(r_i + 1))$ when $r_i > 0$ and omit bits when $r_i = 0$. For each variable, introduce binary variables $z_(i,0), dots, z_(i,L_i-1)$ with exact-range weights
+      $ w_(i,p) = 2^p quad (0 <= p < L_i - 1), quad w_(i,L_i-1) = r_i + 1 - 2^(L_i - 1) $
+      so that every bit vector represents an offset in ${0, dots, r_i}$. Then
+      $ x_i = ell_i + sum_(p=0)^(L_i-1) w_(i,p) z_(i,p) $
+      and the total number of QUBO variables is $N = sum_i L_i$, exactly the exported overhead `num_vars = num_encoding_bits`.
+
+      Let $G = A^top A$ and $h = A^top bold(t)$. Writing $bold(x) = bold(ell) + B bold(z)$ for the encoding matrix $B in RR^(n times N)$ gives
+      $ norm(A bold(x) - bold(t))_2^2 = bold(z)^top (B^top G B) bold(z) + 2 bold(z)^top B^top (G bold(ell) - h) + "const" $
+      where the constant $norm(A bold(ell) - bold(t))_2^2$ is dropped. Therefore the QUBO coefficients are
+      $ Q_(u,u) = (B^top G B)_(u,u) + 2 (B^top (G bold(ell) - h))_u, quad Q_(u,v) = 2 (B^top G B)_(u,v) quad (u < v) $
+      using the usual upper-triangular convention.
+
+      _Correctness._ ($arrow.r.double$) Every binary vector $bold(z) in {0,1}^N$ decodes to a coefficient vector $bold(x)$ inside the prescribed bounds because each exact-range basis reaches only offsets in ${0, dots, r_i}$. Substituting this decoding into the CVP objective yields $bold(z)^top Q bold(z) + "const"$, so any QUBO minimizer maps to a bounded CVP minimizer. ($arrow.l.double$) Every bounded CVP solution $bold(x)$ has at least one bit encoding for each coordinate offset, hence at least one binary vector $bold(z)$ with the same objective value up to the dropped constant. Thus the minimizers correspond exactly, although several binary witnesses may decode to the same CVP solution.
+
+      _Solution extraction._ For each source variable, sum its selected encoding weights to recover the source configuration offset $c_i = x_i - ell_i$. This is exactly the configuration format expected by the `ClosestVectorProblem` model.
+    ]
+  ]
+}
 
 == Penalty-Method QUBO Reductions <sec:penalty-method>
 
@@ -4428,6 +4607,50 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Solution extraction._ For each $i$: if $y_i$ is selected ($x_(2i) = 1$), set $x_i = 1$; if $z_i$ is selected ($x_(2i+1) = 1$), set $x_i = 0$.
 ]
+
+#{
+  let ss-cvp = load-example("SubsetSum", "ClosestVectorProblem")
+  let ss-cvp-sol = ss-cvp.solutions.at(0)
+  let ss-cvp-sizes = ss-cvp.source.instance.sizes
+  let ss-cvp-target = ss-cvp.source.instance.target
+  let ss-cvp-basis = ss-cvp.target.instance.basis
+  let ss-cvp-target-vec = ss-cvp.target.instance.target
+  let ss-cvp-n = ss-cvp-sizes.len()
+  let ss-cvp-x = ss-cvp-sol.target_config
+  let to-mat(m) = math.mat(..m.map(row => row.map(v => $#v$)))
+  [
+    #reduction-rule("SubsetSum", "ClosestVectorProblem",
+      example: true,
+      example-caption: [#ss-cvp-n elements, target sum $B = #ss-cvp-target$],
+      extra: [
+        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#ss-cvp-sizes.map(str).join(", "))$ and target $B = #ss-cvp-target$.
+
+        *Step 2 -- Build the lattice.* The reduction creates the basis
+        $ bold(B) = #to-mat(ss-cvp-basis) $
+        together with target $ bold(t) = (#ss-cvp-target-vec.map(str).join(", "))^top $
+        and binary bounds $x_i in {0,1}$ for all $#ss-cvp-n$ coordinates.
+
+        *Step 3 -- Verify the canonical witness.* The fixture stores $bold(x) = (#ss-cvp-x.map(str).join(", "))$, which selects sizes $3$ and $8$ and therefore satisfies $3 + 8 = #ss-cvp-target$. Since $bold(B) bold(x) = (1, 0, 0, 1, #ss-cvp-target)^top$, the difference vector is $(0.5, -0.5, -0.5, 0.5, 0)^top$ and the Euclidean distance is $sqrt(#ss-cvp-n / 4) = 1$.
+
+        *Witness semantics.* The example DB stores one canonical minimizer. This source instance also has another satisfying subset, $(1, 1, 1, 0)$, so the reduction has multiple optimal CVP witnesses even though only one is serialized.
+      ],
+    )[
+      Classical lattice embedding for Subset Sum following Lagarias and Odlyzko @lagarias1985, with the $1/2$-target CVP formulation in the style of Coster et al. @coster1992. For an instance with $n$ elements, the reduction produces $n$ basis vectors in ambient dimension $n + 1$: the first $n$ coordinates enforce binary structure and the last coordinate records the subset sum error.
+    ][
+      _Construction._ Given sizes $s_0, dots, s_(n-1) in ZZ^+$ and target $B in ZZ^+$, define one basis vector per element:
+      $ bold(b)_i = bold(e)_i + s_i bold(e)_(n+1) $
+      for $i in {0, dots, n-1}$. Equivalently, the basis matrix has columns $bold(b)_0, dots, bold(b)_(n-1)$, so its first $n$ rows form the identity matrix and its last row is $(s_0, dots, s_(n-1))$. Set the target vector to
+      $ bold(t) = (1/2, dots, 1/2, B)^top $
+      and restrict every CVP variable to $x_i in {0, 1}$.
+
+      _Correctness._ ($arrow.r.double$) If $bold(x) in {0,1}^n$ is a satisfying Subset Sum solution, then $sum_i s_i x_i = B$ and
+      $ norm(bold(B) bold(x) - bold(t))_2^2 = sum_(i=0)^(n-1) (x_i - 1/2)^2 + (sum_i s_i x_i - B)^2 = n/4. $
+      Hence every satisfying subset becomes a CVP solution at distance $sqrt(n / 4)$. ($arrow.l.double$) Conversely, binary bounds force every CVP candidate to lie in ${0,1}^n$. The first $n$ coordinates always contribute exactly $n/4$ to the squared distance, so a CVP minimizer attains distance $sqrt(n/4)$ if and only if the last coordinate contributes $0$, i.e. $sum_i s_i x_i = B$. When the Subset Sum instance is unsatisfiable, every binary vector has strictly larger distance.
+
+      _Solution extraction._ Return the binary CVP vector unchanged.
+    ]
+  ]
+}
 
 #reduction-rule("ILP", "QUBO")[
   A binary ILP optimizes a linear objective over binary variables subject to linear constraints. The penalty method converts each equality constraint $bold(a)_k^top bold(x) = b_k$ into the quadratic penalty $(bold(a)_k^top bold(x) - b_k)^2$, which is zero if and only if the constraint is satisfied. Inequality constraints are first converted to equalities using binary slack variables with powers-of-two coefficients. The resulting unconstrained quadratic over binary variables is a QUBO whose matrix $Q$ combines the negated objective (as diagonal terms) with the expanded constraint penalties (as a Gram matrix $A^top A$).
@@ -4922,6 +5145,41 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $K = {v : x_v = 1}$.
 ]
 
+#let gp_ilp = load-example("GraphPartitioning", "ILP")
+#let gp_ilp_sol = gp_ilp.solutions.at(0)
+#let gp_n = graph-num-vertices(gp_ilp.source.instance)
+#let gp_edges = gp_ilp.source.instance.graph.edges
+#let gp_m = gp_edges.len()
+#let gp_part_a = range(gp_n).filter(i => gp_ilp_sol.source_config.at(i) == 0)
+#let gp_part_b = range(gp_n).filter(i => gp_ilp_sol.source_config.at(i) == 1)
+#let gp_crossing = range(gp_m).filter(i => gp_ilp_sol.target_config.at(gp_n + i) == 1)
+#let gp_crossing_edges = gp_crossing.map(i => gp_edges.at(i))
+#reduction-rule("GraphPartitioning", "ILP",
+  example: true,
+  example-caption: [Two triangles linked by three crossing edges encoded as a 15-variable ILP.],
+  extra: [
+    *Step 1 -- Balanced partition variables.* Introduce $x_v in {0,1}$ for each vertex. In the canonical witness, $A = {#gp_part_a.map(str).join(", ")}$ and $B = {#gp_part_b.map(str).join(", ")}$, so $bold(x) = (#gp_ilp_sol.source_config.map(str).join(", "))$.\
+
+    *Step 2 -- Crossing indicators.* Add one binary variable per edge, so the target has $#gp_ilp.target.instance.num_vars$ binary variables and #gp_ilp.target.instance.constraints.len() constraints in total. The three active crossing indicators correspond to edges $\{#gp_crossing_edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")\}$.\
+
+    *Step 3 -- Verify the objective.* The target witness $bold(z) = (#gp_ilp_sol.target_config.map(str).join(", "))$ sets exactly #gp_crossing.len() edge-indicator variables to 1, so the ILP objective equals the bisection width #gp_crossing.len() #sym.checkmark
+  ],
+)[
+  The node-and-edge integer-programming formulation of Chopra and Rao @chopra1993 models a balanced cut with one binary variable per vertex and one binary crossing indicator per edge. A single balance equality enforces the bisection, and two linear inequalities per edge linearize $|x_u - x_v|$ so that the objective can minimize the number of crossing edges directly.
+][
+  _Construction._ Given graph $G = (V, E)$ with $n = |V|$ and $m = |E|$:
+
+  _Variables._ Binary $x_v in {0, 1}$ for each $v in V$, where $x_v = 1$ means vertex $v$ is placed in side $B$. For each edge $e = (u, v) in E$, binary $y_e in {0, 1}$ indicates whether $e$ crosses the partition. Total: $n + m$ variables.
+
+  _Constraints._ (1) Balance: $sum_(v in V) x_v = n / 2$. If $n$ is odd, the right-hand side is fractional, so the ILP is infeasible exactly when Graph Partitioning has no valid balanced partition. (2) For each edge $e = (u, v)$: $y_e >= x_u - x_v$ and $y_e >= x_v - x_u$. Since $y_e$ is binary and the objective minimizes $sum_e y_e$, these inequalities force $y_e = 1$ exactly for crossing edges. Total: $2m + 1$ constraints.
+
+  _Objective._ Minimize $sum_(e in E) y_e$.
+
+  _Correctness._ ($arrow.r.double$) Given a balanced partition $(A, B)$, set $x_v = 1$ iff $v in B$, and set $y_e = 1$ iff edge $e$ has one endpoint in each side. The balance constraint holds because $|B| = n / 2$, and the linking inequalities hold because $|x_u - x_v| = 1$ exactly on crossing edges. The objective is therefore the cut size. ($arrow.l.double$) Any feasible ILP solution satisfies the balance equation, so exactly half the vertices have $x_v = 1$ when $n$ is even. For each edge, the linking inequalities imply $y_e >= |x_u - x_v|$; minimization therefore chooses $y_e = |x_u - x_v|$, making the objective count precisely the crossing edges of the extracted partition.
+
+  _Solution extraction._ Return the first $n$ variables $(x_v)_(v in V)$ as the Graph Partitioning configuration; the edge-indicator variables are auxiliary.
+]
+
 #let ks_ilp = load-example("Knapsack", "ILP")
 #let ks_ilp_sol = ks_ilp.solutions.at(0)
 #let ks_ilp_selected = ks_ilp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
@@ -5094,6 +5352,53 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each edge $e$ at index $"idx"$, read $x_e = x^*_(k n + "idx")$. The source configuration is $"config"[e] = x_e$ (1 = cut, 0 = keep).
 ]
 
+#let st_ilp = load-example("SteinerTree", "ILP")
+#let st_ilp_sol = st_ilp.solutions.at(0)
+#let st_edges = st_ilp.source.instance.graph.edges
+#let st_weights = st_ilp.source.instance.edge_weights
+#let st_terminals = st_ilp.source.instance.terminals
+#let st_root = st_terminals.at(0)
+#let st_non_root_terminals = range(1, st_terminals.len()).map(i => st_terminals.at(i))
+#let st_selected_edge_indices = st_ilp_sol.source_config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+#let st_selected_edges = st_selected_edge_indices.map(i => st_edges.at(i))
+#let st_cost = st_selected_edge_indices.map(i => st_weights.at(i)).sum()
+
+#reduction-rule("SteinerTree", "ILP",
+  example: true,
+  example-caption: [Canonical Steiner tree instance ($n = #st_ilp.source.instance.graph.num_vertices$, $m = #st_edges.len()$, $|T| = #st_terminals.len()$)],
+  extra: [
+    *Step 1 -- Choose a root and one commodity per remaining terminal.* The canonical source instance has terminals $T = {#st_terminals.map(t => $v_#t$).join(", ")}$. The reduction fixes the first terminal as root $r = v_#st_root$ and creates one flow commodity for each remaining terminal: $v_#st_non_root_terminals.at(0)$ and $v_#st_non_root_terminals.at(1)$.
+
+    *Step 2 -- Count the variables from the source edge order.* The first #st_edges.len() target variables are the edge selectors $bold(y) = (#st_ilp_sol.target_config.slice(0, st_edges.len()).map(str).join(", "))$, one per source edge in the order #st_edges.enumerate().map(((i, e)) => [$e_#i = (#(e.at(0)), #(e.at(1)))$]).join(", "). The remaining #(st_ilp.target.instance.num_vars - st_edges.len()) variables are directed flow indicators: $2 m (|T| - 1) = 2 times #st_edges.len() times #st_non_root_terminals.len() = #(st_ilp.target.instance.num_vars - st_edges.len())$.
+
+    *Step 3 -- Count the constraints commodity-by-commodity.* Each non-root terminal contributes one flow-conservation equality per vertex and two capacity inequalities per source edge. For this fixture that is $#st_ilp.source.instance.graph.num_vertices times #st_non_root_terminals.len() = #(st_ilp.source.instance.graph.num_vertices * st_non_root_terminals.len())$ equalities plus $#(2 * st_edges.len()) times #st_non_root_terminals.len() = #(2 * st_edges.len() * st_non_root_terminals.len())$ inequalities, totaling #st_ilp.target.instance.constraints.len() constraints.
+
+    *Step 4 -- Read the canonical witness pair.* The source witness selects edges ${#st_selected_edges.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")}$, so $bold(y)$ already encodes the Steiner tree. In the target witness, the commodity for $v_2$ routes along $v_0 arrow v_1 arrow v_2$, while the commodity for $v_4$ routes along $v_0 arrow v_1 arrow v_3 arrow v_4$. Every flow 1-entry therefore sits under a selected edge variable #sym.checkmark
+
+    *Step 5 -- Verify the objective end-to-end.* The selected-edge prefix is $bold(y) = (#st_ilp_sol.target_config.slice(0, st_edges.len()).map(str).join(", "))$, matching the source witness $(#st_ilp_sol.source_config.map(str).join(", "))$. The ILP objective is #st_selected_edge_indices.map(i => $#(st_weights.at(i))$).join($+$) $= #st_cost$, exactly the Steiner tree optimum stored in the fixture.
+
+    *Multiplicity:* The fixture stores one canonical witness. Other optimal Steiner trees could yield different feasible ILP witnesses, but every valid witness still exposes the source solution in the first $m$ variables.
+  ],
+)[
+  The rooted multi-commodity flow formulation @wong1984steiner @kochmartin1998steiner introduces one binary selector $y_e$ for each source edge and, for every non-root terminal $t$, one binary flow variable on each directed source edge. Flow conservation sends one unit from the root to each terminal, while the linking inequalities $f^t_(u,v) <= y_e$ ensure that every used flow arc is backed by a selected source edge. The resulting binary ILP has $m + 2 m (k - 1)$ variables and $n (k - 1) + 2 m (k - 1)$ constraints.
+][
+  _Construction._ Given an undirected weighted graph $G = (V, E, w)$ with strictly positive edge weights, terminals $T = {t_0, dots, t_(k-1)}$, and root $r = t_0$, introduce binary edge selectors $y_e in {0,1}$ for every $e in E$. For each non-root terminal $t in T backslash {r}$ and each directed copy of an undirected edge $(u, v) in E$, introduce a binary flow variable $f^t_(u,v) in {0,1}$. The target objective is
+  $ min sum_(e in E) w_e y_e. $
+  For every commodity $t$ and vertex $v$, enforce flow conservation:
+  $ sum_(u : (u, v) in A) f^t_(u,v) - sum_(u : (v, u) in A) f^t_(v,u) = b_(t,v), $
+  where $A$ contains both orientations of every undirected edge, $b_(t,v) = -1$ at the root $v = r$, $b_(t,v) = 1$ at the sink $v = t$, and $b_(t,v) = 0$ otherwise. For every commodity $t$ and undirected edge $e = {u, v}$, add the capacity-linking inequalities
+  $ f^t_(u,v) <= y_e quad "and" quad f^t_(v,u) <= y_e. $
+  Binary flow variables suffice because any Steiner tree yields a unique simple root-to-terminal path for each commodity, so every commodity can be realized as a 0/1 path indicator.
+
+  _Correctness._ ($arrow.r.double$) If $S subset.eq E$ is a Steiner tree, set $y_e = 1$ exactly for $e in S$. For each non-root terminal $t$, the unique path from $r$ to $t$ inside the tree defines a binary flow assignment satisfying the conservation equations, and every used arc lies on a selected edge, so all linking inequalities hold. The ILP objective equals $sum_(e in S) w_e$. ($arrow.l.double$) Any feasible ILP solution with edge selector set $Y = {e in E : y_e = 1}$ supports one unit of flow from $r$ to every non-root terminal, so the selected edges contain a connected subgraph spanning all terminals. Because all edge weights are strictly positive, any cycle in the selected subgraph has positive total cost; the optimizer therefore never includes redundant edges, so the selected subgraph is already a Steiner tree. Therefore an optimal ILP solution induces a minimum-cost Steiner tree.
+
+  _Variable mapping._ The first $m$ ILP variables are the source-edge indicators $y_0, dots, y_(m-1)$ in source edge order. For terminal $t_p$ with $p in {1, dots, k-1}$, the next block of $2 m$ variables stores the directed arc indicators $f^(t_p)_(u,v)$ and $f^(t_p)_(v,u)$ for each source edge $(u, v)$.
+
+  _Solution extraction._ Read the first $m$ target variables as the source edge-selection vector. Since those coordinates are exactly the $y_e$ variables, the extracted source configuration is valid whenever the selected subgraph is pruned to its Steiner tree witness.
+
+  _Remark._ Zero-weight edges are excluded because they allow degenerate optimal ILP solutions containing redundant cycles at no cost; following the convention of practical solvers (e.g., SCIP-Jack @kochmartin1998steiner), such edges should be contracted before applying the reduction.
+]
+
 == Unit Disk Mapping
 
 #reduction-rule("MaximumIndependentSet", "KingsSubgraph")[
@@ -5219,6 +5524,7 @@ The following table shows concrete variable overhead for example instances, take
   (source: "SpinGlass", target: "MaxCut"),
   (source: "SpinGlass", target: "QUBO"),
   (source: "QUBO", target: "SpinGlass"),
+  (source: "ClosestVectorProblem", target: "QUBO"),
   (source: "KColoring", target: "QUBO"),
   (source: "MaximumSetPacking", target: "QUBO"),
   (

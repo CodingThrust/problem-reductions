@@ -13,7 +13,9 @@ pub use algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesSubmatrix,
     QuadraticAssignment, BMF, ILP, QUBO,
 };
-pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
+pub use formula::{
+    CNFClause, CircuitSAT, KSatisfiability, QuantifiedBooleanFormulas, Quantifier, Satisfiability,
+};
 pub use graph::{
     BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
     BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
@@ -23,8 +25,8 @@ pub use graph::{
     MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter,
     MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
     OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman,
-    SpinGlass, SteinerTree, StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
-    UndirectedTwoCommodityIntegralFlow,
+    SpinGlass, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    SubgraphIsomorphism, TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
