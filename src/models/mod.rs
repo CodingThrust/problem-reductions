@@ -24,10 +24,10 @@ pub use graph::{
     KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique,
     MaximumIndependentSet, MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets,
     MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut,
-    MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
-    OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman,
-    ShortestWeightConstrainedPath, SpinGlass, SteinerTree, SteinerTreeInGraphs,
-    StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
+    MinimumSumMulticenter, MinimumVertexCover, MixedChinesePostman, MultipleChoiceBranching,
+    MultipleCopyFileAllocation, OptimalLinearArrangement, PartitionIntoPathsOfLength2,
+    PartitionIntoTriangles, RuralPostman, ShortestWeightConstrainedPath, SpinGlass, SteinerTree,
+    SteinerTreeInGraphs, StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
     UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;

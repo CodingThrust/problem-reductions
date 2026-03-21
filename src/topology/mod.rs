@@ -4,6 +4,7 @@
 //! - [`PlanarGraph`]: Planar graph
 //! - [`BipartiteGraph`]: Bipartite graph
 //! - [`DirectedGraph`]: Directed graph (digraph)
+//! - [`MixedGraph`]: Mixed graph with directed arcs and undirected edges
 //! - [`UnitDiskGraph`]: Vertices with 2D positions, edges based on distance
 //! - [`KingsSubgraph`]: 8-connected grid graph (King's graph)
 //! - [`TriangularSubgraph`]: Triangular lattice subgraph
@@ -13,6 +14,7 @@ mod bipartite_graph;
 mod directed_graph;
 mod graph;
 mod kings_subgraph;
+mod mixed_graph;
 mod planar_graph;
 pub mod small_graphs;
 mod triangular_subgraph;
@@ -22,6 +24,7 @@ pub use bipartite_graph::BipartiteGraph;
 pub use directed_graph::DirectedGraph;
 pub use graph::{Graph, GraphCast, SimpleGraph};
 pub use kings_subgraph::KingsSubgraph;
+pub use mixed_graph::MixedGraph;
 pub use planar_graph::PlanarGraph;
 pub use small_graphs::{available_graphs, smallgraph};
 pub use triangular_subgraph::TriangularSubgraph;

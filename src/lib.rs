@@ -48,10 +48,11 @@ pub mod prelude {
         Satisfiability,
     };
     pub use crate::models::graph::{
-        AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
-        BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
-        GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KClique,
-        KthBestSpanningTree, LengthBoundedDisjointPaths, SpinGlass, SteinerTree,
+        AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover,
+        BiconnectivityAugmentation, BoundedComponentSpanningForest,
+        DirectedTwoCommodityIntegralFlow, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
+        HamiltonianPath, IsomorphicSpanningTree, KClique, KthBestSpanningTree,
+        LengthBoundedDisjointPaths, MixedChinesePostman, SpinGlass, SteinerTree,
         StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
