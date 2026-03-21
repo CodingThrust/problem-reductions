@@ -43,8 +43,8 @@
 //! - [`UndirectedTwoCommodityIntegralFlow`]: Two-commodity integral flow on undirected graphs
 //! - [`StrongConnectivityAugmentation`]: Strong connectivity augmentation with weighted candidate arcs
 
-pub(crate) mod balanced_complete_bipartite_subgraph;
 pub(crate) mod acyclic_partition;
+pub(crate) mod balanced_complete_bipartite_subgraph;
 pub(crate) mod biclique_cover;
 pub(crate) mod biconnectivity_augmentation;
 pub(crate) mod bounded_component_spanning_forest;
@@ -58,6 +58,7 @@ pub(crate) mod kclique;
 pub(crate) mod kcoloring;
 pub(crate) mod kth_best_spanning_tree;
 pub(crate) mod length_bounded_disjoint_paths;
+pub(crate) mod longest_circuit;
 pub(crate) mod max_cut;
 pub(crate) mod maximal_is;
 pub(crate) mod maximum_clique;
@@ -101,6 +102,7 @@ pub use kclique::KClique;
 pub use kcoloring::KColoring;
 pub use kth_best_spanning_tree::KthBestSpanningTree;
 pub use length_bounded_disjoint_paths::LengthBoundedDisjointPaths;
+pub use longest_circuit::LongestCircuit;
 pub use max_cut::MaxCut;
 pub use maximal_is::MaximalIS;
 pub use maximum_clique::MaximumClique;
@@ -144,6 +146,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(kcoloring::canonical_model_example_specs());
     specs.extend(kth_best_spanning_tree::canonical_model_example_specs());
     specs.extend(length_bounded_disjoint_paths::canonical_model_example_specs());
+    specs.extend(longest_circuit::canonical_model_example_specs());
     specs.extend(minimum_dominating_set::canonical_model_example_specs());
     specs.extend(maximum_matching::canonical_model_example_specs());
     specs.extend(traveling_salesman::canonical_model_example_specs());
