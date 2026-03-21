@@ -3010,6 +3010,34 @@ fn test_create_ola_rejects_negative_bound() {
 }
 
 #[test]
+fn test_create_rooted_tree_arrangement() {
+    let output_file = std::env::temp_dir().join("pred_test_create_rooted_tree_arrangement.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "RootedTreeArrangement",
+            "--graph",
+            "0-1,0-2,1-2,2-3,3-4",
+            "--bound",
+            "7",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "RootedTreeArrangement");
+    assert_eq!(json["data"]["bound"], 7);
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
 fn test_create_scs_rejects_negative_bound() {
     let output = pred()
         .args(["create", "SCS", "--strings", "0,1,2;1,2,0", "--bound", "-1"])

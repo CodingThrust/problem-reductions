@@ -118,6 +118,7 @@
   "ConsecutiveSets": [Consecutive Sets],
   "MinimumMultiwayCut": [Minimum Multiway Cut],
   "OptimalLinearArrangement": [Optimal Linear Arrangement],
+  "RootedTreeArrangement": [Rooted Tree Arrangement],
   "RuralPostman": [Rural Postman],
   "MixedChinesePostman": [Mixed Chinese Postman],
   "StackerCrane": [Stacker Crane],
@@ -1740,6 +1741,30 @@ is feasible: each set induces a connected subgraph, the component weights are $2
         "pred create --example OptimalLinearArrangement -o optimal-linear-arrangement.json",
         "pred solve optimal-linear-arrangement.json",
         "pred evaluate optimal-linear-arrangement.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+#{
+  let x = load-model-example("RootedTreeArrangement")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let K = x.instance.bound
+  [
+    #problem-def("RootedTreeArrangement")[
+      Given an undirected graph $G = (V, E)$ and a non-negative integer $K$, is there a rooted tree $T = (U, F)$ with $|U| = |V|$ and a bijection $f: V -> U$ such that every edge $\{u, v\} in E$ maps to two nodes lying on a common root-to-leaf path in $T$, and $sum_(\{u, v\} in E) d_T(f(u), f(v)) <= K$?
+    ][
+      Rooted Tree Arrangement is GT45 in Garey and Johnson @garey1979. It generalizes Optimal Linear Arrangement by allowing the host layout to be any rooted tree rather than a single path. Garey and Johnson cite Gavril's NP-completeness proof via reduction from Optimal Linear Arrangement @gavril1977.
+
+      The connection to Optimal Linear Arrangement is immediate: if the rooted tree is restricted to a chain, the stretch objective becomes the linear-arrangement objective. This explains why the two problems live in the same arrangement family. For tree-oriented ordering problems, Adolphson and Hu give a polynomial-time algorithm for optimal linear ordering on trees @adolphsonHu1973, showing that the difficulty here comes from simultaneously choosing both the rooted-tree topology and the vertex-to-node bijection.
+
+      *Example.* Consider the graph with $n = #nv$ vertices, $|E| = #ne$ edges, and edge set ${#edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$. With bound $K = #K$, the chain tree encoded by parent array $(0, 0, 1, 2)$ and identity mapping $(0, 1, 2, 3)$ is a valid witness: every listed edge lies on the unique root-to-leaf chain, and the total stretch is $1 + 2 + 1 + 1 = 5 <= #K$. Therefore this canonical instance is a YES instance.
+
+      #pred-commands(
+        "pred create --example RootedTreeArrangement -o rooted-tree-arrangement.json",
+        "pred solve rooted-tree-arrangement.json",
+        "pred evaluate rooted-tree-arrangement.json --config " + x.optimal_config.map(str).join(","),
       )
     ]
   ]

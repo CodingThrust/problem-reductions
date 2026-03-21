@@ -61,8 +61,8 @@ pub mod prelude {
         MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter,
         MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
         OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
-        RuralPostman, ShortestWeightConstrainedPath, SteinerTreeInGraphs, TravelingSalesman,
-        UndirectedTwoCommodityIntegralFlow,
+        RootedTreeArrangement, RuralPostman, ShortestWeightConstrainedPath, SteinerTreeInGraphs,
+        TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
         AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation,

@@ -32,6 +32,7 @@
 //! - [`BottleneckTravelingSalesman`]: Hamiltonian cycle minimizing the maximum selected edge weight
 //! - [`MultipleCopyFileAllocation`]: File-copy placement under storage and access costs
 //! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
+//! - [`RootedTreeArrangement`]: Rooted-tree embedding with bounded total edge stretch
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 //! - [`MinMaxMulticenter`]: Min-max multicenter (vertex p-center, satisfaction)
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
@@ -81,6 +82,7 @@ pub(crate) mod multiple_copy_file_allocation;
 pub(crate) mod optimal_linear_arrangement;
 pub(crate) mod partition_into_paths_of_length_2;
 pub(crate) mod partition_into_triangles;
+pub(crate) mod rooted_tree_arrangement;
 pub(crate) mod rural_postman;
 pub(crate) mod shortest_weight_constrained_path;
 pub(crate) mod spin_glass;
@@ -127,6 +129,7 @@ pub use multiple_copy_file_allocation::MultipleCopyFileAllocation;
 pub use optimal_linear_arrangement::OptimalLinearArrangement;
 pub use partition_into_paths_of_length_2::PartitionIntoPathsOfLength2;
 pub use partition_into_triangles::PartitionIntoTriangles;
+pub use rooted_tree_arrangement::RootedTreeArrangement;
 pub use rural_postman::RuralPostman;
 pub use shortest_weight_constrained_path::ShortestWeightConstrainedPath;
 pub use spin_glass::SpinGlass;
@@ -174,6 +177,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(bounded_component_spanning_forest::canonical_model_example_specs());
     specs.extend(partition_into_triangles::canonical_model_example_specs());
     specs.extend(partition_into_paths_of_length_2::canonical_model_example_specs());
+    specs.extend(rooted_tree_arrangement::canonical_model_example_specs());
     specs.extend(steiner_tree::canonical_model_example_specs());
     specs.extend(steiner_tree_in_graphs::canonical_model_example_specs());
     specs.extend(directed_two_commodity_integral_flow::canonical_model_example_specs());
