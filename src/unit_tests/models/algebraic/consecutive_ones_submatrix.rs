@@ -16,7 +16,7 @@ fn test_consecutive_ones_submatrix_basic() {
     let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3);
     assert_eq!(problem.num_rows(), 3);
     assert_eq!(problem.num_cols(), 4);
-    assert_eq!(problem.bound_k(), 3);
+    assert_eq!(problem.bound(), 3);
     assert_eq!(problem.dims(), vec![2; 4]);
     assert_eq!(
         <ConsecutiveOnesSubmatrix as Problem>::NAME,
@@ -149,13 +149,13 @@ fn test_consecutive_ones_submatrix_serialization() {
                 [true, false, true, true],
                 [false, true, true, false],
             ],
-            "bound_k": 3,
+            "bound": 3,
         })
     );
     let restored: ConsecutiveOnesSubmatrix = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_rows(), 3);
     assert_eq!(restored.num_cols(), 4);
-    assert_eq!(restored.bound_k(), 3);
+    assert_eq!(restored.bound(), 3);
 }
 
 #[test]
@@ -208,7 +208,7 @@ fn test_consecutive_ones_submatrix_complexity_metadata_matches_evaluator() {
 }
 
 #[test]
-#[should_panic(expected = "bound_k")]
+#[should_panic(expected = "bound")]
 fn test_consecutive_ones_submatrix_k_too_large() {
     let matrix = vec![vec![true, false]];
     ConsecutiveOnesSubmatrix::new(matrix, 3);

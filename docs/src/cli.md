@@ -58,6 +58,12 @@ pred create SteinerTree --graph 0-1,0-3,1-2,1-3,2-3,2-4,3-4 --edge-weights 2,5,2
 # Create a Length-Bounded Disjoint Paths instance
 pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3 -o lbdp.json
 
+# Create a Consecutive Block Minimization instance (alias: CBM)
+pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound 2 -o cbm.json
+
+# CBM currently needs the brute-force solver
+pred solve cbm.json --solver brute-force
+
 # Or start from a canonical model example
 pred create --example MIS/SimpleGraph/i32 -o example.json
 
@@ -342,6 +348,7 @@ pred create MIS --graph 0-1,1-2,2-3 -o problem.json
 pred create MIS --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o problem.json
 pred create SAT --num-vars 3 --clauses "1,2;-1,3" -o sat.json
 pred create QUBO --matrix "1,0.5;0.5,2" -o qubo.json
+pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound 2 -o cbm.json
 pred create KColoring --k 3 --graph 0-1,1-2,2-0 -o kcol.json
 pred create KthBestSpanningTree --graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3 -o kth.json
 pred create SpinGlass --graph 0-1,1-2 -o sg.json
@@ -357,12 +364,22 @@ pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
 pred create X3C --universe 9 --sets "0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8" -o x3c.json
 pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" --k 2 -o mck.json
 pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 --precedence-pairs "0>3,1>3,1>4,2>4" -o mts.json
+pred create SchedulingWithIndividualDeadlines --n 7 --deadlines 2,1,2,2,3,3,2 --num-processors 3 --precedence-pairs "0>3,1>3,1>4,2>4,2>5" -o swid.json
+pred solve swid.json --solver brute-force
+pred create SequencingToMinimizeWeightedCompletionTime --lengths 2,1,3,1,2 --weights 3,5,1,4,2 --precedence-pairs "0>2,1>4" -o stmwct.json
 pred create StringToStringCorrection --source-string "0,1,2,3,1,0" --target-string "0,1,3,2,1" --bound 2 | pred solve - --solver brute-force
 pred create StrongConnectivityAugmentation --arcs "0>1,1>2,2>0,3>4,4>3,2>3,4>5,5>3" --candidate-arcs "3>0:5,3>1:3,3>2:4,4>0:6,4>1:2,4>2:7,5>0:4,5>1:3,5>2:1,0>3:8,0>4:3,0>5:2,1>3:6,1>4:4,1>5:5,2>4:3,2>5:7,1>0:2" --bound 1 -o sca.json
 ```
 
 For `LengthBoundedDisjointPaths`, the CLI flag `--bound` maps to the JSON field
 `max_length`.
+
+For `ConsecutiveBlockMinimization`, the `--matrix` flag expects a JSON 2D bool array such as
+`'[[true,false,true],[false,true,true]]'`. The example above shows the accepted shape, and solving
+CBM instances currently requires `--solver brute-force`.
+
+For problem-specific create help, run `pred create <PROBLEM>` with no additional flags.
+The generic `pred create --help` output lists all flags across all problem types.
 
 Canonical examples are useful when you want a known-good instance from the paper/example database.
 For model examples, `pred create --example <PROBLEM_SPEC>` emits the canonical instance for that
@@ -497,6 +514,7 @@ Stdin is supported with `-`:
 ```bash
 pred create MIS --graph 0-1,1-2,2-3 | pred solve -
 pred create MIS --graph 0-1,1-2,2-3 | pred solve - --solver brute-force
+pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets "0,1,2;3,4,5;1,3;2,4;0,5" | pred solve - --solver brute-force
 ```
 
 When the problem is not ILP, the solver automatically reduces it to ILP, solves, and maps the solution back. The auto-reduction is shown in the output:

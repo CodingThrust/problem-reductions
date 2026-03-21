@@ -18,7 +18,7 @@ inventory::submit! {
         fields: &[
             FieldInfo { name: "num_attributes", type_name: "usize", description: "Number of attributes in the relation" },
             FieldInfo { name: "dependencies", type_name: "Vec<(Vec<usize>, Vec<usize>)>", description: "Functional dependencies as (lhs, rhs) pairs" },
-            FieldInfo { name: "bound_k", type_name: "usize", description: "Upper bound on key cardinality" },
+            FieldInfo { name: "bound", type_name: "i64", description: "Upper bound on key cardinality" },
         ],
     }
 }
@@ -37,7 +37,7 @@ pub struct MinimumCardinalityKey {
     /// Functional dependencies as `(lhs, rhs)` pairs.
     dependencies: Vec<(Vec<usize>, Vec<usize>)>,
     /// Upper bound on key cardinality.
-    bound_k: usize,
+    bound: i64,
 }
 
 impl MinimumCardinalityKey {
@@ -49,7 +49,7 @@ impl MinimumCardinalityKey {
     pub fn new(
         num_attributes: usize,
         dependencies: Vec<(Vec<usize>, Vec<usize>)>,
-        bound_k: usize,
+        bound: i64,
     ) -> Self {
         let mut dependencies = dependencies;
         for (dep_index, (lhs, rhs)) in dependencies.iter_mut().enumerate() {
@@ -71,7 +71,7 @@ impl MinimumCardinalityKey {
         Self {
             num_attributes,
             dependencies,
-            bound_k,
+            bound,
         }
     }
 
@@ -86,8 +86,8 @@ impl MinimumCardinalityKey {
     }
 
     /// Return the upper bound on key cardinality.
-    pub fn bound_k(&self) -> usize {
-        self.bound_k
+    pub fn bound(&self) -> i64 {
+        self.bound
     }
 
     /// Return the functional dependencies.
@@ -162,7 +162,7 @@ impl Problem for MinimumCardinalityKey {
         let selected: Vec<bool> = config.iter().map(|&v| v == 1).collect();
         let count = selected.iter().filter(|&&v| v).count();
 
-        if count > self.bound_k {
+        if (count as i64) > self.bound {
             return false;
         }
 

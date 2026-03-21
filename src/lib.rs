@@ -43,7 +43,9 @@ pub mod variant;
 pub mod prelude {
     // Problem types
     pub use crate::models::algebraic::{QuadraticAssignment, BMF, QUBO};
-    pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
+    pub use crate::models::formula::{
+        CNFClause, CircuitSAT, KSatisfiability, QuantifiedBooleanFormulas, Satisfiability,
+    };
     pub use crate::models::graph::{
         BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
         BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
@@ -55,16 +57,17 @@ pub mod prelude {
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
         MinimumCutIntoBoundedSets, MinimumDominatingSet, MinimumFeedbackArcSet,
         MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover,
-        MultipleChoiceBranching, OptimalLinearArrangement, PartitionIntoPathsOfLength2,
-        PartitionIntoTriangles, RuralPostman, TravelingSalesman,
-        UndirectedTwoCommodityIntegralFlow,
+        MultipleChoiceBranching, MultipleCopyFileAllocation, OptimalLinearArrangement,
+        PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman, SteinerTreeInGraphs,
+        TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
         AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation,
         ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, Factoring, FlowShopScheduling,
         Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
         PaintShop, Partition, QueryArg, RectilinearPictureCompression,
-        ResourceConstrainedScheduling, SequencingToMinimizeMaximumCumulativeCost,
+        ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
+        SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
         SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
         SequencingWithinIntervals, ShortestCommonSupersequence, StaffScheduling,
         StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term,

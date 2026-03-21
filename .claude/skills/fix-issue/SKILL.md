@@ -10,8 +10,11 @@ Fix errors and warnings from a `check-issue` report. Auto-fixes mechanical issue
 ## Invocation
 
 ```
-/fix-issue <model|rule>
+/fix-issue <model|rule|issue-number>
 ```
+
+- `/fix-issue model` or `/fix-issue rule` — pick next from Backlog
+- `/fix-issue 207` — fix a specific issue by number (skip Step 1a/1b, go directly to 1c)
 
 ## Constants
 
@@ -59,7 +62,10 @@ digraph fix_issue {
 
 ## Step 1: Pick Next Issue from Backlog
 
-The argument is `model` or `rule` — determines which issue type (`[Model]` or `[Rule]`) to process.
+The argument is `model`, `rule`, or a specific issue number.
+
+- If a **number** is given, skip to Step 1c with that issue.
+- If `model` or `rule`, pick from the Backlog as below.
 
 ### 1a: Fetch candidate list from project board
 
@@ -82,6 +88,8 @@ Returns all Backlog issues of the requested type, sorted by `Good` label first t
 ### 1b: Pick the top issue
 
 Pick the first item from the list. If the list is empty, STOP with message: "No `[Model]`/`[Rule]` issues in Backlog."
+
+If the top issue already has the `Good` label and its check report has **0 failures and 0 warnings**, skip to Step 8 (just move it to Ready — no edits needed). If it has warnings, proceed normally.
 
 ### 1c: Fetch the chosen issue
 
@@ -136,8 +144,8 @@ Tag each issue as:
 | Missing type dependencies | Architectural decision about codebase |
 | Incorrect mathematical claims | Domain expertise needed |
 | Incomplete reduction algorithm | Core technical content |
-| Incomplete or trivial example | Needs meaningful design, provide 3 options for the human to choose from |
-| Decision vs optimization framing | Check associated `[Rule]` issues first — if a rule targets the decision version, implement that; if it targets optimization, implement that; if both exist, split into two separate model issues. Problem modeling choice |
+| Incomplete or trivial example | Present **3 concrete example options** with pros/cons (use `AskUserQuestion` with previews showing vertex/edge counts, optimal values, and suboptimal cases). Prefer examples that match the model issue's example when a companion model exists. |
+| Decision vs optimization framing | **Default to optimization** unless evidence points otherwise. The project prefers `OptimizationProblem` (like MIS, SpinGlass, TSP) because optimization subsumes decision. Check associated `[Rule]` issues (`gh issue list --search "<ProblemName> in:title label:rule"`) to see how rules use the model — if rules only need the decision version (e.g., reducing to SAT with a bound), optimization still works since you can extract the bound from the optimal value. Only use `SatisfactionProblem` for inherently decision/feasibility problems (SAT, KColoring) where there is no natural optimization objective. If switching to optimization, add the appropriate `Minimum`/`Maximum` prefix per codebase conventions. |
 | Ambiguous overhead expressions | Requires understanding the reduction |
 
 ---
@@ -232,12 +240,26 @@ Apply the requested changes to the draft issue body, re-check locally (Step 6), 
 
 Only reached when the human approves. Now push everything to GitHub.
 
-### 8a: Edit the issue body
+### 8a: Edit the issue body and title
 
 Use the Write tool to save the updated body to `/tmp/fix_issue_body.md`, then:
 
 ```bash
 gh issue edit <NUMBER> --body-file /tmp/fix_issue_body.md
+```
+
+If the problem name was changed (e.g., renamed to add `Minimum`/`Maximum` prefix), also update the issue **title**:
+
+```bash
+gh issue edit <NUMBER> --title "[Model] NewProblemName"
+```
+
+Then find and update **all related issues** that reference the old name in their title:
+
+```bash
+gh issue list --search "OldName in:title" --state open --json number,title
+# For each related issue, update the title:
+gh issue edit <RELATED_NUMBER> --title "<updated title>"
 ```
 
 ### 8b: Comment on the issue with a changelog
@@ -295,3 +317,4 @@ Done! Issue #<NUMBER>:
 | Closing the issue | Never close. Labels and board status only |
 | Force-pushing or modifying git | This skill only edits GitHub issues via `gh`. No git operations |
 | Inventing `pipeline_board.py` subcommands | Only `next`, `claim-next`, `ack`, `list`, `move`, `backlog` exist |
+| Forgetting to update the issue title | If the problem name changed, update the title with `gh issue edit <N> --title "..."` and find all related issues referencing the old name |

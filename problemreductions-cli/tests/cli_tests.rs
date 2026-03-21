@@ -382,6 +382,31 @@ fn test_evaluate_sat() {
 }
 
 #[test]
+fn test_evaluate_consecutive_block_minimization_rejects_inconsistent_dimensions() {
+    let problem_json = r#"{
+        "type": "ConsecutiveBlockMinimization",
+        "data": {
+            "matrix": [[true]],
+            "num_rows": 1,
+            "num_cols": 2,
+            "bound": 1
+        }
+    }"#;
+    let tmp = std::env::temp_dir().join("pred_test_eval_cbm_invalid_dims.json");
+    std::fs::write(&tmp, problem_json).unwrap();
+
+    let output = pred()
+        .args(["evaluate", tmp.to_str().unwrap(), "--config", "0,1"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("num_cols must match matrix column count"));
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+    std::fs::remove_file(&tmp).ok();
+}
+
+#[test]
 fn test_evaluate_multiple_choice_branching_rejects_invalid_partition_without_panicking() {
     let problem_json = r#"{
         "type": "MultipleChoiceBranching",
@@ -410,7 +435,6 @@ fn test_evaluate_multiple_choice_branching_rejects_invalid_partition_without_pan
         stderr.contains("partition"),
         "stderr should mention the invalid partition: {stderr}"
     );
-
     std::fs::remove_file(&tmp).ok();
 }
 
@@ -612,6 +636,47 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_out_of_range_termi
     assert!(stderr.contains("source-1 must be less than num_vertices (4)"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
     assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_consecutive_block_minimization_rejects_ragged_matrix() {
+    let output = pred()
+        .args([
+            "create",
+            "ConsecutiveBlockMinimization",
+            "--matrix",
+            "[[true],[true,false]]",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("all matrix rows must have the same length"));
+    assert!(stderr.contains("Usage: pred create ConsecutiveBlockMinimization"));
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_consecutive_block_minimization_help_mentions_json_matrix_format() {
+    let output = pred()
+        .args(["create", "ConsecutiveBlockMinimization"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("JSON 2D bool array"));
+    assert!(stderr.contains("[[true,false,true],[false,true,true]]"));
+}
+
+#[test]
+fn test_create_help_mentions_consecutive_block_minimization_matrix_format() {
+    let output = pred().args(["create", "--help"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("ConsecutiveBlockMinimization"));
+    assert!(stdout.contains("JSON 2D bool array"));
 }
 
 #[test]
@@ -1095,7 +1160,7 @@ fn test_inspect_rectilinear_picture_compression_lists_bruteforce_only() {
             "RectilinearPictureCompression",
             "--matrix",
             "1,1;1,1",
-            "--k",
+            "--bound",
             "1",
         ])
         .output()
@@ -1501,12 +1566,11 @@ fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--num-attributes"), "stderr: {stderr}");
     assert!(stderr.contains("--dependencies"), "stderr: {stderr}");
-    assert!(stderr.contains("--k"), "stderr: {stderr}");
+    assert!(stderr.contains("--bound"), "stderr: {stderr}");
     assert!(
         stderr.contains("semicolon-separated dependencies"),
         "stderr: {stderr}"
     );
-    assert!(!stderr.contains("--bound-k"), "stderr: {stderr}");
 }
 
 #[test]
@@ -1519,7 +1583,7 @@ fn test_create_minimum_cardinality_key_allows_empty_lhs_dependency() {
             "1",
             "--dependencies",
             ">0",
-            "--k",
+            "--bound",
             "1",
         ])
         .output()
@@ -1534,7 +1598,7 @@ fn test_create_minimum_cardinality_key_allows_empty_lhs_dependency() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MinimumCardinalityKey");
     assert_eq!(json["data"]["num_attributes"], 1);
-    assert_eq!(json["data"]["bound_k"], 1);
+    assert_eq!(json["data"]["bound"], 1);
     assert_eq!(json["data"]["dependencies"][0][0], serde_json::json!([]));
     assert_eq!(json["data"]["dependencies"][0][1], serde_json::json!([0]));
 }
@@ -1547,7 +1611,7 @@ fn test_create_minimum_cardinality_key_missing_num_attributes_message() {
             "MinimumCardinalityKey",
             "--dependencies",
             "0>0",
-            "--k",
+            "--bound",
             "1",
         ])
         .output()
@@ -1556,6 +1620,79 @@ fn test_create_minimum_cardinality_key_missing_num_attributes_message() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("MinimumCardinalityKey requires --num-attributes"));
     assert!(!stderr.contains("--num-vertices"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_two_dimensional_consecutive_sets_accepts_alphabet_size_flag() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_two_dimensional_consecutive_sets.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "TwoDimensionalConsecutiveSets",
+            "--alphabet-size",
+            "6",
+            "--sets",
+            "0,1,2;3,4,5;1,3;2,4;0,5",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "TwoDimensionalConsecutiveSets");
+    assert_eq!(json["data"]["alphabet_size"], 6);
+    assert_eq!(json["data"]["subsets"][0], serde_json::json!([0, 1, 2]));
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_two_dimensional_consecutive_sets_rejects_zero_alphabet_size_without_panic() {
+    let output = pred()
+        .args([
+            "create",
+            "TwoDimensionalConsecutiveSets",
+            "--alphabet-size",
+            "0",
+            "--sets",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Alphabet size must be positive"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_two_dimensional_consecutive_sets_rejects_duplicate_elements_without_panic() {
+    let output = pred()
+        .args([
+            "create",
+            "TwoDimensionalConsecutiveSets",
+            "--alphabet-size",
+            "3",
+            "--sets",
+            "0,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("duplicate element"), "stderr: {stderr}");
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
 }
 
 #[test]
@@ -2150,6 +2287,92 @@ fn test_solve_bundle_ilp() {
 }
 
 #[test]
+fn test_solve_direct_ilp_i32_problem() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_ilp_i32_problem.json");
+
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "--example",
+            "SequencingToMinimizeWeightedCompletionTime",
+            "--to",
+            "ILP/i32",
+            "--example-side",
+            "target",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args(["solve", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("\"problem\": \"ILP\""), "{stdout}");
+    assert!(stdout.contains("\"solver\": \"ilp\""), "{stdout}");
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_sequencing_to_minimize_weighted_completion_time_default_solver() {
+    let problem_file = std::env::temp_dir()
+        .join("pred_test_solve_sequencing_to_minimize_weighted_completion_time.json");
+
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "SequencingToMinimizeWeightedCompletionTime",
+            "--lengths",
+            "2,1,3,1,2",
+            "--weights",
+            "3,5,1,4,2",
+            "--precedence-pairs",
+            "0>2,1>4",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args(["solve", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("\"problem\": \"SequencingToMinimizeWeightedCompletionTime\""),
+        "{stdout}"
+    );
+    assert!(stdout.contains("\"solver\": \"ilp\""), "{stdout}");
+    assert!(stdout.contains("\"solution\": ["), "{stdout}");
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
 fn test_solve_unknown_solver() {
     let problem_file = std::env::temp_dir().join("pred_test_solve_unknown.json");
     let create_out = pred()
@@ -2543,7 +2766,6 @@ fn test_create_string_to_string_correction_help_uses_cli_flags() {
     assert!(stderr.contains("--source-string"), "stderr: {stderr}");
     assert!(stderr.contains("--target-string"), "stderr: {stderr}");
     assert!(stderr.contains("--bound"), "stderr: {stderr}");
-    assert!(!stderr.contains("--bound-k"), "stderr: {stderr}");
 }
 
 #[test]
@@ -2698,6 +2920,72 @@ fn test_create_steiner_tree_rejects_duplicate_terminals() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("terminals must be distinct"), "{stderr}");
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_weighted_completion_time() {
+    let output_file = std::env::temp_dir()
+        .join("pred_test_create_sequencing_to_minimize_weighted_completion_time.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SequencingToMinimizeWeightedCompletionTime",
+            "--lengths",
+            "2,1,3,1,2",
+            "--weights",
+            "3,5,1,4,2",
+            "--precedence-pairs",
+            "0>2,1>4",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SequencingToMinimizeWeightedCompletionTime");
+    assert_eq!(json["data"]["lengths"], serde_json::json!([2, 1, 3, 1, 2]));
+    assert_eq!(json["data"]["weights"], serde_json::json!([3, 5, 1, 4, 2]));
+    assert_eq!(
+        json["data"]["precedences"],
+        serde_json::json!([[0, 2], [1, 4]])
+    );
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_help_describes_precedence_pairs_generically() {
+    let output = pred().args(["create", "--help"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Precedence pairs for MinimumTardinessSequencing, SchedulingWithIndividualDeadlines, or SequencingToMinimizeWeightedCompletionTime"));
+}
+
+#[test]
+fn test_create_sequencing_to_minimize_weighted_completion_time_rejects_zero_length() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingToMinimizeWeightedCompletionTime",
+            "--lengths",
+            "0,1,3",
+            "--weights",
+            "3,5,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("task lengths must be positive"), "{stderr}");
 }
 
 #[test]
@@ -2987,7 +3275,7 @@ fn test_create_set_basis_no_flags_uses_actual_cli_flag_names() {
 }
 
 #[test]
-fn test_create_rectilinear_picture_compression_help_uses_k_flag() {
+fn test_create_rectilinear_picture_compression_help_uses_bound_flag() {
     let output = pred()
         .args(["create", "RectilinearPictureCompression"])
         .output()
@@ -2999,12 +3287,8 @@ fn test_create_rectilinear_picture_compression_help_uses_k_flag() {
         "expected '--matrix' in help output, got: {stderr}"
     );
     assert!(
-        stderr.contains("--k"),
-        "expected '--k' in help output, got: {stderr}"
-    );
-    assert!(
-        !stderr.contains("--bound-k"),
-        "help should advertise the actual CLI flag name, got: {stderr}"
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
     );
 }
 
@@ -3016,7 +3300,7 @@ fn test_create_rectilinear_picture_compression_rejects_ragged_matrix() {
             "RectilinearPictureCompression",
             "--matrix",
             "1,0;1",
-            "--k",
+            "--bound",
             "1",
         ])
         .output()
@@ -3087,12 +3371,8 @@ fn test_create_consecutive_ones_submatrix_no_flags_uses_actual_cli_help() {
         "expected '--matrix' in help output, got: {stderr}"
     );
     assert!(
-        stderr.contains("--k"),
-        "expected '--k' in help output, got: {stderr}"
-    );
-    assert!(
-        !stderr.contains("--bound-k"),
-        "help should not advertise schema field names: {stderr}"
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
     );
     assert!(
         stderr.contains("semicolon-separated 0/1 rows: \"1,0;0,1\""),
@@ -3193,7 +3473,7 @@ fn test_create_consecutive_ones_submatrix_succeeds() {
             "ConsecutiveOnesSubmatrix",
             "--matrix",
             "1,1,0,1;1,0,1,1;0,1,1,0",
-            "--k",
+            "--bound",
             "3",
         ])
         .output()
@@ -3206,7 +3486,7 @@ fn test_create_consecutive_ones_submatrix_succeeds() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "ConsecutiveOnesSubmatrix");
-    assert_eq!(json["data"]["bound_k"], 3);
+    assert_eq!(json["data"]["bound"], 3);
     assert_eq!(
         json["data"]["matrix"][0],
         serde_json::json!([true, true, false, true])
@@ -4548,6 +4828,47 @@ fn test_inspect_stdin() {
 }
 
 #[test]
+fn test_inspect_rejects_zero_length_sequencing_problem_from_stdin() {
+    let create_out = pred()
+        .args([
+            "create",
+            "--example",
+            "SequencingToMinimizeWeightedCompletionTime",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let mut json: serde_json::Value = serde_json::from_slice(&create_out.stdout).unwrap();
+    json["data"]["lengths"][0] = serde_json::json!(0);
+    let invalid_json = serde_json::to_vec(&json).unwrap();
+
+    use std::io::Write;
+    let mut child = pred()
+        .args(["inspect", "-"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&invalid_json)
+        .unwrap();
+    let result = child.wait_with_output().unwrap();
+
+    assert!(!result.status.success());
+    let stderr = String::from_utf8(result.stderr).unwrap();
+    assert!(stderr.contains("task lengths must be positive"), "{stderr}");
+}
+
+#[test]
 fn test_inspect_json_output() {
     let problem_file = std::env::temp_dir().join("pred_test_inspect_json_in.json");
     let result_file = std::env::temp_dir().join("pred_test_inspect_json_out.json");
@@ -4719,6 +5040,72 @@ fn test_inspect_undirected_two_commodity_integral_flow_reports_size_fields() {
         "UndirectedTwoCommodityIntegralFlow size_fields should contain num_edges, got: {:?}",
         size_fields
     );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&result_file).ok();
+}
+
+#[test]
+fn test_inspect_multiple_copy_file_allocation_reports_size_fields() {
+    let problem_file = std::env::temp_dir().join("pred_test_mcfa_inspect_in.json");
+    let result_file = std::env::temp_dir().join("pred_test_mcfa_inspect_out.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "--example",
+            "MultipleCopyFileAllocation",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args([
+            "-o",
+            result_file.to_str().unwrap(),
+            "inspect",
+            problem_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(result_file.exists());
+
+    let content = std::fs::read_to_string(&result_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let size_fields: Vec<&str> = json["size_fields"]
+        .as_array()
+        .expect("size_fields should be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(
+        size_fields.contains(&"num_vertices"),
+        "MultipleCopyFileAllocation size_fields should contain num_vertices, got: {:?}",
+        size_fields
+    );
+    assert!(
+        size_fields.contains(&"num_edges"),
+        "MultipleCopyFileAllocation size_fields should contain num_edges, got: {:?}",
+        size_fields
+    );
+    let solvers: Vec<&str> = json["solvers"]
+        .as_array()
+        .expect("solvers should be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert_eq!(solvers, vec!["brute-force"]);
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();
@@ -5152,6 +5539,38 @@ fn test_create_bcnf_rejects_out_of_range_target_attribute_indices() {
 }
 
 #[test]
+fn test_create_multiple_copy_file_allocation() {
+    let output = pred()
+        .args([
+            "create",
+            "MultipleCopyFileAllocation",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--usage",
+            "5,4,3,2",
+            "--storage",
+            "1,1,1,1",
+            "--bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MultipleCopyFileAllocation");
+    assert_eq!(json["data"]["usage"], serde_json::json!([5, 4, 3, 2]));
+    assert_eq!(json["data"]["storage"], serde_json::json!([1, 1, 1, 1]));
+    assert_eq!(json["data"]["bound"], 8);
+    assert_eq!(json["data"]["graph"]["num_vertices"], 4);
+    assert_eq!(json["data"]["graph"]["edges"].as_array().unwrap().len(), 3);
+}
+
+#[test]
 fn test_create_sequencing_to_minimize_maximum_cumulative_cost() {
     let output = pred()
         .args([
@@ -5186,6 +5605,31 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost() {
 }
 
 #[test]
+fn test_create_multiple_copy_file_allocation_no_flags_shows_help() {
+    let output = pred()
+        .args(["create", "MultipleCopyFileAllocation"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--usage"),
+        "expected '--usage' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--storage"),
+        "expected '--storage' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_sequencing_to_minimize_maximum_cumulative_cost_no_flags_shows_help() {
     let output = pred()
         .args(["create", "SequencingToMinimizeMaximumCumulativeCost"])
@@ -5203,6 +5647,35 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_no_flags_shows_hel
     assert!(
         stderr.contains("--bound"),
         "expected '--bound' in help output, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_multiple_copy_file_allocation_rejects_length_mismatch() {
+    let output = pred()
+        .args([
+            "create",
+            "MultipleCopyFileAllocation",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--usage",
+            "5,4",
+            "--storage",
+            "1,1,1,1",
+            "--bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("usage"),
+        "expected usage-length diagnostic, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("Usage: pred create MultipleCopyFileAllocation"),
+        "expected recovery usage hint, got: {stderr}"
     );
 }
 
@@ -5226,6 +5699,35 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_missing_costs() {
 }
 
 #[test]
+fn test_create_multiple_copy_file_allocation_rejects_storage_length_mismatch() {
+    let output = pred()
+        .args([
+            "create",
+            "MultipleCopyFileAllocation",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--usage",
+            "5,4,3,2",
+            "--storage",
+            "1,1",
+            "--bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("storage"),
+        "expected storage-length diagnostic, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("Usage: pred create MultipleCopyFileAllocation"),
+        "expected recovery usage hint, got: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_sequencing_to_minimize_maximum_cumulative_cost_bad_precedence() {
     let output = pred()
         .args([
@@ -5245,6 +5747,35 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_bad_precedence() {
     assert!(
         stderr.contains("precedence"),
         "expected precedence validation error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_multiple_copy_file_allocation_rejects_invalid_usage_values() {
+    let output = pred()
+        .args([
+            "create",
+            "MultipleCopyFileAllocation",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--usage",
+            "5,x,3,2",
+            "--storage",
+            "1,1,1,1",
+            "--bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("invalid usage list"),
+        "expected usage parse diagnostic, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("Usage: pred create MultipleCopyFileAllocation"),
+        "expected recovery usage hint, got: {stderr}"
     );
 }
 
@@ -5337,21 +5868,15 @@ fn test_evaluate_multiprocessor_scheduling_rejects_zero_processors_json() {
 }
 
 #[test]
-fn test_solve_multiprocessor_scheduling_default_solver_suggests_brute_force() {
-    let problem_file =
-        std::env::temp_dir().join("pred_test_solve_multiprocessor_default_solver.json");
+fn test_solve_multiple_copy_file_allocation_brute_force() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_mcfa_bf.json");
     let create_out = pred()
         .args([
             "-o",
             problem_file.to_str().unwrap(),
             "create",
-            "MultiprocessorScheduling",
-            "--lengths",
-            "4,5,3,2,6",
-            "--num-processors",
-            "2",
-            "--deadline",
-            "10",
+            "--example",
+            "MultipleCopyFileAllocation",
         ])
         .output()
         .unwrap();
@@ -5362,20 +5887,24 @@ fn test_solve_multiprocessor_scheduling_default_solver_suggests_brute_force() {
     );
 
     let output = pred()
-        .args(["solve", problem_file.to_str().unwrap()])
+        .args([
+            "solve",
+            problem_file.to_str().unwrap(),
+            "--solver",
+            "brute-force",
+        ])
         .output()
         .unwrap();
     assert!(
-        !output.status.success(),
-        "stdout: {}",
-        String::from_utf8_lossy(&output.stdout)
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stderr.contains("No reduction path from MultiprocessorScheduling to ILP"),
-        "stderr: {stderr}"
+        stdout.contains("\"solver\": \"brute-force\""),
+        "MultipleCopyFileAllocation should solve with brute-force: {stdout}"
     );
-    assert!(stderr.contains("--solver brute-force"), "stderr: {stderr}");
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -6159,6 +6688,82 @@ fn test_create_sequencing_within_intervals() {
     );
     assert_eq!(json["data"]["lengths"], serde_json::json!([3, 1, 2, 4, 1]));
     std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_scheduling_with_individual_deadlines_with_m_alias() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_scheduling_with_individual_deadlines.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SchedulingWithIndividualDeadlines",
+            "--n",
+            "7",
+            "--deadlines",
+            "2,1,2,2,3,3,2",
+            "--m",
+            "3",
+            "--precedence-pairs",
+            "0>3,1>3,1>4,2>4,2>5",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SchedulingWithIndividualDeadlines");
+    assert_eq!(json["data"]["num_processors"], 3);
+    assert_eq!(json["data"]["num_tasks"], 7);
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_scheduling_with_individual_deadlines_help_mentions_m_alias() {
+    let output = pred()
+        .args(["create", "SchedulingWithIndividualDeadlines"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "problem-specific help should exit non-zero"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--num-processors/--m"),
+        "expected alias in problem-specific help, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_scheduling_with_individual_deadlines_rejects_conflicting_processor_flags() {
+    let output = pred()
+        .args([
+            "create",
+            "SchedulingWithIndividualDeadlines",
+            "--n",
+            "3",
+            "--deadlines",
+            "1,1,2",
+            "--num-processors",
+            "3",
+            "--m",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("conflicting processor counts"),
+        "expected conflict error, got: {stderr}"
+    );
 }
 
 #[test]

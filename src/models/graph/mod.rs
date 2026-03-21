@@ -22,9 +22,11 @@
 //! - [`HamiltonianPath`]: Hamiltonian path (simple path visiting every vertex)
 //! - [`PartitionIntoPathsOfLength2`]: Partition vertices into triples with at least two edges each
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
+//! - [`SteinerTreeInGraphs`]: Minimum weight Steiner tree connecting terminal vertices
 //! - [`BalancedCompleteBipartiteSubgraph`]: Balanced biclique decision problem
 //! - [`BiconnectivityAugmentation`]: Biconnectivity augmentation with weighted potential edges
 //! - [`BoundedComponentSpanningForest`]: Partition vertices into bounded-weight connected components
+//! - [`MultipleCopyFileAllocation`]: File-copy placement under storage and access costs
 //! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
@@ -63,12 +65,14 @@ pub(crate) mod minimum_multiway_cut;
 pub(crate) mod minimum_sum_multicenter;
 pub(crate) mod minimum_vertex_cover;
 pub(crate) mod multiple_choice_branching;
+pub(crate) mod multiple_copy_file_allocation;
 pub(crate) mod optimal_linear_arrangement;
 pub(crate) mod partition_into_paths_of_length_2;
 pub(crate) mod partition_into_triangles;
 pub(crate) mod rural_postman;
 pub(crate) mod spin_glass;
 pub(crate) mod steiner_tree;
+pub(crate) mod steiner_tree_in_graphs;
 pub(crate) mod strong_connectivity_augmentation;
 pub(crate) mod subgraph_isomorphism;
 pub(crate) mod traveling_salesman;
@@ -100,12 +104,14 @@ pub use minimum_multiway_cut::MinimumMultiwayCut;
 pub use minimum_sum_multicenter::MinimumSumMulticenter;
 pub use minimum_vertex_cover::MinimumVertexCover;
 pub use multiple_choice_branching::MultipleChoiceBranching;
+pub use multiple_copy_file_allocation::MultipleCopyFileAllocation;
 pub use optimal_linear_arrangement::OptimalLinearArrangement;
 pub use partition_into_paths_of_length_2::PartitionIntoPathsOfLength2;
 pub use partition_into_triangles::PartitionIntoTriangles;
 pub use rural_postman::RuralPostman;
 pub use spin_glass::SpinGlass;
 pub use steiner_tree::SteinerTree;
+pub use steiner_tree_in_graphs::SteinerTreeInGraphs;
 pub use strong_connectivity_augmentation::StrongConnectivityAugmentation;
 pub use subgraph_isomorphism::SubgraphIsomorphism;
 pub use traveling_salesman::TravelingSalesman;
@@ -130,6 +136,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(maximum_clique::canonical_model_example_specs());
     specs.extend(maximal_is::canonical_model_example_specs());
     specs.extend(minimum_cut_into_bounded_sets::canonical_model_example_specs());
+    specs.extend(multiple_copy_file_allocation::canonical_model_example_specs());
     specs.extend(minimum_feedback_vertex_set::canonical_model_example_specs());
     specs.extend(minimum_multiway_cut::canonical_model_example_specs());
     specs.extend(minimum_sum_multicenter::canonical_model_example_specs());
@@ -142,6 +149,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(partition_into_triangles::canonical_model_example_specs());
     specs.extend(partition_into_paths_of_length_2::canonical_model_example_specs());
     specs.extend(steiner_tree::canonical_model_example_specs());
+    specs.extend(steiner_tree_in_graphs::canonical_model_example_specs());
     specs.extend(directed_two_commodity_integral_flow::canonical_model_example_specs());
     specs.extend(undirected_two_commodity_integral_flow::canonical_model_example_specs());
     specs.extend(strong_connectivity_augmentation::canonical_model_example_specs());
