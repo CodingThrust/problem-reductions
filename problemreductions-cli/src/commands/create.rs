@@ -4005,7 +4005,10 @@ fn validate_staff_scheduling_args(
 
 fn parse_named_bool_rows(rows: Option<&str>, flag: &str, usage: &str) -> Result<Vec<Vec<bool>>> {
     let rows = rows.ok_or_else(|| anyhow::anyhow!("TimetableDesign requires {flag}\n\n{usage}"))?;
-    parse_bool_rows(rows)
+    parse_bool_rows(rows).map_err(|err| {
+        let message = err.to_string().replace("--matrix", flag);
+        anyhow::anyhow!("{message}\n\n{usage}")
+    })
 }
 
 fn parse_timetable_requirements(requirements: Option<&str>, usage: &str) -> Result<Vec<Vec<u64>>> {
@@ -5016,6 +5019,36 @@ mod tests {
         assert_eq!(json["data"]["num_periods"], 3);
         assert_eq!(json["data"]["num_craftsmen"], 5);
         assert_eq!(json["data"]["num_tasks"], 5);
+        assert_eq!(
+            json["data"]["craftsman_avail"],
+            serde_json::json!([
+                [true, true, true],
+                [true, true, false],
+                [false, true, true],
+                [true, false, true],
+                [true, true, true]
+            ])
+        );
+        assert_eq!(
+            json["data"]["task_avail"],
+            serde_json::json!([
+                [true, true, false],
+                [false, true, true],
+                [true, false, true],
+                [true, true, true],
+                [true, true, true]
+            ])
+        );
+        assert_eq!(
+            json["data"]["requirements"],
+            serde_json::json!([
+                [1, 0, 1, 0, 0],
+                [0, 1, 0, 0, 1],
+                [0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 1],
+                [0, 1, 0, 0, 0]
+            ])
+        );
         std::fs::remove_file(output_path).unwrap();
     }
 
@@ -5056,9 +5089,10 @@ mod tests {
         assert!(result.is_ok(), "create should return an error, not panic");
         let err = result.unwrap().unwrap_err().to_string();
         assert!(
-            err.contains("All rows") || err.contains("craftsman availability row count"),
+            err.contains("--craftsman-avail"),
             "expected timetable matrix validation error, got: {err}"
         );
+        assert!(err.contains("Usage: pred create TimetableDesign"));
     }
 
     #[test]

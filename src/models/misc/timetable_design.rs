@@ -157,6 +157,143 @@ impl TimetableDesign {
     fn index(&self, craftsman: usize, task: usize, period: usize) -> usize {
         ((craftsman * self.num_tasks) + task) * self.num_periods + period
     }
+
+    #[cfg(feature = "ilp-solver")]
+    pub(crate) fn solve_via_required_assignments(&self) -> Option<Vec<usize>> {
+        #[derive(Clone)]
+        struct PairRequirement {
+            craftsman: usize,
+            task: usize,
+            required: usize,
+            allowed_periods: Vec<usize>,
+        }
+
+        let mut craftsman_demand = vec![0usize; self.num_craftsmen];
+        let mut task_demand = vec![0usize; self.num_tasks];
+        let mut pairs = Vec::new();
+
+        for (craftsman, requirement_row) in self.requirements.iter().enumerate() {
+            for (task, required_u64) in requirement_row.iter().enumerate() {
+                let required = usize::try_from(*required_u64).ok()?;
+                craftsman_demand[craftsman] += required;
+                task_demand[task] += required;
+
+                if required == 0 {
+                    continue;
+                }
+
+                let allowed_periods = (0..self.num_periods)
+                    .filter(|&period| {
+                        self.craftsman_avail[craftsman][period] && self.task_avail[task][period]
+                    })
+                    .collect::<Vec<_>>();
+
+                if allowed_periods.len() < required {
+                    return None;
+                }
+
+                pairs.push(PairRequirement {
+                    craftsman,
+                    task,
+                    required,
+                    allowed_periods,
+                });
+            }
+        }
+
+        if craftsman_demand
+            .iter()
+            .zip(&self.craftsman_avail)
+            .any(|(demand, avail)| *demand > avail.iter().filter(|&&v| v).count())
+        {
+            return None;
+        }
+
+        if task_demand
+            .iter()
+            .zip(&self.task_avail)
+            .any(|(demand, avail)| *demand > avail.iter().filter(|&&v| v).count())
+        {
+            return None;
+        }
+
+        pairs.sort_by_key(|pair| (pair.allowed_periods.len(), pair.required));
+
+        struct SearchState<'a> {
+            problem: &'a TimetableDesign,
+            pairs: &'a [PairRequirement],
+            craftsman_busy: Vec<Vec<bool>>,
+            task_busy: Vec<Vec<bool>>,
+            config: Vec<usize>,
+        }
+
+        impl SearchState<'_> {
+            fn search_pair(&mut self, pair_index: usize, period_offset: usize, remaining: usize) -> bool {
+                if pair_index == self.pairs.len() {
+                    return true;
+                }
+
+                let pair = &self.pairs[pair_index];
+                if remaining == 0 {
+                    return self.search_pair(
+                        pair_index + 1,
+                        0,
+                        self.pairs
+                            .get(pair_index + 1)
+                            .map_or(0, |next| next.required),
+                    );
+                }
+
+                let feasible_remaining = pair.allowed_periods[period_offset..]
+                    .iter()
+                    .filter(|&&period| {
+                        !self.craftsman_busy[pair.craftsman][period]
+                            && !self.task_busy[pair.task][period]
+                    })
+                    .count();
+                if feasible_remaining < remaining {
+                    return false;
+                }
+
+                for candidate_index in period_offset..pair.allowed_periods.len() {
+                    let period = pair.allowed_periods[candidate_index];
+                    if self.craftsman_busy[pair.craftsman][period]
+                        || self.task_busy[pair.task][period]
+                    {
+                        continue;
+                    }
+
+                    self.craftsman_busy[pair.craftsman][period] = true;
+                    self.task_busy[pair.task][period] = true;
+                    self.config[self.problem.index(pair.craftsman, pair.task, period)] = 1;
+
+                    if self.search_pair(pair_index, candidate_index + 1, remaining - 1) {
+                        return true;
+                    }
+
+                    self.config[self.problem.index(pair.craftsman, pair.task, period)] = 0;
+                    self.task_busy[pair.task][period] = false;
+                    self.craftsman_busy[pair.craftsman][period] = false;
+                }
+
+                false
+            }
+        }
+
+        let mut state = SearchState {
+            problem: self,
+            pairs: &pairs,
+            craftsman_busy: vec![vec![false; self.num_periods]; self.num_craftsmen],
+            task_busy: vec![vec![false; self.num_periods]; self.num_tasks],
+            config: vec![0; self.config_len()],
+        };
+
+        if state.search_pair(0, 0, pairs.first().map_or(0, |pair| pair.required)) {
+            Some(state.config)
+        } else {
+            None
+        }
+    }
 }
 
 impl Problem for TimetableDesign {

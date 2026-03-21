@@ -143,6 +143,7 @@
   "SequencingWithinIntervals": [Sequencing Within Intervals],
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
   "StaffScheduling": [Staff Scheduling],
+  "TimetableDesign": [Timetable Design],
   "SteinerTree": [Steiner Tree],
   "SteinerTreeInGraphs": [Steiner Tree in Graphs],
   "StringToStringCorrection": [String-to-String Correction],
@@ -3473,6 +3474,53 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     caption: [Worked Staff Scheduling instance. The last column shows the chosen multiplicities $f(c_i)$; the final row verifies that daily coverage dominates the requirement vector while using 4 workers.],
   ) <fig:staff-scheduling>
 ]
+
+#{
+  let x = load-model-example("TimetableDesign")
+  let assignments = x.optimal_config.enumerate().filter(((idx, value)) => value == 1).map(((idx, value)) => (
+    calc.floor(idx / (x.instance.num_tasks * x.instance.num_periods)),
+    calc.floor(calc.rem(idx, x.instance.num_tasks * x.instance.num_periods) / x.instance.num_periods),
+    calc.rem(idx, x.instance.num_periods),
+  ))
+  let fmt-assignment(entry) = $(c_#(entry.at(0) + 1), t_#(entry.at(1) + 1))$
+  let period-0 = assignments.filter(entry => entry.at(2) == 0)
+  let period-1 = assignments.filter(entry => entry.at(2) == 1)
+  let period-2 = assignments.filter(entry => entry.at(2) == 2)
+  [
+    #problem-def("TimetableDesign")[
+      Given a set $H$ of work periods, a set $C$ of craftsmen, a set $T$ of tasks, availability sets $A_C(c) subset.eq H$ for each craftsman $c in C$, availability sets $A_T(t) subset.eq H$ for each task $t in T$, and exact workload requirements $R: C times T -> ZZ_(>= 0)$, determine whether there exists a function $f: C times T times H -> {0, 1}$ such that:
+      $
+        f(c, t, h) = 1 => h in A_C(c) inter A_T(t),
+      $
+      $
+        forall c in C, h in H: sum_(t in T) f(c, t, h) <= 1,
+      $
+      $
+        forall t in T, h in H: sum_(c in C) f(c, t, h) <= 1,
+      $
+      and
+      $
+        forall c in C, t in T: sum_(h in H) f(c, t, h) = R(c, t).
+      $
+    ][
+      Timetable Design is the classical timetabling feasibility problem catalogued as SS19 in Garey & Johnson @garey1979. Even, Itai, and Shamir showed that it is NP-complete even when there are only three work periods, every task is available in every period, and every requirement is binary @evenItaiShamir1976. The same paper also identifies polynomial-time islands, including cases where each craftsman is available in at most two periods or where all craftsmen and tasks are available in every period @evenItaiShamir1976. The implementation in this repository uses one binary variable for each triple $(c, t, h)$, so the registered baseline explores a configuration space of size $2^(|C| |T| |H|)$.
+
+      *Example.* The canonical instance has three periods $H = {h_1, h_2, h_3}$, five craftsmen, five tasks, and seven nonzero workload requirements. The satisfying timetable stored in the example database assigns #period-0.map(fmt-assignment).join(", ") during $h_1$, #period-1.map(fmt-assignment).join(", ") during $h_2$, and #period-2.map(fmt-assignment).join(", ") during $h_3$. Every listed assignment lies in the corresponding availability intersection $A_C(c) inter A_T(t)$, no craftsman or task appears twice in the same period, and each required pair is scheduled exactly once, so the verifier returns YES.
+
+      #figure(
+        align(center, table(
+          columns: 2,
+          align: center,
+          table.header([Period], [Assignments]),
+          [$h_1$], [#period-0.map(fmt-assignment).join(", ")],
+          [$h_2$], [#period-1.map(fmt-assignment).join(", ")],
+          [$h_3$], [#period-2.map(fmt-assignment).join(", ")],
+        )),
+        caption: [Worked Timetable Design instance derived from the canonical example DB. Each row lists the craftsman-task pairs assigned in one work period.],
+      ) <fig:timetable-design>
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("MultiprocessorScheduling")
