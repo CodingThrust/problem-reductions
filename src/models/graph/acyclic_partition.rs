@@ -5,7 +5,7 @@
 //! DAG, each group's total vertex weight is bounded, and the total
 //! inter-partition arc cost is bounded.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
 use crate::topology::DirectedGraph;
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::types::WeightElement;
@@ -30,6 +30,13 @@ inventory::submit! {
             FieldInfo { name: "weight_bound", type_name: "W::Sum", description: "Maximum total vertex weight B for each partition" },
             FieldInfo { name: "cost_bound", type_name: "W::Sum", description: "Maximum total inter-partition arc cost K" },
         ],
+    }
+}
+
+inventory::submit! {
+    ProblemSizeFieldEntry {
+        name: "AcyclicPartition",
+        fields: &["num_vertices", "num_arcs"],
     }
 }
 

@@ -1,9 +1,10 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::registry::declared_size_fields;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde_json;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 
 fn yes_instance() -> AcyclicPartition<i32> {
     AcyclicPartition::new(
@@ -211,4 +212,12 @@ fn test_acyclic_partition_serialization() {
 fn test_acyclic_partition_num_variables() {
     let problem = yes_instance();
     assert_eq!(problem.num_variables(), 6);
+}
+
+#[test]
+fn test_acyclic_partition_declares_problem_size_fields() {
+    let fields: HashSet<&'static str> = declared_size_fields("AcyclicPartition")
+        .into_iter()
+        .collect();
+    assert_eq!(fields, HashSet::from(["num_vertices", "num_arcs"]));
 }
