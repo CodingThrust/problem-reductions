@@ -972,18 +972,18 @@ fn validate_length_bounded_disjoint_paths_args(
 }
 
 fn validate_longest_circuit_bound(bound: i64, usage: Option<&str>) -> Result<i32> {
-    let bound = i32::try_from(bound).map_err(|_| match usage {
-        Some(usage) => {
-            anyhow::anyhow!("--bound must be a positive integer for LongestCircuit\n\n{usage}")
+    let bound = i32::try_from(bound).map_err(|_| {
+        let msg = format!("LongestCircuit --bound must fit in i32 (got {bound})");
+        match usage {
+            Some(u) => anyhow::anyhow!("{msg}\n\n{u}"),
+            None => anyhow::anyhow!("{msg}"),
         }
-        None => anyhow::anyhow!("--bound must be a positive integer for LongestCircuit"),
     })?;
     if bound <= 0 {
+        let msg = "LongestCircuit --bound must be positive (> 0)";
         return Err(match usage {
-            Some(usage) => {
-                anyhow::anyhow!("--bound must be a positive integer for LongestCircuit\n\n{usage}")
-            }
-            None => anyhow::anyhow!("--bound must be a positive integer for LongestCircuit"),
+            Some(u) => anyhow::anyhow!("{msg}\n\n{u}"),
+            None => anyhow::anyhow!("{msg}"),
         });
     }
     Ok(bound)
