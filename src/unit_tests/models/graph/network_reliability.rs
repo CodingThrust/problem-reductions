@@ -1,8 +1,9 @@
+use crate::config::DimsIterator;
 use crate::models::graph::NetworkReliability;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
-fn issue_235_example() -> NetworkReliability {
+fn issue_235_example_with_threshold(threshold: f64) -> NetworkReliability {
     NetworkReliability::new(
         SimpleGraph::new(
             6,
@@ -19,8 +20,12 @@ fn issue_235_example() -> NetworkReliability {
         ),
         vec![0, 5],
         vec![0.1; 8],
-        0.95,
+        threshold,
     )
+}
+
+fn issue_235_example() -> NetworkReliability {
+    issue_235_example_with_threshold(0.95)
 }
 
 #[test]
@@ -55,7 +60,12 @@ fn test_network_reliability_exact_reliability_matches_issue_example() {
     let problem = issue_235_example();
 
     let reliability = problem.reliability();
+    let connected_count = DimsIterator::new(problem.dims())
+        .filter(|config| problem.evaluate(config))
+        .count();
     assert!((reliability - 0.968425).abs() < 1e-6);
+    assert_eq!(connected_count, 91);
+    assert_eq!((1usize << problem.num_edges()) - connected_count, 165);
     assert!(problem.meets_threshold());
 }
 
@@ -73,6 +83,15 @@ fn test_network_reliability_paper_example() {
     assert_eq!(specs.len(), 1);
     assert_eq!(specs[0].optimal_config, witness_config);
     assert_eq!(specs[0].optimal_value, serde_json::json!(true));
+}
+
+#[test]
+fn test_network_reliability_threshold_decision_is_not_single_config_validity() {
+    let problem = issue_235_example_with_threshold(0.99);
+    let witness_config = vec![1, 0, 1, 0, 0, 0, 1, 0];
+
+    assert!(problem.evaluate(&witness_config));
+    assert!(!problem.meets_threshold());
 }
 
 #[test]

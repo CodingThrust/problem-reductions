@@ -230,7 +230,7 @@ fn terminals_connected_with_surviving_edges(
 }
 
 crate::declare_variants! {
-    default sat NetworkReliability => "2^num_edges * num_vertices",
+    default sat NetworkReliability => "2^num_edges * (num_edges + num_vertices)",
 }
 
 #[cfg(feature = "example-db")]
