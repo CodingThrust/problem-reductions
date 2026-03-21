@@ -240,6 +240,7 @@ Flags by problem type:
   SumOfSquaresPartition           --sizes, --num-groups, --bound
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
+  MinimumHittingSet               --universe, --sets
   MinimumSetCovering              --universe, --sets [--weights]
   ComparativeContainment          --universe, --r-sets, --s-sets [--r-weights] [--s-weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
@@ -433,7 +434,7 @@ pub struct CreateArgs {
     /// Car paint sequence for PaintShop (comma-separated, each label appears exactly twice, e.g., "a,b,a,c,c,b")
     #[arg(long)]
     pub sequence: Option<String>,
-    /// Sets for SetPacking/SetCovering (semicolon-separated, e.g., "0,1;1,2;0,2")
+    /// Sets for set-system problems such as SetPacking, MinimumHittingSet, and SetCovering (semicolon-separated, e.g., "0,1;1,2;0,2")
     #[arg(long)]
     pub sets: Option<String>,
     /// R-family sets for ComparativeContainment (semicolon-separated, e.g., "0,1;1,2")
@@ -451,7 +452,7 @@ pub struct CreateArgs {
     /// Partition groups for arc-index partitions (semicolon-separated, e.g., "0,1;2,3")
     #[arg(long)]
     pub partition: Option<String>,
-    /// Universe size for set-system problems such as MinimumSetCovering and ComparativeContainment
+    /// Universe size for set-system problems such as MinimumHittingSet, MinimumSetCovering, and ComparativeContainment
     #[arg(long)]
     pub universe: Option<usize>,
     /// Bipartite graph edges for BicliqueCover / BalancedCompleteBipartiteSubgraph (e.g., "0-0,0-1,1-2" for left-right pairs)

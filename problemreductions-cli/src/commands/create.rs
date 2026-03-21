@@ -1730,6 +1730,30 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MinimumHittingSet
+        "MinimumHittingSet" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumHittingSet requires --universe and --sets\n\n\
+                     Usage: pred create MinimumHittingSet --universe 6 --sets \"0,1,2;0,3,4;1,3,5;2,4,5;0,1,5;2,3;1,4\""
+                )
+            })?;
+            let sets = parse_sets(args)?;
+            for (i, set) in sets.iter().enumerate() {
+                for &element in set {
+                    if element >= universe {
+                        bail!(
+                            "Set {} contains element {} which is outside universe of size {}",
+                            i,
+                            element,
+                            universe
+                        );
+                    }
+                }
+            }
+            (ser(MinimumHittingSet::new(universe, sets))?, resolved_variant.clone())
+        }
+
         // MinimumSetCovering
         "MinimumSetCovering" => {
             let universe = args.universe.ok_or_else(|| {

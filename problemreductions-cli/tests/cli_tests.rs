@@ -1426,6 +1426,86 @@ fn test_create_comparative_containment_no_flags_shows_help() {
 }
 
 #[test]
+fn test_create_minimum_hitting_set() {
+    let output_file = std::env::temp_dir().join("pred_test_create_minimum_hitting_set.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MinimumHittingSet",
+            "--universe",
+            "6",
+            "--sets",
+            "0,1,2;0,3,4;1,3,5;2,4,5;0,1,5;2,3;1,4",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MinimumHittingSet");
+    assert_eq!(json["data"]["universe_size"], 6);
+    assert_eq!(
+        json["data"]["sets"],
+        serde_json::json!([
+            [0, 1, 2],
+            [0, 3, 4],
+            [1, 3, 5],
+            [2, 4, 5],
+            [0, 1, 5],
+            [2, 3],
+            [1, 4]
+        ])
+    );
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_minimum_hitting_set_rejects_out_of_range_elements_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "MinimumHittingSet",
+            "--universe",
+            "4",
+            "--sets",
+            "0,1,4;1,2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("outside universe of size 4"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_help_lists_minimum_hitting_set_flags() {
+    let output = pred().args(["create", "--help"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("MinimumHittingSet") && stdout.contains("--universe, --sets"),
+        "stdout: {stdout}"
+    );
+}
+
+#[test]
 fn test_create_set_basis_requires_k() {
     let output = pred()
         .args([
