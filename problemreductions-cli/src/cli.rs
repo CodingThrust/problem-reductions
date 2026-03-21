@@ -233,6 +233,7 @@ Flags by problem type:
   HamiltonianCircuit, HC          --graph
   LongestCircuit                  --graph, --edge-weights, --bound
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
+  UndirectedFlowLowerBounds       --graph, --capacities, --lower-bounds, --source, --sink, --requirement
   UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   IsomorphicSpanningTree          --graph, --tree
   KthBestSpanningTree             --graph, --edge-weights, --k, --bound
@@ -319,6 +320,7 @@ Examples:
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
   pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10
+  pred create UndirectedFlowLowerBounds --graph 0-1,0-2,1-3,2-3,1-4,3-5,4-5 --capacities 2,2,2,2,1,3,2 --lower-bounds 1,1,0,0,1,0,1 --source 0 --sink 5 --requirement 3
   pred create ConsistencyOfDatabaseFrequencyTables --num-objects 6 --attribute-domains \"2,3,2\" --frequency-tables \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\" --known-values \"0,0,0;3,0,1;1,2,1\"
   pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5
   pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1
@@ -356,12 +358,18 @@ pub struct CreateArgs {
     /// Edge capacities for multicommodity flow problems (e.g., 1,1,2)
     #[arg(long)]
     pub capacities: Option<String>,
+    /// Edge lower bounds for lower-bounded flow problems (e.g., 1,1,0,0,1,0,1)
+    #[arg(long)]
+    pub lower_bounds: Option<String>,
     /// Source vertex for path-based graph problems and MinimumCutIntoBoundedSets
     #[arg(long)]
     pub source: Option<usize>,
     /// Sink vertex for path-based graph problems and MinimumCutIntoBoundedSets
     #[arg(long)]
     pub sink: Option<usize>,
+    /// Required net flow R for single-commodity lower-bounded flow problems
+    #[arg(long)]
+    pub requirement: Option<u64>,
     /// Required number of paths for LengthBoundedDisjointPaths
     #[arg(long)]
     pub num_paths_required: Option<usize>,

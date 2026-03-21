@@ -74,6 +74,7 @@
   "HamiltonianPath": [Hamiltonian Path],
   "LongestCircuit": [Longest Circuit],
   "ShortestWeightConstrainedPath": [Shortest Weight-Constrained Path],
+  "UndirectedFlowLowerBounds": [Undirected Flow with Lower Bounds],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
   "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
@@ -1067,6 +1068,68 @@ is feasible: each set induces a connected subgraph, the component weights are $2
       },
       caption: [Hamiltonian Path in a #{nv}-vertex graph. Blue edges show the path $#path.map(v => $v_#v$).join($arrow$)$.],
       ) <fig:hamiltonian-path>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("UndirectedFlowLowerBounds")
+  let s = x.instance.source
+  let t = x.instance.sink
+  let R = x.instance.requirement
+  let orientation = x.optimal_config
+  let edges = x.instance.graph.edges
+  let lower = x.instance.lower_bounds
+  let caps = x.instance.capacities
+  let witness = (2, 1, 1, 1, 1, 2, 1)
+  [
+    #problem-def("UndirectedFlowLowerBounds")[
+      Given an undirected graph $G = (V, E)$, specified vertices $s, t in V$, lower bounds $l: E -> ZZ_(>= 0)$, upper capacities $c: E -> ZZ^+$ with $l(e) <= c(e)$ for every edge, and a requirement $R in ZZ^+$, determine whether there exists a flow function $f: {(u, v), (v, u): {u, v} in E} -> ZZ_(>= 0)$ such that each edge carries flow in at most one direction, every edge value lies between its lower and upper bound, flow is conserved at every vertex in $V backslash {s, t}$, and the net flow into $t$ is at least $R$.
+    ][
+      Undirected Flow with Lower Bounds appears as ND37 in Garey and Johnson's catalog @garey1979. Itai proved that even this single-commodity undirected feasibility problem is NP-complete, contrasting sharply with the directed lower-bounded case, which reduces to ordinary max-flow machinery @itai1978.
+
+      The implementation exposes one binary decision per edge rather than raw flow magnitudes. The configuration $(#orientation.map(str).join(", "))$ means "orient every edge exactly as listed in the stored edge order"; once an orientation is fixed, `evaluate()` checks the remaining lower-bounded directed circulation conditions internally. This keeps the explicit search space at $2^m$ for $m = |E|$, matching the registry complexity bound.
+
+      *Example.* The canonical fixture uses source $s = v_#s$, sink $t = v_#t$, requirement $R = #R$, edges ${#edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, and lower/upper pairs ${#range(edges.len()).map(i => $(#lower.at(i), #caps.at(i))$).join(", ")}$ in that order. Under the all-zero orientation config, a feasible witness sends flows $(#witness.map(str).join(", "))$ along those edges respectively: $2$ on $(v_0, v_1)$, $1$ on $(v_0, v_2)$, $1$ on $(v_1, v_3)$, $1$ on $(v_2, v_3)$, $1$ on $(v_1, v_4)$, $2$ on $(v_3, v_5)$, and $1$ on $(v_4, v_5)$. Every lower bound is satisfied, each nonterminal vertex has equal inflow and outflow, and the sink receives $2 + 1 = 3 >= R$, so the instance evaluates to true. A separate rule issue tracks the natural reduction to ILP; this model PR only documents the standalone verifier.
+
+      #pred-commands(
+        "pred create --example UndirectedFlowLowerBounds -o undirected-flow-lower-bounds.json",
+        "pred solve undirected-flow-lower-bounds.json",
+        "pred evaluate undirected-flow-lower-bounds.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 0.9cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let red = rgb("#e15759")
+          let gray = luma(190)
+          let verts = ((0, 0), (1.6, 1.2), (1.6, -1.2), (3.4, 0.5), (3.4, -1.5), (5.2, -0.3))
+          let labels = (
+            [$s = v_0$],
+            [$v_1$],
+            [$v_2$],
+            [$v_3$],
+            [$v_4$],
+            [$t = v_5$],
+          )
+          for (u, v) in edges {
+            g-edge(verts.at(u), verts.at(v), stroke: 1.8pt + blue)
+          }
+          for (i, pos) in verts.enumerate() {
+            let fill = if i == s { blue } else if i == t { red } else { white }
+            let label = if i == s or i == t { text(fill: white)[#labels.at(i)] } else { labels.at(i) }
+            g-node(pos, name: "uflb-" + str(i), fill: fill, label: label)
+          }
+          content((0.75, 0.7), text(7pt, fill: gray)[$f = 2$])
+          content((0.75, -0.7), text(7pt, fill: gray)[$f = 1$])
+          content((2.45, 1.05), text(7pt, fill: gray)[$f = 1$])
+          content((2.45, -0.25), text(7pt, fill: gray)[$f = 1$])
+          content((2.45, -1.45), text(7pt, fill: gray)[$f = 1$])
+          content((4.35, 0.35), text(7pt, fill: gray)[$f = 2$])
+          content((4.35, -1.1), text(7pt, fill: gray)[$f = 1$])
+        }),
+        caption: [Canonical YES instance for Undirected Flow with Lower Bounds. Blue edges follow the all-zero orientation config, and edge labels show one feasible witness flow.],
+      ) <fig:undirected-flow-lower-bounds>
     ]
   ]
 }

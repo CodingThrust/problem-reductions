@@ -62,7 +62,7 @@ pub mod prelude {
         MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
         OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
         RuralPostman, ShortestWeightConstrainedPath, SteinerTreeInGraphs, TravelingSalesman,
-        UndirectedTwoCommodityIntegralFlow,
+        UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
         AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation,

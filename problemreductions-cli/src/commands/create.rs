@@ -50,8 +50,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.edge_weights.is_none()
         && args.edge_lengths.is_none()
         && args.capacities.is_none()
+        && args.lower_bounds.is_none()
         && args.source.is_none()
         && args.sink.is_none()
+        && args.requirement.is_none()
         && args.num_paths_required.is_none()
         && args.couplings.is_none()
         && args.fields.is_none()
@@ -520,6 +522,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6"
         }
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
+        "UndirectedFlowLowerBounds" => {
+            "--graph 0-1,0-2,1-3,2-3,1-4,3-5,4-5 --capacities 2,2,2,2,1,3,2 --lower-bounds 1,1,0,0,1,0,1 --source 0 --sink 5 --requirement 3"
+        }
         "UndirectedTwoCommodityIntegralFlow" => {
             "--graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1"
         },
@@ -1319,6 +1324,37 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (
                 ser(MultipleCopyFileAllocation::new(
                     graph, usage, storage, bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // UndirectedFlowLowerBounds (graph + capacities + lower bounds + terminals + requirement)
+        "UndirectedFlowLowerBounds" => {
+            let usage = "Usage: pred create UndirectedFlowLowerBounds --graph 0-1,0-2,1-3,2-3,1-4,3-5,4-5 --capacities 2,2,2,2,1,3,2 --lower-bounds 1,1,0,0,1,0,1 --source 0 --sink 5 --requirement 3";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities = parse_capacities(args, graph.num_edges(), usage)?;
+            let lower_bounds = parse_lower_bounds(args, graph.num_edges(), usage)?;
+            let num_vertices = graph.num_vertices();
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedFlowLowerBounds requires --source\n\n{usage}")
+            })?;
+            let sink = args.sink.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedFlowLowerBounds requires --sink\n\n{usage}")
+            })?;
+            let requirement = args.requirement.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedFlowLowerBounds requires --requirement\n\n{usage}")
+            })?;
+            validate_vertex_index("source", source, num_vertices, usage)?;
+            validate_vertex_index("sink", sink, num_vertices, usage)?;
+            (
+                ser(UndirectedFlowLowerBounds::new(
+                    graph,
+                    capacities,
+                    lower_bounds,
+                    source,
+                    sink,
+                    requirement,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -4168,7 +4204,7 @@ fn validate_vertex_index(
 /// Parse `--capacities` as edge capacities (u64).
 fn parse_capacities(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<Vec<u64>> {
     let capacities = args.capacities.as_deref().ok_or_else(|| {
-        anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --capacities\n\n{usage}")
+        anyhow::anyhow!("This problem requires --capacities\n\n{usage}")
     })?;
     let capacities: Vec<u64> = capacities
         .split(',')
@@ -4187,21 +4223,32 @@ fn parse_capacities(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<
             usage
         );
     }
-    for (edge_index, &capacity) in capacities.iter().enumerate() {
-        let fits = usize::try_from(capacity)
-            .ok()
-            .and_then(|value| value.checked_add(1))
-            .is_some();
-        if !fits {
-            bail!(
-                "capacity {} at edge index {} is too large for this platform\n\n{}",
-                capacity,
-                edge_index,
-                usage
-            );
-        }
-    }
     Ok(capacities)
+}
+
+/// Parse `--lower-bounds` as edge lower bounds (u64).
+fn parse_lower_bounds(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<Vec<u64>> {
+    let lower_bounds = args.lower_bounds.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("UndirectedFlowLowerBounds requires --lower-bounds\n\n{usage}")
+    })?;
+    let lower_bounds: Vec<u64> = lower_bounds
+        .split(',')
+        .map(|s| {
+            let trimmed = s.trim();
+            trimmed
+                .parse::<u64>()
+                .with_context(|| format!("Invalid lower bound `{trimmed}`\n\n{usage}"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if lower_bounds.len() != num_edges {
+        bail!(
+            "Expected {} lower bounds but got {}\n\n{}",
+            num_edges,
+            lower_bounds.len(),
+            usage
+        );
+    }
+    Ok(lower_bounds)
 }
 
 /// Parse `--couplings` as SpinGlass pairwise couplings (i32), defaulting to all 1s.
@@ -5860,6 +5907,88 @@ mod tests {
         assert!(err.to_string().contains("GeneralizedHex requires --sink"));
     }
 
+    #[test]
+    fn test_create_undirected_flow_lower_bounds_serializes_problem_json() {
+        let output = temp_output_path("undirected_flow_lower_bounds_create");
+        let cli = Cli::try_parse_from([
+            "pred",
+            "-o",
+            output.to_str().unwrap(),
+            "create",
+            "UndirectedFlowLowerBounds",
+            "--graph",
+            "0-1,0-2,1-3,2-3,1-4,3-5,4-5",
+            "--capacities",
+            "2,2,2,2,1,3,2",
+            "--lower-bounds",
+            "1,1,0,0,1,0,1",
+            "--source",
+            "0",
+            "--sink",
+            "5",
+            "--requirement",
+            "3",
+        ])
+        .unwrap();
+        let out = OutputConfig {
+            output: cli.output.clone(),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output).unwrap()).unwrap();
+        fs::remove_file(&output).unwrap();
+        assert_eq!(json["type"], "UndirectedFlowLowerBounds");
+        assert_eq!(json["data"]["source"], 0);
+        assert_eq!(json["data"]["sink"], 5);
+        assert_eq!(json["data"]["requirement"], 3);
+        assert_eq!(json["data"]["lower_bounds"], serde_json::json!([1, 1, 0, 0, 1, 0, 1]));
+    }
+
+    #[test]
+    fn test_create_undirected_flow_lower_bounds_requires_lower_bounds() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "UndirectedFlowLowerBounds",
+            "--graph",
+            "0-1,0-2,1-3,2-3,1-4,3-5,4-5",
+            "--capacities",
+            "2,2,2,2,1,3,2",
+            "--source",
+            "0",
+            "--sink",
+            "5",
+            "--requirement",
+            "3",
+        ])
+        .unwrap();
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("UndirectedFlowLowerBounds requires --lower-bounds")
+        );
+    }
+
     fn empty_args() -> CreateArgs {
         CreateArgs {
             problem: Some("BiconnectivityAugmentation".to_string()),
@@ -5871,8 +6000,10 @@ mod tests {
             edge_weights: None,
             edge_lengths: None,
             capacities: None,
+            lower_bounds: None,
             source: None,
             sink: None,
+            requirement: None,
             num_paths_required: None,
             couplings: None,
             fields: None,
