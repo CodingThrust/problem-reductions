@@ -145,6 +145,13 @@ Detailed by default. Only use a brief example for trivially obvious reductions (
   example: true,
   example-caption: [Description ($n = ...$, $|E| = ...$)],
   extra: [
+    #pred-commands(
+      "pred create --example <ALIAS> -o <name>.json",
+      "pred reduce <name>.json --to " + target-spec(src_tgt) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate <name>.json --config " + src_tgt_sol.source_config.map(str).join(","),
+    )
+
     // Optional: graph visualization
     #{
       // canvas code for graph rendering
@@ -162,6 +169,23 @@ Detailed by default. Only use a brief example for trivially obvious reductions (
   ],
 )
 ```
+
+### 4a2. Reproducibility Commands
+
+Add a `pred-commands()` block at the top of the `extra:` content, before any data display or visualization. Commands are constructed dynamically from loaded example data:
+
+```typst
+#pred-commands(
+  "pred create --example <SOURCE_ALIAS> -o <source>.json",
+  "pred reduce <source>.json --to " + target-spec(src_tgt) + " -o bundle.json",
+  "pred solve bundle.json",
+  "pred evaluate <source>.json --config " + src_tgt_sol.source_config.map(str).join(","),
+)
+```
+
+Where `<SOURCE_ALIAS>` is the shortest alias for the source problem (e.g., `MVC`, `MIS`, `SAT`). Use the bare alias when the default variant matches; use the full variant path (e.g., `MIS/SimpleGraph/i32`) when a non-default variant is needed. Check `pred list` for available aliases.
+
+The `target-spec()` helper handles empty variant dicts automatically. The `--config` is composed from `src_tgt_sol.source_config`.
 
 ### 4b. Step-by-Step Content
 
@@ -232,6 +256,7 @@ make paper
 - [ ] **Example uses JSON data**: concrete values come from `load-example`/`load-results`, not hardcoded
 - [ ] **Solution verified**: at least one solution checked end-to-end in the example
 - [ ] **Witness semantics**: text treats `solutions.at(0)` as the canonical witness; any multiplicity claim is derived mathematically, not from fixture length
+- [ ] **Pred commands present**: `pred-commands()` block at top of example with create/reduce/solve/evaluate pipeline
 - [ ] **Paper compiles**: `make paper` succeeds without errors
 - [ ] **Completeness check**: no new warnings about missing edges in the paper
 

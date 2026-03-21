@@ -247,6 +247,8 @@ The body goes AFTER auto-generated sections (complexity table, reductions, schem
 
 **Evaluation:** Show the objective/verifier computed on the example solution (can be woven into example text).
 
+**Reproducibility:** The example section must include a `pred-commands()` call showing the create/solve/evaluate pipeline. See `write-model-in-paper` skill for the full pattern.
+
 ### 6d. Build and verify
 
 ```bash
