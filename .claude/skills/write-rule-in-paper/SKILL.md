@@ -145,6 +145,13 @@ Detailed by default. Only use a brief example for trivially obvious reductions (
   example: true,
   example-caption: [Description ($n = ...$, $|E| = ...$)],
   extra: [
+    #pred-commands(
+      "pred create --example <ALIAS> -o <name>.json",
+      "pred reduce <name>.json --to " + target-spec(src_tgt) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate <name>.json --config " + src_tgt_sol.source_config.map(str).join(","),
+    )
+
     // Optional: graph visualization
     #{
       // canvas code for graph rendering
@@ -162,6 +169,28 @@ Detailed by default. Only use a brief example for trivially obvious reductions (
   ],
 )
 ```
+
+### 4a2. Reproducibility Commands
+
+Add a `pred-commands()` block at the top of the `extra:` content, before any data display or visualization. The source-side `pred create --example ...` spec must be derived from the loaded example data, not handwritten:
+
+```typst
+#let problem-spec(data) = {
+  if data.variant.len() == 0 { data.problem }
+  else { data.problem + "/" + data.variant.values().join("/") }
+}
+
+#pred-commands(
+  "pred create --example " + problem-spec(src_tgt.source) + " -o <source>.json",
+  "pred reduce <source>.json --to " + target-spec(src_tgt) + " -o bundle.json",
+  "pred solve bundle.json",
+  "pred evaluate <source>.json --config " + src_tgt_sol.source_config.map(str).join(","),
+)
+```
+
+If `docs/paper/reductions.typ` already defines a shared `problem-spec()` helper, reuse it instead of duplicating it. Do **not** guess whether the default variant matches the canonical example; canonical rule fixtures can point at non-default source variants, and handwritten bare aliases can silently break the reproducibility block.
+
+The `target-spec()` helper handles empty variant dicts automatically. The `--config` is composed from `src_tgt_sol.source_config`.
 
 ### 4b. Step-by-Step Content
 
@@ -232,6 +261,7 @@ make paper
 - [ ] **Example uses JSON data**: concrete values come from `load-example`/`load-results`, not hardcoded
 - [ ] **Solution verified**: at least one solution checked end-to-end in the example
 - [ ] **Witness semantics**: text treats `solutions.at(0)` as the canonical witness; any multiplicity claim is derived mathematically, not from fixture length
+- [ ] **Pred commands present**: `pred-commands()` block at top of example with create/reduce/solve/evaluate pipeline
 - [ ] **Paper compiles**: `make paper` succeeds without errors
 - [ ] **Completeness check**: no new warnings about missing edges in the paper
 

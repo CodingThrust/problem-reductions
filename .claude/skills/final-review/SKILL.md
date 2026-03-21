@@ -400,19 +400,12 @@ Use `AskUserQuestion` only when needed:
    ```bash
    gh pr review <number> --approve || true
    ```
-5. Post a community call validation checklist as a comment on the **linked issue** (not the PR). All CLI commands must be copy-pastable — substitute actual problem names from the PR diff (no angle-bracket placeholders). Example for a rule PR adding `Satisfiability` → `MaximumIndependentSet`:
+5. Post a community call validation checklist as a comment on the **linked issue** (not the PR). Substitute actual problem names from the PR diff (no angle-bracket placeholders). Example for a rule PR adding `Satisfiability` → `MaximumIndependentSet`:
    ````bash
    COMMENT_FILE=$(mktemp)
    cat > "$COMMENT_FILE" <<'EOF'
    Please kindly check the following items (PR #123):
-   - [ ] **Paper** ([PDF](https://github.com/CodingThrust/problem-reductions/blob/main/docs/paper/reductions.pdf)): check definition, proof sketch, and example figure
-   - [ ] **CLI demo** (build from source: `cargo install --path problemreductions-cli`):
-     ```bash
-     pred show Satisfiability
-     pred create --example Satisfiability -o instance.json
-     pred reduce instance.json Satisfiability MaximumIndependentSet -o reduced.json
-     pred solve reduced.json MaximumIndependentSet
-     ```
+   - [ ] **Paper** ([PDF](https://github.com/CodingThrust/problem-reductions/blob/main/docs/paper/reductions.pdf)): check definition, proof sketch, example figure, and reproducible `pred` commands
    - [ ] **Implementation (Optional)**: spot-check the source files changed in this PR for correctness
 
    💬 Join the discussion on [Zulip](https://julialang.zulipchat.com/#narrow/channel/365542-problem-reductions) — feel free to ask questions or leave feedback there.
@@ -420,7 +413,7 @@ Use `AskUserQuestion` only when needed:
    gh issue comment <ISSUE_NUMBER> --body-file "$COMMENT_FILE"
    rm -f "$COMMENT_FILE"
    ````
-   For model PRs, omit the `pred reduce` / `pred solve` lines. If there is no linked issue, post the checklist as a PR comment instead.
+   If there is no linked issue, post the checklist as a PR comment instead.
 6. Present the PR link for the reviewer to merge:
    > CI green, commits pushed, PR approved. Community call checklist posted on #<ISSUE_NUMBER>. Please merge when ready:
    > **<PR URL>**

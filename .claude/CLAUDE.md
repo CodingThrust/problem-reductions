@@ -87,7 +87,7 @@ make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
   - `misc/` - Unique input structures
   - Run `pred list` for the full catalog of problems, variants, and reductions; `pred show <name>` for details on a specific problem
 - `src/rules/` - Reduction rules + inventory registration
-- `src/solvers/` - BruteForce solver, ILP solver (feature-gated)
+- `src/solvers/` - BruteForce solver, ILP solver (feature-gated). To check if a problem supports ILP solving (via reduction path), run `pred path <ProblemName> ILP`
 - `src/traits.rs` - `Problem`, `OptimizationProblem`, `SatisfactionProblem` traits
 - `src/rules/traits.rs` - `ReduceTo<T>`, `ReductionResult` traits
 - `src/registry/` - Compile-time reduction metadata collection
