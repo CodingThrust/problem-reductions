@@ -145,13 +145,13 @@
   "SequencingWithinIntervals": [Sequencing Within Intervals],
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
   "StaffScheduling": [Staff Scheduling],
-  "TimetableDesign": [Timetable Design],
   "SteinerTree": [Steiner Tree],
   "SteinerTreeInGraphs": [Steiner Tree in Graphs],
   "StringToStringCorrection": [String-to-String Correction],
   "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "SumOfSquaresPartition": [Sum of Squares Partition],
+  "TimetableDesign": [Timetable Design],
   "TwoDimensionalConsecutiveSets": [2-Dimensional Consecutive Sets],
 )
 
