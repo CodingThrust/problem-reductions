@@ -14,8 +14,8 @@ use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
     LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
-    MixedChinesePostman,
-    MultipleChoiceBranching, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    MixedChinesePostman, MultipleChoiceBranching, SteinerTree, SteinerTreeInGraphs,
+    StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
@@ -1492,7 +1492,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
             let data = match canonical {
-                "BottleneckTravelingSalesman" => ser(BottleneckTravelingSalesman::new(graph, edge_weights))?,
+                "BottleneckTravelingSalesman" => {
+                    ser(BottleneckTravelingSalesman::new(graph, edge_weights))?
+                }
                 "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
                 "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
                 "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,

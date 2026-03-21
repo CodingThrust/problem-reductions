@@ -120,19 +120,30 @@ fn test_longest_circuit_paper_example() {
 #[test]
 #[should_panic(expected = "All edge lengths must be positive (> 0)")]
 fn test_longest_circuit_rejects_non_positive_edge_lengths() {
-    LongestCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]), vec![1, 0, 1], 3);
+    LongestCircuit::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        vec![1, 0, 1],
+        3,
+    );
 }
 
 #[test]
 #[should_panic(expected = "bound must be positive (> 0)")]
 fn test_longest_circuit_rejects_non_positive_bound() {
-    LongestCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]), vec![1, 1, 1], 0);
+    LongestCircuit::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        vec![1, 1, 1],
+        0,
+    );
 }
 
 #[test]
 #[should_panic(expected = "All edge lengths must be positive (> 0)")]
 fn test_longest_circuit_set_lengths_rejects_non_positive_values() {
-    let mut problem =
-        LongestCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]), vec![1, 1, 1], 3);
+    let mut problem = LongestCircuit::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
+        vec![1, 1, 1],
+        3,
+    );
     problem.set_lengths(vec![1, -2, 1]);
 }
