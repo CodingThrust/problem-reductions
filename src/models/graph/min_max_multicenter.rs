@@ -302,14 +302,18 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "min_max_multicenter_simplegraph_i32",
-        build: || {
-            let graph = SimpleGraph::new(
+        instance: Box::new(MinMaxMulticenter::new(
+            SimpleGraph::new(
                 6,
                 vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 5), (1, 4)],
-            );
-            let problem = MinMaxMulticenter::new(graph, vec![1i32; 6], vec![1i32; 7], 2, 1);
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 1, 0, 0, 1, 0]])
-        },
+            ),
+            vec![1i32; 6],
+            vec![1i32; 7],
+            2,
+            1,
+        )),
+        optimal_config: vec![0, 1, 0, 0, 1, 0],
+        optimal_value: serde_json::json!(true),
     }]
 }
 
