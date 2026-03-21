@@ -13,9 +13,9 @@ use problemreductions::models::algebraic::{
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
-    LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
-    MixedChinesePostman, MultipleChoiceBranching, SteinerTree, SteinerTreeInGraphs,
-    StrongConnectivityAugmentation,
+    IntegralFlowBundles, LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets,
+    MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching, SteinerTree,
+    SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
@@ -50,8 +50,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.edge_weights.is_none()
         && args.edge_lengths.is_none()
         && args.capacities.is_none()
+        && args.bundle_capacities.is_none()
         && args.source.is_none()
         && args.sink.is_none()
+        && args.requirement.is_none()
         && args.num_paths_required.is_none()
         && args.couplings.is_none()
         && args.fields.is_none()
@@ -84,6 +86,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.r_weights.is_none()
         && args.s_weights.is_none()
         && args.partition.is_none()
+        && args.bundles.is_none()
         && args.universe.is_none()
         && args.biedges.is_none()
         && args.left.is_none()
@@ -513,6 +516,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "KClique" => "--graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3",
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
         "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
+        "IntegralFlowBundles" => {
+            "--arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4"
+        }
         "MinimumCutIntoBoundedSets" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 3 --size-bound 3 --cut-bound 1"
         }
@@ -754,6 +760,10 @@ fn help_flag_hint(
         ("ConsistencyOfDatabaseFrequencyTables", "known_values") => {
             "semicolon-separated triples: \"0,0,0;3,0,1;1,2,1\""
         }
+        ("IntegralFlowBundles", "bundles") => {
+            "semicolon-separated groups: \"0,1;2,5;3,4\""
+        }
+        ("IntegralFlowBundles", "bundle_capacities") => "comma-separated capacities: 1,1,1",
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
             "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
@@ -1370,6 +1380,45 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     sink_2,
                     requirement_1,
                     requirement_2,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // IntegralFlowBundles (directed graph + bundles + source/sink + requirement)
+        "IntegralFlowBundles" => {
+            let usage = "Usage: pred create IntegralFlowBundles --arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowBundles requires --arcs\n\n{usage}")
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let bundles = parse_bundles(args, num_arcs, usage)?;
+            let bundle_capacities = parse_bundle_capacities(args, bundles.len(), usage)?;
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowBundles requires --source\n\n{usage}")
+            })?;
+            let sink = args
+                .sink
+                .ok_or_else(|| anyhow::anyhow!("IntegralFlowBundles requires --sink\n\n{usage}"))?;
+            let requirement = args.requirement.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowBundles requires --requirement\n\n{usage}")
+            })?;
+            validate_vertex_index("source", source, graph.num_vertices(), usage)?;
+            validate_vertex_index("sink", sink, graph.num_vertices(), usage)?;
+            anyhow::ensure!(
+                source != sink,
+                "IntegralFlowBundles requires distinct --source and --sink\n\n{usage}"
+            );
+
+            (
+                ser(IntegralFlowBundles::new(
+                    graph,
+                    source,
+                    sink,
+                    bundles,
+                    bundle_capacities,
+                    requirement,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -4204,6 +4253,48 @@ fn parse_capacities(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<
     Ok(capacities)
 }
 
+fn parse_bundle_capacities(args: &CreateArgs, num_bundles: usize, usage: &str) -> Result<Vec<u64>> {
+    let capacities = args.bundle_capacities.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("IntegralFlowBundles requires --bundle-capacities\n\n{usage}")
+    })?;
+    let capacities: Vec<u64> = capacities
+        .split(',')
+        .map(|s| {
+            let trimmed = s.trim();
+            trimmed
+                .parse::<u64>()
+                .with_context(|| format!("Invalid bundle capacity `{trimmed}`\n\n{usage}"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    anyhow::ensure!(
+        capacities.len() == num_bundles,
+        "Expected {} bundle capacities but got {}\n\n{}",
+        num_bundles,
+        capacities.len(),
+        usage
+    );
+    for (bundle_index, &capacity) in capacities.iter().enumerate() {
+        let fits = usize::try_from(capacity)
+            .ok()
+            .and_then(|value| value.checked_add(1))
+            .is_some();
+        anyhow::ensure!(
+            fits,
+            "bundle capacity {} at bundle index {} is too large for this platform\n\n{}",
+            capacity,
+            bundle_index,
+            usage
+        );
+        anyhow::ensure!(
+            capacity > 0,
+            "bundle capacity at bundle index {} must be positive\n\n{}",
+            bundle_index,
+            usage
+        );
+    }
+    Ok(capacities)
+}
+
 /// Parse `--couplings` as SpinGlass pairwise couplings (i32), defaulting to all 1s.
 fn parse_couplings(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
     match &args.couplings {
@@ -4444,6 +4535,53 @@ fn parse_partition_groups(args: &CreateArgs, num_arcs: usize) -> Result<Vec<Vec<
     );
 
     Ok(partition)
+}
+
+fn parse_bundles(args: &CreateArgs, num_arcs: usize, usage: &str) -> Result<Vec<Vec<usize>>> {
+    let bundles_str = args.bundles.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("IntegralFlowBundles requires --bundles\n\n{usage}")
+    })?;
+
+    let bundles: Vec<Vec<usize>> = bundles_str
+        .split(';')
+        .map(|bundle| {
+            let bundle = bundle.trim();
+            anyhow::ensure!(
+                !bundle.is_empty(),
+                "IntegralFlowBundles does not allow empty bundle entries\n\n{usage}"
+            );
+            bundle
+                .split(',')
+                .map(|s| {
+                    s.trim().parse::<usize>().with_context(|| {
+                        format!("Invalid bundle arc index `{}`\n\n{usage}", s.trim())
+                    })
+                })
+                .collect::<Result<Vec<_>>>()
+        })
+        .collect::<Result<_>>()?;
+
+    let mut seen_overall = vec![false; num_arcs];
+    for (bundle_index, bundle) in bundles.iter().enumerate() {
+        let mut seen_in_bundle = BTreeSet::new();
+        for &arc_index in bundle {
+            anyhow::ensure!(
+                arc_index < num_arcs,
+                "bundle {bundle_index} references arc {arc_index}, but num_arcs is {num_arcs}\n\n{usage}"
+            );
+            anyhow::ensure!(
+                seen_in_bundle.insert(arc_index),
+                "bundle {bundle_index} contains duplicate arc index {arc_index}\n\n{usage}"
+            );
+            seen_overall[arc_index] = true;
+        }
+    }
+    anyhow::ensure!(
+        seen_overall.iter().all(|covered| *covered),
+        "bundles must cover every arc at least once\n\n{usage}"
+    );
+
+    Ok(bundles)
 }
 
 fn parse_multiple_choice_branching_threshold(args: &CreateArgs, usage: &str) -> Result<i32> {
@@ -5871,8 +6009,10 @@ mod tests {
             edge_weights: None,
             edge_lengths: None,
             capacities: None,
+            bundle_capacities: None,
             source: None,
             sink: None,
+            requirement: None,
             num_paths_required: None,
             couplings: None,
             fields: None,
@@ -5906,6 +6046,7 @@ mod tests {
             r_weights: None,
             s_weights: None,
             partition: None,
+            bundles: None,
             universe: None,
             biedges: None,
             left: None,

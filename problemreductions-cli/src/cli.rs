@@ -233,6 +233,7 @@ Flags by problem type:
   HamiltonianCircuit, HC          --graph
   LongestCircuit                  --graph, --edge-weights, --bound
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
+  IntegralFlowBundles             --arcs, --bundles, --bundle-capacities, --source, --sink, --requirement [--num-vertices]
   UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   IsomorphicSpanningTree          --graph, --tree
   KthBestSpanningTree             --graph, --edge-weights, --k, --bound
@@ -356,12 +357,18 @@ pub struct CreateArgs {
     /// Edge capacities for multicommodity flow problems (e.g., 1,1,2)
     #[arg(long)]
     pub capacities: Option<String>,
+    /// Bundle capacities for IntegralFlowBundles (e.g., 1,1,1)
+    #[arg(long)]
+    pub bundle_capacities: Option<String>,
     /// Source vertex for path-based graph problems and MinimumCutIntoBoundedSets
     #[arg(long)]
     pub source: Option<usize>,
     /// Sink vertex for path-based graph problems and MinimumCutIntoBoundedSets
     #[arg(long)]
     pub sink: Option<usize>,
+    /// Required sink inflow for IntegralFlowBundles
+    #[arg(long)]
+    pub requirement: Option<u64>,
     /// Required number of paths for LengthBoundedDisjointPaths
     #[arg(long)]
     pub num_paths_required: Option<usize>,
@@ -462,6 +469,9 @@ pub struct CreateArgs {
     /// Partition groups for arc-index partitions (semicolon-separated, e.g., "0,1;2,3")
     #[arg(long)]
     pub partition: Option<String>,
+    /// Arc bundles for IntegralFlowBundles (semicolon-separated groups of arc indices, e.g., "0,1;2,5;3,4")
+    #[arg(long)]
+    pub bundles: Option<String>,
     /// Universe size for set-system problems such as MinimumHittingSet, MinimumSetCovering, and ComparativeContainment
     #[arg(long)]
     pub universe: Option<usize>,
