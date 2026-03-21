@@ -14,7 +14,8 @@ pub use algebraic::{
     QuadraticAssignment, BMF, ILP, QUBO,
 };
 pub use formula::{
-    CNFClause, CircuitSAT, KSatisfiability, QuantifiedBooleanFormulas, Quantifier, Satisfiability,
+    CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, QuantifiedBooleanFormulas,
+    Quantifier, Satisfiability,
 };
 pub use graph::{
     BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
