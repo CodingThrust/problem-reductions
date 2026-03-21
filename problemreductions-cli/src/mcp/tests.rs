@@ -354,6 +354,41 @@ mod tests {
     }
 
     #[test]
+    fn test_inspect_minmaxmulticenter_lists_bruteforce_only() {
+        let server = McpServer::new();
+        let problem_json = serde_json::json!({
+            "type": "MinMaxMulticenter",
+            "variant": {"graph": "SimpleGraph", "weight": "i32"},
+            "data": {
+                "graph": {
+                    "inner": {
+                        "nodes": [null, null, null, null],
+                        "node_holes": [],
+                        "edge_property": "undirected",
+                        "edges": [[0, 1, null], [1, 2, null], [2, 3, null]]
+                    }
+                },
+                "vertex_weights": [1, 1, 1, 1],
+                "edge_lengths": [1, 1, 1],
+                "k": 2,
+                "bound": 1
+            }
+        })
+        .to_string();
+
+        let result = server.inspect_problem_inner(&problem_json);
+        assert!(result.is_ok());
+        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        let solvers: Vec<&str> = json["solvers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert_eq!(solvers, vec!["brute-force"]);
+    }
+
+    #[test]
     fn test_solve_sat_problem() {
         let server = McpServer::new();
         let params = serde_json::json!({"num_vars": 2, "clauses": "1;-2"});

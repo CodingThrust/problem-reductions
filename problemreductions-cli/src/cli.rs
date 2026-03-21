@@ -217,6 +217,7 @@ TIP: Run `pred create <PROBLEM>` (no other flags) to see problem-specific help.
 Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
   MaxCut, MaxMatching, TSP        --graph, --edge-weights
+  ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --length-bound, --weight-bound
   MaximalIS                       --graph, --weights
   SAT, KSAT                       --num-vars, --clauses [--k]
   QUBO                            --matrix
@@ -258,6 +259,7 @@ Flags by problem type:
   MultiprocessorScheduling        --lengths, --num-processors, --deadline
   SequencingWithinIntervals       --release-times, --deadlines, --lengths
   OptimalLinearArrangement        --graph, --bound
+  MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k, --bound
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
   MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
   AdditionalKey                   --num-attributes, --dependencies, --relation-attrs [--known-keys]
@@ -338,6 +340,9 @@ pub struct CreateArgs {
     /// Edge weights (e.g., 2,3,1) [default: all 1s]
     #[arg(long)]
     pub edge_weights: Option<String>,
+    /// Edge lengths (e.g., 2,3,1) [default: all 1s]
+    #[arg(long)]
+    pub edge_lengths: Option<String>,
     /// Edge capacities for multicommodity flow problems (e.g., 1,1,2)
     #[arg(long)]
     pub capacities: Option<String>,
@@ -375,6 +380,12 @@ pub struct CreateArgs {
     /// Number of vertices for random graph generation
     #[arg(long)]
     pub num_vertices: Option<usize>,
+    /// Source vertex for path problems
+    #[arg(long)]
+    pub source_vertex: Option<usize>,
+    /// Target vertex for path problems
+    #[arg(long)]
+    pub target_vertex: Option<usize>,
     /// Edge probability for random graph generation (0.0 to 1.0) [default: 0.5]
     #[arg(long)]
     pub edge_prob: Option<f64>,
@@ -483,6 +494,12 @@ pub struct CreateArgs {
     /// Upper bound or length bound (for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleCopyFileAllocation, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
+    /// Upper bound on total path length
+    #[arg(long)]
+    pub length_bound: Option<i32>,
+    /// Upper bound on total path weight
+    #[arg(long)]
+    pub weight_bound: Option<i32>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
     #[arg(long)]
     pub pattern: Option<String>,
@@ -638,8 +655,8 @@ Solve via explicit reduction:
 Input: a problem JSON from `pred create`, or a reduction bundle from `pred reduce`.
 When given a bundle, the target is solved and the solution is mapped back to the source.
 The ILP solver auto-reduces non-ILP problems before solving.
-Problems without an ILP reduction path, such as `LengthBoundedDisjointPaths` and
-`StringToStringCorrection`, currently need `--solver brute-force`.
+Problems without an ILP reduction path, such as `LengthBoundedDisjointPaths`,
+`MinMaxMulticenter`, and `StringToStringCorrection`, currently need `--solver brute-force`.
 
 ILP backend (default: HiGHS). To use a different backend:
   cargo install problemreductions-cli --features coin-cbc

@@ -13,6 +13,15 @@ enum SolveInput {
     Bundle(ReductionBundle),
 }
 
+fn add_bruteforce_hint(err: anyhow::Error) -> anyhow::Error {
+    let message = err.to_string();
+    if message.contains("No reduction path from") {
+        anyhow::anyhow!("{message}\n\nTry: pred solve <INPUT> --solver brute-force")
+    } else {
+        err
+    }
+}
+
 fn parse_input(path: &Path) -> Result<SolveInput> {
     let content = read_input(path)?;
     let json: serde_json::Value = serde_json::from_str(&content).context("Failed to parse JSON")?;

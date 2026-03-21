@@ -71,6 +71,7 @@
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
+  "ShortestWeightConstrainedPath": [Shortest Weight-Constrained Path],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
   "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
@@ -120,6 +121,7 @@
   "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "MinMaxMulticenter": [Min-Max Multicenter],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
@@ -1020,44 +1022,56 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   ]
 }
 #{
-  let x = load-model-example("KthBestSpanningTree")
+  let x = load-model-example("ShortestWeightConstrainedPath")
+  let nv = graph-num-vertices(x.instance)
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-  let weights = x.instance.weights
-  let m = edges.len()
-  let sol = x.optimal_config
-  let tree1 = sol.enumerate().filter(((i, v)) => i < m and v == 1).map(((i, _)) => edges.at(i))
-  let blue = graph-colors.at(0)
-  let gray = luma(190)
+  let lengths = x.instance.edge_lengths
+  let weights = x.instance.edge_weights
+  let s = x.instance.source_vertex
+  let t = x.instance.target_vertex
+  let K = x.instance.length_bound
+  let W = x.instance.weight_bound
+  let path-config = x.optimal_config
+  let path-edges = edges.enumerate().filter(((idx, _)) => path-config.at(idx) == 1).map(((idx, e)) => e)
+  let path-order = (0, 2, 3, 5)
   [
-    #problem-def("KthBestSpanningTree")[
-      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> ZZ_(gt.eq 0)$, a positive integer $k$, and a bound $B in ZZ_(gt.eq 0)$, determine whether there exist $k$ distinct spanning trees $T_1, dots, T_k subset.eq E$ such that $sum_(e in T_i) w(e) lt.eq B$ for every $i$.
+    #problem-def("ShortestWeightConstrainedPath")[
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$, positive edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, and bounds $K, W in ZZ^+$, determine whether there exists a simple path $P$ from $s$ to $t$ such that $sum_(e in P) l(e) <= K$ and $sum_(e in P) w(e) <= W$.
     ][
-      Kth Best Spanning Tree is catalogued as ND9 in Garey and Johnson @garey1979 and is marked there with an asterisk because the general problem is NP-hard but not known to lie in NP. For any fixed value of $k$, Lawler's $k$-best enumeration framework gives a polynomial-time algorithm when combined with minimum-spanning-tree subroutines @lawler1972. For output-sensitive enumeration, Eppstein gave an algorithm that lists the $k$ smallest spanning trees of a weighted graph in $O(m log beta(m, n) + k^2)$ time @eppstein1992.
+      Also called the _restricted shortest path_ or _resource-constrained shortest path_ problem. Garey and Johnson list it as ND30 and show NP-completeness via transformation from Partition @garey1979. The model captures bicriteria routing: one resource measures path length or delay, while the other captures a second consumable budget such as cost, risk, or bandwidth. Because pseudo-polynomial dynamic programming formulations are known @joksch1966, the hardness is weak rather than strong; approximation schemes were later developed by Hassin @hassin1992 and improved by Lorenz and Raz @lorenzraz2001.
 
-      Variables: $k |E|$ binary values grouped into $k$ consecutive edge-selection blocks. Entry $x_(i, e) = 1$ means edge $e$ belongs to the $i$-th candidate tree. A configuration is satisfying exactly when each block selects a spanning tree, every selected tree has total weight at most $B$, and the $k$ blocks encode pairwise distinct edge sets.
+      The implementation catalog reports the natural brute-force complexity of the edge-subset encoding used here: with $m = |E|$ binary variables, exhaustive search over all candidate subsets costs $O^*(2^m)$. A configuration is satisfying precisely when the selected edges form a single simple $s$-$t$ path and both resource sums stay within their bounds.
 
-      *Example.* Consider $K_4$ with edge weights $w = {(0,1): 1, (0,2): 1, (0,3): 2, (1,2): 2, (1,3): 2, (2,3): 3}$. With $k = 2$ and $B = 4$, exactly two of the $16$ spanning trees have total weight $lt.eq 4$: the star $T_1 = {(0,1), (0,2), (0,3)}$ with weight $4$ and $T_2 = {(0,1), (0,2), (1,3)}$ with weight $4$. Since two distinct bounded spanning trees exist, this is a YES-instance.
+      *Example.* Consider the graph on #nv vertices with source $s = v_#s$, target $t = v_#t$, length bound $K = #K$, and weight bound $W = #W$. Edge labels are written as $(l(e), w(e))$. The highlighted path $#path-order.map(v => $v_#v$).join($arrow$)$ uses edges ${#path-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, so its total length is $4 + 1 + 4 = 9 <= #K$ and its total weight is $1 + 3 + 3 = 7 <= #W$. This instance has 2 satisfying edge selections; another feasible path is $v_0 arrow v_1 arrow v_4 arrow v_5$.
 
       #figure({
+        let blue = graph-colors.at(0)
+        let gray = luma(200)
+        let verts = ((0, 1), (1.5, 1.8), (1.5, 0.2), (3, 1.8), (3, 0.2), (4.5, 1))
         canvas(length: 1cm, {
           import draw: *
-          let pos = ((0.0, 1.8), (2.4, 1.8), (2.4, 0.0), (0.0, 0.0))
           for (idx, (u, v)) in edges.enumerate() {
-            let in-tree1 = tree1.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
-            g-edge(pos.at(u), pos.at(v), stroke: if in-tree1 { 2pt + blue } else { 1pt + gray })
-            let mid-x = (pos.at(u).at(0) + pos.at(v).at(0)) / 2
-            let mid-y = (pos.at(u).at(1) + pos.at(v).at(1)) / 2
-            // Offset diagonal edge labels to avoid overlap at center
-            let (ox, oy) = if u == 0 and v == 2 { (0.3, 0) } else if u == 1 and v == 3 { (-0.3, 0) } else { (0, 0) }
-            content((mid-x + ox, mid-y + oy), text(7pt)[#weights.at(idx)], fill: white, frame: "rect", padding: .06, stroke: none)
+            let on-path = path-config.at(idx) == 1
+            g-edge(verts.at(u), verts.at(v), stroke: if on-path { 2pt + blue } else { 1pt + gray })
+            let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+            let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+            let dx = if idx == 7 { -0.25 } else if idx == 5 or idx == 6 { 0.15 } else { 0 }
+            let dy = if idx == 0 or idx == 2 or idx == 5 { 0.16 } else if idx == 1 or idx == 4 or idx == 6 { -0.16 } else if idx == 7 { 0.12 } else { 0 }
+            draw.content(
+              (mx + dx, my + dy),
+              text(7pt, fill: luma(80))[#("(" + str(int(lengths.at(idx))) + ", " + str(int(weights.at(idx))) + ")")]
+            )
           }
-          for (idx, p) in pos.enumerate() {
-            g-node(p, name: "v" + str(idx), fill: white, label: $v_#idx$)
+          for (k, pos) in verts.enumerate() {
+            let on-path = path-order.any(v => v == k)
+            g-node(pos, name: "v" + str(k),
+              fill: if on-path { blue } else { white },
+              label: if on-path { text(fill: white)[$v_#k$] } else { [$v_#k$] })
           }
         })
       },
-      caption: [Kth Best Spanning Tree on $K_4$. Blue edges show $T_1 = {(0,1), (0,2), (0,3)}$, one of two spanning trees with weight $lt.eq 4$.],
-      ) <fig:kth-best-spanning-tree>
+      caption: [Shortest Weight-Constrained Path instance with edge labels $(l(e), w(e))$. The highlighted path $v_0 arrow v_2 arrow v_3 arrow v_5$ satisfies both bounds.],
+      ) <fig:shortest-weight-constrained-path>
     ]
   ]
 }
@@ -1613,6 +1627,49 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     },
     caption: [Minimum Sum Multicenter with $K = #K$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) achieve optimal total weighted distance #opt-cost.],
     ) <fig:minimum-sum-multicenter>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinMaxMulticenter")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let K = x.instance.k
+  let B = x.instance.bound
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let centers = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  [
+    #problem-def("MinMaxMulticenter")[
+      Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, a positive integer $K <= |V|$, and a rational bound $B > 0$, does there exist $S subset.eq V$ with $|S| = K$ such that $max_(v in V) w(v) dot d(v, S) <= B$, where $d(v, S) = min_(s in S) d(v, s)$ is the shortest weighted-path distance from $v$ to the nearest vertex in $S$?
+    ][
+    Also known as the _vertex p-center problem_ (Garey & Johnson A2 ND50). The goal is to place $K$ facilities so that the worst-case weighted distance from any demand point to its nearest facility is at most $B$. NP-complete even with unit weights and unit edge lengths (Kariv and Hakimi, 1979).
+
+    Closely related to Dominating Set: on unweighted unit-length graphs, a $K$-center with radius $B = 1$ is exactly a dominating set of size $K$. The best known exact algorithm runs in $O^*(1.4969^n)$ via binary search over distance thresholds combined with dominating set computation @vanrooij2011. An optimal 2-approximation exists (Hochbaum and Shmoys, 1985); no $(2 - epsilon)$-approximation is possible unless $P = "NP"$ (Hsu and Nemhauser, 1979).
+
+    Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. A configuration is satisfying when exactly $K$ centers are selected and $max_(v in V) w(v) dot d(v, S) <= B$.
+
+    *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$, unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, $K = #K$, and $B = #B$. Placing centers at $S = {#centers.map(i => $v_#i$).join(", ")}$ gives maximum distance $max_v d(v, S) = 1 <= B$, so this is a feasible solution.
+
+    #figure({
+      let blue = graph-colors.at(0)
+      let gray = luma(200)
+      canvas(length: 1cm, {
+        import draw: *
+        let verts = ((-1.5, 0.8), (0, 1.5), (1.5, 0.8), (1.5, -0.8), (0, -1.5), (-1.5, -0.8))
+        for (u, v) in edges {
+          g-edge(verts.at(u), verts.at(v), stroke: 1pt + gray)
+        }
+        for (k, pos) in verts.enumerate() {
+          let is-center = centers.any(c => c == k)
+          g-node(pos, name: "v" + str(k),
+            fill: if is-center { blue } else { white },
+            label: if is-center { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+        }
+      })
+    },
+    caption: [Min-Max Multicenter with $K = #K$, $B = #B$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) ensure every vertex is within distance $B$ of some center.],
+    ) <fig:min-max-multicenter>
     ]
   ]
 }
