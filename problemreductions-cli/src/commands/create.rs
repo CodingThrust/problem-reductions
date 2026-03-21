@@ -360,6 +360,14 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
     }
 }
 
+fn cli_flag_name(field_name: &str) -> String {
+    match field_name {
+        "vertex_weights" => "weights".to_string(),
+        "edge_lengths" => "edge-weights".to_string(),
+        _ => field_name.replace('_', "-"),
+    }
+}
+
 fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
     match canonical {
         "MaximumIndependentSet"
@@ -405,6 +413,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "HamiltonianCircuit" => "--graph 0-1,1-2,2-3,3-0",
+        "MinMaxMulticenter" => {
+            "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 --bound 2"
+        }
         "MinimumSumMulticenter" => {
             "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
         }
@@ -2604,6 +2615,50 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let weights = parse_arc_weights(args, num_arcs)?;
             (
                 ser(MinimumFeedbackArcSet::new(graph, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinMaxMulticenter (vertex p-center)
+        "MinMaxMulticenter" => {
+            let usage = "Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 [--weights 1,1,1,1] [--edge-weights 1,1,1] --k 2 --bound 2";
+            let (graph, n) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let vertex_weights = parse_vertex_weights(args, n)?;
+            let edge_lengths = parse_edge_weights(args, graph.num_edges())?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinMaxMulticenter requires --k (number of centers)\n\n\
+                     Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --k 2 --bound 2"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinMaxMulticenter requires --bound (distance bound B)\n\n\
+                     Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --k 2 --bound 2"
+                )
+            })?;
+            let bound = i32::try_from(bound).map_err(|_| {
+                anyhow::anyhow!(
+                    "MinMaxMulticenter --bound must fit in i32 (got {bound})\n\n{usage}"
+                )
+            })?;
+            if vertex_weights.iter().any(|&weight| weight < 0) {
+                bail!("MinMaxMulticenter --weights must be non-negative");
+            }
+            if edge_lengths.iter().any(|&length| length < 0) {
+                bail!("MinMaxMulticenter --edge-weights must be non-negative");
+            }
+            if bound < 0 {
+                bail!("MinMaxMulticenter --bound must be non-negative");
+            }
+            (
+                ser(MinMaxMulticenter::new(
+                    graph,
+                    vertex_weights,
+                    edge_lengths,
+                    k,
+                    bound,
+                ))?,
                 resolved_variant.clone(),
             )
         }

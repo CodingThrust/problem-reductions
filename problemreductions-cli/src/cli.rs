@@ -258,6 +258,7 @@ Flags by problem type:
   MultiprocessorScheduling        --lengths, --num-processors, --deadline
   SequencingWithinIntervals       --release-times, --deadlines, --lengths
   OptimalLinearArrangement        --graph, --bound
+  MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k, --bound
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
   MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
   AdditionalKey                   --num-attributes, --dependencies, --relation-attrs [--known-keys]
@@ -622,8 +623,8 @@ Solve via explicit reduction:
 Input: a problem JSON from `pred create`, or a reduction bundle from `pred reduce`.
 When given a bundle, the target is solved and the solution is mapped back to the source.
 The ILP solver auto-reduces non-ILP problems before solving.
-Problems without an ILP reduction path, such as `LengthBoundedDisjointPaths` and
-`StringToStringCorrection`, currently need `--solver brute-force`.
+Problems without an ILP reduction path, such as `LengthBoundedDisjointPaths`,
+`MinMaxMulticenter`, and `StringToStringCorrection`, currently need `--solver brute-force`.
 
 ILP backend (default: HiGHS). To use a different backend:
   cargo install problemreductions-cli --features coin-cbc
