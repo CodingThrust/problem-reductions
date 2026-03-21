@@ -516,6 +516,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       [$(v_#u, v_#v)$ by #by]
     }).join("; "). The complement ${#complement.map(i => $v_#i$).join(", ")}$ is a maximum independent set ($alpha(G) = #alpha$, confirming $|"VC"| = n - alpha = #wS$).
 
+    #pred-commands(
+      "pred create --example MVC -o mvc.json",
+      "pred solve mvc.json",
+      "pred evaluate mvc.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure({
       let hg = house-graph()
       draw-node-highlight(hg.vertices, hg.edges, cover)
@@ -546,6 +552,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
     *Example.* Consider the house graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, and unit weights $w(e) = 1$. The partition $S = {#side-s.map(i => $v_#i$).join(", ")}$, $overline(S) = {#side-sbar.map(i => $v_#i$).join(", ")}$ cuts #cut-val of #ne edges: #cut-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", "). #if uncut-edges.len() == 1 [Only the edge #uncut-edges.map(((u, v)) => $(v_#u, v_#v)$).at(0) is uncut (both endpoints in $overline(S)$).] #if uncut-edges.len() > 1 [The edges #uncut-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ") are uncut.] The cut value is $sum w(e) = #cut-val$.
 
+    #pred-commands(
+      "pred create --example MaxCut -o maxcut.json",
+      "pred solve maxcut.json",
+      "pred evaluate maxcut.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure({
       let hg = house-graph()
       let cut-edges = hg.edges.filter(e => side-s.contains(e.at(0)) != side-s.contains(e.at(1)))
@@ -574,6 +586,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel computing, and scientific simulation, where balanced workload distribution with minimal communication is essential. Closely related to Max-Cut (which _maximizes_ rather than _minimizes_ the cut) and to the Ising Spin Glass model. NP-completeness was proved by Garey, Johnson and Stockmeyer @garey1976. Arora, Rao and Vazirani @arora2009 gave an $O(sqrt(log n))$-approximation algorithm. The best known unconditional exact algorithm is brute-force enumeration of all $binom(n, n slash 2) = O^*(2^n)$ balanced partitions; no faster worst-case algorithm is known. Cygan et al. @cygan2014 showed that Minimum Bisection is fixed-parameter tractable in $O(2^(O(k^3)) dot n^3 log^3 n)$ time parameterized by bisection width $k$. Standard partitioning tools include METIS, KaHIP, and Scotch.
 
       *Example.* Consider the graph $G$ with $n = #nv$ vertices and #ne edges. The optimal balanced partition is $A = {#side-a.map(i => $v_#i$).join($,$)}$, $B = {#side-b.map(i => $v_#i$).join($,$)}$, with cut value #cut-val.
+
+      #pred-commands(
+        "pred create --example GraphPartitioning -o graph-partitioning.json",
+        "pred solve graph-partitioning.json",
+        "pred evaluate graph-partitioning.json --config " + x.optimal_config.map(str).join(","),
+      )
 
       #figure(
         canvas(length: 1cm, {
@@ -697,6 +715,12 @@ Biconnectivity augmentation is a classical network-design problem: add backup li
 
       *Example.* Consider the triangular prism graph $G$ on #nv vertices with #ne edges. The permutation $[#circuit.map(v => str(v)).join(", ")]$ forms a Hamiltonian circuit: each consecutive pair #circuit-edges.map(((u, v)) => $(#u, #v)$).join($,$) is an edge of $G$, and the path returns to the start.
 
+      #pred-commands(
+        "pred create --example HC -o hc.json",
+        "pred solve hc.json",
+        "pred evaluate hc.json --config " + x.optimal_config.map(str).join(","),
+      )
+
       #figure({
         let blue = graph-colors.at(0)
         let gray = luma(200)
@@ -798,6 +822,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 
       *Example.* Consider the graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, terminals $s = v_#s$, $t = v_#t$, $J = #J$, and $K = #K$. The two paths $P_1 = v_0 arrow v_1 arrow v_6$ and $P_2 = v_0 arrow v_2 arrow v_3 arrow v_6$ are both of length at most 3, and their internal vertex sets ${v_1}$ and ${v_2, v_3}$ are disjoint. Hence this instance is satisfying. The third branch $v_0 arrow v_4 arrow v_5 arrow v_6$ is available but unused, so the instance has multiple satisfying path-slot assignments.
 
+      #pred-commands(
+        "pred create --example LengthBoundedDisjointPaths -o length-bounded-disjoint-paths.json",
+        "pred solve length-bounded-disjoint-paths.json",
+        "pred evaluate length-bounded-disjoint-paths.json --config " + x.optimal_config.map(str).join(","),
+      )
+
       #figure(
         canvas(length: 1cm, {
           let blue = graph-colors.at(0)
@@ -855,6 +885,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
       The implementation evaluates the decision problem directly rather than searching over candidate assignments. The instance has `dims() = []`, and `evaluate([])` runs a memoized minimax search over the ternary states (unclaimed, blue, red) of the nonterminal vertices. This preserves the alternating-game semantics of the original problem instead of collapsing the game into a static coloring predicate.
 
       *Example.* The canonical fixture uses the six-vertex graph with terminals $s = v_#source$ and $t = v_#target$, and edges #edges.map(((u, v)) => $(v_#u, v_#v)$).join(", "). Vertex $v_4$ is the unique neighbor of $t$, so Player 1 opens by claiming $v_4$. Player 2 can then block at most one of $v_1$, $v_2$, and $v_3$; Player 1 responds by claiming one of the remaining branch vertices, completing a blue path $v_0 arrow v_i arrow v_4 arrow v_5$. The fixture database therefore has exactly one satisfying configuration: the empty configuration, which triggers the internal game-tree evaluator on the initial board.
+
+      #pred-commands(
+        "pred create --example GeneralizedHex -o generalized-hex.json",
+        "pred solve generalized-hex.json",
+        "pred evaluate generalized-hex.json --config " + x.optimal_config.map(str).join(","),
+      )
 
       #figure(
         canvas(length: 1cm, {
@@ -920,6 +956,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 
       *Example.* Consider the graph $G$ on #nv vertices with edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$. The sequence $[#path.map(v => str(v)).join(", ")]$ is a Hamiltonian path: it visits every vertex exactly once, and each consecutive pair is adjacent --- #path-edges.map(((u, v)) => $(#u, #v)$).join($,$) $in E$.
 
+      #pred-commands(
+        "pred create --example HamiltonianPath -o hamiltonian-path.json",
+        "pred solve hamiltonian-path.json",
+        "pred evaluate hamiltonian-path.json --config " + x.optimal_config.map(str).join(","),
+      )
+
       #figure({
         let blue = graph-colors.at(0)
         let gray = luma(200)
@@ -957,6 +999,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
       The implementation uses four variables per undirected edge ${u, v}$: $f_1(u, v)$, $f_1(v, u)$, $f_2(u, v)$, and $f_2(v, u)$. In the unit-capacity regime, each edge has exactly five meaningful local states: unused, commodity 1 in either direction, or commodity 2 in either direction, which matches the catalog bound $O(5^m)$ for $m = |E|$.
 
       *Example.* Consider the graph with edges $(0, 2)$, $(1, 2)$, and $(2, 3)$, capacities $(1, 1, 2)$, sources $s_1 = v_#source1$, $s_2 = v_#source2$, and shared sink $t_1 = t_2 = v_#sink1$. The optimal configuration in the fixture database sets $f_1(0, 2) = 1$, $f_2(1, 2) = 1$, and $f_1(2, 3) = f_2(2, 3) = 1$, with all reverse-direction variables zero. The only nonterminal vertex is $v_2$, where each commodity has one unit of inflow and one unit of outflow, so conservation holds. Vertex $v_3$ receives one unit of net inflow from each commodity, and the shared edge $(2,3)$ uses its full capacity 2. The fixture database contains #satisfying_count satisfying configuration for this instance, shown below.
+
+      #pred-commands(
+        "pred create --example UndirectedTwoCommodityIntegralFlow -o undirected-two-commodity-integral-flow.json",
+        "pred solve undirected-two-commodity-integral-flow.json",
+        "pred evaluate undirected-two-commodity-integral-flow.json --config " + x.optimal_config.map(str).join(","),
+      )
 
       #figure(
         canvas(length: 1cm, {
@@ -1014,6 +1062,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
       Variables: $n = |V|$ values forming a permutation. Position $i$ holds the graph vertex that tree vertex $i$ maps to under $pi$. A configuration is satisfying when it forms a valid permutation and every tree edge maps to a graph edge.
 
       *Example.* Consider $G = K_#nv$ (the complete graph on #nv vertices) and $T$ the star $S_#(nt - 1)$ with center $0$ and leaves ${#range(1, nt).map(i => str(i)).join(", ")}$. Since $K_#nv$ contains all possible edges, any bijection $pi$ maps the star's edges to edges of $G$. For instance, the identity mapping $pi(i) = i$ gives the spanning tree ${#mapped-edges.map(((u, v)) => $(#u, #v)$).join(", ")} subset.eq E(K_#nv)$.
+
+      #pred-commands(
+        "pred create --example IsomorphicSpanningTree -o isomorphic-spanning-tree.json",
+        "pred solve isomorphic-spanning-tree.json",
+        "pred evaluate isomorphic-spanning-tree.json --config " + x.optimal_config.map(str).join(","),
+      )
 
       #figure({
         let blue = graph-colors.at(0)
@@ -1073,6 +1127,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 
       *Example.* Consider the graph on #nv vertices with source $s = v_#s$, target $t = v_#t$, length bound $K = #K$, and weight bound $W = #W$. Edge labels are written as $(l(e), w(e))$. The highlighted path $#path-order.map(v => $v_#v$).join($arrow$)$ uses edges ${#path-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, so its total length is $4 + 1 + 4 = 9 <= #K$ and its total weight is $1 + 3 + 3 = 7 <= #W$. This instance has 2 satisfying edge selections; another feasible path is $v_0 arrow v_1 arrow v_4 arrow v_5$.
 
+      #pred-commands(
+        "pred create --example ShortestWeightConstrainedPath -o shortest-weight-constrained-path.json",
+        "pred solve shortest-weight-constrained-path.json",
+        "pred evaluate shortest-weight-constrained-path.json --config " + x.optimal_config.map(str).join(","),
+      )
+
       #figure({
         let blue = graph-colors.at(0)
         let gray = luma(200)
@@ -1121,6 +1181,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 
     *Example.* Consider the house graph $G$ with $k = #k$ colors. The coloring #range(nv).map(i => $c(v_#i) = #(coloring.at(i) + 1)$).join(", ") is proper: no adjacent pair shares a color, so the number of conflicts is 0. The house graph has chromatic number $chi(G) = #k$ because the triangle $(v_2, v_3, v_4)$ requires #k colors.
 
+    #pred-commands(
+      "pred create --example KColoring -o kcoloring.json",
+      "pred solve kcoloring.json",
+      "pred evaluate kcoloring.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure({
       let hg = house-graph()
       draw-node-colors(hg.vertices, hg.edges, coloring)
@@ -1155,6 +1221,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 
     *Example.* Consider the house graph $G$ with $n = #nv$ vertices and unit weights $w(v) = 1$. The set $S = {#S.map(i => $v_#i$).join(", ")}$ is a minimum dominating set with $w(S) = #wS$: #S.zip(dominated).map(((s, nbrs)) => [vertex $v_#s$ dominates ${#nbrs.map(i => $v_#i$).join(", ")}$]).join(" and ") (both also dominate each other). No single vertex can dominate all others, so $gamma(G) = #wS$.
 
+    #pred-commands(
+      "pred create --example MinimumDominatingSet -o minimum-dominating-set.json",
+      "pred solve minimum-dominating-set.json",
+      "pred evaluate minimum-dominating-set.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure({
       let hg = house-graph()
       draw-node-highlight(hg.vertices, hg.edges, S)
@@ -1187,6 +1259,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     Unlike most combinatorial optimization problems on general graphs, maximum matching is solvable in polynomial time $O(n^3)$ by Edmonds' blossom algorithm @edmonds1965, which introduced the technique of shrinking odd cycles into pseudo-nodes. Matching theory underpins assignment problems, network flows, and the Tutte-Berge formula for matching deficiency.
 
     *Example.* Consider the house graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, and unit weights $w(e) = 1$. A maximum matching is $M = {#matched-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$ with $w(M) = #wM$. Each matched edge is vertex-disjoint from the others. #if unmatched.len() == 1 [Vertex $v_#(unmatched.at(0))$ is unmatched; since $n$ is odd, no perfect matching exists.] #if unmatched.len() > 1 [Vertices #unmatched.map(i => $v_#i$).join(", ") are unmatched.]
+
+    #pred-commands(
+      "pred create --example MaximumMatching -o maximum-matching.json",
+      "pred solve maximum-matching.json",
+      "pred evaluate maximum-matching.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure({
       let hg = house-graph()
@@ -1231,6 +1309,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
       let idx = edges.position(e => e == (u, v) or e == (v, u))
       str(int(ew.at(idx)))
     }).join(" + ") = #tour-cost$.
+
+    #pred-commands(
+      "pred create --example TSP -o tsp.json",
+      "pred solve tsp.json",
+      "pred evaluate tsp.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure({
       let verts = ((0, 0), (1.5, 0), (1.5, 1.5), (0, 1.5))
@@ -1297,6 +1381,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 
     *Example.* Consider $G$ with $n = #nv$ vertices, $m = #ne$ edges, and terminals $T = {#terminals.map(t => $v_#t$).join(", ")}$. The optimal Steiner tree uses edges ${#tree-edges.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")}$ with Steiner vertices ${#steiner-verts.map(v => $v_#v$).join(", ")}$ acting as relay points. The total cost is #tree-edge-indices.map(i => $#(weights.at(i))$).join($+$) $= #cost$. Note the only direct terminal--terminal edge $(v_#tt-u, v_#tt-v)$ has weight #weights.at(tt-idx), equaling the entire Steiner tree cost.
 
+    #pred-commands(
+      "pred create --example SteinerTree -o steiner-tree.json",
+      "pred solve steiner-tree.json",
+      "pred evaluate steiner-tree.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure({
       // Layout: v0 top-left, v1 top-center, v2 top-right, v3 bottom-center, v4 bottom-right
       let verts = ((0, 1.2), (1.2, 1.2), (2.4, 1.2), (1.2, 0), (2.4, 0))
@@ -1343,6 +1433,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     Strong Connectivity Augmentation models network design problems where a partially connected directed communication graph may be repaired by buying additional arcs. Eswaran and Tarjan showed that the unweighted augmentation problem is solvable in linear time, while the weighted variant is substantially harder @eswarantarjan1976. The decision version recorded as ND19 in Garey and Johnson is NP-complete @garey1979. The implementation here uses one binary variable per candidate arc, so brute-force over the candidate set yields a worst-case bound of $O^*(2^m)$ where $m = "num_potential_arcs"$. #footnote[No exact algorithm improving on brute-force is claimed here for the weighted candidate-arc formulation implemented in the codebase.]
 
     *Example.* The canonical instance has $n = #nv$ vertices, $|A| = #ne$ existing arcs, and bound $B = #bound$. The base graph is the directed path $v_0 -> v_1 -> v_2 -> v_3 -> v_4$ — every vertex can reach those ahead of it, but vertex $v_4$ is a sink with no outgoing arcs. The #candidates.len() candidate arcs with weights are: #candidates.map(a => $w(v_#(a.at(0)), v_#(a.at(1))) = #(a.at(2))$).join(", "). The cheapest single arc that closes the cycle is $(v_4, v_0)$, but its weight $10 > B$ exceeds the budget, so strong connectivity must be achieved via a two-hop return path. The pair #chosen.map(a => $(v_#(a.at(0)), v_#(a.at(1)))$).join(" and ") with weights #chosen.map(a => $#(a.at(2))$).join($+$) $= #total-weight = B$ creates the path $v_4 -> v_1 -> v_0$, making the augmented graph strongly connected at exactly the budget limit. Alternative escape arcs from $v_4$ (to $v_3$ or $v_2$) are equally cheap but land on vertices from which reaching $v_0$ within the remaining budget is impossible.
+
+    #pred-commands(
+      "pred create --example StrongConnectivityAugmentation -o strong-connectivity-augmentation.json",
+      "pred solve strong-connectivity-augmentation.json",
+      "pred evaluate strong-connectivity-augmentation.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure({
       let verts = ((0, 0), (1.5, 0), (3.0, 0), (4.5, 0), (6.0, 0))
@@ -1414,6 +1510,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 
     *Example.* Consider a graph with $n = #nv$ vertices, $m = #ne$ edges, and $k = #terminals.len()$ terminals $T = {#terminals.map(t => $#t$).join(", ")}$, with edge weights #edges.zip(weights).map(((e, w)) => $w(#(e.at(0)), #(e.at(1))) = #w$).join(", "). The optimal multiway cut removes edges ${#cut-edges.map(e => $(#(e.at(0)), #(e.at(1)))$).join(", ")}$ with total weight #cut-edge-indices.map(i => $#(weights.at(i))$).join($+$) $= #cost$, placing each terminal in a distinct component.
 
+    #pred-commands(
+      "pred create --example MinimumMultiwayCut -o minimum-multiway-cut.json",
+      "pred solve minimum-multiway-cut.json",
+      "pred evaluate minimum-multiway-cut.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure({
       let verts = ((0, 0.8), (1.2, 1.5), (2.4, 0.8), (1.8, -0.2), (0.6, -0.2))
       canvas(length: 1cm, {
@@ -1457,6 +1559,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
       NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-complete on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
 
       *Example.* Consider a graph with #nv vertices and #ne edges, with bound $K = #K$. The arrangement $f = (#config.map(c => str(c)).join(", "))$ gives total cost $#edges.map(e => $|#config.at(e.at(0)) - #config.at(e.at(1))|$).join($+$) = #total-cost lt.eq #K$, so this is a YES instance.
+
+      #pred-commands(
+        "pred create --example OptimalLinearArrangement -o optimal-linear-arrangement.json",
+        "pred solve optimal-linear-arrangement.json",
+        "pred evaluate optimal-linear-arrangement.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -1476,6 +1584,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     $k$-Clique is the classical decision version of Clique, one of Karp's original NP-complete problems @karp1972 and listed as GT19 in Garey and Johnson @garey1979. Unlike Maximum Clique, the threshold $k$ is part of the input, so this formulation is the natural target for decision-to-decision reductions such as $3$SAT $arrow.r$ Clique. The best known exact algorithm matches Maximum Clique via the complement reduction to Maximum Independent Set and runs in $O^*(1.1996^n)$ @xiao2017.
 
     *Example.* Consider the house graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, and threshold $k = #k$. The set $K = {#K.map(i => $v_#i$).join(", ")}$ is a valid witness because all three pairs #clique-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ") are edges, so $|K| = 3 >= #k$ and this is a YES instance. This witness is unique, and no $4$-clique exists because every vertex outside $K$ misses at least one edge to the other selected vertices.
+
+    #pred-commands(
+      "pred create --example KClique -o kclique.json",
+      "pred solve kclique.json",
+      "pred evaluate kclique.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure({
       let hg = house-graph()
@@ -1504,6 +1618,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     Maximum Clique arises in social network analysis (finding tightly-connected communities), bioinformatics (protein interaction clusters), and coding theory. The problem is equivalent to Maximum Independent Set on the complement graph $overline(G)$. The best known algorithm runs in $O^*(1.1996^n)$ via the complement reduction to MIS @xiao2017. Robson's direct backtracking algorithm achieves $O^*(1.1888^n)$ using exponential space @robson2001.
 
     *Example.* Consider the house graph $G$ with $n = #nv$ vertices and $|E| = #ne$ edges. The triangle $K = {#K.map(i => $v_#i$).join(", ")}$ is a maximum clique of size $omega(G) = #omega$: all three pairs #clique-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ") are edges. No #(omega + 1)-clique exists because vertices $v_0$ and $v_1$ each have degree 2 and are not adjacent to all of ${#K.map(i => $v_#i$).join(", ")}$.
+
+    #pred-commands(
+      "pred create --example MaximumClique -o maximum-clique.json",
+      "pred solve maximum-clique.json",
+      "pred evaluate maximum-clique.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure({
       let hg = house-graph()
@@ -1534,6 +1654,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 
     *Example.* Consider the path graph $P_#nv$ with $n = #nv$ vertices, edges $(v_i, v_(i+1))$ for $i = 0, ..., #(ne - 1)$, and unit weights $w(v) = 1$. The set $S = {#S-sub.map(i => $v_#i$).join(", ")}$ is a maximal independent set: no two vertices in $S$ are adjacent, and neither $v_0$ (adjacent to $v_1$), $v_2$ (adjacent to both), nor $v_4$ (adjacent to $v_3$) can be added. However, $S' = {#S-opt.map(i => $v_#i$).join(", ")}$ with $w(S') = #w-opt$ is a strictly larger maximal IS, illustrating that maximality does not imply maximum weight.
 
+    #pred-commands(
+      "pred create --example MaximalIS -o maximal-is.json",
+      "pred solve maximal-is.json",
+      "pred evaluate maximal-is.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure({
       draw-node-highlight(((0, 0), (1, 0), (2, 0), (3, 0), (4, 0)), edges, S-sub)
     },
@@ -1559,6 +1685,12 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     One of Karp's 21 NP-complete problems ("Feedback Node Set") @karp1972. Applications include deadlock detection in operating systems, loop breaking in circuit design, and Bayesian network structure learning. The directed version is strictly harder than undirected FVS: the best known exact algorithm runs in $O^*(1.9977^n)$ @razgon2007, compared to $O^*(1.7548^n)$ for undirected graphs. An $O(log n dot log log n)$-approximation exists @even1998.
 
     *Example.* Consider the directed graph $G$ with $n = #nv$ vertices, $|A| = #ne$ arcs, and unit weights. The arcs form two overlapping directed cycles: $C_1 = v_0 -> v_1 -> v_2 -> v_0$ and $C_2 = v_0 -> v_3 -> v_4 -> v_1$. The set $S = {#S.map(i => $v_#i$).join(", ")}$ with $w(S) = #wS$ is a minimum feedback vertex set: removing $v_#(S.at(0))$ breaks both cycles, leaving a DAG with topological order $(v_3, v_4, v_1, v_2)$. No 0-vertex set suffices since $C_1$ and $C_2$ overlap only at $v_0$ and $v_1$, and removing $v_1$ alone leaves $C_1' = v_0 -> v_3 -> v_4 -> v_1 -> v_2 -> v_0$.
+
+    #pred-commands(
+      "pred create --example MinimumFeedbackVertexSet -o minimum-feedback-vertex-set.json",
+      "pred solve minimum-feedback-vertex-set.json",
+      "pred evaluate minimum-feedback-vertex-set.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure({
       let verts = ((0, 1), (2, 1), (1, 0), (-0.5, -0.2), (0.8, -0.5))
@@ -1612,6 +1744,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
     *Example.* Consider a graph $G$ with $n = #nv$ vertices and $|E| = #ne$ edges. The terminals are $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue). The optimal Steiner tree uses Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (gray, dashed border) and edges #tree-edges.map(e => [$\{v_#(e.at(0)), v_#(e.at(1))\}$]).join(", ") with total weight #tree-edge-indices.map(i => str(weights.at(i))).join(" + ") $= #opt-weight$.
 
+    #pred-commands(
+      "pred create --example SteinerTreeInGraphs -o steiner-tree-in-graphs.json",
+      "pred solve steiner-tree-in-graphs.json",
+      "pred evaluate steiner-tree-in-graphs.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure({
       // Graph: 6 vertices arranged in two rows (layout positions)
       let verts = ((0, 1), (1.5, 1), (3, 1), (1.5, -0.5), (3, -0.5), (4.5, 0.25))
@@ -1663,6 +1801,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
     *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$ and unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, and $K = #K$. Placing centers at $P = {#centers.map(i => $v_#i$).join(", ")}$ gives distances $d(v_0) = 2$, $d(v_1) = 1$, $d(v_2) = 0$, $d(v_3) = 1$, $d(v_4) = 1$, $d(v_5) = 0$, $d(v_6) = 1$, for a total cost of $2 + 1 + 0 + 1 + 1 + 0 + 1 = #opt-cost$. This is optimal.
 
+    #pred-commands(
+      "pred create --example MinimumSumMulticenter -o minimum-sum-multicenter.json",
+      "pred solve minimum-sum-multicenter.json",
+      "pred evaluate minimum-sum-multicenter.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure({
       let blue = graph-colors.at(0)
       let gray = luma(200)
@@ -1706,6 +1850,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
     *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$, unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, $K = #K$, and $B = #B$. Placing centers at $S = {#centers.map(i => $v_#i$).join(", ")}$ gives maximum distance $max_v d(v, S) = 1 <= B$, so this is a feasible solution.
 
+    #pred-commands(
+      "pred create --example MinMaxMulticenter -o min-max-multicenter.json",
+      "pred solve min-max-multicenter.json",
+      "pred evaluate min-max-multicenter.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure({
       let blue = graph-colors.at(0)
       let gray = luma(200)
@@ -1744,6 +1894,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     Multiple Copy File Allocation appears in the storage-and-retrieval section of Garey and Johnson (SR6) @garey1979. The model combines two competing costs: each chosen copy vertex incurs a storage charge, while every vertex pays an access cost weighted by its demand and graph distance to the nearest copy. Garey and Johnson record the problem as NP-complete in the strong sense, even when usage and storage costs are uniform @garey1979.
 
     *Example.* Consider the 6-cycle $C_6$ with uniform usage $u(v) = 10$, uniform storage $s(v) = 1$, and bound $K = #K$. Placing copies at $V' = {#copies.map(i => $v_#i$).join(", ")}$ gives storage cost $1 + 1 + 1 = 3$. The remaining vertices $v_0, v_2, v_4$ are each at distance 1 from the nearest copy, so the access cost is $10 + 10 + 10 = 30$. Thus the total cost is $3 + 30 = 33 <= #K$, so this placement is satisfying. The alternating placement shown below is one symmetric witness.
+
+    #pred-commands(
+      "pred create --example MultipleCopyFileAllocation -o multiple-copy-file-allocation.json",
+      "pred solve multiple-copy-file-allocation.json",
+      "pred evaluate multiple-copy-file-allocation.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure({
       let blue = graph-colors.at(0)
@@ -1791,6 +1947,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
     *Example.* Let $U = {1, 2, dots, #U-size}$ and $cal(S) = {#range(m).map(i => $S_#(i + 1)$).join(", ")}$ with #range(m).map(i => $S_#(i + 1) = #fmt-set(sets.at(i))$).join(", "), and unit weights $w(S_i) = 1$. A maximum packing is $cal(P) = {#selected.map(i => $S_#(i + 1)$).join(", ")}$ with $w(cal(P)) = #wP$: $S_#(selected.at(0) + 1) inter S_#(selected.at(1) + 1) = emptyset$. Adding $S_2$ would conflict with both ($S_1 inter S_2 = {2}$, $S_2 inter S_3 = {3}$), and $S_4$ conflicts with $S_3$ ($S_3 inter S_4 = {4}$). The alternative packing ${S_2, S_4}$ also achieves weight #wP.
 
+    #pred-commands(
+      "pred create --example MaximumSetPacking -o maximum-set-packing.json",
+      "pred solve maximum-set-packing.json",
+      "pred evaluate maximum-set-packing.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure(
       canvas(length: 1cm, {
         let elems = range(U-size).map(i => (i, 0))
@@ -1826,6 +1988,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     One of Karp's 21 NP-complete problems @karp1972. Arises in facility location, crew scheduling, and test suite minimization. The greedy algorithm achieves an $O(ln n)$-approximation where $n = |U|$, which is essentially optimal: cannot be approximated within $(1-o(1)) ln n$ unless P = NP. The best known exact algorithm runs in $O^*(2^m)$ by brute-force enumeration over the $m$ sets#footnote[No algorithm improving on brute-force enumeration is known for general weighted set covering.].
 
     *Example.* Let $U = {1, 2, dots, #U-size}$ and $cal(S) = {#range(m).map(i => $S_#(i + 1)$).join(", ")}$ with #range(m).map(i => $S_#(i + 1) = #fmt-set(sets.at(i))$).join(", "), and unit weights $w(S_i) = 1$. A minimum cover is $cal(C) = {#selected.map(i => $S_#(i + 1)$).join(", ")}$ with $w(cal(C)) = #wC$: $#selected.map(i => $S_#(i + 1)$).join($union$) = {1, 2, dots, #U-size} = U$. No single set covers all of $U$, so at least two sets are required.
+
+    #pred-commands(
+      "pred create --example MinimumSetCovering -o minimum-set-covering.json",
+      "pred solve minimum-set-covering.json",
+      "pred evaluate minimum-set-covering.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure(
       canvas(length: 1cm, {
@@ -1880,6 +2048,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
     *Example.* Let $U = {1, 2, dots, #U-size}$ and $cal(S) = {#range(m).map(i => $S_#(i + 1)$).join(", ")}$ with #range(m).map(i => $S_#(i + 1) = #fmt-set(sets.at(i))$).join(", "). A minimum hitting set is $H = #fmt-set(selected)$ with $|H| = #hit-size$: every set in $cal(S)$ contains at least one of the selected elements. No $2$-element subset of $U$ hits all #m sets, so the optimum is exactly $#hit-size$.
 
+    #pred-commands(
+      "pred create --example MinimumHittingSet -o minimum-hitting-set.json",
+      "pred solve minimum-hitting-set.json",
+      "pred evaluate minimum-hitting-set.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure(
       canvas(length: 1cm, {
         sregion((elems.at(0), elems.at(1), elems.at(2)), pad: 0.45, label: [$S_1$], ..sregion-dimmed)
@@ -1914,6 +2088,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       This problem arises in information retrieval and file organization (SR18 in Garey and Johnson @garey1979). It generalizes the _consecutive ones property_ from binary matrices to a string-based formulation: given subsets of an alphabet, construct the shortest string where each subset's elements appear contiguously. The problem is NP-complete, as shown by #cite(<kou1977>, form: "prose") via reduction from Hamiltonian Path. The circular variant, where blocks may wrap around from the end of $w$ back to its beginning (considering $w w$), is also NP-complete @boothlueker1976. When $K$ equals the number of distinct symbols appearing in the subsets, the problem reduces to testing a binary matrix for the consecutive ones property, which is solvable in linear time using PQ-tree algorithms @boothlueker1976.
 
       *Example.* Let $Sigma = {0, 1, dots, #(m - 1)}$, $K = #K$, and $cal(C) = {#range(n).map(i => $Sigma_#(i + 1)$).join(", ")}$ with #range(n).map(i => $Sigma_#(i + 1) = #fmt-set(subs.at(i))$).join(", "). A valid string is $w = (#sol.map(e => str(e)).join(", "))$ with $|w| = #sol.len() = K$: $Sigma_1 = {0, 4}$ appears as the block $(0, 4)$ at positions 0--1, $Sigma_2 = {2, 4}$ appears as $(4, 2)$ at positions 1--2, $Sigma_3 = {2, 5}$ appears as $(2, 5)$ at positions 2--3, $Sigma_4 = {1, 5}$ appears as $(5, 1)$ at positions 3--4, and $Sigma_5 = {1, 3}$ appears as $(1, 3)$ at positions 4--5.
+
+      #pred-commands(
+        "pred create --example ConsecutiveSets -o consecutive-sets.json",
+        "pred solve consecutive-sets.json",
+        "pred evaluate consecutive-sets.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -1937,6 +2117,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     Shown NP-complete by Karp (1972) via transformation from 3-Dimensional Matching @karp1972. X3C remains NP-complete even when no element appears in more than three subsets, but is solvable in polynomial time when no element appears in more than two subsets. It is one of the most widely used source problems for NP-completeness reductions in Garey & Johnson (A3 SP2), serving as the starting point for proving hardness of problems in scheduling, graph theory, set systems, coding, and number theory. The best known exact algorithm runs in $O^*(2^n)$ via inclusion-exclusion over the $n = |X|$ universe elements; a direct brute-force search over the $m$ subsets gives the weaker $O^*(2^m)$ bound.
 
     *Example.* Let $X = {1, 2, dots, #n}$ ($q = #q$) and $cal(C) = {S_1, dots, S_#m}$ with #subs.enumerate().map(((i, t)) => $S_#(i + 1) = #fmt-triple(t)$).join(", "). An exact cover is $cal(C)' = {#selected.map(i => $S_#(i + 1)$).join(", ")}$: #selected.map(i => [$S_#(i + 1)$ covers #fmt-triple(subs.at(i))]).join(", "), their union is $X$, and they are pairwise disjoint with $|cal(C)'| = #selected.len() = q$.
+
+    #pred-commands(
+      "pred create --example ExactCoverBy3Sets -o exact-cover-by-3-sets.json",
+      "pred solve exact-cover-by-3-sets.json",
+      "pred evaluate exact-cover-by-3-sets.json --config " + x3c.optimal_config.map(str).join(","),
+    )
     ]
   ]
 }
@@ -1982,6 +2168,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
     *Example.* Let $X = {1, 2, dots, #n}$, $cal(R) = {#range(R.len()).map(i => $R_#(i + 1)$).join(", ")}$ with #R.enumerate().map(((i, family-set)) => [$R_#(i + 1) = #fmt-set(family-set)$ with $w_R(R_#(i + 1)) = #(r-weights.at(i))$]).join(", "), and $cal(S) = {#range(S.len()).map(i => $S_#(i + 1)$).join(", ")}$ with #S.enumerate().map(((i, family-set)) => [$S_#(i + 1) = #fmt-set(family-set)$ with $w_S(S_#(i + 1)) = #(s-weights.at(i))$]).join(", "). The subset $Y = #fmt-set(selected)$ is satisfying because #r-active.map(i => $R_#(i + 1)$).join(", ") contribute $#r-total$ on the left while #s-active.map(i => $S_#(i + 1)$).join(", ") contribute only $#s-total$ on the right, so $#r-total >= #s-total$. In fact, the satisfying subsets are #satisfiers.map(fmt-set).join(", "), so this instance has exactly #satisfiers.len() satisfying solutions.
 
+    #pred-commands(
+      "pred create --example ComparativeContainment -o comparative-containment.json",
+      "pred solve comparative-containment.json",
+      "pred evaluate comparative-containment.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure(
       canvas(length: 1cm, {
         import draw: *
@@ -2023,6 +2215,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
     *Example.* Let $S = {1, 2, 3, 4}$, $k = #k$, and $cal(C) = {#range(m).map(i => $C_#(i + 1)$).join(", ")}$ with #coll.enumerate().map(((i, s)) => $C_#(i + 1) = #fmt-set(s)$).join(", "). The sample basis from the issue is $cal(B) = {#range(k).map(i => $B_#(i + 1)$).join(", ")}$ with #basis.enumerate().map(((i, s)) => $B_#(i + 1) = #fmt-set(s)$).join(", "). Then $C_1 = B_1 union B_2$, $C_2 = B_2 union B_3$, $C_3 = B_1 union B_3$, and $C_4 = B_1 union B_2 union B_3$. The fixture stores one satisfying encoding; other valid encodings exist (e.g., permuting the singleton basis or using the three pair sets $C_1, C_2, C_3$ as a basis).
 
+    #pred-commands(
+      "pred create --example SetBasis -o set-basis.json",
+      "pred solve set-basis.json",
+      "pred evaluate set-basis.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure(
       canvas(length: 1cm, {
         let elems = ((-0.9, 0.2), (0.0, -0.5), (0.9, 0.2), (1.8, -0.5))
@@ -2060,6 +2258,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     Classical NP-complete problem from relational database theory (Lucchesi and Osborn, 1978; Garey & Johnson SR28). Prime attributes are central to database normalization: Second Normal Form (2NF) requires that no non-prime attribute is partially dependent on any candidate key, and Third Normal Form (3NF) requires that for every non-trivial functional dependency $X arrow Y$, either $X$ is a superkey or $Y$ consists only of prime attributes. The brute-force approach enumerates all $2^n$ subsets of $A$ containing $x$, checking each for the key property; no algorithm significantly improving on this is known for the general problem.
 
     *Example.* Let $A = {0, 1, ..., #(n - 1)}$ ($n = #n$), query attribute $x = #q$, and $F = {#deps.enumerate().map(((i, d)) => $#fmt-set-math(d.at(0)) arrow #fmt-set-math(d.at(1))$).join(", ")}$. The subset $K = #fmt-set-math(key)$ is a candidate key containing $x = #q$: its closure is $K^+_F = A$ (since $#fmt-set-math(key.sorted()) arrow #fmt-set-math(deps.at(1).at(1))$ by the second FD, yielding all of $A$), and removing either element breaks the superkey property (${#(key.at(0))} arrow.r.not A$ and ${#(key.at(1))} arrow.r.not A$), so $K$ is minimal. Thus attribute #q is prime. There are #num-sat candidate keys containing attribute #q in total.
+
+    #pred-commands(
+      "pred create --example PrimeAttributeName -o prime-attribute-name.json",
+      "pred solve prime-attribute-name.json",
+      "pred evaluate prime-attribute-name.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure(
       canvas(length: 1cm, {
@@ -2122,6 +2326,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
     *Example.* Let $A = {0, 1, ..., #(n - 1)}$ ($|A| = #n$) with $M = #bound$ and functional dependencies $F = {#deps.enumerate().map(((i, d)) => fmt-fd(d)).join(", ")}$.
     The candidate key $K = #fmt-set(key-attrs)$ has $|K| = #key-attrs.len() <= #bound$. Its closure: start with ${0, 1}$; apply ${0, 1} arrow.r {2}$ to get ${0, 1, 2}$; apply ${0, 2} arrow.r {3}$ to get ${0, 1, 2, 3}$; apply ${1, 3} arrow.r {4}$ to get ${0, 1, 2, 3, 4}$; apply ${2, 4} arrow.r {5}$ to get $A$. Neither ${0}$ nor ${1}$ alone determines $A$, so $K$ is minimal.
+
+    #pred-commands(
+      "pred create --example MinimumCardinalityKey -o minimum-cardinality-key.json",
+      "pred solve minimum-cardinality-key.json",
+      "pred evaluate minimum-cardinality-key.json --config " + x.optimal_config.map(str).join(","),
+    )
     ]
   ]
 }
@@ -2146,6 +2356,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     This problem generalizes the Consecutive Sets problem (SR18) by requiring not just that each subset's elements appear consecutively in an ordering, but that they be spread across consecutive groups of a partition where each group contributes at most one element per subset. Shown NP-complete by Lipski @lipski1977fct via transformation from Graph 3-Colorability. The problem arises in information storage and retrieval where records must be organized in contiguous blocks. It remains NP-complete if all subsets have at most 5 elements, but is solvable in polynomial time if all subsets have at most 2 elements. The brute-force algorithm assigns each of $n$ symbols to one of up to $n$ groups, giving $O^*(n^n)$ time#footnote[No algorithm improving on brute-force enumeration is known for this problem.].
 
     *Example.* Let $Sigma = {0, 1, dots, #(n - 1)}$ and $cal(C) = {#range(m).map(i => $Sigma_#(i + 1)$).join(", ")}$ with #subs.enumerate().map(((i, s)) => $Sigma_#(i + 1) = #fmt-set(s)$).join(", "). A valid partition uses $k = #k$ groups: #nonempty.map(((g, elems)) => $X_#(g + 1) = #fmt-set(elems)$).join(", "). Each group intersects every subset in at most one element, and each subset's elements span exactly $|Sigma_j|$ consecutive groups. For instance, $Sigma_1 = {0, 1, 2}$ maps to groups $X_1, X_2, X_3$ (consecutive), and $Sigma_5 = {0, 5}$ maps to groups $X_1, X_2$ (consecutive). Multiple valid partitions exist for this instance, differing only by unused or shifted group labels.
+
+    #pred-commands(
+      "pred create --example TwoDimensionalConsecutiveSets -o two-dimensional-consecutive-sets.json",
+      "pred solve two-dimensional-consecutive-sets.json",
+      "pred evaluate two-dimensional-consecutive-sets.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure(
       canvas(length: 1cm, {
@@ -2195,6 +2411,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     The Ising spin glass is the canonical model in statistical mechanics for disordered magnetic systems @barahona1982. Ground-state computation is NP-hard on general interaction graphs but polynomial-time solvable on planar graphs without external field ($h_i = 0$) via reduction to minimum-weight perfect matching. Central to quantum annealing, where hardware natively encodes spin Hamiltonians. The best known general algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[On general interaction graphs, no algorithm improving on brute-force enumeration is known.].
 
     *Example.* Consider $n = #n$ spins on a triangular lattice with uniform antiferromagnetic couplings $J_(i j) = -1$ for all edges and no external field ($h_i = 0$). The Hamiltonian simplifies to $H(bold(s)) = sum_((i,j)) s_i s_j$, which counts parallel pairs minus antiparallel pairs. The lattice contains #ne edges and 3 triangular faces; since each triangle cannot have all three pairs antiparallel, frustration is unavoidable. A ground state is $bold(s) = (#spin-str)$ achieving $H = #H$: #sat-count edges are satisfied (antiparallel) and #frust-count are frustrated (parallel). No configuration can satisfy more than #sat-count of #ne edges.
+
+    #pred-commands(
+      "pred create --example SpinGlass -o spinglass.json",
+      "pred solve spinglass.json",
+      "pred evaluate spinglass.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure(
       canvas(length: 1cm, {
@@ -2247,6 +2469,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     Equivalent to the Ising model via the linear substitution $s_i = 2x_i - 1$. The native formulation for quantum annealing hardware (e.g., D-Wave) and a standard target for penalty-method reductions @glover2019. QUBO unifies many combinatorial problems into a single unconstrained binary framework, making it a universal intermediate representation for quantum and classical optimization. The best known general algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[QUBO inherits the Ising model's complexity; no algorithm improving on brute-force is known for the general case.].
 
     *Example.* Consider $n = #n$ with $Q = mat(#mat-rows)$. The objective is $f(bold(x)) = -x_1 - x_2 - x_3 + 2x_1 x_2 + 2x_2 x_3$. Evaluating all $2^#n$ assignments: $f(0,0,0) = 0$, $f(1,0,0) = -1$, $f(0,1,0) = -1$, $f(0,0,1) = -1$, $f(1,1,0) = 0$, $f(0,1,1) = 0$, $f(1,0,1) = -2$, $f(1,1,1) = 1$. The minimum is $f^* = #fstar$ at $bold(x)^* = (#xstar.map(v => str(v)).join(", "))$: selecting #selected.join(" and ") avoids the penalty terms #unselected-pairs.join(" and ").
+
+    #pred-commands(
+      "pred create --example QUBO -o qubo.json",
+      "pred solve qubo.json",
+      "pred evaluate qubo.json --config " + x.optimal_config.map(str).join(","),
+    )
     ]
   ]
 }
@@ -2282,6 +2510,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     Integer Linear Programming is a universal modeling framework: virtually every NP-hard combinatorial optimization problem admits an ILP formulation. Relaxing integrality to $bold(x) in RR^n$ yields a linear program solvable in polynomial time, forming the basis of branch-and-bound solvers. When the number of integer variables $n$ is fixed, ILP is solvable in polynomial time by Lenstra's algorithm @lenstra1983 using the geometry of numbers, making it fixed-parameter tractable in $n$. The best known general algorithm achieves $O^*(n^n)$ via an FPT algorithm based on lattice techniques @dadush2012.
 
     *Example.* Minimize $bold(c)^top bold(x) = #fmt-obj$ subject to #constraints.map(fmt-constraint).join(", "), $#range(nv).map(i => $x_#(i + 1)$).join(",") >= 0$, $bold(x) in ZZ^#nv$. The LP relaxation optimum is $p_1 = (7 slash 3, 8 slash 3) approx (2.33, 2.67)$ with value $approx -27.67$, which is non-integral. Branch-and-bound yields the ILP optimum $bold(x)^* = (#xstar.map(v => str(v)).join(", "))$ with $bold(c)^top bold(x)^* = #fstar$.
+
+    #pred-commands(
+      "pred create --example ILP -o ilp.json",
+      "pred solve ilp.json",
+      "pred evaluate ilp.json --config " + x.optimal_config.map(str).join(","),
+    )
 
 #figure(
   canvas(length: 0.8cm, {
@@ -2381,6 +2615,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     $ C = #to-mat(C), quad D = #to-mat(D). $
     The identity assignment $f(i) = i$ gives cost #id-cost. The optimal assignment is $f^* = (#fstar-display)$ with cost #cost-star: it places the heavily interacting facilities $F_#(max-fi + 1)$ and $F_#(max-fj + 1)$ (highest flow $= #max-flow$) at locations $L_#(assigned-li + 1)$ and $L_#(assigned-lj + 1)$ (distance $= #dist-between$).
 
+    #pred-commands(
+      "pred create --example QuadraticAssignment -o quadratic-assignment.json",
+      "pred solve quadratic-assignment.json",
+      "pred evaluate quadratic-assignment.json --config " + x.optimal_config.map(str).join(","),
+    )
+
     #figure(
       canvas(length: 1cm, {
         import draw: *
@@ -2443,6 +2683,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
       *Example.* Consider the 2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", ") and target $bold(t) = #fmt-vec(target)$. The lattice points near $bold(t)$ include $bold(B)(1, 0)^top = (2, 0)^top$, $bold(B)(0, 1)^top = (1, 2)^top$, and $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$. The closest is $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ with distance $norm(bold(B)(#coords.map(c => str(c)).join(","))^top - bold(t))_2 approx #dist-rounded$.
 
+      #pred-commands(
+        "pred create --example ClosestVectorProblem -o closest-vector-problem.json",
+        "pred solve closest-vector-problem.json",
+        "pred evaluate closest-vector-problem.json --config " + x.optimal_config.map(str).join(","),
+      )
+
       #figure(
         canvas(length: 0.8cm, {
           import draw: *
@@ -2498,6 +2744,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     The Boolean Satisfiability Problem (SAT) is the first problem proven NP-complete @cook1971. SAT serves as the foundation of NP-completeness theory: showing a new problem NP-hard typically proceeds by reduction from SAT or one of its variants. Despite worst-case hardness, conflict-driven clause learning (CDCL) solvers handle industrial instances with millions of variables. The Strong Exponential Time Hypothesis (SETH) @impagliazzo2001 conjectures that no $O^*((2-epsilon)^n)$ algorithm exists for general CNF-SAT, and the best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[SETH conjectures this is optimal; no $O^*((2-epsilon)^n)$ algorithm is known.].
 
     *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",") ) = (#assign.map(v => str(v)).join(", "))$ satisfies all clauses: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #c.literals.map(l => str(eval-lit(l))).join($or$) paren.r = 1$).join(", "). Hence $phi(#assign.map(v => str(v)).join(", ")) = 1$.
+
+    #pred-commands(
+      "pred create --example SAT -o sat.json",
+      "pred solve sat.json",
+      "pred evaluate sat.json --config " + x.optimal_config.map(str).join(","),
+    )
     ]
   ]
 }
@@ -2521,6 +2773,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     Not-All-Equal Satisfiability (NAE-SAT) is a canonical variant in Schaefer's dichotomy theorem @schaefer1978. Unlike ordinary SAT, each clause forbids the all-true and all-false patterns, giving the problem a complement symmetry: if an assignment is NAE-satisfying, then flipping every bit is also NAE-satisfying. This makes NAE-SAT a natural intermediate for cut and partition reductions such as Max-Cut. A straightforward exact algorithm enumerates all $2^n$ assignments; complement symmetry can halve the search space in practice by fixing one variable, but the asymptotic worst-case bound remains $O^*(2^n)$.
 
     *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ is NAE-satisfying because each clause evaluates to a tuple containing both $0$ and $1$: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #clause-values(c).join(", ") paren.r$).join(", "). The complementary assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#complement.map(v => str(v)).join(", "))$ is therefore also NAE-satisfying, illustrating the paired-solution structure characteristic of NAE-SAT.
+
+    #pred-commands(
+      "pred create --example NAESatisfiability -o nae-satisfiability.json",
+      "pred solve nae-satisfiability.json",
+      "pred evaluate nae-satisfiability.json --config " + x.optimal_config.map(str).join(","),
+    )
     ]
   ]
 }
@@ -2544,6 +2802,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     The restriction of SAT to exactly $k$ literals per clause reveals a sharp complexity transition: 2-SAT is polynomial-time solvable via implication graph SCC decomposition @aspvall1979 in $O(n+m)$, while $k$-SAT for $k >= 3$ is NP-complete. Random $k$-SAT exhibits a satisfiability threshold at clause density $m slash n approx 2^k ln 2$, a key phenomenon in computational phase transitions. The best known algorithm for 3-SAT runs in $O^*(1.307^n)$ via biased-PPSZ @hansen2019. Under SETH, $k$-SAT requires time $O^*(c_k^n)$ with $c_k -> 2$ as $k -> infinity$.
 
     *Example.* Consider the #{k}-SAT formula $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses, each containing exactly #k literals. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ satisfies all clauses: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #c.literals.map(l => str(eval-lit(l))).join($or$) paren.r = 1$).join(", ").
+
+    #pred-commands(
+      "pred create --example KSAT -o ksat.json",
+      "pred solve ksat.json",
+      "pred evaluate ksat.json --config " + x.optimal_config.map(str).join(","),
+    )
     ]
   ]
 }
@@ -2572,6 +2836,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     Circuit Satisfiability is the most natural NP-complete problem: the Cook-Levin theorem @cook1971 proves NP-completeness by showing any nondeterministic polynomial-time computation can be encoded as a Boolean circuit. CircuitSAT is strictly more succinct than CNF-SAT, since a circuit with $g$ gates may require an exponentially larger CNF formula without auxiliary variables. The Tseitin transformation reduces CircuitSAT to CNF-SAT with only $O(g)$ clauses by introducing one auxiliary variable per gate. The best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[No algorithm improving on brute-force is known for general circuits.].
 
     *Example.* Consider the circuit $C(x_1, x_2) = (x_1 "AND" x_2) "XOR" (x_1 "OR" x_2)$ with $n = #n$ inputs and $g = #g$ gates. Evaluating: $C(0,0) = (0) "XOR" (0) = 0$, $C(0,1) = (0) "XOR" (1) = 1$, $C(1,0) = (0) "XOR" (1) = 1$, $C(1,1) = (1) "XOR" (1) = 0$. The satisfying assignments are #sat-assigns.map(a => $paren.l #a.map(v => str(v)).join(", ") paren.r$).join(" and ") -- precisely the inputs where exactly one variable is true.
+
+    #pred-commands(
+      "pred create --example CircuitSAT -o circuitsat.json",
+      "pred solve circuitsat.json",
+      "pred evaluate circuitsat.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure(
       canvas(length: 1cm, {
@@ -2668,6 +2938,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     The hardness of integer factorization underpins RSA cryptography and other public-key systems. Unlike most problems in this collection, Factoring is not known to be NP-complete; it lies in NP $inter$ co-NP, suggesting it may be of intermediate complexity. The best classical algorithm is the General Number Field Sieve @lenstra1993 running in sub-exponential time $e^(O(b^(1 slash 3)(log b)^(2 slash 3)))$ where $b$ is the bit length. Shor's algorithm @shor1994 solves Factoring in polynomial time on a quantum computer.
 
     *Example.* Let $N = #N$ with $m = #mb$ bits and $n = #nb$ bits, so $p in [2, #(calc.pow(2, mb) - 1)]$ and $q in [2, #(calc.pow(2, nb) - 1)]$. The solution is $p = #p$, $q = #q$, since $#p times #q = #N = N$. Note $p = #p$ fits in #mb bits and $q = #q$ fits in #nb bits. The alternative factorization $#q times #p$ requires $m = #nb$, $n = #mb$.
+
+    #pred-commands(
+      "pred create --example Factoring -o factoring.json",
+      "pred solve factoring.json",
+      "pred evaluate factoring.json --config " + x.optimal_config.map(str).join(","),
+    )
     ]
   ]
 }
@@ -2688,6 +2964,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     Quantified Boolean Formulas (QBF) is the canonical PSPACE-complete problem, established by #cite(<stockmeyer1973>, form: "prose"). QBF generalizes SAT by adding universal quantifiers ($forall$) alongside existential ones ($exists$), creating a two-player game semantics: the existential player chooses values for $exists$-variables, the universal player for $forall$-variables, and the formula is true iff the existential player has a winning strategy ensuring all clauses are satisfied. This quantifier alternation is the source of PSPACE-hardness and makes QBF the primary source of PSPACE-completeness reductions for combinatorial game problems. The problem remains PSPACE-complete even when $E$ is restricted to 3-CNF (Quantified 3-SAT), but is polynomial-time solvable when each clause has at most 2 literals @schaefer1978. The best known exact algorithm is brute-force game-tree evaluation in $O^*(2^n)$ time. For QBF with $m$ CNF clauses, #cite(<williams2002>, form: "prose") achieves $O^*(1.709^m)$ time.
 
     *Example.* Consider $F = #quantifiers.enumerate().map(((i, q)) => fmt-quant(q, i)).join($space$) space #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The existential player chooses $u_1 = 1$: then $C_1 = (1 or u_2) = 1$ and $C_2 = (1 or not u_2) = 1$ for any value of $u_2$. Hence $F$ is #x.optimal_value --- the existential player has a winning strategy.
+
+    #pred-commands(
+      "pred create --example QuantifiedBooleanFormulas -o quantified-boolean-formulas.json",
+      "pred solve quantified-boolean-formulas.json",
+      "pred evaluate quantified-boolean-formulas.json --config " + x.optimal_config.map(str).join(","),
+    )
     ]
   ]
 }
@@ -2717,6 +2999,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     Boolean Matrix Factorization decomposes binary data into interpretable boolean factors, unlike real-valued SVD which loses the discrete structure. NP-hard even to approximate, BMF arises in data mining, text classification, and role-based access control where factors correspond to latent binary features. Practical algorithms use greedy rank-1 extraction or alternating fixed-point methods. The best known exact algorithm runs in $O^*(2^(m k + k n))$ by brute-force search over $B$ and $C$#footnote[No algorithm improving on brute-force enumeration is known for general BMF.].
 
     *Example.* Let $A = mat(#fmt-mat(A-int))$ and $k = #k$. Set $B = mat(#fmt-mat(B))$ and $C = mat(#fmt-mat(C))$. Then $B circle.tiny C = mat(#fmt-mat(A-int)) = A$, achieving Hamming distance $d_H = #dH$ (exact factorization). The two boolean factors capture overlapping row/column patterns: factor 1 selects rows ${1, 2}$ and columns ${1, 2}$; factor 2 selects rows ${2, 3}$ and columns ${2, 3}$.
+
+    #pred-commands(
+      "pred create --example BMF -o bmf.json",
+      "pred solve bmf.json",
+      "pred evaluate bmf.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure(
       {
@@ -2775,6 +3063,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     Consecutive Block Minimization (SR17 in Garey & Johnson) arises in consecutive file organization for information retrieval systems, where records stored on a linear medium must be arranged so that each query's relevant records form a contiguous segment. Applications also include scheduling, production planning, the glass cutting industry, and data compression. NP-complete by reduction from Hamiltonian Path @kou1977. When $K$ equals the number of non-all-zero rows, the problem reduces to testing the _consecutive ones property_, solvable in polynomial time via PQ-trees @booth1975. A 1.5-approximation is known @haddadi2008. The best known exact algorithm runs in $O^*(n!)$ by brute-force enumeration of all column permutations.
 
     *Example.* Let $A$ be the #n-rows$times$#n-cols matrix with rows #mat.enumerate().map(((i, row)) => [$r_#i = (#row.map(v => if v {$1$} else {$0$}).join($,$))$]).join(", ") and $K = #K$. The column permutation $pi = (#perm.map(p => str(p)).join(", "))$ yields #total-blocks total blocks, so #total-blocks $<= #K$ and the answer is YES.
+
+    #pred-commands(
+      "pred create --example ConsecutiveBlockMinimization -o consecutive-block-minimization.json",
+      "pred solve consecutive-block-minimization.json",
+      "pred evaluate consecutive-block-minimization.json --config " + x.optimal_config.map(str).join(","),
+    )
     ]
   ]
 }
@@ -2802,6 +3096,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     NP-hard and APX-hard @epping2004. Arises in automotive manufacturing where color changes between consecutive cars on an assembly line require costly purging of paint nozzles. Each car appears twice in the sequence (two coats), and each car's two occurrences must receive opposite colors (one per side). A natural benchmark for quantum annealing due to its binary structure and industrial relevance. The best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[No algorithm improving on brute-force is known for general Paint Shop.].
 
     *Example.* Consider $n = #n-cars$ cars with sequence $(#seq-labels.join(", "))$. Each car gets one occurrence colored 0 and the other colored 1. The assignment #labels.zip(assign).map(((l, c)) => [#l: #c\/#(1 - c)]).join(", ") yields color sequence $(#color-seq.map(c => str(c)).join(", "))$ with #num-changes color changes. The minimum is #num-changes changes.
+
+    #pred-commands(
+      "pred create --example PaintShop -o paint-shop.json",
+      "pred solve paint-shop.json",
+      "pred evaluate paint-shop.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure(
       {
@@ -2843,6 +3143,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipartite graph as a Boolean sum of rank-1 binary matrices, connecting it to Boolean matrix rank and nondeterministic communication complexity. Applications include data compression, database optimization (covering queries with materialized views), and bioinformatics (gene expression biclustering). NP-hard even for fixed $k >= 2$. The best known algorithm runs in $O^*(2^(|L| + |R|))$ by brute-force enumeration#footnote[No algorithm improving on brute-force enumeration is known for general Biclique Cover.].
 
     *Example.* Consider $G = (L, R, E)$ with $L = {#range(left-size).map(i => $ell_#(i + 1)$).join(", ")}$, $R = {#range(right-size).map(i => $r_#(i + 1)$).join(", ")}$, and edges $E = {#bip-edges.map(e => $(ell_#(e.at(0) + 1), r_#(e.at(1) + 1))$).join(", ")}$. A biclique cover with $k = #k$: $(L_1, R_1) = ({ell_1}, {r_1, r_2})$ covering edges ${(ell_1, r_1), (ell_1, r_2)}$, and $(L_2, R_2) = ({ell_2}, {r_2, r_3})$ covering ${(ell_2, r_2), (ell_2, r_3)}$. Total size $= (1+2) + (1+2) = #total-size$. Merging into a single biclique is impossible since $(ell_1, r_3) in.not E$.
+
+    #pred-commands(
+      "pred create --example BicliqueCover -o biclique-cover.json",
+      "pred solve biclique-cover.json",
+      "pred evaluate biclique-cover.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure(
       canvas(length: 1cm, {
@@ -2887,6 +3193,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     Balanced Complete Bipartite Subgraph is a classical NP-complete bipartite containment problem from Garey and Johnson @garey1979. Unlike Biclique Cover, which asks for a collection of bicliques covering all edges, this problem asks for a _single_ balanced biclique of prescribed size. It arises naturally in biclustering, dense submatrix discovery, and pattern mining on bipartite data. Chen et al. give an exact $O^*(1.3803^n)$ algorithm for dense bipartite graphs, and the registry records that best-known bound in the catalog metadata. A straightforward baseline still enumerates all $k$-subsets of $A$ and $B$ and checks whether they induce a complete bipartite graph, taking $O(binom(|A|, k) dot binom(|B|, k) dot k^2) = O^*(2^(|A| + |B|))$ time.
 
     *Example.* Consider the bipartite graph with $A = {ell_1, ell_2, ell_3, ell_4}$, $B = {r_1, r_2, r_3, r_4}$, and edges $E = {#bip-edges.map(e => $(ell_#(e.at(0) + 1), r_#(e.at(1) + 1))$).join(", ")}$. For $k = #k$, the selected sets $A' = {#left-selected.map(i => $ell_#(i + 1)$).join(", ")}$ and $B' = {#right-selected.map(i => $r_#(i + 1)$).join(", ")}$ form a balanced complete bipartite subgraph: all #selected-edges.len() required cross edges are present. Vertex $ell_4$ is excluded because $(ell_4, r_3) in.not E$, so any witness using $ell_4$ cannot realize $K_(#k,#k)$.
+
+    #pred-commands(
+      "pred create --example BalancedCompleteBipartiteSubgraph -o balanced-complete-bipartite-subgraph.json",
+      "pred solve balanced-complete-bipartite-subgraph.json",
+      "pred evaluate balanced-complete-bipartite-subgraph.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure(
       canvas(length: 1cm, {
@@ -2952,6 +3264,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
       *Example.* Consider $G$ with $n = #nv$ vertices ($q = #q$) and edges #edges.map(((u, v)) => [${#u, #v}$]).join(", "). The partition #triangles.enumerate().map(((i, tri)) => $V_#(i + 1) = {#tri.map(v => $v_#v$).join(", ")}$).join(", ") is valid: #triangles.enumerate().map(((i, tri)) => [$V_#(i + 1)$ forms a triangle]).join(" and "). The cross-edge ${0, 3}$ is unused. Swapping $v_2$ and $v_3$ yields $V'_1 = {v_0, v_1, v_3}$, which fails because ${1, 3} in.not E$.
 
+      #pred-commands(
+        "pred create --example PartitionIntoTriangles -o partition-into-triangles.json",
+        "pred solve partition-into-triangles.json",
+        "pred evaluate partition-into-triangles.json --config " + x.optimal_config.map(str).join(","),
+      )
+
       #figure(
         canvas(length: 1cm, {
           import draw: *
@@ -2993,6 +3311,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       Bin Packing is one of the classical NP-hard optimization problems @garey1979, with applications in logistics, cutting stock, and cloud resource allocation. The best known exact algorithm runs in $O^*(2^n)$ time via inclusion-exclusion over set partitions @bjorklund2009.
 
       *Example.* Consider $n = #n$ items with sizes $(#sizes.map(s => str(s)).join(", "))$ and capacity $C = #C$. An optimal packing uses #num-bins bins.
+
+      #pred-commands(
+        "pred create --example BinPacking -o bin-packing.json",
+        "pred solve bin-packing.json",
+        "pred evaluate bin-packing.json --config " + x.optimal_config.map(str).join(","),
+      )
 
       #figure({
         canvas(length: 1cm, {
@@ -3043,6 +3367,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       One of Karp's 21 NP-complete problems @karp1972. Knapsack is only _weakly_ NP-hard: a classical dynamic-programming algorithm runs in $O(n C)$ pseudo-polynomial time, and a fully polynomial-time approximation scheme (FPTAS) achieves $(1 - epsilon)$-optimal value in $O(n^2 slash epsilon)$ time @ibarra1975. The special case $v_i = w_i$ for all $i$ is the Subset Sum problem. Knapsack is also a special case of Integer Linear Programming with a single constraint. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974, which partitions items into two halves and combines sorted sublists.
 
       *Example.* Let $n = #n$ items with weights $(#weights.map(w => str(w)).join(", "))$, values $(#values.map(v => str(v)).join(", "))$, and capacity $C = #C$. Selecting $S = {#selected.map(i => str(i)).join(", ")}$ gives total weight $#total-w lt.eq C$ and total value $#total-v$, which is optimal.
+
+      #pred-commands(
+        "pred create --example Knapsack -o knapsack.json",
+        "pred solve knapsack.json",
+        "pred evaluate knapsack.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -3075,6 +3405,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     Rectilinear Picture Compression is a classical NP-complete problem from Garey & Johnson (A4 SR25, p.~232) @garey1979. It arises naturally in image compression, DNA microarray design, integrated circuit manufacturing, and access control list minimization. NP-completeness was established by Masek (1978) via transformation from 3SAT. A straightforward exact baseline, including the brute-force solver in this crate, enumerates subsets of the maximal all-1 rectangles. If an instance has $R$ such rectangles, this gives an $O^*(2^R)$ exact search, so the worst-case behavior remains exponential in the instance size.
 
     *Example.* Let $M = mat(#M.map(row => row.map(v => str(v)).join(", ")).join("; "))$ (a $#m times #n$ matrix) and $K = #K$. The two maximal all-1 rectangles cover rows $0..1$, columns $0..1$ and rows $2..3$, columns $2..3$. Selecting both gives $|{R_1, R_2}| = 2 lt.eq K = #K$ and their union covers all eight 1-entries, so the answer is YES.
+
+    #pred-commands(
+      "pred create --example RectilinearPictureCompression -o rectilinear-picture-compression.json",
+      "pred solve rectilinear-picture-compression.json",
+      "pred evaluate rectilinear-picture-compression.json --config " + x.optimal_config.map(str).join(","),
+    )
 
     #figure(
       {
@@ -3130,6 +3466,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
       *Example.* Consider a graph with #nv vertices and #ne edges, where #(ne - 2) outer edges have length 1 and 2 diagonal edges have length 2. The required edges are $E' = {#required.map(i => {let e = edges.at(i); $(v_#(e.at(0)), v_#(e.at(1)))$}).join($,$)}$ with bound $B = #B$. The outer cycle #range(nv).map(i => $v_#i$).join($->$)$-> v_0$ covers all #nr required edges with total length $#total-cost = B$, so the answer is YES.
 
+      #pred-commands(
+        "pred create --example RuralPostman -o rural-postman.json",
+        "pred solve rural-postman.json",
+        "pred evaluate rural-postman.json --config " + x.optimal_config.map(str).join(","),
+      )
+
       #figure(
         canvas(length: 1cm, {
           import draw: *
@@ -3184,6 +3526,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       Subgraph Isomorphism (GT48 in Garey & Johnson @garey1979) is NP-complete by transformation from Clique @garey1979. It strictly generalizes Clique (where $H = K_k$) and also contains Hamiltonian Circuit ($H = C_n$) and Hamiltonian Path ($H = P_n$) as special cases. Brute-force enumeration of all injective mappings $f: V_2 -> V_1$ runs in $O(|V_1|^(|V_2|) dot |E_2|)$ time. For fixed-size patterns, the color-coding technique of Alon, Yuster, and Zwick @alon1995 gives a randomized algorithm in $2^(O(|V_2|)) dot |V_1|^(O("tw"(H)))$ time. Practical algorithms include VF2 @cordella2004 and VF2++ @juttner2018.
 
       *Example.* Host graph $G = K_#nv-host$ (#nv-host vertices, #ne-host edges), pattern $H = K_#nv-pat$ (#nv-pat vertices, #ne-pat edges). The mapping $f = (#range(nv-pat).map(i => $#i arrow.bar #config.at(i)$).join($,$))$ is injective and preserves all #ne-pat pattern edges, confirming a subgraph isomorphism exists.
+
+      #pred-commands(
+        "pred create --example SubgraphIsomorphism -o subgraph-isomorphism.json",
+        "pred solve subgraph-isomorphism.json",
+        "pred evaluate subgraph-isomorphism.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -3213,6 +3561,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       A classic NP-complete string problem, listed as problem SR10 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness, while Garey and Johnson note polynomial-time cases for fixed $K$ or fixed $|R|$. For the special case of two strings, the classical dynamic-programming algorithm of #cite(<wagnerfischer1974>, form: "prose") runs in $O(|r_1| dot |r_2|)$ time. The decision model implemented in this repository fixes the witness length to exactly $K$; this is equivalent to the standard "$|w| gt.eq K$" formulation because any longer common subsequence has a length-$K$ prefix.
 
       *Example.* Let $Sigma = {0, 1}$ and let the input set $R$ contain the strings #string-list. The witness $w = $ #fmt-str(witness) is a common subsequence of every string in $R$.
+
+      #pred-commands(
+        "pred create --example LongestCommonSubsequence -o longest-common-subsequence.json",
+        "pred solve longest-common-subsequence.json",
+        "pred evaluate longest-common-subsequence.json --config " + x.optimal_config.map(str).join(","),
+      )
 
       #figure({
         let blue = graph-colors.at(0)
@@ -3258,6 +3612,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       One of Karp's 21 NP-complete problems @karp1972. Subset Sum is the special case of Knapsack where $v_i = w_i$ for all items and we seek an exact sum rather than an inequality. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n B)$ pseudo-polynomial time. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974.
 
       *Example.* Let $A = {#sizes.map(s => str(s)).join(", ")}$ ($n = #n$) and target $B = #target$. Selecting $A' = {#sel-sizes.map(s => str(s)).join(", ")}$ gives sum $#sel-sizes.map(s => str(s)).join(" + ") = #target = B$.
+
+      #pred-commands(
+        "pred create --example SubsetSum -o subset-sum.json",
+        "pred solve subset-sum.json",
+        "pred evaluate subset-sum.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -3329,6 +3689,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       ))
 
       This witness satisfies every published count: in $f_(a_0, a_1)$ each of the six cells appears exactly once, while in $f_(a_1, a_2)$ the five occupied cells have multiplicities $1, 1, 2, 1, 1$ exactly as listed above. It also respects all three known triples, so the answer is YES.
+
+      #pred-commands(
+        "pred create --example ConsistencyOfDatabaseFrequencyTables -o consistency-of-database-frequency-tables.json",
+        "pred solve consistency-of-database-frequency-tables.json",
+        "pred evaluate consistency-of-database-frequency-tables.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -3395,6 +3761,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         [$d(t)$], ..deadline.map(d => [#d]),
       ))
       A feasible schedule: #schedule.map(((idx, s)) => [$sigma(t_#(idx + 1)) = #s$ (runs $[#s, #(s + lengths.at(idx)))$)]).join([, ]). All release and deadline constraints are satisfied with no overlap.
+
+      #pred-commands(
+        "pred create --example SequencingWithReleaseTimesAndDeadlines -o sequencing-with-release-times-and-deadlines.json",
+        "pred solve sequencing-with-release-times-and-deadlines.json",
+        "pred evaluate sequencing-with-release-times-and-deadlines.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -3446,6 +3818,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       For $|R| = 2$ strings, the problem is solvable in polynomial time via the duality with the Longest Common Subsequence (LCS): if $"LCS"(r_1, r_2)$ has length $ell$, then the shortest common supersequence has length $|r_1| + |r_2| - ell$, computable in $O(|r_1| dot |r_2|)$ time by dynamic programming. For general $|R| = m$, the brute-force search over all strings of length at most $K$ takes $O(|Sigma|^K)$ time. Applications include bioinformatics (reconstructing ancestral sequences from fragments), data compression (representing multiple strings compactly), and scheduling (merging instruction sequences).
 
       *Example.* Let $Sigma = {#alpha-map.join(", ")}$ and $R = {#r-strs.join(", ")}$. We seek a string $w$ of length at most $K = #bound$ that contains every $r_i$ as a subsequence.
+
+      #pred-commands(
+        "pred create --example ShortestCommonSupersequence -o shortest-common-supersequence.json",
+        "pred solve shortest-common-supersequence.json",
+        "pred evaluate shortest-common-supersequence.json --config " + x.optimal_config.map(str).join(","),
+      )
 
       #figure({
         let r-colors = (graph-colors.at(0), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#e15759"), rgb("#b07aa1"))
@@ -3510,6 +3888,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
       *Example.* Let $Sigma = {#alpha-map.join(", ")}$, source $x = #src-str$ (length #n), target $y = #tgt-str$ (length #target.len()), and $K = #bound-k$.
 
+      #pred-commands(
+        "pred create --example StringToStringCorrection -o string-to-string-correction.json",
+        "pred solve string-to-string-correction.json",
+        "pred evaluate string-to-string-correction.json --config " + x.optimal_config.map(str).join(","),
+      )
+
       #figure({
         let blue = graph-colors.at(0)
         let red = rgb("#e15759")
@@ -3567,6 +3951,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       Feedback Arc Set (FAS) is a classical NP-complete problem from Karp's original list @karp1972 (via transformation from Vertex Cover, as presented in Garey & Johnson GT8). The problem arises in ranking aggregation, sports scheduling, deadlock avoidance, and causal inference. Unlike the undirected analogue (which is trivially polynomial --- the number of non-tree edges in a spanning forest), the directed version is NP-hard due to the richer structure of directed cycles. The best known exact algorithm uses dynamic programming over vertex subsets in $O^*(2^n)$ time, generalizing the Held--Karp TSP technique to vertex ordering problems @bodlaender2012. FAS is fixed-parameter tractable with parameter $k = |A'|$: an $O(4^k dot k! dot n^(O(1)))$ algorithm exists via iterative compression @chen2008. Polynomial-time solvable for planar digraphs via the Lucchesi--Younger theorem @lucchesi1978.
 
       *Example.* Consider $G$ with $V = {#range(nv).map(v => str(v)).join(", ")}$ and arcs #arcs.map(a => $(#(a.at(0)) arrow #(a.at(1)))$).join($,$). Removing $A' = {#removed.map(i => {let a = arcs.at(i); $(#(a.at(0)) arrow #(a.at(1)))$}).join($,$)}$ (weight #opt-val) breaks all directed cycles, yielding a DAG.
+
+      #pred-commands(
+        "pred create --example MinimumFeedbackArcSet -o minimum-feedback-arc-set.json",
+        "pred solve minimum-feedback-arc-set.json",
+        "pred evaluate minimum-feedback-arc-set.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -3585,6 +3975,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       A conservative exact algorithm enumerates all $2^{|A|}$ arc subsets and checks the partition, in-degree, acyclicity, and threshold constraints in polynomial time. This is the brute-force search space used by the implementation.#footnote[We use the registry complexity bound $O^*(2^{|A|})$ for the full partitioned problem.]
 
       *Example.* Consider the digraph on $n = #nv$ vertices with arcs $(0 arrow 1), (0 arrow 2), (1 arrow 3), (2 arrow 3), (1 arrow 4), (3 arrow 5), (4 arrow 5), (2 arrow 4)$, partition groups $A_1 = {(0 arrow 1), (0 arrow 2)}$, $A_2 = {(1 arrow 3), (2 arrow 3)}$, $A_3 = {(1 arrow 4), (2 arrow 4)}$, $A_4 = {(3 arrow 5), (4 arrow 5)}$, and threshold $K = 10$. The highlighted selection $A' = {(0 arrow 1), (1 arrow 3), (2 arrow 4), (3 arrow 5)}$ has total weight $3 + 4 + 3 + 3 = 13 >= 10$, uses exactly one arc from each partition group, and gives in-degrees 1 at vertices $1, 3, 4,$ and $5$. Because every selected arc points strictly left-to-right in the drawing, the selected subgraph is acyclic. The figure highlights one satisfying selection for this instance.
+
+      #pred-commands(
+        "pred create --example MultipleChoiceBranching -o multiple-choice-branching.json",
+        "pred solve multiple-choice-branching.json",
+        "pred evaluate multiple-choice-branching.json --config " + x.optimal_config.map(str).join(","),
+      )
 
       #figure({
         let verts = ((0, 1.6), (1.3, 2.3), (1.3, 0.9), (3.0, 2.3), (3.0, 0.9), (4.6, 1.6))
@@ -3651,6 +4047,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       *Example.* Let $m = #m$ machines, $n = #n$ jobs with task lengths:
       #align(center, math.equation([$ell = #math.mat(..task-lengths.map(row => row.map(v => [#v])))$]))
       and deadline $D = #D$. The job order $pi = (#job-order.map(j => $j_#(j + 1)$).join($,$))$ yields makespan $#makespan <= #D$, so a feasible schedule exists.
+
+      #pred-commands(
+        "pred create --example FlowShopScheduling -o flow-shop-scheduling.json",
+        "pred solve flow-shop-scheduling.json",
+        "pred evaluate flow-shop-scheduling.json --config " + x.optimal_config.map(str).join(","),
+      )
 
       #figure(
         canvas(length: 1cm, {
@@ -3763,6 +4165,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
       *Example.* The canonical instance has three periods $H = {h_1, h_2, h_3}$, five craftsmen, five tasks, and seven nonzero workload requirements. The satisfying timetable stored in the example database assigns #period-0.map(fmt-assignment).join(", ") during $h_1$, #period-1.map(fmt-assignment).join(", ") during $h_2$, and #period-2.map(fmt-assignment).join(", ") during $h_3$. Every listed assignment lies in the corresponding availability intersection $A_C(c) inter A_T(t)$, no craftsman or task appears twice in the same period, and each required pair is scheduled exactly once, so the verifier returns YES.
 
+      #pred-commands(
+        "pred create --example TimetableDesign -o timetable-design.json",
+        "pred solve timetable-design.json",
+        "pred evaluate timetable-design.json --config " + x.optimal_config.map(str).join(","),
+      )
+
       #figure(
         align(center, table(
           columns: 2,
@@ -3796,6 +4204,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       Multiprocessor Scheduling is problem SS8 in Garey & Johnson @garey1979. Their original formulation uses start times on identical processors, but because tasks are independent and non-preemptive, any feasible schedule can be packed contiguously on each processor. The model implemented here therefore uses processor-assignment variables, and feasibility reduces to checking that every processor's total load is at most $D$. For fixed $m$, dynamic programming over load vectors gives pseudo-polynomial algorithms; for general $m$, the best known exact algorithm runs in $O^*(2^n)$ time via inclusion-exclusion over set partitions @bjorklund2009.
 
       *Example.* Let $T = {t_1, dots, t_5}$ with lengths $(4, 5, 3, 2, 6)$, $m = 2$, and $D = 10$. The satisfying assignment $(1, 2, 2, 2, 1)$ places $t_1$ and $t_5$ on processor 1 and $t_2, t_3, t_4$ on processor 2. The verifier computes the processor loads $4 + 6 = 10$ and $5 + 3 + 2 = 10$, so both meet the deadline exactly.
+
+      #pred-commands(
+        "pred create --example MultiprocessorScheduling -o multiprocessor-scheduling.json",
+        "pred solve multiprocessor-scheduling.json",
+        "pred evaluate multiprocessor-scheduling.json --config " + x.optimal_config.map(str).join(","),
+      )
 
       #figure({
         canvas(length: 1cm, {
@@ -3865,6 +4279,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       Precedence Constrained Scheduling is problem SS9 in Garey & Johnson @garey1979. NP-complete via reduction from 3SAT @ullman1975. Remains NP-complete even for $D = 3$ @lenstra1978. Solvable in polynomial time for $m = 2$ by the Coffman--Graham algorithm @coffman1972, for forest-structured precedences @hu1961, and for chordal complement precedences @papadimitriou1979. A subset dynamic programming approach solves the general case in $O(2^n dot n)$ time by enumerating subsets of completed tasks at each time step.
 
       *Example.* Let $n = #n$ tasks, $m = #m$ processors, $D = #D$. Precedences: #precs.map(p => $t_#(p.at(0)) prec t_#(p.at(1))$).join(", "). A feasible schedule assigns $sigma = (#sigma.map(s => str(s)).join(", "))$: #range(D).map(s => [slot #s has ${#tasks-by-slot.at(s).map(i => $t_#i$).join(", ")}$]).join(", "). All precedences are satisfied and no slot exceeds $m = #m$.
+
+      #pred-commands(
+        "pred create --example PrecedenceConstrainedScheduling -o precedence-constrained-scheduling.json",
+        "pred solve precedence-constrained-scheduling.json",
+        "pred evaluate precedence-constrained-scheduling.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -3892,6 +4312,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       The direct encoding in this library uses one start-time variable per task, with each variable ranging over its allowable deadline window. If $D = max_t d(t)$, exhaustive search over that encoding yields an $O^*(D^n)$ brute-force bound.#footnote[This is the worst-case search bound induced by the implementation's configuration space; deadlines can be smaller on individual tasks, so practical instances may enumerate fewer than $D^n$ assignments.]
 
       *Example.* Consider $n = #ntasks$ tasks on $m = #nproc$ processors with deadlines #{deadline-pairs.join(", ")} and precedence constraints #{precs.map(p => [$t_#(p.at(0) + 1) prec.eq t_#(p.at(1) + 1)$]).join(", ")}. The sample schedule $sigma = [#start-label]$ assigns #{slot-summaries.join("; ")}. Every slot uses at most #nproc processors, and the tight tasks #{tight-task-labels.join(", ")} finish exactly at their deadlines.
+
+      #pred-commands(
+        "pred create --example SchedulingWithIndividualDeadlines -o scheduling-with-individual-deadlines.json",
+        "pred solve scheduling-with-individual-deadlines.json",
+        "pred evaluate scheduling-with-individual-deadlines.json --config " + x.optimal_config.map(str).join(","),
+      )
 
       #figure(
         canvas(length: 1cm, {
@@ -3969,6 +4395,13 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         [$d(t)$], ..range(ntasks).map(i => [#deadline.at(i)]),
         [$ell(t)$], ..range(ntasks).map(i => [#lengths.at(i)]),
       ))
+
+      #pred-commands(
+        "pred create --example SequencingWithinIntervals -o sequencing-within-intervals.json",
+        "pred solve sequencing-within-intervals.json",
+        "pred evaluate sequencing-within-intervals.json --config " + x.optimal_config.map(str).join(","),
+      )
+
       Each task can only start within its window $[r(t), d(t) - ell(t)]$, and the windows overlap, so finding a non-overlapping assignment is non-trivial. One feasible schedule places the tasks at #range(ntasks).map(i => $[#starts.at(i), #(starts.at(i) + lengths.at(i)))$).join($,$):
 
       #figure(
@@ -4053,6 +4486,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
       *Example.* Consider $n = #ntasks$ tasks with deadlines $d = (#deadlines.map(v => str(v)).join(", "))$ and precedence constraint #{precs.map(p => [$t_#(p.at(0)) prec.eq t_#(p.at(1))$]).join(", ")}. An optimal schedule places tasks in order $(#schedule.map(t => $t_#t$).join(", "))$, giving #tardy-count tardy #if tardy-count == 1 [task] else [tasks]#{if tardy-tasks.len() > 0 [ ($#{tardy-tasks.map(t => $t_#t$).join(", ")}$ #if tardy-tasks.len() == 1 [finishes] else [finish] after #if tardy-tasks.len() == 1 [its deadline] else [their deadlines])]}.
 
+      #pred-commands(
+        "pred create --example MinimumTardinessSequencing -o minimum-tardiness-sequencing.json",
+        "pred solve minimum-tardiness-sequencing.json",
+        "pred evaluate minimum-tardiness-sequencing.json --config " + x.optimal_config.map(str).join(","),
+      )
+
       #figure(
         canvas(length: 1cm, {
           import draw: *
@@ -4130,6 +4569,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
       *Example.* Consider tasks with lengths $l = (#lengths.map(v => str(v)).join(", "))$, weights $w = (#weights.map(v => str(v)).join(", "))$, and precedence constraints #{precs.map(p => [$t_#(p.at(0)) prec.eq t_#(p.at(1))$]).join(", ")}. An optimal schedule is $(#schedule.map(t => $t_#t$).join(", "))$, with completion times $(#finishes.map(v => str(v)).join(", "))$ along the machine timeline and objective value $#opt$.
 
+      #pred-commands(
+        "pred create --example SequencingToMinimizeWeightedCompletionTime -o sequencing-to-minimize-weighted-completion-time.json",
+        "pred solve sequencing-to-minimize-weighted-completion-time.json",
+        "pred evaluate sequencing-to-minimize-weighted-completion-time.json --config " + x.optimal_config.map(str).join(","),
+      )
+
       #figure(
         canvas(length: 1cm, {
           import draw: *
@@ -4202,6 +4647,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       Exact algorithms remain exponential in the worst case. Brute-force over all $n!$ schedules evaluates the implementation's decision encoding in $O(n! dot n)$ time. More refined exact methods include the branch-and-bound algorithm of Potts and Van Wassenhove @potts1985 and the dynamic-programming style exact algorithm of Tanaka, Fujikuma, and Araki @tanaka2009.
 
       *Example.* Consider the five jobs with processing times $ell = (#lengths.map(v => str(v)).join(", "))$, weights $w = (#weights.map(v => str(v)).join(", "))$, deadlines $d = (#deadlines.map(v => str(v)).join(", "))$, and bound $K = #bound$. The unique satisfying schedule is $(#schedule.map(job => $t_#(job + 1)$).join(", "))$, with completion times $(#completions.map(v => str(v)).join(", "))$. Only job $t_#(tardy-jobs.at(0) + 1)$ is tardy; the per-job weighted tardiness contributions are $(#weighted.map(v => str(v)).join(", "))$, so the total weighted tardiness is $#total-weighted <= K$.
+
+      #pred-commands(
+        "pred create --example SequencingToMinimizeWeightedTardiness -o sequencing-to-minimize-weighted-tardiness.json",
+        "pred solve sequencing-to-minimize-weighted-tardiness.json",
+        "pred evaluate sequencing-to-minimize-weighted-tardiness.json --config " + x.optimal_config.map(str).join(","),
+      )
 
       #figure(
         canvas(length: 1cm, {
@@ -4277,6 +4728,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       When the precedence constraints form a series-parallel digraph, #cite(<abdelWahabKameda1978>, form: "prose") gave a polynomial-time algorithm running in $O(n^2)$ time. #cite(<monmaSidney1979>, form: "prose") placed the problem in a broader family of sequencing objectives solvable efficiently on series-parallel precedence structures. The implementation here uses Lehmer-code enumeration of task orders, so the direct exact search induced by the model runs in $O(n!)$ time.
 
       *Example.* Consider $n = #ntasks$ tasks with costs $(#costs.map(c => str(c)).join(", "))$, precedence constraints #{precs.map(p => [$t_#(p.at(0) + 1) prec.eq t_#(p.at(1) + 1)$]).join(", ")}, and bound $K = #bound$. The sample schedule $(#schedule.map(t => $t_#(t + 1)$).join(", "))$ has cumulative sums $(#prefix-sums.map(v => str(v)).join(", "))$, so every prefix stays at or below $K = #bound$.
+
+      #pred-commands(
+        "pred create --example SequencingToMinimizeMaximumCumulativeCost -o sequencing-to-minimize-maximum-cumulative-cost.json",
+        "pred solve sequencing-to-minimize-maximum-cumulative-cost.json",
+        "pred evaluate sequencing-to-minimize-maximum-cumulative-cost.json --config " + x.optimal_config.map(str).join(","),
+      )
 
       #figure(
         {
@@ -4442,6 +4899,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       }
 
       Under the assignment $y_0 = #assignment.at(0)$, $y_1 = #assignment.at(1)$: atom $A_0$ resolves to $(#assignment.at(0), 3) in R_0$ (row $tau_0$), atom $A_1$ resolves to $(#assignment.at(1), 3) in R_0$ (row $tau_1$), and atom $A_2$ resolves to $(#assignment.at(0), #assignment.at(1), 5) in R_1$ (row $tau_0$). All three atoms are satisfied, so $Q$ is true.
+
+      #pred-commands(
+        "pred create --example ConjunctiveBooleanQuery -o conjunctive-boolean-query.json",
+        "pred solve conjunctive-boolean-query.json",
+        "pred evaluate conjunctive-boolean-query.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -4465,6 +4928,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       The Consecutive Ones Property (C1P) --- that the columns of a binary matrix can be ordered so that all 1's in each row are contiguous --- is fundamental in computational biology (DNA physical mapping), interval graph recognition, and PQ-tree algorithms. Testing whether a full matrix has the C1P is polynomial: Booth and Lueker @booth1976 gave a linear-time PQ-tree algorithm running in $O(m + n + f)$ where $f$ is the number of 1-entries. However, finding the largest column subset with the C1P is NP-complete, proven by Booth @booth1975 via transformation from Hamiltonian Path. This implementation permits the vacuous case $K = 0$, where the empty submatrix is immediately satisfying. The best known exact algorithm is brute-force enumeration of all $binom(n, K)$ column subsets, testing each for the C1P in $O(m + n)$ time#footnote[No algorithm improving on brute-force subset enumeration is known for the general Consecutive Ones Submatrix problem.].
 
       *Example.* Consider the $#m times #n$ matrix $A = mat(#A-int.map(row => row.map(v => str(v)).join(", ")).join("; "))$ with $K = #K$. Selecting columns $\{#selected.map(i => str(i)).join(", ")\}$ yields a $#m times #K$ submatrix. Under column permutation $[1, 0, 3]$, each row's 1-entries are contiguous: row 1 has $[1, 1, 1]$, row 2 has $[0, 1, 1]$, and row 3 has $[1, 0, 0]$. The full $3 times 4$ matrix does _not_ have the C1P (it contains a Tucker obstruction), but two of the four 3-column subsets do.
+
+      #pred-commands(
+        "pred create --example ConsecutiveOnesSubmatrix -o consecutive-ones-submatrix.json",
+        "pred solve consecutive-ones-submatrix.json",
+        "pred evaluate consecutive-ones-submatrix.json --config " + x.optimal_config.map(str).join(","),
+      )
 
       #figure(
         canvas(length: 0.7cm, {
