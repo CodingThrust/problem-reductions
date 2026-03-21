@@ -131,6 +131,7 @@
   "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "IntegralFlowHomologousArcs": [Integral Flow with Homologous Arcs],
   "MinMaxMulticenter": [Min-Max Multicenter],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
@@ -5200,6 +5201,89 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         },
         caption: [A satisfying schedule for Sequencing to Minimize Maximum Cumulative Cost. Orange boxes add cost, teal boxes release cost, and the displayed prefix sums $(#prefix-sums.map(v => str(v)).join(", "))$ never exceed $K = #bound$.],
       ) <fig:seq-max-cumulative>
+    ]
+  ]
+}
+
+#{ 
+  let x = load-model-example("IntegralFlowHomologousArcs")
+  let arcs = x.instance.graph.arcs
+  let sol = x.optimal_config
+  let source = x.instance.source
+  let sink = x.instance.sink
+  let requirement = x.instance.requirement
+  [
+    #problem-def("IntegralFlowHomologousArcs")[
+      Given a directed graph $G = (V, A)$ with source $s in V$, sink $t in V$, arc capacities $c: A -> ZZ^+$, requirement $R in ZZ^+$, and a set $H subset.eq A times A$ of homologous arc pairs, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that $f(a) <= c(a)$ for every $a in A$, flow is conserved at every vertex in $V backslash {s, t}$, $f(a) = f(a')$ for every $(a, a') in H$, and the net flow into $t$ is at least $R$.
+    ][
+      Integral Flow with Homologous Arcs is the single-commodity equality-constrained flow problem listed as ND35 in Garey & Johnson @garey1979. Their catalog records the NP-completeness result attributed to Sahni and notes that the unit-capacity restriction remains hard, while the corresponding non-integral relaxation is polynomial-time equivalent to linear programming @garey1979.
+
+      The implementation uses one integer variable per arc, so exhaustive search over the induced configuration space runs in $O((C + 1)^m)$ for $m = |A|$ and $C = max_(a in A) c(a)$#footnote[This is the exact search bound induced by the implemented per-arc domains $f(a) in {0, dots, c(a)}$. In the unit-capacity special case, it simplifies to $O(2^m)$.].
+
+      *Example.* The canonical fixture instance has source $s = v_#source$, sink $t = v_#sink$, unit capacities on all eight arcs, requirement $R = #requirement$, and homologous pairs $(a_2, a_5)$ and $(a_4, a_3)$. The stored satisfying configuration routes one unit along $0 -> 1 -> 3 -> 5$ and one unit along $0 -> 2 -> 4 -> 5$. Thus the paired arcs $(1,3)$ and $(2,4)$ both carry 1, while $(1,4)$ and $(2,3)$ both carry 0. Every nonterminal vertex has equal inflow and outflow, and the sink receives two units of flow, so the verifier returns true.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o integral-flow-homologous-arcs.json",
+        "pred solve integral-flow-homologous-arcs.json --solver brute-force",
+        "pred evaluate integral-flow-homologous-arcs.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let orange = rgb("#f28e2b")
+          let red = rgb("#e15759")
+          let gray = luma(185)
+          let positions = (
+            (0, 0),
+            (1.6, 1.1),
+            (1.6, -1.1),
+            (3.2, 1.1),
+            (3.2, -1.1),
+            (4.8, 0),
+          )
+          let labels = (
+            [$s = v_0$],
+            [$v_1$],
+            [$v_2$],
+            [$v_3$],
+            [$v_4$],
+            [$t = v_5$],
+          )
+          for (idx, (u, v)) in arcs.enumerate() {
+            let stroke = if idx == 3 or idx == 4 {
+              (paint: orange, thickness: 1.3pt, dash: "dashed")
+            } else if sol.at(idx) == 1 {
+              (paint: blue, thickness: 1.8pt)
+            } else {
+              (paint: gray, thickness: 0.7pt)
+            }
+            line(
+              positions.at(u),
+              positions.at(v),
+              stroke: stroke,
+              mark: (end: "straight", scale: 0.5),
+            )
+          }
+          for (i, pos) in positions.enumerate() {
+            let fill = if i == source { blue } else if i == sink { red } else { white }
+            g-node(
+              pos,
+              name: "ifha-" + str(i),
+              fill: fill,
+              label: if i == source or i == sink {
+                text(fill: white)[#labels.at(i)]
+              } else {
+                labels.at(i)
+              },
+            )
+          }
+          content((2.4, 1.55), text(8pt, fill: blue)[$f(a_2) = f(a_5) = 1$])
+          content((2.4, -1.55), text(8pt, fill: orange)[$f(a_4) = f(a_3) = 0$])
+        }),
+        caption: [Canonical YES instance for Integral Flow with Homologous Arcs. Solid blue arcs carry the satisfying integral flow; dashed orange arcs form the second homologous pair, constrained to equal zero.],
+      ) <fig:integral-flow-homologous-arcs>
     ]
   ]
 }

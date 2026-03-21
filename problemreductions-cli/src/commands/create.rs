@@ -52,6 +52,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.capacities.is_none()
         && args.source.is_none()
         && args.sink.is_none()
+        && args.requirement.is_none()
         && args.num_paths_required.is_none()
         && args.couplings.is_none()
         && args.fields.is_none()
@@ -107,6 +108,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.costs.is_none()
         && args.arc_costs.is_none()
         && args.arcs.is_none()
+        && args.homologous_pairs.is_none()
         && args.quantifiers.is_none()
         && args.usage.is_none()
         && args.storage.is_none()
@@ -149,6 +151,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.sink_2.is_none()
         && args.requirement_1.is_none()
         && args.requirement_2.is_none()
+        && args.requirement.is_none()
+        && args.homologous_pairs.is_none()
         && args.num_attributes.is_none()
         && args.dependencies.is_none()
         && args.relation_attrs.is_none()
@@ -523,6 +527,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "UndirectedTwoCommodityIntegralFlow" => {
             "--graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1"
         },
+        "IntegralFlowHomologousArcs" => {
+            "--arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\""
+        }
         "LengthBoundedDisjointPaths" => {
             "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3"
         }
@@ -745,6 +752,9 @@ fn help_flag_hint(
         }
         ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
+        ("IntegralFlowHomologousArcs", "homologous_pairs") => {
+            "semicolon-separated arc-index equalities: \"2=5;4=3\""
+        }
         ("ConsistencyOfDatabaseFrequencyTables", "attribute_domains") => {
             "comma-separated domain sizes: 2,3,2"
         }
@@ -3103,6 +3113,83 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // IntegralFlowHomologousArcs
+        "IntegralFlowHomologousArcs" => {
+            let usage = "Usage: pred create IntegralFlowHomologousArcs --arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\"";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowHomologousArcs requires --arcs\n\n{usage}")
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities: Vec<u64> = if let Some(ref s) = args.capacities {
+                s.split(',')
+                    .map(|token| {
+                        let trimmed = token.trim();
+                        trimmed
+                            .parse::<u64>()
+                            .with_context(|| format!("Invalid capacity `{trimmed}`\n\n{usage}"))
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            } else {
+                vec![1; num_arcs]
+            };
+            anyhow::ensure!(
+                capacities.len() == num_arcs,
+                "Expected {} capacities but got {}\n\n{}",
+                num_arcs,
+                capacities.len(),
+                usage
+            );
+            for (arc_index, &capacity) in capacities.iter().enumerate() {
+                let fits = usize::try_from(capacity)
+                    .ok()
+                    .and_then(|value| value.checked_add(1))
+                    .is_some();
+                anyhow::ensure!(
+                    fits,
+                    "capacity {} at arc index {} is too large for this platform\n\n{}",
+                    capacity,
+                    arc_index,
+                    usage
+                );
+            }
+            let num_vertices = graph.num_vertices();
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowHomologousArcs requires --source\n\n{usage}")
+            })?;
+            let sink = args.sink.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowHomologousArcs requires --sink\n\n{usage}")
+            })?;
+            let requirement = args.requirement.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowHomologousArcs requires --requirement\n\n{usage}")
+            })?;
+            validate_vertex_index("source", source, num_vertices, usage)?;
+            validate_vertex_index("sink", sink, num_vertices, usage)?;
+            let homologous_pairs =
+                parse_homologous_pairs(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            for &(a, b) in &homologous_pairs {
+                anyhow::ensure!(
+                    a < num_arcs && b < num_arcs,
+                    "homologous pair ({}, {}) references arc >= num_arcs ({})\n\n{}",
+                    a,
+                    b,
+                    num_arcs,
+                    usage
+                );
+            }
+            (
+                ser(IntegralFlowHomologousArcs::new(
+                    graph,
+                    capacities,
+                    source,
+                    sink,
+                    requirement,
+                    homologous_pairs,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumFeedbackArcSet
         "MinimumFeedbackArcSet" => {
             let arcs_str = args.arcs.as_deref().ok_or_else(|| {
@@ -4318,6 +4405,35 @@ fn parse_named_sets(sets_str: Option<&str>, flag: &str) -> Result<Vec<Vec<usize>
                         .map_err(|e| anyhow::anyhow!("Invalid set element: {}", e))
                 })
                 .collect()
+        })
+        .collect()
+}
+
+fn parse_homologous_pairs(args: &CreateArgs) -> Result<Vec<(usize, usize)>> {
+    let pairs = args.homologous_pairs.as_deref().ok_or_else(|| {
+        anyhow::anyhow!(
+            "IntegralFlowHomologousArcs requires --homologous-pairs (e.g., \"2=5;4=3\")"
+        )
+    })?;
+
+    pairs
+        .split(';')
+        .filter(|entry| !entry.trim().is_empty())
+        .map(|entry| {
+            let entry = entry.trim();
+            let (left, right) = entry.split_once('=').ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Invalid homologous pair '{}': expected format u=v (e.g., 2=5)",
+                    entry
+                )
+            })?;
+            let left = left.trim().parse::<usize>().with_context(|| {
+                format!("Invalid homologous pair '{}': expected format u=v", entry)
+            })?;
+            let right = right.trim().parse::<usize>().with_context(|| {
+                format!("Invalid homologous pair '{}': expected format u=v", entry)
+            })?;
+            Ok((left, right))
         })
         .collect()
 }
@@ -5873,6 +5989,7 @@ mod tests {
             capacities: None,
             source: None,
             sink: None,
+            requirement: None,
             num_paths_required: None,
             couplings: None,
             fields: None,
@@ -5971,6 +6088,7 @@ mod tests {
             usage: None,
             storage: None,
             quantifiers: None,
+            homologous_pairs: None,
         }
     }
 
@@ -5985,6 +6103,13 @@ mod tests {
     fn test_all_data_flags_empty_treats_budget_as_input() {
         let mut args = empty_args();
         args.budget = Some("7".to_string());
+        assert!(!all_data_flags_empty(&args));
+    }
+
+    #[test]
+    fn test_all_data_flags_empty_treats_homologous_pairs_as_input() {
+        let mut args = empty_args();
+        args.homologous_pairs = Some("2=5;4=3".to_string());
         assert!(!all_data_flags_empty(&args));
     }
 
@@ -6014,6 +6139,24 @@ mod tests {
         args.budget = Some("7".to_string());
 
         assert_eq!(parse_budget(&args).unwrap(), 7);
+    }
+
+    #[test]
+    fn test_parse_homologous_pairs() {
+        let mut args = empty_args();
+        args.homologous_pairs = Some("2=5;4=3".to_string());
+
+        assert_eq!(parse_homologous_pairs(&args).unwrap(), vec![(2, 5), (4, 3)]);
+    }
+
+    #[test]
+    fn test_parse_homologous_pairs_rejects_invalid_token() {
+        let mut args = empty_args();
+        args.homologous_pairs = Some("2-5".to_string());
+
+        let err = parse_homologous_pairs(&args).unwrap_err().to_string();
+
+        assert!(err.contains("u=v"));
     }
 
     #[test]
