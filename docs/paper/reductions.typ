@@ -5039,6 +5039,12 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   example: true,
   example-caption: [7-vertex graph: each source edge becomes a directed 2-cycle],
   extra: [
+    #pred-commands(
+      "pred create --example MVC -o mvc.json",
+      "pred reduce mvc.json --to " + target-spec(mvc_fvs) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate mvc.json --config " + mvc_fvs_sol.source_config.map(str).join(","),
+    )
     Source VC: $C = {#mvc_fvs_cover.map(str).join(", ")}$ (size #mvc_fvs_cover.len()) on a graph with $n = #graph-num-vertices(mvc_fvs.source.instance)$ vertices and $|E| = #graph-num-edges(mvc_fvs.source.instance)$ edges \
     Target FVS: $F = {#mvc_fvs_fvs.map(str).join(", ")}$ (size #mvc_fvs_fvs.len()) on a digraph with the same $n = #graph-num-vertices(mvc_fvs.target.instance)$ vertices and $|A| = #mvc_fvs.target.instance.graph.arcs.len() = 2 |E|$ arcs \
     Canonical witness is preserved exactly: $C = F$ #sym.checkmark
@@ -5091,6 +5097,12 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   example: true,
   example-caption: [6-vertex minimum bisection to weighted Max-Cut],
   extra: [
+    #pred-commands(
+      "pred create --example GraphPartitioning -o graphpartitioning.json",
+      "pred reduce graphpartitioning.json --to " + target-spec(gp_mc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate graphpartitioning.json --config " + gp_mc_sol.source_config.map(str).join(","),
+    )
     Here $m = #gp_mc_ne$, so $P = m + 1 = #gp_mc_penalty$ \
     Weight $#(gp_mc_penalty - 1)$ edges (original edges): {#gp_mc_weight_lo.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")} \
     Weight $#gp_mc_penalty$ edges (non-edges): {#gp_mc_weight_hi.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")} \
@@ -5115,6 +5127,12 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   example: true,
   example-caption: [Path graph $P_5$: IS $arrow.r$ Clique via complement],
   extra: [
+    #pred-commands(
+      "pred create --example MIS -o mis.json",
+      "pred reduce mis.json --to " + target-spec(mis_clique) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate mis.json --config " + mis_clique_sol.source_config.map(str).join(","),
+    )
     Source IS: $S = {#mis_clique_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mis_clique_sol.source_config.filter(x => x == 1).len()) #h(1em)
     Target Clique: $C = {#mis_clique_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mis_clique_sol.target_config.filter(x => x == 1).len()) \
     Source $|E| = #graph-num-edges(mis_clique.source.instance)$, complement $|overline(E)| = #graph-num-edges(mis_clique.target.instance)$ #sym.checkmark
@@ -5186,6 +5204,12 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   example: true,
   example-caption: [10-spin Ising model on Petersen graph],
   extra: [
+    #pred-commands(
+      "pred create --example SpinGlass -o spinglass.json",
+      "pred reduce spinglass.json --to " + target-spec(sg_qubo) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate spinglass.json --config " + sg_qubo_sol.source_config.map(str).join(","),
+    )
     Source: $n = #spin-num-spins(sg_qubo.source.instance)$ spins, $h_i = 0$, couplings $J_(i j) in {plus.minus 1}$ \
     Mapping: $s_i = 2x_i - 1$ converts spins ${-1, +1}$ to binary ${0, 1}$ \
     Canonical ground-state witness: $bold(x) = (#sg_qubo_sol.target_config.map(str).join(", "))$ #sym.checkmark
@@ -5229,6 +5253,12 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
       example: true,
       example-caption: [2D bounded CVP with two 3-bit exact-range encodings],
       extra: [
+        #pred-commands(
+          "pred create --example CVP -o cvp.json",
+          "pred reduce cvp.json --to " + target-spec(cvp_qubo) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate cvp.json --config " + cvp_qubo_sol.source_config.map(str).join(","),
+        )
         *Step 1 -- Source instance.* The canonical CVP example uses basis columns $bold(b)_1 = #fmt-vec(basis.at(0))$ and $bold(b)_2 = #fmt-vec(basis.at(1))$, target $bold(t) = #fmt-vec(target)$, and bounds $x_1, x_2 in [#bounds.at(0).lower, #bounds.at(0).upper]$.
 
         *Step 2 -- Exact bounded encoding.* Each variable has #bounds.at(0).upper - bounds.at(0).lower + 1 admissible values, so the implementation uses the capped binary basis $(1, 2, 3)$ rather than $(1, 2, 4)$: the first two bits are powers of two, and the last weight is capped so every bit pattern reconstructs an offset in ${0, dots, 6}$. Thus
@@ -5275,6 +5305,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [House graph ($n = 5$, $|E| = 6$, $chi = 3$) with $k = 3$ colors],
   extra: [
+    #pred-commands(
+      "pred create --example KColoring -o kcoloring.json",
+      "pred reduce kcoloring.json --to " + target-spec(kc_qubo) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate kcoloring.json --config " + kc_qubo_sol.source_config.map(str).join(","),
+    )
     #{
       let hg = house-graph()
       let fills = kc_qubo_sol.source_config.map(c => graph-colors.at(c))
@@ -5367,6 +5403,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [3-SAT with 3 variables and 2 clauses],
   extra: [
+    #pred-commands(
+      "pred create --example KSAT -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_ss) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_ss_sol.source_config.map(str).join(","),
+    )
     Source: $n = #ksat_ss.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_ss.source.instance)$ clauses \
     Target: #subsetsum-num-elements(ksat_ss.target.instance) elements, target $= #ksat_ss.target.instance.target$ \
     Source config: #ksat_ss_sol.source_config #h(1em) Target config: #ksat_ss_sol.target_config
@@ -5402,6 +5444,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       example: true,
       example-caption: [#ss-cvp-n elements, target sum $B = #ss-cvp-target$],
       extra: [
+        #pred-commands(
+          "pred create --example SubsetSum -o subsetsum.json",
+          "pred reduce subsetsum.json --to " + target-spec(ss-cvp) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate subsetsum.json --config " + ss-cvp-sol.source_config.map(str).join(","),
+        )
         *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#ss-cvp-sizes.map(str).join(", "))$ and target $B = #ss-cvp-target$.
 
         *Step 2 -- Build the lattice.* The reduction creates the basis
@@ -5461,6 +5509,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [$n = #ks_qubo_num_items$ items, capacity $C = #ks_qubo.source.instance.capacity$],
   extra: [
+    #pred-commands(
+      "pred create --example Knapsack -o knapsack.json",
+      "pred reduce knapsack.json --to " + target-spec(ks_qubo) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate knapsack.json --config " + ks_qubo_sol.source_config.map(str).join(","),
+    )
     *Step 1 -- Source instance.* The canonical knapsack instance has weights $(#ks_qubo.source.instance.weights.map(str).join(", "))$, values $(#ks_qubo.source.instance.values.map(str).join(", "))$, and capacity $C = #ks_qubo.source.instance.capacity$.
 
     *Step 2 -- Introduce slack variables.* The inequality $sum_i w_i x_i lt.eq C$ becomes an equality by adding $B = #ks_qubo_num_slack$ binary slack bits that encode unused capacity:
@@ -5505,6 +5559,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [$n = #mwc_qubo_n$ vertices, $k = #mwc_qubo_k$ terminals $T = {#mwc_qubo_terminals.map(str).join(", ")}$, $|E| = #mwc_qubo_edges.len()$ edges],
   extra: [
+    #pred-commands(
+      "pred create --example MinimumMultiwayCut -o minimummultiwaycut.json",
+      "pred reduce minimummultiwaycut.json --to " + target-spec(mwc_qubo) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate minimummultiwaycut.json --config " + mwc_qubo_sol.source_config.map(str).join(","),
+    )
     *Step 1 -- Source instance.* The canonical graph has $n = #mwc_qubo_n$ vertices, $m = #mwc_qubo_edges.len()$ edges with weights $(#mwc_qubo_weights.map(str).join(", "))$, and $k = #mwc_qubo_k$ terminals $T = {#mwc_qubo_terminals.map(str).join(", ")}$.
 
     *Step 2 -- Introduce binary variables.* Assign $k = #mwc_qubo_k$ indicator variables per vertex: $x_(u,t) = 1$ means vertex $u$ belongs to terminal $t$'s component. This gives $n k = #mwc_qubo_n times #mwc_qubo_k = #mwc_qubo_nq$ QUBO variables:
@@ -5551,6 +5611,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [6-vertex balanced partition instance ($n = #gp_qubo_n$, $|E| = #gp_qubo_m$)],
   extra: [
+    #pred-commands(
+      "pred create --example GraphPartitioning -o graphpartitioning.json",
+      "pred reduce graphpartitioning.json --to " + target-spec(gp_qubo) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate graphpartitioning.json --config " + gp_qubo_sol.source_config.map(str).join(","),
+    )
     *Step 1 -- Binary partition variables.* Introduce one binary variable per vertex: $x_i = 0$ means vertex $i$ is in the left block, $x_i = 1$ means it is in the right block. For the canonical instance, this gives $n = #gp_qubo_n$ QUBO variables:
     $ x_0, x_1, x_2, x_3, x_4, x_5 $
 
@@ -5586,6 +5652,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [4-variable QUBO with 3 quadratic terms],
   extra: [
+    #pred-commands(
+      "pred create --example QUBO -o qubo.json",
+      "pred reduce qubo.json --to " + target-spec(qubo_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate qubo.json --config " + qubo_ilp_sol.source_config.map(str).join(","),
+    )
     Source: $n = #qubo_ilp.source.instance.num_vars$ binary variables, 3 off-diagonal terms \
     Target: #qubo_ilp.target.instance.num_vars ILP variables ($#qubo_ilp.source.instance.num_vars$ original $+ #(qubo_ilp.target.instance.num_vars - qubo_ilp.source.instance.num_vars)$ auxiliary), #qubo_ilp.target.instance.constraints.len() McCormick constraints \
     Canonical optimal witness: $bold(x) = (#qubo_ilp_sol.source_config.map(str).join(", "))$ #sym.checkmark
@@ -5608,10 +5680,17 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 ]
 
 #let cs_ilp = load-example("CircuitSAT", "ILP")
+#let cs_ilp_sol = cs_ilp.solutions.at(0)
 #reduction-rule("CircuitSAT", "ILP",
   example: true,
   example-caption: [1-bit full adder to ILP],
   extra: [
+    #pred-commands(
+      "pred create --example CircuitSAT -o circuitsat.json",
+      "pred reduce circuitsat.json --to " + target-spec(cs_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate circuitsat.json --config " + cs_ilp_sol.source_config.map(str).join(","),
+    )
     Circuit: #circuit-num-gates(cs_ilp.source.instance) gates (2 XOR, 2 AND, 1 OR), #circuit-num-variables(cs_ilp.source.instance) variables \
     Target: #cs_ilp.target.instance.num_vars ILP variables (circuit vars $+$ auxiliary), trivial objective \
     Canonical feasible witness shown ($2^3$ valid input combinations exist for the full adder) #sym.checkmark
@@ -5642,6 +5721,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [3-SAT with 5 variables and 7 clauses],
   extra: [
+    #pred-commands(
+      "pred create --example SAT -o sat.json",
+      "pred reduce sat.json --to " + target-spec(sat_mis) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate sat.json --config " + sat_mis_sol.source_config.map(str).join(","),
+    )
     SAT assignment: $(x_1, ..., x_5) = (#sat_mis_sol.source_config.map(str).join(", "))$ \
     IS graph: #graph-num-vertices(sat_mis.target.instance) vertices ($= 3 times #sat-num-clauses(sat_mis.source.instance)$ literals), #graph-num-edges(sat_mis.target.instance) edges \
     IS of size #sat-num-clauses(sat_mis.source.instance) $= m$: one vertex per clause $arrow.r$ satisfying assignment #sym.checkmark
@@ -5666,6 +5751,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [5-variable SAT with 3 unit clauses to 3-coloring],
   extra: [
+    #pred-commands(
+      "pred create --example SAT -o sat.json",
+      "pred reduce sat.json --to " + target-spec(sat_kc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate sat.json --config " + sat_kc_sol.source_config.map(str).join(","),
+    )
     SAT assignment: $(x_1, ..., x_5) = (#sat_kc_sol.source_config.map(str).join(", "))$ \
     Construction: 3 base + $2 times #sat_kc.source.instance.num_vars$ variable gadgets + OR-gadgets $arrow.r$ #graph-num-vertices(sat_kc.target.instance) vertices, #graph-num-edges(sat_kc.target.instance) edges \
     Canonical 3-coloring witness shown (the construction also has the expected color-symmetry multiplicity for satisfying assignments) #sym.checkmark
@@ -5688,6 +5779,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [5-variable 7-clause 3-SAT to dominating set],
   extra: [
+    #pred-commands(
+      "pred create --example SAT -o sat.json",
+      "pred reduce sat.json --to " + target-spec(sat_ds) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate sat.json --config " + sat_ds_sol.source_config.map(str).join(","),
+    )
     SAT assignment: $(x_1, ..., x_5) = (#sat_ds_sol.source_config.map(str).join(", "))$ \
     Vertex structure: $#graph-num-vertices(sat_ds.target.instance) = 3 times #sat_ds.source.instance.num_vars + #sat-num-clauses(sat_ds.source.instance)$ (variable triangles + clause vertices) \
     Dominating set of size $n = #sat_ds.source.instance.num_vars$: one vertex per variable triangle #sym.checkmark
@@ -5716,6 +5813,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [Mixed-size clauses (sizes 1 to 5) to 3-SAT],
   extra: [
+    #pred-commands(
+      "pred create --example SAT -o sat.json",
+      "pred reduce sat.json --to " + target-spec(sat_ksat) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate sat.json --config " + sat_ksat_sol.source_config.map(str).join(","),
+    )
     Source: #sat_ksat.source.instance.num_vars variables, #sat-num-clauses(sat_ksat.source.instance) clauses (sizes 1, 2, 3, 3, 4, 5) \
     Target 3-SAT: $#sat_ksat.target.instance.num_vars = #sat_ksat.source.instance.num_vars + 7$ variables, #sat-num-clauses(sat_ksat.target.instance) clauses (small padded, large split) \
     First solution: $(x_1, ..., x_5) = (#sat_ksat_sol.source_config.map(str).join(", "))$, auxiliary vars are don't-cares #sym.checkmark
@@ -5735,9 +5838,19 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Discard auxiliary variables; return original variable assignments.
 ]
 
+#let sat_cs = load-example("Satisfiability", "CircuitSAT")
+#let sat_cs_sol = sat_cs.solutions.at(0)
 #reduction-rule("Satisfiability", "CircuitSAT",
   example: true,
   example-caption: [3-variable SAT formula to boolean circuit],
+  extra: [
+    #pred-commands(
+      "pred create --example SAT -o sat.json",
+      "pred reduce sat.json --to " + target-spec(sat_cs) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate sat.json --config " + sat_cs_sol.source_config.map(str).join(","),
+    )
+  ],
 )[
   CNF is inherently an AND-of-ORs structure, which maps directly to a boolean circuit: each clause becomes an OR gate over its literals, and a final AND gate combines all clause outputs. The circuit is constrained to output _true_, so a satisfying circuit assignment exists iff the original formula is satisfiable.
 ][
@@ -5749,10 +5862,17 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 ]
 
 #let cs_sg = load-example("CircuitSAT", "SpinGlass")
+#let cs_sg_sol = cs_sg.solutions.at(0)
 #reduction-rule("CircuitSAT", "SpinGlass",
   example: true,
   example-caption: [1-bit full adder to Ising model],
   extra: [
+    #pred-commands(
+      "pred create --example CircuitSAT -o circuitsat.json",
+      "pred reduce circuitsat.json --to " + target-spec(cs_sg) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate circuitsat.json --config " + cs_sg_sol.source_config.map(str).join(","),
+    )
     Circuit: #circuit-num-gates(cs_sg.source.instance) gates (2 XOR, 2 AND, 1 OR), #circuit-num-variables(cs_sg.source.instance) variables \
     Target: #spin-num-spins(cs_sg.target.instance) spins (each gate allocates I/O + auxiliary spins) \
     Canonical ground-state witness shown ($2^3$ valid input combinations exist for the full adder) #sym.checkmark
@@ -5799,6 +5919,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [Factor $N = #fact_cs.source.instance.target$],
   extra: [
+    #pred-commands(
+      "pred create --example Factoring -o factoring.json",
+      "pred reduce factoring.json --to " + target-spec(fact_cs) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate factoring.json --config " + fact_cs_sol.source_config.map(str).join(","),
+    )
     Circuit: $#fact-nbf times #fact-nbs$ array multiplier with #circuit-num-gates(fact_cs.target.instance) gates, #circuit-num-variables(fact_cs.target.instance) variables \
     Canonical witness: $#fact-p times #fact-q = #fact_cs.source.instance.target$ #sym.checkmark
   ],
@@ -5825,6 +5951,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [Petersen graph ($n = 10$, unit weights) to Ising],
   extra: [
+    #pred-commands(
+      "pred create --example MaxCut -o maxcut.json",
+      "pred reduce maxcut.json --to " + target-spec(mc_sg) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate maxcut.json --config " + mc_sg_sol.source_config.map(str).join(","),
+    )
     Direct 1:1 mapping: vertices $arrow.r$ spins, $J_(i j) = w_(i j) = 1$, $h_i = 0$ \
     Partition: $S = {#mc_sg_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ vs $overline(S) = {#mc_sg_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => str(i)).join(", ")}$ \
     Cut value $= #mc_sg_cut$ (canonical witness shown) #sym.checkmark
@@ -5845,6 +5977,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [10-spin Ising with alternating $J_(i j) in {plus.minus 1}$],
   extra: [
+    #pred-commands(
+      "pred create --example SpinGlass -o spinglass.json",
+      "pred reduce spinglass.json --to " + target-spec(sg_mc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate spinglass.json --config " + sg_mc_sol.source_config.map(str).join(","),
+    )
     All $h_i = 0$: no ancilla needed, direct 1:1 vertex mapping \
     Edge weights $w_(i j) = J_(i j) in {plus.minus 1}$ (alternating couplings) \
     Canonical ground-state witness: partition $S = {#sg_mc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ #sym.checkmark
@@ -5979,6 +6117,12 @@ The following reductions to Integer Linear Programming are straightforward formu
   example: true,
   example-caption: [Two triangles linked by three crossing edges encoded as a 15-variable ILP.],
   extra: [
+    #pred-commands(
+      "pred create --example GraphPartitioning -o graphpartitioning.json",
+      "pred reduce graphpartitioning.json --to " + target-spec(gp_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate graphpartitioning.json --config " + gp_ilp_sol.source_config.map(str).join(","),
+    )
     *Step 1 -- Balanced partition variables.* Introduce $x_v in {0,1}$ for each vertex. In the canonical witness, $A = {#gp_part_a.map(str).join(", ")}$ and $B = {#gp_part_b.map(str).join(", ")}$, so $bold(x) = (#gp_ilp_sol.source_config.map(str).join(", "))$.\
 
     *Step 2 -- Crossing indicators.* Add one binary variable per edge, so the target has $#gp_ilp.target.instance.num_vars$ binary variables and #gp_ilp.target.instance.constraints.len() constraints in total. The three active crossing indicators correspond to edges $\{#gp_crossing_edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")\}$.\
@@ -6010,6 +6154,12 @@ The following reductions to Integer Linear Programming are straightforward formu
   example: true,
   example-caption: [$n = #ks_ilp.source.instance.weights.len()$ items, capacity $C = #ks_ilp.source.instance.capacity$],
   extra: [
+    #pred-commands(
+      "pred create --example Knapsack -o knapsack.json",
+      "pred reduce knapsack.json --to " + target-spec(ks_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate knapsack.json --config " + ks_ilp_sol.source_config.map(str).join(","),
+    )
     *Step 1 -- Source instance.* The canonical knapsack instance has weights $(#ks_ilp.source.instance.weights.map(str).join(", "))$, values $(#ks_ilp.source.instance.values.map(str).join(", "))$, and capacity $C = #ks_ilp.source.instance.capacity$.
 
     *Step 2 -- Build the binary ILP.* Introduce one binary variable per item:
@@ -6037,9 +6187,19 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Identity: return the binary variable vector $bold(x)$ as the knapsack selection.
 ]
 
+#let clique_mis = load-example("MaximumClique", "MaximumIndependentSet")
+#let clique_mis_sol = clique_mis.solutions.at(0)
 #reduction-rule("MaximumClique", "MaximumIndependentSet",
   example: true,
   example-caption: [Path graph $P_4$: clique in $G$ maps to independent set in complement $overline(G)$.],
+  extra: [
+    #pred-commands(
+      "pred create --example MaximumClique -o maximumclique.json",
+      "pred reduce maximumclique.json --to " + target-spec(clique_mis) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate maximumclique.json --config " + clique_mis_sol.source_config.map(str).join(","),
+    )
+  ],
 )[
   A clique in $G$ is an independent set in the complement graph $overline(G)$, where $overline(G) = (V, overline(E))$ with $overline(E) = {(u,v) : u != v, (u,v) in.not E}$. This classical reduction @karp1972 preserves vertices and weights; only the edge set changes.
 ][
@@ -6088,9 +6248,19 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Sort tasks by their completion times $C_j$ and encode that order back into the source schedule representation.
 ]
 
+#let tsp_ilp = load-example("TravelingSalesman", "ILP")
+#let tsp_ilp_sol = tsp_ilp.solutions.at(0)
 #reduction-rule("TravelingSalesman", "ILP",
   example: true,
   example-caption: [Weighted $K_4$: the optimal tour $0 arrow 1 arrow 3 arrow 2 arrow 0$ with cost 80 is found by position-based ILP.],
+  extra: [
+    #pred-commands(
+      "pred create --example TSP -o tsp.json",
+      "pred reduce tsp.json --to " + target-spec(tsp_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate tsp.json --config " + tsp_ilp_sol.source_config.map(str).join(","),
+    )
+  ],
 )[
   A Hamiltonian tour is a permutation of vertices. Position-based encoding assigns each vertex a tour position via binary indicators, with permutation constraints ensuring a valid bijection. The tour cost involves products of position indicators for consecutive positions, which McCormick linearization converts to auxiliary variables with linear constraints.
 ][
@@ -6116,6 +6286,12 @@ The following reductions to Integer Linear Programming are straightforward formu
   example: true,
   example-caption: [TSP on $K_3$ with weights $w_(01) = 1$, $w_(02) = 2$, $w_(12) = 3$: the QUBO ground state encodes the optimal tour with cost $1 + 2 + 3 = 6$.],
   extra: [
+    #pred-commands(
+      "pred create --example TSP -o tsp.json",
+      "pred reduce tsp.json --to " + target-spec(tsp_qubo) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate tsp.json --config " + tsp_qubo_sol.source_config.map(str).join(","),
+    )
     *Step 1 -- Encode each tour position as a binary variable.* A tour is a permutation of $n$ vertices. Introduce $n^2 = #tsp_qubo.target.instance.num_vars$ binary variables $x_(v,p)$: vertex $v$ is at position $p$.
     $ underbrace(x_(0,0) x_(0,1) x_(0,2), "vertex 0") #h(4pt) underbrace(x_(1,0) x_(1,1) x_(1,2), "vertex 1") #h(4pt) underbrace(x_(2,0) x_(2,1) x_(2,2), "vertex 2") $
 
@@ -6188,6 +6364,12 @@ The following reductions to Integer Linear Programming are straightforward formu
   example: true,
   example-caption: [Canonical Steiner tree instance ($n = #st_ilp.source.instance.graph.num_vertices$, $m = #st_edges.len()$, $|T| = #st_terminals.len()$)],
   extra: [
+    #pred-commands(
+      "pred create --example SteinerTree -o steinertree.json",
+      "pred reduce steinertree.json --to " + target-spec(st_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate steinertree.json --config " + st_ilp_sol.source_config.map(str).join(","),
+    )
     *Step 1 -- Choose a root and one commodity per remaining terminal.* The canonical source instance has terminals $T = {#st_terminals.map(t => $v_#t$).join(", ")}$. The reduction fixes the first terminal as root $r = v_#st_root$ and creates one flow commodity for each remaining terminal: $v_#st_non_root_terminals.at(0)$ and $v_#st_non_root_terminals.at(1)$.
 
     *Step 2 -- Count the variables from the source edge order.* The first #st_edges.len() target variables are the edge selectors $bold(y) = (#st_ilp_sol.target_config.slice(0, st_edges.len()).map(str).join(", "))$, one per source edge in the order #st_edges.enumerate().map(((i, e)) => [$e_#i = (#(e.at(0)), #(e.at(1)))$]).join(", "). The remaining #(st_ilp.target.instance.num_vars - st_edges.len()) variables are directed flow indicators: $2 m (|T| - 1) = 2 times #st_edges.len() times #st_non_root_terminals.len() = #(st_ilp.target.instance.num_vars - st_edges.len())$.
