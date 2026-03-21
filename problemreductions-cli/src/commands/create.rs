@@ -496,14 +496,6 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
     }
 }
 
-fn cli_flag_name(field_name: &str) -> String {
-    match field_name {
-        "vertex_weights" => "weights".to_string(),
-        "edge_lengths" => "edge-weights".to_string(),
-        _ => field_name.replace('_', "-"),
-    }
-}
-
 fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
     match canonical {
         "MaximumIndependentSet"
