@@ -3024,17 +3024,17 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let cost_bound = args.cost_bound.ok_or_else(|| {
                 anyhow::anyhow!("AcyclicPartition requires --cost-bound\n\n{usage}")
             })?;
-            if vertex_weights.iter().any(|&weight| weight < 0) {
-                bail!("AcyclicPartition --weights must be non-negative");
+            if vertex_weights.iter().any(|&weight| weight <= 0) {
+                bail!("AcyclicPartition --weights must be positive (Z+)");
             }
-            if arc_costs.iter().any(|&cost| cost < 0) {
-                bail!("AcyclicPartition --arc-costs must be non-negative");
+            if arc_costs.iter().any(|&cost| cost <= 0) {
+                bail!("AcyclicPartition --arc-costs must be positive (Z+)");
             }
-            if weight_bound < 0 {
-                bail!("AcyclicPartition --weight-bound must be non-negative");
+            if weight_bound <= 0 {
+                bail!("AcyclicPartition --weight-bound must be positive (Z+)");
             }
-            if cost_bound < 0 {
-                bail!("AcyclicPartition --cost-bound must be non-negative");
+            if cost_bound <= 0 {
+                bail!("AcyclicPartition --cost-bound must be positive (Z+)");
             }
             (
                 ser(AcyclicPartition::new(
