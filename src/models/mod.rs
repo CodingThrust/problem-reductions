@@ -21,7 +21,7 @@ pub use graph::{
     AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
     BottleneckTravelingSalesman, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
-    IsomorphicSpanningTree, KClique, KColoring, KthBestSpanningTree,
+    IntegralFlowWithMultipliers, IsomorphicSpanningTree, KClique, KColoring, KthBestSpanningTree,
     LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
     MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
     MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter,

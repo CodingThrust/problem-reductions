@@ -42,6 +42,7 @@
 //! - [`SteinerTree`]: Minimum-weight tree spanning all required terminals
 //! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
 //! - [`DirectedTwoCommodityIntegralFlow`]: Directed two-commodity integral flow (satisfaction)
+//! - [`IntegralFlowWithMultipliers`]: Integral flow with vertex multipliers on a directed graph
 //! - [`UndirectedTwoCommodityIntegralFlow`]: Two-commodity integral flow on undirected graphs
 //! - [`StrongConnectivityAugmentation`]: Strong connectivity augmentation with weighted candidate arcs
 
@@ -56,6 +57,7 @@ pub(crate) mod generalized_hex;
 pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_circuit;
 pub(crate) mod hamiltonian_path;
+pub(crate) mod integral_flow_with_multipliers;
 pub(crate) mod isomorphic_spanning_tree;
 pub(crate) mod kclique;
 pub(crate) mod kcoloring;
@@ -101,6 +103,7 @@ pub use generalized_hex::GeneralizedHex;
 pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_circuit::HamiltonianCircuit;
 pub use hamiltonian_path::HamiltonianPath;
+pub use integral_flow_with_multipliers::IntegralFlowWithMultipliers;
 pub use isomorphic_spanning_tree::IsomorphicSpanningTree;
 pub use kclique::KClique;
 pub use kcoloring::KColoring;
@@ -145,6 +148,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(generalized_hex::canonical_model_example_specs());
     specs.extend(hamiltonian_circuit::canonical_model_example_specs());
     specs.extend(hamiltonian_path::canonical_model_example_specs());
+    specs.extend(integral_flow_with_multipliers::canonical_model_example_specs());
     specs.extend(isomorphic_spanning_tree::canonical_model_example_specs());
     specs.extend(kclique::canonical_model_example_specs());
     specs.extend(kcoloring::canonical_model_example_specs());
