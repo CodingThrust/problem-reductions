@@ -63,6 +63,7 @@
 // Problem display names for theorem headers
 #let display-name = (
   "AdditionalKey": [Additional Key],
+  "AcyclicPartition": [Acyclic Partition],
   "MaximumIndependentSet": [Maximum Independent Set],
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
@@ -3581,6 +3582,61 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       },
       caption: [Directed graph for Multiple Choice Branching. Blue arcs show the satisfying branching $(0 arrow 1), (1 arrow 3), (2 arrow 4), (3 arrow 5)$ of total weight 13; gray arcs are available but unselected.],
       ) <fig:mcb-example>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("AcyclicPartition")
+  let nv = x.instance.graph.num_vertices
+  let arcs = x.instance.graph.arcs.map(a => (a.at(0), a.at(1)))
+  let weights = x.instance.vertex_weights
+  let config = x.optimal_config
+  let B = x.instance.weight_bound
+  let K = x.instance.cost_bound
+  let part0 = range(nv).filter(v => config.at(v) == 0)
+  let part1 = range(nv).filter(v => config.at(v) == 1)
+  let part2 = range(nv).filter(v => config.at(v) == 2)
+  let part0w = part0.map(v => weights.at(v)).sum(default: 0)
+  let part1w = part1.map(v => weights.at(v)).sum(default: 0)
+  let part2w = part2.map(v => weights.at(v)).sum(default: 0)
+  let cross-arcs = arcs.filter(a => config.at(a.at(0)) != config.at(a.at(1)))
+  [
+    #problem-def("AcyclicPartition")[
+      Given a directed graph $G = (V, A)$ with vertex weights $w: V -> ZZ^+$, arc costs $c: A -> ZZ^+$, and bounds $B, K in ZZ^+$, determine whether there exists a partition $V = V_1 ∪ dots ∪ V_m$ such that every part satisfies $sum_(v in V_i) w(v) <= B$, the total cost of arcs crossing between different parts is at most $K$, and the quotient digraph on the parts is acyclic.
+    ][
+      Acyclic Partition is the directed partitioning problem ND15 in Garey & Johnson @garey1979. Unlike ordinary graph partitioning, the goal is not merely to minimize the cut: the partition must preserve a global topological order after every part is contracted to a super-node. This makes the model a natural abstraction for DAG-aware task clustering in compiler scheduling, parallel execution pipelines, and automatic differentiation systems where coarse-grained blocks must still communicate without creating cyclic dependencies.
+
+      The implementation uses the natural witness encoding in which each of the $n = #nv$ vertices chooses one of at most $n$ part labels, so direct brute-force search explores $n^n$ assignments.#footnote[Many labelings represent the same unordered partition, but the full configuration space exposed to the solver is still $n^n$.]
+
+      *Example.* Consider the six-vertex digraph in the figure with vertex weights $w = (#weights.map(w => str(w)).join(", "))$, part bound $B = #B$, and cut-cost bound $K = #K$. The witness $V_0 = {#part0.map(v => $v_#v$).join(", ")}$, $V_1 = {#part1.map(v => $v_#v$).join(", ")}$, $V_2 = {#part2.map(v => $v_#v$).join(", ")}$ has part weights $#part0w$, $#part1w$, and $#part2w$, so every part respects the weight cap. Exactly #cross-arcs.len() arcs cross between different parts, namely #cross-arcs.map(a => $(v_#(a.at(0)) arrow v_#(a.at(1)))$).join($,$), so the total crossing cost is $#cross-arcs.len() <= K$. These crossings induce quotient arcs $V_0 arrow V_1$, $V_0 arrow V_2$, and $V_1 arrow V_2$, which form a DAG; hence this instance is a YES-instance.
+
+      #figure({
+        let verts = ((0, 1.6), (1.4, 2.4), (1.4, 0.8), (3.2, 2.4), (3.2, 0.8), (4.8, 1.6))
+        canvas(length: 1cm, {
+          for arc in arcs {
+            let (u, v) = arc
+            let crossing = config.at(u) != config.at(v)
+            draw.line(
+              verts.at(u),
+              verts.at(v),
+              stroke: if crossing { 1.3pt + black } else { 0.9pt + luma(170) },
+              mark: (end: "straight", scale: if crossing { 0.5 } else { 0.4 }),
+            )
+          }
+          for (v, pos) in verts.enumerate() {
+            let color = graph-colors.at(config.at(v))
+            g-node(
+              pos,
+              name: "v" + str(v),
+              fill: color,
+              label: text(fill: white)[$v_#v$],
+            )
+          }
+        })
+      },
+      caption: [A YES witness for Acyclic Partition. Node colors indicate the parts $V_0$, $V_1$, and $V_2$. Black arcs cross parts and define the quotient DAG $V_0 arrow V_1$, $V_0 arrow V_2$, $V_1 arrow V_2$; gray arcs stay inside a part and therefore do not contribute to the quotient graph.],
+      ) <fig:acyclic-partition>
     ]
   ]
 }
