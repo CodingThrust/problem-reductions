@@ -133,6 +133,7 @@
   "MultipleChoiceBranching": [Multiple Choice Branching],
   "MultipleCopyFileAllocation": [Multiple Copy File Allocation],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
+  "NetworkReliability": [Network Reliability],
   "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
   "PartitionIntoTriangles": [Partition Into Triangles],
   "PrecedenceConstrainedScheduling": [Precedence Constrained Scheduling],
@@ -1613,6 +1614,56 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     },
     caption: [Steiner Tree: terminals $R = {#terminals.map(i => $v_#i$).join(", ")}$ (blue), Steiner vertex #steiner-verts.map(i => $v_#i$).join(", ") (dashed). Optimal tree (blue edges) has weight #opt-weight.],
     ) <fig:steiner-tree-example>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("NetworkReliability")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges
+  let ne = edges.len()
+  let terminals = x.instance.terminals
+  let failure-prob = x.instance.failure_probs.at(0)
+  let threshold = x.instance.threshold
+  let witness-config = x.optimal_config
+  let witness-edge-indices = witness-config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let witness-edges = witness-edge-indices.map(i => edges.at(i))
+  let witness-verts = witness-edges.fold((), (acc, e) => {
+    let acc2 = if acc.contains(e.at(0)) { acc } else { acc + (e.at(0),) }
+    if acc2.contains(e.at(1)) { acc2 } else { acc2 + (e.at(1),) }
+  })
+  let exact-reliability = 0.96842547
+  let connected-count = 91
+  let disconnected-count = 165
+  [
+    #problem-def("NetworkReliability")[
+      Given an undirected graph $G = (V, E)$, a terminal set $T subset.eq V$ with $|T| >= 2$, independent edge failure probabilities $p: E -> [0, 1]$, and a threshold $q in [0, 1]$, determine whether the probability that every pair of terminals in $T$ remains connected by a path of surviving edges is at least $q$.
+    ][
+    Network Reliability captures whether a fault-prone communication network keeps its terminals connected despite independent edge failures. Garey and Johnson list the decision version as ND20 and mark it with an asterisk because membership in NP was not known for the general formulation @garey1979[App.~A2, ND20]. Valiant showed that the related reliability counting problems are \#P-complete, and Ball surveyed the resulting hardness landscape for two-terminal, all-terminal, and $k$-terminal variants @valiant1979 @ball1986. The implementation here uses one binary variable per edge, so exact reliability on the represented graphs is obtained by enumerating all $2^m$ survival patterns and checking terminal connectivity in $O(2^m dot n)$ time. #footnote[No better exact worst-case bound is claimed here for the general graph family implemented in the codebase.]
+
+    *Example.* Consider the graph $G$ with $n = #nv$ vertices, $m = #ne$ edges, terminals $T = {#terminals.map(i => $v_#i$).join(", ")}$, uniform failure probability $p(e) = #failure-prob$ on every edge, and threshold $q = #threshold$. The highlighted witness path #witness-edges.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ") is one surviving-edge configuration for which `evaluate` returns true. Summing the probabilities of all #connected-count terminal-connecting survival patterns yields $R(G, T, p) = #exact-reliability > #threshold$, while the remaining #disconnected-count patterns disconnect the terminals, so this is a YES instance.
+
+    #figure({
+      let verts = ((0, 1.2), (1.6, 1.8), (1.6, 0.4), (3.2, 1.1), (3.2, -0.3), (4.8, 0.4))
+      canvas(length: 1cm, {
+        for (idx, (u, v)) in edges.enumerate() {
+          let on-witness = witness-edge-indices.contains(idx)
+          g-edge(verts.at(u), verts.at(v),
+            stroke: if on-witness { 2pt + graph-colors.at(0) } else { 1pt + luma(200) })
+        }
+        for (k, pos) in verts.enumerate() {
+          let is-terminal = terminals.contains(k)
+          let on-witness = witness-verts.contains(k)
+          g-node(pos, name: "v" + str(k),
+            fill: if is-terminal { graph-colors.at(0) } else if on-witness { graph-colors.at(0).transparentize(70%) } else { white },
+            stroke: if is-terminal { none } else { 1pt + graph-colors.at(0) },
+            label: text(fill: if is-terminal { white } else { black })[$v_#k$])
+        }
+      })
+    },
+    caption: [Network Reliability example with terminals $T = {#terminals.map(i => $v_#i$).join(", ")}$ (blue). The highlighted witness path survives in one connected configuration, while the exact reliability over all $2^#ne$ survival patterns is $#exact-reliability > #threshold$.],
+    ) <fig:network-reliability-example>
     ]
   ]
 }

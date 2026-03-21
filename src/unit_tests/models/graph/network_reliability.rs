@@ -59,6 +59,22 @@ fn test_network_reliability_exact_reliability_matches_issue_example() {
     assert!(problem.meets_threshold());
 }
 
+#[cfg(feature = "example-db")]
+#[test]
+fn test_network_reliability_paper_example() {
+    let problem = issue_235_example();
+    let witness_config = vec![1, 0, 1, 0, 0, 0, 1, 0];
+
+    assert!(problem.evaluate(&witness_config));
+    assert!((problem.reliability() - 0.96842547).abs() < 1e-9);
+    assert!(problem.meets_threshold());
+
+    let specs = super::canonical_model_example_specs();
+    assert_eq!(specs.len(), 1);
+    assert_eq!(specs[0].optimal_config, witness_config);
+    assert_eq!(specs[0].optimal_value, serde_json::json!(true));
+}
+
 #[test]
 #[should_panic(expected = "failure_probs length must match num_edges")]
 fn test_network_reliability_rejects_bad_probability_length() {
