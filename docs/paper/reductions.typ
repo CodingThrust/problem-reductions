@@ -83,6 +83,7 @@
   "TravelingSalesman": [Traveling Salesman],
   "MaximumClique": [Maximum Clique],
   "MaximumSetPacking": [Maximum Set Packing],
+  "MinimumHittingSet": [Minimum Hitting Set],
   "MinimumSetCovering": [Minimum Set Covering],
   "ComparativeContainment": [Comparative Containment],
   "SetBasis": [Set Basis],
@@ -1819,6 +1820,56 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       }),
       caption: [Minimum set covering: $cal(C) = {#selected.map(i => $S_#(i + 1)$).join(", ")}$ (blue) cover all of $U$; #range(m).filter(i => i not in selected).map(i => $S_#(i + 1)$).join(", ") (gray) #if m - selected.len() == 1 [is] else [are] redundant.],
     ) <fig:set-covering>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumHittingSet")
+  let sets = x.instance.sets
+  let m = sets.len()
+  let U-size = x.instance.universe_size
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let hit-size = sol.metric.Valid
+  let fmt-set(s) = if s.len() == 0 {
+    $emptyset$
+  } else {
+    "${" + s.map(e => str(e + 1)).join(", ") + "}$"
+  }
+  let elems = (
+    (-2.0, 0.7),
+    (-0.9, 1.4),
+    (-1.2, -0.4),
+    (0.2, 0.1),
+    (1.2, 1.0),
+    (1.5, -0.9),
+  )
+  [
+    #problem-def("MinimumHittingSet")[
+      Given a finite universe $U$ and a collection $cal(S) = {S_1, dots, S_m}$ of subsets of $U$, find a subset $H subset.eq U$ minimizing $|H|$ such that $H inter S_i != emptyset$ for every $i in {1, dots, m}$.
+    ][
+    Minimum Hitting Set is one of Karp's 21 NP-complete problems @karp1972. It is the incidence-dual of Set Covering: transposing the set-element incidence matrix swaps the choice of sets with the choice of universe elements. Vertex Cover is the special case in which every set has size $2$, so every edge is "hit" by selecting one of its endpoints.
+
+    A direct exact algorithm enumerates all $2^n$ subsets $H subset.eq U$ for $n = |U|$ and checks whether each subset intersects every member of $cal(S)$. This yields an $O^*(2^n)$ exact algorithm#footnote[No exact worst-case algorithm improving on brute-force enumeration over the universe elements is recorded in the standard references used for this catalog entry.].
+
+    *Example.* Let $U = {1, 2, dots, #U-size}$ and $cal(S) = {#range(m).map(i => $S_#(i + 1)$).join(", ")}$ with #range(m).map(i => $S_#(i + 1) = #fmt-set(sets.at(i))$).join(", "). A minimum hitting set is $H = #fmt-set(selected)$ with $|H| = #hit-size$: every set in $cal(S)$ contains at least one of the selected elements. No $2$-element subset of $U$ hits all #m sets, so the optimum is exactly $#hit-size$.
+
+    #figure(
+      canvas(length: 1cm, {
+        sregion((elems.at(0), elems.at(1), elems.at(2)), pad: 0.45, label: [$S_1$], ..sregion-dimmed)
+        sregion((elems.at(0), elems.at(3), elems.at(4)), pad: 0.48, label: [$S_2$], ..sregion-dimmed)
+        sregion((elems.at(1), elems.at(3), elems.at(5)), pad: 0.48, label: [$S_3$], ..sregion-dimmed)
+        sregion((elems.at(2), elems.at(4), elems.at(5)), pad: 0.48, label: [$S_4$], ..sregion-dimmed)
+        sregion((elems.at(0), elems.at(1), elems.at(5)), pad: 0.48, label: [$S_5$], ..sregion-dimmed)
+        sregion((elems.at(2), elems.at(3)), pad: 0.34, label: [$S_6$], ..sregion-dimmed)
+        sregion((elems.at(1), elems.at(4)), pad: 0.34, label: [$S_7$], ..sregion-dimmed)
+        for (k, pos) in elems.enumerate() {
+          selem(pos, label: [#(k + 1)], fill: if selected.contains(k) { graph-colors.at(0) } else { black })
+        }
+      }),
+      caption: [Minimum hitting set: the blue elements $#fmt-set(selected)$ intersect every set region $S_1, dots, S_#m$, so they hit the entire collection $cal(S)$.]
+    ) <fig:min-hitting-set>
     ]
   ]
 }
