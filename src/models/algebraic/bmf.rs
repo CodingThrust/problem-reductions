@@ -239,20 +239,16 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "bmf",
-        build: || {
-            let problem = BMF::new(
-                vec![
-                    vec![true, true, false],
-                    vec![true, true, true],
-                    vec![false, true, true],
-                ],
-                2,
-            );
-            crate::example_db::specs::optimization_example(
-                problem,
-                vec![vec![1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1]],
-            )
-        },
+        instance: Box::new(BMF::new(
+            vec![
+                vec![true, true, false],
+                vec![true, true, true],
+                vec![false, true, true],
+            ],
+            2,
+        )),
+        optimal_config: vec![0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0],
+        optimal_value: serde_json::json!({"Valid": 0}),
     }]
 }
 

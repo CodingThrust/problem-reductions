@@ -151,6 +151,42 @@ fn test_flow_shop_scheduling_empty() {
 }
 
 #[test]
+fn test_flow_shop_scheduling_find_all_satisfying() {
+    // Issue #507 example: 3 machines, 5 jobs, D=25
+    // Search space = 5! = 120 permutations
+    let problem = FlowShopScheduling::new(
+        3,
+        vec![
+            vec![3, 4, 2],
+            vec![2, 3, 5],
+            vec![4, 1, 3],
+            vec![1, 5, 4],
+            vec![3, 2, 3],
+        ],
+        25,
+    );
+    let solver = BruteForce::new();
+    let solutions = solver.find_all_satisfying(&problem);
+    for sol in &solutions {
+        assert!(problem.evaluate(sol));
+    }
+    // The issue witness sequence [3,0,4,2,1] = Lehmer code [3,0,2,1,0]
+    // gives makespan 23 ≤ 25
+    assert!(solutions.contains(&vec![3, 0, 2, 1, 0]));
+    // 99 out of 120 permutations have makespan ≤ 25
+    assert_eq!(solutions.len(), 99);
+}
+
+#[test]
+fn test_flow_shop_scheduling_find_all_satisfying_empty() {
+    // 2 machines, 2 symmetric jobs [5,5], deadline 10
+    // Both orderings give makespan 15 > 10
+    let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5]], 10);
+    let solver = BruteForce::new();
+    assert!(solver.find_all_satisfying(&problem).is_empty());
+}
+
+#[test]
 fn test_flow_shop_scheduling_single_job() {
     // 3 machines, 1 job: [2, 3, 4]
     // Makespan = 2 + 3 + 4 = 9

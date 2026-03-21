@@ -9,17 +9,38 @@ pub mod misc;
 pub mod set;
 
 // Re-export commonly used types
-pub use algebraic::{ClosestVectorProblem, BMF, ILP, QUBO};
-pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
+pub use algebraic::{
+    ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesSubmatrix,
+    QuadraticAssignment, BMF, ILP, QUBO,
+};
+pub use formula::{
+    CNFClause, CircuitSAT, KSatisfiability, QuantifiedBooleanFormulas, Quantifier, Satisfiability,
+};
 pub use graph::{
-    BicliqueCover, GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, KColoring, MaxCut,
-    MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching, MinMaxMulticenter,
-    MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumSumMulticenter,
-    MinimumVertexCover, OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, SpinGlass,
-    SteinerTree, SubgraphIsomorphism, TravelingSalesman,
+    BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
+    BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
+    GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KColoring,
+    KthBestSpanningTree, LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique,
+    MaximumIndependentSet, MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets,
+    MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut,
+    MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
+    OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman,
+    SpinGlass, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    SubgraphIsomorphism, TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
 };
+pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
-    BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-    MinimumTardinessSequencing, PaintShop, ShortestCommonSupersequence, SubsetSum,
+    AdditionalKey, BinPacking, CbqRelation, ConjunctiveBooleanQuery, ConjunctiveQueryFoldability,
+    Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing,
+    MultiprocessorScheduling, PaintShop, Partition, PrecedenceConstrainedScheduling, QueryArg,
+    RectilinearPictureCompression, ResourceConstrainedScheduling,
+    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StaffScheduling, StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term,
 };
-pub use set::{ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering};
+pub use set::{
+    ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
+    MinimumCardinalityKey, MinimumSetCovering, PrimeAttributeName, SetBasis,
+    TwoDimensionalConsecutiveSets,
+};

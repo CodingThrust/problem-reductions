@@ -265,21 +265,20 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "spin_glass_simplegraph_i32",
-        build: || {
-            let problem = SpinGlass::<SimpleGraph, i32>::without_fields(
-                5,
-                vec![
-                    ((0, 1), 1),
-                    ((1, 2), 1),
-                    ((3, 4), 1),
-                    ((0, 3), 1),
-                    ((1, 3), 1),
-                    ((1, 4), 1),
-                    ((2, 4), 1),
-                ],
-            );
-            crate::example_db::specs::optimization_example(problem, vec![vec![1, 0, 1, 1, 0]])
-        },
+        instance: Box::new(SpinGlass::<SimpleGraph, i32>::without_fields(
+            5,
+            vec![
+                ((0, 1), 1),
+                ((1, 2), 1),
+                ((3, 4), 1),
+                ((0, 3), 1),
+                ((1, 3), 1),
+                ((1, 4), 1),
+                ((2, 4), 1),
+            ],
+        )),
+        optimal_config: vec![1, 0, 1, 1, 0],
+        optimal_value: serde_json::json!({"Valid": -3}),
     }]
 }
 

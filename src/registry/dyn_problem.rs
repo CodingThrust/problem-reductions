@@ -12,6 +12,8 @@ use crate::traits::Problem;
 pub trait DynProblem: Any {
     /// Evaluate a configuration and return the result as a debug string.
     fn evaluate_dyn(&self, config: &[usize]) -> String;
+    /// Evaluate a configuration and return the result as a serializable JSON value.
+    fn evaluate_json(&self, config: &[usize]) -> Value;
     /// Serialize the problem to a JSON value.
     fn serialize_json(&self) -> Value;
     /// Downcast to `&dyn Any` for type recovery.
@@ -29,10 +31,14 @@ pub trait DynProblem: Any {
 impl<T> DynProblem for T
 where
     T: Problem + Serialize + 'static,
-    T::Metric: fmt::Debug,
+    T::Metric: fmt::Debug + Serialize,
 {
     fn evaluate_dyn(&self, config: &[usize]) -> String {
         format!("{:?}", self.evaluate(config))
+    }
+
+    fn evaluate_json(&self, config: &[usize]) -> Value {
+        serde_json::to_value(self.evaluate(config)).expect("serialize metric failed")
     }
 
     fn serialize_json(&self) -> Value {
@@ -52,10 +58,7 @@ where
     }
 
     fn variant_map(&self) -> BTreeMap<String, String> {
-        T::variant()
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect()
+        crate::export::variant_to_map(T::variant())
     }
 
     fn num_variables_dyn(&self) -> usize {

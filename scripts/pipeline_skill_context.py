@@ -10,16 +10,17 @@ import sys
 from pathlib import Path
 from typing import Callable
 
-import pipeline_board
-import pipeline_checks
-import pipeline_pr
-import pipeline_worktree
+# Ensure sibling modules are importable regardless of how this file is invoked
+# (as a script, as ``python3 scripts/pipeline_skill_context.py``, or via
+# ``from scripts.pipeline_skill_context import ...``).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import pipeline_board  # noqa: E402
+import pipeline_checks  # noqa: E402
+import pipeline_pr  # noqa: E402
+import pipeline_worktree  # noqa: E402
 
 
-DEFAULT_STATE_FILES = {
-    "review-pipeline": Path("/tmp/problemreductions-review-state.json"),
-    "final-review": Path("/tmp/problemreductions-final-review-state.json"),
-}
 PROJECT_BOARD_NUMBER = 8
 PROJECT_BOARD_LIMIT = 500
 DEFAULT_REPO = "CodingThrust/problem-reductions"
@@ -103,10 +104,6 @@ def review_pipeline_seed_items(result: dict) -> list[str]:
         blockers.append("CI is failing")
 
     comment_counts = (pr.get("comments") or {}).get("counts") or {}
-    copilot_count = int(comment_counts.get("copilot_inline_comments", 0))
-    if copilot_count:
-        blockers.append(f"{copilot_count} Copilot inline comments to triage")
-
     human_count = sum(
         int(comment_counts.get(key, 0))
         for key in [
@@ -192,7 +189,6 @@ def render_review_pipeline_text(result: dict) -> str:
         [
             "",
             "## Comment Summary",
-            f"- Copilot inline comments: {counts.get('copilot_inline_comments', 0)}",
             f"- Human inline comments: {counts.get('human_inline_comments', 0)}",
             f"- Human PR issue comments: {counts.get('human_issue_comments', 0)}",
             f"- Human linked-issue comments: {counts.get('human_linked_issue_comments', 0)}",
@@ -435,8 +431,6 @@ def render_review_implementation_text(result: dict) -> str:
     review_context = result.get("review_context") or {}
     scope = review_context.get("scope") or {}
     subject = review_context.get("subject") or {}
-    current_pr = result.get("current_pr") or {}
-
     lines = [
         "# Review Implementation Packet",
         "",
@@ -494,24 +488,6 @@ def render_review_implementation_text(result: dict) -> str:
     diff_stat = review_context.get("diff_stat")
     if diff_stat:
         lines.extend(["", "## Diff Stat", "```text", diff_stat, "```"])
-
-    lines.extend(["", "## Current PR"])
-    if current_pr:
-        lines.append(f"- Repo: {current_pr.get('repo')}")
-        if current_pr.get("pr_number") is not None:
-            lines.append(f"- PR: #{current_pr['pr_number']}")
-        if current_pr.get("title"):
-            lines.append(f"- Title: {current_pr['title']}")
-        if current_pr.get("url"):
-            lines.append(f"- URL: {current_pr['url']}")
-        if current_pr.get("linked_issue_number") is not None:
-            lines.append(f"- Linked issue: #{current_pr['linked_issue_number']}")
-    else:
-        lines.append("- No current PR detected for this branch.")
-
-    issue_context_text = current_pr.get("issue_context_text")
-    if issue_context_text:
-        lines.extend(["", "## Linked Issue Context", issue_context_text])
 
     return "\n".join(lines) + "\n"
 
@@ -608,25 +584,9 @@ def fetch_review_candidates(repo: str) -> list[dict]:
     return pipeline_board.review_candidates(
         board_data,
         repo,
-        pipeline_board.fetch_pr_reviews,
         pipeline_board.resolve_issue_pr,
         pipeline_board.fetch_pr_info,
         batch_pr_fetcher=pipeline_board.batch_fetch_prs_with_reviews,
-    )
-
-
-def claim_review_entry(
-    *,
-    repo: str,
-    state_file: Path,
-    pr_number: int | None,
-) -> dict | None:
-    candidates = fetch_review_candidates(repo)
-    return pipeline_board.claim_entry_from_entries(
-        "review",
-        pipeline_board.eligible_review_candidate_entries(candidates),
-        state_file,
-        target_number=pr_number,
     )
 
 
@@ -648,32 +608,57 @@ def build_ambiguous_selection(candidate: dict, *, pr_number: int) -> dict:
         "pr_number": pr_number,
         "status": candidate.get("status"),
         "title": candidate.get("title"),
-        "claimed": True,
-        "claimed_status": pipeline_board.STATUS_UNDER_REVIEW,
     }
 
 
 def select_final_review_entry(
     *,
     repo: str,
-    state_file: Path,
     pr_number: int | None,
 ) -> dict | None:
+    """Find a Final-review board entry for the given PR (or the first available one)."""
     owner = repo.split("/", 1)[0]
     board_data = pipeline_board.fetch_board_items(
         owner,
         PROJECT_BOARD_NUMBER,
         PROJECT_BOARD_LIMIT,
     )
-    return pipeline_board.select_next_entry(
-        "final-review",
-        board_data,
-        state_file,
-        repo=repo,
-        pr_resolver=pipeline_board.resolve_issue_pr,
-        pr_state_fetcher=pipeline_board.fetch_pr_state,
-        target_number=pr_number,
-    )
+    items = [
+        item
+        for item in board_data.get("items", [])
+        if item.get("status") == pipeline_board.STATUS_FINAL_REVIEW
+    ]
+    for item in items:
+        content = item.get("content") or {}
+        number = content.get("number")
+        if number is None:
+            continue
+        item_type = content.get("type", "")
+        if item_type == "PullRequest":
+            item_pr = int(number)
+        elif item_type == "Issue":
+            item_pr = pipeline_board.resolve_issue_pr(repo, int(number))
+            if item_pr is None:
+                continue
+        else:
+            continue
+        entry = {
+            "item_id": pipeline_board.item_identity(item),
+            "number": item_pr,
+            "pr_number": item_pr,
+            "status": item.get("status"),
+            "title": content.get("title"),
+        }
+        if item_type == "Issue":
+            entry["issue_number"] = int(number)
+        if pr_number is not None:
+            if item_pr == pr_number:
+                return entry
+        else:
+            state = pipeline_board.fetch_pr_state(repo, item_pr)
+            if state == "OPEN":
+                return entry
+    return None
 
 
 def _get_current_gh_user() -> str:
@@ -811,26 +796,6 @@ def default_review_implementation_context_builder(
     )
 
 
-def fetch_current_review_implementation_pr() -> dict | None:
-    try:
-        repo = pipeline_pr.fetch_current_repo()
-        current = pipeline_pr.fetch_current_pr_data_for_repo(repo)
-        pr_number = current.get("number")
-        if pr_number is None:
-            return None
-        pr_context = pipeline_pr.build_pr_context(repo, int(pr_number))
-        return {
-            "repo": repo,
-            "pr_number": int(pr_number),
-            "title": pr_context.get("title"),
-            "url": pr_context.get("url"),
-            "head_ref_name": pr_context.get("head_ref_name"),
-            "linked_issue_number": pr_context.get("linked_issue_number"),
-            "issue_context_text": pr_context.get("issue_context_text"),
-        }
-    except Exception:
-        return None
-
 
 def build_review_implementation_context(
     *,
@@ -844,11 +809,10 @@ def build_review_implementation_context(
     diff_stat_getter: Callable[[Path, str, str], str] | None = None,
     changed_files_getter: Callable[[Path, str, str], list[str]] | None = None,
     added_files_getter: Callable[[Path, str, str], list[str]] | None = None,
-    current_pr_fetcher: Callable[[], dict | None] | None = None,
     review_context_builder: Callable[..., dict] | None = None,
 ) -> dict:
     merge_base_getter = merge_base_getter or (
-        lambda repo_root: git_text_in(repo_root, "merge-base", "main", "HEAD").strip()
+        lambda repo_root: git_text_in(repo_root, "merge-base", "origin/main", "HEAD").strip()
     )
     head_sha_getter = head_sha_getter or (
         lambda repo_root: git_text_in(repo_root, "rev-parse", "HEAD").strip()
@@ -878,7 +842,6 @@ def build_review_implementation_context(
             f"{base_sha}..{head_sha}",
         )
     )
-    current_pr_fetcher = current_pr_fetcher or fetch_current_review_implementation_pr
     review_context_builder = review_context_builder or default_review_implementation_context_builder
 
     base_sha = merge_base_getter(repo_root)
@@ -886,7 +849,6 @@ def build_review_implementation_context(
     diff_stat = diff_stat_getter(repo_root, base_sha, head_sha)
     changed_files = changed_files_getter(repo_root, base_sha, head_sha)
     added_files = added_files_getter(repo_root, base_sha, head_sha)
-    current_pr = current_pr_fetcher()
     review_context = review_context_builder(
         repo_root,
         diff_stat=diff_stat,
@@ -907,7 +869,6 @@ def build_review_implementation_context(
             "head_sha": head_sha,
         },
         "review_context": review_context,
-        "current_pr": current_pr,
     }
 
 
@@ -1075,38 +1036,67 @@ def build_project_pipeline_context(
     )
 
 
+def _select_candidate(
+    candidates: list[dict],
+    pr_number: int | None,
+) -> dict | None:
+    """Pick a candidate from the review-candidates list (no state file, no claiming)."""
+    if pr_number is not None:
+        return next(
+            (
+                c
+                for c in candidates
+                if int(c.get("pr_number") or c.get("number") or -1) == pr_number
+            ),
+            None,
+        )
+    eligible = [c for c in candidates if c.get("eligibility") == "eligible"]
+    return eligible[0] if eligible else None
+
+
+def _selection_from_candidate(candidate: dict) -> dict:
+    """Build a selection dict from a candidate (read-only, no board move)."""
+    item_id = str(candidate["item_id"])
+    return {
+        "item_id": item_id,
+        "number": int(candidate.get("pr_number") or candidate["number"]),
+        "issue_number": candidate.get("issue_number"),
+        "pr_number": int(candidate.get("pr_number") or candidate["number"]),
+        "status": candidate.get("status"),
+        "title": candidate.get("title"),
+    }
+
+
 def build_review_pipeline_context(
     *,
     repo: str,
     pr_number: int | None,
-    state_file: Path,
     review_candidate_fetcher: Callable[[str], list[dict]] | None = None,
-    claim_entry: Callable[..., dict | None] | None = None,
     pr_context_builder: Callable[[str, int], dict] | None = None,
     review_preparer: Callable[[str, int], dict] | None = None,
-    mover: Callable[[str, str], None] | None = None,
 ) -> dict:
+    """Build review-pipeline context (read-only, no board move).
+
+    The agent is responsible for claiming the item (moving to Under review)
+    after it has verified the PR is review-ready and is about to start work.
+    """
     review_candidate_fetcher = review_candidate_fetcher or fetch_review_candidates
     pr_context_builder = pr_context_builder or pipeline_pr.build_pr_context
     review_preparer = review_preparer or (
-        lambda repo, pr_number: pipeline_worktree.prepare_review(
+        lambda repo, pr_number: pipeline_worktree.prepare_review_from_cwd(
             repo=repo,
             pr_number=pr_number,
         )
     )
-    mover = mover or pipeline_board.move_item
 
     candidates = review_candidate_fetcher(repo)
     if not candidates:
         return build_status_result("review-pipeline", status="empty")
 
+    # Check for ambiguous cards first
     if pr_number is None:
         ambiguous = next(
-            (
-                candidate
-                for candidate in candidates
-                if candidate.get("eligibility") == "ambiguous-linked-prs"
-            ),
+            (c for c in candidates if c.get("eligibility") == "ambiguous-linked-prs"),
             None,
         )
         if ambiguous is not None:
@@ -1116,90 +1106,42 @@ def build_review_pipeline_context(
                 options=ambiguous.get("linked_repo_prs", []),
                 recommendation=ambiguous.get("recommendation"),
             )
-
-        if claim_entry is not None:
-            selection = claim_entry(
-                repo=repo,
-                state_file=state_file,
-                pr_number=None,
-            )
-        else:
-            selection = pipeline_board.claim_entry_from_entries(
-                "review",
-                pipeline_board.eligible_review_candidate_entries(candidates),
-                state_file,
-            )
-        if selection is None:
-            return build_status_result("review-pipeline", status="empty")
-
-        selected_pr_number = int(selection["pr_number"])
-        return build_ready_result(
-            skill="review-pipeline",
-            selection=selection,
-            pr=pr_context_builder(repo, selected_pr_number),
-            prep=review_preparer(repo, selected_pr_number),
-        )
-
-    matching_ambiguous = next(
-        (
-            candidate
-            for candidate in candidates
-            if candidate.get("eligibility") == "ambiguous-linked-prs"
-            and any(
-                int(option["number"]) == pr_number
-                for option in candidate.get("linked_repo_prs", [])
-            )
-        ),
-        None,
-    )
-    if matching_ambiguous is not None:
-        mover(str(matching_ambiguous["item_id"]), pipeline_board.STATUS_UNDER_REVIEW)
-        selection = build_ambiguous_selection(
-            matching_ambiguous,
-            pr_number=pr_number,
-        )
-        return build_ready_result(
-            skill="review-pipeline",
-            selection=selection,
-            pr=pr_context_builder(repo, pr_number),
-            prep=review_preparer(repo, pr_number),
-        )
-
-    matching_candidate = next(
-        (
-            candidate
-            for candidate in candidates
-            if int(candidate.get("pr_number") or candidate.get("number") or -1) == pr_number
-        ),
-        None,
-    )
-    if matching_candidate is None:
-        return build_status_result("review-pipeline", status="empty")
-
-    if matching_candidate.get("eligibility") != "eligible":
-        return build_status_result("review-pipeline", status="empty")
-
-    if claim_entry is not None:
-        selection = claim_entry(
-            repo=repo,
-            state_file=state_file,
-            pr_number=pr_number,
-        )
     else:
-        selection = pipeline_board.claim_entry_from_entries(
-            "review",
-            pipeline_board.eligible_review_candidate_entries(candidates),
-            state_file,
-            target_number=pr_number,
+        matching_ambiguous = next(
+            (
+                c
+                for c in candidates
+                if c.get("eligibility") == "ambiguous-linked-prs"
+                and any(
+                    int(option["number"]) == pr_number
+                    for option in c.get("linked_repo_prs", [])
+                )
+            ),
+            None,
         )
-    if selection is None:
+        if matching_ambiguous is not None:
+            selection = build_ambiguous_selection(matching_ambiguous, pr_number=pr_number)
+            return build_ready_result(
+                skill="review-pipeline",
+                selection=selection,
+                pr=pr_context_builder(repo, pr_number),
+                prep=review_preparer(repo, pr_number),
+            )
+
+    candidate = _select_candidate(candidates, pr_number)
+    if candidate is None:
         return build_status_result("review-pipeline", status="empty")
 
+    if candidate.get("eligibility") != "eligible":
+        return build_status_result("review-pipeline", status="empty")
+
+    selection = _selection_from_candidate(candidate)
+    selected_pr_number = int(selection["pr_number"])
     return build_ready_result(
         skill="review-pipeline",
         selection=selection,
-        pr=pr_context_builder(repo, pr_number),
-        prep=review_preparer(repo, pr_number),
+        pr=pr_context_builder(repo, selected_pr_number),
+        prep=review_preparer(repo, selected_pr_number),
     )
 
 
@@ -1207,7 +1149,6 @@ def build_final_review_context(
     *,
     repo: str,
     pr_number: int | None,
-    state_file: Path,
     selection_fetcher: Callable[..., dict | None] | None = None,
     pr_context_builder: Callable[[str, int], dict] | None = None,
     review_preparer: Callable[[str, int], dict] | None = None,
@@ -1216,7 +1157,7 @@ def build_final_review_context(
     selection_fetcher = selection_fetcher or select_final_review_entry
     pr_context_builder = pr_context_builder or pipeline_pr.build_pr_context
     review_preparer = review_preparer or (
-        lambda repo, pr_number: pipeline_worktree.prepare_review(
+        lambda repo, pr_number: pipeline_worktree.prepare_review_from_cwd(
             repo=repo,
             pr_number=pr_number,
         )
@@ -1225,7 +1166,6 @@ def build_final_review_context(
 
     selection = selection_fetcher(
         repo=repo,
-        state_file=state_file,
         pr_number=pr_number,
     )
     if selection is None:
@@ -1298,11 +1238,6 @@ def add_bundle_parser(
     parser = subparsers.add_parser(command)
     parser.add_argument("--repo", required=True)
     parser.add_argument("--pr", type=int)
-    parser.add_argument(
-        "--state-file",
-        type=Path,
-        default=DEFAULT_STATE_FILES[command],
-    )
     parser.add_argument("--format", choices=["json", "text"], default="json")
 
 
@@ -1344,7 +1279,6 @@ def main(argv: list[str] | None = None) -> int:
             build_review_pipeline_context(
                 repo=args.repo,
                 pr_number=args.pr,
-                state_file=args.state_file,
             ),
             args.format,
         )
@@ -1355,7 +1289,6 @@ def main(argv: list[str] | None = None) -> int:
             build_final_review_context(
                 repo=args.repo,
                 pr_number=args.pr,
-                state_file=args.state_file,
             ),
             args.format,
         )
