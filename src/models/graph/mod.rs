@@ -1,6 +1,7 @@
 //! Graph problems.
 //!
 //! Problems whose input is a graph (optionally weighted):
+//! - [`AcyclicPartition`]: Partition a digraph into bounded-weight groups with an acyclic quotient graph
 //! - [`MaximumIndependentSet`]: Maximum weight independent set
 //! - [`MaximalIS`]: Maximal independent set
 //! - [`MinimumVertexCover`]: Minimum weight vertex cover
@@ -43,6 +44,7 @@
 //! - [`StrongConnectivityAugmentation`]: Strong connectivity augmentation with weighted candidate arcs
 
 pub(crate) mod balanced_complete_bipartite_subgraph;
+pub(crate) mod acyclic_partition;
 pub(crate) mod biclique_cover;
 pub(crate) mod biconnectivity_augmentation;
 pub(crate) mod bounded_component_spanning_forest;
@@ -84,6 +86,7 @@ pub(crate) mod subgraph_isomorphism;
 pub(crate) mod traveling_salesman;
 pub(crate) mod undirected_two_commodity_integral_flow;
 
+pub use acyclic_partition::AcyclicPartition;
 pub use balanced_complete_bipartite_subgraph::BalancedCompleteBipartiteSubgraph;
 pub use biclique_cover::BicliqueCover;
 pub use biconnectivity_augmentation::BiconnectivityAugmentation;
@@ -129,6 +132,7 @@ pub use undirected_two_commodity_integral_flow::UndirectedTwoCommodityIntegralFl
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let mut specs = Vec::new();
+    specs.extend(acyclic_partition::canonical_model_example_specs());
     specs.extend(maximum_independent_set::canonical_model_example_specs());
     specs.extend(minimum_vertex_cover::canonical_model_example_specs());
     specs.extend(max_cut::canonical_model_example_specs());

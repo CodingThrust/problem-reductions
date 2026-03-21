@@ -18,7 +18,7 @@ pub use formula::{
     Quantifier, Satisfiability,
 };
 pub use graph::{
-    BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
+    AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
     BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GeneralizedHex,
     GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KClique,
     KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique,
