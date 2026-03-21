@@ -74,6 +74,7 @@
   "HamiltonianPath": [Hamiltonian Path],
   "ShortestWeightConstrainedPath": [Shortest Weight-Constrained Path],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
+  "PathConstrainedNetworkFlow": [Path-Constrained Network Flow],
   "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
   "KthBestSpanningTree": [Kth Best Spanning Tree],
@@ -1048,6 +1049,99 @@ is feasible: each set induces a connected subgraph, the component weights are $2
         }),
         caption: [Canonical shared-capacity YES instance for Undirected Two-Commodity Integral Flow. Solid blue carries commodity 1 and dashed teal carries commodity 2; both commodities share the edge $(v_2, v_3)$ of capacity 2.],
       ) <fig:undirected-two-commodity-integral-flow>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("PathConstrainedNetworkFlow")
+  let arcs = x.instance.graph.arcs.map(a => (a.at(0), a.at(1)))
+  let requirement = x.instance.requirement
+  let p1 = (0, 2, 5, 8)
+  let p2 = (0, 3, 6, 8)
+  let p5 = (1, 4, 7, 9)
+  [
+    #problem-def("PathConstrainedNetworkFlow")[
+      Given a directed graph $G = (V, A)$, designated vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, a prescribed collection $cal(P)$ of directed simple $s$-$t$ paths, and a requirement $R in ZZ^+$, determine whether there exists an integral path-flow function $g: cal(P) -> ZZ_(>= 0)$ such that $sum_(p in cal(P): a in p) g(p) <= c(a)$ for every arc $a in A$ and $sum_(p in cal(P)) g(p) >= R$.
+    ][
+      Path-Constrained Network Flow appears as problem ND34 in Garey \& Johnson @garey1979. Unlike ordinary single-commodity flow, the admissible routes are fixed in advance: every unit of flow must be assigned to one of the listed $s$-$t$ paths. This prescribed-path viewpoint is standard in line planning and unsplittable routing, and Büsing and Stiller give a modern published NP-completeness and inapproximability treatment for exactly this integral formulation @busingstiller2011.
+
+      The implementation uses one integer variable per prescribed path, bounded by that path's bottleneck capacity. Exhaustive search over those path-flow variables gives the registered worst-case bound $O^*((C + 1)^(|cal(P)|))$, where $C = max_(a in A) c(a)$. #footnote[This is the brute-force bound induced by the representation used in the library; no sharper general exact algorithm is claimed here for the integral prescribed-path formulation.]
+
+      *Example.* The canonical fixture uses the directed network with arcs $(0,1)$, $(0,2)$, $(1,3)$, $(1,4)$, $(2,4)$, $(3,5)$, $(4,5)$, $(4,6)$, $(5,7)$, and $(6,7)$, capacities $(2,1,1,1,1,1,1,1,2,1)$, source $s = 0$, sink $t = 7$, and required flow $R = #requirement$. The prescribed paths are $p_1 = 0 arrow 1 arrow 3 arrow 5 arrow 7$, $p_2 = 0 arrow 1 arrow 4 arrow 5 arrow 7$, $p_3 = 0 arrow 1 arrow 4 arrow 6 arrow 7$, $p_4 = 0 arrow 2 arrow 4 arrow 5 arrow 7$, and $p_5 = 0 arrow 2 arrow 4 arrow 6 arrow 7$. The fixture's satisfying configuration is $g = (#x.optimal_config.at(0), #x.optimal_config.at(1), #x.optimal_config.at(2), #x.optimal_config.at(3), #x.optimal_config.at(4)) = (1, 1, 0, 0, 1)$, so one unit is sent along $p_1$, one along $p_2$, and one along $p_5$. The shared arcs $(0,1)$ and $(5,7)$ each carry exactly two units of flow, matching their capacity 2, while every other used arc carries one unit. Therefore the total flow into $t$ is $3 = R$, so the instance is feasible.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o path-constrained-network-flow.json",
+        "pred solve path-constrained-network-flow.json --solver brute-force",
+        "pred evaluate path-constrained-network-flow.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 0.95cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let orange = rgb("#f28e2b")
+          let teal = rgb("#76b7b2")
+          let gray = luma(185)
+          let verts = (
+            (0, 0),
+            (1.4, 1.2),
+            (1.4, -1.2),
+            (2.8, 1.9),
+            (2.8, 0),
+            (4.2, 1.2),
+            (4.2, -1.2),
+            (5.6, 0),
+          )
+          for (u, v) in arcs {
+            line(
+              verts.at(u),
+              verts.at(v),
+              stroke: 0.8pt + gray,
+              mark: (end: "straight", scale: 0.45),
+            )
+          }
+          for idx in p1 {
+            let (u, v) = arcs.at(idx)
+            line(
+              verts.at(u),
+              verts.at(v),
+              stroke: 1.8pt + blue,
+              mark: (end: "straight", scale: 0.5),
+            )
+          }
+          for idx in p2 {
+            let (u, v) = arcs.at(idx)
+            line(
+              verts.at(u),
+              verts.at(v),
+              stroke: (paint: orange, thickness: 1.7pt, dash: "dashed"),
+              mark: (end: "straight", scale: 0.48),
+            )
+          }
+          for idx in p5 {
+            let (u, v) = arcs.at(idx)
+            line(
+              verts.at(u),
+              verts.at(v),
+              stroke: 1.6pt + teal,
+              mark: (end: "straight", scale: 0.46),
+            )
+          }
+          for (i, pos) in verts.enumerate() {
+            let fill = if i == 0 or i == 7 { rgb("#e15759").lighten(75%) } else { white }
+            g-node(pos, name: "pcnf-" + str(i), fill: fill, label: [$v_#i$])
+          }
+          content((0.65, 0.78), text(8pt, fill: gray)[$2 / 2$])
+          content((4.9, 0.78), text(8pt, fill: gray)[$2 / 2$])
+          line((0.2, -2.15), (0.8, -2.15), stroke: 1.8pt + blue, mark: (end: "straight", scale: 0.42))
+          content((1.15, -2.15), text(8pt)[$p_1$])
+          line((1.95, -2.15), (2.55, -2.15), stroke: (paint: orange, thickness: 1.7pt, dash: "dashed"), mark: (end: "straight", scale: 0.42))
+          content((2.9, -2.15), text(8pt)[$p_2$])
+          line((3.75, -2.15), (4.35, -2.15), stroke: 1.6pt + teal, mark: (end: "straight", scale: 0.42))
+          content((4.7, -2.15), text(8pt)[$p_5$])
+        }),
+        caption: [Canonical YES instance for Path-Constrained Network Flow. Blue, dashed orange, and teal show the three prescribed paths used by $g = (1, 1, 0, 0, 1)$. The labels $2 / 2$ mark the shared arcs $(0,1)$ and $(5,7)$, whose flow exactly saturates capacity 2.],
+      ) <fig:path-constrained-network-flow>
     ]
   ]
 }

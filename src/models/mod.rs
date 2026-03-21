@@ -20,16 +20,16 @@ pub use formula::{
 pub use graph::{
     AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
     BottleneckTravelingSalesman, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
-    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
-    IsomorphicSpanningTree, KClique, KColoring, KthBestSpanningTree,
-    LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
-    MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
-    MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter,
-    MinimumVertexCover, MixedChinesePostman, MultipleChoiceBranching, MultipleCopyFileAllocation,
-    OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman,
-    ShortestWeightConstrainedPath, SpinGlass, SteinerTree, SteinerTreeInGraphs,
-    StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
-    UndirectedTwoCommodityIntegralFlow,
+    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree,
+    KClique, KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths, MaxCut, MaximalIS,
+    MaximumClique, MaximumIndependentSet, MaximumMatching, MinMaxMulticenter,
+    MinimumCutIntoBoundedSets, MinimumDominatingSet, MinimumFeedbackArcSet,
+    MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover,
+    MixedChinesePostman, MultipleChoiceBranching, MultipleCopyFileAllocation,
+    OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
+    PathConstrainedNetworkFlow, RuralPostman, ShortestWeightConstrainedPath, SpinGlass,
+    SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation, SubgraphIsomorphism,
+    TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
