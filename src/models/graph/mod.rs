@@ -30,6 +30,7 @@
 //! - [`BalancedCompleteBipartiteSubgraph`]: Balanced biclique decision problem
 //! - [`BiconnectivityAugmentation`]: Biconnectivity augmentation with weighted potential edges
 //! - [`BoundedComponentSpanningForest`]: Partition vertices into bounded-weight connected components
+//! - [`BottleneckTravelingSalesman`]: Hamiltonian cycle minimizing the maximum selected edge weight
 //! - [`MultipleCopyFileAllocation`]: File-copy placement under storage and access costs
 //! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
@@ -49,6 +50,7 @@ pub(crate) mod acyclic_partition;
 pub(crate) mod balanced_complete_bipartite_subgraph;
 pub(crate) mod biclique_cover;
 pub(crate) mod biconnectivity_augmentation;
+pub(crate) mod bottleneck_traveling_salesman;
 pub(crate) mod bounded_component_spanning_forest;
 pub(crate) mod directed_two_commodity_integral_flow;
 pub(crate) mod generalized_hex;
@@ -60,6 +62,7 @@ pub(crate) mod kclique;
 pub(crate) mod kcoloring;
 pub(crate) mod kth_best_spanning_tree;
 pub(crate) mod length_bounded_disjoint_paths;
+pub(crate) mod longest_circuit;
 pub(crate) mod longest_path;
 pub(crate) mod max_cut;
 pub(crate) mod maximal_is;
@@ -94,6 +97,7 @@ pub use acyclic_partition::AcyclicPartition;
 pub use balanced_complete_bipartite_subgraph::BalancedCompleteBipartiteSubgraph;
 pub use biclique_cover::BicliqueCover;
 pub use biconnectivity_augmentation::BiconnectivityAugmentation;
+pub use bottleneck_traveling_salesman::BottleneckTravelingSalesman;
 pub use bounded_component_spanning_forest::BoundedComponentSpanningForest;
 pub use directed_two_commodity_integral_flow::DirectedTwoCommodityIntegralFlow;
 pub use generalized_hex::GeneralizedHex;
@@ -105,6 +109,7 @@ pub use kclique::KClique;
 pub use kcoloring::KColoring;
 pub use kth_best_spanning_tree::KthBestSpanningTree;
 pub use length_bounded_disjoint_paths::LengthBoundedDisjointPaths;
+pub use longest_circuit::LongestCircuit;
 pub use longest_path::LongestPath;
 pub use max_cut::MaxCut;
 pub use maximal_is::MaximalIS;
@@ -150,6 +155,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(kcoloring::canonical_model_example_specs());
     specs.extend(kth_best_spanning_tree::canonical_model_example_specs());
     specs.extend(length_bounded_disjoint_paths::canonical_model_example_specs());
+    specs.extend(longest_circuit::canonical_model_example_specs());
     specs.extend(longest_path::canonical_model_example_specs());
     specs.extend(minimum_dominating_set::canonical_model_example_specs());
     specs.extend(maximum_matching::canonical_model_example_specs());
@@ -168,6 +174,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(biclique_cover::canonical_model_example_specs());
     specs.extend(balanced_complete_bipartite_subgraph::canonical_model_example_specs());
     specs.extend(biconnectivity_augmentation::canonical_model_example_specs());
+    specs.extend(bottleneck_traveling_salesman::canonical_model_example_specs());
     specs.extend(bounded_component_spanning_forest::canonical_model_example_specs());
     specs.extend(partition_into_triangles::canonical_model_example_specs());
     specs.extend(partition_into_paths_of_length_2::canonical_model_example_specs());

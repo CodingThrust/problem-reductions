@@ -72,6 +72,7 @@
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
+  "LongestCircuit": [Longest Circuit],
   "LongestPath": [Longest Path],
   "ShortestWeightConstrainedPath": [Shortest Weight-Constrained Path],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
@@ -82,6 +83,7 @@
   "KClique": [$k$-Clique],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MaximumMatching": [Maximum Matching],
+  "BottleneckTravelingSalesman": [Bottleneck Traveling Salesman],
   "TravelingSalesman": [Traveling Salesman],
   "MaximumClique": [Maximum Clique],
   "MaximumSetPacking": [Maximum Set Packing],
@@ -764,6 +766,80 @@ Biconnectivity augmentation is a classical network-design problem: add backup li
   ]
 }
 
+#{
+  let x = load-model-example("LongestCircuit")
+  let nv = x.instance.graph.num_vertices
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let ne = edges.len()
+  let edge-lengths = x.instance.edge_lengths
+  let K = x.instance.bound
+  let config = x.optimal_config
+  let selected = range(ne).filter(i => config.at(i) == 1)
+  let total-length = selected.map(i => edge-lengths.at(i)).sum()
+  let cycle-order = (0, 1, 2, 3, 4, 5)
+  [
+    #problem-def("LongestCircuit")[
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$ and a positive bound $K$, determine whether there exists a simple circuit $C subset.eq E$ such that $sum_(e in C) l(e) >= K$.
+    ][
+      Longest Circuit is the decision version of the classical longest-cycle problem. Hamiltonian Circuit is the special case where every edge has unit length and $K = |V|$, so Longest Circuit is NP-complete via Karp's original Hamiltonicity result @karp1972. A standard exact baseline uses Held--Karp-style subset dynamic programming in $O(n^2 dot 2^n)$ time @heldkarp1962; unlike Hamiltonicity, the goal here is to certify a sufficiently long simple cycle rather than specifically a spanning one.
+
+      In the implementation, a configuration selects a subset of edges. It is satisfying exactly when the selected edges induce one connected 2-regular subgraph and the total selected length reaches the threshold $K$.
+
+      *Example.* Consider the canonical 6-vertex instance with bound $K = #K$. The outer cycle $v_0 arrow v_1 arrow v_2 arrow v_3 arrow v_4 arrow v_5 arrow v_0$ uses edge lengths $3 + 2 + 4 + 1 + 5 + 2 = #total-length$, so it is a satisfying circuit with total length exactly $K$. The extra chords $(v_0, v_3)$, $(v_1, v_4)$, $(v_2, v_5)$, and $(v_3, v_5)$ provide alternative routes but are not needed for this witness.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o longest-circuit.json",
+        "pred solve longest-circuit.json",
+        "pred evaluate longest-circuit.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (
+            selected: graph-colors.at(0),
+            unused: luma(200),
+          )
+          let r = 1.5
+          let positions = range(nv).map(i => {
+            let angle = 90deg - i * 360deg / nv
+            (calc.cos(angle) * r, calc.sin(angle) * r)
+          })
+
+          for (ei, (u, v)) in edges.enumerate() {
+            let is-selected = config.at(ei) == 1
+            let col = if is-selected { colors.selected } else { colors.unused }
+            let thickness = if is-selected { 1.3pt } else { 0.5pt }
+            let dash = if is-selected { "solid" } else { "dashed" }
+            line(positions.at(u), positions.at(v), stroke: (paint: col, thickness: thickness, dash: dash))
+
+            let mid = (
+              (positions.at(u).at(0) + positions.at(v).at(0)) / 2,
+              (positions.at(u).at(1) + positions.at(v).at(1)) / 2,
+            )
+            let dx = if ei == 6 { -0.28 } else if ei == 7 { 0.24 } else if ei == 8 { -0.24 } else if ei == 9 { 0.24 } else { 0 }
+            let dy = if ei == 6 { 0 } else if ei == 7 { 0.18 } else if ei == 8 { 0.18 } else if ei == 9 { -0.15 } else { 0 }
+            content(
+              (mid.at(0) + dx, mid.at(1) + dy),
+              text(6pt, fill: col)[#edge-lengths.at(ei)],
+              fill: white,
+              frame: "rect",
+              padding: 0.05,
+              stroke: none,
+            )
+          }
+
+          for (i, pos) in positions.enumerate() {
+            circle(pos, radius: 0.18, fill: white, stroke: 0.7pt + black)
+            content(pos, text(7pt)[$v_#i$])
+          }
+        }),
+        caption: [Longest Circuit instance on #nv vertices. The highlighted cycle $#cycle-order.map(v => $v_#v$).join($arrow$) arrow v_#(cycle-order.at(0))$ has total length #total-length $= K$; the gray dashed chords are available but unused.],
+      ) <fig:longest-circuit>
+    ]
+  ]
+}
+
 
 #problem-def("BoundedComponentSpanningForest")[
   Given an undirected graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(gt.eq 0)$, a positive integer $K <= |V|$, and a positive bound $B$, determine whether there exists a partition of $V$ into $t$ non-empty sets $V_1, dots, V_t$ with $1 <= t <= K$ such that each induced subgraph $G[V_i]$ is connected and each part satisfies $sum_(v in V_i) w(v) <= B$.
@@ -1342,6 +1418,96 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     },
     caption: [The house graph with a maximum matching $M = {#matched-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$ (blue edges, $w(M) = #wM$). Matched vertices shown in blue; #unmatched.map(i => $v_#i$).join(", ") #if unmatched.len() == 1 [is] else [are] unmatched.],
     ) <fig:house-matching>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("BottleneckTravelingSalesman")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges
+  let ew = x.instance.edge_weights
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let tour-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
+  let bottleneck = sol.metric.Valid
+  let tour-weights = tour-edges.map(((u, v)) => {
+    let idx = edges.position(e => e == (u, v) or e == (v, u))
+    int(ew.at(idx))
+  })
+  let tour-total = tour-weights.sum()
+  let tour-order = (0,)
+  let remaining = tour-edges
+  for _ in range(nv - 1) {
+    let curr = tour-order.last()
+    let next-edge = remaining.find(e => e.at(0) == curr or e.at(1) == curr)
+    let next-v = if next-edge.at(0) == curr { next-edge.at(1) } else { next-edge.at(0) }
+    tour-order.push(next-v)
+    remaining = remaining.filter(e => e != next-edge)
+  }
+  let tsp-order = (0, 2, 3, 1, 4)
+  let tsp-total = 13
+  let tsp-bottleneck = 5
+  let weight-labels = edges.map(((u, v)) => {
+    let idx = edges.position(e => e == (u, v))
+    (u: u, v: v, w: ew.at(idx))
+  })
+  [
+    #problem-def("BottleneckTravelingSalesman")[
+      Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $max_(e in C) w(e)$.
+    ][
+    This min-max variant models routing where the worst leg matters more than the total distance. Garey and Johnson list the threshold decision version as ND24 @garey1979: given a bound $B$, ask whether some Hamiltonian tour has every edge weight at most $B$. The optimization version implemented here subsumes that decision problem. The classical Held--Karp dynamic programming algorithm still yields an exact $O(n^2 dot 2^n)$-time algorithm @heldkarp1962, while Garey and Johnson note the polynomial-time special case of Gilmore and Gomory @gilmore1964.
+
+    *Example.* Consider the complete graph $K_#nv$ with vertices ${#range(nv).map(i => $v_#i$).join(", ")}$ and edge weights #weight-labels.map(l => $w(v_#(l.u), v_#(l.v)) = #(int(l.w))$).join(", "). The unique optimal bottleneck tour is $#tour-order.map(v => $v_#v$).join($arrow$) arrow v_#(tour-order.at(0))$ with edge weights #tour-weights.map(w => str(w)).join(", ") and bottleneck #bottleneck. Its total weight is #tour-total. By contrast, the minimum-total-weight TSP tour $#tsp-order.map(v => $v_#v$).join($arrow$) arrow v_#(tsp-order.at(0))$ has total weight #tsp-total but bottleneck #tsp-bottleneck, because it uses the weight-5 edge $(v_0, v_4)$. Here every other Hamiltonian tour in $K_#nv$ contains a weight-5 edge, so the blue tour is the only one that keeps the maximum edge weight at 4.
+
+    #figure({
+      let verts = ((0, 1.8), (1.7, 0.55), (1.05, -1.45), (-1.05, -1.45), (-1.7, 0.55))
+      canvas(length: 1cm, {
+        for (idx, (u, v)) in edges.enumerate() {
+          let on-tour = tour-edges.any(t => (t.at(0) == u and t.at(1) == v) or (t.at(0) == v and t.at(1) == u))
+          let on-tsp-only = (u == 0 and v == 4) or (u == 4 and v == 0)
+          g-edge(
+            verts.at(u),
+            verts.at(v),
+            stroke: if on-tour {
+              2pt + graph-colors.at(0)
+            } else if on-tsp-only {
+              1.5pt + rgb("#c44e38")
+            } else {
+              0.8pt + luma(200)
+            },
+          )
+          let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+          let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+          let (dx, dy) = if u == 0 and v == 1 {
+            (0.16, 0.2)
+          } else if u == 0 and v == 2 {
+            (0.25, 0.03)
+          } else if u == 0 and v == 3 {
+            (-0.25, 0.03)
+          } else if u == 0 and v == 4 {
+            (-0.16, 0.2)
+          } else if u == 1 and v == 2 {
+            (0.22, -0.05)
+          } else if u == 1 and v == 3 {
+            (0.12, -0.18)
+          } else if u == 1 and v == 4 {
+            (0, 0.12)
+          } else if u == 2 and v == 3 {
+            (0, -0.2)
+          } else if u == 2 and v == 4 {
+            (-0.12, -0.18)
+          } else {
+            (-0.22, -0.05)
+          }
+          draw.content((mx + dx, my + dy), text(7pt, fill: luma(80))[#str(int(ew.at(idx)))])
+        }
+        for (k, pos) in verts.enumerate() {
+          g-node(pos, name: "v" + str(k), fill: graph-colors.at(0), label: text(fill: white)[$v_#k$])
+        }
+      })
+    },
+    caption: [The $K_5$ bottleneck-TSP instance. Blue edges form the unique optimal bottleneck tour; the red edge $(v_0, v_4)$ is the weight-5 edge used by the minimum-total-weight TSP tour.],
+    ) <fig:k5-btsp>
     ]
   ]
 }
