@@ -152,6 +152,27 @@ crate::declare_variants! {
     default opt MinimumHittingSet => "2^universe_size",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "minimum_hitting_set",
+        instance: Box::new(MinimumHittingSet::new(
+            6,
+            vec![
+                vec![0, 1, 2],
+                vec![0, 3, 4],
+                vec![1, 3, 5],
+                vec![2, 4, 5],
+                vec![0, 1, 5],
+                vec![2, 3],
+                vec![1, 4],
+            ],
+        )),
+        optimal_config: vec![0, 1, 0, 1, 1, 0],
+        optimal_value: serde_json::json!({"Valid": 3}),
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/set/minimum_hitting_set.rs"]
 mod tests;

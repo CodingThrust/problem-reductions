@@ -111,3 +111,23 @@ fn test_minimum_hitting_set_paper_example_consistency() {
 
     assert_eq!(problem.evaluate(&issue_example_config()), SolutionSize::Valid(3));
 }
+
+#[cfg(feature = "example-db")]
+#[test]
+fn test_minimum_hitting_set_canonical_example_spec() {
+    let specs = canonical_model_example_specs();
+    assert_eq!(specs.len(), 1);
+    let spec = &specs[0];
+
+    assert_eq!(spec.id, "minimum_hitting_set");
+    assert_eq!(spec.optimal_config, issue_example_config());
+    assert_eq!(spec.optimal_value, serde_json::json!({"Valid": 3}));
+
+    let problem: MinimumHittingSet = serde_json::from_value(spec.instance.serialize_json()).unwrap();
+    assert_eq!(problem.universe_size(), 6);
+    assert_eq!(problem.sets().len(), 7);
+
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&best), SolutionSize::Valid(3));
+}

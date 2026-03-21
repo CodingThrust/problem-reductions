@@ -5,6 +5,7 @@
 //! - [`ExactCoverBy3Sets`]: Exact cover by 3-element subsets (X3C)
 //! - [`ComparativeContainment`]: Compare containment-weight sums for two set families
 //! - [`MaximumSetPacking`]: Maximum weight set packing
+//! - [`MinimumHittingSet`]: Minimum-size universe subset hitting every set
 //! - [`MinimumSetCovering`]: Minimum weight set cover
 //! - [`PrimeAttributeName`]: Determine if an attribute belongs to any candidate key
 
@@ -37,6 +38,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(consecutive_sets::canonical_model_example_specs());
     specs.extend(exact_cover_by_3_sets::canonical_model_example_specs());
     specs.extend(maximum_set_packing::canonical_model_example_specs());
+    specs.extend(minimum_hitting_set::canonical_model_example_specs());
     specs.extend(minimum_set_covering::canonical_model_example_specs());
     specs.extend(minimum_cardinality_key::canonical_model_example_specs());
     specs.extend(prime_attribute_name::canonical_model_example_specs());
