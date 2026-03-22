@@ -251,6 +251,7 @@ Flags by problem type:
   SetBasis                        --universe, --sets, --k
   MinimumCardinalityKey           --num-attributes, --dependencies, --k
   PrimeAttributeName              --universe, --deps, --query
+  RootedTreeStorageAssignment     --universe, --sets, --bound
   TwoDimensionalConsecutiveSets   --alphabet-size, --sets
   BicliqueCover                   --left, --right, --biedges, --k
   BalancedCompleteBipartiteSubgraph --left, --right, --biedges, --k

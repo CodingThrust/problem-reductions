@@ -553,6 +553,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "HamiltonianCircuit" => "--graph 0-1,1-2,2-3,3-0",
         "EnsembleComputation" => "--universe 4 --sets \"0,1,2;0,1,3\" --budget 4",
+        "RootedTreeStorageAssignment" => "--universe 5 --sets \"0,2;1,3;0,4;2,4\" --bound 1",
         "MinMaxMulticenter" => {
             "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 --bound 2"
         }
@@ -2331,6 +2332,33 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     )
                     .map_err(anyhow::Error::msg)?,
                 )?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // RootedTreeStorageAssignment
+        "RootedTreeStorageAssignment" => {
+            let usage =
+                "Usage: pred create RootedTreeStorageAssignment --universe 5 --sets \"0,2;1,3;0,4;2,4\" --bound 1";
+            let universe_size = args.universe.ok_or_else(|| {
+                anyhow::anyhow!("RootedTreeStorageAssignment requires --universe\n\n{usage}")
+            })?;
+            let subsets = parse_sets(args)?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("RootedTreeStorageAssignment requires --bound\n\n{usage}")
+            })?;
+            let bound = parse_nonnegative_usize_bound(
+                bound,
+                "RootedTreeStorageAssignment",
+                usage,
+            )?;
+            (
+                ser(problemreductions::models::set::RootedTreeStorageAssignment::try_new(
+                    universe_size,
+                    subsets,
+                    bound,
+                )
+                .map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
         }
@@ -6134,6 +6162,38 @@ mod tests {
             serde_json::json!([[0, 1, 2], [0, 1, 3]])
         );
         assert_eq!(json["data"]["budget"], 4);
+
+        std::fs::remove_file(output_path).ok();
+    }
+
+    #[test]
+    fn test_create_rooted_tree_storage_assignment_json() {
+        let mut args = empty_args();
+        args.problem = Some("RootedTreeStorageAssignment".to_string());
+        args.universe = Some(5);
+        args.sets = Some("0,2;1,3;0,4;2,4".to_string());
+        args.bound = Some(1);
+
+        let output_path =
+            std::env::temp_dir().join("pred_test_create_rooted_tree_storage_assignment.json");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let content = std::fs::read_to_string(&output_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(json["type"], "RootedTreeStorageAssignment");
+        assert_eq!(json["data"]["universe_size"], 5);
+        assert_eq!(
+            json["data"]["subsets"],
+            serde_json::json!([[0, 2], [1, 3], [0, 4], [2, 4]])
+        );
+        assert_eq!(json["data"]["bound"], 1);
 
         std::fs::remove_file(output_path).ok();
     }

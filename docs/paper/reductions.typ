@@ -147,6 +147,7 @@
   "QuantifiedBooleanFormulas": [Quantified Boolean Formulas (QBF)],
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
+  "RootedTreeStorageAssignment": [Rooted Tree Storage Assignment],
   "SchedulingWithIndividualDeadlines": [Scheduling With Individual Deadlines],
   "SequencingToMinimizeMaximumCumulativeCost": [Sequencing to Minimize Maximum Cumulative Cost],
   "SequencingToMinimizeWeightedCompletionTime": [Sequencing to Minimize Weighted Completion Time],
@@ -2508,6 +2509,70 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       "pred solve minimum-cardinality-key.json",
       "pred evaluate minimum-cardinality-key.json --config " + x.optimal_config.map(str).join(","),
     )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("RootedTreeStorageAssignment")
+  let n = x.instance.universe_size
+  let subsets = x.instance.subsets
+  let m = subsets.len()
+  let K = x.instance.bound
+  let config = x.optimal_config
+  let edges = config.enumerate().filter(((v, p)) => v != p).map(((v, p)) => (p, v))
+  let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
+  let highlight-nodes = (0, 2, 4)
+  let highlight-edges = ((0, 2), (2, 4))
+  [
+    #problem-def("RootedTreeStorageAssignment")[
+      Given a finite set $X = {0, 1, dots, #(n - 1)}$, a collection $cal(C) = {X_1, dots, X_m}$ of subsets of $X$, and a nonnegative integer $K$, find a directed rooted tree $T = (X, A)$ and supersets $X_i' supset.eq X_i$ such that every $X_i'$ forms a directed path in $T$ and $sum_(i = 1)^m |X_i' backslash X_i| <= K$.
+    ][
+    Rooted Tree Storage Assignment is the storage-and-retrieval problem SR5 in Garey and Johnson @garey1979. Their catalog credits a reduction from Rooted Tree Arrangement, framing the problem as hierarchical file organization: pick a rooted tree on the records so every request set can be completed to a single root-to-leaf path using only a limited number of extra records. The implementation here uses one parent variable per element of $X$, so the direct exhaustive bound is $|X|^(|X|)$ candidate parent arrays, filtered down to valid rooted trees#footnote[No exact algorithm improving on the direct parent-array search bound is claimed here for the general formulation.].
+
+    *Example.* Let $X = {0, 1, dots, #(n - 1)}$, $K = #K$, and $cal(C) = {#range(m).map(i => $X_#(i + 1)$).join(", ")}$ with #subsets.enumerate().map(((i, s)) => $X_#(i + 1) = #fmt-set(s)$).join(", "). The satisfying parent array $p = (#config.map(str).join(", "))$ encodes the rooted tree with arcs #edges.map(((u, v)) => $(#u, #v)$).join(", "). In this tree, $X_1 = {0, 2}$, $X_2 = {1, 3}$, and $X_4 = {2, 4}$ are already directed paths. The only extension is $X_3 = {0, 4}$, which becomes $X_3' = {0, 2, 4}$ along the path $0 -> 2 -> 4$, so the total extension cost is exactly $1 = K$.
+
+    #pred-commands(
+      "pred create --example " + problem-spec(x) + " -o rooted-tree-storage-assignment.json",
+      "pred solve rooted-tree-storage-assignment.json --solver brute-force",
+      "pred evaluate rooted-tree-storage-assignment.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure(
+      canvas(length: 1cm, {
+        import draw: *
+
+        let positions = (
+          (1.5, 1.8),
+          (0.6, 0.9),
+          (2.4, 0.9),
+          (0.6, 0.0),
+          (2.4, 0.0),
+        )
+
+        for (u, v) in edges {
+          let highlighted = highlight-edges.contains((u, v))
+          line(
+            positions.at(u),
+            positions.at(v),
+            stroke: if highlighted { 1.2pt + graph-colors.at(0) } else { 0.8pt + luma(140) },
+            mark: (end: "straight", scale: 0.45),
+          )
+        }
+
+        for (vertex, pos) in positions.enumerate() {
+          let highlighted = highlight-nodes.contains(vertex)
+          circle(
+            pos,
+            radius: 0.2,
+            fill: if highlighted { graph-colors.at(0) } else { white },
+            stroke: 0.6pt + black,
+          )
+          content(pos, if highlighted { text(fill: white)[$#vertex$] } else { [$#vertex$] })
+        }
+      }),
+      caption: [Rooted Tree Storage Assignment example. The rooted tree encoded by $p = (#config.map(str).join(", "))$ is shown; the blue path $0 -> 2 -> 4$ is the unique extension needed to realize $X_3 = {0, 4}$ within total cost $K = #K$.],
+    ) <fig:rooted-tree-storage-assignment>
     ]
   ]
 }

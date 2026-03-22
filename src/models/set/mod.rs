@@ -8,6 +8,7 @@
 //! - [`MinimumHittingSet`]: Minimum-size universe subset hitting every set
 //! - [`MinimumSetCovering`]: Minimum weight set cover
 //! - [`PrimeAttributeName`]: Determine if an attribute belongs to any candidate key
+//! - [`RootedTreeStorageAssignment`]: Extend subsets to directed tree paths within a total-cost bound
 
 pub(crate) mod comparative_containment;
 pub(crate) mod consecutive_sets;
@@ -17,6 +18,7 @@ pub(crate) mod minimum_cardinality_key;
 pub(crate) mod minimum_hitting_set;
 pub(crate) mod minimum_set_covering;
 pub(crate) mod prime_attribute_name;
+pub(crate) mod rooted_tree_storage_assignment;
 pub(crate) mod set_basis;
 pub(crate) mod two_dimensional_consecutive_sets;
 
@@ -28,6 +30,7 @@ pub use minimum_cardinality_key::MinimumCardinalityKey;
 pub use minimum_hitting_set::MinimumHittingSet;
 pub use minimum_set_covering::MinimumSetCovering;
 pub use prime_attribute_name::PrimeAttributeName;
+pub use rooted_tree_storage_assignment::RootedTreeStorageAssignment;
 pub use set_basis::SetBasis;
 pub use two_dimensional_consecutive_sets::TwoDimensionalConsecutiveSets;
 
@@ -42,6 +45,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(minimum_hitting_set::canonical_model_example_specs());
     specs.extend(minimum_set_covering::canonical_model_example_specs());
     specs.extend(prime_attribute_name::canonical_model_example_specs());
+    specs.extend(rooted_tree_storage_assignment::canonical_model_example_specs());
     specs.extend(set_basis::canonical_model_example_specs());
     specs.extend(two_dimensional_consecutive_sets::canonical_model_example_specs());
     specs
