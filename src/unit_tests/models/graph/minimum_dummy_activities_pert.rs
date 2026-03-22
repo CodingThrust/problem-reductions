@@ -77,6 +77,17 @@ fn test_minimum_dummy_activities_pert_serialization_roundtrip() {
 }
 
 #[test]
+fn test_minimum_dummy_activities_pert_transitive_arc_zero_dummies() {
+    // DAG with transitive arc: 0→1, 1→2, 0→2.
+    // Merging 0+=1- and 1+=2- makes the 0→2 reachability transitively
+    // satisfied, so the optimal dummy count is 0.
+    let dag = DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = MinimumDummyActivitiesPert::new(dag);
+    let solution = BruteForce::new().find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&solution), SolutionSize::Valid(0));
+}
+
+#[test]
 fn test_minimum_dummy_activities_pert_paper_example() {
     let problem = issue_problem();
     let config = config_for_merges(&problem, &[(0, 2), (1, 4), (2, 5)]);

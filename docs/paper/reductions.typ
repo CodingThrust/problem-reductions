@@ -2086,7 +2086,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 
     #pred-commands(
       "pred create --example " + problem-spec(x) + " -o minimum-dummy-activities-pert.json",
-      "pred solve minimum-dummy-activities-pert.json",
+      "pred solve minimum-dummy-activities-pert.json --solver brute-force",
       "pred evaluate minimum-dummy-activities-pert.json --config " + x.optimal_config.map(str).join(","),
     )
 

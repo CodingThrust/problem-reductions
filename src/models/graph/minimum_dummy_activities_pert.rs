@@ -143,6 +143,9 @@ impl MinimumDummyActivitiesPert {
             })
             .collect();
 
+        let task_arc_set: BTreeSet<(usize, usize)> = task_arcs.iter().copied().collect();
+        let num_dummy_arcs = dummy_arcs.difference(&task_arc_set).count();
+
         let mut event_arcs = task_arcs;
         event_arcs.extend(dummy_arcs.iter().copied());
         let event_graph = DirectedGraph::new(root_to_dense.len(), event_arcs);
@@ -154,7 +157,7 @@ impl MinimumDummyActivitiesPert {
             event_graph,
             start_events,
             finish_events,
-            num_dummy_arcs: dummy_arcs.len(),
+            num_dummy_arcs,
         })
     }
 }
