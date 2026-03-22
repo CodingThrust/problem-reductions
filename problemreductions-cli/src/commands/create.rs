@@ -6283,7 +6283,6 @@ mod tests {
             sink_2: None,
             requirement_1: None,
             requirement_2: None,
-            requirement: None,
             sizes: None,
             capacity: None,
             sequence: None,
