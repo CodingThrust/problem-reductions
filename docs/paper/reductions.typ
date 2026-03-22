@@ -6722,6 +6722,44 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Sort tasks by their completion times $C_j$ and encode that order back into the source schedule representation.
 ]
 
+#let hc_tsp = load-example("HamiltonianCircuit", "TravelingSalesman")
+#let hc_tsp_sol = hc_tsp.solutions.at(0)
+#let hc_tsp_n = graph-num-vertices(hc_tsp.source.instance)
+#let hc_tsp_source_edges = hc_tsp.source.instance.graph.edges
+#let hc_tsp_target_edges = hc_tsp.target.instance.graph.edges
+#let hc_tsp_target_weights = hc_tsp.target.instance.edge_weights
+#let hc_tsp_weight_one = hc_tsp_target_edges.enumerate().filter(((i, _)) => hc_tsp_target_weights.at(i) == 1).map(((i, e)) => (e.at(0), e.at(1)))
+#let hc_tsp_weight_two = hc_tsp_target_edges.enumerate().filter(((i, _)) => hc_tsp_target_weights.at(i) == 2).map(((i, e)) => (e.at(0), e.at(1)))
+#let hc_tsp_selected_edges = hc_tsp_target_edges.enumerate().filter(((i, _)) => hc_tsp_sol.target_config.at(i) == 1).map(((i, e)) => (e.at(0), e.at(1)))
+#reduction-rule("HamiltonianCircuit", "TravelingSalesman",
+  example: true,
+  example-caption: [Cycle graph on $#hc_tsp_n$ vertices to weighted $K_#hc_tsp_n$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_tsp.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_tsp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_tsp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Start from the source graph.* The canonical source fixture is the cycle on vertices ${0, 1, 2, 3}$ with edges #hc_tsp_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#hc_tsp_sol.source_config.map(str).join(", ")]$.\ 
+
+    *Step 2 -- Complete the graph and encode adjacency by weights.* The target keeps the same $#hc_tsp_n$ vertices but adds the missing diagonals, so it becomes $K_#hc_tsp_n$ with $#graph-num-edges(hc_tsp.target.instance)$ undirected edges. The original cycle edges #hc_tsp_weight_one.map(e => $(#e.at(0), #e.at(1))$).join(", ") receive weight 1, while the diagonals #hc_tsp_weight_two.map(e => $(#e.at(0), #e.at(1))$).join(", ") receive weight 2.\ 
+
+    *Step 3 -- Verify the canonical witness.* The stored target configuration $[#hc_tsp_sol.target_config.map(str).join(", ")]$ selects the tour edges #hc_tsp_selected_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). Its total cost is $1 + 1 + 1 + 1 = #hc_tsp_n$, so every chosen edge is a weight-1 source edge, and traversing the selected cycle recovers the Hamiltonian circuit $[#hc_tsp_sol.source_config.map(str).join(", ")]$.\ 
+
+    *Multiplicity:* The fixture stores one canonical witness. For the 4-cycle there are $4 times 2 = 8$ Hamiltonian-circuit permutations (choice of start vertex and direction), but they all induce the same undirected target edge set.
+  ],
+)[
+  @garey1979 This $O(n^2)$ reduction constructs the complete graph on the same vertex set and uses edge weights to distinguish source edges from non-edges: weight 1 means "present in the source" and weight 2 means "missing in the source" ($n (n - 1) / 2$ target edges).
+][
+  _Construction._ Given a Hamiltonian Circuit instance $G = (V, E)$ with $n = |V|$, construct the complete graph $K_n$ on the same vertex set. For each pair $u < v$, set $w(u, v) = 1$ if $(u, v) in E$ and $w(u, v) = 2$ otherwise. The target TSP instance asks for a minimum-weight Hamiltonian cycle in this weighted complete graph.
+
+  _Correctness._ ($arrow.r.double$) If $G$ has a Hamiltonian circuit $v_0, v_1, dots, v_(n-1), v_0$, then the same cycle exists in $K_n$. Every chosen edge belongs to $E$, so each edge has weight 1 and the resulting TSP tour has total cost $n$. ($arrow.l.double$) Every TSP tour on $n$ vertices uses exactly $n$ edges, and every target edge has weight at least 1, so any tour has cost at least $n$. If the optimum cost is exactly $n$, every selected edge must therefore have weight 1. Those edges are precisely edges of $G$, so the optimal TSP tour is already a Hamiltonian circuit in the source graph.
+
+  _Solution extraction._ Read the selected TSP edges, traverse the unique degree-2 cycle they form, and return the resulting vertex permutation as the source Hamiltonian-circuit witness.
+]
+
 #let tsp_ilp = load-example("TravelingSalesman", "ILP")
 #let tsp_ilp_sol = tsp_ilp.solutions.at(0)
 #reduction-rule("TravelingSalesman", "ILP",
