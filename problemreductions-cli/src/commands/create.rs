@@ -14,8 +14,8 @@ use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
     LengthBoundedDisjointPaths, LongestCircuit, LongestPath, MinimumCutIntoBoundedSets,
-    MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching, SteinerTree,
-    SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching, PathConstrainedNetworkFlow,
+    SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
@@ -55,6 +55,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.sink.is_none()
         && args.requirement.is_none()
         && args.num_paths_required.is_none()
+        && args.paths.is_none()
         && args.couplings.is_none()
         && args.fields.is_none()
         && args.clauses.is_none()
@@ -77,6 +78,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.sink_2.is_none()
         && args.requirement_1.is_none()
         && args.requirement_2.is_none()
+        && args.requirement.is_none()
         && args.sizes.is_none()
         && args.capacity.is_none()
         && args.sequence.is_none()
@@ -540,6 +542,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "LengthBoundedDisjointPaths" => {
             "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3"
         }
+        "PathConstrainedNetworkFlow" => {
+            "--arcs \"0>1,0>2,1>3,1>4,2>4,3>5,4>5,4>6,5>7,6>7\" --capacities 2,1,1,1,1,1,1,1,2,1 --source 0 --sink 7 --paths \"0,2,5,8;0,3,6,8;0,3,7,9;1,4,6,8;1,4,7,9\" --requirement 3"
+        }
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "KthBestSpanningTree" => "--graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3",
         "LongestCircuit" => {
@@ -770,6 +775,9 @@ fn help_flag_hint(
         }
         ("ConsistencyOfDatabaseFrequencyTables", "known_values") => {
             "semicolon-separated triples: \"0,0,0;3,0,1;1,2,1\""
+        }
+        ("PathConstrainedNetworkFlow", "paths") => {
+            "semicolon-separated arc-index paths: \"0,2,5,8;1,4,7,9\""
         }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
@@ -3319,6 +3327,47 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // PathConstrainedNetworkFlow
+        "PathConstrainedNetworkFlow" => {
+            let usage = "Usage: pred create PathConstrainedNetworkFlow --arcs \"0>1,0>2,1>3,1>4,2>4,3>5,4>5,4>6,5>7,6>7\" --capacities 2,1,1,1,1,1,1,1,2,1 --source 0 --sink 7 --paths \"0,2,5,8;0,3,6,8;0,3,7,9;1,4,6,8;1,4,7,9\" --requirement 3";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("PathConstrainedNetworkFlow requires --arcs\n\n{usage}")
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities: Vec<u64> = if let Some(ref s) = args.capacities {
+                util::parse_comma_list(s)?
+            } else {
+                vec![1; num_arcs]
+            };
+            anyhow::ensure!(
+                capacities.len() == num_arcs,
+                "capacities length ({}) must match number of arcs ({num_arcs})",
+                capacities.len()
+            );
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("PathConstrainedNetworkFlow requires --source\n\n{usage}")
+            })?;
+            let sink = args.sink.ok_or_else(|| {
+                anyhow::anyhow!("PathConstrainedNetworkFlow requires --sink\n\n{usage}")
+            })?;
+            let requirement = args.requirement.ok_or_else(|| {
+                anyhow::anyhow!("PathConstrainedNetworkFlow requires --requirement\n\n{usage}")
+            })?;
+            let paths = parse_prescribed_paths(args, num_arcs, usage)?;
+            (
+                ser(PathConstrainedNetworkFlow::new(
+                    graph,
+                    capacities,
+                    source,
+                    sink,
+                    paths,
+                    requirement,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumFeedbackArcSet
         "MinimumFeedbackArcSet" => {
             let arcs_str = args.arcs.as_deref().ok_or_else(|| {
@@ -5164,6 +5213,40 @@ fn parse_directed_graph(
     Ok((DirectedGraph::new(num_v, arcs), num_arcs))
 }
 
+fn parse_prescribed_paths(
+    args: &CreateArgs,
+    num_arcs: usize,
+    usage: &str,
+) -> Result<Vec<Vec<usize>>> {
+    let paths_str = args
+        .paths
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("PathConstrainedNetworkFlow requires --paths\n\n{usage}"))?;
+
+    paths_str
+        .split(';')
+        .map(|path_str| {
+            let trimmed = path_str.trim();
+            anyhow::ensure!(
+                !trimmed.is_empty(),
+                "PathConstrainedNetworkFlow paths must be non-empty\n\n{usage}"
+            );
+            let path: Vec<usize> = util::parse_comma_list(trimmed)?;
+            anyhow::ensure!(
+                !path.is_empty(),
+                "PathConstrainedNetworkFlow paths must be non-empty\n\n{usage}"
+            );
+            for &arc_idx in &path {
+                anyhow::ensure!(
+                    arc_idx < num_arcs,
+                    "Path arc index {arc_idx} out of bounds for {num_arcs} arcs\n\n{usage}"
+                );
+            }
+            Ok(path)
+        })
+        .collect()
+}
+
 fn parse_mixed_graph(args: &CreateArgs, usage: &str) -> Result<MixedGraph> {
     let (undirected_graph, num_vertices) =
         parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
@@ -5866,6 +5949,90 @@ mod tests {
     }
 
     #[test]
+    fn test_create_path_constrained_network_flow_outputs_problem_json() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "PathConstrainedNetworkFlow",
+            "--arcs",
+            "0>1,0>2,1>3,1>4,2>4,3>5,4>5,4>6,5>7,6>7",
+            "--capacities",
+            "2,1,1,1,1,1,1,1,2,1",
+            "--source",
+            "0",
+            "--sink",
+            "7",
+            "--paths",
+            "0,2,5,8;0,3,6,8;0,3,7,9;1,4,6,8;1,4,7,9",
+            "--requirement",
+            "3",
+        ])
+        .expect("parse create command");
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let output_path = temp_output_path("path_constrained_network_flow");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).expect("create PathConstrainedNetworkFlow JSON");
+
+        let created: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output_path).unwrap()).unwrap();
+        fs::remove_file(output_path).ok();
+
+        assert_eq!(created["type"], "PathConstrainedNetworkFlow");
+        assert_eq!(created["data"]["source"], 0);
+        assert_eq!(created["data"]["sink"], 7);
+        assert_eq!(created["data"]["requirement"], 3);
+        assert_eq!(created["data"]["paths"][0], serde_json::json!([0, 2, 5, 8]));
+    }
+
+    #[test]
+    fn test_create_path_constrained_network_flow_rejects_invalid_paths() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "PathConstrainedNetworkFlow",
+            "--arcs",
+            "0>1,1>2,2>3",
+            "--capacities",
+            "1,1,1",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--paths",
+            "0,3",
+            "--requirement",
+            "1",
+        ])
+        .expect("parse create command");
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("out of bounds") || err.contains("not contiguous"));
+    }
+
+    #[test]
     fn test_create_staff_scheduling_reports_invalid_schedule_without_panic() {
         let cli = Cli::try_parse_from([
             "pred",
@@ -5914,6 +6081,13 @@ mod tests {
             help_flag_hint("TimetableDesign", "craftsman_avail", "Vec<Vec<bool>>", None),
             "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
         );
+    }
+
+    #[test]
+    fn test_example_for_path_constrained_network_flow_mentions_paths_flag() {
+        let example = example_for("PathConstrainedNetworkFlow", None);
+        assert!(example.contains("--paths"));
+        assert!(example.contains("--requirement"));
     }
 
     #[test]
@@ -6233,6 +6407,7 @@ mod tests {
             sink: None,
             requirement: None,
             num_paths_required: None,
+            paths: None,
             couplings: None,
             fields: None,
             clauses: None,

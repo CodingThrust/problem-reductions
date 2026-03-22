@@ -240,6 +240,7 @@ Flags by problem type:
   IsomorphicSpanningTree          --graph, --tree
   KthBestSpanningTree             --graph, --edge-weights, --k, --bound
   LengthBoundedDisjointPaths      --graph, --source, --sink, --num-paths-required, --bound
+  PathConstrainedNetworkFlow      --arcs, --capacities, --source, --sink, --paths, --requirement
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
   SubsetSum                       --sizes, --target
@@ -370,12 +371,15 @@ pub struct CreateArgs {
     /// Sink vertex for path-based graph problems and MinimumCutIntoBoundedSets
     #[arg(long)]
     pub sink: Option<usize>,
-    /// Required sink inflow for IntegralFlowHomologousArcs and IntegralFlowWithMultipliers
+    /// Required total flow R for IntegralFlowHomologousArcs, IntegralFlowWithMultipliers, and PathConstrainedNetworkFlow
     #[arg(long)]
     pub requirement: Option<u64>,
     /// Required number of paths for LengthBoundedDisjointPaths
     #[arg(long)]
     pub num_paths_required: Option<usize>,
+    /// Prescribed directed s-t paths as semicolon-separated arc-index sequences (e.g., "0,2,5;1,4,6")
+    #[arg(long)]
+    pub paths: Option<String>,
     /// Pairwise couplings J_ij for SpinGlass (e.g., 1,-1,1) [default: all 1s]
     #[arg(long)]
     pub couplings: Option<String>,
