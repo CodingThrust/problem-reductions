@@ -59,19 +59,19 @@ pub mod prelude {
     pub use crate::models::graph::{
         KColoring, LongestCircuit, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
         MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
-        MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter,
-        MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
-        OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
-        PathConstrainedNetworkFlow, RuralPostman, ShortestWeightConstrainedPath,
-        SteinerTreeInGraphs, TravelingSalesman, UndirectedFlowLowerBounds,
-        UndirectedTwoCommodityIntegralFlow,
+        MinimumDummyActivitiesPert, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
+        MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
+        MultipleCopyFileAllocation, OptimalLinearArrangement, PartitionIntoPathsOfLength2,
+        PartitionIntoTriangles, PathConstrainedNetworkFlow, RootedTreeArrangement, RuralPostman,
+        ShortestWeightConstrainedPath, SteinerTreeInGraphs, TravelingSalesman,
+        UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
-        AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation,
+        AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
         ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables,
-        EnsembleComputation, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-        MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, Partition, QueryArg,
-        RectilinearPictureCompression, ResourceConstrainedScheduling,
+        EnsembleComputation, ExpectedRetrievalCost, Factoring, FlowShopScheduling, Knapsack,
+        LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+        Partition, QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
         SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
         SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
         SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
@@ -80,7 +80,8 @@ pub mod prelude {
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
-        MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering, PrimeAttributeName, SetBasis,
+        MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering, PrimeAttributeName,
+        RootedTreeStorageAssignment, SetBasis,
     };
 
     // Core traits

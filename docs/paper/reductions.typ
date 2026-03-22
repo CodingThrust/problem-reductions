@@ -117,12 +117,14 @@
   "BoundedComponentSpanningForest": [Bounded Component Spanning Forest],
   "BinPacking": [Bin Packing],
   "BoyceCoddNormalFormViolation": [Boyce-Codd Normal Form Violation],
+  "CapacityAssignment": [Capacity Assignment],
   "ConsistencyOfDatabaseFrequencyTables": [Consistency of Database Frequency Tables],
   "ClosestVectorProblem": [Closest Vector Problem],
   "ConsecutiveSets": [Consecutive Sets],
   "DisjointConnectingPaths": [Disjoint Connecting Paths],
   "MinimumMultiwayCut": [Minimum Multiway Cut],
   "OptimalLinearArrangement": [Optimal Linear Arrangement],
+  "RootedTreeArrangement": [Rooted Tree Arrangement],
   "RuralPostman": [Rural Postman],
   "MixedChinesePostman": [Mixed Chinese Postman],
   "StackerCrane": [Stacker Crane],
@@ -142,10 +144,12 @@
   "MinMaxMulticenter": [Min-Max Multicenter],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
+  "MinimumDummyActivitiesPert": [Minimum Dummy Activities in PERT Networks],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
   "MultipleChoiceBranching": [Multiple Choice Branching],
   "MultipleCopyFileAllocation": [Multiple Copy File Allocation],
+  "ExpectedRetrievalCost": [Expected Retrieval Cost],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
   "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
   "PartitionIntoTriangles": [Partition Into Triangles],
@@ -155,6 +159,7 @@
   "QuantifiedBooleanFormulas": [Quantified Boolean Formulas (QBF)],
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
+  "RootedTreeStorageAssignment": [Rooted Tree Storage Assignment],
   "SchedulingWithIndividualDeadlines": [Scheduling With Individual Deadlines],
   "SequencingToMinimizeMaximumCumulativeCost": [Sequencing to Minimize Maximum Cumulative Cost],
   "SequencingToMinimizeWeightedCompletionTime": [Sequencing to Minimize Weighted Completion Time],
@@ -2027,6 +2032,30 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   ]
 }
 #{
+  let x = load-model-example("RootedTreeArrangement")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let K = x.instance.bound
+  [
+    #problem-def("RootedTreeArrangement")[
+      Given an undirected graph $G = (V, E)$ and a non-negative integer $K$, is there a rooted tree $T = (U, F)$ with $|U| = |V|$ and a bijection $f: V -> U$ such that every edge $\{u, v\} in E$ maps to two nodes lying on a common root-to-leaf path in $T$, and $sum_(\{u, v\} in E) d_T(f(u), f(v)) <= K$?
+    ][
+      Rooted Tree Arrangement is GT45 in Garey and Johnson @garey1979. It generalizes Optimal Linear Arrangement by allowing the host layout to be any rooted tree rather than a single path. Garey and Johnson cite Gavril's NP-completeness proof via reduction from Optimal Linear Arrangement @gavril1977.
+
+      The connection to Optimal Linear Arrangement is immediate: if the rooted tree is restricted to a chain, the stretch objective becomes the linear-arrangement objective. This explains why the two problems live in the same arrangement family. For tree-oriented ordering problems, Adolphson and Hu give a polynomial-time algorithm for optimal linear ordering on trees @adolphsonHu1973, showing that the difficulty here comes from simultaneously choosing both the rooted-tree topology and the vertex-to-node bijection.
+
+      *Example.* Consider the graph with $n = #nv$ vertices, $|E| = #ne$ edges, and edge set ${#edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$. With bound $K = #K$, the chain tree encoded by parent array $(0, 0, 1, 2)$ and identity mapping $(0, 1, 2, 3)$ is a valid witness: every listed edge lies on the unique root-to-leaf chain, and the total stretch is $1 + 2 + 1 + 1 = 5 <= #K$. Therefore this canonical instance is a YES instance.
+
+      #pred-commands(
+        "pred create --example RootedTreeArrangement -o rooted-tree-arrangement.json",
+        "pred solve rooted-tree-arrangement.json --solver brute-force",
+        "pred evaluate rooted-tree-arrangement.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+#{
   let x = load-model-example("KClique")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
@@ -2123,6 +2152,58 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     },
     caption: [Path $P_#nv$ with maximal IS $S = {#S-sub.map(i => $v_#i$).join(", ")}$ (blue, $w(S) = #w-sub$). $S$ is maximal --- no white vertex can be added --- but not maximum: ${#S-opt.map(i => $v_#i$).join(", ")}$ achieves $w = #w-opt$.],
     ) <fig:path-maximal-is>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumDummyActivitiesPert")
+  let nv = x.instance.graph.num_vertices
+  let arcs = x.instance.graph.arcs
+  let ne = arcs.len()
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let merged = arcs.enumerate().filter(((i, _)) => sol.config.at(i) == 1).map(((i, arc)) => arc)
+  let dummy = arcs.enumerate().filter(((i, _)) => sol.config.at(i) == 0).map(((i, arc)) => arc)
+  let opt = sol.metric.Valid
+  let blue = graph-colors.at(0)
+  [
+    #problem-def("MinimumDummyActivitiesPert")[
+      Given a precedence DAG $G = (V, A)$, find an activity-on-arc PERT event network with one real activity arc for each task $v in V$, minimizing the number of dummy activity arcs, such that for every ordered pair of tasks $(u, v)$ there is a path from the finish event of $u$ to the start event of $v$ if and only if $v$ is reachable from $u$ in $G$.
+    ][
+    The decision version of minimum dummy activities appears as ND44 in Garey and Johnson's compendium @garey1979. It arises when an activity-on-node precedence DAG must be converted into an activity-on-arc PERT chart: merging compatible finish/start events removes dummy activities, but an over-aggressive merge creates spurious precedence relations between unrelated tasks. The implementation here enumerates, for each direct precedence arc, whether it is realized as an event merge or left as a dummy activity, so brute-force over the $m = #ne$ direct precedences yields a worst-case bound of $O^*(2^m)$. #footnote[No exact algorithm improving on the direct-precedence merge encoding implemented in the codebase is claimed here.]
+
+    *Example.* Consider the canonical precedence DAG on $n = #nv$ tasks with direct precedences #arcs.map(a => $(v_#(a.at(0)), v_#(a.at(1)))$).join(", "). The optimal encoding merges the predecessor-finish/successor-start pairs #merged.map(a => $(v_#(a.at(0)), v_#(a.at(1)))$).join(", "), so those handoffs need no dummy activity at all. The remaining direct precedences #dummy.map(a => $(v_#(a.at(0)), v_#(a.at(1)))$).join(" and ") still require dummy activities, so the optimum is $#opt$. Both unresolved precedences enter $v_3$, and merging either of them would identify unrelated task completions, creating spurious reachability between the two source tasks.
+
+    #pred-commands(
+      "pred create --example " + problem-spec(x) + " -o minimum-dummy-activities-pert.json",
+      "pred solve minimum-dummy-activities-pert.json --solver brute-force",
+      "pred evaluate minimum-dummy-activities-pert.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure({
+      let positions = ((0, 1.0), (0, -0.3), (2.0, 1.3), (2.0, 0.35), (2.0, -0.95), (4.0, 1.3))
+      canvas(length: 1cm, {
+        for (k, pos) in positions.enumerate() {
+          g-node(pos, name: "v" + str(k),
+            fill: white,
+            label: [$v_#k$])
+        }
+        for arc in dummy {
+          let (u, v) = arc
+          draw.line("v" + str(u), "v" + str(v),
+            stroke: (paint: luma(140), thickness: 1pt, dash: "dashed"),
+            mark: (end: "straight", scale: 0.4))
+        }
+        for arc in merged {
+          let (u, v) = arc
+          draw.line("v" + str(u), "v" + str(v),
+            stroke: 1.7pt + blue,
+            mark: (end: "straight", scale: 0.45))
+        }
+      })
+    },
+    caption: [Canonical Minimum Dummy Activities in PERT Networks instance. Blue precedence arcs are encoded by merging the predecessor finish event with the successor start event; dashed gray arcs still require dummy activities. The optimal encoding leaves exactly #opt dummy activities.],
+    ) <fig:minimum-dummy-activities-pert>
     ]
   ]
 }
@@ -2378,6 +2459,45 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     },
     caption: [Multiple Copy File Allocation on a 6-cycle. Copy vertices $v_1$, $v_3$, and $v_5$ are shown in blue; every white vertex is one hop from the nearest copy, so the total cost is $33$.],
     ) <fig:multiple-copy-file-allocation>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("ExpectedRetrievalCost")
+  let K = x.instance.bound
+  [
+    #problem-def("ExpectedRetrievalCost")[
+      Given a set $R = {r_1, dots, r_n}$ of records, access probabilities $p(r) in [0, 1]$ with $sum_(r in R) p(r) = 1$, a positive integer $m$ of circular storage sectors, and a bound $K$, determine whether there exists a partition $R_1, dots, R_m$ of $R$ such that
+      $sum_(i=1)^m sum_(j=1)^m p(R_i) p(R_j) d(i, j) <= K,$
+      where $p(R_i) = sum_(r in R_i) p(r)$ and
+      $d(i, j) = j - i - 1$ for $1 <= i < j <= m$, while $d(i, j) = m - i + j - 1$ for $1 <= j <= i <= m$.
+    ][
+    Expected Retrieval Cost is storage-and-retrieval problem SR4 in Garey and Johnson @garey1979. The model abstracts a drum-like storage device with fixed read heads: placing probability mass evenly around the cycle reduces the expected waiting time until the next requested sector rotates under the head. Cody and Coffman introduced the formulation and analyzed exact and heuristic record-allocation algorithms for fixed numbers of sectors @codycoffman1976. Garey and Johnson record that the general decision problem is NP-complete in the strong sense via transformations from Partition and 3-Partition @garey1979. The implementation in this repository uses one $m$-ary variable per record, so the registered exact baseline enumerates $m^n$ assignments. For practicality, the code stores the probabilities and bound as floating-point values even though the book states $K$ as an integer.
+
+    *Example.* Take six records with probabilities $(0.2, 0.15, 0.15, 0.2, 0.1, 0.2)$, three sectors, and $K = #K$. Assign
+    $R_1 = {r_1, r_5}$, $R_2 = {r_2, r_4}$, and $R_3 = {r_3, r_6}$.
+    Then the sector masses are $(p(R_1), p(R_2), p(R_3)) = (0.3, 0.35, 0.35)$.
+    For $m = 3$, the non-zero latencies are $d(1, 1) = d(2, 2) = d(3, 3) = 2$, $d(1, 3) = d(2, 1) = d(3, 2) = 1$, and the remaining pairs contribute 0. Hence the expected retrieval cost is $1.0025 <= #K$, so the allocation is satisfying.
+
+    #pred-commands(
+      "pred create --example ExpectedRetrievalCost -o expected-retrieval-cost.json",
+      "pred solve expected-retrieval-cost.json --solver brute-force",
+      "pred evaluate expected-retrieval-cost.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure(
+      table(
+        columns: 3,
+        inset: 6pt,
+        stroke: 0.5pt + luma(180),
+        [Sector], [Records], [Mass],
+        [$S_1$], [$r_1, r_5$], [$0.3$],
+        [$S_2$], [$r_2, r_4$], [$0.35$],
+        [$S_3$], [$r_3, r_6$], [$0.35$],
+      ),
+      caption: [Expected Retrieval Cost example with cyclic sector order $S_1 -> S_2 -> S_3 -> S_1$. The satisfying allocation yields masses $(0.3, 0.35, 0.35)$ and total cost $1.0025$.],
+    ) <fig:expected-retrieval-cost>
     ]
   ]
 }
@@ -2790,6 +2910,70 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       "pred solve minimum-cardinality-key.json",
       "pred evaluate minimum-cardinality-key.json --config " + x.optimal_config.map(str).join(","),
     )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("RootedTreeStorageAssignment")
+  let n = x.instance.universe_size
+  let subsets = x.instance.subsets
+  let m = subsets.len()
+  let K = x.instance.bound
+  let config = x.optimal_config
+  let edges = config.enumerate().filter(((v, p)) => v != p).map(((v, p)) => (p, v))
+  let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
+  let highlight-nodes = (0, 2, 4)
+  let highlight-edges = ((0, 2), (2, 4))
+  [
+    #problem-def("RootedTreeStorageAssignment")[
+      Given a finite set $X = {0, 1, dots, #(n - 1)}$, a collection $cal(C) = {X_1, dots, X_m}$ of subsets of $X$, and a nonnegative integer $K$, find a directed rooted tree $T = (X, A)$ and supersets $X_i' supset.eq X_i$ such that every $X_i'$ forms a directed path in $T$ and $sum_(i = 1)^m |X_i' backslash X_i| <= K$.
+    ][
+    Rooted Tree Storage Assignment is the storage-and-retrieval problem SR5 in Garey and Johnson @garey1979. Their catalog credits a reduction from Rooted Tree Arrangement, framing the problem as hierarchical file organization: pick a rooted tree on the records so every request set can be completed to a single root-to-leaf path using only a limited number of extra records. The implementation here uses one parent variable per element of $X$, so the direct exhaustive bound is $|X|^(|X|)$ candidate parent arrays, filtered down to valid rooted trees#footnote[No exact algorithm improving on the direct parent-array search bound is claimed here for the general formulation.].
+
+    *Example.* Let $X = {0, 1, dots, #(n - 1)}$, $K = #K$, and $cal(C) = {#range(m).map(i => $X_#(i + 1)$).join(", ")}$ with #subsets.enumerate().map(((i, s)) => $X_#(i + 1) = #fmt-set(s)$).join(", "). The satisfying parent array $p = (#config.map(str).join(", "))$ encodes the rooted tree with arcs #edges.map(((u, v)) => $(#u, #v)$).join(", "). In this tree, $X_1 = {0, 2}$, $X_2 = {1, 3}$, and $X_4 = {2, 4}$ are already directed paths. The only extension is $X_3 = {0, 4}$, which becomes $X_3' = {0, 2, 4}$ along the path $0 -> 2 -> 4$, so the total extension cost is exactly $1 = K$.
+
+    #pred-commands(
+      "pred create --example " + problem-spec(x) + " -o rooted-tree-storage-assignment.json",
+      "pred solve rooted-tree-storage-assignment.json --solver brute-force",
+      "pred evaluate rooted-tree-storage-assignment.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure(
+      canvas(length: 1cm, {
+        import draw: *
+
+        let positions = (
+          (1.5, 1.8),
+          (0.6, 0.9),
+          (2.4, 0.9),
+          (0.6, 0.0),
+          (2.4, 0.0),
+        )
+
+        for (u, v) in edges {
+          let highlighted = highlight-edges.contains((u, v))
+          line(
+            positions.at(u),
+            positions.at(v),
+            stroke: if highlighted { 1.2pt + graph-colors.at(0) } else { 0.8pt + luma(140) },
+            mark: (end: "straight", scale: 0.45),
+          )
+        }
+
+        for (vertex, pos) in positions.enumerate() {
+          let highlighted = highlight-nodes.contains(vertex)
+          circle(
+            pos,
+            radius: 0.2,
+            fill: if highlighted { graph-colors.at(0) } else { white },
+            stroke: 0.6pt + black,
+          )
+          content(pos, if highlighted { text(fill: white)[$#vertex$] } else { [$#vertex$] })
+        }
+      }),
+      caption: [Rooted Tree Storage Assignment example. The rooted tree encoded by $p = (#config.map(str).join(", "))$ is shown; the blue path $0 -> 2 -> 4$ is the unique extension needed to realize $X_3 = {0, 4}$ within total cost $K = #K$.],
+    ) <fig:rooted-tree-storage-assignment>
     ]
   ]
 }
@@ -4971,6 +5155,39 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       },
       caption: [Canonical Multiprocessor Scheduling instance with 5 tasks on 2 processors. Stacked blocks show the satisfying assignment $(1, 2, 2, 2, 1)$; both processor loads equal the deadline $D = 10$.],
       ) <fig:multiprocessor-scheduling>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("CapacityAssignment")
+  [
+    #problem-def("CapacityAssignment")[
+      Given a finite set $C$ of communication links, an ordered set $M subset ZZ_(> 0)$ of capacities, cost and delay functions $g: C times M -> ZZ_(>= 0)$ and $d: C times M -> ZZ_(>= 0)$ such that for every $c in C$ and $i < j$ in the order of $M$ we have $g(c, i) <= g(c, j)$ and $d(c, i) >= d(c, j)$, and budgets $K, J in ZZ_(>= 0)$, determine whether there exists an assignment $sigma: C -> M$ such that $sum_(c in C) g(c, sigma(c)) <= K$ and $sum_(c in C) d(c, sigma(c)) <= J$.
+    ][
+      Capacity Assignment is the bicriteria communication-network design problem SR7 in Garey & Johnson @garey1979. The original NP-completeness proof, via reduction from Subset Sum, is due to Van Sickle and Chandy @vansicklechandy1977. The model captures discrete provisioning of communication links, where upgrading a link increases installation cost but decreases delay. The direct witness encoding implemented in this repository yields an $O^*(|M|^(|C|))$ exact algorithm by brute-force enumeration#footnote[No algorithm improving on brute-force enumeration is known for the exact witness encoding used in this repository.]. Garey and Johnson also note a pseudo-polynomial dynamic-programming formulation when the budgets are small @garey1979.
+
+      *Example.* Let $C = {c_1, c_2, c_3}$, $M = {1, 2, 3}$, $K = 10$, and $J = 12$. With cost rows $(1, 3, 6)$, $(2, 4, 7)$, $(1, 2, 5)$ and delay rows $(8, 4, 1)$, $(7, 3, 1)$, $(6, 3, 1)$, the assignment $sigma = (2, 2, 2)$ has total cost $3 + 4 + 2 = 9 <= 10$ and total delay $4 + 3 + 3 = 10 <= 12$, so the instance is satisfiable. Brute-force enumeration finds exactly 5 satisfying assignments; for contrast, $sigma = (1, 1, 1)$ violates the delay budget and $sigma = (3, 3, 3)$ violates the cost budget.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o capacity-assignment.json",
+        "pred solve capacity-assignment.json --solver brute-force",
+        "pred evaluate capacity-assignment.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        table(
+          columns: (auto, auto, auto),
+          inset: 4pt,
+          align: left,
+          table.header([*Link*], [*Cost row*], [*Delay row*]),
+          [$c_1$], [$(1, 3, 6)$], [$(8, 4, 1)$],
+          [$c_2$], [$(2, 4, 7)$], [$(7, 3, 1)$],
+          [$c_3$], [$(1, 2, 5)$], [$(6, 3, 1)$],
+        )
+      },
+      caption: [Canonical Capacity Assignment instance with budgets $K = 10$ and $J = 12$. Each row lists the cost-delay trade-off for one communication link.],
+      ) <fig:capacity-assignment>
     ]
   ]
 }

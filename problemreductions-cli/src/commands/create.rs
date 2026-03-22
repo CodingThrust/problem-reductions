@@ -15,14 +15,16 @@ use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     DisjointConnectingPaths, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
     HamiltonianPath, IntegralFlowBundles, LengthBoundedDisjointPaths, LongestCircuit, LongestPath,
-    MinimumCutIntoBoundedSets, MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching,
-    PathConstrainedNetworkFlow, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    MinimumCutIntoBoundedSets, MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman,
+    MultipleChoiceBranching, PathConstrainedNetworkFlow, RootedTreeArrangement, SteinerTree,
+    SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
-    AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
-    ConsistencyOfDatabaseFrequencyTables, EnsembleComputation, FlowShopScheduling, FrequencyTable,
-    KnownValue, LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
-    PaintShop, PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
+    AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
+    ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
+    ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, KnownValue,
+    LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+    PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
@@ -43,6 +45,10 @@ const MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS: &str =
     "--graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8";
 const MULTIPLE_COPY_FILE_ALLOCATION_USAGE: &str =
     "Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8";
+const EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS: &str =
+    "--probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3 --latency-bound 1.01";
+const EXPECTED_RETRIEVAL_COST_USAGE: &str =
+    "Usage: pred create ExpectedRetrievalCost --probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3 --latency-bound 1.01";
 
 /// Check if all data flags are None (no problem-specific input provided).
 fn all_data_flags_empty(args: &CreateArgs) -> bool {
@@ -51,8 +57,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.edge_weights.is_none()
         && args.edge_lengths.is_none()
         && args.capacities.is_none()
-        && args.lower_bounds.is_none()
         && args.bundle_capacities.is_none()
+        && args.cost_matrix.is_none()
+        && args.delay_matrix.is_none()
+        && args.lower_bounds.is_none()
         && args.multipliers.is_none()
         && args.source.is_none()
         && args.sink.is_none()
@@ -83,6 +91,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.requirement_2.is_none()
         && args.requirement.is_none()
         && args.sizes.is_none()
+        && args.probabilities.is_none()
         && args.capacity.is_none()
         && args.sequence.is_none()
         && args.sets.is_none()
@@ -108,9 +117,12 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.tree.is_none()
         && args.required_edges.is_none()
         && args.bound.is_none()
+        && args.latency_bound.is_none()
         && args.length_bound.is_none()
         && args.weight_bound.is_none()
         && args.cost_bound.is_none()
+        && args.cost_budget.is_none()
+        && args.delay_budget.is_none()
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.costs.is_none()
@@ -148,6 +160,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.task_avail.is_none()
         && args.alphabet_size.is_none()
         && args.num_groups.is_none()
+        && args.num_sectors.is_none()
         && args.dependencies.is_none()
         && args.num_attributes.is_none()
         && args.source_string.is_none()
@@ -586,6 +599,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "HamiltonianCircuit" => "--graph 0-1,1-2,2-3,3-0",
         "EnsembleComputation" => "--universe 4 --sets \"0,1,2;0,1,3\" --budget 4",
+        "RootedTreeStorageAssignment" => "--universe 5 --sets \"0,2;1,3;0,4;2,4\" --bound 1",
         "MinMaxMulticenter" => {
             "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 --bound 2"
         }
@@ -597,8 +611,12 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "CapacityAssignment" => {
+            "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12"
+        }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
         "MinimumMultiwayCut" => "--graph 0-1,1-2,2-3 --terminals 0,2 --edge-weights 1,1,1",
+        "ExpectedRetrievalCost" => EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS,
         "SequencingWithinIntervals" => "--release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1",
         "StaffScheduling" => {
             "--schedules \"1,1,1,1,1,0,0;0,1,1,1,1,1,0;0,0,1,1,1,1,1;1,0,0,1,1,1,1;1,1,0,0,1,1,1\" --requirements 2,2,2,3,3,2,1 --num-workers 4 --k 5"
@@ -614,10 +632,12 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5\" --weights 2,3,2,1,3,1 --arc-costs 1,1,1,1,1,1,1,1 --weight-bound 5 --cost-bound 5"
         }
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
+        "RootedTreeArrangement" => "--graph 0-1,0-2,1-2,2-3,3-4 --bound 7",
         "DirectedTwoCommodityIntegralFlow" => {
             "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
         }
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
+        "MinimumDummyActivitiesPert" => "--arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6",
         "StrongConnectivityAugmentation" => {
             "--arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1"
         }
@@ -1501,6 +1521,59 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (
                 ser(MultipleCopyFileAllocation::new(
                     graph, usage, storage, bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ExpectedRetrievalCost (probabilities + sectors + latency bound)
+        "ExpectedRetrievalCost" => {
+            let probabilities_str = args.probabilities.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ExpectedRetrievalCost requires --probabilities\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+                )
+            })?;
+            let probabilities: Vec<f64> = util::parse_comma_list(probabilities_str)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"))?;
+            anyhow::ensure!(
+                !probabilities.is_empty(),
+                "ExpectedRetrievalCost requires at least one probability\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+            );
+            anyhow::ensure!(
+                probabilities.iter().all(|p| p.is_finite() && (0.0..=1.0).contains(p)),
+                "ExpectedRetrievalCost probabilities must be finite values in [0, 1]\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+            );
+            let total_probability: f64 = probabilities.iter().sum();
+            anyhow::ensure!(
+                (total_probability - 1.0).abs() <= 1e-9,
+                "ExpectedRetrievalCost probabilities must sum to 1.0\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+            );
+
+            let num_sectors = args.num_sectors.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ExpectedRetrievalCost requires --num-sectors\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+                )
+            })?;
+            anyhow::ensure!(
+                num_sectors >= 2,
+                "ExpectedRetrievalCost requires at least two sectors\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+            );
+
+            let latency_bound = args.latency_bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ExpectedRetrievalCost requires --latency-bound\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+                )
+            })?;
+            anyhow::ensure!(
+                latency_bound.is_finite() && latency_bound >= 0.0,
+                "ExpectedRetrievalCost requires a finite non-negative --latency-bound\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
+            );
+
+            (
+                ser(ExpectedRetrievalCost::new(
+                    probabilities,
+                    num_sectors,
+                    latency_bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -2602,6 +2675,31 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // RootedTreeStorageAssignment
+        "RootedTreeStorageAssignment" => {
+            let usage =
+                "Usage: pred create RootedTreeStorageAssignment --universe 5 --sets \"0,2;1,3;0,4;2,4\" --bound 1";
+            let universe_size = args.universe.ok_or_else(|| {
+                anyhow::anyhow!("RootedTreeStorageAssignment requires --universe\n\n{usage}")
+            })?;
+            let subsets = parse_sets(args)?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("RootedTreeStorageAssignment requires --bound\n\n{usage}")
+            })?;
+            let bound = parse_nonnegative_usize_bound(bound, "RootedTreeStorageAssignment", usage)?;
+            (
+                ser(
+                    problemreductions::models::set::RootedTreeStorageAssignment::try_new(
+                        universe_size,
+                        subsets,
+                        bound,
+                    )
+                    .map_err(anyhow::Error::msg)?,
+                )?,
+                resolved_variant.clone(),
+            )
+        }
+
         // BicliqueCover
         "BicliqueCover" => {
             let usage = "pred create BicliqueCover --left 2 --right 2 --biedges 0-0,0-1,1-1 --k 2";
@@ -2888,6 +2986,90 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     lengths,
                     num_processors,
                     deadline,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        "CapacityAssignment" => {
+            let usage = "Usage: pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12";
+            let capacities_str = args.capacities.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "CapacityAssignment requires --capacities, --cost-matrix, --delay-matrix, --cost-budget, and --delay-budget\n\n{usage}"
+                )
+            })?;
+            let cost_matrix_str = args.cost_matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("CapacityAssignment requires --cost-matrix\n\n{usage}")
+            })?;
+            let delay_matrix_str = args.delay_matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("CapacityAssignment requires --delay-matrix\n\n{usage}")
+            })?;
+            let cost_budget = args.cost_budget.ok_or_else(|| {
+                anyhow::anyhow!("CapacityAssignment requires --cost-budget\n\n{usage}")
+            })?;
+            let delay_budget = args.delay_budget.ok_or_else(|| {
+                anyhow::anyhow!("CapacityAssignment requires --delay-budget\n\n{usage}")
+            })?;
+
+            let capacities: Vec<u64> = util::parse_comma_list(capacities_str)?;
+            anyhow::ensure!(
+                !capacities.is_empty(),
+                "CapacityAssignment requires at least one capacity value\n\n{usage}"
+            );
+            anyhow::ensure!(
+                capacities.iter().all(|&capacity| capacity > 0),
+                "CapacityAssignment capacities must be positive\n\n{usage}"
+            );
+            anyhow::ensure!(
+                capacities.windows(2).all(|w| w[0] < w[1]),
+                "CapacityAssignment capacities must be strictly increasing\n\n{usage}"
+            );
+
+            let cost = parse_u64_matrix_rows(cost_matrix_str, "cost")?;
+            let delay = parse_u64_matrix_rows(delay_matrix_str, "delay")?;
+            anyhow::ensure!(
+                cost.len() == delay.len(),
+                "cost matrix row count ({}) must match delay matrix row count ({})\n\n{usage}",
+                cost.len(),
+                delay.len()
+            );
+
+            for (index, row) in cost.iter().enumerate() {
+                anyhow::ensure!(
+                    row.len() == capacities.len(),
+                    "cost row {} length ({}) must match capacities length ({})\n\n{usage}",
+                    index,
+                    row.len(),
+                    capacities.len()
+                );
+                anyhow::ensure!(
+                    row.windows(2).all(|w| w[0] <= w[1]),
+                    "cost row {} must be non-decreasing\n\n{usage}",
+                    index
+                );
+            }
+            for (index, row) in delay.iter().enumerate() {
+                anyhow::ensure!(
+                    row.len() == capacities.len(),
+                    "delay row {} length ({}) must match capacities length ({})\n\n{usage}",
+                    index,
+                    row.len(),
+                    capacities.len()
+                );
+                anyhow::ensure!(
+                    row.windows(2).all(|w| w[0] >= w[1]),
+                    "delay row {} must be non-increasing\n\n{usage}",
+                    index
+                );
+            }
+
+            (
+                ser(CapacityAssignment::new(
+                    capacities,
+                    cost,
+                    delay,
+                    cost_budget,
+                    delay_budget,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -3201,6 +3383,23 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 parse_nonnegative_usize_bound(bound_raw, "OptimalLinearArrangement", usage)?;
             (
                 ser(OptimalLinearArrangement::new(graph, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // RootedTreeArrangement — graph + bound
+        "RootedTreeArrangement" => {
+            let usage =
+                "Usage: pred create RootedTreeArrangement --graph 0-1,0-2,1-2,2-3,3-4 --bound 7";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let bound_raw = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RootedTreeArrangement requires --bound (upper bound K on total tree stretch)\n\n{usage}"
+                )
+            })?;
+            let bound = parse_nonnegative_usize_bound(bound_raw, "RootedTreeArrangement", usage)?;
+            (
+                ser(RootedTreeArrangement::new(graph, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -3626,6 +3825,22 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     StrongConnectivityAugmentation::try_new(graph, candidate_arcs, bound)
                         .map_err(|e| anyhow::anyhow!(e))?,
                 )?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumDummyActivitiesPert
+        "MinimumDummyActivitiesPert" => {
+            let usage = "Usage: pred create MinimumDummyActivitiesPert --arcs \"0>2,0>3,1>3,1>4,2>5\" [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumDummyActivitiesPert requires --arcs\n\n\
+                     {usage}"
+                )
+            })?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            (
+                ser(MinimumDummyActivitiesPert::try_new(graph).map_err(|e| anyhow::anyhow!(e))?)?,
                 resolved_variant.clone(),
             )
         }
@@ -5308,6 +5523,31 @@ fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
         .collect()
 }
 
+fn parse_u64_matrix_rows(matrix_str: &str, matrix_name: &str) -> Result<Vec<Vec<u64>>> {
+    matrix_str
+        .split(';')
+        .enumerate()
+        .map(|(row_index, row)| {
+            let row = row.trim();
+            anyhow::ensure!(
+                !row.is_empty(),
+                "{matrix_name} row {row_index} must not be empty"
+            );
+            row.split(',')
+                .map(|value| {
+                    value.trim().parse::<u64>().map_err(|error| {
+                        anyhow::anyhow!(
+                            "Invalid {matrix_name} row {row_index} value {:?}: {}",
+                            value.trim(),
+                            error
+                        )
+                    })
+                })
+                .collect()
+        })
+        .collect()
+}
+
 /// Parse `--quantifiers` as comma-separated quantifier labels (E/A or Exists/ForAll).
 /// E.g., "E,A,E" or "Exists,ForAll,Exists"
 fn parse_quantifiers(args: &CreateArgs, num_vars: usize) -> Result<Vec<Quantifier>> {
@@ -5967,12 +6207,30 @@ fn create_random(
             (ser(OptimalLinearArrangement::new(graph, bound))?, variant)
         }
 
+        // RootedTreeArrangement — graph + bound
+        "RootedTreeArrangement" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let n = graph.num_vertices();
+            let usage = "Usage: pred create RootedTreeArrangement --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] [--bound 10]";
+            let bound = args
+                .bound
+                .map(|b| parse_nonnegative_usize_bound(b, "RootedTreeArrangement", usage))
+                .transpose()?
+                .unwrap_or((n.saturating_sub(1)) * graph.num_edges());
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (ser(RootedTreeArrangement::new(graph, bound))?, variant)
+        }
+
         _ => bail!(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
              MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, TravelingSalesman, \
              BottleneckTravelingSalesman, SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, \
-             OptimalLinearArrangement, HamiltonianPath, LongestCircuit, GeneralizedHex)"
+             OptimalLinearArrangement, RootedTreeArrangement, HamiltonianPath, LongestCircuit, GeneralizedHex)"
         ),
     };
 
@@ -6550,6 +6808,49 @@ mod tests {
     }
 
     #[test]
+    fn test_create_capacity_assignment_serializes_problem_json() {
+        let output = temp_output_path("capacity_assignment_create");
+        let cli = Cli::try_parse_from([
+            "pred",
+            "-o",
+            output.to_str().unwrap(),
+            "create",
+            "CapacityAssignment",
+            "--capacities",
+            "1,2,3",
+            "--cost-matrix",
+            "1,3,6;2,4,7;1,2,5",
+            "--delay-matrix",
+            "8,4,1;7,3,1;6,3,1",
+            "--cost-budget",
+            "10",
+            "--delay-budget",
+            "12",
+        ])
+        .expect("parse create command");
+        let out = OutputConfig {
+            output: cli.output.clone(),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output).unwrap()).unwrap();
+        fs::remove_file(&output).unwrap();
+        assert_eq!(json["type"], "CapacityAssignment");
+        assert_eq!(json["data"]["capacities"], serde_json::json!([1, 2, 3]));
+        assert_eq!(json["data"]["cost_budget"], 10);
+        assert_eq!(json["data"]["delay_budget"], 12);
+    }
+
+    #[test]
     fn test_create_longest_path_serializes_problem_json() {
         let output = temp_output_path("longest_path_create");
         let cli = Cli::try_parse_from([
@@ -6642,6 +6943,74 @@ mod tests {
             json["data"]["lower_bounds"],
             serde_json::json!([1, 1, 0, 0, 1, 0, 1])
         );
+    }
+
+    #[test]
+    fn test_create_capacity_assignment_rejects_non_monotone_cost_row() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "CapacityAssignment",
+            "--capacities",
+            "1,2,3",
+            "--cost-matrix",
+            "1,3,2;2,4,7;1,2,5",
+            "--delay-matrix",
+            "8,4,1;7,3,1;6,3,1",
+            "--cost-budget",
+            "10",
+            "--delay-budget",
+            "12",
+        ])
+        .expect("parse create command");
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("cost row 0"));
+        assert!(err.contains("non-decreasing"));
+    }
+
+    #[test]
+    fn test_create_capacity_assignment_rejects_matrix_width_mismatch() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "CapacityAssignment",
+            "--capacities",
+            "1,2,3",
+            "--cost-matrix",
+            "1,3;2,4,7;1,2,5",
+            "--delay-matrix",
+            "8,4,1;7,3,1;6,3,1",
+            "--cost-budget",
+            "10",
+            "--delay-budget",
+            "12",
+        ])
+        .expect("parse create command");
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("cost row 0"));
+        assert!(err.contains("capacities length"));
     }
 
     #[test]
@@ -6756,8 +7125,10 @@ mod tests {
             edge_weights: None,
             edge_lengths: None,
             capacities: None,
-            lower_bounds: None,
             bundle_capacities: None,
+            cost_matrix: None,
+            delay_matrix: None,
+            lower_bounds: None,
             multipliers: None,
             source: None,
             sink: None,
@@ -6788,6 +7159,7 @@ mod tests {
             requirement_1: None,
             requirement_2: None,
             sizes: None,
+            probabilities: None,
             capacity: None,
             sequence: None,
             sets: None,
@@ -6812,9 +7184,12 @@ mod tests {
             tree: None,
             required_edges: None,
             bound: None,
+            latency_bound: None,
             length_bound: None,
             weight_bound: None,
             cost_bound: None,
+            cost_budget: None,
+            delay_budget: None,
             pattern: None,
             strings: None,
             arc_costs: None,
@@ -6848,6 +7223,7 @@ mod tests {
             craftsman_avail: None,
             task_avail: None,
             num_groups: None,
+            num_sectors: None,
             domain_size: None,
             relations: None,
             conjuncts_spec: None,
@@ -7113,6 +7489,93 @@ mod tests {
     }
 
     #[test]
+    fn test_create_expected_retrieval_cost_json() {
+        use crate::dispatch::ProblemJsonOutput;
+        use problemreductions::models::misc::ExpectedRetrievalCost;
+
+        let mut args = empty_args();
+        args.problem = Some("ExpectedRetrievalCost".to_string());
+        args.probabilities = Some("0.2,0.15,0.15,0.2,0.1,0.2".to_string());
+        args.num_sectors = Some(3);
+        args.latency_bound = Some(1.01);
+
+        let output_path = std::env::temp_dir().join(format!(
+            "expected-retrieval-cost-{}.json",
+            std::process::id()
+        ));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = std::fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "ExpectedRetrievalCost");
+
+        let problem: ExpectedRetrievalCost = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.num_records(), 6);
+        assert_eq!(problem.num_sectors(), 3);
+        assert!(problem.evaluate(&[0, 1, 2, 1, 0, 2]));
+
+        let _ = std::fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_expected_retrieval_cost_requires_latency_bound() {
+        let mut args = empty_args();
+        args.problem = Some("ExpectedRetrievalCost".to_string());
+        args.probabilities = Some("0.2,0.15,0.15,0.2,0.1,0.2".to_string());
+        args.num_sectors = Some(3);
+        args.latency_bound = None;
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("ExpectedRetrievalCost requires --latency-bound"));
+    }
+
+    #[test]
+    fn test_create_rooted_tree_storage_assignment_json() {
+        let mut args = empty_args();
+        args.problem = Some("RootedTreeStorageAssignment".to_string());
+        args.universe = Some(5);
+        args.sets = Some("0,2;1,3;0,4;2,4".to_string());
+        args.bound = Some(1);
+
+        let output_path =
+            std::env::temp_dir().join("pred_test_create_rooted_tree_storage_assignment.json");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let content = std::fs::read_to_string(&output_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(json["type"], "RootedTreeStorageAssignment");
+        assert_eq!(json["data"]["universe_size"], 5);
+        assert_eq!(
+            json["data"]["subsets"],
+            serde_json::json!([[0, 2], [1, 3], [0, 4], [2, 4]])
+        );
+        assert_eq!(json["data"]["bound"], 1);
+
+        std::fs::remove_file(output_path).ok();
+    }
+
+    #[test]
     fn test_create_stacker_crane_json() {
         let mut args = empty_args();
         args.problem = Some("StackerCrane".to_string());
@@ -7186,6 +7649,56 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("--num-vertices (5) is too small for the arcs"));
+    }
+
+    #[test]
+    fn test_create_minimum_dummy_activities_pert_json() {
+        use crate::dispatch::ProblemJsonOutput;
+        use problemreductions::models::graph::MinimumDummyActivitiesPert;
+
+        let mut args = empty_args();
+        args.problem = Some("MinimumDummyActivitiesPert".to_string());
+        args.num_vertices = Some(6);
+        args.arcs = Some("0>2,0>3,1>3,1>4,2>5".to_string());
+
+        let output_path = temp_output_path("minimum_dummy_activities_pert");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "MinimumDummyActivitiesPert");
+        assert!(created.variant.is_empty());
+
+        let problem: MinimumDummyActivitiesPert = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.num_vertices(), 6);
+        assert_eq!(problem.num_arcs(), 5);
+
+        let _ = fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_minimum_dummy_activities_pert_rejects_cycles() {
+        let mut args = empty_args();
+        args.problem = Some("MinimumDummyActivitiesPert".to_string());
+        args.num_vertices = Some(3);
+        args.arcs = Some("0>1,1>2,2>0".to_string());
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("requires the input graph to be a DAG"));
     }
 
     #[test]

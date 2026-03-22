@@ -246,8 +246,10 @@ Flags by problem type:
   PathConstrainedNetworkFlow      --arcs, --capacities, --source, --sink, --paths, --requirement
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
+  CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --cost-budget, --delay-budget
   SubsetSum                       --sizes, --target
   SumOfSquaresPartition           --sizes, --num-groups, --bound
+  ExpectedRetrievalCost           --probabilities, --num-sectors, --latency-bound
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumHittingSet               --universe, --sets
@@ -258,6 +260,7 @@ Flags by problem type:
   SetBasis                        --universe, --sets, --k
   MinimumCardinalityKey           --num-attributes, --dependencies, --k
   PrimeAttributeName              --universe, --deps, --query
+  RootedTreeStorageAssignment     --universe, --sets, --bound
   TwoDimensionalConsecutiveSets   --alphabet-size, --sets
   BicliqueCover                   --left, --right, --biedges, --k
   BalancedCompleteBipartiteSubgraph --left, --right, --biedges, --k
@@ -273,6 +276,7 @@ Flags by problem type:
   MultiprocessorScheduling        --lengths, --num-processors, --deadline
   SequencingWithinIntervals       --release-times, --deadlines, --lengths
   OptimalLinearArrangement        --graph, --bound
+  RootedTreeArrangement           --graph, --bound
   MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k, --bound
   MixedChinesePostman (MCPP)      --graph, --arcs, --edge-weights, --arc-costs, --bound [--num-vertices]
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
@@ -303,6 +307,7 @@ Flags by problem type:
   SCS                             --strings, --bound [--alphabet-size]
   StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
+  MinimumDummyActivitiesPert      --arcs [--num-vertices]
   CBQ                              --domain-size, --relations, --conjuncts-spec
   ILP, CircuitSAT                 (via reduction only)
 
@@ -320,6 +325,7 @@ Examples:
   pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
+  pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12
   pred create GeneralizedHex --graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5
   pred create IntegralFlowWithMultipliers --arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2
   pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
@@ -332,6 +338,7 @@ Examples:
   pred create ConsistencyOfDatabaseFrequencyTables --num-objects 6 --attribute-domains \"2,3,2\" --frequency-tables \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\" --known-values \"0,0,0;3,0,1;1,2,1\"
   pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5
   pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1
+  pred create MinimumDummyActivitiesPert --arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6
   pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
   pred create IntegralFlowHomologousArcs --arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\"
   pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
@@ -364,15 +371,21 @@ pub struct CreateArgs {
     /// Edge lengths (e.g., 2,3,1) [default: all 1s]
     #[arg(long)]
     pub edge_lengths: Option<String>,
-    /// Edge capacities for multicommodity flow problems (e.g., 1,1,2)
+    /// Capacities (edge capacities for flow problems, capacity levels for CapacityAssignment)
     #[arg(long)]
     pub capacities: Option<String>,
-    /// Edge lower bounds for lower-bounded flow problems (e.g., 1,1,0,0,1,0,1)
-    #[arg(long)]
-    pub lower_bounds: Option<String>,
     /// Bundle capacities for IntegralFlowBundles (e.g., 1,1,1)
     #[arg(long)]
     pub bundle_capacities: Option<String>,
+    /// Cost matrix for CapacityAssignment (semicolon-separated rows, e.g., "1,3,6;2,4,7")
+    #[arg(long)]
+    pub cost_matrix: Option<String>,
+    /// Delay matrix for CapacityAssignment (semicolon-separated rows, e.g., "8,4,1;7,3,1")
+    #[arg(long)]
+    pub delay_matrix: Option<String>,
+    /// Edge lower bounds for lower-bounded flow problems (e.g., 1,1,0,0,1,0,1)
+    #[arg(long)]
+    pub lower_bounds: Option<String>,
     /// Vertex multipliers in vertex order (e.g., 1,2,3,1)
     #[arg(long)]
     pub multipliers: Option<String>,
@@ -464,6 +477,9 @@ pub struct CreateArgs {
     /// Item sizes for BinPacking (comma-separated, e.g., "3,3,2,2")
     #[arg(long)]
     pub sizes: Option<String>,
+    /// Record access probabilities for ExpectedRetrievalCost (comma-separated, e.g., "0.2,0.15,0.15,0.2,0.1,0.2")
+    #[arg(long)]
+    pub probabilities: Option<String>,
     /// Bin capacity for BinPacking
     #[arg(long)]
     pub capacity: Option<String>,
@@ -533,9 +549,12 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Bound parameter (lower bound for LongestCircuit; upper or length bound for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleCopyFileAllocation, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
+    /// Bound parameter (lower bound for LongestCircuit; upper or length bound for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleCopyFileAllocation, MultipleChoiceBranching, OptimalLinearArrangement, RootedTreeArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
+    /// Upper bound on expected retrieval latency for ExpectedRetrievalCost
+    #[arg(long)]
+    pub latency_bound: Option<f64>,
     /// Upper bound on total path length
     #[arg(long)]
     pub length_bound: Option<i32>,
@@ -545,6 +564,12 @@ pub struct CreateArgs {
     /// Upper bound on total inter-partition arc cost
     #[arg(long)]
     pub cost_bound: Option<i32>,
+    /// Budget on total cost for CapacityAssignment
+    #[arg(long)]
+    pub cost_budget: Option<u64>,
+    /// Budget on total delay penalty for CapacityAssignment
+    #[arg(long)]
+    pub delay_budget: Option<u64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
     #[arg(long)]
     pub pattern: Option<String>,
@@ -687,6 +712,9 @@ pub struct CreateArgs {
     /// Number of groups for SumOfSquaresPartition
     #[arg(long)]
     pub num_groups: Option<usize>,
+    /// Number of sectors for ExpectedRetrievalCost
+    #[arg(long)]
+    pub num_sectors: Option<usize>,
     /// Source string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,2,3")
     #[arg(long)]
     pub source_string: Option<String>,
