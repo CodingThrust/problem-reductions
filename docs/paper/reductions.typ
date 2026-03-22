@@ -113,6 +113,7 @@
   "BoundedComponentSpanningForest": [Bounded Component Spanning Forest],
   "BinPacking": [Bin Packing],
   "BoyceCoddNormalFormViolation": [Boyce-Codd Normal Form Violation],
+  "CapacityAssignment": [Capacity Assignment],
   "ConsistencyOfDatabaseFrequencyTables": [Consistency of Database Frequency Tables],
   "ClosestVectorProblem": [Closest Vector Problem],
   "ConsecutiveSets": [Consecutive Sets],
@@ -4689,6 +4690,39 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       },
       caption: [Canonical Multiprocessor Scheduling instance with 5 tasks on 2 processors. Stacked blocks show the satisfying assignment $(1, 2, 2, 2, 1)$; both processor loads equal the deadline $D = 10$.],
       ) <fig:multiprocessor-scheduling>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("CapacityAssignment")
+  [
+    #problem-def("CapacityAssignment")[
+      Given a finite set $C$ of communication links, an ordered set $M subset ZZ_(> 0)$ of capacities, cost and delay functions $g: C times M -> ZZ_(>= 0)$ and $d: C times M -> ZZ_(>= 0)$ such that for every $c in C$ and $i < j$ in the order of $M$ we have $g(c, i) <= g(c, j)$ and $d(c, i) >= d(c, j)$, and budgets $K, J in ZZ_(>= 0)$, determine whether there exists an assignment $sigma: C -> M$ such that $sum_(c in C) g(c, sigma(c)) <= K$ and $sum_(c in C) d(c, sigma(c)) <= J$.
+    ][
+      Capacity Assignment is the bicriteria communication-network design problem SR7 in Garey & Johnson @garey1979. The original NP-completeness proof, via reduction from Subset Sum, is due to Van Sickle and Chandy @vansicklechandy1977. The model captures discrete provisioning of communication links, where upgrading a link increases installation cost but decreases delay. The direct witness encoding implemented in this repository yields an $O^*(|M|^(|C|))$ exact algorithm by brute-force enumeration#footnote[No algorithm improving on brute-force enumeration is known for the exact witness encoding used in this repository.]. Garey and Johnson also note a pseudo-polynomial dynamic-programming formulation when the budgets are small @garey1979.
+
+      *Example.* Let $C = {c_1, c_2, c_3}$, $M = {1, 2, 3}$, $K = 10$, and $J = 12$. With cost rows $(1, 3, 6)$, $(2, 4, 7)$, $(1, 2, 5)$ and delay rows $(8, 4, 1)$, $(7, 3, 1)$, $(6, 3, 1)$, the assignment $sigma = (2, 2, 2)$ has total cost $3 + 4 + 2 = 9 <= 10$ and total delay $4 + 3 + 3 = 10 <= 12$, so the instance is satisfiable. Brute-force enumeration finds exactly 5 satisfying assignments; for contrast, $sigma = (1, 1, 1)$ violates the delay budget and $sigma = (3, 3, 3)$ violates the cost budget.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o capacity-assignment.json",
+        "pred solve capacity-assignment.json --solver brute-force",
+        "pred evaluate capacity-assignment.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        table(
+          columns: (auto, auto, auto),
+          inset: 4pt,
+          align: left,
+          table.header([*Link*], [*Cost row*], [*Delay row*]),
+          [$c_1$], [$(1, 3, 6)$], [$(8, 4, 1)$],
+          [$c_2$], [$(2, 4, 7)$], [$(7, 3, 1)$],
+          [$c_3$], [$(1, 2, 5)$], [$(6, 3, 1)$],
+        )
+      },
+      caption: [Canonical Capacity Assignment instance with budgets $K = 10$ and $J = 12$. Each row lists the cost-delay trade-off for one communication link.],
+      ) <fig:capacity-assignment>
     ]
   ]
 }
