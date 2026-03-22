@@ -31,6 +31,7 @@ pub(crate) mod minimummultiwaycut_qubo;
 pub(crate) mod minimumvertexcover_maximumindependentset;
 pub(crate) mod minimumvertexcover_minimumfeedbackvertexset;
 pub(crate) mod minimumvertexcover_minimumsetcovering;
+pub(crate) mod partition_knapsack;
 pub(crate) mod sat_circuitsat;
 pub(crate) mod sat_coloring;
 pub(crate) mod sat_ksat;
@@ -114,6 +115,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(maximummatching_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maximumsetpacking_qubo::canonical_rule_example_specs());
     specs.extend(minimummultiwaycut_qubo::canonical_rule_example_specs());
+    specs.extend(partition_knapsack::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_maximumindependentset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackvertexset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumsetcovering::canonical_rule_example_specs());

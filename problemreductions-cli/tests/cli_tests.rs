@@ -4322,6 +4322,134 @@ fn test_create_random_length_bounded_disjoint_paths_rejects_negative_bound_value
 }
 
 #[test]
+fn test_create_longest_circuit_succeeds() {
+    let output = pred()
+        .args([
+            "create",
+            "LongestCircuit",
+            "--graph",
+            "0-1,1-2,2-3,3-0",
+            "--edge-weights",
+            "2,2,2,2",
+            "--bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "LongestCircuit");
+    assert_eq!(
+        json["data"]["edge_lengths"],
+        serde_json::json!([2, 2, 2, 2])
+    );
+    assert_eq!(json["data"]["bound"], 8);
+}
+
+#[test]
+fn test_create_longest_circuit_defaults_unit_edge_weights() {
+    let output = pred()
+        .args([
+            "create",
+            "LongestCircuit",
+            "--graph",
+            "0-1,1-2,2-3,3-0",
+            "--bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "LongestCircuit");
+    assert_eq!(
+        json["data"]["edge_lengths"],
+        serde_json::json!([1, 1, 1, 1])
+    );
+}
+
+#[test]
+fn test_create_longest_circuit_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "LongestCircuit",
+            "--graph",
+            "0-1,1-2,2-3,3-0",
+            "--edge-weights",
+            "2,2,2,2",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("LongestCircuit --bound must be positive (> 0)"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_longest_circuit_no_flags_shows_help() {
+    let output = pred().args(["create", "LongestCircuit"]).output().unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--edge-weights"),
+        "expected '--edge-weights' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--edge-lengths"),
+        "help should advertise the actual CLI flag name, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_random_longest_circuit_succeeds() {
+    let output = pred()
+        .args([
+            "create",
+            "LongestCircuit",
+            "--random",
+            "--num-vertices",
+            "6",
+            "--seed",
+            "7",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "LongestCircuit");
+    assert_eq!(json["data"]["graph"]["num_vertices"], 6);
+    assert!(json["data"]["bound"].as_i64().unwrap() > 0);
+}
+
+#[test]
 fn test_evaluate_wrong_config_length() {
     let problem_file = std::env::temp_dir().join("pred_test_eval_wrong_len.json");
     let create_out = pred()

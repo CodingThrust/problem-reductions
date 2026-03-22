@@ -2,8 +2,8 @@ use crate::util;
 use problemreductions::models::algebraic::QUBO;
 use problemreductions::models::formula::{CNFClause, Satisfiability};
 use problemreductions::models::graph::{
-    KClique, MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
-    MinimumSumMulticenter, MinimumVertexCover, SpinGlass, TravelingSalesman,
+    KClique, LongestCircuit, MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching,
+    MinimumDominatingSet, MinimumSumMulticenter, MinimumVertexCover, SpinGlass, TravelingSalesman,
 };
 use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
@@ -398,6 +398,28 @@ impl McpServer {
                 ser_edge_weight_problem(&canonical, graph, edge_weights)?
             }
 
+            "LongestCircuit" => {
+                let (graph, _) = parse_graph_from_params(params)?;
+                let edge_lengths = parse_edge_lengths_from_params(params, graph.num_edges())?;
+                if edge_lengths.iter().any(|&length| length <= 0) {
+                    anyhow::bail!("LongestCircuit edge lengths must be positive (> 0)");
+                }
+                let bound = params
+                    .get("bound")
+                    .and_then(|v| v.as_i64())
+                    .ok_or_else(|| anyhow::anyhow!("LongestCircuit requires 'bound'"))?;
+                let bound = i32::try_from(bound)
+                    .map_err(|_| anyhow::anyhow!("LongestCircuit bound must fit in i32"))?;
+                if bound <= 0 {
+                    anyhow::bail!("LongestCircuit bound must be positive (> 0)");
+                }
+                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+                (
+                    ser(LongestCircuit::new(graph, edge_lengths, bound))?,
+                    variant,
+                )
+            }
+
             "KColoring" => {
                 let (graph, _) = parse_graph_from_params(params)?;
                 let k_flag = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
@@ -591,6 +613,31 @@ impl McpServer {
                 let edge_weights = vec![1i32; num_edges];
                 ser_edge_weight_problem(canonical, graph, edge_weights)?
             }
+            "LongestCircuit" => {
+                let edge_prob = params
+                    .get("edge_prob")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.5);
+                if !(0.0..=1.0).contains(&edge_prob) {
+                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
+                }
+                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
+                let edge_lengths = vec![1i32; graph.num_edges()];
+                let bound = params
+                    .get("bound")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(num_vertices.max(3) as i64);
+                let bound = i32::try_from(bound)
+                    .map_err(|_| anyhow::anyhow!("LongestCircuit bound must fit in i32"))?;
+                if bound <= 0 {
+                    anyhow::bail!("LongestCircuit bound must be positive (> 0)");
+                }
+                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+                (
+                    ser(LongestCircuit::new(graph, edge_lengths, bound))?,
+                    variant,
+                )
+            }
             "SpinGlass" => {
                 let edge_prob = params
                     .get("edge_prob")
@@ -671,7 +718,7 @@ impl McpServer {
                 "Random generation is not supported for {}. \
                  Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
                  MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, \
-                 TravelingSalesman, MinimumSumMulticenter)",
+                 TravelingSalesman, LongestCircuit, MinimumSumMulticenter)",
                 canonical
             ),
         };

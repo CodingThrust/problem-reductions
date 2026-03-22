@@ -72,6 +72,7 @@
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
+  "LongestCircuit": [Longest Circuit],
   "ShortestWeightConstrainedPath": [Shortest Weight-Constrained Path],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
   "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
@@ -761,6 +762,80 @@ Biconnectivity augmentation is a classical network-design problem: add backup li
       },
       caption: [Hamiltonian Circuit in the triangular prism graph. Blue edges show the circuit $#circuit.map(v => $v_#v$).join($arrow$) arrow v_#(circuit.at(0))$.],
       ) <fig:hamiltonian-circuit>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("LongestCircuit")
+  let nv = x.instance.graph.num_vertices
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let ne = edges.len()
+  let edge-lengths = x.instance.edge_lengths
+  let K = x.instance.bound
+  let config = x.optimal_config
+  let selected = range(ne).filter(i => config.at(i) == 1)
+  let total-length = selected.map(i => edge-lengths.at(i)).sum()
+  let cycle-order = (0, 1, 2, 3, 4, 5)
+  [
+    #problem-def("LongestCircuit")[
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$ and a positive bound $K$, determine whether there exists a simple circuit $C subset.eq E$ such that $sum_(e in C) l(e) >= K$.
+    ][
+      Longest Circuit is the decision version of the classical longest-cycle problem. Hamiltonian Circuit is the special case where every edge has unit length and $K = |V|$, so Longest Circuit is NP-complete via Karp's original Hamiltonicity result @karp1972. A standard exact baseline uses Held--Karp-style subset dynamic programming in $O(n^2 dot 2^n)$ time @heldkarp1962; unlike Hamiltonicity, the goal here is to certify a sufficiently long simple cycle rather than specifically a spanning one.
+
+      In the implementation, a configuration selects a subset of edges. It is satisfying exactly when the selected edges induce one connected 2-regular subgraph and the total selected length reaches the threshold $K$.
+
+      *Example.* Consider the canonical 6-vertex instance with bound $K = #K$. The outer cycle $v_0 arrow v_1 arrow v_2 arrow v_3 arrow v_4 arrow v_5 arrow v_0$ uses edge lengths $3 + 2 + 4 + 1 + 5 + 2 = #total-length$, so it is a satisfying circuit with total length exactly $K$. The extra chords $(v_0, v_3)$, $(v_1, v_4)$, $(v_2, v_5)$, and $(v_3, v_5)$ provide alternative routes but are not needed for this witness.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o longest-circuit.json",
+        "pred solve longest-circuit.json",
+        "pred evaluate longest-circuit.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (
+            selected: graph-colors.at(0),
+            unused: luma(200),
+          )
+          let r = 1.5
+          let positions = range(nv).map(i => {
+            let angle = 90deg - i * 360deg / nv
+            (calc.cos(angle) * r, calc.sin(angle) * r)
+          })
+
+          for (ei, (u, v)) in edges.enumerate() {
+            let is-selected = config.at(ei) == 1
+            let col = if is-selected { colors.selected } else { colors.unused }
+            let thickness = if is-selected { 1.3pt } else { 0.5pt }
+            let dash = if is-selected { "solid" } else { "dashed" }
+            line(positions.at(u), positions.at(v), stroke: (paint: col, thickness: thickness, dash: dash))
+
+            let mid = (
+              (positions.at(u).at(0) + positions.at(v).at(0)) / 2,
+              (positions.at(u).at(1) + positions.at(v).at(1)) / 2,
+            )
+            let dx = if ei == 6 { -0.28 } else if ei == 7 { 0.24 } else if ei == 8 { -0.24 } else if ei == 9 { 0.24 } else { 0 }
+            let dy = if ei == 6 { 0 } else if ei == 7 { 0.18 } else if ei == 8 { 0.18 } else if ei == 9 { -0.15 } else { 0 }
+            content(
+              (mid.at(0) + dx, mid.at(1) + dy),
+              text(6pt, fill: col)[#edge-lengths.at(ei)],
+              fill: white,
+              frame: "rect",
+              padding: 0.05,
+              stroke: none,
+            )
+          }
+
+          for (i, pos) in positions.enumerate() {
+            circle(pos, radius: 0.18, fill: white, stroke: 0.7pt + black)
+            content(pos, text(7pt)[$v_#i$])
+          }
+        }),
+        caption: [Longest Circuit instance on #nv vertices. The highlighted cycle $#cycle-order.map(v => $v_#v$).join($arrow$) arrow v_#(cycle-order.at(0))$ has total length #total-length $= K$; the gray dashed chords are available but unused.],
+      ) <fig:longest-circuit>
     ]
   ]
 }
@@ -5918,6 +5993,48 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) If $bold(x)'^*$ is an optimal ILP solution, then $A' bold(x)'^* = bold(b)$ and all penalty terms vanish, so $f(bold(x)'^*) = -bold(c')^top bold(x)'^*$. ($arrow.l.double$) If any constraint is violated, $(bold(a)'_k^(top) bold(x)' - b_k)^2 >= 1$ and the penalty $P > ||bold(c)||_1$ exceeds the entire objective range, so $bold(x)'$ cannot be a QUBO minimizer. Among feasible assignments (all penalties zero), $f$ reduces to $-bold(c')^top bold(x)'$, minimized at the ILP optimum.
 
   _Solution extraction._ Discard slack variables: return $bold(x)' [0..n]$.
+]
+
+#let part_ks = load-example("Partition", "Knapsack")
+#let part_ks_sol = part_ks.solutions.at(0)
+#let part_ks_sizes = part_ks.source.instance.sizes
+#let part_ks_n = part_ks_sizes.len()
+#let part_ks_total = part_ks_sizes.fold(0, (a, b) => a + b)
+#let part_ks_capacity = part_ks.target.instance.capacity
+#let part_ks_selected = part_ks_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_ks_selected_sizes = part_ks_selected.map(i => part_ks_sizes.at(i))
+#let part_ks_selected_sum = part_ks_selected_sizes.fold(0, (a, b) => a + b)
+#reduction-rule("Partition", "Knapsack",
+  example: true,
+  example-caption: [#part_ks_n elements, total sum $S = #part_ks_total$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_ks.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_ks) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_ks_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_ks_sizes.map(str).join(", "))$ with total sum $S = #part_ks_total$, so a balanced witness must hit exactly $S / 2 = #part_ks_capacity$.
+
+    *Step 2 -- Build the knapsack instance.* The reduction copies each size into both the weight and the value list, producing weights $(#part_ks.target.instance.weights.map(str).join(", "))$, values $(#part_ks.target.instance.values.map(str).join(", "))$, and capacity $C = #part_ks_capacity$. No auxiliary variables are introduced, so the target has the same $#part_ks_n$ binary coordinates as the source.
+
+    *Step 3 -- Verify the canonical witness.* The serialized witness uses the same binary vector on both sides, $bold(x) = (#part_ks_sol.source_config.map(str).join(", "))$. It selects elements at indices $\{#part_ks_selected.map(str).join(", ")\}$ with sizes $(#part_ks_selected_sizes.map(str).join(", "))$, so the chosen subset has total weight and value $#part_ks_selected_sum = #part_ks_capacity$. Hence the knapsack solution saturates the capacity and certifies a balanced partition.
+
+    *Witness semantics.* The example DB stores one canonical balanced subset. This instance has multiple balanced partitions because several different subsets sum to $#part_ks_capacity$, but one witness is enough to demonstrate the reduction.
+  ],
+)[
+  This $O(n)$ reduction#footnote[The linear-time bound follows from a single pass that copies the source sizes into item weights and values.] @garey1979[MP9] constructs a 0-1 Knapsack instance by copying each Partition size into both the item weight and item value and setting the capacity to half the total size sum. For $n$ source elements it produces $n$ knapsack items.
+][
+  _Construction._ Given positive sizes $s_0, dots, s_(n-1)$ with total sum $S = sum_(i=0)^(n-1) s_i$, create one knapsack item per element and set
+  $ w_i = s_i, quad v_i = s_i $
+  for every $i in {0, dots, n-1}$. Set the knapsack capacity to
+  $ C = floor(S / 2). $
+  Every feasible knapsack solution is therefore a subset of the original elements, and because $w_i = v_i$, its objective value equals the same subset sum.
+
+  _Correctness._ ($arrow.r.double$) If the Partition instance is satisfiable, some subset $A'$ has sum $S / 2$. In particular $S$ is even, so $C = S / 2$, and selecting exactly the corresponding knapsack items is feasible with value $S / 2$. No feasible knapsack solution can have value larger than $C$, because value equals weight for every item and total weight is bounded by $C$. Thus the knapsack optimum is exactly $S / 2$. ($arrow.l.double$) If the knapsack optimum is $S / 2$, then the optimum is an integer and hence $S$ must be even. The selected items have total value $S / 2$, so they also have total weight $S / 2$ because $w_i = v_i$ itemwise. Those items therefore form a subset of the original multiset whose complement has the same sum, giving a valid balanced partition.
+
+  _Solution extraction._ Return the same binary selection vector on the original elements: item $i$ is selected in the knapsack witness if and only if element $i$ belongs to the extracted partition subset.
 ]
 
 #let ks_qubo = load-example("Knapsack", "QUBO")

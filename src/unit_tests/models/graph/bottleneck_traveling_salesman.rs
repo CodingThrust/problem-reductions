@@ -73,16 +73,16 @@ fn test_bottleneck_traveling_salesman_evaluate_valid_and_invalid() {
 #[test]
 fn test_bottleneck_traveling_salesman_evaluate_disconnected_subtour_invalid() {
     let problem = BottleneckTravelingSalesman::new(
-        SimpleGraph::new(
-            6,
-            vec![(0, 1), (1, 2), (0, 2), (3, 4), (4, 5), (3, 5)],
-        ),
+        SimpleGraph::new(6, vec![(0, 1), (1, 2), (0, 2), (3, 4), (4, 5), (3, 5)]),
         vec![1, 1, 1, 2, 2, 2],
     );
 
     let disconnected_subtour = vec![1, 1, 1, 1, 1, 1];
     assert!(!problem.is_valid_solution(&disconnected_subtour));
-    assert_eq!(problem.evaluate(&disconnected_subtour), SolutionSize::Invalid);
+    assert_eq!(
+        problem.evaluate(&disconnected_subtour),
+        SolutionSize::Invalid
+    );
 }
 
 #[test]
