@@ -15,8 +15,7 @@ use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
     LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
     MixedChinesePostman, MultipleChoiceBranching, PathConstrainedNetworkFlow, SteinerTree,
-    SteinerTreeInGraphs,
-    StrongConnectivityAugmentation,
+    SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
