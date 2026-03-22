@@ -6573,21 +6573,17 @@ mod tests {
     }
 
     #[test]
-    fn test_create_undirected_flow_lower_bounds_requires_lower_bounds() {
+    fn test_create_longest_path_requires_edge_lengths() {
         let cli = Cli::try_parse_from([
             "pred",
             "create",
-            "UndirectedFlowLowerBounds",
+            "LongestPath",
             "--graph",
-            "0-1,0-2,1-3,2-3,1-4,3-5,4-5",
-            "--capacities",
-            "2,2,2,2,1,3,2",
-            "--source",
+            "0-1,1-2",
+            "--source-vertex",
             "0",
-            "--sink",
-            "5",
-            "--requirement",
-            "3",
+            "--target-vertex",
+            "2",
         ])
         .unwrap();
         let out = OutputConfig {
