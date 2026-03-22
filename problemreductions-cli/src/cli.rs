@@ -265,6 +265,7 @@ Flags by problem type:
   BMF                             --matrix (0/1), --rank
   ConsecutiveBlockMinimization    --matrix (JSON 2D bool), --bound-k
   ConsecutiveOnesSubmatrix        --matrix (0/1), --k
+  SparseMatrixCompression         --matrix (0/1), --bound
   SteinerTree                     --graph, --edge-weights, --terminals
   MultipleCopyFileAllocation      --graph, --usage, --storage, --bound
   AcyclicPartition                --arcs [--weights] [--arc-costs] --weight-bound --cost-bound [--num-vertices]

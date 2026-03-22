@@ -135,6 +135,7 @@
   "ConjunctiveBooleanQuery": [Conjunctive Boolean Query],
   "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
+  "SparseMatrixCompression": [Sparse Matrix Compression],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
   "IntegralFlowHomologousArcs": [Integral Flow with Homologous Arcs],
   "IntegralFlowWithMultipliers": [Integral Flow With Multipliers],
@@ -5896,6 +5897,110 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }),
         caption: [Binary matrix $A$ ($#m times #n$) with $K = #K$. Blue-highlighted columns $\{#selected.map(i => str(i)).join(", ")\}$ form a submatrix with the consecutive ones property under a suitable column permutation. Grey cells are 1-entries in non-selected columns.],
       ) <fig:c1s-example>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SparseMatrixCompression")
+  let A = x.instance.matrix
+  let m = A.len()
+  let n = if m > 0 { A.at(0).len() } else { 0 }
+  let K = x.instance.bound_k
+  let cfg = x.optimal_config
+  let shifts = cfg.map(v => v + 1)
+  let storage = (4, 1, 2, 3, 1, 0)
+  let A-int = A.map(row => row.map(v => if v { 1 } else { 0 }))
+  let row-colors = (
+    graph-colors.at(0),
+    rgb("#f28e2b"),
+    rgb("#76b7b2"),
+    rgb("#e15759"),
+  )
+  [
+    #problem-def("SparseMatrixCompression")[
+      Given an $m times n$ binary matrix $A$ and a positive integer $K$, determine whether there exist a shift function $s: \{1, dots, m\} -> \{1, dots, K\}$ and a storage vector $b in \{0, 1, dots, m\}^{n + K}$ such that, for every row $i$ and column $j$, $A_(i j) = 1$ if and only if $b_(s(i) + j - 1) = i$.
+    ][
+      Sparse Matrix Compression appears as problem SR13 in Garey and Johnson @garey1979. It models row-overlay compression for sparse lookup tables: rows may share storage positions only when their shifted 1-entries never demand different row labels from the same slot. The implementation in this crate searches over row shifts only, then reconstructs the implied storage vector internally. This yields the direct exact bound $O(K^m dot m dot n)$ for $m$ rows and $n$ columns.#footnote[The storage vector is not enumerated as part of the configuration space. Once the shifts are fixed, every occupied slot is forced by the 1-entries of the shifted rows.]
+
+      *Example.* Let $A = mat(#A-int.map(row => row.map(v => str(v)).join(", ")).join("; "))$ and $K = #K$. The stored config $(#cfg.map(str).join(", "))$ encodes the one-based shifts $s = (#shifts.map(str).join(", "))$. These shifts place the four row supports at positions $\{2, 5\}$, $\{3\}$, $\{4\}$, and $\{1\}$ respectively, so the supports are pairwise disjoint. The implied overlay vector is therefore $b = (#storage.map(str).join(", "))$, and this is the unique satisfying shift assignment among the $2^4 = 16$ configs in the canonical fixture.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o sparse-matrix-compression.json",
+        "pred solve sparse-matrix-compression.json",
+        "pred evaluate sparse-matrix-compression.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 0.7cm, {
+          import draw: *
+          let cell-size = 0.9
+          let gap = 0.08
+          let storage-x = 6.2
+
+          for i in range(m) {
+            for j in range(n) {
+              let val = A-int.at(i).at(j)
+              let fill = if val == 1 {
+                row-colors.at(i).transparentize(30%)
+              } else {
+                white
+              }
+              rect(
+                (j * cell-size, -i * cell-size),
+                (j * cell-size + cell-size - gap, -i * cell-size - cell-size + gap),
+                fill: fill,
+                stroke: 0.3pt + luma(180),
+              )
+              content(
+                (j * cell-size + (cell-size - gap) / 2, -i * cell-size - (cell-size - gap) / 2),
+                text(8pt, str(val)),
+              )
+            }
+            content(
+              (-0.55, -i * cell-size - (cell-size - gap) / 2),
+              text(7pt)[$r_#(i + 1)$],
+            )
+            content(
+              (4.6, -i * cell-size - (cell-size - gap) / 2),
+              text(7pt)[$s_#(i + 1) = #shifts.at(i)$],
+            )
+          }
+
+          for j in range(n) {
+            content(
+              (j * cell-size + (cell-size - gap) / 2, 0.45),
+              text(7pt)[$c_#(j + 1)$],
+            )
+          }
+
+          content((5.45, -1.35), text(8pt, weight: "bold")[overlay])
+
+          for j in range(storage.len()) {
+            let label = storage.at(j)
+            let fill = if label == 0 {
+              white
+            } else {
+              row-colors.at(label - 1).transparentize(30%)
+            }
+            rect(
+              (storage-x + j * cell-size, -1.5 * cell-size),
+              (storage-x + j * cell-size + cell-size - gap, -2.5 * cell-size + gap),
+              fill: fill,
+              stroke: 0.3pt + luma(180),
+            )
+            content(
+              (storage-x + j * cell-size + (cell-size - gap) / 2, -2.0 * cell-size + gap / 2),
+              text(8pt, str(label)),
+            )
+            content(
+              (storage-x + j * cell-size + (cell-size - gap) / 2, -0.8 * cell-size),
+              text(7pt)[$b_#(j + 1)$],
+            )
+          }
+        }),
+        caption: [Canonical Sparse Matrix Compression YES instance. Row-colored 1-entries on the left are shifted into the overlay vector on the right, producing $b = (4, 1, 2, 3, 1, 0)$.],
+      ) <fig:sparse-matrix-compression>
     ]
   ]
 }

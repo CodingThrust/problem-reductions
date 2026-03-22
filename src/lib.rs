@@ -42,7 +42,7 @@ pub mod variant;
 /// Prelude module for convenient imports.
 pub mod prelude {
     // Problem types
-    pub use crate::models::algebraic::{QuadraticAssignment, BMF, QUBO};
+    pub use crate::models::algebraic::{QuadraticAssignment, SparseMatrixCompression, BMF, QUBO};
     pub use crate::models::formula::{
         CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, QuantifiedBooleanFormulas,
         Satisfiability,

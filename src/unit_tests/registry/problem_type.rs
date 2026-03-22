@@ -46,6 +46,13 @@ fn find_problem_type_by_alias_matches_canonical_name() {
 }
 
 #[test]
+fn find_problem_type_by_alias_matches_sparse_matrix_compression() {
+    let problem = find_problem_type_by_alias("SparseMatrixCompression")
+        .expect("SparseMatrixCompression should be registered");
+    assert_eq!(problem.canonical_name, "SparseMatrixCompression");
+}
+
+#[test]
 fn problem_types_returns_all_registered() {
     let types = problem_types();
     assert!(
