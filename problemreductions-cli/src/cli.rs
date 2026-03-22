@@ -229,8 +229,10 @@ Flags by problem type:
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
   GeneralizedHex                  --graph, --source, --sink
+  IntegralFlowWithMultipliers     --arcs, --capacities, --source, --sink, --multipliers, --requirement
   MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound, --cut-bound
   HamiltonianCircuit, HC          --graph
+  LongestCircuit                  --graph, --edge-weights, --bound
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   IsomorphicSpanningTree          --graph, --tree
@@ -313,6 +315,7 @@ Examples:
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
   pred create GeneralizedHex --graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5
+  pred create IntegralFlowWithMultipliers --arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2
   pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
   pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
@@ -356,12 +359,18 @@ pub struct CreateArgs {
     /// Edge capacities for multicommodity flow problems (e.g., 1,1,2)
     #[arg(long)]
     pub capacities: Option<String>,
+    /// Vertex multipliers in vertex order (e.g., 1,2,3,1)
+    #[arg(long)]
+    pub multipliers: Option<String>,
     /// Source vertex for path-based graph problems and MinimumCutIntoBoundedSets
     #[arg(long)]
     pub source: Option<usize>,
     /// Sink vertex for path-based graph problems and MinimumCutIntoBoundedSets
     #[arg(long)]
     pub sink: Option<usize>,
+    /// Required sink inflow for IntegralFlowWithMultipliers
+    #[arg(long)]
+    pub requirement: Option<u64>,
     /// Required number of paths for LengthBoundedDisjointPaths
     #[arg(long)]
     pub num_paths_required: Option<usize>,
@@ -507,7 +516,7 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound or length bound (for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleCopyFileAllocation, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
+    /// Bound parameter (lower bound for LongestCircuit; upper or length bound for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleCopyFileAllocation, MultipleChoiceBranching, OptimalLinearArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Upper bound on total path length

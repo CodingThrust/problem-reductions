@@ -657,6 +657,155 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_out_of_range_termi
 }
 
 #[test]
+fn test_create_integral_flow_with_multipliers() {
+    let output = pred()
+        .args([
+            "create",
+            "IntegralFlowWithMultipliers",
+            "--arcs",
+            "0>1,0>2,0>3,0>4,0>5,0>6,1>7,2>7,3>7,4>7,5>7,6>7",
+            "--capacities",
+            "1,1,1,1,1,1,2,3,4,5,6,4",
+            "--source",
+            "0",
+            "--sink",
+            "7",
+            "--multipliers",
+            "1,2,3,4,5,6,4,1",
+            "--requirement",
+            "12",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "IntegralFlowWithMultipliers");
+    assert_eq!(json["variant"], serde_json::json!({}));
+    assert_eq!(json["data"]["source"], 0);
+    assert_eq!(json["data"]["sink"], 7);
+    assert_eq!(json["data"]["requirement"], 12);
+    assert_eq!(
+        json["data"]["multipliers"],
+        serde_json::json!([1, 2, 3, 4, 5, 6, 4, 1])
+    );
+    assert_eq!(
+        json["data"]["capacities"],
+        serde_json::json!([1, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 4])
+    );
+}
+
+#[test]
+fn test_create_integral_flow_with_multipliers_missing_multipliers_shows_usage() {
+    let output = pred()
+        .args([
+            "create",
+            "IntegralFlowWithMultipliers",
+            "--arcs",
+            "0>1,0>2,1>3,2>3",
+            "--capacities",
+            "1,1,2,2",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--requirement",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("requires --multipliers"));
+    assert!(stderr.contains("Usage: pred create IntegralFlowWithMultipliers"));
+}
+
+#[test]
+fn test_create_integral_flow_with_multipliers_rejects_wrong_multiplier_count() {
+    let output = pred()
+        .args([
+            "create",
+            "IntegralFlowWithMultipliers",
+            "--arcs",
+            "0>1,0>2,1>3,2>3",
+            "--capacities",
+            "1,1,2,2",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--multipliers",
+            "1,2,3",
+            "--requirement",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Expected 4 multipliers but got 3"));
+    assert!(stderr.contains("Usage: pred create IntegralFlowWithMultipliers"));
+}
+
+#[test]
+fn test_create_integral_flow_with_multipliers_rejects_zero_nonterminal_multiplier() {
+    let output = pred()
+        .args([
+            "create",
+            "IntegralFlowWithMultipliers",
+            "--arcs",
+            "0>1,0>2,1>3,2>3",
+            "--capacities",
+            "1,1,2,2",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--multipliers",
+            "1,0,3,1",
+            "--requirement",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("non-terminal multipliers must be positive"));
+    assert!(stderr.contains("Usage: pred create IntegralFlowWithMultipliers"));
+}
+
+#[test]
+fn test_create_integral_flow_with_multipliers_rejects_identical_source_and_sink() {
+    let output = pred()
+        .args([
+            "create",
+            "IntegralFlowWithMultipliers",
+            "--arcs",
+            "0>1,0>2,1>3,2>3",
+            "--capacities",
+            "1,1,2,2",
+            "--source",
+            "0",
+            "--sink",
+            "0",
+            "--multipliers",
+            "1,2,3,1",
+            "--requirement",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("requires distinct --source and --sink"));
+    assert!(stderr.contains("Usage: pred create IntegralFlowWithMultipliers"));
+}
+
+#[test]
 fn test_create_consecutive_block_minimization_rejects_ragged_matrix() {
     let output = pred()
         .args([
@@ -4173,6 +4322,134 @@ fn test_create_random_length_bounded_disjoint_paths_rejects_negative_bound_value
 }
 
 #[test]
+fn test_create_longest_circuit_succeeds() {
+    let output = pred()
+        .args([
+            "create",
+            "LongestCircuit",
+            "--graph",
+            "0-1,1-2,2-3,3-0",
+            "--edge-weights",
+            "2,2,2,2",
+            "--bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "LongestCircuit");
+    assert_eq!(
+        json["data"]["edge_lengths"],
+        serde_json::json!([2, 2, 2, 2])
+    );
+    assert_eq!(json["data"]["bound"], 8);
+}
+
+#[test]
+fn test_create_longest_circuit_defaults_unit_edge_weights() {
+    let output = pred()
+        .args([
+            "create",
+            "LongestCircuit",
+            "--graph",
+            "0-1,1-2,2-3,3-0",
+            "--bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "LongestCircuit");
+    assert_eq!(
+        json["data"]["edge_lengths"],
+        serde_json::json!([1, 1, 1, 1])
+    );
+}
+
+#[test]
+fn test_create_longest_circuit_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "LongestCircuit",
+            "--graph",
+            "0-1,1-2,2-3,3-0",
+            "--edge-weights",
+            "2,2,2,2",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("LongestCircuit --bound must be positive (> 0)"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_longest_circuit_no_flags_shows_help() {
+    let output = pred().args(["create", "LongestCircuit"]).output().unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--edge-weights"),
+        "expected '--edge-weights' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--edge-lengths"),
+        "help should advertise the actual CLI flag name, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_random_longest_circuit_succeeds() {
+    let output = pred()
+        .args([
+            "create",
+            "LongestCircuit",
+            "--random",
+            "--num-vertices",
+            "6",
+            "--seed",
+            "7",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "LongestCircuit");
+    assert_eq!(json["data"]["graph"]["num_vertices"], 6);
+    assert!(json["data"]["bound"].as_i64().unwrap() > 0);
+}
+
+#[test]
 fn test_evaluate_wrong_config_length() {
     let problem_file = std::env::temp_dir().join("pred_test_eval_wrong_len.json");
     let create_out = pred()
@@ -5583,6 +5860,58 @@ fn test_inspect_undirected_two_commodity_integral_flow_reports_size_fields() {
         "UndirectedTwoCommodityIntegralFlow size_fields should contain num_edges, got: {:?}",
         size_fields
     );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&result_file).ok();
+}
+
+#[test]
+fn test_inspect_integral_flow_with_multipliers_reports_size_fields() {
+    let problem_file = std::env::temp_dir().join("pred_test_ifwm_inspect_in.json");
+    let result_file = std::env::temp_dir().join("pred_test_ifwm_inspect_out.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "--example",
+            "IntegralFlowWithMultipliers",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args([
+            "-o",
+            result_file.to_str().unwrap(),
+            "inspect",
+            problem_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&result_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let size_fields: Vec<&str> = json["size_fields"]
+        .as_array()
+        .expect("size_fields should be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(size_fields.contains(&"num_vertices"));
+    assert!(size_fields.contains(&"num_arcs"));
+    assert!(size_fields.contains(&"max_capacity"));
+    assert!(size_fields.contains(&"requirement"));
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();

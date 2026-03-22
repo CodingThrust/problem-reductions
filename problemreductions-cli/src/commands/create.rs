@@ -13,8 +13,9 @@ use problemreductions::models::algebraic::{
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
-    LengthBoundedDisjointPaths, MinimumCutIntoBoundedSets, MinimumMultiwayCut, MixedChinesePostman,
-    MultipleChoiceBranching, PathConstrainedNetworkFlow, SteinerTree, SteinerTreeInGraphs,
+    LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
+    MixedChinesePostman, MultipleChoiceBranching, PathConstrainedNetworkFlow, SteinerTree,
+    SteinerTreeInGraphs,
     StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
@@ -50,8 +51,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.edge_weights.is_none()
         && args.edge_lengths.is_none()
         && args.capacities.is_none()
+        && args.multipliers.is_none()
         && args.source.is_none()
         && args.sink.is_none()
+        && args.requirement.is_none()
         && args.num_paths_required.is_none()
         && args.paths.is_none()
         && args.couplings.is_none()
@@ -515,6 +518,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "KClique" => "--graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3",
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
         "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
+        "IntegralFlowWithMultipliers" => {
+            "--arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2"
+        }
         "MinimumCutIntoBoundedSets" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 3 --size-bound 3 --cut-bound 1"
         }
@@ -533,6 +539,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "KthBestSpanningTree" => "--graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3",
+        "LongestCircuit" => {
+            "--graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2 --bound 17"
+        }
         "BottleneckTravelingSalesman" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
@@ -657,6 +666,7 @@ fn uses_edge_weights_flag(canonical: &str) -> bool {
         canonical,
         "BottleneckTravelingSalesman"
             | "KthBestSpanningTree"
+            | "LongestCircuit"
             | "MaxCut"
             | "MaximumMatching"
             | "MixedChinesePostman"
@@ -975,6 +985,24 @@ fn validate_length_bounded_disjoint_paths_args(
     Ok(max_length)
 }
 
+fn validate_longest_circuit_bound(bound: i64, usage: Option<&str>) -> Result<i32> {
+    let bound = i32::try_from(bound).map_err(|_| {
+        let msg = format!("LongestCircuit --bound must fit in i32 (got {bound})");
+        match usage {
+            Some(u) => anyhow::anyhow!("{msg}\n\n{u}"),
+            None => anyhow::anyhow!("{msg}"),
+        }
+    })?;
+    if bound <= 0 {
+        let msg = "LongestCircuit --bound must be positive (> 0)";
+        return Err(match usage {
+            Some(u) => anyhow::anyhow!("{msg}\n\n{u}"),
+            None => anyhow::anyhow!("{msg}"),
+        });
+    }
+    Ok(bound)
+}
+
 /// Resolve the graph type from the variant map (e.g., "KingsSubgraph", "UnitDiskGraph", or "SimpleGraph").
 fn resolved_graph_type(variant: &BTreeMap<String, String>) -> &str {
     variant
@@ -1098,6 +1126,95 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             }
             (
                 ser(GeneralizedHex::new(graph, source, sink))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // IntegralFlowWithMultipliers (directed arcs + capacities + source/sink + multipliers + requirement)
+        "IntegralFlowWithMultipliers" => {
+            let usage = "Usage: pred create IntegralFlowWithMultipliers --arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowWithMultipliers requires --arcs\n\n{usage}")
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities_str = args.capacities.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowWithMultipliers requires --capacities\n\n{usage}")
+            })?;
+            let capacities: Vec<u64> = util::parse_comma_list(capacities_str)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            if capacities.len() != num_arcs {
+                bail!(
+                    "Expected {} capacities but got {}\n\n{}",
+                    num_arcs,
+                    capacities.len(),
+                    usage
+                );
+            }
+            for (arc_index, &capacity) in capacities.iter().enumerate() {
+                let fits = usize::try_from(capacity)
+                    .ok()
+                    .and_then(|value| value.checked_add(1))
+                    .is_some();
+                if !fits {
+                    bail!(
+                        "capacity {} at arc index {} is too large for this platform\n\n{}",
+                        capacity,
+                        arc_index,
+                        usage
+                    );
+                }
+            }
+
+            let num_vertices = graph.num_vertices();
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowWithMultipliers requires --source\n\n{usage}")
+            })?;
+            let sink = args.sink.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowWithMultipliers requires --sink\n\n{usage}")
+            })?;
+            validate_vertex_index("source", source, num_vertices, usage)?;
+            validate_vertex_index("sink", sink, num_vertices, usage)?;
+            if source == sink {
+                bail!(
+                    "IntegralFlowWithMultipliers requires distinct --source and --sink\n\n{}",
+                    usage
+                );
+            }
+
+            let multipliers_str = args.multipliers.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowWithMultipliers requires --multipliers\n\n{usage}")
+            })?;
+            let multipliers: Vec<u64> = util::parse_comma_list(multipliers_str)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            if multipliers.len() != num_vertices {
+                bail!(
+                    "Expected {} multipliers but got {}\n\n{}",
+                    num_vertices,
+                    multipliers.len(),
+                    usage
+                );
+            }
+            if multipliers
+                .iter()
+                .enumerate()
+                .any(|(vertex, &multiplier)| vertex != source && vertex != sink && multiplier == 0)
+            {
+                bail!("non-terminal multipliers must be positive\n\n{usage}");
+            }
+
+            let requirement = args.requirement.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowWithMultipliers requires --requirement\n\n{usage}")
+            })?;
+            (
+                ser(IntegralFlowWithMultipliers::new(
+                    graph,
+                    source,
+                    sink,
+                    multipliers,
+                    capacities,
+                    requirement,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -1533,6 +1650,26 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     required_edges,
                     bound,
                 ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // LongestCircuit
+        "LongestCircuit" => {
+            reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
+            let usage = "pred create LongestCircuit --graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2 --bound 17";
+            let (graph, _) =
+                parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
+            let edge_lengths = parse_edge_weights(args, graph.num_edges())?;
+            if edge_lengths.iter().any(|&length| length <= 0) {
+                bail!("LongestCircuit --edge-weights must be positive (> 0)");
+            }
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("LongestCircuit requires --bound\n\nUsage: {usage}")
+            })?;
+            let bound = validate_longest_circuit_bound(bound, Some(usage))?;
+            (
+                ser(LongestCircuit::new(graph, edge_lengths, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -5212,6 +5349,23 @@ fn create_random(
             (ser(HamiltonianPath::new(graph))?, variant)
         }
 
+        // LongestCircuit (graph + unit edge lengths + positive bound)
+        "LongestCircuit" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let edge_lengths = vec![1i32; graph.num_edges()];
+            let usage = "Usage: pred create LongestCircuit --random --num-vertices 6 [--edge-prob 0.5] [--seed 42] --bound 4";
+            let bound = validate_longest_circuit_bound(
+                args.bound.unwrap_or(num_vertices.max(3) as i64),
+                Some(usage),
+            )?;
+            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+            (ser(LongestCircuit::new(graph, edge_lengths, bound))?, variant)
+        }
+
         // GeneralizedHex (graph only, with source/sink defaults)
         "GeneralizedHex" => {
             let num_vertices = num_vertices.max(2);
@@ -5398,7 +5552,7 @@ fn create_random(
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
              MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, TravelingSalesman, \
              BottleneckTravelingSalesman, SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, \
-             OptimalLinearArrangement, HamiltonianPath, GeneralizedHex)"
+             OptimalLinearArrangement, HamiltonianPath, LongestCircuit, GeneralizedHex)"
         ),
     };
 
@@ -5986,8 +6140,10 @@ mod tests {
             edge_weights: None,
             edge_lengths: None,
             capacities: None,
+            multipliers: None,
             source: None,
             sink: None,
+            requirement: None,
             num_paths_required: None,
             paths: None,
             couplings: None,

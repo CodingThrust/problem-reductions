@@ -72,6 +72,7 @@
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
+  "LongestCircuit": [Longest Circuit],
   "ShortestWeightConstrainedPath": [Shortest Weight-Constrained Path],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
   "PathConstrainedNetworkFlow": [Path-Constrained Network Flow],
@@ -131,6 +132,7 @@
   "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "IntegralFlowWithMultipliers": [Integral Flow With Multipliers],
   "MinMaxMulticenter": [Min-Max Multicenter],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
@@ -761,6 +763,80 @@ Biconnectivity augmentation is a classical network-design problem: add backup li
       },
       caption: [Hamiltonian Circuit in the triangular prism graph. Blue edges show the circuit $#circuit.map(v => $v_#v$).join($arrow$) arrow v_#(circuit.at(0))$.],
       ) <fig:hamiltonian-circuit>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("LongestCircuit")
+  let nv = x.instance.graph.num_vertices
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let ne = edges.len()
+  let edge-lengths = x.instance.edge_lengths
+  let K = x.instance.bound
+  let config = x.optimal_config
+  let selected = range(ne).filter(i => config.at(i) == 1)
+  let total-length = selected.map(i => edge-lengths.at(i)).sum()
+  let cycle-order = (0, 1, 2, 3, 4, 5)
+  [
+    #problem-def("LongestCircuit")[
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$ and a positive bound $K$, determine whether there exists a simple circuit $C subset.eq E$ such that $sum_(e in C) l(e) >= K$.
+    ][
+      Longest Circuit is the decision version of the classical longest-cycle problem. Hamiltonian Circuit is the special case where every edge has unit length and $K = |V|$, so Longest Circuit is NP-complete via Karp's original Hamiltonicity result @karp1972. A standard exact baseline uses Held--Karp-style subset dynamic programming in $O(n^2 dot 2^n)$ time @heldkarp1962; unlike Hamiltonicity, the goal here is to certify a sufficiently long simple cycle rather than specifically a spanning one.
+
+      In the implementation, a configuration selects a subset of edges. It is satisfying exactly when the selected edges induce one connected 2-regular subgraph and the total selected length reaches the threshold $K$.
+
+      *Example.* Consider the canonical 6-vertex instance with bound $K = #K$. The outer cycle $v_0 arrow v_1 arrow v_2 arrow v_3 arrow v_4 arrow v_5 arrow v_0$ uses edge lengths $3 + 2 + 4 + 1 + 5 + 2 = #total-length$, so it is a satisfying circuit with total length exactly $K$. The extra chords $(v_0, v_3)$, $(v_1, v_4)$, $(v_2, v_5)$, and $(v_3, v_5)$ provide alternative routes but are not needed for this witness.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o longest-circuit.json",
+        "pred solve longest-circuit.json",
+        "pred evaluate longest-circuit.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (
+            selected: graph-colors.at(0),
+            unused: luma(200),
+          )
+          let r = 1.5
+          let positions = range(nv).map(i => {
+            let angle = 90deg - i * 360deg / nv
+            (calc.cos(angle) * r, calc.sin(angle) * r)
+          })
+
+          for (ei, (u, v)) in edges.enumerate() {
+            let is-selected = config.at(ei) == 1
+            let col = if is-selected { colors.selected } else { colors.unused }
+            let thickness = if is-selected { 1.3pt } else { 0.5pt }
+            let dash = if is-selected { "solid" } else { "dashed" }
+            line(positions.at(u), positions.at(v), stroke: (paint: col, thickness: thickness, dash: dash))
+
+            let mid = (
+              (positions.at(u).at(0) + positions.at(v).at(0)) / 2,
+              (positions.at(u).at(1) + positions.at(v).at(1)) / 2,
+            )
+            let dx = if ei == 6 { -0.28 } else if ei == 7 { 0.24 } else if ei == 8 { -0.24 } else if ei == 9 { 0.24 } else { 0 }
+            let dy = if ei == 6 { 0 } else if ei == 7 { 0.18 } else if ei == 8 { 0.18 } else if ei == 9 { -0.15 } else { 0 }
+            content(
+              (mid.at(0) + dx, mid.at(1) + dy),
+              text(6pt, fill: col)[#edge-lengths.at(ei)],
+              fill: white,
+              frame: "rect",
+              padding: 0.05,
+              stroke: none,
+            )
+          }
+
+          for (i, pos) in positions.enumerate() {
+            circle(pos, radius: 0.18, fill: white, stroke: 0.7pt + black)
+            content(pos, text(7pt)[$v_#i$])
+          }
+        }),
+        caption: [Longest Circuit instance on #nv vertices. The highlighted cycle $#cycle-order.map(v => $v_#v$).join($arrow$) arrow v_#(cycle-order.at(0))$ has total length #total-length $= K$; the gray dashed chords are available but unused.],
+      ) <fig:longest-circuit>
     ]
   ]
 }
@@ -5270,6 +5346,71 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ) <fig:d2cif>
 ]
 
+#{
+  let x = load-model-example("IntegralFlowWithMultipliers")
+  let config = x.optimal_config
+  [
+    #problem-def("IntegralFlowWithMultipliers")[
+      Given a directed graph $G = (V, A)$, distinguished vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, vertex multipliers $h: V backslash {s, t} -> ZZ^+$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that (1) $f(a) <= c(a)$ for every $a in A$, (2) for each nonterminal vertex $v in V backslash {s, t}$, the value $h(v)$ times the total inflow into $v$ equals the total outflow from $v$, and (3) the net flow into $t$ is at least $R$.
+    ][
+      Integral Flow With Multipliers is Garey and Johnson's gain/loss network problem ND33 @garey1979. Sahni includes the same integral vertex-multiplier formulation among his computationally related problems, where partition-style reductions show that adding discrete gain factors destroys the ordinary max-flow structure @sahni1974. The key wrinkle is that conservation is no longer symmetric: one unit entering a vertex may force several units to leave, so the feasible integral solutions behave more like multiplicative gadgets than classical flow balances.
+
+      When every multiplier equals $1$, the model collapses to ordinary single-commodity max flow and becomes polynomial-time solvable by the standard network-flow machinery summarized in Garey and Johnson @garey1979. Jewell studies a different continuous flow-with-gains model in which gain factors live on arcs and the flow may be fractional @jewell1962. That continuous relaxation remains polynomially tractable, so it should not be conflated with the NP-complete integral vertex-multiplier decision problem catalogued here. In this implementation the witness stores one bounded integer variable per arc, giving the direct exact-search bound $O((C + 1)^m)$ where $m = |A|$ and $C = max_(a in A) c(a)$.
+
+      *Example.* The canonical fixture encodes the Partition multiset ${2, 3, 4, 5, 6, 4}$ using source $s = v_0$, sink $t = v_7$, six unit-capacity arcs out of $s$, six sink arcs with capacities $(2, 3, 4, 5, 6, 4)$, and multipliers $(2, 3, 4, 5, 6, 4)$ on the intermediate vertices. Setting the source arcs to $v_1$, $v_3$, and $v_5$ to $1$ forces outgoing sink arcs of $2$, $4$, and $6$, respectively. The sink therefore receives net inflow $2 + 4 + 6 = 12$, exactly meeting the requirement $R = 12$.
+
+      #pred-commands(
+        "pred create --example IntegralFlowWithMultipliers -o integral-flow-with-multipliers.json",
+        "pred solve integral-flow-with-multipliers.json --solver brute-force",
+        "pred evaluate integral-flow-with-multipliers.json --config " + config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 0.9cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let gray = luma(180)
+          let source = (0, 0)
+          let sink = (6, 0)
+          let mids = (
+            (2.4, 2.5),
+            (2.4, 1.5),
+            (2.4, 0.5),
+            (2.4, -0.5),
+            (2.4, -1.5),
+            (2.4, -2.5),
+          )
+          let labels = (
+            [$v_1, h = 2$],
+            [$v_2, h = 3$],
+            [$v_3, h = 4$],
+            [$v_4, h = 5$],
+            [$v_5, h = 6$],
+            [$v_6, h = 4$],
+          )
+          let active = (0, 2, 4)
+
+          for (i, pos) in mids.enumerate() {
+            let chosen = active.contains(i)
+            let color = if chosen { blue } else { gray }
+            let thickness = if chosen { 1.3pt } else { 0.6pt }
+            line(source, pos, stroke: (paint: color, thickness: thickness), mark: (end: "straight", scale: 0.45))
+            line(pos, sink, stroke: (paint: color, thickness: thickness), mark: (end: "straight", scale: 0.45))
+            circle(pos, radius: 0.22, fill: if chosen { blue.lighten(75%) } else { white }, stroke: 0.6pt)
+            content((pos.at(0) + 0.85, pos.at(1)), text(6.5pt, labels.at(i)))
+          }
+
+          circle(source, radius: 0.24, fill: blue.lighten(75%), stroke: 0.6pt)
+          circle(sink, radius: 0.24, fill: blue.lighten(75%), stroke: 0.6pt)
+          content(source, text(7pt, [$s = v_0$]))
+          content(sink, text(7pt, [$t = v_7$]))
+        }),
+        caption: [Integral Flow With Multipliers: the blue branches send one unit from $s$ into $v_1$, $v_3$, and $v_5$, forcing sink inflow $2 + 4 + 6 = 12$ at $t$.],
+      ) <fig:ifwm>
+    ]
+  ]
+}
+
 #problem-def("AdditionalKey")[
   Given a set $A$ of attribute names, a collection $F$ of functional dependencies on $A$,
   a subset $R subset.eq A$, and a set $K$ of candidate keys for the relational scheme $chevron.l R, F chevron.r$,
@@ -5946,6 +6087,48 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) If $bold(x)'^*$ is an optimal ILP solution, then $A' bold(x)'^* = bold(b)$ and all penalty terms vanish, so $f(bold(x)'^*) = -bold(c')^top bold(x)'^*$. ($arrow.l.double$) If any constraint is violated, $(bold(a)'_k^(top) bold(x)' - b_k)^2 >= 1$ and the penalty $P > ||bold(c)||_1$ exceeds the entire objective range, so $bold(x)'$ cannot be a QUBO minimizer. Among feasible assignments (all penalties zero), $f$ reduces to $-bold(c')^top bold(x)'$, minimized at the ILP optimum.
 
   _Solution extraction._ Discard slack variables: return $bold(x)' [0..n]$.
+]
+
+#let part_ks = load-example("Partition", "Knapsack")
+#let part_ks_sol = part_ks.solutions.at(0)
+#let part_ks_sizes = part_ks.source.instance.sizes
+#let part_ks_n = part_ks_sizes.len()
+#let part_ks_total = part_ks_sizes.fold(0, (a, b) => a + b)
+#let part_ks_capacity = part_ks.target.instance.capacity
+#let part_ks_selected = part_ks_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_ks_selected_sizes = part_ks_selected.map(i => part_ks_sizes.at(i))
+#let part_ks_selected_sum = part_ks_selected_sizes.fold(0, (a, b) => a + b)
+#reduction-rule("Partition", "Knapsack",
+  example: true,
+  example-caption: [#part_ks_n elements, total sum $S = #part_ks_total$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_ks.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_ks) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_ks_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_ks_sizes.map(str).join(", "))$ with total sum $S = #part_ks_total$, so a balanced witness must hit exactly $S / 2 = #part_ks_capacity$.
+
+    *Step 2 -- Build the knapsack instance.* The reduction copies each size into both the weight and the value list, producing weights $(#part_ks.target.instance.weights.map(str).join(", "))$, values $(#part_ks.target.instance.values.map(str).join(", "))$, and capacity $C = #part_ks_capacity$. No auxiliary variables are introduced, so the target has the same $#part_ks_n$ binary coordinates as the source.
+
+    *Step 3 -- Verify the canonical witness.* The serialized witness uses the same binary vector on both sides, $bold(x) = (#part_ks_sol.source_config.map(str).join(", "))$. It selects elements at indices $\{#part_ks_selected.map(str).join(", ")\}$ with sizes $(#part_ks_selected_sizes.map(str).join(", "))$, so the chosen subset has total weight and value $#part_ks_selected_sum = #part_ks_capacity$. Hence the knapsack solution saturates the capacity and certifies a balanced partition.
+
+    *Witness semantics.* The example DB stores one canonical balanced subset. This instance has multiple balanced partitions because several different subsets sum to $#part_ks_capacity$, but one witness is enough to demonstrate the reduction.
+  ],
+)[
+  This $O(n)$ reduction#footnote[The linear-time bound follows from a single pass that copies the source sizes into item weights and values.] @garey1979[MP9] constructs a 0-1 Knapsack instance by copying each Partition size into both the item weight and item value and setting the capacity to half the total size sum. For $n$ source elements it produces $n$ knapsack items.
+][
+  _Construction._ Given positive sizes $s_0, dots, s_(n-1)$ with total sum $S = sum_(i=0)^(n-1) s_i$, create one knapsack item per element and set
+  $ w_i = s_i, quad v_i = s_i $
+  for every $i in {0, dots, n-1}$. Set the knapsack capacity to
+  $ C = floor(S / 2). $
+  Every feasible knapsack solution is therefore a subset of the original elements, and because $w_i = v_i$, its objective value equals the same subset sum.
+
+  _Correctness._ ($arrow.r.double$) If the Partition instance is satisfiable, some subset $A'$ has sum $S / 2$. In particular $S$ is even, so $C = S / 2$, and selecting exactly the corresponding knapsack items is feasible with value $S / 2$. No feasible knapsack solution can have value larger than $C$, because value equals weight for every item and total weight is bounded by $C$. Thus the knapsack optimum is exactly $S / 2$. ($arrow.l.double$) If the knapsack optimum is $S / 2$, then the optimum is an integer and hence $S$ must be even. The selected items have total value $S / 2$, so they also have total weight $S / 2$ because $w_i = v_i$ itemwise. Those items therefore form a subset of the original multiset whose complement has the same sum, giving a valid balanced partition.
+
+  _Solution extraction._ Return the same binary selection vector on the original elements: item $i$ is selected in the knapsack witness if and only if element $i$ belongs to the extracted partition subset.
 ]
 
 #let ks_qubo = load-example("Knapsack", "QUBO")
@@ -6697,6 +6880,44 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) Any feasible schedule defines completion times and pairwise order values satisfying the bounds, precedence inequalities, and disjunctive machine constraints; its weighted completion time is exactly the ILP objective. ($arrow.l.double$) Any feasible ILP solution assigns a strict order to every task pair and forbids overlap, so the completion times correspond to a valid single-machine schedule that respects all precedences. Minimizing the ILP objective therefore minimizes the original weighted completion-time objective.
 
   _Solution extraction._ Sort tasks by their completion times $C_j$ and encode that order back into the source schedule representation.
+]
+
+#let hc_tsp = load-example("HamiltonianCircuit", "TravelingSalesman")
+#let hc_tsp_sol = hc_tsp.solutions.at(0)
+#let hc_tsp_n = graph-num-vertices(hc_tsp.source.instance)
+#let hc_tsp_source_edges = hc_tsp.source.instance.graph.edges
+#let hc_tsp_target_edges = hc_tsp.target.instance.graph.edges
+#let hc_tsp_target_weights = hc_tsp.target.instance.edge_weights
+#let hc_tsp_weight_one = hc_tsp_target_edges.enumerate().filter(((i, _)) => hc_tsp_target_weights.at(i) == 1).map(((i, e)) => (e.at(0), e.at(1)))
+#let hc_tsp_weight_two = hc_tsp_target_edges.enumerate().filter(((i, _)) => hc_tsp_target_weights.at(i) == 2).map(((i, e)) => (e.at(0), e.at(1)))
+#let hc_tsp_selected_edges = hc_tsp_target_edges.enumerate().filter(((i, _)) => hc_tsp_sol.target_config.at(i) == 1).map(((i, e)) => (e.at(0), e.at(1)))
+#reduction-rule("HamiltonianCircuit", "TravelingSalesman",
+  example: true,
+  example-caption: [Cycle graph on $#hc_tsp_n$ vertices to weighted $K_#hc_tsp_n$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_tsp.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_tsp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_tsp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Start from the source graph.* The canonical source fixture is the cycle on vertices ${0, 1, 2, 3}$ with edges #hc_tsp_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#hc_tsp_sol.source_config.map(str).join(", ")]$.\ 
+
+    *Step 2 -- Complete the graph and encode adjacency by weights.* The target keeps the same $#hc_tsp_n$ vertices but adds the missing diagonals, so it becomes $K_#hc_tsp_n$ with $#graph-num-edges(hc_tsp.target.instance)$ undirected edges. The original cycle edges #hc_tsp_weight_one.map(e => $(#e.at(0), #e.at(1))$).join(", ") receive weight 1, while the diagonals #hc_tsp_weight_two.map(e => $(#e.at(0), #e.at(1))$).join(", ") receive weight 2.\ 
+
+    *Step 3 -- Verify the canonical witness.* The stored target configuration $[#hc_tsp_sol.target_config.map(str).join(", ")]$ selects the tour edges #hc_tsp_selected_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). Its total cost is $1 + 1 + 1 + 1 = #hc_tsp_n$, so every chosen edge is a weight-1 source edge, and traversing the selected cycle recovers the Hamiltonian circuit $[#hc_tsp_sol.source_config.map(str).join(", ")]$.\ 
+
+    *Multiplicity:* The fixture stores one canonical witness. For the 4-cycle there are $4 times 2 = 8$ Hamiltonian-circuit permutations (choice of start vertex and direction), but they all induce the same undirected target edge set.
+  ],
+)[
+  @garey1979 This $O(n^2)$ reduction constructs the complete graph on the same vertex set and uses edge weights to distinguish source edges from non-edges: weight 1 means "present in the source" and weight 2 means "missing in the source" ($n (n - 1) / 2$ target edges).
+][
+  _Construction._ Given a Hamiltonian Circuit instance $G = (V, E)$ with $n = |V|$, construct the complete graph $K_n$ on the same vertex set. For each pair $u < v$, set $w(u, v) = 1$ if $(u, v) in E$ and $w(u, v) = 2$ otherwise. The target TSP instance asks for a minimum-weight Hamiltonian cycle in this weighted complete graph.
+
+  _Correctness._ ($arrow.r.double$) If $G$ has a Hamiltonian circuit $v_0, v_1, dots, v_(n-1), v_0$, then the same cycle exists in $K_n$. Every chosen edge belongs to $E$, so each edge has weight 1 and the resulting TSP tour has total cost $n$. ($arrow.l.double$) Every TSP tour on $n$ vertices uses exactly $n$ edges, and every target edge has weight at least 1, so any tour has cost at least $n$. If the optimum cost is exactly $n$, every selected edge must therefore have weight 1. Those edges are precisely edges of $G$, so the optimal TSP tour is already a Hamiltonian circuit in the source graph.
+
+  _Solution extraction._ Read the selected TSP edges, traverse the unique degree-2 cycle they form, and return the resulting vertex permutation as the source Hamiltonian-circuit witness.
 ]
 
 #let tsp_ilp = load-example("TravelingSalesman", "ILP")
