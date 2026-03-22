@@ -12,10 +12,11 @@ use problemreductions::models::algebraic::{
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
-    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
-    LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets,
+    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IntegralFlowBundles,
+    LengthBoundedDisjointPaths, LongestCircuit, LongestPath, MinimumCutIntoBoundedSets,
     MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman,
-    MultipleChoiceBranching, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    MultipleChoiceBranching, PathConstrainedNetworkFlow, SteinerTree, SteinerTreeInGraphs,
+    StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
@@ -50,9 +51,14 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.edge_weights.is_none()
         && args.edge_lengths.is_none()
         && args.capacities.is_none()
+        && args.lower_bounds.is_none()
+        && args.bundle_capacities.is_none()
+        && args.multipliers.is_none()
         && args.source.is_none()
         && args.sink.is_none()
+        && args.requirement.is_none()
         && args.num_paths_required.is_none()
+        && args.paths.is_none()
         && args.couplings.is_none()
         && args.fields.is_none()
         && args.clauses.is_none()
@@ -75,6 +81,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.sink_2.is_none()
         && args.requirement_1.is_none()
         && args.requirement_2.is_none()
+        && args.requirement.is_none()
         && args.sizes.is_none()
         && args.capacity.is_none()
         && args.sequence.is_none()
@@ -84,6 +91,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.r_weights.is_none()
         && args.s_weights.is_none()
         && args.partition.is_none()
+        && args.bundles.is_none()
         && args.universe.is_none()
         && args.biedges.is_none()
         && args.left.is_none()
@@ -107,6 +115,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.costs.is_none()
         && args.arc_costs.is_none()
         && args.arcs.is_none()
+        && args.homologous_pairs.is_none()
         && args.quantifiers.is_none()
         && args.usage.is_none()
         && args.storage.is_none()
@@ -149,6 +158,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.sink_2.is_none()
         && args.requirement_1.is_none()
         && args.requirement_2.is_none()
+        && args.requirement.is_none()
+        && args.homologous_pairs.is_none()
         && args.num_attributes.is_none()
         && args.dependencies.is_none()
         && args.relation_attrs.is_none()
@@ -513,6 +524,12 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "KClique" => "--graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3",
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
         "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
+        "IntegralFlowBundles" => {
+            "--arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4"
+        }
+        "IntegralFlowWithMultipliers" => {
+            "--arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2"
+        }
         "MinimumCutIntoBoundedSets" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 3 --size-bound 3 --cut-bound 1"
         }
@@ -520,11 +537,23 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6"
         }
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
+        "LongestPath" => {
+            "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,4-6,5-6,1-6 --edge-lengths 3,2,4,1,5,2,3,2,4,1 --source-vertex 0 --target-vertex 6"
+        }
+        "UndirectedFlowLowerBounds" => {
+            "--graph 0-1,0-2,1-3,2-3,1-4,3-5,4-5 --capacities 2,2,2,2,1,3,2 --lower-bounds 1,1,0,0,1,0,1 --source 0 --sink 5 --requirement 3"
+        }
         "UndirectedTwoCommodityIntegralFlow" => {
             "--graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1"
         },
+        "IntegralFlowHomologousArcs" => {
+            "--arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\""
+        }
         "LengthBoundedDisjointPaths" => {
             "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3"
+        }
+        "PathConstrainedNetworkFlow" => {
+            "--arcs \"0>1,0>2,1>3,1>4,2>4,3>5,4>5,4>6,5>7,6>7\" --capacities 2,1,1,1,1,1,1,1,2,1 --source 0 --sink 7 --paths \"0,2,5,8;0,3,6,8;0,3,7,9;1,4,6,8;1,4,7,9\" --requirement 3"
         }
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "KthBestSpanningTree" => "--graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3",
@@ -746,6 +775,9 @@ fn help_flag_hint(
         }
         ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
+        ("IntegralFlowHomologousArcs", "homologous_pairs") => {
+            "semicolon-separated arc-index equalities: \"2=5;4=3\""
+        }
         ("ConsistencyOfDatabaseFrequencyTables", "attribute_domains") => {
             "comma-separated domain sizes: 2,3,2"
         }
@@ -754,6 +786,11 @@ fn help_flag_hint(
         }
         ("ConsistencyOfDatabaseFrequencyTables", "known_values") => {
             "semicolon-separated triples: \"0,0,0;3,0,1;1,2,1\""
+        }
+        ("IntegralFlowBundles", "bundles") => "semicolon-separated groups: \"0,1;2,5;3,4\"",
+        ("IntegralFlowBundles", "bundle_capacities") => "comma-separated capacities: 1,1,1",
+        ("PathConstrainedNetworkFlow", "paths") => {
+            "semicolon-separated arc-index paths: \"0,2,5,8;1,4,7,9\""
         }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
@@ -1117,6 +1154,95 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // IntegralFlowWithMultipliers (directed arcs + capacities + source/sink + multipliers + requirement)
+        "IntegralFlowWithMultipliers" => {
+            let usage = "Usage: pred create IntegralFlowWithMultipliers --arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowWithMultipliers requires --arcs\n\n{usage}")
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities_str = args.capacities.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowWithMultipliers requires --capacities\n\n{usage}")
+            })?;
+            let capacities: Vec<u64> = util::parse_comma_list(capacities_str)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            if capacities.len() != num_arcs {
+                bail!(
+                    "Expected {} capacities but got {}\n\n{}",
+                    num_arcs,
+                    capacities.len(),
+                    usage
+                );
+            }
+            for (arc_index, &capacity) in capacities.iter().enumerate() {
+                let fits = usize::try_from(capacity)
+                    .ok()
+                    .and_then(|value| value.checked_add(1))
+                    .is_some();
+                if !fits {
+                    bail!(
+                        "capacity {} at arc index {} is too large for this platform\n\n{}",
+                        capacity,
+                        arc_index,
+                        usage
+                    );
+                }
+            }
+
+            let num_vertices = graph.num_vertices();
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowWithMultipliers requires --source\n\n{usage}")
+            })?;
+            let sink = args.sink.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowWithMultipliers requires --sink\n\n{usage}")
+            })?;
+            validate_vertex_index("source", source, num_vertices, usage)?;
+            validate_vertex_index("sink", sink, num_vertices, usage)?;
+            if source == sink {
+                bail!(
+                    "IntegralFlowWithMultipliers requires distinct --source and --sink\n\n{}",
+                    usage
+                );
+            }
+
+            let multipliers_str = args.multipliers.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowWithMultipliers requires --multipliers\n\n{usage}")
+            })?;
+            let multipliers: Vec<u64> = util::parse_comma_list(multipliers_str)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            if multipliers.len() != num_vertices {
+                bail!(
+                    "Expected {} multipliers but got {}\n\n{}",
+                    num_vertices,
+                    multipliers.len(),
+                    usage
+                );
+            }
+            if multipliers
+                .iter()
+                .enumerate()
+                .any(|(vertex, &multiplier)| vertex != source && vertex != sink && multiplier == 0)
+            {
+                bail!("non-terminal multipliers must be positive\n\n{usage}");
+            }
+
+            let requirement = args.requirement.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowWithMultipliers requires --requirement\n\n{usage}")
+            })?;
+            (
+                ser(IntegralFlowWithMultipliers::new(
+                    graph,
+                    source,
+                    sink,
+                    multipliers,
+                    capacities,
+                    requirement,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // Minimum cut into bounded sets (graph + edge weights + s/t/B/K)
         "MinimumCutIntoBoundedSets" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
@@ -1230,6 +1356,39 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
         }
 
+        // LongestPath
+        "LongestPath" => {
+            let usage = "pred create LongestPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,4-6,5-6,1-6 --edge-lengths 3,2,4,1,5,2,3,2,4,1 --source-vertex 0 --target-vertex 6";
+            let (graph, _) =
+                parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
+            if args.weights.is_some() {
+                bail!("LongestPath uses --edge-lengths, not --weights\n\nUsage: {usage}");
+            }
+            let edge_lengths_raw = args.edge_lengths.as_ref().ok_or_else(|| {
+                anyhow::anyhow!("LongestPath requires --edge-lengths\n\nUsage: {usage}")
+            })?;
+            let edge_lengths =
+                parse_i32_edge_values(Some(edge_lengths_raw), graph.num_edges(), "edge length")?;
+            ensure_positive_i32_values(&edge_lengths, "edge lengths")?;
+            let source_vertex = args.source_vertex.ok_or_else(|| {
+                anyhow::anyhow!("LongestPath requires --source-vertex\n\nUsage: {usage}")
+            })?;
+            let target_vertex = args.target_vertex.ok_or_else(|| {
+                anyhow::anyhow!("LongestPath requires --target-vertex\n\nUsage: {usage}")
+            })?;
+            ensure_vertex_in_bounds(source_vertex, graph.num_vertices(), "source_vertex")?;
+            ensure_vertex_in_bounds(target_vertex, graph.num_vertices(), "target_vertex")?;
+            (
+                ser(LongestPath::new(
+                    graph,
+                    edge_lengths,
+                    source_vertex,
+                    target_vertex,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // ShortestWeightConstrainedPath
         "ShortestWeightConstrainedPath" => {
             let usage = "pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8";
@@ -1325,11 +1484,56 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // UndirectedFlowLowerBounds (graph + capacities + lower bounds + terminals + requirement)
+        "UndirectedFlowLowerBounds" => {
+            let usage = "Usage: pred create UndirectedFlowLowerBounds --graph 0-1,0-2,1-3,2-3,1-4,3-5,4-5 --capacities 2,2,2,2,1,3,2 --lower-bounds 1,1,0,0,1,0,1 --source 0 --sink 5 --requirement 3";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities = parse_capacities(args, graph.num_edges(), usage)?;
+            let lower_bounds = parse_lower_bounds(args, graph.num_edges(), usage)?;
+            let num_vertices = graph.num_vertices();
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedFlowLowerBounds requires --source\n\n{usage}")
+            })?;
+            let sink = args.sink.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedFlowLowerBounds requires --sink\n\n{usage}")
+            })?;
+            let requirement = args.requirement.ok_or_else(|| {
+                anyhow::anyhow!("UndirectedFlowLowerBounds requires --requirement\n\n{usage}")
+            })?;
+            validate_vertex_index("source", source, num_vertices, usage)?;
+            validate_vertex_index("sink", sink, num_vertices, usage)?;
+            (
+                ser(UndirectedFlowLowerBounds::new(
+                    graph,
+                    capacities,
+                    lower_bounds,
+                    source,
+                    sink,
+                    requirement,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // UndirectedTwoCommodityIntegralFlow (graph + capacities + terminals + requirements)
         "UndirectedTwoCommodityIntegralFlow" => {
             let usage = "Usage: pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1";
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let capacities = parse_capacities(args, graph.num_edges(), usage)?;
+            for (edge_index, &capacity) in capacities.iter().enumerate() {
+                let fits = usize::try_from(capacity)
+                    .ok()
+                    .and_then(|value| value.checked_add(1))
+                    .is_some();
+                if !fits {
+                    bail!(
+                        "capacity {} at edge index {} is too large for this platform\n\n{}",
+                        capacity,
+                        edge_index,
+                        usage
+                    );
+                }
+            }
             let num_vertices = graph.num_vertices();
             let source_1 = args.source_1.ok_or_else(|| {
                 anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --source-1\n\n{usage}")
@@ -1371,6 +1575,46 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     sink_2,
                     requirement_1,
                     requirement_2,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // IntegralFlowBundles (directed graph + bundles + source/sink + requirement)
+        "IntegralFlowBundles" => {
+            let usage = "Usage: pred create IntegralFlowBundles --arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4";
+            let arcs_str = args
+                .arcs
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("IntegralFlowBundles requires --arcs\n\n{usage}"))?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let bundles = parse_bundles(args, num_arcs, usage)?;
+            let bundle_capacities = parse_bundle_capacities(args, bundles.len(), usage)?;
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowBundles requires --source\n\n{usage}")
+            })?;
+            let sink = args
+                .sink
+                .ok_or_else(|| anyhow::anyhow!("IntegralFlowBundles requires --sink\n\n{usage}"))?;
+            let requirement = args.requirement.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowBundles requires --requirement\n\n{usage}")
+            })?;
+            validate_vertex_index("source", source, graph.num_vertices(), usage)?;
+            validate_vertex_index("sink", sink, graph.num_vertices(), usage)?;
+            anyhow::ensure!(
+                source != sink,
+                "IntegralFlowBundles requires distinct --source and --sink\n\n{usage}"
+            );
+
+            (
+                ser(IntegralFlowBundles::new(
+                    graph,
+                    source,
+                    sink,
+                    bundles,
+                    bundle_capacities,
+                    requirement,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -3104,6 +3348,124 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // IntegralFlowHomologousArcs
+        "IntegralFlowHomologousArcs" => {
+            let usage = "Usage: pred create IntegralFlowHomologousArcs --arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\"";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowHomologousArcs requires --arcs\n\n{usage}")
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities: Vec<u64> = if let Some(ref s) = args.capacities {
+                s.split(',')
+                    .map(|token| {
+                        let trimmed = token.trim();
+                        trimmed
+                            .parse::<u64>()
+                            .with_context(|| format!("Invalid capacity `{trimmed}`\n\n{usage}"))
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            } else {
+                vec![1; num_arcs]
+            };
+            anyhow::ensure!(
+                capacities.len() == num_arcs,
+                "Expected {} capacities but got {}\n\n{}",
+                num_arcs,
+                capacities.len(),
+                usage
+            );
+            for (arc_index, &capacity) in capacities.iter().enumerate() {
+                let fits = usize::try_from(capacity)
+                    .ok()
+                    .and_then(|value| value.checked_add(1))
+                    .is_some();
+                anyhow::ensure!(
+                    fits,
+                    "capacity {} at arc index {} is too large for this platform\n\n{}",
+                    capacity,
+                    arc_index,
+                    usage
+                );
+            }
+            let num_vertices = graph.num_vertices();
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowHomologousArcs requires --source\n\n{usage}")
+            })?;
+            let sink = args.sink.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowHomologousArcs requires --sink\n\n{usage}")
+            })?;
+            let requirement = args.requirement.ok_or_else(|| {
+                anyhow::anyhow!("IntegralFlowHomologousArcs requires --requirement\n\n{usage}")
+            })?;
+            validate_vertex_index("source", source, num_vertices, usage)?;
+            validate_vertex_index("sink", sink, num_vertices, usage)?;
+            let homologous_pairs =
+                parse_homologous_pairs(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            for &(a, b) in &homologous_pairs {
+                anyhow::ensure!(
+                    a < num_arcs && b < num_arcs,
+                    "homologous pair ({}, {}) references arc >= num_arcs ({})\n\n{}",
+                    a,
+                    b,
+                    num_arcs,
+                    usage
+                );
+            }
+            (
+                ser(IntegralFlowHomologousArcs::new(
+                    graph,
+                    capacities,
+                    source,
+                    sink,
+                    requirement,
+                    homologous_pairs,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // PathConstrainedNetworkFlow
+        "PathConstrainedNetworkFlow" => {
+            let usage = "Usage: pred create PathConstrainedNetworkFlow --arcs \"0>1,0>2,1>3,1>4,2>4,3>5,4>5,4>6,5>7,6>7\" --capacities 2,1,1,1,1,1,1,1,2,1 --source 0 --sink 7 --paths \"0,2,5,8;0,3,6,8;0,3,7,9;1,4,6,8;1,4,7,9\" --requirement 3";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("PathConstrainedNetworkFlow requires --arcs\n\n{usage}")
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities: Vec<u64> = if let Some(ref s) = args.capacities {
+                util::parse_comma_list(s)?
+            } else {
+                vec![1; num_arcs]
+            };
+            anyhow::ensure!(
+                capacities.len() == num_arcs,
+                "capacities length ({}) must match number of arcs ({num_arcs})",
+                capacities.len()
+            );
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("PathConstrainedNetworkFlow requires --source\n\n{usage}")
+            })?;
+            let sink = args.sink.ok_or_else(|| {
+                anyhow::anyhow!("PathConstrainedNetworkFlow requires --sink\n\n{usage}")
+            })?;
+            let requirement = args.requirement.ok_or_else(|| {
+                anyhow::anyhow!("PathConstrainedNetworkFlow requires --requirement\n\n{usage}")
+            })?;
+            let paths = parse_prescribed_paths(args, num_arcs, usage)?;
+            (
+                ser(PathConstrainedNetworkFlow::new(
+                    graph,
+                    capacities,
+                    source,
+                    sink,
+                    paths,
+                    requirement,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumFeedbackArcSet
         "MinimumFeedbackArcSet" => {
             let arcs_str = args.arcs.as_deref().ok_or_else(|| {
@@ -4187,9 +4549,10 @@ fn validate_vertex_index(
 
 /// Parse `--capacities` as edge capacities (u64).
 fn parse_capacities(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<Vec<u64>> {
-    let capacities = args.capacities.as_deref().ok_or_else(|| {
-        anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --capacities\n\n{usage}")
-    })?;
+    let capacities = args
+        .capacities
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("This problem requires --capacities\n\n{usage}"))?;
     let capacities: Vec<u64> = capacities
         .split(',')
         .map(|s| {
@@ -4207,19 +4570,72 @@ fn parse_capacities(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<
             usage
         );
     }
-    for (edge_index, &capacity) in capacities.iter().enumerate() {
+    Ok(capacities)
+}
+
+/// Parse `--lower-bounds` as edge lower bounds (u64).
+fn parse_lower_bounds(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<Vec<u64>> {
+    let lower_bounds = args.lower_bounds.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("UndirectedFlowLowerBounds requires --lower-bounds\n\n{usage}")
+    })?;
+    let lower_bounds: Vec<u64> = lower_bounds
+        .split(',')
+        .map(|s| {
+            let trimmed = s.trim();
+            trimmed
+                .parse::<u64>()
+                .with_context(|| format!("Invalid lower bound `{trimmed}`\n\n{usage}"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if lower_bounds.len() != num_edges {
+        bail!(
+            "Expected {} lower bounds but got {}\n\n{}",
+            num_edges,
+            lower_bounds.len(),
+            usage
+        );
+    }
+    Ok(lower_bounds)
+}
+
+fn parse_bundle_capacities(args: &CreateArgs, num_bundles: usize, usage: &str) -> Result<Vec<u64>> {
+    let capacities = args.bundle_capacities.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("IntegralFlowBundles requires --bundle-capacities\n\n{usage}")
+    })?;
+    let capacities: Vec<u64> = capacities
+        .split(',')
+        .map(|s| {
+            let trimmed = s.trim();
+            trimmed
+                .parse::<u64>()
+                .with_context(|| format!("Invalid bundle capacity `{trimmed}`\n\n{usage}"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    anyhow::ensure!(
+        capacities.len() == num_bundles,
+        "Expected {} bundle capacities but got {}\n\n{}",
+        num_bundles,
+        capacities.len(),
+        usage
+    );
+    for (bundle_index, &capacity) in capacities.iter().enumerate() {
         let fits = usize::try_from(capacity)
             .ok()
             .and_then(|value| value.checked_add(1))
             .is_some();
-        if !fits {
-            bail!(
-                "capacity {} at edge index {} is too large for this platform\n\n{}",
-                capacity,
-                edge_index,
-                usage
-            );
-        }
+        anyhow::ensure!(
+            fits,
+            "bundle capacity {} at bundle index {} is too large for this platform\n\n{}",
+            capacity,
+            bundle_index,
+            usage
+        );
+        anyhow::ensure!(
+            capacity > 0,
+            "bundle capacity at bundle index {} must be positive\n\n{}",
+            bundle_index,
+            usage
+        );
     }
     Ok(capacities)
 }
@@ -4338,6 +4754,35 @@ fn parse_named_sets(sets_str: Option<&str>, flag: &str) -> Result<Vec<Vec<usize>
                         .map_err(|e| anyhow::anyhow!("Invalid set element: {}", e))
                 })
                 .collect()
+        })
+        .collect()
+}
+
+fn parse_homologous_pairs(args: &CreateArgs) -> Result<Vec<(usize, usize)>> {
+    let pairs = args.homologous_pairs.as_deref().ok_or_else(|| {
+        anyhow::anyhow!(
+            "IntegralFlowHomologousArcs requires --homologous-pairs (e.g., \"2=5;4=3\")"
+        )
+    })?;
+
+    pairs
+        .split(';')
+        .filter(|entry| !entry.trim().is_empty())
+        .map(|entry| {
+            let entry = entry.trim();
+            let (left, right) = entry.split_once('=').ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Invalid homologous pair '{}': expected format u=v (e.g., 2=5)",
+                    entry
+                )
+            })?;
+            let left = left.trim().parse::<usize>().with_context(|| {
+                format!("Invalid homologous pair '{}': expected format u=v", entry)
+            })?;
+            let right = right.trim().parse::<usize>().with_context(|| {
+                format!("Invalid homologous pair '{}': expected format u=v", entry)
+            })?;
+            Ok((left, right))
         })
         .collect()
 }
@@ -4464,6 +4909,54 @@ fn parse_partition_groups(args: &CreateArgs, num_arcs: usize) -> Result<Vec<Vec<
     );
 
     Ok(partition)
+}
+
+fn parse_bundles(args: &CreateArgs, num_arcs: usize, usage: &str) -> Result<Vec<Vec<usize>>> {
+    let bundles_str = args
+        .bundles
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("IntegralFlowBundles requires --bundles\n\n{usage}"))?;
+
+    let bundles: Vec<Vec<usize>> = bundles_str
+        .split(';')
+        .map(|bundle| {
+            let bundle = bundle.trim();
+            anyhow::ensure!(
+                !bundle.is_empty(),
+                "IntegralFlowBundles does not allow empty bundle entries\n\n{usage}"
+            );
+            bundle
+                .split(',')
+                .map(|s| {
+                    s.trim().parse::<usize>().with_context(|| {
+                        format!("Invalid bundle arc index `{}`\n\n{usage}", s.trim())
+                    })
+                })
+                .collect::<Result<Vec<_>>>()
+        })
+        .collect::<Result<_>>()?;
+
+    let mut seen_overall = vec![false; num_arcs];
+    for (bundle_index, bundle) in bundles.iter().enumerate() {
+        let mut seen_in_bundle = BTreeSet::new();
+        for &arc_index in bundle {
+            anyhow::ensure!(
+                arc_index < num_arcs,
+                "bundle {bundle_index} references arc {arc_index}, but num_arcs is {num_arcs}\n\n{usage}"
+            );
+            anyhow::ensure!(
+                seen_in_bundle.insert(arc_index),
+                "bundle {bundle_index} contains duplicate arc index {arc_index}\n\n{usage}"
+            );
+            seen_overall[arc_index] = true;
+        }
+    }
+    anyhow::ensure!(
+        seen_overall.iter().all(|covered| *covered),
+        "bundles must cover every arc at least once\n\n{usage}"
+    );
+
+    Ok(bundles)
 }
 
 fn parse_multiple_choice_branching_threshold(args: &CreateArgs, usage: &str) -> Result<i32> {
@@ -4937,6 +5430,40 @@ fn parse_directed_graph(
     };
     let num_arcs = arcs.len();
     Ok((DirectedGraph::new(num_v, arcs), num_arcs))
+}
+
+fn parse_prescribed_paths(
+    args: &CreateArgs,
+    num_arcs: usize,
+    usage: &str,
+) -> Result<Vec<Vec<usize>>> {
+    let paths_str = args
+        .paths
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("PathConstrainedNetworkFlow requires --paths\n\n{usage}"))?;
+
+    paths_str
+        .split(';')
+        .map(|path_str| {
+            let trimmed = path_str.trim();
+            anyhow::ensure!(
+                !trimmed.is_empty(),
+                "PathConstrainedNetworkFlow paths must be non-empty\n\n{usage}"
+            );
+            let path: Vec<usize> = util::parse_comma_list(trimmed)?;
+            anyhow::ensure!(
+                !path.is_empty(),
+                "PathConstrainedNetworkFlow paths must be non-empty\n\n{usage}"
+            );
+            for &arc_idx in &path {
+                anyhow::ensure!(
+                    arc_idx < num_arcs,
+                    "Path arc index {arc_idx} out of bounds for {num_arcs} arcs\n\n{usage}"
+                );
+            }
+            Ok(path)
+        })
+        .collect()
 }
 
 fn parse_mixed_graph(args: &CreateArgs, usage: &str) -> Result<MixedGraph> {
@@ -5641,6 +6168,90 @@ mod tests {
     }
 
     #[test]
+    fn test_create_path_constrained_network_flow_outputs_problem_json() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "PathConstrainedNetworkFlow",
+            "--arcs",
+            "0>1,0>2,1>3,1>4,2>4,3>5,4>5,4>6,5>7,6>7",
+            "--capacities",
+            "2,1,1,1,1,1,1,1,2,1",
+            "--source",
+            "0",
+            "--sink",
+            "7",
+            "--paths",
+            "0,2,5,8;0,3,6,8;0,3,7,9;1,4,6,8;1,4,7,9",
+            "--requirement",
+            "3",
+        ])
+        .expect("parse create command");
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let output_path = temp_output_path("path_constrained_network_flow");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).expect("create PathConstrainedNetworkFlow JSON");
+
+        let created: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output_path).unwrap()).unwrap();
+        fs::remove_file(output_path).ok();
+
+        assert_eq!(created["type"], "PathConstrainedNetworkFlow");
+        assert_eq!(created["data"]["source"], 0);
+        assert_eq!(created["data"]["sink"], 7);
+        assert_eq!(created["data"]["requirement"], 3);
+        assert_eq!(created["data"]["paths"][0], serde_json::json!([0, 2, 5, 8]));
+    }
+
+    #[test]
+    fn test_create_path_constrained_network_flow_rejects_invalid_paths() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "PathConstrainedNetworkFlow",
+            "--arcs",
+            "0>1,1>2,2>3",
+            "--capacities",
+            "1,1,1",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--paths",
+            "0,3",
+            "--requirement",
+            "1",
+        ])
+        .expect("parse create command");
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("out of bounds") || err.contains("not contiguous"));
+    }
+
+    #[test]
     fn test_create_staff_scheduling_reports_invalid_schedule_without_panic() {
         let cli = Cli::try_parse_from([
             "pred",
@@ -5689,6 +6300,13 @@ mod tests {
             help_flag_hint("TimetableDesign", "craftsman_avail", "Vec<Vec<bool>>", None),
             "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
         );
+    }
+
+    #[test]
+    fn test_example_for_path_constrained_network_flow_mentions_paths_flag() {
+        let example = example_for("PathConstrainedNetworkFlow", None);
+        assert!(example.contains("--paths"));
+        assert!(example.contains("--requirement"));
     }
 
     #[test]
@@ -5880,6 +6498,202 @@ mod tests {
         assert!(err.to_string().contains("GeneralizedHex requires --sink"));
     }
 
+    #[test]
+    fn test_create_longest_path_serializes_problem_json() {
+        let output = temp_output_path("longest_path_create");
+        let cli = Cli::try_parse_from([
+            "pred",
+            "-o",
+            output.to_str().unwrap(),
+            "create",
+            "LongestPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,4-6,5-6,1-6",
+            "--edge-lengths",
+            "3,2,4,1,5,2,3,2,4,1",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "6",
+        ])
+        .unwrap();
+        let out = OutputConfig {
+            output: cli.output.clone(),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output).unwrap()).unwrap();
+        fs::remove_file(&output).unwrap();
+        assert_eq!(json["type"], "LongestPath");
+        assert_eq!(json["variant"]["graph"], "SimpleGraph");
+        assert_eq!(json["variant"]["weight"], "i32");
+        assert_eq!(json["data"]["source_vertex"], 0);
+        assert_eq!(json["data"]["target_vertex"], 6);
+        assert_eq!(
+            json["data"]["edge_lengths"],
+            serde_json::json!([3, 2, 4, 1, 5, 2, 3, 2, 4, 1])
+        );
+    }
+
+    #[test]
+    fn test_create_undirected_flow_lower_bounds_serializes_problem_json() {
+        let output = temp_output_path("undirected_flow_lower_bounds_create");
+        let cli = Cli::try_parse_from([
+            "pred",
+            "-o",
+            output.to_str().unwrap(),
+            "create",
+            "UndirectedFlowLowerBounds",
+            "--graph",
+            "0-1,0-2,1-3,2-3,1-4,3-5,4-5",
+            "--capacities",
+            "2,2,2,2,1,3,2",
+            "--lower-bounds",
+            "1,1,0,0,1,0,1",
+            "--source",
+            "0",
+            "--sink",
+            "5",
+            "--requirement",
+            "3",
+        ])
+        .unwrap();
+        let out = OutputConfig {
+            output: cli.output.clone(),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output).unwrap()).unwrap();
+        fs::remove_file(&output).unwrap();
+        assert_eq!(json["type"], "UndirectedFlowLowerBounds");
+        assert_eq!(json["data"]["source"], 0);
+        assert_eq!(json["data"]["sink"], 5);
+        assert_eq!(json["data"]["requirement"], 3);
+        assert_eq!(
+            json["data"]["lower_bounds"],
+            serde_json::json!([1, 1, 0, 0, 1, 0, 1])
+        );
+    }
+
+    #[test]
+    fn test_create_longest_path_requires_edge_lengths() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "LongestPath",
+            "--graph",
+            "0-1,1-2",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "2",
+        ])
+        .unwrap();
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("LongestPath requires --edge-lengths"));
+    }
+
+    #[test]
+    fn test_create_longest_path_rejects_weights_flag() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "LongestPath",
+            "--graph",
+            "0-1,1-2",
+            "--weights",
+            "1,1,1",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "2",
+            "--edge-lengths",
+            "5,7",
+        ])
+        .unwrap();
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("LongestPath uses --edge-lengths, not --weights"));
+    }
+
+    #[test]
+    fn test_create_undirected_flow_lower_bounds_requires_lower_bounds() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "UndirectedFlowLowerBounds",
+            "--graph",
+            "0-1,0-2,1-3,2-3,1-4,3-5,4-5",
+            "--capacities",
+            "2,2,2,2,1,3,2",
+            "--source",
+            "0",
+            "--sink",
+            "5",
+            "--requirement",
+            "3",
+        ])
+        .unwrap();
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("UndirectedFlowLowerBounds requires --lower-bounds"));
+    }
+
     fn empty_args() -> CreateArgs {
         CreateArgs {
             problem: Some("BiconnectivityAugmentation".to_string()),
@@ -5891,9 +6705,14 @@ mod tests {
             edge_weights: None,
             edge_lengths: None,
             capacities: None,
+            lower_bounds: None,
+            bundle_capacities: None,
+            multipliers: None,
             source: None,
             sink: None,
+            requirement: None,
             num_paths_required: None,
+            paths: None,
             couplings: None,
             fields: None,
             clauses: None,
@@ -5926,6 +6745,7 @@ mod tests {
             r_weights: None,
             s_weights: None,
             partition: None,
+            bundles: None,
             universe: None,
             biedges: None,
             left: None,
@@ -5991,6 +6811,7 @@ mod tests {
             usage: None,
             storage: None,
             quantifiers: None,
+            homologous_pairs: None,
         }
     }
 
@@ -6005,6 +6826,13 @@ mod tests {
     fn test_all_data_flags_empty_treats_budget_as_input() {
         let mut args = empty_args();
         args.budget = Some("7".to_string());
+        assert!(!all_data_flags_empty(&args));
+    }
+
+    #[test]
+    fn test_all_data_flags_empty_treats_homologous_pairs_as_input() {
+        let mut args = empty_args();
+        args.homologous_pairs = Some("2=5;4=3".to_string());
         assert!(!all_data_flags_empty(&args));
     }
 
@@ -6034,6 +6862,24 @@ mod tests {
         args.budget = Some("7".to_string());
 
         assert_eq!(parse_budget(&args).unwrap(), 7);
+    }
+
+    #[test]
+    fn test_parse_homologous_pairs() {
+        let mut args = empty_args();
+        args.homologous_pairs = Some("2=5;4=3".to_string());
+
+        assert_eq!(parse_homologous_pairs(&args).unwrap(), vec![(2, 5), (4, 3)]);
+    }
+
+    #[test]
+    fn test_parse_homologous_pairs_rejects_invalid_token() {
+        let mut args = empty_args();
+        args.homologous_pairs = Some("2-5".to_string());
+
+        let err = parse_homologous_pairs(&args).unwrap_err().to_string();
+
+        assert!(err.contains("u=v"));
     }
 
     #[test]

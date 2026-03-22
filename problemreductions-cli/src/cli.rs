@@ -217,6 +217,7 @@ TIP: Run `pred create <PROBLEM>` (no other flags) to see problem-specific help.
 Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
   MaxCut, MaxMatching, TSP, BottleneckTravelingSalesman --graph, --edge-weights
+  LongestPath                     --graph, --edge-lengths, --source-vertex, --target-vertex
   ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --length-bound, --weight-bound
   MaximalIS                       --graph, --weights
   SAT, NAESAT                     --num-vars, --clauses
@@ -229,14 +230,19 @@ Flags by problem type:
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
   GeneralizedHex                  --graph, --source, --sink
+  IntegralFlowWithMultipliers     --arcs, --capacities, --source, --sink, --multipliers, --requirement
   MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound, --cut-bound
   HamiltonianCircuit, HC          --graph
   LongestCircuit                  --graph, --edge-weights, --bound
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
+  UndirectedFlowLowerBounds       --graph, --capacities, --lower-bounds, --source, --sink, --requirement
+  IntegralFlowBundles             --arcs, --bundles, --bundle-capacities, --source, --sink, --requirement [--num-vertices]
   UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
+  IntegralFlowHomologousArcs      --arcs, --capacities, --source, --sink, --requirement, --homologous-pairs
   IsomorphicSpanningTree          --graph, --tree
   KthBestSpanningTree             --graph, --edge-weights, --k, --bound
   LengthBoundedDisjointPaths      --graph, --source, --sink, --num-paths-required, --bound
+  PathConstrainedNetworkFlow      --arcs, --capacities, --source, --sink, --paths, --requirement
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
   SubsetSum                       --sizes, --target
@@ -314,17 +320,20 @@ Examples:
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
   pred create GeneralizedHex --graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5
+  pred create IntegralFlowWithMultipliers --arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2
   pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
   pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
   pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10
+  pred create UndirectedFlowLowerBounds --graph 0-1,0-2,1-3,2-3,1-4,3-5,4-5 --capacities 2,2,2,2,1,3,2 --lower-bounds 1,1,0,0,1,0,1 --source 0 --sink 5 --requirement 3
   pred create ConsistencyOfDatabaseFrequencyTables --num-objects 6 --attribute-domains \"2,3,2\" --frequency-tables \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\" --known-values \"0,0,0;3,0,1;1,2,1\"
   pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5
   pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1
   pred create MinimumDummyActivitiesPert --arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6
   pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
+  pred create IntegralFlowHomologousArcs --arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\"
   pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
   pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3
   pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2
@@ -358,15 +367,30 @@ pub struct CreateArgs {
     /// Edge capacities for multicommodity flow problems (e.g., 1,1,2)
     #[arg(long)]
     pub capacities: Option<String>,
+    /// Edge lower bounds for lower-bounded flow problems (e.g., 1,1,0,0,1,0,1)
+    #[arg(long)]
+    pub lower_bounds: Option<String>,
+    /// Bundle capacities for IntegralFlowBundles (e.g., 1,1,1)
+    #[arg(long)]
+    pub bundle_capacities: Option<String>,
+    /// Vertex multipliers in vertex order (e.g., 1,2,3,1)
+    #[arg(long)]
+    pub multipliers: Option<String>,
     /// Source vertex for path-based graph problems and MinimumCutIntoBoundedSets
     #[arg(long)]
     pub source: Option<usize>,
     /// Sink vertex for path-based graph problems and MinimumCutIntoBoundedSets
     #[arg(long)]
     pub sink: Option<usize>,
+    /// Required total flow R for IntegralFlowBundles, IntegralFlowHomologousArcs, IntegralFlowWithMultipliers, PathConstrainedNetworkFlow, and UndirectedFlowLowerBounds
+    #[arg(long)]
+    pub requirement: Option<u64>,
     /// Required number of paths for LengthBoundedDisjointPaths
     #[arg(long)]
     pub num_paths_required: Option<usize>,
+    /// Prescribed directed s-t paths as semicolon-separated arc-index sequences (e.g., "0,2,5;1,4,6")
+    #[arg(long)]
+    pub paths: Option<String>,
     /// Pairwise couplings J_ij for SpinGlass (e.g., 1,-1,1) [default: all 1s]
     #[arg(long)]
     pub couplings: Option<String>,
@@ -464,6 +488,9 @@ pub struct CreateArgs {
     /// Partition groups for arc-index partitions (semicolon-separated, e.g., "0,1;2,3")
     #[arg(long)]
     pub partition: Option<String>,
+    /// Arc bundles for IntegralFlowBundles (semicolon-separated groups of arc indices, e.g., "0,1;2,5;3,4")
+    #[arg(long)]
+    pub bundles: Option<String>,
     /// Universe size for set-system problems such as MinimumHittingSet, MinimumSetCovering, and ComparativeContainment
     #[arg(long)]
     pub universe: Option<usize>,
@@ -530,6 +557,9 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Arc-index equality constraints for IntegralFlowHomologousArcs (semicolon-separated, e.g., "2=5;4=3")
+    #[arg(long)]
+    pub homologous_pairs: Option<String>,
     /// Quantifiers for QBF (comma-separated, E=Exists, A=ForAll, e.g., "E,A,E")
     #[arg(long)]
     pub quantifiers: Option<String>,
