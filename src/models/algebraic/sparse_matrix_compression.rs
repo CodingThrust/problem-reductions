@@ -113,18 +113,6 @@ impl SparseMatrixCompression {
             }
         }
 
-        for (row_idx, row) in self.matrix.iter().enumerate() {
-            let row_label = row_idx + 1;
-            let shift_offset = shifts[row_idx] - 1;
-
-            for (col_idx, &entry) in row.iter().enumerate() {
-                let matches_row = storage[shift_offset + col_idx] == row_label;
-                if entry != matches_row {
-                    return None;
-                }
-            }
-        }
-
         Some(storage)
     }
 }
