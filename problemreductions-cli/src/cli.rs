@@ -365,7 +365,7 @@ pub struct CreateArgs {
     /// Edge lengths (e.g., 2,3,1) [default: all 1s]
     #[arg(long)]
     pub edge_lengths: Option<String>,
-    /// Edge capacities for multicommodity flow problems (e.g., 1,1,2)
+    /// Capacities (edge capacities for flow problems, capacity levels for CapacityAssignment)
     #[arg(long)]
     pub capacities: Option<String>,
     /// Bundle capacities for IntegralFlowBundles (e.g., 1,1,1)
