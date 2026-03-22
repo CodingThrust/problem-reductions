@@ -44,6 +44,7 @@
 //! - [`SteinerTree`]: Minimum-weight tree spanning all required terminals
 //! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
 //! - [`DirectedTwoCommodityIntegralFlow`]: Directed two-commodity integral flow (satisfaction)
+//! - [`IntegralFlowBundles`]: Integral flow feasibility with overlapping bundle capacities
 //! - [`IntegralFlowHomologousArcs`]: Integral flow with arc-pair equality constraints
 //! - [`IntegralFlowWithMultipliers`]: Integral flow with vertex multipliers on a directed graph
 //! - [`UndirectedFlowLowerBounds`]: Feasible s-t flow in an undirected graph with lower/upper bounds
@@ -61,6 +62,7 @@ pub(crate) mod generalized_hex;
 pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_circuit;
 pub(crate) mod hamiltonian_path;
+pub(crate) mod integral_flow_bundles;
 pub(crate) mod integral_flow_homologous_arcs;
 pub(crate) mod integral_flow_with_multipliers;
 pub(crate) mod isomorphic_spanning_tree;
@@ -112,6 +114,7 @@ pub use generalized_hex::GeneralizedHex;
 pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_circuit::HamiltonianCircuit;
 pub use hamiltonian_path::HamiltonianPath;
+pub use integral_flow_bundles::IntegralFlowBundles;
 pub use integral_flow_homologous_arcs::IntegralFlowHomologousArcs;
 pub use integral_flow_with_multipliers::IntegralFlowWithMultipliers;
 pub use isomorphic_spanning_tree::IsomorphicSpanningTree;
@@ -162,6 +165,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(generalized_hex::canonical_model_example_specs());
     specs.extend(hamiltonian_circuit::canonical_model_example_specs());
     specs.extend(hamiltonian_path::canonical_model_example_specs());
+    specs.extend(integral_flow_bundles::canonical_model_example_specs());
     specs.extend(integral_flow_with_multipliers::canonical_model_example_specs());
     specs.extend(isomorphic_spanning_tree::canonical_model_example_specs());
     specs.extend(kclique::canonical_model_example_specs());

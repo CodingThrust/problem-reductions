@@ -669,6 +669,157 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_out_of_range_termi
 }
 
 #[test]
+fn test_create_integral_flow_bundles() {
+    let output = pred()
+        .args([
+            "create",
+            "IntegralFlowBundles",
+            "--arcs",
+            "0>1,0>2,1>3,2>3,1>2,2>1",
+            "--bundles",
+            "0,1;2,5;3,4",
+            "--bundle-capacities",
+            "1,1,1",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--requirement",
+            "1",
+            "--num-vertices",
+            "4",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "IntegralFlowBundles");
+    assert_eq!(json["variant"], serde_json::json!({}));
+    assert_eq!(json["data"]["graph"]["num_vertices"], 4);
+    assert_eq!(json["data"]["graph"]["arcs"].as_array().unwrap().len(), 6);
+    assert_eq!(
+        json["data"]["bundles"],
+        serde_json::json!([[0, 1], [2, 5], [3, 4]])
+    );
+    assert_eq!(
+        json["data"]["bundle_capacities"],
+        serde_json::json!([1, 1, 1])
+    );
+    assert_eq!(json["data"]["source"], 0);
+    assert_eq!(json["data"]["sink"], 3);
+    assert_eq!(json["data"]["requirement"], 1);
+}
+
+#[test]
+fn test_create_integral_flow_bundles_missing_bundles_shows_usage() {
+    let output = pred()
+        .args([
+            "create",
+            "IntegralFlowBundles",
+            "--arcs",
+            "0>1,0>2,1>3,2>3,1>2,2>1",
+            "--bundle-capacities",
+            "1,1,1",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--requirement",
+            "1",
+            "--num-vertices",
+            "4",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("requires --bundles"));
+    assert!(stderr.contains("Usage: pred create IntegralFlowBundles"));
+}
+
+#[test]
+fn test_create_integral_flow_bundles_rejects_wrong_bundle_capacity_count() {
+    let output = pred()
+        .args([
+            "create",
+            "IntegralFlowBundles",
+            "--arcs",
+            "0>1,0>2,1>3,2>3,1>2,2>1",
+            "--bundles",
+            "0,1;2,5;3,4",
+            "--bundle-capacities",
+            "1,1",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--requirement",
+            "1",
+            "--num-vertices",
+            "4",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Expected 3 bundle capacities but got 2"));
+    assert!(stderr.contains("Usage: pred create IntegralFlowBundles"));
+}
+
+#[test]
+fn test_create_integral_flow_bundles_rejects_out_of_range_bundle_arc() {
+    let output = pred()
+        .args([
+            "create",
+            "IntegralFlowBundles",
+            "--arcs",
+            "0>1,0>2,1>3,2>3,1>2,2>1",
+            "--bundles",
+            "0,1;2,7;3,4",
+            "--bundle-capacities",
+            "1,1,1",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--requirement",
+            "1",
+            "--num-vertices",
+            "4",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("bundle 1 references arc 7"));
+    assert!(stderr.contains("Usage: pred create IntegralFlowBundles"));
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_integral_flow_bundles_example() {
+    let output = pred()
+        .args(["create", "--example", "IntegralFlowBundles"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "IntegralFlowBundles");
+    assert_eq!(json["data"]["requirement"], 1);
+    assert_eq!(json["data"]["bundles"].as_array().unwrap().len(), 3);
+}
+
+#[test]
 fn test_create_integral_flow_homologous_arcs() {
     let output_file =
         std::env::temp_dir().join("pred_test_create_integral_flow_homologous_arcs.json");

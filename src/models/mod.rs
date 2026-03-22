@@ -20,7 +20,7 @@ pub use formula::{
 pub use graph::{
     AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
     BottleneckTravelingSalesman, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
-    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
+    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IntegralFlowBundles,
     IntegralFlowHomologousArcs, IntegralFlowWithMultipliers, IsomorphicSpanningTree, KClique,
     KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths, LongestCircuit, LongestPath,
     MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching, MinMaxMulticenter,
