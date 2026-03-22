@@ -670,7 +670,8 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_out_of_range_termi
 
 #[test]
 fn test_create_integral_flow_homologous_arcs() {
-    let output_file = std::env::temp_dir().join("pred_test_create_integral_flow_homologous_arcs.json");
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_integral_flow_homologous_arcs.json");
     let output = pred()
         .args([
             "-o",

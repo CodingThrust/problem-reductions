@@ -140,7 +140,10 @@ fn test_find_model_example_integral_flow_homologous_arcs() {
     assert_eq!(example.problem, "IntegralFlowHomologousArcs");
     assert_eq!(example.variant, problem.variant);
     assert_eq!(example.instance["requirement"], 2);
-    assert_eq!(example.instance["homologous_pairs"], serde_json::json!([[2, 5], [4, 3]]));
+    assert_eq!(
+        example.instance["homologous_pairs"],
+        serde_json::json!([[2, 5], [4, 3]])
+    );
     assert_eq!(example.optimal_config, vec![1, 1, 1, 0, 0, 1, 1, 1]);
 }
 
