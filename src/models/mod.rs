@@ -25,13 +25,13 @@ pub use graph::{
     IsomorphicSpanningTree, KClique, KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths,
     LongestCircuit, LongestPath, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
     MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
-    MinimumDummyActivitiesPert,
-    MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter,
-    MinimumVertexCover, MixedChinesePostman, MultipleChoiceBranching, MultipleCopyFileAllocation,
-    OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
-    PathConstrainedNetworkFlow, RuralPostman, ShortestWeightConstrainedPath, SpinGlass,
-    SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation, SubgraphIsomorphism,
-    TravelingSalesman, UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
+    MinimumDummyActivitiesPert, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
+    MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MixedChinesePostman,
+    MultipleChoiceBranching, MultipleCopyFileAllocation, OptimalLinearArrangement,
+    PartitionIntoPathsOfLength2, PartitionIntoTriangles, PathConstrainedNetworkFlow, RuralPostman,
+    ShortestWeightConstrainedPath, SpinGlass, SteinerTree, SteinerTreeInGraphs,
+    StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
+    UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
