@@ -13,6 +13,7 @@ pub(crate) mod factoring_circuit;
 mod graph;
 pub(crate) mod graphpartitioning_maxcut;
 pub(crate) mod graphpartitioning_qubo;
+pub(crate) mod hamiltoniancircuit_travelingsalesman;
 mod kcoloring_casts;
 mod knapsack_qubo;
 mod ksatisfiability_casts;
@@ -105,6 +106,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(factoring_circuit::canonical_rule_example_specs());
     specs.extend(graphpartitioning_maxcut::canonical_rule_example_specs());
     specs.extend(graphpartitioning_qubo::canonical_rule_example_specs());
+    specs.extend(hamiltoniancircuit_travelingsalesman::canonical_rule_example_specs());
     specs.extend(knapsack_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_subsetsum::canonical_rule_example_specs());
