@@ -13,6 +13,11 @@ document.addEventListener('DOMContentLoaded', function() {
     try { cytoscape({ headless: true, elements: [] }).layout({ name: 'elk' }); elkAvailable = true; } catch(e) {}
   }
 
+  // Register cytoscape-svg extension if available
+  if (typeof cytoscapeSvg !== 'undefined') {
+    cytoscape.use(cytoscapeSvg);
+  }
+
   var categoryColors = {
     graph: '#c8f0c8', set: '#f0c8c8', algebraic: '#f0f0a0',
     formula: '#c8c8f0', misc: '#f0c8e0'
@@ -551,6 +556,21 @@ document.addEventListener('DOMContentLoaded', function() {
           activeVariantFilter = null;
         }
       });
+
+      // Download SVG handler
+      var downloadBtn = document.getElementById('download-svg-btn');
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', function() {
+          var svgContent = cy.svg({ scale: 1, full: true, bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#ffffff' });
+          var blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'reduction-graph.svg';
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+      }
 
       // Search bar handler
       var searchInput = document.getElementById('search-input');

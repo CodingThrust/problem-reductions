@@ -20,16 +20,18 @@ pub use formula::{
 pub use graph::{
     AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
     BottleneckTravelingSalesman, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
-    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree,
-    KClique, KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths, LongestCircuit, MaxCut,
-    MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching, MinMaxMulticenter,
-    MinimumCutIntoBoundedSets, MinimumDominatingSet, MinimumFeedbackArcSet,
-    MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover,
-    MixedChinesePostman, MultipleChoiceBranching, MultipleCopyFileAllocation,
-    OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
+    DisjointConnectingPaths, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
+    HamiltonianPath, IntegralFlowBundles, IntegralFlowHomologousArcs, IntegralFlowWithMultipliers,
+    IsomorphicSpanningTree, KClique, KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths,
+    LongestCircuit, LongestPath, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
+    MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
+    MinimumDummyActivitiesPert, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
+    MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MixedChinesePostman,
+    MultipleChoiceBranching, MultipleCopyFileAllocation, OptimalLinearArrangement,
+    PartitionIntoPathsOfLength2, PartitionIntoTriangles, PathConstrainedNetworkFlow,
     RootedTreeArrangement, RuralPostman, ShortestWeightConstrainedPath, SpinGlass, SteinerTree,
     SteinerTreeInGraphs, StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
-    UndirectedTwoCommodityIntegralFlow,
+    UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{

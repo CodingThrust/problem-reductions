@@ -415,6 +415,42 @@ mod minimum_vertex_cover {
 }
 
 // =============================================================================
+// Integral Flow With Homologous Arcs Tests
+// =============================================================================
+
+mod integral_flow_homologous_arcs {
+    use super::*;
+    use crate::topology::DirectedGraph;
+
+    #[test]
+    fn test_creation() {
+        let problem = IntegralFlowHomologousArcs::new(
+            DirectedGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (0, 2),
+                    (1, 3),
+                    (2, 3),
+                    (1, 4),
+                    (2, 4),
+                    (3, 5),
+                    (4, 5),
+                ],
+            ),
+            vec![1; 8],
+            0,
+            5,
+            2,
+            vec![(2, 5), (4, 3)],
+        );
+        assert_eq!(problem.num_vertices(), 6);
+        assert_eq!(problem.num_arcs(), 8);
+        assert_eq!(problem.dims(), vec![2; 8]);
+    }
+}
+
+// =============================================================================
 // KColoring Tests
 // =============================================================================
 
