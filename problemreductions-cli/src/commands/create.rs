@@ -4527,10 +4527,7 @@ fn parse_terminal_pairs(args: &CreateArgs, num_vertices: usize) -> Result<Vec<(u
             sink < num_vertices,
             "terminal pair sink {sink} >= num_vertices ({num_vertices})"
         );
-        anyhow::ensure!(
-            source != sink,
-            "terminal pair endpoints must be distinct"
-        );
+        anyhow::ensure!(source != sink, "terminal pair endpoints must be distinct");
         anyhow::ensure!(
             used.insert(source) && used.insert(sink),
             "terminal vertices must be pairwise disjoint across terminal pairs"
