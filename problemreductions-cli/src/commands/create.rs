@@ -1511,6 +1511,20 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let usage = "Usage: pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1";
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let capacities = parse_capacities(args, graph.num_edges(), usage)?;
+            for (edge_index, &capacity) in capacities.iter().enumerate() {
+                let fits = usize::try_from(capacity)
+                    .ok()
+                    .and_then(|value| value.checked_add(1))
+                    .is_some();
+                if !fits {
+                    bail!(
+                        "capacity {} at edge index {} is too large for this platform\n\n{}",
+                        capacity,
+                        edge_index,
+                        usage
+                    );
+                }
+            }
             let num_vertices = graph.num_vertices();
             let source_1 = args.source_1.ok_or_else(|| {
                 anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --source-1\n\n{usage}")

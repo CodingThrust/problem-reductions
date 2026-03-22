@@ -84,6 +84,7 @@ impl UndirectedFlowLowerBounds {
             sink < num_vertices,
             "sink must be less than num_vertices ({num_vertices})"
         );
+        assert!(source != sink, "source and sink must be distinct");
         assert!(requirement >= 1, "requirement must be at least 1");
 
         for (edge_index, (&lower, &upper)) in lower_bounds.iter().zip(&capacities).enumerate() {
