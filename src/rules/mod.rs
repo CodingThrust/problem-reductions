@@ -13,6 +13,7 @@ pub(crate) mod factoring_circuit;
 mod graph;
 pub(crate) mod graphpartitioning_maxcut;
 pub(crate) mod graphpartitioning_qubo;
+pub(crate) mod hamiltoniancircuit_travelingsalesman;
 mod kcoloring_casts;
 mod knapsack_qubo;
 mod ksatisfiability_casts;
@@ -31,6 +32,7 @@ pub(crate) mod minimummultiwaycut_qubo;
 pub(crate) mod minimumvertexcover_maximumindependentset;
 pub(crate) mod minimumvertexcover_minimumfeedbackvertexset;
 pub(crate) mod minimumvertexcover_minimumsetcovering;
+pub(crate) mod partition_knapsack;
 pub(crate) mod sat_circuitsat;
 pub(crate) mod sat_coloring;
 pub(crate) mod sat_ksat;
@@ -64,9 +66,13 @@ mod ilp_bool_ilp_i32;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod ilp_qubo;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod integralflowbundles_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod knapsack_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod longestcommonsubsequence_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod longestpath_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumclique_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -105,6 +111,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(factoring_circuit::canonical_rule_example_specs());
     specs.extend(graphpartitioning_maxcut::canonical_rule_example_specs());
     specs.extend(graphpartitioning_qubo::canonical_rule_example_specs());
+    specs.extend(hamiltoniancircuit_travelingsalesman::canonical_rule_example_specs());
     specs.extend(knapsack_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_subsetsum::canonical_rule_example_specs());
@@ -114,6 +121,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(maximummatching_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maximumsetpacking_qubo::canonical_rule_example_specs());
     specs.extend(minimummultiwaycut_qubo::canonical_rule_example_specs());
+    specs.extend(partition_knapsack::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_maximumindependentset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackvertexset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumsetcovering::canonical_rule_example_specs());
@@ -134,8 +142,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(coloring_ilp::canonical_rule_example_specs());
         specs.extend(factoring_ilp::canonical_rule_example_specs());
         specs.extend(graphpartitioning_ilp::canonical_rule_example_specs());
+        specs.extend(integralflowbundles_ilp::canonical_rule_example_specs());
         specs.extend(ilp_qubo::canonical_rule_example_specs());
         specs.extend(knapsack_ilp::canonical_rule_example_specs());
+        specs.extend(longestpath_ilp::canonical_rule_example_specs());
         specs.extend(longestcommonsubsequence_ilp::canonical_rule_example_specs());
         specs.extend(maximumclique_ilp::canonical_rule_example_specs());
         specs.extend(maximummatching_ilp::canonical_rule_example_specs());

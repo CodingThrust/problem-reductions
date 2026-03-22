@@ -36,6 +36,7 @@
 pub(crate) mod additional_key;
 mod bin_packing;
 mod boyce_codd_normal_form_violation;
+mod capacity_assignment;
 pub(crate) mod conjunctive_boolean_query;
 pub(crate) mod conjunctive_query_foldability;
 mod consistency_of_database_frequency_tables;
@@ -70,6 +71,7 @@ mod timetable_design;
 pub use additional_key::AdditionalKey;
 pub use bin_packing::BinPacking;
 pub use boyce_codd_normal_form_violation::BoyceCoddNormalFormViolation;
+pub use capacity_assignment::CapacityAssignment;
 pub use conjunctive_boolean_query::{ConjunctiveBooleanQuery, QueryArg, Relation as CbqRelation};
 pub use conjunctive_query_foldability::{ConjunctiveQueryFoldability, Term};
 pub use consistency_of_database_frequency_tables::{
@@ -107,6 +109,7 @@ pub use timetable_design::TimetableDesign;
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let mut specs = Vec::new();
     specs.extend(boyce_codd_normal_form_violation::canonical_model_example_specs());
+    specs.extend(capacity_assignment::canonical_model_example_specs());
     specs.extend(consistency_of_database_frequency_tables::canonical_model_example_specs());
     specs.extend(conjunctive_boolean_query::canonical_model_example_specs());
     specs.extend(conjunctive_query_foldability::canonical_model_example_specs());
