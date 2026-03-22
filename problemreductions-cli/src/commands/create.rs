@@ -13,9 +13,9 @@ use problemreductions::models::algebraic::{
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
-    LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
-    MixedChinesePostman, MultipleChoiceBranching, SteinerTree, SteinerTreeInGraphs,
-    StrongConnectivityAugmentation,
+    LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets,
+    MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman,
+    MultipleChoiceBranching, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
@@ -585,6 +585,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
         }
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
+        "MinimumDummyActivitiesPert" => "--arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6",
         "StrongConnectivityAugmentation" => {
             "--arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1"
         }
@@ -3223,6 +3224,25 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (
                 ser(
                     StrongConnectivityAugmentation::try_new(graph, candidate_arcs, bound)
+                        .map_err(|e| anyhow::anyhow!(e))?,
+                )?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumDummyActivitiesPert
+        "MinimumDummyActivitiesPert" => {
+            let usage = "Usage: pred create MinimumDummyActivitiesPert --arcs \"0>2,0>3,1>3,1>4,2>5\" [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumDummyActivitiesPert requires --arcs\n\n\
+                     {usage}"
+                )
+            })?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            (
+                ser(
+                    MinimumDummyActivitiesPert::try_new(graph)
                         .map_err(|e| anyhow::anyhow!(e))?,
                 )?,
                 resolved_variant.clone(),
@@ -6212,6 +6232,56 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("--num-vertices (5) is too small for the arcs"));
+    }
+
+    #[test]
+    fn test_create_minimum_dummy_activities_pert_json() {
+        use crate::dispatch::ProblemJsonOutput;
+        use problemreductions::models::graph::MinimumDummyActivitiesPert;
+
+        let mut args = empty_args();
+        args.problem = Some("MinimumDummyActivitiesPert".to_string());
+        args.num_vertices = Some(6);
+        args.arcs = Some("0>2,0>3,1>3,1>4,2>5".to_string());
+
+        let output_path = temp_output_path("minimum_dummy_activities_pert");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "MinimumDummyActivitiesPert");
+        assert!(created.variant.is_empty());
+
+        let problem: MinimumDummyActivitiesPert = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.num_vertices(), 6);
+        assert_eq!(problem.num_arcs(), 5);
+
+        let _ = fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_minimum_dummy_activities_pert_rejects_cycles() {
+        let mut args = empty_args();
+        args.problem = Some("MinimumDummyActivitiesPert".to_string());
+        args.num_vertices = Some(3);
+        args.arcs = Some("0>1,1>2,2>0".to_string());
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("requires the input graph to be a DAG"));
     }
 
     #[test]

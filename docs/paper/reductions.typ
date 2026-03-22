@@ -134,6 +134,7 @@
   "MinMaxMulticenter": [Min-Max Multicenter],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
+  "MinimumDummyActivitiesPert": [Minimum Dummy Activities in PERT Networks],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
   "MultipleChoiceBranching": [Multiple Choice Branching],
@@ -1841,6 +1842,58 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     },
     caption: [Path $P_#nv$ with maximal IS $S = {#S-sub.map(i => $v_#i$).join(", ")}$ (blue, $w(S) = #w-sub$). $S$ is maximal --- no white vertex can be added --- but not maximum: ${#S-opt.map(i => $v_#i$).join(", ")}$ achieves $w = #w-opt$.],
     ) <fig:path-maximal-is>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumDummyActivitiesPert")
+  let nv = x.instance.graph.num_vertices
+  let arcs = x.instance.graph.arcs
+  let ne = arcs.len()
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let merged = arcs.enumerate().filter(((i, _)) => sol.config.at(i) == 1).map(((i, arc)) => arc)
+  let dummy = arcs.enumerate().filter(((i, _)) => sol.config.at(i) == 0).map(((i, arc)) => arc)
+  let opt = sol.metric.Valid
+  let blue = graph-colors.at(0)
+  [
+    #problem-def("MinimumDummyActivitiesPert")[
+      Given a precedence DAG $G = (V, A)$, find an activity-on-arc PERT event network with one real activity arc for each task $v in V$, minimizing the number of dummy activity arcs, such that for every ordered pair of tasks $(u, v)$ there is a path from the finish event of $u$ to the start event of $v$ if and only if $v$ is reachable from $u$ in $G$.
+    ][
+    The decision version of minimum dummy activities appears as ND44 in Garey and Johnson's compendium @garey1979. It arises when an activity-on-node precedence DAG must be converted into an activity-on-arc PERT chart: merging compatible finish/start events removes dummy activities, but an over-aggressive merge creates spurious precedence relations between unrelated tasks. The implementation here enumerates, for each direct precedence arc, whether it is realized as an event merge or left as a dummy activity, so brute-force over the $m = #ne$ direct precedences yields a worst-case bound of $O^*(2^m)$. #footnote[No exact algorithm improving on the direct-precedence merge encoding implemented in the codebase is claimed here.]
+
+    *Example.* Consider the canonical precedence DAG on $n = #nv$ tasks with direct precedences #arcs.map(a => $(v_#(a.at(0)), v_#(a.at(1)))$).join(", "). The optimal encoding merges the predecessor-finish/successor-start pairs #merged.map(a => $(v_#(a.at(0)), v_#(a.at(1)))$).join(", "), so those handoffs need no dummy activity at all. The remaining direct precedences #dummy.map(a => $(v_#(a.at(0)), v_#(a.at(1)))$).join(" and ") still require dummy activities, so the optimum is $#opt$. Both unresolved precedences enter $v_3$, and merging either of them would identify unrelated task completions, creating spurious reachability between the two source tasks.
+
+    #pred-commands(
+      "pred create --example " + problem-spec(x) + " -o minimum-dummy-activities-pert.json",
+      "pred solve minimum-dummy-activities-pert.json",
+      "pred evaluate minimum-dummy-activities-pert.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure({
+      let positions = ((0, 1.0), (0, -0.3), (2.0, 1.3), (2.0, 0.35), (2.0, -0.95), (4.0, 1.3))
+      canvas(length: 1cm, {
+        for (k, pos) in positions.enumerate() {
+          g-node(pos, name: "v" + str(k),
+            fill: white,
+            label: [$v_#k$])
+        }
+        for arc in dummy {
+          let (u, v) = arc
+          draw.line("v" + str(u), "v" + str(v),
+            stroke: (paint: luma(140), thickness: 1pt, dash: "dashed"),
+            mark: (end: "straight", scale: 0.4))
+        }
+        for arc in merged {
+          let (u, v) = arc
+          draw.line("v" + str(u), "v" + str(v),
+            stroke: 1.7pt + blue,
+            mark: (end: "straight", scale: 0.45))
+        }
+      })
+    },
+    caption: [Canonical Minimum Dummy Activities in PERT Networks instance. Blue precedence arcs are encoded by merging the predecessor finish event with the successor start event; dashed gray arcs still require dummy activities. The optimal encoding leaves exactly #opt dummy activities.],
+    ) <fig:minimum-dummy-activities-pert>
     ]
   ]
 }

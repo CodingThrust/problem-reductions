@@ -57,7 +57,8 @@ pub mod prelude {
     };
     pub use crate::models::graph::{
         KColoring, LongestCircuit, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
-        MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
+        MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets,
+        MinimumDominatingSet, MinimumDummyActivitiesPert,
         MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter,
         MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
         OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
