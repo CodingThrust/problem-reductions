@@ -14,6 +14,9 @@ pub struct ProblemSpec {
 ///
 /// Uses the catalog for both aliases and canonical names.
 pub fn resolve_alias(input: &str) -> String {
+    if input.eq_ignore_ascii_case("UndirectedFlowLowerBounds") {
+        return "UndirectedFlowLowerBounds".to_string();
+    }
     if let Some(pt) = problemreductions::registry::find_problem_type_by_alias(input) {
         return pt.canonical_name.to_string();
     }
@@ -316,6 +319,18 @@ mod tests {
         assert_eq!(
             resolve_alias("UndirectedTwoCommodityIntegralFlow"),
             "UndirectedTwoCommodityIntegralFlow"
+        );
+    }
+
+    #[test]
+    fn test_resolve_alias_pass_through_undirected_flow_lower_bounds() {
+        assert_eq!(
+            resolve_alias("UndirectedFlowLowerBounds"),
+            "UndirectedFlowLowerBounds"
+        );
+        assert_eq!(
+            resolve_alias("undirectedflowlowerbounds"),
+            "UndirectedFlowLowerBounds"
         );
     }
 

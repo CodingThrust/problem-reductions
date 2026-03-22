@@ -51,9 +51,10 @@ pub mod prelude {
         AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover,
         BiconnectivityAugmentation, BottleneckTravelingSalesman, BoundedComponentSpanningForest,
         DirectedTwoCommodityIntegralFlow, DisjointConnectingPaths, GeneralizedHex,
-        GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree, KClique,
-        KthBestSpanningTree, LengthBoundedDisjointPaths, MixedChinesePostman, SpinGlass,
-        SteinerTree, StrongConnectivityAugmentation, SubgraphIsomorphism,
+        GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IntegralFlowBundles,
+        IntegralFlowHomologousArcs, IntegralFlowWithMultipliers, IsomorphicSpanningTree, KClique,
+        KthBestSpanningTree, LengthBoundedDisjointPaths, LongestPath, MixedChinesePostman,
+        SpinGlass, SteinerTree, StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, LongestCircuit, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
@@ -61,7 +62,8 @@ pub mod prelude {
         MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter,
         MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
         OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
-        RuralPostman, ShortestWeightConstrainedPath, SteinerTreeInGraphs, TravelingSalesman,
+        PathConstrainedNetworkFlow, RuralPostman, ShortestWeightConstrainedPath,
+        SteinerTreeInGraphs, TravelingSalesman, UndirectedFlowLowerBounds,
         UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{

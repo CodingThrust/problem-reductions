@@ -113,6 +113,21 @@ fn test_find_model_example_multiprocessor_scheduling() {
 }
 
 #[test]
+fn test_find_model_example_integral_flow_bundles() {
+    let problem = ProblemRef {
+        name: "IntegralFlowBundles".to_string(),
+        variant: BTreeMap::new(),
+    };
+
+    let example = find_model_example(&problem).expect("IntegralFlowBundles example exists");
+    assert_eq!(example.problem, "IntegralFlowBundles");
+    assert_eq!(example.variant, problem.variant);
+    assert_eq!(example.instance["graph"]["num_vertices"], 4);
+    assert_eq!(example.instance["requirement"], 1);
+    assert_eq!(example.optimal_config, vec![1, 0, 1, 0, 0, 0]);
+}
+
+#[test]
 fn test_find_model_example_strong_connectivity_augmentation() {
     let problem = ProblemRef {
         name: "StrongConnectivityAugmentation".to_string(),
@@ -127,6 +142,24 @@ fn test_find_model_example_strong_connectivity_augmentation() {
         !example.optimal_config.is_empty(),
         "canonical example should include satisfying assignments"
     );
+}
+
+#[test]
+fn test_find_model_example_integral_flow_homologous_arcs() {
+    let problem = ProblemRef {
+        name: "IntegralFlowHomologousArcs".to_string(),
+        variant: BTreeMap::new(),
+    };
+
+    let example = find_model_example(&problem).expect("IntegralFlowHomologousArcs example exists");
+    assert_eq!(example.problem, "IntegralFlowHomologousArcs");
+    assert_eq!(example.variant, problem.variant);
+    assert_eq!(example.instance["requirement"], 2);
+    assert_eq!(
+        example.instance["homologous_pairs"],
+        serde_json::json!([[2, 5], [4, 3]])
+    );
+    assert_eq!(example.optimal_config, vec![1, 1, 1, 0, 0, 1, 1, 1]);
 }
 
 #[test]
@@ -174,6 +207,26 @@ fn test_find_rule_example_sat_to_kcoloring_contains_full_instances() {
         example.target.instance.get("graph").is_some(),
         "KColoring target should have graph field"
     );
+}
+
+#[cfg(feature = "ilp-solver")]
+#[test]
+fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances() {
+    let source = ProblemRef {
+        name: "IntegralFlowBundles".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "ILP".to_string(),
+        variant: BTreeMap::from([("variable".to_string(), "i32".to_string())]),
+    };
+
+    let example = find_rule_example(&source, &target).expect("IntegralFlowBundles -> ILP exists");
+    assert_eq!(example.source.problem, "IntegralFlowBundles");
+    assert_eq!(example.target.problem, "ILP");
+    assert!(example.source.instance.get("graph").is_some());
+    assert_eq!(example.solutions[0].source_config, vec![1, 0, 1, 0, 0, 0]);
+    assert_eq!(example.solutions[0].target_config, vec![1, 0, 1, 0, 0, 0]);
 }
 
 #[test]
