@@ -234,6 +234,7 @@ Flags by problem type:
   LongestCircuit                  --graph, --edge-weights, --bound
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
+  DisjointConnectingPaths         --graph, --terminal-pairs
   IsomorphicSpanningTree          --graph, --tree
   KthBestSpanningTree             --graph, --edge-weights, --k, --bound
   LengthBoundedDisjointPaths      --graph, --source, --sink, --num-paths-required, --bound
@@ -495,6 +496,9 @@ pub struct CreateArgs {
     /// Terminal vertices for SteinerTree or MinimumMultiwayCut (comma-separated indices, e.g., "0,2,4")
     #[arg(long)]
     pub terminals: Option<String>,
+    /// Terminal pairs for DisjointConnectingPaths (comma-separated pairs, e.g., "0-3,2-5")
+    #[arg(long = "terminal-pairs")]
+    pub terminal_pairs: Option<String>,
     /// Tree edge list for IsomorphicSpanningTree (e.g., 0-1,1-2,2-3)
     #[arg(long)]
     pub tree: Option<String>,
