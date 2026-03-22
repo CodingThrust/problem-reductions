@@ -67,7 +67,7 @@ pub mod prelude {
         UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
-        AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation,
+        AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
         ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables,
         EnsembleComputation, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
         MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, Partition, QueryArg,

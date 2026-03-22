@@ -246,6 +246,7 @@ Flags by problem type:
   PathConstrainedNetworkFlow      --arcs, --capacities, --source, --sink, --paths, --requirement
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
+  CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --cost-budget, --delay-budget
   SubsetSum                       --sizes, --target
   SumOfSquaresPartition           --sizes, --num-groups, --bound
   PaintShop                       --sequence
@@ -321,6 +322,7 @@ Examples:
   pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
+  pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12
   pred create GeneralizedHex --graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5
   pred create IntegralFlowWithMultipliers --arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2
   pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
@@ -366,15 +368,21 @@ pub struct CreateArgs {
     /// Edge lengths (e.g., 2,3,1) [default: all 1s]
     #[arg(long)]
     pub edge_lengths: Option<String>,
-    /// Edge capacities for multicommodity flow problems (e.g., 1,1,2)
+    /// Capacities (edge capacities for flow problems, capacity levels for CapacityAssignment)
     #[arg(long)]
     pub capacities: Option<String>,
-    /// Edge lower bounds for lower-bounded flow problems (e.g., 1,1,0,0,1,0,1)
-    #[arg(long)]
-    pub lower_bounds: Option<String>,
     /// Bundle capacities for IntegralFlowBundles (e.g., 1,1,1)
     #[arg(long)]
     pub bundle_capacities: Option<String>,
+    /// Cost matrix for CapacityAssignment (semicolon-separated rows, e.g., "1,3,6;2,4,7")
+    #[arg(long)]
+    pub cost_matrix: Option<String>,
+    /// Delay matrix for CapacityAssignment (semicolon-separated rows, e.g., "8,4,1;7,3,1")
+    #[arg(long)]
+    pub delay_matrix: Option<String>,
+    /// Edge lower bounds for lower-bounded flow problems (e.g., 1,1,0,0,1,0,1)
+    #[arg(long)]
+    pub lower_bounds: Option<String>,
     /// Vertex multipliers in vertex order (e.g., 1,2,3,1)
     #[arg(long)]
     pub multipliers: Option<String>,
@@ -547,6 +555,12 @@ pub struct CreateArgs {
     /// Upper bound on total inter-partition arc cost
     #[arg(long)]
     pub cost_bound: Option<i32>,
+    /// Budget on total cost for CapacityAssignment
+    #[arg(long)]
+    pub cost_budget: Option<u64>,
+    /// Budget on total delay penalty for CapacityAssignment
+    #[arg(long)]
+    pub delay_budget: Option<u64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
     #[arg(long)]
     pub pattern: Option<String>,

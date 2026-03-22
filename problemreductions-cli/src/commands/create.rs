@@ -19,15 +19,15 @@ use problemreductions::models::graph::{
     SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
-    AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
-    ConsistencyOfDatabaseFrequencyTables, EnsembleComputation, FlowShopScheduling, FrequencyTable,
-    KnownValue, LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
-    PaintShop, PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
-    ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
-    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
-    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
-    SumOfSquaresPartition, TimetableDesign,
+    AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
+    ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
+    FlowShopScheduling, FrequencyTable, KnownValue, LongestCommonSubsequence,
+    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack,
+    QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
+    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -51,8 +51,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.edge_weights.is_none()
         && args.edge_lengths.is_none()
         && args.capacities.is_none()
-        && args.lower_bounds.is_none()
         && args.bundle_capacities.is_none()
+        && args.cost_matrix.is_none()
+        && args.delay_matrix.is_none()
+        && args.lower_bounds.is_none()
         && args.multipliers.is_none()
         && args.source.is_none()
         && args.sink.is_none()
@@ -111,6 +113,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.length_bound.is_none()
         && args.weight_bound.is_none()
         && args.cost_bound.is_none()
+        && args.cost_budget.is_none()
+        && args.delay_budget.is_none()
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.costs.is_none()
@@ -597,6 +601,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "CapacityAssignment" => {
+            "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12"
+        }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
         "MinimumMultiwayCut" => "--graph 0-1,1-2,2-3 --terminals 0,2 --edge-weights 1,1,1",
         "SequencingWithinIntervals" => "--release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1",
@@ -2869,6 +2876,90 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     lengths,
                     num_processors,
                     deadline,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        "CapacityAssignment" => {
+            let usage = "Usage: pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12";
+            let capacities_str = args.capacities.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "CapacityAssignment requires --capacities, --cost-matrix, --delay-matrix, --cost-budget, and --delay-budget\n\n{usage}"
+                )
+            })?;
+            let cost_matrix_str = args.cost_matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("CapacityAssignment requires --cost-matrix\n\n{usage}")
+            })?;
+            let delay_matrix_str = args.delay_matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("CapacityAssignment requires --delay-matrix\n\n{usage}")
+            })?;
+            let cost_budget = args.cost_budget.ok_or_else(|| {
+                anyhow::anyhow!("CapacityAssignment requires --cost-budget\n\n{usage}")
+            })?;
+            let delay_budget = args.delay_budget.ok_or_else(|| {
+                anyhow::anyhow!("CapacityAssignment requires --delay-budget\n\n{usage}")
+            })?;
+
+            let capacities: Vec<u64> = util::parse_comma_list(capacities_str)?;
+            anyhow::ensure!(
+                !capacities.is_empty(),
+                "CapacityAssignment requires at least one capacity value\n\n{usage}"
+            );
+            anyhow::ensure!(
+                capacities.iter().all(|&capacity| capacity > 0),
+                "CapacityAssignment capacities must be positive\n\n{usage}"
+            );
+            anyhow::ensure!(
+                capacities.windows(2).all(|w| w[0] < w[1]),
+                "CapacityAssignment capacities must be strictly increasing\n\n{usage}"
+            );
+
+            let cost = parse_u64_matrix_rows(cost_matrix_str, "cost")?;
+            let delay = parse_u64_matrix_rows(delay_matrix_str, "delay")?;
+            anyhow::ensure!(
+                cost.len() == delay.len(),
+                "cost matrix row count ({}) must match delay matrix row count ({})\n\n{usage}",
+                cost.len(),
+                delay.len()
+            );
+
+            for (index, row) in cost.iter().enumerate() {
+                anyhow::ensure!(
+                    row.len() == capacities.len(),
+                    "cost row {} length ({}) must match capacities length ({})\n\n{usage}",
+                    index,
+                    row.len(),
+                    capacities.len()
+                );
+                anyhow::ensure!(
+                    row.windows(2).all(|w| w[0] <= w[1]),
+                    "cost row {} must be non-decreasing\n\n{usage}",
+                    index
+                );
+            }
+            for (index, row) in delay.iter().enumerate() {
+                anyhow::ensure!(
+                    row.len() == capacities.len(),
+                    "delay row {} length ({}) must match capacities length ({})\n\n{usage}",
+                    index,
+                    row.len(),
+                    capacities.len()
+                );
+                anyhow::ensure!(
+                    row.windows(2).all(|w| w[0] >= w[1]),
+                    "delay row {} must be non-increasing\n\n{usage}",
+                    index
+                );
+            }
+
+            (
+                ser(CapacityAssignment::new(
+                    capacities,
+                    cost,
+                    delay,
+                    cost_budget,
+                    delay_budget,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -5322,6 +5413,31 @@ fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
         .collect()
 }
 
+fn parse_u64_matrix_rows(matrix_str: &str, matrix_name: &str) -> Result<Vec<Vec<u64>>> {
+    matrix_str
+        .split(';')
+        .enumerate()
+        .map(|(row_index, row)| {
+            let row = row.trim();
+            anyhow::ensure!(
+                !row.is_empty(),
+                "{matrix_name} row {row_index} must not be empty"
+            );
+            row.split(',')
+                .map(|value| {
+                    value.trim().parse::<u64>().map_err(|error| {
+                        anyhow::anyhow!(
+                            "Invalid {matrix_name} row {row_index} value {:?}: {}",
+                            value.trim(),
+                            error
+                        )
+                    })
+                })
+                .collect()
+        })
+        .collect()
+}
+
 /// Parse `--quantifiers` as comma-separated quantifier labels (E/A or Exists/ForAll).
 /// E.g., "E,A,E" or "Exists,ForAll,Exists"
 fn parse_quantifiers(args: &CreateArgs, num_vars: usize) -> Result<Vec<Quantifier>> {
@@ -6582,6 +6698,49 @@ mod tests {
     }
 
     #[test]
+    fn test_create_capacity_assignment_serializes_problem_json() {
+        let output = temp_output_path("capacity_assignment_create");
+        let cli = Cli::try_parse_from([
+            "pred",
+            "-o",
+            output.to_str().unwrap(),
+            "create",
+            "CapacityAssignment",
+            "--capacities",
+            "1,2,3",
+            "--cost-matrix",
+            "1,3,6;2,4,7;1,2,5",
+            "--delay-matrix",
+            "8,4,1;7,3,1;6,3,1",
+            "--cost-budget",
+            "10",
+            "--delay-budget",
+            "12",
+        ])
+        .expect("parse create command");
+        let out = OutputConfig {
+            output: cli.output.clone(),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output).unwrap()).unwrap();
+        fs::remove_file(&output).unwrap();
+        assert_eq!(json["type"], "CapacityAssignment");
+        assert_eq!(json["data"]["capacities"], serde_json::json!([1, 2, 3]));
+        assert_eq!(json["data"]["cost_budget"], 10);
+        assert_eq!(json["data"]["delay_budget"], 12);
+    }
+
+    #[test]
     fn test_create_longest_path_serializes_problem_json() {
         let output = temp_output_path("longest_path_create");
         let cli = Cli::try_parse_from([
@@ -6674,6 +6833,74 @@ mod tests {
             json["data"]["lower_bounds"],
             serde_json::json!([1, 1, 0, 0, 1, 0, 1])
         );
+    }
+
+    #[test]
+    fn test_create_capacity_assignment_rejects_non_monotone_cost_row() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "CapacityAssignment",
+            "--capacities",
+            "1,2,3",
+            "--cost-matrix",
+            "1,3,2;2,4,7;1,2,5",
+            "--delay-matrix",
+            "8,4,1;7,3,1;6,3,1",
+            "--cost-budget",
+            "10",
+            "--delay-budget",
+            "12",
+        ])
+        .expect("parse create command");
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("cost row 0"));
+        assert!(err.contains("non-decreasing"));
+    }
+
+    #[test]
+    fn test_create_capacity_assignment_rejects_matrix_width_mismatch() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "CapacityAssignment",
+            "--capacities",
+            "1,2,3",
+            "--cost-matrix",
+            "1,3;2,4,7;1,2,5",
+            "--delay-matrix",
+            "8,4,1;7,3,1;6,3,1",
+            "--cost-budget",
+            "10",
+            "--delay-budget",
+            "12",
+        ])
+        .expect("parse create command");
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("cost row 0"));
+        assert!(err.contains("capacities length"));
     }
 
     #[test]
@@ -6788,8 +7015,10 @@ mod tests {
             edge_weights: None,
             edge_lengths: None,
             capacities: None,
-            lower_bounds: None,
             bundle_capacities: None,
+            cost_matrix: None,
+            delay_matrix: None,
+            lower_bounds: None,
             multipliers: None,
             source: None,
             sink: None,
@@ -6847,6 +7076,8 @@ mod tests {
             length_bound: None,
             weight_bound: None,
             cost_bound: None,
+            cost_budget: None,
+            delay_budget: None,
             pattern: None,
             strings: None,
             arc_costs: None,
