@@ -59,12 +59,12 @@ pub mod prelude {
     pub use crate::models::graph::{
         KColoring, LongestCircuit, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
         MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
-        MinimumFeedbackArcSet, MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter,
-        MinimumVertexCover, MultipleChoiceBranching, MultipleCopyFileAllocation,
-        OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
-        PathConstrainedNetworkFlow, RuralPostman, ShortestWeightConstrainedPath,
-        SteinerTreeInGraphs, TravelingSalesman, UndirectedFlowLowerBounds,
-        UndirectedTwoCommodityIntegralFlow,
+        MinimumDummyActivitiesPert, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
+        MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
+        MultipleCopyFileAllocation, OptimalLinearArrangement, PartitionIntoPathsOfLength2,
+        PartitionIntoTriangles, PathConstrainedNetworkFlow, RootedTreeArrangement, RuralPostman,
+        ShortestWeightConstrainedPath, SteinerTreeInGraphs, TravelingSalesman,
+        UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
         AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,

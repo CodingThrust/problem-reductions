@@ -14,8 +14,9 @@ use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     DisjointConnectingPaths, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
     HamiltonianPath, IntegralFlowBundles, LengthBoundedDisjointPaths, LongestCircuit, LongestPath,
-    MinimumCutIntoBoundedSets, MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching,
-    PathConstrainedNetworkFlow, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    MinimumCutIntoBoundedSets, MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman,
+    MultipleChoiceBranching, PathConstrainedNetworkFlow, RootedTreeArrangement, SteinerTree,
+    SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
@@ -620,10 +621,12 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5\" --weights 2,3,2,1,3,1 --arc-costs 1,1,1,1,1,1,1,1 --weight-bound 5 --cost-bound 5"
         }
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
+        "RootedTreeArrangement" => "--graph 0-1,0-2,1-2,2-3,3-4 --bound 7",
         "DirectedTwoCommodityIntegralFlow" => {
             "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
         }
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
+        "MinimumDummyActivitiesPert" => "--arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6",
         "StrongConnectivityAugmentation" => {
             "--arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1"
         }
@@ -3274,6 +3277,23 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // RootedTreeArrangement — graph + bound
+        "RootedTreeArrangement" => {
+            let usage =
+                "Usage: pred create RootedTreeArrangement --graph 0-1,0-2,1-2,2-3,3-4 --bound 7";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let bound_raw = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RootedTreeArrangement requires --bound (upper bound K on total tree stretch)\n\n{usage}"
+                )
+            })?;
+            let bound = parse_nonnegative_usize_bound(bound_raw, "RootedTreeArrangement", usage)?;
+            (
+                ser(RootedTreeArrangement::new(graph, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // FlowShopScheduling
         "FlowShopScheduling" => {
             let task_str = args.task_lengths.as_deref().ok_or_else(|| {
@@ -3695,6 +3715,22 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     StrongConnectivityAugmentation::try_new(graph, candidate_arcs, bound)
                         .map_err(|e| anyhow::anyhow!(e))?,
                 )?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumDummyActivitiesPert
+        "MinimumDummyActivitiesPert" => {
+            let usage = "Usage: pred create MinimumDummyActivitiesPert --arcs \"0>2,0>3,1>3,1>4,2>5\" [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumDummyActivitiesPert requires --arcs\n\n\
+                     {usage}"
+                )
+            })?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            (
+                ser(MinimumDummyActivitiesPert::try_new(graph).map_err(|e| anyhow::anyhow!(e))?)?,
                 resolved_variant.clone(),
             )
         }
@@ -6061,12 +6097,30 @@ fn create_random(
             (ser(OptimalLinearArrangement::new(graph, bound))?, variant)
         }
 
+        // RootedTreeArrangement — graph + bound
+        "RootedTreeArrangement" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let n = graph.num_vertices();
+            let usage = "Usage: pred create RootedTreeArrangement --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] [--bound 10]";
+            let bound = args
+                .bound
+                .map(|b| parse_nonnegative_usize_bound(b, "RootedTreeArrangement", usage))
+                .transpose()?
+                .unwrap_or((n.saturating_sub(1)) * graph.num_edges());
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (ser(RootedTreeArrangement::new(graph, bound))?, variant)
+        }
+
         _ => bail!(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
              MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, TravelingSalesman, \
              BottleneckTravelingSalesman, SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, \
-             OptimalLinearArrangement, HamiltonianPath, LongestCircuit, GeneralizedHex)"
+             OptimalLinearArrangement, RootedTreeArrangement, HamiltonianPath, LongestCircuit, GeneralizedHex)"
         ),
     };
 
@@ -7395,6 +7449,56 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("--num-vertices (5) is too small for the arcs"));
+    }
+
+    #[test]
+    fn test_create_minimum_dummy_activities_pert_json() {
+        use crate::dispatch::ProblemJsonOutput;
+        use problemreductions::models::graph::MinimumDummyActivitiesPert;
+
+        let mut args = empty_args();
+        args.problem = Some("MinimumDummyActivitiesPert".to_string());
+        args.num_vertices = Some(6);
+        args.arcs = Some("0>2,0>3,1>3,1>4,2>5".to_string());
+
+        let output_path = temp_output_path("minimum_dummy_activities_pert");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "MinimumDummyActivitiesPert");
+        assert!(created.variant.is_empty());
+
+        let problem: MinimumDummyActivitiesPert = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.num_vertices(), 6);
+        assert_eq!(problem.num_arcs(), 5);
+
+        let _ = fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_minimum_dummy_activities_pert_rejects_cycles() {
+        let mut args = empty_args();
+        args.problem = Some("MinimumDummyActivitiesPert".to_string());
+        args.num_vertices = Some(3);
+        args.arcs = Some("0>1,1>2,2>0".to_string());
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("requires the input graph to be a DAG"));
     }
 
     #[test]

@@ -163,6 +163,24 @@ fn test_find_model_example_integral_flow_homologous_arcs() {
 }
 
 #[test]
+fn test_find_model_example_minimum_dummy_activities_pert() {
+    let problem = ProblemRef {
+        name: "MinimumDummyActivitiesPert".to_string(),
+        variant: BTreeMap::new(),
+    };
+
+    let example = find_model_example(&problem).expect("MinimumDummyActivitiesPert example exists");
+    assert_eq!(example.problem, "MinimumDummyActivitiesPert");
+    assert_eq!(example.variant, problem.variant);
+    assert!(example.instance.is_object());
+    assert_eq!(example.optimal_value, serde_json::json!({"Valid": 2}));
+    assert!(
+        !example.optimal_config.is_empty(),
+        "canonical example should include an optimal merge selection"
+    );
+}
+
+#[test]
 fn test_find_rule_example_mvc_to_mis_contains_full_problem_json() {
     let source = ProblemRef {
         name: "MinimumVertexCover".to_string(),
