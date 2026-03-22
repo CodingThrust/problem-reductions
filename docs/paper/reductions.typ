@@ -2045,7 +2045,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
 
       #pred-commands(
         "pred create --example RootedTreeArrangement -o rooted-tree-arrangement.json",
-        "pred solve rooted-tree-arrangement.json",
+        "pred solve rooted-tree-arrangement.json --solver brute-force",
         "pred evaluate rooted-tree-arrangement.json --config " + x.optimal_config.map(str).join(","),
       )
     ]
