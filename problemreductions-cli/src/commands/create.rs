@@ -4467,9 +4467,10 @@ fn validate_vertex_index(
 
 /// Parse `--capacities` as edge capacities (u64).
 fn parse_capacities(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<Vec<u64>> {
-    let capacities = args.capacities.as_deref().ok_or_else(|| {
-        anyhow::anyhow!("This problem requires --capacities\n\n{usage}")
-    })?;
+    let capacities = args
+        .capacities
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("This problem requires --capacities\n\n{usage}"))?;
     let capacities: Vec<u64> = capacities
         .split(',')
         .map(|s| {
@@ -6414,7 +6415,10 @@ mod tests {
         assert_eq!(json["data"]["source"], 0);
         assert_eq!(json["data"]["sink"], 5);
         assert_eq!(json["data"]["requirement"], 3);
-        assert_eq!(json["data"]["lower_bounds"], serde_json::json!([1, 1, 0, 0, 1, 0, 1]));
+        assert_eq!(
+            json["data"]["lower_bounds"],
+            serde_json::json!([1, 1, 0, 0, 1, 0, 1])
+        );
     }
 
     #[test]
@@ -6517,10 +6521,9 @@ mod tests {
         };
 
         let err = create(&args, &out).unwrap_err();
-        assert!(
-            err.to_string()
-                .contains("UndirectedFlowLowerBounds requires --lower-bounds")
-        );
+        assert!(err
+            .to_string()
+            .contains("UndirectedFlowLowerBounds requires --lower-bounds"));
     }
 
     fn empty_args() -> CreateArgs {
