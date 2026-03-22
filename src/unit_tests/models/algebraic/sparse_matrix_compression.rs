@@ -106,7 +106,10 @@ fn test_sparse_matrix_compression_complexity_metadata_matches_evaluator() {
         .find(|entry| entry.name == "SparseMatrixCompression")
         .expect("SparseMatrixCompression variant entry should exist");
 
-    assert_eq!(entry.complexity, "(bound_k ^ num_rows) * num_rows * num_cols");
+    assert_eq!(
+        entry.complexity,
+        "(bound_k ^ num_rows) * num_rows * num_cols"
+    );
 }
 
 #[test]

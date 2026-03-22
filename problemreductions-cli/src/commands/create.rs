@@ -2793,9 +2793,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let matrix = parse_bool_matrix(args)?;
             let usage = "Usage: pred create SparseMatrixCompression --matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound 2";
             let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SparseMatrixCompression requires --matrix and --bound\n\n{usage}"
-                )
+                anyhow::anyhow!("SparseMatrixCompression requires --matrix and --bound\n\n{usage}")
             })?;
             let bound = parse_nonnegative_usize_bound(bound, "SparseMatrixCompression", usage)?;
             (
@@ -7835,8 +7833,8 @@ mod tests {
         args.matrix = Some("1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0".to_string());
         args.bound = Some(2);
 
-        let output_path = std::env::temp_dir()
-            .join(format!("smc-create-{}.json", std::process::id()));
+        let output_path =
+            std::env::temp_dir().join(format!("smc-create-{}.json", std::process::id()));
         let out = OutputConfig {
             output: Some(output_path.clone()),
             quiet: true,
