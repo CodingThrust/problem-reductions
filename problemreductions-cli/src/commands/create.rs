@@ -2796,6 +2796,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 anyhow::anyhow!("SparseMatrixCompression requires --matrix and --bound\n\n{usage}")
             })?;
             let bound = parse_nonnegative_usize_bound(bound, "SparseMatrixCompression", usage)?;
+            if bound == 0 {
+                anyhow::bail!("SparseMatrixCompression requires bound >= 1\n\n{usage}");
+            }
             (
                 ser(SparseMatrixCompression::new(matrix, bound))?,
                 resolved_variant.clone(),
@@ -7880,5 +7883,23 @@ mod tests {
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("SparseMatrixCompression requires --matrix and --bound"));
         assert!(err.contains("Usage: pred create SparseMatrixCompression"));
+    }
+
+    #[test]
+    fn test_create_sparse_matrix_compression_rejects_zero_bound() {
+        let mut args = empty_args();
+        args.problem = Some("SparseMatrixCompression".to_string());
+        args.matrix = Some("1,0;0,1".to_string());
+        args.bound = Some(0);
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("bound >= 1"));
     }
 }
