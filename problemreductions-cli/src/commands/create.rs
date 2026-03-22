@@ -2680,18 +2680,16 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!("RootedTreeStorageAssignment requires --bound\n\n{usage}")
             })?;
-            let bound = parse_nonnegative_usize_bound(
-                bound,
-                "RootedTreeStorageAssignment",
-                usage,
-            )?;
+            let bound = parse_nonnegative_usize_bound(bound, "RootedTreeStorageAssignment", usage)?;
             (
-                ser(problemreductions::models::set::RootedTreeStorageAssignment::try_new(
-                    universe_size,
-                    subsets,
-                    bound,
-                )
-                .map_err(anyhow::Error::msg)?)?,
+                ser(
+                    problemreductions::models::set::RootedTreeStorageAssignment::try_new(
+                        universe_size,
+                        subsets,
+                        bound,
+                    )
+                    .map_err(anyhow::Error::msg)?,
+                )?,
                 resolved_variant.clone(),
             )
         }

@@ -147,7 +147,12 @@ impl RootedTreeStorageAssignment {
         ancestor == vertex
     }
 
-    fn subset_extension_cost(&self, subset: &[usize], config: &[usize], depth: &[usize]) -> Option<usize> {
+    fn subset_extension_cost(
+        &self,
+        subset: &[usize],
+        config: &[usize],
+        depth: &[usize],
+    ) -> Option<usize> {
         if subset.len() <= 1 {
             return Some(0);
         }

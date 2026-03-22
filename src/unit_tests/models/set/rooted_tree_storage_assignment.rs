@@ -3,7 +3,11 @@ use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 fn yes_instance(bound: usize) -> RootedTreeStorageAssignment {
-    RootedTreeStorageAssignment::new(5, vec![vec![0, 2], vec![1, 3], vec![0, 4], vec![2, 4]], bound)
+    RootedTreeStorageAssignment::new(
+        5,
+        vec![vec![0, 2], vec![1, 3], vec![0, 4], vec![2, 4]],
+        bound,
+    )
 }
 
 #[test]
