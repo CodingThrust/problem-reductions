@@ -337,9 +337,9 @@ Only fall back to the full `AskUserQuestion` if the inference is genuinely ambig
 
    After the user picks a concrete example, provide a complete instance with its expected outcome.
    - For optimization problems: give at least one optimal solution and the optimal objective value
-   - For satisfaction problems: give at least one valid / satisfying solution and explain briefly why it is valid
-   - Must exercise the problem's core structure
-   - Must be small enough to verify by hand
+   - For satisfaction problems: give at least one valid / satisfying solution and explain briefly why it is valid; also provide a NO instance with a clear infeasibility argument
+   - Must exercise the problem's core structure — pick instances where constraints interact nontrivially (e.g., multiple constraints are tight), not degenerate cases
+   - Must be small enough to verify by hand but large enough that a naive/incorrect implementation would produce a wrong answer
 
 7. **Data representation** — Infer from the problem definition (e.g., "vertices and edges" → graph, "rows and columns" → matrix, "universe and subsets" → set system). If the inference is clear from the user's description, confirm inline: "The input is a graph — correct?" Only use `AskUserQuestion` if ambiguous:
    ```
@@ -443,7 +443,8 @@ AskUserQuestion:
 **Selection criteria** (in priority order) — only suggest rules where **both source and target already exist** in the codebase:
 - **Priority 1:** Rules that connect orphan problems to the main component (check `detect_isolated_problems` output)
 - **Priority 2:** Rules that fill NP-hardness proof gaps (check `detect_unreachable_from_3sat` output)
-- **Priority 3:** Rules to large clusters (QUBO, ILP, SAT families)
+- **Priority 3: ILP solver path for leaf problems** — If a problem has **no outgoing reductions** (check `pred from <problem>` returns empty), prioritize proposing `<Problem> → ILP` when the problem has a natural ILP formulation (linear constraints over integer variables). This is the most common way to make a new problem solvable. Run `pred from <problem> --json` for each orphan/leaf to detect missing outgoing edges.
+- **Priority 4:** Other rules to large clusters (QUBO, ILP, SAT families)
 - **Filter:** Exclude pairs that already have a reduction registered **AND** pairs that already have an open GitHub issue filed (even if not yet implemented). Do not recommend duplicates — if an issue exists, it should be implemented via `/issue-to-pr`, not re-proposed.
 
 After selection, verify both problems exist (or one is being proposed alongside).
@@ -551,9 +552,13 @@ If the reduction is well-known, use the literature to **pre-fill** answers in St
    If the user picks "Generate new batch", create 3 new examples with different sizes/structures and re-present.
 
    After the user picks a concrete example, fully work out the example: show source instance, each construction step, and the resulting target instance.
+
+   **Validation-oriented examples are mandatory.** The example's primary purpose is to catch bugs in the reduction implementation during closed-loop testing, not just to illustrate the construction. Design examples that:
+   - **Exercise constraint interactions** — pick instances where multiple constraints are simultaneously tight or near-tight, so an incorrect reduction would produce a wrong answer (e.g., a flow instance where both lower bounds and capacity limits are active on different edges)
+   - **Distinguish correct from incorrect reductions** — a trivial instance (all zeros, single-element, identity-like) often passes even with a buggy reduction. Choose instances where a naive or partially wrong construction would yield the wrong feasibility/optimality answer
+   - **Include both YES and NO witnesses** (for satisfaction problems) or **optimal vs suboptimal configurations** (for optimization problems) — show that the reduction correctly maps solutions in both directions
+   - Must be hand-verifiable but **not** so small that it degenerates into a trivial case
    - Do not ask the user to provide solved witnesses manually
-   - Must be non-trivial but hand-verifiable
-   - Must exercise the core structure of the reduction
 
 6. **Reference** — Use WebSearch to find references. Present candidate references via `AskUserQuestion`:
    ```
@@ -610,6 +615,7 @@ AskUserQuestion:
 
 **Ranking criteria** (in order of priority):
 - Connections that establish NP-hardness (from a problem reachable from 3-SAT)
+- **ILP solver path** — if the new model has no outgoing edges and admits a natural ILP formulation, `<NewModel> → ILP` should be the top companion rule recommendation. This is the fastest way to make the problem solvable via the existing ILP solver infrastructure.
 - Connections to large clusters (QUBO, ILP, SAT families)
 - Connections that reduce orphan count or bridge disconnected components
 - Connections the user specifically mentioned during brainstorming

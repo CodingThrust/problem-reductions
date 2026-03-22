@@ -51,7 +51,8 @@ pub mod prelude {
         AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover,
         BiconnectivityAugmentation, BottleneckTravelingSalesman, BoundedComponentSpanningForest,
         DirectedTwoCommodityIntegralFlow, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
-        HamiltonianPath, IntegralFlowHomologousArcs, IsomorphicSpanningTree, KClique,
+        HamiltonianPath, IntegralFlowHomologousArcs, IntegralFlowWithMultipliers,
+        IsomorphicSpanningTree, KClique,
         KthBestSpanningTree, LengthBoundedDisjointPaths, MixedChinesePostman, SpinGlass,
         SteinerTree, StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
