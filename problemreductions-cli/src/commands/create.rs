@@ -14,9 +14,8 @@ use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IntegralFlowBundles,
     LengthBoundedDisjointPaths, LongestCircuit, LongestPath, MinimumCutIntoBoundedSets,
-    MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman,
-    MultipleChoiceBranching, PathConstrainedNetworkFlow, SteinerTree, SteinerTreeInGraphs,
-    StrongConnectivityAugmentation,
+    MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching,
+    PathConstrainedNetworkFlow, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
@@ -3603,10 +3602,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
             (
-                ser(
-                    MinimumDummyActivitiesPert::try_new(graph)
-                        .map_err(|e| anyhow::anyhow!(e))?,
-                )?,
+                ser(MinimumDummyActivitiesPert::try_new(graph).map_err(|e| anyhow::anyhow!(e))?)?,
                 resolved_variant.clone(),
             )
         }

@@ -102,7 +102,9 @@ impl MinimumDummyActivitiesPert {
             }
         }
 
-        let roots: Vec<usize> = (0..2 * num_tasks).map(|endpoint| uf.find(endpoint)).collect();
+        let roots: Vec<usize> = (0..2 * num_tasks)
+            .map(|endpoint| uf.find(endpoint))
+            .collect();
         let mut root_to_dense = BTreeMap::new();
         for &root in &roots {
             let next = root_to_dense.len();
@@ -179,10 +181,10 @@ impl Problem for MinimumDummyActivitiesPert {
 
         for source in 0..self.num_vertices() {
             for target in 0..self.num_vertices() {
-                let pert_reachable =
-                    candidate.finish_events[source] == candidate.start_events[target]
-                        || event_reachability[candidate.finish_events[source]]
-                            [candidate.start_events[target]];
+                let pert_reachable = candidate.finish_events[source]
+                    == candidate.start_events[target]
+                    || event_reachability[candidate.finish_events[source]]
+                        [candidate.start_events[target]];
                 if source_reachability[source][target] != pert_reachable {
                     return SolutionSize::Invalid;
                 }
@@ -190,8 +192,7 @@ impl Problem for MinimumDummyActivitiesPert {
         }
 
         SolutionSize::Valid(
-            i32::try_from(candidate.num_dummy_arcs)
-                .expect("dummy activity count must fit in i32"),
+            i32::try_from(candidate.num_dummy_arcs).expect("dummy activity count must fit in i32"),
         )
     }
 }
@@ -282,7 +283,9 @@ fn finish_endpoint(task: usize) -> usize {
 
 fn reachability_matrix(graph: &DirectedGraph) -> Vec<Vec<bool>> {
     let num_vertices = graph.num_vertices();
-    let adjacency: Vec<Vec<usize>> = (0..num_vertices).map(|vertex| graph.successors(vertex)).collect();
+    let adjacency: Vec<Vec<usize>> = (0..num_vertices)
+        .map(|vertex| graph.successors(vertex))
+        .collect();
     let mut reachable = vec![vec![false; num_vertices]; num_vertices];
 
     for source in 0..num_vertices {

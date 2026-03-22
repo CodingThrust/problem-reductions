@@ -38,11 +38,9 @@ fn test_minimum_dummy_activities_pert_creation() {
 
 #[test]
 fn test_minimum_dummy_activities_pert_rejects_cyclic_input() {
-    let err = MinimumDummyActivitiesPert::try_new(DirectedGraph::new(
-        3,
-        vec![(0, 1), (1, 2), (2, 0)],
-    ))
-    .unwrap_err();
+    let err =
+        MinimumDummyActivitiesPert::try_new(DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]))
+            .unwrap_err();
     assert!(err.contains("DAG"));
 }
 
