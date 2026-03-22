@@ -72,9 +72,13 @@
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
+  "IntegralFlowBundles": [Integral Flow with Bundles],
   "LongestCircuit": [Longest Circuit],
+  "LongestPath": [Longest Path],
   "ShortestWeightConstrainedPath": [Shortest Weight-Constrained Path],
+  "UndirectedFlowLowerBounds": [Undirected Flow with Lower Bounds],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
+  "PathConstrainedNetworkFlow": [Path-Constrained Network Flow],
   "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
   "KthBestSpanningTree": [Kth Best Spanning Tree],
@@ -113,11 +117,14 @@
   "BoundedComponentSpanningForest": [Bounded Component Spanning Forest],
   "BinPacking": [Bin Packing],
   "BoyceCoddNormalFormViolation": [Boyce-Codd Normal Form Violation],
+  "CapacityAssignment": [Capacity Assignment],
   "ConsistencyOfDatabaseFrequencyTables": [Consistency of Database Frequency Tables],
   "ClosestVectorProblem": [Closest Vector Problem],
   "ConsecutiveSets": [Consecutive Sets],
+  "DisjointConnectingPaths": [Disjoint Connecting Paths],
   "MinimumMultiwayCut": [Minimum Multiway Cut],
   "OptimalLinearArrangement": [Optimal Linear Arrangement],
+  "RootedTreeArrangement": [Rooted Tree Arrangement],
   "RuralPostman": [Rural Postman],
   "MixedChinesePostman": [Mixed Chinese Postman],
   "StackerCrane": [Stacker Crane],
@@ -131,13 +138,17 @@
   "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "IntegralFlowHomologousArcs": [Integral Flow with Homologous Arcs],
+  "IntegralFlowWithMultipliers": [Integral Flow With Multipliers],
   "MinMaxMulticenter": [Min-Max Multicenter],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
+  "MinimumDummyActivitiesPert": [Minimum Dummy Activities in PERT Networks],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
   "MultipleChoiceBranching": [Multiple Choice Branching],
   "MultipleCopyFileAllocation": [Multiple Copy File Allocation],
+  "ExpectedRetrievalCost": [Expected Retrieval Cost],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
   "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
   "PartitionIntoTriangles": [Partition Into Triangles],
@@ -958,6 +969,66 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   ]
 }
 #{
+  let x = load-model-example("DisjointConnectingPaths")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let chosen-edges = ((0, 1), (1, 3), (2, 4), (4, 5))
+  [
+    #problem-def("DisjointConnectingPaths")[
+      Given an undirected graph $G = (V, E)$ and pairwise disjoint terminal pairs $(s_1, t_1), dots, (s_k, t_k)$, determine whether $G$ contains $k$ mutually vertex-disjoint paths such that path $P_i$ joins $s_i$ to $t_i$ for every $i$.
+    ][
+      Disjoint Connecting Paths is the classical routing form of the vertex-disjoint paths problem, catalogued as ND40 in Garey & Johnson @garey1979. When the number of terminal pairs $k$ is part of the input, the problem is NP-complete @karp1972. In contrast, for every fixed $k$, Robertson and Seymour give an $O(n^3)$ algorithm @robertsonSeymour1995, and Kawarabayashi, Kobayashi, and Reed later improve the dependence on $n$ to $O(n^2)$ @kawarabayashiKobayashiReed2012. The implementation in this crate uses one binary variable per undirected edge, so brute-force search explores an $O^*(2^|E|)$ configuration space.#footnote[This is the exact-search bound induced by the edge-subset encoding implemented in the codebase; no sharper general exact worst-case bound is claimed here.]
+
+      *Example.* Consider the repaired YES instance with $n = #nv$ vertices, $|E| = #ne$ edges, and terminal pairs $(v_0, v_3)$ and $(v_2, v_5)$. Selecting the edges $v_0v_1$, $v_1v_3$, $v_2v_4$, and $v_4v_5$ yields the two vertex-disjoint paths $v_0 arrow v_1 arrow v_3$ and $v_2 arrow v_4 arrow v_5$, so the instance is satisfying.
+
+      #pred-commands(
+        "pred create --example DisjointConnectingPaths -o disjoint-connecting-paths.json",
+        "pred solve disjoint-connecting-paths.json",
+        "pred evaluate disjoint-connecting-paths.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          let blue = graph-colors.at(0)
+          let gray = luma(180)
+          let verts = (
+            (0, 1.2),
+            (1.4, 1.2),
+            (0, 0),
+            (2.8, 1.2),
+            (1.4, 0),
+            (2.8, 0),
+          )
+          let edges = ((0, 1), (1, 3), (0, 2), (1, 4), (2, 4), (3, 5), (4, 5))
+          for (u, v) in edges {
+            let selected = chosen-edges.any(e =>
+              (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u)
+            )
+            g-edge(verts.at(u), verts.at(v),
+              stroke: if selected { 2pt + blue } else { 1pt + gray })
+          }
+          for (k, pos) in verts.enumerate() {
+            let terminal = k == 0 or k == 2 or k == 3 or k == 5
+            g-node(pos, name: "v" + str(k),
+              fill: if terminal { blue } else { white },
+              label: if terminal {
+                text(fill: white)[
+                  #if k == 0 { $s_1$ }
+                  else if k == 3 { $t_1$ }
+                  else if k == 2 { $s_2$ }
+                  else { $t_2$ }
+                ]
+              } else [
+                $v_#k$
+              ])
+          }
+        }),
+        caption: [A satisfying Disjoint Connecting Paths instance with terminal pairs $(v_0, v_3)$ and $(v_2, v_5)$. The highlighted edges form the vertex-disjoint paths $v_0 arrow v_1 arrow v_3$ and $v_2 arrow v_4 arrow v_5$.],
+      ) <fig:disjoint-connecting-paths>
+    ]
+  ]
+}
+#{
   let x = load-model-example("GeneralizedHex")
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let source = x.instance.source
@@ -1072,6 +1143,127 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   ]
 }
 #{
+  let x = load-model-example("LongestPath")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges
+  let lengths = x.instance.edge_lengths
+  let s = x.instance.source_vertex
+  let t = x.instance.target_vertex
+  let path-config = x.optimal_config
+  let path-order = (0, 1, 3, 2, 4, 5, 6)
+  let path-edges = edges.enumerate().filter(((idx, _)) => path-config.at(idx) == 1).map(((idx, e)) => e)
+  [
+    #problem-def("LongestPath")[
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$ and designated vertices $s, t in V$, find a simple path $P$ from $s$ to $t$ maximizing $sum_(e in P) l(e)$.
+    ][
+      Longest Path is problem ND29 in Garey & Johnson @garey1979. It bridges weighted routing and Hamiltonicity: when every edge has unit length, the optimum reaches $|V| - 1$ exactly when there is a Hamiltonian path from $s$ to $t$. The implementation catalog records the classical subset-DP exact bound $O(|V| dot 2^|V|)$, in the style of Held--Karp dynamic programming @heldkarp1962. For the parameterized $k$-path version, color-coding gives randomized $2^(O(k)) |V|^(O(1))$ algorithms @alon1995.
+
+      Variables: one binary value per edge. A configuration is valid exactly when the selected edges form a single simple $s$-$t$ path; otherwise the metric is `Invalid`. For valid selections, the metric is the total selected edge length.
+
+      *Example.* Consider the graph on #nv vertices with source $s = v_#s$ and target $t = v_#t$. The highlighted path $#path-order.map(v => $v_#v$).join($arrow$)$ uses edges ${#path-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, so its total length is $3 + 4 + 1 + 5 + 3 + 4 = 20$. Another valid path, $v_0 arrow v_2 arrow v_4 arrow v_5 arrow v_3 arrow v_1 arrow v_6$, has total length $17$, so the highlighted path is strictly better.
+
+      #pred-commands(
+        "pred create --example LongestPath -o longest-path.json",
+        "pred solve longest-path.json",
+        "pred evaluate longest-path.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        let blue = graph-colors.at(0)
+        let gray = luma(200)
+        let verts = ((0, 1.2), (1.2, 2.0), (1.2, 0.4), (2.5, 2.0), (2.5, 0.4), (3.8, 1.2), (5.0, 1.2))
+        canvas(length: 1cm, {
+          import draw: *
+          for (idx, (u, v)) in edges.enumerate() {
+            let on-path = path-config.at(idx) == 1
+            g-edge(verts.at(u), verts.at(v), stroke: if on-path { 2pt + blue } else { 1pt + gray })
+            let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+            let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+            let dx = if idx == 0 or idx == 2 { 0 } else if idx == 1 or idx == 4 { -0.18 } else if idx == 5 or idx == 6 { 0.18 } else if idx == 8 { 0 } else { 0.16 }
+            let dy = if idx == 0 or idx == 2 or idx == 5 or idx == 8 { 0.18 } else if idx == 1 or idx == 4 or idx == 6 { -0.18 } else if idx == 3 { 0 } else { 0.16 }
+            draw.content(
+              (mx + dx, my + dy),
+              text(7pt, fill: luma(80))[#str(int(lengths.at(idx)))]
+            )
+          }
+          for (k, pos) in verts.enumerate() {
+            let on-path = path-order.any(v => v == k)
+            g-node(pos, name: "v" + str(k),
+              fill: if on-path { blue } else { white },
+              label: if on-path { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+          }
+          content((0, 1.55), text(8pt)[$s$])
+          content((5.0, 1.55), text(8pt)[$t$])
+        })
+      },
+      caption: [Longest Path instance with edge lengths shown on the edges. The highlighted path from $s = v_0$ to $t = v_6$ has total length 20.],
+      ) <fig:longest-path>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("UndirectedFlowLowerBounds")
+  let s = x.instance.source
+  let t = x.instance.sink
+  let R = x.instance.requirement
+  let orientation = x.optimal_config
+  let edges = x.instance.graph.edges
+  let lower = x.instance.lower_bounds
+  let caps = x.instance.capacities
+  let witness = (2, 1, 1, 1, 1, 2, 1)
+  [
+    #problem-def("UndirectedFlowLowerBounds")[
+      Given an undirected graph $G = (V, E)$, specified vertices $s, t in V$, lower bounds $l: E -> ZZ_(>= 0)$, upper capacities $c: E -> ZZ^+$ with $l(e) <= c(e)$ for every edge, and a requirement $R in ZZ^+$, determine whether there exists a flow function $f: {(u, v), (v, u): {u, v} in E} -> ZZ_(>= 0)$ such that each edge carries flow in at most one direction, every edge value lies between its lower and upper bound, flow is conserved at every vertex in $V backslash {s, t}$, and the net flow into $t$ is at least $R$.
+    ][
+      Undirected Flow with Lower Bounds appears as ND37 in Garey and Johnson's catalog @garey1979. Itai proved that even this single-commodity undirected feasibility problem is NP-complete, contrasting sharply with the directed lower-bounded case, which reduces to ordinary max-flow machinery @itai1978.
+
+      The implementation exposes one binary decision per edge rather than raw flow magnitudes. The configuration $(#orientation.map(str).join(", "))$ means "orient every edge exactly as listed in the stored edge order"; once an orientation is fixed, `evaluate()` checks the remaining lower-bounded directed circulation conditions internally. This keeps the explicit search space at $2^m$ for $m = |E|$, matching the registry complexity bound.
+
+      *Example.* The canonical fixture uses source $s = v_#s$, sink $t = v_#t$, requirement $R = #R$, edges ${#edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, and lower/upper pairs ${#range(edges.len()).map(i => $(#lower.at(i), #caps.at(i))$).join(", ")}$ in that order. Under the all-zero orientation config, a feasible witness sends flows $(#witness.map(str).join(", "))$ along those edges respectively: $2$ on $(v_0, v_1)$, $1$ on $(v_0, v_2)$, $1$ on $(v_1, v_3)$, $1$ on $(v_2, v_3)$, $1$ on $(v_1, v_4)$, $2$ on $(v_3, v_5)$, and $1$ on $(v_4, v_5)$. Every lower bound is satisfied, each nonterminal vertex has equal inflow and outflow, and the sink receives $2 + 1 = 3 >= R$, so the instance evaluates to true. A separate rule issue tracks the natural reduction to ILP; this model PR only documents the standalone verifier.
+
+      #pred-commands(
+        "pred create --example UndirectedFlowLowerBounds -o undirected-flow-lower-bounds.json",
+        "pred solve undirected-flow-lower-bounds.json",
+        "pred evaluate undirected-flow-lower-bounds.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 0.9cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let red = rgb("#e15759")
+          let gray = luma(190)
+          let verts = ((0, 0), (1.6, 1.2), (1.6, -1.2), (3.4, 0.5), (3.4, -1.5), (5.2, -0.3))
+          let labels = (
+            [$s = v_0$],
+            [$v_1$],
+            [$v_2$],
+            [$v_3$],
+            [$v_4$],
+            [$t = v_5$],
+          )
+          for (u, v) in edges {
+            g-edge(verts.at(u), verts.at(v), stroke: 1.8pt + blue)
+          }
+          for (i, pos) in verts.enumerate() {
+            let fill = if i == s { blue } else if i == t { red } else { white }
+            let label = if i == s or i == t { text(fill: white)[#labels.at(i)] } else { labels.at(i) }
+            g-node(pos, name: "uflb-" + str(i), fill: fill, label: label)
+          }
+          content((0.75, 0.7), text(7pt, fill: gray)[$f = 2$])
+          content((0.75, -0.7), text(7pt, fill: gray)[$f = 1$])
+          content((2.45, 1.05), text(7pt, fill: gray)[$f = 1$])
+          content((2.45, -0.25), text(7pt, fill: gray)[$f = 1$])
+          content((2.45, -1.45), text(7pt, fill: gray)[$f = 1$])
+          content((4.35, 0.35), text(7pt, fill: gray)[$f = 2$])
+          content((4.35, -1.1), text(7pt, fill: gray)[$f = 1$])
+        }),
+        caption: [Canonical YES instance for Undirected Flow with Lower Bounds. Blue edges follow the all-zero orientation config, and edge labels show one feasible witness flow.],
+      ) <fig:undirected-flow-lower-bounds>
+    ]
+  ]
+}
+#{
   let x = load-model-example("UndirectedTwoCommodityIntegralFlow")
   let satisfying_count = 1
   let source1 = x.instance.source_1
@@ -1124,6 +1316,99 @@ is feasible: each set induces a connected subgraph, the component weights are $2
         }),
         caption: [Canonical shared-capacity YES instance for Undirected Two-Commodity Integral Flow. Solid blue carries commodity 1 and dashed teal carries commodity 2; both commodities share the edge $(v_2, v_3)$ of capacity 2.],
       ) <fig:undirected-two-commodity-integral-flow>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("PathConstrainedNetworkFlow")
+  let arcs = x.instance.graph.arcs.map(a => (a.at(0), a.at(1)))
+  let requirement = x.instance.requirement
+  let p1 = (0, 2, 5, 8)
+  let p2 = (0, 3, 6, 8)
+  let p5 = (1, 4, 7, 9)
+  [
+    #problem-def("PathConstrainedNetworkFlow")[
+      Given a directed graph $G = (V, A)$, designated vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, a prescribed collection $cal(P)$ of directed simple $s$-$t$ paths, and a requirement $R in ZZ^+$, determine whether there exists an integral path-flow function $g: cal(P) -> ZZ_(>= 0)$ such that $sum_(p in cal(P): a in p) g(p) <= c(a)$ for every arc $a in A$ and $sum_(p in cal(P)) g(p) >= R$.
+    ][
+      Path-Constrained Network Flow appears as problem ND34 in Garey \& Johnson @garey1979. Unlike ordinary single-commodity flow, the admissible routes are fixed in advance: every unit of flow must be assigned to one of the listed $s$-$t$ paths. This prescribed-path viewpoint is standard in line planning and unsplittable routing, and Büsing and Stiller give a modern published NP-completeness and inapproximability treatment for exactly this integral formulation @busingstiller2011.
+
+      The implementation uses one integer variable per prescribed path, bounded by that path's bottleneck capacity. Exhaustive search over those path-flow variables gives the registered worst-case bound $O^*((C + 1)^(|cal(P)|))$, where $C = max_(a in A) c(a)$. #footnote[This is the brute-force bound induced by the representation used in the library; no sharper general exact algorithm is claimed here for the integral prescribed-path formulation.]
+
+      *Example.* The canonical fixture uses the directed network with arcs $(0,1)$, $(0,2)$, $(1,3)$, $(1,4)$, $(2,4)$, $(3,5)$, $(4,5)$, $(4,6)$, $(5,7)$, and $(6,7)$, capacities $(2,1,1,1,1,1,1,1,2,1)$, source $s = 0$, sink $t = 7$, and required flow $R = #requirement$. The prescribed paths are $p_1 = 0 arrow 1 arrow 3 arrow 5 arrow 7$, $p_2 = 0 arrow 1 arrow 4 arrow 5 arrow 7$, $p_3 = 0 arrow 1 arrow 4 arrow 6 arrow 7$, $p_4 = 0 arrow 2 arrow 4 arrow 5 arrow 7$, and $p_5 = 0 arrow 2 arrow 4 arrow 6 arrow 7$. The fixture's satisfying configuration is $g = (#x.optimal_config.at(0), #x.optimal_config.at(1), #x.optimal_config.at(2), #x.optimal_config.at(3), #x.optimal_config.at(4)) = (1, 1, 0, 0, 1)$, so one unit is sent along $p_1$, one along $p_2$, and one along $p_5$. The shared arcs $(0,1)$ and $(5,7)$ each carry exactly two units of flow, matching their capacity 2, while every other used arc carries one unit. Therefore the total flow into $t$ is $3 = R$, so the instance is feasible.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o path-constrained-network-flow.json",
+        "pred solve path-constrained-network-flow.json --solver brute-force",
+        "pred evaluate path-constrained-network-flow.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 0.95cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let orange = rgb("#f28e2b")
+          let teal = rgb("#76b7b2")
+          let gray = luma(185)
+          let verts = (
+            (0, 0),
+            (1.4, 1.2),
+            (1.4, -1.2),
+            (2.8, 1.9),
+            (2.8, 0),
+            (4.2, 1.2),
+            (4.2, -1.2),
+            (5.6, 0),
+          )
+          for (u, v) in arcs {
+            line(
+              verts.at(u),
+              verts.at(v),
+              stroke: 0.8pt + gray,
+              mark: (end: "straight", scale: 0.45),
+            )
+          }
+          for idx in p1 {
+            let (u, v) = arcs.at(idx)
+            line(
+              verts.at(u),
+              verts.at(v),
+              stroke: 1.8pt + blue,
+              mark: (end: "straight", scale: 0.5),
+            )
+          }
+          for idx in p2 {
+            let (u, v) = arcs.at(idx)
+            line(
+              verts.at(u),
+              verts.at(v),
+              stroke: (paint: orange, thickness: 1.7pt, dash: "dashed"),
+              mark: (end: "straight", scale: 0.48),
+            )
+          }
+          for idx in p5 {
+            let (u, v) = arcs.at(idx)
+            line(
+              verts.at(u),
+              verts.at(v),
+              stroke: 1.6pt + teal,
+              mark: (end: "straight", scale: 0.46),
+            )
+          }
+          for (i, pos) in verts.enumerate() {
+            let fill = if i == 0 or i == 7 { rgb("#e15759").lighten(75%) } else { white }
+            g-node(pos, name: "pcnf-" + str(i), fill: fill, label: [$v_#i$])
+          }
+          content((0.65, 0.78), text(8pt, fill: gray)[$2 / 2$])
+          content((4.9, 0.78), text(8pt, fill: gray)[$2 / 2$])
+          line((0.2, -2.15), (0.8, -2.15), stroke: 1.8pt + blue, mark: (end: "straight", scale: 0.42))
+          content((1.15, -2.15), text(8pt)[$p_1$])
+          line((1.95, -2.15), (2.55, -2.15), stroke: (paint: orange, thickness: 1.7pt, dash: "dashed"), mark: (end: "straight", scale: 0.42))
+          content((2.9, -2.15), text(8pt)[$p_2$])
+          line((3.75, -2.15), (4.35, -2.15), stroke: 1.6pt + teal, mark: (end: "straight", scale: 0.42))
+          content((4.7, -2.15), text(8pt)[$p_5$])
+        }),
+        caption: [Canonical YES instance for Path-Constrained Network Flow. Blue, dashed orange, and teal show the three prescribed paths used by $g = (1, 1, 0, 0, 1)$. The labels $2 / 2$ mark the shared arcs $(0,1)$ and $(5,7)$, whose flow exactly saturates capacity 2.],
+      ) <fig:path-constrained-network-flow>
     ]
   ]
 }
@@ -1746,6 +2031,30 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   ]
 }
 #{
+  let x = load-model-example("RootedTreeArrangement")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+  let K = x.instance.bound
+  [
+    #problem-def("RootedTreeArrangement")[
+      Given an undirected graph $G = (V, E)$ and a non-negative integer $K$, is there a rooted tree $T = (U, F)$ with $|U| = |V|$ and a bijection $f: V -> U$ such that every edge $\{u, v\} in E$ maps to two nodes lying on a common root-to-leaf path in $T$, and $sum_(\{u, v\} in E) d_T(f(u), f(v)) <= K$?
+    ][
+      Rooted Tree Arrangement is GT45 in Garey and Johnson @garey1979. It generalizes Optimal Linear Arrangement by allowing the host layout to be any rooted tree rather than a single path. Garey and Johnson cite Gavril's NP-completeness proof via reduction from Optimal Linear Arrangement @gavril1977.
+
+      The connection to Optimal Linear Arrangement is immediate: if the rooted tree is restricted to a chain, the stretch objective becomes the linear-arrangement objective. This explains why the two problems live in the same arrangement family. For tree-oriented ordering problems, Adolphson and Hu give a polynomial-time algorithm for optimal linear ordering on trees @adolphsonHu1973, showing that the difficulty here comes from simultaneously choosing both the rooted-tree topology and the vertex-to-node bijection.
+
+      *Example.* Consider the graph with $n = #nv$ vertices, $|E| = #ne$ edges, and edge set ${#edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$. With bound $K = #K$, the chain tree encoded by parent array $(0, 0, 1, 2)$ and identity mapping $(0, 1, 2, 3)$ is a valid witness: every listed edge lies on the unique root-to-leaf chain, and the total stretch is $1 + 2 + 1 + 1 = 5 <= #K$. Therefore this canonical instance is a YES instance.
+
+      #pred-commands(
+        "pred create --example RootedTreeArrangement -o rooted-tree-arrangement.json",
+        "pred solve rooted-tree-arrangement.json --solver brute-force",
+        "pred evaluate rooted-tree-arrangement.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+#{
   let x = load-model-example("KClique")
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
@@ -1842,6 +2151,58 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     },
     caption: [Path $P_#nv$ with maximal IS $S = {#S-sub.map(i => $v_#i$).join(", ")}$ (blue, $w(S) = #w-sub$). $S$ is maximal --- no white vertex can be added --- but not maximum: ${#S-opt.map(i => $v_#i$).join(", ")}$ achieves $w = #w-opt$.],
     ) <fig:path-maximal-is>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumDummyActivitiesPert")
+  let nv = x.instance.graph.num_vertices
+  let arcs = x.instance.graph.arcs
+  let ne = arcs.len()
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let merged = arcs.enumerate().filter(((i, _)) => sol.config.at(i) == 1).map(((i, arc)) => arc)
+  let dummy = arcs.enumerate().filter(((i, _)) => sol.config.at(i) == 0).map(((i, arc)) => arc)
+  let opt = sol.metric.Valid
+  let blue = graph-colors.at(0)
+  [
+    #problem-def("MinimumDummyActivitiesPert")[
+      Given a precedence DAG $G = (V, A)$, find an activity-on-arc PERT event network with one real activity arc for each task $v in V$, minimizing the number of dummy activity arcs, such that for every ordered pair of tasks $(u, v)$ there is a path from the finish event of $u$ to the start event of $v$ if and only if $v$ is reachable from $u$ in $G$.
+    ][
+    The decision version of minimum dummy activities appears as ND44 in Garey and Johnson's compendium @garey1979. It arises when an activity-on-node precedence DAG must be converted into an activity-on-arc PERT chart: merging compatible finish/start events removes dummy activities, but an over-aggressive merge creates spurious precedence relations between unrelated tasks. The implementation here enumerates, for each direct precedence arc, whether it is realized as an event merge or left as a dummy activity, so brute-force over the $m = #ne$ direct precedences yields a worst-case bound of $O^*(2^m)$. #footnote[No exact algorithm improving on the direct-precedence merge encoding implemented in the codebase is claimed here.]
+
+    *Example.* Consider the canonical precedence DAG on $n = #nv$ tasks with direct precedences #arcs.map(a => $(v_#(a.at(0)), v_#(a.at(1)))$).join(", "). The optimal encoding merges the predecessor-finish/successor-start pairs #merged.map(a => $(v_#(a.at(0)), v_#(a.at(1)))$).join(", "), so those handoffs need no dummy activity at all. The remaining direct precedences #dummy.map(a => $(v_#(a.at(0)), v_#(a.at(1)))$).join(" and ") still require dummy activities, so the optimum is $#opt$. Both unresolved precedences enter $v_3$, and merging either of them would identify unrelated task completions, creating spurious reachability between the two source tasks.
+
+    #pred-commands(
+      "pred create --example " + problem-spec(x) + " -o minimum-dummy-activities-pert.json",
+      "pred solve minimum-dummy-activities-pert.json --solver brute-force",
+      "pred evaluate minimum-dummy-activities-pert.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure({
+      let positions = ((0, 1.0), (0, -0.3), (2.0, 1.3), (2.0, 0.35), (2.0, -0.95), (4.0, 1.3))
+      canvas(length: 1cm, {
+        for (k, pos) in positions.enumerate() {
+          g-node(pos, name: "v" + str(k),
+            fill: white,
+            label: [$v_#k$])
+        }
+        for arc in dummy {
+          let (u, v) = arc
+          draw.line("v" + str(u), "v" + str(v),
+            stroke: (paint: luma(140), thickness: 1pt, dash: "dashed"),
+            mark: (end: "straight", scale: 0.4))
+        }
+        for arc in merged {
+          let (u, v) = arc
+          draw.line("v" + str(u), "v" + str(v),
+            stroke: 1.7pt + blue,
+            mark: (end: "straight", scale: 0.45))
+        }
+      })
+    },
+    caption: [Canonical Minimum Dummy Activities in PERT Networks instance. Blue precedence arcs are encoded by merging the predecessor finish event with the successor start event; dashed gray arcs still require dummy activities. The optimal encoding leaves exactly #opt dummy activities.],
+    ) <fig:minimum-dummy-activities-pert>
     ]
   ]
 }
@@ -2097,6 +2458,45 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     },
     caption: [Multiple Copy File Allocation on a 6-cycle. Copy vertices $v_1$, $v_3$, and $v_5$ are shown in blue; every white vertex is one hop from the nearest copy, so the total cost is $33$.],
     ) <fig:multiple-copy-file-allocation>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("ExpectedRetrievalCost")
+  let K = x.instance.bound
+  [
+    #problem-def("ExpectedRetrievalCost")[
+      Given a set $R = {r_1, dots, r_n}$ of records, access probabilities $p(r) in [0, 1]$ with $sum_(r in R) p(r) = 1$, a positive integer $m$ of circular storage sectors, and a bound $K$, determine whether there exists a partition $R_1, dots, R_m$ of $R$ such that
+      $sum_(i=1)^m sum_(j=1)^m p(R_i) p(R_j) d(i, j) <= K,$
+      where $p(R_i) = sum_(r in R_i) p(r)$ and
+      $d(i, j) = j - i - 1$ for $1 <= i < j <= m$, while $d(i, j) = m - i + j - 1$ for $1 <= j <= i <= m$.
+    ][
+    Expected Retrieval Cost is storage-and-retrieval problem SR4 in Garey and Johnson @garey1979. The model abstracts a drum-like storage device with fixed read heads: placing probability mass evenly around the cycle reduces the expected waiting time until the next requested sector rotates under the head. Cody and Coffman introduced the formulation and analyzed exact and heuristic record-allocation algorithms for fixed numbers of sectors @codycoffman1976. Garey and Johnson record that the general decision problem is NP-complete in the strong sense via transformations from Partition and 3-Partition @garey1979. The implementation in this repository uses one $m$-ary variable per record, so the registered exact baseline enumerates $m^n$ assignments. For practicality, the code stores the probabilities and bound as floating-point values even though the book states $K$ as an integer.
+
+    *Example.* Take six records with probabilities $(0.2, 0.15, 0.15, 0.2, 0.1, 0.2)$, three sectors, and $K = #K$. Assign
+    $R_1 = {r_1, r_5}$, $R_2 = {r_2, r_4}$, and $R_3 = {r_3, r_6}$.
+    Then the sector masses are $(p(R_1), p(R_2), p(R_3)) = (0.3, 0.35, 0.35)$.
+    For $m = 3$, the non-zero latencies are $d(1, 1) = d(2, 2) = d(3, 3) = 2$, $d(1, 3) = d(2, 1) = d(3, 2) = 1$, and the remaining pairs contribute 0. Hence the expected retrieval cost is $1.0025 <= #K$, so the allocation is satisfying.
+
+    #pred-commands(
+      "pred create --example ExpectedRetrievalCost -o expected-retrieval-cost.json",
+      "pred solve expected-retrieval-cost.json --solver brute-force",
+      "pred evaluate expected-retrieval-cost.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure(
+      table(
+        columns: 3,
+        inset: 6pt,
+        stroke: 0.5pt + luma(180),
+        [Sector], [Records], [Mass],
+        [$S_1$], [$r_1, r_5$], [$0.3$],
+        [$S_2$], [$r_2, r_4$], [$0.35$],
+        [$S_3$], [$r_3, r_6$], [$0.35$],
+      ),
+      caption: [Expected Retrieval Cost example with cyclic sector order $S_1 -> S_2 -> S_3 -> S_1$. The satisfying allocation yields masses $(0.3, 0.35, 0.35)$ and total cost $1.0025$.],
+    ) <fig:expected-retrieval-cost>
     ]
   ]
 }
@@ -4759,6 +5159,39 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("CapacityAssignment")
+  [
+    #problem-def("CapacityAssignment")[
+      Given a finite set $C$ of communication links, an ordered set $M subset ZZ_(> 0)$ of capacities, cost and delay functions $g: C times M -> ZZ_(>= 0)$ and $d: C times M -> ZZ_(>= 0)$ such that for every $c in C$ and $i < j$ in the order of $M$ we have $g(c, i) <= g(c, j)$ and $d(c, i) >= d(c, j)$, and budgets $K, J in ZZ_(>= 0)$, determine whether there exists an assignment $sigma: C -> M$ such that $sum_(c in C) g(c, sigma(c)) <= K$ and $sum_(c in C) d(c, sigma(c)) <= J$.
+    ][
+      Capacity Assignment is the bicriteria communication-network design problem SR7 in Garey & Johnson @garey1979. The original NP-completeness proof, via reduction from Subset Sum, is due to Van Sickle and Chandy @vansicklechandy1977. The model captures discrete provisioning of communication links, where upgrading a link increases installation cost but decreases delay. The direct witness encoding implemented in this repository yields an $O^*(|M|^(|C|))$ exact algorithm by brute-force enumeration#footnote[No algorithm improving on brute-force enumeration is known for the exact witness encoding used in this repository.]. Garey and Johnson also note a pseudo-polynomial dynamic-programming formulation when the budgets are small @garey1979.
+
+      *Example.* Let $C = {c_1, c_2, c_3}$, $M = {1, 2, 3}$, $K = 10$, and $J = 12$. With cost rows $(1, 3, 6)$, $(2, 4, 7)$, $(1, 2, 5)$ and delay rows $(8, 4, 1)$, $(7, 3, 1)$, $(6, 3, 1)$, the assignment $sigma = (2, 2, 2)$ has total cost $3 + 4 + 2 = 9 <= 10$ and total delay $4 + 3 + 3 = 10 <= 12$, so the instance is satisfiable. Brute-force enumeration finds exactly 5 satisfying assignments; for contrast, $sigma = (1, 1, 1)$ violates the delay budget and $sigma = (3, 3, 3)$ violates the cost budget.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o capacity-assignment.json",
+        "pred solve capacity-assignment.json --solver brute-force",
+        "pred evaluate capacity-assignment.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        table(
+          columns: (auto, auto, auto),
+          inset: 4pt,
+          align: left,
+          table.header([*Link*], [*Cost row*], [*Delay row*]),
+          [$c_1$], [$(1, 3, 6)$], [$(8, 4, 1)$],
+          [$c_2$], [$(2, 4, 7)$], [$(7, 3, 1)$],
+          [$c_3$], [$(1, 2, 5)$], [$(6, 3, 1)$],
+        )
+      },
+      caption: [Canonical Capacity Assignment instance with budgets $K = 10$ and $J = 12$. Each row lists the cost-delay trade-off for one communication link.],
+      ) <fig:capacity-assignment>
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("PrecedenceConstrainedScheduling")
   let n = x.instance.num_tasks
   let m = x.instance.num_processors
@@ -5269,6 +5702,89 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 
+#{ 
+  let x = load-model-example("IntegralFlowHomologousArcs")
+  let arcs = x.instance.graph.arcs
+  let sol = x.optimal_config
+  let source = x.instance.source
+  let sink = x.instance.sink
+  let requirement = x.instance.requirement
+  [
+    #problem-def("IntegralFlowHomologousArcs")[
+      Given a directed graph $G = (V, A)$ with source $s in V$, sink $t in V$, arc capacities $c: A -> ZZ^+$, requirement $R in ZZ^+$, and a set $H subset.eq A times A$ of homologous arc pairs, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that $f(a) <= c(a)$ for every $a in A$, flow is conserved at every vertex in $V backslash {s, t}$, $f(a) = f(a')$ for every $(a, a') in H$, and the net flow into $t$ is at least $R$.
+    ][
+      Integral Flow with Homologous Arcs is the single-commodity equality-constrained flow problem listed as ND35 in Garey & Johnson @garey1979. Their catalog records the NP-completeness result attributed to Sahni and notes that the unit-capacity restriction remains hard, while the corresponding non-integral relaxation is polynomial-time equivalent to linear programming @garey1979.
+
+      The implementation uses one integer variable per arc, so exhaustive search over the induced configuration space runs in $O((C + 1)^m)$ for $m = |A|$ and $C = max_(a in A) c(a)$#footnote[This is the exact search bound induced by the implemented per-arc domains $f(a) in {0, dots, c(a)}$. In the unit-capacity special case, it simplifies to $O(2^m)$.].
+
+      *Example.* The canonical fixture instance has source $s = v_#source$, sink $t = v_#sink$, unit capacities on all eight arcs, requirement $R = #requirement$, and homologous pairs $(a_2, a_5)$ and $(a_4, a_3)$. The stored satisfying configuration routes one unit along $0 -> 1 -> 3 -> 5$ and one unit along $0 -> 2 -> 4 -> 5$. Thus the paired arcs $(1,3)$ and $(2,4)$ both carry 1, while $(1,4)$ and $(2,3)$ both carry 0. Every nonterminal vertex has equal inflow and outflow, and the sink receives two units of flow, so the verifier returns true.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o integral-flow-homologous-arcs.json",
+        "pred solve integral-flow-homologous-arcs.json --solver brute-force",
+        "pred evaluate integral-flow-homologous-arcs.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let orange = rgb("#f28e2b")
+          let red = rgb("#e15759")
+          let gray = luma(185)
+          let positions = (
+            (0, 0),
+            (1.6, 1.1),
+            (1.6, -1.1),
+            (3.2, 1.1),
+            (3.2, -1.1),
+            (4.8, 0),
+          )
+          let labels = (
+            [$s = v_0$],
+            [$v_1$],
+            [$v_2$],
+            [$v_3$],
+            [$v_4$],
+            [$t = v_5$],
+          )
+          for (idx, (u, v)) in arcs.enumerate() {
+            let stroke = if idx == 3 or idx == 4 {
+              (paint: orange, thickness: 1.3pt, dash: "dashed")
+            } else if sol.at(idx) == 1 {
+              (paint: blue, thickness: 1.8pt)
+            } else {
+              (paint: gray, thickness: 0.7pt)
+            }
+            line(
+              positions.at(u),
+              positions.at(v),
+              stroke: stroke,
+              mark: (end: "straight", scale: 0.5),
+            )
+          }
+          for (i, pos) in positions.enumerate() {
+            let fill = if i == source { blue } else if i == sink { red } else { white }
+            g-node(
+              pos,
+              name: "ifha-" + str(i),
+              fill: fill,
+              label: if i == source or i == sink {
+                text(fill: white)[#labels.at(i)]
+              } else {
+                labels.at(i)
+              },
+            )
+          }
+          content((2.4, 1.55), text(8pt, fill: blue)[$f(a_2) = f(a_5) = 1$])
+          content((2.4, -1.55), text(8pt, fill: orange)[$f(a_4) = f(a_3) = 0$])
+        }),
+        caption: [Canonical YES instance for Integral Flow with Homologous Arcs. Solid blue arcs carry the satisfying integral flow; dashed orange arcs form the second homologous pair, constrained to equal zero.],
+      ) <fig:integral-flow-homologous-arcs>
+    ]
+  ]
+}
+
 #problem-def("DirectedTwoCommodityIntegralFlow")[
   Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) flow $f_i$ is conserved at every vertex except $s_1, s_2, t_1, t_2$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$ for $i in {1, 2}$.
 ][
@@ -5315,6 +5831,129 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     caption: [Two-commodity flow: commodity 1 (blue, $s_1 -> 2 -> t_1$) and commodity 2 (red, $s_2 -> 3 -> t_2$).],
   ) <fig:d2cif>
 ]
+
+#{
+  let x = load-model-example("IntegralFlowBundles")
+  let source = x.instance.source
+  let sink = x.instance.sink
+  [
+    #problem-def("IntegralFlowBundles")[
+      Given a directed graph $G = (V, A)$, specified vertices $s, t in V$, a family of arc bundles $I_1, dots, I_k subset.eq A$ whose union covers $A$, positive bundle capacities $c_1, dots, c_k$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow $f: A -> ZZ_(>= 0)$ such that (1) $sum_(a in I_j) f(a) <= c_j$ for every bundle $j$, (2) flow is conserved at every vertex in $V backslash {s, t}$, and (3) the net flow into $t$ is at least $R$.
+    ][
+      Integral Flow with Bundles is the shared-capacity single-commodity flow problem listed as ND36 in Garey \& Johnson @garey1979. Sahni introduced it as one of a family of computationally related network problems and showed that the bundled-capacity variant is NP-complete even in a very sparse unit-capacity regime @sahni1974.
+
+      The implementation keeps one non-negative integer variable per directed arc. Unlike ordinary max-flow, the usable range of an arc is not determined by an intrinsic per-arc capacity; it is bounded instead by the smallest bundle capacity among the bundles that contain that arc. The registered $O(2^m)$ catalog bound therefore reflects the unit-capacity case with $m = |A|$, which is exactly the regime highlighted by Garey \& Johnson and Sahni.#footnote[No exact worst-case algorithm improving on brute-force is claimed here for the bundled-capacity formulation.]
+
+      *Example.* The canonical YES instance has source $s = v_#source$, sink $t = v_#sink$, and arcs $(0,1)$, $(0,2)$, $(1,3)$, $(2,3)$, $(1,2)$, $(2,1)$. The three bundles are $I_1 = {(0,1), (0,2)}$, $I_2 = {(1,3), (2,1)}$, and $I_3 = {(2,3), (1,2)}$, each with capacity 1. Sending one unit along the path $0 -> 1 -> 3$ yields the flow vector $(1, 0, 1, 0, 0, 0)$: bundle $I_1$ contributes $1 + 0 = 1$, bundle $I_2$ contributes $1 + 0 = 1$, bundle $I_3$ contributes $0 + 0 = 0$, and the only nonterminal vertices $v_1, v_2$ satisfy conservation. If the requirement is raised from $R = 1$ to $R = 2$, the same gadget becomes infeasible because $I_1$ caps the total outflow leaving the source at one unit.
+
+      #pred-commands(
+        "pred create --example IntegralFlowBundles -o integral-flow-bundles.json",
+        "pred solve integral-flow-bundles.json",
+        "pred evaluate integral-flow-bundles.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let orange = rgb("#f28e2b")
+          let teal = rgb("#76b7b2")
+          let gray = luma(185)
+          let positions = (
+            (0, 0),
+            (2.2, 1.3),
+            (2.2, -1.3),
+            (4.4, 0),
+          )
+
+          line(positions.at(0), positions.at(1), stroke: (paint: blue, thickness: 2pt), mark: (end: "straight", scale: 0.5))
+          line(positions.at(0), positions.at(2), stroke: (paint: blue.lighten(35%), thickness: 1.0pt), mark: (end: "straight", scale: 0.5))
+          line(positions.at(1), positions.at(3), stroke: (paint: orange, thickness: 2pt), mark: (end: "straight", scale: 0.5))
+          line(positions.at(2), positions.at(3), stroke: (paint: teal, thickness: 1.0pt), mark: (end: "straight", scale: 0.5))
+          line((2.0, 1.0), (3.0, 0.0), (2.0, -1.0), stroke: (paint: teal, thickness: 1.0pt), mark: (end: "straight", scale: 0.5))
+          line((2.4, -1.0), (1.4, 0.0), (2.4, 1.0), stroke: (paint: orange, thickness: 1.0pt), mark: (end: "straight", scale: 0.5))
+
+          for (i, pos) in positions.enumerate() {
+            let fill = if i == source { blue } else if i == sink { rgb("#e15759") } else { white }
+            g-node(pos, name: "ifb-" + str(i), fill: fill, label: if i == source or i == sink { text(fill: white)[$v_#i$] } else { [$v_#i$] })
+          }
+
+          content((1.0, 1.0), text(8pt, fill: blue)[$I_1, c = 1$])
+          content((3.3, 1.0), text(8pt, fill: orange)[$I_2, c = 1$])
+          content((3.3, -1.0), text(8pt, fill: teal)[$I_3, c = 1$])
+          content((2.2, 1.8), text(8pt)[$f(0,1) = 1$])
+          content((3.4, 1.55), text(8pt)[$f(1,3) = 1$])
+        }),
+        caption: [Canonical YES instance for Integral Flow with Bundles. Thick blue/orange arcs carry the satisfying flow $0 -> 1 -> 3$, while the lighter arcs show the two unused alternatives coupled into bundles $I_1$, $I_2$, and $I_3$.],
+      ) <fig:integral-flow-bundles>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("IntegralFlowWithMultipliers")
+  let config = x.optimal_config
+  [
+    #problem-def("IntegralFlowWithMultipliers")[
+      Given a directed graph $G = (V, A)$, distinguished vertices $s, t in V$, arc capacities $c: A -> ZZ^+$, vertex multipliers $h: V backslash {s, t} -> ZZ^+$, and a requirement $R in ZZ^+$, determine whether there exists an integral flow function $f: A -> ZZ_(>= 0)$ such that (1) $f(a) <= c(a)$ for every $a in A$, (2) for each nonterminal vertex $v in V backslash {s, t}$, the value $h(v)$ times the total inflow into $v$ equals the total outflow from $v$, and (3) the net flow into $t$ is at least $R$.
+    ][
+      Integral Flow With Multipliers is Garey and Johnson's gain/loss network problem ND33 @garey1979. Sahni includes the same integral vertex-multiplier formulation among his computationally related problems, where partition-style reductions show that adding discrete gain factors destroys the ordinary max-flow structure @sahni1974. The key wrinkle is that conservation is no longer symmetric: one unit entering a vertex may force several units to leave, so the feasible integral solutions behave more like multiplicative gadgets than classical flow balances.
+
+      When every multiplier equals $1$, the model collapses to ordinary single-commodity max flow and becomes polynomial-time solvable by the standard network-flow machinery summarized in Garey and Johnson @garey1979. Jewell studies a different continuous flow-with-gains model in which gain factors live on arcs and the flow may be fractional @jewell1962. That continuous relaxation remains polynomially tractable, so it should not be conflated with the NP-complete integral vertex-multiplier decision problem catalogued here. In this implementation the witness stores one bounded integer variable per arc, giving the direct exact-search bound $O((C + 1)^m)$ where $m = |A|$ and $C = max_(a in A) c(a)$.
+
+      *Example.* The canonical fixture encodes the Partition multiset ${2, 3, 4, 5, 6, 4}$ using source $s = v_0$, sink $t = v_7$, six unit-capacity arcs out of $s$, six sink arcs with capacities $(2, 3, 4, 5, 6, 4)$, and multipliers $(2, 3, 4, 5, 6, 4)$ on the intermediate vertices. Setting the source arcs to $v_1$, $v_3$, and $v_5$ to $1$ forces outgoing sink arcs of $2$, $4$, and $6$, respectively. The sink therefore receives net inflow $2 + 4 + 6 = 12$, exactly meeting the requirement $R = 12$.
+
+      #pred-commands(
+        "pred create --example IntegralFlowWithMultipliers -o integral-flow-with-multipliers.json",
+        "pred solve integral-flow-with-multipliers.json --solver brute-force",
+        "pred evaluate integral-flow-with-multipliers.json --config " + config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 0.9cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let gray = luma(180)
+          let source = (0, 0)
+          let sink = (6, 0)
+          let mids = (
+            (2.4, 2.5),
+            (2.4, 1.5),
+            (2.4, 0.5),
+            (2.4, -0.5),
+            (2.4, -1.5),
+            (2.4, -2.5),
+          )
+          let labels = (
+            [$v_1, h = 2$],
+            [$v_2, h = 3$],
+            [$v_3, h = 4$],
+            [$v_4, h = 5$],
+            [$v_5, h = 6$],
+            [$v_6, h = 4$],
+          )
+          let active = (0, 2, 4)
+
+          for (i, pos) in mids.enumerate() {
+            let chosen = active.contains(i)
+            let color = if chosen { blue } else { gray }
+            let thickness = if chosen { 1.3pt } else { 0.6pt }
+            line(source, pos, stroke: (paint: color, thickness: thickness), mark: (end: "straight", scale: 0.45))
+            line(pos, sink, stroke: (paint: color, thickness: thickness), mark: (end: "straight", scale: 0.45))
+            circle(pos, radius: 0.22, fill: if chosen { blue.lighten(75%) } else { white }, stroke: 0.6pt)
+            content((pos.at(0) + 0.85, pos.at(1)), text(6.5pt, labels.at(i)))
+          }
+
+          circle(source, radius: 0.24, fill: blue.lighten(75%), stroke: 0.6pt)
+          circle(sink, radius: 0.24, fill: blue.lighten(75%), stroke: 0.6pt)
+          content(source, text(7pt, [$s = v_0$]))
+          content(sink, text(7pt, [$t = v_7$]))
+        }),
+        caption: [Integral Flow With Multipliers: the blue branches send one unit from $s$ into $v_1$, $v_3$, and $v_5$, forcing sink inflow $2 + 4 + 6 = 12$ at $t$.],
+      ) <fig:ifwm>
+    ]
+  ]
+}
 
 #problem-def("AdditionalKey")[
   Given a set $A$ of attribute names, a collection $F$ of functional dependencies on $A$,
@@ -5992,6 +6631,48 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) If $bold(x)'^*$ is an optimal ILP solution, then $A' bold(x)'^* = bold(b)$ and all penalty terms vanish, so $f(bold(x)'^*) = -bold(c')^top bold(x)'^*$. ($arrow.l.double$) If any constraint is violated, $(bold(a)'_k^(top) bold(x)' - b_k)^2 >= 1$ and the penalty $P > ||bold(c)||_1$ exceeds the entire objective range, so $bold(x)'$ cannot be a QUBO minimizer. Among feasible assignments (all penalties zero), $f$ reduces to $-bold(c')^top bold(x)'$, minimized at the ILP optimum.
 
   _Solution extraction._ Discard slack variables: return $bold(x)' [0..n]$.
+]
+
+#let part_ks = load-example("Partition", "Knapsack")
+#let part_ks_sol = part_ks.solutions.at(0)
+#let part_ks_sizes = part_ks.source.instance.sizes
+#let part_ks_n = part_ks_sizes.len()
+#let part_ks_total = part_ks_sizes.fold(0, (a, b) => a + b)
+#let part_ks_capacity = part_ks.target.instance.capacity
+#let part_ks_selected = part_ks_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_ks_selected_sizes = part_ks_selected.map(i => part_ks_sizes.at(i))
+#let part_ks_selected_sum = part_ks_selected_sizes.fold(0, (a, b) => a + b)
+#reduction-rule("Partition", "Knapsack",
+  example: true,
+  example-caption: [#part_ks_n elements, total sum $S = #part_ks_total$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_ks.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_ks) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_ks_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_ks_sizes.map(str).join(", "))$ with total sum $S = #part_ks_total$, so a balanced witness must hit exactly $S / 2 = #part_ks_capacity$.
+
+    *Step 2 -- Build the knapsack instance.* The reduction copies each size into both the weight and the value list, producing weights $(#part_ks.target.instance.weights.map(str).join(", "))$, values $(#part_ks.target.instance.values.map(str).join(", "))$, and capacity $C = #part_ks_capacity$. No auxiliary variables are introduced, so the target has the same $#part_ks_n$ binary coordinates as the source.
+
+    *Step 3 -- Verify the canonical witness.* The serialized witness uses the same binary vector on both sides, $bold(x) = (#part_ks_sol.source_config.map(str).join(", "))$. It selects elements at indices $\{#part_ks_selected.map(str).join(", ")\}$ with sizes $(#part_ks_selected_sizes.map(str).join(", "))$, so the chosen subset has total weight and value $#part_ks_selected_sum = #part_ks_capacity$. Hence the knapsack solution saturates the capacity and certifies a balanced partition.
+
+    *Witness semantics.* The example DB stores one canonical balanced subset. This instance has multiple balanced partitions because several different subsets sum to $#part_ks_capacity$, but one witness is enough to demonstrate the reduction.
+  ],
+)[
+  This $O(n)$ reduction#footnote[The linear-time bound follows from a single pass that copies the source sizes into item weights and values.] @garey1979[MP9] constructs a 0-1 Knapsack instance by copying each Partition size into both the item weight and item value and setting the capacity to half the total size sum. For $n$ source elements it produces $n$ knapsack items.
+][
+  _Construction._ Given positive sizes $s_0, dots, s_(n-1)$ with total sum $S = sum_(i=0)^(n-1) s_i$, create one knapsack item per element and set
+  $ w_i = s_i, quad v_i = s_i $
+  for every $i in {0, dots, n-1}$. Set the knapsack capacity to
+  $ C = floor(S / 2). $
+  Every feasible knapsack solution is therefore a subset of the original elements, and because $w_i = v_i$, its objective value equals the same subset sum.
+
+  _Correctness._ ($arrow.r.double$) If the Partition instance is satisfiable, some subset $A'$ has sum $S / 2$. In particular $S$ is even, so $C = S / 2$, and selecting exactly the corresponding knapsack items is feasible with value $S / 2$. No feasible knapsack solution can have value larger than $C$, because value equals weight for every item and total weight is bounded by $C$. Thus the knapsack optimum is exactly $S / 2$. ($arrow.l.double$) If the knapsack optimum is $S / 2$, then the optimum is an integer and hence $S$ must be even. The selected items have total value $S / 2$, so they also have total weight $S / 2$ because $w_i = v_i$ itemwise. Those items therefore form a subset of the original multiset whose complement has the same sum, giving a valid balanced partition.
+
+  _Solution extraction._ Return the same binary selection vector on the original elements: item $i$ is selected in the knapsack witness if and only if element $i$ belongs to the extracted partition subset.
 ]
 
 #let ks_qubo = load-example("Knapsack", "QUBO")
@@ -6723,6 +7404,27 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each item $i$, find the unique $j$ with $x_(i j) = 1$; assign item $i$ to bin $j$.
 ]
 
+#reduction-rule("IntegralFlowBundles", "ILP")[
+  The feasibility conditions are already linear: one integer variable per arc, one inequality per bundle, one conservation equality per nonterminal vertex, and one lower bound on sink inflow.
+][
+  _Construction._ Given Integral Flow with Bundles instance $(G = (V, A), s, t, (I_j, c_j)_(j=1)^k, R)$ with arc set $A = {a_0, dots, a_(m-1)}$, create one non-negative integer variable $x_i$ for each arc $a_i$. The ILP therefore has $m$ variables.
+
+  _Bundle constraints._ For every bundle $I_j$, add
+  $sum_(a_i in I_j) x_i <= c_j$.
+
+  _Flow conservation._ For every nonterminal vertex $v in V backslash {s, t}$, add
+  $sum_(a_i = (u, v) in A) x_i - sum_(a_i = (v, w) in A) x_i = 0$.
+
+  _Requirement constraint._ Add the sink inflow lower bound
+  $sum_(a_i = (u, t) in A) x_i - sum_(a_i = (t, w) in A) x_i >= R$.
+
+  _Objective._ Minimize 0. The target is a pure feasibility ILP, so any constant objective works.
+
+  _Correctness._ ($arrow.r.double$) Any satisfying bundled flow assigns a non-negative integer to each arc, satisfies every bundle inequality by definition, satisfies every nonterminal conservation equality, and yields sink inflow at least $R$, so it is a feasible ILP solution. ($arrow.l.double$) Any feasible ILP solution gives non-negative integral arc values obeying the same bundle, conservation, and sink-inflow constraints, hence it is a satisfying solution to the original Integral Flow with Bundles instance.
+
+  _Solution extraction._ Identity: read the ILP vector $(x_0, dots, x_(m-1))$ directly as the arc-flow vector of the source problem.
+]
+
 #reduction-rule("SequencingToMinimizeWeightedCompletionTime", "ILP")[
   Completion times are natural integer variables, precedence constraints compare those completion times directly, and one binary order variable per task pair enforces that a single machine cannot overlap two jobs.
 ][
@@ -6743,6 +7445,44 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) Any feasible schedule defines completion times and pairwise order values satisfying the bounds, precedence inequalities, and disjunctive machine constraints; its weighted completion time is exactly the ILP objective. ($arrow.l.double$) Any feasible ILP solution assigns a strict order to every task pair and forbids overlap, so the completion times correspond to a valid single-machine schedule that respects all precedences. Minimizing the ILP objective therefore minimizes the original weighted completion-time objective.
 
   _Solution extraction._ Sort tasks by their completion times $C_j$ and encode that order back into the source schedule representation.
+]
+
+#let hc_tsp = load-example("HamiltonianCircuit", "TravelingSalesman")
+#let hc_tsp_sol = hc_tsp.solutions.at(0)
+#let hc_tsp_n = graph-num-vertices(hc_tsp.source.instance)
+#let hc_tsp_source_edges = hc_tsp.source.instance.graph.edges
+#let hc_tsp_target_edges = hc_tsp.target.instance.graph.edges
+#let hc_tsp_target_weights = hc_tsp.target.instance.edge_weights
+#let hc_tsp_weight_one = hc_tsp_target_edges.enumerate().filter(((i, _)) => hc_tsp_target_weights.at(i) == 1).map(((i, e)) => (e.at(0), e.at(1)))
+#let hc_tsp_weight_two = hc_tsp_target_edges.enumerate().filter(((i, _)) => hc_tsp_target_weights.at(i) == 2).map(((i, e)) => (e.at(0), e.at(1)))
+#let hc_tsp_selected_edges = hc_tsp_target_edges.enumerate().filter(((i, _)) => hc_tsp_sol.target_config.at(i) == 1).map(((i, e)) => (e.at(0), e.at(1)))
+#reduction-rule("HamiltonianCircuit", "TravelingSalesman",
+  example: true,
+  example-caption: [Cycle graph on $#hc_tsp_n$ vertices to weighted $K_#hc_tsp_n$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_tsp.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_tsp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_tsp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Start from the source graph.* The canonical source fixture is the cycle on vertices ${0, 1, 2, 3}$ with edges #hc_tsp_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#hc_tsp_sol.source_config.map(str).join(", ")]$.\ 
+
+    *Step 2 -- Complete the graph and encode adjacency by weights.* The target keeps the same $#hc_tsp_n$ vertices but adds the missing diagonals, so it becomes $K_#hc_tsp_n$ with $#graph-num-edges(hc_tsp.target.instance)$ undirected edges. The original cycle edges #hc_tsp_weight_one.map(e => $(#e.at(0), #e.at(1))$).join(", ") receive weight 1, while the diagonals #hc_tsp_weight_two.map(e => $(#e.at(0), #e.at(1))$).join(", ") receive weight 2.\ 
+
+    *Step 3 -- Verify the canonical witness.* The stored target configuration $[#hc_tsp_sol.target_config.map(str).join(", ")]$ selects the tour edges #hc_tsp_selected_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). Its total cost is $1 + 1 + 1 + 1 = #hc_tsp_n$, so every chosen edge is a weight-1 source edge, and traversing the selected cycle recovers the Hamiltonian circuit $[#hc_tsp_sol.source_config.map(str).join(", ")]$.\ 
+
+    *Multiplicity:* The fixture stores one canonical witness. For the 4-cycle there are $4 times 2 = 8$ Hamiltonian-circuit permutations (choice of start vertex and direction), but they all induce the same undirected target edge set.
+  ],
+)[
+  @garey1979 This $O(n^2)$ reduction constructs the complete graph on the same vertex set and uses edge weights to distinguish source edges from non-edges: weight 1 means "present in the source" and weight 2 means "missing in the source" ($n (n - 1) / 2$ target edges).
+][
+  _Construction._ Given a Hamiltonian Circuit instance $G = (V, E)$ with $n = |V|$, construct the complete graph $K_n$ on the same vertex set. For each pair $u < v$, set $w(u, v) = 1$ if $(u, v) in E$ and $w(u, v) = 2$ otherwise. The target TSP instance asks for a minimum-weight Hamiltonian cycle in this weighted complete graph.
+
+  _Correctness._ ($arrow.r.double$) If $G$ has a Hamiltonian circuit $v_0, v_1, dots, v_(n-1), v_0$, then the same cycle exists in $K_n$. Every chosen edge belongs to $E$, so each edge has weight 1 and the resulting TSP tour has total cost $n$. ($arrow.l.double$) Every TSP tour on $n$ vertices uses exactly $n$ edges, and every target edge has weight at least 1, so any tour has cost at least $n$. If the optimum cost is exactly $n$, every selected edge must therefore have weight 1. Those edges are precisely edges of $G$, so the optimal TSP tour is already a Hamiltonian circuit in the source graph.
+
+  _Solution extraction._ Read the selected TSP edges, traverse the unique degree-2 cycle they form, and return the resulting vertex permutation as the source Hamiltonian-circuit witness.
 ]
 
 #let tsp_ilp = load-example("TravelingSalesman", "ILP")
@@ -6778,6 +7518,40 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 #let tsp_qubo = load-example("TravelingSalesman", "QUBO")
 #let tsp_qubo_sol = tsp_qubo.solutions.at(0)
+
+#let lp_ilp = load-example("LongestPath", "ILP")
+#let lp_ilp_sol = lp_ilp.solutions.at(0)
+#reduction-rule("LongestPath", "ILP",
+  example: true,
+  example-caption: [The 3-vertex path $0 arrow 1 arrow 2$ encoded as a 7-variable ILP with optimum 5.],
+  extra: [
+    #pred-commands(
+      "pred create --example LongestPath -o longest-path.json",
+      "pred reduce longest-path.json --to " + target-spec(lp_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate longest-path.json --config " + lp_ilp_sol.source_config.map(str).join(","),
+    )
+    *Step 1 -- Orient each undirected edge.* The canonical witness has two source edges, so the reduction creates four directed-arc variables. The optimal witness sets $x_(0,1) = 1$ and $x_(1,2) = 1$, leaving the reverse directions at 0.\ 
+
+    *Step 2 -- Add order variables.* The target has #lp_ilp.target.instance.num_vars variables and #lp_ilp.target.instance.constraints.len() constraints in total. The order block $bold(o) = (#lp_ilp_sol.target_config.slice(4, 7).map(str).join(", "))$ certifies the increasing path positions $0 < 1 < 2$.\ 
+
+    *Step 3 -- Check the objective.* The target witness $bold(z) = (#lp_ilp_sol.target_config.map(str).join(", "))$ selects lengths $2$ and $3$, so the ILP objective is $5$, matching the source optimum. #sym.checkmark
+  ],
+)[
+  A simple $s$-$t$ path can be represented as one unit of directed flow from $s$ to $t$ on oriented copies of the undirected edges. Integer order variables then force the selected arcs to move strictly forward, which forbids detached directed cycles.
+][
+  _Construction._ For graph $G = (V, E)$ with $n = |V|$ and $m = |E|$:
+
+  _Variables:_ For each undirected edge ${u, v} in E$, introduce two binary arc variables $x_(u,v), x_(v,u) in {0, 1}$. Interpretation: $x_(u,v) = 1$ iff the path traverses edge ${u, v}$ from $u$ to $v$. For each vertex $v in V$, add an integer order variable $o_v in {0, dots, n-1}$. Total: $2m + n$ variables.
+
+  _Constraints:_ (1) Flow balance: $sum_(w : {v,w} in E) x_(v,w) - sum_(u : {u,v} in E) x_(u,v) = 1$ at the source, equals $-1$ at the target, and equals $0$ at every other vertex. (2) Degree bounds: every vertex has at most one selected outgoing arc and at most one selected incoming arc. (3) Edge exclusivity: $x_(u,v) + x_(v,u) <= 1$ for each undirected edge. (4) Ordering: for every oriented edge $u -> v$, $o_v - o_u >= 1 - n(1 - x_(u,v))$. (5) Anchor the path at the source with $o_s = 0$.
+
+  _Objective._ Maximize $sum_({u,v} in E) l({u,v}) dot (x_(u,v) + x_(v,u))$.
+
+  _Correctness._ ($arrow.r.double$) Any simple $s$-$t$ path can be oriented from $s$ to $t$, giving exactly one outgoing arc at $s$, one incoming arc at $t$, balanced flow at every internal vertex, and strictly increasing order values along the path. ($arrow.l.double$) Any feasible ILP solution satisfies the flow equations and degree bounds, so the selected arcs form vertex-disjoint directed paths and cycles. The ordering inequalities make every selected arc increase the order value by at least 1, so directed cycles are impossible. The only remaining positive-flow component is therefore a single directed $s$-$t$ path, whose objective is exactly the total selected edge length.
+
+  _Solution extraction._ For each undirected edge ${u, v}$, select it in the source configuration iff either $x_(u,v)$ or $x_(v,u)$ is 1.
+]
 
 #reduction-rule("TravelingSalesman", "QUBO",
   example: true,

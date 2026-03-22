@@ -80,15 +80,15 @@ cd "$WORKTREE_DIR"
 gh pr checkout "$PR"
 ```
 
-**0c. Merge main** (commit only, do not push yet — push happens in Step 8 after the review):
+**0c. Resolve conflicts with main** (commit only, do not push yet — push happens in Step 8 after the review):
 
 ```bash
 git fetch origin main
 git merge origin/main --no-edit
 ```
 
-- **Merge clean** — merge commit is ready locally. Run `make check && make paper` to verify the merge didn't break anything (API incompatibilities, formatting, test failures, paper compilation). If any step fails, fix the errors before proceeding. For `.bib` conflicts, also check for duplicate BibTeX keys (`grep '^@' docs/paper/references.bib | sed 's/@[a-z]*{//' | sed 's/,$//' | sort | uniq -d`) and remove duplicates.
-- **Merge conflicted** — most conflicts in this codebase are "both sides added new entries in ordered lists" (in `mod.rs`, `lib.rs`, `create.rs`, `dispatch.rs`, `reductions.typ`). These are mechanical: keep both sides, maintain alphabetical order. Delegate to a subagent for resolution, then run `make check && make paper` to verify. Continue with the review; if conflicts are too complex, decide whether to hold in Step 5.
+- **Conflicted** (common case) — most conflicts in this codebase are "both sides added new entries in ordered lists" (in `mod.rs`, `lib.rs`, `create.rs`, `dispatch.rs`, `reductions.typ`). These are mechanical: keep both sides, maintain alphabetical order. Delegate to a subagent for resolution, then run `make check && make paper` to verify. For `.bib` conflicts, also check for duplicate BibTeX keys (`grep '^@' docs/paper/references.bib | sed 's/@[a-z]*{//' | sed 's/,$//' | sort | uniq -d`) and remove duplicates. Continue with the review; if conflicts are too complex, decide whether to hold in Step 5.
+- **Clean merge** — merge commit is ready locally. Run `make check && make paper` to verify the merge didn't break anything (API incompatibilities, formatting, test failures, paper compilation). If any step fails, fix the errors before proceeding.
 - **Merge failed** — note the error and continue.
 
 **0d. Sanity check**: verify the diff touches `src/models/` or `src/rules/` (for model/rule PRs). If the diff only contains unrelated files, STOP and flag the mismatch.
