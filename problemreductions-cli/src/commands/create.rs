@@ -8,7 +8,8 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
-    ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesSubmatrix, BMF,
+    ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesSubmatrix,
+    SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -688,6 +689,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "ConsecutiveBlockMinimization" => {
             "--matrix '[[true,false,true],[false,true,true]]' --bound 2"
         }
+        "SparseMatrixCompression" => {
+            "--matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound 2"
+        }
         "ConjunctiveBooleanQuery" => {
             "--domain-size 6 --relations \"2:0,3|1,3|2,4;3:0,1,5|1,2,5\" --conjuncts-spec \"0:v0,c3;0:v1,c3;1:v0,v1,c5\""
         }
@@ -732,6 +736,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
         ("MixedChinesePostman", "arc_weights") => return "arc-costs".to_string(),
         ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
+        ("SparseMatrixCompression", "bound_k") => return "bound".to_string(),
         ("StackerCrane", "edges") => return "graph".to_string(),
         ("StackerCrane", "arc_lengths") => return "arc-costs".to_string(),
         ("StackerCrane", "edge_lengths") => return "edge-lengths".to_string(),
@@ -816,6 +821,7 @@ fn help_flag_hint(
             "semicolon-separated arc-index paths: \"0,2,5,8;1,4,7,9\""
         }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("SparseMatrixCompression", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
             "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
         }
@@ -2778,6 +2784,23 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(ConsecutiveOnesSubmatrix::new(matrix, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SparseMatrixCompression
+        "SparseMatrixCompression" => {
+            let matrix = parse_bool_matrix(args)?;
+            let usage = "Usage: pred create SparseMatrixCompression --matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound 2";
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("SparseMatrixCompression requires --matrix and --bound\n\n{usage}")
+            })?;
+            let bound = parse_nonnegative_usize_bound(bound, "SparseMatrixCompression", usage)?;
+            if bound == 0 {
+                anyhow::bail!("SparseMatrixCompression requires bound >= 1\n\n{usage}");
+            }
+            (
+                ser(SparseMatrixCompression::new(matrix, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -7802,5 +7825,81 @@ mod tests {
             err.to_string().contains("k must be <= graph num_vertices"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn test_create_sparse_matrix_compression_json() {
+        use crate::dispatch::ProblemJsonOutput;
+
+        let mut args = empty_args();
+        args.problem = Some("SparseMatrixCompression".to_string());
+        args.matrix = Some("1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0".to_string());
+        args.bound = Some(2);
+
+        let output_path =
+            std::env::temp_dir().join(format!("smc-create-{}.json", std::process::id()));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = std::fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "SparseMatrixCompression");
+        assert!(created.variant.is_empty());
+        assert_eq!(
+            created.data,
+            serde_json::json!({
+                "matrix": [
+                    [true, false, false, true],
+                    [false, true, false, false],
+                    [false, false, true, false],
+                    [true, false, false, false],
+                ],
+                "bound_k": 2,
+            })
+        );
+
+        let _ = std::fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_sparse_matrix_compression_requires_bound() {
+        let mut args = empty_args();
+        args.problem = Some("SparseMatrixCompression".to_string());
+        args.matrix = Some("1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0".to_string());
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("SparseMatrixCompression requires --matrix and --bound"));
+        assert!(err.contains("Usage: pred create SparseMatrixCompression"));
+    }
+
+    #[test]
+    fn test_create_sparse_matrix_compression_rejects_zero_bound() {
+        let mut args = empty_args();
+        args.problem = Some("SparseMatrixCompression".to_string());
+        args.matrix = Some("1,0;0,1".to_string());
+        args.bound = Some(0);
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("bound >= 1"));
     }
 }

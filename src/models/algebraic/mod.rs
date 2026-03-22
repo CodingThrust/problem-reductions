@@ -8,6 +8,7 @@
 //! - [`ConsecutiveBlockMinimization`]: Consecutive Block Minimization
 //! - [`ConsecutiveOnesSubmatrix`]: Consecutive Ones Submatrix (column selection with C1P)
 //! - [`QuadraticAssignment`]: Quadratic Assignment Problem
+//! - [`SparseMatrixCompression`]: Sparse Matrix Compression by row overlay
 
 pub(crate) mod bmf;
 pub(crate) mod closest_vector_problem;
@@ -16,6 +17,7 @@ pub(crate) mod consecutive_ones_submatrix;
 pub(crate) mod ilp;
 pub(crate) mod quadratic_assignment;
 pub(crate) mod qubo;
+pub(crate) mod sparse_matrix_compression;
 
 pub use bmf::BMF;
 pub use closest_vector_problem::{ClosestVectorProblem, VarBounds};
@@ -24,6 +26,7 @@ pub use consecutive_ones_submatrix::ConsecutiveOnesSubmatrix;
 pub use ilp::{Comparison, LinearConstraint, ObjectiveSense, VariableDomain, ILP};
 pub use quadratic_assignment::QuadraticAssignment;
 pub use qubo::QUBO;
+pub use sparse_matrix_compression::SparseMatrixCompression;
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
@@ -35,5 +38,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(consecutive_block_minimization::canonical_model_example_specs());
     specs.extend(consecutive_ones_submatrix::canonical_model_example_specs());
     specs.extend(quadratic_assignment::canonical_model_example_specs());
+    specs.extend(sparse_matrix_compression::canonical_model_example_specs());
     specs
 }
