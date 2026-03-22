@@ -30,7 +30,7 @@ pub use graph::{
     OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
     PathConstrainedNetworkFlow, RuralPostman, ShortestWeightConstrainedPath, SpinGlass,
     SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation, SubgraphIsomorphism,
-    TravelingSalesman, UndirectedTwoCommodityIntegralFlow,
+    TravelingSalesman, UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{

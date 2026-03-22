@@ -47,6 +47,7 @@
 //! - [`IntegralFlowBundles`]: Integral flow feasibility with overlapping bundle capacities
 //! - [`IntegralFlowHomologousArcs`]: Integral flow with arc-pair equality constraints
 //! - [`IntegralFlowWithMultipliers`]: Integral flow with vertex multipliers on a directed graph
+//! - [`UndirectedFlowLowerBounds`]: Feasible s-t flow in an undirected graph with lower/upper bounds
 //! - [`UndirectedTwoCommodityIntegralFlow`]: Two-commodity integral flow on undirected graphs
 //! - [`StrongConnectivityAugmentation`]: Strong connectivity augmentation with weighted candidate arcs
 
@@ -99,6 +100,7 @@ pub(crate) mod steiner_tree_in_graphs;
 pub(crate) mod strong_connectivity_augmentation;
 pub(crate) mod subgraph_isomorphism;
 pub(crate) mod traveling_salesman;
+pub(crate) mod undirected_flow_lower_bounds;
 pub(crate) mod undirected_two_commodity_integral_flow;
 
 pub use acyclic_partition::AcyclicPartition;
@@ -150,6 +152,7 @@ pub use steiner_tree_in_graphs::SteinerTreeInGraphs;
 pub use strong_connectivity_augmentation::StrongConnectivityAugmentation;
 pub use subgraph_isomorphism::SubgraphIsomorphism;
 pub use traveling_salesman::TravelingSalesman;
+pub use undirected_flow_lower_bounds::UndirectedFlowLowerBounds;
 pub use undirected_two_commodity_integral_flow::UndirectedTwoCommodityIntegralFlow;
 
 #[cfg(feature = "example-db")]
@@ -196,6 +199,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(steiner_tree::canonical_model_example_specs());
     specs.extend(steiner_tree_in_graphs::canonical_model_example_specs());
     specs.extend(directed_two_commodity_integral_flow::canonical_model_example_specs());
+    specs.extend(undirected_flow_lower_bounds::canonical_model_example_specs());
     specs.extend(undirected_two_commodity_integral_flow::canonical_model_example_specs());
     specs.extend(strong_connectivity_augmentation::canonical_model_example_specs());
     specs.extend(rural_postman::canonical_model_example_specs());
