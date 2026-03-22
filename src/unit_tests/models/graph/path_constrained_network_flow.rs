@@ -52,6 +52,9 @@ fn test_path_constrained_network_flow_creation() {
     assert_eq!(problem.requirement(), 3);
     assert_eq!(problem.source(), 0);
     assert_eq!(problem.sink(), 7);
+    assert_eq!(problem.graph().num_vertices(), 8);
+    assert_eq!(problem.capacities().len(), 10);
+    assert_eq!(problem.paths().len(), 5);
 }
 
 #[test]
@@ -100,13 +103,40 @@ fn test_path_constrained_network_flow_serialization() {
 }
 
 #[test]
-fn test_path_constrained_network_flow_rejects_invalid_prescribed_paths() {
+fn test_path_constrained_network_flow_rejects_non_contiguous_path() {
     let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-
     let result = std::panic::catch_unwind(|| {
         PathConstrainedNetworkFlow::new(graph, vec![1, 1, 1], 0, 3, vec![vec![0, 2]], 1)
     });
+    assert!(result.is_err());
+}
 
+#[test]
+fn test_path_constrained_network_flow_rejects_empty_path() {
+    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let result = std::panic::catch_unwind(|| {
+        PathConstrainedNetworkFlow::new(graph, vec![1, 1, 1], 0, 3, vec![vec![]], 1)
+    });
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_path_constrained_network_flow_rejects_path_not_ending_at_sink() {
+    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let result = std::panic::catch_unwind(|| {
+        PathConstrainedNetworkFlow::new(graph, vec![1, 1, 1], 0, 3, vec![vec![0, 1]], 1)
+    });
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_path_constrained_network_flow_rejects_path_with_repeated_vertex() {
+    // Graph: 0->1, 1->2, 2->1, 1->3 (arcs 0,1,2,3)
+    let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 1), (1, 3)]);
+    let result = std::panic::catch_unwind(|| {
+        // Path [0, 1, 2, 3]: 0->1->2->1->3 revisits vertex 1
+        PathConstrainedNetworkFlow::new(graph, vec![1, 1, 1, 1], 0, 3, vec![vec![0, 1, 2, 3]], 1)
+    });
     assert!(result.is_err());
 }
 
