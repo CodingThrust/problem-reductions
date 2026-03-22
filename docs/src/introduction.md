@@ -6,6 +6,7 @@
 
 <script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js"></script>
 <script src="https://unpkg.com/cytoscape-elk@2.2.0/dist/cytoscape-elk.js"></script>
+<script src="https://unpkg.com/cytoscape-svg@0.4.0/cytoscape-svg.js"></script>
 
 <div id="cy-search">
   <input id="search-input" type="text" placeholder="Search problems...">
@@ -23,6 +24,7 @@
   <div>
     <span id="instructions">Click a node to start path selection</span>
     <button id="clear-btn">Clear</button>
+    <button id="download-svg-btn">Download SVG</button>
   </div>
 </div>
 <div id="cy-help">
