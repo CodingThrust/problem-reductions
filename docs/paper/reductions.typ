@@ -73,6 +73,7 @@
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
   "LongestCircuit": [Longest Circuit],
+  "LongestPath": [Longest Path],
   "ShortestWeightConstrainedPath": [Shortest Weight-Constrained Path],
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
   "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
@@ -1069,6 +1070,65 @@ is feasible: each set induces a connected subgraph, the component weights are $2
       },
       caption: [Hamiltonian Path in a #{nv}-vertex graph. Blue edges show the path $#path.map(v => $v_#v$).join($arrow$)$.],
       ) <fig:hamiltonian-path>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("LongestPath")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges
+  let lengths = x.instance.edge_lengths
+  let s = x.instance.source_vertex
+  let t = x.instance.target_vertex
+  let path-config = x.optimal_config
+  let path-order = (0, 1, 3, 2, 4, 5, 6)
+  let path-edges = edges.enumerate().filter(((idx, _)) => path-config.at(idx) == 1).map(((idx, e)) => e)
+  [
+    #problem-def("LongestPath")[
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$ and designated vertices $s, t in V$, find a simple path $P$ from $s$ to $t$ maximizing $sum_(e in P) l(e)$.
+    ][
+      Longest Path is problem ND29 in Garey & Johnson @garey1979. It bridges weighted routing and Hamiltonicity: when every edge has unit length, the optimum reaches $|V| - 1$ exactly when there is a Hamiltonian path from $s$ to $t$. The implementation catalog records the classical subset-DP exact bound $O(|V| dot 2^|V|)$, in the style of Held--Karp dynamic programming @heldkarp1962. For the parameterized $k$-path version, color-coding gives randomized $2^(O(k)) |V|^(O(1))$ algorithms @alon1995.
+
+      Variables: one binary value per edge. A configuration is valid exactly when the selected edges form a single simple $s$-$t$ path; otherwise the metric is `Invalid`. For valid selections, the metric is the total selected edge length.
+
+      *Example.* Consider the graph on #nv vertices with source $s = v_#s$ and target $t = v_#t$. The highlighted path $#path-order.map(v => $v_#v$).join($arrow$)$ uses edges ${#path-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, so its total length is $3 + 4 + 1 + 5 + 3 + 4 = 20$. Another valid path, $v_0 arrow v_2 arrow v_4 arrow v_5 arrow v_3 arrow v_1 arrow v_6$, has total length $17$, so the highlighted path is strictly better.
+
+      #pred-commands(
+        "pred create --example LongestPath -o longest-path.json",
+        "pred solve longest-path.json",
+        "pred evaluate longest-path.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        let blue = graph-colors.at(0)
+        let gray = luma(200)
+        let verts = ((0, 1.2), (1.2, 2.0), (1.2, 0.4), (2.5, 2.0), (2.5, 0.4), (3.8, 1.2), (5.0, 1.2))
+        canvas(length: 1cm, {
+          import draw: *
+          for (idx, (u, v)) in edges.enumerate() {
+            let on-path = path-config.at(idx) == 1
+            g-edge(verts.at(u), verts.at(v), stroke: if on-path { 2pt + blue } else { 1pt + gray })
+            let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+            let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+            let dx = if idx == 0 or idx == 2 { 0 } else if idx == 1 or idx == 4 { -0.18 } else if idx == 5 or idx == 6 { 0.18 } else if idx == 8 { 0 } else { 0.16 }
+            let dy = if idx == 0 or idx == 2 or idx == 5 or idx == 8 { 0.18 } else if idx == 1 or idx == 4 or idx == 6 { -0.18 } else if idx == 3 { 0 } else { 0.16 }
+            draw.content(
+              (mx + dx, my + dy),
+              text(7pt, fill: luma(80))[#str(int(lengths.at(idx)))]
+            )
+          }
+          for (k, pos) in verts.enumerate() {
+            let on-path = path-order.any(v => v == k)
+            g-node(pos, name: "v" + str(k),
+              fill: if on-path { blue } else { white },
+              label: if on-path { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+          }
+          content((0, 1.55), text(8pt)[$s$])
+          content((5.0, 1.55), text(8pt)[$t$])
+        })
+      },
+      caption: [Longest Path instance with edge lengths shown on the edges. The highlighted path from $s = v_0$ to $t = v_6$ has total length 20.],
+      ) <fig:longest-path>
     ]
   ]
 }
@@ -6943,6 +7003,40 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 #let tsp_qubo = load-example("TravelingSalesman", "QUBO")
 #let tsp_qubo_sol = tsp_qubo.solutions.at(0)
+
+#let lp_ilp = load-example("LongestPath", "ILP")
+#let lp_ilp_sol = lp_ilp.solutions.at(0)
+#reduction-rule("LongestPath", "ILP",
+  example: true,
+  example-caption: [The 3-vertex path $0 arrow 1 arrow 2$ encoded as a 7-variable ILP with optimum 5.],
+  extra: [
+    #pred-commands(
+      "pred create --example LongestPath -o longest-path.json",
+      "pred reduce longest-path.json --to " + target-spec(lp_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate longest-path.json --config " + lp_ilp_sol.source_config.map(str).join(","),
+    )
+    *Step 1 -- Orient each undirected edge.* The canonical witness has two source edges, so the reduction creates four directed-arc variables. The optimal witness sets $x_(0,1) = 1$ and $x_(1,2) = 1$, leaving the reverse directions at 0.\ 
+
+    *Step 2 -- Add order variables.* The target has #lp_ilp.target.instance.num_vars variables and #lp_ilp.target.instance.constraints.len() constraints in total. The order block $bold(o) = (#lp_ilp_sol.target_config.slice(4, 7).map(str).join(", "))$ certifies the increasing path positions $0 < 1 < 2$.\ 
+
+    *Step 3 -- Check the objective.* The target witness $bold(z) = (#lp_ilp_sol.target_config.map(str).join(", "))$ selects lengths $2$ and $3$, so the ILP objective is $5$, matching the source optimum. #sym.checkmark
+  ],
+)[
+  A simple $s$-$t$ path can be represented as one unit of directed flow from $s$ to $t$ on oriented copies of the undirected edges. Integer order variables then force the selected arcs to move strictly forward, which forbids detached directed cycles.
+][
+  _Construction._ For graph $G = (V, E)$ with $n = |V|$ and $m = |E|$:
+
+  _Variables:_ For each undirected edge ${u, v} in E$, introduce two binary arc variables $x_(u,v), x_(v,u) in {0, 1}$. Interpretation: $x_(u,v) = 1$ iff the path traverses edge ${u, v}$ from $u$ to $v$. For each vertex $v in V$, add an integer order variable $o_v in {0, dots, n-1}$. Total: $2m + n$ variables.
+
+  _Constraints:_ (1) Flow balance: $sum_(w : {v,w} in E) x_(v,w) - sum_(u : {u,v} in E) x_(u,v) = 1$ at the source, equals $-1$ at the target, and equals $0$ at every other vertex. (2) Degree bounds: every vertex has at most one selected outgoing arc and at most one selected incoming arc. (3) Edge exclusivity: $x_(u,v) + x_(v,u) <= 1$ for each undirected edge. (4) Ordering: for every oriented edge $u -> v$, $o_v - o_u >= 1 - n(1 - x_(u,v))$. (5) Anchor the path at the source with $o_s = 0$.
+
+  _Objective._ Maximize $sum_({u,v} in E) l({u,v}) dot (x_(u,v) + x_(v,u))$.
+
+  _Correctness._ ($arrow.r.double$) Any simple $s$-$t$ path can be oriented from $s$ to $t$, giving exactly one outgoing arc at $s$, one incoming arc at $t$, balanced flow at every internal vertex, and strictly increasing order values along the path. ($arrow.l.double$) Any feasible ILP solution satisfies the flow equations and degree bounds, so the selected arcs form vertex-disjoint directed paths and cycles. The ordering inequalities make every selected arc increase the order value by at least 1, so directed cycles are impossible. The only remaining positive-flow component is therefore a single directed $s$-$t$ path, whose objective is exactly the total selected edge length.
+
+  _Solution extraction._ For each undirected edge ${u, v}$, select it in the source configuration iff either $x_(u,v)$ or $x_(v,u)$ is 1.
+]
 
 #reduction-rule("TravelingSalesman", "QUBO",
   example: true,

@@ -70,6 +70,8 @@ pub(crate) mod knapsack_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod longestcommonsubsequence_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod longestpath_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumclique_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximummatching_ilp;
@@ -140,6 +142,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(graphpartitioning_ilp::canonical_rule_example_specs());
         specs.extend(ilp_qubo::canonical_rule_example_specs());
         specs.extend(knapsack_ilp::canonical_rule_example_specs());
+        specs.extend(longestpath_ilp::canonical_rule_example_specs());
         specs.extend(longestcommonsubsequence_ilp::canonical_rule_example_specs());
         specs.extend(maximumclique_ilp::canonical_rule_example_specs());
         specs.extend(maximummatching_ilp::canonical_rule_example_specs());

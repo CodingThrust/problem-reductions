@@ -53,7 +53,7 @@ pub mod prelude {
         DirectedTwoCommodityIntegralFlow, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
         HamiltonianPath, IntegralFlowHomologousArcs, IntegralFlowWithMultipliers,
         IsomorphicSpanningTree, KClique, KthBestSpanningTree, LengthBoundedDisjointPaths,
-        MixedChinesePostman, SpinGlass, SteinerTree, StrongConnectivityAugmentation,
+        LongestPath, MixedChinesePostman, SpinGlass, SteinerTree, StrongConnectivityAugmentation,
         SubgraphIsomorphism,
     };
     pub use crate::models::graph::{

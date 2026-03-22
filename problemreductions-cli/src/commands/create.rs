@@ -13,9 +13,9 @@ use problemreductions::models::algebraic::{
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
-    LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets, MinimumMultiwayCut,
-    MixedChinesePostman, MultipleChoiceBranching, SteinerTree, SteinerTreeInGraphs,
-    StrongConnectivityAugmentation,
+    LengthBoundedDisjointPaths, LongestCircuit, LongestPath, MinimumCutIntoBoundedSets,
+    MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching, SteinerTree,
+    SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CbqRelation, ConjunctiveBooleanQuery,
@@ -528,6 +528,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6"
         }
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
+        "LongestPath" => {
+            "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,4-6,5-6,1-6 --edge-lengths 3,2,4,1,5,2,3,2,4,1 --source-vertex 0 --target-vertex 6"
+        }
         "UndirectedTwoCommodityIntegralFlow" => {
             "--graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1"
         },
@@ -1330,6 +1333,39 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 anyhow::anyhow!("{e}\n\nUsage: pred create HamiltonianPath --graph 0-1,1-2,2-3")
             })?;
             (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
+        }
+
+        // LongestPath
+        "LongestPath" => {
+            let usage = "pred create LongestPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,4-6,5-6,1-6 --edge-lengths 3,2,4,1,5,2,3,2,4,1 --source-vertex 0 --target-vertex 6";
+            let (graph, _) =
+                parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
+            if args.weights.is_some() {
+                bail!("LongestPath uses --edge-lengths, not --weights\n\nUsage: {usage}");
+            }
+            let edge_lengths_raw = args.edge_lengths.as_ref().ok_or_else(|| {
+                anyhow::anyhow!("LongestPath requires --edge-lengths\n\nUsage: {usage}")
+            })?;
+            let edge_lengths =
+                parse_i32_edge_values(Some(edge_lengths_raw), graph.num_edges(), "edge length")?;
+            ensure_positive_i32_values(&edge_lengths, "edge lengths")?;
+            let source_vertex = args.source_vertex.ok_or_else(|| {
+                anyhow::anyhow!("LongestPath requires --source-vertex\n\nUsage: {usage}")
+            })?;
+            let target_vertex = args.target_vertex.ok_or_else(|| {
+                anyhow::anyhow!("LongestPath requires --target-vertex\n\nUsage: {usage}")
+            })?;
+            ensure_vertex_in_bounds(source_vertex, graph.num_vertices(), "source_vertex")?;
+            ensure_vertex_in_bounds(target_vertex, graph.num_vertices(), "target_vertex")?;
+            (
+                ser(LongestPath::new(
+                    graph,
+                    edge_lengths,
+                    source_vertex,
+                    target_vertex,
+                ))?,
+                resolved_variant.clone(),
+            )
         }
 
         // ShortestWeightConstrainedPath
@@ -6067,6 +6103,118 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err();
         assert!(err.to_string().contains("GeneralizedHex requires --sink"));
+    }
+
+    #[test]
+    fn test_create_longest_path_serializes_problem_json() {
+        let output = temp_output_path("longest_path_create");
+        let cli = Cli::try_parse_from([
+            "pred",
+            "-o",
+            output.to_str().unwrap(),
+            "create",
+            "LongestPath",
+            "--graph",
+            "0-1,0-2,1-3,2-3,2-4,3-5,4-5,4-6,5-6,1-6",
+            "--edge-lengths",
+            "3,2,4,1,5,2,3,2,4,1",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "6",
+        ])
+        .unwrap();
+        let out = OutputConfig {
+            output: cli.output.clone(),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output).unwrap()).unwrap();
+        fs::remove_file(&output).unwrap();
+        assert_eq!(json["type"], "LongestPath");
+        assert_eq!(json["variant"]["graph"], "SimpleGraph");
+        assert_eq!(json["variant"]["weight"], "i32");
+        assert_eq!(json["data"]["source_vertex"], 0);
+        assert_eq!(json["data"]["target_vertex"], 6);
+        assert_eq!(
+            json["data"]["edge_lengths"],
+            serde_json::json!([3, 2, 4, 1, 5, 2, 3, 2, 4, 1])
+        );
+    }
+
+    #[test]
+    fn test_create_longest_path_requires_edge_lengths() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "LongestPath",
+            "--graph",
+            "0-1,1-2",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "2",
+        ])
+        .unwrap();
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("LongestPath requires --edge-lengths"));
+    }
+
+    #[test]
+    fn test_create_longest_path_rejects_weights_flag() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "LongestPath",
+            "--graph",
+            "0-1,1-2",
+            "--weights",
+            "1,1,1",
+            "--source-vertex",
+            "0",
+            "--target-vertex",
+            "2",
+            "--edge-lengths",
+            "5,7",
+        ])
+        .unwrap();
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("LongestPath uses --edge-lengths, not --weights"));
     }
 
     fn empty_args() -> CreateArgs {
