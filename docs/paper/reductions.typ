@@ -5267,7 +5267,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
       #pred-commands(
         "pred create --example IntegralFlowWithMultipliers -o integral-flow-with-multipliers.json",
-        "pred solve integral-flow-with-multipliers.json",
+        "pred solve integral-flow-with-multipliers.json --solver brute-force",
         "pred evaluate integral-flow-with-multipliers.json --config " + config.map(str).join(","),
       )
 
