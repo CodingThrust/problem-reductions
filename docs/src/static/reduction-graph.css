@@ -63,6 +63,13 @@
   font-size: 12px;
 }
 
+#download-svg-btn {
+  margin-left: 8px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
 #cy-search {
   margin-bottom: 8px;
 }

@@ -20,16 +20,17 @@ pub use formula::{
 pub use graph::{
     AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
     BottleneckTravelingSalesman, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
-    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IsomorphicSpanningTree,
-    KClique, KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths, LongestCircuit, MaxCut,
-    MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching, MinMaxMulticenter,
+    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
+    IntegralFlowHomologousArcs, IntegralFlowWithMultipliers, IsomorphicSpanningTree, KClique,
+    KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths, LongestCircuit, LongestPath,
+    MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching, MinMaxMulticenter,
     MinimumCutIntoBoundedSets, MinimumDominatingSet, MinimumFeedbackArcSet,
     MinimumFeedbackVertexSet, MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover,
     MixedChinesePostman, MultipleChoiceBranching, MultipleCopyFileAllocation,
-    OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman,
-    ShortestWeightConstrainedPath, SpinGlass, SteinerTree, SteinerTreeInGraphs,
-    StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
-    UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
+    OptimalLinearArrangement, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
+    PathConstrainedNetworkFlow, RuralPostman, ShortestWeightConstrainedPath, SpinGlass,
+    SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation, SubgraphIsomorphism,
+    TravelingSalesman, UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{

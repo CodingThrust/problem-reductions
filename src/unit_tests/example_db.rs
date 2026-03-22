@@ -130,6 +130,24 @@ fn test_find_model_example_strong_connectivity_augmentation() {
 }
 
 #[test]
+fn test_find_model_example_integral_flow_homologous_arcs() {
+    let problem = ProblemRef {
+        name: "IntegralFlowHomologousArcs".to_string(),
+        variant: BTreeMap::new(),
+    };
+
+    let example = find_model_example(&problem).expect("IntegralFlowHomologousArcs example exists");
+    assert_eq!(example.problem, "IntegralFlowHomologousArcs");
+    assert_eq!(example.variant, problem.variant);
+    assert_eq!(example.instance["requirement"], 2);
+    assert_eq!(
+        example.instance["homologous_pairs"],
+        serde_json::json!([[2, 5], [4, 3]])
+    );
+    assert_eq!(example.optimal_config, vec![1, 1, 1, 0, 0, 1, 1, 1]);
+}
+
+#[test]
 fn test_find_rule_example_mvc_to_mis_contains_full_problem_json() {
     let source = ProblemRef {
         name: "MinimumVertexCover".to_string(),
