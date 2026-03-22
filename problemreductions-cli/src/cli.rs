@@ -370,7 +370,7 @@ pub struct CreateArgs {
     /// Sink vertex for path-based graph problems and MinimumCutIntoBoundedSets
     #[arg(long)]
     pub sink: Option<usize>,
-    /// Required sink inflow for IntegralFlowHomologousArcs and IntegralFlowWithMultipliers
+    /// Required total flow R for IntegralFlowHomologousArcs, IntegralFlowWithMultipliers, and PathConstrainedNetworkFlow
     #[arg(long)]
     pub requirement: Option<u64>,
     /// Required number of paths for LengthBoundedDisjointPaths
@@ -449,9 +449,6 @@ pub struct CreateArgs {
     /// Required flow R_2 for commodity 2
     #[arg(long)]
     pub requirement_2: Option<u64>,
-    /// Required total flow R for PathConstrainedNetworkFlow
-    #[arg(long)]
-    pub requirement: Option<u64>,
     /// Item sizes for BinPacking (comma-separated, e.g., "3,3,2,2")
     #[arg(long)]
     pub sizes: Option<String>,
