@@ -21,10 +21,7 @@ fn test_capacity_assignment_basic_properties() {
     assert_eq!(problem.cost_budget(), 10);
     assert_eq!(problem.delay_budget(), 12);
     assert_eq!(problem.dims(), vec![3, 3, 3]);
-    assert_eq!(
-        <CapacityAssignment as Problem>::NAME,
-        "CapacityAssignment"
-    );
+    assert_eq!(<CapacityAssignment as Problem>::NAME, "CapacityAssignment");
     assert_eq!(<CapacityAssignment as Problem>::variant(), Vec::new());
 }
 
