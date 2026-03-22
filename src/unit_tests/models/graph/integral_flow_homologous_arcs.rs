@@ -115,6 +115,22 @@ fn test_integral_flow_homologous_arcs_problem_name() {
 }
 
 #[test]
+fn test_integral_flow_homologous_arcs_non_unit_capacity() {
+    // s=0 -> 1 -> 2=t, with capacities [3, 3], homologous pair (0,1) so both arcs carry
+    // equal flow. R=2 is satisfiable: f=[2,2].
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
+    let problem = IntegralFlowHomologousArcs::new(graph, vec![3, 3], 0, 2, 2, vec![(0, 1)]);
+    assert_eq!(problem.dims(), vec![4, 4]);
+    assert_eq!(problem.max_capacity(), 3);
+    assert!(problem.evaluate(&[2, 2]));
+    assert!(problem.evaluate(&[3, 3]));
+    assert!(!problem.evaluate(&[2, 3])); // homologous violation
+    let solver = BruteForce::new();
+    let solutions = solver.find_all_satisfying(&problem);
+    assert_eq!(solutions.len(), 2); // [2,2] and [3,3]
+}
+
+#[test]
 fn test_integral_flow_homologous_arcs_paper_example() {
     let problem = yes_instance();
     let solver = BruteForce::new();

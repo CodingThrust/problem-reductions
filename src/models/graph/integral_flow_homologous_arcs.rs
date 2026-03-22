@@ -170,7 +170,7 @@ impl Problem for IntegralFlowHomologousArcs {
             return false;
         }
 
-        for (&(a, b), _) in self.homologous_pairs.iter().zip(std::iter::repeat(())) {
+        for &(a, b) in &self.homologous_pairs {
             if config[a] != config[b] {
                 return false;
             }
