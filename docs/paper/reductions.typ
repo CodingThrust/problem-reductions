@@ -120,6 +120,7 @@
   "ConsistencyOfDatabaseFrequencyTables": [Consistency of Database Frequency Tables],
   "ClosestVectorProblem": [Closest Vector Problem],
   "ConsecutiveSets": [Consecutive Sets],
+  "DisjointConnectingPaths": [Disjoint Connecting Paths],
   "MinimumMultiwayCut": [Minimum Multiway Cut],
   "OptimalLinearArrangement": [Optimal Linear Arrangement],
   "RuralPostman": [Rural Postman],
@@ -960,6 +961,66 @@ is feasible: each set induces a connected subgraph, the component weights are $2
         }),
         caption: [A satisfying Length-Bounded Disjoint Paths instance with $s = v_0$, $t = v_6$, $J = 2$, and $K = 3$. The highlighted paths are $v_0 arrow v_1 arrow v_6$ and $v_0 arrow v_2 arrow v_3 arrow v_6$; the lower branch through $v_4, v_5$ remains unused.],
       ) <fig:length-bounded-disjoint-paths>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("DisjointConnectingPaths")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let chosen-edges = ((0, 1), (1, 3), (2, 4), (4, 5))
+  [
+    #problem-def("DisjointConnectingPaths")[
+      Given an undirected graph $G = (V, E)$ and pairwise disjoint terminal pairs $(s_1, t_1), dots, (s_k, t_k)$, determine whether $G$ contains $k$ mutually vertex-disjoint paths such that path $P_i$ joins $s_i$ to $t_i$ for every $i$.
+    ][
+      Disjoint Connecting Paths is the classical routing form of the vertex-disjoint paths problem, catalogued as ND40 in Garey & Johnson @garey1979. When the number of terminal pairs $k$ is part of the input, the problem is NP-complete @karp1972. In contrast, for every fixed $k$, Robertson and Seymour give an $O(n^3)$ algorithm @robertsonSeymour1995, and Kawarabayashi, Kobayashi, and Reed later improve the dependence on $n$ to $O(n^2)$ @kawarabayashiKobayashiReed2012. The implementation in this crate uses one binary variable per undirected edge, so brute-force search explores an $O^*(2^|E|)$ configuration space.#footnote[This is the exact-search bound induced by the edge-subset encoding implemented in the codebase; no sharper general exact worst-case bound is claimed here.]
+
+      *Example.* Consider the repaired YES instance with $n = #nv$ vertices, $|E| = #ne$ edges, and terminal pairs $(v_0, v_3)$ and $(v_2, v_5)$. Selecting the edges $v_0v_1$, $v_1v_3$, $v_2v_4$, and $v_4v_5$ yields the two vertex-disjoint paths $v_0 arrow v_1 arrow v_3$ and $v_2 arrow v_4 arrow v_5$, so the instance is satisfying.
+
+      #pred-commands(
+        "pred create --example DisjointConnectingPaths -o disjoint-connecting-paths.json",
+        "pred solve disjoint-connecting-paths.json",
+        "pred evaluate disjoint-connecting-paths.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          let blue = graph-colors.at(0)
+          let gray = luma(180)
+          let verts = (
+            (0, 1.2),
+            (1.4, 1.2),
+            (0, 0),
+            (2.8, 1.2),
+            (1.4, 0),
+            (2.8, 0),
+          )
+          let edges = ((0, 1), (1, 3), (0, 2), (1, 4), (2, 4), (3, 5), (4, 5))
+          for (u, v) in edges {
+            let selected = chosen-edges.any(e =>
+              (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u)
+            )
+            g-edge(verts.at(u), verts.at(v),
+              stroke: if selected { 2pt + blue } else { 1pt + gray })
+          }
+          for (k, pos) in verts.enumerate() {
+            let terminal = k == 0 or k == 2 or k == 3 or k == 5
+            g-node(pos, name: "v" + str(k),
+              fill: if terminal { blue } else { white },
+              label: if terminal {
+                text(fill: white)[
+                  #if k == 0 { $s_1$ }
+                  else if k == 3 { $t_1$ }
+                  else if k == 2 { $s_2$ }
+                  else { $t_2$ }
+                ]
+              } else [
+                $v_#k$
+              ])
+          }
+        }),
+        caption: [A satisfying Disjoint Connecting Paths instance with terminal pairs $(v_0, v_3)$ and $(v_2, v_5)$. The highlighted edges form the vertex-disjoint paths $v_0 arrow v_1 arrow v_3$ and $v_2 arrow v_4 arrow v_5$.],
+      ) <fig:disjoint-connecting-paths>
     ]
   ]
 }

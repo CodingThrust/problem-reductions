@@ -12,9 +12,10 @@ use problemreductions::models::algebraic::{
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
-    GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IntegralFlowBundles,
-    LengthBoundedDisjointPaths, LongestCircuit, LongestPath, MinimumCutIntoBoundedSets,
-    MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching,
+    DisjointConnectingPaths, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
+    HamiltonianPath, IntegralFlowBundles, LengthBoundedDisjointPaths, LongestCircuit, LongestPath,
+    MinimumCutIntoBoundedSets, MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman,
+    MultipleChoiceBranching,
     PathConstrainedNetworkFlow, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
@@ -103,6 +104,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.deadlines.is_none()
         && args.lengths.is_none()
         && args.terminals.is_none()
+        && args.terminal_pairs.is_none()
         && args.tree.is_none()
         && args.required_edges.is_none()
         && args.bound.is_none()
@@ -545,6 +547,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "UndirectedTwoCommodityIntegralFlow" => {
             "--graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1"
         },
+        "DisjointConnectingPaths" => {
+            "--graph 0-1,1-3,0-2,1-4,2-4,3-5,4-5 --terminal-pairs 0-3,2-5"
+        }
         "IntegralFlowHomologousArcs" => {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\""
         }
@@ -766,6 +771,7 @@ fn help_flag_hint(
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_weight") => "integer",
         ("SequencingWithinIntervals", "release_times") => "comma-separated integers: 0,0,5",
+        ("DisjointConnectingPaths", "terminal_pairs") => "comma-separated pairs: 0-3,2-5",
         ("PrimeAttributeName", "dependencies") => {
             "semicolon-separated dependencies: \"0,1>2,3;2,3>0,1\""
         }
@@ -1149,6 +1155,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             }
             (
                 ser(GeneralizedHex::new(graph, source, sink))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // DisjointConnectingPaths (graph + terminal pairs)
+        "DisjointConnectingPaths" => {
+            let usage =
+                "Usage: pred create DisjointConnectingPaths --graph 0-1,1-3,0-2,1-4,2-4,3-5,4-5 --terminal-pairs 0-3,2-5";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let terminal_pairs = parse_terminal_pairs(args, graph.num_vertices())
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            (
+                ser(DisjointConnectingPaths::new(graph, terminal_pairs))?,
                 resolved_variant.clone(),
             )
         }
@@ -4504,6 +4523,38 @@ fn parse_terminals(args: &CreateArgs, num_vertices: usize) -> Result<Vec<usize>>
     Ok(terminals)
 }
 
+/// Parse `--terminal-pairs` as comma-separated `u-v` vertex pairs.
+fn parse_terminal_pairs(args: &CreateArgs, num_vertices: usize) -> Result<Vec<(usize, usize)>> {
+    let raw = args
+        .terminal_pairs
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("--terminal-pairs required (e.g., \"0-3,2-5\")"))?;
+    let terminal_pairs = util::parse_edge_pairs(raw)?;
+    anyhow::ensure!(
+        !terminal_pairs.is_empty(),
+        "at least 1 terminal pair required"
+    );
+
+    let mut used = BTreeSet::new();
+    for &(source, sink) in &terminal_pairs {
+        anyhow::ensure!(
+            source < num_vertices,
+            "terminal pair source {source} >= num_vertices ({num_vertices})"
+        );
+        anyhow::ensure!(
+            sink < num_vertices,
+            "terminal pair sink {sink} >= num_vertices ({num_vertices})"
+        );
+        anyhow::ensure!(source != sink, "terminal pair endpoints must be distinct");
+        anyhow::ensure!(
+            used.insert(source) && used.insert(sink),
+            "terminal vertices must be pairwise disjoint across terminal pairs"
+        );
+    }
+
+    Ok(terminal_pairs)
+}
+
 fn ensure_positive_i32_values(values: &[i32], label: &str) -> Result<()> {
     if values.iter().any(|&value| value <= 0) {
         bail!("All {label} must be positive (> 0)");
@@ -6753,6 +6804,7 @@ mod tests {
             release_times: None,
             lengths: None,
             terminals: None,
+            terminal_pairs: None,
             tree: None,
             required_edges: None,
             bound: None,
@@ -6858,6 +6910,62 @@ mod tests {
         args.budget = Some("7".to_string());
 
         assert_eq!(parse_budget(&args).unwrap(), 7);
+    }
+
+    #[test]
+    fn test_create_disjoint_connecting_paths_json() {
+        use crate::dispatch::ProblemJsonOutput;
+        use problemreductions::models::graph::DisjointConnectingPaths;
+
+        let mut args = empty_args();
+        args.problem = Some("DisjointConnectingPaths".to_string());
+        args.graph = Some("0-1,1-3,0-2,1-4,2-4,3-5,4-5".to_string());
+        args.terminal_pairs = Some("0-3,2-5".to_string());
+
+        let output_path =
+            std::env::temp_dir().join(format!("dcp-create-{}.json", std::process::id()));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = std::fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "DisjointConnectingPaths");
+        assert_eq!(
+            created.variant,
+            BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())])
+        );
+
+        let problem: DisjointConnectingPaths<SimpleGraph> =
+            serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.num_vertices(), 6);
+        assert_eq!(problem.num_edges(), 7);
+        assert_eq!(problem.terminal_pairs(), &[(0, 3), (2, 5)]);
+
+        let _ = std::fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_disjoint_connecting_paths_rejects_overlapping_terminal_pairs() {
+        let mut args = empty_args();
+        args.problem = Some("DisjointConnectingPaths".to_string());
+        args.graph = Some("0-1,1-2,2-3,3-4".to_string());
+        args.terminal_pairs = Some("0-2,2-4".to_string());
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("pairwise disjoint"));
     }
 
     #[test]

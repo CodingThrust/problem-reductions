@@ -51,6 +51,7 @@
 //! - [`UndirectedFlowLowerBounds`]: Feasible s-t flow in an undirected graph with lower/upper bounds
 //! - [`UndirectedTwoCommodityIntegralFlow`]: Two-commodity integral flow on undirected graphs
 //! - [`StrongConnectivityAugmentation`]: Strong connectivity augmentation with weighted candidate arcs
+//! - [`DisjointConnectingPaths`]: Vertex-disjoint paths connecting prescribed terminal pairs
 
 pub(crate) mod acyclic_partition;
 pub(crate) mod balanced_complete_bipartite_subgraph;
@@ -59,6 +60,7 @@ pub(crate) mod biconnectivity_augmentation;
 pub(crate) mod bottleneck_traveling_salesman;
 pub(crate) mod bounded_component_spanning_forest;
 pub(crate) mod directed_two_commodity_integral_flow;
+pub(crate) mod disjoint_connecting_paths;
 pub(crate) mod generalized_hex;
 pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_circuit;
@@ -112,6 +114,7 @@ pub use biconnectivity_augmentation::BiconnectivityAugmentation;
 pub use bottleneck_traveling_salesman::BottleneckTravelingSalesman;
 pub use bounded_component_spanning_forest::BoundedComponentSpanningForest;
 pub use directed_two_commodity_integral_flow::DirectedTwoCommodityIntegralFlow;
+pub use disjoint_connecting_paths::DisjointConnectingPaths;
 pub use generalized_hex::GeneralizedHex;
 pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_circuit::HamiltonianCircuit;
@@ -203,6 +206,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(steiner_tree::canonical_model_example_specs());
     specs.extend(steiner_tree_in_graphs::canonical_model_example_specs());
     specs.extend(directed_two_commodity_integral_flow::canonical_model_example_specs());
+    specs.extend(disjoint_connecting_paths::canonical_model_example_specs());
     specs.extend(undirected_flow_lower_bounds::canonical_model_example_specs());
     specs.extend(undirected_two_commodity_integral_flow::canonical_model_example_specs());
     specs.extend(strong_connectivity_augmentation::canonical_model_example_specs());

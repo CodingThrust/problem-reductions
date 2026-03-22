@@ -50,11 +50,11 @@ pub mod prelude {
     pub use crate::models::graph::{
         AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover,
         BiconnectivityAugmentation, BottleneckTravelingSalesman, BoundedComponentSpanningForest,
-        DirectedTwoCommodityIntegralFlow, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
-        HamiltonianPath, IntegralFlowBundles, IntegralFlowHomologousArcs,
-        IntegralFlowWithMultipliers, IsomorphicSpanningTree, KClique, KthBestSpanningTree,
-        LengthBoundedDisjointPaths, LongestPath, MixedChinesePostman, SpinGlass, SteinerTree,
-        StrongConnectivityAugmentation, SubgraphIsomorphism,
+        DirectedTwoCommodityIntegralFlow, DisjointConnectingPaths, GeneralizedHex,
+        GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IntegralFlowBundles,
+        IntegralFlowHomologousArcs, IntegralFlowWithMultipliers, IsomorphicSpanningTree, KClique,
+        KthBestSpanningTree, LengthBoundedDisjointPaths, LongestPath, MixedChinesePostman,
+        SpinGlass, SteinerTree, StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, LongestCircuit, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
