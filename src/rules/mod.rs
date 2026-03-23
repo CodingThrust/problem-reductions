@@ -110,6 +110,8 @@ pub(crate) mod rectilinearpicturecompression_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingtominimizeweightedcompletiontime_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod shortestweightconstrainedpath_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod steinertree_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod travelingsalesman_ilp;
@@ -186,6 +188,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(rectilinearpicturecompression_ilp::canonical_rule_example_specs());
         specs
             .extend(sequencingtominimizeweightedcompletiontime_ilp::canonical_rule_example_specs());
+        specs.extend(shortestweightconstrainedpath_ilp::canonical_rule_example_specs());
         specs.extend(steinertree_ilp::canonical_rule_example_specs());
         specs.extend(travelingsalesman_ilp::canonical_rule_example_specs());
     }
