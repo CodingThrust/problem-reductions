@@ -22,7 +22,7 @@ use problemreductions::models::graph::{
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
     ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
-    ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, KnownValue,
+    ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping, KnownValue,
     LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
     PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
@@ -125,6 +125,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.delay_budget.is_none()
         && args.pattern.is_none()
         && args.strings.is_none()
+        && args.string.is_none()
         && args.costs.is_none()
         && args.arc_costs.is_none()
         && args.arcs.is_none()
@@ -680,6 +681,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "LongestCommonSubsequence" => {
             "--strings \"010110;100101;001011\" --bound 3 --alphabet-size 2"
         }
+        "GroupingBySwapping" => "--string \"0,1,2,0,1,2\" --bound 5",
         "MinimumCardinalityKey" => {
             "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --bound 2"
         }
@@ -809,6 +811,7 @@ fn help_flag_hint(
         ("LongestCommonSubsequence", "strings") => {
             "raw strings: \"ABAC;BACA\" or symbol lists: \"0,1,0;1,0,1\""
         }
+        ("GroupingBySwapping", "string") => "symbol list: \"0,1,2,0,1,2\"",
         ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
         ("IntegralFlowHomologousArcs", "homologous_pairs") => {
@@ -2938,6 +2941,56 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             );
             (
                 ser(LongestCommonSubsequence::new(alphabet_size, strings, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // GroupingBySwapping
+        "GroupingBySwapping" => {
+            let usage =
+                "Usage: pred create GroupingBySwapping --string \"0,1,2,0,1,2\" --bound 5 [--alphabet-size 3]";
+            let string_str = args.string.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("GroupingBySwapping requires --string\n\n{usage}")
+            })?;
+            let bound = parse_nonnegative_usize_bound(
+                args.bound.ok_or_else(|| {
+                    anyhow::anyhow!("GroupingBySwapping requires --bound\n\n{usage}")
+                })?,
+                "GroupingBySwapping",
+                usage,
+            )?;
+
+            let string = if string_str.trim().is_empty() {
+                Vec::new()
+            } else {
+                string_str
+                    .split(',')
+                    .map(|value| {
+                        value
+                            .trim()
+                            .parse::<usize>()
+                            .context("invalid symbol index")
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            };
+            let inferred = string.iter().copied().max().map_or(0, |value| value + 1);
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            anyhow::ensure!(
+                alphabet_size >= inferred,
+                "--alphabet-size {} is smaller than max symbol + 1 ({}) in the input string",
+                alphabet_size,
+                inferred
+            );
+            anyhow::ensure!(
+                alphabet_size > 0 || string.is_empty(),
+                "GroupingBySwapping requires a positive alphabet for non-empty strings.\n\n{usage}"
+            );
+            anyhow::ensure!(
+                !string.is_empty() || bound == 0,
+                "GroupingBySwapping requires --bound 0 when --string is empty.\n\n{usage}"
+            );
+            (
+                ser(GroupingBySwapping::new(alphabet_size, string, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -7245,6 +7298,7 @@ mod tests {
             delay_budget: None,
             pattern: None,
             strings: None,
+            string: None,
             arc_costs: None,
             arcs: None,
             values: None,
