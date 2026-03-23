@@ -17,16 +17,16 @@ Before any implementation, collect all required information. If called from `iss
 |---|------|-------------|---------|
 | 1 | **Problem name** | Struct name with optimization prefix | `MaximumClique`, `MinimumDominatingSet` |
 | 2 | **Mathematical definition** | Formal definition with objective/constraints | "Given graph G=(V,E), find max-weight subset S where all pairs in S are adjacent" |
-| 3 | **Problem type** | Optimization (maximize/minimize) or satisfaction | Optimization (Maximize) |
+| 3 | **Problem type** | Objective (`Max`/`Min`), witness (`bool`), or aggregate-only (`Sum`/`And`/custom `Aggregate`) | Objective (Maximize) |
 | 4 | **Type parameters** | Graph type `G`, weight type `W`, or other | `G: Graph`, `W: WeightElement` |
 | 5 | **Struct fields** | What the struct holds | `graph: G`, `weights: Vec<W>` |
 | 6 | **Configuration space** | What `dims()` returns | `vec![2; num_vertices]` for binary vertex selection |
 | 7 | **Feasibility check** | How to validate a configuration | "All selected vertices must be pairwise adjacent" |
-| 8 | **Objective function** | How to compute the metric | "Sum of weights of selected vertices" |
+| 8 | **Per-configuration value** | How `evaluate()` computes the aggregate contribution | "Return `Max(Some(total_weight))` for feasible configs" |
 | 9 | **Best known exact algorithm** | Complexity with variable definitions | "O(1.1996^n) by Xiao & Nagamochi (2017), where n = \|V\|" |
 | 10 | **Solving strategy** | How it can be solved | "BruteForce works; ILP reduction available" |
 | 11 | **Category** | Which sub-module under `src/models/` | `graph`, `formula`, `set`, `algebraic`, `misc` |
-| 12 | **Expected outcome from the issue** | Concrete outcome for the issue's example instance | Optimization: one optimal solution + optimal value. Satisfaction: one valid/satisfying solution + why it is valid |
+| 12 | **Expected outcome from the issue** | Concrete outcome for the issue's example instance | Objective: one optimal solution + optimal value. Witness: one valid/satisfying solution + why it is valid. Aggregate-only: the final aggregate value and how it is derived |
 
 If any item is missing, ask the user to provide it. Do NOT proceed until the checklist is complete.
 
@@ -61,7 +61,7 @@ Read these first to understand the patterns:
 - **Optimization problem:** `src/models/graph/maximum_independent_set.rs`
 - **Satisfaction problem:** `src/models/formula/sat.rs`
 - **Model tests:** `src/unit_tests/models/graph/maximum_independent_set.rs`
-- **Trait definitions:** `src/traits.rs` (`Problem`, `OptimizationProblem`, `SatisfactionProblem`)
+- **Trait definitions / aggregate types:** `src/traits.rs` (`Problem`, `ObjectiveProblem`, `WitnessProblem`), `src/types.rs` (`Max`, `Min`, `Sum`, `And`, `Extremum`)
 - **Registry dispatch boundary:** `src/registry/mod.rs`, `src/registry/variant.rs`
 - **CLI aliases:** `problemreductions-cli/src/problem_name.rs`
 - **CLI creation:** `problemreductions-cli/src/commands/create.rs`
@@ -71,7 +71,8 @@ Read these first to understand the patterns:
 
 Before implementing, make sure the plan explicitly covers these items that structural review checks later:
 - `ProblemSchemaEntry` metadata is complete for the current schema shape (`display_name`, `aliases`, `dimensions`, and constructor-facing `fields`)
-- `declare_variants!` is present with the correct `opt`/`sat` marker and exactly one `default` variant when multiple concrete variants exist
+- `Problem::Value` uses the correct aggregate wrapper and any `ObjectiveProblem` / `WitnessProblem` compatibility marker is intentional
+- `declare_variants!` is present with the current transitional `opt`/`sat` syntax and exactly one `default` variant when multiple concrete variants exist
 - CLI discovery and `pred create <ProblemName>` support are included where applicable
 - A canonical model example is registered for example-db / `pred create --example`
 - `docs/paper/reductions.typ` adds both the display-name dictionary entry and the `problem-def(...)`
@@ -110,19 +111,21 @@ Create `src/models/<category>/<name>.rs`:
 // 1. inventory::submit! for ProblemSchemaEntry
 // 2. Struct definition with #[derive(Debug, Clone, Serialize, Deserialize)]
 // 3. Constructor (new) + accessor methods
-// 4. Problem trait impl (NAME, Metric, dims, evaluate, variant)
-// 5. OptimizationProblem or SatisfactionProblem impl
+// 4. Problem trait impl (NAME, Value, dims, evaluate, variant)
+// 5. Optional ObjectiveProblem or WitnessProblem impl
 // 6. #[cfg(test)] #[path = "..."] mod tests;
 ```
 
 Key decisions:
 - **Schema metadata:** `ProblemSchemaEntry` must reflect the current registry schema shape, including `display_name`, `aliases`, `dimensions`, and constructor-facing `fields`
-- **Optimization problems:** `type Metric = SolutionSize<W::Sum>`, implement `OptimizationProblem` with `direction()`
-- **Satisfaction problems:** `type Metric = bool`, implement `SatisfactionProblem` (marker trait)
+- **Objective problems:** use `type Value = Max<_>`, `Min<_>`, or `Extremum<_>` and implement `ObjectiveProblem` when the model should expose optimization-style witness helpers
+- **Witness problems:** use `type Value = bool` and implement `WitnessProblem` for existential feasibility problems
+- **Aggregate-only problems:** use a value-only aggregate such as `Sum<_>`, `And`, or a custom `Aggregate`; do not implement `ObjectiveProblem` / `WitnessProblem` unless witnesses are meaningful
 - **Weight management:** use inherent methods (`weights()`, `set_weights()`, `is_weighted()`), NOT traits
 - **`dims()`:** returns the configuration space dimensions (e.g., `vec![2; n]` for binary variables)
-- **`evaluate()`:** must check feasibility first, then compute objective
+- **`evaluate()`:** must return the per-configuration aggregate value. For models with invalid configs, check feasibility first and return the appropriate invalid/false contribution
 - **`variant()`:** use the `variant_params!` macro — e.g., `crate::variant_params![G, W]` for `Problem<G, W>`, or `crate::variant_params![]` for problems with no type parameters. Each type parameter must implement `VariantParam` (already done for standard types like `SimpleGraph`, `i32`, `One`). See `src/variant.rs`.
+- **Solve surface:** `Solver::solve()` always computes the aggregate value. `pred solve problem.json` prints a `Solution` only when a witness exists; `pred solve bundle.json` and `--solver ilp` remain witness-only workflows
 
 ## Step 2.5: Register variant complexity
 
@@ -136,8 +139,8 @@ crate::declare_variants! {
 ```
 
 - Each entry must include an explicit solver kind:
-  - `opt` for optimization problems (`BruteForce::find_best`)
-  - `sat` for satisfaction problems (`BruteForce::find_satisfying`)
+  - `opt` for objective models
+  - `sat` for witness/feasibility models
 - Mark exactly one concrete variant `default` when the problem has multiple registered variants
 - The complexity string references the getter method names from Step 1.5 (e.g., `num_vertices`) — variable names are validated at compile time against actual getters, so typos cause compile errors
 - One entry per supported `(graph, weight)` combination
@@ -145,6 +148,8 @@ crate::declare_variants! {
 - Use only concrete numeric values (e.g., `"1.1996^num_vertices"`, not `"(2-epsilon)^num_vertices"`)
 - A compiled `complexity_eval_fn` plus registry-backed load/serialize/solve dispatch metadata are auto-generated alongside the symbolic expression
 - See `src/models/graph/maximum_independent_set.rs` for the reference pattern
+
+Today `declare_variants!` still requires `opt` / `sat` syntax even though runtime solving is aggregate-based. Aggregate-only models are not first-class in that macro yet; coordinate before introducing one, and be prepared to wire `VariantEntry` manually if needed.
 
 ## Step 3: Register the model
 
@@ -160,7 +165,7 @@ The CLI now loads, serializes, and brute-force solves problems through the core 
 
 1. **Registry-backed dispatch comes from `declare_variants!`:**
    - Make sure every concrete variant you want the CLI to load is listed in `declare_variants!`
-   - Use the correct `opt`/`sat` marker per entry
+   - Use the current `opt`/`sat` marker syntax intentionally (`opt` for objective models, `sat` for witness models)
    - Mark the intended default variant with `default` when applicable
 
 2. **`problemreductions-cli/src/problem_name.rs`:**
@@ -200,9 +205,9 @@ Create `src/unit_tests/models/<category>/<name>.rs`:
 Every model needs **at least 3 test functions** (the structural reviewer enforces this). Choose from the coverage areas below — pick whichever are relevant to the model:
 
 - **Creation/basic** — exercise constructor inputs, key accessors, `dims()` / `num_variables()`.
-- **Evaluation** — valid and invalid configs so the feasibility boundary is explicit.
-- **Direction** — verify optimization direction (optimization problems only).
-- **Solver** — brute-force solver finds correct solutions (when the model is small enough).
+- **Evaluation** — valid and invalid configs so the feasibility boundary or aggregate contribution is explicit.
+- **Direction** — verify optimization direction (`ObjectiveProblem` models only).
+- **Solver** — brute-force `solve()` returns the correct aggregate value; if witnesses are supported, verify `find_witness()` / `find_all_witnesses()` as well.
 - **Serialization** — round-trip serde (when the model is used in CLI/example-db flows).
 - **Paper example** — verify the worked example from the paper entry (see below).
 
@@ -280,9 +285,11 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 | Forgetting `inventory::submit!` | Every problem needs a `ProblemSchemaEntry` registration |
 | Missing `#[path]` test link | Add `#[cfg(test)] #[path = "..."] mod tests;` at file bottom |
 | Wrong `dims()` | Must match the actual configuration space (e.g., `vec![2; n]` for binary) |
+| Using the wrong aggregate wrapper | Objective models use `Max` / `Min` / `Extremum`, witness models use `bool`, aggregate-only models use a fold value like `Sum` / `And` |
 | Not registering in `mod.rs` | Must update both `<category>/mod.rs` and `models/mod.rs` |
 | Forgetting `declare_variants!` | Required for variant complexity metadata and registry-backed load/serialize/solve dispatch |
-| Wrong `declare_variants!` syntax | Every entry now needs `opt` or `sat`; one entry per problem may be marked `default` |
+| Wrong compatibility marker | Implement `ObjectiveProblem` / `WitnessProblem` only when the model genuinely supports those witness semantics |
+| Wrong `declare_variants!` syntax | Every entry still needs `opt` or `sat`; one entry per problem may be marked `default` |
 | Forgetting CLI alias | Must add lowercase entry in `problem_name.rs` `resolve_alias()` |
 | Inventing short aliases | Only use well-established literature abbreviations (MIS, SAT, TSP); do NOT invent new ones |
 | Forgetting CLI create | Must add creation handler in `commands/create.rs` and flags in `cli.rs` |

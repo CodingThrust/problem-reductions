@@ -33,7 +33,7 @@ Read these first to understand the patterns:
 - **Reduction rule:** `src/rules/minimumvertexcover_maximumindependentset.rs`
 - **Reduction tests:** `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs`
 - **Paper entry:** search `docs/paper/reductions.typ` for `MinimumVertexCover` `MaximumIndependentSet`
-- **Traits:** `src/rules/traits.rs` (`ReduceTo<T>`, `ReductionResult`)
+- **Traits:** `src/rules/traits.rs` (`ReduceTo<T>`, `ReduceToAggregate<T>`, `ReductionResult`, `AggregateReductionResult`)
 
 ## Step 1: Implement the reduction
 
@@ -84,6 +84,8 @@ impl ReduceTo<TargetType> for SourceType {
 
 Each primitive reduction is determined by the exact source/target variant pair. Keep one primitive registration per endpoint pair and use only the `overhead` form of `#[reduction]`.
 
+**Aggregate-only reductions:** when the rule preserves aggregate values but cannot recover a source witness from a target witness, implement `AggregateReductionResult` + `ReduceToAggregate<T>` instead of `ReductionResult` + `ReduceTo<T>`. Those edges are not auto-registered by `#[reduction]` yet; register them manually with `ReductionEntry { reduce_aggregate_fn: ..., capabilities: EdgeCapabilities::aggregate_only(), ... }`. See `src/unit_tests/rules/traits.rs` and `src/unit_tests/rules/graph.rs` for the reference pattern.
+
 ## Step 2: Register in mod.rs
 
 Add to `src/rules/mod.rs`:
@@ -98,7 +100,7 @@ Create `src/unit_tests/rules/<source>_<target>.rs`:
 ```rust
 // 1. Create source problem instance
 // 2. Reduce: let reduction = ReduceTo::<Target>::reduce_to(&source);
-// 3. Solve target: solver.find_all_best(reduction.target_problem())
+// 3. Solve target: solver.find_all_witnesses(reduction.target_problem())
 // 4. Extract: reduction.extract_solution(&target_sol)
 // 5. Verify: extracted solution is valid and optimal for source
 ```
@@ -107,6 +109,11 @@ Additional recommended tests:
 - Verify target problem structure (correct size, edges, constraints)
 - Edge cases (empty graph, single vertex, etc.)
 - Weight preservation (if applicable)
+
+For aggregate-only reductions, replace the closed-loop witness test with value-chain tests:
+- Solve the target with `Solver::solve()`
+- Map the aggregate value back with `extract_value()`
+- If testing a path, use `ReductionGraph::reduce_aggregate_along_path(...)`
 
 Link via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the rule file.
 
@@ -190,7 +197,12 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 
 ## CLI Impact
 
-Adding a reduction rule does NOT require CLI changes -- the reduction graph is auto-generated from `#[reduction]` macros and the CLI discovers paths dynamically. However, both source and target models must already be fully registered through their model files (`declare_variants!`), aliases as needed in `problem_name.rs`, and `pred create` support where applicable (see `add-model` skill).
+Adding a witness-preserving reduction rule does NOT require CLI changes -- the reduction graph is auto-generated from `#[reduction]` macros and the CLI discovers paths dynamically. However, both source and target models must already be fully registered through their model files (`declare_variants!`), aliases as needed in `problem_name.rs`, and `pred create` support where applicable (see `add-model` skill).
+
+Aggregate-only reductions currently have a narrower CLI surface:
+- `pred solve <problem.json>` can still compute direct aggregate values for aggregate-only problems
+- `pred reduce` and `pred solve bundle.json` remain witness-only workflows and reject aggregate-only paths
+- Manual aggregate-edge registration affects runtime graph search and internal value extraction, but not bundle solving
 
 ## File Naming
 
@@ -204,6 +216,7 @@ Adding a reduction rule does NOT require CLI changes -- the reduction graph is a
 | Mistake | Fix |
 |---------|-----|
 | Forgetting `#[reduction(...)]` macro | Required for compile-time registration in the reduction graph |
+| Using `#[reduction]` for an aggregate-only rule | `#[reduction]` currently registers witness/config edges only; aggregate-only rules need manual `ReductionEntry` wiring with `reduce_aggregate_fn` |
 | Wrong overhead expression | Must accurately reflect the size relationship |
 | Adding extra reduction metadata or duplicate primitive endpoint registration | Keep one primitive registration per endpoint pair and use only the `overhead` form of `#[reduction]` |
 | Missing `extract_solution` mapping state | Store any index maps needed in the ReductionResult struct |
