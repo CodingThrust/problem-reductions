@@ -6,11 +6,37 @@ use std::fmt;
 
 use crate::traits::Problem;
 
+/// Format a metric for CLI- and registry-facing dynamic dispatch.
+///
+/// Optimization aggregates migrated from `Valid/Invalid` to `Max/Min`, but the
+/// dynamic CLI surface still exposes the legacy `Valid(...)` / `Invalid`
+/// strings. Preserve that presentation here so higher layers do not leak the
+/// aggregate internals.
+pub fn format_metric<T>(metric: &T) -> String
+where
+    T: fmt::Debug + Serialize,
+{
+    let debug = format!("{metric:?}");
+
+    match debug.as_str() {
+        "Max(None)" | "Min(None)" => return "Invalid".to_string(),
+        _ => {}
+    }
+
+    if debug.starts_with("Max(Some(") || debug.starts_with("Min(Some(") {
+        let value = serde_json::to_value(metric).expect("serialize metric failed");
+        let inner = serde_json::to_string(&value).expect("serialize metric inner value failed");
+        return format!("Valid({inner})");
+    }
+
+    debug
+}
+
 /// Type-erased problem interface for dynamic dispatch.
 ///
 /// Implemented via blanket impl for any `T: Problem + Serialize + 'static`.
 pub trait DynProblem: Any {
-    /// Evaluate a configuration and return the result as a debug string.
+    /// Evaluate a configuration and return the CLI-facing metric string.
     fn evaluate_dyn(&self, config: &[usize]) -> String;
     /// Evaluate a configuration and return the result as a serializable JSON value.
     fn evaluate_json(&self, config: &[usize]) -> Value;
@@ -34,7 +60,7 @@ where
     T::Value: fmt::Debug + Serialize,
 {
     fn evaluate_dyn(&self, config: &[usize]) -> String {
-        format!("{:?}", self.evaluate(config))
+        format_metric(&self.evaluate(config))
     }
 
     fn evaluate_json(&self, config: &[usize]) -> Value {

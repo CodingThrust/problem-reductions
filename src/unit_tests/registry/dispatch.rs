@@ -1,4 +1,5 @@
 use crate::models::graph::MaximumIndependentSet;
+use crate::models::graph::MinimumVertexCover;
 use crate::models::misc::SubsetSum;
 use crate::registry::variant::find_variant_entry;
 use crate::registry::{load_dyn, serialize_any, DynProblem, LoadedDynProblem};
@@ -72,6 +73,15 @@ fn test_dyn_problem_blanket_impl_exposes_problem_metadata() {
 }
 
 #[test]
+fn test_dyn_problem_formats_optimization_values_as_legacy_valid_invalid() {
+    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
+    let dyn_problem: &dyn DynProblem = &problem;
+
+    assert_eq!(dyn_problem.evaluate_dyn(&[1, 0, 1]), "Valid(2)");
+    assert_eq!(dyn_problem.evaluate_dyn(&[1, 1, 0]), "Invalid");
+}
+
+#[test]
 fn test_loaded_dyn_problem_delegates_to_value_and_witness_fns() {
     let problem = SubsetSum::new(vec![3u32, 7u32, 1u32], 4u32);
     let loaded = LoadedDynProblem::new(
@@ -100,6 +110,25 @@ fn loaded_dyn_problem_returns_none_for_aggregate_only_witness() {
 
     assert_eq!(loaded.solve_brute_force_value(), "Sum(28)");
     assert!(loaded.solve_brute_force_witness().is_none());
+}
+
+#[test]
+fn test_load_dyn_formats_optimization_solve_values_as_legacy_valid_invalid() {
+    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+    let variant = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    let loaded = load_dyn(
+        "MinimumVertexCover",
+        &variant,
+        serde_json::to_value(&problem).unwrap(),
+    )
+    .unwrap();
+
+    assert_eq!(loaded.solve_brute_force_value(), "Valid(1)");
+    let solved = loaded.solve_brute_force_witness().unwrap();
+    assert_eq!(solved.1, "Valid(1)");
 }
 
 #[test]

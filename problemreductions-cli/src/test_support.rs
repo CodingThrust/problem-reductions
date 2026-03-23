@@ -104,7 +104,7 @@ where
         .downcast_ref::<P>()
         .expect("test solve_value downcast failed");
     let solver = BruteForce::new();
-    format!("{:?}", solver.solve(problem))
+    problemreductions::registry::format_metric(&solver.solve(problem))
 }
 
 fn solve_witness<P>(any: &dyn Any) -> Option<(Vec<usize>, String)>
@@ -115,7 +115,7 @@ where
     let problem = any.downcast_ref::<P>()?;
     let solver = BruteForce::new();
     let config = solver.find_witness(problem)?;
-    let evaluation = format!("{:?}", problem.evaluate(&config));
+    let evaluation = problemreductions::registry::format_metric(&problem.evaluate(&config));
     Some((config, evaluation))
 }
 

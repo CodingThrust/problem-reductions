@@ -565,7 +565,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         // Generate dispatch fields based on aggregate value solving plus optional witnesses.
         let solve_value_body = quote! {
             let total = <crate::solvers::BruteForce as crate::solvers::Solver>::solve(&solver, p);
-            format!("{:?}", total)
+            crate::registry::format_metric(&total)
         };
 
         let solve_witness_body = quote! {
@@ -592,7 +592,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
                 let p = any.downcast_ref::<#ty>()?;
                 let solver = crate::solvers::BruteForce::new();
                 #solve_witness_body
-                let evaluation = format!("{:?}", crate::traits::Problem::evaluate(p, &config));
+                let evaluation = crate::registry::format_metric(&crate::traits::Problem::evaluate(p, &config));
                 Some((config, evaluation))
             },
         };

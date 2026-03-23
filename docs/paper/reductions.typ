@@ -48,6 +48,20 @@
   }
 }
 
+#let metric-value(metric) = {
+  if type(metric) == dictionary {
+    if "Valid" in metric {
+      metric.Valid
+    } else if "value" in metric {
+      metric.value
+    } else {
+      metric
+    }
+  } else {
+    metric
+  }
+}
+
 #let graph-num-vertices(instance) = instance.graph.num_vertices
 #let graph-num-edges(instance) = instance.graph.edges.len()
 #let spin-num-spins(instance) = instance.fields.len()
@@ -494,7 +508,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   // Pick optimal config = {v1, v3, v5, v9} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let alpha = sol.metric.Valid
+  let alpha = metric-value(sol.metric)
   [
     #problem-def("MaximumIndependentSet")[
       Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
@@ -527,7 +541,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   // Pick optimal config = {v0, v3, v4} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let cover = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let wS = sol.metric.Valid
+  let wS = metric-value(sol.metric)
   let complement = sol.config.enumerate().filter(((i, v)) => v == 0).map(((i, _)) => i)
   let alpha = complement.len()
   [
@@ -566,7 +580,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let side-s = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let side-sbar = sol.config.enumerate().filter(((i, v)) => v == 0).map(((i, _)) => i)
-  let cut-val = sol.metric.Valid
+  let cut-val = metric-value(sol.metric)
   let cut-edges = edges.filter(e => side-s.contains(e.at(0)) != side-s.contains(e.at(1)))
   let uncut-edges = edges.filter(e => side-s.contains(e.at(0)) == side-s.contains(e.at(1)))
   [
@@ -599,7 +613,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let ne = graph-num-edges(x.instance)
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let config = x.optimal_config
-  let cut-val = x.optimal_value.Valid
+  let cut-val = metric-value(x.optimal_value)
   let side-a = range(nv).filter(i => config.at(i) == 0)
   let side-b = range(nv).filter(i => config.at(i) == 1)
   let cut-edges = edges.filter(e => config.at(e.at(0)) != config.at(e.at(1)))
@@ -1576,7 +1590,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   // Pick optimal config = {v2, v3} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let wS = sol.metric.Valid
+  let wS = metric-value(sol.metric)
   // Compute neighbors dominated by each vertex in S
   let dominated = S.map(s => {
     let nbrs = ()
@@ -1617,7 +1631,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   // Pick optimal config [1,0,0,0,1,0] = edges {(0,1),(2,4)} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let matched-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
-  let wM = sol.metric.Valid
+  let wM = metric-value(sol.metric)
   // Collect matched vertices
   let matched-verts = ()
   for (u, v) in matched-edges {
@@ -1656,7 +1670,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let ew = x.instance.edge_weights
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let tour-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
-  let bottleneck = sol.metric.Valid
+  let bottleneck = metric-value(sol.metric)
   let tour-weights = tour-edges.map(((u, v)) => {
     let idx = edges.position(e => e == (u, v) or e == (v, u))
     int(ew.at(idx))
@@ -1746,7 +1760,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let ew = x.instance.edge_weights
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let tour-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
-  let tour-cost = sol.metric.Valid
+  let tour-cost = metric-value(sol.metric)
   // Build ordered tour from tour-edges starting at vertex 0
   let tour-order = (0,)
   let remaining = tour-edges
@@ -1816,7 +1830,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let tree-edges = tree-edge-indices.map(i => edges.at(i))
-  let cost = sol.metric.Valid
+  let cost = metric-value(sol.metric)
   // Steiner vertices: in tree but not terminals
   let tree-verts = tree-edges.map(e => (e.at(0), e.at(1))).fold((), (acc, pair) => {
     let (u, v) = pair
@@ -1964,7 +1978,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let cut-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let cut-edges = cut-edge-indices.map(i => edges.at(i))
-  let cost = sol.metric.Valid
+  let cost = metric-value(sol.metric)
   [
     #problem-def("MinimumMultiwayCut")[
       Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR_(>0)$ and a set of $k$ terminal vertices $T = {t_1, ..., t_k} subset.eq V$, find a minimum-weight set of edges $C subset.eq E$ such that no two terminals remain in the same connected component of $G' = (V, E backslash C)$.
@@ -2095,7 +2109,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   // optimal config = {v2, v3, v4}
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let K = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let omega = sol.metric.Valid
+  let omega = metric-value(sol.metric)
   // Edges within the clique
   let clique-edges = edges.filter(e => K.contains(e.at(0)) and K.contains(e.at(1)))
   [
@@ -2129,7 +2143,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   // optimal config = {v0,v2,v4} with w=3 (maximum-weight maximal IS)
   let opt = (config: x.optimal_config, metric: x.optimal_value)
   let S-opt = opt.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let w-opt = opt.metric.Valid
+  let w-opt = metric-value(opt.metric)
   // Suboptimal maximal IS {v1,v3} with w=2 (hardcoded — no longer in fixture)
   let S-sub = (1, 3)
   let w-sub = 2
@@ -2164,7 +2178,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let merged = arcs.enumerate().filter(((i, _)) => sol.config.at(i) == 1).map(((i, arc)) => arc)
   let dummy = arcs.enumerate().filter(((i, _)) => sol.config.at(i) == 0).map(((i, arc)) => arc)
-  let opt = sol.metric.Valid
+  let opt = metric-value(sol.metric)
   let blue = graph-colors.at(0)
   [
     #problem-def("MinimumDummyActivitiesPert")[
@@ -2216,7 +2230,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   // Pick optimal config = {v0} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let wS = sol.metric.Valid
+  let wS = metric-value(sol.metric)
   [
     #problem-def("MinimumFeedbackVertexSet")[
       Given a directed graph $G = (V, A)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that the induced subgraph $G[V backslash S]$ is a directed acyclic graph (DAG).
@@ -2269,7 +2283,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let terminals = x.instance.terminals
   let weights = x.instance.edge_weights
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let opt-weight = sol.metric.Valid
+  let opt-weight = metric-value(sol.metric)
   // Derive tree edges from optimal config
   let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let tree-edges = tree-edge-indices.map(i => edges.at(i))
@@ -2324,7 +2338,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let nv = graph-num-vertices(x.instance)
   let edges = x.instance.graph.edges
   let K = x.instance.k
-  let opt-cost = x.optimal_value.Valid
+  let opt-cost = metric-value(x.optimal_value)
   // Pick optimal config = {v2, v5} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let centers = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
@@ -2514,7 +2528,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   // Pick optimal config = {S1, S3} (0-indexed: sets 0, 2) to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let wP = sol.metric.Valid
+  let wP = metric-value(sol.metric)
   // Format a set as {e1+1, e2+1, ...} (1-indexed)
   let fmt-set(s) = "${" + s.map(e => str(e + 1)).join(", ") + "}$"
   [
@@ -2557,7 +2571,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let U-size = x.instance.universe_size
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let wC = sol.metric.Valid
+  let wC = metric-value(sol.metric)
   let fmt-set(s) = "${" + s.map(e => str(e + 1)).join(", ") + "}$"
   [
     #problem-def("MinimumSetCovering")[
@@ -2602,7 +2616,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let U-size = x.instance.universe_size
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let hit-size = sol.metric.Valid
+  let hit-size = metric-value(sol.metric)
   let fmt-set(s) = if s.len() == 0 {
     $emptyset$
   } else {
@@ -3041,7 +3055,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   // Convert config (0=+1, 1=-1) to spin values
   let spins = sol.config.map(v => if v == 0 { 1 } else { -1 })
-  let H = sol.metric.Valid
+  let H = metric-value(sol.metric)
   let spin-str = spins.map(s => if s > 0 { "+" } else { "-" }).join(", ")
   // Count satisfied and frustrated edges
   let sat-count = edges.filter(((u, v)) => spins.at(u) * spins.at(v) < 0).len()
@@ -3088,7 +3102,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let Q = x.instance.matrix
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let xstar = sol.config
-  let fstar = sol.metric.Valid
+  let fstar = metric-value(sol.metric)
   // Format the Q matrix as semicolon-separated rows
   let mat-rows = Q.map(row => row.map(v => {
     let vi = int(v)
@@ -3128,7 +3142,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let constraints = x.instance.constraints
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let xstar = sol.config
-  let fstar = sol.metric.Valid
+  let fstar = metric-value(sol.metric)
   // Format objective: c1*x1 + c2*x2 + ...
   let fmt-obj = obj.map(((i, c)) => {
     let ci = int(c)
@@ -3217,7 +3231,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let m = D.len()
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let fstar = sol.config
-  let cost-star = sol.metric.Valid
+  let cost-star = metric-value(sol.metric)
   // Convert integer matrix to math.mat content
   let to-mat(m) = math.mat(..m.map(row => row.map(v => $#v$)))
   // Compute identity assignment cost
@@ -3308,7 +3322,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let target = x.instance.target
   let bounds = x.instance.bounds
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let dist = sol.metric.Valid
+  let dist = metric-value(sol.metric)
   // Config encodes offset from lower bound; recover actual integer coordinates
   let coords = sol.config.enumerate().map(((i, v)) => v + bounds.at(i).lower)
   // Compute B*x: sum over j of coords[j] * basis[j]
@@ -3674,7 +3688,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let nc = x.instance.n
   let k = x.instance.k
   let A = x.instance.matrix
-  let dH = x.optimal_value.Valid
+  let dH = metric-value(x.optimal_value)
   // Decode B and C from optimal config
   // Config layout: B is m*k values, then C is k*n values
   let cfg = x.optimal_config
@@ -3773,7 +3787,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let is-first = x.instance.is_first
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let assign = sol.config  // color assignment per car
-  let num-changes = sol.metric.Valid
+  let num-changes = metric-value(sol.metric)
   // Build the full sequence of car labels
   let seq-labels = seq-indices.map(i => labels.at(i))
   // Build color sequence: for each position, if is_first[pos] then color = assign[car], else 1-assign[car]
@@ -3827,7 +3841,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let bip-edges = x.instance.graph.edges  // (li, rj) pairs
   let ne = bip-edges.len()
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let total-size = sol.metric.Valid
+  let total-size = metric-value(sol.metric)
   [
     #problem-def("BicliqueCover")[
       Given a bipartite graph $G = (L, R, E)$ and integer $k$, find $k$ bicliques $(L_1, R_1), dots, (L_k, R_k)$ that cover all edges ($E subset.eq union.big_i L_i times R_i$) while minimizing the total size $sum_i (|L_i| + |R_i|)$.
@@ -3990,7 +4004,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let n = sizes.len()
   let C = x.instance.capacity
   let config = x.optimal_config
-  let num-bins = x.optimal_value.Valid
+  let num-bins = metric-value(x.optimal_value)
   // Group items by bin
   let bins-contents = range(num-bins).map(b =>
     range(n).filter(i => config.at(i) == b)
@@ -4048,7 +4062,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let C = x.instance.capacity
   let n = weights.len()
   let config = x.optimal_config
-  let opt-val = x.optimal_value.Valid
+  let opt-val = metric-value(x.optimal_value)
   let selected = range(n).filter(i => config.at(i) == 1)
   let total-w = selected.map(i => weights.at(i)).sum()
   let total-v = selected.map(i => values.at(i)).sum()
@@ -4785,7 +4799,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let na = arcs.len()
   let weights = x.instance.weights
   let config = x.optimal_config
-  let opt-val = x.optimal_value.Valid
+  let opt-val = metric-value(x.optimal_value)
   let removed = range(na).filter(i => config.at(i) == 1)
   [
     #problem-def("MinimumFeedbackArcSet")[
@@ -5389,7 +5403,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let deadlines = x.instance.deadlines
   let precs = x.instance.precedences
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let tardy-count = sol.metric.Valid
+  let tardy-count = metric-value(sol.metric)
   // Decode Lehmer code to permutation (schedule order)
   let lehmer = sol.config
   let schedule = {
@@ -5472,7 +5486,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let precs = x.instance.precedences
   let ntasks = lengths.len()
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let opt = sol.metric.Valid
+  let opt = metric-value(sol.metric)
   let lehmer = sol.config
   let schedule = {
     let avail = range(ntasks)

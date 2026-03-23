@@ -51,7 +51,7 @@ pub mod problem_type;
 mod schema;
 pub mod variant;
 
-pub use dyn_problem::{DynProblem, LoadedDynProblem, SolveValueFn, SolveWitnessFn};
+pub use dyn_problem::{format_metric, DynProblem, LoadedDynProblem, SolveValueFn, SolveWitnessFn};
 pub use info::{ComplexityClass, FieldInfo, ProblemInfo, ProblemMetadata};
 pub use problem_ref::{parse_catalog_problem_ref, require_graph_variant, ProblemRef};
 pub use problem_type::{find_problem_type, find_problem_type_by_alias, problem_types, ProblemType};
