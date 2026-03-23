@@ -1,6 +1,78 @@
 use super::*;
 
 #[test]
+fn test_max_identity_and_combine() {
+    assert_eq!(Max::<i32>::identity(), Max(None));
+    assert_eq!(Max(Some(7)).combine(Max(Some(3))), Max(Some(7)));
+    assert_eq!(Max(Some(3)).combine(Max(Some(7))), Max(Some(7)));
+    assert_eq!(Max::<i32>::identity().combine(Max(Some(5))), Max(Some(5)));
+}
+
+#[test]
+fn test_min_identity_and_combine() {
+    assert_eq!(Min::<i32>::identity(), Min(None));
+    assert_eq!(Min(Some(3)).combine(Min(Some(7))), Min(Some(3)));
+    assert_eq!(Min(Some(7)).combine(Min(Some(3))), Min(Some(3)));
+    assert_eq!(Min::<i32>::identity().combine(Min(Some(5))), Min(Some(5)));
+}
+
+#[test]
+fn test_sum_identity_and_combine() {
+    assert_eq!(Sum::<u64>::identity(), Sum(0));
+    assert_eq!(Sum(4_u64).combine(Sum(3_u64)), Sum(7));
+}
+
+#[test]
+fn test_or_identity_and_combine() {
+    assert_eq!(Or::identity(), Or(false));
+    assert_eq!(Or(false).combine(Or(true)), Or(true));
+    assert_eq!(Or(false).combine(Or(false)), Or(false));
+}
+
+#[test]
+fn test_and_identity_and_combine() {
+    assert_eq!(And::identity(), And(true));
+    assert_eq!(And(true).combine(And(false)), And(false));
+    assert_eq!(And(true).combine(And(true)), And(true));
+}
+
+#[test]
+fn test_sum_witness_defaults() {
+    assert!(!Sum::<u64>::supports_witnesses());
+    assert!(!Sum::<u64>::contributes_to_witnesses(&Sum(3), &Sum(7)));
+}
+
+#[test]
+fn test_and_witness_defaults() {
+    assert!(!And::supports_witnesses());
+    assert!(!And::contributes_to_witnesses(&And(true), &And(true)));
+}
+
+#[test]
+fn test_max_witness_hooks() {
+    assert!(Max::<i32>::supports_witnesses());
+    assert!(Max::contributes_to_witnesses(&Max(Some(7)), &Max(Some(7))));
+    assert!(!Max::contributes_to_witnesses(&Max(Some(3)), &Max(Some(7))));
+    assert!(!Max::contributes_to_witnesses(&Max(None), &Max(Some(7))));
+}
+
+#[test]
+fn test_min_witness_hooks() {
+    assert!(Min::<i32>::supports_witnesses());
+    assert!(Min::contributes_to_witnesses(&Min(Some(3)), &Min(Some(3))));
+    assert!(!Min::contributes_to_witnesses(&Min(Some(7)), &Min(Some(3))));
+    assert!(!Min::contributes_to_witnesses(&Min(None), &Min(Some(3))));
+}
+
+#[test]
+fn test_or_witness_hooks() {
+    assert!(Or::supports_witnesses());
+    assert!(Or::contributes_to_witnesses(&Or(true), &Or(true)));
+    assert!(!Or::contributes_to_witnesses(&Or(false), &Or(true)));
+    assert!(!Or::contributes_to_witnesses(&Or(true), &Or(false)));
+}
+
+#[test]
 fn test_solution_size_valid() {
     let size: SolutionSize<i32> = SolutionSize::Valid(42);
     assert!(size.is_valid());

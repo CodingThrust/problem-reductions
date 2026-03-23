@@ -1,6 +1,6 @@
 //! Common types used across the problemreductions library.
 
-use serde::de::{self, Visitor};
+use serde::de::{self, DeserializeOwned, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
@@ -163,6 +163,182 @@ impl From<i32> for One {
 
 /// Backward-compatible alias for `One`.
 pub type Unweighted = One;
+
+/// Foldable aggregate values for enumerating a problem's configuration space.
+pub trait Aggregate: Clone + fmt::Debug + Serialize + DeserializeOwned {
+    /// Neutral element for folding.
+    fn identity() -> Self;
+
+    /// Associative combine operation.
+    fn combine(self, other: Self) -> Self;
+
+    /// Whether this aggregate admits representative witness configurations.
+    fn supports_witnesses() -> bool {
+        false
+    }
+
+    /// Whether a configuration-level value belongs to the witness set
+    /// for the final aggregate value.
+    fn contributes_to_witnesses(_config_value: &Self, _total: &Self) -> bool {
+        false
+    }
+}
+
+/// Maximum aggregate over feasible values.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Max<V>(pub Option<V>);
+
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregate for Max<V> {
+    fn identity() -> Self {
+        Max(None)
+    }
+
+    fn combine(self, other: Self) -> Self {
+        use std::cmp::Ordering;
+
+        match (self.0, other.0) {
+            (None, rhs) => Max(rhs),
+            (lhs, None) => Max(lhs),
+            (Some(lhs), Some(rhs)) => {
+                let ord = lhs.partial_cmp(&rhs).expect("cannot compare values (NaN?)");
+                match ord {
+                    Ordering::Less => Max(Some(rhs)),
+                    Ordering::Equal | Ordering::Greater => Max(Some(lhs)),
+                }
+            }
+        }
+    }
+
+    fn supports_witnesses() -> bool {
+        true
+    }
+
+    fn contributes_to_witnesses(config_value: &Self, total: &Self) -> bool {
+        matches!((config_value, total), (Max(Some(value)), Max(Some(best))) if value == best)
+    }
+}
+
+impl<V: fmt::Display> fmt::Display for Max<V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.0 {
+            Some(value) => write!(f, "Max({value})"),
+            None => write!(f, "Max(None)"),
+        }
+    }
+}
+
+/// Minimum aggregate over feasible values.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Min<V>(pub Option<V>);
+
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregate for Min<V> {
+    fn identity() -> Self {
+        Min(None)
+    }
+
+    fn combine(self, other: Self) -> Self {
+        use std::cmp::Ordering;
+
+        match (self.0, other.0) {
+            (None, rhs) => Min(rhs),
+            (lhs, None) => Min(lhs),
+            (Some(lhs), Some(rhs)) => {
+                let ord = lhs.partial_cmp(&rhs).expect("cannot compare values (NaN?)");
+                match ord {
+                    Ordering::Greater => Min(Some(rhs)),
+                    Ordering::Equal | Ordering::Less => Min(Some(lhs)),
+                }
+            }
+        }
+    }
+
+    fn supports_witnesses() -> bool {
+        true
+    }
+
+    fn contributes_to_witnesses(config_value: &Self, total: &Self) -> bool {
+        matches!((config_value, total), (Min(Some(value)), Min(Some(best))) if value == best)
+    }
+}
+
+impl<V: fmt::Display> fmt::Display for Min<V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.0 {
+            Some(value) => write!(f, "Min({value})"),
+            None => write!(f, "Min(None)"),
+        }
+    }
+}
+
+/// Sum aggregate for value-only problems.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Sum<W>(pub W);
+
+impl<W: fmt::Debug + NumericSize + Serialize + DeserializeOwned> Aggregate for Sum<W> {
+    fn identity() -> Self {
+        Sum(W::zero())
+    }
+
+    fn combine(self, other: Self) -> Self {
+        let mut total = self.0;
+        total += other.0;
+        Sum(total)
+    }
+}
+
+impl<W: fmt::Display> fmt::Display for Sum<W> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Sum({})", self.0)
+    }
+}
+
+/// Disjunction aggregate for existential satisfaction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Or(pub bool);
+
+impl Aggregate for Or {
+    fn identity() -> Self {
+        Or(false)
+    }
+
+    fn combine(self, other: Self) -> Self {
+        Or(self.0 || other.0)
+    }
+
+    fn supports_witnesses() -> bool {
+        true
+    }
+
+    fn contributes_to_witnesses(config_value: &Self, total: &Self) -> bool {
+        config_value.0 && total.0
+    }
+}
+
+impl fmt::Display for Or {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Or({})", self.0)
+    }
+}
+
+/// Conjunction aggregate for universal satisfaction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct And(pub bool);
+
+impl Aggregate for And {
+    fn identity() -> Self {
+        And(true)
+    }
+
+    fn combine(self, other: Self) -> Self {
+        And(self.0 && other.0)
+    }
+}
+
+impl fmt::Display for And {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "And({})", self.0)
+    }
+}
 
 /// Result of evaluating a constrained optimization problem.
 ///
