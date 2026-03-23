@@ -24,49 +24,43 @@
     spacing: (8mm, 12mm),
 
     // Problem trait (top center)
-    node((0.5, 0), box(width: 55mm, align(left)[
+    node((0.6, 0), box(width: 55mm, align(left)[
       #strong[trait Problem]\
       #text(size: 8pt, fill: secondary)[
         `const NAME: &str`\
-        `type Metric: Clone`\
+        `type Value: Clone`\
         `fn dims() -> Vec<usize>`\
-        `fn evaluate(&config) -> Metric`\
+        `fn evaluate(&config) -> Value`\
         `fn variant() -> Vec<(&str, &str)>`
       ]
     ]), fill: trait-fill, corner-radius: 6pt, inset: 10pt, name: <problem>),
 
-    // OptimizationProblem trait (bottom left)
+    // Aggregate trait (bottom left)
     node((0, 1), box(width: 55mm, align(left)[
-      #strong[trait OptimizationProblem]\
+      #strong[trait Aggregate]\
       #text(size: 8pt, fill: secondary)[
-        `type Value: PartialOrd + Clone`\
-        `fn direction() -> Direction`\
-        #text(style: "italic")[requires `Metric = SolutionSize<Value>`]
-
-      #strong[SolutionSize\<T\>]\
-      #text(size: 8pt, fill: secondary)[`Valid(T) | Invalid`]
-
-      #strong[Direction]\
-      #text(size: 8pt, fill: secondary)[`Maximize | Minimize`]
-
+        `fn identity() -> Self`\
+        `fn combine(self, other) -> Self`\
+        `fn supports_witnesses() -> bool`\
+        `fn contributes_to_witnesses(...)`
       ]
-    ]), fill: trait-fill, corner-radius: 6pt, inset: 10pt, name: <opt>),
+    ]), fill: trait-fill, corner-radius: 6pt, inset: 10pt, name: <aggregate>),
 
-    // SatisfactionProblem trait (bottom right)
-    node((1.2, 1), box(width: 42mm, align(left)[
-      #strong[trait SatisfactionProblem]\
+    // Common value types (bottom right)
+    node((1.25, 1), box(width: 48mm, align(left)[
+      #strong[Common Value Types]\
       #text(size: 8pt, fill: secondary)[
-        #text(style: "italic")[marker trait]\
-        #text(style: "italic")[requires `Metric = bool`]
+        `Max<V> | Min<V> | Extremum<V>`\
+        `Or | Sum<W> | And`\
+        #text(style: "italic")[used as `Problem::Value`]
       ]
-    ]), fill: trait-fill, corner-radius: 6pt, inset: 10pt, name: <sat>),
+    ]), fill: type-fill, corner-radius: 6pt, inset: 10pt, name: <values>),
 
-    // Inheritance arrows
-    edge(<opt>, <problem>, "->", label: text(size: 8pt)[extends], label-side: left, label-fill: none),
-    edge(<sat>, <problem>, "->", label: text(size: 8pt)[extends], label-side: right, label-fill: none),
+    // Conceptual relationships
+    edge(<aggregate>, <problem>, "->", label: text(size: 8pt)[solver-bound on `Value`], label-side: left, label-fill: none),
+    edge(<values>, <aggregate>, "->", label: text(size: 8pt)[implements], label-side: right, label-fill: none),
   )
 }
 
 #let standalone-dark = sys.inputs.at("dark", default: "false") == "true"
 #trait-hierarchy(dark: standalone-dark)
-

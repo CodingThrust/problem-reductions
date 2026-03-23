@@ -41,7 +41,7 @@ pub struct NeighborsParams {
     pub problem: String,
     #[schemars(description = "Number of hops to explore (default: 1)")]
     pub hops: Option<usize>,
-    #[schemars(description = "ExtremumSense: out (default), in, or both")]
+    #[schemars(description = "Traversal direction: out (default), in, or both")]
     pub direction: Option<String>,
 }
 
