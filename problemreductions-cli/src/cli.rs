@@ -267,6 +267,7 @@ Flags by problem type:
   BiconnectivityAugmentation      --graph, --potential-edges, --budget [--num-vertices]
   BMF                             --matrix (0/1), --rank
   ConsecutiveBlockMinimization    --matrix (JSON 2D bool), --bound-k
+  ConsecutiveOnesMatrixAugmentation --matrix (0/1), --bound
   ConsecutiveOnesSubmatrix        --matrix (0/1), --k
   SparseMatrixCompression         --matrix (0/1), --bound
   SteinerTree                     --graph, --edge-weights, --terminals
