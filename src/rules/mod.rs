@@ -70,13 +70,15 @@ pub(crate) mod ilp_qubo;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod integralflowbundles_ilp;
 #[cfg(feature = "ilp-solver")]
-pub(crate) mod knapsack_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod kclique_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod knapsack_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod longestcommonsubsequence_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod longestpath_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod maximalis_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumclique_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -92,9 +94,9 @@ pub(crate) mod minimumhittingset_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimummultiwaycut_ilp;
 #[cfg(feature = "ilp-solver")]
-pub(crate) mod partiallyorderedknapsack_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumsetcovering_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod partiallyorderedknapsack_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod qubo_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -161,6 +163,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(kclique_ilp::canonical_rule_example_specs());
         specs.extend(longestpath_ilp::canonical_rule_example_specs());
         specs.extend(longestcommonsubsequence_ilp::canonical_rule_example_specs());
+        specs.extend(maximalis_ilp::canonical_rule_example_specs());
         specs.extend(maximumclique_ilp::canonical_rule_example_specs());
         specs.extend(maximummatching_ilp::canonical_rule_example_specs());
         specs.extend(minimummultiwaycut_ilp::canonical_rule_example_specs());
