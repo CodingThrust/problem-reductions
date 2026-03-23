@@ -37,10 +37,7 @@ fn test_reduction_creates_valid_ilp() {
 fn test_shortestweightconstrainedpath_to_ilp_bf_vs_ilp() {
     // Larger instance with multiple paths
     let problem = ShortestWeightConstrainedPath::new(
-        SimpleGraph::new(
-            5,
-            vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4)],
-        ),
+        SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4)]),
         vec![2, 5, 3, 1, 2], // lengths
         vec![3, 1, 2, 4, 1], // weights
         0,
