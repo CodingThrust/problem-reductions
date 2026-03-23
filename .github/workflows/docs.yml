@@ -39,6 +39,7 @@ jobs:
           cargo run --example export_petersen_mapping
           cargo run --example export_graph
           cargo run --example export_schemas
+          cargo run --example export_module_graph
 
       - name: Build mdBook
         run: mdbook build

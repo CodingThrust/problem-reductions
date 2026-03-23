@@ -10,8 +10,8 @@ pub mod set;
 
 // Re-export commonly used types
 pub use algebraic::{
-    ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesSubmatrix,
-    QuadraticAssignment, SparseMatrixCompression, BMF, ILP, QUBO,
+    ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
+    ConsecutiveOnesSubmatrix, QuadraticAssignment, SparseMatrixCompression, BMF, ILP, QUBO,
 };
 pub use formula::{
     CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, QuantifiedBooleanFormulas,
@@ -28,18 +28,19 @@ pub use graph::{
     MinimumDummyActivitiesPert, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
     MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MixedChinesePostman,
     MultipleChoiceBranching, MultipleCopyFileAllocation, OptimalLinearArrangement,
-    PartitionIntoPathsOfLength2, PartitionIntoTriangles, PathConstrainedNetworkFlow,
-    RootedTreeArrangement, RuralPostman, ShortestWeightConstrainedPath, SpinGlass, SteinerTree,
-    SteinerTreeInGraphs, StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
-    UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
+    PartialFeedbackEdgeSet, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
+    PathConstrainedNetworkFlow, RootedTreeArrangement, RuralPostman, ShortestWeightConstrainedPath,
+    SpinGlass, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    SubgraphIsomorphism, TravelingSalesman, UndirectedFlowLowerBounds,
+    UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
     AdditionalKey, BinPacking, CapacityAssignment, CbqRelation, ConjunctiveBooleanQuery,
     ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
-    ExpectedRetrievalCost, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, Partition,
-    PrecedenceConstrainedScheduling, QueryArg, RectilinearPictureCompression,
+    ExpectedRetrievalCost, Factoring, FlowShopScheduling, GroupingBySwapping, Knapsack,
+    LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+    Partition, PrecedenceConstrainedScheduling, QueryArg, RectilinearPictureCompression,
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,

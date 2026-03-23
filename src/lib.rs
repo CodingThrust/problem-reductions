@@ -42,7 +42,9 @@ pub mod variant;
 /// Prelude module for convenient imports.
 pub mod prelude {
     // Problem types
-    pub use crate::models::algebraic::{QuadraticAssignment, SparseMatrixCompression, BMF, QUBO};
+    pub use crate::models::algebraic::{
+        ConsecutiveOnesMatrixAugmentation, QuadraticAssignment, SparseMatrixCompression, BMF, QUBO,
+    };
     pub use crate::models::formula::{
         CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, QuantifiedBooleanFormulas,
         Satisfiability,
@@ -61,22 +63,22 @@ pub mod prelude {
         MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
         MinimumDummyActivitiesPert, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
         MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
-        MultipleCopyFileAllocation, OptimalLinearArrangement, PartitionIntoPathsOfLength2,
-        PartitionIntoTriangles, PathConstrainedNetworkFlow, RootedTreeArrangement, RuralPostman,
-        ShortestWeightConstrainedPath, SteinerTreeInGraphs, TravelingSalesman,
-        UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
+        MultipleCopyFileAllocation, OptimalLinearArrangement, PartialFeedbackEdgeSet,
+        PartitionIntoPathsOfLength2, PartitionIntoTriangles, PathConstrainedNetworkFlow,
+        RootedTreeArrangement, RuralPostman, ShortestWeightConstrainedPath, SteinerTreeInGraphs,
+        TravelingSalesman, UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
         AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
         ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables,
-        EnsembleComputation, ExpectedRetrievalCost, Factoring, FlowShopScheduling, Knapsack,
-        LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
-        Partition, QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
-        SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-        SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-        SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
-        ShortestCommonSupersequence, StackerCrane, StaffScheduling, StringToStringCorrection,
-        SubsetSum, SumOfSquaresPartition, Term, TimetableDesign,
+        EnsembleComputation, ExpectedRetrievalCost, Factoring, FlowShopScheduling,
+        GroupingBySwapping, Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing,
+        MultiprocessorScheduling, PaintShop, Partition, QueryArg, RectilinearPictureCompression,
+        ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
+        SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
+        SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
+        SequencingWithinIntervals, ShortestCommonSupersequence, StackerCrane, StaffScheduling,
+        StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, TimetableDesign,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,

@@ -146,10 +146,12 @@
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "SubsetSum": [Subset Sum],
   "Partition": [Partition],
+  "PartialFeedbackEdgeSet": [Partial Feedback Edge Set],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
   "ConjunctiveBooleanQuery": [Conjunctive Boolean Query],
   "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
+  "ConsecutiveOnesMatrixAugmentation": [Consecutive Ones Matrix Augmentation],
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
   "SparseMatrixCompression": [Sparse Matrix Compression],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
@@ -157,6 +159,7 @@
   "IntegralFlowWithMultipliers": [Integral Flow With Multipliers],
   "MinMaxMulticenter": [Min-Max Multicenter],
   "FlowShopScheduling": [Flow Shop Scheduling],
+  "GroupingBySwapping": [Grouping by Swapping],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
   "MinimumDummyActivitiesPert": [Minimum Dummy Activities in PERT Networks],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
@@ -434,7 +437,7 @@
 #align(center)[
   #text(size: 16pt, weight: "bold")[Problem Reductions: Models and Transformations]
   #v(0.5em)
-  #text(size: 11pt)[Jin-Guo Liu#super[1] #h(1em) Xi-Wei Pan#super[1]]
+  #text(size: 11pt)[Jin-Guo Liu#super[1] #h(1em) Xi-Wei Pan#super[1] #h(1em) Shi-Wen An]
   #v(0.3em)
   #text(size: 9pt)[#super[1]Hong Kong University of Science and Technology (Guangzhou)]
   #v(0.3em)
@@ -4394,6 +4397,67 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("GroupingBySwapping")
+  let source = x.instance.string
+  let alpha-size = x.instance.alphabet_size
+  let budget = x.instance.budget
+  let config = x.optimal_config
+  let alpha-map = range(alpha-size).map(i => str.from-unicode(97 + i))
+  let fmt-str(s) = s.map(c => alpha-map.at(c)).join("")
+  let source-str = fmt-str(source)
+  let step1 = (0, 1, 0, 2, 1, 2)
+  let step2 = (0, 0, 1, 2, 1, 2)
+  let step3 = (0, 0, 1, 1, 2, 2)
+  let step3-str = fmt-str(step3)
+  [
+    #problem-def("GroupingBySwapping")[
+      Given a finite alphabet $Sigma$, a string $x in Sigma^*$, and a positive integer $K$, determine whether there exists a sequence of at most $K$ adjacent symbol interchanges that transforms $x$ into a string $y in Sigma^*$ in which every symbol $a in Sigma$ appears in a single contiguous block. Equivalently, $y$ contains no subsequence $a b a$ with distinct $a, b in Sigma$.
+    ][
+      Grouping by Swapping is the storage-and-retrieval problem SR21 in Garey and Johnson @garey1979. It asks whether a string can be locally reorganized, using only adjacent transpositions, until equal symbols coalesce into blocks. The implementation in this crate uses a fixed-length swap program with one slot per allowed operation, so the direct brute-force search explores $O(|x|^K)$ configurations.#footnote[This is the exact search bound induced by the fixed-length witness encoding implemented in the codebase; no sharper exact worst-case bound is claimed here.]
+
+      *Example.* Let $Sigma = {#alpha-map.join(", ")}$, $x = #source-str$, and $K = #budget$. The configuration $p = (#config.map(str).join(", "))$ performs adjacent swaps at positions $(2, 3)$, $(1, 2)$, and $(3, 4)$, then uses two trailing no-op slots. The resulting string is $y = #step3-str$, so every symbol now appears in one contiguous block and the verifier returns YES.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o grouping-by-swapping.json",
+        "pred solve grouping-by-swapping.json --solver brute-force",
+        "pred evaluate grouping-by-swapping.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        let blue = graph-colors.at(0)
+        let cell(ch, highlight: false) = {
+          let fill = if highlight { blue.transparentize(72%) } else { white }
+          box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
+            align(center + horizon, text(9pt, weight: "bold", ch)))
+        }
+        align(center, stack(dir: ttb, spacing: 0.45cm,
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 2.2cm, height: 0.5cm, align(right + horizon, text(8pt)[$x: quad$])),
+            ..source.map(c => cell(alpha-map.at(c))),
+          ),
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 2.2cm, height: 0.5cm, align(right + horizon, text(8pt)[swap$(2,3)$: quad])),
+            ..step1.enumerate().map(((i, c)) => cell(alpha-map.at(c), highlight: i == 2 or i == 3)),
+          ),
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 2.2cm, height: 0.5cm, align(right + horizon, text(8pt)[swap$(1,2)$: quad])),
+            ..step2.enumerate().map(((i, c)) => cell(alpha-map.at(c), highlight: i == 1 or i == 2)),
+          ),
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 2.2cm, height: 0.5cm, align(right + horizon, text(8pt)[swap$(3,4)$: quad])),
+            ..step3.enumerate().map(((i, c)) => cell(alpha-map.at(c), highlight: i == 3 or i == 4)),
+          ),
+        ))
+      },
+      caption: [Grouping by Swapping on $x = #source-str$: three effective adjacent swaps turn the alternating string into $y = #step3-str$. The remaining two slots in $p = (#config.map(str).join(", "))$ are no-ops at position 5.],
+      ) <fig:grouping-by-swapping>
+
+      The final row has exactly one block of $a$, one block of $b$, and one block of $c$, so it satisfies the grouping constraint within the allotted budget.
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("LongestCommonSubsequence")
   let strings = x.instance.strings
   let witness = x.optimal_config
@@ -4814,6 +4878,65 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred solve minimum-feedback-arc-set.json",
         "pred evaluate minimum-feedback-arc-set.json --config " + x.optimal_config.map(str).join(","),
       )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("PartialFeedbackEdgeSet")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges
+  let ne = edges.len()
+  let K = x.instance.budget
+  let L = x.instance.max_cycle_length
+  let config = x.optimal_config
+  let removed-indices = config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let removed-edges = removed-indices.map(i => edges.at(i))
+  let blue = graph-colors.at(0)
+  let gray = luma(180)
+  [
+    #problem-def("PartialFeedbackEdgeSet")[
+      Given an undirected graph $G = (V, E)$, a budget $K in ZZ_(>= 0)$, and a cycle-length bound $L in ZZ_(>= 0)$, determine whether there exists a subset $E' subset.eq E$ with $|E'| <= K$ such that every simple cycle in $G$ of length at most $L$ contains at least one edge of $E'$.
+    ][
+      Partial Feedback Edge Set is the bounded-cycle edge-deletion problem GT9 in Garey and Johnson @garey1979. Bounding the cycle length is what makes the problem hard: hitting only the short cycles is NP-complete, whereas the unrestricted undirected feedback-edge-set problem is polynomial-time solvable by reducing to a spanning forest. The implementation here uses one binary variable per edge, so brute-force search explores $O^*(2^|E|)$ candidate edge subsets.#footnote[No sharper general exact worst-case bound is claimed here.]
+
+      *Example.* Consider the graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, budget $K = #K$, and length bound $L = #L$. Removing
+      $E' = {#removed-edges.map(e => [$\{v_#(e.at(0)), v_#(e.at(1))\}$]).join(", ")}$
+      hits the triangles $(v_0, v_1, v_2)$, $(v_0, v_2, v_3)$, $(v_2, v_3, v_4)$, and $(v_3, v_4, v_5)$, together with the 4-cycles $(v_0, v_1, v_2, v_3)$, $(v_0, v_2, v_4, v_3)$, and $(v_2, v_3, v_5, v_4)$. Hence every cycle of length at most 4 is hit. Brute-force search on this instance finds exactly five satisfying 3-edge deletions and none of size 2, so the displayed configuration certifies a YES-instance.
+
+      #pred-commands(
+        "pred create --example PartialFeedbackEdgeSet -o partial-feedback-edge-set.json",
+        "pred solve partial-feedback-edge-set.json",
+        "pred evaluate partial-feedback-edge-set.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          let verts = (
+            (0, 1.4),
+            (1.2, 2.4),
+            (1.9, 1.0),
+            (3.3, 1.4),
+            (4.5, 2.4),
+            (4.5, 0.4),
+          )
+          for edge in edges {
+            let (u, v) = edge
+            let selected = removed-edges.any(e =>
+              (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u)
+            )
+            g-edge(
+              verts.at(u),
+              verts.at(v),
+              stroke: if selected { 2pt + blue } else { 1pt + gray },
+            )
+          }
+          for (idx, pos) in verts.enumerate() {
+            g-node(pos, name: "v" + str(idx), label: [$v_#idx$])
+          }
+        }),
+        caption: [Partial Feedback Edge Set example with $K = 3$ and $L = 4$. Blue edges $\{v_0, v_2\}$, $\{v_2, v_3\}$, and $\{v_3, v_4\}$ form a satisfying edge set that hits every cycle of length at most 4.],
+      ) <fig:partial-feedback-edge-set>
     ]
   ]
 }
@@ -6056,6 +6179,55 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred solve conjunctive-boolean-query.json",
         "pred evaluate conjunctive-boolean-query.json --config " + x.optimal_config.map(str).join(","),
       )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("ConsecutiveOnesMatrixAugmentation")
+  let A = x.instance.matrix
+  let m = A.len()
+  let n = if m > 0 { A.at(0).len() } else { 0 }
+  let K = x.instance.bound
+  let perm = x.optimal_config
+  let A-int = A.map(row => row.map(v => if v { 1 } else { 0 }))
+  let reordered = A.map(row => perm.map(c => if row.at(c) { 1 } else { 0 }))
+  let total-flips = 0
+  for row in reordered {
+    let first = none
+    let last = none
+    let count = 0
+    for (j, value) in row.enumerate() {
+      if value == 1 {
+        if first == none {
+          first = j
+        }
+        last = j
+        count += 1
+      }
+    }
+    if first != none and last != none {
+      total-flips += last - first + 1 - count
+    }
+  }
+  [
+    #problem-def("ConsecutiveOnesMatrixAugmentation")[
+      Given an $m times n$ binary matrix $A$ and a nonnegative integer $K$, determine whether there exists a matrix $A'$, obtained from $A$ by changing at most $K$ zero entries to one, such that some permutation of the columns of $A'$ has the consecutive ones property.
+    ][
+      Consecutive Ones Matrix Augmentation is problem SR16 in Garey & Johnson @garey1979. It asks whether a binary matrix can be repaired by a bounded number of augmenting flips so that every row's 1-entries become contiguous after reordering the columns. This setting appears in information retrieval and DNA physical mapping, where matrices close to the consecutive ones property can still encode useful interval structure. Booth and Lueker showed that testing whether a matrix already has the consecutive ones property is polynomial-time via PQ-trees @booth1976, but allowing bounded augmentation makes the decision problem NP-complete @booth1975. The direct exhaustive search tries all $n!$ column permutations and, for each one, computes the minimum augmentation cost by filling the holes between the first and last 1 in every row#footnote[No algorithm improving on brute-force permutation enumeration is known for the general problem in this repository's supported setting.].
+
+      *Example.* Consider the $#m times #n$ matrix $A = mat(#A-int.map(row => row.map(v => str(v)).join(", ")).join("; "))$ with $K = #K$. Under the permutation $pi = (#perm.map(p => str(p)).join(", "))$, the reordered rows are #reordered.enumerate().map(((i, row)) => [$r_#(i + 1) = (#row.map(v => str(v)).join(", "))$]).join(", "). The first row becomes $(1, 0, 1, 0, 1)$, so filling the two interior gaps yields $(1, 1, 1, 1, 1)$. The other three rows already have consecutive 1-entries under the same order, so the total augmentation cost is #total-flips and #total-flips $<= #K$, making the instance satisfiable.
+
+      #pred-commands(
+        "pred create --example ConsecutiveOnesMatrixAugmentation -o consecutive-ones-matrix-augmentation.json",
+        "pred solve consecutive-ones-matrix-augmentation.json --solver brute-force",
+        "pred evaluate consecutive-ones-matrix-augmentation.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        align(center, math.equation([$A = #math.mat(..A-int.map(row => row.map(v => [#v])))$])),
+        caption: [The canonical $#m times #n$ example matrix for Consecutive Ones Matrix Augmentation. The permutation $pi = (#perm.map(p => str(p)).join(", "))$ makes only the first row need augmentation, and exactly two zero-to-one flips suffice.],
+      ) <fig:coma-example>
     ]
   ]
 }

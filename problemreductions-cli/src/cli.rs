@@ -265,8 +265,10 @@ Flags by problem type:
   BicliqueCover                   --left, --right, --biedges, --k
   BalancedCompleteBipartiteSubgraph --left, --right, --biedges, --k
   BiconnectivityAugmentation      --graph, --potential-edges, --budget [--num-vertices]
+  PartialFeedbackEdgeSet          --graph, --budget, --max-cycle-length [--num-vertices]
   BMF                             --matrix (0/1), --rank
   ConsecutiveBlockMinimization    --matrix (JSON 2D bool), --bound-k
+  ConsecutiveOnesMatrixAugmentation --matrix (0/1), --bound
   ConsecutiveOnesSubmatrix        --matrix (0/1), --k
   SparseMatrixCompression         --matrix (0/1), --bound
   SteinerTree                     --graph, --edge-weights, --terminals
@@ -285,6 +287,7 @@ Flags by problem type:
   AdditionalKey                   --num-attributes, --dependencies, --relation-attrs [--known-keys]
   ConsistencyOfDatabaseFrequencyTables --num-objects, --attribute-domains, --frequency-tables [--known-values]
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
+  GroupingBySwapping             --string, --bound [--alphabet-size]
   LCS                             --strings, --bound [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
@@ -329,6 +332,7 @@ Examples:
   pred create GeneralizedHex --graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5
   pred create IntegralFlowWithMultipliers --arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2
   pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
+  pred create GroupingBySwapping --string \"0,1,2,0,1,2\" --bound 5 | pred solve - --solver brute-force
   pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
@@ -549,7 +553,7 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Bound parameter (lower bound for LongestCircuit; upper or length bound for BoundedComponentSpanningForest, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleCopyFileAllocation, MultipleChoiceBranching, OptimalLinearArrangement, RootedTreeArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
+    /// Bound parameter (lower bound for LongestCircuit; upper or length bound for BoundedComponentSpanningForest, GroupingBySwapping, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleCopyFileAllocation, MultipleChoiceBranching, OptimalLinearArrangement, RootedTreeArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Upper bound on expected retrieval latency for ExpectedRetrievalCost
@@ -576,6 +580,9 @@ pub struct CreateArgs {
     /// Input strings for LCS (e.g., "ABAC;BACA" or "0,1,0;1,0,1") or SCS (e.g., "0,1,2;1,2,0")
     #[arg(long)]
     pub strings: Option<String>,
+    /// Input string for GroupingBySwapping (comma-separated symbol indices, e.g., "0,1,2,0,1,2")
+    #[arg(long)]
+    pub string: Option<String>,
     /// Task costs for SequencingToMinimizeMaximumCumulativeCost (comma-separated, e.g., "2,-1,3,-2,1,-3")
     #[arg(long, allow_hyphen_values = true)]
     pub costs: Option<String>,
@@ -612,6 +619,9 @@ pub struct CreateArgs {
     /// Total budget for selected potential edges
     #[arg(long)]
     pub budget: Option<String>,
+    /// Maximum cycle length L for PartialFeedbackEdgeSet
+    #[arg(long)]
+    pub max_cycle_length: Option<usize>,
     /// Candidate weighted arcs for StrongConnectivityAugmentation (e.g., 2>0:1,2>1:3)
     #[arg(long)]
     pub candidate_arcs: Option<String>,
@@ -666,7 +676,7 @@ pub struct CreateArgs {
     /// Task availability rows for TimetableDesign (semicolon-separated 0/1 rows)
     #[arg(long)]
     pub task_avail: Option<String>,
-    /// Alphabet size for LCS, SCS, StringToStringCorrection, or TwoDimensionalConsecutiveSets (optional; inferred from the input strings if omitted)
+    /// Alphabet size for GroupingBySwapping, LCS, SCS, StringToStringCorrection, or TwoDimensionalConsecutiveSets (optional; inferred from the input strings if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
 
@@ -731,6 +741,7 @@ Examples:
   pred solve reduced.json                        # solve a reduction bundle
   pred solve reduced.json -o solution.json       # save result to file
   pred create MIS --graph 0-1,1-2 | pred solve - # read from stdin when an ILP path exists
+  pred create GroupingBySwapping --string \"0,1,2,0,1,2\" --bound 5 | pred solve - --solver brute-force
   pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\" | pred solve - --solver brute-force
   pred solve problem.json --timeout 10           # abort after 10 seconds
@@ -746,8 +757,9 @@ Solve via explicit reduction:
 Input: a problem JSON from `pred create`, or a reduction bundle from `pred reduce`.
 When given a bundle, the target is solved and the solution is mapped back to the source.
 The ILP solver auto-reduces non-ILP problems before solving.
-Problems without an ILP reduction path, such as `LengthBoundedDisjointPaths`,
-`MinMaxMulticenter`, and `StringToStringCorrection`, currently need `--solver brute-force`.
+Problems without an ILP reduction path, such as `GroupingBySwapping`,
+`LengthBoundedDisjointPaths`, `MinMaxMulticenter`, and `StringToStringCorrection`,
+currently need `--solver brute-force`.
 
 ILP backend (default: HiGHS). To use a different backend:
   cargo install problemreductions-cli --features coin-cbc
@@ -914,6 +926,44 @@ mod tests {
         assert!(help.contains("BiconnectivityAugmentation"));
         assert!(help.contains("--potential-edges"));
         assert!(help.contains("--budget"));
+    }
+
+    #[test]
+    fn test_create_parses_partial_feedback_edge_set_flags() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "PartialFeedbackEdgeSet",
+            "--graph",
+            "0-1,1-2,2-0",
+            "--budget",
+            "1",
+            "--max-cycle-length",
+            "3",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        assert_eq!(args.problem.as_deref(), Some("PartialFeedbackEdgeSet"));
+        assert_eq!(args.graph.as_deref(), Some("0-1,1-2,2-0"));
+        assert_eq!(args.budget.as_deref(), Some("1"));
+        assert_eq!(args.max_cycle_length, Some(3));
+    }
+
+    #[test]
+    fn test_create_help_mentions_partial_feedback_edge_set_flags() {
+        let cmd = Cli::command();
+        let create = cmd.find_subcommand("create").expect("create subcommand");
+        let help = create
+            .get_after_help()
+            .expect("create after_help")
+            .to_string();
+
+        assert!(help.contains("PartialFeedbackEdgeSet"));
+        assert!(help.contains("--budget"));
+        assert!(help.contains("--max-cycle-length"));
     }
 
     #[test]

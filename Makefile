@@ -82,6 +82,7 @@ clippy:
 doc:
 	cargo run --example export_graph
 	cargo run --example export_schemas
+	cargo run --example export_module_graph
 	mdbook build docs
 	RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps
 	rm -rf docs/book/api
@@ -104,6 +105,8 @@ mdbook:
 	@cargo run --example export_graph 2>&1 | tail -1
 	@echo "Exporting schemas..."
 	@cargo run --example export_schemas 2>&1 | tail -1
+	@echo "Exporting module graph..."
+	@cargo run --example export_module_graph 2>&1 | tail -1
 	@echo "Building API docs..."
 	@RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps 2>&1 | tail -1
 	@echo "Building mdBook..."

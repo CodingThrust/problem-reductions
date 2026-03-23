@@ -3549,6 +3549,69 @@ fn test_create_string_to_string_correction_rejects_negative_bound() {
 }
 
 #[test]
+fn test_create_grouping_by_swapping() {
+    let output = pred()
+        .args([
+            "create",
+            "GroupingBySwapping",
+            "--string",
+            "0,1,2,0,1,2",
+            "--bound",
+            "5",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "GroupingBySwapping");
+    assert_eq!(json["data"]["alphabet_size"], 3);
+    assert_eq!(
+        json["data"]["string"],
+        serde_json::json!([0, 1, 2, 0, 1, 2])
+    );
+    assert_eq!(json["data"]["budget"], 5);
+}
+
+#[test]
+fn test_create_model_example_grouping_by_swapping() {
+    let output = pred()
+        .args(["create", "--example", "GroupingBySwapping"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "GroupingBySwapping");
+    assert_eq!(json["data"]["alphabet_size"], 3);
+    assert_eq!(
+        json["data"]["string"],
+        serde_json::json!([0, 1, 2, 0, 1, 2])
+    );
+    assert_eq!(json["data"]["budget"], 5);
+}
+
+#[test]
+fn test_create_grouping_by_swapping_help_uses_cli_flags() {
+    let output = pred()
+        .args(["create", "GroupingBySwapping"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--string"), "stderr: {stderr}");
+    assert!(stderr.contains("--bound"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_spinglass() {
     let output_file = std::env::temp_dir().join("pred_test_create_sg.json");
     let output = pred()
