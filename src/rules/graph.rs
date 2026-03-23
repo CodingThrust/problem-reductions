@@ -13,8 +13,10 @@
 //! - JSON export for documentation and visualization
 
 use crate::rules::cost::PathCostFn;
-use crate::rules::registry::{ReductionEntry, ReductionOverhead};
-use crate::rules::traits::DynReductionResult;
+use crate::rules::registry::{
+    AggregateReduceFn, ReduceFn, ReductionEntry, ReductionOverhead,
+};
+use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
 use crate::types::ProblemSize;
 use ordered_float::OrderedFloat;
 use petgraph::algo::all_simple_paths;
@@ -40,7 +42,8 @@ pub struct ReductionEdgeInfo {
 #[derive(Clone)]
 pub(crate) struct ReductionEdgeData {
     pub overhead: ReductionOverhead,
-    pub reduce_fn: fn(&dyn Any) -> Box<dyn DynReductionResult>,
+    pub reduce_fn: Option<ReduceFn>,
+    pub reduce_aggregate_fn: Option<AggregateReduceFn>,
 }
 
 /// JSON-serializable representation of the reduction graph.
@@ -361,6 +364,7 @@ impl ReductionGraph {
                     ReductionEdgeData {
                         overhead,
                         reduce_fn: entry.reduce_fn,
+                        reduce_aggregate_fn: entry.reduce_aggregate_fn,
                     },
                 );
             }
@@ -1184,6 +1188,39 @@ impl ReductionChain {
     }
 }
 
+/// A composed aggregate reduction chain produced by
+/// [`ReductionGraph::reduce_aggregate_along_path`].
+pub struct AggregateReductionChain {
+    steps: Vec<Box<dyn DynAggregateReductionResult>>,
+}
+
+impl AggregateReductionChain {
+    /// Get the final target problem as a type-erased reference.
+    pub fn target_problem_any(&self) -> &dyn Any {
+        self.steps
+            .last()
+            .expect("AggregateReductionChain has no steps")
+            .target_problem_any()
+    }
+
+    /// Get a typed reference to the final target problem.
+    ///
+    /// Panics if the actual target type does not match `T`.
+    pub fn target_problem<T: 'static>(&self) -> &T {
+        self.target_problem_any()
+            .downcast_ref::<T>()
+            .expect("AggregateReductionChain target type mismatch")
+    }
+
+    /// Extract an aggregate value from target space back to source space.
+    pub fn extract_value_dyn(&self, target_value: serde_json::Value) -> serde_json::Value {
+        self.steps
+            .iter()
+            .rev()
+            .fold(target_value, |value, step| step.extract_value_dyn(value))
+    }
+}
+
 impl ReductionGraph {
     /// Execute a reduction path on a source problem instance.
     ///
@@ -1212,7 +1249,7 @@ impl ReductionGraph {
             let src = self.lookup_node(&window[0].name, &window[0].variant)?;
             let dst = self.lookup_node(&window[1].name, &window[1].variant)?;
             let edge_idx = self.graph.find_edge(src, dst)?;
-            edge_fns.push(self.graph[edge_idx].reduce_fn);
+            edge_fns.push(self.graph[edge_idx].reduce_fn?);
         }
         // Execute the chain
         let mut steps: Vec<Box<dyn DynReductionResult>> = Vec::new();
@@ -1226,6 +1263,37 @@ impl ReductionGraph {
             steps.push(step);
         }
         Some(ReductionChain { steps })
+    }
+
+    /// Execute an aggregate-value reduction path on a source problem instance.
+    pub fn reduce_aggregate_along_path(
+        &self,
+        path: &ReductionPath,
+        source: &dyn Any,
+    ) -> Option<AggregateReductionChain> {
+        if path.steps.len() < 2 {
+            return None;
+        }
+
+        let mut edge_fns = Vec::new();
+        for window in path.steps.windows(2) {
+            let src = self.lookup_node(&window[0].name, &window[0].variant)?;
+            let dst = self.lookup_node(&window[1].name, &window[1].variant)?;
+            let edge_idx = self.graph.find_edge(src, dst)?;
+            edge_fns.push(self.graph[edge_idx].reduce_aggregate_fn?);
+        }
+
+        let mut steps: Vec<Box<dyn DynAggregateReductionResult>> = Vec::new();
+        let step = (edge_fns[0])(source);
+        steps.push(step);
+        for edge_fn in &edge_fns[1..] {
+            let step = {
+                let prev_target = steps.last().unwrap().target_problem_any();
+                edge_fn(prev_target)
+            };
+            steps.push(step);
+        }
+        Some(AggregateReductionChain { steps })
     }
 }
 

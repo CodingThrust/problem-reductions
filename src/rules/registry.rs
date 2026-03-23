@@ -1,7 +1,7 @@
 //! Automatic reduction registration via inventory.
 
 use crate::expr::Expr;
-use crate::rules::traits::DynReductionResult;
+use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
 use crate::types::ProblemSize;
 use std::any::Any;
 use std::collections::HashSet;
@@ -83,6 +83,12 @@ impl ReductionOverhead {
     }
 }
 
+/// Witness/config reduction executor stored in the inventory.
+pub type ReduceFn = fn(&dyn Any) -> Box<dyn DynReductionResult>;
+
+/// Aggregate/value reduction executor stored in the inventory.
+pub type AggregateReduceFn = fn(&dyn Any) -> Box<dyn DynAggregateReductionResult>;
+
 /// A registered reduction entry for static inventory registration.
 /// Uses function pointers to lazily derive variant fields from `Problem::variant()`.
 pub struct ReductionEntry {
@@ -101,7 +107,12 @@ pub struct ReductionEntry {
     /// Type-erased reduction executor.
     /// Takes a `&dyn Any` (must be `&SourceType`), calls `ReduceTo::reduce_to()`,
     /// and returns the result as a boxed `DynReductionResult`.
-    pub reduce_fn: fn(&dyn Any) -> Box<dyn DynReductionResult>,
+    pub reduce_fn: Option<ReduceFn>,
+    /// Type-erased aggregate reduction executor.
+    /// Takes a `&dyn Any` (must be `&SourceType`), calls
+    /// `ReduceToAggregate::reduce_to_aggregate()`, and returns the result as a
+    /// boxed `DynAggregateReductionResult`.
+    pub reduce_aggregate_fn: Option<AggregateReduceFn>,
     /// Compiled overhead evaluation function.
     /// Takes a `&dyn Any` (must be `&SourceType`), calls getter methods directly,
     /// and returns the computed target problem size.

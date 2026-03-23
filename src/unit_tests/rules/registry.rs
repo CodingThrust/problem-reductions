@@ -7,6 +7,12 @@ fn dummy_reduce_fn(_: &dyn std::any::Any) -> Box<dyn crate::rules::traits::DynRe
     unimplemented!("dummy reduce_fn for testing")
 }
 
+fn dummy_reduce_aggregate_fn(
+    _: &dyn std::any::Any,
+) -> Box<dyn crate::rules::traits::DynAggregateReductionResult> {
+    unimplemented!("dummy reduce_aggregate_fn for testing")
+}
+
 fn dummy_overhead_eval_fn(_: &dyn std::any::Any) -> ProblemSize {
     ProblemSize::new(vec![])
 }
@@ -40,7 +46,8 @@ fn test_reduction_entry_overhead() {
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         overhead_fn: || ReductionOverhead::new(vec![("n", Expr::Const(2.0) * Expr::Var("n"))]),
         module_path: "test::module",
-        reduce_fn: dummy_reduce_fn,
+        reduce_fn: Some(dummy_reduce_fn),
+        reduce_aggregate_fn: None,
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
 
@@ -59,7 +66,8 @@ fn test_reduction_entry_debug() {
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
-        reduce_fn: dummy_reduce_fn,
+        reduce_fn: Some(dummy_reduce_fn),
+        reduce_aggregate_fn: None,
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
 
@@ -77,7 +85,8 @@ fn test_is_base_reduction_unweighted() {
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
-        reduce_fn: dummy_reduce_fn,
+        reduce_fn: Some(dummy_reduce_fn),
+        reduce_aggregate_fn: None,
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
     assert!(entry.is_base_reduction());
@@ -92,7 +101,8 @@ fn test_is_base_reduction_source_weighted() {
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
-        reduce_fn: dummy_reduce_fn,
+        reduce_fn: Some(dummy_reduce_fn),
+        reduce_aggregate_fn: None,
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
     assert!(!entry.is_base_reduction());
@@ -107,7 +117,8 @@ fn test_is_base_reduction_target_weighted() {
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "f64")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
-        reduce_fn: dummy_reduce_fn,
+        reduce_fn: Some(dummy_reduce_fn),
+        reduce_aggregate_fn: None,
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
     assert!(!entry.is_base_reduction());
@@ -122,7 +133,8 @@ fn test_is_base_reduction_both_weighted() {
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "f64")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
-        reduce_fn: dummy_reduce_fn,
+        reduce_fn: Some(dummy_reduce_fn),
+        reduce_aggregate_fn: None,
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
     assert!(!entry.is_base_reduction());
@@ -138,10 +150,29 @@ fn test_is_base_reduction_no_weight_key() {
         target_variant_fn: || vec![("graph", "SimpleGraph")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
-        reduce_fn: dummy_reduce_fn,
+        reduce_fn: Some(dummy_reduce_fn),
+        reduce_aggregate_fn: None,
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
     assert!(entry.is_base_reduction());
+}
+
+#[test]
+fn test_reduction_entry_can_store_aggregate_executor() {
+    let entry = ReductionEntry {
+        source_name: "A",
+        target_name: "B",
+        source_variant_fn: || vec![("graph", "SimpleGraph")],
+        target_variant_fn: || vec![("graph", "SimpleGraph")],
+        overhead_fn: || ReductionOverhead::default(),
+        module_path: "test::module",
+        reduce_fn: None,
+        reduce_aggregate_fn: Some(dummy_reduce_aggregate_fn),
+        overhead_eval_fn: dummy_overhead_eval_fn,
+    };
+
+    assert!(entry.reduce_fn.is_none());
+    assert!(entry.reduce_aggregate_fn.is_some());
 }
 
 #[test]

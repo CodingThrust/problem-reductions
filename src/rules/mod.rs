@@ -97,10 +97,12 @@ pub(crate) mod steinertree_ilp;
 pub(crate) mod travelingsalesman_ilp;
 
 pub use graph::{
-    NeighborInfo, NeighborTree, ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionPath,
-    ReductionStep, TraversalDirection,
+    AggregateReductionChain, NeighborInfo, NeighborTree, ReductionChain, ReductionEdgeInfo,
+    ReductionGraph, ReductionPath, ReductionStep, TraversalDirection,
 };
-pub use traits::{ReduceTo, ReductionAutoCast, ReductionResult};
+pub use traits::{
+    AggregateReductionResult, ReduceTo, ReduceToAggregate, ReductionAutoCast, ReductionResult,
+};
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {

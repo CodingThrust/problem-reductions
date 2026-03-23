@@ -6,10 +6,128 @@ use crate::models::set::MaximumSetPacking;
 use crate::rules::cost::{Minimize, MinimizeSteps};
 use crate::rules::graph::{classify_problem_category, ReductionStep};
 use crate::rules::registry::ReductionEntry;
+use crate::rules::traits::AggregateReductionResult;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::{One, ProblemSize};
-use std::collections::BTreeMap;
+use crate::types::{One, ProblemSize, Sum};
+use petgraph::graph::DiGraph;
+use serde_json::json;
+use std::any::Any;
+use std::collections::{BTreeMap, HashMap};
+
+#[derive(Clone)]
+struct AggregateChainSource;
+
+#[derive(Clone)]
+struct AggregateChainMiddle;
+
+#[derive(Clone)]
+struct AggregateChainTarget;
+
+impl Problem for AggregateChainSource {
+    const NAME: &'static str = "AggregateChainSource";
+    type Value = Sum<u64>;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![1]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> Self::Value {
+        Sum(config.iter().sum::<usize>() as u64)
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![]
+    }
+}
+
+impl Problem for AggregateChainMiddle {
+    const NAME: &'static str = "AggregateChainMiddle";
+    type Value = Sum<u64>;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![1]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> Self::Value {
+        Sum(config.iter().sum::<usize>() as u64)
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![]
+    }
+}
+
+impl Problem for AggregateChainTarget {
+    const NAME: &'static str = "AggregateChainTarget";
+    type Value = Sum<u64>;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![1]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> Self::Value {
+        Sum(config.iter().sum::<usize>() as u64)
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![]
+    }
+}
+
+struct SourceToMiddleAggregateResult {
+    target: AggregateChainMiddle,
+}
+
+impl AggregateReductionResult for SourceToMiddleAggregateResult {
+    type Source = AggregateChainSource;
+    type Target = AggregateChainMiddle;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, target_value: Sum<u64>) -> Sum<u64> {
+        Sum(target_value.0 + 2)
+    }
+}
+
+struct MiddleToTargetAggregateResult {
+    target: AggregateChainTarget,
+}
+
+impl AggregateReductionResult for MiddleToTargetAggregateResult {
+    type Source = AggregateChainMiddle;
+    type Target = AggregateChainTarget;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, target_value: Sum<u64>) -> Sum<u64> {
+        Sum(target_value.0 + 3)
+    }
+}
+
+fn reduce_source_to_middle_aggregate(
+    any: &dyn Any,
+) -> Box<dyn crate::rules::traits::DynAggregateReductionResult> {
+    any.downcast_ref::<AggregateChainSource>()
+        .expect("expected AggregateChainSource");
+    Box::new(SourceToMiddleAggregateResult {
+        target: AggregateChainMiddle,
+    })
+}
+
+fn reduce_middle_to_target_aggregate(
+    any: &dyn Any,
+) -> Box<dyn crate::rules::traits::DynAggregateReductionResult> {
+    any.downcast_ref::<AggregateChainMiddle>()
+        .expect("expected AggregateChainMiddle");
+    Box::new(MiddleToTargetAggregateResult {
+        target: AggregateChainTarget,
+    })
+}
 
 #[test]
 fn test_find_direct_path() {
@@ -22,6 +140,89 @@ fn test_find_direct_path() {
     let shortest = paths.iter().min_by_key(|p| p.len()).unwrap();
     assert_eq!(shortest.type_names().len(), 2);
     assert_eq!(shortest.len(), 1); // One reduction step
+}
+
+#[test]
+fn test_aggregate_reduction_chain_extracts_value_backwards() {
+    let source_variant = BTreeMap::new();
+    let middle_variant = BTreeMap::new();
+    let target_variant = BTreeMap::new();
+
+    let nodes = vec![
+        VariantNode {
+            name: AggregateChainSource::NAME,
+            variant: source_variant.clone(),
+            complexity: "",
+        },
+        VariantNode {
+            name: AggregateChainMiddle::NAME,
+            variant: middle_variant.clone(),
+            complexity: "",
+        },
+        VariantNode {
+            name: AggregateChainTarget::NAME,
+            variant: target_variant.clone(),
+            complexity: "",
+        },
+    ];
+
+    let mut graph = DiGraph::new();
+    let source_idx = graph.add_node(0);
+    let middle_idx = graph.add_node(1);
+    let target_idx = graph.add_node(2);
+
+    graph.add_edge(
+        source_idx,
+        middle_idx,
+        ReductionEdgeData {
+            overhead: crate::rules::registry::ReductionOverhead::default(),
+            reduce_fn: None,
+            reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
+        },
+    );
+    graph.add_edge(
+        middle_idx,
+        target_idx,
+        ReductionEdgeData {
+            overhead: crate::rules::registry::ReductionOverhead::default(),
+            reduce_fn: None,
+            reduce_aggregate_fn: Some(reduce_middle_to_target_aggregate),
+        },
+    );
+
+    let reduction_graph = ReductionGraph {
+        graph,
+        nodes,
+        name_to_nodes: HashMap::from([
+            (AggregateChainSource::NAME, vec![source_idx]),
+            (AggregateChainMiddle::NAME, vec![middle_idx]),
+            (AggregateChainTarget::NAME, vec![target_idx]),
+        ]),
+        default_variants: HashMap::new(),
+    };
+    let path = ReductionPath {
+        steps: vec![
+            ReductionStep {
+                name: AggregateChainSource::NAME.to_string(),
+                variant: source_variant,
+            },
+            ReductionStep {
+                name: AggregateChainMiddle::NAME.to_string(),
+                variant: middle_variant,
+            },
+            ReductionStep {
+                name: AggregateChainTarget::NAME.to_string(),
+                variant: target_variant,
+            },
+        ],
+    };
+
+    let chain = reduction_graph
+        .reduce_aggregate_along_path(&path, &AggregateChainSource as &dyn Any)
+        .expect("expected aggregate reduction chain");
+
+    assert_eq!(chain.target_problem::<AggregateChainTarget>().dims(), vec![1]);
+    assert_eq!(chain.extract_value_dyn(json!(7)), json!(12));
 }
 
 #[test]
