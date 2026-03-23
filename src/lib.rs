@@ -69,14 +69,14 @@ pub mod prelude {
     pub use crate::models::misc::{
         AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
         ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables,
-        EnsembleComputation, ExpectedRetrievalCost, Factoring, FlowShopScheduling, Knapsack,
-        LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
-        Partition, QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
-        SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-        SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-        SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
-        ShortestCommonSupersequence, StackerCrane, StaffScheduling, StringToStringCorrection,
-        SubsetSum, SumOfSquaresPartition, Term, TimetableDesign,
+        EnsembleComputation, ExpectedRetrievalCost, Factoring, FlowShopScheduling,
+        GroupingBySwapping, Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing,
+        MultiprocessorScheduling, PaintShop, Partition, QueryArg, RectilinearPictureCompression,
+        ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
+        SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
+        SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
+        SequencingWithinIntervals, ShortestCommonSupersequence, StackerCrane, StaffScheduling,
+        StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, TimetableDesign,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
