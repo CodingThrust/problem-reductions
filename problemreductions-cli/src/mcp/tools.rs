@@ -7,7 +7,9 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
-use problemreductions::rules::{CustomCost, MinimizeSteps, ReductionGraph, TraversalDirection};
+use problemreductions::rules::{
+    CustomCost, MinimizeSteps, ReductionGraph, ReductionMode, TraversalDirection,
+};
 use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
 };
@@ -811,23 +813,32 @@ impl McpServer {
 
         // Auto-discover cheapest path
         let input_size = ProblemSize::new(vec![]);
-        let best_path = graph.find_cheapest_path(
+        let best_path = graph.find_cheapest_path_mode(
             source_name,
             &source_variant,
             &dst_ref.name,
             &dst_ref.variant,
+            ReductionMode::Witness,
             &input_size,
             &MinimizeSteps,
         );
 
         let reduction_path = best_path.ok_or_else(|| {
-            anyhow::anyhow!("No reduction path from {} to {}", source_name, dst_ref.name)
+            anyhow::anyhow!(
+                "No witness-capable reduction path from {} to {}",
+                source_name,
+                dst_ref.name
+            )
         })?;
 
         // Execute reduction chain
         let chain = graph
             .reduce_along_path(&reduction_path, source.as_any())
-            .ok_or_else(|| anyhow::anyhow!("Failed to execute reduction chain"))?;
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Reduction bundles require witness-capable paths; this path cannot produce a recoverable witness."
+                )
+            })?;
 
         // Serialize target
         let target_step = reduction_path.steps.last().unwrap();
@@ -1147,6 +1158,22 @@ fn ser<T: Serialize>(problem: T) -> anyhow::Result<serde_json::Value> {
     util::ser(problem)
 }
 
+fn solve_result_json(
+    problem: &str,
+    solver: &str,
+    result: &crate::dispatch::SolveResult,
+) -> serde_json::Value {
+    let mut json = serde_json::json!({
+        "problem": problem,
+        "solver": solver,
+        "evaluation": result.evaluation,
+    });
+    if let Some(config) = &result.config {
+        json["solution"] = serde_json::json!(config);
+    }
+    json
+}
+
 fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
     util::variant_map(pairs)
 }
@@ -1445,23 +1472,17 @@ fn solve_problem_inner(
 
     match solver_name {
         "brute-force" => {
-            let result = problem.solve_brute_force()?;
-            let json = serde_json::json!({
-                "problem": name,
-                "solver": "brute-force",
-                "solution": result.config,
-                "evaluation": result.evaluation,
-            });
+            let result = problem.solve_brute_force();
+            let json = solve_result_json(name, "brute-force", &result);
             Ok(serde_json::to_string_pretty(&json)?)
         }
         "ilp" => {
             let result = problem.solve_with_ilp()?;
-            let mut json = serde_json::json!({
-                "problem": name,
-                "solver": "ilp",
-                "solution": result.config,
-                "evaluation": result.evaluation,
-            });
+            let result = crate::dispatch::SolveResult {
+                config: Some(result.config),
+                evaluation: result.evaluation,
+            };
+            let mut json = solve_result_json(name, "ilp", &result);
             if name != "ILP" {
                 json["reduced_to"] = serde_json::json!("ILP");
             }
@@ -1481,7 +1502,12 @@ fn solve_bundle_inner(bundle: ReductionBundle, solver_name: &str) -> anyhow::Res
     let target_name = target.problem_name();
 
     let target_result = match solver_name {
-        "brute-force" => target.solve_brute_force()?,
+        "brute-force" => target.solve_brute_force_witness().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Bundle solving requires a witness-capable target problem and witness-capable reduction path; {} only supports aggregate-value solving.",
+                target_name
+            )
+        })?,
         "ilp" => target.solve_with_ilp()?,
         _ => unreachable!(),
     };
@@ -1508,9 +1534,9 @@ fn solve_bundle_inner(bundle: ReductionBundle, solver_name: &str) -> anyhow::Res
 
     let chain = graph
         .reduce_along_path(&reduction_path, source.as_any())
-        .ok_or_else(|| {
-            anyhow::anyhow!("Failed to re-execute reduction chain for solution extraction")
-        })?;
+        .ok_or_else(|| anyhow::anyhow!(
+            "Bundle solving requires a witness-capable reduction path; this bundle cannot recover a source solution."
+        ))?;
 
     let source_config = chain.extract_solution(&target_result.config);
     let source_eval = source.evaluate_dyn(&source_config);

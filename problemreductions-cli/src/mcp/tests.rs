@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::mcp::tools::McpServer;
+    use crate::test_support::{aggregate_bundle, aggregate_problem_json};
 
     #[test]
     fn test_list_problems_returns_json() {
@@ -429,5 +430,43 @@ mod tests {
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert_eq!(json["solver"], "brute-force");
+    }
+
+    #[test]
+    fn test_reduce_rejects_aggregate_only_path() {
+        let server = McpServer::new();
+        let result = server.reduce_inner(&aggregate_problem_json(), "CliTestAggregateValueTarget");
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("witness"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn test_solve_aggregate_only_problem_omits_solution() {
+        let server = McpServer::new();
+        let result = server.solve_inner(&aggregate_problem_json(), Some("brute-force"), None);
+        assert!(result.is_ok());
+        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert_eq!(json["evaluation"], "Sum(56)");
+        assert!(json.get("solution").is_none(), "{json}");
+    }
+
+    #[test]
+    fn test_solve_ilp_rejects_aggregate_only_problem() {
+        let server = McpServer::new();
+        let result = server.solve_inner(&aggregate_problem_json(), Some("ilp"), None);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("witness-capable"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn test_solve_bundle_rejects_aggregate_only_path() {
+        let server = McpServer::new();
+        let bundle_json = serde_json::to_string(&aggregate_bundle()).unwrap();
+        let result = server.solve_inner(&bundle_json, Some("brute-force"), None);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("witness"), "unexpected error: {err}");
     }
 }
