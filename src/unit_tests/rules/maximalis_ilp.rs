@@ -2,7 +2,7 @@ use super::*;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::Max;
+
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
