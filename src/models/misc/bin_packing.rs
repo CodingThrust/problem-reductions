@@ -87,7 +87,7 @@ where
     W::Sum: PartialOrd,
 {
     const NAME: &'static str = "BinPacking";
-    type Metric = SolutionSize<i32>;
+    type Value = SolutionSize<i32>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
@@ -112,7 +112,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
     W::Sum: PartialOrd,
 {
-    type Value = i32;
+    type Objective = i32;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

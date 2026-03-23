@@ -179,7 +179,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "StrongConnectivityAugmentation";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]

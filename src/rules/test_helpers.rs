@@ -11,8 +11,8 @@ fn verify_optimization_round_trip<Source, Extract>(
     context: &str,
 ) where
     Source: OptimizationProblem + 'static,
-    <Source as OptimizationProblem>::Value: std::fmt::Debug + PartialEq,
-    <Source as Problem>::Metric: std::fmt::Debug + PartialEq,
+    <Source as OptimizationProblem>::Objective: std::fmt::Debug + PartialEq,
+    <Source as Problem>::Value: std::fmt::Debug + PartialEq,
     Extract: Fn(&[usize]) -> Vec<usize>,
 {
     assert!(
@@ -99,8 +99,8 @@ pub(crate) fn assert_optimization_round_trip_from_optimization_target<R>(
     R: ReductionResult,
     R::Source: OptimizationProblem + 'static,
     R::Target: OptimizationProblem + 'static,
-    <R::Source as OptimizationProblem>::Value: std::fmt::Debug + PartialEq,
-    <R::Source as Problem>::Metric: std::fmt::Debug + PartialEq,
+    <R::Source as OptimizationProblem>::Objective: std::fmt::Debug + PartialEq,
+    <R::Source as Problem>::Value: std::fmt::Debug + PartialEq,
 {
     let target_solutions = BruteForce::new().find_all_best(reduction.target_problem());
     verify_optimization_round_trip(
@@ -120,8 +120,8 @@ pub(crate) fn assert_optimization_round_trip_from_satisfaction_target<R>(
     R: ReductionResult,
     R::Source: OptimizationProblem + 'static,
     R::Target: SatisfactionProblem + 'static,
-    <R::Source as OptimizationProblem>::Value: std::fmt::Debug + PartialEq,
-    <R::Source as Problem>::Metric: std::fmt::Debug + PartialEq,
+    <R::Source as OptimizationProblem>::Objective: std::fmt::Debug + PartialEq,
+    <R::Source as Problem>::Value: std::fmt::Debug + PartialEq,
 {
     let target_solutions = BruteForce::new().find_all_satisfying(reduction.target_problem());
     verify_optimization_round_trip(
@@ -140,8 +140,8 @@ pub(crate) fn assert_optimization_round_trip_chain<Source, Target>(
 ) where
     Source: OptimizationProblem + 'static,
     Target: OptimizationProblem + 'static,
-    <Source as OptimizationProblem>::Value: std::fmt::Debug + PartialEq,
-    <Source as Problem>::Metric: std::fmt::Debug + PartialEq,
+    <Source as OptimizationProblem>::Objective: std::fmt::Debug + PartialEq,
+    <Source as Problem>::Value: std::fmt::Debug + PartialEq,
 {
     let target_solutions = BruteForce::new().find_all_best(chain.target_problem::<Target>());
     verify_optimization_round_trip(
@@ -222,13 +222,13 @@ mod tests {
 
     impl Problem for ToyOptimizationProblem {
         const NAME: &'static str = "ToyOptimizationProblem";
-        type Metric = SolutionSize<i32>;
+        type Value = SolutionSize<i32>;
 
         fn dims(&self) -> Vec<usize> {
             vec![2, 2]
         }
 
-        fn evaluate(&self, config: &[usize]) -> Self::Metric {
+        fn evaluate(&self, config: &[usize]) -> Self::Value {
             match config {
                 [1, 0] | [0, 1] => SolutionSize::Valid(1),
                 _ => SolutionSize::Invalid,
@@ -241,7 +241,7 @@ mod tests {
     }
 
     impl OptimizationProblem for ToyOptimizationProblem {
-        type Value = i32;
+        type Objective = i32;
 
         fn direction(&self) -> Direction {
             Direction::Maximize
@@ -253,13 +253,13 @@ mod tests {
 
     impl Problem for ToySatisfactionProblem {
         const NAME: &'static str = "ToySatisfactionProblem";
-        type Metric = bool;
+        type Value = bool;
 
         fn dims(&self) -> Vec<usize> {
             vec![2, 2]
         }
 
-        fn evaluate(&self, config: &[usize]) -> Self::Metric {
+        fn evaluate(&self, config: &[usize]) -> Self::Value {
             matches!(config, [1, 0] | [0, 1])
         }
 

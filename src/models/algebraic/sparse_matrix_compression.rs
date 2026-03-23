@@ -119,7 +119,7 @@ impl SparseMatrixCompression {
 
 impl Problem for SparseMatrixCompression {
     const NAME: &'static str = "SparseMatrixCompression";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.bound_k; self.num_rows()]

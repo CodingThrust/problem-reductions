@@ -119,7 +119,7 @@ impl Knapsack {
 
 impl Problem for Knapsack {
     const NAME: &'static str = "Knapsack";
-    type Metric = SolutionSize<i64>;
+    type Value = SolutionSize<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -156,7 +156,7 @@ impl Problem for Knapsack {
 }
 
 impl OptimizationProblem for Knapsack {
-    type Value = i64;
+    type Objective = i64;
 
     fn direction(&self) -> Direction {
         Direction::Maximize

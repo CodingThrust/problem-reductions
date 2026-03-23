@@ -147,7 +147,7 @@ impl SetBasis {
 
 impl Problem for SetBasis {
     const NAME: &'static str = "SetBasis";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.k * self.universe_size]

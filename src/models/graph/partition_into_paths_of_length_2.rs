@@ -148,7 +148,7 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "PartitionIntoPathsOfLength2";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]

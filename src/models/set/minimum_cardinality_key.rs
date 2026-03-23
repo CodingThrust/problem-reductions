@@ -148,7 +148,7 @@ impl MinimumCardinalityKey {
 
 impl Problem for MinimumCardinalityKey {
     const NAME: &'static str = "MinimumCardinalityKey";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_attributes]

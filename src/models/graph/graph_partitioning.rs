@@ -92,7 +92,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "GraphPartitioning";
-    type Metric = SolutionSize<i32>;
+    type Value = SolutionSize<i32>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -131,7 +131,7 @@ impl<G> OptimizationProblem for GraphPartitioning<G>
 where
     G: Graph + crate::variant::VariantParam,
 {
-    type Value = i32;
+    type Objective = i32;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

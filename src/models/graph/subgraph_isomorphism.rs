@@ -120,7 +120,7 @@ impl SubgraphIsomorphism {
 
 impl Problem for SubgraphIsomorphism {
     const NAME: &'static str = "SubgraphIsomorphism";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         let n_host = self.host_graph.num_vertices();

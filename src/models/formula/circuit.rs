@@ -289,7 +289,7 @@ pub(crate) fn is_circuit_satisfying(
 
 impl Problem for CircuitSAT {
     const NAME: &'static str = "CircuitSAT";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.variables.len()]

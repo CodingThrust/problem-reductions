@@ -179,7 +179,7 @@ impl MultipleCopyFileAllocation {
 
 impl Problem for MultipleCopyFileAllocation {
     const NAME: &'static str = "MultipleCopyFileAllocation";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

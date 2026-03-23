@@ -207,7 +207,7 @@ impl<'de> Deserialize<'de> for SequencingToMinimizeWeightedCompletionTime {
 
 impl Problem for SequencingToMinimizeWeightedCompletionTime {
     const NAME: &'static str = "SequencingToMinimizeWeightedCompletionTime";
-    type Metric = SolutionSize<u64>;
+    type Value = SolutionSize<u64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -227,7 +227,7 @@ impl Problem for SequencingToMinimizeWeightedCompletionTime {
 }
 
 impl OptimizationProblem for SequencingToMinimizeWeightedCompletionTime {
-    type Value = u64;
+    type Objective = u64;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

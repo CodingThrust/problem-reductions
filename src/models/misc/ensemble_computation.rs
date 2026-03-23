@@ -146,7 +146,7 @@ impl EnsembleComputation {
 
 impl Problem for EnsembleComputation {
     const NAME: &'static str = "EnsembleComputation";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.universe_size + self.budget; 2 * self.budget]

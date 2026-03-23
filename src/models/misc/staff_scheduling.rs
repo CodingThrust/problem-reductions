@@ -150,7 +150,7 @@ impl StaffScheduling {
 
 impl Problem for StaffScheduling {
     const NAME: &'static str = "StaffScheduling";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.worker_limit() + 1; self.num_schedules()]

@@ -135,7 +135,7 @@ impl ConsecutiveSets {
 
 impl Problem for ConsecutiveSets {
     const NAME: &'static str = "ConsecutiveSets";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         // Each position can be any symbol (0..alphabet_size-1) or "unused" (alphabet_size)

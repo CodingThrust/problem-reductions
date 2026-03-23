@@ -117,7 +117,7 @@ impl MinimumHittingSet {
 
 impl Problem for MinimumHittingSet {
     const NAME: &'static str = "MinimumHittingSet";
-    type Metric = SolutionSize<usize>;
+    type Value = SolutionSize<usize>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.universe_size]
@@ -144,7 +144,7 @@ impl Problem for MinimumHittingSet {
 }
 
 impl OptimizationProblem for MinimumHittingSet {
-    type Value = usize;
+    type Objective = usize;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

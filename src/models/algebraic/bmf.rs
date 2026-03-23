@@ -205,7 +205,7 @@ pub(crate) fn matrix_hamming_distance(a: &[Vec<bool>], b: &[Vec<bool>]) -> usize
 
 impl Problem for BMF {
     const NAME: &'static str = "BMF";
-    type Metric = SolutionSize<i32>;
+    type Value = SolutionSize<i32>;
 
     fn dims(&self) -> Vec<usize> {
         // B: m*k + C: k*n binary variables
@@ -224,7 +224,7 @@ impl Problem for BMF {
 }
 
 impl OptimizationProblem for BMF {
-    type Value = i32;
+    type Objective = i32;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

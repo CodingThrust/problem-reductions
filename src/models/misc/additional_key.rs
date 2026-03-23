@@ -192,7 +192,7 @@ impl AdditionalKey {
 
 impl Problem for AdditionalKey {
     const NAME: &'static str = "AdditionalKey";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

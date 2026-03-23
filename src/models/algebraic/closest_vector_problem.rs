@@ -240,7 +240,7 @@ where
         + 'static,
 {
     const NAME: &'static str = "ClosestVectorProblem";
-    type Metric = SolutionSize<f64>;
+    type Value = SolutionSize<f64>;
 
     fn dims(&self) -> Vec<usize> {
         self.bounds
@@ -284,7 +284,7 @@ where
         + std::fmt::Debug
         + 'static,
 {
-    type Value = f64;
+    type Objective = f64;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

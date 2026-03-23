@@ -145,7 +145,7 @@ impl TwoDimensionalConsecutiveSets {
 
 impl Problem for TwoDimensionalConsecutiveSets {
     const NAME: &'static str = "TwoDimensionalConsecutiveSets";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.alphabet_size; self.alphabet_size]

@@ -122,7 +122,7 @@ impl SequencingWithinIntervals {
 
 impl Problem for SequencingWithinIntervals {
     const NAME: &'static str = "SequencingWithinIntervals";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

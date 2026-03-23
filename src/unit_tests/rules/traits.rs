@@ -13,7 +13,7 @@ struct TargetProblem;
 
 impl Problem for SourceProblem {
     const NAME: &'static str = "Source";
-    type Metric = i32;
+    type Value = i32;
     fn dims(&self) -> Vec<usize> {
         vec![2, 2]
     }
@@ -27,7 +27,7 @@ impl Problem for SourceProblem {
 
 impl Problem for TargetProblem {
     const NAME: &'static str = "Target";
-    type Metric = i32;
+    type Value = i32;
     fn dims(&self) -> Vec<usize> {
         vec![2, 2]
     }

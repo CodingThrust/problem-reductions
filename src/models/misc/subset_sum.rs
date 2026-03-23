@@ -108,7 +108,7 @@ impl SubsetSum {
 
 impl Problem for SubsetSum {
     const NAME: &'static str = "SubsetSum";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

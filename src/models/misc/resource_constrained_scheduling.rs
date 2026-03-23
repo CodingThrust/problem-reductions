@@ -133,7 +133,7 @@ impl ResourceConstrainedScheduling {
 
 impl Problem for ResourceConstrainedScheduling {
     const NAME: &'static str = "ResourceConstrainedScheduling";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

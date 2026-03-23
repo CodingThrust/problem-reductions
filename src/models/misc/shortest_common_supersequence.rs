@@ -125,7 +125,7 @@ fn is_subsequence(needle: &[usize], haystack: &[usize]) -> bool {
 
 impl Problem for ShortestCommonSupersequence {
     const NAME: &'static str = "ShortestCommonSupersequence";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

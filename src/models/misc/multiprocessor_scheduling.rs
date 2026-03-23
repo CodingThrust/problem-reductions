@@ -105,7 +105,7 @@ impl MultiprocessorScheduling {
 
 impl Problem for MultiprocessorScheduling {
     const NAME: &'static str = "MultiprocessorScheduling";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

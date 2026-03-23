@@ -102,7 +102,7 @@ impl BalancedCompleteBipartiteSubgraph {
 
 impl Problem for BalancedCompleteBipartiteSubgraph {
     const NAME: &'static str = "BalancedCompleteBipartiteSubgraph";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_vertices()]

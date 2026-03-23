@@ -82,7 +82,7 @@ impl Partition {
 
 impl Problem for Partition {
     const NAME: &'static str = "Partition";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

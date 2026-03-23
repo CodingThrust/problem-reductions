@@ -1,75 +1,64 @@
 use super::*;
 use crate::solvers::Solver;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::Problem;
+use crate::types::{Max, Min, Or, Sum};
 
-// Simple maximization problem
 #[derive(Clone)]
-struct MaxSumOpt {
+struct MaxSumProblem {
     weights: Vec<i32>,
 }
 
-impl Problem for MaxSumOpt {
-    const NAME: &'static str = "MaxSumOpt";
-    type Metric = SolutionSize<i32>;
+impl Problem for MaxSumProblem {
+    const NAME: &'static str = "MaxSumProblem";
+    type Value = Max<i32>;
+
     fn dims(&self) -> Vec<usize> {
         vec![2; self.weights.len()]
     }
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
-        SolutionSize::Valid(
+
+    fn evaluate(&self, config: &[usize]) -> Self::Value {
+        Max(Some(
             config
                 .iter()
                 .zip(&self.weights)
                 .map(|(&c, &w)| if c == 1 { w } else { 0 })
                 .sum(),
-        )
+        ))
     }
+
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
 }
 
-impl OptimizationProblem for MaxSumOpt {
-    type Value = i32;
-    fn direction(&self) -> Direction {
-        Direction::Maximize
-    }
-}
-
-// Simple minimization problem
 #[derive(Clone)]
-struct MinSumOpt {
+struct MinSumProblem {
     weights: Vec<i32>,
 }
 
-impl Problem for MinSumOpt {
-    const NAME: &'static str = "MinSumOpt";
-    type Metric = SolutionSize<i32>;
+impl Problem for MinSumProblem {
+    const NAME: &'static str = "MinSumProblem";
+    type Value = Min<i32>;
+
     fn dims(&self) -> Vec<usize> {
         vec![2; self.weights.len()]
     }
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
-        SolutionSize::Valid(
+
+    fn evaluate(&self, config: &[usize]) -> Self::Value {
+        Min(Some(
             config
                 .iter()
                 .zip(&self.weights)
                 .map(|(&c, &w)| if c == 1 { w } else { 0 })
                 .sum(),
-        )
+        ))
     }
+
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
 }
 
-impl OptimizationProblem for MinSumOpt {
-    type Value = i32;
-    fn direction(&self) -> Direction {
-        Direction::Minimize
-    }
-}
-
-// Satisfaction problem (Metric = bool)
 #[derive(Clone)]
 struct SatProblem {
     num_vars: usize,
@@ -78,174 +67,143 @@ struct SatProblem {
 
 impl Problem for SatProblem {
     const NAME: &'static str = "SatProblem";
-    type Metric = bool;
+    type Value = Or;
+
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_vars]
     }
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.satisfying.iter().any(|s| s == config)
+
+    fn evaluate(&self, config: &[usize]) -> Self::Value {
+        Or(self.satisfying.iter().any(|s| s == config))
     }
+
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "bool")]
     }
 }
 
+#[derive(Clone)]
+struct SumProblem {
+    weights: Vec<u64>,
+}
+
+impl Problem for SumProblem {
+    const NAME: &'static str = "SumProblem";
+    type Value = Sum<u64>;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.weights.len()]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> Self::Value {
+        Sum(
+            config
+                .iter()
+                .zip(&self.weights)
+                .map(|(&c, &w)| if c == 1 { w } else { 0 })
+                .sum(),
+        )
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![("graph", "SimpleGraph"), ("weight", "u64")]
+    }
+}
+
 #[test]
-fn test_solver_maximization() {
-    let problem = MaxSumOpt {
+fn test_solver_solves_max_value() {
+    let problem = MaxSumProblem {
         weights: vec![1, 2, 3],
     };
     let solver = BruteForce::new();
 
-    let best = solver.find_all_best(&problem);
-    assert_eq!(best.len(), 1);
-    assert_eq!(best[0], vec![1, 1, 1]); // Select all for max sum = 6
+    assert_eq!(solver.solve(&problem), Max(Some(6)));
 }
 
 #[test]
-fn test_solver_minimization() {
-    let problem = MinSumOpt {
+fn test_solver_solves_min_value() {
+    let problem = MinSumProblem {
         weights: vec![1, 2, 3],
     };
     let solver = BruteForce::new();
 
-    let best = solver.find_all_best(&problem);
-    assert_eq!(best.len(), 1);
-    assert_eq!(best[0], vec![0, 0, 0]); // Select none for min sum = 0
+    assert_eq!(solver.solve(&problem), Min(Some(0)));
 }
 
 #[test]
-fn test_solver_multiple_optimal() {
-    // Two variables with equal weights -> multiple optima
-    let problem = MaxSumOpt {
-        weights: vec![5, 5],
-    };
-    let solver = BruteForce::new();
-
-    let best = solver.find_all_best(&problem);
-    assert_eq!(best.len(), 1);
-    assert_eq!(best[0], vec![1, 1]); // Only one optimal: select both = 10
-}
-
-#[test]
-fn test_solver_empty() {
-    let problem = MaxSumOpt { weights: vec![] };
-    let solver = BruteForce::new();
-
-    let best = solver.find_all_best(&problem);
-    assert_eq!(best, vec![Vec::<usize>::new()]);
-}
-
-#[test]
-fn test_solver_find_satisfying() {
+fn test_solver_solves_satisfaction_value() {
     let problem = SatProblem {
         num_vars: 2,
         satisfying: vec![vec![1, 0], vec![0, 1]],
     };
     let solver = BruteForce::new();
 
-    let solution = solver.find_satisfying(&problem);
-    assert!(solution.is_some());
-    let sol = solution.unwrap();
-    assert!(problem.evaluate(&sol));
+    assert_eq!(solver.solve(&problem), Or(true));
 }
 
 #[test]
-fn test_solver_find_satisfying_unsat() {
-    let problem = SatProblem {
-        num_vars: 2,
-        satisfying: vec![], // No satisfying assignment
+fn test_solver_find_witness() {
+    let problem = MaxSumProblem {
+        weights: vec![1, 2, 3],
     };
     let solver = BruteForce::new();
 
-    let solution = solver.find_satisfying(&problem);
-    assert!(solution.is_none());
+    assert_eq!(solver.find_witness(&problem), Some(vec![1, 1, 1]));
 }
 
 #[test]
-fn test_solver_find_all_satisfying() {
+fn test_solver_find_witness_for_satisfaction_problem() {
     let problem = SatProblem {
         num_vars: 2,
         satisfying: vec![vec![1, 0], vec![0, 1]],
     };
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_satisfying(&problem);
-    assert_eq!(solutions.len(), 2);
-    assert!(solutions.contains(&vec![1, 0]));
-    assert!(solutions.contains(&vec![0, 1]));
+    let witness = solver.find_witness(&problem);
+    assert!(witness.is_some());
+    assert_eq!(problem.evaluate(&witness.unwrap()), Or(true));
 }
 
 #[test]
-fn test_solver_find_satisfying_empty_dims_satisfiable() {
-    let problem = SatProblem {
-        num_vars: 0,
-        satisfying: vec![vec![]],
-    };
-    let solver = BruteForce::new();
-
-    assert_eq!(solver.find_satisfying(&problem), Some(vec![]));
-    assert_eq!(
-        solver.find_all_satisfying(&problem),
-        vec![Vec::<usize>::new()]
-    );
-}
-
-#[test]
-fn test_solver_find_satisfying_empty_dims_unsat() {
-    let problem = SatProblem {
-        num_vars: 0,
-        satisfying: vec![],
-    };
-    let solver = BruteForce::new();
-
-    assert_eq!(solver.find_satisfying(&problem), None);
-    assert_eq!(
-        solver.find_all_satisfying(&problem),
-        Vec::<Vec<usize>>::new()
-    );
-}
-
-#[test]
-fn test_find_best_returns_one_solution() {
-    let problem = MaxSumOpt {
+fn test_solver_find_witness_returns_none_for_sum_problem() {
+    let problem = SumProblem {
         weights: vec![1, 2, 3],
     };
     let solver = BruteForce::new();
 
-    let best = solver.find_best(&problem);
-    assert!(best.is_some());
-    assert_eq!(best.unwrap(), vec![1, 1, 1]);
+    assert_eq!(solver.find_witness(&problem), None);
 }
 
 #[test]
-fn test_find_best_empty_problem() {
-    let problem = MaxSumOpt { weights: vec![] };
+fn test_solver_find_all_witnesses() {
+    let problem = SatProblem {
+        num_vars: 2,
+        satisfying: vec![vec![1, 0], vec![0, 1]],
+    };
     let solver = BruteForce::new();
 
-    let best = solver.find_best(&problem);
-    assert_eq!(best, Some(vec![]));
+    let witnesses = solver.find_all_witnesses(&problem);
+    assert_eq!(witnesses.len(), 2);
+    assert!(witnesses.contains(&vec![1, 0]));
+    assert!(witnesses.contains(&vec![0, 1]));
 }
 
 #[test]
-fn test_find_best_minimization() {
-    let problem = MinSumOpt {
+fn test_solver_find_all_witnesses_returns_empty_for_sum_problem() {
+    let problem = SumProblem {
         weights: vec![1, 2, 3],
     };
     let solver = BruteForce::new();
 
-    let best = solver.find_best(&problem);
-    assert!(best.is_some());
-    assert_eq!(best.unwrap(), vec![0, 0, 0]);
+    assert!(solver.find_all_witnesses(&problem).is_empty());
 }
 
 #[test]
 fn test_solver_with_real_mis() {
     use crate::models::graph::MaximumIndependentSet;
-    use crate::topology::SimpleGraph;
     use crate::traits::Problem;
+    use crate::topology::SimpleGraph;
 
-    // Triangle graph: MIS = 1
     let problem = MaximumIndependentSet::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![1i32; 3],
@@ -253,7 +211,7 @@ fn test_solver_with_real_mis() {
     let solver = BruteForce::new();
 
     let best = solver.find_all_best(&problem);
-    assert_eq!(best.len(), 3); // Three single-vertex solutions
+    assert_eq!(best.len(), 3);
     for sol in &best {
         assert_eq!(sol.iter().sum::<usize>(), 1);
         assert!(problem.evaluate(sol).is_valid());
@@ -265,7 +223,6 @@ fn test_solver_with_real_sat() {
     use crate::models::formula::{CNFClause, Satisfiability};
     use crate::traits::Problem;
 
-    // (x1 OR x2) AND (NOT x1 OR NOT x2)
     let problem = Satisfiability::new(
         2,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],

@@ -173,7 +173,7 @@ impl ConsecutiveOnesSubmatrix {
 
 impl Problem for ConsecutiveOnesSubmatrix {
     const NAME: &'static str = "ConsecutiveOnesSubmatrix";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

@@ -152,7 +152,7 @@ impl IntegralFlowHomologousArcs {
 
 impl Problem for IntegralFlowHomologousArcs {
     const NAME: &'static str = "IntegralFlowHomologousArcs";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

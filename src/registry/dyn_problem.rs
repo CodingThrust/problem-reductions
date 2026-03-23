@@ -31,7 +31,7 @@ pub trait DynProblem: Any {
 impl<T> DynProblem for T
 where
     T: Problem + Serialize + 'static,
-    T::Metric: fmt::Debug + Serialize,
+    T::Value: fmt::Debug + Serialize,
 {
     fn evaluate_dyn(&self, config: &[usize]) -> String {
         format!("{:?}", self.evaluate(config))

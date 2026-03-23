@@ -202,7 +202,7 @@ impl IntegralFlowBundles {
 
 impl Problem for IntegralFlowBundles {
     const NAME: &'static str = "IntegralFlowBundles";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         self.arc_upper_bounds()

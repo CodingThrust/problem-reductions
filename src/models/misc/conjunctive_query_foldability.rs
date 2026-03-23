@@ -262,7 +262,7 @@ impl ConjunctiveQueryFoldability {
 
 impl Problem for ConjunctiveQueryFoldability {
     const NAME: &'static str = "ConjunctiveQueryFoldability";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

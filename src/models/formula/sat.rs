@@ -180,7 +180,7 @@ impl Satisfiability {
 
 impl Problem for Satisfiability {
     const NAME: &'static str = "Satisfiability";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_vars]

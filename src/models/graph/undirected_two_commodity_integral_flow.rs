@@ -218,7 +218,7 @@ impl UndirectedTwoCommodityIntegralFlow {
 
 impl Problem for UndirectedTwoCommodityIntegralFlow {
     const NAME: &'static str = "UndirectedTwoCommodityIntegralFlow";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

@@ -125,7 +125,7 @@ impl MinimumTardinessSequencing {
 
 impl Problem for MinimumTardinessSequencing {
     const NAME: &'static str = "MinimumTardinessSequencing";
-    type Metric = SolutionSize<usize>;
+    type Value = SolutionSize<usize>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -179,7 +179,7 @@ impl Problem for MinimumTardinessSequencing {
 }
 
 impl OptimizationProblem for MinimumTardinessSequencing {
-    type Value = usize;
+    type Objective = usize;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

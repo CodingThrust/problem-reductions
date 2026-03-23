@@ -303,7 +303,7 @@ impl TimetableDesign {
 
 impl Problem for TimetableDesign {
     const NAME: &'static str = "TimetableDesign";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.config_len()]

@@ -91,7 +91,7 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "PartitionIntoTriangles";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]

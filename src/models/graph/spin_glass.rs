@@ -220,7 +220,7 @@ where
         + From<i32>,
 {
     const NAME: &'static str = "SpinGlass";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = SolutionSize<W::Sum>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.graph.num_vertices()]
@@ -249,7 +249,7 @@ where
         + std::ops::Mul<Output = W>
         + From<i32>,
 {
-    type Value = W::Sum;
+    type Objective = W::Sum;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

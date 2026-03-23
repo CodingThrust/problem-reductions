@@ -139,7 +139,7 @@ impl StringToStringCorrection {
 
 impl Problem for StringToStringCorrection {
     const NAME: &'static str = "StringToStringCorrection";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

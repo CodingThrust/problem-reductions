@@ -126,7 +126,7 @@ impl ExpectedRetrievalCost {
 
 impl Problem for ExpectedRetrievalCost {
     const NAME: &'static str = "ExpectedRetrievalCost";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

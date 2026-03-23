@@ -143,7 +143,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumSetCovering";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = SolutionSize<W::Sum>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.sets.len()]
@@ -174,7 +174,7 @@ impl<W> OptimizationProblem for MinimumSetCovering<W>
 where
     W: WeightElement + crate::variant::VariantParam,
 {
-    type Value = W::Sum;
+    type Objective = W::Sum;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

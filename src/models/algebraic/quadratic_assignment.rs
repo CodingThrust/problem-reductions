@@ -115,7 +115,7 @@ impl QuadraticAssignment {
 
 impl Problem for QuadraticAssignment {
     const NAME: &'static str = "QuadraticAssignment";
-    type Metric = SolutionSize<i64>;
+    type Value = SolutionSize<i64>;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.num_locations(); self.num_facilities()]
@@ -165,7 +165,7 @@ impl Problem for QuadraticAssignment {
 }
 
 impl OptimizationProblem for QuadraticAssignment {
-    type Value = i64;
+    type Objective = i64;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

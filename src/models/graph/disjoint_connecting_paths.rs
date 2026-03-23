@@ -117,7 +117,7 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "DisjointConnectingPaths";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]

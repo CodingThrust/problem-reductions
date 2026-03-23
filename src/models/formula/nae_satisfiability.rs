@@ -135,7 +135,7 @@ impl NAESatisfiability {
 
 impl Problem for NAESatisfiability {
     const NAME: &'static str = "NAESatisfiability";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_vars]

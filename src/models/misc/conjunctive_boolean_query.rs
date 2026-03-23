@@ -191,7 +191,7 @@ impl ConjunctiveBooleanQuery {
 
 impl Problem for ConjunctiveBooleanQuery {
     const NAME: &'static str = "ConjunctiveBooleanQuery";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

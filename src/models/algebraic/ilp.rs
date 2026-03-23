@@ -244,7 +244,7 @@ impl<V: VariableDomain> ILP<V> {
 
 impl<V: VariableDomain> Problem for ILP<V> {
     const NAME: &'static str = "ILP";
-    type Metric = SolutionSize<f64>;
+    type Value = SolutionSize<f64>;
 
     fn dims(&self) -> Vec<usize> {
         vec![V::DIMS_PER_VAR; self.num_vars]
@@ -264,7 +264,7 @@ impl<V: VariableDomain> Problem for ILP<V> {
 }
 
 impl<V: VariableDomain> OptimizationProblem for ILP<V> {
-    type Value = f64;
+    type Objective = f64;
 
     fn direction(&self) -> Direction {
         match self.sense {

@@ -98,7 +98,7 @@ impl BottleneckTravelingSalesman {
 
 impl Problem for BottleneckTravelingSalesman {
     const NAME: &'static str = "BottleneckTravelingSalesman";
-    type Metric = SolutionSize<i32>;
+    type Value = SolutionSize<i32>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -130,7 +130,7 @@ impl Problem for BottleneckTravelingSalesman {
 }
 
 impl OptimizationProblem for BottleneckTravelingSalesman {
-    type Value = i32;
+    type Objective = i32;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

@@ -216,7 +216,7 @@ impl UndirectedFlowLowerBounds {
 
 impl Problem for UndirectedFlowLowerBounds {
     const NAME: &'static str = "UndirectedFlowLowerBounds";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

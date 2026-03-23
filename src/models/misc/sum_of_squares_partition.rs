@@ -164,7 +164,7 @@ impl<'de> Deserialize<'de> for SumOfSquaresPartition {
 
 impl Problem for SumOfSquaresPartition {
     const NAME: &'static str = "SumOfSquaresPartition";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

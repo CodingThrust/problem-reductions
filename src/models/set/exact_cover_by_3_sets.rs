@@ -143,7 +143,7 @@ impl ExactCoverBy3Sets {
 
 impl Problem for ExactCoverBy3Sets {
     const NAME: &'static str = "ExactCoverBy3Sets";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.subsets.len()]

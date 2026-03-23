@@ -218,7 +218,7 @@ where
     W: WeightElement<Sum = i32> + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MixedChinesePostman";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]

@@ -106,7 +106,7 @@ impl SequencingWithReleaseTimesAndDeadlines {
 
 impl Problem for SequencingWithReleaseTimesAndDeadlines {
     const NAME: &'static str = "SequencingWithReleaseTimesAndDeadlines";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

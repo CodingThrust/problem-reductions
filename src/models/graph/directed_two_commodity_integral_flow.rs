@@ -244,7 +244,7 @@ impl DirectedTwoCommodityIntegralFlow {
 
 impl Problem for DirectedTwoCommodityIntegralFlow {
     const NAME: &'static str = "DirectedTwoCommodityIntegralFlow";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         self.capacities

@@ -125,7 +125,7 @@ impl IsomorphicSpanningTree {
 
 impl Problem for IsomorphicSpanningTree {
     const NAME: &'static str = "IsomorphicSpanningTree";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         let n = self.graph.num_vertices();

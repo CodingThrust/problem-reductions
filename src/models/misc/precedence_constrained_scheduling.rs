@@ -118,7 +118,7 @@ impl PrecedenceConstrainedScheduling {
 
 impl Problem for PrecedenceConstrainedScheduling {
     const NAME: &'static str = "PrecedenceConstrainedScheduling";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

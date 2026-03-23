@@ -195,7 +195,7 @@ impl IntegralFlowWithMultipliers {
 
 impl Problem for IntegralFlowWithMultipliers {
     const NAME: &'static str = "IntegralFlowWithMultipliers";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         self.capacities

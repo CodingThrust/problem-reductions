@@ -160,7 +160,7 @@ impl FlowShopScheduling {
 
 impl Problem for FlowShopScheduling {
     const NAME: &'static str = "FlowShopScheduling";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

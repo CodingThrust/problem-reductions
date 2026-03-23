@@ -158,7 +158,7 @@ where
         + std::ops::Mul<Output = W>,
 {
     const NAME: &'static str = "QUBO";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = SolutionSize<W::Sum>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_vars]
@@ -184,7 +184,7 @@ where
         + std::ops::AddAssign
         + std::ops::Mul<Output = W>,
 {
-    type Value = W::Sum;
+    type Objective = W::Sum;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

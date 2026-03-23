@@ -278,7 +278,7 @@ impl ConsistencyOfDatabaseFrequencyTables {
 
 impl Problem for ConsistencyOfDatabaseFrequencyTables {
     const NAME: &'static str = "ConsistencyOfDatabaseFrequencyTables";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

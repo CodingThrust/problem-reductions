@@ -164,7 +164,7 @@ impl MinimumDummyActivitiesPert {
 
 impl Problem for MinimumDummyActivitiesPert {
     const NAME: &'static str = "MinimumDummyActivitiesPert";
-    type Metric = SolutionSize<i32>;
+    type Value = SolutionSize<i32>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -201,7 +201,7 @@ impl Problem for MinimumDummyActivitiesPert {
 }
 
 impl OptimizationProblem for MinimumDummyActivitiesPert {
-    type Value = i32;
+    type Objective = i32;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

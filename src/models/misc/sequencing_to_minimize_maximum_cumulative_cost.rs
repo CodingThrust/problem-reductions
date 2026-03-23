@@ -153,7 +153,7 @@ fn precedence_validation_error(precedences: &[(usize, usize)], num_tasks: usize)
 
 impl Problem for SequencingToMinimizeMaximumCumulativeCost {
     const NAME: &'static str = "SequencingToMinimizeMaximumCumulativeCost";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

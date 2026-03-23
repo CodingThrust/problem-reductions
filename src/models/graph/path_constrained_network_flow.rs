@@ -216,7 +216,7 @@ impl PathConstrainedNetworkFlow {
 
 impl Problem for PathConstrainedNetworkFlow {
     const NAME: &'static str = "PathConstrainedNetworkFlow";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         self.paths

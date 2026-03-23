@@ -155,7 +155,7 @@ impl CapacityAssignment {
 
 impl Problem for CapacityAssignment {
     const NAME: &'static str = "CapacityAssignment";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.num_capacities(); self.num_links()]

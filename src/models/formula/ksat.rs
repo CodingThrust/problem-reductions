@@ -168,7 +168,7 @@ impl<K: KValue> KSatisfiability<K> {
 
 impl<K: KValue> Problem for KSatisfiability<K> {
     const NAME: &'static str = "KSatisfiability";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_vars]

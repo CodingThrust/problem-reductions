@@ -122,7 +122,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumFeedbackVertexSet";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = SolutionSize<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
@@ -156,7 +156,7 @@ impl<W> OptimizationProblem for MinimumFeedbackVertexSet<W>
 where
     W: WeightElement + crate::variant::VariantParam,
 {
-    type Value = W::Sum;
+    type Objective = W::Sum;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

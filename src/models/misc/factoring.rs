@@ -134,7 +134,7 @@ pub(crate) fn is_factoring(target: u64, a: u64, b: u64) -> bool {
 
 impl Problem for Factoring {
     const NAME: &'static str = "Factoring";
-    type Metric = SolutionSize<i32>;
+    type Value = SolutionSize<i32>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.m + self.n]
@@ -158,7 +158,7 @@ impl Problem for Factoring {
 }
 
 impl OptimizationProblem for Factoring {
-    type Value = i32;
+    type Objective = i32;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

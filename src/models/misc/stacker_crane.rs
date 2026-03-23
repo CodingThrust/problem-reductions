@@ -259,7 +259,7 @@ impl StackerCrane {
 
 impl Problem for StackerCrane {
     const NAME: &'static str = "StackerCrane";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

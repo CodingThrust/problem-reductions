@@ -168,7 +168,7 @@ pub(crate) fn count_paint_switches(coloring: &[usize]) -> usize {
 
 impl Problem for PaintShop {
     const NAME: &'static str = "PaintShop";
-    type Metric = SolutionSize<i32>;
+    type Value = SolutionSize<i32>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_cars]
@@ -185,7 +185,7 @@ impl Problem for PaintShop {
 }
 
 impl OptimizationProblem for PaintShop {
-    type Value = i32;
+    type Objective = i32;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

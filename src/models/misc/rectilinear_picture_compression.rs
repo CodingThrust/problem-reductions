@@ -234,7 +234,7 @@ impl RectilinearPictureCompression {
 
 impl Problem for RectilinearPictureCompression {
     const NAME: &'static str = "RectilinearPictureCompression";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

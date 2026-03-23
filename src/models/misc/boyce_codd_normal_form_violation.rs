@@ -176,7 +176,7 @@ impl BoyceCoddNormalFormViolation {
 
 impl Problem for BoyceCoddNormalFormViolation {
     const NAME: &'static str = "BoyceCoddNormalFormViolation";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.target_subset.len()]

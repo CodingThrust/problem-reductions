@@ -161,7 +161,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumMultiwayCut";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = SolutionSize<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -192,7 +192,7 @@ where
     G: Graph + crate::variant::VariantParam,
     W: WeightElement + crate::variant::VariantParam,
 {
-    type Value = W::Sum;
+    type Objective = W::Sum;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

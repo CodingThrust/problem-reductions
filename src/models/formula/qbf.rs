@@ -157,7 +157,7 @@ impl QuantifiedBooleanFormulas {
 
 impl Problem for QuantifiedBooleanFormulas {
     const NAME: &'static str = "QuantifiedBooleanFormulas";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![]

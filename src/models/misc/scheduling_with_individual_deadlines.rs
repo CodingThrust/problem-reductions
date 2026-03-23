@@ -102,7 +102,7 @@ impl SchedulingWithIndividualDeadlines {
 
 impl Problem for SchedulingWithIndividualDeadlines {
     const NAME: &'static str = "SchedulingWithIndividualDeadlines";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

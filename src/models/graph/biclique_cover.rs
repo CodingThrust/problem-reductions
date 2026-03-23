@@ -219,7 +219,7 @@ pub(crate) fn is_biclique_cover(
 
 impl Problem for BicliqueCover {
     const NAME: &'static str = "BicliqueCover";
-    type Metric = SolutionSize<i32>;
+    type Value = SolutionSize<i32>;
 
     fn dims(&self) -> Vec<usize> {
         // Each vertex has k binary variables (one per biclique)
@@ -239,7 +239,7 @@ impl Problem for BicliqueCover {
 }
 
 impl OptimizationProblem for BicliqueCover {
-    type Value = i32;
+    type Objective = i32;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

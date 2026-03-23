@@ -153,7 +153,7 @@ impl SequencingToMinimizeWeightedTardiness {
 
 impl Problem for SequencingToMinimizeWeightedTardiness {
     const NAME: &'static str = "SequencingToMinimizeWeightedTardiness";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]

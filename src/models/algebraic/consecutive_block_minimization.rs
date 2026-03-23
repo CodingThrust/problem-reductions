@@ -156,7 +156,7 @@ impl ConsecutiveBlockMinimization {
 
 impl Problem for ConsecutiveBlockMinimization {
     const NAME: &'static str = "ConsecutiveBlockMinimization";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.num_cols; self.num_cols]

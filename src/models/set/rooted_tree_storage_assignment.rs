@@ -174,7 +174,7 @@ impl RootedTreeStorageAssignment {
 
 impl Problem for RootedTreeStorageAssignment {
     const NAME: &'static str = "RootedTreeStorageAssignment";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.universe_size; self.universe_size]
