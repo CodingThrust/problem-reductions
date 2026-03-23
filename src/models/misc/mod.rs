@@ -11,6 +11,7 @@
 //! - [`Factoring`]: Integer factorization
 //! - [`FlowShopScheduling`]: Flow Shop Scheduling (meet deadline on m processors)
 //! - [`GroupingBySwapping`]: Group equal symbols into contiguous blocks by adjacent swaps
+//! - [`JobShopScheduling`]: Meet a deadline with per-job processor routes
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
 //! - [`MultiprocessorScheduling`]: Schedule tasks on processors to meet a deadline
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
@@ -46,6 +47,7 @@ pub(crate) mod expected_retrieval_cost;
 pub(crate) mod factoring;
 mod flow_shop_scheduling;
 mod grouping_by_swapping;
+mod job_shop_scheduling;
 mod knapsack;
 mod longest_common_subsequence;
 mod minimum_tardiness_sequencing;
@@ -84,6 +86,7 @@ pub use expected_retrieval_cost::ExpectedRetrievalCost;
 pub use factoring::Factoring;
 pub use flow_shop_scheduling::FlowShopScheduling;
 pub use grouping_by_swapping::GroupingBySwapping;
+pub use job_shop_scheduling::JobShopScheduling;
 pub use knapsack::Knapsack;
 pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
@@ -141,6 +144,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(sequencing_to_minimize_maximum_cumulative_cost::canonical_model_example_specs());
     specs.extend(sum_of_squares_partition::canonical_model_example_specs());
     specs.extend(precedence_constrained_scheduling::canonical_model_example_specs());
+    specs.extend(job_shop_scheduling::canonical_model_example_specs());
     specs.extend(sequencing_with_release_times_and_deadlines::canonical_model_example_specs());
     specs.extend(flow_shop_scheduling::canonical_model_example_specs());
     specs.extend(bin_packing::canonical_model_example_specs());

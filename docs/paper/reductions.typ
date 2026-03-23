@@ -145,6 +145,7 @@
   "IntegralFlowWithMultipliers": [Integral Flow With Multipliers],
   "MinMaxMulticenter": [Min-Max Multicenter],
   "FlowShopScheduling": [Flow Shop Scheduling],
+  "JobShopScheduling": [Job-Shop Scheduling],
   "GroupingBySwapping": [Grouping by Swapping],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
   "MinimumDummyActivitiesPert": [Minimum Dummy Activities in PERT Networks],
@@ -5122,6 +5123,97 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }),
         caption: [Flow shop schedule for #n jobs on #m machines. Job order $(#job-order.map(j => $j_#(j + 1)$).join($,$))$ achieves makespan #makespan, within deadline $D = #D$ (dashed red line).],
       ) <fig:flowshop>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("JobShopScheduling")
+  let D = x.instance.deadline
+  let blocks = (
+    (0, 0, 0, 0, 3),
+    (0, 1, 1, 3, 6),
+    (0, 2, 0, 6, 10),
+    (0, 3, 1, 10, 12),
+    (0, 4, 0, 12, 14),
+    (0, 4, 2, 17, 18),
+    (1, 1, 0, 0, 2),
+    (1, 3, 0, 2, 7),
+    (1, 0, 1, 7, 11),
+    (1, 2, 1, 11, 14),
+    (1, 4, 1, 14, 17),
+    (1, 1, 2, 17, 19),
+  )
+  let makespan = 19
+  [
+    #problem-def("JobShopScheduling")[
+      Given a positive integer $m$, a set $J$ of jobs, where each job $j in J$ consists of an ordered list of tasks $t_1[j], dots, t_(n_j)[j]$ with processor assignments $p(t_k[j]) in {1, dots, m}$, processing lengths $ell(t_k[j]) in ZZ^+_0$, consecutive-processor constraint $p(t_k[j]) != p(t_(k+1)[j])$, and a deadline $D in ZZ^+$, find start times $sigma(t_k[j]) in ZZ^+_0$ such that tasks sharing a processor do not overlap, each job respects $sigma(t_(k+1)[j]) >= sigma(t_k[j]) + ell(t_k[j])$, and every job finishes by time $D$.
+    ][
+      Job-Shop Scheduling is the classical disjunctive scheduling problem SS18 in Garey & Johnson; Garey, Johnson, and Sethi proved it strongly NP-complete already for two machines @garey1976. Unlike Flow Shop Scheduling, each job carries its own machine route, so the difficulty lies in choosing a compatible relative order on every machine and then checking whether those local orders admit global start times. This implementation follows the original Garey-Johnson formulation, including the requirement that consecutive tasks of the same job use different processors, and evaluates a witness by orienting the machine-order edges and propagating longest paths through the resulting precedence DAG. The registered baseline therefore exposes a factorial upper bound over task orders#footnote[The auto-generated complexity table records the concrete upper bound used by the Rust implementation; no sharper exact bound is cited here.].
+
+      *Example.* The canonical fixture has two machines, deadline $D = #D$, and five jobs
+      $
+        J_1 = ((M_1, 3), (M_2, 4)),
+        J_2 = ((M_2, 2), (M_1, 3), (M_2, 2)),
+        J_3 = ((M_1, 4), (M_2, 3)),
+        J_4 = ((M_2, 5), (M_1, 2)),
+        J_5 = ((M_1, 2), (M_2, 3), (M_1, 1)).
+      $
+      The witness stored in the example DB orders the six tasks on $M_1$ as $(J_1^1, J_2^2, J_3^1, J_4^2, J_5^1, J_5^3)$ and the six tasks on $M_2$ as $(J_2^1, J_4^1, J_1^2, J_3^2, J_5^2, J_2^3)$. Taking the earliest schedule consistent with those machine orders yields the Gantt chart in @fig:jobshop, whose last completion time is $#makespan <= #D$, so the verifier returns YES.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o job-shop-scheduling.json",
+        "pred solve job-shop-scheduling.json --solver brute-force",
+        "pred evaluate job-shop-scheduling.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"))
+          let scale = 0.38
+          let row-h = 0.6
+          let gap = 0.15
+
+          for mi in range(2) {
+            let y = -mi * (row-h + gap)
+            content((-0.8, y), text(8pt, "M" + str(mi + 1)))
+          }
+
+          for block in blocks {
+            let (mi, ji, ti, s, e) = block
+            let x0 = s * scale
+            let x1 = e * scale
+            let y = -mi * (row-h + gap)
+            rect(
+              (x0, y - row-h / 2),
+              (x1, y + row-h / 2),
+              fill: colors.at(ji).transparentize(30%),
+              stroke: 0.4pt + colors.at(ji),
+            )
+            content(((x0 + x1) / 2, y), text(6pt, "j" + str(ji + 1) + "." + str(ti + 1)))
+          }
+
+          let y-axis = -(2 - 1) * (row-h + gap) - row-h / 2 - 0.2
+          line((0, y-axis), (makespan * scale, y-axis), stroke: 0.4pt)
+          for t in range(calc.ceil(makespan / 5) + 1).map(i => calc.min(i * 5, makespan)) {
+            let x = t * scale
+            line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
+            content((x, y-axis - 0.25), text(6pt, str(t)))
+          }
+          if calc.rem(makespan, 5) != 0 {
+            let x = makespan * scale
+            line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
+            content((x, y-axis - 0.25), text(6pt, str(makespan)))
+          }
+          content((makespan * scale / 2, y-axis - 0.5), text(7pt)[$t$])
+
+          let dl-x = D * scale
+          line((dl-x, row-h / 2 + 0.1), (dl-x, y-axis), stroke: (paint: red, thickness: 0.8pt, dash: "dashed"))
+          content((dl-x, row-h / 2 + 0.25), text(6pt, fill: red)[$D = #D$])
+        }),
+        caption: [Job-shop schedule induced by the canonical machine-order witness. The final completion time is #makespan, which stays to the left of the deadline marker $D = #D$.],
+      ) <fig:jobshop>
     ]
   ]
 }

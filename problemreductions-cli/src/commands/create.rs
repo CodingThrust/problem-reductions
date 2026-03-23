@@ -22,14 +22,14 @@ use problemreductions::models::graph::{
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
     ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
-    ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping, KnownValue,
-    LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
-    PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
-    ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
-    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
-    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
-    SumOfSquaresPartition, TimetableDesign,
+    ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping,
+    JobShopScheduling, KnownValue, LongestCommonSubsequence, MinimumTardinessSequencing,
+    MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, QueryArg,
+    RectilinearPictureCompression, ResourceConstrainedScheduling,
+    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -150,6 +150,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.resource_bounds.is_none()
         && args.resource_requirements.is_none()
         && args.task_lengths.is_none()
+        && args.job_tasks.is_none()
         && args.deadline.is_none()
         && args.num_processors.is_none()
         && args.schedules.is_none()
@@ -449,6 +450,51 @@ fn parse_precedence_pairs(raw: Option<&str>) -> Result<Vec<(usize, usize)>> {
         .unwrap_or_else(|| Ok(vec![]))
 }
 
+fn parse_job_shop_jobs(raw: &str) -> Result<Vec<Vec<(usize, u64)>>> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return Ok(vec![]);
+    }
+
+    raw.split(';')
+        .enumerate()
+        .map(|(job_index, job_str)| {
+            let job_str = job_str.trim();
+            anyhow::ensure!(
+                !job_str.is_empty(),
+                "Invalid --job-tasks value: empty job at position {}",
+                job_index
+            );
+
+            job_str
+                .split(',')
+                .map(|task_str| {
+                    let task_str = task_str.trim();
+                    let (processor, length) = task_str.split_once(':').ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Invalid --job-tasks operation '{}': expected 'processor:length'",
+                            task_str
+                        )
+                    })?;
+                    let processor = processor.trim().parse::<usize>().map_err(|_| {
+                        anyhow::anyhow!(
+                            "Invalid --job-tasks operation '{}': processor must be a nonnegative integer",
+                            task_str
+                        )
+                    })?;
+                    let length = length.trim().parse::<u64>().map_err(|_| {
+                        anyhow::anyhow!(
+                            "Invalid --job-tasks operation '{}': length must be a nonnegative integer",
+                            task_str
+                        )
+                    })?;
+                    Ok((processor, length))
+                })
+                .collect()
+        })
+        .collect()
+}
+
 fn validate_precedence_pairs(precedences: &[(usize, usize)], num_tasks: usize) -> Result<()> {
     for &(pred, succ) in precedences {
         anyhow::ensure!(
@@ -620,6 +666,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12"
         }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
+        "JobShopScheduling" => {
+            "--job-tasks \"0:3,1:4;1:2,0:3,1:2;0:4,1:3;1:5,0:2;0:2,1:3,0:1\" --deadline 20 --num-processors 2"
+        }
         "MinimumMultiwayCut" => "--graph 0-1,1-2,2-3 --terminals 0,2 --edge-weights 1,1,1",
         "ExpectedRetrievalCost" => EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS,
         "SequencingWithinIntervals" => "--release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1",
@@ -735,9 +784,11 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
         ("FlowShopScheduling", "num_processors")
+        | ("JobShopScheduling", "num_processors")
         | ("SchedulingWithIndividualDeadlines", "num_processors") => {
             return "num-processors/--m".to_string();
         }
+        ("JobShopScheduling", "jobs") => return "job-tasks".to_string(),
         ("LengthBoundedDisjointPaths", "max_length") => return "bound".to_string(),
         ("RectilinearPictureCompression", "bound") => return "bound".to_string(),
         ("PrimeAttributeName", "num_attributes") => return "universe".to_string(),
@@ -3556,6 +3607,51 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     task_lengths,
                     deadline,
                 ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // JobShopScheduling
+        "JobShopScheduling" => {
+            let usage = "Usage: pred create JobShopScheduling --job-tasks \"0:3,1:4;1:2,0:3,1:2;0:4,1:3\" --deadline 20 --num-processors 2";
+            let job_tasks = args.job_tasks.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("JobShopScheduling requires --job-tasks and --deadline\n\n{usage}")
+            })?;
+            let deadline = args.deadline.ok_or_else(|| {
+                anyhow::anyhow!("JobShopScheduling requires --deadline\n\n{usage}")
+            })?;
+            let jobs = parse_job_shop_jobs(job_tasks)?;
+            let inferred_processors = jobs
+                .iter()
+                .flat_map(|job| job.iter().map(|(processor, _)| *processor))
+                .max()
+                .map(|processor| processor + 1);
+            let num_processors = resolve_processor_count_flags(
+                "JobShopScheduling",
+                usage,
+                args.num_processors,
+                args.m,
+            )?
+            .or(inferred_processors)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Cannot infer num_processors from empty job list; use --num-processors"
+                )
+            })?;
+            anyhow::ensure!(
+                num_processors > 0,
+                "JobShopScheduling requires --num-processors > 0\n\n{usage}"
+            );
+            for (job_index, job) in jobs.iter().enumerate() {
+                for (task_index, &(processor, _)) in job.iter().enumerate() {
+                    anyhow::ensure!(
+                        processor < num_processors,
+                        "job {job_index} task {task_index} uses processor {processor}, but num_processors = {num_processors}"
+                    );
+                }
+            }
+            (
+                ser(JobShopScheduling::new(num_processors, jobs, deadline))?,
                 resolved_variant.clone(),
             )
         }
@@ -7311,6 +7407,7 @@ mod tests {
             deadlines: None,
             precedence_pairs: None,
             task_lengths: None,
+            job_tasks: None,
             resource_bounds: None,
             resource_requirements: None,
             deadline: None,
@@ -7376,6 +7473,13 @@ mod tests {
     fn test_all_data_flags_empty_treats_homologous_pairs_as_input() {
         let mut args = empty_args();
         args.homologous_pairs = Some("2=5;4=3".to_string());
+        assert!(!all_data_flags_empty(&args));
+    }
+
+    #[test]
+    fn test_all_data_flags_empty_treats_job_tasks_as_input() {
+        let mut args = empty_args();
+        args.job_tasks = Some("0:1,1:1;1:1,0:1".to_string());
         assert!(!all_data_flags_empty(&args));
     }
 
@@ -7711,6 +7815,75 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("ExpectedRetrievalCost requires --latency-bound"));
+    }
+
+    #[test]
+    fn test_create_job_shop_scheduling_json() {
+        use crate::dispatch::ProblemJsonOutput;
+        use problemreductions::models::misc::JobShopScheduling;
+
+        let mut args = empty_args();
+        args.problem = Some("JobShopScheduling".to_string());
+        args.job_tasks = Some("0:3,1:4;1:2,0:3,1:2;0:4,1:3;1:5,0:2;0:2,1:3,0:1".to_string());
+        args.deadline = Some(20);
+
+        let output_path =
+            std::env::temp_dir().join(format!("job-shop-scheduling-{}.json", std::process::id()));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = std::fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "JobShopScheduling");
+        assert!(created.variant.is_empty());
+
+        let problem: JobShopScheduling = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.num_processors(), 2);
+        assert_eq!(problem.num_jobs(), 5);
+        assert!(problem.evaluate(&[0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0]));
+
+        let _ = std::fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_job_shop_scheduling_requires_job_tasks() {
+        let mut args = empty_args();
+        args.problem = Some("JobShopScheduling".to_string());
+        args.deadline = Some(20);
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("JobShopScheduling requires --job-tasks"));
+    }
+
+    #[test]
+    fn test_create_job_shop_scheduling_rejects_malformed_operation() {
+        let mut args = empty_args();
+        args.problem = Some("JobShopScheduling".to_string());
+        args.job_tasks = Some("0-3,1:4".to_string());
+        args.deadline = Some(20);
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("expected 'processor:length'"));
     }
 
     #[test]

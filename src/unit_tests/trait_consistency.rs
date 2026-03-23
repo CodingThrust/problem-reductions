@@ -202,6 +202,10 @@ fn test_all_problems_implement_trait_correctly() {
         "FlowShopScheduling",
     );
     check_problem_trait(
+        &JobShopScheduling::new(2, vec![vec![(0, 1), (1, 1)], vec![(1, 1), (0, 1)]], 2),
+        "JobShopScheduling",
+    );
+    check_problem_trait(
         &SequencingToMinimizeWeightedTardiness::new(vec![3, 4, 2], vec![2, 3, 1], vec![5, 8, 4], 4),
         "SequencingToMinimizeWeightedTardiness",
     );
