@@ -52,6 +52,8 @@ pub mod unitdiskmapping;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod binpacking_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod capacityassignment_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod circuit_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod coloring_ilp;
@@ -59,6 +61,8 @@ pub(crate) mod coloring_ilp;
 pub(crate) mod consistencyofdatabasefrequencytables_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod exactcoverby3sets_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod expectedretrievalcost_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod factoring_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -92,7 +96,11 @@ pub(crate) mod minimumdominatingset_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumfeedbackarcset_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod minmaxmulticenter_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumsummulticenter_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod multiprocessorscheduling_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod multiplecopyfileallocation_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -106,6 +114,10 @@ pub(crate) mod minimumsetcovering_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod partiallyorderedknapsack_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod partitionintopathsoflength2_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod partitionintotriangles_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod qubo_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod rectilinearpicturecompression_ilp;
@@ -116,7 +128,21 @@ pub(crate) mod shortestweightconstrainedpath_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod steinertree_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod sumofsquarespartition_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod travelingsalesman_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod precedenceconstrainedscheduling_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod schedulingwithindividualdeadlines_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod sequencingwithinintervals_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod undirectedtwocommodityintegralflow_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod directedtwocommodityintegralflow_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod undirectedflowlowerbounds_ilp;
 
 pub use graph::{
     AggregateReductionChain, NeighborInfo, NeighborTree, ReductionChain, ReductionEdgeInfo,
@@ -184,6 +210,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(minimumfeedbackvertexset_ilp::canonical_rule_example_specs());
         specs.extend(minimumhittingset_ilp::canonical_rule_example_specs());
         specs.extend(minimumsetcovering_ilp::canonical_rule_example_specs());
+        specs.extend(minmaxmulticenter_ilp::canonical_rule_example_specs());
         specs.extend(minimumsummulticenter_ilp::canonical_rule_example_specs());
         specs.extend(multiplecopyfileallocation_ilp::canonical_rule_example_specs());
         specs.extend(partiallyorderedknapsack_ilp::canonical_rule_example_specs());
