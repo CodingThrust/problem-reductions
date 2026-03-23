@@ -8226,7 +8226,7 @@ fn test_create_weighted_mis_round_trips_into_solve() {
     );
     let stdout = String::from_utf8(solve_output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(json["evaluation"], "Valid(5)");
+    assert_eq!(json["evaluation"], "Max(5)");
 }
 
 #[test]

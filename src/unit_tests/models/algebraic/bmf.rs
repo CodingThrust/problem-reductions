@@ -220,7 +220,7 @@ fn test_jl_parity_evaluation() {
             let config = jl_parse_config(&eval["config"]);
             let result = problem.evaluate(&config);
             let jl_size = eval["size"].as_i64().unwrap() as i32;
-            // BMF always returns Valid(hamming_distance)
+            // BMF always returns Min(hamming_distance).
             assert_eq!(
                 result,
                 Min(Some(jl_size)),

@@ -73,12 +73,12 @@ fn test_dyn_problem_blanket_impl_exposes_problem_metadata() {
 }
 
 #[test]
-fn test_dyn_problem_formats_optimization_values_as_legacy_valid_invalid() {
+fn test_dyn_problem_formats_optimization_values_as_max_min() {
     let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
     let dyn_problem: &dyn DynProblem = &problem;
 
-    assert_eq!(dyn_problem.evaluate_dyn(&[1, 0, 1]), "Valid(2)");
-    assert_eq!(dyn_problem.evaluate_dyn(&[1, 1, 0]), "Invalid");
+    assert_eq!(dyn_problem.evaluate_dyn(&[1, 0, 1]), "Max(2)");
+    assert_eq!(dyn_problem.evaluate_dyn(&[1, 1, 0]), "Max(None)");
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn loaded_dyn_problem_returns_none_for_aggregate_only_witness() {
 }
 
 #[test]
-fn test_load_dyn_formats_optimization_solve_values_as_legacy_valid_invalid() {
+fn test_load_dyn_formats_optimization_solve_values_as_max_min() {
     let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
     let variant = BTreeMap::from([
         ("graph".to_string(), "SimpleGraph".to_string()),
@@ -126,9 +126,9 @@ fn test_load_dyn_formats_optimization_solve_values_as_legacy_valid_invalid() {
     )
     .unwrap();
 
-    assert_eq!(loaded.solve_brute_force_value(), "Valid(1)");
+    assert_eq!(loaded.solve_brute_force_value(), "Min(1)");
     let solved = loaded.solve_brute_force_witness().unwrap();
-    assert_eq!(solved.1, "Valid(1)");
+    assert_eq!(solved.1, "Min(1)");
 }
 
 #[test]

@@ -116,28 +116,19 @@ fn main() {
                     "trait",
                     "Core trait for all computational problems",
                 ),
-                (
-                    "OptimizationProblem",
-                    "trait",
-                    "Extension trait for optimization problems",
-                ),
-                (
-                    "SatisfactionProblem",
-                    "trait",
-                    "Marker trait for satisfaction problems",
-                ),
             ],
         ),
         (
             "types",
             "core",
             &[
-                (
-                    "SolutionSize",
-                    "enum",
-                    "Metric for optimization: Valid(T) or Invalid",
-                ),
-                ("Direction", "enum", "Maximize or Minimize"),
+                ("Aggregate", "trait", "Trait for aggregate value types"),
+                ("Max", "struct", "Maximum aggregate wrapper"),
+                ("Min", "struct", "Minimum aggregate wrapper"),
+                ("Sum", "struct", "Summation aggregate wrapper"),
+                ("Or", "struct", "Existential (logical or) aggregate"),
+                ("And", "struct", "Universal (logical and) aggregate"),
+                ("Extremum", "struct", "Runtime max/min aggregate"),
                 ("One", "struct", "Unit weight marker type"),
                 ("WeightElement", "trait", "Trait for weight types"),
             ],
@@ -172,12 +163,22 @@ fn main() {
                 (
                     "ReduceTo",
                     "trait",
-                    "Trait for reducing one problem to another",
+                    "Trait for witness/config reductions",
                 ),
                 (
                     "ReductionResult",
                     "trait",
                     "Result of a reduction with solution extraction",
+                ),
+                (
+                    "ReduceToAggregate",
+                    "trait",
+                    "Trait for aggregate/value reductions",
+                ),
+                (
+                    "AggregateReductionResult",
+                    "trait",
+                    "Result of a reduction with value extraction",
                 ),
             ],
         ),
@@ -203,7 +204,7 @@ fn main() {
                 (
                     "Solver",
                     "trait",
-                    "Solver trait for optimization and satisfaction",
+                    "Solver trait for aggregate value computation",
                 ),
             ],
         ),

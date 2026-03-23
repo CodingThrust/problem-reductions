@@ -119,6 +119,8 @@ impl EdgeCapabilities {
     }
 }
 
+/// Defaults to `witness_only()` — the conservative choice for edges registered
+/// via `#[reduction]`, which are witness/config reductions.
 impl Default for EdgeCapabilities {
     fn default() -> Self {
         Self::witness_only()

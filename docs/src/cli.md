@@ -85,7 +85,7 @@ pred solve problem.json --solver brute-force
 # LengthBoundedDisjointPaths currently needs brute-force
 pred solve lbdp.json --solver brute-force
 
-# Evaluate a specific configuration (shows Valid(N) or Invalid)
+# Evaluate a specific configuration (shows the aggregate value, e.g. Max(2) or Min(None))
 pred evaluate problem.json --config 1,0,1,0
 
 # Reduce to another problem type and solve via brute-force
@@ -442,7 +442,7 @@ Evaluate a configuration against a problem instance:
 
 ```bash
 $ pred evaluate problem.json --config 1,0,1,0
-Valid(2)
+Max(2)
 ```
 
 Stdin is supported with `-`:
@@ -527,7 +527,7 @@ $ pred solve problem.json
 Problem: MaximumIndependentSet (reduced to ILP)
 Solver: ilp
 Solution: [1, 0, 0, 1]
-Evaluation: Valid(2)
+Evaluation: Max(2)
 ```
 
 Solve a reduction bundle (from `pred reduce`):
@@ -537,9 +537,9 @@ $ pred solve reduced.json --solver brute-force
 Source: MaximumIndependentSet
 Target: QUBO (solved with brute-force)
 Target solution: [0, 1, 0, 1]
-Target evaluation: Valid(-2.0)
+Target evaluation: Min(-2.0)
 Source solution: [0, 1, 0, 1]
-Source evaluation: Valid(2)
+Source evaluation: Max(2)
 ```
 
 > **Note:** The ILP solver requires a reduction path from the target problem to ILP.

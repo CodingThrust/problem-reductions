@@ -98,7 +98,7 @@ impl AggregateReductionResult for AggregateValueToIlpReduction {
 fn solve_value<P>(any: &dyn Any) -> String
 where
     P: Problem + Serialize + 'static,
-    P::Value: problemreductions::types::Aggregate,
+    P::Value: problemreductions::types::Aggregate + std::fmt::Display,
 {
     let problem = any
         .downcast_ref::<P>()
@@ -110,7 +110,7 @@ where
 fn solve_witness<P>(any: &dyn Any) -> Option<(Vec<usize>, String)>
 where
     P: Problem + Serialize + 'static,
-    P::Value: problemreductions::types::Aggregate,
+    P::Value: problemreductions::types::Aggregate + std::fmt::Display,
 {
     let problem = any.downcast_ref::<P>()?;
     let solver = BruteForce::new();

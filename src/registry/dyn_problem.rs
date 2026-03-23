@@ -8,28 +8,14 @@ use crate::traits::Problem;
 
 /// Format a metric for CLI- and registry-facing dynamic dispatch.
 ///
-/// Optimization aggregates migrated from `Valid/Invalid` to `Max/Min`, but the
-/// dynamic CLI surface still exposes the legacy `Valid(...)` / `Invalid`
-/// strings. Preserve that presentation here so higher layers do not leak the
-/// aggregate internals.
+/// Dynamic formatting uses the aggregate display form directly, so optimization
+/// metrics appear as `Max(...)` / `Min(...)` alongside aggregate-only values
+/// such as `Or(true)` or `Sum(56)`.
 pub fn format_metric<T>(metric: &T) -> String
 where
-    T: fmt::Debug + Serialize,
+    T: fmt::Display,
 {
-    let debug = format!("{metric:?}");
-
-    match debug.as_str() {
-        "Max(None)" | "Min(None)" => return "Invalid".to_string(),
-        _ => {}
-    }
-
-    if debug.starts_with("Max(Some(") || debug.starts_with("Min(Some(") {
-        let value = serde_json::to_value(metric).expect("serialize metric failed");
-        let inner = serde_json::to_string(&value).expect("serialize metric inner value failed");
-        return format!("Valid({inner})");
-    }
-
-    debug
+    metric.to_string()
 }
 
 /// Type-erased problem interface for dynamic dispatch.
@@ -57,7 +43,7 @@ pub trait DynProblem: Any {
 impl<T> DynProblem for T
 where
     T: Problem + Serialize + 'static,
-    T::Value: fmt::Debug + Serialize,
+    T::Value: fmt::Display + Serialize,
 {
     fn evaluate_dyn(&self, config: &[usize]) -> String {
         format_metric(&self.evaluate(config))
