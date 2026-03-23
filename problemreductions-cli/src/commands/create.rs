@@ -2834,7 +2834,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             (
-                ser(ConsecutiveOnesMatrixAugmentation::new(matrix, bound))?,
+                ser(ConsecutiveOnesMatrixAugmentation::try_new(matrix, bound)
+                    .map_err(|e| anyhow::anyhow!(e))?)?,
                 resolved_variant.clone(),
             )
         }
@@ -8026,10 +8027,8 @@ mod tests {
         args.matrix = Some("1,0,0,1,1;1,1,0,0,0;0,1,1,0,1;0,0,1,1,0".to_string());
         args.bound = Some(2);
 
-        let output_path = std::env::temp_dir().join(format!(
-            "coma-create-{}.json",
-            std::process::id()
-        ));
+        let output_path =
+            std::env::temp_dir().join(format!("coma-create-{}.json", std::process::id()));
         let out = OutputConfig {
             output: Some(output_path.clone()),
             quiet: true,
@@ -8073,9 +8072,25 @@ mod tests {
         };
 
         let err = create(&args, &out).unwrap_err().to_string();
-        assert!(err.contains(
-            "ConsecutiveOnesMatrixAugmentation requires --matrix and --bound"
-        ));
+        assert!(err.contains("ConsecutiveOnesMatrixAugmentation requires --matrix and --bound"));
         assert!(err.contains("Usage: pred create ConsecutiveOnesMatrixAugmentation"));
+    }
+
+    #[test]
+    fn test_create_consecutive_ones_matrix_augmentation_negative_bound() {
+        let mut args = empty_args();
+        args.problem = Some("ConsecutiveOnesMatrixAugmentation".to_string());
+        args.matrix = Some("1,0;0,1".to_string());
+        args.bound = Some(-1);
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("nonnegative"));
     }
 }

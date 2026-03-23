@@ -94,7 +94,10 @@ fn test_consecutive_ones_matrix_augmentation_complexity_metadata() {
         .find(|entry| entry.name == "ConsecutiveOnesMatrixAugmentation")
         .expect("variant entry should exist");
 
-    assert_eq!(entry.complexity, "factorial(num_cols) * num_rows * num_cols");
+    assert_eq!(
+        entry.complexity,
+        "factorial(num_cols) * num_rows * num_cols"
+    );
 }
 
 #[cfg(feature = "example-db")]
@@ -104,6 +107,23 @@ fn test_consecutive_ones_matrix_augmentation_has_canonical_example() {
 
     assert_eq!(specs.len(), 1);
     assert_eq!(specs[0].id, "consecutive_ones_matrix_augmentation");
+}
+
+#[test]
+fn test_consecutive_ones_matrix_augmentation_all_zero_row() {
+    let problem = ConsecutiveOnesMatrixAugmentation::new(
+        vec![
+            vec![true, false, true],
+            vec![false, false, false],
+            vec![false, true, false],
+        ],
+        0,
+    );
+
+    // Permutation [0, 1, 2] — row 0 has gap, row 1 has no 1s (0 cost), row 2 is fine
+    assert!(!problem.evaluate(&[0, 1, 2]));
+    // Permutation [0, 2, 1] — row 0: [1,1,0] consecutive, row 1: all zeros (0 cost), row 2: [0,0,1] consecutive
+    assert!(problem.evaluate(&[0, 2, 1]));
 }
 
 #[test]

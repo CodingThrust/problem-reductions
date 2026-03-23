@@ -6144,7 +6144,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
       #pred-commands(
         "pred create --example ConsecutiveOnesMatrixAugmentation -o consecutive-ones-matrix-augmentation.json",
-        "pred solve consecutive-ones-matrix-augmentation.json",
+        "pred solve consecutive-ones-matrix-augmentation.json --solver brute-force",
         "pred evaluate consecutive-ones-matrix-augmentation.json --config " + x.optimal_config.map(str).join(","),
       )
 
