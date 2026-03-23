@@ -58,6 +58,8 @@ pub(crate) mod coloring_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod consistencyofdatabasefrequencytables_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod exactcoverby3sets_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod factoring_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod graphpartitioning_ilp;
@@ -69,6 +71,8 @@ pub(crate) mod ilp_qubo;
 pub(crate) mod integralflowbundles_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod knapsack_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod kclique_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod longestcommonsubsequence_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -88,9 +92,13 @@ pub(crate) mod minimumhittingset_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimummultiwaycut_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod partiallyorderedknapsack_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumsetcovering_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod qubo_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod rectilinearpicturecompression_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingtominimizeweightedcompletiontime_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -144,11 +152,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(circuit_ilp::canonical_rule_example_specs());
         specs.extend(consistencyofdatabasefrequencytables_ilp::canonical_rule_example_specs());
         specs.extend(coloring_ilp::canonical_rule_example_specs());
+        specs.extend(exactcoverby3sets_ilp::canonical_rule_example_specs());
         specs.extend(factoring_ilp::canonical_rule_example_specs());
         specs.extend(graphpartitioning_ilp::canonical_rule_example_specs());
         specs.extend(integralflowbundles_ilp::canonical_rule_example_specs());
         specs.extend(ilp_qubo::canonical_rule_example_specs());
         specs.extend(knapsack_ilp::canonical_rule_example_specs());
+        specs.extend(kclique_ilp::canonical_rule_example_specs());
         specs.extend(longestpath_ilp::canonical_rule_example_specs());
         specs.extend(longestcommonsubsequence_ilp::canonical_rule_example_specs());
         specs.extend(maximumclique_ilp::canonical_rule_example_specs());
@@ -158,7 +168,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(minimumdominatingset_ilp::canonical_rule_example_specs());
         specs.extend(minimumfeedbackvertexset_ilp::canonical_rule_example_specs());
         specs.extend(minimumsetcovering_ilp::canonical_rule_example_specs());
+        specs.extend(partiallyorderedknapsack_ilp::canonical_rule_example_specs());
         specs.extend(qubo_ilp::canonical_rule_example_specs());
+        specs.extend(rectilinearpicturecompression_ilp::canonical_rule_example_specs());
         specs
             .extend(sequencingtominimizeweightedcompletiontime_ilp::canonical_rule_example_specs());
         specs.extend(steinertree_ilp::canonical_rule_example_specs());
