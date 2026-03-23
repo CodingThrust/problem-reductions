@@ -170,6 +170,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(maximumsetpacking_ilp::canonical_rule_example_specs());
         specs.extend(minimumdominatingset_ilp::canonical_rule_example_specs());
         specs.extend(minimumfeedbackvertexset_ilp::canonical_rule_example_specs());
+        specs.extend(minimumhittingset_ilp::canonical_rule_example_specs());
         specs.extend(minimumsetcovering_ilp::canonical_rule_example_specs());
         specs.extend(partiallyorderedknapsack_ilp::canonical_rule_example_specs());
         specs.extend(qubo_ilp::canonical_rule_example_specs());
