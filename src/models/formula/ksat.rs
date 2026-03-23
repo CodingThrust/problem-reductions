@@ -6,7 +6,7 @@
 //! MaxKSatisfiability type (if available).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::variant::{KValue, K2, K3, KN};
 use serde::{Deserialize, Serialize};
 
@@ -54,7 +54,7 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_satisfying(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 /// assert!(!solutions.is_empty());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -184,7 +184,7 @@ impl<K: KValue> Problem for KSatisfiability<K> {
     }
 }
 
-impl<K: KValue> SatisfactionProblem for KSatisfiability<K> {}
+impl<K: KValue> WitnessProblem for KSatisfiability<K> {}
 
 crate::declare_variants! {
     default sat KSatisfiability<KN> => "2^num_variables",

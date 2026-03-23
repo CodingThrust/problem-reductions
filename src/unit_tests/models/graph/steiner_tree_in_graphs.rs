@@ -1,8 +1,8 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::ExtremumSense;
 
 #[test]
 fn test_steiner_tree_creation() {
@@ -51,7 +51,7 @@ fn test_steiner_tree_evaluation() {
 fn test_steiner_tree_direction() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = SteinerTreeInGraphs::new(graph, vec![0, 2], vec![1i32; 2]);
-    assert_eq!(problem.direction(), Direction::Minimize);
+    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn test_steiner_tree_solver() {
     let problem = SteinerTreeInGraphs::new(graph, vec![0, 3], vec![2, 1, 2, 1]);
 
     let solver = BruteForce::new();
-    let solution = solver.find_best(&problem).unwrap();
+    let solution = solver.find_witness(&problem).unwrap();
     let value = problem.evaluate(&solution);
     assert!(value.is_valid());
     assert_eq!(value.unwrap(), 2);
@@ -87,7 +87,7 @@ fn test_steiner_tree_with_steiner_vertices() {
     let problem = SteinerTreeInGraphs::new(graph, vec![0, 2, 3], vec![1i32; 3]);
 
     let solver = BruteForce::new();
-    let solution = solver.find_best(&problem).unwrap();
+    let solution = solver.find_witness(&problem).unwrap();
     let value = problem.evaluate(&solution);
     assert!(value.is_valid());
     assert_eq!(value.unwrap(), 3);
@@ -158,7 +158,7 @@ fn test_steiner_tree_all_vertices_terminal() {
     let problem = SteinerTreeInGraphs::new(graph, vec![0, 1, 2], vec![1i32; 2]);
 
     let solver = BruteForce::new();
-    let solution = solver.find_best(&problem).unwrap();
+    let solution = solver.find_witness(&problem).unwrap();
     let value = problem.evaluate(&solution);
     assert!(value.is_valid());
     assert_eq!(value.unwrap(), 2);
@@ -212,7 +212,7 @@ fn test_steiner_tree_example_from_issue() {
 
     // Brute-force verification: independently confirm optimal weight is 12
     let solver = BruteForce::new();
-    let solution = solver.find_best(&problem).unwrap();
+    let solution = solver.find_witness(&problem).unwrap();
     let value = problem.evaluate(&solution);
     assert!(value.is_valid());
     assert_eq!(value.unwrap(), 12);

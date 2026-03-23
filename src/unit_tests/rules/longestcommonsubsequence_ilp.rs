@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::ILP;
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
 #[test]
@@ -48,7 +48,7 @@ fn test_lcs_to_ilp_closed_loop_three_strings() {
 
     let brute_force = BruteForce::new();
     let witness = brute_force
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("bruteforce should also find a witness");
     assert!(problem.evaluate(&witness));
 }

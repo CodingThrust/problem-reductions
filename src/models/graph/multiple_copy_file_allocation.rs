@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
@@ -194,7 +194,7 @@ impl Problem for MultipleCopyFileAllocation {
     }
 }
 
-impl SatisfactionProblem for MultipleCopyFileAllocation {}
+impl WitnessProblem for MultipleCopyFileAllocation {}
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -94,9 +94,9 @@ fn test_multiple_copy_file_allocation_solver_yes_and_no() {
     let no_problem = cycle_no_instance();
     let solver = BruteForce::new();
 
-    let solution = solver.find_satisfying(&yes_problem).unwrap();
+    let solution = solver.find_witness(&yes_problem).unwrap();
     assert!(yes_problem.evaluate(&solution));
-    assert!(solver.find_satisfying(&no_problem).is_none());
+    assert!(solver.find_witness(&no_problem).is_none());
 }
 
 #[test]
@@ -121,7 +121,7 @@ fn test_multiple_copy_file_allocation_paper_example() {
     assert_eq!(problem.total_cost(&config), Some(33));
 
     let solver = BruteForce::new();
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert_eq!(all.len(), 36);
     assert!(all.iter().any(|candidate| candidate == &config));
 }

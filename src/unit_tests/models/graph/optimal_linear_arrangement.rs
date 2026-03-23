@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -52,7 +52,7 @@ fn test_optimallineararrangement_no_instance() {
 
     // Brute-force confirms no arrangement achieves cost <= 9
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
@@ -104,13 +104,13 @@ fn test_optimallineararrangement_solver() {
     let problem = OptimalLinearArrangement::new(graph, 4);
 
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     let sol = solution.unwrap();
     assert!(problem.evaluate(&sol));
 
     // All satisfying solutions should be valid
-    let all_sat = solver.find_all_satisfying(&problem);
+    let all_sat = solver.find_all_witnesses(&problem);
     assert!(!all_sat.is_empty());
     for s in &all_sat {
         assert!(problem.evaluate(s));
@@ -125,10 +125,10 @@ fn test_optimallineararrangement_solver_no_solution() {
     let problem = OptimalLinearArrangement::new(graph, 3);
 
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_none());
 
-    let all_sat = solver.find_all_satisfying(&problem);
+    let all_sat = solver.find_all_witnesses(&problem);
     assert!(all_sat.is_empty());
 }
 
@@ -139,7 +139,7 @@ fn test_optimallineararrangement_empty_graph() {
     let problem = OptimalLinearArrangement::new(graph, 0);
 
     let solver = BruteForce::new();
-    let all_sat = solver.find_all_satisfying(&problem);
+    let all_sat = solver.find_all_witnesses(&problem);
     // All 3! = 6 permutations should be valid
     assert_eq!(all_sat.len(), 6);
     for s in &all_sat {
@@ -241,7 +241,7 @@ fn test_optimallineararrangement_complete_graph_k4() {
     let problem = OptimalLinearArrangement::new(graph, 10);
 
     let solver = BruteForce::new();
-    let all_sat = solver.find_all_satisfying(&problem);
+    let all_sat = solver.find_all_witnesses(&problem);
     // All 4! = 24 permutations should be valid since all have cost 10
     assert_eq!(all_sat.len(), 24);
     for sol in &all_sat {

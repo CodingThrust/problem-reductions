@@ -237,9 +237,9 @@ pub struct NeighborInfo {
     pub hops: usize,
 }
 
-/// Direction for graph traversal.
+/// Traversal mode for graph exploration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TraversalDirection {
+pub enum TraversalFlow {
     /// Follow outgoing edges (what can this reduce to?).
     Outgoing,
     /// Follow incoming edges (what can reduce to this?).
@@ -458,6 +458,7 @@ impl ReductionGraph {
 
     /// Find the cheapest path between two specific problem variants while
     /// requiring a specific edge capability.
+    #[allow(clippy::too_many_arguments)]
     pub fn find_cheapest_path_mode<C: PathCostFn>(
         &self,
         source: &str,
@@ -936,7 +937,7 @@ impl ReductionGraph {
         name: &str,
         variant: &BTreeMap<String, String>,
         max_hops: usize,
-        direction: TraversalDirection,
+        direction: TraversalFlow,
     ) -> Vec<NeighborInfo> {
         use std::collections::VecDeque;
 
@@ -955,11 +956,11 @@ impl ReductionGraph {
                 continue;
             }
 
-            let directions: Vec<petgraph::Direction> = match direction {
-                TraversalDirection::Outgoing => vec![petgraph::Direction::Outgoing],
-                TraversalDirection::Incoming => vec![petgraph::Direction::Incoming],
-                TraversalDirection::Both => {
-                    vec![petgraph::Direction::Outgoing, petgraph::Direction::Incoming]
+            let directions = match direction {
+                TraversalFlow::Outgoing => vec![petgraph::Outgoing],
+                TraversalFlow::Incoming => vec![petgraph::Incoming],
+                TraversalFlow::Both => {
+                    vec![petgraph::Outgoing, petgraph::Incoming]
                 }
             };
 
@@ -991,7 +992,7 @@ impl ReductionGraph {
         name: &str,
         variant: &BTreeMap<String, String>,
         max_hops: usize,
-        direction: TraversalDirection,
+        direction: TraversalFlow,
     ) -> Vec<NeighborTree> {
         use std::collections::VecDeque;
 
@@ -1013,11 +1014,11 @@ impl ReductionGraph {
                 continue;
             }
 
-            let directions: Vec<petgraph::Direction> = match direction {
-                TraversalDirection::Outgoing => vec![petgraph::Direction::Outgoing],
-                TraversalDirection::Incoming => vec![petgraph::Direction::Incoming],
-                TraversalDirection::Both => {
-                    vec![petgraph::Direction::Outgoing, petgraph::Direction::Incoming]
+            let directions = match direction {
+                TraversalFlow::Outgoing => vec![petgraph::Outgoing],
+                TraversalFlow::Incoming => vec![petgraph::Incoming],
+                TraversalFlow::Both => {
+                    vec![petgraph::Outgoing, petgraph::Incoming]
                 }
             };
 

@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Max, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -48,7 +48,7 @@ inventory::submit! {
 /// let problem = MaximalIS::new(graph, vec![1; 3]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Maximal independent sets: {0, 2} or {1}
 /// for sol in &solutions {
@@ -153,7 +153,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximalIS";
-    type Value = SolutionSize<W::Sum>;
+    type Value = Max<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -163,9 +163,9 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
         if !self.is_maximal(config) {
-            return SolutionSize::Invalid;
+            return Max(None);
         }
         let mut total = W::Sum::zero();
         for (i, &selected) in config.iter().enumerate() {
@@ -173,19 +173,19 @@ where
                 total += self.weights[i].to_sum();
             }
         }
-        SolutionSize::Valid(total)
+        Max(Some(total))
     }
 }
 
-impl<G, W> OptimizationProblem for MaximalIS<G, W>
+impl<G, W> ObjectiveProblem for MaximalIS<G, W>
 where
     G: Graph + crate::variant::VariantParam,
     W: WeightElement + crate::variant::VariantParam,
 {
     type Objective = W::Sum;
 
-    fn direction(&self) -> Direction {
-        Direction::Maximize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Maximize
     }
 }
 
@@ -198,7 +198,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![1i32; 5],
         )),
         optimal_config: vec![1, 0, 1, 0, 1],
-        optimal_value: serde_json::json!({"Valid": 3}),
+        optimal_value: serde_json::json!(3),
     }]
 }
 

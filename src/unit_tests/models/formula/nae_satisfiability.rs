@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use std::collections::HashSet;
 
@@ -64,7 +64,7 @@ fn test_nae_solver_counts_ten_solutions_for_issue_example() {
     let problem = issue_problem();
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     let set: HashSet<Vec<usize>> = solutions.into_iter().collect();
 
     assert_eq!(set.len(), 10);
@@ -78,9 +78,9 @@ fn test_nae_empty_formula_is_trivially_satisfying() {
     let solver = BruteForce::new();
 
     assert!(problem.evaluate(&[]));
-    assert_eq!(solver.find_satisfying(&problem), Some(vec![]));
+    assert_eq!(solver.find_witness(&problem), Some(vec![]));
     assert_eq!(
-        solver.find_all_satisfying(&problem),
+        solver.find_all_witnesses(&problem),
         vec![Vec::<usize>::new()]
     );
 }
@@ -139,5 +139,5 @@ fn test_nae_satisfiability_paper_example() {
 
     assert!(problem.evaluate(&[0, 0, 0, 1, 1]));
     assert!(problem.evaluate(&[1, 1, 1, 0, 0]));
-    assert_eq!(solver.find_all_satisfying(&problem).len(), 10);
+    assert_eq!(solver.find_all_witnesses(&problem).len(), 10);
 }

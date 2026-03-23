@@ -6,8 +6,8 @@
 //! weighted completion time.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -146,7 +146,7 @@ impl SequencingToMinimizeWeightedCompletionTime {
         Some(schedule)
     }
 
-    fn weighted_completion_time(&self, schedule: &[usize]) -> SolutionSize<u64> {
+    fn weighted_completion_time(&self, schedule: &[usize]) -> Min<u64> {
         let n = self.num_tasks();
         let mut positions = vec![0usize; n];
         let mut completion_times = vec![0u64; n];
@@ -162,7 +162,7 @@ impl SequencingToMinimizeWeightedCompletionTime {
 
         for &(pred, succ) in &self.precedences {
             if positions[pred] >= positions[succ] {
-                return SolutionSize::Invalid;
+                return Min(None);
             }
         }
 
@@ -174,7 +174,7 @@ impl SequencingToMinimizeWeightedCompletionTime {
                 acc.checked_add(weighted_completion)
             })
             .expect("weighted completion time overflowed u64");
-        SolutionSize::Valid(total)
+        Min(Some(total))
     }
 }
 
@@ -207,7 +207,7 @@ impl<'de> Deserialize<'de> for SequencingToMinimizeWeightedCompletionTime {
 
 impl Problem for SequencingToMinimizeWeightedCompletionTime {
     const NAME: &'static str = "SequencingToMinimizeWeightedCompletionTime";
-    type Value = SolutionSize<u64>;
+    type Value = Min<u64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -218,19 +218,19 @@ impl Problem for SequencingToMinimizeWeightedCompletionTime {
         (0..n).rev().map(|i| i + 1).collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<u64> {
+    fn evaluate(&self, config: &[usize]) -> Min<u64> {
         let Some(schedule) = self.decode_schedule(config) else {
-            return SolutionSize::Invalid;
+            return Min(None);
         };
         self.weighted_completion_time(&schedule)
     }
 }
 
-impl OptimizationProblem for SequencingToMinimizeWeightedCompletionTime {
+impl ObjectiveProblem for SequencingToMinimizeWeightedCompletionTime {
     type Objective = u64;
 
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Minimize
     }
 }
 
@@ -248,7 +248,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![(0, 2), (1, 4)],
         )),
         optimal_config: vec![1, 2, 0, 1, 0],
-        optimal_value: serde_json::json!({"Valid": 46}),
+        optimal_value: serde_json::json!(46),
     }]
 }
 

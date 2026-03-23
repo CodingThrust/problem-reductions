@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -57,7 +57,7 @@ inventory::submit! {
 /// let problem = OptimalLinearArrangement::new(graph, 3);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,7 +161,7 @@ where
     }
 }
 
-impl<G: Graph + crate::variant::VariantParam> SatisfactionProblem for OptimalLinearArrangement<G> {}
+impl<G: Graph + crate::variant::VariantParam> WitnessProblem for OptimalLinearArrangement<G> {}
 
 crate::declare_variants! {
     default sat OptimalLinearArrangement<SimpleGraph> => "2^num_vertices",

@@ -11,8 +11,8 @@
 //! | [`rules`] | Reduction rules, [`ReductionGraph`](rules::ReductionGraph) for path search |
 //! | [`solvers`] | [`BruteForce`] and [`ILPSolver`](solvers::ILPSolver) |
 //! | [`topology`] | Graph types — [`SimpleGraph`](topology::SimpleGraph), [`UnitDiskGraph`](topology::UnitDiskGraph), etc. |
-//! | [`traits`] | Core traits — [`Problem`], [`OptimizationProblem`], [`SatisfactionProblem`] |
-//! | [`types`] | [`SolutionSize`], [`Direction`], [`ProblemSize`], [`WeightElement`] |
+//! | [`traits`] | Core traits — [`Problem`], [`ObjectiveProblem`], [`WitnessProblem`] |
+//! | [`types`] | [`Max`], [`Min`], [`Extremum`], [`ExtremumSense`], [`ProblemSize`], [`WeightElement`] |
 //! | [`variant`] | Variant parameter system for problem type parameterization |
 //!
 //! Use [`prelude`] for convenient imports.
@@ -87,11 +87,13 @@ pub mod prelude {
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};
     pub use crate::solvers::{BruteForce, Solver};
-    pub use crate::traits::{OptimizationProblem, Problem, SatisfactionProblem};
+    pub use crate::traits::{ObjectiveProblem, Problem, WitnessProblem};
 
     // Types
     pub use crate::error::{ProblemError, Result};
-    pub use crate::types::{Direction, One, ProblemSize, SolutionSize, Unweighted};
+    pub use crate::types::{
+        And, Extremum, ExtremumSense, Max, Min, One, Or, ProblemSize, Sum, Unweighted,
+    };
 }
 
 // Re-export commonly used items at crate root
@@ -101,9 +103,10 @@ pub use error::{ProblemError, Result};
 pub use expr::{asymptotic_normal_form, AsymptoticAnalysisError, CanonicalizationError, Expr};
 pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
-pub use traits::{OptimizationProblem, Problem, SatisfactionProblem};
+pub use traits::{ObjectiveProblem, Problem, WitnessProblem};
 pub use types::{
-    Direction, NumericSize, One, ProblemSize, SolutionSize, Unweighted, WeightElement,
+    And, Extremum, ExtremumSense, Max, Min, NumericSize, One, Or, ProblemSize, Sum, Unweighted,
+    WeightElement,
 };
 
 // Re-export proc macros for reduction registration and variant declaration

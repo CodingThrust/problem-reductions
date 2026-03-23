@@ -8,8 +8,8 @@
 //! - `ILP<i32>`: non-negative integer variables (0..2^31-1)
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{Extremum, ExtremumSense};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
@@ -244,18 +244,25 @@ impl<V: VariableDomain> ILP<V> {
 
 impl<V: VariableDomain> Problem for ILP<V> {
     const NAME: &'static str = "ILP";
-    type Value = SolutionSize<f64>;
+    type Value = Extremum<f64>;
 
     fn dims(&self) -> Vec<usize> {
         vec![V::DIMS_PER_VAR; self.num_vars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<f64> {
+    fn evaluate(&self, config: &[usize]) -> Extremum<f64> {
         let values = self.config_to_values(config);
         if !self.is_feasible(&values) {
-            return SolutionSize::Invalid;
+            return match self.sense {
+                ObjectiveSense::Maximize => Extremum::maximize(None),
+                ObjectiveSense::Minimize => Extremum::minimize(None),
+            };
         }
-        SolutionSize::Valid(self.evaluate_objective(&values))
+        let objective = self.evaluate_objective(&values);
+        match self.sense {
+            ObjectiveSense::Maximize => Extremum::maximize(Some(objective)),
+            ObjectiveSense::Minimize => Extremum::minimize(Some(objective)),
+        }
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -263,13 +270,13 @@ impl<V: VariableDomain> Problem for ILP<V> {
     }
 }
 
-impl<V: VariableDomain> OptimizationProblem for ILP<V> {
+impl<V: VariableDomain> ObjectiveProblem for ILP<V> {
     type Objective = f64;
 
-    fn direction(&self) -> Direction {
+    fn direction(&self) -> ExtremumSense {
         match self.sense {
-            ObjectiveSense::Maximize => Direction::Maximize,
-            ObjectiveSense::Minimize => Direction::Minimize,
+            ObjectiveSense::Maximize => ExtremumSense::Maximize,
+            ObjectiveSense::Minimize => ExtremumSense::Minimize,
         }
     }
 }
@@ -293,7 +300,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ObjectiveSense::Minimize,
         )),
         optimal_config: vec![3, 2],
-        optimal_value: serde_json::json!({"Valid": -27.0}),
+        optimal_value: serde_json::json!({
+            "sense": "Minimize",
+            "value": -27.0,
+        }),
     }]
 }
 

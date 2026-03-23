@@ -34,15 +34,15 @@ pub trait Problem: Clone {
 }
 
 /// Temporary compatibility trait for optimization problems during the aggregate migration.
-pub trait OptimizationProblem: Problem<Value = crate::types::SolutionSize<Self::Objective>> {
+pub trait ObjectiveProblem: Problem {
     /// The inner objective value type (e.g., `i32`, `f64`).
     type Objective: PartialOrd + Clone;
     /// Whether to maximize or minimize the metric.
-    fn direction(&self) -> crate::types::Direction;
+    fn direction(&self) -> crate::types::ExtremumSense;
 }
 
 /// Temporary compatibility trait for satisfaction problems during the aggregate migration.
-pub trait SatisfactionProblem: Problem<Value = bool> {}
+pub trait WitnessProblem: Problem {}
 
 /// Marker trait for explicitly declared problem variants.
 ///

@@ -5,7 +5,7 @@
 //! task runs entirely within its allowed time window.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -50,7 +50,7 @@ inventory::submit! {
 /// // 3 tasks: release_times = [0, 2, 4], deadlines = [3, 5, 7], lengths = [2, 2, 2]
 /// let problem = SequencingWithinIntervals::new(vec![0, 2, 4], vec![3, 5, 7], vec![2, 2, 2]);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -169,7 +169,7 @@ impl Problem for SequencingWithinIntervals {
     }
 }
 
-impl SatisfactionProblem for SequencingWithinIntervals {}
+impl WitnessProblem for SequencingWithinIntervals {}
 
 crate::declare_variants! {
     default sat SequencingWithinIntervals => "2^num_tasks",

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -143,7 +143,7 @@ fn test_rural_postman_disconnected_selection() {
 fn test_rural_postman_brute_force_finds_solution() {
     let problem = chinese_postman_rpp();
     let solver = BruteForce::new();
-    let result = solver.find_satisfying(&problem);
+    let result = solver.find_witness(&problem);
     assert!(result.is_some());
     let sol = result.unwrap();
     assert!(problem.evaluate(&sol));
@@ -153,7 +153,7 @@ fn test_rural_postman_brute_force_finds_solution() {
 fn test_rural_postman_brute_force_hexagon() {
     let problem = hexagon_rpp();
     let solver = BruteForce::new();
-    let result = solver.find_satisfying(&problem);
+    let result = solver.find_witness(&problem);
     assert!(result.is_some());
     let sol = result.unwrap();
     assert!(problem.evaluate(&sol));
@@ -171,18 +171,18 @@ fn test_rural_postman_brute_force_no_solution() {
     let bound = 4;
     let problem = RuralPostman::new(graph, edge_lengths, required_edges, bound);
     let solver = BruteForce::new();
-    let result = solver.find_satisfying(&problem);
+    let result = solver.find_witness(&problem);
     assert!(result.is_none());
 }
 
 #[test]
-fn test_rural_postman_find_all_satisfying() {
+fn test_rural_postman_find_all_witnesses() {
     // Issue #248 instance 1: hexagonal graph, 6 vertices, 8 edges
     // Required edges E'={{0,1},{2,3},{4,5}}, B=6
     // Search space = 3^8 = 6561
     let problem = hexagon_rpp();
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     for sol in &solutions {
         assert!(problem.evaluate(sol));
     }
@@ -205,7 +205,7 @@ fn test_rural_postman_find_all_satisfying_empty() {
     let bound = 4;
     let problem = RuralPostman::new(graph, edge_lengths, required_edges, bound);
     let solver = BruteForce::new();
-    assert!(solver.find_all_satisfying(&problem).is_empty());
+    assert!(solver.find_all_witnesses(&problem).is_empty());
 }
 
 #[test]

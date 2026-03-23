@@ -173,7 +173,7 @@ fn test_find_model_example_minimum_dummy_activities_pert() {
     assert_eq!(example.problem, "MinimumDummyActivitiesPert");
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
-    assert_eq!(example.optimal_value, serde_json::json!({"Valid": 2}));
+    assert_eq!(example.optimal_value, serde_json::json!(2));
     assert!(
         !example.optimal_config.is_empty(),
         "canonical example should include an optimal merge selection"

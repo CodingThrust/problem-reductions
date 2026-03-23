@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::BipartiteGraph;
 use crate::traits::Problem;
 
@@ -102,11 +102,11 @@ fn test_balanced_complete_bipartite_subgraph_solver_yes_instance() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_2_graph(), 3);
     let solver = BruteForce::new();
 
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()));
 
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert_eq!(all, vec![issue_instance_2_witness()]);
 }
 
@@ -115,7 +115,7 @@ fn test_balanced_complete_bipartite_subgraph_solver_no_instance() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_1_graph(), 3);
     let solver = BruteForce::new();
 
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
@@ -155,5 +155,5 @@ fn test_balanced_complete_bipartite_subgraph_paper_example() {
     let solver = BruteForce::new();
 
     assert!(problem.evaluate(&witness));
-    assert_eq!(solver.find_all_satisfying(&problem), vec![witness]);
+    assert_eq!(solver.find_all_witnesses(&problem), vec![witness]);
 }

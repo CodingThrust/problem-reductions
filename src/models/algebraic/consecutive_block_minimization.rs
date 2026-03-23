@@ -9,7 +9,7 @@
 //! This is problem SR17 in Garey & Johnson.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -50,7 +50,7 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_satisfying(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Verify solutions satisfy the block bound
 /// for sol in solutions {
@@ -178,7 +178,7 @@ impl Problem for ConsecutiveBlockMinimization {
     }
 }
 
-impl SatisfactionProblem for ConsecutiveBlockMinimization {}
+impl WitnessProblem for ConsecutiveBlockMinimization {}
 
 crate::declare_variants! {
     default sat ConsecutiveBlockMinimization => "factorial(num_cols) * num_rows * num_cols",

@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -205,7 +205,7 @@ impl Problem for IntegralFlowHomologousArcs {
     }
 }
 
-impl SatisfactionProblem for IntegralFlowHomologousArcs {}
+impl WitnessProblem for IntegralFlowHomologousArcs {}
 
 crate::declare_variants! {
     default sat IntegralFlowHomologousArcs => "(max_capacity + 1)^num_arcs",

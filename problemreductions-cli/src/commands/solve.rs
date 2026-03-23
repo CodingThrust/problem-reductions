@@ -257,7 +257,8 @@ mod tests {
             config: None,
             evaluation: "Sum(56)".to_string(),
         };
-        let (text, json) = plain_problem_output("CliTestAggregateValueSource", "brute-force", &result);
+        let (text, json) =
+            plain_problem_output("CliTestAggregateValueSource", "brute-force", &result);
         assert!(text.contains("Evaluation: Sum(56)"), "{text}");
         assert!(!text.contains("Solution:"), "{text}");
         assert!(json.get("solution").is_none(), "{json}");

@@ -8,7 +8,7 @@
 //! reductions can construct large instances without fixed-width overflow.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use num_bigint::{BigUint, ToBigUint};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,7 @@ inventory::submit! {
 ///
 /// let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -135,7 +135,7 @@ impl Problem for SubsetSum {
     }
 }
 
-impl SatisfactionProblem for SubsetSum {}
+impl WitnessProblem for SubsetSum {}
 
 crate::declare_variants! {
     default sat SubsetSum => "2^(num_elements / 2)",

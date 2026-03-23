@@ -380,9 +380,9 @@ fn extract_target_from_trait(path: &Path) -> syn::Result<Type> {
 /// Solver kind for dispatch generation.
 #[derive(Debug, Clone, Copy)]
 enum SolverKind {
-    /// Optimization problem — uses `find_best`.
+    /// Optimization problem marker.
     Opt,
-    /// Satisfaction problem — uses `find_satisfying`.
+    /// Satisfaction problem marker.
     Sat,
 }
 
@@ -394,7 +394,6 @@ struct DeclareVariantsInput {
 /// A single entry: `[default] opt|sat Type => "complexity_string"`.
 struct DeclareVariantEntry {
     is_default: bool,
-    solver_kind: SolverKind,
     ty: Type,
     complexity: syn::LitStr,
 }
@@ -410,7 +409,7 @@ impl syn::parse::Parse for DeclareVariantsInput {
             }
 
             // Require `opt` or `sat` keyword
-            let solver_kind = if input.peek(syn::Ident) {
+            let _solver_kind = if input.peek(syn::Ident) {
                 let fork = input.fork();
                 if let Ok(ident) = fork.parse::<syn::Ident>() {
                     match ident.to_string().as_str() {
@@ -441,7 +440,6 @@ impl syn::parse::Parse for DeclareVariantsInput {
             let complexity: syn::LitStr = input.parse()?;
             entries.push(DeclareVariantEntry {
                 is_default,
-                solver_kind,
                 ty,
                 complexity,
             });
@@ -564,40 +562,14 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         // Generate compiled complexity eval fn
         let complexity_eval_fn = generate_complexity_eval_fn(&parsed, ty)?;
 
-        // Generate dispatch fields based on solver kind.
-        let solve_value_body = match entry.solver_kind {
-            SolverKind::Opt => quote! {
-                if let Some(config) =
-                    <crate::solvers::BruteForce as crate::solvers::Solver>::find_best(&solver, p)
-                {
-                    format!("{:?}", crate::traits::Problem::evaluate(p, &config))
-                } else {
-                    let invalid: <#ty as crate::traits::Problem>::Value =
-                        crate::types::SolutionSize::Invalid;
-                    format!("{:?}", invalid)
-                }
-            },
-            SolverKind::Sat => quote! {
-                if let Some(config) =
-                    <crate::solvers::BruteForce as crate::solvers::Solver>::find_satisfying(
-                        &solver, p,
-                    )
-                {
-                    format!("{:?}", crate::traits::Problem::evaluate(p, &config))
-                } else {
-                    format!("{:?}", false)
-                }
-            },
+        // Generate dispatch fields based on aggregate value solving plus optional witnesses.
+        let solve_value_body = quote! {
+            let total = <crate::solvers::BruteForce as crate::solvers::Solver>::solve(&solver, p);
+            format!("{:?}", total)
         };
 
-        let solve_witness_body = match entry.solver_kind {
-            SolverKind::Opt => quote! {
-                let config =
-                    <crate::solvers::BruteForce as crate::solvers::Solver>::find_best(&solver, p)?;
-            },
-            SolverKind::Sat => quote! {
-                let config = <crate::solvers::BruteForce as crate::solvers::Solver>::find_satisfying(&solver, p)?;
-            },
+        let solve_witness_body = quote! {
+            let config = crate::solvers::BruteForce::find_witness(&solver, p)?;
         };
 
         let dispatch_fields = quote! {
@@ -751,7 +723,7 @@ mod tests {
     }
 
     #[test]
-    fn declare_variants_generates_find_best_for_opt_entries() {
+    fn declare_variants_generates_aggregate_value_and_witness_dispatch_for_opt_entries() {
         let input: DeclareVariantsInput = syn::parse_quote! {
             default opt Foo => "1",
         };
@@ -785,11 +757,26 @@ mod tests {
             !tokens.contains("solve_witness_fn : None"),
             "solve_witness_fn should not be None"
         );
-        assert!(tokens.contains("find_best"), "expected find_best in tokens");
+        assert!(
+            tokens.contains("let total ="),
+            "expected aggregate value solve"
+        );
+        assert!(
+            tokens.contains("find_witness"),
+            "expected find_witness in tokens"
+        );
+        assert!(
+            !tokens.contains("find_best"),
+            "did not expect legacy find_best in tokens"
+        );
+        assert!(
+            !tokens.contains("SolutionSize :: Invalid"),
+            "did not expect legacy invalid fallback in tokens"
+        );
     }
 
     #[test]
-    fn declare_variants_generates_find_satisfying_for_sat_entries() {
+    fn declare_variants_generates_aggregate_value_and_witness_dispatch_for_sat_entries() {
         let input: DeclareVariantsInput = syn::parse_quote! {
             default sat Foo => "1",
         };
@@ -824,8 +811,16 @@ mod tests {
             "solve_witness_fn should not be None"
         );
         assert!(
-            tokens.contains("find_satisfying"),
-            "expected find_satisfying in tokens"
+            tokens.contains("let total ="),
+            "expected aggregate value solve"
+        );
+        assert!(
+            tokens.contains("find_witness"),
+            "expected find_witness in tokens"
+        );
+        assert!(
+            !tokens.contains("find_satisfying"),
+            "did not expect legacy find_satisfying in tokens"
         );
     }
 

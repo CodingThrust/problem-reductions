@@ -5,7 +5,7 @@
 //! all requirements are met without exceeding the budget.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -170,7 +170,7 @@ impl Problem for StaffScheduling {
     }
 }
 
-impl SatisfactionProblem for StaffScheduling {}
+impl WitnessProblem for StaffScheduling {}
 
 crate::declare_variants! {
     default sat StaffScheduling => "(num_workers + 1)^num_schedules",

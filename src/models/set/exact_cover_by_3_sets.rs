@@ -5,7 +5,7 @@
 //! q disjoint triples covering every element exactly once.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -47,7 +47,7 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_satisfying(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // S0 and S1 form an exact cover
 /// assert_eq!(solutions.len(), 1);
@@ -186,7 +186,7 @@ impl Problem for ExactCoverBy3Sets {
     }
 }
 
-impl SatisfactionProblem for ExactCoverBy3Sets {}
+impl WitnessProblem for ExactCoverBy3Sets {}
 
 crate::declare_variants! {
     default sat ExactCoverBy3Sets => "2^universe_size",

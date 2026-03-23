@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 fn issue_yes_instance() -> LongestCommonSubsequence {
@@ -82,7 +82,7 @@ fn test_lcs_bruteforce_yes() {
     let problem = issue_yes_instance();
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("expected a common subsequence witness");
     assert!(problem.evaluate(&solution));
 }
@@ -91,14 +91,14 @@ fn test_lcs_bruteforce_yes() {
 fn test_lcs_bruteforce_no() {
     let problem = issue_no_instance();
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
 fn test_lcs_find_all_satisfying_contains_issue_witness() {
     let problem = issue_yes_instance();
     let solver = BruteForce::new();
-    let satisfying = solver.find_all_satisfying(&problem);
+    let satisfying = solver.find_all_witnesses(&problem);
     assert!(satisfying.iter().any(|config| config == &vec![0, 1, 0]));
 }
 
@@ -117,7 +117,7 @@ fn test_lcs_paper_example() {
     assert!(problem.evaluate(&[0, 1, 0]));
 
     let solver = BruteForce::new();
-    let satisfying = solver.find_all_satisfying(&problem);
+    let satisfying = solver.find_all_witnesses(&problem);
     assert!(!satisfying.is_empty());
 }
 

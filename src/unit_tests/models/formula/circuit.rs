@@ -156,7 +156,7 @@ fn test_circuit_sat_brute_force() {
     let problem = CircuitSAT::new(circuit);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // All satisfying: c matches x AND y
     // 4 valid configs: (0,0,0), (0,0,1), (0,1,0), (1,1,1)
     assert_eq!(solutions.len(), 4);
@@ -182,7 +182,7 @@ fn test_circuit_sat_complex() {
     let problem = CircuitSAT::new(circuit);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // All valid solutions satisfy both assignments
     for sol in &solutions {
         assert!(problem.evaluate(sol));
@@ -290,6 +290,6 @@ fn test_circuit_sat_paper_example() {
 
     // All 4 consistent configs are satisfying (CircuitSAT checks consistency)
     let solver = BruteForce::new();
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert_eq!(all.len(), 4);
 }

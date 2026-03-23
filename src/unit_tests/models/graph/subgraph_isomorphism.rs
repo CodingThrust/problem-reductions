@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -75,7 +75,7 @@ fn test_subgraph_isomorphism_no_solution() {
 
     // No possible mapping should work
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_none());
 }
 
@@ -88,7 +88,7 @@ fn test_subgraph_isomorphism_solver() {
     let problem = SubgraphIsomorphism::new(host, pattern);
 
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
 
     let sol = solution.unwrap();
@@ -104,7 +104,7 @@ fn test_subgraph_isomorphism_all_satisfying() {
     let problem = SubgraphIsomorphism::new(host, pattern);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // 3 edges in host, each can be mapped in 2 directions = 6 solutions
     assert_eq!(solutions.len(), 6);
     for sol in &solutions {
@@ -188,7 +188,7 @@ fn test_subgraph_isomorphism_issue_example() {
 
     // Verify solver can find a solution
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()));
 }

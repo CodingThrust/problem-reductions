@@ -5,8 +5,8 @@
 //! The boolean product `(B * C)[i,j] = OR_k (B[i,k] AND C[k,j])`.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -46,7 +46,7 @@ inventory::submit! {
 /// let problem = BMF::new(a, 1);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Check the error
 /// for sol in &solutions {
@@ -205,17 +205,17 @@ pub(crate) fn matrix_hamming_distance(a: &[Vec<bool>], b: &[Vec<bool>]) -> usize
 
 impl Problem for BMF {
     const NAME: &'static str = "BMF";
-    type Value = SolutionSize<i32>;
+    type Value = Min<i32>;
 
     fn dims(&self) -> Vec<usize> {
         // B: m*k + C: k*n binary variables
         vec![2; self.m * self.k + self.k * self.n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+    fn evaluate(&self, config: &[usize]) -> Min<i32> {
         // Minimize Hamming distance between A and B*C.
         // All configurations are valid -- the distance is the objective.
-        SolutionSize::Valid(self.hamming_distance(config) as i32)
+        Min(Some(self.hamming_distance(config) as i32))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -223,11 +223,11 @@ impl Problem for BMF {
     }
 }
 
-impl OptimizationProblem for BMF {
+impl ObjectiveProblem for BMF {
     type Objective = i32;
 
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Minimize
     }
 }
 
@@ -248,7 +248,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             2,
         )),
         optimal_config: vec![0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0],
-        optimal_value: serde_json::json!({"Valid": 0}),
+        optimal_value: serde_json::json!(0),
     }]
 }
 

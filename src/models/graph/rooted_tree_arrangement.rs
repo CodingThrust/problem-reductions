@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 
@@ -116,7 +116,7 @@ where
     }
 }
 
-impl<G: Graph + VariantParam> SatisfactionProblem for RootedTreeArrangement<G> {}
+impl<G: Graph + VariantParam> WitnessProblem for RootedTreeArrangement<G> {}
 
 fn analyze_parent_array(parent: &[usize]) -> Option<TreeInfo> {
     let n = parent.len();

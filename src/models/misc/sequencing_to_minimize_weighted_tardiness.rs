@@ -6,7 +6,7 @@
 //! Corresponds to scheduling notation `1 || sum w_j T_j`.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -53,7 +53,7 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// assert!(solver.find_satisfying(&problem).is_some());
+/// assert!(solver.find_witness(&problem).is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SequencingToMinimizeWeightedTardiness {
@@ -170,7 +170,7 @@ impl Problem for SequencingToMinimizeWeightedTardiness {
     }
 }
 
-impl SatisfactionProblem for SequencingToMinimizeWeightedTardiness {}
+impl WitnessProblem for SequencingToMinimizeWeightedTardiness {}
 
 crate::declare_variants! {
     default sat SequencingToMinimizeWeightedTardiness => "factorial(num_tasks)",

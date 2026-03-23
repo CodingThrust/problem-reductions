@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -48,7 +48,7 @@ inventory::submit! {
 /// let problem = MinimumDominatingSet::new(graph, vec![1; 4]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Minimum dominating set is just the center vertex
 /// assert!(solutions.contains(&vec![1, 0, 0, 0]));
@@ -139,7 +139,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumDominatingSet";
-    type Value = SolutionSize<W::Sum>;
+    type Value = Min<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -149,9 +149,9 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
         if !self.is_dominating(config) {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
         let mut total = W::Sum::zero();
         for (i, &selected) in config.iter().enumerate() {
@@ -159,19 +159,19 @@ where
                 total += self.weights[i].to_sum();
             }
         }
-        SolutionSize::Valid(total)
+        Min(Some(total))
     }
 }
 
-impl<G, W> OptimizationProblem for MinimumDominatingSet<G, W>
+impl<G, W> ObjectiveProblem for MinimumDominatingSet<G, W>
 where
     G: Graph + crate::variant::VariantParam,
     W: WeightElement + crate::variant::VariantParam,
 {
     type Objective = W::Sum;
 
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Minimize
     }
 }
 
@@ -188,7 +188,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![1i32; 5],
         )),
         optimal_config: vec![0, 0, 1, 1, 0],
-        optimal_value: serde_json::json!({"Valid": 2}),
+        optimal_value: serde_json::json!(2),
     }]
 }
 

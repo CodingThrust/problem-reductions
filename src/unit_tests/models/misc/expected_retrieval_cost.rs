@@ -1,5 +1,5 @@
 use super::ExpectedRetrievalCost;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 const EPS: f64 = 1e-9;
@@ -66,7 +66,7 @@ fn test_expected_retrieval_cost_rejects_invalid_configs() {
 fn test_expected_retrieval_cost_solver_finds_satisfying_assignment() {
     let problem = yes_problem();
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem).unwrap();
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(problem.evaluate(&solution));
 }
 
@@ -77,7 +77,7 @@ fn test_expected_retrieval_cost_paper_example() {
     assert!(problem.evaluate(&config));
 
     let solver = BruteForce::new();
-    let satisfying = solver.find_all_satisfying(&problem);
+    let satisfying = solver.find_all_witnesses(&problem);
     assert_eq!(satisfying.len(), 54);
 }
 

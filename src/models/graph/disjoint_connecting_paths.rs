@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -132,7 +132,7 @@ where
     }
 }
 
-impl<G: Graph + VariantParam> SatisfactionProblem for DisjointConnectingPaths<G> {}
+impl<G: Graph + VariantParam> WitnessProblem for DisjointConnectingPaths<G> {}
 
 fn canonical_edges<G: Graph>(graph: &G) -> Vec<(usize, usize)> {
     let mut edges = graph

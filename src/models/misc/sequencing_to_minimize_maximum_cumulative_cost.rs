@@ -5,7 +5,7 @@
 //! cost never exceeds a given bound.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 
@@ -190,7 +190,7 @@ impl Problem for SequencingToMinimizeMaximumCumulativeCost {
     }
 }
 
-impl SatisfactionProblem for SequencingToMinimizeMaximumCumulativeCost {}
+impl WitnessProblem for SequencingToMinimizeMaximumCumulativeCost {}
 
 crate::declare_variants! {
     default sat SequencingToMinimizeMaximumCumulativeCost => "factorial(num_tasks)",

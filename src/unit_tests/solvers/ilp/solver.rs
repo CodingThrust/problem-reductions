@@ -69,7 +69,7 @@ fn test_ilp_solver_matches_brute_force() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solutions = bf.find_all_best(&ilp);
+    let bf_solutions = bf.find_all_witnesses(&ilp);
     let ilp_solution = ilp_solver.solve(&ilp).unwrap();
 
     // Both should find optimal value (2)
@@ -207,7 +207,7 @@ fn test_ilp_multiple_constraints() {
 
     // Check against brute force
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_all_best(&ilp);
+    let bf_solutions = bf.find_all_witnesses(&ilp);
     let bf_size = ilp.evaluate(&bf_solutions[0]).unwrap();
 
     assert!(

@@ -7,7 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -58,7 +58,7 @@ inventory::submit! {
 /// assert!(problem.evaluate(&[0, 1, 2]));
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,7 +177,7 @@ impl Problem for SubgraphIsomorphism {
     }
 }
 
-impl SatisfactionProblem for SubgraphIsomorphism {}
+impl WitnessProblem for SubgraphIsomorphism {}
 
 crate::declare_variants! {
     default sat SubgraphIsomorphism => "num_host_vertices ^ num_pattern_vertices",

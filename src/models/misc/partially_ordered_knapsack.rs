@@ -5,8 +5,8 @@
 //! NP-complete in the strong sense (Garey & Johnson, A6 MP12).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Max};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -52,7 +52,7 @@ inventory::submit! {
 ///     11,  // capacity
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_best(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 ///
@@ -223,7 +223,7 @@ impl PartiallyOrderedKnapsack {
 
 impl Problem for PartiallyOrderedKnapsack {
     const NAME: &'static str = "PartiallyOrderedKnapsack";
-    type Value = SolutionSize<i64>;
+    type Value = Max<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -233,16 +233,16 @@ impl Problem for PartiallyOrderedKnapsack {
         vec![2; self.num_items()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i64> {
+    fn evaluate(&self, config: &[usize]) -> Max<i64> {
         if config.len() != self.num_items() {
-            return SolutionSize::Invalid;
+            return Max(None);
         }
         if config.iter().any(|&v| v >= 2) {
-            return SolutionSize::Invalid;
+            return Max(None);
         }
         // Check downward-closure (precedence constraints)
         if !self.is_downward_closed(config) {
-            return SolutionSize::Invalid;
+            return Max(None);
         }
         // Check capacity constraint
         let total_weight: i64 = config
@@ -252,7 +252,7 @@ impl Problem for PartiallyOrderedKnapsack {
             .map(|(i, _)| self.weights[i])
             .sum();
         if total_weight > self.capacity {
-            return SolutionSize::Invalid;
+            return Max(None);
         }
         // Compute total value
         let total_value: i64 = config
@@ -261,15 +261,15 @@ impl Problem for PartiallyOrderedKnapsack {
             .filter(|(_, &x)| x == 1)
             .map(|(i, _)| self.values[i])
             .sum();
-        SolutionSize::Valid(total_value)
+        Max(Some(total_value))
     }
 }
 
-impl OptimizationProblem for PartiallyOrderedKnapsack {
+impl ObjectiveProblem for PartiallyOrderedKnapsack {
     type Objective = i64;
 
-    fn direction(&self) -> Direction {
-        Direction::Maximize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Maximize
     }
 }
 
@@ -288,7 +288,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             11,
         )),
         optimal_config: vec![1, 1, 0, 1, 1, 1],
-        optimal_value: serde_json::json!({"Valid": 20}),
+        optimal_value: serde_json::json!(20),
     }]
 }
 

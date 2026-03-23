@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 
@@ -150,7 +150,7 @@ where
     }
 }
 
-impl<G: Graph + VariantParam> SatisfactionProblem for LengthBoundedDisjointPaths<G> {}
+impl<G: Graph + VariantParam> WitnessProblem for LengthBoundedDisjointPaths<G> {}
 
 fn is_valid_path_collection<G: Graph>(
     graph: &G,

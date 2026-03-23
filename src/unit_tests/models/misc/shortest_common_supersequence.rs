@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -71,7 +71,7 @@ fn test_shortestcommonsupersequence_brute_force() {
     let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3);
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("should find a solution");
     assert!(problem.evaluate(&solution));
 }
@@ -91,7 +91,7 @@ fn test_shortestcommonsupersequence_unsatisfiable() {
     // "01" contains [0,1] but not [1,0]; "10" contains [1,0] but not [0,1]
     let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 2);
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
@@ -114,16 +114,16 @@ fn test_shortestcommonsupersequence_paper_example() {
 
     // Verify a solution exists with brute force
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_some());
+    assert!(solver.find_witness(&problem).is_some());
 
     // Bound 3 is too short: LCS("abc","bac")="ac" (len 2), so SCS ≥ 3+3-2 = 4
     let tight = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![1, 0, 2]], 3);
     let solver2 = BruteForce::new();
-    assert!(solver2.find_satisfying(&tight).is_none());
+    assert!(solver2.find_witness(&tight).is_none());
 }
 
 #[test]
-fn test_shortestcommonsupersequence_find_all_satisfying() {
+fn test_shortestcommonsupersequence_find_all_witnesses() {
     // Issue #412 instance 1: Σ={a,b,c}, R={"abcb","bcab","acba"}, K=7
     // Search space = 3^7 = 2187
     let problem = ShortestCommonSupersequence::new(
@@ -132,7 +132,7 @@ fn test_shortestcommonsupersequence_find_all_satisfying() {
         7,
     );
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     for sol in &solutions {
         assert!(problem.evaluate(sol));
     }
@@ -158,7 +158,7 @@ fn test_shortestcommonsupersequence_find_all_satisfying_empty() {
         5,
     );
     let solver = BruteForce::new();
-    assert!(solver.find_all_satisfying(&problem).is_empty());
+    assert!(solver.find_all_witnesses(&problem).is_empty());
 }
 
 #[test]

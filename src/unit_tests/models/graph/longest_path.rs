@@ -1,8 +1,8 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, One, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Max, One};
 
 fn issue_problem() -> LongestPath<SimpleGraph, i32> {
     LongestPath::new(
@@ -48,7 +48,7 @@ fn test_longest_path_creation() {
     assert_eq!(problem.dims(), vec![2; 10]);
     assert_eq!(problem.edge_lengths(), &[3, 2, 4, 1, 5, 2, 3, 2, 4, 1]);
     assert!(problem.is_weighted());
-    assert_eq!(problem.direction(), Direction::Maximize);
+    assert_eq!(problem.direction(), ExtremumSense::Maximize);
 
     problem.set_lengths(vec![1; 10]);
     assert_eq!(problem.edge_lengths(), &[1; 10]);
@@ -61,27 +61,15 @@ fn test_longest_path_creation() {
 fn test_longest_path_evaluate_valid_and_invalid_configs() {
     let problem = issue_problem();
 
-    assert_eq!(problem.evaluate(&optimal_config()), SolutionSize::Valid(20));
-    assert_eq!(
-        problem.evaluate(&suboptimal_config()),
-        SolutionSize::Valid(17)
-    );
+    assert_eq!(problem.evaluate(&optimal_config()), Max(Some(20)));
+    assert_eq!(problem.evaluate(&suboptimal_config()), Max(Some(17)));
     assert!(problem.is_valid_solution(&optimal_config()));
     assert!(problem.is_valid_solution(&suboptimal_config()));
 
-    assert_eq!(
-        problem.evaluate(&[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]),
-        SolutionSize::Invalid
-    );
-    assert_eq!(
-        problem.evaluate(&[1, 0, 1, 0, 1, 0, 0, 0, 0, 1]),
-        SolutionSize::Invalid
-    );
-    assert_eq!(
-        problem.evaluate(&[1, 0, 1, 1, 1, 1, 1, 1, 1, 1]),
-        SolutionSize::Invalid
-    );
-    assert_eq!(problem.evaluate(&[0; 10]), SolutionSize::Invalid);
+    assert_eq!(problem.evaluate(&[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]), Max(None));
+    assert_eq!(problem.evaluate(&[1, 0, 1, 0, 1, 0, 0, 0, 0, 1]), Max(None));
+    assert_eq!(problem.evaluate(&[1, 0, 1, 1, 1, 1, 1, 1, 1, 1]), Max(None));
+    assert_eq!(problem.evaluate(&[0; 10]), Max(None));
     assert!(!problem.is_valid_solution(&[1, 0, 1]));
     assert!(!problem.is_valid_solution(&[1, 0, 1, 0, 1, 0, 1, 0, 1, 2]));
 }
@@ -91,11 +79,11 @@ fn test_longest_path_bruteforce_finds_issue_optimum() {
     let problem = issue_problem();
     let solver = BruteForce::new();
 
-    let best = solver.find_best(&problem).unwrap();
+    let best = solver.find_witness(&problem).unwrap();
     assert_eq!(best, optimal_config());
-    assert_eq!(problem.evaluate(&best), SolutionSize::Valid(20));
+    assert_eq!(problem.evaluate(&best), Max(Some(20)));
 
-    let all_best = solver.find_all_best(&problem);
+    let all_best = solver.find_all_witnesses(&problem);
     assert_eq!(all_best, vec![optimal_config()]);
 }
 
@@ -110,10 +98,7 @@ fn test_longest_path_serialization() {
     assert_eq!(restored.source_vertex(), 0);
     assert_eq!(restored.target_vertex(), 6);
     assert_eq!(restored.edge_lengths(), &[3, 2, 4, 1, 5, 2, 3, 2, 4, 1]);
-    assert_eq!(
-        restored.evaluate(&optimal_config()),
-        SolutionSize::Valid(20)
-    );
+    assert_eq!(restored.evaluate(&optimal_config()), Max(Some(20)));
 }
 
 #[test]
@@ -121,11 +106,11 @@ fn test_longest_path_source_equals_target_only_allows_empty_path() {
     let problem = LongestPath::new(SimpleGraph::path(3), vec![5, 7], 1, 1);
 
     assert!(problem.is_valid_solution(&[0, 0]));
-    assert_eq!(problem.evaluate(&[0, 0]), SolutionSize::Valid(0));
+    assert_eq!(problem.evaluate(&[0, 0]), Max(Some(0)));
     assert!(!problem.is_valid_solution(&[1, 0]));
-    assert_eq!(problem.evaluate(&[1, 0]), SolutionSize::Invalid);
+    assert_eq!(problem.evaluate(&[1, 0]), Max(None));
 
-    let best = BruteForce::new().find_best(&problem).unwrap();
+    let best = BruteForce::new().find_witness(&problem).unwrap();
     assert_eq!(best, vec![0, 0]);
 }
 
@@ -133,15 +118,9 @@ fn test_longest_path_source_equals_target_only_allows_empty_path() {
 fn test_longestpath_paper_example() {
     let problem = issue_problem();
 
-    assert_eq!(problem.evaluate(&optimal_config()), SolutionSize::Valid(20));
-    assert_eq!(
-        problem.evaluate(&suboptimal_config()),
-        SolutionSize::Valid(17)
-    );
-    assert_eq!(
-        problem.evaluate(&[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]),
-        SolutionSize::Invalid
-    );
+    assert_eq!(problem.evaluate(&optimal_config()), Max(Some(20)));
+    assert_eq!(problem.evaluate(&suboptimal_config()), Max(Some(17)));
+    assert_eq!(problem.evaluate(&[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]), Max(None));
 }
 
 #[test]

@@ -1,7 +1,7 @@
 //! Rooted Tree Storage Assignment problem implementation.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -214,7 +214,7 @@ impl Problem for RootedTreeStorageAssignment {
     }
 }
 
-impl SatisfactionProblem for RootedTreeStorageAssignment {}
+impl WitnessProblem for RootedTreeStorageAssignment {}
 
 crate::declare_variants! {
     default sat RootedTreeStorageAssignment => "universe_size^universe_size",

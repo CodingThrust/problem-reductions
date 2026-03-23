@@ -49,7 +49,7 @@ fn test_circuitsat_to_ilp_xor_gate() {
         &reduction,
         "CircuitSAT->ILP XOR gate",
     );
-    assert_eq!(BruteForce::new().find_all_satisfying(&source).len(), 4);
+    assert_eq!(BruteForce::new().find_all_witnesses(&source).len(), 4);
 }
 
 #[test]

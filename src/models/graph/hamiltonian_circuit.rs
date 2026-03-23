@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 
@@ -46,7 +46,7 @@ inventory::submit! {
 /// let problem = HamiltonianCircuit::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_satisfying(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Verify all solutions are valid Hamiltonian circuits
 /// for sol in &solutions {
@@ -140,7 +140,7 @@ pub(crate) fn is_valid_hamiltonian_circuit<G: Graph>(graph: &G, config: &[usize]
     true
 }
 
-impl<G: Graph + VariantParam> SatisfactionProblem for HamiltonianCircuit<G> {}
+impl<G: Graph + VariantParam> WitnessProblem for HamiltonianCircuit<G> {}
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {

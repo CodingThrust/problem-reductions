@@ -4,7 +4,7 @@ use crate::models::graph::GraphPartitioning;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Min;
 
 fn canonical_instance() -> GraphPartitioning<SimpleGraph> {
     let graph = SimpleGraph::new(
@@ -83,15 +83,15 @@ fn test_graphpartitioning_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let bf_obj = problem.evaluate(&bf_solutions[0]);
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
     let ilp_obj = problem.evaluate(&extracted);
 
-    assert_eq!(bf_obj, SolutionSize::Valid(3));
-    assert_eq!(ilp_obj, SolutionSize::Valid(3));
+    assert_eq!(bf_obj, Min(Some(3)));
+    assert_eq!(ilp_obj, Min(Some(3)));
 }
 
 #[test]
@@ -116,7 +116,7 @@ fn test_solution_extraction() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     assert_eq!(extracted, vec![0, 0, 0, 1, 1, 1]);
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(3));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(3)));
 }
 
 #[test]
@@ -128,5 +128,5 @@ fn test_solve_reduced() {
         .solve_reduced(&problem)
         .expect("solve_reduced should work");
 
-    assert_eq!(problem.evaluate(&solution), SolutionSize::Valid(3));
+    assert_eq!(problem.evaluate(&solution), Min(Some(3)));
 }

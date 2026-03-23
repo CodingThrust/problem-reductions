@@ -5,7 +5,7 @@
 //! can be reconstructed as a union of some subcollection of the basis.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -168,7 +168,7 @@ impl Problem for SetBasis {
     }
 }
 
-impl SatisfactionProblem for SetBasis {}
+impl WitnessProblem for SetBasis {}
 
 crate::declare_variants! {
     default sat SetBasis => "2^(basis_size * universe_size)",

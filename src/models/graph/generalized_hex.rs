@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::variant::VariantParam;
 
 inventory::submit! {
@@ -261,7 +261,7 @@ where
     }
 }
 
-impl<G> SatisfactionProblem for GeneralizedHex<G> where G: Graph + VariantParam {}
+impl<G> WitnessProblem for GeneralizedHex<G> where G: Graph + VariantParam {}
 
 crate::declare_variants! {
     default sat GeneralizedHex<SimpleGraph> => "3^num_playable_vertices",

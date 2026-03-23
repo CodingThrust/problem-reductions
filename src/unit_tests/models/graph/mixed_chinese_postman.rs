@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::MixedGraph;
 use crate::traits::Problem;
 
@@ -68,7 +68,7 @@ fn test_mixed_chinese_postman_single_edge_walk() {
     assert!(problem.evaluate(&[1]));
 
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_some());
+    assert!(solver.find_witness(&problem).is_some());
 }
 
 #[test]
@@ -102,7 +102,7 @@ fn test_mixed_chinese_postman_solver_finds_satisfying_orientation() {
     let solver = BruteForce::new();
 
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("expected a satisfying orientation");
     assert!(problem.evaluate(&solution));
 }
@@ -112,7 +112,7 @@ fn test_mixed_chinese_postman_solver_reports_unsat_issue_example() {
     let problem = no_instance();
     let solver = BruteForce::new();
 
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]

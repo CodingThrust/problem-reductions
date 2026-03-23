@@ -15,7 +15,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
@@ -231,7 +231,7 @@ impl Problem for UndirectedFlowLowerBounds {
     }
 }
 
-impl SatisfactionProblem for UndirectedFlowLowerBounds {}
+impl WitnessProblem for UndirectedFlowLowerBounds {}
 
 crate::declare_variants! {
     default sat UndirectedFlowLowerBounds => "2^num_edges",

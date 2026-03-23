@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, One, SolutionSize, WeightElement};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Max, One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -150,7 +150,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "LongestPath";
-    type Value = SolutionSize<W::Sum>;
+    type Value = Max<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -160,9 +160,9 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
         if !self.is_valid_solution(config) {
-            return SolutionSize::Invalid;
+            return Max(None);
         }
 
         let mut total = W::Sum::zero();
@@ -171,19 +171,19 @@ where
                 total += self.edge_lengths[idx].to_sum();
             }
         }
-        SolutionSize::Valid(total)
+        Max(Some(total))
     }
 }
 
-impl<G, W> OptimizationProblem for LongestPath<G, W>
+impl<G, W> ObjectiveProblem for LongestPath<G, W>
 where
     G: Graph + crate::variant::VariantParam,
     W: WeightElement + crate::variant::VariantParam,
 {
     type Objective = W::Sum;
 
-    fn direction(&self) -> Direction {
-        Direction::Maximize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Maximize
     }
 }
 
@@ -294,7 +294,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             6,
         )),
         optimal_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 1, 0],
-        optimal_value: serde_json::json!({"Valid": 20}),
+        optimal_value: serde_json::json!(20),
     }]
 }
 

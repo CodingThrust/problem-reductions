@@ -5,7 +5,7 @@
 //! prescribed bound.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 const FLOAT_TOLERANCE: f64 = 1e-9;
@@ -141,7 +141,7 @@ impl Problem for ExpectedRetrievalCost {
     }
 }
 
-impl SatisfactionProblem for ExpectedRetrievalCost {}
+impl WitnessProblem for ExpectedRetrievalCost {}
 
 fn latency_distance(num_sectors: usize, source: usize, target: usize) -> usize {
     if source < target {

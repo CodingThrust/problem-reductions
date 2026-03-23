@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::formula::CNFClause;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::variant::K3;
 use num_bigint::BigUint;
@@ -25,7 +25,7 @@ fn test_ksatisfiability_to_subsetsum_closed_loop() {
     assert_eq!(target.target(), &BigUint::from(11144u32));
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(target);
+    let solutions = solver.find_all_witnesses(target);
     assert!(!solutions.is_empty());
 
     // Every SubsetSum solution must map back to a satisfying 3-SAT assignment
@@ -53,7 +53,7 @@ fn test_ksatisfiability_to_subsetsum_unsatisfiable() {
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(target);
+    let solution = solver.find_witness(target);
     assert!(solution.is_none());
 }
 
@@ -68,7 +68,7 @@ fn test_ksatisfiability_to_subsetsum_single_clause() {
     assert_eq!(target.num_elements(), 8);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(target);
+    let solutions = solver.find_all_witnesses(target);
 
     // Each SubsetSum solution maps to a satisfying assignment
     let mut sat_assignments = std::collections::HashSet::new();
@@ -118,7 +118,7 @@ fn test_ksatisfiability_to_subsetsum_all_negated() {
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(target);
+    let solutions = solver.find_all_witnesses(target);
 
     let mut sat_assignments = std::collections::HashSet::new();
     for sol in &solutions {

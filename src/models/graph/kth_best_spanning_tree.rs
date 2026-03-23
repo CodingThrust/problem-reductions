@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::types::WeightElement;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -222,7 +222,7 @@ where
     }
 }
 
-impl<W> SatisfactionProblem for KthBestSpanningTree<W> where
+impl<W> WitnessProblem for KthBestSpanningTree<W> where
     W: WeightElement + crate::variant::VariantParam
 {
 }

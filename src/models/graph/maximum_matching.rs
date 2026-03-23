@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Max, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -51,7 +51,7 @@ inventory::submit! {
 /// let problem = MaximumMatching::<_, i32>::unit_weights(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Maximum matching has 1 edge
 /// for sol in &solutions {
@@ -187,7 +187,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumMatching";
-    type Value = SolutionSize<W::Sum>;
+    type Value = Max<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -197,9 +197,9 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
         if !self.is_valid_matching(config) {
-            return SolutionSize::Invalid;
+            return Max(None);
         }
         let mut total = W::Sum::zero();
         for (idx, &selected) in config.iter().enumerate() {
@@ -209,19 +209,19 @@ where
                 }
             }
         }
-        SolutionSize::Valid(total)
+        Max(Some(total))
     }
 }
 
-impl<G, W> OptimizationProblem for MaximumMatching<G, W>
+impl<G, W> ObjectiveProblem for MaximumMatching<G, W>
 where
     G: Graph + crate::variant::VariantParam,
     W: WeightElement + crate::variant::VariantParam,
 {
     type Objective = W::Sum;
 
-    fn direction(&self) -> Direction {
-        Direction::Maximize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Maximize
     }
 }
 
@@ -238,7 +238,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
         ))),
         optimal_config: vec![1, 0, 0, 0, 1, 0],
-        optimal_value: serde_json::json!({"Valid": 2}),
+        optimal_value: serde_json::json!(2),
     }]
 }
 

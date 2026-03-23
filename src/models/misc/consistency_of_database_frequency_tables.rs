@@ -7,7 +7,7 @@
 //! frequency table and every known value.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -333,7 +333,7 @@ impl Problem for ConsistencyOfDatabaseFrequencyTables {
     }
 }
 
-impl SatisfactionProblem for ConsistencyOfDatabaseFrequencyTables {}
+impl WitnessProblem for ConsistencyOfDatabaseFrequencyTables {}
 
 crate::declare_variants! {
     default sat ConsistencyOfDatabaseFrequencyTables => "domain_size_product^num_objects",

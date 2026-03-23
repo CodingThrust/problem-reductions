@@ -8,7 +8,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -234,7 +234,7 @@ impl Problem for PathConstrainedNetworkFlow {
     }
 }
 
-impl SatisfactionProblem for PathConstrainedNetworkFlow {}
+impl WitnessProblem for PathConstrainedNetworkFlow {}
 
 crate::declare_variants! {
     default sat PathConstrainedNetworkFlow => "(max_capacity + 1)^num_paths",

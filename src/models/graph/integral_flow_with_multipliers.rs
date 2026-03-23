@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -213,7 +213,7 @@ impl Problem for IntegralFlowWithMultipliers {
     }
 }
 
-impl SatisfactionProblem for IntegralFlowWithMultipliers {}
+impl WitnessProblem for IntegralFlowWithMultipliers {}
 
 crate::declare_variants! {
     default sat IntegralFlowWithMultipliers => "(max_capacity + 1)^num_arcs",

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -91,7 +91,7 @@ fn test_kthbestspanningtree_solver_exhaustive() {
     let solver = BruteForce::new();
 
     // Exactly 2 spanning trees have weight ≤ 4, so exactly 2! = 2 satisfying configs.
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert_eq!(all.len(), 2);
     assert!(all.iter().all(|config| problem.evaluate(config)));
 }
@@ -101,8 +101,8 @@ fn test_kthbestspanningtree_solver_no_instance() {
     let problem = no_instance();
     let solver = BruteForce::new();
 
-    assert!(solver.find_satisfying(&problem).is_none());
-    assert!(solver.find_all_satisfying(&problem).is_empty());
+    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_all_witnesses(&problem).is_empty());
 }
 
 #[test]
@@ -110,7 +110,7 @@ fn test_kthbestspanningtree_small_exhaustive_search() {
     let problem = small_yes_instance();
     let solver = BruteForce::new();
 
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert_eq!(all.len(), 6);
     assert!(all.iter().all(|config| problem.evaluate(config)));
 }

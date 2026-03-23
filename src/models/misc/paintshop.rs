@@ -6,8 +6,8 @@
 //! The goal is to minimize color switches between adjacent positions.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -40,7 +40,7 @@ inventory::submit! {
 /// let problem = PaintShop::new(vec!["a", "b", "a", "c", "c", "b"]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // The minimum number of color switches
 /// for sol in &solutions {
@@ -168,15 +168,15 @@ pub(crate) fn count_paint_switches(coloring: &[usize]) -> usize {
 
 impl Problem for PaintShop {
     const NAME: &'static str = "PaintShop";
-    type Value = SolutionSize<i32>;
+    type Value = Min<i32>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_cars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+    fn evaluate(&self, config: &[usize]) -> Min<i32> {
         // All configurations are valid (no hard constraints).
-        SolutionSize::Valid(self.count_switches(config) as i32)
+        Min(Some(self.count_switches(config) as i32))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -184,11 +184,11 @@ impl Problem for PaintShop {
     }
 }
 
-impl OptimizationProblem for PaintShop {
+impl ObjectiveProblem for PaintShop {
     type Objective = i32;
 
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Minimize
     }
 }
 
@@ -202,7 +202,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         id: "paintshop",
         instance: Box::new(PaintShop::new(vec!["A", "B", "A", "C", "B", "C"])),
         optimal_config: vec![0, 0, 1],
-        optimal_value: serde_json::json!({"Valid": 2}),
+        optimal_value: serde_json::json!(2),
     }]
 }
 

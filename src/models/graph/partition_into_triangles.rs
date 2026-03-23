@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 
@@ -46,7 +46,7 @@ inventory::submit! {
 /// let problem = PartitionIntoTriangles::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,7 +154,7 @@ where
     }
 }
 
-impl<G: Graph + VariantParam> SatisfactionProblem for PartitionIntoTriangles<G> {}
+impl<G: Graph + VariantParam> WitnessProblem for PartitionIntoTriangles<G> {}
 
 crate::declare_variants! {
     default sat PartitionIntoTriangles<SimpleGraph> => "2^num_vertices",

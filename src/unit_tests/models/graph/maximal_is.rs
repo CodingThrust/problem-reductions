@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 include!("../../jl_helpers.rs");
 
@@ -68,11 +68,11 @@ fn test_is_maximal_independent_set_function() {
 
 #[test]
 fn test_direction() {
-    use crate::traits::OptimizationProblem;
-    use crate::types::Direction;
+    use crate::traits::ObjectiveProblem;
+    use crate::types::ExtremumSense;
 
     let problem = MaximalIS::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]);
-    assert_eq!(problem.direction(), Direction::Maximize);
+    assert_eq!(problem.direction(), ExtremumSense::Maximize);
 }
 
 #[test]
@@ -159,7 +159,7 @@ fn test_jl_parity_evaluation() {
                 );
             }
         }
-        let best = BruteForce::new().find_all_best(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "MaximalIS best solutions mismatch");
@@ -207,6 +207,6 @@ fn test_maximal_is_paper_example() {
 
     // Verify optimal weight is 3
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
+    let best = solver.find_witness(&problem).unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), 3);
 }

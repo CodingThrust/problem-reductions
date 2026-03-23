@@ -1,8 +1,8 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min};
 
 fn k5_btsp() -> BottleneckTravelingSalesman {
     BottleneckTravelingSalesman::new(
@@ -63,11 +63,11 @@ fn test_bottleneck_traveling_salesman_evaluate_valid_and_invalid() {
 
     let valid_cycle = vec![0, 1, 1, 0, 1, 0, 1, 0, 0, 1];
     assert!(problem.is_valid_solution(&valid_cycle));
-    assert_eq!(problem.evaluate(&valid_cycle), SolutionSize::Valid(4));
+    assert_eq!(problem.evaluate(&valid_cycle), Min(Some(4)));
 
     let degree_violation = vec![1, 1, 1, 0, 1, 0, 1, 0, 0, 1];
     assert!(!problem.is_valid_solution(&degree_violation));
-    assert_eq!(problem.evaluate(&degree_violation), SolutionSize::Invalid);
+    assert_eq!(problem.evaluate(&degree_violation), Min(None));
 }
 
 #[test]
@@ -79,10 +79,7 @@ fn test_bottleneck_traveling_salesman_evaluate_disconnected_subtour_invalid() {
 
     let disconnected_subtour = vec![1, 1, 1, 1, 1, 1];
     assert!(!problem.is_valid_solution(&disconnected_subtour));
-    assert_eq!(
-        problem.evaluate(&disconnected_subtour),
-        SolutionSize::Invalid
-    );
+    assert_eq!(problem.evaluate(&disconnected_subtour), Min(None));
 }
 
 #[test]
@@ -92,17 +89,17 @@ fn test_bottleneck_traveling_salesman_direction() {
         vec![7, 4, 6],
     );
 
-    assert_eq!(problem.direction(), Direction::Minimize);
+    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]
 fn test_bottleneck_traveling_salesman_bruteforce_unique_optimum() {
     let problem = k5_btsp();
     let solver = BruteForce::new();
-    let best = solver.find_all_best(&problem);
+    let best = solver.find_all_witnesses(&problem);
 
     assert_eq!(best, vec![vec![0, 1, 1, 0, 1, 0, 1, 0, 0, 1]]);
-    assert_eq!(problem.evaluate(&best[0]), SolutionSize::Valid(4));
+    assert_eq!(problem.evaluate(&best[0]), Min(Some(4)));
 }
 
 #[test]
@@ -116,7 +113,7 @@ fn test_bottleneck_traveling_salesman_serialization() {
     assert_eq!(restored.weights(), problem.weights());
     assert_eq!(
         restored.evaluate(&[0, 1, 1, 0, 1, 0, 1, 0, 0, 1]),
-        SolutionSize::Valid(4)
+        Min(Some(4))
     );
 }
 
@@ -126,10 +123,10 @@ fn test_bottleneck_traveling_salesman_paper_example() {
     let config = vec![0, 1, 1, 0, 1, 0, 1, 0, 0, 1];
 
     assert!(problem.is_valid_solution(&config));
-    assert_eq!(problem.evaluate(&config), SolutionSize::Valid(4));
+    assert_eq!(problem.evaluate(&config), Min(Some(4)));
 
     let solver = BruteForce::new();
-    let best = solver.find_all_best(&problem);
+    let best = solver.find_all_witnesses(&problem);
     assert_eq!(best.len(), 1);
     assert_eq!(best[0], config);
 }

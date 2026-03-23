@@ -5,7 +5,7 @@
 //! in the first family is at least its containment weight in the second.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::types::{One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -192,7 +192,7 @@ where
     }
 }
 
-impl<W> SatisfactionProblem for ComparativeContainment<W> where
+impl<W> WitnessProblem for ComparativeContainment<W> where
     W: WeightElement + crate::variant::VariantParam
 {
 }

@@ -10,7 +10,7 @@ pub use brute_force::BruteForce;
 #[cfg(feature = "ilp-solver")]
 pub use ilp::ILPSolver;
 
-use crate::traits::{OptimizationProblem, Problem, SatisfactionProblem};
+use crate::traits::{ObjectiveProblem, Problem, WitnessProblem};
 
 /// Trait for problem solvers.
 pub trait Solver {
@@ -21,8 +21,14 @@ pub trait Solver {
         P::Value: crate::types::Aggregate;
 
     /// Temporary compatibility helper for optimization problems.
-    fn find_best<P: OptimizationProblem>(&self, problem: &P) -> Option<Vec<usize>>;
+    fn find_best<P>(&self, problem: &P) -> Option<Vec<usize>>
+    where
+        P: ObjectiveProblem,
+        P::Value: crate::types::Aggregate;
 
     /// Temporary compatibility helper for satisfaction problems.
-    fn find_satisfying<P: SatisfactionProblem>(&self, problem: &P) -> Option<Vec<usize>>;
+    fn find_satisfying<P>(&self, problem: &P) -> Option<Vec<usize>>
+    where
+        P: WitnessProblem,
+        P::Value: crate::types::Aggregate;
 }

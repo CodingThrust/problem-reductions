@@ -96,13 +96,11 @@ impl Problem for SumProblem {
     }
 
     fn evaluate(&self, config: &[usize]) -> Self::Value {
-        Sum(
-            config
-                .iter()
-                .zip(&self.weights)
-                .map(|(&c, &w)| if c == 1 { w } else { 0 })
-                .sum(),
-        )
+        Sum(config
+            .iter()
+            .zip(&self.weights)
+            .map(|(&c, &w)| if c == 1 { w } else { 0 })
+            .sum())
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -201,8 +199,8 @@ fn test_solver_find_all_witnesses_returns_empty_for_sum_problem() {
 #[test]
 fn test_solver_with_real_mis() {
     use crate::models::graph::MaximumIndependentSet;
-    use crate::traits::Problem;
     use crate::topology::SimpleGraph;
+    use crate::traits::Problem;
 
     let problem = MaximumIndependentSet::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
@@ -210,7 +208,7 @@ fn test_solver_with_real_mis() {
     );
     let solver = BruteForce::new();
 
-    let best = solver.find_all_best(&problem);
+    let best = solver.find_all_witnesses(&problem);
     assert_eq!(best.len(), 3);
     for sol in &best {
         assert_eq!(sol.iter().sum::<usize>(), 1);
@@ -229,7 +227,7 @@ fn test_solver_with_real_sat() {
     );
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert_eq!(solutions.len(), 2);
     for sol in &solutions {
         assert!(problem.evaluate(sol));

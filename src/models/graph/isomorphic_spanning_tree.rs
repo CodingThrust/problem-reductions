@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -44,7 +44,7 @@ inventory::submit! {
 /// let problem = IsomorphicSpanningTree::new(graph, tree);
 ///
 /// let solver = BruteForce::new();
-/// let sol = solver.find_satisfying(&problem);
+/// let sol = solver.find_witness(&problem);
 /// assert!(sol.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -163,7 +163,7 @@ impl Problem for IsomorphicSpanningTree {
     }
 }
 
-impl SatisfactionProblem for IsomorphicSpanningTree {}
+impl WitnessProblem for IsomorphicSpanningTree {}
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {

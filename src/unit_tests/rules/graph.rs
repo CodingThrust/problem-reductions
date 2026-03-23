@@ -322,7 +322,10 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
         .reduce_aggregate_along_path(&path, &AggregateChainSource as &dyn Any)
         .expect("expected aggregate reduction chain");
 
-    assert_eq!(chain.target_problem::<AggregateChainTarget>().dims(), vec![1]);
+    assert_eq!(
+        chain.target_problem::<AggregateChainTarget>().dims(),
+        vec![1]
+    );
     assert_eq!(chain.extract_value_dyn(json!(7)), json!(12));
 }
 
@@ -1280,7 +1283,7 @@ fn test_reduce_along_path_direct() {
 
 #[test]
 fn test_reduction_chain_direct() {
-    use crate::solvers::{BruteForce, Solver};
+    use crate::solvers::BruteForce;
     use crate::traits::Problem;
 
     let graph = ReductionGraph::new();
@@ -1307,7 +1310,7 @@ fn test_reduction_chain_direct() {
     let target: &MinimumVertexCover<SimpleGraph, i32> = chain.target_problem();
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_best(target).unwrap();
+    let target_solution = solver.find_witness(target).unwrap();
     let source_solution = chain.extract_solution(&target_solution);
     let metric = problem.evaluate(&source_solution);
     assert!(metric.is_valid());
@@ -1315,7 +1318,7 @@ fn test_reduction_chain_direct() {
 
 #[test]
 fn test_reduction_chain_multi_step() {
-    use crate::solvers::{BruteForce, Solver};
+    use crate::solvers::BruteForce;
     use crate::traits::Problem;
 
     let graph = ReductionGraph::new();
@@ -1342,7 +1345,7 @@ fn test_reduction_chain_multi_step() {
     let target: &MaximumSetPacking<i32> = chain.target_problem();
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_best(target).unwrap();
+    let target_solution = solver.find_witness(target).unwrap();
     let source_solution = chain.extract_solution(&target_solution);
     let metric = problem.evaluate(&source_solution);
     assert!(metric.is_valid());
@@ -1352,7 +1355,7 @@ fn test_reduction_chain_multi_step() {
 fn test_reduction_chain_with_variant_casts() {
     use crate::models::formula::{CNFClause, KSatisfiability};
     use crate::rules::MinimizeSteps;
-    use crate::solvers::{BruteForce, Solver};
+    use crate::solvers::BruteForce;
     use crate::topology::UnitDiskGraph;
     use crate::traits::Problem;
     use crate::types::ProblemSize;
@@ -1393,7 +1396,7 @@ fn test_reduction_chain_with_variant_casts() {
     let target: &MinimumVertexCover<SimpleGraph, i32> = chain.target_problem();
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_best(target).unwrap();
+    let target_solution = solver.find_witness(target).unwrap();
     let source_solution = chain.extract_solution(&target_solution);
     let metric = mis.evaluate(&source_solution);
     assert!(metric.is_valid());
@@ -1435,7 +1438,7 @@ fn test_reduction_chain_with_variant_casts() {
         .unwrap();
     let target: &MaximumIndependentSet<SimpleGraph, i32> = ksat_chain.target_problem();
 
-    let target_solution = solver.find_best(target).unwrap();
+    let target_solution = solver.find_witness(target).unwrap();
     let original_solution = ksat_chain.extract_solution(&target_solution);
 
     // Verify the extracted solution satisfies the original 3-SAT formula

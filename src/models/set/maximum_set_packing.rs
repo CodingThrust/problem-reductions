@@ -4,8 +4,8 @@
 //! pairwise disjoint sets.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, One, SolutionSize, WeightElement};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Max, One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -46,7 +46,7 @@ inventory::submit! {
 /// ]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Verify solutions are pairwise disjoint
 /// for sol in solutions {
@@ -141,15 +141,15 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumSetPacking";
-    type Value = SolutionSize<W::Sum>;
+    type Value = Max<W::Sum>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.sets.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
         if !is_valid_packing(&self.sets, config) {
-            return SolutionSize::Invalid;
+            return Max(None);
         }
         let mut total = W::Sum::zero();
         for (i, &selected) in config.iter().enumerate() {
@@ -157,7 +157,7 @@ where
                 total += self.weights[i].to_sum();
             }
         }
-        SolutionSize::Valid(total)
+        Max(Some(total))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -165,14 +165,14 @@ where
     }
 }
 
-impl<W> OptimizationProblem for MaximumSetPacking<W>
+impl<W> ObjectiveProblem for MaximumSetPacking<W>
 where
     W: WeightElement + crate::variant::VariantParam,
 {
     type Objective = W::Sum;
 
-    fn direction(&self) -> Direction {
-        Direction::Maximize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Maximize
     }
 }
 
@@ -225,7 +225,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![3, 4],
         ])),
         optimal_config: vec![0, 1, 0, 1],
-        optimal_value: serde_json::json!({"Valid": 2}),
+        optimal_value: serde_json::json!(2),
     }]
 }
 

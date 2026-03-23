@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -290,7 +290,7 @@ impl Problem for UndirectedTwoCommodityIntegralFlow {
     }
 }
 
-impl SatisfactionProblem for UndirectedTwoCommodityIntegralFlow {}
+impl WitnessProblem for UndirectedTwoCommodityIntegralFlow {}
 
 crate::declare_variants! {
     default sat UndirectedTwoCommodityIntegralFlow => "5^num_edges",

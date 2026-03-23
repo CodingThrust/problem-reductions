@@ -5,7 +5,7 @@
 //! every task finishes by its own deadline.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -142,7 +142,7 @@ impl Problem for SchedulingWithIndividualDeadlines {
     }
 }
 
-impl SatisfactionProblem for SchedulingWithIndividualDeadlines {}
+impl WitnessProblem for SchedulingWithIndividualDeadlines {}
 
 crate::declare_variants! {
     default sat SchedulingWithIndividualDeadlines => "max_deadline^num_tasks",

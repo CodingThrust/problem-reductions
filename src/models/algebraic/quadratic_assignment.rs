@@ -4,8 +4,8 @@
 //! where cost depends on both inter-facility flows and inter-location distances.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -53,7 +53,7 @@ inventory::submit! {
 /// let problem = QuadraticAssignment::new(cost_matrix, distance_matrix);
 ///
 /// let solver = BruteForce::new();
-/// let best = solver.find_best(&problem);
+/// let best = solver.find_witness(&problem);
 /// assert!(best.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,25 +115,25 @@ impl QuadraticAssignment {
 
 impl Problem for QuadraticAssignment {
     const NAME: &'static str = "QuadraticAssignment";
-    type Value = SolutionSize<i64>;
+    type Value = Min<i64>;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.num_locations(); self.num_facilities()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i64> {
+    fn evaluate(&self, config: &[usize]) -> Min<i64> {
         let n = self.num_facilities();
         let m = self.num_locations();
 
         // Check config length matches number of facilities
         if config.len() != n {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
 
         // Check that all assignments are valid locations
         for &loc in config {
             if loc >= m {
-                return SolutionSize::Invalid;
+                return Min(None);
             }
         }
 
@@ -141,7 +141,7 @@ impl Problem for QuadraticAssignment {
         let mut used = vec![false; m];
         for &loc in config {
             if used[loc] {
-                return SolutionSize::Invalid;
+                return Min(None);
             }
             used[loc] = true;
         }
@@ -156,7 +156,7 @@ impl Problem for QuadraticAssignment {
             }
         }
 
-        SolutionSize::Valid(total)
+        Min(Some(total))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -164,11 +164,11 @@ impl Problem for QuadraticAssignment {
     }
 }
 
-impl OptimizationProblem for QuadraticAssignment {
+impl ObjectiveProblem for QuadraticAssignment {
     type Objective = i64;
 
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Minimize
     }
 }
 
@@ -195,7 +195,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
         )),
         optimal_config: vec![3, 0, 1, 2],
-        optimal_value: serde_json::json!({"Valid": 56}),
+        optimal_value: serde_json::json!(56),
     }]
 }
 

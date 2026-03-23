@@ -6,7 +6,7 @@
 //! NP-complete in the strong sense (Garey & Johnson, SP19).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -50,7 +50,7 @@ inventory::submit! {
 /// // 6 elements with sizes [5, 3, 8, 2, 7, 1], K=3 groups, bound J=240
 /// let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -182,7 +182,7 @@ impl Problem for SumOfSquaresPartition {
     }
 }
 
-impl SatisfactionProblem for SumOfSquaresPartition {}
+impl WitnessProblem for SumOfSquaresPartition {}
 
 crate::declare_variants! {
     default sat SumOfSquaresPartition => "num_groups^num_elements",

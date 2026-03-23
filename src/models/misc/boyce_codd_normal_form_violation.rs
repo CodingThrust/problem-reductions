@@ -6,7 +6,7 @@
 //! some but not all attributes of `A' \ X` — i.e., a witness to a BCNF violation.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -213,7 +213,7 @@ impl Problem for BoyceCoddNormalFormViolation {
     }
 }
 
-impl SatisfactionProblem for BoyceCoddNormalFormViolation {}
+impl WitnessProblem for BoyceCoddNormalFormViolation {}
 
 crate::declare_variants! {
     default sat BoyceCoddNormalFormViolation => "2^num_target_attributes * num_target_attributes^2 * num_functional_deps",

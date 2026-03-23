@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
@@ -117,10 +117,10 @@ fn test_strong_connectivity_augmentation_solver() {
     let problem = issue_example_yes();
     let solver = BruteForce::new();
 
-    let satisfying = solver.find_satisfying(&problem).unwrap();
+    let satisfying = solver.find_witness(&problem).unwrap();
     assert!(problem.evaluate(&satisfying));
 
-    let all_satisfying = solver.find_all_satisfying(&problem);
+    let all_satisfying = solver.find_all_witnesses(&problem);
     assert_eq!(all_satisfying, vec![yes_config()]);
 }
 

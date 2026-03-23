@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -88,7 +88,7 @@ where
     }
 }
 
-impl<G> SatisfactionProblem for KClique<G> where G: Graph + crate::variant::VariantParam {}
+impl<G> WitnessProblem for KClique<G> where G: Graph + crate::variant::VariantParam {}
 
 fn is_kclique_config<G: Graph>(graph: &G, config: &[usize], k: usize) -> bool {
     if config.len() != graph.num_vertices() {

@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::types::WeightElement;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -200,7 +200,7 @@ where
     }
 }
 
-impl<G, W> SatisfactionProblem for BoundedComponentSpanningForest<G, W>
+impl<G, W> WitnessProblem for BoundedComponentSpanningForest<G, W>
 where
     G: Graph + crate::variant::VariantParam,
     W: WeightElement + crate::variant::VariantParam,

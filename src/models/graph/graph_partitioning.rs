@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -40,7 +40,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::GraphPartitioning;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::types::SolutionSize;
+/// use problemreductions::types::Min;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Square graph: 0-1, 1-2, 2-3, 3-0
@@ -48,12 +48,12 @@ inventory::submit! {
 /// let problem = GraphPartitioning::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Minimum bisection of a 4-cycle: cut = 2
 /// for sol in solutions {
 ///     let size = problem.evaluate(&sol);
-///     assert_eq!(size, SolutionSize::Valid(2));
+///     assert_eq!(size, Min(Some(2)));
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,7 +92,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "GraphPartitioning";
-    type Value = SolutionSize<i32>;
+    type Value = Min<i32>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -102,19 +102,19 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+    fn evaluate(&self, config: &[usize]) -> Min<i32> {
         let n = self.graph.num_vertices();
         if config.len() != n {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
         // Balanced bisection requires even n
         if !n.is_multiple_of(2) {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
         // Check balanced: exactly n/2 vertices in partition 1
         let count_ones = config.iter().filter(|&&x| x == 1).count();
         if count_ones != n / 2 {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
         // Count crossing edges
         let mut cut = 0i32;
@@ -123,18 +123,18 @@ where
                 cut += 1;
             }
         }
-        SolutionSize::Valid(cut)
+        Min(Some(cut))
     }
 }
 
-impl<G> OptimizationProblem for GraphPartitioning<G>
+impl<G> ObjectiveProblem for GraphPartitioning<G>
 where
     G: Graph + crate::variant::VariantParam,
 {
     type Objective = i32;
 
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Minimize
     }
 }
 
@@ -163,7 +163,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
         ))),
         optimal_config: vec![0, 0, 0, 1, 1, 1],
-        optimal_value: serde_json::json!({"Valid": 3}),
+        optimal_value: serde_json::json!(3),
     }]
 }
 

@@ -9,8 +9,8 @@ use crate::models::graph::minimum_vertex_cover::is_vertex_cover;
 use crate::models::graph::{KColoring, MaximumIndependentSet, MinimumVertexCover};
 use crate::prelude::*;
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Max, Min};
 use crate::variant::{K1, K2, K3, K4};
 
 // =============================================================================
@@ -61,10 +61,10 @@ mod maximum_independent_set {
             MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i32; 4]);
 
         // Valid: select 0 and 2 (not adjacent)
-        assert_eq!(problem.evaluate(&[1, 0, 1, 0]), SolutionSize::Valid(2));
+        assert_eq!(problem.evaluate(&[1, 0, 1, 0]), Max(Some(2)));
 
         // Valid: select 1 and 3 (not adjacent)
-        assert_eq!(problem.evaluate(&[0, 1, 0, 1]), SolutionSize::Valid(2));
+        assert_eq!(problem.evaluate(&[0, 1, 0, 1]), Max(Some(2)));
     }
 
     #[test]
@@ -73,10 +73,10 @@ mod maximum_independent_set {
             MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i32; 4]);
 
         // Invalid: 0 and 1 are adjacent - returns Invalid
-        assert_eq!(problem.evaluate(&[1, 1, 0, 0]), SolutionSize::Invalid);
+        assert_eq!(problem.evaluate(&[1, 1, 0, 0]), Max(None));
 
         // Invalid: 2 and 3 are adjacent
-        assert_eq!(problem.evaluate(&[0, 0, 1, 1]), SolutionSize::Invalid);
+        assert_eq!(problem.evaluate(&[0, 0, 1, 1]), Max(None));
     }
 
     #[test]
@@ -84,7 +84,7 @@ mod maximum_independent_set {
         let problem =
             MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
         // Empty selection is valid with size 0
-        assert_eq!(problem.evaluate(&[0, 0, 0]), SolutionSize::Valid(0));
+        assert_eq!(problem.evaluate(&[0, 0, 0]), Max(Some(0)));
     }
 
     #[test]
@@ -93,10 +93,10 @@ mod maximum_independent_set {
             MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![10, 20, 30]);
 
         // Select vertex 2 (weight 30)
-        assert_eq!(problem.evaluate(&[0, 0, 1]), SolutionSize::Valid(30));
+        assert_eq!(problem.evaluate(&[0, 0, 1]), Max(Some(30)));
 
         // Select vertices 0 and 2 (weights 10 + 30 = 40)
-        assert_eq!(problem.evaluate(&[1, 0, 1]), SolutionSize::Valid(40));
+        assert_eq!(problem.evaluate(&[1, 0, 1]), Max(Some(40)));
     }
 
     #[test]
@@ -108,7 +108,7 @@ mod maximum_independent_set {
         );
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_best(&problem);
+        let solutions = solver.find_all_witnesses(&problem);
         // All solutions should have exactly 1 vertex selected
         assert_eq!(solutions.len(), 3); // Three equivalent solutions
         for sol in &solutions {
@@ -125,13 +125,13 @@ mod maximum_independent_set {
         );
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_best(&problem);
+        let solutions = solver.find_all_witnesses(&problem);
         // Maximum size is 2
         for sol in &solutions {
             let size: usize = sol.iter().sum();
             assert_eq!(size, 2);
             // Verify it's valid (evaluate returns Valid, not Invalid)
-            assert_eq!(problem.evaluate(sol), SolutionSize::Valid(2));
+            assert_eq!(problem.evaluate(sol), Max(Some(2)));
         }
     }
 
@@ -142,7 +142,7 @@ mod maximum_independent_set {
             MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 100, 1]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_best(&problem);
+        let solutions = solver.find_all_witnesses(&problem);
         assert_eq!(solutions.len(), 1);
         // Should select vertex 1 (weight 100) over vertices 0+2 (weight 2)
         assert_eq!(solutions[0], vec![0, 1, 0]);
@@ -175,7 +175,7 @@ mod maximum_independent_set {
     #[test]
     fn test_direction() {
         let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
-        assert_eq!(problem.direction(), Direction::Maximize);
+        assert_eq!(problem.direction(), ExtremumSense::Maximize);
     }
 
     #[test]
@@ -200,7 +200,7 @@ mod maximum_independent_set {
         let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i32; 3]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_best(&problem);
+        let solutions = solver.find_all_witnesses(&problem);
         assert_eq!(solutions.len(), 1);
         // All vertices can be selected
         assert_eq!(solutions[0], vec![1, 1, 1]);
@@ -215,8 +215,8 @@ mod maximum_independent_set {
         assert!(problem.evaluate(&[1, 0, 1]).is_valid());
         assert!(problem.evaluate(&[0, 1, 0]).is_valid());
         // Invalid configurations return Invalid
-        assert_eq!(problem.evaluate(&[1, 1, 0]), SolutionSize::Invalid);
-        assert_eq!(problem.evaluate(&[0, 1, 1]), SolutionSize::Invalid);
+        assert_eq!(problem.evaluate(&[1, 1, 0]), Max(None));
+        assert_eq!(problem.evaluate(&[0, 1, 1]), Max(None));
     }
 }
 
@@ -251,10 +251,10 @@ mod minimum_vertex_cover {
             MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
 
         // Valid: select vertex 1 (covers both edges)
-        assert_eq!(problem.evaluate(&[0, 1, 0]), SolutionSize::Valid(1));
+        assert_eq!(problem.evaluate(&[0, 1, 0]), Min(Some(1)));
 
         // Valid: select all vertices
-        assert_eq!(problem.evaluate(&[1, 1, 1]), SolutionSize::Valid(3));
+        assert_eq!(problem.evaluate(&[1, 1, 1]), Min(Some(3)));
     }
 
     #[test]
@@ -263,10 +263,10 @@ mod minimum_vertex_cover {
             MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
 
         // Invalid: no vertex selected - returns Invalid for minimization
-        assert_eq!(problem.evaluate(&[0, 0, 0]), SolutionSize::Invalid);
+        assert_eq!(problem.evaluate(&[0, 0, 0]), Min(None));
 
         // Invalid: only vertex 0 selected (edge 1-2 not covered)
-        assert_eq!(problem.evaluate(&[1, 0, 0]), SolutionSize::Invalid);
+        assert_eq!(problem.evaluate(&[1, 0, 0]), Min(None));
     }
 
     #[test]
@@ -276,7 +276,7 @@ mod minimum_vertex_cover {
             MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_best(&problem);
+        let solutions = solver.find_all_witnesses(&problem);
         assert_eq!(solutions.len(), 1);
         assert_eq!(solutions[0], vec![0, 1, 0]);
     }
@@ -290,7 +290,7 @@ mod minimum_vertex_cover {
         );
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_best(&problem);
+        let solutions = solver.find_all_witnesses(&problem);
         // There are 3 minimum covers of size 2
         assert_eq!(solutions.len(), 3);
         for sol in &solutions {
@@ -307,7 +307,7 @@ mod minimum_vertex_cover {
             MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![100, 1, 100]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_best(&problem);
+        let solutions = solver.find_all_witnesses(&problem);
         assert_eq!(solutions.len(), 1);
         // Should select vertex 1 (weight 1) instead of 0 and 2 (total 200)
         assert_eq!(solutions[0], vec![0, 1, 0]);
@@ -336,7 +336,7 @@ mod minimum_vertex_cover {
     #[test]
     fn test_direction() {
         let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
-        assert_eq!(problem.direction(), Direction::Minimize);
+        assert_eq!(problem.direction(), ExtremumSense::Minimize);
     }
 
     #[test]
@@ -344,7 +344,7 @@ mod minimum_vertex_cover {
         let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![]), vec![1i32; 3]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_best(&problem);
+        let solutions = solver.find_all_witnesses(&problem);
         // No edges means empty cover is valid and optimal
         assert_eq!(solutions.len(), 1);
         assert_eq!(solutions[0], vec![0, 0, 0]);
@@ -355,7 +355,7 @@ mod minimum_vertex_cover {
         let problem = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_best(&problem);
+        let solutions = solver.find_all_witnesses(&problem);
         // Either vertex covers the single edge
         assert_eq!(solutions.len(), 2);
     }
@@ -369,8 +369,8 @@ mod minimum_vertex_cover {
         assert!(problem.evaluate(&[0, 1, 0]).is_valid());
         assert!(problem.evaluate(&[1, 0, 1]).is_valid());
         // Invalid configurations return Invalid
-        assert_eq!(problem.evaluate(&[1, 0, 0]), SolutionSize::Invalid);
-        assert_eq!(problem.evaluate(&[0, 0, 1]), SolutionSize::Invalid);
+        assert_eq!(problem.evaluate(&[1, 0, 0]), Min(None));
+        assert_eq!(problem.evaluate(&[0, 0, 1]), Min(None));
     }
 
     #[test]
@@ -383,7 +383,7 @@ mod minimum_vertex_cover {
 
         let solver = BruteForce::new();
 
-        let is_solutions = solver.find_all_best(&is_problem);
+        let is_solutions = solver.find_all_witnesses(&is_problem);
         for is_sol in &is_solutions {
             // Complement should be a valid vertex cover
             let vc_config: Vec<usize> = is_sol.iter().map(|&x| 1 - x).collect();
@@ -490,7 +490,7 @@ mod kcoloring {
         let problem = KColoring::<K2, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_satisfying(&problem);
+        let solutions = solver.find_all_witnesses(&problem);
         // All solutions should be valid
         for sol in &solutions {
             assert!(problem.evaluate(sol));
@@ -503,7 +503,7 @@ mod kcoloring {
         let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_satisfying(&problem);
+        let solutions = solver.find_all_witnesses(&problem);
         for sol in &solutions {
             assert!(problem.evaluate(sol));
             // All three vertices have different colors
@@ -520,7 +520,7 @@ mod kcoloring {
         let solver = BruteForce::new();
 
         // No satisfying assignments
-        let solution = solver.find_satisfying(&problem);
+        let solution = solver.find_witness(&problem);
         assert!(solution.is_none());
     }
 
@@ -547,7 +547,7 @@ mod kcoloring {
         let problem = KColoring::<K1, _>::new(SimpleGraph::new(3, vec![]));
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_satisfying(&problem);
+        let solutions = solver.find_all_witnesses(&problem);
         // Any coloring is valid when there are no edges
         assert!(problem.evaluate(&solutions[0]));
     }
@@ -561,7 +561,7 @@ mod kcoloring {
         ));
         let solver = BruteForce::new();
 
-        let solutions = solver.find_all_satisfying(&problem);
+        let solutions = solver.find_all_witnesses(&problem);
         for sol in &solutions {
             assert!(problem.evaluate(sol));
         }

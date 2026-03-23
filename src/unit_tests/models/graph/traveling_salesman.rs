@@ -1,8 +1,8 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min};
 
 fn k4_tsp() -> TravelingSalesman<SimpleGraph, i32> {
     TravelingSalesman::new(
@@ -46,7 +46,7 @@ fn test_evaluate_valid_cycle() {
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
     ));
     // Select all edges -> valid Hamiltonian cycle, cost = 5
-    assert_eq!(problem.evaluate(&[1, 1, 1, 1, 1]), SolutionSize::Valid(5));
+    assert_eq!(problem.evaluate(&[1, 1, 1, 1, 1]), Min(Some(5)));
 }
 
 #[test]
@@ -55,7 +55,7 @@ fn test_evaluate_invalid_degree() {
     let problem = k4_tsp();
     // edges: 0-1, 0-2, 0-3, 1-2, 1-3, 2-3
     // Select first 3 edges (all incident to 0): degree(0)=3 -> Invalid
-    assert_eq!(problem.evaluate(&[1, 1, 1, 0, 0, 0]), SolutionSize::Invalid);
+    assert_eq!(problem.evaluate(&[1, 1, 1, 0, 0, 0]), Min(None));
 }
 
 #[test]
@@ -66,7 +66,7 @@ fn test_evaluate_invalid_not_connected() {
         vec![(0, 1), (1, 2), (0, 2), (3, 4), (4, 5), (3, 5)],
     ));
     // Select all 6 edges: two disjoint cycles, not a single Hamiltonian cycle
-    assert_eq!(problem.evaluate(&[1, 1, 1, 1, 1, 1]), SolutionSize::Invalid);
+    assert_eq!(problem.evaluate(&[1, 1, 1, 1, 1, 1]), Min(None));
 }
 
 #[test]
@@ -76,7 +76,7 @@ fn test_evaluate_invalid_wrong_edge_count() {
         5,
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
     ));
-    assert_eq!(problem.evaluate(&[1, 1, 1, 1, 0]), SolutionSize::Invalid);
+    assert_eq!(problem.evaluate(&[1, 1, 1, 1, 0]), Min(None));
 }
 
 #[test]
@@ -85,7 +85,7 @@ fn test_evaluate_no_edges_selected() {
         5,
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
     ));
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0]), SolutionSize::Invalid);
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0]), Min(None));
 }
 
 #[test]
@@ -93,11 +93,11 @@ fn test_brute_force_k4() {
     // Instance 1 from issue: K4 with weights
     let problem = k4_tsp();
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     // Optimal cycle: 0->1->3->2->0, cost = 10+25+30+15 = 80
     for sol in &solutions {
-        assert_eq!(problem.evaluate(sol), SolutionSize::Valid(80));
+        assert_eq!(problem.evaluate(sol), Min(Some(80)));
     }
 }
 
@@ -109,7 +109,7 @@ fn test_brute_force_path_graph_no_solution() {
         vec![(0, 1), (1, 2), (2, 3)],
     ));
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(solutions.is_empty());
 }
 
@@ -121,10 +121,10 @@ fn test_brute_force_c5_unique_solution() {
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
     ));
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![1, 1, 1, 1, 1]);
-    assert_eq!(problem.evaluate(&solutions[0]), SolutionSize::Valid(5));
+    assert_eq!(problem.evaluate(&solutions[0]), Min(Some(5)));
 }
 
 #[test]
@@ -135,7 +135,7 @@ fn test_brute_force_bipartite_no_solution() {
         vec![(0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4)],
     ));
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(solutions.is_empty());
 }
 
@@ -145,7 +145,7 @@ fn test_direction() {
         3,
         vec![(0, 1), (1, 2), (0, 2)],
     ));
-    assert_eq!(problem.direction(), Direction::Minimize);
+    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]
@@ -217,10 +217,10 @@ fn test_brute_force_triangle_weighted() {
         vec![5, 10, 15],
     );
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![1, 1, 1]);
-    assert_eq!(problem.evaluate(&solutions[0]), SolutionSize::Valid(30));
+    assert_eq!(problem.evaluate(&solutions[0]), Min(Some(30)));
 }
 
 #[test]
@@ -258,9 +258,9 @@ fn test_tsp_paper_example() {
     // Tour uses edges 0, 2, 3, 5
     let config = vec![1, 0, 1, 1, 0, 1];
     let result = problem.evaluate(&config);
-    assert_eq!(result, SolutionSize::Valid(6));
+    assert_eq!(result, Min(Some(6)));
 
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
-    assert_eq!(problem.evaluate(&best), SolutionSize::Valid(6));
+    let best = solver.find_witness(&problem).unwrap();
+    assert_eq!(problem.evaluate(&best), Min(Some(6)));
 }

@@ -1,8 +1,8 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Max};
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -61,14 +61,14 @@ fn test_is_matching_function() {
 #[test]
 fn test_direction() {
     let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(2, vec![(0, 1)]));
-    assert_eq!(problem.direction(), Direction::Maximize);
+    assert_eq!(problem.direction(), ExtremumSense::Maximize);
 }
 
 #[test]
 fn test_empty_graph() {
     let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![]));
     // Empty matching is valid with size 0
-    assert_eq!(Problem::evaluate(&problem, &[]), SolutionSize::Valid(0));
+    assert_eq!(Problem::evaluate(&problem, &[]), Max(Some(0)));
 }
 
 #[test]
@@ -82,7 +82,7 @@ fn test_edges() {
 fn test_empty_sets() {
     let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(2, vec![]));
     // Empty matching
-    assert_eq!(Problem::evaluate(&problem, &[]), SolutionSize::Valid(0));
+    assert_eq!(Problem::evaluate(&problem, &[]), Max(Some(0)));
 }
 
 #[test]
@@ -147,7 +147,7 @@ fn test_jl_parity_evaluation() {
                 );
             }
         }
-        let best = BruteForce::new().find_all_best(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "Matching best solutions mismatch");
@@ -190,6 +190,6 @@ fn test_matching_paper_example() {
     assert_eq!(result.unwrap(), 2);
 
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
+    let best = solver.find_witness(&problem).unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), 2);
 }

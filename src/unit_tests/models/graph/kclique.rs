@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -52,8 +52,8 @@ fn test_kclique_solver_finds_unique_witness() {
     let problem = KClique::new(issue_graph(), 3);
     let solver = BruteForce::new();
 
-    assert_eq!(solver.find_satisfying(&problem), Some(issue_witness()));
-    assert_eq!(solver.find_all_satisfying(&problem), vec![issue_witness()]);
+    assert_eq!(solver.find_witness(&problem), Some(issue_witness()));
+    assert_eq!(solver.find_all_witnesses(&problem), vec![issue_witness()]);
 }
 
 #[test]
@@ -73,5 +73,5 @@ fn test_kclique_paper_example() {
     let solver = BruteForce::new();
 
     assert!(problem.evaluate(&issue_witness()));
-    assert_eq!(solver.find_all_satisfying(&problem), vec![issue_witness()]);
+    assert_eq!(solver.find_all_witnesses(&problem), vec![issue_witness()]);
 }

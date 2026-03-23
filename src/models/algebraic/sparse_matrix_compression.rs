@@ -5,7 +5,7 @@
 //! by assigning each row a shift in `{1, ..., K}` without collisions.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -134,7 +134,7 @@ impl Problem for SparseMatrixCompression {
     }
 }
 
-impl SatisfactionProblem for SparseMatrixCompression {}
+impl WitnessProblem for SparseMatrixCompression {}
 
 crate::declare_variants! {
     default sat SparseMatrixCompression => "(bound_k ^ num_rows) * num_rows * num_cols",

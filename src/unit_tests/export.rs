@@ -118,7 +118,7 @@ fn test_write_example_db_uses_one_line_per_example_entry() {
     // Add richer data so the one-line-per-entry format is meaningful
     db.models[0].instance = serde_json::json!({"n": 5, "edges": [[0, 1], [1, 2]]});
     db.models[0].optimal_config = vec![1, 0, 1];
-    db.models[0].optimal_value = serde_json::json!({"Valid": 2});
+    db.models[0].optimal_value = serde_json::json!(2);
     db.rules[0].source.instance = serde_json::json!({"n": 3, "edges": [[0, 1], [1, 2]]});
     db.rules[0].target.instance = serde_json::json!({"m": 4, "weights": [1, 2, 3, 4]});
     db.rules[0].solutions = vec![SolutionPair {
@@ -229,11 +229,11 @@ fn model_example_new() {
         variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]),
         serde_json::json!({"num_vertices": 3, "edges": [[0, 1], [1, 2]]}),
         vec![1, 0, 1],
-        serde_json::json!({"Valid": 2}),
+        serde_json::json!(2),
     );
     assert_eq!(example.problem, "MaximumIndependentSet");
     assert_eq!(example.optimal_config, vec![1, 0, 1]);
-    assert_eq!(example.optimal_value, serde_json::json!({"Valid": 2}));
+    assert_eq!(example.optimal_value, serde_json::json!(2));
     assert!(example.instance.is_object());
 }
 
@@ -286,7 +286,7 @@ fn write_model_example_to_creates_json_file() {
         variant: variant_to_map(vec![("graph", "SimpleGraph")]),
         instance: serde_json::json!({"n": 3}),
         optimal_config: vec![1, 0, 1],
-        optimal_value: serde_json::json!({"Valid": 2}),
+        optimal_value: serde_json::json!(2),
     };
     write_model_example_to(&dir, "test_model", &example);
     let path = dir.join("test_model.json");

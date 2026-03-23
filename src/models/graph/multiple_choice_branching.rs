@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::types::WeightElement;
 use num_traits::Zero;
 use serde::de::Error as _;
@@ -197,7 +197,7 @@ where
     }
 }
 
-impl<W> SatisfactionProblem for MultipleChoiceBranching<W> where
+impl<W> WitnessProblem for MultipleChoiceBranching<W> where
     W: WeightElement + crate::variant::VariantParam
 {
 }

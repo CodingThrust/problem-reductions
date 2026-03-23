@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 
 #[test]
@@ -51,7 +51,7 @@ fn test_partitionintotriangles_no_solution() {
 
     // No valid partition exists since there are no triangles
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_none());
 }
 
@@ -64,13 +64,13 @@ fn test_partitionintotriangles_solver() {
     let problem = PartitionIntoTriangles::new(graph);
 
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     let sol = solution.unwrap();
     assert!(problem.evaluate(&sol));
 
     // All solutions should be valid
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert!(!all.is_empty());
     for s in &all {
         assert!(problem.evaluate(s));
@@ -139,6 +139,6 @@ fn test_partitionintotriangles_paper_example() {
     assert!(problem.evaluate(&[0, 0, 0, 1, 1, 1]));
 
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
 }

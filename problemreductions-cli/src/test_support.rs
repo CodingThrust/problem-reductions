@@ -1,11 +1,11 @@
 use crate::dispatch::{PathStep, ProblemJsonOutput, ReductionBundle};
-use problemreductions::models::algebraic::{ILP, ObjectiveSense};
+use problemreductions::models::algebraic::{ObjectiveSense, ILP};
 use problemreductions::registry::VariantEntry;
 use problemreductions::rules::registry::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
 use problemreductions::rules::{AggregateReductionResult, ReductionAutoCast};
 use problemreductions::solvers::{BruteForce, Solver};
 use problemreductions::traits::Problem;
-use problemreductions::types::{ProblemSize, SolutionSize, Sum};
+use problemreductions::types::{Extremum, ProblemSize, Sum};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -90,7 +90,7 @@ impl AggregateReductionResult for AggregateValueToIlpReduction {
         &self.target
     }
 
-    fn extract_value(&self, _target_value: SolutionSize<f64>) -> Sum<u64> {
+    fn extract_value(&self, _target_value: Extremum<f64>) -> Sum<u64> {
         Sum(0)
     }
 }

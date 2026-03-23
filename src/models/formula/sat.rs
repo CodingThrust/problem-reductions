@@ -6,7 +6,7 @@
 //! the separate MaxSatisfiability type (if available).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -106,7 +106,7 @@ impl CNFClause {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_satisfying(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Verify solutions satisfy all clauses
 /// for sol in solutions {
@@ -196,7 +196,7 @@ impl Problem for Satisfiability {
     }
 }
 
-impl SatisfactionProblem for Satisfiability {}
+impl WitnessProblem for Satisfiability {}
 
 crate::declare_variants! {
     default sat Satisfiability => "2^num_variables",

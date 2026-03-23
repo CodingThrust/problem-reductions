@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -71,7 +71,7 @@ fn test_sequencing_within_intervals_solver() {
     // Simple instance: 3 tasks that can be scheduled sequentially
     let problem = SequencingWithinIntervals::new(vec![0, 2, 4], vec![3, 5, 7], vec![2, 2, 2]);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     let config = solution.unwrap();
     assert!(problem.evaluate(&config));
@@ -86,7 +86,7 @@ fn test_sequencing_within_intervals_solver_canonical() {
         vec![2, 2, 2, 3, 2],
     );
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     let config = solution.unwrap();
     assert!(problem.evaluate(&config));
@@ -101,7 +101,7 @@ fn test_sequencing_within_intervals_no_solution() {
     // Task 1: start=0, runs [0,2) -> overlap
     assert!(!problem.evaluate(&[0, 0]));
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_none());
 }
 
@@ -149,7 +149,7 @@ fn test_sequencing_within_intervals_single_task() {
 }
 
 #[test]
-fn test_sequencing_within_intervals_find_all_satisfying() {
+fn test_sequencing_within_intervals_find_all_witnesses() {
     // Issue #219 canonical instance: 5 tasks with overlapping windows
     // dims = [4, 6, 5, 4, 11], search space = 5280
     let problem = SequencingWithinIntervals::new(
@@ -158,7 +158,7 @@ fn test_sequencing_within_intervals_find_all_satisfying() {
         vec![2, 2, 2, 3, 2],
     );
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     for sol in &solutions {
         assert!(problem.evaluate(sol));
     }
@@ -172,7 +172,7 @@ fn test_sequencing_within_intervals_find_all_satisfying_empty() {
     // Two tasks that must both use time [0,2), impossible without overlap
     let problem = SequencingWithinIntervals::new(vec![0, 0], vec![2, 2], vec![2, 2]);
     let solver = BruteForce::new();
-    assert!(solver.find_all_satisfying(&problem).is_empty());
+    assert!(solver.find_all_witnesses(&problem).is_empty());
 }
 
 #[test]

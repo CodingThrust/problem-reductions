@@ -5,7 +5,7 @@
 //! requirements.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -351,7 +351,7 @@ impl Problem for TimetableDesign {
     }
 }
 
-impl SatisfactionProblem for TimetableDesign {}
+impl WitnessProblem for TimetableDesign {}
 
 crate::declare_variants! {
     default sat TimetableDesign => "2^(num_craftsmen * num_tasks * num_periods)",

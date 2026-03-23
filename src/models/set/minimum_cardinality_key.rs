@@ -4,7 +4,7 @@
 //! determine whether there exists a candidate key of cardinality at most M.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -174,7 +174,7 @@ impl Problem for MinimumCardinalityKey {
     }
 }
 
-impl SatisfactionProblem for MinimumCardinalityKey {}
+impl WitnessProblem for MinimumCardinalityKey {}
 
 crate::declare_variants! {
     default sat MinimumCardinalityKey => "2^num_attributes",

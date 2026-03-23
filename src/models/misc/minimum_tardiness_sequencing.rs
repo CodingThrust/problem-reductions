@@ -6,8 +6,8 @@
 //! Corresponds to scheduling notation `1|prec, pj=1|sum Uj`.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -52,7 +52,7 @@ inventory::submit! {
 ///     vec![(0, 2)],  // task 0 must precede task 2
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_best(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,7 +125,7 @@ impl MinimumTardinessSequencing {
 
 impl Problem for MinimumTardinessSequencing {
     const NAME: &'static str = "MinimumTardinessSequencing";
-    type Value = SolutionSize<usize>;
+    type Value = Min<usize>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -136,10 +136,10 @@ impl Problem for MinimumTardinessSequencing {
         (0..n).rev().map(|i| i + 1).collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<usize> {
+    fn evaluate(&self, config: &[usize]) -> Min<usize> {
         let n = self.num_tasks;
         if config.len() != n {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
 
         // Decode Lehmer code into a permutation.
@@ -148,7 +148,7 @@ impl Problem for MinimumTardinessSequencing {
         let mut schedule = Vec::with_capacity(n);
         for &c in config.iter() {
             if c >= available.len() {
-                return SolutionSize::Invalid;
+                return Min(None);
             }
             schedule.push(available.remove(c));
         }
@@ -163,7 +163,7 @@ impl Problem for MinimumTardinessSequencing {
         // Check precedence constraints: for each (pred, succ), sigma(pred) < sigma(succ)
         for &(pred, succ) in &self.precedences {
             if sigma[pred] >= sigma[succ] {
-                return SolutionSize::Invalid;
+                return Min(None);
             }
         }
 
@@ -174,15 +174,15 @@ impl Problem for MinimumTardinessSequencing {
             .filter(|&(t, &pos)| pos + 1 > self.deadlines[t])
             .count();
 
-        SolutionSize::Valid(tardy_count)
+        Min(Some(tardy_count))
     }
 }
 
-impl OptimizationProblem for MinimumTardinessSequencing {
+impl ObjectiveProblem for MinimumTardinessSequencing {
     type Objective = usize;
 
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Minimize
     }
 }
 
@@ -203,7 +203,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         // Lehmer code [0,0,0,0] = identity permutation (schedule order 0,1,2,3)
         optimal_config: vec![0, 0, 0, 0],
-        optimal_value: serde_json::json!({"Valid": 1}),
+        optimal_value: serde_json::json!(1),
     }]
 }
 

@@ -4,7 +4,7 @@
 //! contains at least one true literal and at least one false literal.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 use super::CNFClause;
@@ -151,7 +151,7 @@ impl Problem for NAESatisfiability {
     }
 }
 
-impl SatisfactionProblem for NAESatisfiability {}
+impl WitnessProblem for NAESatisfiability {}
 
 crate::declare_variants! {
     default sat NAESatisfiability => "2^num_variables",

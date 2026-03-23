@@ -7,7 +7,7 @@
 //! transformation from Hamiltonian Path.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -54,7 +54,7 @@ inventory::submit! {
 /// ];
 /// let problem = ConsecutiveOnesSubmatrix::new(matrix, 3);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -204,7 +204,7 @@ impl Problem for ConsecutiveOnesSubmatrix {
     }
 }
 
-impl SatisfactionProblem for ConsecutiveOnesSubmatrix {}
+impl WitnessProblem for ConsecutiveOnesSubmatrix {}
 
 crate::declare_variants! {
     default sat ConsecutiveOnesSubmatrix => "2^(num_cols) * (num_rows + num_cols)",

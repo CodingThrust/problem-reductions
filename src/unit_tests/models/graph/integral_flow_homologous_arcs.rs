@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
@@ -83,7 +83,7 @@ fn test_integral_flow_homologous_arcs_wrong_config_length_is_invalid() {
 fn test_integral_flow_homologous_arcs_solver_yes() {
     let problem = yes_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()));
 }
@@ -92,7 +92,7 @@ fn test_integral_flow_homologous_arcs_solver_yes() {
 fn test_integral_flow_homologous_arcs_solver_no() {
     let problem = no_instance();
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
@@ -126,7 +126,7 @@ fn test_integral_flow_homologous_arcs_non_unit_capacity() {
     assert!(problem.evaluate(&[3, 3]));
     assert!(!problem.evaluate(&[2, 3])); // homologous violation
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert_eq!(solutions.len(), 2); // [2,2] and [3,3]
 }
 
@@ -138,7 +138,7 @@ fn test_integral_flow_homologous_arcs_paper_example() {
 
     assert!(problem.evaluate(&config));
 
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     assert!(solutions.iter().all(|solution| problem.evaluate(solution)));
 }

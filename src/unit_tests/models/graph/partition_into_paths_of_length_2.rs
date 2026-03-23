@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -51,7 +51,7 @@ fn test_partition_into_paths_no_solution() {
     assert_eq!(problem.num_groups(), 2);
 
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_none(), "Expected no solution for this graph");
 }
 
@@ -62,7 +62,7 @@ fn test_partition_into_paths_solver() {
     let problem = PartitionIntoPathsOfLength2::new(graph);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty(), "Expected at least one solution");
 
     for sol in &solutions {

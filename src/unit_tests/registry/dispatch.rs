@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 
 fn solve_subset_sum_value(any: &dyn Any) -> String {
     let p = any.downcast_ref::<SubsetSum>().unwrap();
-    if let Some(config) = crate::BruteForce::new().find_satisfying(p) {
+    if let Some(config) = crate::BruteForce::new().find_witness(p) {
         format!("{:?}", p.evaluate(&config))
     } else {
         "false".to_string()
@@ -19,7 +19,7 @@ fn solve_subset_sum_value(any: &dyn Any) -> String {
 
 fn solve_subset_sum_witness(any: &dyn Any) -> Option<(Vec<usize>, String)> {
     let p = any.downcast_ref::<SubsetSum>()?;
-    let config = crate::BruteForce::new().find_satisfying(p)?;
+    let config = crate::BruteForce::new().find_witness(p)?;
     let eval = format!("{:?}", p.evaluate(&config));
     Some((config, eval))
 }
@@ -38,13 +38,11 @@ impl Problem for AggregateOnlyProblem {
     }
 
     fn evaluate(&self, config: &[usize]) -> Self::Value {
-        Sum(
-            config
-                .iter()
-                .zip(&self.weights)
-                .map(|(&c, &w)| if c == 1 { w } else { 0 })
-                .sum(),
-        )
+        Sum(config
+            .iter()
+            .zip(&self.weights)
+            .map(|(&c, &w)| if c == 1 { w } else { 0 })
+            .sum())
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -76,8 +74,11 @@ fn test_dyn_problem_blanket_impl_exposes_problem_metadata() {
 #[test]
 fn test_loaded_dyn_problem_delegates_to_value_and_witness_fns() {
     let problem = SubsetSum::new(vec![3u32, 7u32, 1u32], 4u32);
-    let loaded =
-        LoadedDynProblem::new(Box::new(problem), solve_subset_sum_value, solve_subset_sum_witness);
+    let loaded = LoadedDynProblem::new(
+        Box::new(problem),
+        solve_subset_sum_value,
+        solve_subset_sum_witness,
+    );
 
     assert_eq!(loaded.solve_brute_force_value(), "true");
     let solved = loaded

@@ -1,7 +1,7 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 
 /// Build the example instance from issue #228:
 /// 8 vertices, 12 edges, s=0, t=7, B=5
@@ -127,7 +127,7 @@ fn test_minimumcutintoboundedsets_serialization() {
 fn test_minimumcutintoboundedsets_solver_satisfying() {
     let problem = example_instance(6);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(
         solution.is_some(),
         "Should find a satisfying partition for K=6"
@@ -142,7 +142,7 @@ fn test_minimumcutintoboundedsets_solver_no_solution() {
     let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let problem = MinimumCutIntoBoundedSets::new(graph, vec![1, 1, 1], 0, 3, 3, 0);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(
         solution.is_none(),
         "Should find no satisfying partition for K=0"
@@ -181,7 +181,7 @@ fn test_minimumcutintoboundedsets_all_satisfying() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumCutIntoBoundedSets::new(graph, vec![1, 1], 0, 2, 2, 1);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // Two valid partitions: {0,1}|{2} and {0}|{1,2}
     assert_eq!(solutions.len(), 2);
     for sol in &solutions {
@@ -202,16 +202,16 @@ fn test_minimumcutintoboundedsets_solver_no_solution_issue_instance() {
     // Issue #228 NO instance: K=5 on the 8-vertex graph has no valid partition
     let problem = example_instance(5);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(
         solution.is_none(),
         "Should find no satisfying partition for K=5 on the 8-vertex instance"
     );
 }
 
-// Verify SatisfactionProblem marker trait is implemented
+// Verify WitnessProblem marker trait is implemented
 #[test]
 fn test_minimumcutintoboundedsets_is_satisfaction_problem() {
-    fn assert_satisfaction<T: SatisfactionProblem>() {}
+    fn assert_satisfaction<T: WitnessProblem>() {}
     assert_satisfaction::<MinimumCutIntoBoundedSets<SimpleGraph, i32>>();
 }

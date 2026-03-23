@@ -1,8 +1,8 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::ExtremumSense;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -63,7 +63,7 @@ fn test_is_dominating_set_function() {
 #[test]
 fn test_direction() {
     let problem = MinimumDominatingSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]);
-    assert_eq!(problem.direction(), Direction::Minimize);
+    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn test_isolated_vertex() {
     let problem = MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // Vertex 2 is isolated, must be selected
     for sol in &solutions {
         assert_eq!(sol[2], 1);
@@ -154,7 +154,7 @@ fn test_jl_parity_evaluation() {
                 );
             }
         }
-        let best = BruteForce::new().find_all_best(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "DS best solutions mismatch");
@@ -191,6 +191,6 @@ fn test_mds_paper_example() {
     assert_eq!(result.unwrap(), 2);
 
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
+    let best = solver.find_witness(&problem).unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), 2);
 }

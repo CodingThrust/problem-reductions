@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Min;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
@@ -60,7 +60,7 @@ fn test_minimumdominatingset_to_ilp_closed_loop() {
     let ilp_solver = ILPSolver::new();
 
     // Solve with brute force on original problem
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let bf_size = problem.evaluate(&bf_solutions[0]);
 
     // Solve via ILP reduction
@@ -69,8 +69,8 @@ fn test_minimumdominatingset_to_ilp_closed_loop() {
     let ilp_size = problem.evaluate(&extracted);
 
     // Both should find optimal size = 1 (just the center)
-    assert_eq!(bf_size, SolutionSize::Valid(1));
-    assert_eq!(ilp_size, SolutionSize::Valid(1));
+    assert_eq!(bf_size, Min(Some(1)));
+    assert_eq!(ilp_size, Min(Some(1)));
 
     // Verify the ILP solution is valid for the original problem
     assert!(
@@ -93,7 +93,7 @@ fn test_ilp_solution_equals_brute_force_path() {
     let ilp_solver = ILPSolver::new();
 
     // Solve with brute force
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let bf_size = problem.evaluate(&bf_solutions[0]);
 
     // Solve via ILP
@@ -101,8 +101,8 @@ fn test_ilp_solution_equals_brute_force_path() {
     let extracted = reduction.extract_solution(&ilp_solution);
     let ilp_size = problem.evaluate(&extracted);
 
-    assert_eq!(bf_size, SolutionSize::Valid(2));
-    assert_eq!(ilp_size, SolutionSize::Valid(2));
+    assert_eq!(bf_size, Min(Some(2)));
+    assert_eq!(ilp_size, Min(Some(2)));
 
     // Verify validity
     assert!(problem.evaluate(&extracted).is_valid());
@@ -122,15 +122,15 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let bf_obj = problem.evaluate(&bf_solutions[0]);
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
     let ilp_obj = problem.evaluate(&extracted);
 
-    assert_eq!(bf_obj, SolutionSize::Valid(3));
-    assert_eq!(ilp_obj, SolutionSize::Valid(3));
+    assert_eq!(bf_obj, Min(Some(3)));
+    assert_eq!(ilp_obj, Min(Some(3)));
 
     // Verify the solution selects all leaves
     assert_eq!(extracted, vec![0, 1, 1, 1]);
@@ -196,7 +196,7 @@ fn test_complete_graph() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
 }
 
 #[test]
@@ -213,7 +213,7 @@ fn test_single_vertex() {
     assert_eq!(extracted, vec![1]);
 
     assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
 }
 
 #[test]
@@ -230,7 +230,7 @@ fn test_cycle_graph() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let bf_size = problem.evaluate(&bf_solutions[0]);
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");

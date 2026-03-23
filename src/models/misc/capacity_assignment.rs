@@ -5,7 +5,7 @@
 //! their respective budgets.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -173,7 +173,7 @@ impl Problem for CapacityAssignment {
     }
 }
 
-impl SatisfactionProblem for CapacityAssignment {}
+impl WitnessProblem for CapacityAssignment {}
 
 crate::declare_variants! {
     default sat CapacityAssignment => "num_capacities ^ num_links",

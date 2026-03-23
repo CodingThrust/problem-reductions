@@ -30,7 +30,7 @@ fn test_qubo_to_ilp_diagonal_only() {
     assert!(ilp.constraints.is_empty());
 
     let solver = BruteForce::new();
-    let best = solver.find_all_best(ilp);
+    let best = solver.find_all_witnesses(ilp);
     let extracted = reduction.extract_solution(&best[0]);
     assert_eq!(extracted, vec![0, 1]);
 }
@@ -53,7 +53,7 @@ fn test_qubo_to_ilp_3var() {
     assert_eq!(ilp.constraints.len(), 6);
 
     let solver = BruteForce::new();
-    let best = solver.find_all_best(ilp);
+    let best = solver.find_all_witnesses(ilp);
     let extracted = reduction.extract_solution(&best[0]);
     assert_eq!(extracted, vec![1, 0, 1]);
 }

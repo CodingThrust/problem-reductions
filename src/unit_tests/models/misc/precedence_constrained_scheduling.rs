@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -78,7 +78,7 @@ fn test_precedence_constrained_scheduling_brute_force() {
     let problem = PrecedenceConstrainedScheduling::new(3, 2, 2, vec![(0, 2)]);
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("should find a solution");
     assert!(problem.evaluate(&solution));
 }
@@ -87,7 +87,7 @@ fn test_precedence_constrained_scheduling_brute_force() {
 fn test_precedence_constrained_scheduling_brute_force_all() {
     let problem = PrecedenceConstrainedScheduling::new(3, 2, 2, vec![(0, 2)]);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     for sol in &solutions {
         assert!(problem.evaluate(sol));
@@ -99,7 +99,7 @@ fn test_precedence_constrained_scheduling_unsatisfiable() {
     // 3 tasks in a chain t0 < t1 < t2, but only deadline 2 (need 3 slots)
     let problem = PrecedenceConstrainedScheduling::new(3, 1, 2, vec![(0, 1), (1, 2)]);
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
@@ -129,7 +129,7 @@ fn test_precedence_constrained_scheduling_no_precedences() {
     assert!(problem.evaluate(&[0, 0, 1, 1]));
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("should find a solution");
     assert!(problem.evaluate(&solution));
 }

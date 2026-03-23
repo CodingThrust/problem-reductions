@@ -45,7 +45,7 @@ fn test_capacity_assignment_rejects_invalid_configs() {
 fn test_capacity_assignment_bruteforce_solution_count() {
     let problem = example_problem();
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert_eq!(solutions.len(), 5);
     assert!(solutions.contains(&vec![1, 1, 1]));
     assert!(solutions.contains(&vec![0, 1, 2]));
@@ -70,7 +70,7 @@ fn test_capacity_assignment_paper_example() {
     assert!(problem.evaluate(&config));
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert_eq!(solutions.len(), 5);
     assert!(solutions.contains(&config));
 }

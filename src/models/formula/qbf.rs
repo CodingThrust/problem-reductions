@@ -10,7 +10,7 @@
 
 use crate::models::formula::CNFClause;
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -175,7 +175,7 @@ impl Problem for QuantifiedBooleanFormulas {
     }
 }
 
-impl SatisfactionProblem for QuantifiedBooleanFormulas {}
+impl WitnessProblem for QuantifiedBooleanFormulas {}
 
 crate::declare_variants! {
     default sat QuantifiedBooleanFormulas => "2^num_vars",

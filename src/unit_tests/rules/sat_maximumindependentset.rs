@@ -72,7 +72,7 @@ fn test_two_clause_sat_to_is() {
 
     // Maximum IS should have size 1 (can't select both)
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(is_problem);
+    let solutions = solver.find_all_witnesses(is_problem);
     for sol in &solutions {
         assert_eq!(sol.iter().sum::<usize>(), 1);
     }
@@ -212,7 +212,7 @@ fn test_jl_parity_sat_to_independentset() {
         let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source);
         let solver = BruteForce::new();
         let sat_solutions: HashSet<Vec<usize>> =
-            solver.find_all_satisfying(&source).into_iter().collect();
+            solver.find_all_witnesses(&source).into_iter().collect();
         for case in data["cases"].as_array().unwrap() {
             if sat_solutions.is_empty() {
                 let target_solution = solve_optimization_problem(result.target_problem())

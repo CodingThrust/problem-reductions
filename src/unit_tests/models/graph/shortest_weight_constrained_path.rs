@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -65,11 +65,11 @@ fn test_shortest_weight_constrained_path_accessors() {
 fn test_shortest_weight_constrained_path_bruteforce() {
     let problem = issue_problem();
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()));
 
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert_eq!(all.len(), 2);
     for config in &all {
         assert!(problem.evaluate(config));
@@ -100,7 +100,7 @@ fn test_shortest_weight_constrained_path_no_solution() {
         4,
     );
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn test_shortestweightconstrainedpath_paper_example() {
     let problem = issue_problem();
     assert!(problem.evaluate(&[0, 1, 0, 1, 0, 1, 0, 0]));
 
-    let all = BruteForce::new().find_all_satisfying(&problem);
+    let all = BruteForce::new().find_all_witnesses(&problem);
     assert_eq!(all.len(), 2);
 }
 

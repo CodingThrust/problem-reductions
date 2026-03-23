@@ -7,7 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::types::WeightElement;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -178,10 +178,7 @@ where
     }
 }
 
-impl<W> SatisfactionProblem for AcyclicPartition<W> where
-    W: WeightElement + crate::variant::VariantParam
-{
-}
+impl<W> WitnessProblem for AcyclicPartition<W> where W: WeightElement + crate::variant::VariantParam {}
 
 fn is_valid_acyclic_partition<W: WeightElement>(
     graph: &DirectedGraph,

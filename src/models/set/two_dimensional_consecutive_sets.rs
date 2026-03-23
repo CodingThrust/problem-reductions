@@ -6,7 +6,7 @@
 //! are spread across consecutive groups.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -201,7 +201,7 @@ impl Problem for TwoDimensionalConsecutiveSets {
     }
 }
 
-impl SatisfactionProblem for TwoDimensionalConsecutiveSets {}
+impl WitnessProblem for TwoDimensionalConsecutiveSets {}
 
 crate::declare_variants! {
     default sat TwoDimensionalConsecutiveSets => "alphabet_size^alphabet_size",

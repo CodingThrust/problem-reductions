@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 fn issue_problem(bound: i32) -> StackerCrane {
@@ -58,7 +58,7 @@ fn test_stacker_crane_issue_instance_is_unsatisfiable_at_bound_19() {
     let problem = issue_problem(19);
     let solver = BruteForce::new();
 
-    assert!(solver.find_all_satisfying(&problem).is_empty());
+    assert!(solver.find_all_witnesses(&problem).is_empty());
 }
 
 #[test]
@@ -70,7 +70,7 @@ fn test_stacker_crane_paper_example() {
     assert!(problem.evaluate(&witness));
 
     let solver = BruteForce::new();
-    let satisfying = solver.find_all_satisfying(&problem);
+    let satisfying = solver.find_all_witnesses(&problem);
     assert!(!satisfying.is_empty());
     assert!(satisfying.contains(&witness));
     for config in &satisfying {
@@ -84,7 +84,7 @@ fn test_stacker_crane_small_solver_instance() {
     let solver = BruteForce::new();
 
     let satisfying = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("small instance should be satisfiable");
     let mut sorted = satisfying.clone();
     sorted.sort_unstable();

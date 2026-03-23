@@ -15,7 +15,7 @@
 //! This problem is NP-complete (Wagner, 1975).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -66,7 +66,7 @@ inventory::submit! {
 /// // source = [0,1,2,3,1,0], target = [0,1,3,2,1], bound = 2
 /// let problem = StringToStringCorrection::new(4, vec![0,1,2,3,1,0], vec![0,1,3,2,1], 2);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -188,7 +188,7 @@ impl Problem for StringToStringCorrection {
     }
 }
 
-impl SatisfactionProblem for StringToStringCorrection {}
+impl WitnessProblem for StringToStringCorrection {}
 
 crate::declare_variants! {
     default sat StringToStringCorrection => "(2 * source_length + 1) ^ bound",

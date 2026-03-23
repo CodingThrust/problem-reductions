@@ -4,8 +4,8 @@
 //! that minimizes the number of bins used while respecting capacity constraints.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min, WeightElement};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -48,7 +48,7 @@ inventory::submit! {
 /// // 4 items with sizes [3, 3, 2, 2], capacity 5
 /// let problem = BinPacking::new(vec![3, 3, 2, 2], 5);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_best(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,7 +87,7 @@ where
     W::Sum: PartialOrd,
 {
     const NAME: &'static str = "BinPacking";
-    type Value = SolutionSize<i32>;
+    type Value = Min<i32>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
@@ -98,24 +98,24 @@ where
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+    fn evaluate(&self, config: &[usize]) -> Min<i32> {
         if !is_valid_packing(&self.sizes, &self.capacity, config) {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
         let num_bins = count_bins(config);
-        SolutionSize::Valid(num_bins as i32)
+        Min(Some(num_bins as i32))
     }
 }
 
-impl<W> OptimizationProblem for BinPacking<W>
+impl<W> ObjectiveProblem for BinPacking<W>
 where
     W: WeightElement + crate::variant::VariantParam,
     W::Sum: PartialOrd,
 {
     type Objective = i32;
 
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Minimize
     }
 }
 
@@ -165,7 +165,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         // 3 items of sizes [3,3,4], capacity 7 → optimal 2 bins
         instance: Box::new(BinPacking::<i32>::new(vec![3, 3, 4], 7)),
         optimal_config: vec![0, 1, 0],
-        optimal_value: serde_json::json!({"Valid": 2}),
+        optimal_value: serde_json::json!(2),
     }]
 }
 

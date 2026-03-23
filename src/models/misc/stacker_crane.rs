@@ -5,7 +5,7 @@
 //! traverses every required arc in some order and stays within the bound.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
@@ -274,7 +274,7 @@ impl Problem for StackerCrane {
     }
 }
 
-impl SatisfactionProblem for StackerCrane {}
+impl WitnessProblem for StackerCrane {}
 
 crate::declare_variants! {
     default sat StackerCrane => "num_vertices^2 * 2^num_arcs",

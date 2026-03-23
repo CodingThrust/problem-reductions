@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -135,10 +135,10 @@ fn test_length_bounded_disjoint_paths_rejects_non_binary_entries() {
 fn test_length_bounded_disjoint_paths_solver_yes_and_no() {
     let yes_problem = sample_yes_problem();
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&yes_problem).is_some());
+    assert!(solver.find_witness(&yes_problem).is_some());
 
     let no_problem = LengthBoundedDisjointPaths::new(sample_yes_graph(), 0, 6, 2, 2);
-    assert!(solver.find_satisfying(&no_problem).is_none());
+    assert!(solver.find_witness(&no_problem).is_none());
 }
 
 #[test]
@@ -185,7 +185,7 @@ fn test_length_bounded_disjoint_paths_paper_example() {
     let config = encode_paths(7, &[&[0, 1, 6], &[0, 2, 3, 6]]);
     assert!(problem.evaluate(&config));
 
-    let satisfying = BruteForce::new().find_all_satisfying(&problem);
+    let satisfying = BruteForce::new().find_all_witnesses(&problem);
     assert_eq!(satisfying.len(), 6);
     assert!(satisfying
         .iter()

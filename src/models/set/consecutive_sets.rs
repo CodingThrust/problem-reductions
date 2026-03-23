@@ -6,7 +6,7 @@
 //! contiguous block in some order) within the string.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -55,7 +55,7 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 ///
 /// // w = [0, 4, 2, 5, 1, 3] is a valid solution
 /// assert!(solution.is_some());
@@ -219,7 +219,7 @@ impl Problem for ConsecutiveSets {
     }
 }
 
-impl SatisfactionProblem for ConsecutiveSets {}
+impl WitnessProblem for ConsecutiveSets {}
 
 crate::declare_variants! {
     default sat ConsecutiveSets => "alphabet_size^bound_k * num_subsets",

@@ -42,7 +42,7 @@ fn test_rooted_tree_storage_assignment_rejects_invalid_tree_configs() {
 #[test]
 fn test_rooted_tree_storage_assignment_solver_finds_known_solution() {
     let problem = yes_instance(1);
-    let solutions = BruteForce::new().find_all_satisfying(&problem);
+    let solutions = BruteForce::new().find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     assert!(solutions.contains(&vec![0, 0, 0, 1, 2]));
 }
@@ -50,7 +50,7 @@ fn test_rooted_tree_storage_assignment_solver_finds_known_solution() {
 #[test]
 fn test_rooted_tree_storage_assignment_no_instance() {
     let problem = yes_instance(0);
-    let solutions = BruteForce::new().find_all_satisfying(&problem);
+    let solutions = BruteForce::new().find_all_witnesses(&problem);
     assert!(solutions.is_empty());
 }
 
@@ -71,6 +71,6 @@ fn test_rooted_tree_storage_assignment_paper_example() {
 
     assert!(problem.evaluate(&config));
 
-    let solutions = BruteForce::new().find_all_satisfying(&problem);
+    let solutions = BruteForce::new().find_all_witnesses(&problem);
     assert!(solutions.contains(&config));
 }

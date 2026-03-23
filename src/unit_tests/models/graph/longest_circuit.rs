@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -72,7 +72,7 @@ fn test_longest_circuit_rejects_non_binary_and_below_bound_configs() {
 fn test_longest_circuit_bruteforce_yes_and_no() {
     let yes_problem = issue_problem();
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&yes_problem).is_some());
+    assert!(solver.find_witness(&yes_problem).is_some());
 
     let no_problem = LongestCircuit::new(
         SimpleGraph::new(
@@ -93,7 +93,7 @@ fn test_longest_circuit_bruteforce_yes_and_no() {
         vec![3, 2, 4, 1, 5, 2, 3, 2, 1, 2],
         19,
     );
-    assert!(solver.find_satisfying(&no_problem).is_none());
+    assert!(solver.find_witness(&no_problem).is_none());
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn test_longest_circuit_paper_example() {
     let config = vec![1, 1, 1, 1, 1, 1, 0, 0, 0, 0];
     assert!(problem.evaluate(&config));
 
-    let all = BruteForce::new().find_all_satisfying(&problem);
+    let all = BruteForce::new().find_all_witnesses(&problem);
     assert!(all.contains(&config));
 }
 

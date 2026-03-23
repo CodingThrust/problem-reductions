@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 fn issue_example(bound: i64) -> SequencingToMinimizeMaximumCumulativeCost {
@@ -76,7 +76,7 @@ fn test_sequencing_to_minimize_maximum_cumulative_cost_brute_force_solver() {
     let problem = issue_example(4);
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("should find a satisfying schedule");
     assert!(problem.evaluate(&solution));
 }
@@ -89,7 +89,7 @@ fn test_sequencing_to_minimize_maximum_cumulative_cost_unsatisfiable_cycle() {
         10,
     );
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
@@ -98,7 +98,7 @@ fn test_sequencing_to_minimize_maximum_cumulative_cost_paper_example() {
     let sample_config = vec![1, 0, 1, 0, 0, 0];
     assert!(problem.evaluate(&sample_config));
 
-    let satisfying = BruteForce::new().find_all_satisfying(&problem);
+    let satisfying = BruteForce::new().find_all_witnesses(&problem);
     assert_eq!(satisfying.len(), 5);
     assert!(satisfying.iter().any(|config| config == &sample_config));
 }

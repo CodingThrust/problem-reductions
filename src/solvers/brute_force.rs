@@ -2,7 +2,7 @@
 
 use crate::config::DimsIterator;
 use crate::solvers::Solver;
-use crate::traits::{OptimizationProblem, Problem, SatisfactionProblem};
+use crate::traits::{ObjectiveProblem, Problem, WitnessProblem};
 use crate::types::Aggregate;
 
 /// A brute force solver that enumerates all possible configurations.
@@ -20,62 +20,39 @@ impl BruteForce {
     }
 
     /// Temporary compatibility helper for optimization problems.
-    pub fn find_all_best<P: OptimizationProblem>(&self, problem: &P) -> Vec<Vec<usize>> {
-        let iter = DimsIterator::new(problem.dims());
-        let direction = problem.direction();
-        let mut best_solutions: Vec<Vec<usize>> = vec![];
-        let mut best_metric: Option<
-            crate::types::SolutionSize<<P as OptimizationProblem>::Objective>,
-        > = None;
-
-        for config in iter {
-            let metric = problem.evaluate(&config);
-
-            if !metric.is_valid() {
-                continue;
-            }
-
-            let dominated = match &best_metric {
-                None => false,
-                Some(current_best) => current_best.is_better(&metric, direction),
-            };
-
-            if dominated {
-                continue;
-            }
-
-            let dominates = match &best_metric {
-                None => true,
-                Some(current_best) => metric.is_better(current_best, direction),
-            };
-
-            if dominates {
-                best_metric = Some(metric);
-                best_solutions.clear();
-                best_solutions.push(config);
-            } else if best_metric.is_some() {
-                best_solutions.push(config);
-            }
-        }
-
-        best_solutions
+    pub fn find_all_best<P>(&self, problem: &P) -> Vec<Vec<usize>>
+    where
+        P: ObjectiveProblem,
+        P::Value: Aggregate,
+    {
+        self.find_all_witnesses(problem)
     }
 
     /// Temporary compatibility helper for optimization problems.
-    pub fn find_best<P: OptimizationProblem>(&self, problem: &P) -> Option<Vec<usize>> {
-        self.find_all_best(problem).into_iter().next()
+    pub fn find_best<P>(&self, problem: &P) -> Option<Vec<usize>>
+    where
+        P: ObjectiveProblem,
+        P::Value: Aggregate,
+    {
+        self.find_witness(problem)
     }
 
     /// Temporary compatibility helper for satisfaction problems.
-    pub fn find_all_satisfying<P: SatisfactionProblem>(&self, problem: &P) -> Vec<Vec<usize>> {
-        DimsIterator::new(problem.dims())
-            .filter(|config| problem.evaluate(config))
-            .collect()
+    pub fn find_all_satisfying<P>(&self, problem: &P) -> Vec<Vec<usize>>
+    where
+        P: WitnessProblem,
+        P::Value: Aggregate,
+    {
+        self.find_all_witnesses(problem)
     }
 
     /// Temporary compatibility helper for satisfaction problems.
-    pub fn find_satisfying<P: SatisfactionProblem>(&self, problem: &P) -> Option<Vec<usize>> {
-        DimsIterator::new(problem.dims()).find(|config| problem.evaluate(config))
+    pub fn find_satisfying<P>(&self, problem: &P) -> Option<Vec<usize>>
+    where
+        P: WitnessProblem,
+        P::Value: Aggregate,
+    {
+        self.find_witness(problem)
     }
 
     /// Find one witness configuration when the aggregate value admits them.
@@ -141,12 +118,20 @@ impl Solver for BruteForce {
             .fold(P::Value::identity(), P::Value::combine)
     }
 
-    fn find_best<P: OptimizationProblem>(&self, problem: &P) -> Option<Vec<usize>> {
-        BruteForce::find_best(self, problem)
+    fn find_best<P>(&self, problem: &P) -> Option<Vec<usize>>
+    where
+        P: ObjectiveProblem,
+        P::Value: Aggregate,
+    {
+        BruteForce::find_witness(self, problem)
     }
 
-    fn find_satisfying<P: SatisfactionProblem>(&self, problem: &P) -> Option<Vec<usize>> {
-        BruteForce::find_satisfying(self, problem)
+    fn find_satisfying<P>(&self, problem: &P) -> Option<Vec<usize>>
+    where
+        P: WitnessProblem,
+        P::Value: Aggregate,
+    {
+        BruteForce::find_witness(self, problem)
     }
 }
 

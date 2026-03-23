@@ -4,7 +4,7 @@
 //! and a query attribute x, determine if x belongs to any candidate key of <A, F>.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -57,7 +57,7 @@ inventory::submit! {
 /// assert!(problem.evaluate(&[0, 0, 1, 1, 0, 0]));
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -202,7 +202,7 @@ impl Problem for PrimeAttributeName {
     }
 }
 
-impl SatisfactionProblem for PrimeAttributeName {}
+impl WitnessProblem for PrimeAttributeName {}
 
 crate::declare_variants! {
     default sat PrimeAttributeName => "2^num_attributes * num_dependencies * num_attributes",

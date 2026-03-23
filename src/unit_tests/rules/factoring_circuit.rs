@@ -311,7 +311,7 @@ fn test_jl_parity_factoring_to_circuitsat() {
     .unwrap();
     let solver = BruteForce::new();
     let jl_best_source = jl_parse_configs_set(&data["cases"][0]["best_source"]);
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_eq!(
         best_source, jl_best_source,
         "Factoring best source mismatch"

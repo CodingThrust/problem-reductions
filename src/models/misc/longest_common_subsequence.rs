@@ -6,7 +6,7 @@
 //! "length at least `K`" decision formulation.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -155,7 +155,7 @@ impl Problem for LongestCommonSubsequence {
     }
 }
 
-impl SatisfactionProblem for LongestCommonSubsequence {}
+impl WitnessProblem for LongestCommonSubsequence {}
 
 crate::declare_variants! {
     default sat LongestCommonSubsequence => "alphabet_size ^ bound",

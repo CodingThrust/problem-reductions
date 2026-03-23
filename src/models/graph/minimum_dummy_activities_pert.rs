@@ -9,8 +9,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -164,7 +164,7 @@ impl MinimumDummyActivitiesPert {
 
 impl Problem for MinimumDummyActivitiesPert {
     const NAME: &'static str = "MinimumDummyActivitiesPert";
-    type Value = SolutionSize<i32>;
+    type Value = Min<i32>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -174,9 +174,9 @@ impl Problem for MinimumDummyActivitiesPert {
         vec![2; self.graph.num_arcs()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+    fn evaluate(&self, config: &[usize]) -> Min<i32> {
         let Some(candidate) = self.build_candidate_network(config) else {
-            return SolutionSize::Invalid;
+            return Min(None);
         };
 
         let source_reachability = reachability_matrix(&self.graph);
@@ -189,22 +189,22 @@ impl Problem for MinimumDummyActivitiesPert {
                     || event_reachability[candidate.finish_events[source]]
                         [candidate.start_events[target]];
                 if source_reachability[source][target] != pert_reachable {
-                    return SolutionSize::Invalid;
+                    return Min(None);
                 }
             }
         }
 
-        SolutionSize::Valid(
+        Min(Some(
             i32::try_from(candidate.num_dummy_arcs).expect("dummy activity count must fit in i32"),
-        )
+        ))
     }
 }
 
-impl OptimizationProblem for MinimumDummyActivitiesPert {
+impl ObjectiveProblem for MinimumDummyActivitiesPert {
     type Objective = i32;
 
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Minimize
     }
 }
 
@@ -221,7 +221,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![(0, 2), (0, 3), (1, 3), (1, 4), (2, 5)],
         ))),
         optimal_config: vec![1, 0, 0, 1, 1],
-        optimal_value: serde_json::json!({"Valid": 2}),
+        optimal_value: serde_json::json!(2),
     }]
 }
 

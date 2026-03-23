@@ -5,7 +5,7 @@
 //! be completed by a global deadline D.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -53,7 +53,7 @@ inventory::submit! {
 /// // 2 machines, 3 jobs, deadline 10
 /// let problem = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -193,7 +193,7 @@ impl Problem for FlowShopScheduling {
     }
 }
 
-impl SatisfactionProblem for FlowShopScheduling {}
+impl WitnessProblem for FlowShopScheduling {}
 
 crate::declare_variants! {
     default sat FlowShopScheduling => "factorial(num_jobs)",

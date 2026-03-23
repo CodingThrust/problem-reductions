@@ -4,8 +4,8 @@
 //! total value while respecting a weight capacity constraint.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Max};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -43,7 +43,7 @@ inventory::submit! {
 ///
 /// let problem = Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_best(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -119,7 +119,7 @@ impl Knapsack {
 
 impl Problem for Knapsack {
     const NAME: &'static str = "Knapsack";
-    type Value = SolutionSize<i64>;
+    type Value = Max<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -129,12 +129,12 @@ impl Problem for Knapsack {
         vec![2; self.num_items()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i64> {
+    fn evaluate(&self, config: &[usize]) -> Max<i64> {
         if config.len() != self.num_items() {
-            return SolutionSize::Invalid;
+            return Max(None);
         }
         if config.iter().any(|&v| v >= 2) {
-            return SolutionSize::Invalid;
+            return Max(None);
         }
         let total_weight: i64 = config
             .iter()
@@ -143,7 +143,7 @@ impl Problem for Knapsack {
             .map(|(i, _)| self.weights[i])
             .sum();
         if total_weight > self.capacity {
-            return SolutionSize::Invalid;
+            return Max(None);
         }
         let total_value: i64 = config
             .iter()
@@ -151,15 +151,15 @@ impl Problem for Knapsack {
             .filter(|(_, &x)| x == 1)
             .map(|(i, _)| self.values[i])
             .sum();
-        SolutionSize::Valid(total_value)
+        Max(Some(total_value))
     }
 }
 
-impl OptimizationProblem for Knapsack {
+impl ObjectiveProblem for Knapsack {
     type Objective = i64;
 
-    fn direction(&self) -> Direction {
-        Direction::Maximize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Maximize
     }
 }
 
@@ -211,7 +211,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         id: "knapsack",
         instance: Box::new(Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7)),
         optimal_config: vec![1, 0, 0, 1],
-        optimal_value: serde_json::json!({"Valid": 10}),
+        optimal_value: serde_json::json!(10),
     }]
 }
 

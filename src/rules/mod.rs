@@ -98,7 +98,7 @@ pub(crate) mod travelingsalesman_ilp;
 
 pub use graph::{
     AggregateReductionChain, NeighborInfo, NeighborTree, ReductionChain, ReductionEdgeInfo,
-    ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalDirection,
+    ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalFlow,
 };
 pub use traits::{
     AggregateReductionResult, ReduceTo, ReduceToAggregate, ReductionAutoCast, ReductionResult,

@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -98,7 +98,7 @@ impl BottleneckTravelingSalesman {
 
 impl Problem for BottleneckTravelingSalesman {
     const NAME: &'static str = "BottleneckTravelingSalesman";
-    type Value = SolutionSize<i32>;
+    type Value = Min<i32>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -108,14 +108,14 @@ impl Problem for BottleneckTravelingSalesman {
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+    fn evaluate(&self, config: &[usize]) -> Min<i32> {
         if config.len() != self.graph.num_edges() {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
 
         let selected: Vec<bool> = config.iter().map(|&s| s == 1).collect();
         if !super::traveling_salesman::is_hamiltonian_cycle(&self.graph, &selected) {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
 
         let bottleneck = config
@@ -125,15 +125,15 @@ impl Problem for BottleneckTravelingSalesman {
             .max()
             .expect("valid Hamiltonian cycle selects at least one edge");
 
-        SolutionSize::Valid(bottleneck)
+        Min(Some(bottleneck))
     }
 }
 
-impl OptimizationProblem for BottleneckTravelingSalesman {
+impl ObjectiveProblem for BottleneckTravelingSalesman {
     type Objective = i32;
 
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Minimize
     }
 }
 
@@ -160,7 +160,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![5, 4, 4, 5, 4, 1, 2, 1, 5, 4],
         )),
         optimal_config: vec![0, 1, 1, 0, 1, 0, 1, 0, 0, 1],
-        optimal_value: serde_json::json!({"Valid": 4}),
+        optimal_value: serde_json::json!(4),
     }]
 }
 

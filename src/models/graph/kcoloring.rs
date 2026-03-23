@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::variant::{KValue, VariantParam, K2, K3, K4, K5, KN};
 use serde::{Deserialize, Serialize};
 
@@ -49,7 +49,7 @@ inventory::submit! {
 /// let problem = KColoring::<K3, _>::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_satisfying(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Verify all solutions are valid colorings
 /// for sol in &solutions {
@@ -160,7 +160,7 @@ where
     }
 }
 
-impl<K: KValue, G: Graph + VariantParam> SatisfactionProblem for KColoring<K, G> {}
+impl<K: KValue, G: Graph + VariantParam> WitnessProblem for KColoring<K, G> {}
 
 /// Check if a coloring is valid for a graph.
 ///

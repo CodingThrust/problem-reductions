@@ -6,7 +6,7 @@
 //! Strongly NP-complete (Garey & Johnson, A5 SS1).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -52,7 +52,7 @@ inventory::submit! {
 ///     vec![3, 3, 4],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,7 +148,7 @@ impl Problem for SequencingWithReleaseTimesAndDeadlines {
     }
 }
 
-impl SatisfactionProblem for SequencingWithReleaseTimesAndDeadlines {}
+impl WitnessProblem for SequencingWithReleaseTimesAndDeadlines {}
 
 crate::declare_variants! {
     default sat SequencingWithReleaseTimesAndDeadlines => "2^num_tasks * num_tasks",

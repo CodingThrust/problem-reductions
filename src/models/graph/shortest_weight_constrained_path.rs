@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::types::WeightElement;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -323,7 +323,7 @@ where
     }
 }
 
-impl<G, N> SatisfactionProblem for ShortestWeightConstrainedPath<G, N>
+impl<G, N> WitnessProblem for ShortestWeightConstrainedPath<G, N>
 where
     G: Graph + crate::variant::VariantParam,
     N: WeightElement + crate::variant::VariantParam,

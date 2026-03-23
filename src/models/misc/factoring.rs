@@ -4,8 +4,8 @@
 //! Given a number N, find two factors (a, b) such that a * b = N.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -39,7 +39,7 @@ inventory::submit! {
 /// let problem = Factoring::new(2, 2, 6);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Should find: 2*3=6 or 3*2=6
 /// for sol in &solutions {
@@ -134,13 +134,13 @@ pub(crate) fn is_factoring(target: u64, a: u64, b: u64) -> bool {
 
 impl Problem for Factoring {
     const NAME: &'static str = "Factoring";
-    type Value = SolutionSize<i32>;
+    type Value = Min<i32>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.m + self.n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+    fn evaluate(&self, config: &[usize]) -> Min<i32> {
         let (a, b) = self.read_factors(config);
         let product = a * b;
         // Distance from target (0 means exact match)
@@ -149,7 +149,7 @@ impl Problem for Factoring {
         } else {
             (self.target - product) as i32
         };
-        SolutionSize::Valid(distance)
+        Min(Some(distance))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -157,11 +157,11 @@ impl Problem for Factoring {
     }
 }
 
-impl OptimizationProblem for Factoring {
+impl ObjectiveProblem for Factoring {
     type Objective = i32;
 
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Minimize
     }
 }
 
@@ -175,7 +175,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         id: "factoring",
         instance: Box::new(Factoring::new(2, 3, 15)),
         optimal_config: vec![1, 1, 1, 0, 1],
-        optimal_value: serde_json::json!({"Valid": 0}),
+        optimal_value: serde_json::json!(0),
     }]
 }
 

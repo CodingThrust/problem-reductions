@@ -8,7 +8,7 @@ use problemreductions::models::graph::{
 use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{
-    CustomCost, MinimizeSteps, ReductionGraph, ReductionMode, TraversalDirection,
+    CustomCost, MinimizeSteps, ReductionGraph, ReductionMode, TraversalFlow,
 };
 use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
@@ -41,7 +41,7 @@ pub struct NeighborsParams {
     pub problem: String,
     #[schemars(description = "Number of hops to explore (default: 1)")]
     pub hops: Option<usize>,
-    #[schemars(description = "Direction: out (default), in, or both")]
+    #[schemars(description = "ExtremumSense: out (default), in, or both")]
     pub direction: Option<String>,
 }
 
@@ -1105,11 +1105,11 @@ impl rmcp::ServerHandler for McpServer {
 // helpers
 // ---------------------------------------------------------------------------
 
-fn parse_direction(s: &str) -> anyhow::Result<TraversalDirection> {
+fn parse_direction(s: &str) -> anyhow::Result<TraversalFlow> {
     match s {
-        "out" => Ok(TraversalDirection::Outgoing),
-        "in" => Ok(TraversalDirection::Incoming),
-        "both" => Ok(TraversalDirection::Both),
+        "out" => Ok(TraversalFlow::Outgoing),
+        "in" => Ok(TraversalFlow::Incoming),
+        "both" => Ok(TraversalFlow::Both),
         _ => anyhow::bail!("Unknown direction: {}. Use 'out', 'in', or 'both'.", s),
     }
 }

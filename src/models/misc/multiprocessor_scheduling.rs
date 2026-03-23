@@ -5,7 +5,7 @@
 //! total load exceeds a given deadline.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -49,7 +49,7 @@ inventory::submit! {
 /// // 5 tasks with lengths [4, 5, 3, 2, 6], 2 processors, deadline 10
 /// let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,7 +131,7 @@ impl Problem for MultiprocessorScheduling {
     }
 }
 
-impl SatisfactionProblem for MultiprocessorScheduling {}
+impl WitnessProblem for MultiprocessorScheduling {}
 
 crate::declare_variants! {
     default sat MultiprocessorScheduling => "2^num_tasks",

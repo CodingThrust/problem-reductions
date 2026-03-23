@@ -4,7 +4,7 @@
 //! The goal is to find variable assignments that satisfy the circuit constraints.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -210,7 +210,7 @@ impl Circuit {
 ///
 /// let problem = CircuitSAT::new(circuit);
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_satisfying(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Multiple satisfying assignments exist
 /// assert!(!solutions.is_empty());
@@ -304,7 +304,7 @@ impl Problem for CircuitSAT {
     }
 }
 
-impl SatisfactionProblem for CircuitSAT {}
+impl WitnessProblem for CircuitSAT {}
 
 crate::declare_variants! {
     default sat CircuitSAT => "2^num_variables",

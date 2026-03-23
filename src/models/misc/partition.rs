@@ -5,7 +5,7 @@
 //! NP-complete problems (1972), Garey & Johnson SP12.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -41,7 +41,7 @@ inventory::submit! {
 ///
 /// let problem = Partition::new(vec![3, 1, 1, 2, 2, 1]);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,7 +109,7 @@ impl Problem for Partition {
     }
 }
 
-impl SatisfactionProblem for Partition {}
+impl WitnessProblem for Partition {}
 
 crate::declare_variants! {
     default sat Partition => "2^(num_elements / 2)",

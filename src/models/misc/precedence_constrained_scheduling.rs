@@ -5,7 +5,7 @@
 //! respecting precedences. NP-complete via reduction from 3SAT (Ullman, 1975).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -47,7 +47,7 @@ inventory::submit! {
 /// // 4 tasks, 2 processors, deadline 3, with t0 < t2 and t1 < t3
 /// let problem = PrecedenceConstrainedScheduling::new(4, 2, 3, vec![(0, 2), (1, 3)]);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,7 +154,7 @@ impl Problem for PrecedenceConstrainedScheduling {
     }
 }
 
-impl SatisfactionProblem for PrecedenceConstrainedScheduling {}
+impl WitnessProblem for PrecedenceConstrainedScheduling {}
 
 crate::declare_variants! {
     default sat PrecedenceConstrainedScheduling => "2^num_tasks",

@@ -1,6 +1,6 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::BipartiteGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -129,7 +129,7 @@ impl Problem for BalancedCompleteBipartiteSubgraph {
     }
 }
 
-impl SatisfactionProblem for BalancedCompleteBipartiteSubgraph {}
+impl WitnessProblem for BalancedCompleteBipartiteSubgraph {}
 
 #[derive(Deserialize)]
 struct BalancedCompleteBipartiteSubgraphRepr {

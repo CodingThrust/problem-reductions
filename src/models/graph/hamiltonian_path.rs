@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 
@@ -58,7 +58,7 @@ inventory::submit! {
 /// let problem = HamiltonianPath::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,7 +115,7 @@ where
     }
 }
 
-impl<G: Graph + VariantParam> SatisfactionProblem for HamiltonianPath<G> {}
+impl<G: Graph + VariantParam> WitnessProblem for HamiltonianPath<G> {}
 
 /// Check if a configuration represents a valid Hamiltonian path in the graph.
 ///

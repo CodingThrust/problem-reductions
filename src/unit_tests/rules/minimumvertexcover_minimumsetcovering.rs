@@ -60,8 +60,8 @@ fn test_vc_to_sc_weighted() {
 
     // Solve both ways
     let solver = BruteForce::new();
-    let vc_solutions = solver.find_all_best(&vc_problem);
-    let sc_solutions = solver.find_all_best(sc_problem);
+    let vc_solutions = solver.find_all_witnesses(&vc_problem);
+    let sc_solutions = solver.find_all_witnesses(sc_problem);
 
     // Both should select vertex 1 (weight 1)
     assert_eq!(vc_solutions[0], vec![0, 1, 0]);
@@ -104,7 +104,7 @@ fn test_vc_to_sc_star_graph() {
 
     // Minimum cover should be just vertex 0
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&vc_problem);
+    let solutions = solver.find_all_witnesses(&vc_problem);
     assert_eq!(solutions[0], vec![1, 0, 0, 0]);
 }
 
@@ -124,7 +124,7 @@ fn test_jl_parity_vc_to_setcovering() {
     );
     let result = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
@@ -151,7 +151,7 @@ fn test_jl_parity_rule_vc_to_setcovering() {
     );
     let result = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,

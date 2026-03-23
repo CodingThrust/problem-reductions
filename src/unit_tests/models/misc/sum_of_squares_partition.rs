@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -80,7 +80,7 @@ fn test_sum_of_squares_partition_brute_force() {
     let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240);
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("should find a satisfying solution");
     assert!(problem.evaluate(&solution));
 }
@@ -89,7 +89,7 @@ fn test_sum_of_squares_partition_brute_force() {
 fn test_sum_of_squares_partition_brute_force_all() {
     let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     for sol in &solutions {
         assert!(problem.evaluate(sol));
@@ -103,7 +103,7 @@ fn test_sum_of_squares_partition_unsatisfiable() {
     // Best: each element in its own group -> 100+100+100=300 > 299
     let problem = SumOfSquaresPartition::new(vec![10, 10, 10], 3, 299);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_none());
 }
 
@@ -190,7 +190,7 @@ fn test_sum_of_squares_partition_paper_example() {
 
     // Brute force finds satisfying solutions
     let solver = BruteForce::new();
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert!(!all.is_empty());
     // All solutions must have sum-of-squares <= 240
     for sol in &all {

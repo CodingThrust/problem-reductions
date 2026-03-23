@@ -270,7 +270,8 @@ impl ILPSolver {
 
         let graph = crate::rules::ReductionGraph::new();
 
-        let Some(path) = self.best_path_to_ilp(&graph, name, variant, ReductionMode::Witness) else {
+        let Some(path) = self.best_path_to_ilp(&graph, name, variant, ReductionMode::Witness)
+        else {
             if self
                 .best_path_to_ilp(&graph, name, variant, ReductionMode::Aggregate)
                 .is_some()
@@ -290,11 +291,11 @@ impl ILPSolver {
                 name: name.to_string(),
             }
         })?;
-        let ilp_solution =
-            self.solve_dyn(chain.target_problem_any())
-                .ok_or_else(|| SolveViaReductionError::NoSolution {
-                    name: name.to_string(),
-                })?;
+        let ilp_solution = self.solve_dyn(chain.target_problem_any()).ok_or_else(|| {
+            SolveViaReductionError::NoSolution {
+                name: name.to_string(),
+            }
+        })?;
         Ok(chain.extract_solution(&ilp_solution))
     }
 

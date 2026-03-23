@@ -51,7 +51,7 @@ pub trait ReductionResult {
 ///
 /// // Solve and extract solutions
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(is_problem);
+/// let solutions = solver.find_all_witnesses(is_problem);
 /// let sat_solutions: Vec<_> = solutions.iter()
 ///     .map(|s| reduction.extract_solution(s))
 ///     .collect();
@@ -129,7 +129,9 @@ impl<S: Problem, T: Problem> ReductionResult for ReductionAutoCast<S, T> {
     }
 }
 
-impl<S: Problem, T: Problem<Value = S::Value>> AggregateReductionResult for ReductionAutoCast<S, T> {
+impl<S: Problem, T: Problem<Value = S::Value>> AggregateReductionResult
+    for ReductionAutoCast<S, T>
+{
     type Source = S;
     type Target = T;
 

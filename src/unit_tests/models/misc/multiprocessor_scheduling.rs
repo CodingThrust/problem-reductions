@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -91,7 +91,7 @@ fn test_multiprocessor_scheduling_three_processors() {
 fn test_multiprocessor_scheduling_brute_force() {
     let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     let config = solution.unwrap();
     assert!(problem.evaluate(&config));
@@ -102,17 +102,17 @@ fn test_multiprocessor_scheduling_brute_force_infeasible() {
     // Total length = 20, with 2 processors and deadline 9, impossible
     let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 9);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_none());
 }
 
 #[test]
-fn test_multiprocessor_scheduling_find_all_satisfying() {
+fn test_multiprocessor_scheduling_find_all_witnesses() {
     // Issue #212 example: 5 tasks [4,5,3,2,6], m=2, D=10
     // Search space = 2^5 = 32
     let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     for sol in &solutions {
         assert!(problem.evaluate(sol));
     }
@@ -128,7 +128,7 @@ fn test_multiprocessor_scheduling_find_all_satisfying_empty() {
     // but 20 > 2*9 = 18, so impossible
     let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 9);
     let solver = BruteForce::new();
-    assert!(solver.find_all_satisfying(&problem).is_empty());
+    assert!(solver.find_all_witnesses(&problem).is_empty());
 }
 
 #[test]

@@ -75,7 +75,7 @@ fn test_duplicate_target_encodings_have_equal_qubo_value() {
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&canonical_cvp());
     let qubo = reduction.target_problem();
     let solver = BruteForce::new();
-    let best = solver.find_all_best(qubo);
+    let best = solver.find_all_witnesses(qubo);
 
     assert!(best.contains(&vec![0, 0, 1, 0, 0, 1]) || best.contains(&vec![1, 1, 0, 1, 1, 0]));
     assert_close(

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -150,7 +150,7 @@ fn test_qbf_solver() {
 
     let solver = BruteForce::new();
     // With dims()=[], there is exactly one config: []. evaluate([]) = is_true() = true
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     let sol = solution.unwrap();
     assert_eq!(sol, Vec::<usize>::new());
@@ -167,7 +167,7 @@ fn test_qbf_solver_false() {
     );
 
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_none());
 }
 
@@ -181,7 +181,7 @@ fn test_qbf_solver_all_satisfying() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // Only one config exists (the empty config []), and it satisfies
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], Vec::<usize>::new());

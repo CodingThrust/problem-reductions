@@ -5,7 +5,7 @@
 //! that transforms Q1 into Q2. NP-complete (Chandra & Merlin, 1977).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -81,7 +81,7 @@ pub enum Term {
 ///     ],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -313,7 +313,7 @@ impl Problem for ConjunctiveQueryFoldability {
     }
 }
 
-impl SatisfactionProblem for ConjunctiveQueryFoldability {}
+impl WitnessProblem for ConjunctiveQueryFoldability {}
 
 crate::declare_variants! {
     default sat ConjunctiveQueryFoldability => "(num_distinguished + num_undistinguished + domain_size)^num_undistinguished * num_conjuncts_q1",

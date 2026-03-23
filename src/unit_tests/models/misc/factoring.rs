@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::ExtremumSense;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -53,7 +53,7 @@ fn test_is_factoring_function() {
 #[test]
 fn test_direction() {
     let problem = Factoring::new(2, 2, 6);
-    assert_eq!(problem.direction(), Direction::Minimize);
+    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn test_jl_parity_evaluation() {
                 );
             }
         }
-        let best = BruteForce::new().find_all_best(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "Factoring best solutions mismatch");

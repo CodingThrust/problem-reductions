@@ -1,6 +1,6 @@
 use super::*;
 use crate::registry::declared_size_fields;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde_json;
@@ -160,7 +160,7 @@ fn test_acyclic_partition_solver_finds_issue_example() {
     let problem = yes_instance();
     let solver = BruteForce::new();
 
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()));
 }
@@ -168,7 +168,7 @@ fn test_acyclic_partition_solver_finds_issue_example() {
 #[test]
 fn test_acyclic_partition_solver_has_four_canonical_solutions() {
     let problem = yes_instance();
-    let solutions = BruteForce::new().find_all_satisfying(&problem);
+    let solutions = BruteForce::new().find_all_witnesses(&problem);
     let normalized: BTreeSet<Vec<usize>> = solutions
         .iter()
         .map(|config| canonicalize_labels(config))
@@ -187,7 +187,7 @@ fn test_acyclic_partition_solver_has_four_canonical_solutions() {
 #[test]
 fn test_acyclic_partition_no_solution_when_cost_bound_is_four() {
     let problem = no_cost_instance();
-    assert!(BruteForce::new().find_satisfying(&problem).is_none());
+    assert!(BruteForce::new().find_witness(&problem).is_none());
 }
 
 #[test]

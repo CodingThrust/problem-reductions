@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 fn issue_example_problem() -> StaffScheduling {
@@ -74,7 +74,7 @@ fn test_staff_scheduling_rejects_invalid_configs() {
 #[test]
 fn test_staff_scheduling_bruteforce_solver_finds_solution() {
     let problem = issue_example_problem();
-    let solution = BruteForce::new().find_satisfying(&problem);
+    let solution = BruteForce::new().find_witness(&problem);
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()));
 }
@@ -83,7 +83,7 @@ fn test_staff_scheduling_bruteforce_solver_finds_solution() {
 fn test_staff_scheduling_bruteforce_solver_detects_unsat() {
     let problem =
         StaffScheduling::new(1, vec![vec![true, false], vec![false, true]], vec![2, 2], 1);
-    assert!(BruteForce::new().find_satisfying(&problem).is_none());
+    assert!(BruteForce::new().find_witness(&problem).is_none());
 }
 
 #[test]
@@ -106,7 +106,7 @@ fn test_staff_scheduling_paper_example() {
     let config = vec![1, 1, 1, 1, 0];
     assert!(problem.evaluate(&config));
 
-    let satisfying = BruteForce::new().find_all_satisfying(&problem);
+    let satisfying = BruteForce::new().find_all_witnesses(&problem);
     assert!(satisfying.contains(&config));
 }
 

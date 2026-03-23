@@ -11,7 +11,7 @@
 //! to the standard `|w| ≤ B` formulation. This problem is NP-hard (Maier, 1978).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -52,7 +52,7 @@ inventory::submit! {
 /// // Alphabet {0, 1}, strings [0,1] and [1,0], bound 3
 /// let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -146,7 +146,7 @@ impl Problem for ShortestCommonSupersequence {
     }
 }
 
-impl SatisfactionProblem for ShortestCommonSupersequence {}
+impl WitnessProblem for ShortestCommonSupersequence {}
 
 crate::declare_variants! {
     default sat ShortestCommonSupersequence => "alphabet_size ^ bound",

@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -264,7 +264,7 @@ impl Problem for IntegralFlowBundles {
     }
 }
 
-impl SatisfactionProblem for IntegralFlowBundles {}
+impl WitnessProblem for IntegralFlowBundles {}
 
 crate::declare_variants! {
     default sat IntegralFlowBundles => "2^num_arcs",

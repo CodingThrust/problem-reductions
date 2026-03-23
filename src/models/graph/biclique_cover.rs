@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::BipartiteGraph;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -45,7 +45,7 @@ inventory::submit! {
 /// let problem = BicliqueCover::new(graph, 2);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Check coverage
 /// for sol in &solutions {
@@ -219,18 +219,18 @@ pub(crate) fn is_biclique_cover(
 
 impl Problem for BicliqueCover {
     const NAME: &'static str = "BicliqueCover";
-    type Value = SolutionSize<i32>;
+    type Value = Min<i32>;
 
     fn dims(&self) -> Vec<usize> {
         // Each vertex has k binary variables (one per biclique)
         vec![2; self.num_vertices() * self.k]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+    fn evaluate(&self, config: &[usize]) -> Min<i32> {
         if !self.is_valid_cover(config) {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
-        SolutionSize::Valid(self.total_biclique_size(config) as i32)
+        Min(Some(self.total_biclique_size(config) as i32))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -238,11 +238,11 @@ impl Problem for BicliqueCover {
     }
 }
 
-impl OptimizationProblem for BicliqueCover {
+impl ObjectiveProblem for BicliqueCover {
     type Objective = i32;
 
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+    fn direction(&self) -> ExtremumSense {
+        ExtremumSense::Minimize
     }
 }
 
@@ -260,7 +260,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             2,
         )),
         optimal_config: vec![0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-        optimal_value: serde_json::json!({"Valid": 5}),
+        optimal_value: serde_json::json!(5),
     }]
 }
 

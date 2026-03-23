@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::types::WeightElement;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -57,7 +57,7 @@ inventory::submit! {
 /// let problem = MinMaxMulticenter::new(graph, vec![1i32; 6], vec![1i32; 7], 2, 1);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -287,7 +287,7 @@ where
     }
 }
 
-impl<G, W> SatisfactionProblem for MinMaxMulticenter<G, W>
+impl<G, W> WitnessProblem for MinMaxMulticenter<G, W>
 where
     G: Graph + crate::variant::VariantParam,
     W: WeightElement + crate::variant::VariantParam,

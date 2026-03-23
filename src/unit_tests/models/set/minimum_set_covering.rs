@@ -1,7 +1,7 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::solvers::BruteForce;
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min};
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -55,14 +55,14 @@ fn test_get_set() {
 #[test]
 fn test_direction() {
     let problem = MinimumSetCovering::<i32>::new(2, vec![vec![0, 1]]);
-    assert_eq!(problem.direction(), Direction::Minimize);
+    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]
 fn test_empty_universe() {
     let problem = MinimumSetCovering::<i32>::new(0, vec![]);
     // Empty universe is trivially covered with size 0
-    assert_eq!(Problem::evaluate(&problem, &[]), SolutionSize::Valid(0));
+    assert_eq!(Problem::evaluate(&problem, &[]), Min(Some(0)));
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn test_jl_parity_evaluation() {
                 );
             }
         }
-        let best = BruteForce::new().find_all_best(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "SetCovering best solutions mismatch");
@@ -127,6 +127,6 @@ fn test_setcovering_paper_example() {
     assert_eq!(result.unwrap(), 2);
 
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
+    let best = solver.find_witness(&problem).unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), 2);
 }

@@ -1,7 +1,7 @@
 //! Ensemble Computation problem implementation.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -194,7 +194,7 @@ impl Problem for EnsembleComputation {
     }
 }
 
-impl SatisfactionProblem for EnsembleComputation {}
+impl WitnessProblem for EnsembleComputation {}
 
 crate::declare_variants! {
     default sat EnsembleComputation => "(universe_size + budget)^(2 * budget)",

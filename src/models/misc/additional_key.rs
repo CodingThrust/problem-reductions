@@ -8,7 +8,7 @@
 //! The problem is NP-complete (Garey & Johnson, SR7).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -56,7 +56,7 @@ inventory::submit! {
 ///     vec![],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -254,7 +254,7 @@ impl Problem for AdditionalKey {
     }
 }
 
-impl SatisfactionProblem for AdditionalKey {}
+impl WitnessProblem for AdditionalKey {}
 
 crate::declare_variants! {
     default sat AdditionalKey => "2^num_relation_attrs * num_dependencies * num_attributes",

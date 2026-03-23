@@ -90,7 +90,7 @@ fn test_minmaxmulticenter_solver() {
     let problem = example_instance();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
 
     // All solutions should evaluate to true
     assert!(!solutions.is_empty());

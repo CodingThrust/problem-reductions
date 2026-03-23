@@ -2,7 +2,7 @@
 
 use crate::models::formula::KSatisfiability;
 use crate::prelude::*;
-use crate::rules::{MinimizeSteps, ReductionGraph, ReductionMode, TraversalDirection};
+use crate::rules::{MinimizeSteps, ReductionGraph, ReductionMode, TraversalFlow};
 use crate::topology::{KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
 use crate::types::ProblemSize;
 use crate::variant::K3;
@@ -447,7 +447,7 @@ fn test_k_neighbors_outgoing() {
         "MaximumIndependentSet",
         default_variant,
         1,
-        TraversalDirection::Outgoing,
+        TraversalFlow::Outgoing,
     );
     assert!(!neighbors.is_empty());
     assert!(neighbors.iter().all(|n| n.hops == 1));
@@ -457,7 +457,7 @@ fn test_k_neighbors_outgoing() {
         "MaximumIndependentSet",
         default_variant,
         2,
-        TraversalDirection::Outgoing,
+        TraversalFlow::Outgoing,
     );
     assert!(neighbors_2.len() >= neighbors.len());
 }
@@ -468,7 +468,7 @@ fn test_k_neighbors_incoming() {
     let variants = graph.variants_for("QUBO");
     assert!(!variants.is_empty());
 
-    let neighbors = graph.k_neighbors("QUBO", &variants[0], 1, TraversalDirection::Incoming);
+    let neighbors = graph.k_neighbors("QUBO", &variants[0], 1, TraversalFlow::Incoming);
     // QUBO is a common target — should have incoming reductions
     assert!(!neighbors.is_empty());
 }
@@ -483,19 +483,19 @@ fn test_k_neighbors_both() {
         "MaximumIndependentSet",
         default_variant,
         1,
-        TraversalDirection::Outgoing,
+        TraversalFlow::Outgoing,
     );
     let in_only = graph.k_neighbors(
         "MaximumIndependentSet",
         default_variant,
         1,
-        TraversalDirection::Incoming,
+        TraversalFlow::Incoming,
     );
     let both = graph.k_neighbors(
         "MaximumIndependentSet",
         default_variant,
         1,
-        TraversalDirection::Both,
+        TraversalFlow::Both,
     );
     // Both should be >= max of either direction
     assert!(both.len() >= out_only.len());
@@ -506,7 +506,7 @@ fn test_k_neighbors_both() {
 fn test_k_neighbors_unknown_problem() {
     let graph = ReductionGraph::new();
     let empty = BTreeMap::new();
-    let neighbors = graph.k_neighbors("NonExistent", &empty, 2, TraversalDirection::Outgoing);
+    let neighbors = graph.k_neighbors("NonExistent", &empty, 2, TraversalFlow::Outgoing);
     assert!(neighbors.is_empty());
 }
 
@@ -519,7 +519,7 @@ fn test_k_neighbors_zero_hops() {
         "MaximumIndependentSet",
         default_variant,
         0,
-        TraversalDirection::Outgoing,
+        TraversalFlow::Outgoing,
     );
     assert!(neighbors.is_empty());
 }

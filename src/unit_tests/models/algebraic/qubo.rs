@@ -1,7 +1,7 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::solvers::BruteForce;
+use crate::traits::{ObjectiveProblem, Problem};
+use crate::types::{ExtremumSense, Min};
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -24,7 +24,7 @@ fn test_qubo_new() {
 #[test]
 fn test_direction() {
     let problem = QUBO::<f64>::from_matrix(vec![vec![1.0]]);
-    assert_eq!(problem.direction(), Direction::Minimize);
+    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]
@@ -49,7 +49,7 @@ fn test_matrix_access() {
 fn test_empty_qubo() {
     let problem = QUBO::<f64>::from_matrix(vec![]);
     assert_eq!(problem.num_vars(), 0);
-    assert_eq!(Problem::evaluate(&problem, &[]), SolutionSize::Valid(0.0));
+    assert_eq!(Problem::evaluate(&problem, &[]), Min(Some(0.0)));
 }
 
 #[test]
@@ -94,7 +94,7 @@ fn test_jl_parity_evaluation() {
         let problem = QUBO::from_matrix(rust_matrix);
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_config(&eval["config"]);
-            let result: SolutionSize<f64> = Problem::evaluate(&problem, &config);
+            let result = Problem::evaluate(&problem, &config);
             let jl_size = eval["size"].as_f64().unwrap();
             assert!(result.is_valid(), "QUBO should always be valid");
             assert!(
@@ -103,7 +103,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
         }
-        let best = BruteForce::new().find_all_best(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "QUBO best solutions mismatch");
@@ -118,15 +118,9 @@ fn test_qubo_paper_example() {
         vec![0.0, -1.0, 2.0],
         vec![0.0, 0.0, -1.0],
     ]);
-    assert_eq!(
-        Problem::evaluate(&problem, &[1, 0, 1]),
-        SolutionSize::Valid(-2.0)
-    );
+    assert_eq!(Problem::evaluate(&problem, &[1, 0, 1]), Min(Some(-2.0)));
 
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
-    assert_eq!(
-        Problem::evaluate(&problem, &best),
-        SolutionSize::Valid(-2.0)
-    );
+    let best = solver.find_witness(&problem).unwrap();
+    assert_eq!(Problem::evaluate(&problem, &best), Min(Some(-2.0)));
 }

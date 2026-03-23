@@ -3,7 +3,7 @@ use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Max;
 include!("../jl_helpers.rs");
 
 #[test]
@@ -37,21 +37,15 @@ fn test_matching_to_setpacking_weighted() {
     assert_eq!(sp.weights_ref(), &vec![100, 1, 1]);
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_all_best(sp);
+    let sp_solutions = solver.find_all_witnesses(sp);
 
     // Edge 0-1 (weight 100) alone beats edges 0-2 + 1-3 (weight 2)
     assert!(sp_solutions.contains(&vec![1, 0, 0]));
 
     // Verify through direct MaximumMatching solution
-    let direct_solutions = solver.find_all_best(&matching);
-    assert_eq!(
-        matching.evaluate(&sp_solutions[0]),
-        SolutionSize::Valid(100)
-    );
-    assert_eq!(
-        matching.evaluate(&direct_solutions[0]),
-        SolutionSize::Valid(100)
-    );
+    let direct_solutions = solver.find_all_witnesses(&matching);
+    assert_eq!(matching.evaluate(&sp_solutions[0]), Max(Some(100)));
+    assert_eq!(matching.evaluate(&direct_solutions[0]), Max(Some(100)));
 }
 
 #[test]
@@ -89,7 +83,7 @@ fn test_matching_to_setpacking_single_edge() {
     assert_eq!(sp.sets()[0], vec![0, 1]);
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_all_best(sp);
+    let sp_solutions = solver.find_all_witnesses(sp);
 
     // Should select the only set
     assert_eq!(sp_solutions, vec![vec![1]]);
@@ -104,7 +98,7 @@ fn test_matching_to_setpacking_disjoint_edges() {
     let sp = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_all_best(sp);
+    let sp_solutions = solver.find_all_witnesses(sp);
 
     // Both edges can be selected (they don't share vertices)
     assert_eq!(sp_solutions, vec![vec![1, 1]]);
@@ -130,7 +124,7 @@ fn test_matching_to_setpacking_star() {
     let sp = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_all_best(sp);
+    let sp_solutions = solver.find_all_witnesses(sp);
 
     // All edges share vertex 0, so max matching = 1
     for sol in &sp_solutions {
@@ -170,7 +164,8 @@ fn test_jl_parity_matching_to_setpacking() {
         );
         let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
         let solver = BruteForce::new();
-        let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+        let best_source: HashSet<Vec<usize>> =
+            solver.find_all_witnesses(&source).into_iter().collect();
         assert_optimization_round_trip_from_optimization_target(
             &source,
             &result,

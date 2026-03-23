@@ -7,7 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{DirectedGraph, MixedGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use crate::types::{One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -256,7 +256,7 @@ where
     }
 }
 
-impl<W> SatisfactionProblem for MixedChinesePostman<W> where
+impl<W> WitnessProblem for MixedChinesePostman<W> where
     W: WeightElement<Sum = i32> + crate::variant::VariantParam
 {
 }

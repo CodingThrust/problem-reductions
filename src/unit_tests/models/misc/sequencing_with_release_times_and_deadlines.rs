@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -35,7 +35,7 @@ fn test_sequencing_rtd_evaluate_feasible() {
         vec![5, 6, 10, 3, 12],
     );
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // Exactly one feasible schedule exists: Lehmer code [3, 0, 0, 0, 0]
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![3, 0, 0, 0, 0]);
@@ -85,7 +85,7 @@ fn test_sequencing_rtd_brute_force() {
         SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]);
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("should find a solution");
     assert!(problem.evaluate(&solution));
 }
@@ -94,7 +94,7 @@ fn test_sequencing_rtd_brute_force() {
 fn test_sequencing_rtd_brute_force_all() {
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![1, 1], vec![0, 0], vec![3, 3]);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     for sol in &solutions {
         assert!(problem.evaluate(sol));
@@ -106,7 +106,7 @@ fn test_sequencing_rtd_unsatisfiable() {
     // Two tasks each need 2 time units but only 3 total time available
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 0], vec![3, 3]);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_none());
 }
 

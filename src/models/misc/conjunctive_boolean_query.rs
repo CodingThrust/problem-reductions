@@ -11,7 +11,7 @@
 //! variables such that every conjunct's resolved tuple belongs to its relation.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -76,7 +76,7 @@ pub enum QueryArg {
 /// ];
 /// let problem = ConjunctiveBooleanQuery::new(6, relations, 1, conjuncts);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -221,7 +221,7 @@ impl Problem for ConjunctiveBooleanQuery {
     }
 }
 
-impl SatisfactionProblem for ConjunctiveBooleanQuery {}
+impl WitnessProblem for ConjunctiveBooleanQuery {}
 
 crate::declare_variants! {
     default sat ConjunctiveBooleanQuery => "domain_size ^ num_variables",

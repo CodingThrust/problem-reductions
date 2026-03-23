@@ -8,7 +8,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -64,7 +64,7 @@ inventory::submit! {
 ///     graph, vec![1; 8], 0, 4, 1, 5, 1, 1,
 /// );
 /// let solver = BruteForce::new();
-/// assert!(solver.find_satisfying(&problem).is_some());
+/// assert!(solver.find_witness(&problem).is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DirectedTwoCommodityIntegralFlow {
@@ -263,7 +263,7 @@ impl Problem for DirectedTwoCommodityIntegralFlow {
     }
 }
 
-impl SatisfactionProblem for DirectedTwoCommodityIntegralFlow {}
+impl WitnessProblem for DirectedTwoCommodityIntegralFlow {}
 
 crate::declare_variants! {
     default sat DirectedTwoCommodityIntegralFlow => "(max_capacity + 1)^(2 * num_arcs)",
