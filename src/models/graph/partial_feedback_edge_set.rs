@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "example-db")]
 use std::collections::BTreeSet;
@@ -102,7 +102,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "PartialFeedbackEdgeSet";
-    type Metric = bool;
+    type Value = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -117,10 +117,7 @@ where
     }
 }
 
-impl<G> SatisfactionProblem for PartialFeedbackEdgeSet<G> where
-    G: Graph + crate::variant::VariantParam
-{
-}
+impl<G> WitnessProblem for PartialFeedbackEdgeSet<G> where G: Graph + crate::variant::VariantParam {}
 
 fn has_cycle_with_length_at_most<G: Graph>(
     graph: &G,

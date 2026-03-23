@@ -5,7 +5,7 @@
 //! augmentations such that every row has consecutive 1s.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::{Problem, WitnessProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -114,7 +114,7 @@ impl ConsecutiveOnesMatrixAugmentation {
 
 impl Problem for ConsecutiveOnesMatrixAugmentation {
     const NAME: &'static str = "ConsecutiveOnesMatrixAugmentation";
-    type Metric = bool;
+    type Value = bool;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.num_cols(); self.num_cols()]
@@ -134,7 +134,7 @@ impl Problem for ConsecutiveOnesMatrixAugmentation {
     }
 }
 
-impl SatisfactionProblem for ConsecutiveOnesMatrixAugmentation {}
+impl WitnessProblem for ConsecutiveOnesMatrixAugmentation {}
 
 crate::declare_variants! {
     default sat ConsecutiveOnesMatrixAugmentation => "factorial(num_cols) * num_rows * num_cols",
