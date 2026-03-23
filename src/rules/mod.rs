@@ -84,6 +84,8 @@ pub(crate) mod minimumdominatingset_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumfeedbackvertexset_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod minimumhittingset_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimummultiwaycut_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumsetcovering_ilp;
