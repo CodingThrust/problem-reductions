@@ -4,9 +4,9 @@ use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::misc::Knapsack;
 use crate::models::set::MaximumSetPacking;
 use crate::rules::cost::{Minimize, MinimizeSteps};
-use crate::rules::graph::{classify_problem_category, ReductionStep};
-use crate::rules::registry::ReductionEntry;
-use crate::rules::traits::AggregateReductionResult;
+use crate::rules::graph::{classify_problem_category, ReductionMode, ReductionStep};
+use crate::rules::registry::{EdgeCapabilities, ReductionEntry};
+use crate::rules::traits::{AggregateReductionResult, ReductionResult};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{One, ProblemSize, Sum};
@@ -23,6 +23,9 @@ struct AggregateChainMiddle;
 
 #[derive(Clone)]
 struct AggregateChainTarget;
+
+#[derive(Clone)]
+struct NaturalVariantProblem;
 
 impl Problem for AggregateChainSource {
     const NAME: &'static str = "AggregateChainSource";
@@ -60,6 +63,23 @@ impl Problem for AggregateChainMiddle {
 
 impl Problem for AggregateChainTarget {
     const NAME: &'static str = "AggregateChainTarget";
+    type Value = Sum<u64>;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![1]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> Self::Value {
+        Sum(config.iter().sum::<usize>() as u64)
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![]
+    }
+}
+
+impl Problem for NaturalVariantProblem {
+    const NAME: &'static str = "NaturalVariantProblem";
     type Value = Sum<u64>;
 
     fn dims(&self) -> Vec<usize> {
@@ -129,6 +149,85 @@ fn reduce_middle_to_target_aggregate(
     })
 }
 
+struct SourceToMiddleWitnessResult {
+    target: AggregateChainMiddle,
+}
+
+impl ReductionResult for SourceToMiddleWitnessResult {
+    type Source = AggregateChainSource;
+    type Target = AggregateChainMiddle;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+        target_solution.to_vec()
+    }
+}
+
+fn reduce_source_to_middle_witness(
+    any: &dyn Any,
+) -> Box<dyn crate::rules::traits::DynReductionResult> {
+    any.downcast_ref::<AggregateChainSource>()
+        .expect("expected AggregateChainSource");
+    Box::new(SourceToMiddleWitnessResult {
+        target: AggregateChainMiddle,
+    })
+}
+
+fn reduce_natural_variant_witness(
+    any: &dyn Any,
+) -> Box<dyn crate::rules::traits::DynReductionResult> {
+    let source = any
+        .downcast_ref::<NaturalVariantProblem>()
+        .expect("expected NaturalVariantProblem");
+    Box::new(crate::rules::ReductionAutoCast::<
+        NaturalVariantProblem,
+        NaturalVariantProblem,
+    >::new(source.clone()))
+}
+
+fn build_two_node_graph(
+    source_name: &'static str,
+    source_variant: BTreeMap<String, String>,
+    target_name: &'static str,
+    target_variant: BTreeMap<String, String>,
+    edge: ReductionEdgeData,
+) -> ReductionGraph {
+    let nodes = vec![
+        VariantNode {
+            name: source_name,
+            variant: source_variant.clone(),
+            complexity: "",
+        },
+        VariantNode {
+            name: target_name,
+            variant: target_variant.clone(),
+            complexity: "",
+        },
+    ];
+
+    let mut graph = DiGraph::new();
+    let source_idx = graph.add_node(0);
+    let target_idx = graph.add_node(1);
+    graph.add_edge(source_idx, target_idx, edge);
+
+    let mut name_to_nodes = HashMap::new();
+    name_to_nodes.insert(source_name, vec![source_idx]);
+    name_to_nodes
+        .entry(target_name)
+        .or_insert_with(Vec::new)
+        .push(target_idx);
+
+    ReductionGraph {
+        graph,
+        nodes,
+        name_to_nodes,
+        default_variants: HashMap::new(),
+    }
+}
+
 #[test]
 fn test_find_direct_path() {
     let graph = ReductionGraph::new();
@@ -178,6 +277,7 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
             overhead: crate::rules::registry::ReductionOverhead::default(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
+            capabilities: EdgeCapabilities::aggregate_only(),
         },
     );
     graph.add_edge(
@@ -187,6 +287,7 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
             overhead: crate::rules::registry::ReductionOverhead::default(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_middle_to_target_aggregate),
+            capabilities: EdgeCapabilities::aggregate_only(),
         },
     );
 
@@ -223,6 +324,132 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
 
     assert_eq!(chain.target_problem::<AggregateChainTarget>().dims(), vec![1]);
     assert_eq!(chain.extract_value_dyn(json!(7)), json!(12));
+}
+
+#[test]
+fn witness_path_search_rejects_aggregate_only_edge() {
+    let source_variant = BTreeMap::new();
+    let target_variant = BTreeMap::new();
+    let graph = build_two_node_graph(
+        AggregateChainSource::NAME,
+        source_variant.clone(),
+        AggregateChainMiddle::NAME,
+        target_variant.clone(),
+        ReductionEdgeData {
+            overhead: crate::rules::registry::ReductionOverhead::default(),
+            reduce_fn: None,
+            reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
+            capabilities: EdgeCapabilities::aggregate_only(),
+        },
+    );
+
+    assert!(graph
+        .find_cheapest_path_mode(
+            AggregateChainSource::NAME,
+            &source_variant,
+            AggregateChainMiddle::NAME,
+            &target_variant,
+            ReductionMode::Witness,
+            &ProblemSize::new(vec![]),
+            &MinimizeSteps,
+        )
+        .is_none());
+    assert!(graph
+        .find_cheapest_path_mode(
+            AggregateChainSource::NAME,
+            &source_variant,
+            AggregateChainMiddle::NAME,
+            &target_variant,
+            ReductionMode::Aggregate,
+            &ProblemSize::new(vec![]),
+            &MinimizeSteps,
+        )
+        .is_some());
+}
+
+#[test]
+fn aggregate_path_search_rejects_witness_only_edge() {
+    let source_variant = BTreeMap::new();
+    let target_variant = BTreeMap::new();
+    let graph = build_two_node_graph(
+        AggregateChainSource::NAME,
+        source_variant.clone(),
+        AggregateChainMiddle::NAME,
+        target_variant.clone(),
+        ReductionEdgeData {
+            overhead: crate::rules::registry::ReductionOverhead::default(),
+            reduce_fn: Some(reduce_source_to_middle_witness),
+            reduce_aggregate_fn: None,
+            capabilities: EdgeCapabilities::witness_only(),
+        },
+    );
+
+    assert!(graph
+        .find_cheapest_path_mode(
+            AggregateChainSource::NAME,
+            &source_variant,
+            AggregateChainMiddle::NAME,
+            &target_variant,
+            ReductionMode::Aggregate,
+            &ProblemSize::new(vec![]),
+            &MinimizeSteps,
+        )
+        .is_none());
+    assert!(graph
+        .find_cheapest_path_mode(
+            AggregateChainSource::NAME,
+            &source_variant,
+            AggregateChainMiddle::NAME,
+            &target_variant,
+            ReductionMode::Witness,
+            &ProblemSize::new(vec![]),
+            &MinimizeSteps,
+        )
+        .is_some());
+}
+
+#[test]
+fn natural_edge_supports_both_modes() {
+    let source_variant = BTreeMap::from([("graph".to_string(), "Source".to_string())]);
+    let target_variant = BTreeMap::from([("graph".to_string(), "Target".to_string())]);
+    let graph = build_two_node_graph(
+        NaturalVariantProblem::NAME,
+        source_variant.clone(),
+        NaturalVariantProblem::NAME,
+        target_variant.clone(),
+        ReductionEdgeData {
+            overhead: crate::rules::registry::ReductionOverhead::default(),
+            reduce_fn: Some(reduce_natural_variant_witness),
+            reduce_aggregate_fn: None,
+            capabilities: EdgeCapabilities::both(),
+        },
+    );
+
+    let witness_path = graph.find_cheapest_path_mode(
+        NaturalVariantProblem::NAME,
+        &source_variant,
+        NaturalVariantProblem::NAME,
+        &target_variant,
+        ReductionMode::Witness,
+        &ProblemSize::new(vec![]),
+        &MinimizeSteps,
+    );
+    let aggregate_path = graph.find_cheapest_path_mode(
+        NaturalVariantProblem::NAME,
+        &source_variant,
+        NaturalVariantProblem::NAME,
+        &target_variant,
+        ReductionMode::Aggregate,
+        &ProblemSize::new(vec![]),
+        &MinimizeSteps,
+    );
+
+    assert!(witness_path.is_some());
+    let aggregate_path = aggregate_path.expect("expected aggregate path");
+    let chain = graph
+        .reduce_aggregate_along_path(&aggregate_path, &NaturalVariantProblem as &dyn Any)
+        .expect("expected aggregate chain");
+    assert_eq!(chain.extract_value_dyn(json!(7)), json!(7));
 }
 
 #[test]

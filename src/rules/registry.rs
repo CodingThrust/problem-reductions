@@ -89,6 +89,42 @@ pub type ReduceFn = fn(&dyn Any) -> Box<dyn DynReductionResult>;
 /// Aggregate/value reduction executor stored in the inventory.
 pub type AggregateReduceFn = fn(&dyn Any) -> Box<dyn DynAggregateReductionResult>;
 
+/// Execution capabilities carried by a reduction edge.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct EdgeCapabilities {
+    pub witness: bool,
+    pub aggregate: bool,
+}
+
+impl EdgeCapabilities {
+    pub const fn witness_only() -> Self {
+        Self {
+            witness: true,
+            aggregate: false,
+        }
+    }
+
+    pub const fn aggregate_only() -> Self {
+        Self {
+            witness: false,
+            aggregate: true,
+        }
+    }
+
+    pub const fn both() -> Self {
+        Self {
+            witness: true,
+            aggregate: true,
+        }
+    }
+}
+
+impl Default for EdgeCapabilities {
+    fn default() -> Self {
+        Self::witness_only()
+    }
+}
+
 /// A registered reduction entry for static inventory registration.
 /// Uses function pointers to lazily derive variant fields from `Problem::variant()`.
 pub struct ReductionEntry {
@@ -113,6 +149,8 @@ pub struct ReductionEntry {
     /// `ReduceToAggregate::reduce_to_aggregate()`, and returns the result as a
     /// boxed `DynAggregateReductionResult`.
     pub reduce_aggregate_fn: Option<AggregateReduceFn>,
+    /// Capability metadata for runtime path filtering.
+    pub capabilities: EdgeCapabilities,
     /// Compiled overhead evaluation function.
     /// Takes a `&dyn Any` (must be `&SourceType`), calls getter methods directly,
     /// and returns the computed target problem size.
@@ -162,6 +200,7 @@ impl std::fmt::Debug for ReductionEntry {
             .field("target_variant", &self.target_variant())
             .field("overhead", &self.overhead())
             .field("module_path", &self.module_path)
+            .field("capabilities", &self.capabilities)
             .finish()
     }
 }

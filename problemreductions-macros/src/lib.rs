@@ -275,6 +275,11 @@ fn generate_reduction_entry(
         .ok_or_else(|| syn::Error::new_spanned(source_type, "Cannot extract source type name"))?;
     let target_name = extract_type_name(&target_type)
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
+    let capabilities = if source_name == target_name {
+        quote! { crate::rules::EdgeCapabilities::both() }
+    } else {
+        quote! { crate::rules::EdgeCapabilities::witness_only() }
+    };
 
     // Collect generic parameter info from the impl block
     let type_generics = collect_type_generic_names(&impl_block.generics);
@@ -330,6 +335,7 @@ fn generate_reduction_entry(
                     Box::new(<#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src))
                 }),
                 reduce_aggregate_fn: None,
+                capabilities: #capabilities,
                 overhead_eval_fn: #overhead_eval_fn,
             }
         }

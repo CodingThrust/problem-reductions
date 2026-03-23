@@ -4,7 +4,7 @@ pub mod analysis;
 pub mod cost;
 pub mod registry;
 pub use cost::{CustomCost, Minimize, MinimizeSteps, PathCostFn};
-pub use registry::{ReductionEntry, ReductionOverhead};
+pub use registry::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
 
 pub(crate) mod circuit_spinglass;
 mod closestvectorproblem_qubo;
@@ -98,7 +98,7 @@ pub(crate) mod travelingsalesman_ilp;
 
 pub use graph::{
     AggregateReductionChain, NeighborInfo, NeighborTree, ReductionChain, ReductionEdgeInfo,
-    ReductionGraph, ReductionPath, ReductionStep, TraversalDirection,
+    ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalDirection,
 };
 pub use traits::{
     AggregateReductionResult, ReduceTo, ReduceToAggregate, ReductionAutoCast, ReductionResult,

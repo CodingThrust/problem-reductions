@@ -14,13 +14,13 @@
 
 use crate::rules::cost::PathCostFn;
 use crate::rules::registry::{
-    AggregateReduceFn, ReduceFn, ReductionEntry, ReductionOverhead,
+    AggregateReduceFn, EdgeCapabilities, ReduceFn, ReductionEntry, ReductionOverhead,
 };
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
 use crate::types::ProblemSize;
 use ordered_float::OrderedFloat;
 use petgraph::algo::all_simple_paths;
-use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::graph::{DiGraph, EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::Serialize;
 use std::any::Any;
@@ -36,6 +36,7 @@ pub struct ReductionEdgeInfo {
     pub target_name: &'static str,
     pub target_variant: BTreeMap<String, String>,
     pub overhead: ReductionOverhead,
+    pub capabilities: EdgeCapabilities,
 }
 
 /// Internal edge data combining overhead and executable reduce function.
@@ -44,6 +45,7 @@ pub(crate) struct ReductionEdgeData {
     pub overhead: ReductionOverhead,
     pub reduce_fn: Option<ReduceFn>,
     pub reduce_aggregate_fn: Option<AggregateReduceFn>,
+    pub capabilities: EdgeCapabilities,
 }
 
 /// JSON-serializable representation of the reduction graph.
@@ -111,6 +113,10 @@ pub(crate) struct EdgeJson {
     pub(crate) overhead: Vec<OverheadFieldJson>,
     /// Relative rustdoc path for the reduction module.
     pub(crate) doc_path: String,
+    /// Whether the edge supports witness/config workflows.
+    pub(crate) witness: bool,
+    /// Whether the edge supports aggregate/value workflows.
+    pub(crate) aggregate: bool,
 }
 
 /// A path through the variant-level reduction graph.
@@ -242,6 +248,13 @@ pub enum TraversalDirection {
     Both,
 }
 
+/// Required capability for reduction path search.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReductionMode {
+    Witness,
+    Aggregate,
+}
+
 /// A tree node for neighbor traversal results.
 #[derive(Debug, Clone)]
 pub struct NeighborTree {
@@ -365,6 +378,7 @@ impl ReductionGraph {
                         overhead,
                         reduce_fn: entry.reduce_fn,
                         reduce_aggregate_fn: entry.reduce_aggregate_fn,
+                        capabilities: entry.capabilities,
                     },
                 );
             }
@@ -403,6 +417,21 @@ impl ReductionGraph {
             .copied()
     }
 
+    fn edge_supports_mode(edge: &ReductionEdgeData, mode: ReductionMode) -> bool {
+        match mode {
+            ReductionMode::Witness => edge.capabilities.witness,
+            ReductionMode::Aggregate => edge.capabilities.aggregate,
+        }
+    }
+
+    fn node_path_supports_mode(&self, node_path: &[NodeIndex], mode: ReductionMode) -> bool {
+        node_path.windows(2).all(|pair| {
+            self.graph
+                .find_edge(pair[0], pair[1])
+                .is_some_and(|edge_idx| Self::edge_supports_mode(&self.graph[edge_idx], mode))
+        })
+    }
+
     /// Find the cheapest path between two specific problem variants.
     ///
     /// Uses Dijkstra's algorithm on the variant-level graph from the exact
@@ -416,9 +445,32 @@ impl ReductionGraph {
         input_size: &ProblemSize,
         cost_fn: &C,
     ) -> Option<ReductionPath> {
+        self.find_cheapest_path_mode(
+            source,
+            source_variant,
+            target,
+            target_variant,
+            ReductionMode::Witness,
+            input_size,
+            cost_fn,
+        )
+    }
+
+    /// Find the cheapest path between two specific problem variants while
+    /// requiring a specific edge capability.
+    pub fn find_cheapest_path_mode<C: PathCostFn>(
+        &self,
+        source: &str,
+        source_variant: &BTreeMap<String, String>,
+        target: &str,
+        target_variant: &BTreeMap<String, String>,
+        mode: ReductionMode,
+        input_size: &ProblemSize,
+        cost_fn: &C,
+    ) -> Option<ReductionPath> {
         let src = self.lookup_node(source, source_variant)?;
         let dst = self.lookup_node(target, target_variant)?;
-        let node_path = self.dijkstra(src, dst, input_size, cost_fn)?;
+        let node_path = self.dijkstra(src, dst, mode, input_size, cost_fn)?;
         Some(self.node_path_to_reduction_path(&node_path))
     }
 
@@ -427,6 +479,7 @@ impl ReductionGraph {
         &self,
         src: NodeIndex,
         dst: NodeIndex,
+        mode: ReductionMode,
         input_size: &ProblemSize,
         cost_fn: &C,
     ) -> Option<Vec<NodeIndex>> {
@@ -462,6 +515,9 @@ impl ReductionGraph {
             };
 
             for edge_ref in self.graph.edges(node) {
+                if !Self::edge_supports_mode(edge_ref.weight(), mode) {
+                    continue;
+                }
                 let overhead = &edge_ref.weight().overhead;
                 let next = edge_ref.target();
 
@@ -507,6 +563,25 @@ impl ReductionGraph {
         target: &str,
         target_variant: &BTreeMap<String, String>,
     ) -> Vec<ReductionPath> {
+        self.find_all_paths_mode(
+            source,
+            source_variant,
+            target,
+            target_variant,
+            ReductionMode::Witness,
+        )
+    }
+
+    /// Find all simple paths between two specific problem variants while
+    /// requiring a specific edge capability.
+    pub fn find_all_paths_mode(
+        &self,
+        source: &str,
+        source_variant: &BTreeMap<String, String>,
+        target: &str,
+        target_variant: &BTreeMap<String, String>,
+        mode: ReductionMode,
+    ) -> Vec<ReductionPath> {
         let src = match self.lookup_node(source, source_variant) {
             Some(idx) => idx,
             None => return vec![],
@@ -525,6 +600,7 @@ impl ReductionGraph {
 
         paths
             .iter()
+            .filter(|p| self.node_path_supports_mode(p, mode))
             .map(|p| self.node_path_to_reduction_path(p))
             .collect()
     }
@@ -539,6 +615,27 @@ impl ReductionGraph {
         source_variant: &BTreeMap<String, String>,
         target: &str,
         target_variant: &BTreeMap<String, String>,
+        limit: usize,
+    ) -> Vec<ReductionPath> {
+        self.find_paths_up_to_mode(
+            source,
+            source_variant,
+            target,
+            target_variant,
+            ReductionMode::Witness,
+            limit,
+        )
+    }
+
+    /// Like [`find_all_paths_mode`](Self::find_all_paths_mode) but stops
+    /// enumeration after collecting `limit` paths.
+    pub fn find_paths_up_to_mode(
+        &self,
+        source: &str,
+        source_variant: &BTreeMap<String, String>,
+        target: &str,
+        target_variant: &BTreeMap<String, String>,
+        mode: ReductionMode,
         limit: usize,
     ) -> Vec<ReductionPath> {
         let src = match self.lookup_node(source, source_variant) {
@@ -560,6 +657,7 @@ impl ReductionGraph {
 
         paths
             .iter()
+            .filter(|p| self.node_path_supports_mode(p, mode))
             .map(|p| self.node_path_to_reduction_path(p))
             .collect()
     }
@@ -593,6 +691,45 @@ impl ReductionGraph {
         }
 
         false
+    }
+
+    /// Check if a direct reduction exists by name in a specific mode.
+    pub fn has_direct_reduction_by_name_mode(
+        &self,
+        src: &str,
+        dst: &str,
+        mode: ReductionMode,
+    ) -> bool {
+        let src_nodes = match self.name_to_nodes.get(src) {
+            Some(nodes) => nodes,
+            None => return false,
+        };
+        let dst_nodes = match self.name_to_nodes.get(dst) {
+            Some(nodes) => nodes,
+            None => return false,
+        };
+
+        let dst_set: HashSet<NodeIndex> = dst_nodes.iter().copied().collect();
+
+        for &src_idx in src_nodes {
+            for edge_ref in self.graph.edges(src_idx) {
+                if dst_set.contains(&edge_ref.target())
+                    && Self::edge_supports_mode(edge_ref.weight(), mode)
+                {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    /// Check if a direct reduction exists from S to T in a specific mode.
+    pub fn has_direct_reduction_mode<S: crate::traits::Problem, T: crate::traits::Problem>(
+        &self,
+        mode: ReductionMode,
+    ) -> bool {
+        self.has_direct_reduction_by_name_mode(S::NAME, T::NAME, mode)
     }
 
     /// Get all registered problem type names (base names).
@@ -733,6 +870,7 @@ impl ReductionGraph {
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
                     overhead: self.graph[e.id()].overhead.clone(),
+                    capabilities: self.graph[e.id()].capabilities,
                 }
             })
             .collect()
@@ -783,6 +921,7 @@ impl ReductionGraph {
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
                     overhead: self.graph[e.id()].overhead.clone(),
+                    capabilities: self.graph[e.id()].capabilities,
                 }
             })
             .collect()
@@ -994,6 +1133,7 @@ impl ReductionGraph {
             let src_node_id = self.graph[edge_ref.source()];
             let dst_node_id = self.graph[edge_ref.target()];
             let overhead = &edge_ref.weight().overhead;
+            let capabilities = edge_ref.weight().capabilities;
 
             let overhead_fields = overhead
                 .output_size
@@ -1017,6 +1157,8 @@ impl ReductionGraph {
                 target: old_to_new[&dst_node_id],
                 overhead: overhead_fields,
                 doc_path,
+                witness: capabilities.witness,
+                aggregate: capabilities.aggregate,
             });
         }
 
@@ -1221,7 +1363,45 @@ impl AggregateReductionChain {
     }
 }
 
+struct WitnessBackedIdentityAggregateStep {
+    inner: Box<dyn DynReductionResult>,
+}
+
+impl DynAggregateReductionResult for WitnessBackedIdentityAggregateStep {
+    fn target_problem_any(&self) -> &dyn Any {
+        self.inner.target_problem_any()
+    }
+
+    fn extract_value_dyn(&self, target_value: serde_json::Value) -> serde_json::Value {
+        target_value
+    }
+}
+
 impl ReductionGraph {
+    fn execute_aggregate_edge(
+        &self,
+        edge_idx: EdgeIndex,
+        input: &dyn Any,
+    ) -> Option<Box<dyn DynAggregateReductionResult>> {
+        let edge = &self.graph[edge_idx];
+        if !Self::edge_supports_mode(edge, ReductionMode::Aggregate) {
+            return None;
+        }
+
+        if let Some(edge_fn) = edge.reduce_aggregate_fn {
+            return Some(edge_fn(input));
+        }
+
+        if edge.capabilities.witness && edge.capabilities.aggregate {
+            let edge_fn = edge.reduce_fn?;
+            return Some(Box::new(WitnessBackedIdentityAggregateStep {
+                inner: edge_fn(input),
+            }));
+        }
+
+        None
+    }
+
     /// Execute a reduction path on a source problem instance.
     ///
     /// Looks up each edge's `reduce_fn`, chains them, and returns the
@@ -1249,6 +1429,9 @@ impl ReductionGraph {
             let src = self.lookup_node(&window[0].name, &window[0].variant)?;
             let dst = self.lookup_node(&window[1].name, &window[1].variant)?;
             let edge_idx = self.graph.find_edge(src, dst)?;
+            if !Self::edge_supports_mode(&self.graph[edge_idx], ReductionMode::Witness) {
+                return None;
+            }
             edge_fns.push(self.graph[edge_idx].reduce_fn?);
         }
         // Execute the chain
@@ -1275,21 +1458,21 @@ impl ReductionGraph {
             return None;
         }
 
-        let mut edge_fns = Vec::new();
+        let mut edge_indices = Vec::new();
         for window in path.steps.windows(2) {
             let src = self.lookup_node(&window[0].name, &window[0].variant)?;
             let dst = self.lookup_node(&window[1].name, &window[1].variant)?;
             let edge_idx = self.graph.find_edge(src, dst)?;
-            edge_fns.push(self.graph[edge_idx].reduce_aggregate_fn?);
+            edge_indices.push(edge_idx);
         }
 
         let mut steps: Vec<Box<dyn DynAggregateReductionResult>> = Vec::new();
-        let step = (edge_fns[0])(source);
+        let step = self.execute_aggregate_edge(edge_indices[0], source)?;
         steps.push(step);
-        for edge_fn in &edge_fns[1..] {
+        for &edge_idx in &edge_indices[1..] {
             let step = {
                 let prev_target = steps.last().unwrap().target_problem_any();
-                edge_fn(prev_target)
+                self.execute_aggregate_edge(edge_idx, prev_target)?
             };
             steps.push(step);
         }

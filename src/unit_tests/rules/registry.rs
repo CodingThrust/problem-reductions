@@ -48,6 +48,7 @@ fn test_reduction_entry_overhead() {
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
+        capabilities: EdgeCapabilities::witness_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
 
@@ -68,6 +69,7 @@ fn test_reduction_entry_debug() {
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
+        capabilities: EdgeCapabilities::witness_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
 
@@ -87,6 +89,7 @@ fn test_is_base_reduction_unweighted() {
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
+        capabilities: EdgeCapabilities::witness_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
     assert!(entry.is_base_reduction());
@@ -103,6 +106,7 @@ fn test_is_base_reduction_source_weighted() {
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
+        capabilities: EdgeCapabilities::witness_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
     assert!(!entry.is_base_reduction());
@@ -119,6 +123,7 @@ fn test_is_base_reduction_target_weighted() {
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
+        capabilities: EdgeCapabilities::witness_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
     assert!(!entry.is_base_reduction());
@@ -135,6 +140,7 @@ fn test_is_base_reduction_both_weighted() {
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
+        capabilities: EdgeCapabilities::witness_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
     assert!(!entry.is_base_reduction());
@@ -152,6 +158,7 @@ fn test_is_base_reduction_no_weight_key() {
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
+        capabilities: EdgeCapabilities::witness_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
     assert!(entry.is_base_reduction());
@@ -168,6 +175,7 @@ fn test_reduction_entry_can_store_aggregate_executor() {
         module_path: "test::module",
         reduce_fn: None,
         reduce_aggregate_fn: Some(dummy_reduce_aggregate_fn),
+        capabilities: EdgeCapabilities::aggregate_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
     };
 

@@ -2,8 +2,8 @@
 
 use crate::models::formula::KSatisfiability;
 use crate::prelude::*;
-use crate::rules::{MinimizeSteps, ReductionGraph, TraversalDirection};
-use crate::topology::{SimpleGraph, TriangularSubgraph};
+use crate::rules::{MinimizeSteps, ReductionGraph, ReductionMode, TraversalDirection};
+use crate::topology::{KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
 use crate::types::ProblemSize;
 use crate::variant::K3;
 use std::collections::BTreeMap;
@@ -95,6 +95,68 @@ fn test_multi_step_path() {
         path.type_names(),
         vec!["Factoring", "CircuitSAT", "SpinGlass"]
     );
+}
+
+#[test]
+fn aggregate_mode_rejects_witness_only_real_edge() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+
+    assert!(graph
+        .find_cheapest_path_mode(
+            "MaximumIndependentSet",
+            &src,
+            "MinimumVertexCover",
+            &dst,
+            ReductionMode::Witness,
+            &ProblemSize::new(vec![]),
+            &MinimizeSteps,
+        )
+        .is_some());
+    assert!(graph
+        .find_cheapest_path_mode(
+            "MaximumIndependentSet",
+            &src,
+            "MinimumVertexCover",
+            &dst,
+            ReductionMode::Aggregate,
+            &ProblemSize::new(vec![]),
+            &MinimizeSteps,
+        )
+        .is_none());
+}
+
+#[test]
+fn natural_edge_supports_both_modes_public_api() {
+    let graph = ReductionGraph::new();
+    let src =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<KingsSubgraph, i32>::variant());
+    let dst =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<UnitDiskGraph, i32>::variant());
+
+    assert!(graph
+        .find_cheapest_path_mode(
+            "MaximumIndependentSet",
+            &src,
+            "MaximumIndependentSet",
+            &dst,
+            ReductionMode::Witness,
+            &ProblemSize::new(vec![]),
+            &MinimizeSteps,
+        )
+        .is_some());
+    assert!(graph
+        .find_cheapest_path_mode(
+            "MaximumIndependentSet",
+            &src,
+            "MaximumIndependentSet",
+            &dst,
+            ReductionMode::Aggregate,
+            &ProblemSize::new(vec![]),
+            &MinimizeSteps,
+        )
+        .is_some());
 }
 
 #[test]
