@@ -142,6 +142,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.candidate_arcs.is_none()
         && args.potential_edges.is_none()
         && args.budget.is_none()
+        && args.max_cycle_length.is_none()
         && args.deadlines.is_none()
         && args.lengths.is_none()
         && args.precedence_pairs.is_none()
@@ -586,6 +587,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SteinerTreeInGraphs" => "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --terminals 0,3",
         "BiconnectivityAugmentation" => {
             "--graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5"
+        }
+        "PartialFeedbackEdgeSet" => {
+            "--graph 0-1,1-2,2-0,2-3,3-4,4-2,3-5,5-4,0-3 --budget 3 --max-cycle-length 4"
         }
         "Satisfiability" => "--num-vars 3 --clauses \"1,2;-1,3\"",
         "NAESatisfiability" => "--num-vars 3 --clauses \"1,2,-3;-1,2,3\"",
@@ -1354,6 +1358,31 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     potential_edges,
                     budget,
                 ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Partial Feedback Edge Set
+        "PartialFeedbackEdgeSet" => {
+            let usage = "Usage: pred create PartialFeedbackEdgeSet --graph 0-1,1-2,2-0,2-3,3-4,4-2,3-5,5-4,0-3 --budget 3 --max-cycle-length 4";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let budget = args
+                .budget
+                .as_deref()
+                .ok_or_else(|| {
+                    anyhow::anyhow!("PartialFeedbackEdgeSet requires --budget\n\n{usage}")
+                })?
+                .parse::<usize>()
+                .map_err(|e| {
+                    anyhow::anyhow!(
+                        "Invalid --budget value for PartialFeedbackEdgeSet: {e}\n\n{usage}"
+                    )
+                })?;
+            let max_cycle_length = args.max_cycle_length.ok_or_else(|| {
+                anyhow::anyhow!("PartialFeedbackEdgeSet requires --max-cycle-length\n\n{usage}")
+            })?;
+            (
+                ser(PartialFeedbackEdgeSet::new(graph, budget, max_cycle_length))?,
                 resolved_variant.clone(),
             )
         }
@@ -7222,6 +7251,7 @@ mod tests {
             distance_matrix: None,
             potential_edges: None,
             budget: None,
+            max_cycle_length: None,
             candidate_arcs: None,
             deadlines: None,
             precedence_pairs: None,
@@ -7277,6 +7307,13 @@ mod tests {
     fn test_all_data_flags_empty_treats_budget_as_input() {
         let mut args = empty_args();
         args.budget = Some("7".to_string());
+        assert!(!all_data_flags_empty(&args));
+    }
+
+    #[test]
+    fn test_all_data_flags_empty_treats_max_cycle_length_as_input() {
+        let mut args = empty_args();
+        args.max_cycle_length = Some(4);
         assert!(!all_data_flags_empty(&args));
     }
 
@@ -7478,6 +7515,61 @@ mod tests {
         assert_eq!(problem.budget(), &1);
 
         std::fs::remove_file(output_path).ok();
+    }
+
+    #[test]
+    fn test_create_partial_feedback_edge_set_json() {
+        use problemreductions::models::graph::PartialFeedbackEdgeSet;
+
+        let mut args = empty_args();
+        args.problem = Some("PartialFeedbackEdgeSet".to_string());
+        args.graph = Some("0-1,1-2,2-0".to_string());
+        args.budget = Some("1".to_string());
+        args.max_cycle_length = Some(3);
+
+        let output_path =
+            std::env::temp_dir().join("pred_test_create_partial_feedback_edge_set.json");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let content = std::fs::read_to_string(&output_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(json["type"], "PartialFeedbackEdgeSet");
+        assert_eq!(json["data"]["budget"], 1);
+        assert_eq!(json["data"]["max_cycle_length"], 3);
+
+        let problem: PartialFeedbackEdgeSet<SimpleGraph> =
+            serde_json::from_value(json["data"].clone()).unwrap();
+        assert_eq!(problem.num_vertices(), 3);
+        assert_eq!(problem.num_edges(), 3);
+        assert_eq!(problem.budget(), 1);
+        assert_eq!(problem.max_cycle_length(), 3);
+
+        std::fs::remove_file(output_path).ok();
+    }
+
+    #[test]
+    fn test_create_partial_feedback_edge_set_requires_max_cycle_length() {
+        let mut args = empty_args();
+        args.problem = Some("PartialFeedbackEdgeSet".to_string());
+        args.graph = Some("0-1,1-2,2-0".to_string());
+        args.budget = Some("1".to_string());
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("PartialFeedbackEdgeSet requires --max-cycle-length"));
     }
 
     #[test]

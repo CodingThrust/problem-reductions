@@ -132,6 +132,7 @@
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "SubsetSum": [Subset Sum],
   "Partition": [Partition],
+  "PartialFeedbackEdgeSet": [Partial Feedback Edge Set],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
   "ConjunctiveBooleanQuery": [Conjunctive Boolean Query],
@@ -4801,6 +4802,65 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred solve minimum-feedback-arc-set.json",
         "pred evaluate minimum-feedback-arc-set.json --config " + x.optimal_config.map(str).join(","),
       )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("PartialFeedbackEdgeSet")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.edges
+  let ne = edges.len()
+  let K = x.instance.budget
+  let L = x.instance.max_cycle_length
+  let config = x.optimal_config
+  let removed-indices = config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let removed-edges = removed-indices.map(i => edges.at(i))
+  let blue = graph-colors.at(0)
+  let gray = luma(180)
+  [
+    #problem-def("PartialFeedbackEdgeSet")[
+      Given an undirected graph $G = (V, E)$, a budget $K in ZZ_(>= 0)$, and a cycle-length bound $L in ZZ_(>= 0)$, determine whether there exists a subset $E' subset.eq E$ with $|E'| <= K$ such that every simple cycle in $G$ of length at most $L$ contains at least one edge of $E'$.
+    ][
+      Partial Feedback Edge Set is the bounded-cycle edge-deletion problem GT9 in Garey and Johnson @garey1979. Bounding the cycle length is what makes the problem hard: hitting only the short cycles is NP-complete, whereas the unrestricted undirected feedback-edge-set problem is polynomial-time solvable by reducing to a spanning forest. The implementation here uses one binary variable per edge, so brute-force search explores $O^*(2^|E|)$ candidate edge subsets.#footnote[No sharper general exact worst-case bound is claimed here.]
+
+      *Example.* Consider the graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, budget $K = #K$, and length bound $L = #L$. Removing
+      $E' = {#removed-edges.map(e => [$\{v_#(e.at(0)), v_#(e.at(1))\}$]).join(", ")}$
+      hits the triangles $(v_0, v_1, v_2)$, $(v_0, v_2, v_3)$, $(v_2, v_3, v_4)$, and $(v_3, v_4, v_5)$, together with the 4-cycles $(v_0, v_1, v_2, v_3)$, $(v_0, v_2, v_4, v_3)$, and $(v_2, v_3, v_5, v_4)$. Hence every cycle of length at most 4 is hit. Brute-force search on this instance finds exactly five satisfying 3-edge deletions and none of size 2, so the displayed configuration certifies a YES-instance.
+
+      #pred-commands(
+        "pred create --example PartialFeedbackEdgeSet -o partial-feedback-edge-set.json",
+        "pred solve partial-feedback-edge-set.json",
+        "pred evaluate partial-feedback-edge-set.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          let verts = (
+            (0, 1.4),
+            (1.2, 2.4),
+            (1.9, 1.0),
+            (3.3, 1.4),
+            (4.5, 2.4),
+            (4.5, 0.4),
+          )
+          for edge in edges {
+            let (u, v) = edge
+            let selected = removed-edges.any(e =>
+              (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u)
+            )
+            g-edge(
+              verts.at(u),
+              verts.at(v),
+              stroke: if selected { 2pt + blue } else { 1pt + gray },
+            )
+          }
+          for (idx, pos) in verts.enumerate() {
+            g-node(pos, name: "v" + str(idx), label: [$v_#idx$])
+          }
+        }),
+        caption: [Partial Feedback Edge Set example with $K = 3$ and $L = 4$. Blue edges $\{v_0, v_2\}$, $\{v_2, v_3\}$, and $\{v_3, v_4\}$ form a satisfying edge set that hits every cycle of length at most 4.],
+      ) <fig:partial-feedback-edge-set>
     ]
   ]
 }
