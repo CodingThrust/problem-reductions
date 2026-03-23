@@ -19,6 +19,7 @@
 //! - [`Partition`]: Partition a multiset into two equal-sum subsets
 //! - [`PartiallyOrderedKnapsack`]: Knapsack with precedence constraints
 //! - [`PrecedenceConstrainedScheduling`]: Schedule unit tasks on processors by deadline
+//! - [`ProductionPlanning`]: Meet all period demands within capacity and total-cost bounds
 //! - [`RectilinearPictureCompression`]: Cover 1-entries with bounded rectangles
 //! - [`ResourceConstrainedScheduling`]: Schedule unit-length tasks on processors with resource constraints
 //! - [`SchedulingWithIndividualDeadlines`]: Meet per-task deadlines on parallel processors
@@ -54,6 +55,7 @@ pub(crate) mod paintshop;
 pub(crate) mod partially_ordered_knapsack;
 pub(crate) mod partition;
 mod precedence_constrained_scheduling;
+mod production_planning;
 mod rectilinear_picture_compression;
 pub(crate) mod resource_constrained_scheduling;
 mod scheduling_with_individual_deadlines;
@@ -92,6 +94,7 @@ pub use paintshop::PaintShop;
 pub use partially_ordered_knapsack::PartiallyOrderedKnapsack;
 pub use partition::Partition;
 pub use precedence_constrained_scheduling::PrecedenceConstrainedScheduling;
+pub use production_planning::ProductionPlanning;
 pub use rectilinear_picture_compression::RectilinearPictureCompression;
 pub use resource_constrained_scheduling::ResourceConstrainedScheduling;
 pub use scheduling_with_individual_deadlines::SchedulingWithIndividualDeadlines;
@@ -124,6 +127,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(multiprocessor_scheduling::canonical_model_example_specs());
     specs.extend(paintshop::canonical_model_example_specs());
     specs.extend(partition::canonical_model_example_specs());
+    specs.extend(production_planning::canonical_model_example_specs());
     specs.extend(rectilinear_picture_compression::canonical_model_example_specs());
     specs.extend(scheduling_with_individual_deadlines::canonical_model_example_specs());
     specs.extend(sequencing_within_intervals::canonical_model_example_specs());

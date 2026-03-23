@@ -154,6 +154,7 @@
   "MultipleCopyFileAllocation": [Multiple Copy File Allocation],
   "ExpectedRetrievalCost": [Expected Retrieval Cost],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
+  "ProductionPlanning": [Production Planning],
   "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
   "PartitionIntoTriangles": [Partition Into Triangles],
   "PrecedenceConstrainedScheduling": [Precedence Constrained Scheduling],
@@ -5278,6 +5279,57 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       },
       caption: [Canonical Multiprocessor Scheduling instance with 5 tasks on 2 processors. Stacked blocks show the satisfying assignment $(1, 2, 2, 2, 1)$; both processor loads equal the deadline $D = 10$.],
       ) <fig:multiprocessor-scheduling>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("ProductionPlanning")
+  let n = x.instance.num_periods
+  let demands = x.instance.demands
+  let capacities = x.instance.capacities
+  let setup-costs = x.instance.setup_costs
+  let production-costs = x.instance.production_costs
+  let inventory-costs = x.instance.inventory_costs
+  let bound = x.instance.cost_bound
+  let plan = x.optimal_config
+  let prefix-production = range(n).map(i => plan.slice(0, i + 1).sum())
+  let prefix-demand = range(n).map(i => demands.slice(0, i + 1).sum())
+  let inventory = range(n).map(i => prefix-production.at(i) - prefix-demand.at(i))
+  let production-total = range(n).map(i => production-costs.at(i) * plan.at(i)).sum()
+  let inventory-total = range(n).map(i => inventory-costs.at(i) * inventory.at(i)).sum()
+  let setup-total = range(n).filter(i => plan.at(i) > 0).map(i => setup-costs.at(i)).sum()
+  [
+    #problem-def("ProductionPlanning")[
+      Given a positive integer $n$, period demands $r_1, dots, r_n in ZZ_(>= 0)$, production capacities $c_1, dots, c_n in ZZ_(>= 0)$, setup costs $b_1, dots, b_n in ZZ_(>= 0)$, per-unit production costs $p_1, dots, p_n in ZZ_(>= 0)$, per-unit inventory costs $h_1, dots, h_n in ZZ_(>= 0)$, and a bound $B in ZZ_(>= 0)$, determine whether there exist production quantities $x_1, dots, x_n$ such that $0 <= x_i <= c_i$ for every period $i$, the inventory prefix $I_i = sum_(j=1)^i (x_j - r_j)$ satisfies $I_i >= 0$ for every $i$, and $sum_(i=1)^n (p_i x_i + h_i I_i) + sum_(i: x_i > 0) b_i <= B$.
+    ][
+      Production Planning is the lot-sizing feasibility problem SS21 in Garey & Johnson @garey1979. Florian, Lenstra, and Rinnooy Kan show that the general problem is NP-complete even under strong restrictions, while also giving pseudo-polynomial dynamic-programming algorithms for capacitated variants @florianLenstraRinnooyKan1980. The implementation in this repository uses one bounded integer variable per period, so the registered exact baseline explores the direct witness space $product_i (c_i + 1)$; under the uniform-capacity bound $C = max_i c_i$, this becomes $O^*((C + 1)^n)$#footnote[This is the search bound induced by the configuration space exposed by the implementation, not a literature-best exact algorithm claim.].
+
+      *Example.* Consider the canonical instance with #n periods, demands $(#demands.map(str).join(", "))$, capacities $(#capacities.map(str).join(", "))$, setup costs $(#setup-costs.map(str).join(", "))$, production costs $(#production-costs.map(str).join(", "))$, inventory costs $(#inventory-costs.map(str).join(", "))$, and budget $B = #bound$. The satisfying production plan $x = (#plan.map(str).join(", "))$ yields prefix inventories $(#inventory.map(str).join(", "))$. The verifier therefore accepts, and its cost breakdown is $#production-total + #inventory-total + #setup-total = #(production-total + inventory-total + setup-total) <= #bound$.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o production-planning.json",
+        "pred solve production-planning.json --solver brute-force",
+        "pred evaluate production-planning.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        table(
+          columns: n + 1,
+          align: center,
+          inset: 4pt,
+          table.header([*Period*], ..range(n).map(i => [#(i + 1)])),
+          [$r_i$], ..range(n).map(i => [#demands.at(i)]),
+          [$c_i$], ..range(n).map(i => [#capacities.at(i)]),
+          [$b_i$], ..range(n).map(i => [#setup-costs.at(i)]),
+          [$p_i$], ..range(n).map(i => [#production-costs.at(i)]),
+          [$h_i$], ..range(n).map(i => [#inventory-costs.at(i)]),
+          [$x_i$], ..range(n).map(i => [#plan.at(i)]),
+          [$I_i$], ..range(n).map(i => [#inventory.at(i)]),
+        )
+      },
+      caption: [Canonical Production Planning instance from the example DB. The documented plan meets every prefix-demand constraint and stays within the budget $B = #bound$.],
+      ) <fig:production-planning>
     ]
   ]
 }
