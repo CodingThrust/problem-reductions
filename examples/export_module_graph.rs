@@ -103,7 +103,8 @@ fn main() {
     }
 
     // Add well-known non-model modules with their key items
-    let static_modules: &[(&str, &str, &[(&str, &str, &str)])] = &[
+    type ModuleSpec = (&'static str, &'static str, &'static [(&'static str, &'static str, &'static str)]);
+    let static_modules: &[ModuleSpec] = &[
         (
             "traits",
             "core",
@@ -298,7 +299,7 @@ fn main() {
             ModuleNode {
                 name: name.clone(),
                 category: category.clone(),
-                doc_path: format!("{}/index.html", name.replace('/', "/")),
+                doc_path: format!("{name}/index.html"),
                 items,
             }
         })
