@@ -1,17 +1,13 @@
 //! Reduction from PartiallyOrderedKnapsack to ILP (Integer Linear Programming).
 //!
-//! The partially ordered knapsack is a binary ILP with:
-//! - One binary variable per item
-//! - A capacity constraint: Σ w_i·x_i ≤ capacity
-//! - Precedence constraints: for each (a, b), x_b - x_a ≤ 0 (i.e., x_b ≤ x_a)
-//! - Objective: maximize Σ v_i·x_i
+//! Binary variable x_i per item. Capacity constraint Σ w_i·x_i ≤ C.
+//! Precedence constraints: ∀ (a,b): x_b ≤ x_a. Maximize Σ v_i·x_i.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::PartiallyOrderedKnapsack;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing PartiallyOrderedKnapsack to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionPOKToILP {
     target: ILP<bool>,
@@ -41,7 +37,6 @@ impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_items();
-
         let mut constraints = Vec::new();
 
         // Capacity constraint: Σ w_i·x_i ≤ capacity
@@ -53,8 +48,7 @@ impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {
             .collect();
         constraints.push(LinearConstraint::le(cap_terms, self.capacity() as f64));
 
-        // Precedence constraints: ∀ (a, b): x_b - x_a ≤ 0
-        // (if item b is selected, item a must also be selected)
+        // Precedence constraints: ∀ (a,b): x_b - x_a ≤ 0
         for &(a, b) in self.precedences() {
             constraints.push(LinearConstraint::le(vec![(b, 1.0), (a, -1.0)], 0.0));
         }
@@ -75,19 +69,11 @@ impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "partiallyorderedknapsack_to_ilp",
         build: || {
-            // 3 items: weights [2, 3, 1], values [3, 4, 2], capacity 4
-            // Precedence: (0, 1) means item 0 must be taken if item 1 is taken
-            // Optimal: select items 0 and 2 (weight 3 ≤ 4, value 5)
-            let source = PartiallyOrderedKnapsack::new(
-                vec![2, 3, 1],
-                vec![3, 4, 2],
-                vec![(0, 1)],
-                4,
-            );
+            let source =
+                PartiallyOrderedKnapsack::new(vec![2, 3, 1], vec![3, 4, 2], vec![(0, 1)], 4);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

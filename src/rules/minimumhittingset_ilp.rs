@@ -1,4 +1,7 @@
 //! Reduction from MinimumHittingSet to ILP (Integer Linear Programming).
+//!
+//! Binary variable x_e per universe element; for each set S,
+//! require Σ_{e∈S} x_e ≥ 1 (set is hit). Minimize Σ x_e.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::MinimumHittingSet;
@@ -42,8 +45,7 @@ impl ReduceTo<ILP<bool>> for MinimumHittingSet {
                 LinearConstraint::ge(terms, 1.0)
             })
             .collect();
-        let objective: Vec<(usize, f64)> =
-            (0..num_vars).map(|i| (i, 1.0)).collect();
+        let objective: Vec<(usize, f64)> = (0..num_vars).map(|i| (i, 1.0)).collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
         ReductionHSToILP { target }
     }
