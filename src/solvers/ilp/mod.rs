@@ -24,3 +24,4 @@
 mod solver;
 
 pub use solver::ILPSolver;
+pub use solver::SolveViaReductionError;

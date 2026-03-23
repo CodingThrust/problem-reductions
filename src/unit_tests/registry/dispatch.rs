@@ -217,3 +217,53 @@ fn test_serialize_any_rejects_partial_variant() {
     let partial = BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]);
     assert!(serialize_any("MaximumIndependentSet", &partial, &problem as &dyn Any).is_none());
 }
+
+#[test]
+fn test_format_metric_uses_display() {
+    use crate::registry::dyn_problem::format_metric;
+    use crate::types::{Max, Min, Or};
+    assert_eq!(format_metric(&Max(Some(42))), "Max(42)");
+    assert_eq!(format_metric(&Max::<i32>(None)), "Max(None)");
+    assert_eq!(format_metric(&Min(Some(7))), "Min(7)");
+    assert_eq!(format_metric(&Or(true)), "Or(true)");
+    assert_eq!(format_metric(&Sum(99u64)), "Sum(99)");
+}
+
+#[test]
+fn test_loaded_dyn_problem_backward_compat_solve() {
+    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
+    let variant = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    let loaded = load_dyn(
+        "MaximumIndependentSet",
+        &variant,
+        serde_json::to_value(&problem).unwrap(),
+    )
+    .unwrap();
+    // solve_brute_force() is the backward-compatible alias for solve_brute_force_witness()
+    let result = loaded.solve_brute_force();
+    assert!(result.is_some());
+    let (config, eval) = result.unwrap();
+    assert!(!config.is_empty());
+    assert!(eval.starts_with("Max("));
+}
+
+#[test]
+fn test_loaded_dyn_problem_debug() {
+    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
+    let variant = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    let loaded = load_dyn(
+        "MaximumIndependentSet",
+        &variant,
+        serde_json::to_value(&problem).unwrap(),
+    )
+    .unwrap();
+    let debug = format!("{:?}", loaded);
+    assert!(debug.contains("LoadedDynProblem"));
+    assert!(debug.contains("MaximumIndependentSet"));
+}

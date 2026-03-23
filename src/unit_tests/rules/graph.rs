@@ -456,6 +456,65 @@ fn natural_edge_supports_both_modes() {
 }
 
 #[test]
+fn reduce_aggregate_along_path_rejects_single_step_path() {
+    let source_variant = BTreeMap::new();
+    let graph = build_two_node_graph(
+        AggregateChainSource::NAME,
+        source_variant.clone(),
+        AggregateChainMiddle::NAME,
+        BTreeMap::new(),
+        ReductionEdgeData {
+            overhead: crate::rules::registry::ReductionOverhead::default(),
+            reduce_fn: None,
+            reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
+            capabilities: EdgeCapabilities::aggregate_only(),
+        },
+    );
+    let single_step_path = ReductionPath {
+        steps: vec![ReductionStep {
+            name: AggregateChainSource::NAME.to_string(),
+            variant: source_variant,
+        }],
+    };
+    assert!(graph
+        .reduce_aggregate_along_path(&single_step_path, &AggregateChainSource as &dyn Any)
+        .is_none());
+}
+
+#[test]
+fn reduce_aggregate_returns_none_for_witness_only_edge() {
+    let source_variant = BTreeMap::new();
+    let target_variant = BTreeMap::new();
+    let graph = build_two_node_graph(
+        AggregateChainSource::NAME,
+        source_variant.clone(),
+        AggregateChainMiddle::NAME,
+        target_variant.clone(),
+        ReductionEdgeData {
+            overhead: crate::rules::registry::ReductionOverhead::default(),
+            reduce_fn: Some(reduce_source_to_middle_witness),
+            reduce_aggregate_fn: None,
+            capabilities: EdgeCapabilities::witness_only(),
+        },
+    );
+    let path = ReductionPath {
+        steps: vec![
+            ReductionStep {
+                name: AggregateChainSource::NAME.to_string(),
+                variant: source_variant,
+            },
+            ReductionStep {
+                name: AggregateChainMiddle::NAME.to_string(),
+                variant: target_variant,
+            },
+        ],
+    };
+    assert!(graph
+        .reduce_aggregate_along_path(&path, &AggregateChainSource as &dyn Any)
+        .is_none());
+}
+
+#[test]
 fn test_find_indirect_path() {
     let graph = ReductionGraph::new();
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
