@@ -468,7 +468,7 @@ fn model_specs_are_optimal() {
                     return None;
                 }
                 let entry = find_variant_entry(name, &variant)?;
-                let (config, _) = (entry.solve_fn)(spec.instance.as_any())?;
+                let (config, _) = (entry.solve_witness_fn)(spec.instance.as_any())?;
                 Some(config)
             })
             .unwrap_or_else(|| {

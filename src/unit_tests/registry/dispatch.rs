@@ -3,15 +3,62 @@ use crate::models::misc::SubsetSum;
 use crate::registry::variant::find_variant_entry;
 use crate::registry::{load_dyn, serialize_any, DynProblem, LoadedDynProblem};
 use crate::topology::SimpleGraph;
+use crate::types::Sum;
 use crate::{Problem, Solver};
 use std::any::Any;
 use std::collections::BTreeMap;
 
-fn solve_subset_sum(any: &dyn Any) -> Option<(Vec<usize>, String)> {
+fn solve_subset_sum_value(any: &dyn Any) -> String {
+    let p = any.downcast_ref::<SubsetSum>().unwrap();
+    if let Some(config) = crate::BruteForce::new().find_satisfying(p) {
+        format!("{:?}", p.evaluate(&config))
+    } else {
+        "false".to_string()
+    }
+}
+
+fn solve_subset_sum_witness(any: &dyn Any) -> Option<(Vec<usize>, String)> {
     let p = any.downcast_ref::<SubsetSum>()?;
     let config = crate::BruteForce::new().find_satisfying(p)?;
     let eval = format!("{:?}", p.evaluate(&config));
     Some((config, eval))
+}
+
+#[derive(Clone, serde::Serialize)]
+struct AggregateOnlyProblem {
+    weights: Vec<u64>,
+}
+
+impl Problem for AggregateOnlyProblem {
+    const NAME: &'static str = "AggregateOnlyProblem";
+    type Value = Sum<u64>;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.weights.len()]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> Self::Value {
+        Sum(
+            config
+                .iter()
+                .zip(&self.weights)
+                .map(|(&c, &w)| if c == 1 { w } else { 0 })
+                .sum(),
+        )
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![]
+    }
+}
+
+fn solve_aggregate_value(any: &dyn Any) -> String {
+    let p = any.downcast_ref::<AggregateOnlyProblem>().unwrap();
+    format!("{:?}", crate::BruteForce::new().solve(p))
+}
+
+fn solve_aggregate_witness(_: &dyn Any) -> Option<(Vec<usize>, String)> {
+    None
 }
 
 #[test]
@@ -27,14 +74,31 @@ fn test_dyn_problem_blanket_impl_exposes_problem_metadata() {
 }
 
 #[test]
-fn test_loaded_dyn_problem_delegates_to_solve_fn() {
+fn test_loaded_dyn_problem_delegates_to_value_and_witness_fns() {
     let problem = SubsetSum::new(vec![3u32, 7u32, 1u32], 4u32);
-    let loaded = LoadedDynProblem::new(Box::new(problem), solve_subset_sum);
+    let loaded =
+        LoadedDynProblem::new(Box::new(problem), solve_subset_sum_value, solve_subset_sum_witness);
+
+    assert_eq!(loaded.solve_brute_force_value(), "true");
     let solved = loaded
-        .solve_brute_force()
+        .solve_brute_force_witness()
         .expect("expected satisfying solution");
     assert_eq!(solved.1, "true");
     assert_eq!(solved.0.len(), 3);
+}
+
+#[test]
+fn loaded_dyn_problem_returns_none_for_aggregate_only_witness() {
+    let loaded = LoadedDynProblem::new(
+        Box::new(AggregateOnlyProblem {
+            weights: vec![1, 2, 4],
+        }),
+        solve_aggregate_value,
+        solve_aggregate_witness,
+    );
+
+    assert_eq!(loaded.solve_brute_force_value(), "Sum(28)");
+    assert!(loaded.solve_brute_force_witness().is_none());
 }
 
 #[test]
@@ -62,7 +126,8 @@ fn test_load_dyn_round_trips_maximum_independent_set() {
         loaded.serialize_json(),
         serde_json::to_value(&problem).unwrap()
     );
-    assert!(loaded.solve_brute_force().is_some());
+    assert!(!loaded.solve_brute_force_value().is_empty());
+    assert!(loaded.solve_brute_force_witness().is_some());
 }
 
 #[test]
@@ -75,7 +140,9 @@ fn test_load_dyn_solves_subset_sum() {
         serde_json::to_value(&problem).unwrap(),
     )
     .unwrap();
-    let solved = loaded.solve_brute_force().unwrap();
+
+    assert_eq!(loaded.solve_brute_force_value(), "true");
+    let solved = loaded.solve_brute_force_witness().unwrap();
     assert_eq!(solved.1, "true");
 }
 

@@ -557,10 +557,36 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         // Generate compiled complexity eval fn
         let complexity_eval_fn = generate_complexity_eval_fn(&parsed, ty)?;
 
-        // Generate dispatch fields based on solver kind
-        let solve_body = match entry.solver_kind {
+        // Generate dispatch fields based on solver kind.
+        let solve_value_body = match entry.solver_kind {
             SolverKind::Opt => quote! {
-                let config = <crate::solvers::BruteForce as crate::solvers::Solver>::find_best(&solver, p)?;
+                if let Some(config) =
+                    <crate::solvers::BruteForce as crate::solvers::Solver>::find_best(&solver, p)
+                {
+                    format!("{:?}", crate::traits::Problem::evaluate(p, &config))
+                } else {
+                    let invalid: <#ty as crate::traits::Problem>::Value =
+                        crate::types::SolutionSize::Invalid;
+                    format!("{:?}", invalid)
+                }
+            },
+            SolverKind::Sat => quote! {
+                if let Some(config) =
+                    <crate::solvers::BruteForce as crate::solvers::Solver>::find_satisfying(
+                        &solver, p,
+                    )
+                {
+                    format!("{:?}", crate::traits::Problem::evaluate(p, &config))
+                } else {
+                    format!("{:?}", false)
+                }
+            },
+        };
+
+        let solve_witness_body = match entry.solver_kind {
+            SolverKind::Opt => quote! {
+                let config =
+                    <crate::solvers::BruteForce as crate::solvers::Solver>::find_best(&solver, p)?;
             },
             SolverKind::Sat => quote! {
                 let config = <crate::solvers::BruteForce as crate::solvers::Solver>::find_satisfying(&solver, p)?;
@@ -576,10 +602,17 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
                 let p = any.downcast_ref::<#ty>()?;
                 Some(serde_json::to_value(p).expect("serialize failed"))
             },
-            solve_fn: |any: &dyn std::any::Any| -> Option<(Vec<usize>, String)> {
+            solve_value_fn: |any: &dyn std::any::Any| -> String {
+                let p = any
+                    .downcast_ref::<#ty>()
+                    .expect("type-erased solve_value downcast failed");
+                let solver = crate::solvers::BruteForce::new();
+                #solve_value_body
+            },
+            solve_witness_fn: |any: &dyn std::any::Any| -> Option<(Vec<usize>, String)> {
                 let p = any.downcast_ref::<#ty>()?;
                 let solver = crate::solvers::BruteForce::new();
-                #solve_body
+                #solve_witness_body
                 let evaluation = format!("{:?}", crate::traits::Problem::evaluate(p, &config));
                 Some((config, evaluation))
             },
@@ -721,7 +754,14 @@ mod tests {
             tokens.contains("serialize_fn :"),
             "expected serialize_fn field"
         );
-        assert!(tokens.contains("solve_fn :"), "expected solve_fn field");
+        assert!(
+            tokens.contains("solve_value_fn :"),
+            "expected solve_value_fn field"
+        );
+        assert!(
+            tokens.contains("solve_witness_fn :"),
+            "expected solve_witness_fn field"
+        );
         assert!(
             !tokens.contains("factory : None"),
             "factory should not be None"
@@ -731,8 +771,12 @@ mod tests {
             "serialize_fn should not be None"
         );
         assert!(
-            !tokens.contains("solve_fn : None"),
-            "solve_fn should not be None"
+            !tokens.contains("solve_value_fn : None"),
+            "solve_value_fn should not be None"
+        );
+        assert!(
+            !tokens.contains("solve_witness_fn : None"),
+            "solve_witness_fn should not be None"
         );
         assert!(tokens.contains("find_best"), "expected find_best in tokens");
     }
@@ -748,7 +792,14 @@ mod tests {
             tokens.contains("serialize_fn :"),
             "expected serialize_fn field"
         );
-        assert!(tokens.contains("solve_fn :"), "expected solve_fn field");
+        assert!(
+            tokens.contains("solve_value_fn :"),
+            "expected solve_value_fn field"
+        );
+        assert!(
+            tokens.contains("solve_witness_fn :"),
+            "expected solve_witness_fn field"
+        );
         assert!(
             !tokens.contains("factory : None"),
             "factory should not be None"
@@ -758,8 +809,12 @@ mod tests {
             "serialize_fn should not be None"
         );
         assert!(
-            !tokens.contains("solve_fn : None"),
-            "solve_fn should not be None"
+            !tokens.contains("solve_value_fn : None"),
+            "solve_value_fn should not be None"
+        );
+        assert!(
+            !tokens.contains("solve_witness_fn : None"),
+            "solve_witness_fn should not be None"
         );
         assert!(
             tokens.contains("find_satisfying"),
@@ -796,9 +851,11 @@ mod tests {
         let tokens = generate_declare_variants(&input).unwrap().to_string();
         assert!(tokens.contains("factory :"));
         assert!(tokens.contains("serialize_fn :"));
-        assert!(tokens.contains("solve_fn :"));
+        assert!(tokens.contains("solve_value_fn :"));
+        assert!(tokens.contains("solve_witness_fn :"));
         assert!(!tokens.contains("factory : None"));
         assert!(!tokens.contains("serialize_fn : None"));
-        assert!(!tokens.contains("solve_fn : None"));
+        assert!(!tokens.contains("solve_value_fn : None"));
+        assert!(!tokens.contains("solve_witness_fn : None"));
     }
 }
