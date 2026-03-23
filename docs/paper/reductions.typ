@@ -137,6 +137,7 @@
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
   "ConjunctiveBooleanQuery": [Conjunctive Boolean Query],
   "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
+  "ConsecutiveOnesMatrixAugmentation": [Consecutive Ones Matrix Augmentation],
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
   "SparseMatrixCompression": [Sparse Matrix Compression],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
@@ -6164,6 +6165,55 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred solve conjunctive-boolean-query.json",
         "pred evaluate conjunctive-boolean-query.json --config " + x.optimal_config.map(str).join(","),
       )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("ConsecutiveOnesMatrixAugmentation")
+  let A = x.instance.matrix
+  let m = A.len()
+  let n = if m > 0 { A.at(0).len() } else { 0 }
+  let K = x.instance.bound
+  let perm = x.optimal_config
+  let A-int = A.map(row => row.map(v => if v { 1 } else { 0 }))
+  let reordered = A.map(row => perm.map(c => if row.at(c) { 1 } else { 0 }))
+  let total-flips = 0
+  for row in reordered {
+    let first = none
+    let last = none
+    let count = 0
+    for (j, value) in row.enumerate() {
+      if value == 1 {
+        if first == none {
+          first = j
+        }
+        last = j
+        count += 1
+      }
+    }
+    if first != none and last != none {
+      total-flips += last - first + 1 - count
+    }
+  }
+  [
+    #problem-def("ConsecutiveOnesMatrixAugmentation")[
+      Given an $m times n$ binary matrix $A$ and a nonnegative integer $K$, determine whether there exists a matrix $A'$, obtained from $A$ by changing at most $K$ zero entries to one, such that some permutation of the columns of $A'$ has the consecutive ones property.
+    ][
+      Consecutive Ones Matrix Augmentation is problem SR16 in Garey & Johnson @garey1979. It asks whether a binary matrix can be repaired by a bounded number of augmenting flips so that every row's 1-entries become contiguous after reordering the columns. This setting appears in information retrieval and DNA physical mapping, where matrices close to the consecutive ones property can still encode useful interval structure. Booth and Lueker showed that testing whether a matrix already has the consecutive ones property is polynomial-time via PQ-trees @booth1976, but allowing bounded augmentation makes the decision problem NP-complete @booth1975. The direct exhaustive search tries all $n!$ column permutations and, for each one, computes the minimum augmentation cost by filling the holes between the first and last 1 in every row#footnote[No algorithm improving on brute-force permutation enumeration is known for the general problem in this repository's supported setting.].
+
+      *Example.* Consider the $#m times #n$ matrix $A = mat(#A-int.map(row => row.map(v => str(v)).join(", ")).join("; "))$ with $K = #K$. Under the permutation $pi = (#perm.map(p => str(p)).join(", "))$, the reordered rows are #reordered.enumerate().map(((i, row)) => [$r_#(i + 1) = (#row.map(v => str(v)).join(", "))$]).join(", "). The first row becomes $(1, 0, 1, 0, 1)$, so filling the two interior gaps yields $(1, 1, 1, 1, 1)$. The other three rows already have consecutive 1-entries under the same order, so the total augmentation cost is #total-flips and #total-flips $<= #K$, making the instance satisfiable.
+
+      #pred-commands(
+        "pred create --example ConsecutiveOnesMatrixAugmentation -o consecutive-ones-matrix-augmentation.json",
+        "pred solve consecutive-ones-matrix-augmentation.json --solver brute-force",
+        "pred evaluate consecutive-ones-matrix-augmentation.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        align(center, math.equation([$A = #math.mat(..A-int.map(row => row.map(v => [#v])))$])),
+        caption: [The canonical $#m times #n$ example matrix for Consecutive Ones Matrix Augmentation. The permutation $pi = (#perm.map(p => str(p)).join(", "))$ makes only the first row need augmentation, and exactly two zero-to-one flips suffice.],
+      ) <fig:coma-example>
     ]
   ]
 }

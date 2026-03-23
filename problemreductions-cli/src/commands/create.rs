@@ -8,8 +8,8 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
-    ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesSubmatrix,
-    SparseMatrixCompression, BMF,
+    ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
+    ConsecutiveOnesSubmatrix, SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -695,6 +695,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "ConsecutiveBlockMinimization" => {
             "--matrix '[[true,false,true],[false,true,true]]' --bound 2"
         }
+        "ConsecutiveOnesMatrixAugmentation" => {
+            "--matrix \"1,0,0,1,1;1,1,0,0,0;0,1,1,0,1;0,0,1,1,0\" --bound 2"
+        }
         "SparseMatrixCompression" => {
             "--matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound 2"
         }
@@ -741,6 +744,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("PrimeAttributeName", "dependencies") => return "deps".to_string(),
         ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
         ("MixedChinesePostman", "arc_weights") => return "arc-costs".to_string(),
+        ("ConsecutiveOnesMatrixAugmentation", "bound") => return "bound".to_string(),
         ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
         ("SparseMatrixCompression", "bound_k") => return "bound".to_string(),
         ("StackerCrane", "edges") => return "graph".to_string(),
@@ -826,6 +830,9 @@ fn help_flag_hint(
         ("IntegralFlowBundles", "bundle_capacities") => "comma-separated capacities: 1,1,1",
         ("PathConstrainedNetworkFlow", "paths") => {
             "semicolon-separated arc-index paths: \"0,2,5,8;1,4,7,9\""
+        }
+        ("ConsecutiveOnesMatrixAugmentation", "matrix") => {
+            "semicolon-separated 0/1 rows: \"1,0;0,1\""
         }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("SparseMatrixCompression", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
@@ -2816,6 +2823,22 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(ConsecutiveOnesSubmatrix::new(matrix, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ConsecutiveOnesMatrixAugmentation
+        "ConsecutiveOnesMatrixAugmentation" => {
+            let matrix = parse_bool_matrix(args)?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ConsecutiveOnesMatrixAugmentation requires --matrix and --bound\n\n\
+                     Usage: pred create ConsecutiveOnesMatrixAugmentation --matrix \"1,0,0,1,1;1,1,0,0,0;0,1,1,0,1;0,0,1,1,0\" --bound 2"
+                )
+            })?;
+            (
+                ser(ConsecutiveOnesMatrixAugmentation::try_new(matrix, bound)
+                    .map_err(|e| anyhow::anyhow!(e))?)?,
                 resolved_variant.clone(),
             )
         }
@@ -8047,5 +8070,81 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("bound >= 1"));
+    }
+
+    #[test]
+    fn test_create_consecutive_ones_matrix_augmentation_json() {
+        use crate::dispatch::ProblemJsonOutput;
+
+        let mut args = empty_args();
+        args.problem = Some("ConsecutiveOnesMatrixAugmentation".to_string());
+        args.matrix = Some("1,0,0,1,1;1,1,0,0,0;0,1,1,0,1;0,0,1,1,0".to_string());
+        args.bound = Some(2);
+
+        let output_path =
+            std::env::temp_dir().join(format!("coma-create-{}.json", std::process::id()));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = std::fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "ConsecutiveOnesMatrixAugmentation");
+        assert!(created.variant.is_empty());
+        assert_eq!(
+            created.data,
+            serde_json::json!({
+                "matrix": [
+                    [true, false, false, true, true],
+                    [true, true, false, false, false],
+                    [false, true, true, false, true],
+                    [false, false, true, true, false],
+                ],
+                "bound": 2,
+            })
+        );
+
+        let _ = std::fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_consecutive_ones_matrix_augmentation_requires_bound() {
+        let mut args = empty_args();
+        args.problem = Some("ConsecutiveOnesMatrixAugmentation".to_string());
+        args.matrix = Some("1,0;0,1".to_string());
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("ConsecutiveOnesMatrixAugmentation requires --matrix and --bound"));
+        assert!(err.contains("Usage: pred create ConsecutiveOnesMatrixAugmentation"));
+    }
+
+    #[test]
+    fn test_create_consecutive_ones_matrix_augmentation_negative_bound() {
+        let mut args = empty_args();
+        args.problem = Some("ConsecutiveOnesMatrixAugmentation".to_string());
+        args.matrix = Some("1,0;0,1".to_string());
+        args.bound = Some(-1);
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("nonnegative"));
     }
 }
