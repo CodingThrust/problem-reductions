@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
@@ -179,7 +179,7 @@ impl MultipleCopyFileAllocation {
 
 impl Problem for MultipleCopyFileAllocation {
     const NAME: &'static str = "MultipleCopyFileAllocation";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -189,12 +189,10 @@ impl Problem for MultipleCopyFileAllocation {
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_solution(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_valid_solution(config))
     }
 }
-
-impl WitnessProblem for MultipleCopyFileAllocation {}
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
@@ -212,7 +210,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default sat MultipleCopyFileAllocation => "2^num_vertices",
+    default MultipleCopyFileAllocation => "2^num_vertices",
 }
 
 #[cfg(test)]

@@ -88,7 +88,7 @@ make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
   - Run `pred list` for the full catalog of problems, variants, and reductions; `pred show <name>` for details on a specific problem
 - `src/rules/` - Reduction rules + inventory registration
 - `src/solvers/` - BruteForce solver for aggregate values plus witness recovery when supported, ILP solver (feature-gated, witness-only). To check if a problem supports ILP solving via a witness-capable reduction path, run `pred path <ProblemName> ILP`
-- `src/traits.rs` - `Problem`, `ObjectiveProblem`, `WitnessProblem` traits
+- `src/traits.rs` - `Problem` trait
 - `src/rules/traits.rs` - `ReduceTo<T>`, `ReduceToAggregate<T>`, `ReductionResult`, `AggregateReductionResult` traits
 - `src/registry/` - Compile-time reduction metadata collection
 - `problemreductions-cli/` - `pred` CLI tool (separate crate in workspace)
@@ -104,24 +104,17 @@ make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 Problem (core trait — all problems must implement)
 │
 ├── const NAME: &'static str           // e.g., "MaximumIndependentSet"
-├── type Value: Clone                  // aggregate value: Max/Min/Sum/bool/Extremum/...
+├── type Value: Clone                  // aggregate value: Max/Min/Sum/Or/And/Extremum/...
 ├── fn dims(&self) -> Vec<usize>       // config space: [2, 2, 2] for 3 binary variables
 ├── fn evaluate(&self, config) -> Value
 ├── fn variant() -> Vec<(&str, &str)>  // e.g., [("graph","SimpleGraph"), ("weight","i32")]
 ├── fn num_variables(&self) -> usize   // default: dims().len()
 └── fn problem_type() -> ProblemType   // catalog bridge: registry lookup by NAME
-
-ObjectiveProblem : Problem (temporary compatibility trait for optimization-style models)
-│
-├── type Objective: PartialOrd + Clone // inner objective type (i32, f64, etc.)
-└── fn direction(&self) -> ExtremumSense
-
-WitnessProblem : Problem (temporary compatibility trait for witness-oriented feasibility problems)
 ```
 
-**Witness-capable objective problems** (e.g., `MaximumIndependentSet`) typically use `Value = Max<W::Sum>` or `Min<W::Sum>` and implement `ObjectiveProblem`.
+**Witness-capable objective problems** (e.g., `MaximumIndependentSet`) typically use `Value = Max<W::Sum>`, `Min<W::Sum>`, or `Extremum<W::Sum>`.
 
-**Witness-capable feasibility problems** (e.g., `Satisfiability`) typically use `Value = bool` and implement `WitnessProblem`. `bool` currently acts as an existential aggregate in solver code.
+**Witness-capable feasibility problems** (e.g., `Satisfiability`) typically use `Value = Or`.
 
 **Aggregate-only problems** use fold values such as `Sum<W>` or `And`; these solve to a value but have no representative witness configuration.
 
@@ -132,13 +125,12 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 
 ### Key Patterns
 - `variant_params!` macro implements `Problem::variant()` — e.g., `crate::variant_params![G, W]` for two type params, `crate::variant_params![]` for none (see `src/variant.rs`)
-- `declare_variants!` proc macro registers concrete type instantiations with best-known complexity and registry-backed load/serialize/value-solve/witness-solve metadata — the syntax still requires `opt` or `sat`, and one entry per problem may be marked `default` (see `src/models/graph/maximum_independent_set.rs`). Variable names in complexity strings are validated at compile time against actual getter methods.
+- `declare_variants!` proc macro registers concrete type instantiations with best-known complexity and registry-backed load/serialize/value-solve/witness-solve metadata. One entry per problem may be marked `default`, and variable names in complexity strings are validated at compile time against actual getter methods.
 - Problems parameterized by graph type `G` and optionally weight type `W` (problem-dependent)
 - `Solver::solve()` computes the aggregate value for any `Problem` whose `Value` implements `Aggregate`
 - `BruteForce::find_witness()` / `find_all_witnesses()` recover witnesses only when `P::Value::supports_witnesses()`
-- Compatibility helpers remain: `Solver::find_best()` / `find_satisfying()` and `BruteForce::find_all_best()` / `find_all_satisfying()` delegate to the witness APIs for `ObjectiveProblem` / `WitnessProblem`
 - `ReductionResult` provides `target_problem()` and `extract_solution()` for witness/config workflows; `AggregateReductionResult` provides `extract_value()` for aggregate/value workflows
-- CLI-facing dynamic formatting preserves legacy `Valid(...)` / `Invalid` strings for `Max` / `Min` aggregates; value-only aggregates such as `Sum(56)` keep their aggregate wrapper names
+- CLI-facing dynamic formatting preserves legacy `Valid(...)` / `Invalid` strings for `Max` / `Min` aggregates; other aggregates keep their wrapper names (for example `Or(true)` or `Sum(56)`)
 - Graph types: SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph
 - Weight types: `One` (unit weight marker), `i32`, `f64` — all implement `WeightElement` trait
 - `WeightElement` trait: `type Sum: NumericSize` + `fn to_sum(&self)` — converts weight to a summable numeric type
@@ -180,7 +172,7 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 
 ### Extension Points
 - New models register dynamic load/serialize/brute-force dispatch through `declare_variants!` in the model file, not by adding manual match arms in the CLI
-- Aggregate-only experiments may need manual registry wiring today because `declare_variants!` still uses transitional `opt` / `sat` syntax
+- Aggregate-only models are first-class in `declare_variants!`; aggregate-only reduction edges still need manual `ReductionEntry` wiring because `#[reduction]` only registers witness/config reductions today
 - Exact registry dispatch lives in `src/registry/`; alias resolution and partial/default variant resolution live in `problemreductions-cli/src/problem_name.rs`
 - `pred create` UX lives in `problemreductions-cli/src/commands/create.rs`
 - Canonical paper and CLI examples live in `src/example_db/model_builders.rs` and `src/example_db/rule_builders.rs`
@@ -207,7 +199,7 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - **Reduction test:** `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs` — closed-loop pattern
 - **Model test:** `src/unit_tests/models/graph/maximum_independent_set.rs` — evaluation, serialization
 - **Solver test:** `src/unit_tests/solvers/brute_force.rs` — aggregate `solve()` plus witness recovery helpers
-- **Trait definitions:** `src/traits.rs` (`Problem`, `ObjectiveProblem`, `WitnessProblem`), `src/solvers/mod.rs` (`Solver`)
+- **Trait definitions:** `src/traits.rs` (`Problem`), `src/solvers/mod.rs` (`Solver`)
 
 ### Coverage
 

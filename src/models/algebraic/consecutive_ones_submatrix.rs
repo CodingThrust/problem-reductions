@@ -7,7 +7,7 @@
 //! transformation from Hamiltonian Path.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -173,7 +173,7 @@ impl ConsecutiveOnesSubmatrix {
 
 impl Problem for ConsecutiveOnesSubmatrix {
     const NAME: &'static str = "ConsecutiveOnesSubmatrix";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -183,31 +183,31 @@ impl Problem for ConsecutiveOnesSubmatrix {
         vec![2; self.num_cols()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_cols() {
-            return false;
-        }
-        if config.iter().any(|&v| v >= 2) {
-            return false;
-        }
-        // Collect selected column indices
-        let selected: Vec<usize> = config
-            .iter()
-            .enumerate()
-            .filter(|(_, &v)| v == 1)
-            .map(|(i, _)| i)
-            .collect();
-        if (selected.len() as i64) != self.bound {
-            return false;
-        }
-        self.any_permutation_has_c1p(&selected)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.num_cols() {
+                return crate::types::Or(false);
+            }
+            if config.iter().any(|&v| v >= 2) {
+                return crate::types::Or(false);
+            }
+            // Collect selected column indices
+            let selected: Vec<usize> = config
+                .iter()
+                .enumerate()
+                .filter(|(_, &v)| v == 1)
+                .map(|(i, _)| i)
+                .collect();
+            if (selected.len() as i64) != self.bound {
+                return crate::types::Or(false);
+            }
+            self.any_permutation_has_c1p(&selected)
+        })
     }
 }
 
-impl WitnessProblem for ConsecutiveOnesSubmatrix {}
-
 crate::declare_variants! {
-    default sat ConsecutiveOnesSubmatrix => "2^(num_cols) * (num_rows + num_cols)",
+    default ConsecutiveOnesSubmatrix => "2^(num_cols) * (num_rows + num_cols)",
 }
 
 #[cfg(feature = "example-db")]

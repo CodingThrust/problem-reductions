@@ -4,8 +4,8 @@
 //! that minimizes the number of bins used while respecting capacity constraints.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -107,18 +107,6 @@ where
     }
 }
 
-impl<W> ObjectiveProblem for BinPacking<W>
-where
-    W: WeightElement + crate::variant::VariantParam,
-    W::Sum: PartialOrd,
-{
-    type Objective = i32;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 /// Check if a configuration is a valid bin packing (all bins within capacity).
 fn is_valid_packing<W: WeightElement>(sizes: &[W], capacity: &W, config: &[usize]) -> bool
 where
@@ -154,8 +142,8 @@ fn count_bins(config: &[usize]) -> usize {
 }
 
 crate::declare_variants! {
-    default opt BinPacking<i32> => "2^num_items",
-    opt BinPacking<f64> => "2^num_items",
+    default BinPacking<i32> => "2^num_items",
+    BinPacking<f64> => "2^num_items",
 }
 
 #[cfg(feature = "example-db")]

@@ -1,7 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::ExtremumSense;
+use crate::traits::Problem;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -65,12 +64,6 @@ fn test_compute_energy_with_fields() {
     assert_eq!(problem.compute_energy(&[-1, -1]), 0.0); // -1 + 1 = 0
     assert_eq!(problem.compute_energy(&[1, -1]), 2.0); // 1 + 1 = 2
     assert_eq!(problem.compute_energy(&[-1, 1]), -2.0); // -1 - 1 = -2
-}
-
-#[test]
-fn test_direction() {
-    let problem = SpinGlass::<SimpleGraph, f64>::without_fields(2, vec![]);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

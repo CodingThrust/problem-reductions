@@ -9,7 +9,7 @@
 //! This is problem SR17 in Garey & Johnson.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -156,17 +156,19 @@ impl ConsecutiveBlockMinimization {
 
 impl Problem for ConsecutiveBlockMinimization {
     const NAME: &'static str = "ConsecutiveBlockMinimization";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.num_cols; self.num_cols]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        match self.count_consecutive_blocks(config) {
-            Some(total) => (total as i64) <= self.bound,
-            None => false,
-        }
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            match self.count_consecutive_blocks(config) {
+                Some(total) => (total as i64) <= self.bound,
+                None => false,
+            }
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -178,10 +180,8 @@ impl Problem for ConsecutiveBlockMinimization {
     }
 }
 
-impl WitnessProblem for ConsecutiveBlockMinimization {}
-
 crate::declare_variants! {
-    default sat ConsecutiveBlockMinimization => "factorial(num_cols) * num_rows * num_cols",
+    default ConsecutiveBlockMinimization => "factorial(num_cols) * num_rows * num_cols",
 }
 
 #[derive(Debug, Clone, Deserialize)]

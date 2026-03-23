@@ -4,8 +4,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -236,29 +236,9 @@ where
     }
 }
 
-impl<G, W> ObjectiveProblem for SpinGlass<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement
-        + crate::variant::VariantParam
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + std::ops::Mul<Output = W>
-        + From<i32>,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt SpinGlass<SimpleGraph, i32> => "2^num_spins",
-    opt SpinGlass<SimpleGraph, f64> => "2^num_spins",
+    default SpinGlass<SimpleGraph, i32> => "2^num_spins",
+    SpinGlass<SimpleGraph, f64> => "2^num_spins",
 }
 
 #[cfg(feature = "example-db")]

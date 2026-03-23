@@ -1,8 +1,8 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Max, One};
+use crate::traits::Problem;
+use crate::types::{Max, One};
 
 fn issue_problem() -> LongestPath<SimpleGraph, i32> {
     LongestPath::new(
@@ -48,7 +48,6 @@ fn test_longest_path_creation() {
     assert_eq!(problem.dims(), vec![2; 10]);
     assert_eq!(problem.edge_lengths(), &[3, 2, 4, 1, 5, 2, 3, 2, 4, 1]);
     assert!(problem.is_weighted());
-    assert_eq!(problem.direction(), ExtremumSense::Maximize);
 
     problem.set_lengths(vec![1; 10]);
     assert_eq!(problem.edge_lengths(), &[1; 10]);

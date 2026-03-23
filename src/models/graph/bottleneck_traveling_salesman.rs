@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -129,14 +129,6 @@ impl Problem for BottleneckTravelingSalesman {
     }
 }
 
-impl ObjectiveProblem for BottleneckTravelingSalesman {
-    type Objective = i32;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -165,7 +157,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default opt BottleneckTravelingSalesman => "num_vertices^2 * 2^num_vertices",
+    default BottleneckTravelingSalesman => "num_vertices^2 * 2^num_vertices",
 }
 
 #[cfg(test)]

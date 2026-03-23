@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -145,7 +145,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "OptimalLinearArrangement";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -156,15 +156,13 @@ where
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_solution(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_valid_solution(config))
     }
 }
 
-impl<G: Graph + crate::variant::VariantParam> WitnessProblem for OptimalLinearArrangement<G> {}
-
 crate::declare_variants! {
-    default sat OptimalLinearArrangement<SimpleGraph> => "2^num_vertices",
+    default OptimalLinearArrangement<SimpleGraph> => "2^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

@@ -1,8 +1,8 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 
 fn k4_tsp() -> TravelingSalesman<SimpleGraph, i32> {
     TravelingSalesman::new(
@@ -137,15 +137,6 @@ fn test_brute_force_bipartite_no_solution() {
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem);
     assert!(solutions.is_empty());
-}
-
-#[test]
-fn test_direction() {
-    let problem = TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(
-        3,
-        vec![(0, 1), (1, 2), (0, 2)],
-    ));
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

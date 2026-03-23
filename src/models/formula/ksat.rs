@@ -6,7 +6,7 @@
 //! MaxKSatisfiability type (if available).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use crate::variant::{KValue, K2, K3, KN};
 use serde::{Deserialize, Serialize};
 
@@ -168,15 +168,17 @@ impl<K: KValue> KSatisfiability<K> {
 
 impl<K: KValue> Problem for KSatisfiability<K> {
     const NAME: &'static str = "KSatisfiability";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_vars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let assignment = Self::config_to_assignment(config);
-        self.is_satisfying(&assignment)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let assignment = Self::config_to_assignment(config);
+            self.is_satisfying(&assignment)
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -184,12 +186,10 @@ impl<K: KValue> Problem for KSatisfiability<K> {
     }
 }
 
-impl<K: KValue> WitnessProblem for KSatisfiability<K> {}
-
 crate::declare_variants! {
-    default sat KSatisfiability<KN> => "2^num_variables",
-    sat KSatisfiability<K2> => "num_variables + num_clauses",
-    sat KSatisfiability<K3> => "1.307^num_variables",
+    default KSatisfiability<KN> => "2^num_variables",
+    KSatisfiability<K2> => "num_variables + num_clauses",
+    KSatisfiability<K3> => "1.307^num_variables",
 }
 
 #[cfg(feature = "example-db")]

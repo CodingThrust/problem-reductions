@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 
 #[test]
 fn test_sequencing_to_minimize_weighted_completion_time_basic() {
@@ -18,7 +18,6 @@ fn test_sequencing_to_minimize_weighted_completion_time_basic() {
     assert_eq!(problem.num_precedences(), 2);
     assert_eq!(problem.total_processing_time(), 9);
     assert_eq!(problem.dims(), vec![5, 4, 3, 2, 1]);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
     assert_eq!(
         <SequencingToMinimizeWeightedCompletionTime as Problem>::NAME,
         "SequencingToMinimizeWeightedCompletionTime"

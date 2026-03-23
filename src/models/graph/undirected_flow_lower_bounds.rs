@@ -15,7 +15,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
@@ -137,7 +137,7 @@ impl UndirectedFlowLowerBounds {
     }
 
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config)
+        self.evaluate(config).0
     }
 
     fn total_capacity(&self) -> Option<u128> {
@@ -216,7 +216,7 @@ impl UndirectedFlowLowerBounds {
 
 impl Problem for UndirectedFlowLowerBounds {
     const NAME: &'static str = "UndirectedFlowLowerBounds";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -226,15 +226,13 @@ impl Problem for UndirectedFlowLowerBounds {
         vec![2; self.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.has_feasible_orientation(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.has_feasible_orientation(config))
     }
 }
 
-impl WitnessProblem for UndirectedFlowLowerBounds {}
-
 crate::declare_variants! {
-    default sat UndirectedFlowLowerBounds => "2^num_edges",
+    default UndirectedFlowLowerBounds => "2^num_edges",
 }
 
 #[cfg(feature = "example-db")]

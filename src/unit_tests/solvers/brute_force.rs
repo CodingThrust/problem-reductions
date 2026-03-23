@@ -233,3 +233,37 @@ fn test_solver_with_real_sat() {
         assert!(problem.evaluate(sol));
     }
 }
+
+#[test]
+fn test_solve_with_witnesses_max() {
+    let problem = MaxSumProblem {
+        weights: vec![1, 2, 3],
+    };
+    let solver = BruteForce::new();
+
+    let (value, witnesses) = solver.solve_with_witnesses(&problem);
+    assert_eq!(value, Max(Some(6)));
+    assert_eq!(witnesses, vec![vec![1, 1, 1]]);
+}
+
+#[test]
+fn test_solve_with_witnesses_sum_returns_empty() {
+    let problem = SumProblem {
+        weights: vec![1, 2],
+    };
+    let solver = BruteForce::new();
+
+    let (value, witnesses) = solver.solve_with_witnesses(&problem);
+    assert_eq!(value, Sum(6)); // 0+0 + 0+2 + 1+0 + 1+2 = 6
+    assert!(witnesses.is_empty());
+}
+
+#[test]
+fn test_solver_trait_solve() {
+    let problem = MaxSumProblem {
+        weights: vec![1, 2, 3],
+    };
+    let solver = BruteForce::new();
+
+    assert_eq!(Solver::solve(&solver, &problem), Max(Some(6)));
+}

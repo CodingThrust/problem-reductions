@@ -8,7 +8,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -216,7 +216,7 @@ impl PathConstrainedNetworkFlow {
 
 impl Problem for PathConstrainedNetworkFlow {
     const NAME: &'static str = "PathConstrainedNetworkFlow";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         self.paths
@@ -225,8 +225,8 @@ impl Problem for PathConstrainedNetworkFlow {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_feasible(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_feasible(config))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -234,10 +234,8 @@ impl Problem for PathConstrainedNetworkFlow {
     }
 }
 
-impl WitnessProblem for PathConstrainedNetworkFlow {}
-
 crate::declare_variants! {
-    default sat PathConstrainedNetworkFlow => "(max_capacity + 1)^num_paths",
+    default PathConstrainedNetworkFlow => "(max_capacity + 1)^num_paths",
 }
 
 #[cfg(feature = "example-db")]

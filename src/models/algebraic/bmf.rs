@@ -5,8 +5,8 @@
 //! The boolean product `(B * C)[i,j] = OR_k (B[i,k] AND C[k,j])`.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -223,16 +223,8 @@ impl Problem for BMF {
     }
 }
 
-impl ObjectiveProblem for BMF {
-    type Objective = i32;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt BMF => "2^(rows * rank + rank * cols)",
+    default BMF => "2^(rows * rank + rank * cols)",
 }
 
 #[cfg(feature = "example-db")]

@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -19,12 +19,6 @@ fn test_qubo_new() {
     assert_eq!(problem.get(0, 0), Some(&1.0));
     assert_eq!(problem.get(1, 1), Some(&2.0));
     assert_eq!(problem.get(0, 1), Some(&3.0));
-}
-
-#[test]
-fn test_direction() {
-    let problem = QUBO::<f64>::from_matrix(vec![vec![1.0]]);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

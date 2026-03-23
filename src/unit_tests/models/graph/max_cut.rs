@@ -54,15 +54,6 @@ fn test_edges() {
 }
 
 #[test]
-fn test_direction() {
-    use crate::traits::ObjectiveProblem;
-    use crate::types::ExtremumSense;
-
-    let problem = MaxCut::<_, i32>::unweighted(SimpleGraph::new(2, vec![(0, 1)]));
-    assert_eq!(problem.direction(), ExtremumSense::Maximize);
-}
-
-#[test]
 fn test_new() {
     let problem = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![5, 10]);
     assert_eq!(problem.graph().num_vertices(), 3);

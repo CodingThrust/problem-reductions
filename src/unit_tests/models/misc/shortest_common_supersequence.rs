@@ -142,7 +142,7 @@ fn test_shortestcommonsupersequence_find_all_witnesses() {
 }
 
 #[test]
-fn test_shortestcommonsupersequence_find_all_satisfying_empty() {
+fn test_shortestcommonsupersequence_find_all_witnesses_empty() {
     // Issue #412 instance 3: all 6 permutations of {a,b,c}, bound 5
     // Minimum SCS length is 7, so bound 5 is infeasible
     let problem = ShortestCommonSupersequence::new(

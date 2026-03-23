@@ -1,7 +1,8 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
+use crate::types::Aggregate;
 
 /// Build the example instance from issue #228:
 /// 8 vertices, 12 edges, s=0, t=7, B=5
@@ -209,9 +210,7 @@ fn test_minimumcutintoboundedsets_solver_no_solution_issue_instance() {
     );
 }
 
-// Verify WitnessProblem marker trait is implemented
 #[test]
-fn test_minimumcutintoboundedsets_is_satisfaction_problem() {
-    fn assert_satisfaction<T: WitnessProblem>() {}
-    assert_satisfaction::<MinimumCutIntoBoundedSets<SimpleGraph, i32>>();
+fn test_minimumcutintoboundedsets_supports_witnesses() {
+    assert!(<MinimumCutIntoBoundedSets<SimpleGraph, i32> as Problem>::Value::supports_witnesses());
 }

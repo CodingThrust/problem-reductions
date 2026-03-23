@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -176,18 +176,6 @@ where
     }
 }
 
-impl<G, W> ObjectiveProblem for TravelingSalesman<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 /// Check if a selection of edges forms a valid Hamiltonian cycle.
 ///
 /// # Panics
@@ -272,7 +260,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default opt TravelingSalesman<SimpleGraph, i32> => "2^num_vertices",
+    default TravelingSalesman<SimpleGraph, i32> => "2^num_vertices",
 }
 
 #[cfg(test)]

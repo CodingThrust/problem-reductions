@@ -4,8 +4,8 @@
 //! pairwise disjoint sets.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Max, One, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Max, One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -165,21 +165,10 @@ where
     }
 }
 
-impl<W> ObjectiveProblem for MaximumSetPacking<W>
-where
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Maximize
-    }
-}
-
 crate::declare_variants! {
-    default opt MaximumSetPacking<One> => "2^num_sets",
-    opt MaximumSetPacking<i32> => "2^num_sets",
-    opt MaximumSetPacking<f64> => "2^num_sets",
+    default MaximumSetPacking<One> => "2^num_sets",
+    MaximumSetPacking<i32> => "2^num_sets",
+    MaximumSetPacking<f64> => "2^num_sets",
 }
 
 /// Check if a selection forms a valid set packing (pairwise disjoint).

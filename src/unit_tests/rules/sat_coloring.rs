@@ -73,7 +73,7 @@ fn test_unsatisfiable_formula() {
     let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
     let coloring = reduction.target_problem();
 
-    // Solve the coloring problem - use find_all_satisfying since KColoring is a satisfaction problem
+    // Solve the coloring problem - use find_all_witnesses since KColoring is a satisfaction problem
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(coloring);
 

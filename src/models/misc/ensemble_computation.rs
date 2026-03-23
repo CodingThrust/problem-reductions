@@ -1,7 +1,7 @@
 //! Ensemble Computation problem implementation.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -146,47 +146,49 @@ impl EnsembleComputation {
 
 impl Problem for EnsembleComputation {
     const NAME: &'static str = "EnsembleComputation";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.universe_size + self.budget; 2 * self.budget]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != 2 * self.budget {
-            return false;
-        }
-
-        let Some(required_subsets) = self.required_subsets() else {
-            return false;
-        };
-        if required_subsets.is_empty() {
-            return true;
-        }
-
-        let mut computed = Vec::with_capacity(self.budget);
-        for step in 0..self.budget {
-            let left_operand = config[2 * step];
-            let right_operand = config[2 * step + 1];
-
-            let Some(left) = self.decode_operand(left_operand, &computed) else {
-                return false;
-            };
-            let Some(right) = self.decode_operand(right_operand, &computed) else {
-                return false;
-            };
-
-            if !Self::are_disjoint(&left, &right) {
-                return false;
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != 2 * self.budget {
+                return crate::types::Or(false);
             }
 
-            computed.push(Self::union_disjoint(&left, &right));
-            if Self::all_required_subsets_present(&required_subsets, &computed) {
-                return true;
+            let Some(required_subsets) = self.required_subsets() else {
+                return crate::types::Or(false);
+            };
+            if required_subsets.is_empty() {
+                return crate::types::Or(true);
             }
-        }
 
-        false
+            let mut computed = Vec::with_capacity(self.budget);
+            for step in 0..self.budget {
+                let left_operand = config[2 * step];
+                let right_operand = config[2 * step + 1];
+
+                let Some(left) = self.decode_operand(left_operand, &computed) else {
+                    return crate::types::Or(false);
+                };
+                let Some(right) = self.decode_operand(right_operand, &computed) else {
+                    return crate::types::Or(false);
+                };
+
+                if !Self::are_disjoint(&left, &right) {
+                    return crate::types::Or(false);
+                }
+
+                computed.push(Self::union_disjoint(&left, &right));
+                if Self::all_required_subsets_present(&required_subsets, &computed) {
+                    return crate::types::Or(true);
+                }
+            }
+
+            false
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -194,10 +196,8 @@ impl Problem for EnsembleComputation {
     }
 }
 
-impl WitnessProblem for EnsembleComputation {}
-
 crate::declare_variants! {
-    default sat EnsembleComputation => "(universe_size + budget)^(2 * budget)",
+    default EnsembleComputation => "(universe_size + budget)^(2 * budget)",
 }
 
 #[derive(Debug, Clone, Deserialize)]

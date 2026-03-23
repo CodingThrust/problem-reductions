@@ -7,7 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{DirectedGraph, MixedGraph};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use crate::types::{One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -209,7 +209,7 @@ where
 {
     /// Check whether a configuration is satisfying.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config)
+        self.evaluate(config).0
     }
 }
 
@@ -218,7 +218,7 @@ where
     W: WeightElement<Sum = i32> + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MixedChinesePostman";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
@@ -228,42 +228,41 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let Some(oriented_pairs) = self.oriented_arc_pairs(config) else {
-            return false;
-        };
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let Some(oriented_pairs) = self.oriented_arc_pairs(config) else {
+                return crate::types::Or(false);
+            };
 
-        // Connectivity uses the full available graph: original arcs plus both
-        // directions of every undirected edge.
-        if !DirectedGraph::new(self.graph.num_vertices(), self.available_arc_pairs())
-            .is_strongly_connected()
-        {
-            return false;
-        }
+            // Connectivity uses the full available graph: original arcs plus both
+            // directions of every undirected edge.
+            if !DirectedGraph::new(self.graph.num_vertices(), self.available_arc_pairs())
+                .is_strongly_connected()
+            {
+                return crate::types::Or(false);
+            }
 
-        // Shortest paths also use the full available graph so that balancing
-        // can route through undirected edges in either direction.
-        let distances =
-            all_pairs_shortest_paths(self.graph.num_vertices(), &self.weighted_available_arcs());
-        // Degree imbalance is computed from the required arcs only (original
-        // arcs plus the chosen orientation of each undirected edge).
-        let balance = degree_imbalances(self.graph.num_vertices(), &oriented_pairs);
-        let Some(extra_cost) = minimum_balancing_cost(&balance, &distances) else {
-            return false;
-        };
+            // Shortest paths also use the full available graph so that balancing
+            // can route through undirected edges in either direction.
+            let distances = all_pairs_shortest_paths(
+                self.graph.num_vertices(),
+                &self.weighted_available_arcs(),
+            );
+            // Degree imbalance is computed from the required arcs only (original
+            // arcs plus the chosen orientation of each undirected edge).
+            let balance = degree_imbalances(self.graph.num_vertices(), &oriented_pairs);
+            let Some(extra_cost) = minimum_balancing_cost(&balance, &distances) else {
+                return crate::types::Or(false);
+            };
 
-        self.base_cost() + extra_cost <= i64::from(self.bound)
+            self.base_cost() + extra_cost <= i64::from(self.bound)
+        })
     }
 }
 
-impl<W> WitnessProblem for MixedChinesePostman<W> where
-    W: WeightElement<Sum = i32> + crate::variant::VariantParam
-{
-}
-
 crate::declare_variants! {
-    default sat MixedChinesePostman<i32> => "2^num_edges * num_vertices^3",
-    sat MixedChinesePostman<One> => "2^num_edges * num_vertices^3",
+    default MixedChinesePostman<i32> => "2^num_edges * num_vertices^3",
+    MixedChinesePostman<One> => "2^num_edges * num_vertices^3",
 }
 
 #[cfg(feature = "example-db")]

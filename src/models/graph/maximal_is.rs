@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Max, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Max, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -177,18 +177,6 @@ where
     }
 }
 
-impl<G, W> ObjectiveProblem for MaximalIS<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Maximize
-    }
-}
-
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -235,7 +223,7 @@ pub(crate) fn is_maximal_independent_set<G: Graph>(graph: &G, selected: &[bool])
 }
 
 crate::declare_variants! {
-    default opt MaximalIS<SimpleGraph, i32> => "3^(num_vertices / 3)",
+    default MaximalIS<SimpleGraph, i32> => "3^(num_vertices / 3)",
 }
 
 #[cfg(test)]

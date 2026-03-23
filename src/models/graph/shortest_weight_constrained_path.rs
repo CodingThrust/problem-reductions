@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use crate::types::WeightElement;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -308,7 +308,7 @@ where
     N: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "ShortestWeightConstrainedPath";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, N]
@@ -318,16 +318,9 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_solution(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_valid_solution(config))
     }
-}
-
-impl<G, N> WitnessProblem for ShortestWeightConstrainedPath<G, N>
-where
-    G: Graph + crate::variant::VariantParam,
-    N: WeightElement + crate::variant::VariantParam,
-{
 }
 
 #[cfg(feature = "example-db")]
@@ -361,7 +354,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default sat ShortestWeightConstrainedPath<SimpleGraph, i32> => "2^num_edges",
+    default ShortestWeightConstrainedPath<SimpleGraph, i32> => "2^num_edges",
 }
 
 #[cfg(test)]

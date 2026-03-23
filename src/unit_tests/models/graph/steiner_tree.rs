@@ -1,10 +1,5 @@
 use super::*;
-use crate::{
-    solvers::BruteForce,
-    topology::SimpleGraph,
-    traits::{ObjectiveProblem, Problem},
-    types::ExtremumSense,
-};
+use crate::{solvers::BruteForce, topology::SimpleGraph, traits::Problem};
 
 /// Issue #122 example: 5 vertices, 7 edges, terminals {0, 2, 4}.
 /// Edges in order: (0,1)=2, (0,3)=5, (1,2)=2, (1,3)=1, (2,3)=5, (2,4)=6, (3,4)=1
@@ -32,12 +27,6 @@ fn test_steiner_tree_creation() {
 fn test_steiner_tree_rejects_duplicate_terminals() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let _ = SteinerTree::new(graph, vec![1, 1], vec![0, 0]);
-}
-
-#[test]
-fn test_steiner_tree_direction() {
-    let problem = example_instance();
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

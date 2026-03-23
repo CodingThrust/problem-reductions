@@ -4,8 +4,8 @@
 //! where cost depends on both inter-facility flows and inter-location distances.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -164,16 +164,8 @@ impl Problem for QuadraticAssignment {
     }
 }
 
-impl ObjectiveProblem for QuadraticAssignment {
-    type Objective = i64;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt QuadraticAssignment => "factorial(num_facilities)",
+    default QuadraticAssignment => "factorial(num_facilities)",
 }
 
 #[cfg(feature = "example-db")]

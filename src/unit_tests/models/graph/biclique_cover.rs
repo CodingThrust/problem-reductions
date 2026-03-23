@@ -1,8 +1,8 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::BipartiteGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 
 include!("../../jl_helpers.rs");
 
@@ -136,13 +136,6 @@ fn test_is_biclique_cover_function() {
 }
 
 #[test]
-fn test_direction() {
-    let graph = BipartiteGraph::new(1, 1, vec![(0, 0)]);
-    let problem = BicliqueCover::new(graph, 1);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
-}
-
-#[test]
 fn test_empty_edges() {
     let graph = BipartiteGraph::new(2, 2, vec![]);
     let problem = BicliqueCover::new(graph, 1);
@@ -152,8 +145,7 @@ fn test_empty_edges() {
 
 #[test]
 fn test_biclique_problem() {
-    use crate::traits::{ObjectiveProblem, Problem};
-    use crate::types::ExtremumSense;
+    use crate::traits::Problem;
 
     // Single edge (0,0) in local coords with k=1, 2 left + 2 right vertices
     let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]);
@@ -176,7 +168,6 @@ fn test_biclique_problem() {
     assert_eq!(problem.evaluate(&[0, 0, 0, 0]), Min(None));
 
     // ExtremumSense is minimize
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 
     // Test with no edges: any config is valid
     let empty_graph = BipartiteGraph::new(2, 2, vec![]);

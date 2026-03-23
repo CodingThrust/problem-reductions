@@ -1,6 +1,6 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::BipartiteGraph;
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -96,31 +96,33 @@ impl BalancedCompleteBipartiteSubgraph {
     }
 
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config)
+        self.evaluate(config).0
     }
 }
 
 impl Problem for BalancedCompleteBipartiteSubgraph {
     const NAME: &'static str = "BalancedCompleteBipartiteSubgraph";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let Some((selected_left, selected_right)) = self.selected_vertices(config) else {
-            return false;
-        };
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let Some((selected_left, selected_right)) = self.selected_vertices(config) else {
+                return crate::types::Or(false);
+            };
 
-        if selected_left.len() != self.k || selected_right.len() != self.k {
-            return false;
-        }
+            if selected_left.len() != self.k || selected_right.len() != self.k {
+                return crate::types::Or(false);
+            }
 
-        selected_left.iter().all(|&left| {
-            selected_right
-                .iter()
-                .all(|&right| self.has_selected_edge(left, right))
+            selected_left.iter().all(|&left| {
+                selected_right
+                    .iter()
+                    .all(|&right| self.has_selected_edge(left, right))
+            })
         })
     }
 
@@ -128,8 +130,6 @@ impl Problem for BalancedCompleteBipartiteSubgraph {
         crate::variant_params![]
     }
 }
-
-impl WitnessProblem for BalancedCompleteBipartiteSubgraph {}
 
 #[derive(Deserialize)]
 struct BalancedCompleteBipartiteSubgraphRepr {
@@ -144,7 +144,7 @@ impl From<BalancedCompleteBipartiteSubgraphRepr> for BalancedCompleteBipartiteSu
 }
 
 crate::declare_variants! {
-    default sat BalancedCompleteBipartiteSubgraph => "1.3803^num_vertices",
+    default BalancedCompleteBipartiteSubgraph => "1.3803^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

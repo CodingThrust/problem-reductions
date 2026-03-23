@@ -1,8 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::ExtremumSense;
+use crate::traits::Problem;
 
 #[test]
 fn test_minimum_feedback_arc_set_creation() {
@@ -26,13 +25,6 @@ fn test_minimum_feedback_arc_set_creation() {
     assert_eq!(problem.num_arcs(), 9);
     assert_eq!(problem.dims().len(), 9);
     assert!(problem.dims().iter().all(|&d| d == 2));
-}
-
-#[test]
-fn test_minimum_feedback_arc_set_direction() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-    let problem = MinimumFeedbackArcSet::new(graph, vec![1i32; 3]);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

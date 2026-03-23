@@ -167,15 +167,6 @@ fn test_is_clique_function() {
 }
 
 #[test]
-fn test_direction() {
-    use crate::traits::ObjectiveProblem;
-    use crate::types::ExtremumSense;
-
-    let problem = MaximumClique::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
-    assert_eq!(problem.direction(), ExtremumSense::Maximize);
-}
-
-#[test]
 fn test_edges() {
     let problem = MaximumClique::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i32; 4]);
     let edges = problem.graph().edges();
@@ -254,8 +245,7 @@ fn test_complete_graph() {
 
 #[test]
 fn test_clique_problem() {
-    use crate::traits::{ObjectiveProblem, Problem};
-    use crate::types::ExtremumSense;
+    use crate::traits::Problem;
 
     // Triangle graph: all pairs connected
     let p = MaximumClique::new(
@@ -267,7 +257,6 @@ fn test_clique_problem() {
     assert_eq!(p.evaluate(&[1, 1, 1]), Max(Some(3)));
     // Valid clique: select just vertex 0
     assert_eq!(p.evaluate(&[1, 0, 0]), Max(Some(1)));
-    assert_eq!(p.direction(), ExtremumSense::Maximize);
 }
 
 #[test]

@@ -6,8 +6,8 @@
 //! The goal is to minimize color switches between adjacent positions.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -184,16 +184,8 @@ impl Problem for PaintShop {
     }
 }
 
-impl ObjectiveProblem for PaintShop {
-    type Objective = i32;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt PaintShop => "2^num_cars",
+    default PaintShop => "2^num_cars",
 }
 
 #[cfg(feature = "example-db")]

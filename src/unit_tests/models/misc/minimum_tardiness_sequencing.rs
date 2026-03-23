@@ -1,7 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::ExtremumSense;
+use crate::traits::Problem;
 
 #[test]
 fn test_minimum_tardiness_sequencing_basic() {
@@ -15,7 +14,6 @@ fn test_minimum_tardiness_sequencing_basic() {
     assert_eq!(problem.precedences(), &[(0, 3), (1, 3), (1, 4), (2, 4)]);
     assert_eq!(problem.num_precedences(), 4);
     assert_eq!(problem.dims(), vec![5, 4, 3, 2, 1]);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
     assert_eq!(
         <MinimumTardinessSequencing as Problem>::NAME,
         "MinimumTardinessSequencing"

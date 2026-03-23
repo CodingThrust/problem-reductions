@@ -1,8 +1,8 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 
 fn issue_graph() -> DirectedGraph {
     DirectedGraph::new(6, vec![(0, 2), (0, 3), (1, 3), (1, 4), (2, 5)])
@@ -48,7 +48,6 @@ fn test_minimum_dummy_activities_pert_rejects_cyclic_input() {
 fn test_minimum_dummy_activities_pert_issue_example() {
     let problem = issue_problem();
     let config = config_for_merges(&problem, &[(0, 2), (1, 4), (2, 5)]);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
     assert_eq!(problem.evaluate(&config), Min(Some(2)));
     assert!(problem.is_valid_solution(&config));
 }

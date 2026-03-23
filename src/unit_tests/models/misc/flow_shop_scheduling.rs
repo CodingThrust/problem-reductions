@@ -178,7 +178,7 @@ fn test_flow_shop_scheduling_find_all_witnesses() {
 }
 
 #[test]
-fn test_flow_shop_scheduling_find_all_satisfying_empty() {
+fn test_flow_shop_scheduling_find_all_witnesses_empty() {
     // 2 machines, 2 symmetric jobs [5,5], deadline 10
     // Both orderings give makespan 15 > 10
     let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5]], 10);

@@ -4,8 +4,8 @@
 //! elements that intersects every set in a collection.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -143,16 +143,8 @@ impl Problem for MinimumHittingSet {
     }
 }
 
-impl ObjectiveProblem for MinimumHittingSet {
-    type Objective = usize;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt MinimumHittingSet => "2^universe_size",
+    default MinimumHittingSet => "2^universe_size",
 }
 
 #[cfg(feature = "example-db")]

@@ -1,7 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::ExtremumSense;
+use crate::traits::Problem;
 
 /// Helper: create the example instance from the issue.
 /// Items: a=0, b=1, c=2, d=3, e=4, f=5
@@ -30,7 +29,6 @@ fn test_partially_ordered_knapsack_basic() {
     );
     assert_eq!(problem.capacity(), 11);
     assert_eq!(problem.dims(), vec![2; 6]);
-    assert_eq!(problem.direction(), ExtremumSense::Maximize);
     assert_eq!(
         <PartiallyOrderedKnapsack as Problem>::NAME,
         "PartiallyOrderedKnapsack"

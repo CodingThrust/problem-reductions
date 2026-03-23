@@ -5,8 +5,8 @@
 //! NP-complete in the strong sense (Garey & Johnson, A6 MP12).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Max};
+use crate::traits::Problem;
+use crate::types::Max;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -265,16 +265,8 @@ impl Problem for PartiallyOrderedKnapsack {
     }
 }
 
-impl ObjectiveProblem for PartiallyOrderedKnapsack {
-    type Objective = i64;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Maximize
-    }
-}
-
 crate::declare_variants! {
-    default opt PartiallyOrderedKnapsack => "2^num_items",
+    default PartiallyOrderedKnapsack => "2^num_items",
 }
 
 #[cfg(feature = "example-db")]

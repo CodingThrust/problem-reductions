@@ -6,7 +6,7 @@
 //! Corresponds to scheduling notation `1 || sum w_j T_j`.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -153,7 +153,7 @@ impl SequencingToMinimizeWeightedTardiness {
 
 impl Problem for SequencingToMinimizeWeightedTardiness {
     const NAME: &'static str = "SequencingToMinimizeWeightedTardiness";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -164,16 +164,16 @@ impl Problem for SequencingToMinimizeWeightedTardiness {
         (0..n).rev().map(|i| i + 1).collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.total_weighted_tardiness(config)
-            .is_some_and(|total| total <= self.bound)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            self.total_weighted_tardiness(config)
+                .is_some_and(|total| total <= self.bound)
+        })
     }
 }
 
-impl WitnessProblem for SequencingToMinimizeWeightedTardiness {}
-
 crate::declare_variants! {
-    default sat SequencingToMinimizeWeightedTardiness => "factorial(num_tasks)",
+    default SequencingToMinimizeWeightedTardiness => "factorial(num_tasks)",
 }
 
 #[cfg(feature = "example-db")]

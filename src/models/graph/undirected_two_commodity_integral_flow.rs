@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -150,7 +150,7 @@ impl UndirectedTwoCommodityIntegralFlow {
     }
 
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config)
+        self.evaluate(config).0
     }
 
     fn config_len(&self) -> usize {
@@ -218,7 +218,7 @@ impl UndirectedTwoCommodityIntegralFlow {
 
 impl Problem for UndirectedTwoCommodityIntegralFlow {
     const NAME: &'static str = "UndirectedTwoCommodityIntegralFlow";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -234,66 +234,66 @@ impl Problem for UndirectedTwoCommodityIntegralFlow {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.config_len() {
-            return false;
-        }
-
-        for (edge_index, &capacity) in self.capacities.iter().enumerate() {
-            let Some(flows) = self.edge_flows(config, edge_index) else {
-                return false;
-            };
-
-            if flows
-                .iter()
-                .any(|&value| u64::try_from(value).map_or(true, |value| value > capacity))
-            {
-                return false;
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.config_len() {
+                return crate::types::Or(false);
             }
 
-            if flows[0] > 0 && flows[1] > 0 {
-                return false;
-            }
-            if flows[2] > 0 && flows[3] > 0 {
-                return false;
+            for (edge_index, &capacity) in self.capacities.iter().enumerate() {
+                let Some(flows) = self.edge_flows(config, edge_index) else {
+                    return crate::types::Or(false);
+                };
+
+                if flows
+                    .iter()
+                    .any(|&value| u64::try_from(value).map_or(true, |value| value > capacity))
+                {
+                    return crate::types::Or(false);
+                }
+
+                if flows[0] > 0 && flows[1] > 0 {
+                    return crate::types::Or(false);
+                }
+                if flows[2] > 0 && flows[3] > 0 {
+                    return crate::types::Or(false);
+                }
+
+                let commodity_1 = u64::try_from(std::cmp::max(flows[0], flows[1]))
+                    .expect("flow values already validated against u64 capacities");
+                let commodity_2 = u64::try_from(std::cmp::max(flows[2], flows[3]))
+                    .expect("flow values already validated against u64 capacities");
+                let Some(shared) = commodity_1.checked_add(commodity_2) else {
+                    return crate::types::Or(false);
+                };
+                if shared > capacity {
+                    return crate::types::Or(false);
+                }
             }
 
-            let commodity_1 = u64::try_from(std::cmp::max(flows[0], flows[1]))
-                .expect("flow values already validated against u64 capacities");
-            let commodity_2 = u64::try_from(std::cmp::max(flows[2], flows[3]))
-                .expect("flow values already validated against u64 capacities");
-            let Some(shared) = commodity_1.checked_add(commodity_2) else {
-                return false;
-            };
-            if shared > capacity {
-                return false;
-            }
-        }
+            for vertex in 0..self.num_vertices() {
+                if self.is_terminal(vertex) {
+                    continue;
+                }
 
-        for vertex in 0..self.num_vertices() {
-            if self.is_terminal(vertex) {
-                continue;
+                if self.commodity_balance(config, 1, vertex) != Some(0)
+                    || self.commodity_balance(config, 2, vertex) != Some(0)
+                {
+                    return crate::types::Or(false);
+                }
             }
 
-            if self.commodity_balance(config, 1, vertex) != Some(0)
-                || self.commodity_balance(config, 2, vertex) != Some(0)
-            {
-                return false;
-            }
-        }
-
-        self.net_flow_into_sink(config, 1)
-            .is_some_and(|flow| flow >= self.requirement_1)
-            && self
-                .net_flow_into_sink(config, 2)
-                .is_some_and(|flow| flow >= self.requirement_2)
+            self.net_flow_into_sink(config, 1)
+                .is_some_and(|flow| flow >= self.requirement_1)
+                && self
+                    .net_flow_into_sink(config, 2)
+                    .is_some_and(|flow| flow >= self.requirement_2)
+        })
     }
 }
 
-impl WitnessProblem for UndirectedTwoCommodityIntegralFlow {}
-
 crate::declare_variants! {
-    default sat UndirectedTwoCommodityIntegralFlow => "5^num_edges",
+    default UndirectedTwoCommodityIntegralFlow => "5^num_edges",
 }
 
 #[cfg(feature = "example-db")]

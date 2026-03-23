@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 
 /// Create a 4x4 test instance matching issue #300's example.
 ///
@@ -78,12 +78,6 @@ fn test_quadratic_assignment_evaluate_invalid() {
     assert_eq!(Problem::evaluate(&qap, &[0, 1, 2]), Min(None));
     // Wrong config length — too long.
     assert_eq!(Problem::evaluate(&qap, &[0, 1, 2, 3, 0]), Min(None));
-}
-
-#[test]
-fn test_quadratic_assignment_direction() {
-    let qap = make_test_instance();
-    assert_eq!(qap.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

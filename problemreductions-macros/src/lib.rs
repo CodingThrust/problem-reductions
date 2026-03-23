@@ -377,21 +377,12 @@ fn extract_target_from_trait(path: &Path) -> syn::Result<Type> {
 
 // --- declare_variants! proc macro ---
 
-/// Solver kind for dispatch generation.
-#[derive(Debug, Clone, Copy)]
-enum SolverKind {
-    /// Optimization problem marker.
-    Opt,
-    /// Satisfaction problem marker.
-    Sat,
-}
-
 /// Input for the `declare_variants!` proc macro.
 struct DeclareVariantsInput {
     entries: Vec<DeclareVariantEntry>,
 }
 
-/// A single entry: `[default] opt|sat Type => "complexity_string"`.
+/// A single entry: `[default] Type => "complexity_string"`.
 struct DeclareVariantEntry {
     is_default: bool,
     ty: Type,
@@ -407,33 +398,6 @@ impl syn::parse::Parse for DeclareVariantsInput {
             if is_default {
                 input.parse::<syn::Token![default]>()?;
             }
-
-            // Require `opt` or `sat` keyword
-            let _solver_kind = if input.peek(syn::Ident) {
-                let fork = input.fork();
-                if let Ok(ident) = fork.parse::<syn::Ident>() {
-                    match ident.to_string().as_str() {
-                        "opt" => {
-                            input.parse::<syn::Ident>()?; // consume
-                            SolverKind::Opt
-                        }
-                        "sat" => {
-                            input.parse::<syn::Ident>()?; // consume
-                            SolverKind::Sat
-                        }
-                        _ => {
-                            return Err(syn::Error::new(
-                                ident.span(),
-                                "expected `opt` or `sat` before type name",
-                            ));
-                        }
-                    }
-                } else {
-                    return Err(input.error("expected `opt` or `sat` before type name"));
-                }
-            } else {
-                return Err(input.error("expected `opt` or `sat` before type name"));
-            };
 
             let ty: Type = input.parse()?;
             input.parse::<syn::Token![=>]>()?;
@@ -644,7 +608,7 @@ mod tests {
     #[test]
     fn declare_variants_accepts_single_default() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            default opt Foo => "1",
+            default Foo => "1",
         };
         assert!(generate_declare_variants(&input).is_ok());
     }
@@ -652,7 +616,7 @@ mod tests {
     #[test]
     fn declare_variants_requires_one_default_per_problem() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            opt Foo => "1",
+            Foo => "1",
         };
         let err = generate_declare_variants(&input).unwrap_err();
         assert!(
@@ -665,8 +629,8 @@ mod tests {
     #[test]
     fn declare_variants_rejects_multiple_defaults_for_one_problem() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            default opt Foo => "1",
-            default opt Foo => "2",
+            default Foo => "1",
+            default Foo => "2",
         };
         let err = generate_declare_variants(&input).unwrap_err();
         assert!(
@@ -679,7 +643,7 @@ mod tests {
     #[test]
     fn declare_variants_rejects_missing_default_marker() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            opt Foo => "1",
+            Foo => "1",
         };
         let err = generate_declare_variants(&input).unwrap_err();
         assert!(
@@ -692,8 +656,8 @@ mod tests {
     #[test]
     fn declare_variants_marks_only_explicit_default() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            opt Foo => "1",
-            default opt Foo => "2",
+            Foo => "1",
+            default Foo => "2",
         };
         let result = generate_declare_variants(&input);
         assert!(result.is_ok());
@@ -705,27 +669,27 @@ mod tests {
     }
 
     #[test]
-    fn declare_variants_accepts_solver_kind_markers() {
+    fn declare_variants_accepts_entries_without_solver_kind_markers() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            default opt Foo => "1",
-            default sat Bar => "2",
+            default Foo => "1",
+            default Bar => "2",
         };
         assert!(generate_declare_variants(&input).is_ok());
     }
 
     #[test]
-    fn declare_variants_rejects_missing_solver_kind() {
-        let result = syn::parse_str::<DeclareVariantsInput>("Foo => \"1\"");
+    fn declare_variants_rejects_legacy_solver_kind_markers() {
+        let result = syn::parse_str::<DeclareVariantsInput>("default opt Foo => \"1\"");
         assert!(
             result.is_err(),
-            "expected parse error for missing solver kind"
+            "expected parse error for legacy solver kind marker"
         );
     }
 
     #[test]
-    fn declare_variants_generates_aggregate_value_and_witness_dispatch_for_opt_entries() {
+    fn declare_variants_generates_aggregate_value_and_witness_dispatch() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            default opt Foo => "1",
+            default Foo => "1",
         };
         let tokens = generate_declare_variants(&input).unwrap().to_string();
         assert!(tokens.contains("factory :"), "expected factory field");
@@ -776,55 +740,6 @@ mod tests {
     }
 
     #[test]
-    fn declare_variants_generates_aggregate_value_and_witness_dispatch_for_sat_entries() {
-        let input: DeclareVariantsInput = syn::parse_quote! {
-            default sat Foo => "1",
-        };
-        let tokens = generate_declare_variants(&input).unwrap().to_string();
-        assert!(tokens.contains("factory :"), "expected factory field");
-        assert!(
-            tokens.contains("serialize_fn :"),
-            "expected serialize_fn field"
-        );
-        assert!(
-            tokens.contains("solve_value_fn :"),
-            "expected solve_value_fn field"
-        );
-        assert!(
-            tokens.contains("solve_witness_fn :"),
-            "expected solve_witness_fn field"
-        );
-        assert!(
-            !tokens.contains("factory : None"),
-            "factory should not be None"
-        );
-        assert!(
-            !tokens.contains("serialize_fn : None"),
-            "serialize_fn should not be None"
-        );
-        assert!(
-            !tokens.contains("solve_value_fn : None"),
-            "solve_value_fn should not be None"
-        );
-        assert!(
-            !tokens.contains("solve_witness_fn : None"),
-            "solve_witness_fn should not be None"
-        );
-        assert!(
-            tokens.contains("let total ="),
-            "expected aggregate value solve"
-        );
-        assert!(
-            tokens.contains("find_witness"),
-            "expected find_witness in tokens"
-        );
-        assert!(
-            !tokens.contains("find_satisfying"),
-            "did not expect legacy find_satisfying in tokens"
-        );
-    }
-
-    #[test]
     fn reduction_rejects_unexpected_attribute() {
         let extra_attr = syn::Ident::new("extra", proc_macro2::Span::call_site());
         let parse_result = syn::parse2::<ReductionAttrs>(quote! {
@@ -848,7 +763,7 @@ mod tests {
     #[test]
     fn declare_variants_codegen_uses_required_dispatch_fields() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            default opt Foo => "1",
+            default Foo => "1",
         };
         let tokens = generate_declare_variants(&input).unwrap().to_string();
         assert!(tokens.contains("factory :"));

@@ -5,7 +5,7 @@
 //! cost never exceeds a given bound.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 
@@ -153,7 +153,7 @@ fn precedence_validation_error(precedences: &[(usize, usize)], num_tasks: usize)
 
 impl Problem for SequencingToMinimizeMaximumCumulativeCost {
     const NAME: &'static str = "SequencingToMinimizeMaximumCumulativeCost";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -164,36 +164,36 @@ impl Problem for SequencingToMinimizeMaximumCumulativeCost {
         (0..n).rev().map(|i| i + 1).collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let Some(schedule) = self.decode_schedule(config) else {
-            return false;
-        };
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let Some(schedule) = self.decode_schedule(config) else {
+                return crate::types::Or(false);
+            };
 
-        let mut positions = vec![0usize; self.num_tasks()];
-        for (position, &task) in schedule.iter().enumerate() {
-            positions[task] = position;
-        }
-        for &(pred, succ) in &self.precedences {
-            if positions[pred] >= positions[succ] {
-                return false;
+            let mut positions = vec![0usize; self.num_tasks()];
+            for (position, &task) in schedule.iter().enumerate() {
+                positions[task] = position;
             }
-        }
+            for &(pred, succ) in &self.precedences {
+                if positions[pred] >= positions[succ] {
+                    return crate::types::Or(false);
+                }
+            }
 
-        let mut cumulative = 0i64;
-        for &task in &schedule {
-            cumulative += self.costs[task];
-            if cumulative > self.bound {
-                return false;
+            let mut cumulative = 0i64;
+            for &task in &schedule {
+                cumulative += self.costs[task];
+                if cumulative > self.bound {
+                    return crate::types::Or(false);
+                }
             }
-        }
-        true
+            true
+        })
     }
 }
 
-impl WitnessProblem for SequencingToMinimizeMaximumCumulativeCost {}
-
 crate::declare_variants! {
-    default sat SequencingToMinimizeMaximumCumulativeCost => "factorial(num_tasks)",
+    default SequencingToMinimizeMaximumCumulativeCost => "factorial(num_tasks)",
 }
 
 #[cfg(feature = "example-db")]

@@ -123,7 +123,7 @@ fn test_multiprocessor_scheduling_find_all_witnesses() {
 }
 
 #[test]
-fn test_multiprocessor_scheduling_find_all_satisfying_empty() {
+fn test_multiprocessor_scheduling_find_all_witnesses_empty() {
     // Same instance but deadline 9: total=20, need each processor ≤ 9,
     // but 20 > 2*9 = 18, so impossible
     let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 9);

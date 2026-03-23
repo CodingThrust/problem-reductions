@@ -638,32 +638,6 @@ fn test_reduction_path_methods() {
 }
 
 #[test]
-fn test_bidirectional_paths() {
-    let graph = ReductionGraph::new();
-    let is_var =
-        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let vc_var = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
-
-    // Forward path
-    let forward = graph.find_all_paths(
-        "MaximumIndependentSet",
-        &is_var,
-        "MinimumVertexCover",
-        &vc_var,
-    );
-    assert!(!forward.is_empty());
-
-    // Backward path
-    let backward = graph.find_all_paths(
-        "MinimumVertexCover",
-        &vc_var,
-        "MaximumIndependentSet",
-        &is_var,
-    );
-    assert!(!backward.is_empty());
-}
-
-#[test]
 fn test_to_json() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();

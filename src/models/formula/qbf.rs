@@ -10,7 +10,7 @@
 
 use crate::models::formula::CNFClause;
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -157,17 +157,19 @@ impl QuantifiedBooleanFormulas {
 
 impl Problem for QuantifiedBooleanFormulas {
     const NAME: &'static str = "QuantifiedBooleanFormulas";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if !config.is_empty() {
-            return false;
-        }
-        self.is_true()
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if !config.is_empty() {
+                return crate::types::Or(false);
+            }
+            self.is_true()
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -175,10 +177,8 @@ impl Problem for QuantifiedBooleanFormulas {
     }
 }
 
-impl WitnessProblem for QuantifiedBooleanFormulas {}
-
 crate::declare_variants! {
-    default sat QuantifiedBooleanFormulas => "2^num_vars",
+    default QuantifiedBooleanFormulas => "2^num_vars",
 }
 
 #[cfg(feature = "example-db")]

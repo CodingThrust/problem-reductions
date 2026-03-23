@@ -1,7 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::ExtremumSense;
+use crate::traits::Problem;
 
 #[test]
 fn test_knapsack_basic() {
@@ -11,7 +10,6 @@ fn test_knapsack_basic() {
     assert_eq!(problem.values(), &[3, 4, 5, 7]);
     assert_eq!(problem.capacity(), 7);
     assert_eq!(problem.dims(), vec![2; 4]);
-    assert_eq!(problem.direction(), ExtremumSense::Maximize);
     assert_eq!(<Knapsack as Problem>::NAME, "Knapsack");
     assert_eq!(<Knapsack as Problem>::variant(), vec![]);
 }

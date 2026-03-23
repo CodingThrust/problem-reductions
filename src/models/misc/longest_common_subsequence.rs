@@ -6,7 +6,7 @@
 //! "length at least `K`" decision formulation.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -134,7 +134,7 @@ fn is_subsequence(candidate: &[usize], target: &[usize]) -> bool {
 
 impl Problem for LongestCommonSubsequence {
     const NAME: &'static str = "LongestCommonSubsequence";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -144,21 +144,21 @@ impl Problem for LongestCommonSubsequence {
         vec![self.alphabet_size; self.bound]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.bound {
-            return false;
-        }
-        if config.iter().any(|&symbol| symbol >= self.alphabet_size) {
-            return false;
-        }
-        self.strings.iter().all(|s| is_subsequence(config, s))
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.bound {
+                return crate::types::Or(false);
+            }
+            if config.iter().any(|&symbol| symbol >= self.alphabet_size) {
+                return crate::types::Or(false);
+            }
+            self.strings.iter().all(|s| is_subsequence(config, s))
+        })
     }
 }
 
-impl WitnessProblem for LongestCommonSubsequence {}
-
 crate::declare_variants! {
-    default sat LongestCommonSubsequence => "alphabet_size ^ bound",
+    default LongestCommonSubsequence => "alphabet_size ^ bound",
 }
 
 #[cfg(feature = "example-db")]

@@ -67,15 +67,6 @@ fn test_is_maximal_independent_set_function() {
 }
 
 #[test]
-fn test_direction() {
-    use crate::traits::ObjectiveProblem;
-    use crate::types::ExtremumSense;
-
-    let problem = MaximalIS::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]);
-    assert_eq!(problem.direction(), ExtremumSense::Maximize);
-}
-
-#[test]
 fn test_weights() {
     let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
     assert_eq!(problem.weights().to_vec(), vec![1, 1, 1]); // Unit weights

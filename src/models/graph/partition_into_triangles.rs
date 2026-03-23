@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 
@@ -91,7 +91,7 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "PartitionIntoTriangles";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -102,62 +102,62 @@ where
         vec![q; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let n = self.graph.num_vertices();
-        let q = n / 3;
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let n = self.graph.num_vertices();
+            let q = n / 3;
 
-        // Check config length
-        if config.len() != n {
-            return false;
-        }
-
-        // Check all values are in range [0, q)
-        if config.iter().any(|&c| c >= q) {
-            return false;
-        }
-
-        // Count vertices per group
-        let mut counts = vec![0usize; q];
-        for &c in config {
-            counts[c] += 1;
-        }
-
-        // Each group must have exactly 3 vertices
-        if counts.iter().any(|&c| c != 3) {
-            return false;
-        }
-
-        // Build per-group vertex lists in a single pass over config.
-        let mut group_verts = vec![[0usize; 3]; q];
-        let mut group_pos = vec![0usize; q];
-
-        for (v, &g) in config.iter().enumerate() {
-            let pos = group_pos[g];
-            group_verts[g][pos] = v;
-            group_pos[g] = pos + 1;
-        }
-
-        // Check each group forms a triangle
-        for verts in &group_verts {
-            if !self.graph.has_edge(verts[0], verts[1]) {
-                return false;
+            // Check config length
+            if config.len() != n {
+                return crate::types::Or(false);
             }
-            if !self.graph.has_edge(verts[0], verts[2]) {
-                return false;
-            }
-            if !self.graph.has_edge(verts[1], verts[2]) {
-                return false;
-            }
-        }
 
-        true
+            // Check all values are in range [0, q)
+            if config.iter().any(|&c| c >= q) {
+                return crate::types::Or(false);
+            }
+
+            // Count vertices per group
+            let mut counts = vec![0usize; q];
+            for &c in config {
+                counts[c] += 1;
+            }
+
+            // Each group must have exactly 3 vertices
+            if counts.iter().any(|&c| c != 3) {
+                return crate::types::Or(false);
+            }
+
+            // Build per-group vertex lists in a single pass over config.
+            let mut group_verts = vec![[0usize; 3]; q];
+            let mut group_pos = vec![0usize; q];
+
+            for (v, &g) in config.iter().enumerate() {
+                let pos = group_pos[g];
+                group_verts[g][pos] = v;
+                group_pos[g] = pos + 1;
+            }
+
+            // Check each group forms a triangle
+            for verts in &group_verts {
+                if !self.graph.has_edge(verts[0], verts[1]) {
+                    return crate::types::Or(false);
+                }
+                if !self.graph.has_edge(verts[0], verts[2]) {
+                    return crate::types::Or(false);
+                }
+                if !self.graph.has_edge(verts[1], verts[2]) {
+                    return crate::types::Or(false);
+                }
+            }
+
+            true
+        })
     }
 }
 
-impl<G: Graph + VariantParam> WitnessProblem for PartitionIntoTriangles<G> {}
-
 crate::declare_variants! {
-    default sat PartitionIntoTriangles<SimpleGraph> => "2^num_vertices",
+    default PartitionIntoTriangles<SimpleGraph> => "2^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

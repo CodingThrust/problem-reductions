@@ -1,8 +1,8 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 
 fn k5_btsp() -> BottleneckTravelingSalesman {
     BottleneckTravelingSalesman::new(
@@ -80,16 +80,6 @@ fn test_bottleneck_traveling_salesman_evaluate_disconnected_subtour_invalid() {
     let disconnected_subtour = vec![1, 1, 1, 1, 1, 1];
     assert!(!problem.is_valid_solution(&disconnected_subtour));
     assert_eq!(problem.evaluate(&disconnected_subtour), Min(None));
-}
-
-#[test]
-fn test_bottleneck_traveling_salesman_direction() {
-    let problem = BottleneckTravelingSalesman::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
-        vec![7, 4, 6],
-    );
-
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

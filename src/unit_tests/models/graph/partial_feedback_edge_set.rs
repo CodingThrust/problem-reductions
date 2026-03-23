@@ -95,11 +95,11 @@ fn test_partial_feedback_edge_set_solver_yes_and_no_instances() {
     let solver = BruteForce::new();
 
     let yes_problem = yes_instance();
-    let solution = solver.find_satisfying(&yes_problem).unwrap();
+    let solution = solver.find_witness(&yes_problem).unwrap();
     assert!(yes_problem.evaluate(&solution));
 
     let no_problem = no_instance();
-    assert!(solver.find_satisfying(&no_problem).is_none());
+    assert!(solver.find_witness(&no_problem).is_none());
 }
 
 #[test]
@@ -108,7 +108,7 @@ fn test_partial_feedback_edge_set_paper_example() {
     let config = select_edges(problem.graph(), &[(0, 2), (2, 3), (3, 4)]);
     assert!(problem.evaluate(&config));
 
-    let satisfying = BruteForce::new().find_all_satisfying(&problem);
+    let satisfying = BruteForce::new().find_all_witnesses(&problem);
     assert_eq!(satisfying.len(), 5);
     assert!(satisfying.iter().any(|candidate| candidate == &config));
 }

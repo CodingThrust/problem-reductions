@@ -1,5 +1,6 @@
 use super::*;
 use crate::expr::Expr;
+use crate::rules::registry::EdgeCapabilities;
 use std::path::Path;
 
 /// Dummy reduce_fn for unit tests that don't exercise runtime reduction.
@@ -444,4 +445,33 @@ fn repo_reductions_use_overhead_only_attribute() {
         "extra top-level reduction attribute still present in: {:?}",
         offenders,
     );
+}
+
+#[test]
+fn test_edge_capabilities_constructors() {
+    let wo = EdgeCapabilities::witness_only();
+    assert!(wo.witness);
+    assert!(!wo.aggregate);
+
+    let ao = EdgeCapabilities::aggregate_only();
+    assert!(!ao.witness);
+    assert!(ao.aggregate);
+
+    let both = EdgeCapabilities::both();
+    assert!(both.witness);
+    assert!(both.aggregate);
+}
+
+#[test]
+fn test_edge_capabilities_default_is_witness_only() {
+    let default = EdgeCapabilities::default();
+    assert_eq!(default, EdgeCapabilities::witness_only());
+}
+
+#[test]
+fn test_edge_capabilities_serde_roundtrip() {
+    let caps = EdgeCapabilities::both();
+    let json = serde_json::to_string(&caps).unwrap();
+    let back: EdgeCapabilities = serde_json::from_str(&json).unwrap();
+    assert_eq!(caps, back);
 }

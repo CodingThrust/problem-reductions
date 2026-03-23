@@ -93,7 +93,7 @@ fn test_kthbestspanningtree_solver_exhaustive() {
     // Exactly 2 spanning trees have weight ≤ 4, so exactly 2! = 2 satisfying configs.
     let all = solver.find_all_witnesses(&problem);
     assert_eq!(all.len(), 2);
-    assert!(all.iter().all(|config| problem.evaluate(config)));
+    assert!(all.iter().all(|config| problem.evaluate(config).0));
 }
 
 #[test]
@@ -112,7 +112,7 @@ fn test_kthbestspanningtree_small_exhaustive_search() {
 
     let all = solver.find_all_witnesses(&problem);
     assert_eq!(all.len(), 6);
-    assert!(all.iter().all(|config| problem.evaluate(config)));
+    assert!(all.iter().all(|config| problem.evaluate(config).0));
 }
 
 #[test]

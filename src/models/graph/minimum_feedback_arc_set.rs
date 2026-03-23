@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -150,17 +150,6 @@ where
     }
 }
 
-impl<W> ObjectiveProblem for MinimumFeedbackArcSet<W>
-where
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 /// Check if a configuration forms a valid feedback arc set.
 ///
 /// config[i] = 1 means arc i is selected for removal.
@@ -176,7 +165,7 @@ fn is_valid_fas(graph: &DirectedGraph, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    default opt MinimumFeedbackArcSet<i32> => "2^num_vertices",
+    default MinimumFeedbackArcSet<i32> => "2^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

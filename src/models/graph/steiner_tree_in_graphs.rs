@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min, One, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -205,18 +205,6 @@ where
     }
 }
 
-impl<G, W> ObjectiveProblem for SteinerTreeInGraphs<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 /// Check if a selection of edges forms a valid Steiner tree (connected subgraph spanning all terminals).
 ///
 /// A valid Steiner tree requires:
@@ -286,8 +274,8 @@ pub(crate) fn is_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], selected
 }
 
 crate::declare_variants! {
-    default opt SteinerTreeInGraphs<SimpleGraph, i32> => "2^num_terminals * num_vertices^3",
-    opt SteinerTreeInGraphs<SimpleGraph, One> => "2^num_terminals * num_vertices^3",
+    default SteinerTreeInGraphs<SimpleGraph, i32> => "2^num_terminals * num_vertices^3",
+    SteinerTreeInGraphs<SimpleGraph, One> => "2^num_terminals * num_vertices^3",
 }
 
 #[cfg(feature = "example-db")]

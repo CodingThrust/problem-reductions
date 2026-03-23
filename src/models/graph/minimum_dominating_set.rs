@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -163,20 +163,8 @@ where
     }
 }
 
-impl<G, W> ObjectiveProblem for MinimumDominatingSet<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt MinimumDominatingSet<SimpleGraph, i32> => "1.4969^num_vertices",
+    default MinimumDominatingSet<SimpleGraph, i32> => "1.4969^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

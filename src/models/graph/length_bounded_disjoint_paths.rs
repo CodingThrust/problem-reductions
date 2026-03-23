@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 
@@ -135,7 +135,7 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "LengthBoundedDisjointPaths";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -145,12 +145,10 @@ where
         vec![2; self.num_paths_required * self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_solution(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_valid_solution(config))
     }
 }
-
-impl<G: Graph + VariantParam> WitnessProblem for LengthBoundedDisjointPaths<G> {}
 
 fn is_valid_path_collection<G: Graph>(
     graph: &G,
@@ -315,7 +313,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default sat LengthBoundedDisjointPaths<SimpleGraph> => "2^(num_paths_required * num_vertices)",
+    default LengthBoundedDisjointPaths<SimpleGraph> => "2^(num_paths_required * num_vertices)",
 }
 
 #[cfg(test)]

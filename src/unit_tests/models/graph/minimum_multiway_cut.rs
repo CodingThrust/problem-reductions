@@ -1,8 +1,8 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 
 #[test]
 fn test_minimummultiwaycut_creation() {
@@ -37,13 +37,6 @@ fn test_minimummultiwaycut_evaluate_invalid() {
     let config = vec![0, 0, 0, 0, 0, 0];
     let result = problem.evaluate(&config);
     assert_eq!(result, Min(None));
-}
-
-#[test]
-fn test_minimummultiwaycut_direction() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumMultiwayCut::new(graph, vec![0, 2], vec![1i32, 1]);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

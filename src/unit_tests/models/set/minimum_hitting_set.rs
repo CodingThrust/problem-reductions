@@ -1,8 +1,8 @@
 use super::*;
 use crate::registry::declared_size_fields;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 use std::collections::HashSet;
 
 fn issue_example_problem() -> MinimumHittingSet {
@@ -109,12 +109,6 @@ fn test_minimum_hitting_set_paper_example_consistency() {
     let problem = issue_example_problem();
 
     assert_eq!(problem.evaluate(&issue_example_config()), Min(Some(3)));
-}
-
-#[test]
-fn test_minimum_hitting_set_direction() {
-    let problem = MinimumHittingSet::new(3, vec![vec![0, 1], vec![1, 2]]);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

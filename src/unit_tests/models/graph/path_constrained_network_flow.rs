@@ -86,7 +86,7 @@ fn test_path_constrained_network_flow_solver_yes_and_no() {
 
     let satisfying = solver.find_all_witnesses(&yes);
     assert_eq!(satisfying.len(), 2);
-    assert!(satisfying.iter().all(|config| yes.evaluate(config)));
+    assert!(satisfying.iter().all(|config| yes.evaluate(config).0));
 
     assert!(solver.find_witness(&no).is_none());
 }

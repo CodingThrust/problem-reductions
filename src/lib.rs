@@ -11,7 +11,7 @@
 //! | [`rules`] | Reduction rules, [`ReductionGraph`](rules::ReductionGraph) for path search |
 //! | [`solvers`] | [`BruteForce`] and [`ILPSolver`](solvers::ILPSolver) |
 //! | [`topology`] | Graph types — [`SimpleGraph`](topology::SimpleGraph), [`UnitDiskGraph`](topology::UnitDiskGraph), etc. |
-//! | [`traits`] | Core traits — [`Problem`], [`ObjectiveProblem`], [`WitnessProblem`] |
+//! | [`traits`] | Core traits — [`Problem`] |
 //! | [`types`] | [`Max`], [`Min`], [`Extremum`], [`ExtremumSense`], [`ProblemSize`], [`WeightElement`] |
 //! | [`variant`] | Variant parameter system for problem type parameterization |
 //!
@@ -89,7 +89,7 @@ pub mod prelude {
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};
     pub use crate::solvers::{BruteForce, Solver};
-    pub use crate::traits::{ObjectiveProblem, Problem, WitnessProblem};
+    pub use crate::traits::Problem;
 
     // Types
     pub use crate::error::{ProblemError, Result};
@@ -105,7 +105,7 @@ pub use error::{ProblemError, Result};
 pub use expr::{asymptotic_normal_form, AsymptoticAnalysisError, CanonicalizationError, Expr};
 pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
-pub use traits::{ObjectiveProblem, Problem, WitnessProblem};
+pub use traits::Problem;
 pub use types::{
     And, Extremum, ExtremumSense, Max, Min, NumericSize, One, Or, ProblemSize, Sum, Unweighted,
     WeightElement,

@@ -189,5 +189,5 @@ fn test_length_bounded_disjoint_paths_paper_example() {
     assert_eq!(satisfying.len(), 6);
     assert!(satisfying
         .iter()
-        .all(|candidate| problem.evaluate(candidate)));
+        .all(|candidate| problem.evaluate(candidate).0));
 }

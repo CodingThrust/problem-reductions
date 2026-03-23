@@ -1,6 +1,6 @@
 use crate::rules::{ReductionChain, ReductionResult};
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem, WitnessProblem};
+use crate::traits::Problem;
 use crate::types::Aggregate;
 use std::collections::HashSet;
 
@@ -11,7 +11,7 @@ fn verify_optimization_round_trip<Source, Extract>(
     target_solution_kind: &str,
     context: &str,
 ) where
-    Source: ObjectiveProblem + 'static,
+    Source: Problem + 'static,
     <Source as Problem>::Value: Aggregate + std::fmt::Debug + PartialEq,
     Extract: Fn(&[usize]) -> Vec<usize>,
 {
@@ -62,7 +62,7 @@ fn verify_satisfaction_round_trip<Source, Extract>(
     target_solution_kind: &str,
     context: &str,
 ) where
-    Source: WitnessProblem + 'static,
+    Source: Problem + 'static,
     <Source as Problem>::Value: Aggregate + std::fmt::Debug,
     Extract: Fn(&[usize]) -> Vec<usize>,
 {
@@ -95,8 +95,8 @@ pub(crate) fn assert_optimization_round_trip_from_optimization_target<R>(
     context: &str,
 ) where
     R: ReductionResult,
-    R::Source: ObjectiveProblem + 'static,
-    R::Target: ObjectiveProblem + 'static,
+    R::Source: Problem + 'static,
+    R::Target: Problem + 'static,
     <R::Source as Problem>::Value: Aggregate + std::fmt::Debug + PartialEq,
     <R::Target as Problem>::Value: Aggregate,
 {
@@ -116,8 +116,8 @@ pub(crate) fn assert_optimization_round_trip_from_satisfaction_target<R>(
     context: &str,
 ) where
     R: ReductionResult,
-    R::Source: ObjectiveProblem + 'static,
-    R::Target: WitnessProblem + 'static,
+    R::Source: Problem + 'static,
+    R::Target: Problem + 'static,
     <R::Source as Problem>::Value: Aggregate + std::fmt::Debug + PartialEq,
     <R::Target as Problem>::Value: Aggregate,
 {
@@ -136,8 +136,8 @@ pub(crate) fn assert_optimization_round_trip_chain<Source, Target>(
     chain: &ReductionChain,
     context: &str,
 ) where
-    Source: ObjectiveProblem + 'static,
-    Target: ObjectiveProblem + 'static,
+    Source: Problem + 'static,
+    Target: Problem + 'static,
     <Source as Problem>::Value: Aggregate + std::fmt::Debug + PartialEq,
     <Target as Problem>::Value: Aggregate,
 {
@@ -157,8 +157,8 @@ pub(crate) fn assert_satisfaction_round_trip_from_optimization_target<R>(
     context: &str,
 ) where
     R: ReductionResult,
-    R::Source: WitnessProblem + 'static,
-    R::Target: ObjectiveProblem + 'static,
+    R::Source: Problem + 'static,
+    R::Target: Problem + 'static,
     <R::Source as Problem>::Value: Aggregate + std::fmt::Debug,
     <R::Target as Problem>::Value: Aggregate,
 {
@@ -178,8 +178,8 @@ pub(crate) fn assert_satisfaction_round_trip_from_satisfaction_target<R>(
     context: &str,
 ) where
     R: ReductionResult,
-    R::Source: WitnessProblem + 'static,
-    R::Target: WitnessProblem + 'static,
+    R::Source: Problem + 'static,
+    R::Target: Problem + 'static,
     <R::Source as Problem>::Value: Aggregate + std::fmt::Debug,
     <R::Target as Problem>::Value: Aggregate,
 {
@@ -195,7 +195,7 @@ pub(crate) fn assert_satisfaction_round_trip_from_satisfaction_target<R>(
 
 pub(crate) fn solve_optimization_problem<P>(problem: &P) -> Option<Vec<usize>>
 where
-    P: ObjectiveProblem + 'static,
+    P: Problem + 'static,
     P::Value: Aggregate,
 {
     BruteForce::new().find_witness(problem)
@@ -203,7 +203,7 @@ where
 
 pub(crate) fn solve_satisfaction_problem<P>(problem: &P) -> Option<Vec<usize>>
 where
-    P: WitnessProblem + 'static,
+    P: Problem + 'static,
     P::Value: Aggregate,
 {
     BruteForce::new().find_witness(problem)
@@ -218,14 +218,14 @@ mod tests {
         assert_satisfaction_round_trip_from_satisfaction_target,
     };
     use crate::rules::ReductionResult;
-    use crate::traits::{ObjectiveProblem, Problem, WitnessProblem};
-    use crate::types::{ExtremumSense, Max};
+    use crate::traits::Problem;
+    use crate::types::{Max, Or};
 
     #[derive(Clone)]
-    struct ToyObjectiveProblem;
+    struct ToyExtremumProblem;
 
-    impl Problem for ToyObjectiveProblem {
-        const NAME: &'static str = "ToyObjectiveProblem";
+    impl Problem for ToyExtremumProblem {
+        const NAME: &'static str = "ToyExtremumProblem";
         type Value = Max<i32>;
 
         fn dims(&self) -> Vec<usize> {
@@ -244,27 +244,19 @@ mod tests {
         }
     }
 
-    impl ObjectiveProblem for ToyObjectiveProblem {
-        type Objective = i32;
-
-        fn direction(&self) -> ExtremumSense {
-            ExtremumSense::Maximize
-        }
-    }
-
     #[derive(Clone)]
-    struct ToyWitnessProblem;
+    struct ToyOrProblem;
 
-    impl Problem for ToyWitnessProblem {
-        const NAME: &'static str = "ToyWitnessProblem";
-        type Value = bool;
+    impl Problem for ToyOrProblem {
+        const NAME: &'static str = "ToyOrProblem";
+        type Value = Or;
 
         fn dims(&self) -> Vec<usize> {
             vec![2, 2]
         }
 
         fn evaluate(&self, config: &[usize]) -> Self::Value {
-            matches!(config, [1, 0] | [0, 1])
+            Or(matches!(config, [1, 0] | [0, 1]))
         }
 
         fn variant() -> Vec<(&'static str, &'static str)> {
@@ -272,15 +264,13 @@ mod tests {
         }
     }
 
-    impl WitnessProblem for ToyWitnessProblem {}
-
     struct OptToOptReduction {
-        target: ToyObjectiveProblem,
+        target: ToyExtremumProblem,
     }
 
     impl ReductionResult for OptToOptReduction {
-        type Source = ToyObjectiveProblem;
-        type Target = ToyObjectiveProblem;
+        type Source = ToyExtremumProblem;
+        type Target = ToyExtremumProblem;
 
         fn target_problem(&self) -> &Self::Target {
             &self.target
@@ -292,12 +282,12 @@ mod tests {
     }
 
     struct OptToSatReduction {
-        target: ToyWitnessProblem,
+        target: ToyOrProblem,
     }
 
     impl ReductionResult for OptToSatReduction {
-        type Source = ToyObjectiveProblem;
-        type Target = ToyWitnessProblem;
+        type Source = ToyExtremumProblem;
+        type Target = ToyOrProblem;
 
         fn target_problem(&self) -> &Self::Target {
             &self.target
@@ -309,12 +299,12 @@ mod tests {
     }
 
     struct SatToOptReduction {
-        target: ToyObjectiveProblem,
+        target: ToyExtremumProblem,
     }
 
     impl ReductionResult for SatToOptReduction {
-        type Source = ToyWitnessProblem;
-        type Target = ToyObjectiveProblem;
+        type Source = ToyOrProblem;
+        type Target = ToyExtremumProblem;
 
         fn target_problem(&self) -> &Self::Target {
             &self.target
@@ -326,12 +316,12 @@ mod tests {
     }
 
     struct SatToSatReduction {
-        target: ToyWitnessProblem,
+        target: ToyOrProblem,
     }
 
     impl ReductionResult for SatToSatReduction {
-        type Source = ToyWitnessProblem;
-        type Target = ToyWitnessProblem;
+        type Source = ToyOrProblem;
+        type Target = ToyOrProblem;
 
         fn target_problem(&self) -> &Self::Target {
             &self.target
@@ -344,41 +334,41 @@ mod tests {
 
     #[test]
     fn test_optimization_round_trip_wrappers_accept_identity_reductions() {
-        let source = ToyObjectiveProblem;
+        let source = ToyExtremumProblem;
 
         assert_optimization_round_trip_from_optimization_target(
             &source,
             &OptToOptReduction {
-                target: ToyObjectiveProblem,
+                target: ToyExtremumProblem,
             },
-            "opt->opt",
+            "extremum->extremum",
         );
         assert_optimization_round_trip_from_satisfaction_target(
             &source,
             &OptToSatReduction {
-                target: ToyWitnessProblem,
+                target: ToyOrProblem,
             },
-            "opt->sat",
+            "extremum->witness",
         );
     }
 
     #[test]
     fn test_satisfaction_round_trip_wrappers_accept_identity_reductions() {
-        let source = ToyWitnessProblem;
+        let source = ToyOrProblem;
 
         assert_satisfaction_round_trip_from_optimization_target(
             &source,
             &SatToOptReduction {
-                target: ToyObjectiveProblem,
+                target: ToyExtremumProblem,
             },
-            "sat->opt",
+            "witness->extremum",
         );
         assert_satisfaction_round_trip_from_satisfaction_target(
             &source,
             &SatToSatReduction {
-                target: ToyWitnessProblem,
+                target: ToyOrProblem,
             },
-            "sat->sat",
+            "witness->witness",
         );
     }
 }

@@ -22,7 +22,6 @@ fn check_problem_trait<P: Problem>(problem: &P, name: &str) {
         );
     }
 }
-
 #[test]
 fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
@@ -235,81 +234,5 @@ fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
         &ConsecutiveOnesSubmatrix::new(vec![vec![true, false], vec![false, true]], 1),
         "ConsecutiveOnesSubmatrix",
-    );
-}
-
-#[test]
-fn test_direction() {
-    use crate::traits::ObjectiveProblem;
-    use crate::types::ExtremumSense;
-
-    // Minimization problems
-    assert_eq!(
-        MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
-        ExtremumSense::Minimize
-    );
-    assert_eq!(
-        MinimumDominatingSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
-        ExtremumSense::Minimize
-    );
-    assert_eq!(
-        MinimumSetCovering::<i32>::new(2, vec![vec![0, 1]]).direction(),
-        ExtremumSense::Minimize
-    );
-    assert_eq!(
-        PaintShop::new(vec!["a", "a"]).direction(),
-        ExtremumSense::Minimize
-    );
-    assert_eq!(
-        QUBO::from_matrix(vec![vec![1.0]]).direction(),
-        ExtremumSense::Minimize
-    );
-    assert_eq!(
-        SpinGlass::new(1, vec![], vec![0.0]).direction(),
-        ExtremumSense::Minimize
-    );
-    assert_eq!(
-        BMF::new(vec![vec![true]], 1).direction(),
-        ExtremumSense::Minimize
-    );
-    assert_eq!(Factoring::new(6, 2, 2).direction(), ExtremumSense::Minimize);
-    assert_eq!(
-        BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1).direction(),
-        ExtremumSense::Minimize
-    );
-    assert_eq!(
-        QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 1], vec![1, 0]])
-            .direction(),
-        ExtremumSense::Minimize
-    );
-
-    // Maximization problems
-    assert_eq!(
-        MaximumIndependentSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
-        ExtremumSense::Maximize
-    );
-    assert_eq!(
-        MaximalIS::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
-        ExtremumSense::Maximize
-    );
-    assert_eq!(
-        MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32]).direction(),
-        ExtremumSense::Maximize
-    );
-    assert_eq!(
-        MaximumMatching::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32]).direction(),
-        ExtremumSense::Maximize
-    );
-    assert_eq!(
-        MaximumSetPacking::<i32>::new(vec![vec![0]]).direction(),
-        ExtremumSense::Maximize
-    );
-    assert_eq!(
-        MaximumClique::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
-        ExtremumSense::Maximize
-    );
-    assert_eq!(
-        PartiallyOrderedKnapsack::new(vec![2, 3], vec![3, 2], vec![(0, 1)], 5).direction(),
-        ExtremumSense::Maximize
     );
 }

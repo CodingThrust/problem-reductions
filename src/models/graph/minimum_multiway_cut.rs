@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -187,20 +187,8 @@ where
     }
 }
 
-impl<G, W> ObjectiveProblem for MinimumMultiwayCut<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt MinimumMultiwayCut<SimpleGraph, i32> => "1.84^num_terminals * num_vertices^3",
+    default MinimumMultiwayCut<SimpleGraph, i32> => "1.84^num_terminals * num_vertices^3",
 }
 
 #[cfg(feature = "example-db")]

@@ -54,13 +54,13 @@ Only run if review type includes "model". Given: problem name `P`, category `C`,
 | 2 | `inventory::submit!` present | `Grep("inventory::submit", file)` |
 | 3 | `#[derive(...Serialize, Deserialize)]` on struct | `Grep("Serialize.*Deserialize", file)` |
 | 4 | `Problem` trait impl | `Grep("impl.*Problem for.*{P}", file)` |
-| 5 | Aggregate value and compatibility markers are present | `Grep("type Value =|(ObjectiveProblem|WitnessProblem).*for.*{P}", file)` |
+| 5 | Aggregate value is present | `Grep("type Value =", file)` |
 | 6 | `#[cfg(test)]` + `#[path = "..."]` test link | `Grep("#\\[path =", file)` |
 | 7 | Test file exists | `Glob("src/unit_tests/models/{C}/{F}.rs")` |
 | 8 | Test file has >= 3 test functions | `Grep("fn test_", test_file)` — count matches, FAIL if < 3 |
 | 9 | Registered in `{C}/mod.rs` | `Grep("mod {F}", "src/models/{C}/mod.rs")` |
 | 10 | Re-exported in `models/mod.rs` | `Grep("{P}", "src/models/mod.rs")` |
-| 11 | Variant registration exists | `Grep("declare_variants!|default opt|default sat|opt {P}|sat {P}|VariantEntry", file)` |
+| 11 | Variant registration exists | `Grep("declare_variants!|VariantEntry", file)` |
 | 12 | CLI `resolve_alias` entry | `Grep("{P}", "problemreductions-cli/src/problem_name.rs")` |
 | 13 | CLI `create` support | `Grep('"{P}"', "problemreductions-cli/src/commands/create.rs")` |
 | 14 | Canonical model example registered | `Grep("{P}", "src/example_db/model_builders.rs")` |

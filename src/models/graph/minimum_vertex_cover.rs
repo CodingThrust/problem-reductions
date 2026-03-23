@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -138,18 +138,6 @@ where
     }
 }
 
-impl<G, W> ObjectiveProblem for MinimumVertexCover<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 /// Check if a configuration forms a valid vertex cover.
 fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
     for (u, v) in graph.edges() {
@@ -163,7 +151,7 @@ fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    default opt MinimumVertexCover<SimpleGraph, i32> => "1.1996^num_vertices",
+    default MinimumVertexCover<SimpleGraph, i32> => "1.1996^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

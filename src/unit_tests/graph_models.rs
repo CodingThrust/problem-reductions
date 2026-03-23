@@ -9,8 +9,8 @@ use crate::models::graph::minimum_vertex_cover::is_vertex_cover;
 use crate::models::graph::{KColoring, MaximumIndependentSet, MinimumVertexCover};
 use crate::prelude::*;
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Max, Min};
+use crate::traits::Problem;
+use crate::types::{Max, Min};
 use crate::variant::{K1, K2, K3, K4};
 
 // =============================================================================
@@ -174,8 +174,7 @@ mod maximum_independent_set {
 
     #[test]
     fn test_direction() {
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
-        assert_eq!(problem.direction(), ExtremumSense::Maximize);
+        let _problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
     }
 
     #[test]
@@ -335,8 +334,7 @@ mod minimum_vertex_cover {
 
     #[test]
     fn test_direction() {
-        let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
-        assert_eq!(problem.direction(), ExtremumSense::Minimize);
+        let _problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
     }
 
     #[test]

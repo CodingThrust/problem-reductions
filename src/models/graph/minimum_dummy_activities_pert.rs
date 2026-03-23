@@ -9,8 +9,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -200,16 +200,8 @@ impl Problem for MinimumDummyActivitiesPert {
     }
 }
 
-impl ObjectiveProblem for MinimumDummyActivitiesPert {
-    type Objective = i32;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt MinimumDummyActivitiesPert => "2^num_arcs",
+    default MinimumDummyActivitiesPert => "2^num_arcs",
 }
 
 #[cfg(feature = "example-db")]

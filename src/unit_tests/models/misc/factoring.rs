@@ -1,7 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::ExtremumSense;
+use crate::traits::Problem;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -48,12 +47,6 @@ fn test_is_factoring_function() {
     assert!(is_factoring(6, 3, 2));
     assert!(is_factoring(15, 3, 5));
     assert!(!is_factoring(6, 2, 2));
-}
-
-#[test]
-fn test_direction() {
-    let problem = Factoring::new(2, 2, 6);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

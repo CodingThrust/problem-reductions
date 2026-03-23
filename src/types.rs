@@ -324,6 +324,16 @@ impl<W: fmt::Display> fmt::Display for Sum<W> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Or(pub bool);
 
+impl Or {
+    pub fn is_valid(&self) -> bool {
+        self.0
+    }
+
+    pub fn unwrap(self) -> bool {
+        self.0
+    }
+}
+
 impl Aggregate for Or {
     fn identity() -> Self {
         Or(false)
@@ -342,27 +352,29 @@ impl Aggregate for Or {
     }
 }
 
-impl Aggregate for bool {
-    fn identity() -> Self {
-        false
-    }
-
-    fn combine(self, other: Self) -> Self {
-        self || other
-    }
-
-    fn supports_witnesses() -> bool {
-        true
-    }
-
-    fn contributes_to_witnesses(config_value: &Self, total: &Self) -> bool {
-        *config_value && *total
-    }
-}
-
 impl fmt::Display for Or {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Or({})", self.0)
+    }
+}
+
+impl std::ops::Not for Or {
+    type Output = bool;
+
+    fn not(self) -> Self::Output {
+        !self.0
+    }
+}
+
+impl PartialEq<bool> for Or {
+    fn eq(&self, other: &bool) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<Or> for bool {
+    fn eq(&self, other: &Or) -> bool {
+        *self == other.0
     }
 }
 

@@ -1,7 +1,7 @@
 //! Rooted Tree Storage Assignment problem implementation.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -174,39 +174,41 @@ impl RootedTreeStorageAssignment {
 
 impl Problem for RootedTreeStorageAssignment {
     const NAME: &'static str = "RootedTreeStorageAssignment";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.universe_size; self.universe_size]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.universe_size {
-            return false;
-        }
-        if config.iter().any(|&parent| parent >= self.universe_size) {
-            return false;
-        }
-        if self.universe_size == 0 {
-            return self.subsets.is_empty();
-        }
-
-        let Some(depth) = Self::analyze_tree(config) else {
-            return false;
-        };
-
-        let mut total_cost = 0usize;
-        for subset in &self.subsets {
-            let Some(cost) = self.subset_extension_cost(subset, config, &depth) else {
-                return false;
-            };
-            total_cost += cost;
-            if total_cost > self.bound {
-                return false;
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.universe_size {
+                return crate::types::Or(false);
             }
-        }
+            if config.iter().any(|&parent| parent >= self.universe_size) {
+                return crate::types::Or(false);
+            }
+            if self.universe_size == 0 {
+                return crate::types::Or(self.subsets.is_empty());
+            }
 
-        true
+            let Some(depth) = Self::analyze_tree(config) else {
+                return crate::types::Or(false);
+            };
+
+            let mut total_cost = 0usize;
+            for subset in &self.subsets {
+                let Some(cost) = self.subset_extension_cost(subset, config, &depth) else {
+                    return crate::types::Or(false);
+                };
+                total_cost += cost;
+                if total_cost > self.bound {
+                    return crate::types::Or(false);
+                }
+            }
+
+            true
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -214,10 +216,8 @@ impl Problem for RootedTreeStorageAssignment {
     }
 }
 
-impl WitnessProblem for RootedTreeStorageAssignment {}
-
 crate::declare_variants! {
-    default sat RootedTreeStorageAssignment => "universe_size^universe_size",
+    default RootedTreeStorageAssignment => "universe_size^universe_size",
 }
 
 #[cfg(feature = "example-db")]

@@ -193,7 +193,7 @@ fn test_rural_postman_find_all_witnesses() {
 }
 
 #[test]
-fn test_rural_postman_find_all_satisfying_empty() {
+fn test_rural_postman_find_all_witnesses_empty() {
     // Issue #248 instance 2: required edges {0,1} and {4,5} are far apart
     // Minimum circuit cost ≥ 8 > B=4
     let graph = SimpleGraph::new(

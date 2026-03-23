@@ -5,7 +5,7 @@
 //! total load exceeds a given deadline.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -105,7 +105,7 @@ impl MultiprocessorScheduling {
 
 impl Problem for MultiprocessorScheduling {
     const NAME: &'static str = "MultiprocessorScheduling";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -115,26 +115,26 @@ impl Problem for MultiprocessorScheduling {
         vec![self.num_processors; self.num_tasks()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_tasks() {
-            return false;
-        }
-        let m = self.num_processors;
-        if config.iter().any(|&p| p >= m) {
-            return false;
-        }
-        let mut loads = vec![0u64; m];
-        for (i, &processor) in config.iter().enumerate() {
-            loads[processor] += self.lengths[i];
-        }
-        loads.iter().all(|&load| load <= self.deadline)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.num_tasks() {
+                return crate::types::Or(false);
+            }
+            let m = self.num_processors;
+            if config.iter().any(|&p| p >= m) {
+                return crate::types::Or(false);
+            }
+            let mut loads = vec![0u64; m];
+            for (i, &processor) in config.iter().enumerate() {
+                loads[processor] += self.lengths[i];
+            }
+            loads.iter().all(|&load| load <= self.deadline)
+        })
     }
 }
 
-impl WitnessProblem for MultiprocessorScheduling {}
-
 crate::declare_variants! {
-    default sat MultiprocessorScheduling => "2^num_tasks",
+    default MultiprocessorScheduling => "2^num_tasks",
 }
 
 #[cfg(feature = "example-db")]

@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Max, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Max, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -188,18 +188,6 @@ where
     }
 }
 
-impl<G, W> ObjectiveProblem for MaxCut<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Maximize
-    }
-}
-
 /// Compute the total weight of edges crossing the cut.
 ///
 /// # Arguments
@@ -221,7 +209,7 @@ where
 }
 
 crate::declare_variants! {
-    default opt MaxCut<SimpleGraph, i32> => "2^(2.372 * num_vertices / 3)",
+    default MaxCut<SimpleGraph, i32> => "2^(2.372 * num_vertices / 3)",
 }
 
 #[cfg(feature = "example-db")]

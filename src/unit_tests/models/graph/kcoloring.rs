@@ -163,7 +163,7 @@ fn test_jl_parity_evaluation() {
         let problem = KColoring::<K3, _>::new(SimpleGraph::new(nv, edges));
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_config(&eval["config"]);
-            let result: bool = problem.evaluate(&config);
+            let result = problem.evaluate(&config).0;
             let jl_size = eval["size"].as_i64().unwrap() as usize;
             assert_eq!(
                 result,

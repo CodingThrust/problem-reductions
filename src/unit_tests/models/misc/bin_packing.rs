@@ -1,7 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::ExtremumSense;
+use crate::traits::Problem;
 
 #[test]
 fn test_bin_packing_creation() {
@@ -12,12 +11,6 @@ fn test_bin_packing_creation() {
     assert_eq!(problem.dims().len(), 6);
     // Each variable has domain {0, ..., 5}
     assert!(problem.dims().iter().all(|&d| d == 6));
-}
-
-#[test]
-fn test_bin_packing_direction() {
-    let problem = BinPacking::new(vec![1, 2, 3], 5);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

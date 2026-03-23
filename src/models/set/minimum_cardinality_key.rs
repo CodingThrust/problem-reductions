@@ -4,7 +4,7 @@
 //! determine whether there exists a candidate key of cardinality at most M.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -148,25 +148,27 @@ impl MinimumCardinalityKey {
 
 impl Problem for MinimumCardinalityKey {
     const NAME: &'static str = "MinimumCardinalityKey";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_attributes]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_attributes || config.iter().any(|&v| v > 1) {
-            return false;
-        }
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.num_attributes || config.iter().any(|&v| v > 1) {
+                return crate::types::Or(false);
+            }
 
-        let selected: Vec<bool> = config.iter().map(|&v| v == 1).collect();
-        let count = selected.iter().filter(|&&v| v).count();
+            let selected: Vec<bool> = config.iter().map(|&v| v == 1).collect();
+            let count = selected.iter().filter(|&&v| v).count();
 
-        if (count as i64) > self.bound {
-            return false;
-        }
+            if (count as i64) > self.bound {
+                return crate::types::Or(false);
+            }
 
-        self.is_minimal_key(&selected)
+            self.is_minimal_key(&selected)
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -174,10 +176,8 @@ impl Problem for MinimumCardinalityKey {
     }
 }
 
-impl WitnessProblem for MinimumCardinalityKey {}
-
 crate::declare_variants! {
-    default sat MinimumCardinalityKey => "2^num_attributes",
+    default MinimumCardinalityKey => "2^num_attributes",
 }
 
 #[cfg(feature = "example-db")]

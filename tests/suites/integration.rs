@@ -59,7 +59,7 @@ mod all_problems_solvable {
     fn test_coloring_solvable() {
         let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
         let solver = BruteForce::new();
-        // KColoring returns bool, so we can use find_all_satisfying
+        // KColoring uses the witness-capable `Or` aggregate, so all witnesses are valid colorings.
         let satisfying = solver.find_all_witnesses(&problem);
         assert!(!satisfying.is_empty());
         for sol in &satisfying {
@@ -148,7 +148,7 @@ mod all_problems_solvable {
         let solver = BruteForce::new();
         let satisfying = solver.find_all_witnesses(&problem);
         assert_eq!(satisfying, vec![vec![0, 0, 1]]);
-        assert!(satisfying.iter().all(|config| problem.evaluate(config)));
+        assert!(satisfying.iter().all(|config| problem.evaluate(config).0));
     }
 
     #[test]
@@ -157,13 +157,13 @@ mod all_problems_solvable {
             3,
             vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
         );
-        // Satisfiability returns bool, find satisfying configs manually
+        // Satisfiability uses `Or`, so any config with `evaluate(config).0` is a witness.
         let dims = problem.dims();
         let all_configs: Vec<Vec<usize>> =
             problemreductions::config::DimsIterator::new(dims.clone()).collect();
         let satisfying: Vec<Vec<usize>> = all_configs
             .into_iter()
-            .filter(|config| problem.evaluate(config))
+            .filter(|config| problem.evaluate(config).0)
             .collect();
         assert!(!satisfying.is_empty());
         for sol in &satisfying {
@@ -222,13 +222,13 @@ mod all_problems_solvable {
             BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
         )]);
         let problem = CircuitSAT::new(circuit);
-        // CircuitSAT returns bool
+        // CircuitSAT also uses `Or`, so witness enumeration lines up with configs where `.0` is true.
         let dims = problem.dims();
         let all_configs: Vec<Vec<usize>> =
             problemreductions::config::DimsIterator::new(dims.clone()).collect();
         let satisfying: Vec<Vec<usize>> = all_configs
             .into_iter()
-            .filter(|config| problem.evaluate(config))
+            .filter(|config| problem.evaluate(config).0)
             .collect();
         assert!(!satisfying.is_empty());
         for sol in &satisfying {
@@ -435,7 +435,7 @@ mod edge_cases {
             problemreductions::config::DimsIterator::new(dims.clone()).collect();
         let satisfying: Vec<Vec<usize>> = all_configs
             .into_iter()
-            .filter(|config| problem.evaluate(config))
+            .filter(|config| problem.evaluate(config).0)
             .collect();
 
         // (x1 OR NOT x2) is satisfied by 3 of 4 assignments
@@ -536,7 +536,7 @@ mod weighted_problems {
             problemreductions::config::DimsIterator::new(dims.clone()).collect();
         let satisfying: Vec<Vec<usize>> = all_configs
             .into_iter()
-            .filter(|config| problem.evaluate(config))
+            .filter(|config| problem.evaluate(config).0)
             .collect();
 
         // Can't satisfy both - no solution satisfies all clauses

@@ -5,7 +5,7 @@
 //! their respective budgets.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -155,17 +155,19 @@ impl CapacityAssignment {
 
 impl Problem for CapacityAssignment {
     const NAME: &'static str = "CapacityAssignment";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.num_capacities(); self.num_links()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let Some((total_cost, total_delay)) = self.total_cost_and_delay(config) else {
-            return false;
-        };
-        total_cost <= self.cost_budget as u128 && total_delay <= self.delay_budget as u128
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let Some((total_cost, total_delay)) = self.total_cost_and_delay(config) else {
+                return crate::types::Or(false);
+            };
+            total_cost <= self.cost_budget as u128 && total_delay <= self.delay_budget as u128
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -173,10 +175,8 @@ impl Problem for CapacityAssignment {
     }
 }
 
-impl WitnessProblem for CapacityAssignment {}
-
 crate::declare_variants! {
-    default sat CapacityAssignment => "num_capacities ^ num_links",
+    default CapacityAssignment => "num_capacities ^ num_links",
 }
 
 #[cfg(feature = "example-db")]

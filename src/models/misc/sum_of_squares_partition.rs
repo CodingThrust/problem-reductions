@@ -6,7 +6,7 @@
 //! NP-complete in the strong sense (Garey & Johnson, SP19).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -164,7 +164,7 @@ impl<'de> Deserialize<'de> for SumOfSquaresPartition {
 
 impl Problem for SumOfSquaresPartition {
     const NAME: &'static str = "SumOfSquaresPartition";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -174,18 +174,18 @@ impl Problem for SumOfSquaresPartition {
         vec![self.num_groups; self.sizes.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        match self.sum_of_squares(config) {
-            Some(sos) => sos <= self.bound,
-            None => false,
-        }
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            match self.sum_of_squares(config) {
+                Some(sos) => sos <= self.bound,
+                None => false,
+            }
+        })
     }
 }
 
-impl WitnessProblem for SumOfSquaresPartition {}
-
 crate::declare_variants! {
-    default sat SumOfSquaresPartition => "num_groups^num_elements",
+    default SumOfSquaresPartition => "num_groups^num_elements",
 }
 
 #[cfg(feature = "example-db")]

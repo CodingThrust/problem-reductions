@@ -6,8 +6,8 @@
 //! weighted completion time.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -226,16 +226,8 @@ impl Problem for SequencingToMinimizeWeightedCompletionTime {
     }
 }
 
-impl ObjectiveProblem for SequencingToMinimizeWeightedCompletionTime {
-    type Objective = u64;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt SequencingToMinimizeWeightedCompletionTime => "factorial(num_tasks)",
+    default SequencingToMinimizeWeightedCompletionTime => "factorial(num_tasks)",
 }
 
 #[cfg(feature = "example-db")]

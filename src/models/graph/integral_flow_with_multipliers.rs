@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -195,7 +195,7 @@ impl IntegralFlowWithMultipliers {
 
 impl Problem for IntegralFlowWithMultipliers {
     const NAME: &'static str = "IntegralFlowWithMultipliers";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         self.capacities
@@ -204,8 +204,8 @@ impl Problem for IntegralFlowWithMultipliers {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_feasible(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_feasible(config))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -213,10 +213,8 @@ impl Problem for IntegralFlowWithMultipliers {
     }
 }
 
-impl WitnessProblem for IntegralFlowWithMultipliers {}
-
 crate::declare_variants! {
-    default sat IntegralFlowWithMultipliers => "(max_capacity + 1)^num_arcs",
+    default IntegralFlowWithMultipliers => "(max_capacity + 1)^num_arcs",
 }
 
 #[cfg(feature = "example-db")]

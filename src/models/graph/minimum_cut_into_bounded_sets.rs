@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use crate::types::WeightElement;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -164,7 +164,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumCutIntoBoundedSets";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -174,45 +174,40 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let n = self.graph.num_vertices();
-        if config.len() != n {
-            return false;
-        }
-
-        // Check source is in V1 (config=0) and sink is in V2 (config=1)
-        if config[self.source] != 0 {
-            return false;
-        }
-        if config[self.sink] != 1 {
-            return false;
-        }
-
-        // Check size bounds
-        let count_v1 = config.iter().filter(|&&x| x == 0).count();
-        let count_v2 = config.iter().filter(|&&x| x == 1).count();
-        if count_v1 > self.size_bound || count_v2 > self.size_bound {
-            return false;
-        }
-
-        // Compute cut weight
-        let mut cut_weight = W::Sum::zero();
-        for ((u, v), weight) in self.graph.edges().iter().zip(self.edge_weights.iter()) {
-            if config[*u] != config[*v] {
-                cut_weight += weight.to_sum();
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let n = self.graph.num_vertices();
+            if config.len() != n {
+                return crate::types::Or(false);
             }
-        }
 
-        // Check cut weight <= K
-        cut_weight <= self.cut_bound
+            // Check source is in V1 (config=0) and sink is in V2 (config=1)
+            if config[self.source] != 0 {
+                return crate::types::Or(false);
+            }
+            if config[self.sink] != 1 {
+                return crate::types::Or(false);
+            }
+
+            // Check size bounds
+            let count_v1 = config.iter().filter(|&&x| x == 0).count();
+            let count_v2 = config.iter().filter(|&&x| x == 1).count();
+            if count_v1 > self.size_bound || count_v2 > self.size_bound {
+                return crate::types::Or(false);
+            }
+
+            // Compute cut weight
+            let mut cut_weight = W::Sum::zero();
+            for ((u, v), weight) in self.graph.edges().iter().zip(self.edge_weights.iter()) {
+                if config[*u] != config[*v] {
+                    cut_weight += weight.to_sum();
+                }
+            }
+
+            // Check cut weight <= K
+            cut_weight <= self.cut_bound
+        })
     }
-}
-
-impl<G, W> WitnessProblem for MinimumCutIntoBoundedSets<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
 }
 
 #[cfg(feature = "example-db")]
@@ -250,7 +245,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default sat MinimumCutIntoBoundedSets<SimpleGraph, i32> => "2^num_vertices",
+    default MinimumCutIntoBoundedSets<SimpleGraph, i32> => "2^num_vertices",
 }
 
 #[cfg(test)]

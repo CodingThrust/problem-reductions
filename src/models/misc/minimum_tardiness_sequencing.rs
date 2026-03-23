@@ -6,8 +6,8 @@
 //! Corresponds to scheduling notation `1|prec, pj=1|sum Uj`.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -178,16 +178,8 @@ impl Problem for MinimumTardinessSequencing {
     }
 }
 
-impl ObjectiveProblem for MinimumTardinessSequencing {
-    type Objective = usize;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt MinimumTardinessSequencing => "2^num_tasks",
+    default MinimumTardinessSequencing => "2^num_tasks",
 }
 
 #[cfg(feature = "example-db")]

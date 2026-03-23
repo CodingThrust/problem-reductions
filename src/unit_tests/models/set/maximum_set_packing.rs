@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Max};
+use crate::traits::Problem;
+use crate::types::Max;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -44,12 +44,6 @@ fn test_is_set_packing_function() {
     assert!(is_set_packing(&sets, &[false, true, true])); // Disjoint
     assert!(!is_set_packing(&sets, &[true, true, false])); // Overlap on 1
     assert!(is_set_packing(&sets, &[false, false, false])); // Empty is valid
-}
-
-#[test]
-fn test_direction() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1]]);
-    assert_eq!(problem.direction(), ExtremumSense::Maximize);
 }
 
 #[test]

@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -50,12 +50,6 @@ fn test_get_set() {
     assert_eq!(problem.get_set(0), Some(&vec![0, 1]));
     assert_eq!(problem.get_set(1), Some(&vec![2, 3]));
     assert_eq!(problem.get_set(2), None);
-}
-
-#[test]
-fn test_direction() {
-    let problem = MinimumSetCovering::<i32>::new(2, vec![vec![0, 1]]);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::Aggregate;
 
 #[test]
 fn test_max_identity_and_combine() {
@@ -156,16 +157,6 @@ fn test_one_json() {
 }
 
 #[test]
-fn test_direction() {
-    let max_dir = ExtremumSense::Maximize;
-    let min_dir = ExtremumSense::Minimize;
-
-    assert_eq!(max_dir, ExtremumSense::Maximize);
-    assert_eq!(min_dir, ExtremumSense::Minimize);
-    assert_ne!(max_dir, min_dir);
-}
-
-#[test]
 fn test_problem_size() {
     let ps = ProblemSize::new(vec![("vertices", 10), ("edges", 20)]);
     assert_eq!(ps.get("vertices"), Some(10));
@@ -225,4 +216,98 @@ fn test_weight_element_f64() {
 
     let neg: f64 = -2.5;
     assert_eq!(neg.to_sum(), -2.5);
+}
+
+#[test]
+fn test_extremum_aggregate_identity_and_combine() {
+    // identity is Maximize(None)
+    let id = Extremum::<i32>::identity();
+    assert_eq!(id.sense, ExtremumSense::Maximize);
+    assert_eq!(id.value, None);
+
+    // None + Some => Some (takes rhs sense)
+    let combined = Extremum::<i32>::identity().combine(Extremum::maximize(Some(5)));
+    assert_eq!(combined, Extremum::maximize(Some(5)));
+
+    // Some + None => Some (keeps lhs sense)
+    let combined = Extremum::minimize(Some(3)).combine(Extremum::<i32>::identity());
+    assert_eq!(combined, Extremum::minimize(Some(3)));
+
+    // Maximize: keeps the larger
+    let combined = Extremum::maximize(Some(3)).combine(Extremum::maximize(Some(7)));
+    assert_eq!(combined, Extremum::maximize(Some(7)));
+    let combined = Extremum::maximize(Some(7)).combine(Extremum::maximize(Some(3)));
+    assert_eq!(combined, Extremum::maximize(Some(7)));
+
+    // Minimize: keeps the smaller
+    let combined = Extremum::minimize(Some(3)).combine(Extremum::minimize(Some(7)));
+    assert_eq!(combined, Extremum::minimize(Some(3)));
+    let combined = Extremum::minimize(Some(7)).combine(Extremum::minimize(Some(3)));
+    assert_eq!(combined, Extremum::minimize(Some(3)));
+}
+
+#[test]
+fn test_extremum_witness_hooks() {
+    assert!(Extremum::<i32>::supports_witnesses());
+
+    // Matching value and sense -> contributes
+    assert!(Extremum::contributes_to_witnesses(
+        &Extremum::maximize(Some(10)),
+        &Extremum::maximize(Some(10)),
+    ));
+
+    // Different value -> does not contribute
+    assert!(!Extremum::contributes_to_witnesses(
+        &Extremum::maximize(Some(5)),
+        &Extremum::maximize(Some(10)),
+    ));
+
+    // None config -> does not contribute
+    assert!(!Extremum::contributes_to_witnesses(
+        &Extremum::<i32>::maximize(None),
+        &Extremum::maximize(Some(10)),
+    ));
+}
+
+#[test]
+fn test_extremum_display() {
+    assert_eq!(format!("{}", Extremum::maximize(Some(42))), "Max(42)");
+    assert_eq!(format!("{}", Extremum::<i32>::maximize(None)), "Max(None)");
+    assert_eq!(format!("{}", Extremum::minimize(Some(7))), "Min(7)");
+    assert_eq!(format!("{}", Extremum::<i32>::minimize(None)), "Min(None)");
+}
+
+#[test]
+#[should_panic(expected = "called unwrap on invalid Extremum value")]
+fn test_extremum_unwrap_panics() {
+    Extremum::<i32>::minimize(None).unwrap();
+}
+
+#[test]
+fn test_max_display() {
+    assert_eq!(format!("{}", Max(Some(42))), "Max(42)");
+    assert_eq!(format!("{}", Max::<i32>(None)), "Max(None)");
+}
+
+#[test]
+fn test_min_display() {
+    assert_eq!(format!("{}", Min(Some(7))), "Min(7)");
+    assert_eq!(format!("{}", Min::<i32>(None)), "Min(None)");
+}
+
+#[test]
+fn test_sum_display() {
+    assert_eq!(format!("{}", Sum(56_u64)), "Sum(56)");
+}
+
+#[test]
+fn test_or_display() {
+    assert_eq!(format!("{}", Or(true)), "Or(true)");
+    assert_eq!(format!("{}", Or(false)), "Or(false)");
+}
+
+#[test]
+fn test_and_display() {
+    assert_eq!(format!("{}", And(true)), "And(true)");
+    assert_eq!(format!("{}", And(false)), "And(false)");
 }

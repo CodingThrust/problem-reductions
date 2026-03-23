@@ -168,7 +168,7 @@ fn test_sequencing_within_intervals_find_all_witnesses() {
 }
 
 #[test]
-fn test_sequencing_within_intervals_find_all_satisfying_empty() {
+fn test_sequencing_within_intervals_find_all_witnesses_empty() {
     // Two tasks that must both use time [0,2), impossible without overlap
     let problem = SequencingWithinIntervals::new(vec![0, 0], vec![2, 2], vec![2, 2]);
     let solver = BruteForce::new();

@@ -930,12 +930,27 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 let hint = type_format_hint(&field.type_name, graph_type);
                 eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
             } else if field.type_name == "MixedGraph" {
-                eprintln!("  --{:<16} Undirected edges E of the mixed graph (edge list: 0-1,1-2,2-3)", "graph");
-                eprintln!("  --{:<16} Directed arcs A of the mixed graph (directed arcs: 0>1,1>2,2>0)", "arcs");
+                eprintln!(
+                    "  --{:<16} Undirected edges E of the mixed graph (edge list: 0-1,1-2,2-3)",
+                    "graph"
+                );
+                eprintln!(
+                    "  --{:<16} Directed arcs A of the mixed graph (directed arcs: 0>1,1>2,2>0)",
+                    "arcs"
+                );
             } else if field.type_name == "BipartiteGraph" {
-                eprintln!("  --{:<16} Vertices in the left partition (integer)", "left");
-                eprintln!("  --{:<16} Vertices in the right partition (integer)", "right");
-                eprintln!("  --{:<16} Bipartite edges as left-right pairs (edge list: 0-0,0-1,1-2)", "biedges");
+                eprintln!(
+                    "  --{:<16} Vertices in the left partition (integer)",
+                    "left"
+                );
+                eprintln!(
+                    "  --{:<16} Vertices in the right partition (integer)",
+                    "right"
+                );
+                eprintln!(
+                    "  --{:<16} Bipartite edges as left-right pairs (edge list: 0-0,0-1,1-2)",
+                    "biedges"
+                );
             } else {
                 let hint = help_flag_hint(canonical, &field.name, &field.type_name, graph_type);
                 eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);

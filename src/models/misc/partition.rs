@@ -5,7 +5,7 @@
 //! NP-complete problems (1972), Garey & Johnson SP12.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -82,7 +82,7 @@ impl Partition {
 
 impl Problem for Partition {
     const NAME: &'static str = "Partition";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -92,27 +92,27 @@ impl Problem for Partition {
         vec![2; self.num_elements()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_elements() {
-            return false;
-        }
-        if config.iter().any(|&v| v >= 2) {
-            return false;
-        }
-        let selected_sum: u64 = config
-            .iter()
-            .enumerate()
-            .filter(|(_, &x)| x == 1)
-            .map(|(i, _)| self.sizes[i])
-            .sum();
-        selected_sum * 2 == self.total_sum()
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.num_elements() {
+                return crate::types::Or(false);
+            }
+            if config.iter().any(|&v| v >= 2) {
+                return crate::types::Or(false);
+            }
+            let selected_sum: u64 = config
+                .iter()
+                .enumerate()
+                .filter(|(_, &x)| x == 1)
+                .map(|(i, _)| self.sizes[i])
+                .sum();
+            selected_sum * 2 == self.total_sum()
+        })
     }
 }
 
-impl WitnessProblem for Partition {}
-
 crate::declare_variants! {
-    default sat Partition => "2^(num_elements / 2)",
+    default Partition => "2^(num_elements / 2)",
 }
 
 #[cfg(feature = "example-db")]

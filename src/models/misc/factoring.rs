@@ -4,8 +4,8 @@
 //! Given a number N, find two factors (a, b) such that a * b = N.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -157,16 +157,8 @@ impl Problem for Factoring {
     }
 }
 
-impl ObjectiveProblem for Factoring {
-    type Objective = i32;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt Factoring => "exp((m + n)^(1/3) * log(m + n)^(2/3))",
+    default Factoring => "exp((m + n)^(1/3) * log(m + n)^(2/3))",
 }
 
 #[cfg(feature = "example-db")]

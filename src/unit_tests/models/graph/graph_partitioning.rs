@@ -1,8 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::ExtremumSense;
+use crate::traits::Problem;
 
 /// Issue example: 6 vertices, edges forming two triangles connected by 3 edges.
 /// Optimal partition A={0,1,2}, B={3,4,5}, cut=3.
@@ -37,12 +36,6 @@ fn test_graphpartitioning_basic() {
     let config = vec![0, 0, 0, 1, 1, 1];
     let result = problem.evaluate(&config);
     assert_eq!(result, Min(Some(3)));
-}
-
-#[test]
-fn test_graphpartitioning_direction() {
-    let problem = issue_example();
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

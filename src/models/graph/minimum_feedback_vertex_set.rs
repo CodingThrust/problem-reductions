@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -152,19 +152,8 @@ where
     }
 }
 
-impl<W> ObjectiveProblem for MinimumFeedbackVertexSet<W>
-where
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt MinimumFeedbackVertexSet<i32> => "1.9977^num_vertices",
+    default MinimumFeedbackVertexSet<i32> => "1.9977^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

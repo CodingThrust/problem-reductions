@@ -1,8 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::ExtremumSense;
+use crate::traits::Problem;
 
 #[test]
 fn test_min_sum_multicenter_creation() {
@@ -22,13 +21,6 @@ fn test_min_sum_multicenter_size_getters() {
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 4);
     assert_eq!(problem.num_centers(), 2);
-}
-
-#[test]
-fn test_min_sum_multicenter_direction() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumSumMulticenter::new(graph, vec![1i32; 3], vec![1i32; 2], 1);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

@@ -8,8 +8,8 @@
 //! - `ILP<i32>`: non-negative integer variables (0..2^31-1)
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{Extremum, ExtremumSense};
+use crate::traits::Problem;
+use crate::types::Extremum;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
@@ -270,20 +270,9 @@ impl<V: VariableDomain> Problem for ILP<V> {
     }
 }
 
-impl<V: VariableDomain> ObjectiveProblem for ILP<V> {
-    type Objective = f64;
-
-    fn direction(&self) -> ExtremumSense {
-        match self.sense {
-            ObjectiveSense::Maximize => ExtremumSense::Maximize,
-            ObjectiveSense::Minimize => ExtremumSense::Minimize,
-        }
-    }
-}
-
 crate::declare_variants! {
-    default opt ILP<bool> => "2^num_vars",
-    opt ILP<i32> => "num_vars^num_vars",
+    default ILP<bool> => "2^num_vars",
+    ILP<i32> => "num_vars^num_vars",
 }
 
 #[cfg(feature = "example-db")]

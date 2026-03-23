@@ -8,7 +8,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -244,7 +244,7 @@ impl DirectedTwoCommodityIntegralFlow {
 
 impl Problem for DirectedTwoCommodityIntegralFlow {
     const NAME: &'static str = "DirectedTwoCommodityIntegralFlow";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         self.capacities
@@ -254,8 +254,8 @@ impl Problem for DirectedTwoCommodityIntegralFlow {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_feasible(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_feasible(config))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -263,10 +263,8 @@ impl Problem for DirectedTwoCommodityIntegralFlow {
     }
 }
 
-impl WitnessProblem for DirectedTwoCommodityIntegralFlow {}
-
 crate::declare_variants! {
-    default sat DirectedTwoCommodityIntegralFlow => "(max_capacity + 1)^(2 * num_arcs)",
+    default DirectedTwoCommodityIntegralFlow => "(max_capacity + 1)^(2 * num_arcs)",
 }
 
 #[cfg(feature = "example-db")]

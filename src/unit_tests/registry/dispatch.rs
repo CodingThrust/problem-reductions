@@ -90,11 +90,11 @@ fn test_loaded_dyn_problem_delegates_to_value_and_witness_fns() {
         solve_subset_sum_witness,
     );
 
-    assert_eq!(loaded.solve_brute_force_value(), "true");
+    assert_eq!(loaded.solve_brute_force_value(), "Or(true)");
     let solved = loaded
         .solve_brute_force_witness()
         .expect("expected satisfying solution");
-    assert_eq!(solved.1, "true");
+    assert_eq!(solved.1, "Or(true)");
     assert_eq!(solved.0.len(), 3);
 }
 
@@ -171,9 +171,9 @@ fn test_load_dyn_solves_subset_sum() {
     )
     .unwrap();
 
-    assert_eq!(loaded.solve_brute_force_value(), "true");
+    assert_eq!(loaded.solve_brute_force_value(), "Or(true)");
     let solved = loaded.solve_brute_force_witness().unwrap();
-    assert_eq!(solved.1, "true");
+    assert_eq!(solved.1, "Or(true)");
 }
 
 #[test]

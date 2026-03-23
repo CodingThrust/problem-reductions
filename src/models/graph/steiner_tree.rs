@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     registry::{FieldInfo, ProblemSchemaEntry, VariantDimension},
     topology::{Graph, SimpleGraph},
-    traits::{ObjectiveProblem, Problem},
-    types::{ExtremumSense, Min, One, WeightElement},
+    traits::Problem,
+    types::{Min, One, WeightElement},
 };
 
 inventory::submit! {
@@ -247,21 +247,9 @@ where
     }
 }
 
-impl<G, W> ObjectiveProblem for SteinerTree<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt SteinerTree<SimpleGraph, i32> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
-    opt SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
+    default SteinerTree<SimpleGraph, i32> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
+    SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
 }
 
 #[cfg(feature = "example-db")]

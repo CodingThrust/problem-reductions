@@ -74,7 +74,7 @@ fn test_minimum_cardinality_key_solver() {
 
     assert!(!solutions.is_empty());
     assert!(solution_set.contains(&vec![1, 1, 0, 0, 0, 0]));
-    assert!(solutions.iter().all(|sol| problem.evaluate(sol)));
+    assert!(solutions.iter().all(|sol| problem.evaluate(sol).0));
 }
 
 #[test]
@@ -138,5 +138,5 @@ fn test_minimum_cardinality_key_paper_example() {
     let solution_set: HashSet<Vec<usize>> = solutions.iter().cloned().collect();
     assert!(solution_set.contains(&solution));
     // All returned solutions must be valid.
-    assert!(solutions.iter().all(|sol| problem.evaluate(sol)));
+    assert!(solutions.iter().all(|sol| problem.evaluate(sol).0));
 }

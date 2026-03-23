@@ -11,7 +11,7 @@
 //! variables such that every conjunct's resolved tuple belongs to its relation.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -191,7 +191,7 @@ impl ConjunctiveBooleanQuery {
 
 impl Problem for ConjunctiveBooleanQuery {
     const NAME: &'static str = "ConjunctiveBooleanQuery";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -201,30 +201,30 @@ impl Problem for ConjunctiveBooleanQuery {
         vec![self.domain_size; self.num_variables]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_variables {
-            return false;
-        }
-        if config.iter().any(|&v| v >= self.domain_size) {
-            return false;
-        }
-        self.conjuncts.iter().all(|(rel_idx, args)| {
-            let tuple: Vec<usize> = args
-                .iter()
-                .map(|arg| match arg {
-                    QueryArg::Variable(i) => config[*i],
-                    QueryArg::Constant(c) => *c,
-                })
-                .collect();
-            self.relations[*rel_idx].tuples.contains(&tuple)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.num_variables {
+                return crate::types::Or(false);
+            }
+            if config.iter().any(|&v| v >= self.domain_size) {
+                return crate::types::Or(false);
+            }
+            self.conjuncts.iter().all(|(rel_idx, args)| {
+                let tuple: Vec<usize> = args
+                    .iter()
+                    .map(|arg| match arg {
+                        QueryArg::Variable(i) => config[*i],
+                        QueryArg::Constant(c) => *c,
+                    })
+                    .collect();
+                self.relations[*rel_idx].tuples.contains(&tuple)
+            })
         })
     }
 }
 
-impl WitnessProblem for ConjunctiveBooleanQuery {}
-
 crate::declare_variants! {
-    default sat ConjunctiveBooleanQuery => "domain_size ^ num_variables",
+    default ConjunctiveBooleanQuery => "domain_size ^ num_variables",
 }
 
 #[cfg(feature = "example-db")]

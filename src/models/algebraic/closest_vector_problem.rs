@@ -4,8 +4,8 @@
 //! minimizing ‖Bx - t‖₂.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -274,26 +274,9 @@ where
     }
 }
 
-impl<T> ObjectiveProblem for ClosestVectorProblem<T>
-where
-    T: Clone
-        + Into<f64>
-        + crate::variant::VariantParam
-        + Serialize
-        + for<'de> Deserialize<'de>
-        + std::fmt::Debug
-        + 'static,
-{
-    type Objective = f64;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt ClosestVectorProblem<i32> => "2^num_basis_vectors",
-    opt ClosestVectorProblem<f64> => "2^num_basis_vectors",
+    default ClosestVectorProblem<i32> => "2^num_basis_vectors",
+    ClosestVectorProblem<f64> => "2^num_basis_vectors",
 }
 
 #[cfg(feature = "example-db")]

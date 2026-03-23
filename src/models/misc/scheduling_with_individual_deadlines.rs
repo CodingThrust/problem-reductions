@@ -5,7 +5,7 @@
 //! every task finishes by its own deadline.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -102,7 +102,7 @@ impl SchedulingWithIndividualDeadlines {
 
 impl Problem for SchedulingWithIndividualDeadlines {
     const NAME: &'static str = "SchedulingWithIndividualDeadlines";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -112,40 +112,40 @@ impl Problem for SchedulingWithIndividualDeadlines {
         self.deadlines.clone()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_tasks {
-            return false;
-        }
-
-        for (&start, &deadline) in config.iter().zip(&self.deadlines) {
-            if start >= deadline {
-                return false;
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.num_tasks {
+                return crate::types::Or(false);
             }
-        }
 
-        for &(pred, succ) in &self.precedences {
-            if config[pred] + 1 > config[succ] {
-                return false;
+            for (&start, &deadline) in config.iter().zip(&self.deadlines) {
+                if start >= deadline {
+                    return crate::types::Or(false);
+                }
             }
-        }
 
-        let mut slot_loads = BTreeMap::new();
-        for &start in config {
-            let load = slot_loads.entry(start).or_insert(0usize);
-            *load += 1;
-            if *load > self.num_processors {
-                return false;
+            for &(pred, succ) in &self.precedences {
+                if config[pred] + 1 > config[succ] {
+                    return crate::types::Or(false);
+                }
             }
-        }
 
-        true
+            let mut slot_loads = BTreeMap::new();
+            for &start in config {
+                let load = slot_loads.entry(start).or_insert(0usize);
+                *load += 1;
+                if *load > self.num_processors {
+                    return crate::types::Or(false);
+                }
+            }
+
+            true
+        })
     }
 }
 
-impl WitnessProblem for SchedulingWithIndividualDeadlines {}
-
 crate::declare_variants! {
-    default sat SchedulingWithIndividualDeadlines => "max_deadline^num_tasks",
+    default SchedulingWithIndividualDeadlines => "max_deadline^num_tasks",
 }
 
 #[cfg(feature = "example-db")]

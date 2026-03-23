@@ -1,7 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::ExtremumSense;
+use crate::traits::Problem;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -53,12 +52,6 @@ fn test_count_paint_switches_function() {
     assert_eq!(count_paint_switches(&[0, 1, 0]), 2);
     assert_eq!(count_paint_switches(&[0, 0, 1, 1]), 1);
     assert_eq!(count_paint_switches(&[0, 1, 0, 1]), 3);
-}
-
-#[test]
-fn test_direction() {
-    let problem = PaintShop::new(vec!["a", "a"]);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

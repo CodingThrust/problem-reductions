@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -127,19 +127,8 @@ where
     }
 }
 
-impl<G> ObjectiveProblem for GraphPartitioning<G>
-where
-    G: Graph + crate::variant::VariantParam,
-{
-    type Objective = i32;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt GraphPartitioning<SimpleGraph> => "2^num_vertices",
+    default GraphPartitioning<SimpleGraph> => "2^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

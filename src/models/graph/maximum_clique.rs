@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Max, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Max, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -143,18 +143,6 @@ where
     }
 }
 
-impl<G, W> ObjectiveProblem for MaximumClique<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Maximize
-    }
-}
-
 /// Check if a configuration forms a valid clique.
 fn is_clique_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
     // Collect all selected vertices
@@ -177,7 +165,7 @@ fn is_clique_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    default opt MaximumClique<SimpleGraph, i32> => "1.1996^num_vertices",
+    default MaximumClique<SimpleGraph, i32> => "1.1996^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

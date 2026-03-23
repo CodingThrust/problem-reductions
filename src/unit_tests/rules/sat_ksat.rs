@@ -117,7 +117,7 @@ fn test_sat_to_ksat_closed_loop() {
     let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
-    // Solve both problems - use find_all_satisfying for satisfaction problems
+    // Solve both problems - use find_all_witnesses for satisfaction problems
     let solver = BruteForce::new();
 
     let sat_solutions = solver.find_all_witnesses(&sat);
@@ -146,7 +146,7 @@ fn test_sat_to_3sat_solution_extraction() {
     let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
-    // Solve K-SAT - use find_all_satisfying for satisfaction problems
+    // Solve K-SAT - use find_all_witnesses for satisfaction problems
     let solver = BruteForce::new();
     let ksat_solutions = solver.find_all_witnesses(ksat);
 
@@ -208,7 +208,7 @@ fn test_roundtrip_sat_3sat_sat() {
     let to_sat = ReduceTo::<Satisfiability>::reduce_to(ksat);
     let final_sat = to_sat.target_problem();
 
-    // Solve all three - use find_all_satisfying for satisfaction problems
+    // Solve all three - use find_all_witnesses for satisfaction problems
     let solver = BruteForce::new();
 
     let orig_solutions = solver.find_all_witnesses(&original_sat);
@@ -286,7 +286,7 @@ fn test_mixed_clause_sizes() {
         assert_eq!(clause.len(), 3);
     }
 
-    // Verify satisfiability is preserved - use find_all_satisfying for satisfaction problems
+    // Verify satisfiability is preserved - use find_all_witnesses for satisfaction problems
     assert_satisfaction_round_trip_from_satisfaction_target(
         &sat,
         &reduction,

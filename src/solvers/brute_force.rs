@@ -2,7 +2,7 @@
 
 use crate::config::DimsIterator;
 use crate::solvers::Solver;
-use crate::traits::{ObjectiveProblem, Problem, WitnessProblem};
+use crate::traits::Problem;
 use crate::types::Aggregate;
 
 /// A brute force solver that enumerates all possible configurations.
@@ -17,42 +17,6 @@ impl BruteForce {
     /// Create a new brute force solver.
     pub fn new() -> Self {
         Self
-    }
-
-    /// Temporary compatibility helper for optimization problems.
-    pub fn find_all_best<P>(&self, problem: &P) -> Vec<Vec<usize>>
-    where
-        P: ObjectiveProblem,
-        P::Value: Aggregate,
-    {
-        self.find_all_witnesses(problem)
-    }
-
-    /// Temporary compatibility helper for optimization problems.
-    pub fn find_best<P>(&self, problem: &P) -> Option<Vec<usize>>
-    where
-        P: ObjectiveProblem,
-        P::Value: Aggregate,
-    {
-        self.find_witness(problem)
-    }
-
-    /// Temporary compatibility helper for satisfaction problems.
-    pub fn find_all_satisfying<P>(&self, problem: &P) -> Vec<Vec<usize>>
-    where
-        P: WitnessProblem,
-        P::Value: Aggregate,
-    {
-        self.find_all_witnesses(problem)
-    }
-
-    /// Temporary compatibility helper for satisfaction problems.
-    pub fn find_satisfying<P>(&self, problem: &P) -> Option<Vec<usize>>
-    where
-        P: WitnessProblem,
-        P::Value: Aggregate,
-    {
-        self.find_witness(problem)
     }
 
     /// Find one witness configuration when the aggregate value admits them.
@@ -116,22 +80,6 @@ impl Solver for BruteForce {
         DimsIterator::new(problem.dims())
             .map(|config| problem.evaluate(&config))
             .fold(P::Value::identity(), P::Value::combine)
-    }
-
-    fn find_best<P>(&self, problem: &P) -> Option<Vec<usize>>
-    where
-        P: ObjectiveProblem,
-        P::Value: Aggregate,
-    {
-        BruteForce::find_witness(self, problem)
-    }
-
-    fn find_satisfying<P>(&self, problem: &P) -> Option<Vec<usize>>
-    where
-        P: WitnessProblem,
-        P::Value: Aggregate,
-    {
-        BruteForce::find_witness(self, problem)
     }
 }
 

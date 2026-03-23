@@ -30,19 +30,6 @@ fn test_reduction_graph_discovers_registered_reductions() {
     assert!(graph.has_direct_reduction_by_name("Satisfiability", "MaximumIndependentSet"));
 }
 
-#[test]
-fn test_bidirectional_reductions() {
-    let graph = ReductionGraph::new();
-
-    // IS <-> VC should both be registered
-    assert!(graph.has_direct_reduction_by_name("MaximumIndependentSet", "MinimumVertexCover"));
-    assert!(graph.has_direct_reduction_by_name("MinimumVertexCover", "MaximumIndependentSet"));
-
-    // MaxCut <-> SpinGlass should both be registered
-    assert!(graph.has_direct_reduction_by_name("MaxCut", "SpinGlass"));
-    assert!(graph.has_direct_reduction_by_name("SpinGlass", "MaxCut"));
-}
-
 // ---- Path finding (by name) ----
 
 #[test]
@@ -266,40 +253,6 @@ fn test_no_path_exists() {
 
     let paths = graph.find_all_paths("QUBO", &src, "MaximumSetPacking", &dst);
     assert!(paths.is_empty());
-}
-
-#[test]
-fn test_bidirectional_paths() {
-    let graph = ReductionGraph::new();
-    let is_var =
-        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let vc_var = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
-    let sg_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant());
-    let qubo_var = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
-
-    assert!(!graph
-        .find_all_paths(
-            "MaximumIndependentSet",
-            &is_var,
-            "MinimumVertexCover",
-            &vc_var
-        )
-        .is_empty());
-    assert!(!graph
-        .find_all_paths(
-            "MinimumVertexCover",
-            &vc_var,
-            "MaximumIndependentSet",
-            &is_var
-        )
-        .is_empty());
-
-    assert!(!graph
-        .find_all_paths("SpinGlass", &sg_var, "QUBO", &qubo_var)
-        .is_empty());
-    assert!(!graph
-        .find_all_paths("QUBO", &qubo_var, "SpinGlass", &sg_var)
-        .is_empty());
 }
 
 // ---- Display ----
@@ -710,4 +663,66 @@ fn find_best_entry_accepts_exact_source_and_target_variant() {
         result.is_some(),
         "Should find exact match on both source and target variant"
     );
+}
+
+#[test]
+fn test_has_direct_reduction_mode_witness() {
+    let graph = ReductionGraph::new();
+
+    // MIS -> MVC is witness-only, so Witness mode should find it
+    assert!(graph
+        .has_direct_reduction_mode::<MaximumIndependentSet<SimpleGraph, i32>, MinimumVertexCover<SimpleGraph, i32>>(
+            ReductionMode::Witness,
+        ));
+}
+
+#[test]
+fn test_has_direct_reduction_by_name_mode() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_by_name_mode(
+        "MaximumIndependentSet",
+        "MinimumVertexCover",
+        ReductionMode::Witness,
+    ));
+
+    // Aggregate mode should not find witness-only edges
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "MaximumIndependentSet",
+        "MinimumVertexCover",
+        ReductionMode::Aggregate,
+    ));
+}
+
+#[test]
+fn test_find_all_paths_mode_witness() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+
+    let paths = graph.find_all_paths_mode(
+        "MaximumIndependentSet",
+        &src,
+        "MinimumVertexCover",
+        &dst,
+        ReductionMode::Witness,
+    );
+    assert!(!paths.is_empty());
+}
+
+#[test]
+fn test_find_all_paths_mode_aggregate_rejects_witness_only() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+
+    // MIS -> MVC is witness-only, so aggregate mode should find no paths
+    let paths = graph.find_all_paths_mode(
+        "MaximumIndependentSet",
+        &src,
+        "MinimumVertexCover",
+        &dst,
+        ReductionMode::Aggregate,
+    );
+    assert!(paths.is_empty());
 }

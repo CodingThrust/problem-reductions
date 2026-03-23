@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Max, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Max, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -213,20 +213,8 @@ where
     }
 }
 
-impl<G, W> ObjectiveProblem for MaximumMatching<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Maximize
-    }
-}
-
 crate::declare_variants! {
-    default opt MaximumMatching<SimpleGraph, i32> => "num_vertices^3",
+    default MaximumMatching<SimpleGraph, i32> => "num_vertices^3",
 }
 
 #[cfg(feature = "example-db")]

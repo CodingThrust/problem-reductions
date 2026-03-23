@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::BipartiteGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -238,16 +238,8 @@ impl Problem for BicliqueCover {
     }
 }
 
-impl ObjectiveProblem for BicliqueCover {
-    type Objective = i32;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt BicliqueCover => "2^num_vertices",
+    default BicliqueCover => "2^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

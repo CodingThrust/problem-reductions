@@ -1,8 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::ExtremumSense;
+use crate::traits::Problem;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -58,12 +57,6 @@ fn test_is_dominating_set_function() {
     assert!(!is_dominating_set(&graph, &[false, true, false, false]));
     // Empty doesn't dominate
     assert!(!is_dominating_set(&graph, &[false, false, false, false]));
-}
-
-#[test]
-fn test_direction() {
-    let problem = MinimumDominatingSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

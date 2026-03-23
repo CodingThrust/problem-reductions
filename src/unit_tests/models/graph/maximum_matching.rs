@@ -1,8 +1,8 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Max};
+use crate::traits::Problem;
+use crate::types::Max;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -56,12 +56,6 @@ fn test_is_matching_function() {
     assert!(is_matching(&graph, &[false, true, false])); // Single edge
     assert!(!is_matching(&graph, &[true, true, false])); // Share vertex 1
     assert!(is_matching(&graph, &[false, false, false])); // Empty is valid
-}
-
-#[test]
-fn test_direction() {
-    let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(2, vec![(0, 1)]));
-    assert_eq!(problem.direction(), ExtremumSense::Maximize);
 }
 
 #[test]

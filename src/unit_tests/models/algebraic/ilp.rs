@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{Extremum, ExtremumSense};
+use crate::traits::Problem;
+use crate::types::Extremum;
 
 // ============================================================
 // Comparison tests
@@ -97,17 +97,6 @@ fn test_linear_constraint_out_of_bounds() {
 // ObjectiveSense tests
 // ============================================================
 
-#[test]
-fn test_objective_sense_direction_conversions() {
-    // Test that ObjectiveSense and ExtremumSense can be converted
-    let max_sense = ObjectiveSense::Maximize;
-    let min_sense = ObjectiveSense::Minimize;
-
-    // ExtremumSense values match ObjectiveSense semantics
-    assert_eq!(max_sense, ObjectiveSense::Maximize);
-    assert_eq!(min_sense, ObjectiveSense::Minimize);
-}
-
 // ============================================================
 // ILP tests
 // ============================================================
@@ -187,15 +176,6 @@ fn test_ilp_is_feasible() {
 fn test_ilp_num_variables() {
     let ilp = ILP::<bool>::new(5, vec![], vec![], ObjectiveSense::Minimize);
     assert_eq!(ilp.num_variables(), 5);
-}
-
-#[test]
-fn test_ilp_direction() {
-    let max_ilp = ILP::<bool>::new(2, vec![], vec![], ObjectiveSense::Maximize);
-    let min_ilp = ILP::<bool>::new(2, vec![], vec![], ObjectiveSense::Minimize);
-
-    assert_eq!(max_ilp.direction(), ExtremumSense::Maximize);
-    assert_eq!(min_ilp.direction(), ExtremumSense::Minimize);
 }
 
 #[test]
@@ -401,8 +381,6 @@ fn test_ilp_problem() {
     );
     // [1, 1] -> infeasible
     assert_eq!(Problem::evaluate(&ilp, &[1, 1]), Extremum::maximize(None));
-
-    assert_eq!(ilp.direction(), ExtremumSense::Maximize);
 }
 
 #[test]
@@ -422,7 +400,6 @@ fn test_ilp_problem_minimize() {
         Problem::evaluate(&ilp, &[1, 1]),
         Extremum::minimize(Some(2.0))
     );
-    assert_eq!(ilp.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

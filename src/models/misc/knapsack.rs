@@ -4,8 +4,8 @@
 //! total value while respecting a weight capacity constraint.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Max};
+use crate::traits::Problem;
+use crate::types::Max;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -155,16 +155,8 @@ impl Problem for Knapsack {
     }
 }
 
-impl ObjectiveProblem for Knapsack {
-    type Objective = i64;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Maximize
-    }
-}
-
 crate::declare_variants! {
-    default opt Knapsack => "2^(num_items / 2)",
+    default Knapsack => "2^(num_items / 2)",
 }
 
 mod nonnegative_i64 {

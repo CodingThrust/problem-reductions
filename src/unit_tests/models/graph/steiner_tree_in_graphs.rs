@@ -1,8 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::ExtremumSense;
+use crate::traits::Problem;
 
 #[test]
 fn test_steiner_tree_creation() {
@@ -45,13 +44,6 @@ fn test_steiner_tree_evaluation() {
     let config_empty = vec![0, 0, 0];
     let result = problem.evaluate(&config_empty);
     assert!(!result.is_valid());
-}
-
-#[test]
-fn test_steiner_tree_direction() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = SteinerTreeInGraphs::new(graph, vec![0, 2], vec![1i32; 2]);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

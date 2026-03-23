@@ -5,7 +5,7 @@
 //! traverses every required arc in some order and stays within the bound.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
@@ -259,7 +259,7 @@ impl StackerCrane {
 
 impl Problem for StackerCrane {
     const NAME: &'static str = "StackerCrane";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -269,15 +269,15 @@ impl Problem for StackerCrane {
         vec![self.num_arcs(); self.num_arcs()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        matches!(self.closed_walk_length(config), Some(total) if total <= self.bound)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            matches!(self.closed_walk_length(config), Some(total) if total <= self.bound)
+        })
     }
 }
 
-impl WitnessProblem for StackerCrane {}
-
 crate::declare_variants! {
-    default sat StackerCrane => "num_vertices^2 * 2^num_arcs",
+    default StackerCrane => "num_vertices^2 * 2^num_arcs",
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -5,7 +5,7 @@
 //! symbol appears in a single contiguous block.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -141,15 +141,17 @@ impl GroupingBySwapping {
 
 impl Problem for GroupingBySwapping {
     const NAME: &'static str = "GroupingBySwapping";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.string_len(); self.budget]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.apply_swap_program(config)
-            .is_some_and(|candidate| self.is_grouped(&candidate))
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            self.apply_swap_program(config)
+                .is_some_and(|candidate| self.is_grouped(&candidate))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -157,10 +159,8 @@ impl Problem for GroupingBySwapping {
     }
 }
 
-impl WitnessProblem for GroupingBySwapping {}
-
 crate::declare_variants! {
-    default sat GroupingBySwapping => "string_len ^ budget",
+    default GroupingBySwapping => "string_len ^ budget",
 }
 
 #[cfg(feature = "example-db")]

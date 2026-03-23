@@ -60,16 +60,16 @@ fn test_grouping_by_swapping_bruteforce_yes_and_no() {
     let solver = BruteForce::new();
 
     let satisfying = solver
-        .find_satisfying(&yes_problem)
+        .find_witness(&yes_problem)
         .expect("expected a satisfying 3-swap sequence");
     assert!(yes_problem.evaluate(&satisfying));
     assert!(solver
-        .find_all_satisfying(&yes_problem)
+        .find_all_witnesses(&yes_problem)
         .iter()
         .any(|config| config == &vec![2, 1, 3]));
 
-    assert!(solver.find_satisfying(&no_problem).is_none());
-    assert!(solver.find_all_satisfying(&no_problem).is_empty());
+    assert!(solver.find_witness(&no_problem).is_none());
+    assert!(solver.find_all_witnesses(&no_problem).is_empty());
 }
 
 #[test]
@@ -79,10 +79,10 @@ fn test_grouping_by_swapping_paper_example() {
 
     let solver = BruteForce::new();
     assert!(solver
-        .find_all_satisfying(&problem)
+        .find_all_witnesses(&problem)
         .iter()
         .any(|config| config == &vec![2, 1, 3, 5, 5]));
-    assert!(solver.find_satisfying(&issue_two_swap_instance()).is_none());
+    assert!(solver.find_witness(&issue_two_swap_instance()).is_none());
 }
 
 #[test]

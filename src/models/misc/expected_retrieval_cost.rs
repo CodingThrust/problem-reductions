@@ -5,7 +5,7 @@
 //! prescribed bound.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 const FLOAT_TOLERANCE: f64 = 1e-9;
@@ -126,7 +126,7 @@ impl ExpectedRetrievalCost {
 
 impl Problem for ExpectedRetrievalCost {
     const NAME: &'static str = "ExpectedRetrievalCost";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -136,12 +136,10 @@ impl Problem for ExpectedRetrievalCost {
         vec![self.num_sectors; self.num_records()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_solution(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_valid_solution(config))
     }
 }
-
-impl WitnessProblem for ExpectedRetrievalCost {}
 
 fn latency_distance(num_sectors: usize, source: usize, target: usize) -> usize {
     if source < target {
@@ -152,7 +150,7 @@ fn latency_distance(num_sectors: usize, source: usize, target: usize) -> usize {
 }
 
 crate::declare_variants! {
-    default sat ExpectedRetrievalCost => "num_sectors ^ num_records",
+    default ExpectedRetrievalCost => "num_sectors ^ num_records",
 }
 
 #[cfg(feature = "example-db")]

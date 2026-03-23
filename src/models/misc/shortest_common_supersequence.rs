@@ -11,7 +11,7 @@
 //! to the standard `|w| ≤ B` formulation. This problem is NP-hard (Maier, 1978).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -125,7 +125,7 @@ fn is_subsequence(needle: &[usize], haystack: &[usize]) -> bool {
 
 impl Problem for ShortestCommonSupersequence {
     const NAME: &'static str = "ShortestCommonSupersequence";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -135,21 +135,21 @@ impl Problem for ShortestCommonSupersequence {
         vec![self.alphabet_size; self.bound]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.bound {
-            return false;
-        }
-        if config.iter().any(|&v| v >= self.alphabet_size) {
-            return false;
-        }
-        self.strings.iter().all(|s| is_subsequence(s, config))
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.bound {
+                return crate::types::Or(false);
+            }
+            if config.iter().any(|&v| v >= self.alphabet_size) {
+                return crate::types::Or(false);
+            }
+            self.strings.iter().all(|s| is_subsequence(s, config))
+        })
     }
 }
 
-impl WitnessProblem for ShortestCommonSupersequence {}
-
 crate::declare_variants! {
-    default sat ShortestCommonSupersequence => "alphabet_size ^ bound",
+    default ShortestCommonSupersequence => "alphabet_size ^ bound",
 }
 
 #[cfg(feature = "example-db")]

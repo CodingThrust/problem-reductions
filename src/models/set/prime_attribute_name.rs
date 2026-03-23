@@ -4,7 +4,7 @@
 //! and a query attribute x, determine if x belongs to any candidate key of <A, F>.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -155,46 +155,48 @@ impl PrimeAttributeName {
 
 impl Problem for PrimeAttributeName {
     const NAME: &'static str = "PrimeAttributeName";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_attributes]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        // Check config length and binary values
-        if config.len() != self.num_attributes || config.iter().any(|&v| v > 1) {
-            return false;
-        }
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            // Check config length and binary values
+            if config.len() != self.num_attributes || config.iter().any(|&v| v > 1) {
+                return crate::types::Or(false);
+            }
 
-        // K = {i : config[i] = 1}
-        let k: Vec<bool> = config.iter().map(|&v| v == 1).collect();
+            // K = {i : config[i] = 1}
+            let k: Vec<bool> = config.iter().map(|&v| v == 1).collect();
 
-        // query_attribute must be in K
-        if !k[self.query_attribute] {
-            return false;
-        }
+            // query_attribute must be in K
+            if !k[self.query_attribute] {
+                return crate::types::Or(false);
+            }
 
-        // Compute closure(K) -- must equal all attributes (K is a superkey)
-        let closure = self.compute_closure(&k);
-        if closure.iter().any(|&v| !v) {
-            return false;
-        }
+            // Compute closure(K) -- must equal all attributes (K is a superkey)
+            let closure = self.compute_closure(&k);
+            if closure.iter().any(|&v| !v) {
+                return crate::types::Or(false);
+            }
 
-        // Check minimality: removing any attribute from K must break the superkey property
-        for i in 0..self.num_attributes {
-            if k[i] {
-                let mut reduced = k.clone();
-                reduced[i] = false;
-                let reduced_closure = self.compute_closure(&reduced);
-                if reduced_closure.iter().all(|&v| v) {
-                    // K \ {i} is still a superkey, so K is not minimal
-                    return false;
+            // Check minimality: removing any attribute from K must break the superkey property
+            for i in 0..self.num_attributes {
+                if k[i] {
+                    let mut reduced = k.clone();
+                    reduced[i] = false;
+                    let reduced_closure = self.compute_closure(&reduced);
+                    if reduced_closure.iter().all(|&v| v) {
+                        // K \ {i} is still a superkey, so K is not minimal
+                        return crate::types::Or(false);
+                    }
                 }
             }
-        }
 
-        true
+            true
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -202,10 +204,8 @@ impl Problem for PrimeAttributeName {
     }
 }
 
-impl WitnessProblem for PrimeAttributeName {}
-
 crate::declare_variants! {
-    default sat PrimeAttributeName => "2^num_attributes * num_dependencies * num_attributes",
+    default PrimeAttributeName => "2^num_attributes * num_dependencies * num_attributes",
 }
 
 #[cfg(feature = "example-db")]

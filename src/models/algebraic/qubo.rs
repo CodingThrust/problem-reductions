@@ -3,8 +3,8 @@
 //! QUBO minimizes a quadratic function over binary variables.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -173,26 +173,8 @@ where
     }
 }
 
-impl<W> ObjectiveProblem for QUBO<W>
-where
-    W: WeightElement
-        + crate::variant::VariantParam
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + std::ops::Mul<Output = W>,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt QUBO<f64> => "2^num_vars",
+    default QUBO<f64> => "2^num_vars",
 }
 
 #[cfg(feature = "example-db")]

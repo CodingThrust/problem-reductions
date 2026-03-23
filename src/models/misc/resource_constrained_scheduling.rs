@@ -5,7 +5,7 @@
 //! processor capacity limit and resource usage constraints per time slot.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -133,7 +133,7 @@ impl ResourceConstrainedScheduling {
 
 impl Problem for ResourceConstrainedScheduling {
     const NAME: &'static str = "ResourceConstrainedScheduling";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -143,61 +143,61 @@ impl Problem for ResourceConstrainedScheduling {
         vec![self.deadline as usize; self.num_tasks()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let n = self.num_tasks();
-        let d = self.deadline as usize;
-        let r = self.num_resources();
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let n = self.num_tasks();
+            let d = self.deadline as usize;
+            let r = self.num_resources();
 
-        // Check config length
-        if config.len() != n {
-            return false;
-        }
+            // Check config length
+            if config.len() != n {
+                return crate::types::Or(false);
+            }
 
-        // Check all time slots are in range
-        if config.iter().any(|&slot| slot >= d) {
-            return false;
-        }
+            // Check all time slots are in range
+            if config.iter().any(|&slot| slot >= d) {
+                return crate::types::Or(false);
+            }
 
-        // Check processor capacity and resource constraints at each time slot
-        for u in 0..d {
-            // Collect tasks scheduled at time slot u
-            let mut task_count = 0usize;
-            let mut resource_usage = vec![0u64; r];
+            // Check processor capacity and resource constraints at each time slot
+            for u in 0..d {
+                // Collect tasks scheduled at time slot u
+                let mut task_count = 0usize;
+                let mut resource_usage = vec![0u64; r];
 
-            for (t, &slot) in config.iter().enumerate() {
-                if slot == u {
-                    task_count += 1;
-                    // Accumulate resource usage
-                    for (usage, &req) in resource_usage
-                        .iter_mut()
-                        .zip(self.resource_requirements[t].iter())
-                    {
-                        *usage = usage.saturating_add(req);
+                for (t, &slot) in config.iter().enumerate() {
+                    if slot == u {
+                        task_count += 1;
+                        // Accumulate resource usage
+                        for (usage, &req) in resource_usage
+                            .iter_mut()
+                            .zip(self.resource_requirements[t].iter())
+                        {
+                            *usage = usage.saturating_add(req);
+                        }
+                    }
+                }
+
+                // Check processor capacity
+                if task_count > self.num_processors {
+                    return crate::types::Or(false);
+                }
+
+                // Check resource bounds
+                for (usage, bound) in resource_usage.iter().zip(self.resource_bounds.iter()) {
+                    if usage > bound {
+                        return crate::types::Or(false);
                     }
                 }
             }
 
-            // Check processor capacity
-            if task_count > self.num_processors {
-                return false;
-            }
-
-            // Check resource bounds
-            for (usage, bound) in resource_usage.iter().zip(self.resource_bounds.iter()) {
-                if usage > bound {
-                    return false;
-                }
-            }
-        }
-
-        true
+            true
+        })
     }
 }
 
-impl WitnessProblem for ResourceConstrainedScheduling {}
-
 crate::declare_variants! {
-    default sat ResourceConstrainedScheduling => "deadline ^ num_tasks",
+    default ResourceConstrainedScheduling => "deadline ^ num_tasks",
 }
 
 #[cfg(feature = "example-db")]

@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Max, One, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Max, One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -175,18 +175,6 @@ where
     }
 }
 
-impl<G, W> ObjectiveProblem for LongestPath<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Objective = W::Sum;
-
-    fn direction(&self) -> ExtremumSense {
-        ExtremumSense::Maximize
-    }
-}
-
 fn is_simple_st_path<G: Graph>(
     graph: &G,
     source_vertex: usize,
@@ -265,8 +253,8 @@ fn is_simple_st_path<G: Graph>(
 }
 
 crate::declare_variants! {
-    default opt LongestPath<SimpleGraph, i32> => "num_vertices * 2^num_vertices",
-    opt LongestPath<SimpleGraph, One> => "num_vertices * 2^num_vertices",
+    default LongestPath<SimpleGraph, i32> => "num_vertices * 2^num_vertices",
+    LongestPath<SimpleGraph, One> => "num_vertices * 2^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

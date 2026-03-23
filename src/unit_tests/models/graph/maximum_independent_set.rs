@@ -1,8 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::ExtremumSense;
+use crate::traits::Problem;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -62,12 +61,6 @@ fn test_is_independent_set_function() {
         &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
         &[false, true, true]
     ));
-}
-
-#[test]
-fn test_direction() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
-    assert_eq!(problem.direction(), ExtremumSense::Maximize);
 }
 
 #[test]

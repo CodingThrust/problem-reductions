@@ -7,7 +7,7 @@
 //! frequency table and every known value.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -278,7 +278,7 @@ impl ConsistencyOfDatabaseFrequencyTables {
 
 impl Problem for ConsistencyOfDatabaseFrequencyTables {
     const NAME: &'static str = "ConsistencyOfDatabaseFrequencyTables";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -292,51 +292,51 @@ impl Problem for ConsistencyOfDatabaseFrequencyTables {
         dims
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_assignment_variables() {
-            return false;
-        }
-
-        for object in 0..self.num_objects {
-            for (attribute, &domain_size) in self.attribute_domains.iter().enumerate() {
-                if config[self.config_index(object, attribute)] >= domain_size {
-                    return false;
-                }
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.num_assignment_variables() {
+                return crate::types::Or(false);
             }
-        }
-
-        for known_value in &self.known_values {
-            if config[self.config_index(known_value.object(), known_value.attribute())]
-                != known_value.value()
-            {
-                return false;
-            }
-        }
-
-        for table in &self.frequency_tables {
-            let rows = self.attribute_domains[table.attribute_a()];
-            let cols = self.attribute_domains[table.attribute_b()];
-            let mut observed = vec![vec![0usize; cols]; rows];
 
             for object in 0..self.num_objects {
-                let value_a = config[self.config_index(object, table.attribute_a())];
-                let value_b = config[self.config_index(object, table.attribute_b())];
-                observed[value_a][value_b] += 1;
+                for (attribute, &domain_size) in self.attribute_domains.iter().enumerate() {
+                    if config[self.config_index(object, attribute)] >= domain_size {
+                        return crate::types::Or(false);
+                    }
+                }
             }
 
-            if observed != table.counts {
-                return false;
+            for known_value in &self.known_values {
+                if config[self.config_index(known_value.object(), known_value.attribute())]
+                    != known_value.value()
+                {
+                    return crate::types::Or(false);
+                }
             }
-        }
 
-        true
+            for table in &self.frequency_tables {
+                let rows = self.attribute_domains[table.attribute_a()];
+                let cols = self.attribute_domains[table.attribute_b()];
+                let mut observed = vec![vec![0usize; cols]; rows];
+
+                for object in 0..self.num_objects {
+                    let value_a = config[self.config_index(object, table.attribute_a())];
+                    let value_b = config[self.config_index(object, table.attribute_b())];
+                    observed[value_a][value_b] += 1;
+                }
+
+                if observed != table.counts {
+                    return crate::types::Or(false);
+                }
+            }
+
+            true
+        })
     }
 }
 
-impl WitnessProblem for ConsistencyOfDatabaseFrequencyTables {}
-
 crate::declare_variants! {
-    default sat ConsistencyOfDatabaseFrequencyTables => "domain_size_product^num_objects",
+    default ConsistencyOfDatabaseFrequencyTables => "domain_size_product^num_objects",
 }
 
 #[cfg(feature = "example-db")]

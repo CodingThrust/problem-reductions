@@ -5,7 +5,7 @@
 //! that transforms Q1 into Q2. NP-complete (Chandra & Merlin, 1977).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -262,7 +262,7 @@ impl ConjunctiveQueryFoldability {
 
 impl Problem for ConjunctiveQueryFoldability {
     const NAME: &'static str = "ConjunctiveQueryFoldability";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -284,39 +284,40 @@ impl Problem for ConjunctiveQueryFoldability {
     ///
     /// Returns `true` iff applying the substitution encoded by `config` to every
     /// atom of Q1 produces exactly the set of atoms in Q2.
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_undistinguished {
-            return false;
-        }
-        let range = self.domain_size + self.num_distinguished + self.num_undistinguished;
-        if config.iter().any(|&v| v >= range) {
-            return false;
-        }
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.num_undistinguished {
+                return crate::types::Or(false);
+            }
+            let range = self.domain_size + self.num_distinguished + self.num_undistinguished;
+            if config.iter().any(|&v| v >= range) {
+                return crate::types::Or(false);
+            }
 
-        // Apply σ to every atom of Q1.
-        let substituted: HashSet<(usize, Vec<Term>)> = self
-            .query1_conjuncts
-            .iter()
-            .map(|(rel_idx, args)| {
-                let new_args = args
-                    .iter()
-                    .map(|term| self.apply_substitution(term, config))
-                    .collect();
-                (*rel_idx, new_args)
-            })
-            .collect();
+            // Apply σ to every atom of Q1.
+            let substituted: HashSet<(usize, Vec<Term>)> = self
+                .query1_conjuncts
+                .iter()
+                .map(|(rel_idx, args)| {
+                    let new_args = args
+                        .iter()
+                        .map(|term| self.apply_substitution(term, config))
+                        .collect();
+                    (*rel_idx, new_args)
+                })
+                .collect();
 
-        // Collect Q2 as a set.
-        let q2_set: HashSet<(usize, Vec<Term>)> = self.query2_conjuncts.iter().cloned().collect();
+            // Collect Q2 as a set.
+            let q2_set: HashSet<(usize, Vec<Term>)> =
+                self.query2_conjuncts.iter().cloned().collect();
 
-        substituted == q2_set
+            substituted == q2_set
+        })
     }
 }
 
-impl WitnessProblem for ConjunctiveQueryFoldability {}
-
 crate::declare_variants! {
-    default sat ConjunctiveQueryFoldability => "(num_distinguished + num_undistinguished + domain_size)^num_undistinguished * num_conjuncts_q1",
+    default ConjunctiveQueryFoldability => "(num_distinguished + num_undistinguished + domain_size)^num_undistinguished * num_conjuncts_q1",
 }
 
 #[cfg(feature = "example-db")]

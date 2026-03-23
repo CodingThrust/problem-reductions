@@ -53,7 +53,7 @@ fn test_coloring_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    // Solve with brute force on original problem - use find_all_satisfying for satisfaction problems
+    // Solve with brute force on original problem - use find_all_witnesses for satisfaction problems
     let bf_solutions = bf.find_all_witnesses(&problem);
     assert!(
         !bf_solutions.is_empty(),

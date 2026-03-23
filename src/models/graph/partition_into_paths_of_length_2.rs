@@ -8,7 +8,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 
@@ -148,7 +148,7 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "PartitionIntoPathsOfLength2";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -159,15 +159,13 @@ where
         vec![q; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_partition(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_valid_partition(config))
     }
 }
 
-impl<G: Graph + VariantParam> WitnessProblem for PartitionIntoPathsOfLength2<G> {}
-
 crate::declare_variants! {
-    default sat PartitionIntoPathsOfLength2<SimpleGraph> => "3^num_vertices",
+    default PartitionIntoPathsOfLength2<SimpleGraph> => "3^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

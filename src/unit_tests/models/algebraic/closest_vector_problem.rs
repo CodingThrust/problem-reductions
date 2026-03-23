@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 
 #[test]
 fn test_cvp_creation() {
@@ -36,15 +36,6 @@ fn test_cvp_evaluate() {
     let config_111 = vec![3, 3, 3]; // maps to x=(1,1,1)
     let result = Problem::evaluate(&cvp, &config_111);
     assert_eq!(result, Min(Some(1.0)));
-}
-
-#[test]
-fn test_cvp_direction() {
-    let basis = vec![vec![1, 0], vec![0, 1]];
-    let target = vec![0.5, 0.5];
-    let bounds = vec![VarBounds::bounded(0, 2), VarBounds::bounded(0, 2)];
-    let cvp = ClosestVectorProblem::new(basis, target, bounds);
-    assert_eq!(cvp.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

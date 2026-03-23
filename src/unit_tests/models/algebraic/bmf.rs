@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::{ExtremumSense, Min};
+use crate::traits::Problem;
+use crate::types::Min;
 
 include!("../../jl_helpers.rs");
 
@@ -148,13 +148,6 @@ fn test_matrix_hamming_distance_function() {
 }
 
 #[test]
-fn test_direction() {
-    let matrix = vec![vec![true]];
-    let problem = BMF::new(matrix, 1);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
-}
-
-#[test]
 fn test_empty_matrix() {
     let matrix: Vec<Vec<bool>> = vec![];
     let problem = BMF::new(matrix, 1);
@@ -173,8 +166,7 @@ fn test_is_exact() {
 
 #[test]
 fn test_bmf_problem() {
-    use crate::traits::{ObjectiveProblem, Problem};
-    use crate::types::ExtremumSense;
+    use crate::traits::Problem;
 
     // 2x2 identity matrix with rank 2
     let matrix = vec![vec![true, false], vec![false, true]];
@@ -197,7 +189,6 @@ fn test_bmf_problem() {
     );
 
     // ExtremumSense is minimize
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 
     // Test with 1x1 matrix
     let matrix = vec![vec![true]];

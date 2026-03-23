@@ -2,8 +2,7 @@ use super::is_feedback_vertex_set;
 use crate::models::graph::MinimumFeedbackVertexSet;
 use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
-use crate::traits::{ObjectiveProblem, Problem};
-use crate::types::ExtremumSense;
+use crate::traits::Problem;
 
 /// Build the 9-vertex, 15-arc example from the issue.
 ///
@@ -57,13 +56,6 @@ fn test_minimum_feedback_vertex_set_basic() {
         !result2.is_valid(),
         "Expected {{1,4,7}} to be an invalid FVS (cycle 2→5→8→2 remains)"
     );
-}
-
-#[test]
-fn test_minimum_feedback_vertex_set_direction() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i32; 3]);
-    assert_eq!(problem.direction(), ExtremumSense::Minimize);
 }
 
 #[test]

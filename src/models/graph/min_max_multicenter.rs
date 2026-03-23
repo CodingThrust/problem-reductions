@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use crate::types::WeightElement;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -246,7 +246,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinMaxMulticenter";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -256,46 +256,44 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.graph.num_vertices() || config.iter().any(|&selected| selected > 1)
-        {
-            return false;
-        }
-
-        // Check exactly K centers are selected
-        let num_selected = config.iter().filter(|&&selected| selected == 1).count();
-        if num_selected != self.k {
-            return false;
-        }
-
-        // Compute shortest distances to nearest center
-        let distances = match self.shortest_distances(config) {
-            Some(d) => d,
-            None => return false,
-        };
-
-        // Compute max weighted distance: max_{v} w(v) * d(v)
-        let mut max_wd = W::Sum::zero();
-        for (v, dist) in distances.iter().enumerate() {
-            let wd = self.vertex_weights[v].to_sum() * dist.clone();
-            if wd > max_wd {
-                max_wd = wd;
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.graph.num_vertices()
+                || config.iter().any(|&selected| selected > 1)
+            {
+                return crate::types::Or(false);
             }
-        }
 
-        max_wd <= self.bound
+            // Check exactly K centers are selected
+            let num_selected = config.iter().filter(|&&selected| selected == 1).count();
+            if num_selected != self.k {
+                return crate::types::Or(false);
+            }
+
+            // Compute shortest distances to nearest center
+            let distances = match self.shortest_distances(config) {
+                Some(d) => d,
+                None => {
+                    return crate::types::Or(false);
+                }
+            };
+
+            // Compute max weighted distance: max_{v} w(v) * d(v)
+            let mut max_wd = W::Sum::zero();
+            for (v, dist) in distances.iter().enumerate() {
+                let wd = self.vertex_weights[v].to_sum() * dist.clone();
+                if wd > max_wd {
+                    max_wd = wd;
+                }
+            }
+
+            max_wd <= self.bound
+        })
     }
 }
 
-impl<G, W> WitnessProblem for MinMaxMulticenter<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-}
-
 crate::declare_variants! {
-    default sat MinMaxMulticenter<SimpleGraph, i32> => "1.4969^num_vertices",
+    default MinMaxMulticenter<SimpleGraph, i32> => "1.4969^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

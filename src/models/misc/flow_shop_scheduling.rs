@@ -5,7 +5,7 @@
 //! be completed by a global deadline D.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -160,7 +160,7 @@ impl FlowShopScheduling {
 
 impl Problem for FlowShopScheduling {
     const NAME: &'static str = "FlowShopScheduling";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -171,32 +171,32 @@ impl Problem for FlowShopScheduling {
         (0..n).rev().map(|i| i + 1).collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let n = self.num_jobs();
-        if config.len() != n {
-            return false;
-        }
-
-        // Decode Lehmer code into a permutation.
-        // config[i] must be < n - i (the domain size for position i).
-        let mut available: Vec<usize> = (0..n).collect();
-        let mut job_order = Vec::with_capacity(n);
-        for &c in config.iter() {
-            if c >= available.len() {
-                return false;
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let n = self.num_jobs();
+            if config.len() != n {
+                return crate::types::Or(false);
             }
-            job_order.push(available.remove(c));
-        }
 
-        let makespan = self.compute_makespan(&job_order);
-        makespan <= self.deadline
+            // Decode Lehmer code into a permutation.
+            // config[i] must be < n - i (the domain size for position i).
+            let mut available: Vec<usize> = (0..n).collect();
+            let mut job_order = Vec::with_capacity(n);
+            for &c in config.iter() {
+                if c >= available.len() {
+                    return crate::types::Or(false);
+                }
+                job_order.push(available.remove(c));
+            }
+
+            let makespan = self.compute_makespan(&job_order);
+            makespan <= self.deadline
+        })
     }
 }
 
-impl WitnessProblem for FlowShopScheduling {}
-
 crate::declare_variants! {
-    default sat FlowShopScheduling => "factorial(num_jobs)",
+    default FlowShopScheduling => "factorial(num_jobs)",
 }
 
 #[cfg(feature = "example-db")]

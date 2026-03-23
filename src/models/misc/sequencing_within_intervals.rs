@@ -5,7 +5,7 @@
 //! task runs entirely within its allowed time window.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -122,7 +122,7 @@ impl SequencingWithinIntervals {
 
 impl Problem for SequencingWithinIntervals {
     const NAME: &'static str = "SequencingWithinIntervals";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -134,45 +134,46 @@ impl Problem for SequencingWithinIntervals {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let n = self.num_tasks();
-        if config.len() != n {
-            return false;
-        }
-
-        // Check each variable is within range and compute start times
-        let mut starts = Vec::with_capacity(n);
-        for (i, &c) in config.iter().enumerate() {
-            let dim = (self.deadlines[i] - self.release_times[i] - self.lengths[i] + 1) as usize;
-            if c >= dim {
-                return false;
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let n = self.num_tasks();
+            if config.len() != n {
+                return crate::types::Or(false);
             }
-            // start = r[i] + c, and c < dim = d[i] - r[i] - l[i] + 1,
-            // so start + l[i] <= d[i] is guaranteed by construction.
-            let start = self.release_times[i] + c as u64;
-            starts.push(start);
-        }
 
-        // Check no two tasks overlap
-        for i in 0..n {
-            for j in (i + 1)..n {
-                let end_i = starts[i] + self.lengths[i];
-                let end_j = starts[j] + self.lengths[j];
-                // Tasks overlap if neither finishes before the other starts
-                if !(end_i <= starts[j] || end_j <= starts[i]) {
-                    return false;
+            // Check each variable is within range and compute start times
+            let mut starts = Vec::with_capacity(n);
+            for (i, &c) in config.iter().enumerate() {
+                let dim =
+                    (self.deadlines[i] - self.release_times[i] - self.lengths[i] + 1) as usize;
+                if c >= dim {
+                    return crate::types::Or(false);
+                }
+                // start = r[i] + c, and c < dim = d[i] - r[i] - l[i] + 1,
+                // so start + l[i] <= d[i] is guaranteed by construction.
+                let start = self.release_times[i] + c as u64;
+                starts.push(start);
+            }
+
+            // Check no two tasks overlap
+            for i in 0..n {
+                for j in (i + 1)..n {
+                    let end_i = starts[i] + self.lengths[i];
+                    let end_j = starts[j] + self.lengths[j];
+                    // Tasks overlap if neither finishes before the other starts
+                    if !(end_i <= starts[j] || end_j <= starts[i]) {
+                        return crate::types::Or(false);
+                    }
                 }
             }
-        }
 
-        true
+            true
+        })
     }
 }
 
-impl WitnessProblem for SequencingWithinIntervals {}
-
 crate::declare_variants! {
-    default sat SequencingWithinIntervals => "2^num_tasks",
+    default SequencingWithinIntervals => "2^num_tasks",
 }
 
 #[cfg(feature = "example-db")]

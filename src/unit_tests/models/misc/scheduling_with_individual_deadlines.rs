@@ -77,7 +77,7 @@ fn test_scheduling_with_individual_deadlines_evaluate_handles_huge_sparse_deadli
 
     let result = std::panic::catch_unwind(|| problem.evaluate(&[0]));
 
-    assert!(matches!(result, Ok(true)));
+    assert!(matches!(result, Ok(crate::types::Or(true))));
 }
 
 #[test]

@@ -95,7 +95,7 @@ fn test_lcs_bruteforce_no() {
 }
 
 #[test]
-fn test_lcs_find_all_satisfying_contains_issue_witness() {
+fn test_lcs_find_all_witnesses_contains_issue_witness() {
     let problem = issue_yes_instance();
     let solver = BruteForce::new();
     let satisfying = solver.find_all_witnesses(&problem);

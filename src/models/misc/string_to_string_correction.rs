@@ -15,7 +15,7 @@
 //! This problem is NP-complete (Wagner, 1975).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, WitnessProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -139,7 +139,7 @@ impl StringToStringCorrection {
 
 impl Problem for StringToStringCorrection {
     const NAME: &'static str = "StringToStringCorrection";
-    type Value = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -149,49 +149,49 @@ impl Problem for StringToStringCorrection {
         vec![2 * self.source.len() + 1; self.bound]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.bound {
-            return false;
-        }
-        if self.target.len() > self.source.len()
-            || self.target.len() < self.source.len().saturating_sub(self.bound)
-        {
-            return false;
-        }
-        let n = self.source.len();
-        let domain = 2 * n + 1;
-        if config.iter().any(|&v| v >= domain) {
-            return false;
-        }
-        let noop = 2 * n;
-        let mut working = self.source.clone();
-        for &op in config {
-            if op == noop {
-                // no-op
-                continue;
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.bound {
+                return crate::types::Or(false);
             }
-            let current_len = working.len();
-            if op < current_len {
-                // delete at index op
-                working.remove(op);
-            } else {
-                let swap_pos = op - current_len;
-                if swap_pos + 1 < current_len {
-                    working.swap(swap_pos, swap_pos + 1);
+            if self.target.len() > self.source.len()
+                || self.target.len() < self.source.len().saturating_sub(self.bound)
+            {
+                return crate::types::Or(false);
+            }
+            let n = self.source.len();
+            let domain = 2 * n + 1;
+            if config.iter().any(|&v| v >= domain) {
+                return crate::types::Or(false);
+            }
+            let noop = 2 * n;
+            let mut working = self.source.clone();
+            for &op in config {
+                if op == noop {
+                    // no-op
+                    continue;
+                }
+                let current_len = working.len();
+                if op < current_len {
+                    // delete at index op
+                    working.remove(op);
                 } else {
-                    // invalid operation for current string state
-                    return false;
+                    let swap_pos = op - current_len;
+                    if swap_pos + 1 < current_len {
+                        working.swap(swap_pos, swap_pos + 1);
+                    } else {
+                        // invalid operation for current string state
+                        return crate::types::Or(false);
+                    }
                 }
             }
-        }
-        working == self.target
+            working == self.target
+        })
     }
 }
 
-impl WitnessProblem for StringToStringCorrection {}
-
 crate::declare_variants! {
-    default sat StringToStringCorrection => "(2 * source_length + 1) ^ bound",
+    default StringToStringCorrection => "(2 * source_length + 1) ^ bound",
 }
 
 #[cfg(feature = "example-db")]

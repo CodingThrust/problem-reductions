@@ -55,7 +55,9 @@ fn test_set_basis_solver() {
     assert_eq!(solutions.len(), 12);
     assert_eq!(solution_set.len(), 12);
     assert!(solution_set.contains(&canonical_solution()));
-    assert!(solutions.iter().all(|solution| problem.evaluate(solution)));
+    assert!(solutions
+        .iter()
+        .all(|solution| problem.evaluate(solution).0));
 }
 
 #[test]
