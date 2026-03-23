@@ -231,11 +231,9 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
 
 fn add_ilp_solver_hint(err: anyhow::Error) -> anyhow::Error {
     let message = err.to_string();
-    if message.starts_with("No reduction path from ") && message.ends_with(" to ILP") {
-        anyhow::anyhow!(
-            "{message}\n\nHint: try `--solver brute-force` for direct exhaustive search on small instances."
-        )
-    } else if message.contains("witness-capable") {
+    if (message.starts_with("No reduction path from ") && message.ends_with(" to ILP"))
+        || message.contains("witness-capable")
+    {
         anyhow::anyhow!(
             "{message}\n\nHint: try `--solver brute-force` for direct exhaustive search on small instances."
         )

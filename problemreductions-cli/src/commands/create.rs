@@ -916,27 +916,12 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 let hint = type_format_hint(&field.type_name, graph_type);
                 eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
             } else if field.type_name == "MixedGraph" {
-                eprintln!(
-                    "  --{:<16} {} ({})",
-                    "graph", "Undirected edges E of the mixed graph", "edge list: 0-1,1-2,2-3"
-                );
-                eprintln!(
-                    "  --{:<16} {} ({})",
-                    "arcs", "Directed arcs A of the mixed graph", "directed arcs: 0>1,1>2,2>0"
-                );
+                eprintln!("  --{:<16} Undirected edges E of the mixed graph (edge list: 0-1,1-2,2-3)", "graph");
+                eprintln!("  --{:<16} Directed arcs A of the mixed graph (directed arcs: 0>1,1>2,2>0)", "arcs");
             } else if field.type_name == "BipartiteGraph" {
-                eprintln!(
-                    "  --{:<16} {} ({})",
-                    "left", "Vertices in the left partition", "integer"
-                );
-                eprintln!(
-                    "  --{:<16} {} ({})",
-                    "right", "Vertices in the right partition", "integer"
-                );
-                eprintln!(
-                    "  --{:<16} {} ({})",
-                    "biedges", "Bipartite edges as left-right pairs", "edge list: 0-0,0-1,1-2"
-                );
+                eprintln!("  --{:<16} Vertices in the left partition (integer)", "left");
+                eprintln!("  --{:<16} Vertices in the right partition (integer)", "right");
+                eprintln!("  --{:<16} Bipartite edges as left-right pairs (edge list: 0-0,0-1,1-2)", "biedges");
             } else {
                 let hint = help_flag_hint(canonical, &field.name, &field.type_name, graph_type);
                 eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
@@ -5946,11 +5931,7 @@ fn create_random(
             let num_edges = graph.num_edges();
             let edge_weights = vec![1i32; num_edges];
             let source = 0;
-            let sink = if num_vertices > 1 {
-                num_vertices - 1
-            } else {
-                0
-            };
+            let sink = num_vertices.saturating_sub(1);
             let size_bound = num_vertices; // no effective size constraint
             let cut_bound = num_edges as i32; // generous bound
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
