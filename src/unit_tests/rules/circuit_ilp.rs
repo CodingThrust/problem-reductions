@@ -1,7 +1,9 @@
 use super::*;
 use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, ILPSolver};
+use crate::traits::Problem;
+use crate::types::Or;
 
 #[test]
 fn test_circuitsat_to_ilp_and_gate() {
@@ -94,4 +96,29 @@ fn test_circuitsat_to_ilp_closed_loop() {
         &reduction,
         "CircuitSAT->ILP closed loop",
     );
+}
+
+#[test]
+fn test_circuit_to_ilp_bf_vs_ilp() {
+    // d = (x AND y) OR z
+    let circuit = Circuit::new(vec![Assignment::new(
+        vec!["d".to_string()],
+        BooleanExpr::or(vec![
+            BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
+            BooleanExpr::var("z"),
+        ]),
+    )]);
+    let source = CircuitSAT::new(circuit);
+    let reduction = ReduceTo::<ILP>::reduce_to(&source);
+
+    let bf_witness = BruteForce::new()
+        .find_witness(&source)
+        .expect("should be satisfiable");
+    assert_eq!(source.evaluate(&bf_witness), Or(true));
+
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(source.evaluate(&extracted), Or(true));
 }

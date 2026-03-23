@@ -92,7 +92,11 @@ impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i32> {
         // Effective distance from i to j.
         let eff_dist = |i: usize, j: usize| -> i64 {
             let d = all_dist[i][j];
-            if d < 0 { big_m } else { d }
+            if d < 0 {
+                big_m
+            } else {
+                d
+            }
         };
 
         // Index helpers.
@@ -125,8 +129,8 @@ impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i32> {
 
         // Objective: Minimize Σ_{i,j} w_i · d(i,j) · y_{i,j}
         let mut objective: Vec<(usize, f64)> = Vec::new();
-        for i in 0..n {
-            let w_i = vertex_weights[i] as f64;
+        for (i, &w) in vertex_weights.iter().enumerate() {
+            let w_i = w as f64;
             for j in 0..n {
                 let coeff = w_i * eff_dist(i, j) as f64;
                 if coeff != 0.0 {

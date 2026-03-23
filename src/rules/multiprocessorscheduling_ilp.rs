@@ -63,8 +63,9 @@ impl ReduceTo<ILP<bool>> for MultiprocessorScheduling {
 
         // Assignment constraints: for each task j, Σ_p x_{j,p} = 1
         for j in 0..num_tasks {
-            let terms: Vec<(usize, f64)> =
-                (0..num_processors).map(|p| (j * num_processors + p, 1.0)).collect();
+            let terms: Vec<(usize, f64)> = (0..num_processors)
+                .map(|p| (j * num_processors + p, 1.0))
+                .collect();
             constraints.push(LinearConstraint::eq(terms, 1.0));
         }
 

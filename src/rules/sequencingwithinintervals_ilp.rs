@@ -79,8 +79,8 @@ impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
         for j in 1..n {
             bases[j] = bases[j - 1] + slot_counts[j - 1];
         }
-        let num_vars = bases.last().copied().unwrap_or(0)
-            + slot_counts.last().copied().unwrap_or(0);
+        let num_vars =
+            bases.last().copied().unwrap_or(0) + slot_counts.last().copied().unwrap_or(0);
 
         let task_layout: Vec<(usize, usize)> = (0..n).map(|j| (bases[j], slot_counts[j])).collect();
 
@@ -88,9 +88,8 @@ impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
 
         // 1. One-hot per task
         for j in 0..n {
-            let terms: Vec<(usize, f64)> = (0..slot_counts[j])
-                .map(|k| (bases[j] + k, 1.0))
-                .collect();
+            let terms: Vec<(usize, f64)> =
+                (0..slot_counts[j]).map(|k| (bases[j] + k, 1.0)).collect();
             constraints.push(LinearConstraint::eq(terms, 1.0));
         }
 
@@ -132,14 +131,20 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "sequencingwithinintervals_to_ilp",
         build: || {
             // 2 tasks: task 0 [r=0, d=3, l=2], task 1 [r=2, d=5, l=2]
-            // Task 0 can start at offset 0 (only), task 1 can start at offset 0 or 1
-            // Task 0 occupies [0,2), task 1 at offset 0 occupies [2,4) -- no overlap
+            // Task 0 can start at offset 0 or 1, task 1 can start at offset 0 or 1
+            // No overlap when both at offset 0: [0,2) and [2,4)
             let source = SequencingWithinIntervals::new(vec![0, 2], vec![3, 5], vec![2, 2]);
+            let reduction: ReductionSWIToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let solver = crate::solvers::ILPSolver::new();
+            let target_config = solver
+                .solve(reduction.target_problem())
+                .expect("canonical example should be feasible");
+            let source_config = reduction.extract_solution(&target_config);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0],
-                    target_config: vec![1, 1, 0],
+                    source_config,
+                    target_config,
                 },
             )
         },

@@ -14,7 +14,11 @@ fn test_reduction_creates_valid_ilp() {
 
     // num_vars = 3 vertices * 1 group = 3
     assert_eq!(ilp.num_vars, 3, "Should have 3 variables");
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize, "Should minimize (feasibility)");
+    assert_eq!(
+        ilp.sense,
+        ObjectiveSense::Minimize,
+        "Should minimize (feasibility)"
+    );
     // Constraints: 3 assignment + 1 group-size = 4
     // Non-edges: none (complete triangle), so no triangle constraints
     assert_eq!(ilp.constraints.len(), 4, "Should have 4 constraints");
@@ -23,10 +27,7 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_partitionintotriangles_to_ilp_bf_vs_ilp() {
     // Two triangles: vertices {0,1,2} and {3,4,5}
-    let graph = SimpleGraph::new(
-        6,
-        vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5)],
-    );
+    let graph = SimpleGraph::new(6, vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5)]);
     let problem = PartitionIntoTriangles::new(graph);
     let reduction: ReductionPITToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
@@ -34,7 +35,9 @@ fn test_partitionintotriangles_to_ilp_bf_vs_ilp() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf.find_witness(&problem).expect("BF should find a solution");
+    let bf_witness = bf
+        .find_witness(&problem)
+        .expect("BF should find a solution");
     assert_eq!(problem.evaluate(&bf_witness), Or(true));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
@@ -49,10 +52,7 @@ fn test_partitionintotriangles_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_solution_extraction() {
     // Two triangles: 6 vertices, q=2 groups
-    let graph = SimpleGraph::new(
-        6,
-        vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5)],
-    );
+    let graph = SimpleGraph::new(6, vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5)]);
     let problem = PartitionIntoTriangles::new(graph);
     let reduction: ReductionPITToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
 

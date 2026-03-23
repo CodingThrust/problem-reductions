@@ -7964,6 +7964,246 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Remark._ Zero-weight edges are excluded because they allow degenerate optimal ILP solutions containing redundant cycles at no cost; following the convention of practical solvers (e.g., SCIP-Jack @kochmartin1998steiner), such edges should be contracted before applying the reduction.
 ]
 
+#reduction-rule("MinimumHittingSet", "ILP")[
+  Each set must contain at least one selected element -- a standard set-covering constraint on the element indicators.
+][
+  _Construction._ Variables: $x_e in {0, 1}$ for each element $e in U$. Constraints: $sum_(e in S) x_e >= 1$ for each set $S in cal(S)$. Objective: minimize $sum_e x_e$.
+
+  _Correctness._ ($arrow.r.double$) A hitting set includes at least one element from each set. ($arrow.l.double$) Any feasible solution hits every set.
+
+  _Solution extraction._ $H = {e : x_e = 1}$.
+]
+
+#reduction-rule("ExactCoverBy3Sets", "ILP")[
+  Each element must be covered by exactly one triple, and the number of selected triples must equal $|U|\/3$.
+][
+  _Construction._ Variables: $x_j in {0, 1}$ for each triple $T_j$. Constraints: $sum_(j : e in T_j) x_j = 1$ for each $e in U$; $sum_j x_j = |U|\/3$. Objective: feasibility.
+
+  _Correctness._ The equality constraints force each element to appear in exactly one selected triple, which is the definition of an exact cover.
+
+  _Solution extraction._ $cal(C) = {T_j : x_j = 1}$.
+]
+
+#reduction-rule("NAESatisfiability", "ILP")[
+  Each clause must have at least one true and at least one false literal, encoded as a pair of linear inequalities per clause.
+][
+  _Construction._ Variables: $x_i in {0, 1}$ per Boolean variable. For each clause $C$ with literals $l_1, dots, l_k$, substitute $l_i = x_i$ for positive and $l_i = 1 - x_i$ for negative literals: (1) $sum "coeff"_i dot x_i >= 1 - "neg"$ (at least one true); (2) $sum "coeff"_i dot x_i <= |C| - 1 - "neg"$ (at least one false). Objective: feasibility.
+
+  _Correctness._ The two constraints per clause jointly enforce the not-all-equal condition.
+
+  _Solution extraction._ Direct: $x_i = 1$ iff variable $i$ is true.
+]
+
+#reduction-rule("KClique", "ILP")[
+  A $k$-clique requires at least $k$ selected vertices with no non-edge between any pair.
+][
+  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $sum_v x_v >= k$; $x_u + x_v <= 1$ for each non-edge $(u, v) in.not E$. Objective: feasibility.
+
+  _Correctness._ ($arrow.r.double$) A $k$-clique selects $>= k$ mutually adjacent vertices, satisfying all constraints. ($arrow.l.double$) Any feasible solution selects $>= k$ vertices with no non-edge pair, forming a clique of size $>= k$.
+
+  _Solution extraction._ $K = {v : x_v = 1}$.
+]
+
+#reduction-rule("MaximalIS", "ILP")[
+  An independent set that is also maximal: no vertex outside the set can be added without violating independence.
+][
+  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: (1) Independence: $x_u + x_v <= 1$ for each edge $(u, v) in E$. (2) Maximality: $x_v + sum_(u in N(v)) x_u >= 1$ for each $v in V$. Objective: maximize $sum_v w_v x_v$.
+
+  _Correctness._ Independence constraints prevent adjacent selections; maximality constraints ensure every vertex is either selected or has a selected neighbor.
+
+  _Solution extraction._ $I = {v : x_v = 1}$.
+]
+
+#reduction-rule("PartiallyOrderedKnapsack", "ILP")[
+  Standard knapsack with precedence constraints: item $b$ can only be selected if item $a$ is also selected for each precedence $(a, b)$.
+][
+  _Construction._ Variables: $x_i in {0, 1}$ per item. Constraints: $sum_i w_i x_i <= C$ (capacity); $x_b <= x_a$ for each precedence $(a, b)$. Objective: maximize $sum_i v_i x_i$.
+
+  _Correctness._ Capacity and precedence constraints are directly linear. Any feasible ILP solution is a valid knapsack packing respecting the partial order.
+
+  _Solution extraction._ Selected items: ${i : x_i = 1}$.
+]
+
+#reduction-rule("RectilinearPictureCompression", "ILP")[
+  Cover all 1-cells with at most $B$ maximal all-1 rectangles.
+][
+  _Construction._ Variables: $x_r in {0, 1}$ per maximal rectangle $r$. Constraints: $sum_(r "covers" (i,j)) x_r >= 1$ for each 1-cell $(i, j)$; $sum_r x_r <= B$. Objective: feasibility.
+
+  _Correctness._ Coverage constraints ensure every 1-cell is covered; the cardinality bound limits the number of rectangles.
+
+  _Solution extraction._ Selected rectangles: ${r : x_r = 1}$.
+]
+
+#reduction-rule("ShortestWeightConstrainedPath", "ILP")[
+  Find an $s$-$t$ path satisfying both length and weight bounds, using directed arc variables with MTZ ordering to prevent subtours.
+][
+  _Construction._ Variables: binary $a_(e,d) in {0, 1}$ per edge $e$ per direction $d in {0, 1}$ (forward/reverse), plus integer $o_v in {0, dots, n-1}$ per vertex. Constraints: flow balance at each vertex (net out-in = 1 at $s$, $-1$ at $t$, 0 elsewhere); degree bounds; at most one direction per edge; MTZ ordering $o_v - o_u >= 1 - M dot a_(e,0)$ for each directed arc; length bound $sum_e l_e (a_(e,0) + a_(e,1)) <= L$; weight bound $sum_e w_e (a_(e,0) + a_(e,1)) <= W$. Objective: feasibility.
+
+  _Correctness._ Flow balance forces an $s$-$t$ path; MTZ ordering eliminates subtours; bound constraints enforce the length and weight limits.
+
+  _Solution extraction._ Edge $e$ is selected iff $a_(e,0) + a_(e,1) > 0$.
+]
+
+#reduction-rule("MultipleCopyFileAllocation", "ILP")[
+  Place file copies at vertices to minimize total storage plus weighted access cost, subject to a budget constraint.
+][
+  _Construction._ Variables: binary $x_v$ (copy at $v$) and $y_(v,u)$ (vertex $v$ served by copy at $u$). Constraints: $sum_u y_(v,u) = 1$ (assignment); $y_(v,u) <= x_u$ (capacity link); $sum_v s_v x_v + sum_(v,u) "usage"_v dot d(v, u) dot y_(v,u) <= B$ (budget). Objective: feasibility.
+
+  _Correctness._ Assignment constraints ensure each vertex is served by exactly one copy; capacity links prevent assignment to non-copy vertices; the budget constraint linearizes the total cost.
+
+  _Solution extraction._ Copy placement: ${v : x_v = 1}$.
+]
+
+#reduction-rule("MinimumSumMulticenter", "ILP")[
+  Select $k$ centers and assign each vertex to a center, minimizing the total weighted distance.
+][
+  _Construction._ Variables: binary $x_j$ (vertex $j$ is center), $y_(i,j)$ (vertex $i$ assigned to center $j$). Constraints: $sum_j x_j = k$; $y_(i,j) <= x_j$; $sum_j y_(i,j) = 1$. Objective: minimize $sum_(i,j) w_i dot d(i, j) dot y_(i,j)$.
+
+  _Correctness._ The assignment structure and cardinality constraint directly encode the $k$-median objective with precomputed shortest-path distances.
+
+  _Solution extraction._ Centers: ${j : x_j = 1}$.
+]
+
+#reduction-rule("MinMaxMulticenter", "ILP")[
+  Select $k$ centers such that the maximum weighted distance from any vertex to its assigned center is at most $B$.
+][
+  _Construction._ Same assignment structure as MinimumSumMulticenter, plus per-vertex bound constraints: $sum_j w_i dot d(i, j) dot y_(i,j) <= B$ for each $i$. Objective: feasibility.
+
+  _Correctness._ The additional per-vertex constraints enforce the minimax bound on weighted assignment distances.
+
+  _Solution extraction._ Centers: ${j : x_j = 1}$.
+]
+
+#reduction-rule("MultiprocessorScheduling", "ILP")[
+  Assign tasks to processors so that no processor's total load exceeds the deadline.
+][
+  _Construction._ Variables: binary $x_(j,p)$ (task $j$ on processor $p$), one-hot per task. Constraints: $sum_p x_(j,p) = 1$ (each task assigned); $sum_j l_j dot x_(j,p) <= D$ for each processor $p$. Objective: feasibility.
+
+  _Correctness._ One-hot constraints ensure each task is assigned to exactly one processor; load constraints enforce the deadline on every processor.
+
+  _Solution extraction._ Task $j$ goes to processor $arg max_p x_(j,p)$.
+]
+
+#reduction-rule("CapacityAssignment", "ILP")[
+  Assign a capacity level to each link so that total cost and total delay stay within their budgets.
+][
+  _Construction._ Variables: binary $x_(l,c)$ (link $l$ gets capacity $c$), one-hot per link. Constraints: $sum_c x_(l,c) = 1$ (each link gets one capacity); $sum_(l,c) "cost"[l][c] dot x_(l,c) <= C$; $sum_(l,c) "delay"[l][c] dot x_(l,c) <= D$. Objective: feasibility.
+
+  _Correctness._ One-hot constraints fix one capacity per link; the two budget constraints are linear in the indicators.
+
+  _Solution extraction._ Link $l$ gets capacity $arg max_c x_(l,c)$.
+]
+
+#reduction-rule("ExpectedRetrievalCost", "ILP")[
+  Assign records to sectors to minimize expected retrieval cost, using product linearization for the quadratic cost terms.
+][
+  _Construction._ Variables: binary $x_(r,s)$ (record $r$ in sector $s$), one-hot per record, plus linearization variables $z_((r,s),(r',s')) = x_(r,s) dot x_(r',s')$. Constraints: one-hot assignment; McCormick linearization ($z <= x$, $z <= y$, $z >= x + y - 1$); cost bound $sum "cost" dot z <= B$. Objective: feasibility.
+
+  _Correctness._ McCormick constraints force $z$ to equal the product of binary indicators, linearizing the quadratic cost.
+
+  _Solution extraction._ Record $r$ goes to sector $arg max_s x_(r,s)$.
+]
+
+#reduction-rule("PartitionIntoTriangles", "ILP")[
+  Partition vertices into groups of 3 such that each group forms a triangle in the graph.
+][
+  _Construction._ Variables: binary $x_(v,g)$ (vertex $v$ in group $g$), one-hot per vertex, $q = n\/3$ groups. Constraints: $sum_g x_(v,g) = 1$; $sum_v x_(v,g) = 3$ for each $g$; $x_(u,g) + x_(v,g) <= 1$ for each group $g$ and non-edge $(u, v)$. Objective: feasibility.
+
+  _Correctness._ Size-3 groups with no non-edge pair within any group forces each group to be a triangle.
+
+  _Solution extraction._ Vertex $v$ goes to group $arg max_g x_(v,g)$.
+]
+
+#reduction-rule("PartitionIntoPathsOfLength2", "ILP")[
+  Partition vertices into groups of 3 such that each group induces a path of length 2 (at least 2 edges within the group).
+][
+  _Construction._ Variables: binary $x_(v,g)$ plus product linearization variables $z_((u,v),g) = x_(u,g) dot x_(v,g)$ for edges $(u, v)$. Constraints: one-hot vertex assignment; group size = 3; $sum_("edges" (u,v)) z_((u,v),g) >= 2$ per group (at least 2 edges); McCormick for $z$. Objective: feasibility.
+
+  _Correctness._ The edge count constraint ensures connectivity within each group. Combined with group size 3, this forces a path of length 2.
+
+  _Solution extraction._ Vertex $v$ goes to group $arg max_g x_(v,g)$.
+]
+
+#reduction-rule("SumOfSquaresPartition", "ILP")[
+  Partition elements into groups such that $sum_g (sum_(i in g) s_i)^2 <= B$.
+][
+  _Construction._ Variables: binary $x_(i,g)$ (element $i$ in group $g$), plus $z_((i,j),g) = x_(i,g) dot x_(j,g)$. Constraints: one-hot assignment; McCormick linearization for $z$; $sum_g sum_(i,j) s_i s_j z_((i,j),g) <= B$. Objective: feasibility.
+
+  _Correctness._ Product linearization captures the quadratic sum-of-squares objective; the bound constraint enforces the partition quality.
+
+  _Solution extraction._ Element $i$ goes to group $arg max_g x_(i,g)$.
+]
+
+#reduction-rule("PrecedenceConstrainedScheduling", "ILP")[
+  Assign unit-length tasks to time slots on $m$ processors, respecting precedence constraints and a deadline.
+][
+  _Construction._ Variables: binary $x_(j,t)$ (task $j$ at time $t$), one-hot per task. Constraints: $sum_t x_(j,t) = 1$; $sum_j x_(j,t) <= m$ (processor capacity per slot); $sum_t t dot x_(j,t) >= sum_t t dot x_(i,t) + 1$ for each precedence $(i, j)$. Objective: feasibility.
+
+  _Correctness._ One-hot ensures each task is scheduled once; capacity limits processors per slot; precedence is linearized via weighted time indicators.
+
+  _Solution extraction._ Task $j$ is scheduled at time $arg max_t x_(j,t)$.
+]
+
+#reduction-rule("SchedulingWithIndividualDeadlines", "ILP")[
+  Schedule unit-length tasks on $m$ processors, each task $j$ must complete before its individual deadline $d_j$.
+][
+  _Construction._ Variables: binary $x_(j,t)$ (task $j$ at time $t in {0, dots, d_j - 1}$), one-hot per task. Constraints: $sum_t x_(j,t) = 1$; $sum_j x_(j,t) <= m$; precedence constraints as in PrecedenceConstrainedScheduling. Objective: feasibility.
+
+  _Correctness._ Per-task deadline is enforced by restricting the time domain of each task's indicator variables.
+
+  _Solution extraction._ Task $j$ is scheduled at time $arg max_t x_(j,t)$.
+]
+
+#reduction-rule("SequencingWithinIntervals", "ILP")[
+  Schedule tasks with release times, deadlines, and processing lengths on a single machine without overlap.
+][
+  _Construction._ Variables: binary $x_(j,t)$ (task $j$ starts at time $t in [r_j, d_j - l_j]$), one-hot per task. Constraints: $sum_t x_(j,t) = 1$; non-overlap: $sum_(j "active at" t) 1 <= 1$ (expanded via start-time indicators). Objective: feasibility.
+
+  _Correctness._ One-hot ensures each task starts once within its feasible window; non-overlap prevents simultaneous execution.
+
+  _Solution extraction._ Task $j$ starts at time $arg max_t x_(j,t)$; config$[j] = t - r_j$.
+]
+
+#reduction-rule("MinimumFeedbackArcSet", "ILP")[
+  Remove minimum-weight arcs to make a directed graph acyclic, using MTZ-style ordering to enforce acyclicity among kept arcs.
+][
+  _Construction._ Variables: binary $y_a in {0, 1}$ per arc ($y_a = 1$ iff removed), integer $o_v in {0, dots, n-1}$ per vertex. Constraints: for each arc $a = (u -> v)$: $o_v - o_u >= 1 - n dot y_a$; $y_a <= 1$; $o_v <= n - 1$. Objective: minimize $sum_a w_a y_a$.
+
+  _Correctness._ ($arrow.r.double$) Removing a FAS leaves a DAG with a topological ordering satisfying all constraints. ($arrow.l.double$) Among kept arcs, the ordering variables enforce acyclicity: a cycle would require $o_(v_1) < dots < o_(v_k) < o_(v_1)$, a contradiction.
+
+  _Solution extraction._ Removed arcs: ${a : y_a = 1}$.
+]
+
+#reduction-rule("UndirectedTwoCommodityIntegralFlow", "ILP")[
+  Route two commodities on an undirected graph with shared edge capacities, using direction indicators to enforce anti-parallel flow constraints.
+][
+  _Construction._ Variables: integer flow variables $f^k_(u,v), f^k_(v,u)$ per edge per commodity ($k in {1, 2}$), plus binary direction indicators $d^k_e$. Constraints: capacity sharing via direction indicators; anti-parallel flow (at most one direction per commodity per edge); flow conservation per commodity per vertex; demand satisfaction at sinks. Objective: feasibility.
+
+  _Correctness._ Direction indicators linearize the capacity-sharing constraint; flow conservation and demand constraints ensure valid multi-commodity flow.
+
+  _Solution extraction._ Flow variables (first $4|E|$ variables).
+]
+
+#reduction-rule("DirectedTwoCommodityIntegralFlow", "ILP")[
+  Route two commodities on a directed graph with shared arc capacities.
+][
+  _Construction._ Variables: integer $f^1_a, f^2_a >= 0$ per arc $a$. Constraints: $f^1_a + f^2_a <= "cap"(a)$; flow conservation per commodity per vertex; demand at sinks $>= R_k$. Objective: feasibility.
+
+  _Correctness._ Joint capacity and conservation constraints directly encode the two-commodity flow problem.
+
+  _Solution extraction._ Direct: $2|A|$ flow variables.
+]
+
+#reduction-rule("UndirectedFlowLowerBounds", "ILP")[
+  Find a feasible single-commodity flow on an undirected graph with both upper and lower capacity bounds per edge.
+][
+  _Construction._ Variables: integer $f_(u,v), f_(v,u) >= 0$ per edge, plus direction indicator $z_e in {0, 1}$. Constraints: $z_e <= 1$; $f_(u,v) <= "cap"_e dot z_e$; $f_(v,u) <= "cap"_e (1 - z_e)$; $f_(u,v) >= "lower"_e dot z_e$; $f_(v,u) >= "lower"_e (1 - z_e)$; flow conservation; demand at sink. Objective: feasibility.
+
+  _Correctness._ Direction indicators force flow in one direction per edge; bounds enforce both upper and lower capacity limits.
+
+  _Solution extraction._ Edge orientations: $z_e$ values.
+]
+
 == Unit Disk Mapping
 
 #reduction-rule("MaximumIndependentSet", "KingsSubgraph")[

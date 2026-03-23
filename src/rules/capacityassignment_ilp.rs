@@ -64,8 +64,9 @@ impl ReduceTo<ILP<bool>> for CapacityAssignment {
 
         // Assignment constraints: for each link l, Σ_c x_{l,c} = 1
         for l in 0..num_links {
-            let terms: Vec<(usize, f64)> =
-                (0..num_capacities).map(|c| (l * num_capacities + c, 1.0)).collect();
+            let terms: Vec<(usize, f64)> = (0..num_capacities)
+                .map(|c| (l * num_capacities + c, 1.0))
+                .collect();
             constraints.push(LinearConstraint::eq(terms, 1.0));
         }
 
@@ -84,7 +85,10 @@ impl ReduceTo<ILP<bool>> for CapacityAssignment {
                     .map(move |c| (l * num_capacities + c, self.delay()[l][c] as f64))
             })
             .collect();
-        constraints.push(LinearConstraint::le(delay_terms, self.delay_budget() as f64));
+        constraints.push(LinearConstraint::le(
+            delay_terms,
+            self.delay_budget() as f64,
+        ));
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
 

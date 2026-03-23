@@ -113,8 +113,10 @@ impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
                     // z ≤ x_{j,g}
                     constraints.push(LinearConstraint::le(vec![(z, 1.0), (xj, -1.0)], 0.0));
                     // z ≥ x_{i,g} + x_{j,g} - 1  →  -z + x_{i,g} + x_{j,g} ≤ 1
-                    constraints
-                        .push(LinearConstraint::le(vec![(z, -1.0), (xi, 1.0), (xj, 1.0)], 1.0));
+                    constraints.push(LinearConstraint::le(
+                        vec![(z, -1.0), (xi, 1.0), (xj, 1.0)],
+                        1.0,
+                    ));
                 }
             }
         }

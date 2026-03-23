@@ -79,9 +79,7 @@ impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
         let big_m = self.bound() + 1;
 
         // Precompute all-pairs shortest-path distances using BFS.
-        let all_dist: Vec<Vec<i64>> = (0..n)
-            .map(|s| bfs_distances(self.graph(), s, n))
-            .collect();
+        let all_dist: Vec<Vec<i64>> = (0..n).map(|s| bfs_distances(self.graph(), s, n)).collect();
 
         // Effective distance from v to u: use big_m when unreachable.
         let eff_dist = |v: usize, u: usize| -> i64 {

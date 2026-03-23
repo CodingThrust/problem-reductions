@@ -60,6 +60,8 @@ pub(crate) mod coloring_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod consistencyofdatabasefrequencytables_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod directedtwocommodityintegralflow_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod exactcoverby3sets_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod expectedretrievalcost_ilp;
@@ -90,19 +92,9 @@ pub(crate) mod maximummatching_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumsetpacking_ilp;
 #[cfg(feature = "ilp-solver")]
-pub(crate) mod naesatisfiability_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumdominatingset_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumfeedbackarcset_ilp;
-#[cfg(feature = "ilp-solver")]
-pub(crate) mod minmaxmulticenter_ilp;
-#[cfg(feature = "ilp-solver")]
-pub(crate) mod minimumsummulticenter_ilp;
-#[cfg(feature = "ilp-solver")]
-pub(crate) mod multiprocessorscheduling_ilp;
-#[cfg(feature = "ilp-solver")]
-pub(crate) mod multiplecopyfileallocation_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumfeedbackvertexset_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -112,17 +104,33 @@ pub(crate) mod minimummultiwaycut_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumsetcovering_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod minimumsummulticenter_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod minmaxmulticenter_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod multiplecopyfileallocation_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod multiprocessorscheduling_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod naesatisfiability_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod partiallyorderedknapsack_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod partitionintopathsoflength2_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod partitionintotriangles_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod precedenceconstrainedscheduling_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod qubo_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod rectilinearpicturecompression_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod schedulingwithindividualdeadlines_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingtominimizeweightedcompletiontime_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod sequencingwithinintervals_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod shortestweightconstrainedpath_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -132,17 +140,9 @@ pub(crate) mod sumofsquarespartition_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod travelingsalesman_ilp;
 #[cfg(feature = "ilp-solver")]
-pub(crate) mod precedenceconstrainedscheduling_ilp;
-#[cfg(feature = "ilp-solver")]
-pub(crate) mod schedulingwithindividualdeadlines_ilp;
-#[cfg(feature = "ilp-solver")]
-pub(crate) mod sequencingwithinintervals_ilp;
+pub(crate) mod undirectedflowlowerbounds_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod undirectedtwocommodityintegralflow_ilp;
-#[cfg(feature = "ilp-solver")]
-pub(crate) mod directedtwocommodityintegralflow_ilp;
-#[cfg(feature = "ilp-solver")]
-pub(crate) mod undirectedflowlowerbounds_ilp;
 
 pub use graph::{
     AggregateReductionChain, NeighborInfo, NeighborTree, ReductionChain, ReductionEdgeInfo,
@@ -227,6 +227,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(steinertree_ilp::canonical_rule_example_specs());
         specs.extend(sumofsquarespartition_ilp::canonical_rule_example_specs());
         specs.extend(travelingsalesman_ilp::canonical_rule_example_specs());
+        specs.extend(precedenceconstrainedscheduling_ilp::canonical_rule_example_specs());
+        specs.extend(schedulingwithindividualdeadlines_ilp::canonical_rule_example_specs());
+        specs.extend(sequencingwithinintervals_ilp::canonical_rule_example_specs());
+        specs.extend(undirectedtwocommodityintegralflow_ilp::canonical_rule_example_specs());
+        specs.extend(directedtwocommodityintegralflow_ilp::canonical_rule_example_specs());
+        specs.extend(undirectedflowlowerbounds_ilp::canonical_rule_example_specs());
     }
     specs
 }

@@ -60,8 +60,11 @@ impl ReduceTo<ILP<bool>> for MaximalIS<SimpleGraph, i32> {
 
         // Objective: Maximize Σ w_v·x_v
         let weights = self.weights();
-        let objective: Vec<(usize, f64)> =
-            weights.iter().enumerate().map(|(i, w)| (i, *w as f64)).collect();
+        let objective: Vec<(usize, f64)> = weights
+            .iter()
+            .enumerate()
+            .map(|(i, w)| (i, *w as f64))
+            .collect();
 
         let target = ILP::new(n, constraints, objective, ObjectiveSense::Maximize);
         ReductionMxISToILP { target }
@@ -75,10 +78,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "maximalis_to_ilp",
         build: || {
             // Path P3: 0-1-2
-            let source = MaximalIS::new(
-                SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-                vec![1, 1, 1],
-            );
+            let source = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 1, 1]);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

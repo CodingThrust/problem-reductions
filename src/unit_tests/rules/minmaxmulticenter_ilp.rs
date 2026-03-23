@@ -52,7 +52,11 @@ fn test_minmaxmulticenter_to_ilp_bf_vs_ilp() {
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(extracted.len(), 3, "extracted solution has one entry per vertex");
+    assert_eq!(
+        extracted.len(),
+        3,
+        "extracted solution has one entry per vertex"
+    );
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
 
@@ -84,13 +88,7 @@ fn test_solution_extraction() {
 #[test]
 fn test_minmaxmulticenter_to_ilp_trivial() {
     // Single vertex, K=1, B=0: the only vertex is the center, distance = 0 ≤ 0
-    let problem = MinMaxMulticenter::new(
-        SimpleGraph::new(1, vec![]),
-        vec![5i32],
-        vec![],
-        1,
-        0,
-    );
+    let problem = MinMaxMulticenter::new(SimpleGraph::new(1, vec![]), vec![5i32], vec![], 1, 0);
     let reduction: ReductionMMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     // num_vars = 1 + 1 = 2

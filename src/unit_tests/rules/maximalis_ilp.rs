@@ -3,14 +3,10 @@ use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
-
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Path P3: 0-1-2
-    let problem = MaximalIS::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-        vec![1, 1, 1],
-    );
+    let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 1, 1]);
     let reduction: ReductionMxISToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     assert_eq!(ilp.num_vars, 3);
@@ -43,10 +39,7 @@ fn test_maximalis_to_ilp_bf_vs_ilp() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem = MaximalIS::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-        vec![1, 1, 1],
-    );
+    let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 1, 1]);
     let reduction: ReductionMxISToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver

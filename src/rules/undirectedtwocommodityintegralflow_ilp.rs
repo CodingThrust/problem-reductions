@@ -181,7 +181,10 @@ impl ReduceTo<ILP<i32>> for UndirectedTwoCommodityIntegralFlow {
                 sink1_terms.push((f1_vu(edge_idx), 1.0));
             }
         }
-        constraints.push(LinearConstraint::ge(sink1_terms, self.requirement_1() as f64));
+        constraints.push(LinearConstraint::ge(
+            sink1_terms,
+            self.requirement_1() as f64,
+        ));
 
         // Commodity 2: net inflow at sink_2 ≥ requirement_2
         let sink_2 = self.sink_2();
@@ -195,7 +198,10 @@ impl ReduceTo<ILP<i32>> for UndirectedTwoCommodityIntegralFlow {
                 sink2_terms.push((f2_vu(edge_idx), 1.0));
             }
         }
-        constraints.push(LinearConstraint::ge(sink2_terms, self.requirement_2() as f64));
+        constraints.push(LinearConstraint::ge(
+            sink2_terms,
+            self.requirement_2() as f64,
+        ));
 
         ReductionU2CIFToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
@@ -225,23 +231,17 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 1,
                 1,
             );
-            // target_config: [f1_uv, f1_vu, f2_uv, f2_vu per edge | d1_e, d2_e per edge]
-            // Edge 0 (0,2): f1_uv=1, f1_vu=0, f2_uv=0, f2_vu=0
-            // Edge 1 (1,2): f1_uv=0, f1_vu=0, f2_uv=1, f2_vu=0
-            // Edge 2 (2,3): f1_uv=1, f1_vu=0, f2_uv=1, f2_vu=0
-            // Directions: d1_0=1, d2_0=0, d1_1=0, d2_1=1, d1_2=1, d2_2=1
+            let reduction: ReductionU2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+            let solver = crate::solvers::ILPSolver::new();
+            let target_config = solver
+                .solve(reduction.target_problem())
+                .expect("canonical example should be feasible");
+            let source_config = reduction.extract_solution(&target_config);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0],
-                    target_config: vec![
-                        1, 0, 0, 0,  // edge 0 flows
-                        0, 0, 1, 0,  // edge 1 flows
-                        1, 0, 1, 0,  // edge 2 flows
-                        1, 0,        // d1_0=1, d2_0=0
-                        0, 1,        // d1_1=0, d2_1=1
-                        1, 1,        // d1_2=1, d2_2=1
-                    ],
+                    source_config,
+                    target_config,
                 },
             )
         },

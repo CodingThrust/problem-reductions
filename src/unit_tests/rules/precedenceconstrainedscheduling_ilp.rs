@@ -32,8 +32,13 @@ fn test_precedenceconstrainedscheduling_to_ilp_structure() {
 fn test_precedenceconstrainedscheduling_to_ilp_closed_loop() {
     let problem = feasible_instance();
     let bf = BruteForce::new();
-    let bf_solution = bf.find_witness(&problem).expect("feasible instance should have a witness");
-    assert!(problem.evaluate(&bf_solution).0, "brute force solution should be valid");
+    let bf_solution = bf
+        .find_witness(&problem)
+        .expect("feasible instance should have a witness");
+    assert!(
+        problem.evaluate(&bf_solution).0,
+        "brute force solution should be valid"
+    );
 
     let reduction: ReductionPCSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp_solution = ILPSolver::new()
@@ -67,5 +72,8 @@ fn test_precedenceconstrainedscheduling_to_ilp_extract_solution() {
     let ilp_solution = vec![1, 0, 1, 0, 0, 1];
     let extracted = reduction.extract_solution(&ilp_solution);
     assert_eq!(extracted, vec![0, 0, 1]);
-    assert!(problem.evaluate(&extracted).0, "manually constructed solution should be valid");
+    assert!(
+        problem.evaluate(&extracted).0,
+        "manually constructed solution should be valid"
+    );
 }

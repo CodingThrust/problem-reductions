@@ -11,12 +11,23 @@ fn feasible_instance() -> DirectedTwoCommodityIntegralFlow {
         DirectedGraph::new(
             6,
             vec![
-                (0, 2), (0, 3), (1, 2), (1, 3),
-                (2, 4), (2, 5), (3, 4), (3, 5),
+                (0, 2),
+                (0, 3),
+                (1, 2),
+                (1, 3),
+                (2, 4),
+                (2, 5),
+                (3, 4),
+                (3, 5),
             ],
         ),
         vec![1; 8],
-        0, 4, 1, 5, 1, 1,
+        0,
+        4,
+        1,
+        5,
+        1,
+        1,
     )
 }
 
@@ -26,7 +37,12 @@ fn infeasible_instance() -> DirectedTwoCommodityIntegralFlow {
     DirectedTwoCommodityIntegralFlow::new(
         DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
         vec![1, 1],
-        0, 2, 0, 2, 1, 1,
+        0,
+        2,
+        0,
+        2,
+        1,
+        1,
     )
 }
 
@@ -52,8 +68,13 @@ fn test_directedtwocommodityintegralflow_to_ilp_structure() {
 fn test_directedtwocommodityintegralflow_to_ilp_closed_loop() {
     let problem = feasible_instance();
     let bf = BruteForce::new();
-    let bf_solution = bf.find_witness(&problem).expect("feasible instance has a witness");
-    assert!(problem.evaluate(&bf_solution).0, "brute force solution is valid");
+    let bf_solution = bf
+        .find_witness(&problem)
+        .expect("feasible instance has a witness");
+    assert!(
+        problem.evaluate(&bf_solution).0,
+        "brute force solution is valid"
+    );
 
     let reduction: ReductionD2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp_solution = ILPSolver::new()

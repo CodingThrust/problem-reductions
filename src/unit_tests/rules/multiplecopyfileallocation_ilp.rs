@@ -19,7 +19,11 @@ fn test_reduction_creates_valid_ilp() {
     // num_vars = n + n^2 = 3 + 9 = 12
     assert_eq!(ilp.num_vars, 12, "n + n^2 variables");
     // num_constraints = n (assignment) + n^2 (capacity) + 1 (budget) = 3 + 9 + 1 = 13
-    assert_eq!(ilp.constraints.len(), 13, "assignment + capacity + budget constraints");
+    assert_eq!(
+        ilp.constraints.len(),
+        13,
+        "assignment + capacity + budget constraints"
+    );
     assert_eq!(ilp.sense, ObjectiveSense::Minimize);
 }
 
@@ -45,7 +49,11 @@ fn test_multiplecopyfileallocation_to_ilp_bf_vs_ilp() {
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(extracted.len(), 3, "extracted solution has one entry per vertex");
+    assert_eq!(
+        extracted.len(),
+        3,
+        "extracted solution has one entry per vertex"
+    );
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
 
@@ -76,12 +84,7 @@ fn test_solution_extraction() {
 #[test]
 fn test_multiplecopyfileallocation_to_ilp_trivial() {
     // Single vertex, copy must be placed at itself, zero access cost.
-    let problem = MultipleCopyFileAllocation::new(
-        SimpleGraph::new(1, vec![]),
-        vec![2],
-        vec![3],
-        5,
-    );
+    let problem = MultipleCopyFileAllocation::new(SimpleGraph::new(1, vec![]), vec![2], vec![3], 5);
     let reduction: ReductionMCFAToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     // num_vars = 1 + 1 = 2

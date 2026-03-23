@@ -64,10 +64,7 @@ impl ReduceTo<ILP<bool>> for NAESatisfiability {
             }
 
             // At least one literal is true: Σ coeff_i * x_i ≥ 1 - neg_count
-            constraints.push(LinearConstraint::ge(
-                terms.clone(),
-                1.0 - neg_count,
-            ));
+            constraints.push(LinearConstraint::ge(terms.clone(), 1.0 - neg_count));
 
             // At least one literal is false: Σ coeff_i * x_i ≤ |C| - 1 - neg_count
             constraints.push(LinearConstraint::le(
@@ -93,8 +90,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = NAESatisfiability::new(
                 3,
                 vec![
-                    CNFClause::new(vec![1, 2, 3]),    // x1 ∨ x2 ∨ x3
-                    CNFClause::new(vec![-1, -2, 3]),  // ¬x1 ∨ ¬x2 ∨ x3
+                    CNFClause::new(vec![1, 2, 3]),   // x1 ∨ x2 ∨ x3
+                    CNFClause::new(vec![-1, -2, 3]), // ¬x1 ∨ ¬x2 ∨ x3
                 ],
             );
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(

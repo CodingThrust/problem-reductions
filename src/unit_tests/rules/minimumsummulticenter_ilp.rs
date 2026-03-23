@@ -49,11 +49,18 @@ fn test_minimumsummulticenter_to_ilp_bf_vs_ilp() {
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(extracted.len(), 3, "extracted solution has one entry per vertex");
+    assert_eq!(
+        extracted.len(),
+        3,
+        "extracted solution has one entry per vertex"
+    );
 
     let ilp_cost = problem.evaluate(&extracted).unwrap();
     // Both should find the same optimal cost
-    assert_eq!(bf_cost, ilp_cost, "BruteForce and ILP should agree on optimal cost");
+    assert_eq!(
+        bf_cost, ilp_cost,
+        "BruteForce and ILP should agree on optimal cost"
+    );
     assert_eq!(bf_cost, 2, "optimal cost is 2 (center at vertex 1)");
 }
 
@@ -84,12 +91,7 @@ fn test_solution_extraction() {
 #[test]
 fn test_minimumsummulticenter_to_ilp_trivial() {
     // Single vertex, K=1: the only vertex must be the center, distance = 0
-    let problem = MinimumSumMulticenter::new(
-        SimpleGraph::new(1, vec![]),
-        vec![5i32],
-        vec![],
-        1,
-    );
+    let problem = MinimumSumMulticenter::new(SimpleGraph::new(1, vec![]), vec![5i32], vec![], 1);
     let reduction: ReductionMSMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     // num_vars = 1 + 1 = 2

@@ -110,13 +110,11 @@ fn main() {
         (
             "traits",
             "core",
-            &[
-                (
-                    "Problem",
-                    "trait",
-                    "Core trait for all computational problems",
-                ),
-            ],
+            &[(
+                "Problem",
+                "trait",
+                "Core trait for all computational problems",
+            )],
         ),
         (
             "types",
@@ -160,11 +158,7 @@ fn main() {
             "rules",
             "rule",
             &[
-                (
-                    "ReduceTo",
-                    "trait",
-                    "Trait for witness/config reductions",
-                ),
+                ("ReduceTo", "trait", "Trait for witness/config reductions"),
                 (
                     "ReductionResult",
                     "trait",

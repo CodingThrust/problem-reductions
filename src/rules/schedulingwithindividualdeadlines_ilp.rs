@@ -115,12 +115,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Schedule: task 0 at slot 0, task 1 at slot 0, task 2 at slot 1
             // max_deadline = 3
             // x_{0,0}=1, x_{0,1}=0, x_{0,2}=0, x_{1,0}=1, x_{1,1}=0, x_{1,2}=0, x_{2,0}=0, x_{2,1}=1, x_{2,2}=0
-            let source = SchedulingWithIndividualDeadlines::new(
-                3,
-                2,
-                vec![2, 2, 3],
-                vec![(0, 2)],
-            );
+            let source = SchedulingWithIndividualDeadlines::new(3, 2, vec![2, 2, 3], vec![(0, 2)]);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

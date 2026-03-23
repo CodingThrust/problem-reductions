@@ -3,7 +3,7 @@ use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::misc::{ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
 use crate::rules::{ReduceTo, ReductionResult};
-use crate::solvers::ILPSolver;
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
 fn small_yes_instance() -> ConsistencyOfDatabaseFrequencyTables {
@@ -76,6 +76,23 @@ fn test_cdft_to_ilp_solve_reduced() {
         .solve_reduced(&problem)
         .expect("solve_reduced should find a satisfying assignment");
     assert!(problem.evaluate(&solution));
+}
+
+#[test]
+fn test_consistency_to_ilp_bf_vs_ilp() {
+    let problem = small_yes_instance();
+    let reduction: ReductionCDFTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+
+    let bf_witness = BruteForce::new()
+        .find_witness(&problem)
+        .expect("should be satisfiable");
+    assert!(problem.evaluate(&bf_witness));
+
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert!(problem.evaluate(&extracted));
 }
 
 fn issue_instance() -> ConsistencyOfDatabaseFrequencyTables {

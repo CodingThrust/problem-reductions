@@ -14,7 +14,11 @@ fn test_reduction_creates_valid_ilp() {
     assert_eq!(ilp.num_vars, 24, "Should have 24 variables (3*2 + 9*2)");
     // num_constraints = 3 assignment + 3*9*2 McCormick + 1 bound = 3 + 54 + 1 = 58
     assert_eq!(ilp.constraints.len(), 58, "Should have 58 constraints");
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize, "Should minimize (feasibility)");
+    assert_eq!(
+        ilp.sense,
+        ObjectiveSense::Minimize,
+        "Should minimize (feasibility)"
+    );
 }
 
 #[test]
@@ -25,7 +29,9 @@ fn test_sumofsquarespartition_to_ilp_bf_vs_ilp() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf.find_witness(&problem).expect("BF should find a solution");
+    let bf_witness = bf
+        .find_witness(&problem)
+        .expect("BF should find a solution");
     assert_eq!(problem.evaluate(&bf_witness), Or(true));
 
     let reduction: ReductionSSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
@@ -70,9 +76,5 @@ fn test_sumofsquarespartition_to_ilp_trivial() {
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(
-        problem.evaluate(&extracted),
-        Or(true),
-        "Should be feasible"
-    );
+    assert_eq!(problem.evaluate(&extracted), Or(true), "Should be feasible");
 }

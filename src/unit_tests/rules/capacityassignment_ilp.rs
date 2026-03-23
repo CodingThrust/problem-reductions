@@ -17,7 +17,10 @@ fn test_reduction_creates_valid_ilp() {
     let ilp = reduction.target_problem();
 
     // num_vars = 2 links * 2 capacities = 4
-    assert_eq!(ilp.num_vars, 4, "Should have 4 variables (2 links * 2 capacities)");
+    assert_eq!(
+        ilp.num_vars, 4,
+        "Should have 4 variables (2 links * 2 capacities)"
+    );
 
     // num_constraints = 2 assignment + 1 cost budget + 1 delay budget = 4
     assert_eq!(
@@ -25,7 +28,11 @@ fn test_reduction_creates_valid_ilp() {
         4,
         "Should have 4 constraints (2 assignment + 1 cost + 1 delay)"
     );
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize, "Should minimize (feasibility)");
+    assert_eq!(
+        ilp.sense,
+        ObjectiveSense::Minimize,
+        "Should minimize (feasibility)"
+    );
 }
 
 #[test]
@@ -42,7 +49,9 @@ fn test_capacityassignment_to_ilp_bf_vs_ilp() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf.find_witness(&problem).expect("BF should find a solution");
+    let bf_witness = bf
+        .find_witness(&problem)
+        .expect("BF should find a solution");
     assert_eq!(problem.evaluate(&bf_witness), Or(true));
 
     let reduction: ReductionCAToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
@@ -83,13 +92,7 @@ fn test_solution_extraction() {
 #[test]
 fn test_capacityassignment_to_ilp_trivial() {
     // 1 link, 1 capacity level — trivially feasible
-    let problem = CapacityAssignment::new(
-        vec![1],
-        vec![vec![0]],
-        vec![vec![0]],
-        100,
-        100,
-    );
+    let problem = CapacityAssignment::new(vec![1], vec![vec![0]], vec![vec![0]], 100, 100);
     let reduction: ReductionCAToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 

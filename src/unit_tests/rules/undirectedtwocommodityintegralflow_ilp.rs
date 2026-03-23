@@ -51,8 +51,13 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_structure() {
 fn test_undirectedtwocommodityintegralflow_to_ilp_closed_loop() {
     let problem = feasible_instance();
     let bf = BruteForce::new();
-    let bf_solution = bf.find_witness(&problem).expect("feasible instance has a witness");
-    assert!(problem.evaluate(&bf_solution).0, "brute force solution is valid");
+    let bf_solution = bf
+        .find_witness(&problem)
+        .expect("feasible instance has a witness");
+    assert!(
+        problem.evaluate(&bf_solution).0,
+        "brute force solution is valid"
+    );
 
     let reduction: ReductionU2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp_solution = ILPSolver::new()
@@ -86,12 +91,12 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_extract_solution() {
     // edge 2 (2,3): f1_uv=1, f1_vu=0, f2_uv=1, f2_vu=0
     // directions: d1_0=1,d2_0=0, d1_1=0,d2_1=1, d1_2=1,d2_2=1
     let target_solution = vec![
-        1, 0, 0, 0,  // edge 0 flows
-        0, 0, 1, 0,  // edge 1 flows
-        1, 0, 1, 0,  // edge 2 flows
-        1, 0,        // d1_0=1, d2_0=0
-        0, 1,        // d1_1=0, d2_1=1
-        1, 1,        // d1_2=1, d2_2=1
+        1, 0, 0, 0, // edge 0 flows
+        0, 0, 1, 0, // edge 1 flows
+        1, 0, 1, 0, // edge 2 flows
+        1, 0, // d1_0=1, d2_0=0
+        0, 1, // d1_1=0, d2_1=1
+        1, 1, // d1_2=1, d2_2=1
     ];
     let extracted = reduction.extract_solution(&target_solution);
     // extract_solution returns first 4*3=12 flow variables

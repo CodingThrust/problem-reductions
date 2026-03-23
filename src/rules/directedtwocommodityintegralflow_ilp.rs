@@ -5,11 +5,12 @@
 //!   f2_a = num_arcs + a  for a in 0..num_arcs  (commodity 2 flow on arc a)
 //!
 //! Constraints:
-//!   1. Joint capacity: f1_a + f2_a ≤ cap[a] for each arc a
-//!   2. Flow conservation: for each commodity, Σ f_out(v) - Σ f_in(v) = 0 at non-terminals
-//!   3. Sink requirement: net inflow at sink_k ≥ R_k for each commodity k
-//! Objective: Minimize 0 (feasibility)
-//! Extraction: Direct 2*|A| variables
+//! - Joint capacity: f1_a + f2_a ≤ cap[a] for each arc a
+//! - Flow conservation: for each commodity, Σ f_out(v) - Σ f_in(v) = 0 at non-terminals
+//! - Sink requirement: net inflow at sink_k ≥ R_k for each commodity k
+//!
+//! Objective: Minimize 0 (feasibility).
+//! Extraction: Direct 2*|A| variables.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::DirectedTwoCommodityIntegralFlow;
@@ -117,7 +118,10 @@ impl ReduceTo<ILP<i32>> for DirectedTwoCommodityIntegralFlow {
                 sink1_terms.push((f1(a), -1.0));
             }
         }
-        constraints.push(LinearConstraint::ge(sink1_terms, self.requirement_1() as f64));
+        constraints.push(LinearConstraint::ge(
+            sink1_terms,
+            self.requirement_1() as f64,
+        ));
 
         // Net flow into sink_2 ≥ requirement_2
         let sink_2 = self.sink_2();
@@ -129,7 +133,10 @@ impl ReduceTo<ILP<i32>> for DirectedTwoCommodityIntegralFlow {
                 sink2_terms.push((f2(a), -1.0));
             }
         }
-        constraints.push(LinearConstraint::ge(sink2_terms, self.requirement_2() as f64));
+        constraints.push(LinearConstraint::ge(
+            sink2_terms,
+            self.requirement_2() as f64,
+        ));
 
         ReductionD2CIFToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),

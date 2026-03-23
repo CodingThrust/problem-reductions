@@ -106,8 +106,9 @@ impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {
 
         // Assignment constraints: for each record r, Σ_s x_{r,s} = 1
         for r in 0..num_records {
-            let terms: Vec<(usize, f64)> =
-                (0..num_sectors).map(|s| (result.x_var(r, s), 1.0)).collect();
+            let terms: Vec<(usize, f64)> = (0..num_sectors)
+                .map(|s| (result.x_var(r, s), 1.0))
+                .collect();
             constraints.push(LinearConstraint::eq(terms, 1.0));
         }
 
@@ -124,11 +125,9 @@ impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {
                         let x2 = result.x_var(r2, s2);
 
                         // z ≤ x_{r,s}: z - x_{r,s} ≤ 0
-                        constraints
-                            .push(LinearConstraint::le(vec![(z, 1.0), (x1, -1.0)], 0.0));
+                        constraints.push(LinearConstraint::le(vec![(z, 1.0), (x1, -1.0)], 0.0));
                         // z ≤ x_{r',s'}: z - x_{r',s'} ≤ 0
-                        constraints
-                            .push(LinearConstraint::le(vec![(z, 1.0), (x2, -1.0)], 0.0));
+                        constraints.push(LinearConstraint::le(vec![(z, 1.0), (x2, -1.0)], 0.0));
                         // z ≥ x_{r,s} + x_{r',s'} - 1: -z + x_{r,s} + x_{r',s'} ≤ 1
                         constraints.push(LinearConstraint::le(
                             vec![(z, -1.0), (x1, 1.0), (x2, 1.0)],
@@ -179,25 +178,18 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // 2 records with probabilities [0.5, 0.5], 2 sectors, generous bound
             // Assignment: record 0 → sector 0, record 1 → sector 1
-            // Expected cost: p0*p1*lat(0,1) + p1*p0*lat(1,0) = 0.25*0 + 0.25*0 = 0
-            // Actually lat(0,1) = 1-0-1 = 0, lat(1,0) = 2-1+0-1 = 0
-            // So expected cost = 0 ≤ any positive bound
             let source = ExpectedRetrievalCost::new(vec![0.5, 0.5], 2, 1.0);
+            // Compute target_config from solver to ensure consistency
+            let reduction: ReductionERCToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let solver = crate::solvers::ILPSolver::new();
+            let target_config = solver
+                .solve(reduction.target_problem())
+                .expect("canonical example should be feasible");
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    // record 0 → sector 0, record 1 → sector 1
                     source_config: vec![0, 1],
-                    // x_{0,0}=1, x_{0,1}=0, x_{1,0}=0, x_{1,1}=1
-                    // z vars (4*4=16): z_{0,0,0,0}=1,z_{0,0,0,1}=0,z_{0,0,1,0}=0,z_{0,0,1,1}=0,
-                    //                  z_{0,1,0,0}=0,...,z_{1,1,1,1}=1
-                    target_config: vec![
-                        1, 0, 0, 1, // x vars
-                        1, 0, 0, 0, // z_{0,0,*,*}
-                        0, 0, 0, 0, // z_{0,1,*,*}
-                        0, 0, 0, 0, // z_{1,0,*,*}
-                        0, 0, 0, 1, // z_{1,1,*,*}
-                    ],
+                    target_config,
                 },
             )
         },

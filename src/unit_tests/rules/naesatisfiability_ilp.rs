@@ -11,7 +11,11 @@ fn test_reduction_creates_valid_ilp() {
     let reduction: ReductionNAESATToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     assert_eq!(ilp.num_vars, 2, "one ILP var per Boolean variable");
-    assert_eq!(ilp.constraints.len(), 2, "two constraints per clause (ge + le)");
+    assert_eq!(
+        ilp.constraints.len(),
+        2,
+        "two constraints per clause (ge + le)"
+    );
     assert_eq!(ilp.sense, ObjectiveSense::Minimize);
     assert!(ilp.objective.is_empty(), "feasibility: no objective terms");
 }
@@ -24,8 +28,8 @@ fn test_naesatisfiability_to_ilp_bf_vs_ilp() {
     let problem = NAESatisfiability::new(
         3,
         vec![
-            CNFClause::new(vec![1, 2, 3]),    // x1 ∨ x2 ∨ x3
-            CNFClause::new(vec![-1, -2, 3]),  // ¬x1 ∨ ¬x2 ∨ x3
+            CNFClause::new(vec![1, 2, 3]),   // x1 ∨ x2 ∨ x3
+            CNFClause::new(vec![-1, -2, 3]), // ¬x1 ∨ ¬x2 ∨ x3
         ],
     );
     let reduction: ReductionNAESATToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
@@ -34,7 +38,9 @@ fn test_naesatisfiability_to_ilp_bf_vs_ilp() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf.find_witness(&problem).expect("NAE-SAT instance should be feasible");
+    let bf_witness = bf
+        .find_witness(&problem)
+        .expect("NAE-SAT instance should be feasible");
     assert_eq!(problem.evaluate(&bf_witness), Or(true));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
@@ -67,7 +73,10 @@ fn test_naesatisfiability_to_ilp_infeasible() {
 
     let ilp_solver = ILPSolver::new();
     // The ILP should be infeasible: x1 ≥ 1 (at least one true) AND x1 ≤ 0 (at least one false)
-    assert!(ilp_solver.solve(ilp).is_none(), "ILP should be infeasible for unsatisfiable NAE-SAT");
+    assert!(
+        ilp_solver.solve(ilp).is_none(),
+        "ILP should be infeasible for unsatisfiable NAE-SAT"
+    );
 }
 
 #[test]
@@ -86,7 +95,9 @@ fn test_naesatisfiability_to_ilp_negative_literals() {
     assert_eq!(ilp.constraints.len(), 2);
 
     let ilp_solver = ILPSolver::new();
-    let ilp_solution = ilp_solver.solve(ilp).expect("NAE-SAT with (¬x1 ∨ x2) is feasible");
+    let ilp_solution = ilp_solver
+        .solve(ilp)
+        .expect("NAE-SAT with (¬x1 ∨ x2) is feasible");
     let extracted = reduction.extract_solution(&ilp_solution);
     assert_eq!(
         problem.evaluate(&extracted),

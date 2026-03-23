@@ -2,7 +2,6 @@ use super::*;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
-
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // 3 items, weights [2,3,1], values [3,4,2], capacity 4, precedence (0,1)

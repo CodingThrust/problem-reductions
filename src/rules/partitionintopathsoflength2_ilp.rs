@@ -101,8 +101,10 @@ impl ReduceTo<ILP<bool>> for PartitionIntoPathsOfLength2<SimpleGraph> {
                 // y ≤ x_{v,g}
                 constraints.push(LinearConstraint::le(vec![(y, 1.0), (xv, -1.0)], 0.0));
                 // y ≥ x_{u,g} + x_{v,g} - 1  →  -y + x_{u,g} + x_{v,g} ≤ 1
-                constraints
-                    .push(LinearConstraint::le(vec![(y, -1.0), (xu, 1.0), (xv, 1.0)], 1.0));
+                constraints.push(LinearConstraint::le(
+                    vec![(y, -1.0), (xu, 1.0), (xv, 1.0)],
+                    1.0,
+                ));
             }
         }
 

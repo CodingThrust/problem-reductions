@@ -2,7 +2,6 @@ use super::*;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
-
 #[test]
 fn test_reduction_creates_valid_ilp() {
     let problem = MinimumHittingSet::new(3, vec![vec![0, 1], vec![1, 2]]);
