@@ -8,8 +8,8 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
-    ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesSubmatrix,
-    SparseMatrixCompression, BMF,
+    ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
+    ConsecutiveOnesSubmatrix, SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -22,7 +22,7 @@ use problemreductions::models::graph::{
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
     ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
-    ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, KnownValue,
+    ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping, KnownValue,
     LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
     PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
@@ -125,6 +125,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.delay_budget.is_none()
         && args.pattern.is_none()
         && args.strings.is_none()
+        && args.string.is_none()
         && args.costs.is_none()
         && args.arc_costs.is_none()
         && args.arcs.is_none()
@@ -680,6 +681,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "LongestCommonSubsequence" => {
             "--strings \"010110;100101;001011\" --bound 3 --alphabet-size 2"
         }
+        "GroupingBySwapping" => "--string \"0,1,2,0,1,2\" --bound 5",
         "MinimumCardinalityKey" => {
             "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --bound 2"
         }
@@ -692,6 +694,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         "ConsecutiveBlockMinimization" => {
             "--matrix '[[true,false,true],[false,true,true]]' --bound 2"
+        }
+        "ConsecutiveOnesMatrixAugmentation" => {
+            "--matrix \"1,0,0,1,1;1,1,0,0,0;0,1,1,0,1;0,0,1,1,0\" --bound 2"
         }
         "SparseMatrixCompression" => {
             "--matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound 2"
@@ -739,6 +744,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("PrimeAttributeName", "dependencies") => return "deps".to_string(),
         ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
         ("MixedChinesePostman", "arc_weights") => return "arc-costs".to_string(),
+        ("ConsecutiveOnesMatrixAugmentation", "bound") => return "bound".to_string(),
         ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
         ("SparseMatrixCompression", "bound_k") => return "bound".to_string(),
         ("StackerCrane", "edges") => return "graph".to_string(),
@@ -805,6 +811,7 @@ fn help_flag_hint(
         ("LongestCommonSubsequence", "strings") => {
             "raw strings: \"ABAC;BACA\" or symbol lists: \"0,1,0;1,0,1\""
         }
+        ("GroupingBySwapping", "string") => "symbol list: \"0,1,2,0,1,2\"",
         ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
         ("IntegralFlowHomologousArcs", "homologous_pairs") => {
@@ -823,6 +830,9 @@ fn help_flag_hint(
         ("IntegralFlowBundles", "bundle_capacities") => "comma-separated capacities: 1,1,1",
         ("PathConstrainedNetworkFlow", "paths") => {
             "semicolon-separated arc-index paths: \"0,2,5,8;1,4,7,9\""
+        }
+        ("ConsecutiveOnesMatrixAugmentation", "matrix") => {
+            "semicolon-separated 0/1 rows: \"1,0;0,1\""
         }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("SparseMatrixCompression", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
@@ -2817,6 +2827,22 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // ConsecutiveOnesMatrixAugmentation
+        "ConsecutiveOnesMatrixAugmentation" => {
+            let matrix = parse_bool_matrix(args)?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ConsecutiveOnesMatrixAugmentation requires --matrix and --bound\n\n\
+                     Usage: pred create ConsecutiveOnesMatrixAugmentation --matrix \"1,0,0,1,1;1,1,0,0,0;0,1,1,0,1;0,0,1,1,0\" --bound 2"
+                )
+            })?;
+            (
+                ser(ConsecutiveOnesMatrixAugmentation::try_new(matrix, bound)
+                    .map_err(|e| anyhow::anyhow!(e))?)?,
+                resolved_variant.clone(),
+            )
+        }
+
         // SparseMatrixCompression
         "SparseMatrixCompression" => {
             let matrix = parse_bool_matrix(args)?;
@@ -2915,6 +2941,56 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             );
             (
                 ser(LongestCommonSubsequence::new(alphabet_size, strings, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // GroupingBySwapping
+        "GroupingBySwapping" => {
+            let usage =
+                "Usage: pred create GroupingBySwapping --string \"0,1,2,0,1,2\" --bound 5 [--alphabet-size 3]";
+            let string_str = args.string.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("GroupingBySwapping requires --string\n\n{usage}")
+            })?;
+            let bound = parse_nonnegative_usize_bound(
+                args.bound.ok_or_else(|| {
+                    anyhow::anyhow!("GroupingBySwapping requires --bound\n\n{usage}")
+                })?,
+                "GroupingBySwapping",
+                usage,
+            )?;
+
+            let string = if string_str.trim().is_empty() {
+                Vec::new()
+            } else {
+                string_str
+                    .split(',')
+                    .map(|value| {
+                        value
+                            .trim()
+                            .parse::<usize>()
+                            .context("invalid symbol index")
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            };
+            let inferred = string.iter().copied().max().map_or(0, |value| value + 1);
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            anyhow::ensure!(
+                alphabet_size >= inferred,
+                "--alphabet-size {} is smaller than max symbol + 1 ({}) in the input string",
+                alphabet_size,
+                inferred
+            );
+            anyhow::ensure!(
+                alphabet_size > 0 || string.is_empty(),
+                "GroupingBySwapping requires a positive alphabet for non-empty strings.\n\n{usage}"
+            );
+            anyhow::ensure!(
+                !string.is_empty() || bound == 0,
+                "GroupingBySwapping requires --bound 0 when --string is empty.\n\n{usage}"
+            );
+            (
+                ser(GroupingBySwapping::new(alphabet_size, string, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -7222,6 +7298,7 @@ mod tests {
             delay_budget: None,
             pattern: None,
             strings: None,
+            string: None,
             arc_costs: None,
             arcs: None,
             values: None,
@@ -7993,5 +8070,81 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("bound >= 1"));
+    }
+
+    #[test]
+    fn test_create_consecutive_ones_matrix_augmentation_json() {
+        use crate::dispatch::ProblemJsonOutput;
+
+        let mut args = empty_args();
+        args.problem = Some("ConsecutiveOnesMatrixAugmentation".to_string());
+        args.matrix = Some("1,0,0,1,1;1,1,0,0,0;0,1,1,0,1;0,0,1,1,0".to_string());
+        args.bound = Some(2);
+
+        let output_path =
+            std::env::temp_dir().join(format!("coma-create-{}.json", std::process::id()));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = std::fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "ConsecutiveOnesMatrixAugmentation");
+        assert!(created.variant.is_empty());
+        assert_eq!(
+            created.data,
+            serde_json::json!({
+                "matrix": [
+                    [true, false, false, true, true],
+                    [true, true, false, false, false],
+                    [false, true, true, false, true],
+                    [false, false, true, true, false],
+                ],
+                "bound": 2,
+            })
+        );
+
+        let _ = std::fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_consecutive_ones_matrix_augmentation_requires_bound() {
+        let mut args = empty_args();
+        args.problem = Some("ConsecutiveOnesMatrixAugmentation".to_string());
+        args.matrix = Some("1,0;0,1".to_string());
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("ConsecutiveOnesMatrixAugmentation requires --matrix and --bound"));
+        assert!(err.contains("Usage: pred create ConsecutiveOnesMatrixAugmentation"));
+    }
+
+    #[test]
+    fn test_create_consecutive_ones_matrix_augmentation_negative_bound() {
+        let mut args = empty_args();
+        args.problem = Some("ConsecutiveOnesMatrixAugmentation".to_string());
+        args.matrix = Some("1,0;0,1".to_string());
+        args.bound = Some(-1);
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("nonnegative"));
     }
 }
