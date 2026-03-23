@@ -34,6 +34,7 @@
 //! - [`BottleneckTravelingSalesman`]: Hamiltonian cycle minimizing the maximum selected edge weight
 //! - [`MultipleCopyFileAllocation`]: File-copy placement under storage and access costs
 //! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
+//! - [`PartialFeedbackEdgeSet`]: Remove at most K edges to hit every short cycle
 //! - [`RootedTreeArrangement`]: Rooted-tree embedding with bounded total edge stretch
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 //! - [`MinMaxMulticenter`]: Min-max multicenter (vertex p-center, satisfaction)
@@ -94,6 +95,7 @@ pub(crate) mod mixed_chinese_postman;
 pub(crate) mod multiple_choice_branching;
 pub(crate) mod multiple_copy_file_allocation;
 pub(crate) mod optimal_linear_arrangement;
+pub(crate) mod partial_feedback_edge_set;
 pub(crate) mod partition_into_paths_of_length_2;
 pub(crate) mod partition_into_triangles;
 pub(crate) mod path_constrained_network_flow;
@@ -149,6 +151,7 @@ pub use mixed_chinese_postman::MixedChinesePostman;
 pub use multiple_choice_branching::MultipleChoiceBranching;
 pub use multiple_copy_file_allocation::MultipleCopyFileAllocation;
 pub use optimal_linear_arrangement::OptimalLinearArrangement;
+pub use partial_feedback_edge_set::PartialFeedbackEdgeSet;
 pub use partition_into_paths_of_length_2::PartitionIntoPathsOfLength2;
 pub use partition_into_triangles::PartitionIntoTriangles;
 pub use path_constrained_network_flow::PathConstrainedNetworkFlow;
@@ -219,6 +222,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(integral_flow_homologous_arcs::canonical_model_example_specs());
     specs.extend(minimum_feedback_arc_set::canonical_model_example_specs());
     specs.extend(optimal_linear_arrangement::canonical_model_example_specs());
+    specs.extend(partial_feedback_edge_set::canonical_model_example_specs());
     specs.extend(mixed_chinese_postman::canonical_model_example_specs());
     specs.extend(subgraph_isomorphism::canonical_model_example_specs());
     specs
