@@ -187,10 +187,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     #[cfg(feature = "ilp-solver")]
     {
         specs.extend(binpacking_ilp::canonical_rule_example_specs());
+        specs.extend(capacityassignment_ilp::canonical_rule_example_specs());
         specs.extend(circuit_ilp::canonical_rule_example_specs());
         specs.extend(consistencyofdatabasefrequencytables_ilp::canonical_rule_example_specs());
         specs.extend(coloring_ilp::canonical_rule_example_specs());
         specs.extend(exactcoverby3sets_ilp::canonical_rule_example_specs());
+        specs.extend(expectedretrievalcost_ilp::canonical_rule_example_specs());
         specs.extend(factoring_ilp::canonical_rule_example_specs());
         specs.extend(graphpartitioning_ilp::canonical_rule_example_specs());
         specs.extend(integralflowbundles_ilp::canonical_rule_example_specs());
@@ -212,14 +214,18 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(minimumsetcovering_ilp::canonical_rule_example_specs());
         specs.extend(minmaxmulticenter_ilp::canonical_rule_example_specs());
         specs.extend(minimumsummulticenter_ilp::canonical_rule_example_specs());
+        specs.extend(multiprocessorscheduling_ilp::canonical_rule_example_specs());
         specs.extend(multiplecopyfileallocation_ilp::canonical_rule_example_specs());
         specs.extend(partiallyorderedknapsack_ilp::canonical_rule_example_specs());
+        specs.extend(partitionintopathsoflength2_ilp::canonical_rule_example_specs());
+        specs.extend(partitionintotriangles_ilp::canonical_rule_example_specs());
         specs.extend(qubo_ilp::canonical_rule_example_specs());
         specs.extend(rectilinearpicturecompression_ilp::canonical_rule_example_specs());
         specs
             .extend(sequencingtominimizeweightedcompletiontime_ilp::canonical_rule_example_specs());
         specs.extend(shortestweightconstrainedpath_ilp::canonical_rule_example_specs());
         specs.extend(steinertree_ilp::canonical_rule_example_specs());
+        specs.extend(sumofsquarespartition_ilp::canonical_rule_example_specs());
         specs.extend(travelingsalesman_ilp::canonical_rule_example_specs());
     }
     specs
