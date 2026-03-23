@@ -28,24 +28,16 @@ fn no_instance() -> PartialFeedbackEdgeSet<SimpleGraph> {
     PartialFeedbackEdgeSet::new(issue_graph(), 2, 4)
 }
 
-fn normalize_edge(u: usize, v: usize) -> (usize, usize) {
-    if u <= v {
-        (u, v)
-    } else {
-        (v, u)
-    }
-}
-
 fn select_edges<G: Graph>(graph: &G, selected_edges: &[(usize, usize)]) -> Vec<usize> {
     let chosen: std::collections::BTreeSet<_> = selected_edges
         .iter()
         .copied()
-        .map(|(u, v)| normalize_edge(u, v))
+        .map(|(u, v)| super::normalize_edge(u, v))
         .collect();
     graph
         .edges()
         .into_iter()
-        .map(|(u, v)| usize::from(chosen.contains(&normalize_edge(u, v))))
+        .map(|(u, v)| usize::from(chosen.contains(&super::normalize_edge(u, v))))
         .collect()
 }
 
