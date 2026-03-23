@@ -92,9 +92,7 @@ fn main() {
     for entry in inventory::iter::<ProblemSchemaEntry> {
         let display = module_display_path(entry.module_path);
         let category = module_category(entry.module_path).to_string();
-        module_categories
-            .entry(display.clone())
-            .or_insert(category);
+        module_categories.entry(display.clone()).or_insert(category);
         module_items.entry(display).or_default().push(ModuleItem {
             name: entry.display_name.to_string(),
             kind: "struct".to_string(),
@@ -103,13 +101,21 @@ fn main() {
     }
 
     // Add well-known non-model modules with their key items
-    type ModuleSpec = (&'static str, &'static str, &'static [(&'static str, &'static str, &'static str)]);
+    type ModuleSpec = (
+        &'static str,
+        &'static str,
+        &'static [(&'static str, &'static str, &'static str)],
+    );
     let static_modules: &[ModuleSpec] = &[
         (
             "traits",
             "core",
             &[
-                ("Problem", "trait", "Core trait for all computational problems"),
+                (
+                    "Problem",
+                    "trait",
+                    "Core trait for all computational problems",
+                ),
                 (
                     "OptimizationProblem",
                     "trait",
@@ -140,11 +146,7 @@ fn main() {
             "variant",
             "core",
             &[
-                (
-                    "VariantParam",
-                    "trait",
-                    "Trait for variant parameter types",
-                ),
+                ("VariantParam", "trait", "Trait for variant parameter types"),
                 (
                     "CastToParent",
                     "trait",
@@ -188,16 +190,8 @@ fn main() {
                     "struct",
                     "Global graph of all registered reductions",
                 ),
-                (
-                    "ReductionEntry",
-                    "struct",
-                    "A single registered reduction",
-                ),
-                (
-                    "VariantEntry",
-                    "struct",
-                    "A registered problem variant",
-                ),
+                ("ReductionEntry", "struct", "A single registered reduction"),
+                ("VariantEntry", "struct", "A registered problem variant"),
             ],
         ),
         (
@@ -205,11 +199,7 @@ fn main() {
             "solver",
             &[
                 ("BruteForce", "struct", "Exhaustive search solver"),
-                (
-                    "ILPSolver",
-                    "struct",
-                    "Integer linear programming solver",
-                ),
+                ("ILPSolver", "struct", "Integer linear programming solver"),
                 (
                     "Solver",
                     "trait",

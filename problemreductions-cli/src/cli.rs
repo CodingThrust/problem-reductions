@@ -265,6 +265,7 @@ Flags by problem type:
   BicliqueCover                   --left, --right, --biedges, --k
   BalancedCompleteBipartiteSubgraph --left, --right, --biedges, --k
   BiconnectivityAugmentation      --graph, --potential-edges, --budget [--num-vertices]
+  PartialFeedbackEdgeSet          --graph, --budget, --max-cycle-length [--num-vertices]
   BMF                             --matrix (0/1), --rank
   ConsecutiveBlockMinimization    --matrix (JSON 2D bool), --bound-k
   ConsecutiveOnesSubmatrix        --matrix (0/1), --k
@@ -612,6 +613,9 @@ pub struct CreateArgs {
     /// Total budget for selected potential edges
     #[arg(long)]
     pub budget: Option<String>,
+    /// Maximum cycle length L for PartialFeedbackEdgeSet
+    #[arg(long)]
+    pub max_cycle_length: Option<usize>,
     /// Candidate weighted arcs for StrongConnectivityAugmentation (e.g., 2>0:1,2>1:3)
     #[arg(long)]
     pub candidate_arcs: Option<String>,
@@ -914,6 +918,44 @@ mod tests {
         assert!(help.contains("BiconnectivityAugmentation"));
         assert!(help.contains("--potential-edges"));
         assert!(help.contains("--budget"));
+    }
+
+    #[test]
+    fn test_create_parses_partial_feedback_edge_set_flags() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "PartialFeedbackEdgeSet",
+            "--graph",
+            "0-1,1-2,2-0",
+            "--budget",
+            "1",
+            "--max-cycle-length",
+            "3",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        assert_eq!(args.problem.as_deref(), Some("PartialFeedbackEdgeSet"));
+        assert_eq!(args.graph.as_deref(), Some("0-1,1-2,2-0"));
+        assert_eq!(args.budget.as_deref(), Some("1"));
+        assert_eq!(args.max_cycle_length, Some(3));
+    }
+
+    #[test]
+    fn test_create_help_mentions_partial_feedback_edge_set_flags() {
+        let cmd = Cli::command();
+        let create = cmd.find_subcommand("create").expect("create subcommand");
+        let help = create
+            .get_after_help()
+            .expect("create after_help")
+            .to_string();
+
+        assert!(help.contains("PartialFeedbackEdgeSet"));
+        assert!(help.contains("--budget"));
+        assert!(help.contains("--max-cycle-length"));
     }
 
     #[test]
