@@ -7,7 +7,7 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 These repo-local skills live under `.claude/skills/*/SKILL.md`.
 
 - [run-pipeline](skills/run-pipeline/SKILL.md) -- Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr -> Review pool. One issue at a time; forever-loop handles iteration.
-- [issue-to-pr](skills/issue-to-pr/SKILL.md) -- Convert a GitHub issue into a PR with an implementation plan. One item per PR: `[Rule]` issues require both models to exist on `main`; never bundle model + rule in the same PR.
+- [issue-to-pr](skills/issue-to-pr/SKILL.md) -- Convert a GitHub issue into a PR with an implementation plan. Default rule: one item per PR. Exception: a `[Model]` issue that explicitly claims direct ILP solvability should implement the model and its direct `<Model> -> ILP` rule together; `[Rule]` issues still require both models to exist on `main`.
 - [add-model](skills/add-model/SKILL.md) -- Add a new problem model. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
 - [add-rule](skills/add-rule/SKILL.md) -- Add a new reduction rule. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
 - [review-structural](skills/review-structural/SKILL.md) -- Project-specific structural completeness check: model/rule checklists, build, semantic correctness, issue compliance. Read-only, no code changes. Called by `review-pipeline`.

@@ -193,6 +193,8 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 
 - If the target problem already has a solver, use it directly.
 - If the solving strategy requires ILP, implement the ILP reduction rule alongside (feature-gated under `ilp-solver`).
+- A direct-to-ILP rule is a production reduction, not a stub. Match the completeness bar used by strong ILP reductions in this repo: exact overhead metadata, structure + closed-loop + extraction tests, weighted/infeasible/pathological regressions whenever the semantics require them, and ILP-enabled workspace verification.
+- When this rule is the companion to a `[Model]` issue that explicitly claims ILP solvability, it belongs in the same PR as the model.
 - If a custom solver is needed, implement in `src/solvers/` and document.
 
 ## CLI Impact
@@ -223,3 +225,4 @@ Aggregate-only reductions currently have a narrower CLI surface:
 | Not adding canonical example to `example_db` | Add builder in `src/example_db/rule_builders.rs` |
 | Not regenerating reduction graph | Run `cargo run --example export_graph` after adding a rule |
 | Source/target model not fully registered | Both problems must already have `declare_variants!`, aliases as needed, and CLI create support -- use `add-model` skill first |
+| Treating a direct-to-ILP rule as a toy stub | Direct ILP reductions need exact overhead metadata and strong semantic regression tests, just like other production ILP rules |
