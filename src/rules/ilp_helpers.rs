@@ -4,6 +4,8 @@
 //! McCormick products, MTZ orderings, flow conservation, big-M activation,
 //! absolute-value differentials, minimax bounds, and one-hot decoding.
 
+#![allow(dead_code)]
+
 use crate::models::algebraic::LinearConstraint;
 
 /// McCormick linearization: `y = x_a * x_b` (both binary).
@@ -67,6 +69,7 @@ pub fn mtz_ordering(
 /// For each node `u`: `Σ_{(u,v)} f_{uv} - Σ_{(v,u)} f_{vu} = demand[u]`.
 ///
 /// `flow_idx` maps an arc index to the ILP variable index for that arc's flow.
+#[allow(clippy::needless_range_loop)]
 pub fn flow_conservation(
     arcs: &[(usize, usize)],
     num_nodes: usize,
@@ -110,7 +113,10 @@ pub fn abs_diff_le(a_idx: usize, b_idx: usize, z_idx: usize) -> Vec<LinearConstr
 /// Minimax: `z ≥ expr_i` for each expression.
 ///
 /// Each `expr` is a list of `(var_idx, coeff)` terms representing a linear expression.
-pub fn minimax_constraints(z_idx: usize, expr_terms: &[Vec<(usize, f64)>]) -> Vec<LinearConstraint> {
+pub fn minimax_constraints(
+    z_idx: usize,
+    expr_terms: &[Vec<(usize, f64)>],
+) -> Vec<LinearConstraint> {
     expr_terms
         .iter()
         .map(|terms| {
