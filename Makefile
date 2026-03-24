@@ -58,9 +58,9 @@ help:
 build:
 	cargo build --features ilp-highs
 
-# Run all tests (including ignored tests)
+# Run all workspace tests (including ignored tests)
 test:
-	cargo test --features "ilp-highs example-db" -- --include-ignored
+	cargo test --features "ilp-highs example-db" --workspace -- --include-ignored
 
 # Run MCP server tests
 mcp-test:  ## Run MCP server tests

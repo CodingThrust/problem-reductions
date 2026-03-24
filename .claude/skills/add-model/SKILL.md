@@ -55,6 +55,11 @@ Before implementation, verify that at least one reduction rule exists or is plan
 
 **If associated rules are found:** List them and continue.
 
+**If the issue explicitly claims ILP solvability in "How to solve":**
+- One associated rule MUST be a direct `[Rule] <ProblemName> to ILP`
+- Treat that direct ILP rule as part of the same implementation scope
+- Do NOT split the model and its direct ILP rule into separate PRs
+
 ## Reference Implementations
 
 Read these first to understand the patterns:
@@ -75,6 +80,7 @@ Before implementing, make sure the plan explicitly covers these items that struc
 - `declare_variants!` is present with exactly one `default` variant when multiple concrete variants exist
 - CLI discovery and `pred create <ProblemName>` support are included where applicable
 - A canonical model example is registered for example-db / `pred create --example`
+- If the issue explicitly claims direct ILP solving, the plan also includes the direct `<Problem> -> ILP` rule with exact overhead metadata, feature-gated registration, strong regression tests, and ILP-enabled verification
 - `docs/paper/reductions.typ` adds both the display-name dictionary entry and the `problem-def(...)`
 
 ## Step 1: Determine the category
@@ -193,6 +199,19 @@ This example is now the canonical source for:
 - paper/example exports via `load-model-example()` in `reductions.typ`
 - example-db invariants tested in `src/unit_tests/example_db.rs`
 
+## Step 4.7: Implement Direct ILP Rule When Claimed
+
+If the issue explicitly says the model is solvable by reducing **directly** to ILP, implement `src/rules/<problem>_ilp.rs` in the **same PR** as the model. This is the one exception to the normal "one item per PR" policy: the direct `<Problem> -> ILP` rule is part of the model feature, not optional follow-up work.
+
+Completeness bar:
+- Feature-gate the rule under `ilp-solver` and register it normally
+- Add exact overhead expressions and any required size-field getters; metadata must match the constructed ILP exactly
+- Add strong tests in `src/unit_tests/rules/<problem>_ilp.rs`: structure/metadata, closed-loop semantics vs the source problem or brute force, extraction, `solve_reduced()` or ILP path coverage when appropriate, and weighted/infeasible/pathological regressions whenever the model semantics admit them
+- Update CLI/example-db/paper paths so the claimed ILP solver route is actually usable and documented
+- Verify with ILP-enabled workspace commands, not just non-ILP unit tests
+
+A direct ILP rule shipped with a model issue must match the completeness bar of a standalone production ILP reduction. Do not add a stub just to satisfy the issue text.
+
 ## Step 5: Write unit tests
 
 Create `src/unit_tests/models/<category>/<name>.rs`:
@@ -205,6 +224,8 @@ Every model needs **at least 3 test functions** (the structural reviewer enforce
 - **Solver** — brute-force `solve()` returns the correct aggregate value; if witnesses are supported, verify `find_witness()` / `find_all_witnesses()` as well.
 - **Serialization** — round-trip serde (when the model is used in CLI/example-db flows).
 - **Paper example** — verify the worked example from the paper entry (see below).
+
+If Step 4.7 applies, also add a dedicated ILP rule test file under `src/unit_tests/rules/<problem>_ilp.rs`. Use strong direct-to-ILP reductions in the repo as the reference bar: the tests should validate the actual formulation semantics, not just that an ILP file exists.
 
 When you add `test_<name>_paper_example`, it should:
 1. Construct the same instance shown in the paper's example figure
@@ -259,8 +280,15 @@ Checklist: display name registered, notation self-contained, background present,
 
 ## Step 7: Verify
 
+For ordinary model-only work:
 ```bash
 make test clippy  # Must pass
+```
+
+If Step 4.7 applied, run ILP-enabled workspace verification instead:
+```bash
+cargo clippy --all-targets --features ilp-highs -- -D warnings
+cargo test --features "ilp-highs example-db" --workspace --verbose
 ```
 
 Structural and quality review is handled by the `review-pipeline` stage, not here. The run stage just needs to produce working code.
@@ -292,3 +320,4 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 | Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |
 | Missing canonical model example | Add a builder in `src/example_db/model_builders.rs` and keep it aligned with paper/example workflows |
 | Paper example not tested | Must include `test_<name>_paper_example` that verifies the exact instance, solution, and solution count shown in the paper |
+| Claiming direct ILP solving but leaving `<Problem> -> ILP` for later | If the issue promises a direct ILP path, implement that rule in the same PR with exact overhead metadata and production-level ILP tests |
