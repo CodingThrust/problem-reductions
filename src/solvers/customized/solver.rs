@@ -7,8 +7,10 @@ use super::fd_subset_search::{
     self, compute_closure, find_essential_attributes, find_essential_attributes_restricted,
     is_minimal_key, is_superkey, BranchDecision,
 };
+use crate::models::graph::PartialFeedbackEdgeSet;
 use crate::models::misc::{AdditionalKey, BoyceCoddNormalFormViolation};
 use crate::models::set::{MinimumCardinalityKey, PrimeAttributeName};
+use crate::topology::SimpleGraph;
 use std::collections::HashSet;
 
 /// A solver that uses problem-specific backends for exact witness recovery.
@@ -32,6 +34,7 @@ impl CustomizedSolver {
             || any.is::<AdditionalKey>()
             || any.is::<PrimeAttributeName>()
             || any.is::<BoyceCoddNormalFormViolation>()
+            || any.is::<PartialFeedbackEdgeSet<SimpleGraph>>()
     }
 
     /// Attempt to solve a type-erased problem using a dedicated backend.
@@ -50,6 +53,9 @@ impl CustomizedSolver {
         }
         if let Some(p) = any.downcast_ref::<BoyceCoddNormalFormViolation>() {
             return solve_bcnf_violation(p);
+        }
+        if let Some(p) = any.downcast_ref::<PartialFeedbackEdgeSet<SimpleGraph>>() {
+            return super::partial_feedback_edge_set::find_witness(p);
         }
         None
     }

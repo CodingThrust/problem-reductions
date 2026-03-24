@@ -170,3 +170,65 @@ fn test_customized_solver_minimum_cardinality_key_no_solution() {
     let custom = CustomizedSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
 }
+
+// --- PartialFeedbackEdgeSet tests ---
+
+#[test]
+fn test_customized_solver_solves_partial_feedback_edge_set_yes_and_no() {
+    let yes = crate::models::graph::PartialFeedbackEdgeSet::new(
+        crate::topology::SimpleGraph::new(
+            6,
+            vec![(0, 1), (1, 2), (2, 0), (2, 3), (3, 4), (4, 2), (3, 5), (5, 4), (0, 3)],
+        ),
+        3,
+        4,
+    );
+    let no = crate::models::graph::PartialFeedbackEdgeSet::new(
+        crate::topology::SimpleGraph::new(
+            6,
+            vec![(0, 1), (1, 2), (2, 0), (2, 3), (3, 4), (4, 2), (3, 5), (5, 4), (0, 3)],
+        ),
+        1,
+        4,
+    );
+
+    let solver = CustomizedSolver::new();
+    let yes_result = solver.solve_dyn(&yes);
+    assert!(yes_result.is_some(), "expected a solution for yes instance");
+    assert!(
+        yes.is_valid_solution(yes_result.as_ref().unwrap()),
+        "witness must satisfy the problem"
+    );
+
+    assert!(solver.solve_dyn(&no).is_none(), "no instance should have no solution");
+}
+
+#[test]
+fn test_customized_solver_matches_bruteforce_for_partial_feedback_edge_set() {
+    // Small instance for parity check
+    let problem = crate::models::graph::PartialFeedbackEdgeSet::new(
+        crate::topology::SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 0), (2, 3)]),
+        1,
+        3,
+    );
+    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
+    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    assert_eq!(custom.is_some(), brute.is_some());
+    if let Some(w) = &custom {
+        assert!(problem.evaluate(w).0, "witness must satisfy the problem");
+    }
+}
+
+#[test]
+fn test_customized_solver_partial_feedback_edge_set_no_cycles() {
+    // Tree graph: no cycles at all
+    let problem = crate::models::graph::PartialFeedbackEdgeSet::new(
+        crate::topology::SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        0,
+        3,
+    );
+    let result = CustomizedSolver::new().solve_dyn(&problem);
+    assert!(result.is_some());
+    // All zeros: no edges removed
+    assert_eq!(result.unwrap(), vec![0, 0, 0]);
+}
