@@ -58,6 +58,13 @@ fn test_stringtostringcorrection_to_ilp_infeasible() {
     let bf = BruteForce::new();
     let bf_witness = bf.find_witness(&problem);
     assert!(bf_witness.is_none(), "source should be infeasible");
+
+    let reduction: ReductionSTSCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let ilp_solver = ILPSolver::new();
+    assert!(
+        ilp_solver.solve(reduction.target_problem()).is_none(),
+        "reduced ILP should also be infeasible"
+    );
 }
 
 #[test]

@@ -41,15 +41,6 @@ impl ReduceTo<ILP<i32>> for StrongConnectivityAugmentation<i32> {
         let n = self.num_vertices();
         let p = self.num_potential_arcs();
 
-        // Trivial: n ≤ 1 already strongly connected
-        if n <= 1 {
-            let target = ILP::new(p, vec![], vec![], ObjectiveSense::Minimize);
-            return ReductionSCAToILP {
-                target,
-                num_candidates: p,
-            };
-        }
-
         let base_arcs = self.graph().arcs();
         let m = base_arcs.len();
         let root = 0;

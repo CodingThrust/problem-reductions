@@ -90,6 +90,19 @@ fn test_ilp_empty_problem() {
 }
 
 #[test]
+fn test_ilp_empty_problem_with_infeasible_constraint_returns_none() {
+    let ilp = ILP::<bool>::new(
+        0,
+        vec![LinearConstraint::le(vec![], -1.0)],
+        vec![],
+        ObjectiveSense::Minimize,
+    );
+    let solver = ILPSolver::new();
+    let solution = solver.solve(&ilp);
+    assert_eq!(solution, None);
+}
+
+#[test]
 fn test_ilp_equality_constraint() {
     // Minimize x0 subject to x0 + x1 == 1, binary vars
     let ilp = ILP::<bool>::new(
