@@ -1,8 +1,172 @@
 use crate::solvers::CustomizedSolver;
+use crate::traits::Problem;
 
 #[test]
 fn test_customized_solver_returns_none_for_unsupported_problem() {
     let problem = crate::models::misc::GroupingBySwapping::new(3, vec![0, 1, 2, 0, 1, 2], 2);
     let solver = CustomizedSolver::new();
     assert!(solver.solve_dyn(&problem).is_none());
+}
+
+// --- FD model parity tests against BruteForce ---
+
+#[test]
+fn test_customized_solver_matches_bruteforce_for_minimum_cardinality_key() {
+    let problem = crate::models::set::MinimumCardinalityKey::new(
+        4,
+        vec![(vec![0], vec![1]), (vec![1, 2], vec![3])],
+        2,
+    );
+    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
+    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    assert_eq!(custom.is_some(), brute.is_some());
+    if let Some(w) = &custom {
+        assert!(problem.evaluate(w).0, "witness must satisfy the problem");
+    }
+}
+
+#[test]
+fn test_customized_solver_matches_bruteforce_for_additional_key() {
+    let problem = crate::models::misc::AdditionalKey::new(
+        3,
+        vec![(vec![0], vec![1, 2])],
+        vec![0, 1, 2],
+        vec![],
+    );
+    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
+    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    assert_eq!(custom.is_some(), brute.is_some());
+    if let Some(w) = &custom {
+        assert!(problem.evaluate(w).0, "witness must satisfy the problem");
+    }
+}
+
+#[test]
+fn test_customized_solver_matches_bruteforce_for_prime_attribute_name() {
+    let problem = crate::models::set::PrimeAttributeName::new(
+        4,
+        vec![(vec![0, 1], vec![2, 3]), (vec![2], vec![0])],
+        0,
+    );
+    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
+    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    assert_eq!(custom.is_some(), brute.is_some());
+    if let Some(w) = &custom {
+        assert!(problem.evaluate(w).0, "witness must satisfy the problem");
+    }
+}
+
+#[test]
+fn test_customized_solver_matches_bruteforce_for_bcnf_violation() {
+    let problem = crate::models::misc::BoyceCoddNormalFormViolation::new(
+        4,
+        vec![(vec![0], vec![1]), (vec![2], vec![3])],
+        vec![0, 1, 2, 3],
+    );
+    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
+    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    assert_eq!(custom.is_some(), brute.is_some());
+    if let Some(w) = &custom {
+        assert!(problem.evaluate(w).0, "witness must satisfy the problem");
+    }
+}
+
+// --- Exact witness tests for FD models ---
+
+#[test]
+fn test_customized_solver_finds_minimum_cardinality_key_witness() {
+    let problem = crate::models::set::MinimumCardinalityKey::new(
+        6,
+        vec![
+            (vec![0, 1], vec![2]),
+            (vec![0, 2], vec![3]),
+            (vec![1, 3], vec![4]),
+            (vec![2, 4], vec![5]),
+        ],
+        2,
+    );
+    let witness = CustomizedSolver::new()
+        .solve_dyn(&problem)
+        .expect("expected witness");
+    assert!(problem.evaluate(&witness).0);
+}
+
+#[test]
+fn test_customized_solver_finds_additional_key_witness() {
+    let problem = crate::models::misc::AdditionalKey::new(
+        6,
+        vec![
+            (vec![0, 1], vec![2, 3]),
+            (vec![2, 3], vec![4, 5]),
+            (vec![4, 5], vec![0, 1]),
+            (vec![0, 2], vec![3]),
+            (vec![3, 5], vec![1]),
+        ],
+        vec![0, 1, 2, 3, 4, 5],
+        vec![vec![0, 1], vec![2, 3], vec![4, 5]],
+    );
+    let witness = CustomizedSolver::new()
+        .solve_dyn(&problem)
+        .expect("expected witness");
+    assert!(problem.evaluate(&witness).0);
+}
+
+#[test]
+fn test_customized_solver_finds_prime_attribute_name_witness() {
+    let problem = crate::models::set::PrimeAttributeName::new(
+        6,
+        vec![
+            (vec![0, 1], vec![2, 3, 4, 5]),
+            (vec![2, 3], vec![0, 1, 4, 5]),
+            (vec![0, 3], vec![1, 2, 4, 5]),
+        ],
+        3,
+    );
+    let witness = CustomizedSolver::new()
+        .solve_dyn(&problem)
+        .expect("expected witness");
+    assert!(problem.evaluate(&witness).0);
+}
+
+#[test]
+fn test_customized_solver_finds_bcnf_violation_witness() {
+    let problem = crate::models::misc::BoyceCoddNormalFormViolation::new(
+        6,
+        vec![
+            (vec![0, 1], vec![2]),
+            (vec![2], vec![3]),
+            (vec![3, 4], vec![5]),
+        ],
+        vec![0, 1, 2, 3, 4, 5],
+    );
+    let witness = CustomizedSolver::new()
+        .solve_dyn(&problem)
+        .expect("expected witness");
+    assert!(problem.evaluate(&witness).0);
+}
+
+#[test]
+fn test_customized_solver_no_witness_when_no_solution_exists() {
+    // All attributes uniquely determine all others — {0} is the only key and is known
+    let problem = crate::models::misc::AdditionalKey::new(
+        3,
+        vec![(vec![0], vec![1, 2]), (vec![1], vec![0, 2]), (vec![2], vec![0, 1])],
+        vec![0, 1, 2],
+        vec![vec![0], vec![1], vec![2]],
+    );
+    assert!(CustomizedSolver::new().solve_dyn(&problem).is_none());
+}
+
+#[test]
+fn test_customized_solver_minimum_cardinality_key_no_solution() {
+    // bound=1 but no single attribute determines all
+    let problem = crate::models::set::MinimumCardinalityKey::new(
+        3,
+        vec![(vec![0, 1], vec![2])],
+        1,
+    );
+    // BruteForce should also return None
+    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
+    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    assert_eq!(custom.is_some(), brute.is_some());
 }
