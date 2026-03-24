@@ -66,9 +66,9 @@ fn plain_problem_output(
 }
 
 pub fn solve(input: &Path, solver_name: &str, timeout: u64, out: &OutputConfig) -> Result<()> {
-    if solver_name != "brute-force" && solver_name != "ilp" {
+    if solver_name != "brute-force" && solver_name != "ilp" && solver_name != "customized" {
         anyhow::bail!(
-            "Unknown solver: {}. Available solvers: brute-force, ilp",
+            "Unknown solver: {}. Available solvers: brute-force, ilp, customized",
             solver_name
         );
     }
@@ -139,6 +139,21 @@ fn solve_problem(
             if name != "ILP" {
                 json["reduced_to"] = serde_json::json!("ILP");
             }
+            let result = out.emit_with_default_name("", &text, &json);
+            if out.output.is_none() && crate::output::stderr_is_tty() {
+                out.info("\nHint: use -o to save full solution details as JSON.");
+            }
+            result
+        }
+        "customized" => {
+            let result = problem
+                .solve_with_customized()
+                .map_err(add_customized_solver_hint)?;
+            let result = crate::dispatch::SolveResult {
+                config: Some(result.config),
+                evaluation: result.evaluation,
+            };
+            let (text, json) = plain_problem_output(name, "customized", &result);
             let result = out.emit_with_default_name("", &text, &json);
             if out.output.is_none() && crate::output::stderr_is_tty() {
                 out.info("\nHint: use -o to save full solution details as JSON.");
@@ -227,6 +242,17 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
         out.info("\nHint: use -o to save full solution details (including intermediate results) as JSON.");
     }
     result
+}
+
+fn add_customized_solver_hint(err: anyhow::Error) -> anyhow::Error {
+    let message = err.to_string();
+    if message.contains("unsupported by customized solver") {
+        anyhow::anyhow!(
+            "{message}\n\nHint: the customized solver only supports select problems (FD-based models, PartialFeedbackEdgeSet, RootedTreeArrangement).\nTry `--solver brute-force` or `--solver ilp` instead."
+        )
+    } else {
+        err
+    }
 }
 
 fn add_ilp_solver_hint(err: anyhow::Error) -> anyhow::Error {

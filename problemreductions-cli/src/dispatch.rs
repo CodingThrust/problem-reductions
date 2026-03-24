@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use problemreductions::registry::{DynProblem, LoadedDynProblem};
 use problemreductions::rules::{MinimizeSteps, ReductionGraph, ReductionMode};
-use problemreductions::solvers::ILPSolver;
+use problemreductions::solvers::{CustomizedSolver, ILPSolver};
 use problemreductions::types::ProblemSize;
 use serde_json::Value;
 use std::any::Any;
@@ -75,11 +75,28 @@ impl LoadedProblem {
         }
     }
 
+    pub fn supports_customized_solver(&self) -> bool {
+        CustomizedSolver::new().solve_dyn(self.as_any()).is_some()
+            || CustomizedSolver::supports_problem(self.as_any())
+    }
+
+    pub fn solve_with_customized(&self) -> Result<WitnessSolveResult> {
+        let solver = CustomizedSolver::new();
+        let config = solver
+            .solve_dyn(self.as_any())
+            .ok_or_else(|| anyhow::anyhow!("Problem unsupported by customized solver"))?;
+        let evaluation = self.evaluate_dyn(&config);
+        Ok(WitnessSolveResult { config, evaluation })
+    }
+
     #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
     pub fn available_solvers(&self) -> Vec<&'static str> {
         let mut solvers = vec!["brute-force"];
         if self.supports_ilp_solver() {
             solvers.push("ilp");
+        }
+        if CustomizedSolver::supports_problem(self.as_any()) {
+            solvers.push("customized");
         }
         solvers
     }
@@ -268,6 +285,34 @@ mod tests {
         let result = loaded.solve_brute_force();
         assert_eq!(result.config, None);
         assert_eq!(result.evaluation, "Sum(56)");
+    }
+
+    #[test]
+    fn test_available_solvers_excludes_customized_for_unsupported_problem() {
+        let loaded = load_problem(
+            AGGREGATE_SOURCE_NAME,
+            &BTreeMap::new(),
+            serde_json::to_value(AggregateValueSource::sample()).unwrap(),
+        )
+        .unwrap();
+
+        assert!(!loaded.available_solvers().contains(&"customized"));
+    }
+
+    #[test]
+    fn test_solve_with_customized_rejects_unsupported_problem() {
+        let loaded = load_problem(
+            AGGREGATE_SOURCE_NAME,
+            &BTreeMap::new(),
+            serde_json::to_value(AggregateValueSource::sample()).unwrap(),
+        )
+        .unwrap();
+
+        let err = loaded.solve_with_customized().unwrap_err();
+        assert!(
+            err.to_string().contains("unsupported by customized solver"),
+            "unexpected error: {err}"
+        );
     }
 
     #[test]

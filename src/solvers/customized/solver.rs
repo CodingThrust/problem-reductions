@@ -18,6 +18,11 @@ impl CustomizedSolver {
         Self
     }
 
+    /// Check whether a type-erased problem is supported by the customized solver.
+    pub fn supports_problem(_any: &dyn std::any::Any) -> bool {
+        false
+    }
+
     /// Attempt to solve a type-erased problem using a dedicated backend.
     ///
     /// Returns `Some(config)` if a satisfying witness is found, `None` if
