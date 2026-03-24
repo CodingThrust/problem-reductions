@@ -65,6 +65,35 @@ fn test_minimumsummulticenter_to_ilp_bf_vs_ilp() {
 }
 
 #[test]
+fn test_minimumsummulticenter_to_ilp_respects_weighted_shortest_paths() {
+    // Triangle with a very long direct edge 0-1:
+    // the source model must use weighted shortest paths, so center 2 is optimal.
+    let problem = MinimumSumMulticenter::new(
+        SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]),
+        vec![10i32, 10, 1],
+        vec![100i32, 1, 1],
+        1,
+    );
+
+    let bf = BruteForce::new();
+    let bf_witness = bf.find_witness(&problem).expect("should have a solution");
+    assert_eq!(bf_witness, vec![0, 0, 1], "center 2 is uniquely optimal");
+    assert_eq!(problem.evaluate(&bf_witness).unwrap(), 20);
+
+    let reduction: ReductionMSMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+
+    assert_eq!(
+        extracted, bf_witness,
+        "ILP reduction must optimize weighted shortest-path distances"
+    );
+    assert_eq!(problem.evaluate(&extracted).unwrap(), 20);
+}
+
+#[test]
 fn test_solution_extraction() {
     // 3-vertex path: center at vertex 1
     let problem = MinimumSumMulticenter::new(

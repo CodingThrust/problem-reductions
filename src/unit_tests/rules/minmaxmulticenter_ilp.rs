@@ -86,6 +86,30 @@ fn test_solution_extraction() {
 }
 
 #[test]
+fn test_minmaxmulticenter_to_ilp_rejects_weighted_infeasible_instance() {
+    // Single weighted edge with length 100. With k=1 and bound=1, no center placement is feasible.
+    let problem = MinMaxMulticenter::new(
+        SimpleGraph::new(2, vec![(0, 1)]),
+        vec![1i32; 2],
+        vec![100i32],
+        1,
+        1,
+    );
+
+    let bf = BruteForce::new();
+    assert!(
+        bf.find_witness(&problem).is_none(),
+        "source problem should be infeasible"
+    );
+
+    let reduction: ReductionMMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    assert!(
+        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        "ILP reduction must respect weighted shortest-path bounds"
+    );
+}
+
+#[test]
 fn test_minmaxmulticenter_to_ilp_trivial() {
     // Single vertex, K=1, B=0: the only vertex is the center, distance = 0 ≤ 0
     let problem = MinMaxMulticenter::new(SimpleGraph::new(1, vec![]), vec![5i32], vec![], 1, 0);

@@ -41,10 +41,33 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_structure() {
     let reduction: ReductionU2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
-    // 3 edges → 8*3 = 24 variables
-    assert_eq!(ilp.num_vars, 24);
+    // 3 edges → 4 flow vars + 2 direction vars per edge = 18 variables.
+    assert_eq!(ilp.num_vars, 18);
+    assert_eq!(ilp.constraints.len(), 25);
     assert_eq!(ilp.sense, ObjectiveSense::Minimize);
     assert!(ilp.objective.is_empty());
+}
+
+#[test]
+fn test_undirectedtwocommodityintegralflow_to_ilp_overhead_matches_target() {
+    let problem = feasible_instance();
+    let reduction: ReductionU2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let ilp = reduction.target_problem();
+
+    let entry = inventory::iter::<crate::rules::ReductionEntry>()
+        .find(|entry| {
+            entry.source_name == "UndirectedTwoCommodityIntegralFlow"
+                && entry.target_name == "ILP"
+                && entry
+                    .target_variant()
+                    .iter()
+                    .any(|(key, value)| *key == "variable" && *value == "i32")
+        })
+        .expect("U2CIF -> ILP<i32> reduction should be registered");
+
+    let overhead = (entry.overhead_eval_fn)(&problem as &dyn std::any::Any);
+    assert_eq!(overhead.get("num_vars"), Some(ilp.num_vars));
+    assert_eq!(overhead.get("num_constraints"), Some(ilp.constraints.len()));
 }
 
 #[test]

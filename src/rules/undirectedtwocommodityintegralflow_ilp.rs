@@ -6,11 +6,10 @@
 //!   f2_{uv} = 4*e + 2  (commodity 2 flow u→v)
 //!   f2_{vu} = 4*e + 3  (commodity 2 flow v→u)
 //!
-//! Additional binary indicator variables for capacity sharing (indices 4*|E|..8*|E|-1):
+//! Additional binary indicator variables for capacity sharing:
 //!   d1_e = 4*|E| + 2*e     (1 if commodity 1 uses forward direction on edge e)
 //!   d2_e = 4*|E| + 2*e + 1 (1 if commodity 2 uses forward direction on edge e)
 //!
-//! Wait -- the simpler and correct linearization uses the max-flow property directly:
 //! For each edge e with capacity c_e, the joint capacity constraint is:
 //!   max(f1_{uv}, f1_{vu}) + max(f2_{uv}, f2_{vu}) ≤ c_e
 //!
@@ -19,12 +18,11 @@
 //!   f2_{uv} ≤ c_e * d2_e;  f2_{vu} ≤ c_e * (1 - d2_e)
 //!   f1_{uv} + f1_{vu} + f2_{uv} + f2_{vu} ≤ c_e  (joint capacity)
 //!
-//! Variable layout (8 variables per edge):
+//! Variable layout (6 variables per edge):
 //!   [0..4*E): f1_{uv}, f1_{vu}, f2_{uv}, f2_{vu} per edge
-//!   [4*E..8*E): d1_e, placeholder, d2_e, placeholder (4 per edge, 2 used)
-//!   Actually layout: d1_e = 4*E + 2*e, d2_e = 4*E + 2*e + 1
+//!   [4*E..6*E): d1_e, d2_e per edge
 //!
-//! Constraints per edge (5 per edge) + flow conservation (2*|V| - sum of terminal skips) + net flow (2)
+//! Constraints per edge (7 per edge) + flow conservation (2 per non-terminal vertex) + net flow (2)
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::UndirectedTwoCommodityIntegralFlow;
@@ -60,8 +58,8 @@ impl ReductionResult for ReductionU2CIFToILP {
 
 #[reduction(
     overhead = {
-        num_vars = "8 * num_edges",
-        num_constraints = "5 * num_edges + 2 * num_vertices + 2",
+        num_vars = "6 * num_edges",
+        num_constraints = "7 * num_edges + 2 * num_nonterminal_vertices + 2",
     }
 )]
 impl ReduceTo<ILP<i32>> for UndirectedTwoCommodityIntegralFlow {
@@ -71,8 +69,8 @@ impl ReduceTo<ILP<i32>> for UndirectedTwoCommodityIntegralFlow {
         let edges = self.graph().edges();
         let e = edges.len();
         let n = self.num_vertices();
-        // 4*e flow variables + 2*e direction indicators = 8*e total
-        let num_vars = 8 * e;
+        // 4*e flow variables + 2*e direction indicators = 6*e total
+        let num_vars = 6 * e;
 
         // Variable index helpers
         let f1_uv = |edge: usize| 4 * edge;
@@ -82,7 +80,7 @@ impl ReduceTo<ILP<i32>> for UndirectedTwoCommodityIntegralFlow {
         let d1 = |edge: usize| 4 * e + 2 * edge;
         let d2 = |edge: usize| 4 * e + 2 * edge + 1;
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(7 * e + 2 * self.num_nonterminal_vertices() + 2);
 
         for (edge_idx, (_u, _v)) in edges.iter().enumerate() {
             let cap = self.capacities()[edge_idx] as f64;

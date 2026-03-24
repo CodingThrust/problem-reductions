@@ -32,7 +32,7 @@ inventory::submit! {
 inventory::submit! {
     ProblemSizeFieldEntry {
         name: "UndirectedTwoCommodityIntegralFlow",
-        fields: &["num_vertices", "num_edges"],
+        fields: &["num_vertices", "num_edges", "num_nonterminal_vertices"],
     }
 }
 
@@ -147,6 +147,12 @@ impl UndirectedTwoCommodityIntegralFlow {
 
     pub fn num_edges(&self) -> usize {
         self.graph.num_edges()
+    }
+
+    pub fn num_nonterminal_vertices(&self) -> usize {
+        (0..self.num_vertices())
+            .filter(|&vertex| !self.is_terminal(vertex))
+            .count()
     }
 
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {

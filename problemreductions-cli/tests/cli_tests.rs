@@ -1519,7 +1519,7 @@ fn test_create_d2cif_alias() {
 }
 
 #[test]
-fn test_solve_d2cif_default_solver_suggests_bruteforce() {
+fn test_solve_d2cif_default_solver_uses_ilp() {
     let output_file = std::env::temp_dir().join("pred_test_solve_d2cif.json");
     let create_output = pred()
         .args([
@@ -1557,21 +1557,25 @@ fn test_solve_d2cif_default_solver_suggests_bruteforce() {
         .output()
         .unwrap();
     assert!(
-        !solve_output.status.success(),
-        "stdout: {}",
-        String::from_utf8_lossy(&solve_output.stdout)
+        solve_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&solve_output.stderr)
     );
-    let stderr = String::from_utf8_lossy(&solve_output.stderr);
+    let stdout = String::from_utf8(solve_output.stdout).unwrap();
     assert!(
-        stderr.contains("--solver brute-force"),
-        "expected brute-force hint, got: {stderr}"
+        stdout.contains("\"solver\": \"ilp\""),
+        "expected ILP solver output, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("\"reduced_to\": \"ILP\""),
+        "expected auto-reduction marker, got: {stdout}"
     );
 
     std::fs::remove_file(&output_file).ok();
 }
 
 #[test]
-fn test_inspect_rectilinear_picture_compression_lists_bruteforce_only() {
+fn test_inspect_rectilinear_picture_compression_lists_ilp_and_bruteforce() {
     let output_file = std::env::temp_dir().join("pred_test_inspect_rpc.json");
     let create_output = pred()
         .args([
@@ -1604,8 +1608,8 @@ fn test_inspect_rectilinear_picture_compression_lists_bruteforce_only() {
     let stdout = String::from_utf8(inspect_output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert!(
-        json["solvers"] == serde_json::json!(["brute-force"]),
-        "inspect should list only usable solvers, got: {json}"
+        json["solvers"] == serde_json::json!(["ilp", "brute-force"]),
+        "inspect should list ILP first when available, got: {json}"
     );
 
     std::fs::remove_file(&output_file).ok();
@@ -4422,7 +4426,7 @@ fn test_create_minmaxmulticenter_negative_inputs_rejected() {
 }
 
 #[test]
-fn test_solve_minmaxmulticenter_ilp_error_suggests_bruteforce() {
+fn test_solve_minmaxmulticenter_default_solver_uses_ilp() {
     let problem_file = std::env::temp_dir().join("pred_test_minmaxmulticenter_solve.json");
     let create_out = pred()
         .args([
@@ -4449,9 +4453,17 @@ fn test_solve_minmaxmulticenter_ilp_error_suggests_bruteforce() {
         .args(["solve", problem_file.to_str().unwrap()])
         .output()
         .unwrap();
-    assert!(!solve_out.status.success());
-    let stderr = String::from_utf8_lossy(&solve_out.stderr);
-    assert!(stderr.contains("--solver brute-force"), "stderr: {stderr}");
+    assert!(
+        solve_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&solve_out.stderr)
+    );
+    let stdout = String::from_utf8(solve_out.stdout).unwrap();
+    assert!(stdout.contains("\"solver\": \"ilp\""), "stdout: {stdout}");
+    assert!(
+        stdout.contains("\"reduced_to\": \"ILP\""),
+        "stdout: {stdout}"
+    );
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -5644,7 +5656,7 @@ fn test_create_pipe_to_solve() {
 }
 
 #[test]
-fn test_solve_ilp_error_suggests_brute_force_fallback() {
+fn test_solve_sum_of_squares_partition_default_solver_uses_ilp() {
     let problem_json = r#"{
         "type": "SumOfSquaresPartition",
         "data": {
@@ -5660,12 +5672,20 @@ fn test_solve_ilp_error_suggests_brute_force_fallback() {
         .args(["solve", tmp.to_str().unwrap()])
         .output()
         .unwrap();
-    assert!(!output.status.success());
-
-    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--solver brute-force"),
-        "stderr should suggest the brute-force fallback, got: {stderr}"
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("\"solver\": \"ilp\""),
+        "stdout should report the ILP solver, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("\"reduced_to\": \"ILP\""),
+        "stdout should report the ILP reduction target, got: {stdout}"
     );
 
     std::fs::remove_file(&tmp).ok();
@@ -5848,7 +5868,7 @@ fn test_inspect_problem() {
 }
 
 #[test]
-fn test_inspect_minmaxmulticenter_lists_bruteforce_only() {
+fn test_inspect_minmaxmulticenter_lists_ilp_and_bruteforce() {
     let problem_file = std::env::temp_dir().join("pred_test_inspect_minmaxmulticenter.json");
     let create_out = pred()
         .args([
@@ -5888,7 +5908,7 @@ fn test_inspect_minmaxmulticenter_lists_bruteforce_only() {
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
-    assert_eq!(solvers, vec!["brute-force"]);
+    assert_eq!(solvers, vec!["ilp", "brute-force"]);
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -6094,7 +6114,7 @@ fn test_inspect_json_output() {
 }
 
 #[test]
-fn test_inspect_multiprocessor_scheduling_reports_only_brute_force_solver() {
+fn test_inspect_multiprocessor_scheduling_reports_ilp_and_brute_force() {
     let problem_file = std::env::temp_dir().join("pred_test_inspect_mps_in.json");
     let result_file = std::env::temp_dir().join("pred_test_inspect_mps_out.json");
     let create_out = pred()
@@ -6143,7 +6163,7 @@ fn test_inspect_multiprocessor_scheduling_reports_only_brute_force_solver() {
         .collect();
     assert_eq!(
         solvers,
-        vec!["brute-force"],
+        vec!["ilp", "brute-force"],
         "unexpected solvers: {solvers:?}"
     );
 
@@ -6381,7 +6401,7 @@ fn test_inspect_multiple_copy_file_allocation_reports_size_fields() {
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
-    assert_eq!(solvers, vec!["brute-force"]);
+    assert_eq!(solvers, vec!["ilp", "brute-force"]);
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();
