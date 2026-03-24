@@ -4,6 +4,7 @@
 //! McCormick products, MTZ orderings, flow conservation, big-M activation,
 //! absolute-value differentials, minimax bounds, and one-hot decoding.
 
+#![allow(dead_code)]
 use crate::models::algebraic::LinearConstraint;
 
 /// McCormick linearization: `y = x_a * x_b` (both binary).

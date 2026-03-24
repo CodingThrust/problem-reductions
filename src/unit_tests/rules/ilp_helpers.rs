@@ -134,9 +134,9 @@ fn test_one_hot_decode_permutation() {
 fn test_one_hot_decode_with_offset() {
     // Same as above but with offset=5
     let mut solution = vec![0usize; 14];
-    solution[7] = 1;
-    solution[8] = 1;
-    solution[12] = 1;
+    solution[7] = 1; // 5 + 2
+    solution[8] = 1; // 5 + 3
+    solution[12] = 1; // 5 + 7
     let decoded = one_hot_decode(&solution, 3, 3, 5);
     assert_eq!(decoded, vec![1, 2, 0]);
 }

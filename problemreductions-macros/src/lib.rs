@@ -430,7 +430,7 @@ impl syn::parse::Parse for DeclareVariantsInput {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// declare_variants! {
 ///     MaximumIndependentSet<SimpleGraph, i32>   => "1.1996^num_vertices",
 ///     MaximumIndependentSet<KingsSubgraph, i32> => "2^sqrt(num_vertices)",

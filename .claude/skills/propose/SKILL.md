@@ -299,10 +299,28 @@ Only fall back to the full `AskUserQuestion` if the inference is genuinely ambig
 
 5. **Solving strategy** — The library's brute-force solver works on every problem by enumerating the configuration space. **Auto-fill "Brute-force" as the baseline** — do not present it as a choice.
 
-   If the problem has a natural ILP or QUBO formulation, note it for the companion rules section (Step 3b), not here:
-   > "Brute-force is the baseline solver. A natural ILP formulation also exists — we'll propose that as a companion reduction rule later."
+   If the problem also admits a natural **direct** ILP formulation, ask whether the issue should explicitly claim ILP solver support:
+   ```
+   AskUserQuestion:
+     question: "This problem appears to admit a direct ILP formulation. Should the issue explicitly claim ILP solver support?"
+     header: "ILP solver"
+     options:
+       - label: "Yes — add direct <Problem> → ILP (Recommended)"
+         description: "File a direct companion rule issue and mark the model as solvable via ILP"
+       - label: "No — brute-force only"
+         description: "Keep the model issue's solver section limited to brute-force unless another concrete solver exists"
+   ```
 
-   **Only use `AskUserQuestion`** if the problem is polynomial-time solvable or has a specialized exact algorithm that should replace brute-force:
+   If the user picks **Yes**:
+   - Set `requires_ilp_companion = true`
+   - The companion rule must be a direct `<Problem> → ILP` issue filed in the **same** `/propose` session
+   - State in the draft that later implementation is expected to ship the model and this direct ILP rule in the same PR
+
+   If the user picks **No**, keep the model issue's "How to solve" section limited to brute-force unless a different specialized solver is available.
+
+   **Do not mention ILP/QUBO in the model issue's "How to solve" section unless there is a concrete companion rule issue number.**
+
+   **Only use `AskUserQuestion`** beyond that if the problem is polynomial-time solvable or has a specialized exact algorithm that should replace brute-force:
    ```
    AskUserQuestion:
      question: "This problem appears to be solvable in polynomial time. Which algorithm should be the primary solver?"
@@ -313,8 +331,6 @@ Only fall back to the full `AskUserQuestion` if the inference is genuinely ambig
        - label: "Brute-force anyway"
          description: "Use generic brute-force even though faster algorithms exist"
    ```
-
-   **Do not present ILP/QUBO as solver options.** These are reductions to other problems, handled as companion rules in Step 3b. The "How to solve" section in the issue always says "Brute-force" for NP-hard problems.
 
 6. **Example** — Generate **at least 3** candidate examples yourself (varying in size and structure), then present via `AskUserQuestion`. **3 options is the minimum — never fewer.** Always include a "Generate new batch" escape hatch:
 
@@ -616,6 +632,7 @@ AskUserQuestion:
 **Ranking criteria** (in order of priority):
 - Connections that establish NP-hardness (from a problem reachable from 3-SAT)
 - **ILP solver path** — if the new model has no outgoing edges and admits a natural ILP formulation, `<NewModel> → ILP` should be the top companion rule recommendation. This is the fastest way to make the problem solvable via the existing ILP solver infrastructure.
+- If `requires_ilp_companion = true`, the direct `<NewModel> → ILP` rule is mandatory, not optional
 - Connections to large clusters (QUBO, ILP, SAT families)
 - Connections that reduce orphan count or bridge disconnected components
 - Connections the user specifically mentioned during brainstorming
@@ -627,6 +644,8 @@ AskUserQuestion:
 If the user picks one or more rules from Step 3b (or proposes their own):
 
 For **each** selected rule, run through the rule brainstorming flow (algorithm, correctness, overhead, example, reference) — but keep it lighter since the model context is already established.
+
+If `requires_ilp_companion = true`, one selected rule **must** be the direct `<NewModel> → ILP` companion. Do not keep the ILP solver claim in the model draft while deferring that rule to a later issue.
 
 If the user declines ("I'll file rules separately later"):
 - **Strongly warn** via `AskUserQuestion`:
@@ -641,6 +660,7 @@ If the user declines ("I'll file rules separately later"):
         description: "I understand the risk. I will file companion rule issues before review."
   ```
 - If the user chooses "Let me propose a rule now", go back to Step 3b and let them pick a rule, then brainstorm it.
+- If `requires_ilp_companion = true`, the "Skip anyway" option is unavailable unless the model draft is revised to remove the ILP solver claim and revert to brute-force only.
 - If the user still declines, include a placeholder in the model's "Reduction Rule Crossref" section noting which rules are planned, and add a visible warning in the draft: "⚠ No companion rule filed — this model will be an orphan node until a rule issue is created."
 
 ---
@@ -667,7 +687,7 @@ If proposing a model + rules, present all drafts together:
 - Complexity (expression + citation + BibTeX)
 - Extra Remark (if applicable)
 - Reduction Rule Crossref (linking to companion rule issues or noting planned rules)
-- How to solve (brute-force, ILP, or other — if ILP/QUBO, must cross-reference rule issue)
+- How to solve (brute-force, direct ILP via companion rule if explicitly claimed, or other specialized solver — never claim ILP without a direct companion rule issue)
 - Example Instance
 - Expected Outcome
   - Optimization problems: optimal solution + optimal objective value
@@ -701,6 +721,7 @@ Apply all 4 checks from `/check-issue` against the draft content:
 2. **Non-trivial:** Not isomorphic to existing problem.
 3. **Correctness:** Complexity expression verified against literature.
 4. **Well-written:** All template sections present, symbols consistent, example exercises core structure, and Expected Outcome matches the problem type (valid solution for satisfaction, optimal solution/value for optimization).
+5. **ILP claim consistency:** If the draft claims direct ILP solvability, verify the Reduction Rule Crossref includes a direct `[Rule] <ProblemName> to ILP` companion issue. Claiming ILP without that concrete rule is a fail.
 
 **If any check fails:** Fix the draft automatically if possible. If user input is needed, ask. Loop back to Step 4 with the corrected draft.
 
