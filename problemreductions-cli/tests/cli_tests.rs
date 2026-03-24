@@ -163,7 +163,7 @@ fn test_create_stacker_crane_schema_help_uses_documented_flags() {
 }
 
 #[test]
-fn test_solve_balanced_complete_bipartite_subgraph_suggests_bruteforce() {
+fn test_solve_balanced_complete_bipartite_subgraph_default_solver_uses_ilp() {
     let tmp = std::env::temp_dir().join("pred_test_bcbs_problem.json");
     let create = pred()
         .args([
@@ -181,11 +181,20 @@ fn test_solve_balanced_complete_bipartite_subgraph_suggests_bruteforce() {
         .args(["solve", tmp.to_str().unwrap()])
         .output()
         .unwrap();
-    assert!(!solve.status.success());
-    let stderr = String::from_utf8(solve.stderr).unwrap();
     assert!(
-        stderr.contains("--solver brute-force"),
-        "expected brute-force hint, got: {stderr}"
+        solve.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&solve.stderr)
+    );
+    let stdout = String::from_utf8(solve.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["problem"], "BalancedCompleteBipartiteSubgraph");
+    assert_eq!(json["solver"], "ilp");
+    assert_eq!(json["reduced_to"], "ILP");
+    assert_eq!(json["evaluation"], "Or(true)");
+    assert!(
+        json["solution"].as_array().is_some_and(|solution| !solution.is_empty()),
+        "expected a non-empty solution array, got: {stdout}"
     );
 
     std::fs::remove_file(tmp).ok();
