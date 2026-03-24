@@ -232,3 +232,58 @@ fn test_customized_solver_partial_feedback_edge_set_no_cycles() {
     // All zeros: no edges removed
     assert_eq!(result.unwrap(), vec![0, 0, 0]);
 }
+
+// --- RootedTreeArrangement tests ---
+
+#[test]
+fn test_customized_solver_finds_rooted_tree_arrangement_witness() {
+    let problem = crate::models::graph::RootedTreeArrangement::new(
+        crate::topology::SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 2), (2, 3), (3, 4)]),
+        7,
+    );
+    let witness = CustomizedSolver::new()
+        .solve_dyn(&problem)
+        .expect("expected arrangement witness");
+    assert!(problem.evaluate(&witness).0, "witness must be valid");
+}
+
+#[test]
+fn test_customized_solver_matches_bruteforce_for_rooted_tree_arrangement() {
+    // Small 3-vertex instance
+    let problem = crate::models::graph::RootedTreeArrangement::new(
+        crate::topology::SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        3,
+    );
+    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
+    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    assert_eq!(custom.is_some(), brute.is_some());
+    if let Some(w) = &custom {
+        assert!(problem.evaluate(w).0, "witness must be valid");
+    }
+}
+
+#[test]
+fn test_customized_solver_rooted_tree_arrangement_tight_bound() {
+    // Tight bound that rejects — path graph 0-1-2 needs at least stretch 2
+    let problem = crate::models::graph::RootedTreeArrangement::new(
+        crate::topology::SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        1,
+    );
+    // With bound=1, we need total stretch=1, but path 0-1-2 needs at minimum 2
+    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
+    assert_eq!(custom.is_some(), brute.is_some());
+}
+
+#[test]
+fn test_customized_solver_rooted_tree_arrangement_canonical_example() {
+    // The canonical example from the model file: 4 vertices, bound=5
+    let problem = crate::models::graph::RootedTreeArrangement::new(
+        crate::topology::SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]),
+        5,
+    );
+    let witness = CustomizedSolver::new()
+        .solve_dyn(&problem)
+        .expect("expected witness");
+    assert!(problem.evaluate(&witness).0, "witness must be valid");
+}

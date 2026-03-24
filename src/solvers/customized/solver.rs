@@ -7,7 +7,7 @@ use super::fd_subset_search::{
     self, compute_closure, find_essential_attributes, find_essential_attributes_restricted,
     is_minimal_key, is_superkey, BranchDecision,
 };
-use crate::models::graph::PartialFeedbackEdgeSet;
+use crate::models::graph::{PartialFeedbackEdgeSet, RootedTreeArrangement};
 use crate::models::misc::{AdditionalKey, BoyceCoddNormalFormViolation};
 use crate::models::set::{MinimumCardinalityKey, PrimeAttributeName};
 use crate::topology::SimpleGraph;
@@ -35,6 +35,7 @@ impl CustomizedSolver {
             || any.is::<PrimeAttributeName>()
             || any.is::<BoyceCoddNormalFormViolation>()
             || any.is::<PartialFeedbackEdgeSet<SimpleGraph>>()
+            || any.is::<RootedTreeArrangement<SimpleGraph>>()
     }
 
     /// Attempt to solve a type-erased problem using a dedicated backend.
@@ -56,6 +57,9 @@ impl CustomizedSolver {
         }
         if let Some(p) = any.downcast_ref::<PartialFeedbackEdgeSet<SimpleGraph>>() {
             return super::partial_feedback_edge_set::find_witness(p);
+        }
+        if let Some(p) = any.downcast_ref::<RootedTreeArrangement<SimpleGraph>>() {
+            return super::rooted_tree_arrangement::find_witness(p);
         }
         None
     }

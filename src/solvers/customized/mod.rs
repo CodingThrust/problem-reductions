@@ -5,6 +5,7 @@
 
 pub(crate) mod fd_subset_search;
 pub(crate) mod partial_feedback_edge_set;
+pub(crate) mod rooted_tree_arrangement;
 mod solver;
 
 pub use solver::CustomizedSolver;
