@@ -3164,7 +3164,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   }
   [
     #problem-def("ILP")[
-      Given $n$ variables $bold(x)$ over a domain $cal(D)$ (binary $cal(D) = {0,1}$ or integer $cal(D) = ZZ_(>=0)$), constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x) in cal(D)^n$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$.
+      Given $n$ variables $bold(x)$ over a domain $cal(D)$ (binary $cal(D) = {0,1}$ or integer $cal(D) = ZZ_(>=0)$), constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, solve
+      $
+        min quad & bold(c)^top bold(x) \
+        "subject to" quad & A bold(x) <= bold(b) \
+        & bold(x) in cal(D)^n
+      $.
     ][
     Integer Linear Programming is a universal modeling framework: virtually every NP-hard combinatorial optimization problem admits an ILP formulation. Relaxing integrality to $bold(x) in RR^n$ yields a linear program solvable in polynomial time, forming the basis of branch-and-bound solvers. When the number of integer variables $n$ is fixed, ILP is solvable in polynomial time by Lenstra's algorithm @lenstra1983 using the geometry of numbers, making it fixed-parameter tractable in $n$. The best known general algorithm achieves $O^*(n^n)$ via an FPT algorithm based on lattice techniques @dadush2012.
 
@@ -4630,6 +4635,18 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   _Constraints:_ (1) One-hot: $sum_(x in D_a) y_(v,a,x) = 1$ for all $v in V$, $a in A$. (2) Known values: $y_(v,a,x) = 1$ for each $(v, a, x) in K$. (3) McCormick linearization for $z_(t,v,x,x') = y_(v,a,x) dot y_(v,b,x')$: $z_(t,v,x,x') lt.eq y_(v,a,x)$, $z_(t,v,x,x') lt.eq y_(v,b,x')$, $z_(t,v,x,x') gt.eq y_(v,a,x) + y_(v,b,x') - 1$. (4) Frequency counts: $sum_(v in V) z_(t,v,x,x') = f_t (x, x')$ for each table $t$ and cell $(x, x')$.
 
   _Objective:_ Minimize $0$ (feasibility problem).
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(x in D_a) y_(v,a,x) = 1 quad forall v in V, a in A \
+    & y_(v,a,x) = 1 quad forall (v, a, x) in K \
+    & z_(t,v,x,x') <= y_(v,a,x) quad forall t in cal(T), v in V, (x, x') in D_a times D_b \
+    & z_(t,v,x,x') <= y_(v,b,x') quad forall t in cal(T), v in V, (x, x') in D_a times D_b \
+    & z_(t,v,x,x') >= y_(v,a,x) + y_(v,b,x') - 1 quad forall t in cal(T), v in V, (x, x') in D_a times D_b \
+    & sum_(v in V) z_(t,v,x,x') = f_t(x, x') quad forall t in cal(T), (x, x') in D_a times D_b \
+    & y_(v,a,x), z_(t,v,x,x') in {0, 1}
+  $.
 
   _Correctness._ ($arrow.r.double$) A consistent assignment defines one-hot indicators and their products; all constraints hold by construction, and the frequency equalities match the published counts. ($arrow.l.double$) Any feasible binary solution assigns exactly one value per object-attribute (one-hot), respects known values, and the McCormick constraints force $z_(t,v,x,x') = y_(v,a,x) dot y_(v,b,x')$ for binary variables, so the frequency equalities certify consistency.
 
@@ -7143,6 +7160,15 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _ILP formulation._ Minimize $sum_i Q_(i i) x_i + sum_(i < j) Q_(i j) y_(i j)$ subject to the McCormick constraints and $x_i, y_(i j) in {0, 1}$.
 
+  The ILP is:
+  $
+    min quad & sum_i Q_(i i) x_i + sum_(i < j) Q_(i j) y_(i j) \
+    "subject to" quad & y_(i j) <= x_i quad forall i < j, Q_(i j) != 0 \
+    & y_(i j) <= x_j quad forall i < j, Q_(i j) != 0 \
+    & y_(i j) >= x_i + x_j - 1 quad forall i < j, Q_(i j) != 0 \
+    & x_i, y_(i j) in {0, 1}
+  $.
+
   _Correctness._ ($arrow.r.double$) For binary $x_i, x_j$, the three McCormick inequalities are tight: $y_(i j) = x_i x_j$ is the unique feasible value. Hence the ILP objective equals $bold(x)^top Q bold(x)$, and any ILP minimizer is a QUBO minimizer. ($arrow.l.double$) Given a QUBO minimizer $bold(x)^*$, setting $y_(i j) = x_i^* x_j^*$ satisfies all constraints and achieves the same objective value.
 
   _Solution extraction._ Return the first $n$ variables (discard auxiliary $y_(i j)$).
@@ -7176,6 +7202,21 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   - XOR (binary, chained pairwise): $c <= a + b$, $c >= a - b$, $c >= b - a$, $c <= 2 - a - b$
 
   _Objective._ Minimize $0$ (feasibility problem): any feasible solution satisfies the circuit.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & c + a = 1 quad "for each NOT gate" \
+    & c <= a_i quad forall i quad "for each AND gate" \
+    & c >= sum_i a_i - (k - 1) quad "for each AND gate" \
+    & c >= a_i quad forall i quad "for each OR gate" \
+    & c <= sum_i a_i quad "for each OR gate" \
+    & c <= a + b quad "for each XOR gate" \
+    & c >= a - b quad "for each XOR gate" \
+    & c >= b - a quad "for each XOR gate" \
+    & c <= 2 - a - b quad "for each XOR gate" \
+    & "all gate and input variables are binary"
+  $.
 
   _Correctness._ ($arrow.r.double$) Each gate encoding is the convex hull of the gate's truth table rows (viewed as binary vectors), so a satisfying circuit assignment satisfies all constraints. ($arrow.l.double$) Any binary feasible solution respects every gate's input-output relation, and since gates are composed in topological order, the full circuit evaluates to true.
 
@@ -7477,6 +7518,14 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Objective:_ Feasibility problem (minimize 0).
 
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(c=1)^k x_(v,c) = 1 quad forall v in V \
+    & x_(u,c) + x_(v,c) <= 1 quad forall (u, v) in E, c in {1, dots, k} \
+    & x_(v,c) in {0, 1}
+  $.
+
   _Correctness._ ($arrow.r.double$) A valid $k$-coloring assigns exactly one color per vertex with different colors on adjacent vertices; setting $x_(v,c) = 1$ for the assigned color satisfies all constraints. ($arrow.l.double$) Any feasible ILP solution has exactly one $x_(v,c) = 1$ per vertex; this defines a coloring, and constraint (2) ensures adjacent vertices differ.
 
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$; assign color $c$ to $v$.
@@ -7498,6 +7547,17 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _No overflow:_ $c_(m+n-1) = 0$.
 
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & z_(i j) <= p_i quad forall i, j \
+    & z_(i j) <= q_j quad forall i, j \
+    & z_(i j) >= p_i + q_j - 1 quad forall i, j \
+    & sum_(i+j=k) z_(i j) + c_(k-1) = N_k + 2 c_k quad forall k in {0, dots, m + n - 1} \
+    & c_(m+n-1) = 0 \
+    & p_i, q_j, z_(i j) in {0, 1}, c_k in ZZ_(>=0)
+  $.
+
   _Correctness._ The McCormick constraints enforce $z_(i j) = p_i dot q_j$ for binary variables. The bit equations encode $p times q = N$ via carry propagation, matching array multiplier semantics.
 
   _Solution extraction._ Read $p = sum_i p_i 2^i$ and $q = sum_j q_j 2^j$ from the binary variables.
@@ -7510,7 +7570,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MaximumSetPacking", "ILP")[
   Each set is either selected or not, and every universe element may belong to at most one selected set -- an element-based constraint that is directly linear in binary indicator variables.
 ][
-  _Construction._ Variables: $x_i in {0, 1}$ for each set $S_i in cal(S)$. Constraints: $sum_(S_i in.rev e) x_i <= 1$ for each element $e in U$. Objective: maximize $sum_i w_i x_i$.
+  _Construction._ Variables: $x_i in {0, 1}$ for each set $S_i in cal(S)$. The ILP is:
+  $
+    max quad & sum_i w_i x_i \
+    "subject to" quad & sum_(S_i in.rev e) x_i <= 1 quad forall e in U \
+    & x_i in {0, 1} quad forall i
+  $.
 
   _Correctness._ ($arrow.r.double$) A valid packing chooses pairwise disjoint sets, so each element is covered at most once. ($arrow.l.double$) Any feasible binary solution covers each element at most once, hence the chosen sets are pairwise disjoint; the objective maximizes total weight.
 
@@ -7520,7 +7585,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MaximumMatching", "ILP")[
   Each edge is either selected or not, and each vertex may be incident to at most one selected edge -- a degree-bound constraint that is directly linear in binary edge indicators.
 ][
-  _Construction._ Variables: $x_e in {0, 1}$ for each $e in E$. Constraints: $sum_(e in.rev v) x_e <= 1$ for each $v in V$. Objective: maximize $sum_e w_e x_e$.
+  _Construction._ Variables: $x_e in {0, 1}$ for each $e in E$. The ILP is:
+  $
+    max quad & sum_e w_e x_e \
+    "subject to" quad & sum_(e in.rev v) x_e <= 1 quad forall v in V \
+    & x_e in {0, 1} quad forall e in E
+  $.
 
   _Correctness._ ($arrow.r.double$) A matching has at most one edge per vertex, so all degree constraints hold. ($arrow.l.double$) Any feasible solution is a matching by construction; the objective maximizes total weight.
 
@@ -7530,7 +7600,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MinimumSetCovering", "ILP")[
   Every universe element must be covered by at least one selected set -- a lower-bound constraint on the sum of indicators for sets containing that element, which is directly linear.
 ][
-  _Construction._ Variables: $x_i in {0, 1}$ for each $S_i in cal(S)$. Constraints: $sum_(S_i in.rev u) x_i >= 1$ for each $u in U$. Objective: minimize $sum_i w_i x_i$.
+  _Construction._ Variables: $x_i in {0, 1}$ for each $S_i in cal(S)$. The ILP is:
+  $
+    min quad & sum_i w_i x_i \
+    "subject to" quad & sum_(S_i in.rev u) x_i >= 1 quad forall u in U \
+    & x_i in {0, 1} quad forall i
+  $.
 
   _Correctness._ ($arrow.r.double$) A set cover includes at least one set containing each element, satisfying all constraints. ($arrow.l.double$) Any feasible solution covers every element; the objective minimizes total weight.
 
@@ -7540,7 +7615,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MinimumDominatingSet", "ILP")[
   Every vertex must be dominated -- either selected itself or adjacent to a selected vertex -- which is a lower-bound constraint on the sum of indicators over its closed neighborhood.
 ][
-  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_v + sum_(u in N(v)) x_u >= 1$ for each $v in V$ (each vertex dominated). Objective: minimize $sum_v w_v x_v$.
+  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. The ILP is:
+  $
+    min quad & sum_v w_v x_v \
+    "subject to" quad & x_v + sum_(u in N(v)) x_u >= 1 quad forall v in V \
+    & x_v in {0, 1} quad forall v in V
+  $.
 
   _Correctness._ ($arrow.r.double$) A dominating set includes a vertex or one of its neighbors for every vertex, satisfying all constraints. ($arrow.l.double$) Any feasible solution dominates every vertex; the objective minimizes total weight.
 
@@ -7558,6 +7638,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Objective:_ Minimize $sum_v w_v x_v$.
 
+  The ILP is:
+  $
+    min quad & sum_v w_v x_v \
+    "subject to" quad & o_v - o_u >= 1 - n (x_u + x_v) quad forall (u -> v) in A \
+    & x_v in {0, 1}, o_v in {0, dots, n - 1} quad forall v in V
+  $.
+
   _Correctness._ ($arrow.r.double$) If $S$ is a feedback vertex set, then $G[V backslash S]$ is a DAG with a topological ordering. Set $x_v = 1$ for $v in S$, $o_v$ to the topological position for kept vertices, and $o_v = 0$ for removed vertices. All constraints are satisfied. ($arrow.l.double$) If the ILP is feasible with all arc constraints satisfied, no directed cycle can exist among kept vertices: a cycle $v_1 -> dots -> v_k -> v_1$ would require $o_(v_1) < o_(v_2) < dots < o_(v_k) < o_(v_1)$, a contradiction.
 
   _Solution extraction._ $S = {v : x_v = 1}$.
@@ -7566,7 +7653,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MaximumClique", "ILP")[
   A clique requires every pair of selected vertices to be adjacent; equivalently, no two selected vertices may share a _non_-edge. This is the independent set formulation on the complement graph $overline(G)$.
 ][
-  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_u + x_v <= 1$ for each $(u, v) in.not E$ (non-edges). Objective: maximize $sum_v x_v$.
+  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. The ILP is:
+  $
+    max quad & sum_v x_v \
+    "subject to" quad & x_u + x_v <= 1 quad forall (u, v) in.not E \
+    & x_v in {0, 1} quad forall v in V
+  $.
 
   _Correctness._ ($arrow.r.double$) In a clique, every pair of selected vertices is adjacent, so no non-edge constraint is violated. ($arrow.l.double$) Any feasible solution selects only mutually adjacent vertices, forming a clique; the objective maximizes its size.
 
@@ -7609,6 +7701,15 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Objective._ Minimize $sum_(e in E) y_e$.
 
+  The ILP is:
+  $
+    min quad & sum_(e in E) y_e \
+    "subject to" quad & sum_(v in V) x_v = n / 2 \
+    & y_e >= x_u - x_v quad forall e = (u, v) in E \
+    & y_e >= x_v - x_u quad forall e = (u, v) in E \
+    & x_v in {0, 1}, y_e in {0, 1}
+  $.
+
   _Correctness._ ($arrow.r.double$) Given a balanced partition $(A, B)$, set $x_v = 1$ iff $v in B$, and set $y_e = 1$ iff edge $e$ has one endpoint in each side. The balance constraint holds because $|B| = n / 2$, and the linking inequalities hold because $|x_u - x_v| = 1$ exactly on crossing edges. The objective is therefore the cut size. ($arrow.l.double$) Any feasible ILP solution satisfies the balance equation, so exactly half the vertices have $x_v = 1$ when $n$ is even. For each edge, the linking inequalities imply $y_e >= |x_u - x_v|$; minimization therefore chooses $y_e = |x_u - x_v|$, making the objective count precisely the crossing edges of the extracted partition.
 
   _Solution extraction._ Return the first $n$ variables $(x_v)_(v in V)$ as the Graph Partitioning configuration; the edge-indicator variables are auxiliary.
@@ -7645,11 +7746,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   A 0-1 Knapsack instance is already a binary Integer Linear Program @papadimitriou-steiglitz1982: each item-selection bit becomes a binary variable, the capacity condition is a single linear inequality, and the value objective is linear. The reduction preserves the number of decision variables exactly, producing an ILP with $n$ variables and one constraint.
 ][
-  _Construction._ Given nonnegative weights $w_0, dots, w_(n-1)$, nonnegative values $v_0, dots, v_(n-1)$, and capacity $C$, introduce binary variables $x_0, dots, x_(n-1) in {0,1}$ where $x_i = 1$ iff item $i$ is selected. Construct the binary ILP:
-  $ max sum_(i=0)^(n-1) v_i x_i $
-  subject to
-  $ sum_(i=0)^(n-1) w_i x_i <= C $
-  and $x_i in {0,1}$ for all $i$. The target therefore has exactly $n$ variables and one linear constraint.
+  _Construction._ Given nonnegative weights $w_0, dots, w_(n-1)$, nonnegative values $v_0, dots, v_(n-1)$, and capacity $C$, introduce binary variables $x_0, dots, x_(n-1) in {0,1}$ where $x_i = 1$ iff item $i$ is selected. The ILP is:
+  $
+    max quad & sum_(i=0)^(n-1) v_i x_i \
+    "subject to" quad & sum_(i=0)^(n-1) w_i x_i <= C \
+    & x_i in {0, 1} quad forall i in {0, dots, n - 1}
+  $.
+  The target therefore has exactly $n$ variables and one linear constraint.
 
   _Correctness._ ($arrow.r.double$) Any feasible knapsack solution $bold(x)$ satisfies $sum_i w_i x_i <= C$, so the same binary vector is feasible for the ILP and attains identical objective value $sum_i v_i x_i$. ($arrow.l.double$) Any feasible binary ILP solution selects exactly the items with $x_i = 1$; the single inequality guarantees the chosen set fits in the knapsack, and the ILP objective equals the knapsack value. Therefore optimal solutions correspond one-to-one and preserve the optimum value.
 
@@ -7690,6 +7793,14 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Objective:_ Minimize $sum_(j=0)^(n-1) y_j$.
 
+  The ILP is:
+  $
+    min quad & sum_(j=0)^(n-1) y_j \
+    "subject to" quad & sum_(j=0)^(n-1) x_(i j) = 1 quad forall i in {0, dots, n - 1} \
+    & sum_(i=0)^(n-1) s_i x_(i j) <= C y_j quad forall j in {0, dots, n - 1} \
+    & x_(i j), y_j in {0, 1}
+  $.
+
   _Correctness._ ($arrow.r.double$) A valid packing assigns each item to exactly one bin (satisfying (1)); each bin's load is at most $C$ and $y_j = 1$ for any used bin (satisfying (2)). ($arrow.l.double$) Any feasible solution assigns each item to one bin by (1), respects capacity by (2), and the objective counts the number of open bins.
 
   _Solution extraction._ For each item $i$, find the unique $j$ with $x_(i j) = 1$; assign item $i$ to bin $j$.
@@ -7710,6 +7821,15 @@ The following reductions to Integer Linear Programming are straightforward formu
   $sum_(a_i = (u, t) in A) x_i - sum_(a_i = (t, w) in A) x_i >= R$.
 
   _Objective._ Minimize 0. The target is a pure feasibility ILP, so any constant objective works.
+
+  The ILP is:
+  $
+    "find" quad & (x_i)_(i = 0)^(m - 1) \
+    "subject to" quad & sum_(a_i in I_j) x_i <= c_j quad forall j in {1, dots, k} \
+    & sum_(a_i = (u, v) in A) x_i - sum_(a_i = (v, w) in A) x_i = 0 quad forall v in V backslash {s, t} \
+    & sum_(a_i = (u, t) in A) x_i - sum_(a_i = (t, w) in A) x_i >= R \
+    & x_i in ZZ_(>=0) quad forall i in {0, dots, m - 1}
+  $.
 
   _Correctness._ ($arrow.r.double$) Any satisfying bundled flow assigns a non-negative integer to each arc, satisfies every bundle inequality by definition, satisfies every nonterminal conservation equality, and yields sink inflow at least $R$, so it is a feasible ILP solution. ($arrow.l.double$) Any feasible ILP solution gives non-negative integral arc values obeying the same bundle, conservation, and sink-inflow constraints, hence it is a satisfying solution to the original Integral Flow with Bundles instance.
 
@@ -7732,6 +7852,16 @@ The following reductions to Integer Linear Programming are straightforward formu
   Exactly one of the two orderings is therefore active.
 
   _Objective._ Minimize $sum_j w_j C_j$.
+
+  The ILP is:
+  $
+    min quad & sum_j w_j C_j \
+    "subject to" quad & l_j <= C_j <= M quad forall j \
+    & C_j - C_i >= l_j quad forall i prec.eq j \
+    & C_j - C_i + M (1 - y_(i j)) >= l_j quad forall i < j \
+    & C_i - C_j + M y_(i j) >= l_i quad forall i < j \
+    & y_(i j) in {0, 1}, C_j in ZZ_(>=0)
+  $.
 
   _Correctness._ ($arrow.r.double$) Any feasible schedule defines completion times and pairwise order values satisfying the bounds, precedence inequalities, and disjunctive machine constraints; its weighted completion time is exactly the ILP objective. ($arrow.l.double$) Any feasible ILP solution assigns a strict order to every task pair and forbids overlap, so the completion times correspond to a valid single-machine schedule that respects all precedences. Minimizing the ILP objective therefore minimizes the original weighted completion-time objective.
 
@@ -7802,6 +7932,18 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Objective:_ Minimize $sum_((u,v) in E) w(u,v) dot sum_k (y_(u,v,k) + y_(v,u,k))$.
 
+  The ILP is:
+  $
+    min quad & sum_((u,v) in E) w(u,v) sum_k (y_(u,v,k) + y_(v,u,k)) \
+    "subject to" quad & sum_(k=0)^(n-1) x_(v,k) = 1 quad forall v in V \
+    & sum_(v in V) x_(v,k) = 1 quad forall k in {0, dots, n - 1} \
+    & x_(v,k) + x_(w,(k+1) mod n) <= 1 quad forall {v, w} in.not E, k in {0, dots, n - 1} \
+    & y_(u,v,k) <= x_(u,k) quad forall (u, v) in E, k in {0, dots, n - 1} \
+    & y_(u,v,k) <= x_(v,(k+1) mod n) quad forall (u, v) in E, k in {0, dots, n - 1} \
+    & y_(u,v,k) >= x_(u,k) + x_(v,(k+1) mod n) - 1 quad forall (u, v) in E, k in {0, dots, n - 1} \
+    & x_(v,k), y_(u,v,k) in {0, 1}
+  $.
+
   _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix $(x_(v,k))$ satisfying constraints (1)--(2); consecutive vertices are adjacent by construction, so (3) holds; McCormick constraints (4) force $y = x_(u,k) x_(v,k+1)$, making the objective equal to the tour cost. ($arrow.l.double$) Any feasible binary solution defines a permutation (by (1)--(2)) where consecutive positions are connected by edges (by (3)), forming a Hamiltonian tour; the linearized objective equals the tour cost.
 
   _Solution extraction._ For each position $k$, find vertex $v$ with $x_(v,k) = 1$ to recover the tour permutation; then select edges between consecutive positions.
@@ -7838,6 +7980,19 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Constraints:_ (1) Flow balance: $sum_(w : {v,w} in E) x_(v,w) - sum_(u : {u,v} in E) x_(u,v) = 1$ at the source, equals $-1$ at the target, and equals $0$ at every other vertex. (2) Degree bounds: every vertex has at most one selected outgoing arc and at most one selected incoming arc. (3) Edge exclusivity: $x_(u,v) + x_(v,u) <= 1$ for each undirected edge. (4) Ordering: for every oriented edge $u -> v$, $o_v - o_u >= 1 - n(1 - x_(u,v))$. (5) Anchor the path at the source with $o_s = 0$.
 
   _Objective._ Maximize $sum_({u,v} in E) l({u,v}) dot (x_(u,v) + x_(v,u))$.
+
+  The ILP is:
+  $
+    max quad & sum_({u,v} in E) l({u,v}) (x_(u,v) + x_(v,u)) \
+    "subject to" quad & sum_(w : {v,w} in E) x_(v,w) - sum_(u : {u,v} in E) x_(u,v) = b_v quad forall v in V \
+    & sum_(w : {v,w} in E) x_(v,w) <= 1 quad forall v in V \
+    & sum_(u : {u,v} in E) x_(u,v) <= 1 quad forall v in V \
+    & x_(u,v) + x_(v,u) <= 1 quad forall {u, v} in E \
+    & o_v - o_u >= 1 - n (1 - x_(u,v)) quad forall u -> v \
+    & o_s = 0 \
+    & x_(u,v) in {0, 1}, o_v in {0, dots, n - 1}
+  $,
+  where $b_s = 1$, $b_t = -1$, and $b_v = 0$ otherwise.
 
   _Correctness._ ($arrow.r.double$) Any simple $s$-$t$ path can be oriented from $s$ to $t$, giving exactly one outgoing arc at $s$, one incoming arc at $t$, balanced flow at every internal vertex, and strictly increasing order values along the path. ($arrow.l.double$) Any feasible ILP solution satisfies the flow equations and degree bounds, so the selected arcs form vertex-disjoint directed paths and cycles. The ordering inequalities make every selected arc increase the order value by at least 1, so directed cycles are impossible. The only remaining positive-flow component is therefore a single directed $s$-$t$ path, whose objective is exactly the total selected edge length.
 
@@ -7890,6 +8045,16 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Objective:_ Use the zero objective. The target ILP is feasible iff the source LCS instance is a YES instance.
 
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(a in Sigma) x_(p, a) = 1 quad forall p in {1, dots, K} \
+    & sum_(j = 1)^(|r_i|) y_(i, p, j) = 1 quad forall i, p \
+    & y_(i, p, j) <= x_(p, a) quad forall i, p, j " with " r_i[j] = a \
+    & y_(i, p, j') + y_(i, p + 1, j) <= 1 quad forall i, p, j' >= j \
+    & x_(p, a), y_(i, p, j) in {0, 1}
+  $.
+
   _Correctness._ ($arrow.r.double$) If a witness $w = w_1 dots w_K$ is a common subsequence of every string, set $x_(p, w_p) = 1$ and choose, in every $r_i$, the positions where that embedding occurs. Constraints (1)--(4) are satisfied, so the ILP is feasible. ($arrow.l.double$) Any feasible ILP solution selects exactly one symbol for each witness position and exactly one realization in each source string. Character consistency ensures the chosen positions spell the same witness string in every input string, and the ordering constraints ensure those positions are strictly increasing. Therefore the extracted witness is a common subsequence of length $K$.
 
   _Solution extraction._ For each witness position $p$, read the unique symbol $a$ with $x_(p, a) = 1$ and output the resulting length-$K$ string.
@@ -7905,6 +8070,17 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Constraints:_ (1) Terminal fixing: $y_(i, t_i) = 1$ for each $i$ (terminal $t_i$ is in its own component); $y_(j, t_i) = 0$ for $j eq.not i$ (each terminal excluded from other components). (2) Partition: $sum_(i=0)^(k-1) y_(i v) = 1$ for each $v in V$ (each vertex in exactly one component). (3) Edge-cut linking: for each edge $e = (u, v)$ and each terminal $i$: $x_e gt.eq y_(i u) - y_(i v)$ and $x_e gt.eq y_(i v) - y_(i u)$ (force $x_e = 1$ when endpoints are in different components). Total: $k^2 + n + 2 k m$ constraints.
 
   _Objective:_ Minimize $sum_(e in E) w_e dot x_e$.
+
+  The ILP is:
+  $
+    min quad & sum_(e in E) w_e x_e \
+    "subject to" quad & y_(i, t_i) = 1 quad forall i in {0, dots, k - 1} \
+    & y_(j, t_i) = 0 quad forall i != j \
+    & sum_(i=0)^(k-1) y_(i v) = 1 quad forall v in V \
+    & x_e >= y_(i u) - y_(i v) quad forall e = (u, v) in E, i in {0, dots, k - 1} \
+    & x_e >= y_(i v) - y_(i u) quad forall e = (u, v) in E, i in {0, dots, k - 1} \
+    & x_e, y_(i v) in {0, 1}
+  $.
 
   _Correctness._ ($arrow.r.double$) A multiway cut $C$ partitions $V$ into $k$ components, one per terminal. Setting $y_(i v) = 1$ iff $v$ is in $t_i$'s component and $x_e = 1$ iff $e in C$ satisfies all constraints: partition by construction, terminal fixing by definition, and linking because any edge with endpoints in different components is in $C$. The objective equals the cut weight. ($arrow.l.double$) Any feasible ILP solution defines a valid partition (by constraint (2)) separating all terminals (by constraint (1)). The linking constraints (3) force $x_e = 1$ for all cross-component edges, so the objective is at least the multiway cut weight; minimization ensures optimality.
 
@@ -7955,6 +8131,15 @@ The following reductions to Integer Linear Programming are straightforward formu
   $ f^t_(u,v) <= y_e quad "and" quad f^t_(v,u) <= y_e. $
   Binary flow variables suffice because any Steiner tree yields a unique simple root-to-terminal path for each commodity, so every commodity can be realized as a 0/1 path indicator.
 
+  The ILP is:
+  $
+    min quad & sum_(e in E) w_e y_e \
+    "subject to" quad & sum_(u : (u, v) in A) f^t_(u,v) - sum_(u : (v, u) in A) f^t_(v,u) = b_(t,v) quad forall t in T backslash {r}, v in V \
+    & f^t_(u,v) <= y_e quad forall t in T backslash {r}, e = {u, v} in E \
+    & f^t_(v,u) <= y_e quad forall t in T backslash {r}, e = {u, v} in E \
+    & y_e, f^t_(u,v) in {0, 1}
+  $.
+
   _Correctness._ ($arrow.r.double$) If $S subset.eq E$ is a Steiner tree, set $y_e = 1$ exactly for $e in S$. For each non-root terminal $t$, the unique path from $r$ to $t$ inside the tree defines a binary flow assignment satisfying the conservation equations, and every used arc lies on a selected edge, so all linking inequalities hold. The ILP objective equals $sum_(e in S) w_e$. ($arrow.l.double$) Any feasible ILP solution with edge selector set $Y = {e in E : y_e = 1}$ supports one unit of flow from $r$ to every non-root terminal, so the selected edges contain a connected subgraph spanning all terminals. Because all edge weights are strictly positive, any cycle in the selected subgraph has positive total cost; the optimizer therefore never includes redundant edges, so the selected subgraph is already a Steiner tree. Therefore an optimal ILP solution induces a minimum-cost Steiner tree.
 
   _Variable mapping._ The first $m$ ILP variables are the source-edge indicators $y_0, dots, y_(m-1)$ in source edge order. For terminal $t_p$ with $p in {1, dots, k-1}$, the next block of $2 m$ variables stores the directed arc indicators $f^(t_p)_(u,v)$ and $f^(t_p)_(v,u)$ for each source edge $(u, v)$.
@@ -7967,7 +8152,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MinimumHittingSet", "ILP")[
   Each set must contain at least one selected element -- a standard set-covering constraint on the element indicators.
 ][
-  _Construction._ Variables: $x_e in {0, 1}$ for each element $e in U$. Constraints: $sum_(e in S) x_e >= 1$ for each set $S in cal(S)$. Objective: minimize $sum_e x_e$.
+  _Construction._ Variables: $x_e in {0, 1}$ for each element $e in U$. The ILP is:
+  $
+    min quad & sum_e x_e \
+    "subject to" quad & sum_(e in S) x_e >= 1 quad forall S in cal(S) \
+    & x_e in {0, 1} quad forall e in U
+  $.
 
   _Correctness._ ($arrow.r.double$) A hitting set includes at least one element from each set. ($arrow.l.double$) Any feasible solution hits every set.
 
@@ -7977,7 +8167,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("ExactCoverBy3Sets", "ILP")[
   Each element must be covered by exactly one triple, and the number of selected triples must equal $|U|\/3$.
 ][
-  _Construction._ Variables: $x_j in {0, 1}$ for each triple $T_j$. Constraints: $sum_(j : e in T_j) x_j = 1$ for each $e in U$; $sum_j x_j = |U|\/3$. Objective: feasibility.
+  _Construction._ Variables: $x_j in {0, 1}$ for each triple $T_j$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(j : e in T_j) x_j = 1 quad forall e in U \
+    & sum_j x_j = |U| / 3 \
+    & x_j in {0, 1} quad forall j
+  $.
 
   _Correctness._ The equality constraints force each element to appear in exactly one selected triple, which is the definition of an exact cover.
 
@@ -7987,7 +8183,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("NAESatisfiability", "ILP")[
   Each clause must have at least one true and at least one false literal, encoded as a pair of linear inequalities per clause.
 ][
-  _Construction._ Variables: $x_i in {0, 1}$ per Boolean variable. For each clause $C$ with literals $l_1, dots, l_k$, substitute $l_i = x_i$ for positive and $l_i = 1 - x_i$ for negative literals: (1) $sum "coeff"_i dot x_i >= 1 - "neg"$ (at least one true); (2) $sum "coeff"_i dot x_i <= |C| - 1 - "neg"$ (at least one false). Objective: feasibility.
+  _Construction._ Variables: $x_i in {0, 1}$ per Boolean variable. For each clause $C$ with literals $l_1, dots, l_k$, substitute $l_i = x_i$ for positive and $l_i = 1 - x_i$ for negative literals. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_i "coeff"_(C,i) x_i >= 1 - "neg"(C) quad "for each clause" C \
+    & sum_i "coeff"_(C,i) x_i <= |C| - 1 - "neg"(C) quad "for each clause" C \
+    & x_i in {0, 1} quad forall i
+  $.
 
   _Correctness._ The two constraints per clause jointly enforce the not-all-equal condition.
 
@@ -7997,7 +8199,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("KClique", "ILP")[
   A $k$-clique requires at least $k$ selected vertices with no non-edge between any pair.
 ][
-  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $sum_v x_v >= k$; $x_u + x_v <= 1$ for each non-edge $(u, v) in.not E$. Objective: feasibility.
+  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_v x_v >= k \
+    & x_u + x_v <= 1 quad forall (u, v) in.not E \
+    & x_v in {0, 1} quad forall v in V
+  $.
 
   _Correctness._ ($arrow.r.double$) A $k$-clique selects $>= k$ mutually adjacent vertices, satisfying all constraints. ($arrow.l.double$) Any feasible solution selects $>= k$ vertices with no non-edge pair, forming a clique of size $>= k$.
 
@@ -8007,7 +8215,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MaximalIS", "ILP")[
   An independent set that is also maximal: no vertex outside the set can be added without violating independence.
 ][
-  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: (1) Independence: $x_u + x_v <= 1$ for each edge $(u, v) in E$. (2) Maximality: $x_v + sum_(u in N(v)) x_u >= 1$ for each $v in V$. Objective: maximize $sum_v w_v x_v$.
+  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. The ILP is:
+  $
+    max quad & sum_v w_v x_v \
+    "subject to" quad & x_u + x_v <= 1 quad forall (u, v) in E \
+    & x_v + sum_(u in N(v)) x_u >= 1 quad forall v in V \
+    & x_v in {0, 1} quad forall v in V
+  $.
 
   _Correctness._ Independence constraints prevent adjacent selections; maximality constraints ensure every vertex is either selected or has a selected neighbor.
 
@@ -8017,7 +8231,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("PartiallyOrderedKnapsack", "ILP")[
   Standard knapsack with precedence constraints: item $b$ can only be selected if item $a$ is also selected for each precedence $(a, b)$.
 ][
-  _Construction._ Variables: $x_i in {0, 1}$ per item. Constraints: $sum_i w_i x_i <= C$ (capacity); $x_b <= x_a$ for each precedence $(a, b)$. Objective: maximize $sum_i v_i x_i$.
+  _Construction._ Variables: $x_i in {0, 1}$ per item. The ILP is:
+  $
+    max quad & sum_i v_i x_i \
+    "subject to" quad & sum_i w_i x_i <= C \
+    & x_b <= x_a quad "for each precedence" (a, b) \
+    & x_i in {0, 1} quad forall i
+  $.
 
   _Correctness._ Capacity and precedence constraints are directly linear. Any feasible ILP solution is a valid knapsack packing respecting the partial order.
 
@@ -8027,7 +8247,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("RectilinearPictureCompression", "ILP")[
   Cover all 1-cells with at most $B$ maximal all-1 rectangles.
 ][
-  _Construction._ Variables: $x_r in {0, 1}$ per maximal rectangle $r$. Constraints: $sum_(r "covers" (i,j)) x_r >= 1$ for each 1-cell $(i, j)$; $sum_r x_r <= B$. Objective: feasibility.
+  _Construction._ Variables: $x_r in {0, 1}$ per maximal rectangle $r$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(r "covers" (i,j)) x_r >= 1 quad forall (i, j) "with source cell" = 1 \
+    & sum_r x_r <= B \
+    & x_r in {0, 1} quad forall r
+  $.
 
   _Correctness._ Coverage constraints ensure every 1-cell is covered; the cardinality bound limits the number of rectangles.
 
@@ -8035,19 +8261,38 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("ShortestWeightConstrainedPath", "ILP")[
-  Find an $s$-$t$ path satisfying both length and weight bounds, using directed arc variables with MTZ ordering to prevent subtours.
+  Find an $s$-$t$ path satisfying both length and weight bounds, using directed arc variables with MTZ ordering $o_v - o_u >= 1 - M (1 - a_(u,v))$ on selected arcs to prevent subtours.
 ][
-  _Construction._ Variables: binary $a_(e,d) in {0, 1}$ per edge $e$ per direction $d in {0, 1}$ (forward/reverse), plus integer $o_v in {0, dots, n-1}$ per vertex. Constraints: flow balance at each vertex (net out-in = 1 at $s$, $-1$ at $t$, 0 elsewhere); degree bounds; at most one direction per edge; MTZ ordering $o_v - o_u >= 1 - M dot a_(e,0)$ for each directed arc; length bound $sum_e l_e (a_(e,0) + a_(e,1)) <= L$; weight bound $sum_e w_e (a_(e,0) + a_(e,1)) <= W$. Objective: feasibility.
+  _Construction._ Let $A$ contain both orientations of every undirected edge, let $L = K$ be the source length bound, and let $M = n$. Variables: binary $a_(u,v) in {0, 1}$ for each directed arc $(u, v) in A$, plus integer $o_v in {0, dots, n-1}$ per vertex. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(w : (v, w) in A) a_(v,w) - sum_(u : (u, v) in A) a_(u,v) = b_v quad forall v in V \
+    & sum_(w : (v, w) in A) a_(v,w) <= 1 quad forall v in V \
+    & sum_(u : (u, v) in A) a_(u,v) <= 1 quad forall v in V \
+    & a_(u,v) + a_(v,u) <= 1 quad forall {u, v} in E \
+    & o_v - o_u >= 1 - M (1 - a_(u,v)) quad forall (u, v) in A \
+    & sum_((u,v) in A) l_(u,v) a_(u,v) <= L \
+    & sum_((u,v) in A) w_(u,v) a_(u,v) <= W \
+    & a_(u,v) in {0, 1}, o_v in {0, dots, n - 1}
+  $,
+  where $b_s = 1$, $b_t = -1$, and $b_v = 0$ otherwise.
 
-  _Correctness._ Flow balance forces an $s$-$t$ path; MTZ ordering eliminates subtours; bound constraints enforce the length and weight limits.
+  _Correctness._ Flow balance forces an $s$-$t$ path; the MTZ inequalities apply only on selected arcs and therefore eliminate subtours; bound constraints enforce the length and weight limits.
 
-  _Solution extraction._ Edge $e$ is selected iff $a_(e,0) + a_(e,1) > 0$.
+  _Solution extraction._ Edge $\{u, v\}$ is selected iff $a_(u,v) + a_(v,u) > 0$.
 ]
 
 #reduction-rule("MultipleCopyFileAllocation", "ILP")[
   Place file copies at vertices to minimize total storage plus weighted access cost, subject to a budget constraint.
 ][
-  _Construction._ Variables: binary $x_v$ (copy at $v$) and $y_(v,u)$ (vertex $v$ served by copy at $u$). Constraints: $sum_u y_(v,u) = 1$ (assignment); $y_(v,u) <= x_u$ (capacity link); $sum_v s_v x_v + sum_(v,u) "usage"_v dot d(v, u) dot y_(v,u) <= B$ (budget). Objective: feasibility.
+  _Construction._ Variables: binary $x_v$ (copy at $v$) and $y_(v,u)$ (vertex $v$ served by copy at $u$). The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_u y_(v,u) = 1 quad forall v \
+    & y_(v,u) <= x_u quad forall v, u \
+    & sum_v s_v x_v + sum_(v,u) "usage"_v d(v, u) y_(v,u) <= B \
+    & x_v, y_(v,u) in {0, 1}
+  $.
 
   _Correctness._ Assignment constraints ensure each vertex is served by exactly one copy; capacity links prevent assignment to non-copy vertices; the budget constraint linearizes the total cost.
 
@@ -8057,7 +8302,14 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MinimumSumMulticenter", "ILP")[
   Select $k$ centers and assign each vertex to a center, minimizing the total weighted distance.
 ][
-  _Construction._ Variables: binary $x_j$ (vertex $j$ is center), $y_(i,j)$ (vertex $i$ assigned to center $j$). Constraints: $sum_j x_j = k$; $y_(i,j) <= x_j$; $sum_j y_(i,j) = 1$. Objective: minimize $sum_(i,j) w_i dot d(i, j) dot y_(i,j)$.
+  _Construction._ Variables: binary $x_j$ (vertex $j$ is center), $y_(i,j)$ (vertex $i$ assigned to center $j$). The ILP is:
+  $
+    min quad & sum_(i,j) w_i d(i, j) y_(i,j) \
+    "subject to" quad & sum_j x_j = k \
+    & y_(i,j) <= x_j quad forall i, j \
+    & sum_j y_(i,j) = 1 quad forall i \
+    & x_j, y_(i,j) in {0, 1}
+  $.
 
   _Correctness._ The assignment structure and cardinality constraint directly encode the $k$-median objective with precomputed shortest-path distances.
 
@@ -8067,7 +8319,15 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MinMaxMulticenter", "ILP")[
   Select $k$ centers such that the maximum weighted distance from any vertex to its assigned center is at most $B$.
 ][
-  _Construction._ Same assignment structure as MinimumSumMulticenter, plus per-vertex bound constraints: $sum_j w_i dot d(i, j) dot y_(i,j) <= B$ for each $i$. Objective: feasibility.
+  _Construction._ Same assignment structure as MinimumSumMulticenter, plus per-vertex bound constraints. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_j x_j = k \
+    & y_(i,j) <= x_j quad forall i, j \
+    & sum_j y_(i,j) = 1 quad forall i \
+    & sum_j w_i d(i, j) y_(i,j) <= B quad forall i \
+    & x_j, y_(i,j) in {0, 1}
+  $.
 
   _Correctness._ The additional per-vertex constraints enforce the minimax bound on weighted assignment distances.
 
@@ -8077,7 +8337,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MultiprocessorScheduling", "ILP")[
   Assign tasks to processors so that no processor's total load exceeds the deadline.
 ][
-  _Construction._ Variables: binary $x_(j,p)$ (task $j$ on processor $p$), one-hot per task. Constraints: $sum_p x_(j,p) = 1$ (each task assigned); $sum_j l_j dot x_(j,p) <= D$ for each processor $p$. Objective: feasibility.
+  _Construction._ Variables: binary $x_(j,p)$ (task $j$ on processor $p$), one-hot per task. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
+    & sum_j l_j x_(j,p) <= D quad forall p \
+    & x_(j,p) in {0, 1}
+  $.
 
   _Correctness._ One-hot constraints ensure each task is assigned to exactly one processor; load constraints enforce the deadline on every processor.
 
@@ -8087,7 +8353,14 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("CapacityAssignment", "ILP")[
   Assign a capacity level to each link so that total cost and total delay stay within their budgets.
 ][
-  _Construction._ Variables: binary $x_(l,c)$ (link $l$ gets capacity $c$), one-hot per link. Constraints: $sum_c x_(l,c) = 1$ (each link gets one capacity); $sum_(l,c) "cost"[l][c] dot x_(l,c) <= C$; $sum_(l,c) "delay"[l][c] dot x_(l,c) <= D$. Objective: feasibility.
+  _Construction._ Variables: binary $x_(l,c)$ (link $l$ gets capacity $c$), one-hot per link. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_c x_(l,c) = 1 quad forall l \
+    & sum_(l,c) "cost"[l][c] x_(l,c) <= C \
+    & sum_(l,c) "delay"[l][c] x_(l,c) <= D \
+    & x_(l,c) in {0, 1}
+  $.
 
   _Correctness._ One-hot constraints fix one capacity per link; the two budget constraints are linear in the indicators.
 
@@ -8097,7 +8370,16 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("ExpectedRetrievalCost", "ILP")[
   Assign records to sectors to minimize expected retrieval cost, using product linearization for the quadratic cost terms.
 ][
-  _Construction._ Variables: binary $x_(r,s)$ (record $r$ in sector $s$), one-hot per record, plus linearization variables $z_((r,s),(r',s')) = x_(r,s) dot x_(r',s')$. Constraints: one-hot assignment; McCormick linearization ($z <= x$, $z <= y$, $z >= x + y - 1$); cost bound $sum "cost" dot z <= B$. Objective: feasibility.
+  _Construction._ Variables: binary $x_(r,s)$ (record $r$ in sector $s$), one-hot per record, plus linearization variables $z_((r,s),(r',s')) = x_(r,s) dot x_(r',s')$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_s x_(r,s) = 1 quad forall r \
+    & z_((r,s),(r',s')) <= x_(r,s) quad forall r, s, r', s' \
+    & z_((r,s),(r',s')) <= x_(r',s') quad forall r, s, r', s' \
+    & z_((r,s),(r',s')) >= x_(r,s) + x_(r',s') - 1 quad forall r, s, r', s' \
+    & sum "cost" dot z <= B \
+    & x_(r,s), z_((r,s),(r',s')) in {0, 1}
+  $.
 
   _Correctness._ McCormick constraints force $z$ to equal the product of binary indicators, linearizing the quadratic cost.
 
@@ -8107,7 +8389,14 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("PartitionIntoTriangles", "ILP")[
   Partition vertices into groups of 3 such that each group forms a triangle in the graph.
 ][
-  _Construction._ Variables: binary $x_(v,g)$ (vertex $v$ in group $g$), one-hot per vertex, $q = n\/3$ groups. Constraints: $sum_g x_(v,g) = 1$; $sum_v x_(v,g) = 3$ for each $g$; $x_(u,g) + x_(v,g) <= 1$ for each group $g$ and non-edge $(u, v)$. Objective: feasibility.
+  _Construction._ Variables: binary $x_(v,g)$ (vertex $v$ in group $g$), one-hot per vertex, $q = n\/3$ groups. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_g x_(v,g) = 1 quad forall v \
+    & sum_v x_(v,g) = 3 quad forall g in {1, dots, q} \
+    & x_(u,g) + x_(v,g) <= 1 quad forall g in {1, dots, q}, (u, v) in.not E \
+    & x_(v,g) in {0, 1}
+  $.
 
   _Correctness._ Size-3 groups with no non-edge pair within any group forces each group to be a triangle.
 
@@ -8117,7 +8406,17 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("PartitionIntoPathsOfLength2", "ILP")[
   Partition vertices into groups of 3 such that each group induces a path of length 2 (at least 2 edges within the group).
 ][
-  _Construction._ Variables: binary $x_(v,g)$ plus product linearization variables $z_((u,v),g) = x_(u,g) dot x_(v,g)$ for edges $(u, v)$. Constraints: one-hot vertex assignment; group size = 3; $sum_("edges" (u,v)) z_((u,v),g) >= 2$ per group (at least 2 edges); McCormick for $z$. Objective: feasibility.
+  _Construction._ Variables: binary $x_(v,g)$ plus product linearization variables $z_((u,v),g) = x_(u,g) dot x_(v,g)$ for edges $(u, v)$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_g x_(v,g) = 1 quad forall v \
+    & sum_v x_(v,g) = 3 quad forall g \
+    & sum_((u,v) in E) z_((u,v),g) >= 2 quad forall g \
+    & z_((u,v),g) <= x_(u,g) quad forall (u, v) in E, g \
+    & z_((u,v),g) <= x_(v,g) quad forall (u, v) in E, g \
+    & z_((u,v),g) >= x_(u,g) + x_(v,g) - 1 quad forall (u, v) in E, g \
+    & x_(v,g), z_((u,v),g) in {0, 1}
+  $.
 
   _Correctness._ The edge count constraint ensures connectivity within each group. Combined with group size 3, this forces a path of length 2.
 
@@ -8127,7 +8426,16 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("SumOfSquaresPartition", "ILP")[
   Partition elements into groups such that $sum_g (sum_(i in g) s_i)^2 <= B$.
 ][
-  _Construction._ Variables: binary $x_(i,g)$ (element $i$ in group $g$), plus $z_((i,j),g) = x_(i,g) dot x_(j,g)$. Constraints: one-hot assignment; McCormick linearization for $z$; $sum_g sum_(i,j) s_i s_j z_((i,j),g) <= B$. Objective: feasibility.
+  _Construction._ Variables: binary $x_(i,g)$ (element $i$ in group $g$), plus $z_((i,j),g) = x_(i,g) dot x_(j,g)$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_g x_(i,g) = 1 quad forall i \
+    & z_((i,j),g) <= x_(i,g) quad forall i, j, g \
+    & z_((i,j),g) <= x_(j,g) quad forall i, j, g \
+    & z_((i,j),g) >= x_(i,g) + x_(j,g) - 1 quad forall i, j, g \
+    & sum_g sum_(i,j) s_i s_j z_((i,j),g) <= B \
+    & x_(i,g), z_((i,j),g) in {0, 1}
+  $.
 
   _Correctness._ Product linearization captures the quadratic sum-of-squares objective; the bound constraint enforces the partition quality.
 
@@ -8137,7 +8445,14 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("PrecedenceConstrainedScheduling", "ILP")[
   Assign unit-length tasks to time slots on $m$ processors, respecting precedence constraints and a deadline.
 ][
-  _Construction._ Variables: binary $x_(j,t)$ (task $j$ at time $t$), one-hot per task. Constraints: $sum_t x_(j,t) = 1$; $sum_j x_(j,t) <= m$ (processor capacity per slot); $sum_t t dot x_(j,t) >= sum_t t dot x_(i,t) + 1$ for each precedence $(i, j)$. Objective: feasibility.
+  _Construction._ Variables: binary $x_(j,t)$ (task $j$ at time $t$), one-hot per task. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_t x_(j,t) = 1 quad forall j \
+    & sum_j x_(j,t) <= m quad forall t \
+    & sum_t t x_(j,t) >= sum_t t x_(i,t) + 1 quad "for each precedence" (i, j) \
+    & x_(j,t) in {0, 1}
+  $.
 
   _Correctness._ One-hot ensures each task is scheduled once; capacity limits processors per slot; precedence is linearized via weighted time indicators.
 
@@ -8147,7 +8462,14 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("SchedulingWithIndividualDeadlines", "ILP")[
   Schedule unit-length tasks on $m$ processors, each task $j$ must complete before its individual deadline $d_j$.
 ][
-  _Construction._ Variables: binary $x_(j,t)$ (task $j$ at time $t in {0, dots, d_j - 1}$), one-hot per task. Constraints: $sum_t x_(j,t) = 1$; $sum_j x_(j,t) <= m$; precedence constraints as in PrecedenceConstrainedScheduling. Objective: feasibility.
+  _Construction._ Variables: binary $x_(j,t)$ (task $j$ at time $t in {0, dots, d_j - 1}$), one-hot per task. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(t = 0)^(d_j - 1) x_(j,t) = 1 quad forall j \
+    & sum_j x_(j,t) <= m quad forall t \
+    & sum_t t x_(j,t) >= sum_t t x_(i,t) + 1 quad "for each precedence" (i, j) \
+    & x_(j,t) in {0, 1}
+  $.
 
   _Correctness._ Per-task deadline is enforced by restricting the time domain of each task's indicator variables.
 
@@ -8157,7 +8479,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("SequencingWithinIntervals", "ILP")[
   Schedule tasks with release times, deadlines, and processing lengths on a single machine without overlap.
 ][
-  _Construction._ Variables: binary $x_(j,t)$ (task $j$ starts at time $t in [r_j, d_j - l_j]$), one-hot per task. Constraints: $sum_t x_(j,t) = 1$; non-overlap: $sum_(j "active at" t) 1 <= 1$ (expanded via start-time indicators). Objective: feasibility.
+  _Construction._ Variables: binary $x_(j,t)$ (task $j$ starts at time $t in [r_j, d_j - l_j]$), one-hot per task. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(t = r_j)^(d_j - l_j) x_(j,t) = 1 quad forall j \
+    & sum_(j, t : t <= tau < t + l_j) x_(j,t) <= 1 quad forall tau \
+    & x_(j,t) in {0, 1}
+  $.
 
   _Correctness._ One-hot ensures each task starts once within its feasible window; non-overlap prevents simultaneous execution.
 
@@ -8167,7 +8495,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MinimumFeedbackArcSet", "ILP")[
   Remove minimum-weight arcs to make a directed graph acyclic, using MTZ-style ordering to enforce acyclicity among kept arcs.
 ][
-  _Construction._ Variables: binary $y_a in {0, 1}$ per arc ($y_a = 1$ iff removed), integer $o_v in {0, dots, n-1}$ per vertex. Constraints: for each arc $a = (u -> v)$: $o_v - o_u >= 1 - n dot y_a$; $y_a <= 1$; $o_v <= n - 1$. Objective: minimize $sum_a w_a y_a$.
+  _Construction._ Variables: binary $y_a in {0, 1}$ per arc ($y_a = 1$ iff removed), integer $o_v in {0, dots, n-1}$ per vertex. The ILP is:
+  $
+    min quad & sum_a w_a y_a \
+    "subject to" quad & o_v - o_u >= 1 - n y_a quad forall a = (u -> v) \
+    & y_a in {0, 1} quad forall a \
+    & o_v in {0, dots, n - 1} quad forall v
+  $.
 
   _Correctness._ ($arrow.r.double$) Removing a FAS leaves a DAG with a topological ordering satisfying all constraints. ($arrow.l.double$) Among kept arcs, the ordering variables enforce acyclicity: a cycle would require $o_(v_1) < dots < o_(v_k) < o_(v_1)$, a contradiction.
 
@@ -8177,7 +8511,15 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("UndirectedTwoCommodityIntegralFlow", "ILP")[
   Route two commodities on an undirected graph with shared edge capacities, using direction indicators to enforce anti-parallel flow constraints.
 ][
-  _Construction._ Variables: integer flow variables $f^k_(u,v), f^k_(v,u)$ per edge per commodity ($k in {1, 2}$), plus binary direction indicators $d^k_e$. Constraints: capacity sharing via direction indicators; anti-parallel flow (at most one direction per commodity per edge); flow conservation per commodity per vertex; demand satisfaction at sinks. Objective: feasibility.
+  _Construction._ Variables: integer flow variables $f^k_(u,v), f^k_(v,u)$ per edge per commodity ($k in {1, 2}$), plus binary direction indicators $d^k_e$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & f^k_(u,v) <= "cap"_e d^k_e quad forall e = {u, v} in E, k in {1, 2} \
+    & f^k_(v,u) <= "cap"_e (1 - d^k_e) quad forall e = {u, v} in E, k in {1, 2} \
+    & sum_(k=1)^2 (f^k_(u,v) + f^k_(v,u)) <= "cap"_e quad forall e = {u, v} in E \
+    & sum_(w) f^k_(v,w) - sum_(u) f^k_(u,v) = b^k_v quad forall k in {1, 2}, v in V \
+    & d^k_e in {0, 1}, f^k_(u,v) in ZZ_(>=0)
+  $.
 
   _Correctness._ Direction indicators linearize the capacity-sharing constraint; flow conservation and demand constraints ensure valid multi-commodity flow.
 
@@ -8187,7 +8529,14 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("DirectedTwoCommodityIntegralFlow", "ILP")[
   Route two commodities on a directed graph with shared arc capacities.
 ][
-  _Construction._ Variables: integer $f^1_a, f^2_a >= 0$ per arc $a$. Constraints: $f^1_a + f^2_a <= "cap"(a)$; flow conservation per commodity per vertex; demand at sinks $>= R_k$. Objective: feasibility.
+  _Construction._ Variables: integer $f^1_a, f^2_a >= 0$ per arc $a$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & f^1_a + f^2_a <= "cap"(a) quad forall a in A \
+    & sum_(a in delta^+(v)) f^k_a - sum_(a in delta^-(v)) f^k_a = b^k_v quad forall k in {1, 2}, v in V \
+    & sum_(a in delta^-(t_k)) f^k_a - sum_(a in delta^+(t_k)) f^k_a >= R_k quad forall k in {1, 2} \
+    & f^1_a, f^2_a in ZZ_(>=0) quad forall a in A
+  $.
 
   _Correctness._ Joint capacity and conservation constraints directly encode the two-commodity flow problem.
 
@@ -8197,11 +8546,1099 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("UndirectedFlowLowerBounds", "ILP")[
   Find a feasible single-commodity flow on an undirected graph with both upper and lower capacity bounds per edge.
 ][
-  _Construction._ Variables: integer $f_(u,v), f_(v,u) >= 0$ per edge, plus direction indicator $z_e in {0, 1}$. Constraints: $z_e <= 1$; $f_(u,v) <= "cap"_e dot z_e$; $f_(v,u) <= "cap"_e (1 - z_e)$; $f_(u,v) >= "lower"_e dot z_e$; $f_(v,u) >= "lower"_e (1 - z_e)$; flow conservation; demand at sink. Objective: feasibility.
+  _Construction._ Variables: integer $f_(u,v), f_(v,u) >= 0$ per edge, plus direction indicator $z_e in {0, 1}$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & f_(u,v) <= "cap"_e z_e quad forall e = {u, v} in E \
+    & f_(v,u) <= "cap"_e (1 - z_e) quad forall e = {u, v} in E \
+    & f_(u,v) >= "lower"_e z_e quad forall e = {u, v} in E \
+    & f_(v,u) >= "lower"_e (1 - z_e) quad forall e = {u, v} in E \
+    & sum_(a in delta^+(v)) f_a - sum_(a in delta^-(v)) f_a = b_v quad forall v in V \
+    & sum_(a in delta^-(t)) f_a - sum_(a in delta^+(t)) f_a >= R \
+    & z_e in {0, 1}, f_(u,v) in ZZ_(>=0)
+  $.
 
   _Correctness._ Direction indicators force flow in one direction per edge; bounds enforce both upper and lower capacity limits.
 
   _Solution extraction._ Edge orientations: $z_e$ values.
+]
+
+// Flow-based
+
+#reduction-rule("IntegralFlowHomologousArcs", "ILP")[
+  Use one integer flow variable per arc, with standard conservation plus equality constraints on every homologous pair.
+][
+  _Construction._ Variables: integer $f_a >= 0$ per arc $a in A$. The ILP is:
+  $
+    "find" quad & (f_a)_(a in A) \
+    "subject to" quad & f_a <= c_a quad forall a in A \
+    & sum_(a in delta^-(v)) f_a = sum_(a in delta^+(v)) f_a quad forall v in V backslash {s, t} \
+    & f_a = f_b quad forall (a, b) \
+    & sum_(a in delta^-(t)) f_a - sum_(a in delta^+(t)) f_a >= R \
+    & f_a in ZZ_(>=0) quad forall a in A
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible integral flow already satisfies the capacity, conservation, equality, and sink-demand constraints. ($arrow.l.double$) Any feasible ILP assignment is exactly an integral arc-flow meeting the homologous-pair and requirement conditions.
+
+  _Solution extraction._ Output the arc-flow vector $(f_a)_(a in A)$ in the source arc order.
+]
+
+#reduction-rule("IntegralFlowWithMultipliers", "ILP")[
+  The source constraints are linear after writing one integer flow variable per arc and enforcing multiplier-scaled conservation at each non-terminal.
+][
+  _Construction._ Variables: integer $f_a >= 0$ per arc $a = (u -> v)$. The ILP is:
+  $
+    "find" quad & (f_a)_(a in A) \
+    "subject to" quad & f_a <= c_a quad forall a in A \
+    & sum_(a in delta^+(v)) f_a = h(v) sum_(a in delta^-(v)) f_a quad forall v in V backslash {s, t} \
+    & sum_(a in delta^-(t)) f_a - sum_(a in delta^+(t)) f_a >= R \
+    & f_a in ZZ_(>=0) quad forall a in A
+  $.
+
+  _Correctness._ ($arrow.r.double$) A valid multiplier flow satisfies these linear equalities and inequalities by definition. ($arrow.l.double$) Any feasible ILP solution gives an integral arc flow whose non-terminal outflow equals the prescribed multiple of its inflow and whose sink inflow meets the requirement.
+
+  _Solution extraction._ Output the arc-flow vector $(f_a)_(a in A)$.
+]
+
+#reduction-rule("PathConstrainedNetworkFlow", "ILP")[
+  Because flow may use only the prescribed $s$-$t$ paths, it suffices to assign an integer amount to each allowed path and aggregate those loads on every arc.
+][
+  _Construction._ Let $P_1, dots, P_q$ be the prescribed paths. Variables: integer $f_i >= 0$ for each path $P_i$. The ILP is:
+  $
+    "find" quad & (f_i)_(i = 1)^q \
+    "subject to" quad & sum_(i : a in P_i) f_i <= c_a quad forall a in A \
+    & sum_i f_i >= R \
+    & f_i in ZZ_(>=0) quad forall i in {1, dots, q}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any valid path-flow assignment respects every arc capacity and delivers at least $R$ units in total. ($arrow.l.double$) Any feasible ILP solution assigns integral flow only to the prescribed paths, and the aggregated arc loads satisfy the network capacities.
+
+  _Solution extraction._ Output the path-flow vector $(f_1, dots, f_q)$.
+]
+
+#reduction-rule("DisjointConnectingPaths", "ILP")[
+  Route one unit of flow for each terminal pair on an oriented copy of the graph, and forbid internal vertices from carrying more than one commodity.
+][
+  _Construction._ For terminal pairs $(s_k, t_k)$, variables: binary $f^k_(u,v)$ on each orientation of each edge and integer order variables $h^k_v$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(w) f^k_(s_k,w) - sum_(u) f^k_(u,s_k) = 1 quad forall k \
+    & sum_(u) f^k_(u,t_k) - sum_(w) f^k_(t_k,w) = 1 quad forall k \
+    & sum_(w) f^k_(v,w) - sum_(u) f^k_(u,v) = 0 quad forall k, v in V backslash {s_k, t_k} \
+    & f^k_(u,v) + f^k_(v,u) <= 1 quad forall {u, v} in E, k \
+    & sum_k sum_(w in N(v)) f^k_(v,w) <= 1 quad forall "non-terminal" v \
+    & h^k_v >= h^k_u + 1 - M (1 - f^k_(u,v)) quad forall k, u -> v \
+    & f^k_(u,v) in {0, 1}, h^k_v in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) A family of pairwise internally vertex-disjoint connecting paths orients each path from its source to its sink and satisfies all constraints. ($arrow.l.double$) The conservation, disjointness, and ordering constraints force each commodity to trace one simple path, and different commodities can intersect only at terminals.
+
+  _Solution extraction._ Mark an edge selected in the source config iff some orientation of that edge carries flow for some commodity.
+]
+
+#reduction-rule("LengthBoundedDisjointPaths", "ILP")[
+  Use one unit-flow commodity for each requested path and add hop variables so every chosen path has at most the source bound $K$ edges.
+][
+  _Construction._ Variables: binary $f^k_(u,v)$ on each orientation of each edge for each path slot $k$, plus integer hop variables $h^k_v in {0, dots, K}$, where $K$ is the path-length bound and $M = K + 1$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(w) f^k_(s,w) - sum_(u) f^k_(u,s) = 1 quad forall k \
+    & sum_(u) f^k_(u,t) - sum_(w) f^k_(t,w) = 1 quad forall k \
+    & sum_(w) f^k_(v,w) - sum_(u) f^k_(u,v) = 0 quad forall k, v in V backslash {s, t} \
+    & f^k_(u,v) + f^k_(v,u) <= 1 quad forall {u, v} in E, k \
+    & sum_k sum_(w in N(v)) f^k_(v,w) <= 1 quad forall v in V backslash {s, t} \
+    & h^k_s = 0 quad forall k \
+    & h^k_v >= h^k_u + 1 - M (1 - f^k_(u,v)) quad forall k, u -> v \
+    & h^k_t <= K quad forall k \
+    & f^k_(u,v) in {0, 1}, h^k_v in {0, dots, K}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A collection of $J$ internally disjoint $s$-$t$ paths of length at most $K$ yields feasible commodity flows and consistent hop labels. ($arrow.l.double$) The flow and hop constraints force each commodity to be a simple $s$-$t$ path, while the vertex-disjointness inequalities match the source requirement.
+
+  _Solution extraction._ For each path slot $k$, set the source vertex-indicator block to 1 exactly on the vertices incident to the commodity-$k$ path, including $s$ and $t$.
+]
+
+#reduction-rule("MixedChinesePostman", "ILP")[
+  Choose an orientation for every undirected edge, then add integer traversal variables on the available directed arcs to balance the oriented required multigraph within the length bound.
+][
+  _Construction._ Let $n = |V|$, let the original directed arcs be $A = {a_0, dots, a_(m-1)}$ with $a_i = (alpha_i, beta_i)$, and let the undirected edges be $E = {e_0, dots, e_(q-1)}$ with $e_k = {u_k, v_k}$. Set $R = m + q$. If $R = 0$, return the empty feasible ILP: the empty walk already has length 0. Otherwise form the available directed-arc list
+  $A^* = {b_0, dots, b_(L-1)}$ with $L = m + 2 q$,
+  where $b_i = a_i$ for $0 <= i < m$, $b_(m + 2 k) = (u_k, v_k)$, and $b_(m + 2 k + 1) = (v_k, u_k)$.
+  Write $b_j = ("tail"_j, "head"_j)$ and let $ell_j$ be the corresponding length. Use `ILP<i32>` with binary variables encoded by bounds $0 <= x <= 1$. Order the variables as
+  $(d_0, dots, d_(q-1), g_0, dots, g_(L-1), y_0, dots, y_(L-1), z_0, dots, z_(n-1), rho_0, dots, rho_(n-1), s, b_0, dots, b_(n-1), f_0, dots, f_(L-1), h_0, dots, h_(L-1))$,
+  so $d_k$ has index $k$, $g_j$ has index $q + j$, $y_j$ has index $q + L + j$, $z_v$ has index $q + 2 L + v$, $rho_v$ has index $q + 2 L + n + v$, $s$ has index $q + 2 L + 2 n$, $b_v$ has index $q + 2 L + 2 n + 1 + v$, $f_j$ has index $q + 2 L + 3 n + 1 + j$, and $h_j$ has index $q + 3 L + 3 n + 1 + j$. There are $q + 4 L + 3 n + 1$ variables in total.
+
+  The orientation bit $d_k in {0, 1}$ means $d_k = 0$ chooses $u_k -> v_k$ and $d_k = 1$ chooses $v_k -> u_k$. Define the required multiplicity on each available arc explicitly by
+  $r_i(d) = 1$ for $0 <= i < m$,
+  $r_(m + 2 k)(d) = 1 - d_k$,
+  and $r_(m + 2 k + 1)(d) = d_k$.
+  Thus the two oriented copies of each undirected edge are already linear in the orientation bit.
+
+  Let $G = R (n - 1)$ and $M_"use" = 1 + G$. The variable $g_j in {0, dots, G}$ counts extra traversals of $b_j$ beyond the required multiplicity, so the total multiplicity of $b_j$ is $r_j(d) + g_j$. The bound $G = R (n - 1)$ is exact for this formulation: any closed walk can be shortcut so that between consecutive required traversals it uses a simple connector path of at most $n - 1$ arcs, and there are exactly $R$ such connector segments in the cyclic order of the required traversals.
+
+  The constraints are:
+  $sum_(j : "tail"_j = v) (r_j(d) + g_j) - sum_(j : "head"_j = v) (r_j(d) + g_j) = 0$ for every $v in V$;
+  $r_j(d) + g_j <= M_"use" y_j$ and $y_j <= r_j(d) + g_j$ for every $j in {0, dots, L - 1}$, so $y_j = 1$ iff arc $b_j$ is used at least once;
+  $y_j <= z_"tail"_j$ and $y_j <= z_"head"_j$ for every $j$, and $z_v <= sum_(j : "tail"_j = v " or " "head"_j = v) y_j$ for every vertex $v$, so $z_v = 1$ iff $v$ is incident to some used arc;
+  $s = sum_v z_v$;
+  $sum_v rho_v = 1$, $rho_v <= z_v$ for every $v$, and the product linearization $b_v <= s$, $b_v <= n rho_v$, $b_v >= s - n (1 - rho_v)$, $b_v >= 0$ for every $v$, so $b_v = s rho_v$ and therefore the unique root chosen by $rho$ supplies $s - 1$ units of connectivity flow;
+  $0 <= f_j <= (n - 1) y_j$ and $0 <= h_j <= (n - 1) y_j$ for every available arc $b_j$; here the exact big-$M$ for arc activation is $n - 1$, because at most one unit is demanded by each non-root active vertex;
+  $sum_(j : "tail"_j = v) f_j - sum_(j : "head"_j = v) f_j = b_v - z_v$ for every vertex $v$; and
+  $sum_(j : "head"_j = v) h_j - sum_(j : "tail"_j = v) h_j = b_v - z_v$ for every vertex $v$.
+  The $f$-flow makes every active vertex reachable from the chosen root, and the $h$-flow makes the root reachable from every active vertex on the same used support.
+  Finally impose the length bound
+  $sum_(j = 0)^(L - 1) ell_j (r_j(d) + g_j) <= B$.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(j : "tail"_j = v) (r_j(d) + g_j) - sum_(j : "head"_j = v) (r_j(d) + g_j) = 0 quad forall v in V \
+    & r_j(d) + g_j <= M_"use" y_j, y_j <= r_j(d) + g_j quad forall j in {0, dots, L - 1} \
+    & y_j <= z_"tail"_j, y_j <= z_"head"_j quad forall j \
+    & z_v <= sum_(j : "tail"_j = v " or " "head"_j = v) y_j quad forall v in V \
+    & s = sum_v z_v; sum_v rho_v = 1; rho_v <= z_v quad forall v in V \
+    & "the standard product linearization enforces" b_v = s rho_v quad forall v in V \
+    & 0 <= f_j, h_j <= (n - 1) y_j quad forall j in {0, dots, L - 1} \
+    & "forward and reverse root-flow conservation hold on the used support" \
+    & sum_(j = 0)^(L - 1) ell_j (r_j(d) + g_j) <= B \
+    & d_k, y_j, z_v, rho_v in {0, 1}; g_j in {0, dots, G}; f_j, h_j in {0, dots, n - 1}; s, b_v in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) From any feasible mixed-postman tour, set $d_k$ from the direction in which edge $e_k$ is first required, let $g_j$ be the number of extra copies of $b_j$ beyond the required multiplicity, and let $y_j$ mark the positive-support arcs. The tour itself visits exactly the active vertices, so some active vertex can be chosen as the root. Taking one outgoing spanning arborescence and one incoming spanning arborescence of the used Eulerian digraph gives feasible $f$- and $h$-flows. The walk length is exactly $sum_j ell_j (r_j(d) + g_j)$, hence the ILP is feasible.
+  ($arrow.l.double$) A feasible ILP solution chooses one direction for every undirected edge, and the balance equations make the directed multigraph with multiplicities $r_j(d) + g_j$ Eulerian. The two root-flow systems imply that the positive-support digraph on the active vertices is strongly connected. Therefore the used multigraph admits an Euler tour, and its total length is exactly the bounded linear form above, so the source instance is a YES-instance.
+
+  _Solution extraction._ Return the orientation bits $d_e$ in the source edge order.
+]
+
+#reduction-rule("RuralPostman", "ILP")[
+  Use one traversal-multiplicity variable per edge, together with activation and connectivity constraints, to encode an Eulerian connected subgraph covering all required edges.
+][
+  _Construction._ If $E' = emptyset$, the empty circuit already satisfies the source instance whenever $B >= 0$, so use the empty ILP. Otherwise fix a root vertex $r$ incident to some required edge and let $n = |V|$. Variables: integer $t_e in {0, 1, 2}$ and parity variables $q_v$, binary edge-activation flags $y_e$, binary vertex-activity flags $z_v$, and nonnegative connectivity-flow variables $f_(u,v)$ on both orientations of every edge. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & y_e <= t_e <= 2 y_e quad forall e in E \
+    & t_e >= 1 quad forall e in E' \
+    & sum_(e : v in e) t_e = 2 q_v quad forall v \
+    & y_e <= z_u, y_e <= z_v quad forall e = {u, v} in E \
+    & z_v <= sum_(e : v in e) y_e quad forall v in V \
+    & f_(u,v) <= (n - 1) y_e, f_(v,u) <= (n - 1) y_e quad forall e = {u, v} in E \
+    & sum_(w : {r, w} in E) f_(r,w) - sum_(u : {u, r} in E) f_(u,r) = sum_v z_v - 1 \
+    & sum_(u : {u, v} in E) f_(u,v) - sum_(w : {v, w} in E) f_(v,w) = z_v quad forall v in V backslash {r} \
+    & sum_e ell_e t_e <= B \
+    & y_e, z_v in {0, 1}, t_e in {0, 1, 2}, q_v, f_(u,v) in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible rural-postman circuit uses each edge at most twice, has even degrees, is connected on its positive-support edges, and satisfies the bound. ($arrow.l.double$) A feasible ILP solution defines a connected Eulerian multigraph containing every required edge, hence an Eulerian circuit of total length at most $B$.
+
+  _Solution extraction._ Output the traversal multiplicities $(t_e)_(e in E)$.
+]
+
+#reduction-rule("StackerCrane", "ILP")[
+  Encode the required-arc order by a one-hot position assignment and charge the shortest connector distance between each consecutive pair of required arcs.
+][
+  _Construction._ Let the required arcs be $A = {a_0, dots, a_(m-1)}$ with $a_i = ("tail"_i, "head"_i)$. Build the mixed connector graph
+  $H = (V, A union {(u, v), (v, u) : {u, v} in E})$,
+  where the original required arcs keep their given lengths and each undirected edge contributes both orientations with the same length. Because all lengths are nonnegative, compute the all-pairs connector distances
+  $D[u, v] = "dist"_H(u, v)$
+  either by running Dijkstra from every source vertex or by Floyd--Warshall on the $n$-vertex graph $H$; this is exactly the graph queried by `mixed_graph_adjacency()` and `shortest_path_length()` in the model. If $D[u, v] = oo$, the pair is impossible and will be forbidden explicitly.
+
+  Use `ILP<bool>`. The binary position variables are $x_(i,p)$ for $i, p in {0, dots, m - 1}$, with index
+  $"idx"_x(i, p) = i m + p$.
+  The binary McCormick variables are $z_(i,j,p)$ for $i, j, p in {0, dots, m - 1}$, where position $p + 1$ is interpreted cyclically as $(p + 1) mod m$; their indices are
+  $"idx"_z(i, j, p) = m^2 + p m^2 + i m + j$.
+  There are $m^2 + m^3$ binary variables.
+
+  The constraints are:
+  $sum_(p = 0)^(m - 1) x_(i,p) = 1$ for each required arc $i$;
+  $sum_(i = 0)^(m - 1) x_(i,p) = 1$ for each position $p$;
+  $z_(i,j,p) <= x_(i,p)$, $z_(i,j,p) <= x_(j,(p + 1) mod m)$, and $z_(i,j,p) >= x_(i,p) + x_(j,(p + 1) mod m) - 1$ for all $i, j, p$;
+  if $D["head"_i, "tail"_j] = oo$, then either set $z_(i,j,p) = 0$ for all $p$ or, equivalently, impose $x_(i,p) + x_(j,(p + 1) mod m) <= 1$ for all $p$;
+  and finally
+  $sum_(i = 0)^(m - 1) ell_i + sum_(p = 0)^(m - 1) sum_(i = 0)^(m - 1) sum_(j = 0)^(m - 1) D["head"_i, "tail"_j] z_(i,j,p) <= B$.
+  The first term is the total length of the required traversals, and the second term charges exactly one connector distance for each consecutive pair in the cyclic order.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(p = 0)^(m - 1) x_(i,p) = 1 quad forall i in {0, dots, m - 1} \
+    & sum_(i = 0)^(m - 1) x_(i,p) = 1 quad forall p in {0, dots, m - 1} \
+    & z_(i,j,p) <= x_(i,p), z_(i,j,p) <= x_(j,(p + 1) mod m) quad forall i, j, p \
+    & z_(i,j,p) >= x_(i,p) + x_(j,(p + 1) mod m) - 1 quad forall i, j, p \
+    & z_(i,j,p) = 0 quad "whenever" D["head"_i, "tail"_j] = oo \
+    & sum_(i = 0)^(m - 1) ell_i + sum_(p = 0)^(m - 1) sum_(i = 0)^(m - 1) sum_(j = 0)^(m - 1) D["head"_i, "tail"_j] z_(i,j,p) <= B \
+    & x_(i,p), z_(i,j,p) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible Stacker Crane permutation determines a one-hot assignment and consecutive-pair indicators whose connector costs equal the route length. ($arrow.l.double$) Any feasible ILP solution yields a permutation of the required arcs, and the linearized connector term is exactly the sum of shortest paths between consecutive arcs.
+
+  _Solution extraction._ Decode the permutation by taking, for each position $p$, the unique arc $a$ with $x_(a,p) = 1$.
+]
+
+#reduction-rule("SteinerTreeInGraphs", "ILP")[
+  Select edges and certify terminal connectivity by sending one unit of flow from a root terminal to every other terminal through the selected subgraph.
+][
+  _Construction._ Fix a root terminal $r in R$. Variables: binary $y_(u,v)$ for each undirected edge $\{u,v\}$ and nonnegative flow variables $f^t_(u,v)$ on each directed edge orientation for every terminal $t in R backslash {r}$. The ILP is:
+  $
+    min quad & sum_({u,v} in E) w_(u,v) y_(u,v) \
+    "subject to" quad & sum_(u) f^t_(u,v) - sum_(w) f^t_(v,w) = b_(t,v) quad forall t in R backslash {r}, v in V \
+    & f^t_(u,v) <= y_(u,v) quad forall {u, v} in E, t in R backslash {r} \
+    & f^t_(v,u) <= y_(u,v) quad forall {u, v} in E, t in R backslash {r} \
+    & y_(u,v) in {0, 1}, f^t_(u,v) in ZZ_(>=0)
+  $,
+  where $b_(t,v) = -1$ if $v = r$, $b_(t,v) = 1$ if $v = t$, and $b_(t,v) = 0$ otherwise.
+
+  _Correctness._ ($arrow.r.double$) A Steiner tree supports a unit flow from the root to every other terminal using exactly its selected edges, with the same total weight. ($arrow.l.double$) Any feasible ILP solution selects a connected subgraph spanning all terminals, and with nonnegative edge weights an optimum solution is a minimum-weight Steiner tree.
+
+  _Solution extraction._ Output the binary edge-selection vector $(y_e)_(e in E)$.
+]
+
+// Scheduling
+
+#reduction-rule("FlowShopScheduling", "ILP")[
+  Order the jobs with pairwise precedence bits and completion-time variables on every machine; the deadline becomes a makespan bound.
+][
+  _Construction._ Let $q in {1, dots, m}$ index the machines, let $p_(j,q) = ell(t_q [j])$ be the processing time of job $j$ on machine $q$, and let $M = D + max_(j, q) p_(j,q)$. Variables: binary $y_(i,j)$ with $y_(i,j) = 1$ iff job $i$ precedes job $j$, and integer completion times $C_(j,q)$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & y_(i,j) + y_(j,i) = 1 quad forall i != j \
+    & C_(j,1) >= p_(j,1) quad forall j \
+    & C_(j,q + 1) >= C_(j,q) + p_(j,q + 1) quad forall j, q in {1, dots, m - 1} \
+    & C_(j,q) >= C_(i,q) + p_(j,q) - M (1 - y_(i,j)) quad forall i != j, q in {1, dots, m} \
+    & C_(j,m) <= D quad forall j \
+    & y_(i,j) in {0, 1}, C_(j,q) in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible flow-shop permutation induces a total order and completion times satisfying the machine and deadline constraints. ($arrow.l.double$) Any feasible ILP solution defines one common order of the jobs on all machines, and the resulting schedule completes by the deadline.
+
+  _Solution extraction._ Sort the jobs by their final-machine completion times $C_(j,m)$ and convert that permutation to Lehmer code.
+]
+
+#reduction-rule("MinimumTardinessSequencing", "ILP")[
+  A position-assignment ILP captures the permutation, the precedence constraints, and a binary tardy indicator for each unit-length task.
+][
+  _Construction._ Variables: binary $x_(j,p)$ placing task $j$ in position $p in {0, dots, n-1}$ and binary tardy indicators $u_j$, where $M = n$. The ILP is:
+  $
+    min quad & sum_j u_j \
+    "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
+    & sum_j x_(j,p) = 1 quad forall p \
+    & sum_p p x_(i,p) + 1 <= sum_p p x_(j,p) quad "for each precedence" (i, j) \
+    & sum_p (p + 1) x_(j,p) - d_j <= M u_j quad forall j \
+    & x_(j,p), u_j in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible schedule gives a permutation and tardy bits with objective equal to the number of tardy tasks. ($arrow.l.double$) Any feasible ILP assignment decodes to a precedence-respecting permutation, and each $u_j$ is forced to record whether task $j$ misses its deadline.
+
+  _Solution extraction._ Decode the permutation from $x_(j,p)$ and encode it as Lehmer code.
+]
+
+#reduction-rule("ResourceConstrainedScheduling", "ILP")[
+  The source witness is already a time-slot assignment, so a standard time-indexed ILP suffices.
+][
+  _Construction._ Variables: binary $x_(j,t)$ with $x_(j,t) = 1$ iff task $j$ is run in slot $t in {0, dots, D - 1}$, where $r_(j,q) = R_q(t_j)$ denotes the amount of resource $q$ consumed by task $j$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_t x_(j,t) = 1 quad forall j \
+    & sum_j x_(j,t) <= m quad forall t \
+    & sum_j r_(j,q) x_(j,t) <= B_q quad forall q, t \
+    & x_(j,t) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible schedule chooses one slot per task while respecting processor and resource capacities in every period. ($arrow.l.double$) Any feasible ILP solution directly gives such a slot assignment.
+
+  _Solution extraction._ Task $j$ is assigned to the unique slot $t$ with $x_(j,t) = 1$.
+]
+
+#reduction-rule("SequencingToMinimizeMaximumCumulativeCost", "ILP")[
+  Assign each task to one position in the permutation and bound the running cumulative cost at every prefix.
+][
+  _Construction._ Variables: binary $x_(j,p)$ with $x_(j,p) = 1$ iff task $j$ is scheduled in position $p$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
+    & sum_j x_(j,p) = 1 quad forall p \
+    & sum_p p x_(i,p) + 1 <= sum_p p x_(j,p) quad "for each precedence" (i, j) \
+    & sum_j sum_(p in {0, dots, q}) c_j x_(j,p) <= K quad forall q \
+    & x_(j,p) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A feasible permutation satisfies the precedence constraints and keeps every prefix sum at most $K$. ($arrow.l.double$) Any feasible ILP assignment is a permutation whose cumulative cost after each prefix is exactly the linear expression being bounded.
+
+  _Solution extraction._ Decode the position assignment and convert the resulting permutation to Lehmer code.
+]
+
+#reduction-rule("SequencingToMinimizeWeightedTardiness", "ILP")[
+  Encode the single-machine order with pairwise precedence bits and completion times, then linearize the weighted tardiness bound with nonnegative tardiness variables.
+][
+  _Construction._ Variables: binary $y_(i,j)$ with $y_(i,j) = 1$ iff job $i$ precedes job $j$, integer completion times $C_j$, and nonnegative tardiness variables $T_j$, where $M = sum_j ell_j$ is a valid schedule-horizon bound. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & y_(i,j) + y_(j,i) = 1 quad forall i != j \
+    & C_j >= ell_j quad forall j \
+    & C_j >= C_i + ell_j - M (1 - y_(i,j)) quad forall i != j \
+    & T_j >= C_j - d_j quad forall j \
+    & T_j >= 0 quad forall j \
+    & sum_j w_j T_j <= K \
+    & y_(i,j) in {0, 1}, C_j in ZZ_(>=0), T_j in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any job order induces completion times and tardiness values satisfying the bound exactly when the source instance is feasible. ($arrow.l.double$) Any feasible ILP solution yields a single-machine order whose weighted tardiness equals the encoded linear objective term.
+
+  _Solution extraction._ Sort the jobs by $C_j$ and encode that permutation as Lehmer code.
+]
+
+#reduction-rule("SequencingWithReleaseTimesAndDeadlines", "ILP")[
+  A time-indexed formulation captures the admissible start window of each task and forbids overlap on the single machine.
+][
+  _Construction._ Variables: binary $x_(j,t)$ with $x_(j,t) = 1$ iff task $j$ starts at time $t$, where $p_j = ell(t_j)$ is the processing time (length) of task $j$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(t = r_j)^(d_j - p_j) x_(j,t) = 1 quad forall j \
+    & sum_(j, t : t <= tau < t + p_j) x_(j,t) <= 1 quad forall tau \
+    & x_(j,t) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible non-preemptive schedule chooses one valid start time per task and never overlaps two active jobs. ($arrow.l.double$) Any feasible ILP solution gives exactly such a start-time assignment, so executing the jobs in increasing start order solves the source instance.
+
+  _Solution extraction._ Read each task's chosen start time, sort the tasks by that order, and encode the resulting permutation as Lehmer code.
+]
+
+#reduction-rule("TimetableDesign", "ILP")[
+  The source witness is a binary craftsman-task-period incidence table, and all feasibility conditions are already linear.
+][
+  _Construction._ Variables: binary $x_(c,t,h)$ with $x_(c,t,h) = 1$ iff craftsman $c$ works on task $t$ in period $h$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & x_(c,t,h) = 0 quad "whenever either side is unavailable" \
+    & sum_t x_(c,t,h) <= 1 quad forall c, h \
+    & sum_c x_(c,t,h) <= 1 quad forall t, h \
+    & sum_h x_(c,t,h) = r_(c,t) quad forall c, t \
+    & x_(c,t,h) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any valid timetable satisfies availability, exclusivity, and exact requirement counts. ($arrow.l.double$) Any feasible ILP solution is exactly such a timetable because the variable layout matches the source configuration.
+
+  _Solution extraction._ Output the flattened binary array $(x_(c,t,h))$ in source order.
+]
+
+// Position/Assignment
+
+#reduction-rule("HamiltonianPath", "ILP")[
+  Place each vertex in exactly one path position and use auxiliary variables for consecutive pairs so only graph edges may appear between adjacent positions.
+][
+  _Construction._ Variables: binary $x_(v,p)$ with $x_(v,p) = 1$ iff vertex $v$ is placed at position $p$, and binary $z_((u,v),p)$ linearizing $x_(u,p) x_(v,p+1)$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_p x_(v,p) = 1 quad forall v \
+    & sum_v x_(v,p) = 1 quad forall p \
+    & z_((u,v),p) <= x_(u,p) quad forall (u, v), p \
+    & z_((u,v),p) <= x_(v,p+1) quad forall (u, v), p \
+    & z_((u,v),p) >= x_(u,p) + x_(v,p+1) - 1 quad forall (u, v), p \
+    & sum_((u,v) in E) z_((u,v),p) = 1 quad forall p \
+    & x_(v,p), z_((u,v),p) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian path defines a permutation of the vertices and therefore a feasible assignment matrix with one admissible graph edge between every consecutive pair. ($arrow.l.double$) Any feasible ILP solution is a vertex permutation whose consecutive pairs are graph edges, hence a Hamiltonian path.
+
+  _Solution extraction._ For each position $p$, output the unique vertex $v$ with $x_(v,p) = 1$.
+]
+
+#reduction-rule("BottleneckTravelingSalesman", "ILP")[
+  Use a cyclic position assignment for the tour and a bottleneck variable that dominates the weight of every chosen tour edge.
+][
+  _Construction._ Variables: binary $x_(v,p)$ for city-position assignment, binary $z_((u,v),p)$ for consecutive tour edges, and integer bottleneck variable $b$. The ILP is:
+  $
+    min quad & b \
+    "subject to" quad & sum_p x_(v,p) = 1 quad forall v \
+    & sum_v x_(v,p) = 1 quad forall p \
+    & z_((u,v),p) <= x_(u,p) quad forall (u, v), p \
+    & z_((u,v),p) <= x_(v,(p+1) mod n) quad forall (u, v), p \
+    & z_((u,v),p) >= x_(u,p) + x_(v,(p+1) mod n) - 1 quad forall (u, v), p \
+    & sum_((u,v) in E) z_((u,v),p) = 1 quad forall p \
+    & b >= w_(u,v) z_((u,v),p) quad forall (u, v), p \
+    & x_(v,p), z_((u,v),p) in {0, 1}, b in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any Hamiltonian tour yields a feasible assignment and sets $b$ to the maximum selected edge weight. ($arrow.l.double$) Any feasible ILP solution encodes a Hamiltonian cycle, and the minimax constraints force $b$ to equal its bottleneck edge weight.
+
+  _Solution extraction._ Mark an edge selected in the source config iff it appears between two consecutive positions in the decoded cycle.
+]
+
+#reduction-rule("LongestCircuit", "ILP")[
+  A direct cycle-selection ILP uses binary edge variables, degree constraints, and a connectivity witness to force exactly one simple circuit of length at least the bound.
+][
+  _Construction._ Variables: binary $y_e$ for edges, binary $s_v$ indicating whether vertex $v$ lies on the circuit, and root-flow variables on selected edges. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(e : v in e) y_e = 2 s_v quad forall v \
+    & sum_e y_e >= 3 \
+    & sum_e l_e y_e >= K \
+    & "root-flow connectivity constraints hold on the selected edges" \
+    & y_e, s_v in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A simple circuit has degree 2 at each used vertex, is connected, and meets the length bound $K$. ($arrow.l.double$) The degree and connectivity constraints force the selected edges to form exactly one simple circuit, and the final inequality enforces the required total length.
+
+  _Solution extraction._ Output the binary edge-selection vector $(y_e)_(e in E)$.
+]
+
+#reduction-rule("QuadraticAssignment", "ILP")[
+  Assign each facility to exactly one location, enforce injectivity, and linearize every quadratic cost term with McCormick products.
+][
+  _Construction._ Variables: binary $x_(i,p)$ with $x_(i,p) = 1$ iff facility $i$ is placed at location $p$, and binary $z_((i,p),(j,q))$ for the products $x_(i,p) x_(j,q)$. The ILP is:
+  $
+    min quad & sum_(i != j) sum_(p,q) c_(i,j) d_(p,q) z_((i,p),(j,q)) \
+    "subject to" quad & sum_p x_(i,p) = 1 quad forall i \
+    & sum_i x_(i,p) <= 1 quad forall p \
+    & z_((i,p),(j,q)) <= x_(i,p) quad forall i, p, j, q \
+    & z_((i,p),(j,q)) <= x_(j,q) quad forall i, p, j, q \
+    & z_((i,p),(j,q)) >= x_(i,p) + x_(j,q) - 1 quad forall i, p, j, q \
+    & x_(i,p), z_((i,p),(j,q)) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any injective facility placement gives a feasible ILP assignment with exactly the same quadratic cost. ($arrow.l.double$) Any feasible ILP solution decodes to an injective facility-to-location map, and the linearized objective equals the source objective term by term.
+
+  _Solution extraction._ For each facility $i$, output the unique location $p$ with $x_(i,p) = 1$.
+]
+
+#reduction-rule("OptimalLinearArrangement", "ILP")[
+  Assign each vertex to one position and use absolute-value auxiliaries to measure the length of every edge in the arrangement.
+][
+  _Construction._ Variables: binary $x_(v,p)$ with $x_(v,p) = 1$ iff vertex $v$ gets position $p$, integer position variables $p_v = sum_p p x_(v,p)$, and nonnegative $z_(u,v)$ per edge $\{u,v\}$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_p x_(v,p) = 1 quad forall v \
+    & sum_v x_(v,p) = 1 quad forall p \
+    & z_(u,v) >= p_u - p_v quad forall {u, v} in E \
+    & z_(u,v) >= p_v - p_u quad forall {u, v} in E \
+    & sum_({u,v} in E) z_(u,v) <= K \
+    & x_(v,p) in {0, 1}, z_(u,v) in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any valid linear arrangement satisfies the permutation constraints and gives edge lengths $|p_u - p_v|$ within the bound. ($arrow.l.double$) Any feasible ILP solution is a bijection from vertices to positions, and the auxiliary variables exactly upper-bound the edge lengths, so the total arrangement cost is at most $K$.
+
+  _Solution extraction._ For each vertex $v$, output its decoded position $p_v$.
+]
+
+#reduction-rule("SubgraphIsomorphism", "ILP")[
+  Choose an injective image of every pattern vertex in the host graph and forbid any mapped pattern edge from landing on a host non-edge.
+][
+  _Construction._ Variables: binary $x_(v,u)$ with $x_(v,u) = 1$ iff pattern vertex $v$ maps to host vertex $u$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_u x_(v,u) = 1 quad forall v \
+    & sum_v x_(v,u) <= 1 quad forall u \
+    & x_(v,u) + x_(w,u') <= 1 quad forall {v, w} in E_"pat", {u, u'} in.not E_"host" \
+    & x_(v,u') + x_(w,u) <= 1 quad forall {v, w} in E_"pat", {u, u'} in.not E_"host" \
+    & x_(v,u) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any injective edge-preserving embedding satisfies the assignment and non-edge constraints. ($arrow.l.double$) Any feasible ILP solution is an injective vertex map, and the non-edge inequalities ensure every pattern edge is sent to a host edge.
+
+  _Solution extraction._ For each pattern vertex $v$, output the unique host vertex $u$ with $x_(v,u) = 1$.
+]
+
+// Graph structure
+
+#reduction-rule("AcyclicPartition", "ILP")[
+  Assign every vertex to one partition class, bound the weight and crossing cost of those classes, and impose a topological order on the quotient digraph.
+][
+  _Construction._ Let $n = |V|$ and let the directed arcs be $A = {a_0, dots, a_(m-1)}$ with $a_t = (u_t -> v_t)$. The source witness already allows every vertex to choose one label in ${0, dots, n - 1}$, so the ILP uses exactly the same label range. Use `ILP<i32>` with variable order
+  $(x_(v,c))_(v,c), (s_(t,c))_(t,c), (y_t)_t, (o_c)_c, (p_v)_v$.
+  The indices are
+  $"idx"_x(v,c) = v n + c$,
+  $"idx"_s(t,c) = n^2 + t n + c$,
+  $"idx"_y(t) = n^2 + m n + t$,
+  $"idx"_o(c) = n^2 + m n + m + c$,
+  and $ "idx"_p(v) = n^2 + m n + m + n + v$.
+  There are $n^2 + m n + m + 2 n$ variables.
+
+  Here $x_(v,c) in {0, 1}$ means vertex $v$ is assigned to class $c$, $s_(t,c) in {0, 1}$ means both endpoints of arc $a_t$ lie in class $c$, $y_t in {0, 1}$ marks that arc $a_t$ crosses between two different classes, $o_c in {0, dots, n - 1}$ is the order assigned to class $c$, and $p_v in {0, dots, n - 1}$ copies the order of the class chosen by vertex $v$.
+
+  The constraints are:
+  $sum_(c = 0)^(n - 1) x_(v,c) = 1$ for every vertex $v$;
+  $sum_v w_v x_(v,c) <= B$ for every class $c$;
+  $s_(t,c) <= x_(u_t,c)$, $s_(t,c) <= x_(v_t,c)$, and $s_(t,c) >= x_(u_t,c) + x_(v_t,c) - 1$ for every arc $a_t$ and class $c$;
+  $y_t + sum_(c = 0)^(n - 1) s_(t,c) = 1$ for every arc $a_t$, so $y_t = 1$ exactly for crossing arcs;
+  $sum_(t = 0)^(m - 1) "cost"(a_t) y_t <= K$;
+  $0 <= o_c <= n - 1$ and $0 <= p_v <= n - 1$ for all classes $c$ and vertices $v$;
+  $p_v - o_c <= (n - 1) (1 - x_(v,c))$ and $o_c - p_v <= (n - 1) (1 - x_(v,c))$ for all $v, c$, so $p_v = o_c$ whenever $x_(v,c) = 1$;
+  and for every arc $a_t = (u_t -> v_t)$,
+  $p_(v_t) - p_(u_t) >= 1 - n sum_(c = 0)^(n - 1) s_(t,c)$.
+  The exact big-$M$ here is $M = n$: if $u_t$ and $v_t$ lie in the same class, then $sum_c s_(t,c) = 1$ and the right-hand side is $1 - n = -(n - 1)$, which is precisely the smallest possible difference between two order variables in ${0, dots, n - 1}$. If the arc crosses between two distinct classes, then $sum_c s_(t,c) = 0$ and the inequality becomes $p_(v_t) - p_(u_t) >= 1$. For the realized classes $c$ and $d$ of the endpoints, this is exactly the requested form
+  $o_d - o_c >= 1 - M sum_h s_(t,h)$.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(c = 0)^(n - 1) x_(v,c) = 1 quad forall v in V \
+    & sum_v w_v x_(v,c) <= B quad forall c in {0, dots, n - 1} \
+    & s_(t,c) <= x_(u_t,c), s_(t,c) <= x_(v_t,c) quad forall t, c \
+    & s_(t,c) >= x_(u_t,c) + x_(v_t,c) - 1 quad forall t, c \
+    & y_t + sum_(c = 0)^(n - 1) s_(t,c) = 1 quad forall t in {0, dots, m - 1} \
+    & sum_(t = 0)^(m - 1) "cost"(a_t) y_t <= K \
+    & p_v - o_c <= (n - 1) (1 - x_(v,c)), o_c - p_v <= (n - 1) (1 - x_(v,c)) quad forall v, c \
+    & p_(v_t) - p_(u_t) >= 1 - n sum_(c = 0)^(n - 1) s_(t,c) quad forall t in {0, dots, m - 1} \
+    & x_(v,c), s_(t,c), y_t in {0, 1}; o_c, p_v in {0, dots, n - 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any valid acyclic partition gives a class assignment whose quotient arcs respect some topological ordering, with the same class weights and crossing cost. ($arrow.l.double$) Any feasible ILP solution partitions the vertices, keeps every class within the weight bound, charges exactly the inter-class arcs, and the order variables force the quotient digraph to be acyclic.
+
+  _Solution extraction._ For each vertex $v$, output the unique class label $c$ with $x_(v,c) = 1$.
+]
+
+#reduction-rule("BalancedCompleteBipartiteSubgraph", "ILP")[
+  Choose exactly $k$ vertices on each side of the bipartite graph and forbid any selected left-right pair that is not an edge.
+][
+  _Construction._ Let $L$ and $R$ be the bipartition. Variables: binary $x_l$ for $l in L$ and $y_r$ for $r in R$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(l in L) x_l = k \
+    & sum_(r in R) y_r = k \
+    & x_l + y_r <= 1 quad forall (l, r) in.not E \
+    & x_l, y_r in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A balanced complete bipartite subgraph of size $k + k$ satisfies the cardinality constraints and has no selected non-edge pair. ($arrow.l.double$) Any feasible ILP solution selects $k$ left vertices and $k$ right vertices with every cross-pair present, hence a balanced biclique.
+
+  _Solution extraction._ Output the concatenated left/right binary selection vector.
+]
+
+#reduction-rule("BicliqueCover", "ILP")[
+  Use $k$ candidate bicliques, assign vertices to any of them, force every graph edge to be covered by some common biclique, and minimize the total membership size.
+][
+  _Construction._ Variables: binary $x_(l,b)$ for left vertices, binary $y_(r,b)$ for right vertices, and binary $z_((l,r),b)$ linearizing $x_(l,b) y_(r,b)$. The ILP is:
+  $
+    min quad & sum_(l,b) x_(l,b) + sum_(r,b) y_(r,b) \
+    "subject to" quad & z_((l,r),b) <= x_(l,b) quad forall l, r, b \
+    & z_((l,r),b) <= y_(r,b) quad forall l, r, b \
+    & z_((l,r),b) >= x_(l,b) + y_(r,b) - 1 quad forall l, r, b \
+    & sum_b z_((l,r),b) >= 1 quad forall (l, r) in E \
+    & x_(l,b) + y_(r,b) <= 1 quad forall (l, r) in.not E, b \
+    & x_(l,b), y_(r,b), z_((l,r),b) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any valid $k$-biclique cover assigns each covered edge to a biclique containing both endpoints, with objective equal to the total biclique size. ($arrow.l.double$) Any feasible ILP solution defines $k$ complete bipartite subgraphs whose union covers every edge, and the objective is exactly the source objective.
+
+  _Solution extraction._ Output the flattened vertex-by-biclique membership bits and discard the coverage auxiliaries.
+]
+
+#reduction-rule("BiconnectivityAugmentation", "ILP")[
+  Select candidate edges under the budget and, for every deleted vertex, certify that the remaining augmented graph stays connected by a flow witness.
+][
+  _Construction._ Let the base graph edges be $E = {e_0, dots, e_(m-1)}$ with $e_i = {u_i, v_i}$, and let the candidate edges be $F = {f_0, dots, f_(p-1)}$ with $f_j = {s_j, t_j}$. If $n = |V| <= 1$, return the empty feasible ILP, since every 0- or 1-vertex graph is already biconnected in the model. Otherwise fix, for each deleted vertex $q$, the surviving root
+  $r_q = 0$ if $q != 0$, and $r_0 = 1$.
+  This choice is explicit and valid because $n >= 2$.
+
+  Use `ILP<i32>`. The candidate-selection bits are $y_j in {0, 1}$ with index $j$. For the connectivity witnesses, allocate the full $(q, t)$ commodity grid with $q, t in {0, dots, n - 1}$, even though the commodities with $t = q$ or $t = r_q$ will be pinned to 0. For each base edge $e_i$ and orientation flag $eta in {0, 1}$, let $eta = 0$ mean $u_i -> v_i$ and $eta = 1$ mean $v_i -> u_i$; define binary flow variables $f^(q,t)_(i,eta)$ with index
+  $p + (((q n + t) m + i) 2 + eta)$.
+  For each candidate edge $f_j$ and orientation flag $eta in {0, 1}$, let $eta = 0$ mean $s_j -> t_j$ and $eta = 1$ mean $t_j -> s_j$; define binary flow variables $g^(q,t)_(j,eta)$ with index
+  $p + 2 m n^2 + (((q n + t) p + j) 2 + eta)$.
+  There are $p + 2 n^2 (m + p)$ variables in total.
+
+  The constraints are:
+  $sum_(j = 0)^(p - 1) w_j y_j <= B$;
+  for every deleted vertex $q$ and target $t$, if $t = q$ or $t = r_q$, set all $f^(q,t)_(i,eta)$ and $g^(q,t)_(j,eta)$ equal to 0;
+  if the deleted vertex $q$ is incident to base edge $e_i$ or candidate edge $f_j$, set the corresponding directed flow variables for that $(q,t)$ to 0, because they do not exist in $G - q$;
+  for each candidate edge variable, the exact activation big-$M$ is 1:
+  $g^(q,t)_(j,eta) <= y_j$ for every $q, t, j, eta$;
+  and for every valid pair $(q,t)$ with $t in.not {q, r_q}$ and every surviving vertex $v != q$, impose flow conservation
+  $sum_"out of v" (f^(q,t) + g^(q,t)) - sum_"into v" (f^(q,t) + g^(q,t)) = 1$
+  when $v = r_q$,
+  $= -1$ when $v = t$,
+  and $= 0$ otherwise.
+  The sums range over both orientations of all base and candidate edges that avoid $q$. Since every commodity carries exactly one unit, binary flows are sufficient.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(j = 0)^(p - 1) w_j y_j <= B \
+    & f^(q,t)_(i,eta) = 0 quad "whenever" t in {q, r_q} "or" e_i "is incident to" q \
+    & g^(q,t)_(j,eta) = 0 quad "whenever" t in {q, r_q} "or" f_j "is incident to" q \
+    & g^(q,t)_(j,eta) <= y_j quad forall q, t in {0, dots, n - 1}, j in {0, dots, p - 1}, eta in {0, 1} \
+    & "for each valid pair" (q,t) ", unit-flow conservation from" r_q "to" t "holds in" G - q \
+    & y_j, f^(q,t)_(i,eta), g^(q,t)_(j,eta) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) If the chosen augmentation makes the graph biconnected, then every vertex-deleted graph is connected and therefore supports the required flows. ($arrow.l.double$) If the ILP is feasible, then removing any single vertex leaves a connected graph, which is exactly the definition of biconnectivity for the augmented graph.
+
+  _Solution extraction._ Output the binary selection vector of candidate edges.
+]
+
+#reduction-rule("BoundedComponentSpanningForest", "ILP")[
+  Assign every vertex to one of at most $K$ components, bound each component's total weight, and certify connectivity inside each used component by a flow witness.
+][
+  _Construction._ Let $n = |V|$, let the graph edges be $E = {e_0, dots, e_(m-1)}$ with $e_i = {u_i, v_i}$, and let the allowed component labels be $c in {0, dots, K - 1}$. Use `ILP<i32>` with variables ordered as
+  $(x_(v,c))_(v,c), (u_c)_c, (r_(v,c))_(v,c), (s_c)_c, (b_(v,c))_(v,c), (f_(i,eta,c))_(i,eta,c)$.
+  Their indices are
+  $"idx"_x(v,c) = v K + c$,
+  $"idx"_u(c) = n K + c$,
+  $"idx"_r(v,c) = n K + K + v K + c$,
+  $"idx"_s(c) = 2 n K + K + c$,
+  $"idx"_b(v,c) = 2 n K + 2 K + v K + c$,
+  and, with $eta = 0$ meaning $u_i -> v_i$ and $eta = 1$ meaning $v_i -> u_i$,
+  $"idx"_f(i, eta, c) = 3 n K + 2 K + (i 2 + eta) K + c$.
+  There are $3 n K + 2 K + 2 m K$ variables.
+
+  Here $x_(v,c) in {0, 1}$ means vertex $v$ is placed in component $c$, $u_c in {0, 1}$ says that component $c$ is nonempty, $r_(v,c) in {0, 1}$ chooses the root of nonempty component $c$, $s_c in {0, dots, n}$ is its size, $b_(v,c) in {0, dots, n}$ linearizes the product $s_c r_(v,c)$, and $f_(i,eta,c) in {0, dots, n - 1}$ is the root-flow on the chosen component edges.
+
+  The constraints are:
+  $sum_(c = 0)^(K - 1) x_(v,c) = 1$ for every vertex $v$;
+  $sum_v w_v x_(v,c) <= B$ for every component label $c$;
+  $s_c = sum_v x_(v,c)$ for every $c$;
+  $u_c <= s_c$ and $s_c <= n u_c$ for every $c$, so $u_c = 1$ iff the component is nonempty;
+  $sum_v r_(v,c) = u_c$ and $r_(v,c) <= x_(v,c)$ for every $c$ and $v$, which chooses exactly one root in every nonempty component;
+  the product linearization $b_(v,c) <= s_c$, $b_(v,c) <= n r_(v,c)$, $b_(v,c) >= s_c - n (1 - r_(v,c))$, $b_(v,c) >= 0$ for every $v, c$, so $b_(v,c) = s_c r_(v,c)$; the exact big-$M$ here is $n$;
+  for every edge $e_i = {u_i, v_i}$, orientation flag $eta in {0, 1}$, and component $c$,
+  $0 <= f_(i,eta,c) <= (n - 1) x_(u_i,c)$ and $0 <= f_(i,eta,c) <= (n - 1) x_(v_i,c)$.
+  The exact capacity big-$M$ is $n - 1$: a component of size $s_c$ needs to route at most $s_c - 1 <= n - 1$ units across any oriented edge of a spanning tree.
+  Finally, for every vertex $v$ and component $c$,
+  $sum_"out of v in c" f - sum_"into v in c" f = b_(v,c) - x_(v,c)$.
+  If $v$ is the chosen root of component $c$, then the right-hand side is $s_c - 1$; every other assigned vertex consumes one unit; unassigned vertices have right-hand side 0.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(c = 0)^(K - 1) x_(v,c) = 1 quad forall v in V \
+    & sum_v w_v x_(v,c) <= B quad forall c in {0, dots, K - 1} \
+    & s_c = sum_v x_(v,c) quad forall c in {0, dots, K - 1} \
+    & u_c <= s_c <= n u_c quad forall c in {0, dots, K - 1} \
+    & sum_v r_(v,c) = u_c, r_(v,c) <= x_(v,c) quad forall v, c \
+    & "the standard product linearization enforces" b_(v,c) = s_c r_(v,c) quad forall v, c \
+    & 0 <= f_(i,eta,c) <= (n - 1) x_(u_i,c), 0 <= f_(i,eta,c) <= (n - 1) x_(v_i,c) quad forall i, eta, c \
+    & sum_"out of v in c" f - sum_"into v in c" f = b_(v,c) - x_(v,c) quad forall v, c \
+    & x_(v,c), u_c, r_(v,c) in {0, 1}; s_c in {0, dots, n}; b_(v,c), f_(i,eta,c) in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any valid bounded-component partition assigns each component a connected supporting subgraph and respects the weight bound. ($arrow.l.double$) Any feasible ILP solution partitions the vertices into at most $K$ connected sets, each of total weight at most $B$, exactly as required by the source problem.
+
+  _Solution extraction._ For each vertex $v$, output the unique component label $c$ with $x_(v,c) = 1$.
+]
+
+#reduction-rule("MinimumCutIntoBoundedSets", "ILP")[
+  A binary side variable for each vertex, together with cut indicators on the edges, directly linearizes the bounded two-way cut conditions.
+][
+  _Construction._ Variables: binary $x_v$ with $x_v = 1$ iff $v$ is placed on the sink side, and binary $y_e$ for edges. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & x_s = 0 \
+    & x_t = 1 \
+    & sum_v x_v <= B \
+    & sum_v (1 - x_v) <= B \
+    & y_e >= x_u - x_v quad forall e = {u, v} in E \
+    & y_e >= x_v - x_u quad forall e = {u, v} in E \
+    & sum_e w_e y_e <= K \
+    & x_v, y_e in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible bounded cut determines a 0/1 side assignment, and the edge indicators are 1 exactly on the cut edges. ($arrow.l.double$) Any feasible ILP solution partitions the vertices into two bounded sets with $s$ and $t$ separated and total cut weight at most $K$.
+
+  _Solution extraction._ Output the partition bit-vector $(x_v)_(v in V)$.
+]
+
+#reduction-rule("StrongConnectivityAugmentation", "ILP")[
+  Select candidate arcs under the budget and certify strong connectivity by sending flow both from a root to every vertex and back again.
+][
+  _Construction._ Let the base arcs be $A = {a_0, dots, a_(m-1)}$ with $a_i = (u_i, v_i)$, let the candidate arcs be $C = {c_0, dots, c_(p-1)}$ with $c_j = (s_j, t_j)$, and, when $n = |V| >= 1$, fix the root to be vertex $r = 0$. If $n <= 1$, return the empty feasible ILP. Use `ILP<i32>` with variables ordered as
+  $(y_j)_j, (f^t_i)_(t,i), (bar(f)^t_j)_(t,j), (g^t_i)_(t,i), (bar(g)^t_j)_(t,j)$,
+  where $f^t$ is the forward root-to-$t$ flow on base arcs, $bar(f)^t$ is the forward flow on candidate arcs, $g^t$ is the backward $t$-to-root flow on base arcs, and $bar(g)^t$ is the backward flow on candidate arcs.
+  The indices are
+  $"idx"_y(j) = j$,
+  $"idx"_(f^t_i) = p + t m + i$,
+  $"idx"_(bar(f)^t_j) = p + n m + t p + j$,
+  $"idx"_(g^t_i) = p + n (m + p) + t m + i$,
+  and $ "idx"_(bar(g)^t_j) = p + n (2 m + p) + t p + j$.
+  There are $p + 2 n (m + p)$ variables.
+
+  The constraints are:
+  $sum_(j = 0)^(p - 1) w_j y_j <= B$;
+  for the dummy commodity $t = r$, set all four flow blocks $f^r_i$, $bar(f)^r_j$, $g^r_i$, $bar(g)^r_j$ to 0;
+  for every candidate arc and target vertex, use the exact activation big-$M = 1$:
+  $bar(f)^t_j <= y_j$ and $bar(g)^t_j <= y_j$ for all $t, j$;
+  for every $t != r$ and every vertex $v$,
+  $sum_"out of v" (f^t + bar(f)^t) - sum_"into v" (f^t + bar(f)^t) = 1$
+  when $v = r$,
+  $= -1$ when $v = t$,
+  and $= 0$ otherwise;
+  and
+  $sum_"out of v" (g^t + bar(g)^t) - sum_"into v" (g^t + bar(g)^t) = 1$
+  when $v = t$,
+  $= -1$ when $v = r$,
+  and $= 0$ otherwise.
+  All flow variables are binary, because each commodity carries a single unit.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(j = 0)^(p - 1) w_j y_j <= B \
+    & f^r_i = 0, bar(f)^r_j = 0, g^r_i = 0, bar(g)^r_j = 0 \
+    & bar(f)^t_j <= y_j, bar(g)^t_j <= y_j quad forall t in {0, dots, n - 1}, j in {0, dots, p - 1} \
+    & "root-to-target unit-flow conservation holds on" f^t, bar(f)^t quad forall t != r \
+    & "target-to-root unit-flow conservation holds on" g^t, bar(g)^t quad forall t != r \
+    & y_j, f^t_i, bar(f)^t_j, g^t_i, bar(g)^t_j in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A strongly connected augmentation provides both directions of reachability between the root and every other vertex, hence all required flows. ($arrow.l.double$) If those flows exist for every vertex, then every vertex is reachable from the root and can reach the root, so the augmented digraph is strongly connected.
+
+  _Solution extraction._ Output the binary candidate-arc selection vector $(y_a)$.
+]
+
+// Matrix/encoding
+
+#reduction-rule("BMF", "ILP")[
+  Split the witness into binary factor matrices $B$ and $C$, reconstruct their Boolean product with McCormick auxiliaries, and minimize the Hamming distance to the target matrix.
+][
+  _Construction._ Variables: binary $b_(i,r)$, binary $c_(r,j)$, binary $p_(i,r,j)$ linearizing $b_(i,r) c_(r,j)$, binary $w_(i,j)$ for the reconstructed entry, and nonnegative error variables $e_(i,j)$. The ILP is:
+  $
+    min quad & sum_(i,j) e_(i,j) \
+    "subject to" quad & p_(i,r,j) <= b_(i,r) quad forall i, r, j \
+    & p_(i,r,j) <= c_(r,j) quad forall i, r, j \
+    & p_(i,r,j) >= b_(i,r) + c_(r,j) - 1 quad forall i, r, j \
+    & w_(i,j) >= p_(i,r,j) quad forall i, r, j \
+    & w_(i,j) <= sum_r p_(i,r,j) quad forall i, j \
+    & e_(i,j) >= A_(i,j) - w_(i,j) quad forall i, j \
+    & e_(i,j) >= w_(i,j) - A_(i,j) quad forall i, j \
+    & b_(i,r), c_(r,j), p_(i,r,j), w_(i,j) in {0, 1}, e_(i,j) in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any choice of factor matrices induces the same Boolean product and Hamming error in the ILP. ($arrow.l.double$) Any feasible ILP assignment determines factor matrices $B$ and $C$, and the linearization forces the objective to equal the Hamming distance between $A$ and $B dot C$.
+
+  _Solution extraction._ Output the flattened bits of $B$ followed by the flattened bits of $C$, discarding the reconstruction auxiliaries.
+]
+
+#reduction-rule("ConsecutiveBlockMinimization", "ILP")[
+  Permute the columns with a one-hot assignment and count row-wise block starts by detecting each 0-to-1 transition after permutation.
+][
+  _Construction._ Variables: binary $x_(c,p)$ with $x_(c,p) = 1$ iff column $c$ goes to position $p$, binary $a_(r,p)$ for the value seen by row $r$ at position $p$, and binary block-start indicators $b_(r,p)$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_p x_(c,p) = 1 quad forall c \
+    & sum_c x_(c,p) = 1 quad forall p \
+    & a_(r,p) = sum_c A_(r,c) x_(c,p) quad forall r, p \
+    & b_(r,0) = a_(r,0) quad forall r \
+    & b_(r,p) >= a_(r,p) - a_(r,p-1) quad forall r, p > 0 \
+    & sum_(r,p) b_(r,p) <= K \
+    & x_(c,p), a_(r,p), b_(r,p) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any column permutation determines exactly one block-start variable for each maximal run of 1s in every row. ($arrow.l.double$) A feasible ILP solution is a column permutation whose counted block starts sum to at most $K$, which is precisely the source criterion.
+
+  _Solution extraction._ Decode the column permutation from $x_(c,p)$.
+]
+
+#reduction-rule("ConsecutiveOnesMatrixAugmentation", "ILP")[
+  Choose a column permutation and, for each row, choose the interval that will become its consecutive block of 1s; flips are needed only for zeros inside that interval.
+][
+  _Construction._ Let the matrix have $m$ rows and $n$ columns, and let $A_(r,c) in {0, 1}$ be the given entry. For each row define the constant
+  $beta_r = 1$ if row $r$ contains at least one 1, and $beta_r = 0$ otherwise.
+  Use `ILP<bool>` with variable order
+  $(x_(c,p))_(c,p), (a_(r,p))_(r,p), (ell_(r,p))_(r,p), (u_(r,p))_(r,p), (h_(r,p))_(r,p), (f_(r,p))_(r,p)$.
+  The indices are
+  $"idx"_x(c,p) = c n + p$,
+  $"idx"_a(r,p) = n^2 + r n + p$,
+  $"idx"_ell(r,p) = n^2 + m n + r n + p$,
+  $"idx"_u(r,p) = n^2 + 2 m n + r n + p$,
+  $"idx"_h(r,p) = n^2 + 3 m n + r n + p$,
+  and $ "idx"_f(r,p) = n^2 + 4 m n + r n + p$.
+  There are $n^2 + 5 m n$ binary variables.
+
+  Here $x_(c,p) = 1$ means original column $c$ is placed at position $p$ of the permutation, $a_(r,p)$ is the value seen in row $r$ at permuted position $p$, $ell_(r,p)$ and $u_(r,p)$ choose the left and right interval boundaries of row $r$, $h_(r,p)$ indicates that position $p$ lies inside that chosen interval, and $f_(r,p)$ indicates that row $r$ flips a 0 to a 1 at position $p$.
+
+  The constraints are:
+  $sum_p x_(c,p) = 1$ for every column $c$;
+  $sum_c x_(c,p) = 1$ for every position $p$;
+  $a_(r,p) = sum_c A_(r,c) x_(c,p)$ for every row $r$ and position $p$;
+  $sum_p ell_(r,p) = beta_r$ and $sum_p u_(r,p) = beta_r$ for every row $r$;
+  $sum_p p ell_(r,p) <= sum_p p u_(r,p) + (n - 1) (1 - beta_r)$ for every row $r$, which forces the left boundary not to exceed the right boundary when the row is nonzero;
+  for every row $r$ and position $p$,
+  $h_(r,p) <= sum_(q = 0)^p ell_(r,q)$,
+  $h_(r,p) <= sum_(q = p)^(n - 1) u_(r,q)$,
+  and
+  $h_(r,p) >= sum_(q = 0)^p ell_(r,q) + sum_(q = p)^(n - 1) u_(r,q) - 1$;
+  $a_(r,p) <= h_(r,p)$ for every $r, p$, so every original 1 lies inside the chosen interval;
+  $h_(r,p) <= a_(r,p) + f_(r,p)$, $f_(r,p) <= h_(r,p)$, and $f_(r,p) + a_(r,p) <= 1$ for every $r, p$, so $f_(r,p) = 1$ exactly when the position lies inside the interval but the original matrix has a 0 there;
+  and the augmentation budget
+  $sum_(r = 0)^(m - 1) sum_(p = 0)^(n - 1) f_(r,p) <= K$.
+  These are the exact consecutive-ones constraints: after permutation, row $r$ is 1 exactly on the positions with $h_(r,p) = 1$, and the only modifications charged are the zero-to-one flips recorded by $f$.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_p x_(c,p) = 1 quad forall c \
+    & sum_c x_(c,p) = 1 quad forall p \
+    & a_(r,p) = sum_c A_(r,c) x_(c,p) quad forall r, p \
+    & sum_p ell_(r,p) = beta_r, sum_p u_(r,p) = beta_r quad forall r \
+    & sum_p p ell_(r,p) <= sum_p p u_(r,p) + (n - 1) (1 - beta_r) quad forall r \
+    & h_(r,p) <= sum_(q = 0)^p ell_(r,q), h_(r,p) <= sum_(q = p)^(n - 1) u_(r,q) quad forall r, p \
+    & h_(r,p) >= sum_(q = 0)^p ell_(r,q) + sum_(q = p)^(n - 1) u_(r,q) - 1 quad forall r, p \
+    & a_(r,p) <= h_(r,p); h_(r,p) <= a_(r,p) + f_(r,p); f_(r,p) <= h_(r,p); f_(r,p) + a_(r,p) <= 1 quad forall r, p \
+    & sum_(r = 0)^(m - 1) sum_(p = 0)^(n - 1) f_(r,p) <= K \
+    & x_(c,p), a_(r,p), ell_(r,p), u_(r,p), h_(r,p), f_(r,p) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A feasible augmentation chooses a permutation and flips exactly the zeros lying inside each row's final consecutive-ones interval. ($arrow.l.double$) Any feasible ILP solution yields a permuted matrix whose rows become consecutive-ones after the encoded zero-to-one augmentations, with total augmentation cost at most $K$.
+
+  _Solution extraction._ Decode the column permutation from $x_(c,p)$ and discard the auxiliary flip variables.
+]
+
+#reduction-rule("ConsecutiveOnesSubmatrix", "ILP")[
+  Select exactly $K$ columns, permute only those selected columns, and require every row to have a single consecutive block within the chosen submatrix.
+][
+  _Construction._ Variables: binary selection bits $s_c$, binary placement variables $x_(c,p)$ for selected columns, and row-interval auxiliaries as in ConsecutiveOnesMatrixAugmentation. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_c s_c = K \
+    & sum_p x_(c,p) = s_c quad forall c \
+    & sum_c x_(c,p) = 1 quad forall p in {1, dots, K} \
+    & "the selected rows satisfy the consecutive-ones interval constraints" \
+    & s_c, x_(c,p) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible column subset with a valid permutation satisfies the selection and interval constraints. ($arrow.l.double$) Any feasible ILP solution chooses exactly $K$ columns whose induced submatrix admits a consecutive-ones permutation.
+
+  _Solution extraction._ Output the column-selection bits $(s_c)_(c = 1)^n$ and ignore the permutation auxiliaries.
+]
+
+#reduction-rule("SparseMatrixCompression", "ILP")[
+  Assign each row one shift value and forbid any pair of shifted 1-entries from colliding in the storage vector.
+][
+  _Construction._ Variables: binary $x_(r,g)$ with $x_(r,g) = 1$ iff row $r$ uses shift $g in {0, dots, K - 1}$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_g x_(r,g) = 1 quad forall r \
+    & x_(r,g) + x_(s,h) <= 1 quad "whenever" A_(r,i) = A_(s,j) = 1 "and" i + g = j + h \
+    & x_(r,g) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A valid compression chooses one shift per row and never overlays 1-entries from different rows in the same storage position. ($arrow.l.double$) Any feasible ILP solution gives exactly such a collision-free shift assignment, hence a valid storage vector of length $n + K$.
+
+  _Solution extraction._ For each row $r$, output the unique zero-based shift $g$ with $x_(r,g) = 1$.
+]
+
+// Sequence/misc
+
+#reduction-rule("ShortestCommonSupersequence", "ILP")[
+  Fill the $B$ positions of the supersequence with one-hot symbol variables and match each input string monotonically into those positions.
+][
+  _Construction._ Variables: binary $x_(p,a)$ with $x_(p,a) = 1$ iff position $p$ carries symbol $a$, and binary matching variables $m_(s,j,p)$ saying that the $j$-th symbol of string $s$ is matched to position $p$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_a x_(p,a) = 1 quad forall p \
+    & sum_p m_(s,j,p) = 1 quad forall s, j \
+    & m_(s,j,p) <= x_(p,a) quad forall s, j, p " with symbol " a \
+    & "matching positions are strictly increasing in j for every string s" \
+    & x_(p,a), m_(s,j,p) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any common supersequence of length at most $B$ induces a one-hot symbol assignment and a monotone match of every input string. ($arrow.l.double$) Any feasible ILP solution yields a length-$B$ string into which every source string embeds as a subsequence.
+
+  _Solution extraction._ At each position $p$, output the unique symbol $a$ with $x_(p,a) = 1$.
+]
+
+#reduction-rule("StringToStringCorrection", "ILP")[
+  A time-expanded ILP chooses one edit operation at each of the $K$ stages and tracks the evolving string state until it matches the target.
+][
+  _Construction._ Let the source length be $n$, the target length be $m$, and the operation bound be $K$. If $m > n$ or $m < n - K$, return an infeasible empty ILP, because the model rejects such instances before any search. Otherwise use `ILP<bool>`. Track the evolving string by the identities of the original source positions, not only by their symbols: token $i in {0, dots, n - 1}$ carries symbol $x_i$ from the source string.
+
+  The state variables are $z_(t,p,i)$ for $t in {0, dots, K}$, $p in {0, dots, n - 1}$, $i in {0, dots, n - 1}$, where $z_(t,p,i) = 1$ iff token $i$ occupies position $p$ after step $t$. Their indices are
+  $"idx"_z(t,p,i) = t n^2 + p n + i$.
+  The emptiness bits are $e_(t,p)$ with index
+  $"idx"_e(t,p) = (K + 1) n^2 + t n + p$.
+  The operation variables are delete bits $d_(t,j)$ for $t in {1, dots, K}$ and $j in {0, dots, n - 1}$ with index
+  $"idx"_d(t,j) = (K + 1) (n^2 + n) + (t - 1) n + j$;
+  swap bits $s_(t,j)$ for $j in {0, dots, n - 2}$ with index
+  $"idx"_s(t,j) = (K + 1) (n^2 + n) + K n + (t - 1) (n - 1) + j$;
+  and no-op bits $nu_t$ with index
+  $"idx"_nu(t) = (K + 1) (n^2 + n) + K n + K (n - 1) + (t - 1)$.
+  There are $(K + 1) (n^2 + n) + K (2 n)$ variables.
+
+  The state validity constraints are:
+  $e_(t,p) + sum_i z_(t,p,i) = 1$ for every $t, p$;
+  $sum_p z_(t,p,i) <= 1$ for every $t, i$;
+  and $e_(t,p) <= e_(t,p + 1)$ for every $t$ and $p < n - 1$, forcing the active string to occupy a prefix and the deleted positions to form a suffix.
+  The initial state is fixed by
+  $z_(0,p,p) = 1$ for every $p$,
+  $z_(0,p,i) = 0$ for every $i != p$,
+  and $e_(0,p) = 0$ for every position $p$.
+
+  At each step $t$, choose exactly one operation:
+  $sum_(j = 0)^(n - 1) d_(t,j) + sum_(j = 0)^(n - 2) s_(t,j) + nu_t = 1$.
+  Delete at position $j$ is legal only when that current position exists, so
+  $d_(t,j) <= 1 - e_(t - 1,j)$.
+  Swap at position $j$ is legal only when both positions $j$ and $j + 1$ exist, so
+  $s_(t,j) <= 1 - e_(t - 1,j)$ and $s_(t,j) <= 1 - e_(t - 1,j + 1)$.
+
+  The state-update equations are conditioned by exact big-$M$ bounds with $M = 1$, because every left-hand side and every referenced right-hand side is binary. For every token $i$, step $t$, and position $p$:
+  if no-op is chosen, impose
+  $z_(t,p,i) - z_(t - 1,p,i) <= 1 - nu_t$ and $z_(t - 1,p,i) - z_(t,p,i) <= 1 - nu_t$;
+  for every delete position $j$, if $p < j$ impose
+  $z_(t,p,i) - z_(t - 1,p,i) <= 1 - d_(t,j)$ and $z_(t - 1,p,i) - z_(t,p,i) <= 1 - d_(t,j)$;
+  if $j <= p < n - 1$, impose
+  $z_(t,p,i) - z_(t - 1,p + 1,i) <= 1 - d_(t,j)$ and $z_(t - 1,p + 1,i) - z_(t,p,i) <= 1 - d_(t,j)$;
+  and for the last position impose $z_(t,n - 1,i) <= 1 - d_(t,j)$;
+  for every swap position $j$, if $p in.not {j, j + 1}$ impose
+  $z_(t,p,i) - z_(t - 1,p,i) <= 1 - s_(t,j)$ and $z_(t - 1,p,i) - z_(t,p,i) <= 1 - s_(t,j)$;
+  if $p = j$, impose
+  $z_(t,j,i) - z_(t - 1,j + 1,i) <= 1 - s_(t,j)$ and $z_(t - 1,j + 1,i) - z_(t,j,i) <= 1 - s_(t,j)$;
+  and if $p = j + 1$, impose
+  $z_(t,j + 1,i) - z_(t - 1,j,i) <= 1 - s_(t,j)$ and $z_(t - 1,j,i) - z_(t,j + 1,i) <= 1 - s_(t,j)$.
+
+  Finally force the step-$K$ state to equal the target string:
+  $sum_(i : x_i = y_p) z_(K,p,i) = 1$ for every target position $p in {0, dots, m - 1}$,
+  and $e_(K,p) = 1$ for every $p in {m, dots, n - 1}$.
+  This exactly matches the model semantics, which compare the final working string to the target after $K$ operations.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & e_(t,p) + sum_i z_(t,p,i) = 1 quad forall t in {0, dots, K}, p in {0, dots, n - 1} \
+    & sum_p z_(t,p,i) <= 1 quad forall t in {0, dots, K}, i in {0, dots, n - 1} \
+    & e_(t,p) <= e_(t,p + 1) quad forall t in {0, dots, K}, p in {0, dots, n - 2} \
+    & z_(0,p,p) = 1, z_(0,p,i) = 0 quad forall i != p, e_(0,p) = 0 quad forall p \
+    & sum_(j = 0)^(n - 1) d_(t,j) + sum_(j = 0)^(n - 2) s_(t,j) + nu_t = 1 quad forall t in {1, dots, K} \
+    & d_(t,j) <= 1 - e_(t - 1,j) quad forall t, j \
+    & s_(t,j) <= 1 - e_(t - 1,j), s_(t,j) <= 1 - e_(t - 1,j + 1) quad forall t, j \
+    & "the exact M = 1 state-update equations enforce no-op, delete, and adjacent-swap transitions" \
+    & sum_(i : x_i = y_p) z_(K,p,i) = 1 quad forall p in {0, dots, m - 1} \
+    & e_(K,p) = 1 quad forall p in {m, dots, n - 1} \
+    & z_(t,p,i), e_(t,p), d_(t,j), s_(t,j), nu_t in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any valid length-$K$ edit script yields a feasible sequence of operations and states ending at the target. ($arrow.l.double$) Any feasible ILP solution traces a legal sequence of deletes, adjacent swaps, and no-ops whose final string is the target.
+
+  _Solution extraction._ For each step $t$, compute the current length
+  $ell_(t - 1) = sum_(p = 0)^(n - 1) (1 - e_(t - 1,p))$.
+  If $nu_t = 1$, output the source code $2 n$. If $d_(t,j) = 1$, output $j$. If $s_(t,j) = 1$, output $ell_(t - 1) + j$. This is exactly the encoding used by `evaluate()`: deletions use raw positions, swaps are offset by the current length, and no-op is the distinguished value $2 n$.
+]
+
+#reduction-rule("PaintShop", "ILP")[
+  One binary variable per car determines its first color, the second occurrence receives the opposite color automatically, and switch indicators count color changes along the sequence.
+][
+  _Construction._ Variables: binary $x_i$ for each car $i$, binary color variables $k_p$ for sequence positions, and binary switch indicators $c_p$ for positions $p > 0$. The ILP is:
+  $
+    min quad & sum_p c_p \
+    "subject to" quad & k_p = x_i quad "if p is the first occurrence of car i" \
+    & k_p = 1 - x_i quad "otherwise" \
+    & c_p >= k_p - k_(p-1) quad forall p > 0 \
+    & c_p >= k_(p-1) - k_p quad forall p > 0 \
+    & x_i, k_p, c_p in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any first-occurrence coloring determines the whole paint sequence and induces exactly the same number of switches in the ILP. ($arrow.l.double$) Any ILP assignment is already a valid source witness, and the switch variables are forced to count adjacent color changes.
+
+  _Solution extraction._ Output the first-occurrence color bits $(x_i)$.
+]
+
+#reduction-rule("IsomorphicSpanningTree", "ILP")[
+  A bijection from the tree vertices to the graph vertices is enough: every tree edge must map to a graph edge, which then defines the desired spanning tree.
+][
+  _Construction._ Variables: binary $x_(u,v)$ with $x_(u,v) = 1$ iff tree vertex $u$ maps to graph vertex $v$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_v x_(u,v) = 1 quad forall u \
+    & sum_u x_(u,v) = 1 quad forall v \
+    & x_(u,v) + x_(w,z) <= 1 quad forall {u, w} in E_"tree", {v, z} in.not E_"graph" \
+    & x_(u,z) + x_(w,v) <= 1 quad forall {u, w} in E_"tree", {v, z} in.not E_"graph" \
+    & x_(u,v) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any isomorphism from the given tree to a spanning tree of the graph satisfies the bijection and non-edge constraints. ($arrow.l.double$) Any feasible ILP solution is a bijection that preserves every tree edge, so the image edges form a spanning tree of the graph isomorphic to the source tree.
+
+  _Solution extraction._ For each tree vertex $u$, output the unique graph vertex $v$ with $x_(u,v) = 1$.
+]
+
+#reduction-rule("RootedTreeStorageAssignment", "ILP")[
+  Choose one parent for each non-root element, enforce acyclicity with depth variables, and linearize the path-extension cost of every subset by selecting its top and bottom vertices in the rooted tree.
+][
+  _Construction._ Let $X = {0, dots, n - 1}$ and let the subset family be $cal(C) = {S_0, dots, S_(m-1)}$. For every subset of size 0 or 1 the model charges extension cost 0 automatically, so only the nontrivial subsets matter. Enumerate them as
+  $I = {k_0 < dots < k_(r-1)} = {k : |S_k| >= 2}$.
+  Use `ILP<i32>`. The variable blocks are:
+  parent indicators $p_(v,u) in {0, 1}$ for all $v, u in X$;
+  depths $d_v in {0, dots, n - 1}$;
+  ancestor indicators $a_(u,v) in {0, 1}$, where $a_(u,v) = 1$ means $u$ is an ancestor of $v$ (allowing $u = v$);
+  auxiliary transitive-closure variables $h_(u,v,w) in {0, 1}$;
+  and, for each nontrivial subset gadget $s in {0, dots, r - 1}$ corresponding to original subset $S_(k_s)$, top selectors $t_(s,u)$, bottom selectors $b_(s,v)$, pair selectors $m_(s,u,v)$, endpoint depths $T_s, B_s$, and extension cost $c_s$.
+
+  The indices are
+  $"idx"_p(v,u) = v n + u$,
+  $"idx"_d(v) = n^2 + v$,
+  $"idx"_a(u,v) = n^2 + n + u n + v$,
+  $"idx"_h(u,v,w) = 2 n^2 + n + (u n + v) n + w$,
+  $"idx"_t(s,u) = n^3 + 2 n^2 + n + s n + u$,
+  $"idx"_b(s,v) = n^3 + 2 n^2 + n + r n + s n + v$,
+  $"idx"_m(s,u,v) = n^3 + 2 n^2 + n + 2 r n + s n^2 + u n + v$,
+  $"idx"_T(s) = n^3 + 2 n^2 + n + 2 r n + r n^2 + s$,
+  $"idx"_B(s) = n^3 + 2 n^2 + n + 2 r n + r n^2 + r + s$,
+  and $ "idx"_c(s) = n^3 + 2 n^2 + n + 2 r n + r n^2 + 2 r + s$.
+  The total number of variables is
+  $n^3 + 2 n^2 + n + r (n^2 + 2 n + 3)$.
+
+  The rooted-tree constraints are:
+  $sum_(u = 0)^(n - 1) p_(v,u) = 1$ for every vertex $v$;
+  $sum_v p_(v,v) = 1$, so exactly one vertex chooses itself as parent and becomes the root;
+  $d_v <= (n - 1) (1 - p_(v,v))$ for every $v$, hence the unique root has depth 0;
+  and for every ordered pair $u != v$,
+  $d_v - d_u >= 1 - n (1 - p_(v,u))$ and $d_v - d_u <= 1 + n (1 - p_(v,u))$.
+  The exact big-$M$ here is $M = n$: the expression $d_v - d_u - 1$ ranges from $-n$ to $n - 2$ when both depths lie in ${0, dots, n - 1}$.
+
+  The ancestor relation is defined explicitly by
+  $a_(v,v) = 1$ for every $v$,
+  $h_(u,v,v) = 0$ for all $u, v$,
+  and, for every $u != v$,
+  $a_(u,v) = sum_(w = 0)^(n - 1) h_(u,v,w)$.
+  The helper variables linearize the recursion "u is an ancestor of v iff u is an ancestor of the unique parent of v":
+  $h_(u,v,w) <= p_(v,w)$,
+  $h_(u,v,w) <= a_(u,w)$,
+  and
+  $h_(u,v,w) >= p_(v,w) + a_(u,w) - 1$
+  for all $u, v, w$ with $w != v$.
+
+  For each nontrivial subset gadget $s$ corresponding to $S_(k_s)$, choose path endpoints only from the subset itself:
+  $sum_(u in S_(k_s)) t_(s,u) = 1$, $t_(s,u) = 0$ for $u in.not S_(k_s)$,
+  $sum_(v in S_(k_s)) b_(s,v) = 1$, $b_(s,v) = 0$ for $v in.not S_(k_s)$.
+  Linearize the chosen ordered endpoint pair by
+  $m_(s,u,v) <= t_(s,u)$,
+  $m_(s,u,v) <= b_(s,v)$,
+  $m_(s,u,v) >= t_(s,u) + b_(s,v) - 1$.
+  Because exactly one top and one bottom are chosen, exactly one pair selector is 1.
+
+  The path condition for subset $S_(k_s)$ is then fully explicit:
+  $m_(s,u,v) <= a_(u,v)$ for every $u, v$, so the chosen top is an ancestor of the chosen bottom;
+  and for every element $w in S_(k_s)$,
+  $m_(s,u,v) <= a_(u,w)$ and $m_(s,u,v) <= a_(w,v)$ for all $u, v$.
+  Thus every subset element lies on the ancestor chain from the chosen top to the chosen bottom.
+
+  Bind the endpoint depths to the chosen selectors by exact big-$M$ constraints with $M = n - 1$:
+  $T_s - d_u <= (n - 1) (1 - t_(s,u))$ and $d_u - T_s <= (n - 1) (1 - t_(s,u))$ for every $u$;
+  $B_s - d_v <= (n - 1) (1 - b_(s,v))$ and $d_v - B_s <= (n - 1) (1 - b_(s,v))$ for every $v$.
+  Finally set the extension cost of the subset to the exact path surplus
+  $c_s = B_s - T_s + 1 - |S_(k_s)|$,
+  require $c_s >= 0$,
+  and bound the total cost by
+  $sum_(s = 0)^(r - 1) c_s <= K$.
+  This matches the model's `subset_extension_cost()`: the top and bottom are the shallowest and deepest members of the subset on the chosen chain, and the path contributes exactly the interior vertices not already present in the subset.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(u = 0)^(n - 1) p_(v,u) = 1 quad forall v in X \
+    & sum_v p_(v,v) = 1, d_v <= (n - 1) (1 - p_(v,v)) quad forall v in X \
+    & d_v - d_u >= 1 - n (1 - p_(v,u)), d_v - d_u <= 1 + n (1 - p_(v,u)) quad forall u != v \
+    & a_(v,v) = 1, h_(u,v,v) = 0, a_(u,v) = sum_(w = 0)^(n - 1) h_(u,v,w) quad forall u, v in X \
+    & h_(u,v,w) <= p_(v,w), h_(u,v,w) <= a_(u,w), h_(u,v,w) >= p_(v,w) + a_(u,w) - 1 quad forall u, v, w in X " with " w != v \
+    & sum_(u in S_(k_s)) t_(s,u) = 1, t_(s,u) = 0 quad forall u in.not S_(k_s), s \
+    & sum_(v in S_(k_s)) b_(s,v) = 1, b_(s,v) = 0 quad forall v in.not S_(k_s), s \
+    & m_(s,u,v) <= t_(s,u), m_(s,u,v) <= b_(s,v), m_(s,u,v) >= t_(s,u) + b_(s,v) - 1 quad forall s, u, v \
+    & m_(s,u,v) <= a_(u,v), m_(s,u,v) <= a_(u,w), m_(s,u,v) <= a_(w,v) quad forall s, u, v, w in S_(k_s) \
+    & T_s - d_u <= (n - 1) (1 - t_(s,u)), d_u - T_s <= (n - 1) (1 - t_(s,u)) quad forall s, u \
+    & B_s - d_v <= (n - 1) (1 - b_(s,v)), d_v - B_s <= (n - 1) (1 - b_(s,v)) quad forall s, v \
+    & c_s = B_s - T_s + 1 - |S_(k_s)|, c_s >= 0 quad forall s; sum_s c_s <= K \
+    & p_(v,u), a_(u,v), h_(u,v,w), t_(s,u), b_(s,v), m_(s,u,v) in {0, 1} \
+    & d_v, T_s, B_s, c_s in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any rooted tree satisfying all subset-path conditions induces parent, depth, and path-endpoint variables with the same total extension cost. ($arrow.l.double$) Any feasible ILP solution defines a rooted tree in which every subset lies on one ancestor chain, and the encoded path lengths keep the total extension cost within the bound.
+
+  _Solution extraction._ For each vertex $v$, output its unique parent $u$ with $p_(v,u) = 1$.
 ]
 
 == Unit Disk Mapping

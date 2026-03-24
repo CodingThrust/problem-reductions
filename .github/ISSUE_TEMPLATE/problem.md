@@ -68,8 +68,11 @@ E.g. historical context, notable applications, relationship to other problems, o
 At least one reduction rule (to or from this problem) must exist or be proposed,
 so the new problem is connected to the reduction graph.
 Link to existing rule issues or file new ones.
+If you check the ILP solver option below, one linked rule MUST be a direct
+`[Rule] <ProblemName> to ILP` companion issue.
 -->
 
+- [ ] #issue-number <!-- e.g. [Rule] NewProblem to ILP -->
 - [ ] #issue-number <!-- e.g. [Rule] NewProblem to QUBO -->
 
 ## How to solve
@@ -77,7 +80,12 @@ Link to existing rule issues or file new ones.
 Solver is required for reduction rule verification purpose.
 -->
 - [ ] It can be solved by (existing) brute force.
-- [ ] It can be solved by reducing to ILP via #issue-number (please file a new rule issue if one does not exist).
+- [ ] It can be solved by reducing directly to ILP via #issue-number.
+<!--
+If checked, file the direct `[Rule] <ProblemName> to ILP` companion issue above.
+This opts the implementation into shipping the model and its direct ILP reduction
+in the same PR.
+-->
 - [ ] Other, refer to ...
 
 ## Example Instance
@@ -97,7 +105,7 @@ Optimization: provide one optimal configuration and its objective value.
 Satisfaction: provide one valid / satisfying configuration and a brief justification.
 
 This will be stored as ground truth in the example database and cross-validated
-by an ILP solver.
+by brute force, and by an ILP reduction path when one is explicitly claimed above.
 -->
 
 ## BibTeX

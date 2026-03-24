@@ -79,6 +79,7 @@ pkgref/
 # Generated example outputs
 docs/paper/examples/
 docs/paper/data/
+docs/plans/
 
 # Claude Code logs
 claude-output.log
