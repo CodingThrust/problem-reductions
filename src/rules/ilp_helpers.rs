@@ -74,7 +74,7 @@ pub fn flow_conservation(
     demand: &[f64],
 ) -> Vec<LinearConstraint> {
     let mut constraints = Vec::with_capacity(num_nodes);
-    for node in 0..num_nodes {
+    for (node, &rhs) in demand.iter().enumerate().take(num_nodes) {
         let mut terms = Vec::new();
         for (arc_idx, &(u, v)) in arcs.iter().enumerate() {
             if u == node {
@@ -84,7 +84,7 @@ pub fn flow_conservation(
                 terms.push((flow_idx(arc_idx), -1.0)); // incoming
             }
         }
-        constraints.push(LinearConstraint::eq(terms, demand[node]));
+        constraints.push(LinearConstraint::eq(terms, rhs));
     }
     constraints
 }
@@ -110,7 +110,10 @@ pub fn abs_diff_le(a_idx: usize, b_idx: usize, z_idx: usize) -> Vec<LinearConstr
 /// Minimax: `z ≥ expr_i` for each expression.
 ///
 /// Each `expr` is a list of `(var_idx, coeff)` terms representing a linear expression.
-pub fn minimax_constraints(z_idx: usize, expr_terms: &[Vec<(usize, f64)>]) -> Vec<LinearConstraint> {
+pub fn minimax_constraints(
+    z_idx: usize,
+    expr_terms: &[Vec<(usize, f64)>],
+) -> Vec<LinearConstraint> {
     expr_terms
         .iter()
         .map(|terms| {

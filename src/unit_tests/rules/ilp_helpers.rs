@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::algebraic::{Comparison, LinearConstraint};
+use crate::models::algebraic::Comparison;
 
 #[test]
 fn test_mccormick_product_constraints() {
@@ -123,9 +123,9 @@ fn test_one_hot_decode_permutation() {
     // 3x3 assignment: item 0 at slot 2, item 1 at slot 0, item 2 at slot 1
     // Layout: x_{v*3+p}
     let mut solution = vec![0usize; 9];
-    solution[0 * 3 + 2] = 1; // item 0 -> slot 2
-    solution[1 * 3 + 0] = 1; // item 1 -> slot 0
-    solution[2 * 3 + 1] = 1; // item 2 -> slot 1
+    solution[2] = 1; // item 0 -> slot 2
+    solution[3] = 1; // item 1 -> slot 0
+    solution[7] = 1; // item 2 -> slot 1
     let decoded = one_hot_decode(&solution, 3, 3, 0);
     assert_eq!(decoded, vec![1, 2, 0]); // slot 0 gets item 1, slot 1 gets item 2, slot 2 gets item 0
 }
@@ -134,9 +134,9 @@ fn test_one_hot_decode_permutation() {
 fn test_one_hot_decode_with_offset() {
     // Same as above but with offset=5
     let mut solution = vec![0usize; 14];
-    solution[5 + 0 * 3 + 2] = 1;
-    solution[5 + 1 * 3 + 0] = 1;
-    solution[5 + 2 * 3 + 1] = 1;
+    solution[7] = 1;
+    solution[8] = 1;
+    solution[12] = 1;
     let decoded = one_hot_decode(&solution, 3, 3, 5);
     assert_eq!(decoded, vec![1, 2, 0]);
 }

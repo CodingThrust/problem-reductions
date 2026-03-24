@@ -8765,3 +8765,115 @@ fn test_solve_customized_minimum_cardinality_key() {
 
     std::fs::remove_file(&problem_file).ok();
 }
+
+#[test]
+fn test_solve_customized_bundle_does_not_panic() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_customized_bundle_problem.json");
+    let bundle_file = std::env::temp_dir().join("pred_test_solve_customized_bundle.json");
+
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--graph",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let reduce_out = pred()
+        .args([
+            "-o",
+            bundle_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "QUBO",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        reduce_out.status.success(),
+        "reduce failed: {}",
+        String::from_utf8_lossy(&reduce_out.stderr)
+    );
+
+    let solve_out = pred()
+        .args([
+            "solve",
+            bundle_file.to_str().unwrap(),
+            "--solver",
+            "customized",
+        ])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&solve_out.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "customized bundle solve should fail gracefully, got: {stderr}"
+    );
+    assert!(
+        !solve_out.status.success(),
+        "customized solver should not silently succeed on unsupported bundle target"
+    );
+    assert!(
+        stderr.contains("unsupported by customized solver"),
+        "expected customized solver error, got: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&bundle_file).ok();
+}
+
+#[test]
+fn test_inspect_minimum_cardinality_key_lists_customized_solver() {
+    let problem_file = std::env::temp_dir().join("pred_test_inspect_customized_mck.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MinimumCardinalityKey",
+            "--num-attributes",
+            "4",
+            "--dependencies",
+            "0>1,2;1,2>3",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create failed: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let inspect_out = pred()
+        .args(["inspect", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        inspect_out.status.success(),
+        "inspect failed: {}",
+        String::from_utf8_lossy(&inspect_out.stderr)
+    );
+
+    let stdout = String::from_utf8(inspect_out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let solvers: Vec<&str> = json["solvers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| value.as_str().unwrap())
+        .collect();
+    assert!(
+        solvers.contains(&"customized"),
+        "inspect should list customized when supported, got: {json}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}

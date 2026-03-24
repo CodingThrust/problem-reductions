@@ -354,6 +354,27 @@ mod tests {
     }
 
     #[test]
+    fn test_solve_customized_supported_problem() {
+        let server = McpServer::new();
+        let problem_json = serde_json::json!({
+            "type": "MinimumCardinalityKey",
+            "variant": {},
+            "data": {
+                "num_attributes": 4,
+                "dependencies": [[[0], [1, 2]], [[1, 2], [3]]],
+                "bound": 2
+            }
+        })
+        .to_string();
+
+        let result = server.solve_inner(&problem_json, Some("customized"), None);
+        assert!(result.is_ok(), "solve failed: {:?}", result);
+        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert_eq!(json["solver"], "customized");
+        assert!(json["solution"].is_array(), "{json}");
+    }
+
+    #[test]
     fn test_solve_unknown_solver() {
         let server = McpServer::new();
         let problem_json = create_test_mis(&server);
@@ -372,6 +393,20 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert!(json["solution"].is_array());
         assert_eq!(json["problem"], "MaximumIndependentSet");
+    }
+
+    #[test]
+    fn test_solve_customized_bundle_rejects_unsupported_target_without_panicking() {
+        let server = McpServer::new();
+        let problem_json = create_test_mis(&server);
+        let bundle_json = server.reduce_inner(&problem_json, "QUBO").unwrap();
+        let result = server.solve_inner(&bundle_json, Some("customized"), None);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("unsupported by customized solver"),
+            "unexpected error: {err}"
+        );
     }
 
     #[test]
@@ -419,6 +454,35 @@ mod tests {
             .map(|v| v.as_str().unwrap())
             .collect();
         assert_eq!(solvers, vec!["brute-force"]);
+    }
+
+    #[test]
+    fn test_inspect_minimum_cardinality_key_lists_customized_solver() {
+        let server = McpServer::new();
+        let problem_json = serde_json::json!({
+            "type": "MinimumCardinalityKey",
+            "variant": {},
+            "data": {
+                "num_attributes": 4,
+                "dependencies": [[[0], [1, 2]], [[1, 2], [3]]],
+                "bound": 2
+            }
+        })
+        .to_string();
+
+        let result = server.inspect_problem_inner(&problem_json);
+        assert!(result.is_ok(), "inspect failed: {:?}", result);
+        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        let solvers: Vec<&str> = json["solvers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert!(
+            solvers.contains(&"customized"),
+            "inspect should list customized when supported, got: {json}"
+        );
     }
 
     #[test]

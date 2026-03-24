@@ -50,8 +50,6 @@ pub(crate) mod travelingsalesman_qubo;
 pub mod unitdiskmapping;
 
 #[cfg(feature = "ilp-solver")]
-pub(crate) mod ilp_helpers;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod binpacking_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod capacityassignment_ilp;
@@ -73,6 +71,9 @@ pub(crate) mod factoring_ilp;
 pub(crate) mod graphpartitioning_ilp;
 #[cfg(feature = "ilp-solver")]
 mod ilp_bool_ilp_i32;
+#[cfg(feature = "ilp-solver")]
+#[allow(dead_code)]
+pub(crate) mod ilp_helpers;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod ilp_qubo;
 #[cfg(feature = "ilp-solver")]

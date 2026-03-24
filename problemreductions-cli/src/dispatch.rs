@@ -76,8 +76,7 @@ impl LoadedProblem {
     }
 
     pub fn supports_customized_solver(&self) -> bool {
-        CustomizedSolver::new().solve_dyn(self.as_any()).is_some()
-            || CustomizedSolver::supports_problem(self.as_any())
+        CustomizedSolver::supports_problem(self.as_any())
     }
 
     pub fn solve_with_customized(&self) -> Result<WitnessSolveResult> {
@@ -91,11 +90,12 @@ impl LoadedProblem {
 
     #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
     pub fn available_solvers(&self) -> Vec<&'static str> {
-        let mut solvers = vec!["brute-force"];
+        let mut solvers = Vec::new();
         if self.supports_ilp_solver() {
             solvers.push("ilp");
         }
-        if CustomizedSolver::supports_problem(self.as_any()) {
+        solvers.push("brute-force");
+        if self.supports_customized_solver() {
             solvers.push("customized");
         }
         solvers

@@ -183,6 +183,9 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
             )
         })?,
         "ilp" => target.solve_with_ilp().map_err(add_ilp_solver_hint)?,
+        "customized" => target
+            .solve_with_customized()
+            .map_err(add_customized_solver_hint)?,
         _ => unreachable!(),
     };
 
