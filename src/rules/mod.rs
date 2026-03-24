@@ -50,6 +50,8 @@ pub(crate) mod travelingsalesman_qubo;
 pub mod unitdiskmapping;
 
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod ilp_helpers;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod binpacking_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod capacityassignment_ilp;
