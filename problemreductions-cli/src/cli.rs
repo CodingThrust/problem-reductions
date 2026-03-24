@@ -738,6 +738,7 @@ pub struct CreateArgs {
 Examples:
   pred solve problem.json                        # ILP solver (default, auto-reduces to ILP)
   pred solve problem.json --solver brute-force   # brute-force (exhaustive search)
+  pred solve problem.json --solver customized    # customized (structure-exploiting exact solver)
   pred solve reduced.json                        # solve a reduction bundle
   pred solve reduced.json -o solution.json       # save result to file
   pred create MIS --graph 0-1,1-2 | pred solve - # read from stdin when an ILP path exists
@@ -761,6 +762,10 @@ Problems without an ILP reduction path, such as `GroupingBySwapping`,
 `LengthBoundedDisjointPaths`, `MinMaxMulticenter`, and `StringToStringCorrection`,
 currently need `--solver brute-force`.
 
+Customized solver: exact witness recovery for select problems via structure-exploiting
+backends. Currently supports MinimumCardinalityKey, AdditionalKey, PrimeAttributeName,
+BoyceCoddNormalFormViolation, PartialFeedbackEdgeSet, and RootedTreeArrangement.
+
 ILP backend (default: HiGHS). To use a different backend:
   cargo install problemreductions-cli --features coin-cbc
   cargo install problemreductions-cli --features scip
@@ -768,7 +773,7 @@ ILP backend (default: HiGHS). To use a different backend:
 pub struct SolveArgs {
     /// Problem JSON file (from `pred create`) or reduction bundle (from `pred reduce`). Use - for stdin.
     pub input: PathBuf,
-    /// Solver: ilp (default) or brute-force
+    /// Solver: ilp (default), brute-force, or customized
     #[arg(long, default_value = "ilp")]
     pub solver: String,
     /// Timeout in seconds (0 = no limit)

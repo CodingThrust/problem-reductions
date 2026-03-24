@@ -5,7 +5,6 @@
 //! absolute-value differentials, minimax bounds, and one-hot decoding.
 
 #![allow(dead_code)]
-
 use crate::models::algebraic::LinearConstraint;
 
 /// McCormick linearization: `y = x_a * x_b` (both binary).
@@ -69,7 +68,6 @@ pub fn mtz_ordering(
 /// For each node `u`: `Σ_{(u,v)} f_{uv} - Σ_{(v,u)} f_{vu} = demand[u]`.
 ///
 /// `flow_idx` maps an arc index to the ILP variable index for that arc's flow.
-#[allow(clippy::needless_range_loop)]
 pub fn flow_conservation(
     arcs: &[(usize, usize)],
     num_nodes: usize,
@@ -77,7 +75,7 @@ pub fn flow_conservation(
     demand: &[f64],
 ) -> Vec<LinearConstraint> {
     let mut constraints = Vec::with_capacity(num_nodes);
-    for node in 0..num_nodes {
+    for (node, &rhs) in demand.iter().enumerate().take(num_nodes) {
         let mut terms = Vec::new();
         for (arc_idx, &(u, v)) in arcs.iter().enumerate() {
             if u == node {
@@ -87,7 +85,7 @@ pub fn flow_conservation(
                 terms.push((flow_idx(arc_idx), -1.0)); // incoming
             }
         }
-        constraints.push(LinearConstraint::eq(terms, demand[node]));
+        constraints.push(LinearConstraint::eq(terms, rhs));
     }
     constraints
 }
