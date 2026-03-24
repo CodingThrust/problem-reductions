@@ -34,8 +34,7 @@ pub(crate) fn find_witness(problem: &RootedTreeArrangement<SimpleGraph>) -> Opti
         // Non-root nodes to assign parents to
         let non_root: Vec<usize> = (0..n).filter(|&i| i != root).collect();
 
-        if let Some(config) =
-            search_trees(n, root, &non_root, 0, &mut parent, &edges, &adj, bound)
+        if let Some(config) = search_trees(n, root, &non_root, 0, &mut parent, &edges, &adj, bound)
         {
             return Some(config);
         }
@@ -46,6 +45,7 @@ pub(crate) fn find_witness(problem: &RootedTreeArrangement<SimpleGraph>) -> Opti
 
 /// Recursively build a rooted tree by assigning parents to non-root nodes,
 /// then search for a valid permutation mapping.
+#[allow(clippy::too_many_arguments)]
 fn search_trees(
     n: usize,
     root: usize,
@@ -101,7 +101,6 @@ fn compute_depths(parent: &[usize], root: usize) -> Option<Vec<usize>> {
             if computed[p] {
                 // Compute depths for the whole path
                 let base_depth = depth[p] + 1;
-                let path_len = path.len();
                 for (i, &node) in path.iter().rev().enumerate() {
                     depth[node] = base_depth + i;
                     computed[node] = true;
@@ -174,6 +173,7 @@ fn search_mapping(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn search_mapping_dfs(
     n: usize,
     parent: &[usize],

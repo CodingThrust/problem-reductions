@@ -80,14 +80,28 @@ fn dfs(
         if accept_partial(selected, depth) == BranchDecision::Prune {
             return;
         }
-        dfs(selected, branch_order, depth + 1, accept_partial, accept_complete, result);
+        dfs(
+            selected,
+            branch_order,
+            depth + 1,
+            accept_partial,
+            accept_complete,
+            result,
+        );
         return;
     }
 
     // Try including the attribute first (more likely to find solutions)
     selected[idx] = true;
     if accept_partial(selected, depth) != BranchDecision::Prune {
-        dfs(selected, branch_order, depth + 1, accept_partial, accept_complete, result);
+        dfs(
+            selected,
+            branch_order,
+            depth + 1,
+            accept_partial,
+            accept_complete,
+            result,
+        );
     }
     selected[idx] = false;
 
@@ -97,7 +111,14 @@ fn dfs(
 
     // Try excluding the attribute
     if accept_partial(selected, depth) != BranchDecision::Prune {
-        dfs(selected, branch_order, depth + 1, accept_partial, accept_complete, result);
+        dfs(
+            selected,
+            branch_order,
+            depth + 1,
+            accept_partial,
+            accept_complete,
+            result,
+        );
     }
 }
 
@@ -135,10 +156,7 @@ pub(crate) fn is_superkey(attrs: &[bool], dependencies: &[(Vec<usize>, Vec<usize
 
 /// Check whether a set of attributes is a minimal key (superkey, and removing
 /// any single attribute breaks the superkey property).
-pub(crate) fn is_minimal_key(
-    attrs: &[bool],
-    dependencies: &[(Vec<usize>, Vec<usize>)],
-) -> bool {
+pub(crate) fn is_minimal_key(attrs: &[bool], dependencies: &[(Vec<usize>, Vec<usize>)]) -> bool {
     if !is_superkey(attrs, dependencies) {
         return false;
     }

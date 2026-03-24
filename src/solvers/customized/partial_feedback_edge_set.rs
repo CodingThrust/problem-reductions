@@ -86,6 +86,7 @@ fn enumerate_short_cycles(
     cycles
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cycle_dfs(
     adj: &[Vec<(usize, usize)>],
     start: usize,
@@ -171,7 +172,15 @@ fn hitting_set_search(
             continue;
         }
         removed[edge] = true;
-        hitting_set_search(cycles, budget, _m, removed, removed_count + 1, uncovered + 1, best);
+        hitting_set_search(
+            cycles,
+            budget,
+            _m,
+            removed,
+            removed_count + 1,
+            uncovered + 1,
+            best,
+        );
         removed[edge] = false;
         if best.is_some() {
             return;

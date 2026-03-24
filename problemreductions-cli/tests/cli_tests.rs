@@ -8679,3 +8679,89 @@ fn test_create_sequencing_within_intervals_rejects_overflow() {
         "expected overflow validation error, got: {stderr}"
     );
 }
+
+#[test]
+fn test_solve_customized_unsupported_problem_shows_hint() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_customized_unsupported.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--graph",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args([
+            "solve",
+            problem_file.to_str().unwrap(),
+            "--solver",
+            "customized",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("unsupported by customized solver"),
+        "expected customized solver hint, got: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_customized_minimum_cardinality_key() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_customized_mck.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MinimumCardinalityKey",
+            "--num-attributes",
+            "4",
+            "--dependencies",
+            "0>1,2;1,2>3",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create failed: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args([
+            "solve",
+            problem_file.to_str().unwrap(),
+            "--solver",
+            "customized",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "solve failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("customized"),
+        "expected 'customized' in output, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Or(true)"),
+        "expected satisfying evaluation, got: {stdout}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}

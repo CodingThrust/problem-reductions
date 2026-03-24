@@ -20,6 +20,7 @@ use std::collections::HashSet;
 /// tree arrangement) to prune search and find witnesses more efficiently.
 ///
 /// Returns `None` for unsupported problem types.
+#[derive(Default)]
 pub struct CustomizedSolver;
 
 impl CustomizedSolver {
@@ -167,8 +168,7 @@ fn solve_additional_key(problem: &AdditionalKey) -> Option<Vec<usize>> {
         let index_set: HashSet<usize> = indices.into_iter().collect();
         relation_attrs
             .iter()
-            .enumerate()
-            .map(|(_, &attr)| if index_set.contains(&attr) { 1 } else { 0 })
+            .map(|&attr| if index_set.contains(&attr) { 1 } else { 0 })
             .collect()
     })
 }
@@ -204,9 +204,7 @@ fn solve_prime_attribute_name(problem: &PrimeAttributeName) -> Option<Vec<usize>
             }
             BranchDecision::Continue
         },
-        |selected| {
-            selected[query] && is_minimal_key(selected, &deps)
-        },
+        |selected| selected[query] && is_minimal_key(selected, &deps),
     );
 
     result.map(|indices| {
@@ -234,11 +232,7 @@ fn solve_bcnf_violation(problem: &BoyceCoddNormalFormViolation) -> Option<Vec<us
         &branch_order,
         |_selected, _depth| BranchDecision::Continue,
         |selected| {
-            let x: HashSet<usize> = target
-                .iter()
-                .copied()
-                .filter(|&a| selected[a])
-                .collect();
+            let x: HashSet<usize> = target.iter().copied().filter(|&a| selected[a]).collect();
             let closure = compute_closure(selected, &deps);
             // Check: ∃ y, z ∈ target \ X s.t. y ∈ closure ∧ z ∉ closure
             let mut has_in_closure = false;

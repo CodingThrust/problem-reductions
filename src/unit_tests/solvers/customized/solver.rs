@@ -150,7 +150,11 @@ fn test_customized_solver_no_witness_when_no_solution_exists() {
     // All attributes uniquely determine all others — {0} is the only key and is known
     let problem = crate::models::misc::AdditionalKey::new(
         3,
-        vec![(vec![0], vec![1, 2]), (vec![1], vec![0, 2]), (vec![2], vec![0, 1])],
+        vec![
+            (vec![0], vec![1, 2]),
+            (vec![1], vec![0, 2]),
+            (vec![2], vec![0, 1]),
+        ],
         vec![0, 1, 2],
         vec![vec![0], vec![1], vec![2]],
     );
@@ -160,11 +164,7 @@ fn test_customized_solver_no_witness_when_no_solution_exists() {
 #[test]
 fn test_customized_solver_minimum_cardinality_key_no_solution() {
     // bound=1 but no single attribute determines all
-    let problem = crate::models::set::MinimumCardinalityKey::new(
-        3,
-        vec![(vec![0, 1], vec![2])],
-        1,
-    );
+    let problem = crate::models::set::MinimumCardinalityKey::new(3, vec![(vec![0, 1], vec![2])], 1);
     // BruteForce should also return None
     let brute = crate::solvers::BruteForce::new().find_witness(&problem);
     let custom = CustomizedSolver::new().solve_dyn(&problem);
@@ -178,7 +178,17 @@ fn test_customized_solver_solves_partial_feedback_edge_set_yes_and_no() {
     let yes = crate::models::graph::PartialFeedbackEdgeSet::new(
         crate::topology::SimpleGraph::new(
             6,
-            vec![(0, 1), (1, 2), (2, 0), (2, 3), (3, 4), (4, 2), (3, 5), (5, 4), (0, 3)],
+            vec![
+                (0, 1),
+                (1, 2),
+                (2, 0),
+                (2, 3),
+                (3, 4),
+                (4, 2),
+                (3, 5),
+                (5, 4),
+                (0, 3),
+            ],
         ),
         3,
         4,
@@ -186,7 +196,17 @@ fn test_customized_solver_solves_partial_feedback_edge_set_yes_and_no() {
     let no = crate::models::graph::PartialFeedbackEdgeSet::new(
         crate::topology::SimpleGraph::new(
             6,
-            vec![(0, 1), (1, 2), (2, 0), (2, 3), (3, 4), (4, 2), (3, 5), (5, 4), (0, 3)],
+            vec![
+                (0, 1),
+                (1, 2),
+                (2, 0),
+                (2, 3),
+                (3, 4),
+                (4, 2),
+                (3, 5),
+                (5, 4),
+                (0, 3),
+            ],
         ),
         1,
         4,
@@ -200,7 +220,10 @@ fn test_customized_solver_solves_partial_feedback_edge_set_yes_and_no() {
         "witness must satisfy the problem"
     );
 
-    assert!(solver.solve_dyn(&no).is_none(), "no instance should have no solution");
+    assert!(
+        solver.solve_dyn(&no).is_none(),
+        "no instance should have no solution"
+    );
 }
 
 #[test]
