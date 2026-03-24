@@ -1,5 +1,40 @@
+use crate::config::DimsIterator;
+use crate::models::graph::{PartialFeedbackEdgeSet, RootedTreeArrangement};
 use crate::solvers::CustomizedSolver;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
+
+fn all_simple_graphs(num_vertices: usize) -> impl Iterator<Item = SimpleGraph> {
+    let candidate_edges: Vec<(usize, usize)> = (0..num_vertices)
+        .flat_map(|u| ((u + 1)..num_vertices).map(move |v| (u, v)))
+        .collect();
+    let num_graphs = 1usize << candidate_edges.len();
+
+    (0..num_graphs).map(move |mask| {
+        let edges = candidate_edges
+            .iter()
+            .enumerate()
+            .filter_map(|(bit, &edge)| ((mask & (1usize << bit)) != 0).then_some(edge))
+            .collect();
+        SimpleGraph::new(num_vertices, edges)
+    })
+}
+
+fn exact_partial_feedback_edge_set_feasible(
+    graph: &SimpleGraph,
+    budget: usize,
+    max_cycle_length: usize,
+) -> bool {
+    let problem = PartialFeedbackEdgeSet::new(graph.clone(), budget, max_cycle_length);
+    DimsIterator::new(problem.dims()).any(|config| problem.evaluate(&config).0)
+}
+
+fn exact_rooted_tree_arrangement_min_stretch(graph: &SimpleGraph) -> Option<usize> {
+    let problem = RootedTreeArrangement::new(graph.clone(), usize::MAX);
+    DimsIterator::new(problem.dims())
+        .filter_map(|config| problem.total_edge_stretch(&config))
+        .min()
+}
 
 #[test]
 fn test_customized_solver_returns_none_for_unsupported_problem() {
@@ -256,6 +291,36 @@ fn test_customized_solver_partial_feedback_edge_set_no_cycles() {
     assert_eq!(result.unwrap(), vec![0, 0, 0]);
 }
 
+#[test]
+fn test_customized_solver_matches_exhaustive_search_for_small_partial_feedback_edge_set_instances()
+{
+    for graph in all_simple_graphs(4) {
+        for max_cycle_length in 3..=4 {
+            for budget in 0..=graph.num_edges() {
+                let problem =
+                    PartialFeedbackEdgeSet::new(graph.clone(), budget, max_cycle_length);
+                let exact_feasible =
+                    exact_partial_feedback_edge_set_feasible(&graph, budget, max_cycle_length);
+                let custom = CustomizedSolver::new().solve_dyn(&problem);
+
+                assert_eq!(
+                    custom.is_some(),
+                    exact_feasible,
+                    "graph={:?}, budget={budget}, max_cycle_length={max_cycle_length}",
+                    graph.edges()
+                );
+                if let Some(witness) = custom {
+                    assert!(
+                        problem.evaluate(&witness).0,
+                        "customized witness must satisfy graph={:?}, budget={budget}, max_cycle_length={max_cycle_length}",
+                        graph.edges()
+                    );
+                }
+            }
+        }
+    }
+}
+
 // --- RootedTreeArrangement tests ---
 
 #[test]
@@ -309,4 +374,32 @@ fn test_customized_solver_rooted_tree_arrangement_canonical_example() {
         .solve_dyn(&problem)
         .expect("expected witness");
     assert!(problem.evaluate(&witness).0, "witness must be valid");
+}
+
+#[test]
+fn test_customized_solver_matches_exhaustive_search_for_small_rooted_tree_arrangement_instances() {
+    for graph in all_simple_graphs(4) {
+        let exact_min_stretch = exact_rooted_tree_arrangement_min_stretch(&graph);
+        let max_bound = graph.num_edges().saturating_mul(graph.num_vertices().saturating_sub(1));
+
+        for bound in 0..=max_bound {
+            let problem = RootedTreeArrangement::new(graph.clone(), bound);
+            let custom = CustomizedSolver::new().solve_dyn(&problem);
+            let exact_feasible = exact_min_stretch.is_some_and(|stretch| stretch <= bound);
+
+            assert_eq!(
+                custom.is_some(),
+                exact_feasible,
+                "graph={:?}, bound={bound}, exact_min_stretch={exact_min_stretch:?}",
+                graph.edges()
+            );
+            if let Some(witness) = custom {
+                assert!(
+                    problem.evaluate(&witness).0,
+                    "customized witness must satisfy graph={:?}, bound={bound}",
+                    graph.edges()
+                );
+            }
+        }
+    }
 }
