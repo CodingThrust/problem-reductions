@@ -1,11 +1,13 @@
 //! Solvers for computational problems.
 
 mod brute_force;
+pub mod customized;
 
 #[cfg(feature = "ilp-solver")]
 pub mod ilp;
 
 pub use brute_force::BruteForce;
+pub use customized::CustomizedSolver;
 
 #[cfg(feature = "ilp-solver")]
 pub use ilp::ILPSolver;
