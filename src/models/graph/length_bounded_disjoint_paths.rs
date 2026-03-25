@@ -1,11 +1,12 @@
 //! Length-Bounded Disjoint Paths problem implementation.
 //!
-//! The problem asks whether a graph contains at least `J` internally
-//! vertex-disjoint `s-t` paths, each using at most `K` edges.
+//! The problem maximizes the number of internally vertex-disjoint `s-t` paths,
+//! each using at most `K` edges, over up to `max_paths` path slots.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
+use crate::types::Max;
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 
@@ -18,12 +19,12 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
         module_path: module_path!(),
-        description: "Find J internally vertex-disjoint s-t paths of length at most K",
+        description: "Maximize the number of internally vertex-disjoint s-t paths of length at most K",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
             FieldInfo { name: "source", type_name: "usize", description: "The shared source vertex s" },
             FieldInfo { name: "sink", type_name: "usize", description: "The shared sink vertex t" },
-            FieldInfo { name: "num_paths_required", type_name: "usize", description: "Required number J of disjoint s-t paths" },
+            FieldInfo { name: "max_paths", type_name: "usize", description: "Upper bound on the number of path slots" },
             FieldInfo { name: "max_length", type_name: "usize", description: "Maximum path length K in edges" },
         ],
     }
@@ -31,34 +32,33 @@ inventory::submit! {
 
 /// Length-Bounded Disjoint Paths on an undirected graph.
 ///
-/// A configuration uses `J * |V|` binary choices. For each path slot `j` and
-/// vertex `v`, `x_{j,v} = 1` means that `v` belongs to slot `j`'s path. Each
-/// slot must induce a simple `s-t` path, and the internal vertices of
-/// different slots must be disjoint.
+/// A configuration uses `max_paths * |V|` binary choices. For each path slot
+/// `j` and vertex `v`, `x_{j,v} = 1` means that `v` belongs to slot `j`'s
+/// path. Each non-empty slot must induce a simple `s-t` path, and the internal
+/// vertices of different slots must be disjoint. Empty slots (all zeros) are
+/// unused and do not count toward the objective. The objective is to maximize
+/// the number of non-empty valid path slots.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct LengthBoundedDisjointPaths<G> {
     graph: G,
     source: usize,
     sink: usize,
-    num_paths_required: usize,
+    max_paths: usize,
     max_length: usize,
 }
 
 impl<G: Graph> LengthBoundedDisjointPaths<G> {
     /// Create a new Length-Bounded Disjoint Paths instance.
     ///
+    /// The `max_paths` upper bound is computed automatically as
+    /// `min(deg(source), deg(sink))`.
+    ///
     /// # Panics
     ///
     /// Panics if `source` or `sink` is not a valid graph vertex, if `source ==
-    /// sink`, if `num_paths_required == 0`, or if `max_length == 0`.
-    pub fn new(
-        graph: G,
-        source: usize,
-        sink: usize,
-        num_paths_required: usize,
-        max_length: usize,
-    ) -> Self {
+    /// sink`, or if `max_length == 0`.
+    pub fn new(graph: G, source: usize, sink: usize, max_length: usize) -> Self {
         assert!(
             source < graph.num_vertices(),
             "source must be a valid graph vertex"
@@ -68,16 +68,15 @@ impl<G: Graph> LengthBoundedDisjointPaths<G> {
             "sink must be a valid graph vertex"
         );
         assert_ne!(source, sink, "source and sink must be distinct");
-        assert!(
-            num_paths_required > 0,
-            "num_paths_required must be positive"
-        );
         assert!(max_length > 0, "max_length must be positive");
+        let deg_s = graph.neighbors(source).len();
+        let deg_t = graph.neighbors(sink).len();
+        let max_paths = deg_s.min(deg_t);
         Self {
             graph,
             source,
             sink,
-            num_paths_required,
+            max_paths,
             max_length,
         }
     }
@@ -97,9 +96,9 @@ impl<G: Graph> LengthBoundedDisjointPaths<G> {
         self.sink
     }
 
-    /// Get the required number of paths.
-    pub fn num_paths_required(&self) -> usize {
-        self.num_paths_required
+    /// Get the upper bound on the number of path slots.
+    pub fn max_paths(&self) -> usize {
+        self.max_paths
     }
 
     /// Get the maximum permitted path length in edges.
@@ -116,18 +115,6 @@ impl<G: Graph> LengthBoundedDisjointPaths<G> {
     pub fn num_edges(&self) -> usize {
         self.graph.num_edges()
     }
-
-    /// Check whether a configuration is a valid solution.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        is_valid_path_collection(
-            &self.graph,
-            self.source,
-            self.sink,
-            self.num_paths_required,
-            self.max_length,
-            config,
-        )
-    }
 }
 
 impl<G> Problem for LengthBoundedDisjointPaths<G>
@@ -135,40 +122,54 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "LengthBoundedDisjointPaths";
-    type Value = crate::types::Or;
+    type Value = Max<usize>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
     fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_paths_required * self.graph.num_vertices()]
+        vec![2; self.max_paths * self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_valid_solution(config))
+    fn evaluate(&self, config: &[usize]) -> Max<usize> {
+        validate_path_collection(
+            &self.graph,
+            self.source,
+            self.sink,
+            self.max_paths,
+            self.max_length,
+            config,
+        )
     }
 }
 
-fn is_valid_path_collection<G: Graph>(
+/// Validate a path collection and return the number of valid non-empty paths,
+/// or `None` if any non-empty slot is structurally invalid.
+fn validate_path_collection<G: Graph>(
     graph: &G,
     source: usize,
     sink: usize,
-    num_paths_required: usize,
+    max_paths: usize,
     max_length: usize,
     config: &[usize],
-) -> bool {
+) -> Max<usize> {
     let num_vertices = graph.num_vertices();
-    if config.len() != num_paths_required * num_vertices {
-        return false;
+    if config.len() != max_paths * num_vertices {
+        return Max(None);
     }
     if config.iter().any(|&value| value > 1) {
-        return false;
+        return Max(None);
     }
 
     let mut used_internal = vec![false; num_vertices];
     let mut used_direct_path = false;
+    let mut count = 0usize;
     for slot in config.chunks(num_vertices) {
+        // Check if slot is empty (all zeros)
+        if slot.iter().all(|&v| v == 0) {
+            continue;
+        }
         if !is_valid_path_slot(
             graph,
             source,
@@ -178,10 +179,11 @@ fn is_valid_path_collection<G: Graph>(
             &mut used_internal,
             &mut used_direct_path,
         ) {
-            return false;
+            return Max(None);
         }
+        count += 1;
     }
-    true
+    Max(Some(count))
 }
 
 fn is_valid_path_slot<G: Graph>(
@@ -273,8 +275,8 @@ fn is_valid_path_slot<G: Graph>(
 }
 
 #[cfg(feature = "example-db")]
-fn encode_paths(num_vertices: usize, slots: &[&[usize]]) -> Vec<usize> {
-    let mut config = vec![0; num_vertices * slots.len()];
+fn encode_paths(num_vertices: usize, max_paths: usize, slots: &[&[usize]]) -> Vec<usize> {
+    let mut config = vec![0; num_vertices * max_paths];
     for (slot_index, slot_vertices) in slots.iter().enumerate() {
         let offset = slot_index * num_vertices;
         for &vertex in *slot_vertices {
@@ -286,34 +288,20 @@ fn encode_paths(num_vertices: usize, slots: &[&[usize]]) -> Vec<usize> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 4), (0, 2), (2, 4), (0, 3), (3, 4)]);
+    // max_paths = min(deg(0), deg(4)) = min(3, 3) = 3
+    // 3 * 5 = 15 binary variables → 2^15 = 32768 configs (brute-force feasible)
+    // Optimal: 3 disjoint paths [0,1,4], [0,2,4], [0,3,4]
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "length_bounded_disjoint_paths_simplegraph",
-        instance: Box::new(LengthBoundedDisjointPaths::new(
-            SimpleGraph::new(
-                7,
-                vec![
-                    (0, 1),
-                    (1, 6),
-                    (0, 2),
-                    (2, 3),
-                    (3, 6),
-                    (0, 4),
-                    (4, 5),
-                    (5, 6),
-                ],
-            ),
-            0,
-            6,
-            2,
-            3,
-        )),
-        optimal_config: encode_paths(7, &[&[0, 1, 6], &[0, 2, 3, 6]]),
-        optimal_value: serde_json::json!(true),
+        instance: Box::new(LengthBoundedDisjointPaths::new(graph, 0, 4, 3)),
+        optimal_config: encode_paths(5, 3, &[&[0, 1, 4], &[0, 2, 4], &[0, 3, 4]]),
+        optimal_value: serde_json::json!(3),
     }]
 }
 
 crate::declare_variants! {
-    default LengthBoundedDisjointPaths<SimpleGraph> => "2^(num_paths_required * num_vertices)",
+    default LengthBoundedDisjointPaths<SimpleGraph> => "2^(max_paths * num_vertices)",
 }
 
 #[cfg(test)]
