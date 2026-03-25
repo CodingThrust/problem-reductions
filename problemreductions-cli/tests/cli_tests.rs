@@ -3396,27 +3396,6 @@ fn test_create_bounded_component_spanning_forest_no_flags_shows_actual_cli_flags
 }
 
 #[test]
-fn test_create_ola_rejects_negative_bound() {
-    let output = pred()
-        .args([
-            "create",
-            "OptimalLinearArrangement",
-            "--graph",
-            "0-1,1-2,2-3",
-            "--bound",
-            "-1",
-        ])
-        .output()
-        .unwrap();
-    assert!(
-        !output.status.success(),
-        "negative bound should be rejected"
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
-}
-
-#[test]
 fn test_create_rooted_tree_arrangement() {
     let output_file = std::env::temp_dir().join("pred_test_create_rooted_tree_arrangement.json");
     let output = pred()

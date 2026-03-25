@@ -636,7 +636,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "AcyclicPartition" => {
             "--arcs \"0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5\" --weights 2,3,2,1,3,1 --arc-costs 1,1,1,1,1,1,1,1 --weight-bound 5 --cost-bound 5"
         }
-        "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
+        "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3",
         "RootedTreeArrangement" => "--graph 0-1,0-2,1-2,2-3,3-4 --bound 7",
         "DirectedTwoCommodityIntegralFlow" => {
             "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
@@ -3476,19 +3476,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        // OptimalLinearArrangement — graph + bound
+        // OptimalLinearArrangement — graph only (optimization)
         "OptimalLinearArrangement" => {
-            let usage = "Usage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3 --bound 5";
+            let usage = "Usage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3";
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let bound_raw = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "OptimalLinearArrangement requires --bound (upper bound K on total edge length)\n\n{usage}"
-                )
-            })?;
-            let bound =
-                parse_nonnegative_usize_bound(bound_raw, "OptimalLinearArrangement", usage)?;
             (
-                ser(OptimalLinearArrangement::new(graph, bound))?,
+                ser(OptimalLinearArrangement::new(graph))?,
                 resolved_variant.clone(),
             )
         }
@@ -6290,23 +6283,15 @@ fn create_random(
             util::ser_kcoloring(graph, k)?
         }
 
-        // OptimalLinearArrangement — graph + bound
+        // OptimalLinearArrangement — graph only (optimization)
         "OptimalLinearArrangement" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
-            // Default bound: (n-1) * num_edges ensures satisfiability (max edge stretch is n-1)
-            let n = graph.num_vertices();
-            let usage = "Usage: pred create OptimalLinearArrangement --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] [--bound 10]";
-            let bound = args
-                .bound
-                .map(|b| parse_nonnegative_usize_bound(b, "OptimalLinearArrangement", usage))
-                .transpose()?
-                .unwrap_or((n.saturating_sub(1)) * graph.num_edges());
             let variant = variant_map(&[("graph", "SimpleGraph")]);
-            (ser(OptimalLinearArrangement::new(graph, bound))?, variant)
+            (ser(OptimalLinearArrangement::new(graph))?, variant)
         }
 
         // RootedTreeArrangement — graph + bound

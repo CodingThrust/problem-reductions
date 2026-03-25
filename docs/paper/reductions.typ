@@ -2025,19 +2025,18 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-  let K = x.instance.bound
   let config = x.optimal_config
   // Compute total cost
   let total-cost = edges.map(e => calc.abs(config.at(e.at(0)) - config.at(e.at(1)))).sum()
   [
     #problem-def("OptimalLinearArrangement")[
-      Given an undirected graph $G=(V,E)$ and a non-negative integer $K$, is there a bijection $f: V -> {0, 1, dots, |V|-1}$ such that $sum_({u,v} in E) |f(u) - f(v)| <= K$?
+      Given an undirected graph $G=(V,E)$, find a bijection $f: V -> {0, 1, dots, |V|-1}$ that minimizes the total edge length $sum_({u,v} in E) |f(u) - f(v)|$.
     ][
-      A classical NP-complete decision problem from Garey & Johnson (GT42) @garey1979, with applications in VLSI design, graph drawing, and sparse matrix reordering. The problem asks whether vertices can be placed on a line so that the total "stretch" of all edges is at most $K$.
+      A classical NP-hard optimization problem from Garey & Johnson (GT42) @garey1979, with applications in VLSI design, graph drawing, and sparse matrix reordering. The problem asks for a vertex ordering on a line that minimizes the total "stretch" of all edges.
 
-      NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-complete on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
+      NP-hardness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-hard on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
 
-      *Example.* Consider a graph with #nv vertices and #ne edges, with bound $K = #K$. The arrangement $f = (#config.map(c => str(c)).join(", "))$ gives total cost $#edges.map(e => $|#config.at(e.at(0)) - #config.at(e.at(1))|$).join($+$) = #total-cost lt.eq #K$, so this is a YES instance.
+      *Example.* Consider a graph with #nv vertices and #ne edges. The arrangement $f = (#config.map(c => str(c)).join(", "))$ gives total cost $#edges.map(e => $|#config.at(e.at(0)) - #config.at(e.at(1))|$).join($+$) = #total-cost$, which is optimal.
 
       #pred-commands(
         "pred create --example OptimalLinearArrangement -o optimal-linear-arrangement.json",

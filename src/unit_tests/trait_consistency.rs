@@ -182,7 +182,7 @@ fn test_all_problems_implement_trait_correctly() {
         "LengthBoundedDisjointPaths",
     );
     check_problem_trait(
-        &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 3),
+        &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
         "OptimalLinearArrangement",
     );
     check_problem_trait(
