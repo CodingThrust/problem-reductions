@@ -116,6 +116,8 @@ impl ReduceTo<ILP<i32>> for OptimalLinearArrangement<SimpleGraph> {
                 vec![(z_idx(e), 1.0), (p_idx(v), -1.0), (p_idx(u), 1.0)],
                 0.0,
             ));
+            // z_e <= n-1 (max possible position difference)
+            constraints.push(LinearConstraint::le(vec![(z_idx(e), 1.0)], (n - 1) as f64));
         }
 
         // Objective: minimize sum z_e
@@ -135,29 +137,19 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "optimallineararrangement_to_ilp",
         build: || {
-            // Path P4: 0-1-2-3, identity permutation achieves cost 3.
-            // Variable layout: x_{v,p} (16), p_v (4), z_e (3) = 23 total.
-            // Identity: vertex v at position v.
+            // Path P4: 0-1-2-3 (identity permutation achieves cost 3)
             let source =
                 OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-            #[rustfmt::skip]
-            let target_config = vec![
-                // x_{v,p}: 4x4 one-hot (identity permutation)
-                1, 0, 0, 0,  // v0 → pos 0
-                0, 1, 0, 0,  // v1 → pos 1
-                0, 0, 1, 0,  // v2 → pos 2
-                0, 0, 0, 1,  // v3 → pos 3
-                // p_v: positions
-                0, 1, 2, 3,
-                // z_e: |p_u - p_v| per edge
-                1, 1, 1,
-            ];
-            let source_config = vec![0, 1, 2, 3];
+            let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+            let ilp_solution = crate::solvers::ILPSolver::new()
+                .solve(reduction.target_problem())
+                .expect("canonical example must be solvable");
+            let source_config = reduction.extract_solution(&ilp_solution);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
                 source,
                 SolutionPair {
                     source_config,
-                    target_config,
+                    target_config: ilp_solution,
                 },
             )
         },

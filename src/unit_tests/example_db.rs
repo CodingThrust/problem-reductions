@@ -456,26 +456,26 @@ fn model_specs_are_optimal() {
     for spec in specs {
         let name = spec.instance.problem_name();
         let variant = spec.instance.variant_map();
-        // Try brute-force first for small instances (fast and reliable),
-        // fall back to ILP via reduction for larger ones.
-        let dims = spec.instance.dims_dyn();
-        let log_space: f64 = dims.iter().map(|&d| (d as f64).log2()).sum();
-        let best_config = if log_space <= 20.0 {
-            let entry = find_variant_entry(name, &variant);
-            entry.and_then(|e| {
-                let (config, _) = (e.solve_witness_fn)(spec.instance.as_any())?;
+        // Try ILP (direct or via reduction), fall back to brute force for small instances
+        let best_config = ilp_solver
+            .solve_via_reduction(name, &variant, spec.instance.as_any())
+            .or_else(|| {
+                // Only brute-force if search space is small (≤ 2^20 configs)
+                let dims = spec.instance.dims_dyn();
+                let log_space: f64 = dims.iter().map(|&d| (d as f64).log2()).sum();
+                if log_space > 20.0 {
+                    return None;
+                }
+                let entry = find_variant_entry(name, &variant)?;
+                let (config, _) = (entry.solve_witness_fn)(spec.instance.as_any())?;
                 Some(config)
             })
-        } else {
-            None
-        }
-        .or_else(|| ilp_solver.solve_via_reduction(name, &variant, spec.instance.as_any()))
-        .unwrap_or_else(|| {
-            panic!(
-                "No solver found for spec '{}' ({name} {variant:?})",
-                spec.id
-            )
-        });
+            .unwrap_or_else(|| {
+                panic!(
+                    "No solver found for spec '{}' ({name} {variant:?})",
+                    spec.id
+                )
+            });
 
         let best_value = spec.instance.evaluate_json(&best_config);
         assert_eq!(

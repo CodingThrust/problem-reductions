@@ -91,13 +91,33 @@ impl ILPSolver {
             return problem.is_feasible(&[]).then_some(vec![]);
         }
 
-        // Create integer variables with bounds from variable domain
+        // Derive tighter per-variable upper bounds from single-variable ≤ constraints.
+        // This avoids giving HiGHS the full domain (e.g. 2^31 for i32), which can
+        // cause severe performance degradation even when constraints already bound
+        // the variable to a small range.
+        let default_ub = (V::DIMS_PER_VAR - 1) as f64;
+        let mut upper_bounds = vec![default_ub; n];
+        for constraint in &problem.constraints {
+            if constraint.cmp == crate::models::algebraic::Comparison::Le
+                && constraint.terms.len() == 1
+            {
+                let (var_idx, coef) = constraint.terms[0];
+                if coef > 0.0 && var_idx < n {
+                    let ub = constraint.rhs / coef;
+                    if ub < upper_bounds[var_idx] {
+                        upper_bounds[var_idx] = ub;
+                    }
+                }
+            }
+        }
+
+        // Create integer variables with tightened bounds
         let mut vars_builder = ProblemVariables::new();
         let vars: Vec<Variable> = (0..n)
-            .map(|_| {
+            .map(|i| {
                 let mut v = variable().integer();
                 v = v.min(0.0);
-                v = v.max((V::DIMS_PER_VAR - 1) as f64);
+                v = v.max(upper_bounds[i]);
                 vars_builder.add(v)
             })
             .collect();
