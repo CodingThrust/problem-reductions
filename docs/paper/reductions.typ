@@ -801,20 +801,19 @@ Biconnectivity augmentation is a classical network-design problem: add backup li
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let ne = edges.len()
   let edge-lengths = x.instance.edge_lengths
-  let K = x.instance.bound
   let config = x.optimal_config
   let selected = range(ne).filter(i => config.at(i) == 1)
   let total-length = selected.map(i => edge-lengths.at(i)).sum()
-  let cycle-order = (0, 1, 2, 3, 4, 5)
+  let cycle-order = (0, 1, 4, 5, 2, 3)
   [
     #problem-def("LongestCircuit")[
-      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$ and a positive bound $K$, determine whether there exists a simple circuit $C subset.eq E$ such that $sum_(e in C) l(e) >= K$.
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$, find a simple circuit $C subset.eq E$ that maximizes $sum_(e in C) l(e)$.
     ][
-      Longest Circuit is the decision version of the classical longest-cycle problem. Hamiltonian Circuit is the special case where every edge has unit length and $K = |V|$, so Longest Circuit is NP-complete via Karp's original Hamiltonicity result @karp1972. A standard exact baseline uses Held--Karp-style subset dynamic programming in $O(n^2 dot 2^n)$ time @heldkarp1962; unlike Hamiltonicity, the goal here is to certify a sufficiently long simple cycle rather than specifically a spanning one.
+      Longest Circuit is the optimization version of the classical longest-cycle problem. Hamiltonian Circuit is the special case where every edge has unit length and the optimum equals $|V|$, so Longest Circuit is NP-hard via Karp's original Hamiltonicity result @karp1972. A standard exact baseline uses Held--Karp-style subset dynamic programming in $O(n^2 dot 2^n)$ time @heldkarp1962; unlike Hamiltonicity, the goal here is to find the longest simple cycle rather than specifically a spanning one.
 
-      In the implementation, a configuration selects a subset of edges. It is satisfying exactly when the selected edges induce one connected 2-regular subgraph and the total selected length reaches the threshold $K$.
+      In the implementation, a configuration selects a subset of edges. A witness is a configuration whose selected edges induce one connected 2-regular subgraph; the objective value is the total selected length.
 
-      *Example.* Consider the canonical 6-vertex instance with bound $K = #K$. The outer cycle $v_0 arrow v_1 arrow v_2 arrow v_3 arrow v_4 arrow v_5 arrow v_0$ uses edge lengths $3 + 2 + 4 + 1 + 5 + 2 = #total-length$, so it is a satisfying circuit with total length exactly $K$. The extra chords $(v_0, v_3)$, $(v_1, v_4)$, $(v_2, v_5)$, and $(v_3, v_5)$ provide alternative routes but are not needed for this witness.
+      *Example.* Consider the canonical 6-vertex instance. The optimal circuit $v_0 arrow v_1 arrow v_4 arrow v_5 arrow v_2 arrow v_3 arrow v_0$ uses edge lengths $3 + 2 + 5 + 1 + 4 + 3 = #total-length$, which is the maximum circuit length. The remaining edges are available but yield shorter circuits.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o longest-circuit.json",
@@ -863,7 +862,7 @@ Biconnectivity augmentation is a classical network-design problem: add backup li
             content(pos, text(7pt)[$v_#i$])
           }
         }),
-        caption: [Longest Circuit instance on #nv vertices. The highlighted cycle $#cycle-order.map(v => $v_#v$).join($arrow$) arrow v_#(cycle-order.at(0))$ has total length #total-length $= K$; the gray dashed chords are available but unused.],
+        caption: [Longest Circuit instance on #nv vertices. The highlighted cycle $#cycle-order.map(v => $v_#v$).join($arrow$) arrow v_#(cycle-order.at(0))$ has maximum total length #total-length; the remaining edges yield shorter circuits.],
       ) <fig:longest-circuit>
     ]
   ]
