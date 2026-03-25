@@ -121,7 +121,6 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.length_bound.is_none()
         && args.weight_bound.is_none()
         && args.cost_bound.is_none()
-        && args.cost_budget.is_none()
         && args.delay_budget.is_none()
         && args.pattern.is_none()
         && args.strings.is_none()
@@ -547,7 +546,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2"
         }
         "MinimumCutIntoBoundedSets" => {
-            "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 3 --size-bound 3 --cut-bound 1"
+            "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 3 --size-bound 3"
         }
         "BoundedComponentSpanningForest" => {
             "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6"
@@ -569,7 +568,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\""
         }
         "LengthBoundedDisjointPaths" => {
-            "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3"
+            "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --bound 3"
         }
         "PathConstrainedNetworkFlow" => {
             "--arcs \"0>1,0>2,1>3,1>4,2>4,3>5,4>5,4>6,5>7,6>7\" --capacities 2,1,1,1,1,1,1,1,2,1 --source 0 --sink 7 --paths \"0,2,5,8;0,3,6,8;0,3,7,9;1,4,6,8;1,4,7,9\" --requirement 3"
@@ -583,7 +582,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
         "ShortestWeightConstrainedPath" => {
-            "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
+            "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --weight-bound 8"
         }
         "SteinerTreeInGraphs" => "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --terminals 0,3",
         "BiconnectivityAugmentation" => {
@@ -606,7 +605,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "EnsembleComputation" => "--universe 4 --sets \"0,1,2;0,1,3\" --budget 4",
         "RootedTreeStorageAssignment" => "--universe 5 --sets \"0,2;1,3;0,4;2,4\" --bound 1",
         "MinMaxMulticenter" => {
-            "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 --bound 2"
+            "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
         }
         "MinimumSumMulticenter" => {
             "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
@@ -617,7 +616,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
         "CapacityAssignment" => {
-            "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12"
+            "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12"
         }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
         "MinimumMultiwayCut" => "--graph 0-1,1-2,2-3 --terminals 0,2 --edge-weights 1,1,1",
@@ -1018,7 +1017,6 @@ fn validate_length_bounded_disjoint_paths_args(
     num_vertices: usize,
     source: usize,
     sink: usize,
-    num_paths_required: usize,
     bound: i64,
     usage: Option<&str>,
 ) -> Result<usize> {
@@ -1037,12 +1035,6 @@ fn validate_length_bounded_disjoint_paths_args(
     if source == sink {
         return Err(lbdp_validation_error(
             "--source and --sink must be distinct",
-            usage,
-        ));
-    }
-    if num_paths_required == 0 {
-        return Err(lbdp_validation_error(
-            "--num-paths-required must be positive",
             usage,
         ));
     }
@@ -1285,7 +1277,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "MinimumCutIntoBoundedSets" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create MinimumCutIntoBoundedSets --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 2 --size-bound 2 --cut-bound 1"
+                    "{e}\n\nUsage: pred create MinimumCutIntoBoundedSets --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 2 --size-bound 2"
                 )
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
@@ -1298,9 +1290,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let size_bound = args
                 .size_bound
                 .context("--size-bound is required for MinimumCutIntoBoundedSets")?;
-            let cut_bound = args
-                .cut_bound
-                .context("--cut-bound is required for MinimumCutIntoBoundedSets")?;
             (
                 ser(MinimumCutIntoBoundedSets::new(
                     graph,
@@ -1308,7 +1297,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     source,
                     sink,
                     size_bound,
-                    cut_bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -1454,7 +1442,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // ShortestWeightConstrainedPath
         "ShortestWeightConstrainedPath" => {
-            let usage = "pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8";
+            let usage = "pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --weight-bound 8";
             let (graph, _) =
                 parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
             if args.weights.is_some() {
@@ -1488,11 +1476,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     "ShortestWeightConstrainedPath requires --target-vertex\n\nUsage: {usage}"
                 )
             })?;
-            let length_bound = args.length_bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "ShortestWeightConstrainedPath requires --length-bound\n\nUsage: {usage}"
-                )
-            })?;
             let weight_bound = args.weight_bound.ok_or_else(|| {
                 anyhow::anyhow!(
                     "ShortestWeightConstrainedPath requires --weight-bound\n\nUsage: {usage}"
@@ -1500,7 +1483,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             ensure_vertex_in_bounds(source_vertex, graph.num_vertices(), "source_vertex")?;
             ensure_vertex_in_bounds(target_vertex, graph.num_vertices(), "target_vertex")?;
-            ensure_positive_i32(length_bound, "length_bound")?;
             ensure_positive_i32(weight_bound, "weight_bound")?;
             (
                 ser(ShortestWeightConstrainedPath::new(
@@ -1509,7 +1491,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     edge_weights,
                     source_vertex,
                     target_vertex,
-                    length_bound,
                     weight_bound,
                 ))?,
                 resolved_variant.clone(),
@@ -1715,20 +1696,15 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        // LengthBoundedDisjointPaths (graph + source + sink + path count + bound)
+        // LengthBoundedDisjointPaths (graph + source + sink + bound)
         "LengthBoundedDisjointPaths" => {
-            let usage = "Usage: pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3";
+            let usage = "Usage: pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --bound 3";
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let source = args.source.ok_or_else(|| {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --source\n\n{usage}")
             })?;
             let sink = args.sink.ok_or_else(|| {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --sink\n\n{usage}")
-            })?;
-            let num_paths_required = args.num_paths_required.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "LengthBoundedDisjointPaths requires --num-paths-required\n\n{usage}"
-                )
             })?;
             let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --bound\n\n{usage}")
@@ -1737,18 +1713,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 graph.num_vertices(),
                 source,
                 sink,
-                num_paths_required,
                 bound,
                 Some(usage),
             )?;
 
             (
                 ser(LengthBoundedDisjointPaths::new(
-                    graph,
-                    source,
-                    sink,
-                    num_paths_required,
-                    max_length,
+                    graph, source, sink, max_length,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -3021,10 +2992,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         }
 
         "CapacityAssignment" => {
-            let usage = "Usage: pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12";
+            let usage = "Usage: pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12";
             let capacities_str = args.capacities.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "CapacityAssignment requires --capacities, --cost-matrix, --delay-matrix, --cost-budget, and --delay-budget\n\n{usage}"
+                    "CapacityAssignment requires --capacities, --cost-matrix, --delay-matrix, and --delay-budget\n\n{usage}"
                 )
             })?;
             let cost_matrix_str = args.cost_matrix.as_deref().ok_or_else(|| {
@@ -3032,9 +3003,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             let delay_matrix_str = args.delay_matrix.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("CapacityAssignment requires --delay-matrix\n\n{usage}")
-            })?;
-            let cost_budget = args.cost_budget.ok_or_else(|| {
-                anyhow::anyhow!("CapacityAssignment requires --cost-budget\n\n{usage}")
             })?;
             let delay_budget = args.delay_budget.ok_or_else(|| {
                 anyhow::anyhow!("CapacityAssignment requires --delay-budget\n\n{usage}")
@@ -3097,7 +3065,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     capacities,
                     cost,
                     delay,
-                    cost_budget,
                     delay_budget,
                 ))?,
                 resolved_variant.clone(),
@@ -3776,25 +3743,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // MinMaxMulticenter (vertex p-center)
         "MinMaxMulticenter" => {
-            let usage = "Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 [--weights 1,1,1,1] [--edge-weights 1,1,1] --k 2 --bound 2";
+            let usage = "Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 [--weights 1,1,1,1] [--edge-weights 1,1,1] --k 2";
             let (graph, n) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let vertex_weights = parse_vertex_weights(args, n)?;
             let edge_lengths = parse_edge_weights(args, graph.num_edges())?;
             let k = args.k.ok_or_else(|| {
                 anyhow::anyhow!(
                     "MinMaxMulticenter requires --k (number of centers)\n\n\
-                     Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --k 2 --bound 2"
-                )
-            })?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "MinMaxMulticenter requires --bound (distance bound B)\n\n\
-                     Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --k 2 --bound 2"
-                )
-            })?;
-            let bound = i32::try_from(bound).map_err(|_| {
-                anyhow::anyhow!(
-                    "MinMaxMulticenter --bound must fit in i32 (got {bound})\n\n{usage}"
+                     Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --k 2"
                 )
             })?;
             if vertex_weights.iter().any(|&weight| weight < 0) {
@@ -3803,16 +3759,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             if edge_lengths.iter().any(|&length| length < 0) {
                 bail!("MinMaxMulticenter --edge-weights must be non-negative");
             }
-            if bound < 0 {
-                bail!("MinMaxMulticenter --bound must be non-negative");
-            }
             (
                 ser(MinMaxMulticenter::new(
                     graph,
                     vertex_weights,
                     edge_lengths,
                     k,
-                    bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -5940,7 +5892,6 @@ fn create_random(
             let source = 0;
             let sink = num_vertices.saturating_sub(1);
             let size_bound = num_vertices; // no effective size constraint
-            let cut_bound = num_edges as i32; // generous bound
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
             (
                 ser(MinimumCutIntoBoundedSets::new(
@@ -5949,7 +5900,6 @@ fn create_random(
                     source,
                     sink,
                     size_bound,
-                    cut_bound,
                 ))?,
                 variant,
             )
@@ -6048,13 +5998,11 @@ fn create_random(
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let source = args.source.unwrap_or(0);
             let sink = args.sink.unwrap_or(num_vertices - 1);
-            let num_paths_required = args.num_paths_required.unwrap_or(1);
             let bound = args.bound.unwrap_or((num_vertices - 1) as i64);
             let max_length = validate_length_bounded_disjoint_paths_args(
                 num_vertices,
                 source,
                 sink,
-                num_paths_required,
                 bound,
                 None,
             )?;
@@ -6064,7 +6012,6 @@ fn create_random(
                     graph,
                     source,
                     sink,
-                    num_paths_required,
                     max_length,
                 ))?,
                 variant,
@@ -6254,13 +6201,8 @@ mod tests {
     #[test]
     fn test_problem_help_preserves_generic_field_kebab_case() {
         assert_eq!(
-            problem_help_flag_name(
-                "LengthBoundedDisjointPaths",
-                "num_paths_required",
-                "usize",
-                false,
-            ),
-            "num-paths-required"
+            problem_help_flag_name("LengthBoundedDisjointPaths", "max_paths", "usize", false,),
+            "max-paths"
         );
     }
 
@@ -6798,8 +6740,6 @@ mod tests {
             "1,3,6;2,4,7;1,2,5",
             "--delay-matrix",
             "8,4,1;7,3,1;6,3,1",
-            "--cost-budget",
-            "10",
             "--delay-budget",
             "12",
         ])
@@ -6822,7 +6762,6 @@ mod tests {
         fs::remove_file(&output).unwrap();
         assert_eq!(json["type"], "CapacityAssignment");
         assert_eq!(json["data"]["capacities"], serde_json::json!([1, 2, 3]));
-        assert_eq!(json["data"]["cost_budget"], 10);
         assert_eq!(json["data"]["delay_budget"], 12);
     }
 
@@ -6933,8 +6872,6 @@ mod tests {
             "1,3,2;2,4,7;1,2,5",
             "--delay-matrix",
             "8,4,1;7,3,1;6,3,1",
-            "--cost-budget",
-            "10",
             "--delay-budget",
             "12",
         ])
@@ -6967,8 +6904,6 @@ mod tests {
             "1,3;2,4,7;1,2,5",
             "--delay-matrix",
             "8,4,1;7,3,1;6,3,1",
-            "--cost-budget",
-            "10",
             "--delay-budget",
             "12",
         ])
@@ -7164,7 +7099,6 @@ mod tests {
             length_bound: None,
             weight_bound: None,
             cost_bound: None,
-            cost_budget: None,
             delay_budget: None,
             pattern: None,
             strings: None,

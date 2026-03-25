@@ -218,7 +218,7 @@ Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
   MaxCut, MaxMatching, TSP, BottleneckTravelingSalesman --graph, --edge-weights
   LongestPath                     --graph, --edge-lengths, --source-vertex, --target-vertex
-  ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --length-bound, --weight-bound
+  ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --weight-bound
   MaximalIS                       --graph, --weights
   SAT, NAESAT                     --num-vars, --clauses
   KSAT                            --num-vars, --clauses [--k]
@@ -231,7 +231,7 @@ Flags by problem type:
   GraphPartitioning               --graph
   GeneralizedHex                  --graph, --source, --sink
   IntegralFlowWithMultipliers     --arcs, --capacities, --source, --sink, --multipliers, --requirement
-  MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound, --cut-bound
+  MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound
   HamiltonianCircuit, HC          --graph
   LongestCircuit                  --graph, --edge-weights, --bound
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
@@ -246,7 +246,7 @@ Flags by problem type:
   PathConstrainedNetworkFlow      --arcs, --capacities, --source, --sink, --paths, --requirement
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
-  CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --cost-budget, --delay-budget
+  CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --delay-budget
   SubsetSum                       --sizes, --target
   SumOfSquaresPartition           --sizes, --num-groups
   ExpectedRetrievalCost           --probabilities, --num-sectors
@@ -279,7 +279,7 @@ Flags by problem type:
   SequencingWithinIntervals       --release-times, --deadlines, --lengths
   OptimalLinearArrangement        --graph
   RootedTreeArrangement           --graph, --bound
-  MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k, --bound
+  MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k
   MixedChinesePostman (MCPP)      --graph, --arcs, --edge-weights, --arc-costs, --bound [--num-vertices]
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
   StackerCrane                    --arcs, --graph, --arc-costs, --edge-lengths, --bound [--num-vertices]
@@ -328,7 +328,7 @@ Examples:
   pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
-  pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12
+  pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12
   pred create GeneralizedHex --graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5
   pred create IntegralFlowWithMultipliers --arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2
   pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
@@ -568,9 +568,6 @@ pub struct CreateArgs {
     /// Upper bound on total inter-partition arc cost
     #[arg(long)]
     pub cost_bound: Option<i32>,
-    /// Budget on total cost for CapacityAssignment
-    #[arg(long)]
-    pub cost_budget: Option<u64>,
     /// Budget on total delay penalty for CapacityAssignment
     #[arg(long)]
     pub delay_budget: Option<u64>,

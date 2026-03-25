@@ -675,14 +675,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   ]
 }
 #problem-def("MinimumCutIntoBoundedSets")[
-  Given an undirected graph $G = (V, E)$ with edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, a positive integer $B <= |V|$, and a positive integer $K$, determine whether there exists a partition of $V$ into disjoint sets $V_1$ and $V_2$ such that $s in V_1$, $t in V_2$, $|V_1| <= B$, $|V_2| <= B$, and
-  $ sum_({u,v} in E: u in V_1, v in V_2) w({u,v}) <= K. $
+  Given an undirected graph $G = (V, E)$ with edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, and a positive integer $B <= |V|$, find a partition of $V$ into disjoint sets $V_1$ and $V_2$ such that $s in V_1$, $t in V_2$, $|V_1| <= B$, $|V_2| <= B$, that minimizes the total cut weight
+  $ sum_({u,v} in E: u in V_1, v in V_2) w({u,v}). $
 ][
 Minimum Cut Into Bounded Sets (Garey & Johnson ND17) combines the classical minimum $s$-$t$ cut problem with a balance constraint on partition sizes. Without the balance constraint ($B = |V|$), the problem reduces to standard minimum $s$-$t$ cut, solvable in polynomial time via network flow. Adding the requirement $|V_1| <= B$ and $|V_2| <= B$ makes the problem NP-complete; it remains NP-complete even for $B = |V| slash 2$ and unit edge weights (the minimum bisection problem) @garey1976. Applications include VLSI layout, load balancing, and graph bisection.
 
 The best known exact algorithm is brute-force enumeration of all $2^n$ vertex partitions in $O(2^n)$ time. For the special case of minimum bisection, Cygan et al. @cygan2014 showed fixed-parameter tractability with respect to the cut size. No polynomial-time finite approximation factor exists for balanced graph partition unless $P = N P$ (Andreev and Racke, 2006). Arora, Rao, and Vazirani @arora2009 gave an $O(sqrt(log n))$-approximation for balanced separator.
 
-*Example.* Consider $G$ with 4 vertices and edges $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$ with unit weights, $s = v_0$, $t = v_3$, $B = 3$, $K = 1$. The partition $V_1 = {v_0, v_1}$, $V_2 = {v_2, v_3}$ gives cut weight $w({v_1, v_2}) = 1 <= K$. Both $|V_1| = 2 <= 3$ and $|V_2| = 2 <= 3$. Answer: YES.
+*Example.* Consider $G$ with 4 vertices and edges $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$ with unit weights, $s = v_0$, $t = v_3$, $B = 3$. The optimal partition $V_1 = {v_0, v_1}$, $V_2 = {v_2, v_3}$ gives minimum cut weight $w({v_1, v_2}) = 1$. Both $|V_1| = 2 <= 3$ and $|V_2| = 2 <= 3$.
 ]
 #problem-def("BiconnectivityAugmentation")[
   Given an undirected graph $G = (V, E)$, a set $F$ of candidate edges on $V$ with $F inter E = emptyset$, weights $w: F -> RR$, and a budget $B in RR$, find $F' subset.eq F$ such that $sum_(e in F') w(e) <= B$ and the augmented graph $G' = (V, E union F')$ is biconnected, meaning $G'$ is connected and deleting any single vertex leaves it connected.
@@ -925,17 +925,17 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let edges = x.instance.graph.edges
   let s = x.instance.source
   let t = x.instance.sink
-  let J = x.instance.num_paths_required
+  let M = x.instance.max_paths
   let K = x.instance.max_length
-  let chosen-verts = (0, 1, 2, 3, 6)
-  let chosen-edges = ((0, 1), (1, 6), (0, 2), (2, 3), (3, 6))
+  let chosen-verts = (0, 1, 2, 3, 4)
+  let chosen-edges = ((0, 1), (1, 4), (0, 2), (2, 4), (0, 3), (3, 4))
   [
     #problem-def("LengthBoundedDisjointPaths")[
-      Given an undirected graph $G = (V, E)$, distinct terminals $s, t in V$, and positive integers $J, K$, determine whether $G$ contains at least $J$ pairwise internally vertex-disjoint paths from $s$ to $t$, each using at most $K$ edges.
+      Given an undirected graph $G = (V, E)$, distinct terminals $s, t in V$, and a positive integer $K$, maximize the number of pairwise internally vertex-disjoint paths from $s$ to $t$, each using at most $K$ edges.
     ][
-      Length-Bounded Disjoint Paths is the bounded-routing version of the classical disjoint-path problem, with applications in network routing and VLSI where multiple connections must fit simultaneously under quality-of-service limits. Garey & Johnson list it as ND41 and summarize the sharp threshold proved by Itai, Perl, and Shiloach: the problem is NP-complete for every fixed $K >= 5$, polynomial-time solvable for $K <= 4$, and becomes polynomial again when the length bound is removed entirely @garey1979. The implementation here uses the natural $J dot |V|$ binary membership encoding, so brute-force search over configurations runs in $O^*(2^(J dot |V|))$.
+      Length-Bounded Disjoint Paths is the bounded-routing version of the classical disjoint-path problem, with applications in network routing and VLSI where multiple connections must fit simultaneously under quality-of-service limits. Garey & Johnson list it as ND41 and summarize the sharp threshold proved by Itai, Perl, and Shiloach: the problem is NP-complete for every fixed $K >= 5$, polynomial-time solvable for $K <= 4$, and becomes polynomial again when the length bound is removed entirely @garey1979. The implementation here uses $M dot |V|$ binary variables where $M = min(deg(s), deg(t))$ is an upper bound on the number of vertex-disjoint $s$-$t$ paths, so brute-force search over configurations runs in $O^*(2^(M dot |V|))$.
 
-      *Example.* Consider the graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, terminals $s = v_#s$, $t = v_#t$, $J = #J$, and $K = #K$. The two paths $P_1 = v_0 arrow v_1 arrow v_6$ and $P_2 = v_0 arrow v_2 arrow v_3 arrow v_6$ are both of length at most 3, and their internal vertex sets ${v_1}$ and ${v_2, v_3}$ are disjoint. Hence this instance is satisfying. The third branch $v_0 arrow v_4 arrow v_5 arrow v_6$ is available but unused, so the instance has multiple satisfying path-slot assignments.
+      *Example.* Consider the graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, terminals $s = v_#s$, $t = v_#t$, and $K = #K$. Here $M = #M$ path slots are available. The three paths $P_1 = v_0 arrow v_1 arrow v_4$, $P_2 = v_0 arrow v_2 arrow v_4$, and $P_3 = v_0 arrow v_3 arrow v_4$ are each of length 2 (at most $K = 3$), and their internal vertex sets ${v_1}$, ${v_2}$, and ${v_3}$ are pairwise disjoint. The optimal value is therefore $3$.
 
       #pred-commands(
         "pred create --example LengthBoundedDisjointPaths -o length-bounded-disjoint-paths.json",
@@ -948,13 +948,11 @@ is feasible: each set induces a connected subgraph, the component weights are $2
           let blue = graph-colors.at(0)
           let gray = luma(180)
           let verts = (
-            (0, 1),    // v0 = s
-            (1.3, 1.8),
-            (1.3, 1.0),
-            (2.6, 1.0),
-            (1.3, 0.2),
-            (2.6, 0.2),
-            (3.9, 1),  // v6 = t
+            (0, 1),     // v0 = s
+            (1.5, 1.8), // v1
+            (1.5, 1.0), // v2
+            (1.5, 0.2), // v3
+            (3.0, 1),   // v4 = t
           )
           for (u, v) in edges {
             let selected = chosen-edges.any(e =>
@@ -980,7 +978,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
               ])
           }
         }),
-        caption: [A satisfying Length-Bounded Disjoint Paths instance with $s = v_0$, $t = v_6$, $J = 2$, and $K = 3$. The highlighted paths are $v_0 arrow v_1 arrow v_6$ and $v_0 arrow v_2 arrow v_3 arrow v_6$; the lower branch through $v_4, v_5$ remains unused.],
+        caption: [An optimal Length-Bounded Disjoint Paths instance with $s = v_0$, $t = v_4$, and $K = 3$. All three vertex-disjoint paths $v_0 arrow v_1 arrow v_4$, $v_0 arrow v_2 arrow v_4$, and $v_0 arrow v_3 arrow v_4$ are highlighted, giving an optimal value of $3$.],
       ) <fig:length-bounded-disjoint-paths>
     ]
   ]
@@ -1501,20 +1499,19 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let weights = x.instance.edge_weights
   let s = x.instance.source_vertex
   let t = x.instance.target_vertex
-  let K = x.instance.length_bound
   let W = x.instance.weight_bound
   let path-config = x.optimal_config
   let path-edges = edges.enumerate().filter(((idx, _)) => path-config.at(idx) == 1).map(((idx, e)) => e)
   let path-order = (0, 2, 3, 5)
   [
     #problem-def("ShortestWeightConstrainedPath")[
-      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$, positive edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, and bounds $K, W in ZZ^+$, determine whether there exists a simple path $P$ from $s$ to $t$ such that $sum_(e in P) l(e) <= K$ and $sum_(e in P) w(e) <= W$.
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$, positive edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, and a weight bound $W in ZZ^+$, find a simple path $P$ from $s$ to $t$ that minimizes $sum_(e in P) l(e)$ subject to $sum_(e in P) w(e) <= W$.
     ][
       Also called the _restricted shortest path_ or _resource-constrained shortest path_ problem. Garey and Johnson list it as ND30 and show NP-completeness via transformation from Partition @garey1979. The model captures bicriteria routing: one resource measures path length or delay, while the other captures a second consumable budget such as cost, risk, or bandwidth. Because pseudo-polynomial dynamic programming formulations are known @joksch1966, the hardness is weak rather than strong; approximation schemes were later developed by Hassin @hassin1992 and improved by Lorenz and Raz @lorenzraz2001.
 
-      The implementation catalog reports the natural brute-force complexity of the edge-subset encoding used here: with $m = |E|$ binary variables, exhaustive search over all candidate subsets costs $O^*(2^m)$. A configuration is satisfying precisely when the selected edges form a single simple $s$-$t$ path and both resource sums stay within their bounds.
+      The implementation catalog reports the natural brute-force complexity of the edge-subset encoding used here: with $m = |E|$ binary variables, exhaustive search over all candidate subsets costs $O^*(2^m)$. A configuration is feasible when the selected edges form a single simple $s$-$t$ path whose total weight stays within the bound; the objective is to minimize total length over all such feasible paths.
 
-      *Example.* Consider the graph on #nv vertices with source $s = v_#s$, target $t = v_#t$, length bound $K = #K$, and weight bound $W = #W$. Edge labels are written as $(l(e), w(e))$. The highlighted path $#path-order.map(v => $v_#v$).join($arrow$)$ uses edges ${#path-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, so its total length is $4 + 1 + 4 = 9 <= #K$ and its total weight is $1 + 3 + 3 = 7 <= #W$. This instance has 2 satisfying edge selections; another feasible path is $v_0 arrow v_1 arrow v_4 arrow v_5$.
+      *Example.* Consider the graph on #nv vertices with source $s = v_#s$, target $t = v_#t$, and weight bound $W = #W$. Edge labels are written as $(l(e), w(e))$. The highlighted path $#path-order.map(v => $v_#v$).join($arrow$)$ uses edges ${#path-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, so its total length is $4 + 1 + 4 = 9$ and its total weight is $1 + 3 + 3 = 7 <= #W$. This is the minimum-length feasible path; another weight-feasible path $v_0 arrow v_1 arrow v_4 arrow v_5$ has length $10$.
 
       #pred-commands(
         "pred create --example ShortestWeightConstrainedPath -o shortest-weight-constrained-path.json",
@@ -2389,20 +2386,20 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let nv = graph-num-vertices(x.instance)
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let K = x.instance.k
-  let B = x.instance.bound
+  let opt = x.optimal_value
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let centers = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   [
     #problem-def("MinMaxMulticenter")[
-      Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, a positive integer $K <= |V|$, and a rational bound $B > 0$, does there exist $S subset.eq V$ with $|S| = K$ such that $max_(v in V) w(v) dot d(v, S) <= B$, where $d(v, S) = min_(s in S) d(v, s)$ is the shortest weighted-path distance from $v$ to the nearest vertex in $S$?
+      Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, and a positive integer $K <= |V|$, find $S subset.eq V$ with $|S| = K$ that minimizes $max_(v in V) w(v) dot d(v, S)$, where $d(v, S) = min_(s in S) d(v, s)$ is the shortest weighted-path distance from $v$ to the nearest vertex in $S$.
     ][
-    Also known as the _vertex p-center problem_ (Garey & Johnson A2 ND50). The goal is to place $K$ facilities so that the worst-case weighted distance from any demand point to its nearest facility is at most $B$. NP-complete even with unit weights and unit edge lengths (Kariv and Hakimi, 1979).
+    Also known as the _vertex p-center problem_ (Garey & Johnson A2 ND50). The goal is to place $K$ facilities so that the worst-case weighted distance from any demand point to its nearest facility is minimized. NP-hard even with unit weights and unit edge lengths (Kariv and Hakimi, 1979).
 
-    Closely related to Dominating Set: on unweighted unit-length graphs, a $K$-center with radius $B = 1$ is exactly a dominating set of size $K$. The best known exact algorithm runs in $O^*(1.4969^n)$ via binary search over distance thresholds combined with dominating set computation @vanrooij2011. An optimal 2-approximation exists (Hochbaum and Shmoys, 1985); no $(2 - epsilon)$-approximation is possible unless $P = "NP"$ (Hsu and Nemhauser, 1979).
+    Closely related to Dominating Set: on unweighted unit-length graphs, a $K$-center with optimal radius 1 corresponds to a dominating set of size $K$. The best known exact algorithm runs in $O^*(1.4969^n)$ via binary search over distance thresholds combined with dominating set computation @vanrooij2011. An optimal 2-approximation exists (Hochbaum and Shmoys, 1985); no $(2 - epsilon)$-approximation is possible unless $P = "NP"$ (Hsu and Nemhauser, 1979).
 
-    Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. A configuration is satisfying when exactly $K$ centers are selected and $max_(v in V) w(v) dot d(v, S) <= B$.
+    Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. The objective value is $min_(|S| = K) max_(v in V) w(v) dot d(v, S)$; configurations with $|S| != K$ or unreachable vertices evaluate to $bot$ (infeasible).
 
-    *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$, unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, $K = #K$, and $B = #B$. Placing centers at $S = {#centers.map(i => $v_#i$).join(", ")}$ gives maximum distance $max_v d(v, S) = 1 <= B$, so this is a feasible solution.
+    *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$, unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, and $K = #K$. Placing centers at $S = {#centers.map(i => $v_#i$).join(", ")}$ gives maximum distance $max_v d(v, S) = #opt$, which is optimal.
 
     #pred-commands(
       "pred create --example MinMaxMulticenter -o min-max-multicenter.json",
@@ -2427,7 +2424,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }
       })
     },
-    caption: [Min-Max Multicenter with $K = #K$, $B = #B$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) ensure every vertex is within distance $B$ of some center.],
+    caption: [Min-Max Multicenter with $K = #K$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) achieve optimal maximum distance #opt.],
     ) <fig:min-max-multicenter>
     ]
   ]
@@ -5295,11 +5292,11 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let x = load-model-example("CapacityAssignment")
   [
     #problem-def("CapacityAssignment")[
-      Given a finite set $C$ of communication links, an ordered set $M subset ZZ_(> 0)$ of capacities, cost and delay functions $g: C times M -> ZZ_(>= 0)$ and $d: C times M -> ZZ_(>= 0)$ such that for every $c in C$ and $i < j$ in the order of $M$ we have $g(c, i) <= g(c, j)$ and $d(c, i) >= d(c, j)$, and budgets $K, J in ZZ_(>= 0)$, determine whether there exists an assignment $sigma: C -> M$ such that $sum_(c in C) g(c, sigma(c)) <= K$ and $sum_(c in C) d(c, sigma(c)) <= J$.
+      Given a finite set $C$ of communication links, an ordered set $M subset ZZ_(> 0)$ of capacities, cost and delay functions $g: C times M -> ZZ_(>= 0)$ and $d: C times M -> ZZ_(>= 0)$ such that for every $c in C$ and $i < j$ in the order of $M$ we have $g(c, i) <= g(c, j)$ and $d(c, i) >= d(c, j)$, and a delay budget $J in ZZ_(>= 0)$, find an assignment $sigma: C -> M$ minimizing $sum_(c in C) g(c, sigma(c))$ subject to $sum_(c in C) d(c, sigma(c)) <= J$.
     ][
       Capacity Assignment is the bicriteria communication-network design problem SR7 in Garey & Johnson @garey1979. The original NP-completeness proof, via reduction from Subset Sum, is due to Van Sickle and Chandy @vansicklechandy1977. The model captures discrete provisioning of communication links, where upgrading a link increases installation cost but decreases delay. The direct witness encoding implemented in this repository yields an $O^*(|M|^(|C|))$ exact algorithm by brute-force enumeration#footnote[No algorithm improving on brute-force enumeration is known for the exact witness encoding used in this repository.]. Garey and Johnson also note a pseudo-polynomial dynamic-programming formulation when the budgets are small @garey1979.
 
-      *Example.* Let $C = {c_1, c_2, c_3}$, $M = {1, 2, 3}$, $K = 10$, and $J = 12$. With cost rows $(1, 3, 6)$, $(2, 4, 7)$, $(1, 2, 5)$ and delay rows $(8, 4, 1)$, $(7, 3, 1)$, $(6, 3, 1)$, the assignment $sigma = (2, 2, 2)$ has total cost $3 + 4 + 2 = 9 <= 10$ and total delay $4 + 3 + 3 = 10 <= 12$, so the instance is satisfiable. Brute-force enumeration finds exactly 5 satisfying assignments; for contrast, $sigma = (1, 1, 1)$ violates the delay budget and $sigma = (3, 3, 3)$ violates the cost budget.
+      *Example.* Let $C = {c_1, c_2, c_3}$, $M = {1, 2, 3}$, and $J = 12$. With cost rows $(1, 3, 6)$, $(2, 4, 7)$, $(1, 2, 5)$ and delay rows $(8, 4, 1)$, $(7, 3, 1)$, $(6, 3, 1)$, the optimal assignment is $sigma = (2, 2, 2)$ with total cost $3 + 4 + 2 = 9$ and total delay $4 + 3 + 3 = 10 <= 12$. For contrast, $sigma = (1, 1, 1)$ has total delay $8 + 7 + 6 = 21 > 12$ and is therefore infeasible.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o capacity-assignment.json",
@@ -5318,7 +5315,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
           [$c_3$], [$(1, 2, 5)$], [$(6, 3, 1)$],
         )
       },
-      caption: [Canonical Capacity Assignment instance with budgets $K = 10$ and $J = 12$. Each row lists the cost-delay trade-off for one communication link.],
+      caption: [Canonical Capacity Assignment instance with delay budget $J = 12$. Each row lists the cost-delay trade-off for one communication link.],
       ) <fig:capacity-assignment>
     ]
   ]
@@ -8028,11 +8025,11 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("ShortestWeightConstrainedPath", "ILP")[
-  Find an $s$-$t$ path satisfying both length and weight bounds, using directed arc variables with MTZ ordering to prevent subtours.
+  Find a minimum-length $s$-$t$ path subject to a weight budget, using directed arc variables with MTZ ordering to prevent subtours.
 ][
-  _Construction._ Variables: binary $a_(e,d) in {0, 1}$ per edge $e$ per direction $d in {0, 1}$ (forward/reverse), plus integer $o_v in {0, dots, n-1}$ per vertex. Constraints: flow balance at each vertex (net out-in = 1 at $s$, $-1$ at $t$, 0 elsewhere); degree bounds; at most one direction per edge; MTZ ordering $o_v - o_u >= 1 - M dot a_(e,0)$ for each directed arc; length bound $sum_e l_e (a_(e,0) + a_(e,1)) <= L$; weight bound $sum_e w_e (a_(e,0) + a_(e,1)) <= W$. Objective: feasibility.
+  _Construction._ Variables: binary $a_(e,d) in {0, 1}$ per edge $e$ per direction $d in {0, 1}$ (forward/reverse), plus integer $o_v in {0, dots, n-1}$ per vertex. Constraints: flow balance at each vertex (net out-in = 1 at $s$, $-1$ at $t$, 0 elsewhere); degree bounds; at most one direction per edge; MTZ ordering $o_v - o_u >= 1 - M dot a_(e,0)$ for each directed arc; weight bound $sum_e w_e (a_(e,0) + a_(e,1)) <= W$. Objective: minimize $sum_e l_e (a_(e,0) + a_(e,1))$.
 
-  _Correctness._ Flow balance forces an $s$-$t$ path; MTZ ordering eliminates subtours; bound constraints enforce the length and weight limits.
+  _Correctness._ Flow balance forces an $s$-$t$ path; MTZ ordering eliminates subtours; the weight constraint enforces the budget; the objective minimizes total path length.
 
   _Solution extraction._ Edge $e$ is selected iff $a_(e,0) + a_(e,1) > 0$.
 ]
@@ -8058,11 +8055,11 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("MinMaxMulticenter", "ILP")[
-  Select $k$ centers such that the maximum weighted distance from any vertex to its assigned center is at most $B$.
+  Select $k$ centers minimizing the maximum weighted distance from any vertex to its assigned center.
 ][
-  _Construction._ Same assignment structure as MinimumSumMulticenter, plus per-vertex bound constraints: $sum_j w_i dot d(i, j) dot y_(i,j) <= B$ for each $i$. Objective: feasibility.
+  _Construction._ Same assignment structure as MinimumSumMulticenter (binary $x_j$, $y_(i,j)$), plus an integer variable $z$. Minimax constraints: $sum_j w_i dot d(i, j) dot y_(i,j) <= z$ for each vertex $i$. Objective: minimize $z$.
 
-  _Correctness._ The additional per-vertex constraints enforce the minimax bound on weighted assignment distances.
+  _Correctness._ Each minimax constraint forces $z$ to be at least the weighted distance from vertex $i$ to its assigned center. Minimizing $z$ yields the optimal maximum weighted distance.
 
   _Solution extraction._ Centers: ${j : x_j = 1}$.
 ]
@@ -8078,11 +8075,11 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("CapacityAssignment", "ILP")[
-  Assign a capacity level to each link so that total cost and total delay stay within their budgets.
+  Assign a capacity level to each link to minimize total cost subject to a delay budget.
 ][
-  _Construction._ Variables: binary $x_(l,c)$ (link $l$ gets capacity $c$), one-hot per link. Constraints: $sum_c x_(l,c) = 1$ (each link gets one capacity); $sum_(l,c) "cost"[l][c] dot x_(l,c) <= C$; $sum_(l,c) "delay"[l][c] dot x_(l,c) <= D$. Objective: feasibility.
+  _Construction._ Variables: binary $x_(l,c)$ (link $l$ gets capacity $c$), one-hot per link. Constraints: $sum_c x_(l,c) = 1$ (each link gets one capacity); $sum_(l,c) "delay"[l][c] dot x_(l,c) <= J$. Objective: minimize $sum_(l,c) "cost"[l][c] dot x_(l,c)$.
 
-  _Correctness._ One-hot constraints fix one capacity per link; the two budget constraints are linear in the indicators.
+  _Correctness._ One-hot constraints fix one capacity per link; the delay budget constraint is linear in the indicators; the objective sums the selected costs.
 
   _Solution extraction._ Link $l$ gets capacity $arg max_c x_(l,c)$.
 ]
