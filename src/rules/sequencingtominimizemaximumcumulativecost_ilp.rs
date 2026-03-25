@@ -115,18 +115,29 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "sequencingtominimizemaximumcumulativecost_to_ilp",
         build: || {
+            // costs=[2,-1,3,-2], precedences=[(0,2)], n=4.
+            // Optimal schedule: [1,3,0,2] (task 1 first, then 3, 0, 2).
+            // Lehmer code: [1,2,0,0]. Max cumulative cost = 3.
+            // Variable layout: x_{j,p} (16) + z (1) = 17 total.
             let source =
                 SequencingToMinimizeMaximumCumulativeCost::new(vec![2, -1, 3, -2], vec![(0, 2)]);
-            let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
-            let ilp_solution = crate::solvers::ILPSolver::new()
-                .solve(reduction.target_problem())
-                .expect("canonical example must be solvable");
-            let source_config = reduction.extract_solution(&ilp_solution);
+            #[rustfmt::skip]
+            let target_config = vec![
+                // x_{j,p}: task j at position p (one-hot per task)
+                0, 0, 1, 0,  // task 0 → pos 2
+                1, 0, 0, 0,  // task 1 → pos 0
+                0, 0, 0, 1,  // task 2 → pos 3
+                0, 1, 0, 0,  // task 3 → pos 1
+                // z: max cumulative cost
+                3,
+            ];
+            // Lehmer code for permutation [1,3,0,2]
+            let source_config = vec![1, 2, 0, 0];
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
                 source,
                 SolutionPair {
                     source_config,
-                    target_config: ilp_solution,
+                    target_config,
                 },
             )
         },
