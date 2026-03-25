@@ -42,8 +42,8 @@ impl ReductionResult for ReductionLongestCircuitToILP {
 
 #[reduction(
     overhead = {
-        num_vars = "3 * num_edges + num_vertices + 2 * num_edges * num_vertices",
-        num_constraints = "num_vertices + 1 + num_vertices^2 + 2 * num_edges * num_vertices",
+        num_vars = "num_edges + num_vertices + 2 * num_edges * (num_vertices - 1)",
+        num_constraints = "1 + num_vertices^2 + 2 * num_edges * (num_vertices - 1)",
     }
 )]
 impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i32> {

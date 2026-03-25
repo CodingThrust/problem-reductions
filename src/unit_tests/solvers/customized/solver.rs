@@ -54,10 +54,13 @@ fn test_customized_solver_matches_bruteforce_for_minimum_cardinality_key() {
     let brute = crate::solvers::BruteForce::new().find_witness(&problem);
     let custom = CustomizedSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
-    if let Some(w) = &custom {
-        assert!(
-            problem.evaluate(w).0.is_some(),
-            "witness must satisfy the problem"
+    if let (Some(bw), Some(cw)) = (&brute, &custom) {
+        let brute_val = problem.evaluate(bw);
+        let custom_val = problem.evaluate(cw);
+        assert!(custom_val.0.is_some(), "witness must satisfy the problem");
+        assert_eq!(
+            custom_val, brute_val,
+            "customized solver must return optimal (minimum cardinality) key"
         );
     }
 }
@@ -206,6 +209,38 @@ fn test_customized_solver_minimum_cardinality_key_finds_minimum() {
     let custom = CustomizedSolver::new().solve_dyn(&problem);
     assert!(brute.is_some());
     assert!(custom.is_some());
+    // Verify optimality: customized solver returns same value as brute force
+    let brute_val = problem.evaluate(brute.as_ref().unwrap());
+    let custom_val = problem.evaluate(custom.as_ref().unwrap());
+    assert_eq!(
+        custom_val, brute_val,
+        "customized solver must find optimal key"
+    );
+}
+
+#[test]
+fn test_customized_solver_minimum_cardinality_key_optimality() {
+    // 6 attributes with FDs creating keys of different sizes.
+    // {0,1} is a key (size 2), but there are also larger keys.
+    let problem = crate::models::set::MinimumCardinalityKey::new(
+        6,
+        vec![
+            (vec![0, 1], vec![2]),
+            (vec![0, 2], vec![3]),
+            (vec![1, 3], vec![4]),
+            (vec![2, 4], vec![5]),
+        ],
+    );
+    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
+    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    assert!(brute.is_some());
+    assert!(custom.is_some());
+    let brute_val = problem.evaluate(brute.as_ref().unwrap());
+    let custom_val = problem.evaluate(custom.as_ref().unwrap());
+    assert_eq!(
+        custom_val, brute_val,
+        "customized solver must return minimum-cardinality key, not just any minimal key"
+    );
 }
 
 // --- PartialFeedbackEdgeSet tests ---

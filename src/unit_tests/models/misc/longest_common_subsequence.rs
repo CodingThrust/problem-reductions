@@ -99,7 +99,7 @@ fn test_lcs_bruteforce_finds_optimum() {
     let solver = BruteForce::new();
     let solution = solver.find_witness(&problem).expect("expected a witness");
     let value = problem.evaluate(&solution);
-    assert!(matches!(value, Max(Some(v)) if v >= 1));
+    assert_eq!(value, Max(Some(2)));
 }
 
 #[test]
@@ -120,6 +120,23 @@ fn test_lcs_serialization() {
     assert_eq!(restored.alphabet_size(), problem.alphabet_size());
     assert_eq!(restored.strings(), problem.strings());
     assert_eq!(restored.max_length(), problem.max_length());
+}
+
+#[test]
+fn test_lcs_empty_string_max_length_zero() {
+    // When all strings are empty or any string is empty, max_length = 0
+    let problem = LongestCommonSubsequence::new(2, vec![vec![], vec![0, 1]]);
+    assert_eq!(problem.max_length(), 0);
+    assert_eq!(problem.dims(), Vec::<usize>::new()); // empty config space
+                                                     // Empty config is the only valid config; LCS length is 0
+    assert_eq!(problem.evaluate(&[]), Max(Some(0)));
+}
+
+#[test]
+fn test_lcs_all_empty_strings() {
+    let problem = LongestCommonSubsequence::new(2, vec![vec![], vec![]]);
+    assert_eq!(problem.max_length(), 0);
+    assert_eq!(problem.evaluate(&[]), Max(Some(0)));
 }
 
 #[test]

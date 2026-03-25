@@ -59,10 +59,6 @@ impl LongestCommonSubsequence {
     pub fn new(alphabet_size: usize, strings: Vec<Vec<usize>>) -> Self {
         let max_length = strings.iter().map(|s| s.len()).min().unwrap_or(0);
         assert!(
-            max_length >= 1 || strings.is_empty(),
-            "at least one string must be non-empty"
-        );
-        assert!(
             alphabet_size > 0 || strings.iter().all(|s| s.is_empty()),
             "alphabet_size must be > 0 when any input string is non-empty"
         );

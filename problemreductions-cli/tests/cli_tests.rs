@@ -155,8 +155,8 @@ fn test_create_stacker_crane_schema_help_uses_documented_flags() {
     assert!(stderr.contains("--graph"), "stderr: {stderr}");
     assert!(stderr.contains("--arc-costs"), "stderr: {stderr}");
     assert!(stderr.contains("--edge-lengths"), "stderr: {stderr}");
-    assert!(stderr.contains("--bound"), "stderr: {stderr}");
     assert!(stderr.contains("--num-vertices"), "stderr: {stderr}");
+    assert!(!stderr.contains("--bound"), "stderr: {stderr}");
     assert!(!stderr.contains("--biedges"), "stderr: {stderr}");
     assert!(!stderr.contains("--arc-lengths"), "stderr: {stderr}");
     assert!(!stderr.contains("--edge-weights"), "stderr: {stderr}");
@@ -6849,8 +6849,8 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_no_flags_shows_hel
         "expected '--costs' in help output, got: {stderr}"
     );
     assert!(
-        stderr.contains("--bound"),
-        "expected '--bound' in help output, got: {stderr}"
+        !stderr.contains("--bound"),
+        "should not mention --bound after optimization upgrade, got: {stderr}"
     );
 }
 

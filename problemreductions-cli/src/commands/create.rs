@@ -568,7 +568,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\""
         }
         "LengthBoundedDisjointPaths" => {
-            "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --bound 3"
+            "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --bound 4"
         }
         "PathConstrainedNetworkFlow" => {
             "--arcs \"0>1,0>2,1>3,1>4,2>4,3>5,4>5,4>6,5>7,6>7\" --capacities 2,1,1,1,1,1,1,1,2,1 --source 0 --sink 7 --paths \"0,2,5,8;0,3,6,8;0,3,7,9;1,4,6,8;1,4,7,9\" --requirement 3"
@@ -576,7 +576,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "KthBestSpanningTree" => "--graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3",
         "LongestCircuit" => {
-            "--graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2 --bound 17"
+            "--graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2"
         }
         "BottleneckTravelingSalesman" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
@@ -646,13 +646,13 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1"
         }
         "MixedChinesePostman" => {
-            "--graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 --bound 24"
+            "--graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4"
         }
         "RuralPostman" => {
-            "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
+            "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2"
         }
         "StackerCrane" => {
-            "--arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --bound 20 --num-vertices 6"
+            "--arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --num-vertices 6"
         }
         "MultipleChoiceBranching" => {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
@@ -678,11 +678,11 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
         "LongestCommonSubsequence" => {
-            "--strings \"010110;100101;001011\" --bound 3 --alphabet-size 2"
+            "--strings \"010110;100101;001011\" --alphabet-size 2"
         }
         "GroupingBySwapping" => "--string \"0,1,2,0,1,2\" --bound 5",
         "MinimumCardinalityKey" => {
-            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --bound 2"
+            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\""
         }
         "PrimeAttributeName" => {
             "--universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
@@ -690,7 +690,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "TwoDimensionalConsecutiveSets" => {
             "--alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
         }
-        "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
+        "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\"",
         "ConsecutiveBlockMinimization" => {
             "--matrix '[[true,false,true],[false,true,true]]' --bound 2"
         }
@@ -705,7 +705,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "ConjunctiveQueryFoldability" => "(use --example ConjunctiveQueryFoldability)",
         "SequencingToMinimizeMaximumCumulativeCost" => {
-            "--costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+            "--costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\""
         }
         "StringToStringCorrection" => {
             "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
@@ -1834,14 +1834,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                    "{e}\n\nUsage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2"
                 )
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
             let required_edges_str = args.required_edges.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "RuralPostman requires --required-edges\n\n\
-                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2"
                 )
             })?;
             let required_edges: Vec<usize> = util::parse_comma_list(required_edges_str)?;
@@ -1869,7 +1869,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // StackerCrane
         "StackerCrane" => {
-            let usage = "Usage: pred create StackerCrane --arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --bound 20 --num-vertices 6";
+            let usage = "Usage: pred create StackerCrane --arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --num-vertices 6";
             let arcs_str = args
                 .arcs
                 .as_deref()
@@ -3814,7 +3814,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // MixedChinesePostman
         "MixedChinesePostman" => {
-            let usage = "Usage: pred create MixedChinesePostman --graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 --bound 24 [--num-vertices N]";
+            let usage = "Usage: pred create MixedChinesePostman --graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 [--num-vertices N]";
             let graph = parse_mixed_graph(args, usage)?;
             let arc_costs = parse_arc_costs(args, graph.num_arcs())?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
