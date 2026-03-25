@@ -2479,20 +2479,19 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
 #{
   let x = load-model-example("ExpectedRetrievalCost")
-  let K = x.instance.bound
   [
     #problem-def("ExpectedRetrievalCost")[
-      Given a set $R = {r_1, dots, r_n}$ of records, access probabilities $p(r) in [0, 1]$ with $sum_(r in R) p(r) = 1$, a positive integer $m$ of circular storage sectors, and a bound $K$, determine whether there exists a partition $R_1, dots, R_m$ of $R$ such that
-      $sum_(i=1)^m sum_(j=1)^m p(R_i) p(R_j) d(i, j) <= K,$
+      Given a set $R = {r_1, dots, r_n}$ of records, access probabilities $p(r) in [0, 1]$ with $sum_(r in R) p(r) = 1$, and a positive integer $m$ of circular storage sectors, find a partition $R_1, dots, R_m$ of $R$ that minimizes
+      $sum_(i=1)^m sum_(j=1)^m p(R_i) p(R_j) d(i, j),$
       where $p(R_i) = sum_(r in R_i) p(r)$ and
       $d(i, j) = j - i - 1$ for $1 <= i < j <= m$, while $d(i, j) = m - i + j - 1$ for $1 <= j <= i <= m$.
     ][
-    Expected Retrieval Cost is storage-and-retrieval problem SR4 in Garey and Johnson @garey1979. The model abstracts a drum-like storage device with fixed read heads: placing probability mass evenly around the cycle reduces the expected waiting time until the next requested sector rotates under the head. Cody and Coffman introduced the formulation and analyzed exact and heuristic record-allocation algorithms for fixed numbers of sectors @codycoffman1976. Garey and Johnson record that the general decision problem is NP-complete in the strong sense via transformations from Partition and 3-Partition @garey1979. The implementation in this repository uses one $m$-ary variable per record, so the registered exact baseline enumerates $m^n$ assignments. For practicality, the code stores the probabilities and bound as floating-point values even though the book states $K$ as an integer.
+    Expected Retrieval Cost is storage-and-retrieval problem SR4 in Garey and Johnson @garey1979. The model abstracts a drum-like storage device with fixed read heads: placing probability mass evenly around the cycle reduces the expected waiting time until the next requested sector rotates under the head. Cody and Coffman introduced the formulation and analyzed exact and heuristic record-allocation algorithms for fixed numbers of sectors @codycoffman1976. Garey and Johnson record that the general decision problem is NP-complete in the strong sense via transformations from Partition and 3-Partition @garey1979. The implementation in this repository uses one $m$-ary variable per record, so the registered exact baseline enumerates $m^n$ assignments.
 
-    *Example.* Take six records with probabilities $(0.2, 0.15, 0.15, 0.2, 0.1, 0.2)$, three sectors, and $K = #K$. Assign
+    *Example.* Take six records with probabilities $(0.2, 0.15, 0.15, 0.2, 0.1, 0.2)$ and three sectors. Assign
     $R_1 = {r_1, r_5}$, $R_2 = {r_2, r_4}$, and $R_3 = {r_3, r_6}$.
     Then the sector masses are $(p(R_1), p(R_2), p(R_3)) = (0.3, 0.35, 0.35)$.
-    For $m = 3$, the non-zero latencies are $d(1, 1) = d(2, 2) = d(3, 3) = 2$, $d(1, 3) = d(2, 1) = d(3, 2) = 1$, and the remaining pairs contribute 0. Hence the expected retrieval cost is $1.0025 <= #K$, so the allocation is satisfying.
+    For $m = 3$, the non-zero latencies are $d(1, 1) = d(2, 2) = d(3, 3) = 2$, $d(1, 3) = d(2, 1) = d(3, 2) = 1$, and the remaining pairs contribute 0. Hence the expected retrieval cost is $1.0025$, which is optimal for this instance.
 
     #pred-commands(
       "pred create --example ExpectedRetrievalCost -o expected-retrieval-cost.json",
@@ -2510,7 +2509,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         [$S_2$], [$r_2, r_4$], [$0.35$],
         [$S_3$], [$r_3, r_6$], [$0.35$],
       ),
-      caption: [Expected Retrieval Cost example with cyclic sector order $S_1 -> S_2 -> S_3 -> S_1$. The satisfying allocation yields masses $(0.3, 0.35, 0.35)$ and total cost $1.0025$.],
+      caption: [Expected Retrieval Cost example with cyclic sector order $S_1 -> S_2 -> S_3 -> S_1$. The optimal allocation yields masses $(0.3, 0.35, 0.35)$ and minimum cost $1.0025$.],
     ) <fig:expected-retrieval-cost>
     ]
   ]
@@ -8088,9 +8087,9 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("ExpectedRetrievalCost", "ILP")[
   Assign records to sectors to minimize expected retrieval cost, using product linearization for the quadratic cost terms.
 ][
-  _Construction._ Variables: binary $x_(r,s)$ (record $r$ in sector $s$), one-hot per record, plus linearization variables $z_((r,s),(r',s')) = x_(r,s) dot x_(r',s')$. Constraints: one-hot assignment; McCormick linearization ($z <= x$, $z <= y$, $z >= x + y - 1$); cost bound $sum "cost" dot z <= B$. Objective: feasibility.
+  _Construction._ Variables: binary $x_(r,s)$ (record $r$ in sector $s$), one-hot per record, plus linearization variables $z_((r,s),(r',s')) = x_(r,s) dot x_(r',s')$. Constraints: one-hot assignment; McCormick linearization ($z <= x$, $z <= y$, $z >= x + y - 1$). Objective: minimize $sum d(s,s') p_r p_(r') z_((r,s),(r',s'))$.
 
-  _Correctness._ McCormick constraints force $z$ to equal the product of binary indicators, linearizing the quadratic cost.
+  _Correctness._ McCormick constraints force $z$ to equal the product of binary indicators, linearizing the quadratic cost. The ILP objective directly encodes the expected retrieval cost.
 
   _Solution extraction._ Record $r$ goes to sector $arg max_s x_(r,s)$.
 ]

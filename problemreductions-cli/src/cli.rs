@@ -249,7 +249,7 @@ Flags by problem type:
   CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --cost-budget, --delay-budget
   SubsetSum                       --sizes, --target
   SumOfSquaresPartition           --sizes, --num-groups, --bound
-  ExpectedRetrievalCost           --probabilities, --num-sectors, --latency-bound
+  ExpectedRetrievalCost           --probabilities, --num-sectors
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumHittingSet               --universe, --sets

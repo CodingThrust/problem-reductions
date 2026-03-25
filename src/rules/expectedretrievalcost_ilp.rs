@@ -11,9 +11,8 @@
 //! - Assignment: Σ_s x_{r,s} = 1 for each r
 //! - McCormick for each (r,s,r',s') product:
 //!   z ≤ x_{r,s}, z ≤ x_{r',s'}, z ≥ x_{r,s} + x_{r',s'} - 1
-//! - Cost bound: Σ_{r,s,r',s'} lat(s,s') * p_r * p_{r'} * z_{r,s,r',s'} ≤ bound
 //!
-//! Objective: Minimize 0 (feasibility)
+//! Objective: Minimize Σ_{r,s,r',s'} lat(s,s') * p_r * p_{r'} * z_{r,s,r',s'}
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ExpectedRetrievalCost;
@@ -84,7 +83,7 @@ impl ReductionResult for ReductionERCToILP {
 #[reduction(
     overhead = {
         num_vars = "num_records * num_sectors + num_records^2 * num_sectors^2",
-        num_constraints = "num_records + 3 * num_records^2 * num_sectors^2 + 1",
+        num_constraints = "num_records + 3 * num_records^2 * num_sectors^2",
     }
 )]
 impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {
@@ -138,9 +137,9 @@ impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {
             }
         }
 
-        // Cost bound constraint: Σ_{r,s,r',s'} lat(s,s') * p_r * p_{r'} * z_{r,s,r',s'} ≤ bound
+        // Objective: Minimize Σ_{r,s,r',s'} lat(s,s') * p_r * p_{r'} * z_{r,s,r',s'}
         let probabilities = self.probabilities();
-        let mut cost_terms: Vec<(usize, f64)> = Vec::new();
+        let mut objective: Vec<(usize, f64)> = Vec::new();
         for r in 0..num_records {
             for s in 0..num_sectors {
                 for r2 in 0..num_records {
@@ -150,16 +149,15 @@ impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {
                             let coeff = lat * probabilities[r] * probabilities[r2];
                             if coeff.abs() > 0.0 {
                                 let z = result.z_var(r, s, r2, s2);
-                                cost_terms.push((z, coeff));
+                                objective.push((z, coeff));
                             }
                         }
                     }
                 }
             }
         }
-        constraints.push(LinearConstraint::le(cost_terms, self.bound()));
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
         ReductionERCToILP {
             target,
@@ -176,9 +174,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "expectedretrievalcost_to_ilp",
         build: || {
-            // 2 records with probabilities [0.5, 0.5], 2 sectors, generous bound
+            // 2 records with probabilities [0.5, 0.5], 2 sectors
             // Assignment: record 0 → sector 0, record 1 → sector 1
-            let source = ExpectedRetrievalCost::new(vec![0.5, 0.5], 2, 1.0);
+            let source = ExpectedRetrievalCost::new(vec![0.5, 0.5], 2);
             // Compute target_config from solver to ensure consistency
             let reduction: ReductionERCToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
             let solver = crate::solvers::ILPSolver::new();

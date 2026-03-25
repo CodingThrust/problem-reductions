@@ -46,9 +46,9 @@ const MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS: &str =
 const MULTIPLE_COPY_FILE_ALLOCATION_USAGE: &str =
     "Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1";
 const EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS: &str =
-    "--probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3 --latency-bound 1.01";
+    "--probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3";
 const EXPECTED_RETRIEVAL_COST_USAGE: &str =
-    "Usage: pred create ExpectedRetrievalCost --probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3 --latency-bound 1.01";
+    "Usage: pred create ExpectedRetrievalCost --probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3";
 
 /// Check if all data flags are None (no problem-specific input provided).
 fn all_data_flags_empty(args: &CreateArgs) -> bool {
@@ -1560,7 +1560,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        // ExpectedRetrievalCost (probabilities + sectors + latency bound)
+        // ExpectedRetrievalCost (probabilities + sectors)
         "ExpectedRetrievalCost" => {
             let probabilities_str = args.probabilities.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
@@ -1593,22 +1593,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 "ExpectedRetrievalCost requires at least two sectors\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
             );
 
-            let latency_bound = args.latency_bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "ExpectedRetrievalCost requires --latency-bound\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
-                )
-            })?;
-            anyhow::ensure!(
-                latency_bound.is_finite() && latency_bound >= 0.0,
-                "ExpectedRetrievalCost requires a finite non-negative --latency-bound\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
-            );
-
             (
-                ser(ExpectedRetrievalCost::new(
-                    probabilities,
-                    num_sectors,
-                    latency_bound,
-                ))?,
+                ser(ExpectedRetrievalCost::new(probabilities, num_sectors))?,
                 resolved_variant.clone(),
             )
         }
@@ -7643,7 +7629,6 @@ mod tests {
         args.problem = Some("ExpectedRetrievalCost".to_string());
         args.probabilities = Some("0.2,0.15,0.15,0.2,0.1,0.2".to_string());
         args.num_sectors = Some(3);
-        args.latency_bound = Some(1.01);
 
         let output_path = std::env::temp_dir().join(format!(
             "expected-retrieval-cost-{}.json",
@@ -7665,28 +7650,13 @@ mod tests {
         let problem: ExpectedRetrievalCost = serde_json::from_value(created.data).unwrap();
         assert_eq!(problem.num_records(), 6);
         assert_eq!(problem.num_sectors(), 3);
-        assert!(problem.evaluate(&[0, 1, 2, 1, 0, 2]));
+        use problemreductions::types::Min;
+        assert!(matches!(
+            problem.evaluate(&[0, 1, 2, 1, 0, 2]),
+            Min(Some(_))
+        ));
 
         let _ = std::fs::remove_file(output_path);
-    }
-
-    #[test]
-    fn test_create_expected_retrieval_cost_requires_latency_bound() {
-        let mut args = empty_args();
-        args.problem = Some("ExpectedRetrievalCost".to_string());
-        args.probabilities = Some("0.2,0.15,0.15,0.2,0.1,0.2".to_string());
-        args.num_sectors = Some(3);
-        args.latency_bound = None;
-
-        let out = OutputConfig {
-            output: None,
-            quiet: true,
-            json: false,
-            auto_json: false,
-        };
-
-        let err = create(&args, &out).unwrap_err().to_string();
-        assert!(err.contains("ExpectedRetrievalCost requires --latency-bound"));
     }
 
     #[test]
