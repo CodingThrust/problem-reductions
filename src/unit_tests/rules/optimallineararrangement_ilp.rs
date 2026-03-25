@@ -15,7 +15,6 @@ fn test_reduction_creates_valid_ilp() {
 }
 
 #[test]
-#[ignore = "ILP<i32> solver too slow for CI"]
 fn test_optimallineararrangement_to_ilp_closed_loop() {
     // Path graph (identity permutation achieves cost 3)
     let problem = OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
@@ -40,7 +39,6 @@ fn test_optimallineararrangement_to_ilp_closed_loop() {
 }
 
 #[test]
-#[ignore = "ILP<i32> solver too slow for CI"]
 fn test_optimallineararrangement_to_ilp_with_chords() {
     // 6 vertices, path + chords
     let problem = OptimalLinearArrangement::new(SimpleGraph::new(
@@ -66,7 +64,6 @@ fn test_optimallineararrangement_to_ilp_with_chords() {
 }
 
 #[test]
-#[ignore = "ILP<i32> solver too slow for CI"]
 fn test_optimallineararrangement_to_ilp_optimization() {
     // Path P4: optimal cost is 3
     let problem = OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
@@ -90,7 +87,6 @@ fn test_optimallineararrangement_to_ilp_optimization() {
 }
 
 #[test]
-#[ignore = "ILP<i32> solver too slow for CI"]
 fn test_solution_extraction() {
     let problem = OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     let reduction: ReductionOLAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);

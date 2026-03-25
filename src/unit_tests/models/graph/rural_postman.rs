@@ -180,3 +180,24 @@ fn test_rural_postman_size_getters() {
     assert_eq!(problem.num_edges(), 8);
     assert_eq!(problem.num_required_edges(), 3);
 }
+
+#[test]
+fn test_rural_postman_wrong_config_length() {
+    let problem = chinese_postman_rpp();
+    assert_eq!(problem.evaluate(&[1, 1]), Min(None));
+}
+
+#[test]
+fn test_rural_postman_is_weighted() {
+    let problem = chinese_postman_rpp();
+    assert!(problem.is_weighted());
+}
+
+#[test]
+fn test_rural_postman_solver_aggregate() {
+    let problem = chinese_postman_rpp();
+    use crate::Solver;
+    let solver = BruteForce::new();
+    let value = solver.solve(&problem);
+    assert_eq!(value, Min(Some(4)));
+}

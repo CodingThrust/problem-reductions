@@ -166,6 +166,22 @@ fn test_shortest_weight_constrained_path_source_equals_target_allows_only_empty_
 }
 
 #[test]
+fn test_shortest_weight_constrained_path_exceeds_weight_bound() {
+    // Path 0-1 with weight 5 > weight_bound 3
+    let problem = ShortestWeightConstrainedPath::new(
+        SimpleGraph::new(2, vec![(0, 1)]),
+        vec![1],
+        vec![5],
+        0,
+        1,
+        3,
+    );
+    // Valid path but weight 5 > 3
+    assert_eq!(problem.is_valid_solution(&[1]), None);
+    assert_eq!(problem.evaluate(&[1]), Min(None));
+}
+
+#[test]
 fn test_shortest_weight_constrained_path_rejects_disconnected_selected_edges() {
     let problem = ShortestWeightConstrainedPath::new(
         SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5), (5, 3)]),
