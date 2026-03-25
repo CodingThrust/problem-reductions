@@ -22,7 +22,7 @@
 //! - [`RectilinearPictureCompression`]: Cover 1-entries with bounded rectangles
 //! - [`ResourceConstrainedScheduling`]: Schedule unit-length tasks on processors with resource constraints
 //! - [`SchedulingWithIndividualDeadlines`]: Meet per-task deadlines on parallel processors
-//! - [`StackerCrane`]: Route a crane through required arcs within a length bound
+//! - [`StackerCrane`]: Minimize the total length of a closed walk through required arcs
 //! - [`SequencingToMinimizeMaximumCumulativeCost`]: Keep every cumulative schedule cost prefix under a bound
 //! - [`SequencingToMinimizeWeightedCompletionTime`]: Minimize total weighted completion time
 //! - [`SequencingToMinimizeWeightedTardiness`]: Decide whether a schedule meets a weighted tardiness bound

@@ -4312,7 +4312,6 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let x = load-model-example("StackerCrane")
   let arcs = x.instance.arcs.map(a => (a.at(0), a.at(1)))
   let edges = x.instance.edges.map(e => (e.at(0), e.at(1)))
-  let B = x.instance.bound
   let config = x.optimal_config
   let positions = (
     (-2.0, 0.9),
@@ -4324,13 +4323,13 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   )
   [
     #problem-def("StackerCrane")[
-      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, nonnegative lengths $l: A union E -> ZZ_(gt.eq 0)$, and a bound $B in ZZ^+$, determine whether there exists a closed walk in $G$ that traverses every arc in $A$ in its prescribed direction and has total length at most $B$.
+      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, and nonnegative lengths $l: A union E -> ZZ_(gt.eq 0)$, find a closed walk in $G$ that traverses every arc in $A$ in its prescribed direction and has minimum total length.
     ][
       Stacker Crane is the mixed-graph arc-routing problem listed as ND26 in Garey and Johnson @garey1979. Frederickson, Hecht, and Kim prove the problem NP-complete via reduction from Hamiltonian Circuit and give the classical $9 slash 5$-approximation for the metric case @frederickson1978routing. The problem stays difficult even on trees @fredericksonguan1993. The standard Held-Karp-style dynamic program over (current vertex, covered-arc subset) runs in $O(|V|^2 dot 2^|A|)$ time#footnote[Included as a straightforward exact dynamic-programming baseline over subsets of required arcs; no sharper exact bound was independently verified while preparing this entry.].
 
       A configuration is a permutation of the required arcs, interpreted as the order in which those arcs are forced into the tour. The verifier traverses each chosen arc, then inserts the shortest available connector path from that arc's head to the tail of the next arc, wrapping around at the end to close the walk.
 
-      *Example.* The canonical instance has 6 vertices, 5 required arcs, 7 undirected edges, and bound $B = #B$. The witness configuration $[#config.map(str).join(", ")]$ orders the required arcs as $a_0, a_2, a_1, a_4, a_3$. Traversing those arcs contributes 17 units of required-arc length, and the shortest connector paths contribute $1 + 1 + 1 + 0 + 0 = 3$, so the resulting closed walk has total length $20 = B$. Reducing the bound to 19 makes the same instance unsatisfiable.
+      *Example.* The canonical instance has 6 vertices, 5 required arcs, and 7 undirected edges. The optimal configuration $[#config.map(str).join(", ")]$ orders the required arcs as $a_0, a_2, a_1, a_4, a_3$. Traversing those arcs contributes 17 units of required-arc length, and the shortest connector paths contribute $1 + 1 + 1 + 0 + 0 = 3$, so the resulting closed walk has minimum total length $20$.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o stacker-crane.json",
@@ -4362,7 +4361,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
             content(pos, text(7pt)[$v_#i$])
           }
         }),
-        caption: [Stacker Crane hourglass instance. Required directed arcs are shown in blue and labeled $a_0$ through $a_4$; undirected connector edges are gray. The satisfying order $a_0, a_2, a_1, a_4, a_3$ yields total length 20.],
+        caption: [Stacker Crane hourglass instance. Required directed arcs are shown in blue and labeled $a_0$ through $a_4$; undirected connector edges are gray. The optimal order $a_0, a_2, a_1, a_4, a_3$ yields minimum total length 20.],
       ) <fig:stacker-crane>
     ]
   ]
