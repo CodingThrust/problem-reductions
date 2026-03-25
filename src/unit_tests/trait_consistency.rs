@@ -154,7 +154,6 @@ fn test_all_problems_implement_trait_correctly() {
             SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
             vec![1; 3],
             vec![1; 3],
-            3,
         ),
         "MultipleCopyFileAllocation",
     );

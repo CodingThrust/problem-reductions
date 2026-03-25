@@ -42,9 +42,9 @@ use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
 const MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS: &str =
-    "--graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8";
+    "--graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1";
 const MULTIPLE_COPY_FILE_ALLOCATION_USAGE: &str =
-    "Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8";
+    "Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1";
 const EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS: &str =
     "--probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3 --latency-bound 1.01";
 const EXPECTED_RETRIEVAL_COST_USAGE: &str =
@@ -1534,7 +1534,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        // MultipleCopyFileAllocation (graph + usage + storage + bound)
+        // MultipleCopyFileAllocation (graph + usage + storage)
         "MultipleCopyFileAllocation" => {
             let (graph, num_vertices) = parse_graph(args)
                 .map_err(|e| anyhow::anyhow!("{e}\n\n{MULTIPLE_COPY_FILE_ALLOCATION_USAGE}"))?;
@@ -1552,14 +1552,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 "MultipleCopyFileAllocation",
                 MULTIPLE_COPY_FILE_ALLOCATION_USAGE,
             )?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "MultipleCopyFileAllocation requires --bound\n\n{MULTIPLE_COPY_FILE_ALLOCATION_USAGE}"
-                )
-            })?;
             (
                 ser(MultipleCopyFileAllocation::new(
-                    graph, usage, storage, bound,
+                    graph, usage, storage,
                 ))?,
                 resolved_variant.clone(),
             )
