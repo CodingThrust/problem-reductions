@@ -14,13 +14,12 @@ fn test_reduction_creates_valid_ilp() {
     assert_eq!(ilp.num_vars, 24, "Should have 24 variables (3*2 + 9*2)");
     // num_constraints = 3 assignment + 3*9*2 McCormick = 3 + 54 = 57
     assert_eq!(ilp.constraints.len(), 57, "Should have 57 constraints");
-    assert_eq!(
-        ilp.sense,
-        ObjectiveSense::Minimize,
-        "Should minimize"
-    );
+    assert_eq!(ilp.sense, ObjectiveSense::Minimize, "Should minimize");
     // Objective should have non-empty coefficients
-    assert!(!ilp.objective.is_empty(), "Objective should have coefficients");
+    assert!(
+        !ilp.objective.is_empty(),
+        "Objective should have coefficients"
+    );
 }
 
 #[test]

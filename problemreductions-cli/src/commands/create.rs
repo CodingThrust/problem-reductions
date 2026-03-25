@@ -1535,9 +1535,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 MULTIPLE_COPY_FILE_ALLOCATION_USAGE,
             )?;
             (
-                ser(MultipleCopyFileAllocation::new(
-                    graph, usage, storage,
-                ))?,
+                ser(MultipleCopyFileAllocation::new(graph, usage, storage))?,
                 resolved_variant.clone(),
             )
         }
@@ -1877,11 +1875,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             let required_edges: Vec<usize> = util::parse_comma_list(required_edges_str)?;
             (
-                ser(RuralPostman::new(
-                    graph,
-                    edge_weights,
-                    required_edges,
-                ))?,
+                ser(RuralPostman::new(graph, edge_weights, required_edges))?,
                 resolved_variant.clone(),
             )
         }
@@ -3888,11 +3882,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 );
             }
             (
-                ser(MixedChinesePostman::new(
-                    graph,
-                    arc_costs,
-                    edge_weights,
-                ))?,
+                ser(MixedChinesePostman::new(graph, arc_costs, edge_weights))?,
                 resolved_variant.clone(),
             )
         }

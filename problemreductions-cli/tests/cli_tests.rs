@@ -4643,12 +4643,7 @@ fn test_create_longest_circuit_succeeds() {
 #[test]
 fn test_create_longest_circuit_defaults_unit_edge_weights() {
     let output = pred()
-        .args([
-            "create",
-            "LongestCircuit",
-            "--graph",
-            "0-1,1-2,2-3,3-0",
-        ])
+        .args(["create", "LongestCircuit", "--graph", "0-1,1-2,2-3,3-0"])
         .output()
         .unwrap();
     assert!(

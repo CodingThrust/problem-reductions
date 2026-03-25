@@ -52,11 +52,7 @@ impl<W: WeightElement<Sum = i32>> MixedChinesePostman<W> {
     ///
     /// Panics if the weight-vector lengths do not match the graph shape or if
     /// any weight is negative.
-    pub fn new(
-        graph: MixedGraph,
-        arc_weights: Vec<W>,
-        edge_weights: Vec<W>,
-    ) -> Self {
+    pub fn new(graph: MixedGraph, arc_weights: Vec<W>, edge_weights: Vec<W>) -> Self {
         assert_eq!(
             arc_weights.len(),
             graph.num_arcs(),
@@ -227,10 +223,8 @@ where
 
         // Shortest paths also use the full available graph so that balancing
         // can route through undirected edges in either direction.
-        let distances = all_pairs_shortest_paths(
-            self.graph.num_vertices(),
-            &self.weighted_available_arcs(),
-        );
+        let distances =
+            all_pairs_shortest_paths(self.graph.num_vertices(), &self.weighted_available_arcs());
         // Degree imbalance is computed from the required arcs only (original
         // arcs plus the chosen orientation of each undirected edge).
         let balance = degree_imbalances(self.graph.num_vertices(), &oriented_pairs);

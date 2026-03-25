@@ -43,10 +43,7 @@ impl MinimumCardinalityKey {
     /// # Panics
     ///
     /// Panics if any attribute index in a dependency lies outside the attribute set.
-    pub fn new(
-        num_attributes: usize,
-        dependencies: Vec<(Vec<usize>, Vec<usize>)>,
-    ) -> Self {
+    pub fn new(num_attributes: usize, dependencies: Vec<(Vec<usize>, Vec<usize>)>) -> Self {
         let mut dependencies = dependencies;
         for (dep_index, (lhs, rhs)) in dependencies.iter_mut().enumerate() {
             lhs.sort_unstable();
@@ -116,7 +113,6 @@ impl MinimumCardinalityKey {
         let closure = self.compute_closure(selected);
         closure.iter().all(|&v| v)
     }
-
 }
 
 impl Problem for MinimumCardinalityKey {

@@ -14,13 +14,7 @@ fn issue_problem() -> StackerCrane {
 }
 
 fn small_problem() -> StackerCrane {
-    StackerCrane::new(
-        3,
-        vec![(0, 1), (1, 2)],
-        vec![(0, 2)],
-        vec![1, 1],
-        vec![1],
-    )
+    StackerCrane::new(3, vec![(0, 1), (1, 2)], vec![(0, 2)], vec![1, 1], vec![1])
 }
 
 #[test]
@@ -60,7 +54,9 @@ fn test_stacker_crane_paper_example() {
     assert_eq!(problem.evaluate(&witness), Min(Some(20)));
 
     let solver = BruteForce::new();
-    let optimal = solver.find_witness(&problem).expect("should have a witness");
+    let optimal = solver
+        .find_witness(&problem)
+        .expect("should have a witness");
     let optimal_value = problem.evaluate(&optimal);
     assert_eq!(optimal_value, Min(Some(20)));
 }
@@ -126,7 +122,8 @@ fn test_stacker_crane_unreachable_connector() {
 
 #[test]
 fn test_stacker_crane_deserialization_rejects_invalid() {
-    let bad_json = r#"{"num_vertices":2,"arcs":[[0,5]],"edges":[],"arc_lengths":[1],"edge_lengths":[]}"#;
+    let bad_json =
+        r#"{"num_vertices":2,"arcs":[[0,5]],"edges":[],"arc_lengths":[1],"edge_lengths":[]}"#;
     assert!(serde_json::from_str::<StackerCrane>(bad_json).is_err());
 }
 

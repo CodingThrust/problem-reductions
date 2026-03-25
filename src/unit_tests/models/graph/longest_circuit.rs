@@ -45,15 +45,9 @@ fn test_longest_circuit_evaluate_valid_and_invalid() {
         Max(Some(17))
     );
     // Not a valid circuit (only 3 edges, not forming a cycle)
-    assert_eq!(
-        problem.evaluate(&[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]),
-        Max(None)
-    );
+    assert_eq!(problem.evaluate(&[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]), Max(None));
     // Chord edges only — not a valid circuit
-    assert_eq!(
-        problem.evaluate(&[0, 0, 0, 0, 0, 0, 1, 1, 1, 0]),
-        Max(None)
-    );
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0, 0, 1, 1, 1, 0]), Max(None));
 }
 
 #[test]

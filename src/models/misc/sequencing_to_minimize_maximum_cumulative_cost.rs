@@ -54,10 +54,7 @@ impl SequencingToMinimizeMaximumCumulativeCost {
     /// Panics if any precedence endpoint is out of range.
     pub fn new(costs: Vec<i64>, precedences: Vec<(usize, usize)>) -> Self {
         validate_precedences(&precedences, costs.len());
-        Self {
-            costs,
-            precedences,
-        }
+        Self { costs, precedences }
     }
 
     /// Return the task costs.
