@@ -4225,18 +4225,17 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let edges = x.instance.graph.edges
   let arc-weights = x.instance.arc_weights
   let edge-weights = x.instance.edge_weights
-  let B = x.instance.bound
   let config = x.optimal_config
   let oriented = edges.enumerate().map(((i, e)) => if config.at(i) == 0 { e } else { (e.at(1), e.at(0)) })
   let base-cost = arc-weights.sum() + edge-weights.sum()
-  let total-cost = 22
+  let total-cost = x.optimal_value
   [
     #problem-def("MixedChinesePostman")[
-      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, integer lengths $l(e) >= 0$ for every $e in A union E$, and a bound $B in ZZ^+$, determine whether there exists a closed walk in $G$ that traverses every arc in its prescribed direction and every undirected edge at least once in some direction with total length at most $B$.
+      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, and integer lengths $l(e) >= 0$ for every $e in A union E$, find a closed walk in $G$ that traverses every arc in its prescribed direction and every undirected edge at least once in some direction, minimizing total length.
     ][
       Mixed Chinese Postman is the mixed-graph arc-routing problem ND25 in Garey and Johnson @garey1979. Papadimitriou proved the mixed case NP-complete even when all lengths are 1, the graph is planar, and the maximum degree is 3 @papadimitriou1976edge. In contrast, the pure undirected and pure directed cases are polynomial-time solvable via matching / circulation machinery @edmondsjohnson1973. The implementation here uses one binary variable per undirected edge orientation, so the search space contributes the $2^|E|$ factor visible in the registered exact bound.
 
-      *Example.* Consider the instance on #nv vertices with directed arcs $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_0)$ of lengths $2, 3, 1, 4$ and undirected edges $\{v_0, v_2\}$, $\{v_1, v_3\}$, $\{v_0, v_4\}$, $\{v_4, v_2\}$ of lengths $2, 3, 1, 2$. The config $(1, 1, 0, 0)$ orients those edges as $(v_2, v_0)$, $(v_3, v_1)$, $(v_0, v_4)$, and $(v_4, v_2)$, producing a strongly connected digraph. The base traversal cost is #base-cost, and duplicating the shortest path $v_1 arrow v_2 arrow v_3$ adds 4 more, so the total cost is $#total-cost <= B = #B$, proving the answer is YES.
+      *Example.* Consider the instance on #nv vertices with directed arcs $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_0)$ of lengths $2, 3, 1, 4$ and undirected edges $\{v_0, v_2\}$, $\{v_1, v_3\}$, $\{v_0, v_4\}$, $\{v_4, v_2\}$ of lengths $2, 3, 1, 2$. The config $(#config.map(str).join(", "))$ orients those edges as $(v_2, v_0)$, $(v_3, v_1)$, $(v_0, v_4)$, and $(v_4, v_2)$, producing a strongly connected digraph. The base traversal cost is #base-cost, and the minimum balancing cost brings the total to #total-cost.
 
       #pred-commands(
         "pred create --example MixedChinesePostman/i32 -o mixed-chinese-postman.json",
@@ -4303,7 +4302,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
             content(pos, text(7pt)[$v_#i$])
           }
         }),
-        caption: [Mixed Chinese Postman example. Gray arrows are the original directed arcs, while blue arrows are the chosen orientations of the former undirected edges under config $(1, 1, 0, 0)$. Duplicating the path $v_1 arrow v_2 arrow v_3$ yields total cost #total-cost.],
+        caption: [Mixed Chinese Postman example. Gray arrows are the original directed arcs, while blue arrows are the chosen orientations of the former undirected edges under config $(#config.map(str).join(", "))$. The optimal walk has total cost #total-cost.],
       ) <fig:mixed-chinese-postman>
     ]
   ]
