@@ -2039,29 +2039,6 @@ fn test_create_sequencing_to_minimize_weighted_tardiness_rejects_mismatched_leng
 }
 
 #[test]
-fn test_create_sum_of_squares_partition_rejects_negative_bound_without_panicking() {
-    let output = pred()
-        .args([
-            "create",
-            "SumOfSquaresPartition",
-            "--sizes",
-            "1,2,3",
-            "--num-groups",
-            "2",
-            "--bound=-1",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("Bound must be nonnegative"),
-        "stderr: {stderr}"
-    );
-    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
-}
-
-#[test]
 fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
     let output = pred()
         .args(["create", "MinimumCardinalityKey"])
@@ -2071,7 +2048,6 @@ fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--num-attributes"), "stderr: {stderr}");
     assert!(stderr.contains("--dependencies"), "stderr: {stderr}");
-    assert!(stderr.contains("--bound"), "stderr: {stderr}");
     assert!(
         stderr.contains("semicolon-separated dependencies"),
         "stderr: {stderr}"
@@ -2088,8 +2064,6 @@ fn test_create_minimum_cardinality_key_allows_empty_lhs_dependency() {
             "1",
             "--dependencies",
             ">0",
-            "--bound",
-            "1",
         ])
         .output()
         .unwrap();
@@ -2103,7 +2077,6 @@ fn test_create_minimum_cardinality_key_allows_empty_lhs_dependency() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MinimumCardinalityKey");
     assert_eq!(json["data"]["num_attributes"], 1);
-    assert_eq!(json["data"]["bound"], 1);
     assert_eq!(json["data"]["dependencies"][0][0], serde_json::json!([]));
     assert_eq!(json["data"]["dependencies"][0][1], serde_json::json!([0]));
 }
@@ -2511,7 +2484,6 @@ fn test_create_mixed_chinese_postman() {
         json["data"]["edge_weights"],
         serde_json::json!([2, 3, 1, 2])
     );
-    assert_eq!(json["data"]["bound"], 24);
 }
 
 #[test]
@@ -2530,7 +2502,6 @@ fn test_create_model_example_mixed_chinese_postman() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MixedChinesePostman");
     assert_eq!(json["variant"]["weight"], "i32");
-    assert_eq!(json["data"]["bound"], 24);
 }
 
 #[test]
@@ -3424,20 +3395,6 @@ fn test_create_rooted_tree_arrangement() {
 }
 
 #[test]
-fn test_create_scs_rejects_negative_bound() {
-    let output = pred()
-        .args(["create", "SCS", "--strings", "0,1,2;1,2,0", "--bound", "-1"])
-        .output()
-        .unwrap();
-    assert!(
-        !output.status.success(),
-        "negative bound should be rejected"
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
-}
-
-#[test]
 fn test_create_string_to_string_correction() {
     let output_file =
         std::env::temp_dir().join("pred_test_create_string_to_string_correction.json");
@@ -4220,7 +4177,7 @@ fn test_create_prime_attribute_name_no_flags_uses_actual_cli_flag_names() {
 #[test]
 fn test_create_lcs_with_raw_strings_infers_alphabet() {
     let output = pred()
-        .args(["create", "LCS", "--strings", "ABAC;BACA", "--bound", "2"])
+        .args(["create", "LCS", "--strings", "ABAC;BACA"])
         .output()
         .unwrap();
     assert!(
@@ -4232,7 +4189,6 @@ fn test_create_lcs_with_raw_strings_infers_alphabet() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "LongestCommonSubsequence");
     assert_eq!(json["data"]["alphabet_size"], 3);
-    assert_eq!(json["data"]["bound"], 2);
     assert_eq!(
         json["data"]["strings"],
         serde_json::json!([[0, 1, 0, 2], [1, 0, 2, 0]])
@@ -4240,15 +4196,15 @@ fn test_create_lcs_with_raw_strings_infers_alphabet() {
 }
 
 #[test]
-fn test_create_lcs_rejects_empty_strings_with_positive_bound_without_panicking() {
+fn test_create_lcs_rejects_empty_strings_without_panicking() {
     let output = pred()
-        .args(["create", "LCS", "--strings", "", "--bound", "1"])
+        .args(["create", "LCS", "--strings", ""])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Provide --alphabet-size when all strings are empty and --bound > 0"),
+        stderr.contains("at least one non-empty string"),
         "expected user-facing validation error, got: {stderr}"
     );
     assert!(
@@ -4667,8 +4623,6 @@ fn test_create_longest_circuit_succeeds() {
             "0-1,1-2,2-3,3-0",
             "--edge-weights",
             "2,2,2,2",
-            "--bound",
-            "8",
         ])
         .output()
         .unwrap();
@@ -4684,7 +4638,6 @@ fn test_create_longest_circuit_succeeds() {
         json["data"]["edge_lengths"],
         serde_json::json!([2, 2, 2, 2])
     );
-    assert_eq!(json["data"]["bound"], 8);
 }
 
 #[test]
@@ -4695,8 +4648,6 @@ fn test_create_longest_circuit_defaults_unit_edge_weights() {
             "LongestCircuit",
             "--graph",
             "0-1,1-2,2-3,3-0",
-            "--bound",
-            "8",
         ])
         .output()
         .unwrap();
@@ -4715,29 +4666,6 @@ fn test_create_longest_circuit_defaults_unit_edge_weights() {
 }
 
 #[test]
-fn test_create_longest_circuit_rejects_negative_bound() {
-    let output = pred()
-        .args([
-            "create",
-            "LongestCircuit",
-            "--graph",
-            "0-1,1-2,2-3,3-0",
-            "--edge-weights",
-            "2,2,2,2",
-            "--bound",
-            "-1",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("LongestCircuit --bound must be positive (> 0)"),
-        "stderr: {stderr}"
-    );
-}
-
-#[test]
 fn test_create_longest_circuit_no_flags_shows_help() {
     let output = pred().args(["create", "LongestCircuit"]).output().unwrap();
     assert!(
@@ -4748,10 +4676,6 @@ fn test_create_longest_circuit_no_flags_shows_help() {
     assert!(
         stderr.contains("--edge-weights"),
         "expected '--edge-weights' in help output, got: {stderr}"
-    );
-    assert!(
-        stderr.contains("--bound"),
-        "expected '--bound' in help output, got: {stderr}"
     );
     assert!(
         !stderr.contains("--edge-lengths"),
@@ -4782,7 +4706,6 @@ fn test_create_random_longest_circuit_succeeds() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "LongestCircuit");
     assert_eq!(json["data"]["graph"]["num_vertices"], 6);
-    assert!(json["data"]["bound"].as_i64().unwrap() > 0);
 }
 
 #[test]
@@ -6901,7 +6824,6 @@ fn test_create_multiple_copy_file_allocation() {
     assert_eq!(json["type"], "MultipleCopyFileAllocation");
     assert_eq!(json["data"]["usage"], serde_json::json!([5, 4, 3, 2]));
     assert_eq!(json["data"]["storage"], serde_json::json!([1, 1, 1, 1]));
-    assert_eq!(json["data"]["bound"], 8);
     assert_eq!(json["data"]["graph"]["num_vertices"], 4);
     assert_eq!(json["data"]["graph"]["edges"].as_array().unwrap().len(), 3);
 }
@@ -6937,7 +6859,6 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost() {
         json["data"]["precedences"],
         serde_json::json!([[0, 2], [1, 2], [1, 3], [2, 4], [3, 5], [4, 5]])
     );
-    assert_eq!(json["data"]["bound"], 4);
 }
 
 #[test]
@@ -6958,10 +6879,6 @@ fn test_create_multiple_copy_file_allocation_no_flags_shows_help() {
     assert!(
         stderr.contains("--storage"),
         "expected '--storage' in help output, got: {stderr}"
-    );
-    assert!(
-        stderr.contains("--bound"),
-        "expected '--bound' in help output, got: {stderr}"
     );
 }
 
@@ -7159,7 +7076,6 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_allows_negative_va
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["data"]["costs"], serde_json::json!([-1, 2, -3]));
-    assert_eq!(json["data"]["bound"], -1);
 }
 
 #[test]

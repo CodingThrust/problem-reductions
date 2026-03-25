@@ -1052,24 +1052,6 @@ fn validate_length_bounded_disjoint_paths_args(
     Ok(max_length)
 }
 
-fn validate_longest_circuit_bound(bound: i64, usage: Option<&str>) -> Result<i32> {
-    let bound = i32::try_from(bound).map_err(|_| {
-        let msg = format!("LongestCircuit --bound must fit in i32 (got {bound})");
-        match usage {
-            Some(u) => anyhow::anyhow!("{msg}\n\n{u}"),
-            None => anyhow::anyhow!("{msg}"),
-        }
-    })?;
-    if bound <= 0 {
-        let msg = "LongestCircuit --bound must be positive (> 0)";
-        return Err(match usage {
-            Some(u) => anyhow::anyhow!("{msg}\n\n{u}"),
-            None => anyhow::anyhow!("{msg}"),
-        });
-    }
-    Ok(bound)
-}
-
 /// Resolve the graph type from the variant map (e.g., "KingsSubgraph", "UnitDiskGraph", or "SimpleGraph").
 fn resolved_graph_type(variant: &BTreeMap<String, String>) -> &str {
     variant
@@ -1894,18 +1876,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let required_edges: Vec<usize> = util::parse_comma_list(required_edges_str)?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "RuralPostman requires --bound\n\n\
-                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
-                )
-            })? as i32;
             (
                 ser(RuralPostman::new(
                     graph,
                     edge_weights,
                     required_edges,
-                    bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -1914,19 +1889,15 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // LongestCircuit
         "LongestCircuit" => {
             reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
-            let usage = "pred create LongestCircuit --graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2 --bound 17";
+            let usage = "pred create LongestCircuit --graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2";
             let (graph, _) =
                 parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
             let edge_lengths = parse_edge_weights(args, graph.num_edges())?;
             if edge_lengths.iter().any(|&length| length <= 0) {
                 bail!("LongestCircuit --edge-weights must be positive (> 0)");
             }
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("LongestCircuit requires --bound\n\nUsage: {usage}")
-            })?;
-            let bound = validate_longest_circuit_bound(bound, Some(usage))?;
             (
-                ser(LongestCircuit::new(graph, edge_lengths, bound))?,
+                ser(LongestCircuit::new(graph, edge_lengths))?,
                 resolved_variant.clone(),
             )
         }
@@ -1955,13 +1926,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 edges_graph.num_edges(),
                 "edge length",
             )?;
-            let bound_raw = args
-                .bound
-                .ok_or_else(|| anyhow::anyhow!("StackerCrane requires --bound\n\n{usage}"))?;
-            let bound = parse_nonnegative_usize_bound(bound_raw, "StackerCrane", usage)?;
-            let bound = i32::try_from(bound).map_err(|_| {
-                anyhow::anyhow!("StackerCrane --bound must fit in i32 (got {bound_raw})\n\n{usage}")
-            })?;
             (
                 ser(StackerCrane::try_new(
                     num_vertices,
@@ -1969,7 +1933,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     edges_graph.edges(),
                     arc_lengths,
                     edge_lengths,
-                    bound,
                 )
                 .map_err(|e| anyhow::anyhow!(e))?)?,
                 resolved_variant.clone(),
@@ -2645,12 +2608,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "MinimumCardinalityKey" => {
             let num_attributes = args.num_attributes.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "MinimumCardinalityKey requires --num-attributes, --dependencies, and --bound\n\n\
-                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --bound 2"
+                    "MinimumCardinalityKey requires --num-attributes and --dependencies\n\n\
+                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\""
                 )
-            })?;
-            let k = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("MinimumCardinalityKey requires --bound (bound on key cardinality)")
             })?;
             let deps_str = args.dependencies.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
@@ -2662,7 +2622,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 ser(problemreductions::models::set::MinimumCardinalityKey::new(
                     num_attributes,
                     dependencies,
-                    k,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -2838,19 +2797,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // LongestCommonSubsequence
         "LongestCommonSubsequence" => {
             let usage =
-                "Usage: pred create LCS --strings \"010110;100101;001011\" --bound 3 [--alphabet-size 2]";
+                "Usage: pred create LCS --strings \"010110;100101;001011\" [--alphabet-size 2]";
             let strings_str = args.strings.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("LongestCommonSubsequence requires --strings\n\n{usage}")
             })?;
-            let bound_i64 = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("LongestCommonSubsequence requires --bound\n\n{usage}")
-            })?;
-            anyhow::ensure!(
-                bound_i64 >= 0,
-                "LongestCommonSubsequence requires a nonnegative --bound, got {}",
-                bound_i64
-            );
-            let bound = bound_i64 as usize;
 
             let segments: Vec<&str> = strings_str.split(';').map(str::trim).collect();
             let comma_mode = segments.iter().any(|segment| segment.contains(','));
@@ -2911,11 +2861,15 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 inferred_alphabet_size
             );
             anyhow::ensure!(
-                alphabet_size > 0 || (bound == 0 && strings.iter().all(|string| string.is_empty())),
-                "LongestCommonSubsequence requires a positive alphabet. Provide --alphabet-size when all strings are empty and --bound > 0.\n\n{usage}"
+                strings.iter().any(|string| !string.is_empty()),
+                "LongestCommonSubsequence requires at least one non-empty string.\n\n{usage}"
+            );
+            anyhow::ensure!(
+                alphabet_size > 0,
+                "LongestCommonSubsequence requires a positive alphabet. Provide --alphabet-size when all strings are empty.\n\n{usage}"
             );
             (
-                ser(LongestCommonSubsequence::new(alphabet_size, strings, bound))?,
+                ser(LongestCommonSubsequence::new(alphabet_size, strings))?,
                 resolved_variant.clone(),
             )
         }
@@ -3398,13 +3352,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let costs_str = args.costs.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeMaximumCumulativeCost requires --costs\n\n\
-                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
-                )
-            })?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SequencingToMinimizeMaximumCumulativeCost requires --bound\n\n\
-                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\""
                 )
             })?;
             let costs: Vec<i64> = util::parse_comma_list(costs_str)?;
@@ -3414,7 +3362,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 ser(SequencingToMinimizeMaximumCumulativeCost::new(
                     costs,
                     precedences,
-                    bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -3925,14 +3872,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let graph = parse_mixed_graph(args, usage)?;
             let arc_costs = parse_arc_costs(args, graph.num_arcs())?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("MixedChinesePostman requires --bound\n\n{usage}")
-            })?;
-            let bound = i32::try_from(bound).map_err(|_| {
-                anyhow::anyhow!(
-                    "MixedChinesePostman --bound must fit in i32 (got {bound})\n\n{usage}"
-                )
-            })?;
             if arc_costs.iter().any(|&cost| cost < 0) {
                 bail!("MixedChinesePostman --arc-costs must be non-negative\n\n{usage}");
             }
@@ -3953,7 +3892,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     graph,
                     arc_costs,
                     edge_weights,
-                    bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -6070,7 +6008,7 @@ fn create_random(
             (ser(HamiltonianPath::new(graph))?, variant)
         }
 
-        // LongestCircuit (graph + unit edge lengths + positive bound)
+        // LongestCircuit (graph + unit edge lengths)
         "LongestCircuit" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
@@ -6078,13 +6016,8 @@ fn create_random(
             }
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let edge_lengths = vec![1i32; graph.num_edges()];
-            let usage = "Usage: pred create LongestCircuit --random --num-vertices 6 [--edge-prob 0.5] [--seed 42] --bound 4";
-            let bound = validate_longest_circuit_bound(
-                args.bound.unwrap_or(num_vertices.max(3) as i64),
-                Some(usage),
-            )?;
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-            (ser(LongestCircuit::new(graph, edge_lengths, bound))?, variant)
+            (ser(LongestCircuit::new(graph, edge_lengths))?, variant)
         }
 
         // GeneralizedHex (graph only, with source/sink defaults)
@@ -7685,7 +7618,6 @@ mod tests {
         args.graph = Some("0-1,1-2,2-3,3-5,4-5,0-3,1-5".to_string());
         args.arc_costs = Some("3,4,2,5,3".to_string());
         args.edge_lengths = Some("2,1,3,2,1,4,3".to_string());
-        args.bound = Some(20);
 
         let output_path = std::env::temp_dir().join("pred_test_create_stacker_crane.json");
         let out = OutputConfig {
@@ -7701,7 +7633,6 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(&content).unwrap();
         assert_eq!(json["type"], "StackerCrane");
         assert_eq!(json["data"]["num_vertices"], 6);
-        assert_eq!(json["data"]["bound"], 20);
         assert_eq!(json["data"]["arcs"][0], serde_json::json!([0, 4]));
         assert_eq!(json["data"]["edge_lengths"][6], 3);
 
