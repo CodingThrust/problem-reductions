@@ -4452,7 +4452,9 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 #{
   let x = load-model-example("LongestCommonSubsequence")
   let strings = x.instance.strings
-  let witness = x.optimal_config
+  let alphabet-size = x.instance.alphabet_size
+  // optimal_config includes padding symbols; extract the non-padding prefix
+  let witness = x.optimal_config.filter(c => c < alphabet-size)
   let fmt-str(s) = "\"" + s.map(c => str(c)).join("") + "\""
   let string-list = strings.map(fmt-str).join(", ")
   let find-embed(target, candidate) = {
@@ -4469,11 +4471,11 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let embeds = strings.map(s => find-embed(s, witness))
   [
     #problem-def("LongestCommonSubsequence")[
-      Given a finite alphabet $Sigma$, a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, and a positive integer $K$, determine whether there exists a string $w in Sigma^*$ with $|w| gt.eq K$ such that every string $r_i in R$ contains $w$ as a _subsequence_: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|w|) lt.eq |r_i|$ with $r_i[j_t] = w[t]$ for all $t$.
+      Given a finite alphabet $Sigma$ and a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, find a longest string $w in Sigma^*$ such that every string $r_i in R$ contains $w$ as a _subsequence_: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|w|) lt.eq |r_i|$ with $r_i[j_t] = w[t]$ for all $t$.
     ][
-      A classic NP-complete string problem, listed as problem SR10 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness, while Garey and Johnson note polynomial-time cases for fixed $K$ or fixed $|R|$. For the special case of two strings, the classical dynamic-programming algorithm of #cite(<wagnerfischer1974>, form: "prose") runs in $O(|r_1| dot |r_2|)$ time. The decision model implemented in this repository fixes the witness length to exactly $K$; this is equivalent to the standard "$|w| gt.eq K$" formulation because any longer common subsequence has a length-$K$ prefix.
+      A classic NP-hard string problem, listed as problem SR10 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness of the decision version, while Garey and Johnson note polynomial-time cases for fixed $|R|$. For the special case of two strings, the classical dynamic-programming algorithm of #cite(<wagnerfischer1974>, form: "prose") runs in $O(|r_1| dot |r_2|)$ time. The optimization model implemented in this repository maximizes the subsequence length directly using a padding-based encoding.
 
-      *Example.* Let $Sigma = {0, 1}$ and let the input set $R$ contain the strings #string-list. The witness $w = $ #fmt-str(witness) is a common subsequence of every string in $R$.
+      *Example.* Let $Sigma = {0, 1}$ and let the input set $R$ contain the strings #string-list. The witness $w = $ #fmt-str(witness) is a longest common subsequence of every string in $R$, with $|w| = #witness.len()$.
 
       #pred-commands(
         "pred create --example LongestCommonSubsequence -o longest-common-subsequence.json",
@@ -4505,7 +4507,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         ))
       })
 
-      The highlighted positions show one left-to-right embedding of $w = $ #fmt-str(witness) in each input string, certifying the YES answer for $K = 3$.
+      The highlighted positions show one left-to-right embedding of $w = $ #fmt-str(witness) in each input string, certifying that the longest common subsequence has length #witness.len().
     ]
   ]
 }
@@ -7870,19 +7872,19 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("LongestCommonSubsequence", "ILP")[
-  A bounded-witness ILP formulation turns the decision version of LCS into a feasibility problem. Binary variables choose the symbol at each witness position and, for every input string, choose where that witness position is realized. Linear constraints enforce symbol consistency and strictly increasing source positions.
+  An optimization ILP formulation maximizes the length of a common subsequence. Binary variables choose a symbol (or padding) at each witness position. Match variables link active positions to source string indices, and the objective maximizes the number of non-padding positions.
 ][
-  _Construction._ Given alphabet $Sigma$, strings $R = {r_1, dots, r_m}$, and bound $K$:
+  _Construction._ Given alphabet $Sigma$ (size $k$), strings $R = {r_1, dots, r_m}$, and maximum length $L = min_i |r_i|$:
 
-  _Variables:_ Binary $x_(p, a) in {0, 1}$ for witness position $p in {1, dots, K}$ and symbol $a in Sigma$, with $x_(p, a) = 1$ iff the $p$-th witness symbol equals $a$. For every input string $r_i$, witness position $p$, and source index $j in {1, dots, |r_i|}$, binary $y_(i, p, j) = 1$ iff the $p$-th witness symbol is matched to position $j$ of $r_i$.
+  _Variables:_ Binary $x_(p, a) in {0, 1}$ for witness position $p in {1, dots, L}$ and symbol $a in Sigma union {bot}$ (where $bot$ is the padding symbol), with $x_(p, a) = 1$ iff position $p$ holds symbol $a$. For every input string $r_i$, witness position $p$, and source index $j in {1, dots, |r_i|}$, binary $y_(i, p, j) = 1$ iff position $p$ is matched to index $j$ of $r_i$.
 
-  _Constraints:_ (1) Exactly one symbol per witness position: $sum_(a in Sigma) x_(p, a) = 1$ for all $p$. (2) Exactly one matched source position for each $(i, p)$: $sum_(j = 1)^(|r_i|) y_(i, p, j) = 1$. (3) Character consistency: if $r_i[j] = a$, then $y_(i, p, j) lt.eq x_(p, a)$. (4) Strictly increasing matches: for consecutive witness positions $p$ and $p + 1$, forbid $y_(i, p, j') = y_(i, p + 1, j) = 1$ whenever $j' gt.eq j$.
+  _Constraints:_ (1) Exactly one symbol (including padding) per position: $sum_(a in Sigma union {bot}) x_(p, a) = 1$ for all $p$. (2) Contiguity: $x_(p+1, bot) gt.eq x_(p, bot)$ for consecutive positions. (3) Conditional matching: $sum_(j=1)^(|r_i|) y_(i, p, j) + x_(p, bot) = 1$ for each $(i, p)$, so active positions select exactly one match and padding positions select none. (4) Character consistency: $y_(i, p, j) lt.eq x_(p, r_i[j])$. (5) Strictly increasing matches: for consecutive positions $p$ and $p + 1$, forbid $y_(i, p, j') = y_(i, p+1, j) = 1$ whenever $j' gt.eq j$.
 
-  _Objective:_ Use the zero objective. The target ILP is feasible iff the source LCS instance is a YES instance.
+  _Objective:_ Maximize $sum_p sum_(a in Sigma) x_(p, a)$ (the number of non-padding positions).
 
-  _Correctness._ ($arrow.r.double$) If a witness $w = w_1 dots w_K$ is a common subsequence of every string, set $x_(p, w_p) = 1$ and choose, in every $r_i$, the positions where that embedding occurs. Constraints (1)--(4) are satisfied, so the ILP is feasible. ($arrow.l.double$) Any feasible ILP solution selects exactly one symbol for each witness position and exactly one realization in each source string. Character consistency ensures the chosen positions spell the same witness string in every input string, and the ordering constraints ensure those positions are strictly increasing. Therefore the extracted witness is a common subsequence of length $K$.
+  _Correctness._ ($arrow.r.double$) Given an optimal common subsequence $w$ of length $ell$, set $x_(p, w_p) = 1$ for $p lt.eq ell$ and $x_(p, bot) = 1$ for $p > ell$. For active positions, choose the embedding indices in each source string. All constraints are satisfied and the objective equals $ell$. ($arrow.l.double$) Any optimal ILP solution selects contiguous non-padding positions followed by padding. The active prefix, together with character consistency and ordering constraints, forms a valid common subsequence whose length equals the objective value.
 
-  _Solution extraction._ For each witness position $p$, read the unique symbol $a$ with $x_(p, a) = 1$ and output the resulting length-$K$ string.
+  _Solution extraction._ For each position $p$, read the selected symbol $a$ (which may be $bot$). The resulting length-$L$ vector with padding is the source configuration.
 ]
 
 #reduction-rule("MinimumMultiwayCut", "ILP")[
