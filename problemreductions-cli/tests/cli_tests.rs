@@ -4225,26 +4225,6 @@ fn test_create_kcoloring_missing_k() {
 }
 
 #[test]
-fn test_create_minmaxmulticenter_bound_out_of_range() {
-    let output = pred()
-        .args([
-            "create",
-            "MinMaxMulticenter",
-            "--graph",
-            "0-1",
-            "--k",
-            "1",
-            "--bound",
-            "2147483648",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success(), "expected bound overflow to fail");
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("must fit in i32"), "stderr: {stderr}");
-}
-
-#[test]
 fn test_create_minmaxmulticenter_success() {
     let output = pred()
         .args([
@@ -4258,8 +4238,6 @@ fn test_create_minmaxmulticenter_success() {
             "5,6,7",
             "--k",
             "2",
-            "--bound",
-            "8",
         ])
         .output()
         .unwrap();
@@ -4274,7 +4252,6 @@ fn test_create_minmaxmulticenter_success() {
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
     assert_eq!(json["variant"]["weight"], "i32");
     assert_eq!(json["data"]["k"], 2);
-    assert_eq!(json["data"]["bound"], 8);
     assert_eq!(
         json["data"]["vertex_weights"],
         serde_json::json!([1, 2, 3, 4])
@@ -4313,8 +4290,6 @@ fn test_create_minmaxmulticenter_negative_inputs_rejected() {
             "1",
             "--k",
             "1",
-            "--bound",
-            "1",
         ])
         .output()
         .unwrap();
@@ -4332,32 +4307,11 @@ fn test_create_minmaxmulticenter_negative_inputs_rejected() {
             "--edge-weights=-1",
             "--k",
             "1",
-            "--bound",
-            "1",
         ])
         .output()
         .unwrap();
     assert!(!edge_weights.status.success());
     assert!(String::from_utf8_lossy(&edge_weights.stderr).contains("must be non-negative"));
-
-    let bound = pred()
-        .args([
-            "create",
-            "MinMaxMulticenter",
-            "--graph",
-            "0-1",
-            "--weights",
-            "1,1",
-            "--edge-weights",
-            "1",
-            "--k",
-            "1",
-            "--bound=-1",
-        ])
-        .output()
-        .unwrap();
-    assert!(!bound.status.success());
-    assert!(String::from_utf8_lossy(&bound.stderr).contains("must be non-negative"));
 }
 
 #[test]
@@ -4377,8 +4331,6 @@ fn test_solve_minmaxmulticenter_default_solver_uses_ilp() {
             "1,1,1",
             "--k",
             "2",
-            "--bound",
-            "1",
         ])
         .output()
         .unwrap();
@@ -4511,8 +4463,6 @@ fn test_create_length_bounded_disjoint_paths_rejects_equal_terminals() {
             "0",
             "--sink",
             "0",
-            "--num-paths-required",
-            "1",
             "--bound",
             "1",
         ])
@@ -4542,8 +4492,6 @@ fn test_create_length_bounded_disjoint_paths_succeeds() {
             "0",
             "--sink",
             "3",
-            "--num-paths-required",
-            "2",
             "--bound",
             "2",
         ])
@@ -4559,7 +4507,8 @@ fn test_create_length_bounded_disjoint_paths_succeeds() {
     assert_eq!(json["type"], "LengthBoundedDisjointPaths");
     assert_eq!(json["data"]["source"], 0);
     assert_eq!(json["data"]["sink"], 3);
-    assert_eq!(json["data"]["num_paths_required"], 2);
+    // max_paths is auto-computed: min(deg(0), deg(3)) = min(2, 2) = 2
+    assert_eq!(json["data"]["max_paths"], 2);
     assert_eq!(json["data"]["max_length"], 2);
 }
 
@@ -4574,8 +4523,6 @@ fn test_create_length_bounded_disjoint_paths_rejects_negative_bound_value() {
             "--source",
             "0",
             "--sink",
-            "1",
-            "--num-paths-required",
             "1",
             "--bound",
             "-1",
@@ -5781,8 +5728,6 @@ fn test_inspect_minmaxmulticenter_lists_ilp_and_bruteforce() {
             "1,1,1",
             "--k",
             "2",
-            "--bound",
-            "1",
         ])
         .output()
         .unwrap();
@@ -7735,8 +7680,6 @@ fn test_create_shortest_weight_constrained_path() {
             "0",
             "--target-vertex",
             "5",
-            "--length-bound",
-            "10",
             "--weight-bound",
             "8",
         ])
@@ -7752,7 +7695,6 @@ fn test_create_shortest_weight_constrained_path() {
     assert_eq!(json["type"], "ShortestWeightConstrainedPath");
     assert_eq!(json["data"]["source_vertex"], 0);
     assert_eq!(json["data"]["target_vertex"], 5);
-    assert_eq!(json["data"]["length_bound"], 10);
     assert_eq!(json["data"]["weight_bound"], 8);
 }
 
@@ -7770,8 +7712,6 @@ fn test_create_shortest_weight_constrained_path_missing_source_vertex() {
             "5,1,2,3,2,3,1,1",
             "--target-vertex",
             "5",
-            "--length-bound",
-            "10",
             "--weight-bound",
             "8",
         ])
@@ -7798,8 +7738,6 @@ fn test_create_shortest_weight_constrained_path_edge_length_count_mismatch() {
             "0",
             "--target-vertex",
             "5",
-            "--length-bound",
-            "10",
             "--weight-bound",
             "8",
         ])
@@ -7833,8 +7771,8 @@ fn test_create_shortest_weight_constrained_path_no_flags_shows_vector_hints() {
         "expected vector hints for edge lengths and weights, got: {stderr}"
     );
     assert!(
-        stderr.match_indices("numeric value: 10").count() >= 2,
-        "expected numeric hints for length and weight bounds, got: {stderr}"
+        stderr.match_indices("numeric value: 10").count() >= 1,
+        "expected numeric hint for weight bound, got: {stderr}"
     );
 }
 
@@ -7854,8 +7792,6 @@ fn test_create_shortest_weight_constrained_path_rejects_out_of_bounds_source_ver
             "9",
             "--target-vertex",
             "5",
-            "--length-bound",
-            "10",
             "--weight-bound",
             "8",
         ])
@@ -7887,8 +7823,6 @@ fn test_create_shortest_weight_constrained_path_requires_edge_lengths() {
             "0",
             "--target-vertex",
             "5",
-            "--length-bound",
-            "10",
             "--weight-bound",
             "8",
         ])
@@ -7918,8 +7852,6 @@ fn test_create_shortest_weight_constrained_path_rejects_weights_flag_typo() {
             "0",
             "--target-vertex",
             "5",
-            "--length-bound",
-            "10",
             "--weight-bound",
             "8",
         ])
@@ -7948,8 +7880,6 @@ fn test_create_shortest_weight_constrained_path_rejects_non_positive_edge_length
             "0",
             "--target-vertex",
             "5",
-            "--length-bound",
-            "10",
             "--weight-bound",
             "8",
         ])
@@ -7982,10 +7912,6 @@ fn test_show_shortest_weight_constrained_path_uses_weight_schema_type_names() {
     assert!(
         stdout.contains("edge_weights (Vec<W>)"),
         "expected Vec<W> schema type for edge_weights, got: {stdout}"
-    );
-    assert!(
-        stdout.contains("length_bound (W::Sum)"),
-        "expected W::Sum schema type for length_bound, got: {stdout}"
     );
     assert!(
         stdout.contains("weight_bound (W::Sum)"),
