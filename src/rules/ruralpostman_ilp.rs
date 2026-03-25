@@ -35,7 +35,7 @@ impl ReductionResult for ReductionRPToILP {
 #[reduction(
     overhead = {
         num_vars = "num_edges + num_vertices + num_edges + num_vertices + 2 * num_edges",
-        num_constraints = "2 * num_edges + num_required_edges + num_vertices + 2 * num_edges + num_vertices + 2 * num_edges + num_vertices + 1",
+        num_constraints = "2 * num_edges + num_required_edges + num_vertices + 2 * num_edges + num_vertices + 2 * num_edges + num_vertices + num_edges + num_edges + num_vertices",
     }
 )]
 impl ReduceTo<ILP<i32>> for RuralPostman<SimpleGraph, i32> {
@@ -186,13 +186,6 @@ impl ReduceTo<ILP<i32>> for RuralPostman<SimpleGraph, i32> {
             constraints.push(LinearConstraint::eq(terms, 0.0));
         }
 
-        // Length bound: sum_e l_e * t_e <= B
-        let edge_lengths = self.edge_lengths();
-        let length_terms: Vec<(usize, f64)> = (0..m)
-            .map(|e| (t_idx(e), edge_lengths[e].to_sum() as f64))
-            .collect();
-        constraints.push(LinearConstraint::le(length_terms, *self.bound() as f64));
-
         // Upper bound on t_e: t_e <= 2
         for e in 0..m {
             constraints.push(LinearConstraint::le(vec![(t_idx(e), 1.0)], 2.0));
@@ -206,7 +199,12 @@ impl ReduceTo<ILP<i32>> for RuralPostman<SimpleGraph, i32> {
             constraints.push(LinearConstraint::le(vec![(z_idx(v), 1.0)], 1.0));
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        // Objective: minimize total route cost
+        let edge_lengths = self.edge_lengths();
+        let objective: Vec<(usize, f64)> = (0..m)
+            .map(|e| (t_idx(e), edge_lengths[e].to_sum() as f64))
+            .collect();
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
         ReductionRPToILP {
             target,
@@ -223,12 +221,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "ruralpostman_to_ilp",
         build: || {
-            // Triangle: 3 vertices, 3 edges, require edge 0, bound 3
+            // Triangle: 3 vertices, 3 edges, require edge 0
             let source = RuralPostman::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
                 vec![1, 1, 1],
                 vec![0],
-                3,
             );
             let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
             let ilp_solution = crate::solvers::ILPSolver::new()

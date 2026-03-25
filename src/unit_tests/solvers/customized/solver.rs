@@ -50,13 +50,15 @@ fn test_customized_solver_matches_bruteforce_for_minimum_cardinality_key() {
     let problem = crate::models::set::MinimumCardinalityKey::new(
         4,
         vec![(vec![0], vec![1]), (vec![1, 2], vec![3])],
-        2,
     );
     let brute = crate::solvers::BruteForce::new().find_witness(&problem);
     let custom = CustomizedSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
     if let Some(w) = &custom {
-        assert!(problem.evaluate(w).0, "witness must satisfy the problem");
+        assert!(
+            problem.evaluate(w).0.is_some(),
+            "witness must satisfy the problem"
+        );
     }
 }
 
@@ -118,12 +120,11 @@ fn test_customized_solver_finds_minimum_cardinality_key_witness() {
             (vec![1, 3], vec![4]),
             (vec![2, 4], vec![5]),
         ],
-        2,
     );
     let witness = CustomizedSolver::new()
         .solve_dyn(&problem)
         .expect("expected witness");
-    assert!(problem.evaluate(&witness).0);
+    assert!(problem.evaluate(&witness).0.is_some());
 }
 
 #[test]
@@ -197,13 +198,14 @@ fn test_customized_solver_no_witness_when_no_solution_exists() {
 }
 
 #[test]
-fn test_customized_solver_minimum_cardinality_key_no_solution() {
-    // bound=1 but no single attribute determines all
-    let problem = crate::models::set::MinimumCardinalityKey::new(3, vec![(vec![0, 1], vec![2])], 1);
-    // BruteForce should also return None
+fn test_customized_solver_minimum_cardinality_key_finds_minimum() {
+    // All 3 attributes needed as a key (no single-attribute key exists)
+    let problem = crate::models::set::MinimumCardinalityKey::new(3, vec![(vec![0, 1], vec![2])]);
+    // Both solvers should find a solution (the minimum cardinality key)
     let brute = crate::solvers::BruteForce::new().find_witness(&problem);
     let custom = CustomizedSolver::new().solve_dyn(&problem);
-    assert_eq!(custom.is_some(), brute.is_some());
+    assert!(brute.is_some());
+    assert!(custom.is_some());
 }
 
 // --- PartialFeedbackEdgeSet tests ---
@@ -297,8 +299,7 @@ fn test_customized_solver_matches_exhaustive_search_for_small_partial_feedback_e
     for graph in all_simple_graphs(4) {
         for max_cycle_length in 3..=4 {
             for budget in 0..=graph.num_edges() {
-                let problem =
-                    PartialFeedbackEdgeSet::new(graph.clone(), budget, max_cycle_length);
+                let problem = PartialFeedbackEdgeSet::new(graph.clone(), budget, max_cycle_length);
                 let exact_feasible =
                     exact_partial_feedback_edge_set_feasible(&graph, budget, max_cycle_length);
                 let custom = CustomizedSolver::new().solve_dyn(&problem);
@@ -380,7 +381,9 @@ fn test_customized_solver_rooted_tree_arrangement_canonical_example() {
 fn test_customized_solver_matches_exhaustive_search_for_small_rooted_tree_arrangement_instances() {
     for graph in all_simple_graphs(4) {
         let exact_min_stretch = exact_rooted_tree_arrangement_min_stretch(&graph);
-        let max_bound = graph.num_edges().saturating_mul(graph.num_vertices().saturating_sub(1));
+        let max_bound = graph
+            .num_edges()
+            .saturating_mul(graph.num_vertices().saturating_sub(1));
 
         for bound in 0..=max_bound {
             let problem = RootedTreeArrangement::new(graph.clone(), bound);

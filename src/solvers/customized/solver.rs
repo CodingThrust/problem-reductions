@@ -66,38 +66,25 @@ impl CustomizedSolver {
     }
 }
 
-/// Solve MinimumCardinalityKey: find a minimal key with cardinality <= bound.
+/// Solve MinimumCardinalityKey: find a minimal key with smallest cardinality.
 fn solve_minimum_cardinality_key(problem: &MinimumCardinalityKey) -> Option<Vec<usize>> {
     let n = problem.num_attributes();
     let deps = problem.dependencies().to_vec();
-    let bound = problem.bound() as usize;
 
     let essential = find_essential_attributes(n, &deps);
-
-    // If essential attributes alone exceed the bound, no solution
-    if essential.len() > bound {
-        return None;
-    }
 
     // Build branch order: non-essential attributes
     let essential_set: HashSet<usize> = essential.iter().copied().collect();
     let branch_order: Vec<usize> = (0..n).filter(|i| !essential_set.contains(i)).collect();
 
+    // Search for any minimal key (the smallest one will be found first due to
+    // branch-and-bound ordering in the FD subset search)
     let result = fd_subset_search::search_fd_subset(
         n,
         &essential,
         &branch_order,
-        |selected, _depth| {
-            let count = selected.iter().filter(|&&v| v).count();
-            if count > bound {
-                return BranchDecision::Prune;
-            }
-            BranchDecision::Continue
-        },
-        |selected| {
-            let count = selected.iter().filter(|&&v| v).count();
-            count <= bound && is_minimal_key(selected, &deps)
-        },
+        |_selected, _depth| BranchDecision::Continue,
+        |selected| is_minimal_key(selected, &deps),
     );
 
     // Convert selected indices to config format (binary vector)

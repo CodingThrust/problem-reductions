@@ -1,4 +1,4 @@
-//! Reduction from SequencingToMinimizeMaximumCumulativeCost to ILP<bool>.
+//! Reduction from SequencingToMinimizeMaximumCumulativeCost to ILP<i32>.
 //!
 //! Position-assignment ILP: binary x_{j,p} placing task j in position p.
 //! Permutation constraints, precedence constraints, and prefix cumulative-cost
@@ -10,7 +10,7 @@ use crate::reduction;
 use crate::rules::ilp_helpers::{one_hot_decode, permutation_to_lehmer};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing SequencingToMinimizeMaximumCumulativeCost to ILP<bool>.
+/// Result of reducing SequencingToMinimizeMaximumCumulativeCost to ILP<i32>.
 ///
 /// Variable layout:
 /// - x_{j,p} for j in 0..n, p in 0..n: index `j*n + p`
@@ -18,15 +18,15 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Total: n^2 variables.
 #[derive(Debug, Clone)]
 pub struct ReductionSTMMCCToILP {
-    target: ILP<bool>,
+    target: ILP<i32>,
     num_tasks: usize,
 }
 
 impl ReductionResult for ReductionSTMMCCToILP {
     type Source = SequencingToMinimizeMaximumCumulativeCost;
-    type Target = ILP<bool>;
+    type Target = ILP<i32>;
 
-    fn target_problem(&self) -> &ILP<bool> {
+    fn target_problem(&self) -> &ILP<i32> {
         &self.target
     }
 
@@ -39,15 +39,17 @@ impl ReductionResult for ReductionSTMMCCToILP {
 }
 
 #[reduction(overhead = {
-    num_vars = "num_tasks * num_tasks",
-    num_constraints = "2 * num_tasks + num_precedences + num_tasks",
+    num_vars = "num_tasks * num_tasks + 1",
+    num_constraints = "2 * num_tasks + num_precedences + num_tasks + num_tasks * num_tasks",
 })]
-impl ReduceTo<ILP<bool>> for SequencingToMinimizeMaximumCumulativeCost {
+impl ReduceTo<ILP<i32>> for SequencingToMinimizeMaximumCumulativeCost {
     type Result = ReductionSTMMCCToILP;
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_tasks();
-        let num_vars = n * n;
+        // n^2 position variables + 1 minimax variable z
+        let z_var = n * n;
+        let num_vars = n * n + 1;
 
         let x_var = |j: usize, p: usize| -> usize { j * n + p };
 
@@ -75,9 +77,16 @@ impl ReduceTo<ILP<bool>> for SequencingToMinimizeMaximumCumulativeCost {
             constraints.push(LinearConstraint::ge(terms, 1.0));
         }
 
-        // 4. Prefix cumulative cost: Σ_j Σ_{p in 0..=q} c_j * x_{j,p} <= K for all q
+        // Binary bounds for x variables (ILP<i32> allows any non-negative integer)
+        for j in 0..n {
+            for p in 0..n {
+                constraints.push(LinearConstraint::le(vec![(x_var(j, p), 1.0)], 1.0));
+            }
+        }
+
+        // 4. Prefix cumulative cost: Σ_j Σ_{p in 0..=q} c_j * x_{j,p} <= z for all q
+        //    (minimax linearization: z >= max_q cumulative_cost(q))
         let costs = self.costs();
-        let bound = self.bound();
         for q in 0..n {
             let mut terms: Vec<(usize, f64)> = Vec::new();
             for (j, &c_j) in costs.iter().enumerate() {
@@ -85,11 +94,15 @@ impl ReduceTo<ILP<bool>> for SequencingToMinimizeMaximumCumulativeCost {
                     terms.push((x_var(j, p), c_j as f64));
                 }
             }
-            constraints.push(LinearConstraint::le(terms, bound as f64));
+            terms.push((z_var, -1.0));
+            constraints.push(LinearConstraint::le(terms, 0.0));
         }
 
+        // Objective: minimize z (the maximum cumulative cost)
+        let objective = vec![(z_var, 1.0)];
+
         ReductionSTMMCCToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
             num_tasks: n,
         }
     }
@@ -103,13 +116,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "sequencingtominimizemaximumcumulativecost_to_ilp",
         build: || {
             let source =
-                SequencingToMinimizeMaximumCumulativeCost::new(vec![2, -1, 3, -2], vec![(0, 2)], 4);
-            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+                SequencingToMinimizeMaximumCumulativeCost::new(vec![2, -1, 3, -2], vec![(0, 2)]);
+            let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
             let ilp_solution = crate::solvers::ILPSolver::new()
                 .solve(reduction.target_problem())
                 .expect("canonical example must be solvable");
             let source_config = reduction.extract_solution(&ilp_solution);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
                 source,
                 SolutionPair {
                     source_config,

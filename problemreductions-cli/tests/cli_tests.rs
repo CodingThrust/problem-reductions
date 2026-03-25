@@ -193,7 +193,9 @@ fn test_solve_balanced_complete_bipartite_subgraph_default_solver_uses_ilp() {
     assert_eq!(json["reduced_to"], "ILP");
     assert_eq!(json["evaluation"], "Or(true)");
     assert!(
-        json["solution"].as_array().is_some_and(|solution| !solution.is_empty()),
+        json["solution"]
+            .as_array()
+            .is_some_and(|solution| !solution.is_empty()),
         "expected a non-empty solution array, got: {stdout}"
     );
 

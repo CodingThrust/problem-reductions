@@ -5,7 +5,7 @@
 //! - Integer position variables p_v = sum_p p * x_{v,p}
 //! - Non-negative z_{u,v} per edge for |p_u - p_v|
 //! - abs_diff_le constraints: z_{u,v} >= p_u - p_v, z_{u,v} >= p_v - p_u
-//! - Bound: sum z_{u,v} <= K
+//! - Minimize: sum z_{u,v}
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::OptimalLinearArrangement;
@@ -49,7 +49,7 @@ impl ReductionResult for ReductionOLAToILP {
 #[reduction(
     overhead = {
         num_vars = "num_vertices^2 + num_vertices + num_edges",
-        num_constraints = "2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 2 * num_edges + 1",
+        num_constraints = "2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 2 * num_edges",
     }
 )]
 impl ReduceTo<ILP<i32>> for OptimalLinearArrangement<SimpleGraph> {
@@ -60,7 +60,6 @@ impl ReduceTo<ILP<i32>> for OptimalLinearArrangement<SimpleGraph> {
         let graph = self.graph();
         let edges = graph.edges();
         let m = edges.len();
-        let bound = self.bound();
 
         let num_x = n * n;
         let num_vars = num_x + n + m;
@@ -119,12 +118,9 @@ impl ReduceTo<ILP<i32>> for OptimalLinearArrangement<SimpleGraph> {
             ));
         }
 
-        // Bound: sum z_e <= K
-        let bound_terms: Vec<(usize, f64)> = (0..m).map(|e| (z_idx(e), 1.0)).collect();
-        constraints.push(LinearConstraint::le(bound_terms, bound as f64));
-
-        // Feasibility: no objective
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        // Objective: minimize sum z_e
+        let objective: Vec<(usize, f64)> = (0..m).map(|e| (z_idx(e), 1.0)).collect();
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
         ReductionOLAToILP {
             target,
@@ -139,9 +135,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "optimallineararrangement_to_ilp",
         build: || {
-            // Path P4: 0-1-2-3, bound 3 (identity permutation achieves cost 3)
+            // Path P4: 0-1-2-3 (identity permutation achieves cost 3)
             let source =
-                OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 3);
+                OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
             let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
             let ilp_solution = crate::solvers::ILPSolver::new()
                 .solve(reduction.target_problem())
