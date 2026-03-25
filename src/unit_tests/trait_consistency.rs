@@ -227,7 +227,7 @@ fn test_all_problems_implement_trait_correctly() {
         "SequencingWithReleaseTimesAndDeadlines",
     );
     check_problem_trait(
-        &SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240),
+        &SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3),
         "SumOfSquaresPartition",
     );
     check_problem_trait(

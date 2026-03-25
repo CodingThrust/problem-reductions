@@ -10,12 +10,11 @@
 //! - Σ_g x_{i,g} = 1 for each element i (assignment)
 //! - McCormick for each (i,j,g):
 //!   z_{i,j,g} ≤ x_{i,g}, z_{i,j,g} ≤ x_{j,g}, z_{i,j,g} ≥ x_{i,g} + x_{j,g} - 1
-//! - Σ_g Σ_{i,j} s_i * s_j * z_{i,j,g} ≤ bound
 //!
 //! Note: Σ_g (Σ_i s_i * x_{i,g})^2 = Σ_g Σ_{i,j} s_i * s_j * x_{i,g} * x_{j,g}
 //!       which equals Σ_g Σ_{i,j} s_i * s_j * z_{i,j,g} after linearization.
 //!
-//! Objective: Minimize 0 (feasibility)
+//! Objective: Minimize Σ_g Σ_{i,j} s_i * s_j * z_{i,j,g}
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SumOfSquaresPartition;
@@ -75,7 +74,7 @@ impl ReductionResult for ReductionSSPToILP {
 #[reduction(
     overhead = {
         num_vars = "num_elements * num_groups + num_elements^2 * num_groups",
-        num_constraints = "num_elements + 3 * num_elements^2 * num_groups + 1",
+        num_constraints = "num_elements + 3 * num_elements^2 * num_groups",
     }
 )]
 impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
@@ -121,22 +120,21 @@ impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
             }
         }
 
-        // Objective bound: Σ_g Σ_{i,j} s_i * s_j * z_{i,j,g} ≤ bound
+        // Objective: Minimize Σ_g Σ_{i,j} s_i * s_j * z_{i,j,g}
         let sizes = self.sizes();
-        let mut bound_terms: Vec<(usize, f64)> = Vec::new();
+        let mut objective: Vec<(usize, f64)> = Vec::new();
         for i in 0..n {
             for j in 0..n {
                 for g in 0..k {
                     let coeff = sizes[i] as f64 * sizes[j] as f64;
                     if coeff.abs() > 0.0 {
-                        bound_terms.push((result.z_var(i, j, g), coeff));
+                        objective.push((result.z_var(i, j, g), coeff));
                     }
                 }
             }
         }
-        constraints.push(LinearConstraint::le(bound_terms, self.bound() as f64));
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
         ReductionSSPToILP {
             target,
@@ -153,9 +151,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "sumofsquarespartition_to_ilp",
         build: || {
-            // 4 elements [1, 2, 3, 4], K=2 groups, bound=50
-            // Group {1,4}: sum=5, Group {2,3}: sum=5 → sos = 25+25 = 50 ≤ 50
-            let source = SumOfSquaresPartition::new(vec![1, 2, 3, 4], 2, 50);
+            // 4 elements [1, 2, 3, 4], K=2 groups
+            // Group {1,4}: sum=5, Group {2,3}: sum=5 → sos = 25+25 = 50
+            let source = SumOfSquaresPartition::new(vec![1, 2, 3, 4], 2);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

@@ -673,7 +673,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "BoyceCoddNormalFormViolation" => {
             "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
         }
-        "SumOfSquaresPartition" => "--sizes 5,3,8,2,7,1 --num-groups 3 --bound 240",
+        "SumOfSquaresPartition" => "--sizes 5,3,8,2,7,1 --num-groups 3",
         "ComparativeContainment" => {
             "--universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
         }
@@ -2378,25 +2378,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "SumOfSquaresPartition" => {
             let sizes_str = args.sizes.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "SumOfSquaresPartition requires --sizes, --num-groups, and --bound\n\n\
-                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3 --bound 240"
+                    "SumOfSquaresPartition requires --sizes and --num-groups\n\n\
+                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3"
                 )
             })?;
             let num_groups = args.num_groups.ok_or_else(|| {
                 anyhow::anyhow!(
                     "SumOfSquaresPartition requires --num-groups\n\n\
-                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3 --bound 240"
-                )
-            })?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SumOfSquaresPartition requires --bound\n\n\
-                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3 --bound 240"
+                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3"
                 )
             })?;
             let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
             (
-                ser(SumOfSquaresPartition::try_new(sizes, num_groups, bound)
+                ser(SumOfSquaresPartition::try_new(sizes, num_groups)
                     .map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
