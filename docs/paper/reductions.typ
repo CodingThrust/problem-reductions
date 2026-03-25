@@ -4697,16 +4697,17 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 #{
   let x = load-model-example("ShortestCommonSupersequence")
   let alpha-size = x.instance.alphabet_size
-  let bound = x.instance.bound
+  let max-length = x.instance.max_length
   let strings = x.instance.strings
   let nr = strings.len()
   // Alphabet mapping: 0->a, 1->b, 2->c, ...
   let alpha-map = range(alpha-size).map(i => str.from-unicode(97 + i))
   let fmt-str(s) = "\"" + s.map(c => alpha-map.at(c)).join("") + "\""
-  // Pick optimal config = [1,0,1,2] = "babc" to match figure
+  // Optimal config includes padding; extract non-padding prefix
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let w = sol.config.map(c => alpha-map.at(c))
-  let w-str = fmt-str(sol.config)
+  let w-cfg = sol.config.filter(c => c < alpha-size)
+  let w = w-cfg.map(c => alpha-map.at(c))
+  let w-str = fmt-str(w-cfg)
   let w-len = w.len()
   // Format input strings
   let r-strs = strings.map(s => fmt-str(s))
@@ -4723,16 +4724,16 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     }
     positions
   }
-  let embeds = strings.map(s => compute-embed(s, sol.config))
+  let embeds = strings.map(s => compute-embed(s, w-cfg))
   [
     #problem-def("ShortestCommonSupersequence")[
-      Given a finite alphabet $Sigma$, a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, and a positive integer $K$, determine whether there exists a string $w in Sigma^*$ with $|w| lt.eq K$ such that every string $r_i in R$ is a _subsequence_ of $w$: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|r_i|) lt.eq |w|$ with $w[j_k] = r_i [k]$ for all $k$.
+      Given a finite alphabet $Sigma$ and a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, find a string $w in Sigma^*$ of minimum length such that every string $r_i in R$ is a _subsequence_ of $w$: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|r_i|) lt.eq |w|$ with $w[j_k] = r_i [k]$ for all $k$.
     ][
-      A classic NP-complete string problem, listed as problem SR8 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness; #cite(<raiha1981>, form: "prose") showed the problem remains NP-complete even over a binary alphabet ($|Sigma| = 2$). Note that _subsequence_ (characters may be non-contiguous) differs from _substring_ (contiguous block): the Shortest Common Supersequence asks that each input string can be embedded into $w$ by selecting characters in order but not necessarily adjacently.
+      A classic NP-hard string problem, listed as problem SR8 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness of the decision version; #cite(<raiha1981>, form: "prose") showed the problem remains NP-complete even over a binary alphabet ($|Sigma| = 2$). Note that _subsequence_ (characters may be non-contiguous) differs from _substring_ (contiguous block): the Shortest Common Supersequence asks that each input string can be embedded into $w$ by selecting characters in order but not necessarily adjacently.
 
-      For $|R| = 2$ strings, the problem is solvable in polynomial time via the duality with the Longest Common Subsequence (LCS): if $"LCS"(r_1, r_2)$ has length $ell$, then the shortest common supersequence has length $|r_1| + |r_2| - ell$, computable in $O(|r_1| dot |r_2|)$ time by dynamic programming. For general $|R| = m$, the brute-force search over all strings of length at most $K$ takes $O(|Sigma|^K)$ time. Applications include bioinformatics (reconstructing ancestral sequences from fragments), data compression (representing multiple strings compactly), and scheduling (merging instruction sequences).
+      For $|R| = 2$ strings, the problem is solvable in polynomial time via the duality with the Longest Common Subsequence (LCS): if $"LCS"(r_1, r_2)$ has length $ell$, then the shortest common supersequence has length $|r_1| + |r_2| - ell$, computable in $O(|r_1| dot |r_2|)$ time by dynamic programming. For general $|R| = m$, the brute-force search explores all candidate supersequences up to the maximum possible length $sum_i |r_i|$. Applications include bioinformatics (reconstructing ancestral sequences from fragments), data compression (representing multiple strings compactly), and scheduling (merging instruction sequences).
 
-      *Example.* Let $Sigma = {#alpha-map.join(", ")}$ and $R = {#r-strs.join(", ")}$. We seek a string $w$ of length at most $K = #bound$ that contains every $r_i$ as a subsequence.
+      *Example.* Let $Sigma = {#alpha-map.join(", ")}$ and $R = {#r-strs.join(", ")}$. We seek the shortest string $w$ that contains every $r_i$ as a subsequence.
 
       #pred-commands(
         "pred create --example ShortestCommonSupersequence -o shortest-common-supersequence.json",
@@ -4773,7 +4774,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       caption: [Shortest Common Supersequence: $w = #w-str$ (length #w-len) contains #range(nr).map(ri => [$r_#(ri + 1) = #r-strs.at(ri)$ (positions #embeds.at(ri).map(p => str(p)).join(","))]).join(", ") as subsequences. Dots mark unused positions.],
       ) <fig:scs>
 
-      The supersequence $w = #w-str$ has length #w-len $lt.eq K = #bound$ and contains all #nr input strings as subsequences.
+      The optimal supersequence $w = #w-str$ has length #w-len and contains all #nr input strings as subsequences.
     ]
   ]
 }

@@ -4049,15 +4049,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // ShortestCommonSupersequence
         "ShortestCommonSupersequence" => {
-            let usage = "Usage: pred create SCS --strings \"0,1,2;1,2,0\" --bound 4";
+            let usage = "Usage: pred create SCS --strings \"0,1,2;1,2,0\"";
             let strings_str = args.strings.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("ShortestCommonSupersequence requires --strings\n\n{usage}")
             })?;
-            let bound_raw = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("ShortestCommonSupersequence requires --bound\n\n{usage}")
-            })?;
-            let bound =
-                parse_nonnegative_usize_bound(bound_raw, "ShortestCommonSupersequence", usage)?;
             let strings: Vec<Vec<usize>> = strings_str
                 .split(';')
                 .map(|s| {
@@ -4091,11 +4086,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 );
             }
             (
-                ser(ShortestCommonSupersequence::new(
-                    alphabet_size,
-                    strings,
-                    bound,
-                ))?,
+                ser(ShortestCommonSupersequence::new(alphabet_size, strings))?,
                 resolved_variant.clone(),
             )
         }
