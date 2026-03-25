@@ -103,7 +103,7 @@ pub struct ReduceParams {
 pub struct SolveParams {
     #[schemars(description = "Problem JSON string (from create_problem or reduce)")]
     pub problem_json: String,
-    #[schemars(description = "Solver: 'ilp' (default) or 'brute-force'")]
+    #[schemars(description = "Solver: 'ilp' (default), 'brute-force', or 'customized'")]
     pub solver: Option<String>,
     #[schemars(description = "Timeout in seconds (0 = no limit, default: 0)")]
     pub timeout: Option<u64>,
@@ -880,9 +880,9 @@ impl McpServer {
         timeout: Option<u64>,
     ) -> anyhow::Result<String> {
         let solver_name = solver.unwrap_or("ilp");
-        if solver_name != "brute-force" && solver_name != "ilp" {
+        if solver_name != "brute-force" && solver_name != "ilp" && solver_name != "customized" {
             anyhow::bail!(
-                "Unknown solver: {}. Available solvers: brute-force, ilp",
+                "Unknown solver: {}. Available solvers: brute-force, ilp, customized",
                 solver_name
             );
         }
@@ -1040,7 +1040,7 @@ impl McpServer {
             .map_err(|e| e.to_string())
     }
 
-    /// Solve a problem instance using brute-force or ILP solver
+    /// Solve a problem instance using brute-force, ILP, or customized solver
     #[tool(
         name = "solve",
         annotations(read_only_hint = true, open_world_hint = false)
@@ -1488,6 +1488,15 @@ fn solve_problem_inner(
             }
             Ok(serde_json::to_string_pretty(&json)?)
         }
+        "customized" => {
+            let result = problem.solve_with_customized()?;
+            let result = crate::dispatch::SolveResult {
+                config: Some(result.config),
+                evaluation: result.evaluation,
+            };
+            let json = solve_result_json(name, "customized", &result);
+            Ok(serde_json::to_string_pretty(&json)?)
+        }
         _ => unreachable!(),
     }
 }
@@ -1509,6 +1518,7 @@ fn solve_bundle_inner(bundle: ReductionBundle, solver_name: &str) -> anyhow::Res
             )
         })?,
         "ilp" => target.solve_with_ilp()?,
+        "customized" => target.solve_with_customized()?,
         _ => unreachable!(),
     };
 

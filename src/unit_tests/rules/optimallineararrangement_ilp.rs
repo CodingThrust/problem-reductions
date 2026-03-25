@@ -1,0 +1,97 @@
+use super::*;
+use crate::solvers::{BruteForce, ILPSolver};
+use crate::topology::SimpleGraph;
+use crate::traits::Problem;
+use crate::types::Or;
+
+#[test]
+fn test_reduction_creates_valid_ilp() {
+    // Path P4: 0-1-2-3, bound 3
+    let problem =
+        OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 3);
+    let reduction: ReductionOLAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let ilp = reduction.target_problem();
+    // num_x=16, p_v=4, z_e=3, total=23
+    assert_eq!(ilp.num_vars, 23);
+    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+}
+
+#[test]
+fn test_optimallineararrangement_to_ilp_closed_loop() {
+    // Path graph with bound = 3 (identity permutation achieves cost 3)
+    let problem =
+        OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 3);
+    // BruteForce on source to verify feasibility
+    let bf = BruteForce::new();
+    let bf_solution = bf
+        .find_witness(&problem)
+        .expect("brute-force should find a solution");
+    assert_eq!(problem.evaluate(&bf_solution), Or(true));
+
+    // Solve via ILP
+    let reduction: ReductionOLAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let ilp_solver = ILPSolver::new();
+    let ilp_solution = ilp_solver
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(
+        problem.evaluate(&extracted),
+        Or(true),
+        "ILP solution should satisfy the OLA bound"
+    );
+}
+
+#[test]
+fn test_optimallineararrangement_to_ilp_with_chords() {
+    // 6 vertices, path + chords, bound 11
+    let problem = OptimalLinearArrangement::new(
+        SimpleGraph::new(
+            6,
+            vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 3), (2, 5)],
+        ),
+        11,
+    );
+
+    // BruteForce on source
+    let bf = BruteForce::new();
+    let bf_solution = bf
+        .find_witness(&problem)
+        .expect("brute-force should find a solution");
+    assert_eq!(problem.evaluate(&bf_solution), Or(true));
+
+    // Solve via ILP
+    let reduction: ReductionOLAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let ilp_solver = ILPSolver::new();
+    let ilp_solution = ilp_solver
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(problem.evaluate(&extracted), Or(true));
+}
+
+#[test]
+fn test_optimallineararrangement_to_ilp_infeasible() {
+    // K4: minimum OLA cost is 10, bound 5 should be infeasible
+    let problem = OptimalLinearArrangement::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+        5,
+    );
+    let reduction: ReductionOLAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let ilp_solver = ILPSolver::new();
+    let result = ilp_solver.solve(reduction.target_problem());
+    assert!(result.is_none(), "K4 with bound 5 should be infeasible");
+}
+
+#[test]
+fn test_solution_extraction() {
+    let problem =
+        OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 3);
+    let reduction: ReductionOLAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let ilp_solver = ILPSolver::new();
+    let ilp_solution = ilp_solver
+        .solve(reduction.target_problem())
+        .expect("solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(problem.evaluate(&extracted), Or(true));
+}

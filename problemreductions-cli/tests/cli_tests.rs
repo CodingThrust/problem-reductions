@@ -163,7 +163,7 @@ fn test_create_stacker_crane_schema_help_uses_documented_flags() {
 }
 
 #[test]
-fn test_solve_balanced_complete_bipartite_subgraph_suggests_bruteforce() {
+fn test_solve_balanced_complete_bipartite_subgraph_default_solver_uses_ilp() {
     let tmp = std::env::temp_dir().join("pred_test_bcbs_problem.json");
     let create = pred()
         .args([
@@ -181,11 +181,20 @@ fn test_solve_balanced_complete_bipartite_subgraph_suggests_bruteforce() {
         .args(["solve", tmp.to_str().unwrap()])
         .output()
         .unwrap();
-    assert!(!solve.status.success());
-    let stderr = String::from_utf8(solve.stderr).unwrap();
     assert!(
-        stderr.contains("--solver brute-force"),
-        "expected brute-force hint, got: {stderr}"
+        solve.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&solve.stderr)
+    );
+    let stdout = String::from_utf8(solve.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["problem"], "BalancedCompleteBipartiteSubgraph");
+    assert_eq!(json["solver"], "ilp");
+    assert_eq!(json["reduced_to"], "ILP");
+    assert_eq!(json["evaluation"], "Or(true)");
+    assert!(
+        json["solution"].as_array().is_some_and(|solution| !solution.is_empty()),
+        "expected a non-empty solution array, got: {stdout}"
     );
 
     std::fs::remove_file(tmp).ok();
@@ -8494,4 +8503,202 @@ fn test_create_sequencing_within_intervals_rejects_overflow() {
         stderr.contains("overflow computing r(i) + l(i)"),
         "expected overflow validation error, got: {stderr}"
     );
+}
+
+#[test]
+fn test_solve_customized_unsupported_problem_shows_hint() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_customized_unsupported.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--graph",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args([
+            "solve",
+            problem_file.to_str().unwrap(),
+            "--solver",
+            "customized",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("unsupported by customized solver"),
+        "expected customized solver hint, got: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_customized_minimum_cardinality_key() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_customized_mck.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MinimumCardinalityKey",
+            "--num-attributes",
+            "4",
+            "--dependencies",
+            "0>1,2;1,2>3",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create failed: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args([
+            "solve",
+            problem_file.to_str().unwrap(),
+            "--solver",
+            "customized",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "solve failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("customized"),
+        "expected 'customized' in output, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Or(true)"),
+        "expected satisfying evaluation, got: {stdout}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_customized_bundle_does_not_panic() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_customized_bundle_problem.json");
+    let bundle_file = std::env::temp_dir().join("pred_test_solve_customized_bundle.json");
+
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--graph",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let reduce_out = pred()
+        .args([
+            "-o",
+            bundle_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "QUBO",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        reduce_out.status.success(),
+        "reduce failed: {}",
+        String::from_utf8_lossy(&reduce_out.stderr)
+    );
+
+    let solve_out = pred()
+        .args([
+            "solve",
+            bundle_file.to_str().unwrap(),
+            "--solver",
+            "customized",
+        ])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&solve_out.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "customized bundle solve should fail gracefully, got: {stderr}"
+    );
+    assert!(
+        !solve_out.status.success(),
+        "customized solver should not silently succeed on unsupported bundle target"
+    );
+    assert!(
+        stderr.contains("unsupported by customized solver"),
+        "expected customized solver error, got: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&bundle_file).ok();
+}
+
+#[test]
+fn test_inspect_minimum_cardinality_key_lists_customized_solver() {
+    let problem_file = std::env::temp_dir().join("pred_test_inspect_customized_mck.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MinimumCardinalityKey",
+            "--num-attributes",
+            "4",
+            "--dependencies",
+            "0>1,2;1,2>3",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create failed: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let inspect_out = pred()
+        .args(["inspect", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        inspect_out.status.success(),
+        "inspect failed: {}",
+        String::from_utf8_lossy(&inspect_out.stderr)
+    );
+
+    let stdout = String::from_utf8(inspect_out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let solvers: Vec<&str> = json["solvers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|value| value.as_str().unwrap())
+        .collect();
+    assert!(
+        solvers.contains(&"customized"),
+        "inspect should list customized when supported, got: {json}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
 }

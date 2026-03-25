@@ -72,7 +72,7 @@ For `[Rule]` issues, `ISSUE_JSON` already includes `source_problem`, `target_pro
 - If both `checks.source_model` and `checks.target_model` are `pass` → continue to step 4.
 - If either is `fail` → **STOP**. Comment on the issue: "Blocked: model `<name>` does not exist in main yet. Please implement it first (or file a `[Model]` issue)."
 
-**One item per PR:** Do NOT implement a missing model as part of a `[Rule]` PR. Each PR should contain exactly one model or one rule, never both. This avoids bloated PRs and repeated implementation when the model is needed by multiple rules.
+**One item per PR, with one exception:** Do NOT implement a missing model as part of a `[Rule]` PR. `[Rule]` issues still require both models to exist on `main`. The only exception is a `[Model]` issue that explicitly claims direct ILP solvability: that PR should implement both the model and the direct `<Model> -> ILP` rule together.
 
 ### 4. Research References
 
@@ -89,7 +89,8 @@ Write implementation plan to `docs/plans/YYYY-MM-DD-<slug>.md` using `superpower
 
 The plan MUST reference the appropriate implementation skill and follow its steps:
 
-- **For `[Model]` issues:** Follow [add-model](../add-model/SKILL.md) Steps 1-7 as the action pipeline
+- **For ordinary `[Model]` issues:** Follow [add-model](../add-model/SKILL.md) Steps 1-7 as the action pipeline
+- **For `[Model]` issues that explicitly claim direct ILP solving:** Follow [add-model](../add-model/SKILL.md) Steps 1-7 **and** [add-rule](../add-rule/SKILL.md) Steps 1-6 for the direct `<Problem> -> ILP` rule in the same plan / PR
 - **For `[Rule]` issues:** Follow [add-rule](../add-rule/SKILL.md) Steps 1-6 as the action pipeline
 
 Include the concrete details from the issue (problem definition, reduction algorithm, example, etc.) mapped onto each step.
@@ -98,9 +99,14 @@ Include the concrete details from the issue (problem definition, reduction algor
 - Batch 1: Steps 1-5.5 (implement model, register, CLI, tests)
 - Batch 2: Step 6 (write paper entry — depends on batch 1 for exports)
 
+For a `[Model]` issue with an explicit direct ILP claim, use:
+- Batch 1: implement the model, register it, add the direct `<Problem> -> ILP` rule, and add model + rule tests
+- Batch 2: write both the `problem-def(...)` and `reduction-rule(...)` paper entries, regenerate exports / fixtures, and run final ILP-enabled verification
+
 **Solver rules:**
 - Ensure at least one solver is provided in the issue template. Check if the solving strategy is valid. If not, reply under issue to ask for clarification.
-- If the solver uses integer programming, implement the model and ILP reduction rule together.
+- If a `[Model]` issue explicitly claims direct ILP solving, implement the model and the direct `<Problem> -> ILP` reduction together in the same PR. Do not leave the ILP rule as a follow-up.
+- The direct ILP rule must meet the same completeness bar as a standalone production ILP reduction: exact overhead metadata, feature-gated registration, strong closed-loop / extraction / weighted / infeasible / pathological tests when applicable, CLI/example-db/paper integration, and ILP-enabled workspace verification.
 - Otherwise, ensure the information provided is enough to implement a solver.
 
 **Example rules:**
@@ -291,6 +297,6 @@ Run /review-pipeline to run agentic review (structural check, quality check, age
 | Dirty working tree | Use `pipeline_worktree.py prepare-issue-branch` — it stops before branching if the worktree is dirty |
 | Resuming wrong PR | Always validate `resume_pr.head_ref_name` contains `issue-{N}` before trusting it — GitHub search can return false positives |
 | `prepare-issue-branch` inside worktree | Skip it when inside a `run-pipeline` worktree (CWD under `.worktrees/`) — the branch already exists |
-| Bundling model + rule in one PR | Each PR must contain exactly one model or one rule — STOP and block if model is missing (Step 3.5) |
+| Bundling unrelated model + rule in one PR | Keep the normal one-item-per-PR rule. The only exception is a `[Model]` issue that explicitly claims direct ILP solving, which should ship with its direct `<Model> -> ILP` rule |
 | Plan files left in PR | Delete plan files before final push (Step 7c) |
 | `make paper` or export steps changed tracked JSON after verification | Run `git status --short`, stage expected generated exports, and STOP if unexpected files remain before push |

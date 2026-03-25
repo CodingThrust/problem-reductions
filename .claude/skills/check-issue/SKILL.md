@@ -227,6 +227,7 @@ Applies when the title contains `[Model]`.
 5. Check **How to solve** section:
    - At least one solver method must be checked (brute-force, ILP reduction, or other)
    - If no solver path is identified → **Warn** ("No solver means reduction rules can't be verified")
+   - If direct ILP solving is claimed, the issue must link a direct `[Rule] <ProblemName> to ILP` companion issue in the "Reduction Rule Crossref" section; otherwise → **Fail**
 
 ---
 
@@ -305,7 +306,7 @@ Check all template sections are present and substantive:
 | Variables | Count, per-variable domain, semantic meaning |
 | Schema | Type name, variants, field table |
 | Complexity | Best known algorithm with citation **and** a concrete complexity expression in terms of problem parameters (e.g., `q^n`, `2^{0.8765n}`) |
-| How to solve | At least one solver method checked |
+| How to solve | At least one solver method checked; if ILP is claimed, a direct `[Rule] <ProblemName> to ILP` issue must be linked |
 | Example Instance | Concrete instance that exercises the core structure |
 | Expected Outcome | Satisfaction: one valid / satisfying solution with brief justification. Optimization: one optimal solution with the optimal objective value |
 
@@ -334,6 +335,7 @@ The formal definition must be **precise and implementable**:
   - Optimization problems must include a concrete optimal solution and the optimal objective value
 - **Detailed enough for paper**: This example will appear in the paper — it needs to be illustrative
 - **Round-trip testable**: The example must be complex enough that a round-trip test (construct instance → solve → verify) can catch implementation bugs. A too-simple instance (e.g., 2 vertices, a single clause) may have a trivially correct solution that passes even with a wrong implementation. The example should have multiple feasible configurations with different objective values (for optimization) or a mix of satisfying and non-satisfying configurations (for satisfaction problems), so that correctness is meaningfully tested. Rule of thumb: the instance should have at least 2 suboptimal feasible solutions in addition to the optimal one.
+- **ILP-testable when claimed**: If the issue advertises a direct ILP path, the example should be rich enough to support strong ILP closed-loop tests rather than a degenerate "any formulation passes" case.
 
 ### 4e: Representation Feasibility
 

@@ -88,7 +88,7 @@ impl ILPSolver {
     pub fn solve<V: VariableDomain>(&self, problem: &ILP<V>) -> Option<Vec<usize>> {
         let n = problem.num_vars;
         if n == 0 {
-            return Some(vec![]);
+            return problem.is_feasible(&[]).then_some(vec![]);
         }
 
         // Create integer variables with bounds from variable domain
