@@ -8555,8 +8555,6 @@ fn test_solve_customized_minimum_cardinality_key() {
             "4",
             "--dependencies",
             "0>1,2;1,2>3",
-            "--bound",
-            "2",
         ])
         .output()
         .unwrap();
@@ -8586,8 +8584,8 @@ fn test_solve_customized_minimum_cardinality_key() {
         "expected 'customized' in output, got: {stdout}"
     );
     assert!(
-        stdout.contains("Or(true)"),
-        "expected satisfying evaluation, got: {stdout}"
+        stdout.contains("Min("),
+        "expected Min(...) evaluation, got: {stdout}"
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -8668,8 +8666,6 @@ fn test_inspect_minimum_cardinality_key_lists_customized_solver() {
             "4",
             "--dependencies",
             "0>1,2;1,2>3",
-            "--bound",
-            "2",
         ])
         .output()
         .unwrap();
