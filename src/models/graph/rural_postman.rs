@@ -1,13 +1,12 @@
 //! Rural Postman problem implementation.
 //!
-//! The Rural Postman problem asks whether there exists a circuit in a graph
-//! that includes each edge in a required subset E' and has total length
-//! at most a given bound B.
+//! The Rural Postman problem asks for a minimum-cost circuit in a graph
+//! that includes each edge in a required subset E'.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::types::WeightElement;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -22,22 +21,20 @@ inventory::submit! {
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
         module_path: module_path!(),
-        description: "Find a circuit covering required edges with total length at most B (Rural Postman Problem)",
+        description: "Find a minimum-cost circuit covering all required edges (Rural Postman Problem)",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
             FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge lengths l(e) for each e in E" },
             FieldInfo { name: "required_edges", type_name: "Vec<usize>", description: "Edge indices of the required subset E' ⊆ E" },
-            FieldInfo { name: "bound", type_name: "W::Sum", description: "Upper bound B on total circuit length" },
         ],
     }
 }
 
 /// The Rural Postman problem.
 ///
-/// Given a weighted graph G = (V, E) with edge lengths l(e),
-/// a subset E' ⊆ E of required edges, and a bound B,
-/// determine if there exists a circuit (closed walk) in G that
-/// includes each edge in E' and has total length at most B.
+/// Given a weighted graph G = (V, E) with edge lengths l(e) and
+/// a subset E' ⊆ E of required edges, find a minimum-cost circuit
+/// (closed walk) in G that includes each edge in E'.
 ///
 /// # Representation
 ///
@@ -50,7 +47,6 @@ inventory::submit! {
 /// - All required edges have multiplicity ≥ 1
 /// - All vertices have even degree (sum of multiplicities of incident edges)
 /// - Edges with multiplicity > 0 form a connected subgraph
-/// - Total length (sum of multiplicity × edge length) ≤ bound
 ///
 /// Note: In an optimal RPP solution on undirected graphs, each edge is
 /// traversed at most twice, so multiplicity ∈ {0, 1, 2} is sufficient.
@@ -67,8 +63,6 @@ pub struct RuralPostman<G, W: WeightElement> {
     edge_lengths: Vec<W>,
     /// Indices of required edges (subset E' ⊆ E).
     required_edges: Vec<usize>,
-    /// Upper bound B on total circuit length.
-    bound: W::Sum,
 }
 
 impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
@@ -77,7 +71,7 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
     /// # Panics
     /// Panics if edge_lengths length does not match graph edges,
     /// or if any required edge index is out of bounds.
-    pub fn new(graph: G, edge_lengths: Vec<W>, required_edges: Vec<usize>, bound: W::Sum) -> Self {
+    pub fn new(graph: G, edge_lengths: Vec<W>, required_edges: Vec<usize>) -> Self {
         assert_eq!(
             edge_lengths.len(),
             graph.num_edges(),
@@ -95,7 +89,6 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
             graph,
             edge_lengths,
             required_edges,
-            bound,
         }
     }
 
@@ -112,11 +105,6 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
     /// Get the required edge indices.
     pub fn required_edges(&self) -> &[usize] {
         &self.required_edges
-    }
-
-    /// Get the bound B.
-    pub fn bound(&self) -> &W::Sum {
-        &self.bound
     }
 
     /// Get the number of vertices in the underlying graph.
@@ -150,13 +138,13 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
         !W::IS_UNIT
     }
 
-    /// Check if a configuration represents a valid circuit covering all required edges
-    /// with total length at most the bound.
+    /// Check if a configuration represents a valid circuit covering all required edges.
+    /// Returns `Some(cost)` if valid, `None` otherwise.
     ///
     /// Each `config[i]` is the multiplicity (number of traversals) of edge `i`.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[usize]) -> Option<W::Sum> {
         if config.len() != self.graph.num_edges() {
-            return false;
+            return None;
         }
 
         let edges = self.graph.edges();
@@ -165,7 +153,7 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
         // Check all required edges are traversed at least once
         for &req_idx in &self.required_edges {
             if config[req_idx] == 0 {
-                return false;
+                return None;
             }
         }
 
@@ -183,13 +171,17 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
 
         // No edges used: only valid if no required edges
         if !has_edges {
-            return self.required_edges.is_empty();
+            if self.required_edges.is_empty() {
+                return Some(W::Sum::zero());
+            } else {
+                return None;
+            }
         }
 
         // All vertices must have even degree (Eulerian condition)
         for &d in &degree {
             if d % 2 != 0 {
-                return false;
+                return None;
             }
         }
 
@@ -210,7 +202,13 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
 
         let first = match first_vertex {
             Some(v) => v,
-            None => return self.required_edges.is_empty(),
+            None => {
+                if self.required_edges.is_empty() {
+                    return Some(W::Sum::zero());
+                } else {
+                    return None;
+                }
+            }
         };
 
         let mut visited = vec![false; n];
@@ -230,11 +228,11 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
         // All vertices with degree > 0 must be visited
         for v in 0..n {
             if degree[v] > 0 && !visited[v] {
-                return false;
+                return None;
             }
         }
 
-        // Check total length ≤ bound (sum of multiplicity × edge length)
+        // Compute total cost (sum of multiplicity × edge length)
         let mut total = W::Sum::zero();
         for (idx, &mult) in config.iter().enumerate() {
             for _ in 0..mult {
@@ -242,7 +240,7 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
             }
         }
 
-        total <= self.bound
+        Some(total)
     }
 }
 
@@ -252,7 +250,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "RuralPostman";
-    type Value = crate::types::Or;
+    type Value = Min<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -262,8 +260,8 @@ where
         vec![3; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_valid_solution(config))
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
+        Min(self.is_valid_solution(config))
     }
 }
 
@@ -274,8 +272,8 @@ crate::declare_variants! {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::SimpleGraph;
-    // Issue #248 instance 1: hexagonal graph, 8 edges, E'={e0,e2,e4}, B=6
-    // Solution: hexagon cycle with all 6 unit-cost edges, config [1,1,1,1,1,1,0,0]
+    // Issue #248 instance 1: hexagonal graph, 8 edges, E'={e0,e2,e4}
+    // Solution: hexagon cycle with all 6 unit-cost edges, config [1,1,1,1,1,1,0,0], cost=6
     let graph = SimpleGraph::new(
         6,
         vec![
@@ -295,10 +293,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             graph,
             vec![1, 1, 1, 1, 1, 1, 2, 2],
             vec![0, 2, 4],
-            6,
         )),
         optimal_config: vec![1, 1, 1, 1, 1, 1, 0, 0],
-        optimal_value: serde_json::json!(true),
+        optimal_value: serde_json::json!(6),
     }]
 }
 
