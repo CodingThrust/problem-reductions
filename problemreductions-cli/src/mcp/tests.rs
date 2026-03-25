@@ -403,8 +403,7 @@ mod tests {
                 },
                 "vertex_weights": [1, 1, 1, 1],
                 "edge_lengths": [1, 1, 1],
-                "k": 2,
-                "bound": 1
+                "k": 2
             }
         })
         .to_string();

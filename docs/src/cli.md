@@ -149,7 +149,7 @@ Registered problems: 50 types, 59 reductions, 69 variant nodes
   KSatisfiability/K2                                                    O(num_clauses + num_variables)
   KSatisfiability/K3                                                    O(1.307^num_variables)
   Knapsack *                                                         1  O(2^(0.5 * num_items))
-  LengthBoundedDisjointPaths/SimpleGraph *                              O(2^(num_paths_required * num_vertices))
+  LengthBoundedDisjointPaths/SimpleGraph *                              O(2^(max_paths * num_vertices))
   LongestCommonSubsequence *                        LCS              1  O(2^min_string_length)
   MaxCut/SimpleGraph/i32 *                                           1  O(2^(0.7906666666666666 * num_vertices))
   MaximalIS/SimpleGraph/i32 *                                           O(3^(0.3333333333333333 * num_vertices))
@@ -353,7 +353,7 @@ pred create KColoring --k 3 --graph 0-1,1-2,2-0 -o kcol.json
 pred create KthBestSpanningTree --graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3 -o kth.json
 pred create SpinGlass --graph 0-1,1-2 -o sg.json
 pred create MaxCut --graph 0-1,1-2,2-0 -o maxcut.json
-pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 --bound 1 -o pcenter.json
+pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 -o pcenter.json
 pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8 -o swcp.json
 pred create RectilinearPictureCompression --matrix "1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1" --k 2 -o rpc.json
 pred solve rpc.json --solver brute-force
@@ -516,7 +516,7 @@ Stdin is supported with `-`:
 ```bash
 pred create MIS --graph 0-1,1-2,2-3 | pred solve -
 pred create MIS --graph 0-1,1-2,2-3 | pred solve - --solver brute-force
-pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 --bound 1 | pred solve - --solver brute-force
+pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 | pred solve - --solver brute-force
 pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets "0,1,2;3,4,5;1,3;2,4;0,5" | pred solve - --solver brute-force
 ```
 

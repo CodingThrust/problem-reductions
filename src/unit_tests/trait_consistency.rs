@@ -129,7 +129,6 @@ fn test_all_problems_implement_trait_correctly() {
             vec![1i32; 3],
             vec![1i32; 2],
             1,
-            1,
         ),
         "MinMaxMulticenter",
     );
