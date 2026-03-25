@@ -1,10 +1,11 @@
 //! Minimum Cardinality Key problem implementation.
 //!
-//! Given a set of attribute names, functional dependencies, and a bound M,
-//! determine whether there exists a candidate key of cardinality at most M.
+//! Given a set of attribute names and functional dependencies,
+//! find a candidate key of minimum cardinality.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -14,30 +15,26 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),
-        description: "Determine whether a relational system has a candidate key of bounded cardinality",
+        description: "Find a candidate key of minimum cardinality in a relational system",
         fields: &[
             FieldInfo { name: "num_attributes", type_name: "usize", description: "Number of attributes in the relation" },
             FieldInfo { name: "dependencies", type_name: "Vec<(Vec<usize>, Vec<usize>)>", description: "Functional dependencies as (lhs, rhs) pairs" },
-            FieldInfo { name: "bound", type_name: "i64", description: "Upper bound on key cardinality" },
         ],
     }
 }
 
-/// The Minimum Cardinality Key decision problem.
+/// The Minimum Cardinality Key optimization problem.
 ///
-/// Given a set of attributes `A = {0, ..., n-1}`, a set of functional
+/// Given a set of attributes `A = {0, ..., n-1}` and a set of functional
 /// dependencies `F` (each a pair `(X, Y)` where `X, Y` are subsets of `A`),
-/// and a positive integer `k`, determine whether there exists a candidate key
-/// (a minimal set of attributes that functionally determines all of `A`) of
-/// cardinality at most `k`.
+/// find a subset `K ⊆ A` of minimum cardinality such that the closure of `K`
+/// under `F` equals `A` (i.e., `K` is a key).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumCardinalityKey {
     /// Number of attributes (elements are `0..num_attributes`).
     num_attributes: usize,
     /// Functional dependencies as `(lhs, rhs)` pairs.
     dependencies: Vec<(Vec<usize>, Vec<usize>)>,
-    /// Upper bound on key cardinality.
-    bound: i64,
 }
 
 impl MinimumCardinalityKey {
@@ -49,7 +46,6 @@ impl MinimumCardinalityKey {
     pub fn new(
         num_attributes: usize,
         dependencies: Vec<(Vec<usize>, Vec<usize>)>,
-        bound: i64,
     ) -> Self {
         let mut dependencies = dependencies;
         for (dep_index, (lhs, rhs)) in dependencies.iter_mut().enumerate() {
@@ -71,7 +67,6 @@ impl MinimumCardinalityKey {
         Self {
             num_attributes,
             dependencies,
-            bound,
         }
     }
 
@@ -83,11 +78,6 @@ impl MinimumCardinalityKey {
     /// Return the number of functional dependencies.
     pub fn num_dependencies(&self) -> usize {
         self.dependencies.len()
-    }
-
-    /// Return the upper bound on key cardinality.
-    pub fn bound(&self) -> i64 {
-        self.bound
     }
 
     /// Return the functional dependencies.
@@ -127,48 +117,29 @@ impl MinimumCardinalityKey {
         closure.iter().all(|&v| v)
     }
 
-    /// Check whether the selected attributes form a minimal key: they are a
-    /// key, and removing any single selected attribute breaks the key property.
-    fn is_minimal_key(&self, selected: &[bool]) -> bool {
-        if !self.is_key(selected) {
-            return false;
-        }
-        for i in 0..self.num_attributes {
-            if selected[i] {
-                let mut reduced = selected.to_vec();
-                reduced[i] = false;
-                if self.is_key(&reduced) {
-                    return false;
-                }
-            }
-        }
-        true
-    }
 }
 
 impl Problem for MinimumCardinalityKey {
     const NAME: &'static str = "MinimumCardinalityKey";
-    type Value = crate::types::Or;
+    type Value = Min<i64>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_attributes]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_attributes || config.iter().any(|&v| v > 1) {
-                return crate::types::Or(false);
-            }
+    fn evaluate(&self, config: &[usize]) -> Min<i64> {
+        if config.len() != self.num_attributes || config.iter().any(|&v| v > 1) {
+            return Min(None);
+        }
 
-            let selected: Vec<bool> = config.iter().map(|&v| v == 1).collect();
+        let selected: Vec<bool> = config.iter().map(|&v| v == 1).collect();
+
+        if self.is_key(&selected) {
             let count = selected.iter().filter(|&&v| v).count();
-
-            if (count as i64) > self.bound {
-                return crate::types::Or(false);
-            }
-
-            self.is_minimal_key(&selected)
-        })
+            Min(Some(count as i64))
+        } else {
+            Min(None)
+        }
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -192,10 +163,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 (vec![1, 3], vec![4]),
                 (vec![2, 4], vec![5]),
             ],
-            2,
         )),
         optimal_config: vec![1, 1, 0, 0, 0, 0],
-        optimal_value: serde_json::json!(true),
+        optimal_value: serde_json::json!(2),
     }]
 }
 
