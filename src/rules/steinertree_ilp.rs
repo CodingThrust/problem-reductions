@@ -137,14 +137,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![2, 2, 1, 1, 5, 5, 6],
                 vec![0, 2, 4],
             );
+            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let ilp_solution = crate::solvers::ILPSolver::new()
+                .solve(reduction.target_problem())
+                .expect("canonical example must be solvable");
+            let source_config = reduction.extract_solution(&ilp_solution);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1, 1, 1, 0, 0, 0],
-                    target_config: vec![
-                        1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
-                        1, 0, 1, 0, 0, 0, 0, 0, 0, 0,
-                    ],
+                    source_config,
+                    target_config: ilp_solution,
                 },
             )
         },

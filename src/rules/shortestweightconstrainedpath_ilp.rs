@@ -231,13 +231,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 4,
             );
-            // ILP vars: a_{0,fwd}, a_{0,rev}, a_{1,fwd}, a_{1,rev}, o_0, o_1, o_2
-            // Path 0->1->2: a_{0,fwd}=1, a_{1,fwd}=1, orders: 0, 1, 2
+            let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+            let ilp_solution = crate::solvers::ILPSolver::new()
+                .solve(reduction.target_problem())
+                .expect("canonical example must be solvable");
+            let source_config = reduction.extract_solution(&ilp_solution);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1],
-                    target_config: vec![1, 0, 1, 0, 0, 1, 2],
+                    source_config,
+                    target_config: ilp_solution,
                 },
             )
         },

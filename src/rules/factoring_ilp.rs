@@ -228,13 +228,17 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "factoring_to_ilp",
         build: || {
+            let source = Factoring::new(3, 3, 35);
+            let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+            let ilp_solution = crate::solvers::ILPSolver::new()
+                .solve(reduction.target_problem())
+                .expect("canonical example must be solvable");
+            let source_config = reduction.extract_solution(&ilp_solution);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
-                Factoring::new(3, 3, 35),
+                source,
                 SolutionPair {
-                    source_config: vec![1, 0, 1, 1, 1, 1],
-                    target_config: vec![
-                        1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0,
-                    ],
+                    source_config,
+                    target_config: ilp_solution,
                 },
             )
         },

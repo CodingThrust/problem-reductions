@@ -175,7 +175,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // 3-vertex graph: edge (0,1) cap=2 lower=1, edge (1,2) cap=2 lower=1
             // source=0, sink=2, requirement=1
-            // Route: 0→1→2: flow 1 unit, orientations z_0=1, z_1=1
             let source = UndirectedFlowLowerBounds::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![2, 2],
@@ -184,14 +183,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 1,
             );
-            // Route 0→1→2: orient both edges u→v, i.e. source config [0,0]
-            // f_{01}=1, f_{10}=0, f_{12}=1, f_{21}=0, z_0=1, z_1=1
-            // extract_solution converts z to model config: config[e] = 1 - z_e → [0,0]
+            let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+            let ilp_solution = crate::solvers::ILPSolver::new()
+                .solve(reduction.target_problem())
+                .expect("canonical example must be solvable");
+            let source_config = reduction.extract_solution(&ilp_solution);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0],
-                    target_config: vec![1, 0, 1, 0, 1, 1],
+                    source_config,
+                    target_config: ilp_solution,
                 },
             )
         },

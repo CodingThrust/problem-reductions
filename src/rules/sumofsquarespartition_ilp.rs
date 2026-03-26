@@ -154,55 +154,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // 4 elements [1, 2, 3, 4], K=2 groups
             // Group {1,4}: sum=5, Group {2,3}: sum=5 → sos = 25+25 = 50
             let source = SumOfSquaresPartition::new(vec![1, 2, 3, 4], 2);
+            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let ilp_solution = crate::solvers::ILPSolver::new()
+                .solve(reduction.target_problem())
+                .expect("canonical example must be solvable");
+            let source_config = reduction.extract_solution(&ilp_solution);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    // element 0(1)→g0, element 1(2)→g1, element 2(3)→g1, element 3(4)→g0
-                    source_config: vec![0, 1, 1, 0],
-                    // x vars: x_{0,0}=1,x_{0,1}=0, x_{1,0}=0,x_{1,1}=1,
-                    //          x_{2,0}=0,x_{2,1}=1, x_{3,0}=1,x_{3,1}=0
-                    // z vars (4*4*2 = 32): z_{i,j,g} = x_{i,g}*x_{j,g}
-                    // g=0: elements 0,3 assigned → z_{0,0,0}=1,z_{0,3,0}=1,z_{3,0,0}=1,z_{3,3,0}=1, rest 0
-                    // g=1: elements 1,2 assigned → z_{1,1,1}=1,z_{1,2,1}=1,z_{2,1,1}=1,z_{2,2,1}=1, rest 0
-                    target_config: vec![
-                        1, 0, // x_{0,*}
-                        0, 1, // x_{1,*}
-                        0, 1, // x_{2,*}
-                        1, 0, // x_{3,*}
-                        // z_{i,j,g}: for each (i,j) pair and both groups
-                        // z_{0,0,0}=1,z_{0,0,1}=0
-                        1, 0, // z_{0,0,*}
-                        // z_{0,1,0}=0,z_{0,1,1}=0
-                        0, 0, // z_{0,1,*}
-                        // z_{0,2,0}=0,z_{0,2,1}=0
-                        0, 0, // z_{0,2,*}
-                        // z_{0,3,0}=1,z_{0,3,1}=0
-                        1, 0, // z_{0,3,*}
-                        // z_{1,0,*}
-                        0, 0, // z_{1,0,*}
-                        // z_{1,1,*}: g=1 has element 1 → z_{1,1,1}=1
-                        0, 1, // z_{1,1,*}
-                        // z_{1,2,*}: g=1 has elements 1,2 → z_{1,2,1}=1
-                        0, 1, // z_{1,2,*}
-                        // z_{1,3,*}
-                        0, 0, // z_{1,3,*}
-                        // z_{2,0,*}
-                        0, 0, // z_{2,0,*}
-                        // z_{2,1,*}: g=1 has elements 1,2
-                        0, 1, // z_{2,1,*}
-                        // z_{2,2,*}: g=1 has element 2
-                        0, 1, // z_{2,2,*}
-                        // z_{2,3,*}
-                        0, 0, // z_{2,3,*}
-                        // z_{3,0,*}: g=0 has elements 0,3
-                        1, 0, // z_{3,0,*}
-                        // z_{3,1,*}
-                        0, 0, // z_{3,1,*}
-                        // z_{3,2,*}
-                        0, 0, // z_{3,2,*}
-                        // z_{3,3,*}: g=0 has element 3
-                        1, 0, // z_{3,3,*}
-                    ],
+                    source_config,
+                    target_config: ilp_solution,
                 },
             )
         },

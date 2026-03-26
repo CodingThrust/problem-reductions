@@ -116,7 +116,7 @@ fn weighted_distances_mmc(
 #[reduction(
     overhead = {
         num_vars = "num_vertices + num_vertices^2 + 1",
-        num_constraints = "2 * num_vertices^2 + 4 * num_vertices + 1",
+        num_constraints = "2 * num_vertices^2 + 4 * num_vertices + 2",
     }
 )]
 impl ReduceTo<ILP<i32>> for MinMaxMulticenter<SimpleGraph, i32> {
@@ -176,6 +176,19 @@ impl ReduceTo<ILP<i32>> for MinMaxMulticenter<SimpleGraph, i32> {
             }
         }
 
+        // Upper bound on z: the worst-case weighted distance over all vertex
+        // pairs.  Without this bound HiGHS sees z ∈ [0, 2^31) and can stall.
+        let z_upper: f64 = all_dist
+            .iter()
+            .enumerate()
+            .flat_map(|(i, row)| {
+                row.iter().filter_map(move |d| {
+                    d.map(|d| (vertex_weights[i] as f64) * (d as f64))
+                })
+            })
+            .fold(0.0_f64, f64::max);
+        constraints.push(LinearConstraint::le(vec![(z_var, 1.0)], z_upper));
+
         // Minimax constraints: ∀i: Σ_j w_i · d(i,j) · y_{i,j} ≤ z
         for (i, &w) in vertex_weights.iter().enumerate() {
             let w_i = w as f64;
@@ -216,18 +229,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![1i32; 2],
                 1,
             );
-            // x = [0, 1, 0]; each vertex assigned to center 1; z = 1
+            let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+            let ilp_solution = crate::solvers::ILPSolver::new()
+                .solve(reduction.target_problem())
+                .expect("canonical example must be solvable");
+            let source_config = reduction.extract_solution(&ilp_solution);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 0],
-                    target_config: vec![
-                        0, 1, 0, // x_0, x_1, x_2
-                        0, 1, 0, // y_{0,0}, y_{0,1}, y_{0,2}
-                        0, 1, 0, // y_{1,0}, y_{1,1}, y_{1,2}
-                        0, 1, 0, // y_{2,0}, y_{2,1}, y_{2,2}
-                        1, // z
-                    ],
+                    source_config,
+                    target_config: ilp_solution,
                 },
             )
         },
