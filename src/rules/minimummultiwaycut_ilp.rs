@@ -129,25 +129,12 @@ impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimummultiwaycut_to_ilp",
         build: || {
             let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
             let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
-            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
-            let ilp_solution = crate::solvers::ILPSolver::new()
-                .solve(reduction.target_problem())
-                .expect("canonical example must be solvable");
-            let source_config = reduction.extract_solution(&ilp_solution);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                problem,
-                SolutionPair {
-                    source_config,
-                    target_config: ilp_solution,
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(problem)
         },
     }]
 }

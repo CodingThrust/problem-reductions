@@ -216,9 +216,7 @@ impl ReduceTo<ILP<i32>> for MinMaxMulticenter<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-
-    vec![crate::example_db::specs::RuleExampleSpec {
+        vec![crate::example_db::specs::RuleExampleSpec {
         id: "minmaxmulticenter_to_ilp",
         build: || {
             // 3-vertex path: 0 - 1 - 2, unit weights/lengths, K=1
@@ -229,18 +227,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![1i32; 2],
                 1,
             );
-            let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
-            let ilp_solution = crate::solvers::ILPSolver::new()
-                .solve(reduction.target_problem())
-                .expect("canonical example must be solvable");
-            let source_config = reduction.extract_solution(&ilp_solution);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
-                source,
-                SolutionPair {
-                    source_config,
-                    target_config: ilp_solution,
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
         },
     }]
 }

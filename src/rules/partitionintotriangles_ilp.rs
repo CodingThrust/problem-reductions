@@ -108,9 +108,7 @@ impl ReduceTo<ILP<bool>> for PartitionIntoTriangles<SimpleGraph> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-
-    vec![crate::example_db::specs::RuleExampleSpec {
+        vec![crate::example_db::specs::RuleExampleSpec {
         id: "partitionintotriangles_to_ilp",
         build: || {
             // Two triangles: 0-1-2 and 3-4-5
@@ -118,18 +116,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 6,
                 vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5)],
             ));
-            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
-            let ilp_solution = crate::solvers::ILPSolver::new()
-                .solve(reduction.target_problem())
-                .expect("canonical example must be solvable");
-            let source_config = reduction.extract_solution(&ilp_solution);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config,
-                    target_config: ilp_solution,
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

@@ -94,9 +94,7 @@ impl ReduceTo<ILP<bool>> for ResourceConstrainedScheduling {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-
-    vec![crate::example_db::specs::RuleExampleSpec {
+        vec![crate::example_db::specs::RuleExampleSpec {
         id: "resourceconstrainedscheduling_to_ilp",
         build: || {
             // 6 tasks, 3 processors, 1 resource with bound 20, deadline 2
@@ -106,18 +104,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![vec![6], vec![7], vec![7], vec![6], vec![8], vec![6]],
                 2,
             );
-            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
-            let ilp_solution = crate::solvers::ILPSolver::new()
-                .solve(reduction.target_problem())
-                .expect("canonical example must be solvable");
-            let source_config = reduction.extract_solution(&ilp_solution);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config,
-                    target_config: ilp_solution,
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }
