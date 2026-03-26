@@ -110,3 +110,19 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_triangle() {
         "HamiltonianCircuit(triangle) -> HamiltonianPath",
     );
 }
+
+#[test]
+fn test_hamiltoniancircuit_to_hamiltonianpath_two_vertex_special_case_is_unsatisfiable() {
+    let source = HamiltonianCircuit::new(SimpleGraph::new(2, vec![(0, 1)]));
+    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source);
+    let target = reduction.target_problem();
+
+    assert_eq!(target.graph().num_vertices(), 5);
+    assert_eq!(target.graph().num_edges(), 0);
+
+    let solver = BruteForce::new();
+    assert!(
+        solver.find_witness(target).is_none(),
+        "2-vertex source should reduce to an unsatisfiable HamiltonianPath instance"
+    );
+}

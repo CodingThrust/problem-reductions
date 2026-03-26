@@ -75,3 +75,17 @@ fn test_kclique_paper_example() {
     assert!(problem.evaluate(&issue_witness()));
     assert_eq!(solver.find_all_witnesses(&problem), vec![issue_witness()]);
 }
+
+#[test]
+fn test_kclique_config_from_selected_vertices() {
+    let problem = KClique::new(issue_graph(), 3);
+
+    assert_eq!(
+        problem.config_from_selected_vertices(&[2, 3, 4]),
+        issue_witness()
+    );
+    assert_eq!(
+        problem.config_from_selected_vertices(&[4, 2, 4]),
+        vec![0, 0, 1, 0, 1]
+    );
+}

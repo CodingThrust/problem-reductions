@@ -8,7 +8,7 @@
 use crate::models::graph::{KClique, SubgraphIsomorphism};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::SimpleGraph;
 
 /// Result of reducing KClique to SubgraphIsomorphism.
 ///
@@ -35,11 +35,7 @@ impl ReductionResult for ReductionKCliqueToSubIso {
     /// host vertex. We create a binary vector of length n and set positions
     /// f(0), f(1), ..., f(k-1) to 1.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut config = vec![0; self.num_source_vertices];
-        for &host_vertex in target_solution {
-            config[host_vertex] = 1;
-        }
-        config
+        KClique::<SimpleGraph>::config_from_vertices(self.num_source_vertices, target_solution)
     }
 }
 
@@ -55,14 +51,11 @@ impl ReduceTo<SubgraphIsomorphism> for KClique<SimpleGraph> {
     type Result = ReductionKCliqueToSubIso;
 
     fn reduce_to(&self) -> Self::Result {
-        let n = self.graph().num_vertices();
+        let n = self.num_vertices();
         let k = self.k();
 
         let pattern = SimpleGraph::complete(k);
-
-        // Host graph is the original graph, cloned into a SimpleGraph
-        let host_edges = self.graph().edges();
-        let host = SimpleGraph::new(n, host_edges);
+        let host = self.graph().clone();
 
         let target = SubgraphIsomorphism::new(host, pattern);
 

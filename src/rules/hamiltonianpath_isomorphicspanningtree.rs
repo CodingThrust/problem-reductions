@@ -49,10 +49,7 @@ impl ReduceTo<IsomorphicSpanningTree> for HamiltonianPath<SimpleGraph> {
         // Host graph: keep G unchanged
         let graph = self.graph().clone();
 
-        // Target tree: path graph P_n with edges {0,1},{1,2},...,{n-2,n-1}
-        let path_edges: Vec<(usize, usize)> =
-            (0..n.saturating_sub(1)).map(|i| (i, i + 1)).collect();
-        let tree = SimpleGraph::new(n, path_edges);
+        let tree = SimpleGraph::path(n);
 
         ReductionHPToIST {
             target: IsomorphicSpanningTree::new(graph, tree),
@@ -68,8 +65,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "hamiltonianpath_to_isomorphicspanningtree",
         build: || {
             // Path graph 0-1-2-3-4 has a trivial Hamiltonian path
-            let source =
-                HamiltonianPath::new(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]));
+            let source = HamiltonianPath::new(SimpleGraph::path(5));
             crate::example_db::specs::rule_example_with_witness::<_, IsomorphicSpanningTree>(
                 source,
                 SolutionPair {

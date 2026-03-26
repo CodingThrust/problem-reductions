@@ -180,3 +180,19 @@ fn test_all_satisfying_assignments_map_back() {
         );
     }
 }
+
+#[test]
+fn test_empty_clause_maps_to_unsatisfiable_nae_clause() {
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![])]);
+    let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&sat);
+    let naesat = reduction.target_problem();
+
+    assert_eq!(naesat.num_vars(), 2);
+    assert_eq!(naesat.num_clauses(), 1);
+    assert_eq!(naesat.num_literals(), 2);
+    assert_eq!(naesat.clauses()[0].literals, vec![2, 2]);
+
+    let solver = BruteForce::new();
+    assert!(solver.find_witness(&sat).is_none());
+    assert!(solver.find_witness(naesat).is_none());
+}

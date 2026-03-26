@@ -4,12 +4,27 @@ use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
+fn reduce_partition(sizes: &[u64]) -> (Partition, ReductionPartitionToMPS) {
+    let source = Partition::new(sizes.to_vec());
+    let reduction = ReduceTo::<MultiprocessorScheduling>::reduce_to(&source);
+    (source, reduction)
+}
+
+fn assert_satisfiability_matches(
+    source: &Partition,
+    target: &MultiprocessorScheduling,
+    expected: bool,
+) {
+    let solver = BruteForce::new();
+    assert_eq!(solver.find_witness(source).is_some(), expected);
+    assert_eq!(solver.find_witness(target).is_some(), expected);
+}
+
 #[test]
 fn test_partition_to_multiprocessorscheduling_closed_loop() {
     // sizes [1, 2, 3, 4], sum=10, target=5
     // partition: {1,4} and {2,3}
-    let source = Partition::new(vec![1, 2, 3, 4]);
-    let reduction = ReduceTo::<MultiprocessorScheduling>::reduce_to(&source);
+    let (source, reduction) = reduce_partition(&[1, 2, 3, 4]);
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -20,8 +35,7 @@ fn test_partition_to_multiprocessorscheduling_closed_loop() {
 
 #[test]
 fn test_partition_to_multiprocessorscheduling_structure() {
-    let source = Partition::new(vec![1, 2, 3, 4]);
-    let reduction = ReduceTo::<MultiprocessorScheduling>::reduce_to(&source);
+    let (source, reduction) = reduce_partition(&[1, 2, 3, 4]);
     let target = reduction.target_problem();
 
     assert_eq!(target.lengths(), &[1, 2, 3, 4]);
@@ -33,41 +47,24 @@ fn test_partition_to_multiprocessorscheduling_structure() {
 #[test]
 fn test_partition_to_multiprocessorscheduling_odd_sum() {
     // sum = 2+4+5 = 11 (odd), no valid partition exists
-    let source = Partition::new(vec![2, 4, 5]);
-    let reduction = ReduceTo::<MultiprocessorScheduling>::reduce_to(&source);
+    let (source, reduction) = reduce_partition(&[2, 4, 5]);
     let target = reduction.target_problem();
 
     // deadline = floor(11/2) = 5
     assert_eq!(target.deadline(), 5);
     assert_eq!(target.num_processors(), 2);
 
-    // Source is not satisfiable (odd sum)
-    let solver = BruteForce::new();
-    let source_solutions = solver.find_all_witnesses(&source);
-    assert!(source_solutions.is_empty());
-
-    // Target should also be infeasible: total=11, floor(11/2)=5,
-    // so one processor must get at least ceil(11/2)=6 > 5
-    let target_solutions = solver.find_all_witnesses(target);
-    assert!(target_solutions.is_empty());
+    assert_satisfiability_matches(&source, target, false);
 }
 
 #[test]
 fn test_partition_to_multiprocessorscheduling_equal_elements() {
     // [3, 3, 3, 3], sum=12, target=6
-    let source = Partition::new(vec![3, 3, 3, 3]);
-    let reduction = ReduceTo::<MultiprocessorScheduling>::reduce_to(&source);
+    let (source, reduction) = reduce_partition(&[3, 3, 3, 3]);
     let target = reduction.target_problem();
 
     assert_eq!(target.deadline(), 6);
-
-    // Both should be satisfiable (e.g., {3,3} and {3,3})
-    let solver = BruteForce::new();
-    let source_solutions = solver.find_all_witnesses(&source);
-    let target_solutions = solver.find_all_witnesses(target);
-
-    assert!(!source_solutions.is_empty());
-    assert!(!target_solutions.is_empty());
+    assert_satisfiability_matches(&source, target, true);
 
     // Round trip should work
     assert_satisfaction_round_trip_from_satisfaction_target(
@@ -79,8 +76,7 @@ fn test_partition_to_multiprocessorscheduling_equal_elements() {
 
 #[test]
 fn test_partition_to_multiprocessorscheduling_solution_extraction() {
-    let source = Partition::new(vec![1, 2, 3, 4]);
-    let reduction = ReduceTo::<MultiprocessorScheduling>::reduce_to(&source);
+    let (source, reduction) = reduce_partition(&[1, 2, 3, 4]);
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -106,40 +102,24 @@ fn test_partition_to_multiprocessorscheduling_solution_extraction() {
 fn test_partition_to_multiprocessorscheduling_single_element() {
     // Single element: [4], sum=4, target=2
     // Not partitionable since we need 2 subsets summing to 2 each but only have one element of size 4
-    let source = Partition::new(vec![4]);
-    let reduction = ReduceTo::<MultiprocessorScheduling>::reduce_to(&source);
+    let (source, reduction) = reduce_partition(&[4]);
     let target = reduction.target_problem();
 
     assert_eq!(target.deadline(), 2);
     assert_eq!(target.num_tasks(), 1);
     assert_eq!(target.lengths(), &[4]);
 
-    // Source: not satisfiable (single element, total_sum=4, need 2 per subset but only have 4)
-    let solver = BruteForce::new();
-    let source_solutions = solver.find_all_witnesses(&source);
-    assert!(source_solutions.is_empty());
-
-    // Target: task of length 4 > deadline 2, so infeasible
-    let target_solutions = solver.find_all_witnesses(target);
-    assert!(target_solutions.is_empty());
+    assert_satisfiability_matches(&source, target, false);
 }
 
 #[test]
 fn test_partition_to_multiprocessorscheduling_two_elements() {
     // [5, 5], sum=10, target=5
-    let source = Partition::new(vec![5, 5]);
-    let reduction = ReduceTo::<MultiprocessorScheduling>::reduce_to(&source);
+    let (source, reduction) = reduce_partition(&[5, 5]);
     let target = reduction.target_problem();
 
     assert_eq!(target.deadline(), 5);
-
-    let solver = BruteForce::new();
-    let source_solutions = solver.find_all_witnesses(&source);
-    let target_solutions = solver.find_all_witnesses(target);
-
-    // Both should be satisfiable: one element per subset/processor
-    assert!(!source_solutions.is_empty());
-    assert!(!target_solutions.is_empty());
+    assert_satisfiability_matches(&source, target, true);
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,

@@ -42,8 +42,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToHamiltonianPath {
             return vec![];
         }
 
-        let n_prime = n + 3; // total vertices in target graph
-        if target_solution.len() != n_prime {
+        if target_solution.len() != n + 3 {
             return vec![0; n];
         }
 
@@ -51,48 +50,22 @@ impl ReductionResult for ReductionHamiltonianCircuitToHamiltonianPath {
         let s = n + 1; // pendant attached to v=0
         let t = n + 2; // pendant attached to v'
 
-        // The HP path must start at s or t (pendants with degree 1).
-        // Determine path orientation: we want s at the start.
-        // target_solution[i] = vertex visited at position i.
-
-        // Find position of s and t in the path
-        let s_pos = target_solution.iter().position(|&v| v == s);
-        let t_pos = target_solution.iter().position(|&v| v == t);
-
-        let (s_pos, t_pos) = match (s_pos, t_pos) {
-            (Some(sp), Some(tp)) => (sp, tp),
-            _ => return vec![0; n], // invalid solution
+        // The two pendants force any valid witness to have endpoints s and t.
+        let reversed;
+        let oriented = match (target_solution.first(), target_solution.last()) {
+            (Some(&start), Some(&end)) if start == s && end == t => target_solution,
+            (Some(&start), Some(&end)) if start == t && end == s => {
+                reversed = target_solution.iter().copied().rev().collect::<Vec<_>>();
+                reversed.as_slice()
+            }
+            _ => return vec![0; n],
         };
 
-        // Build the path in order from s to t
-        let path: Vec<usize> = if s_pos == 0 && t_pos == n_prime - 1 {
-            // Already oriented s -> ... -> t
-            target_solution.to_vec()
-        } else if t_pos == 0 && s_pos == n_prime - 1 {
-            // Reverse: t -> ... -> s, flip to s -> ... -> t
-            target_solution.iter().copied().rev().collect()
-        } else {
-            // s or t not at endpoints -- invalid HP for our construction
+        if oriented.get(1) != Some(&0) || oriented.get(n + 1) != Some(&v_prime) {
             return vec![0; n];
-        };
+        }
 
-        // path = [s, v=0, ..., v'=n, t]
-        // Strip s (first) and t (last) to get inner path of length n+1
-        let inner = &path[1..n_prime - 1]; // length n+1
-
-        // The inner path should start with v=0 and end with v'=n, or vice versa.
-        // Orient so it starts with v=0.
-        let oriented: Vec<usize> = if inner[0] == 0 && inner[n] == v_prime {
-            inner.to_vec()
-        } else if inner[0] == v_prime && inner[n] == 0 {
-            inner.iter().copied().rev().collect()
-        } else {
-            return vec![0; n];
-        };
-
-        // oriented = [0, perm of 1..n-1, v'=n]
-        // The HC config is the first n entries (dropping v' at the end).
-        oriented[..n].to_vec()
+        oriented[1..=n].to_vec()
     }
 }
 
@@ -110,10 +83,7 @@ impl ReduceTo<HamiltonianPath<SimpleGraph>> for HamiltonianCircuit<SimpleGraph> 
 
         // HC is unsatisfiable for n < 3; return a trivially unsatisfiable HP instance.
         if n < 3 {
-            // A single isolated vertex has no Hamiltonian path of length > 0,
-            // so HP on 1 vertex is trivially satisfied but HC on < 3 is not.
-            // Use a disconnected 2-vertex graph (no edges) which has no HP.
-            let target_graph = SimpleGraph::new(n + 3, vec![]);
+            let target_graph = SimpleGraph::empty(n + 3);
             let target = HamiltonianPath::new(target_graph);
             return ReductionHamiltonianCircuitToHamiltonianPath {
                 target,

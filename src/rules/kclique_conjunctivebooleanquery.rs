@@ -35,11 +35,7 @@ impl ReductionResult for ReductionKCliqueToCBQ {
     /// KClique config: binary vec of length n; set config[v]=1 for each v in
     /// the CBQ assignment.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut config = vec![0; self.num_vertices];
-        for &v in target_solution {
-            config[v] = 1;
-        }
-        config
+        KClique::<SimpleGraph>::config_from_vertices(self.num_vertices, target_solution)
     }
 }
 
@@ -55,10 +51,11 @@ impl ReduceTo<ConjunctiveBooleanQuery> for KClique<SimpleGraph> {
     type Result = ReductionKCliqueToCBQ;
 
     fn reduce_to(&self) -> Self::Result {
-        let n = self.graph().num_vertices();
+        let n = self.num_vertices();
         let k = self.k();
 
-        let mut tuples = Vec::new();
+        // Build the single binary relation: for each edge {u,v}, include (u,v) and (v,u).
+        let mut tuples = Vec::with_capacity(self.num_edges() * 2);
         for (u, v) in self.graph().edges() {
             tuples.push(vec![u, v]);
             tuples.push(vec![v, u]);
@@ -66,7 +63,7 @@ impl ReduceTo<ConjunctiveBooleanQuery> for KClique<SimpleGraph> {
         let relation = CbqRelation { arity: 2, tuples };
 
         // Build conjuncts: R(y_i, y_j) for all 0 <= i < j < k.
-        let mut conjuncts = Vec::new();
+        let mut conjuncts = Vec::with_capacity(k * k.saturating_sub(1) / 2);
         for i in 0..k {
             for j in (i + 1)..k {
                 conjuncts.push((0, vec![QueryArg::Variable(i), QueryArg::Variable(j)]));
