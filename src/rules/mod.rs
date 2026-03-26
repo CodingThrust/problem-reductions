@@ -11,8 +11,6 @@ mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
 pub(crate) mod factoring_circuit;
 mod graph;
-pub(crate) mod graphpartitioning_maxcut;
-pub(crate) mod graphpartitioning_qubo;
 pub(crate) mod hamiltoniancircuit_travelingsalesman;
 mod kcoloring_casts;
 mod knapsack_qubo;
@@ -91,8 +89,6 @@ pub(crate) mod expectedretrievalcost_ilp;
 pub(crate) mod factoring_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod flowshopscheduling_ilp;
-#[cfg(feature = "ilp-solver")]
-pub(crate) mod graphpartitioning_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod hamiltonianpath_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -239,8 +235,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
     specs.extend(factoring_circuit::canonical_rule_example_specs());
-    specs.extend(graphpartitioning_maxcut::canonical_rule_example_specs());
-    specs.extend(graphpartitioning_qubo::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_travelingsalesman::canonical_rule_example_specs());
     specs.extend(knapsack_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_qubo::canonical_rule_example_specs());
@@ -287,7 +281,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(expectedretrievalcost_ilp::canonical_rule_example_specs());
         specs.extend(factoring_ilp::canonical_rule_example_specs());
         specs.extend(flowshopscheduling_ilp::canonical_rule_example_specs());
-        specs.extend(graphpartitioning_ilp::canonical_rule_example_specs());
         specs.extend(hamiltonianpath_ilp::canonical_rule_example_specs());
         specs.extend(ilp_qubo::canonical_rule_example_specs());
         specs.extend(integralflowbundles_ilp::canonical_rule_example_specs());

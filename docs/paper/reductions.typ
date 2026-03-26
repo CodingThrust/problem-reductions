@@ -81,7 +81,6 @@
   "MaximumIndependentSet": [Maximum Independent Set],
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
-  "GraphPartitioning": [Graph Partitioning],
   "GeneralizedHex": [Generalized Hex],
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
@@ -607,70 +606,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     },
     caption: [The house graph with max cut $S = {#side-s.map(i => $v_#i$).join(", ")}$ (blue) vs $overline(S) = {#side-sbar.map(i => $v_#i$).join(", ")}$ (white). Cut edges shown in bold blue; #cut-val of #ne edges are cut.],
     ) <fig:house-maxcut>
-    ]
-  ]
-}
-#{
-  let x = load-model-example("GraphPartitioning")
-  let nv = graph-num-vertices(x.instance)
-  let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-  let config = x.optimal_config
-  let cut-val = metric-value(x.optimal_value)
-  let side-a = range(nv).filter(i => config.at(i) == 0)
-  let side-b = range(nv).filter(i => config.at(i) == 1)
-  let cut-edges = edges.filter(e => config.at(e.at(0)) != config.at(e.at(1)))
-  [
-    #problem-def("GraphPartitioning")[
-      Given an undirected graph $G = (V, E)$ with $|V| = n$ (even), find a partition of $V$ into two disjoint sets $A$ and $B$ with $|A| = |B| = n slash 2$ that minimizes the number of edges crossing the partition:
-      $ "cut"(A, B) = |{(u, v) in E : u in A, v in B}|. $
-    ][
-      Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel computing, and scientific simulation, where balanced workload distribution with minimal communication is essential. Closely related to Max-Cut (which _maximizes_ rather than _minimizes_ the cut) and to the Ising Spin Glass model. NP-completeness was proved by Garey, Johnson and Stockmeyer @garey1976. Arora, Rao and Vazirani @arora2009 gave an $O(sqrt(log n))$-approximation algorithm. The best known unconditional exact algorithm is brute-force enumeration of all $binom(n, n slash 2) = O^*(2^n)$ balanced partitions; no faster worst-case algorithm is known. Cygan et al. @cygan2014 showed that Minimum Bisection is fixed-parameter tractable in $O(2^(O(k^3)) dot n^3 log^3 n)$ time parameterized by bisection width $k$. Standard partitioning tools include METIS, KaHIP, and Scotch.
-
-      *Example.* Consider the graph $G$ with $n = #nv$ vertices and #ne edges. The optimal balanced partition is $A = {#side-a.map(i => $v_#i$).join($,$)}$, $B = {#side-b.map(i => $v_#i$).join($,$)}$, with cut value #cut-val.
-
-      #pred-commands(
-        "pred create --example GraphPartitioning -o graph-partitioning.json",
-        "pred solve graph-partitioning.json",
-        "pred evaluate graph-partitioning.json --config " + x.optimal_config.map(str).join(","),
-      )
-
-      #figure(
-        canvas(length: 1cm, {
-          // Two-column layout for balanced partition
-          let half = int(nv / 2)
-          let verts = (
-            ..range(half).map(i => (0, (half - 1 - i))),
-            ..range(half).map(i => (2.5, (half - 1 - i))),
-          )
-          // Draw edges
-          for (u, v) in edges {
-            let crossing = config.at(u) != config.at(v)
-            g-edge(verts.at(u), verts.at(v),
-              stroke: if crossing { 2pt + graph-colors.at(1) } else { 1pt + luma(180) })
-          }
-          // Draw partition regions
-          import draw: *
-          on-layer(-1, {
-            rect((-0.5, -0.5), (0.5, half - 0.5),
-              fill: graph-colors.at(0).transparentize(90%),
-              stroke: (dash: "dashed", paint: graph-colors.at(0), thickness: 0.8pt))
-            content((0, half - 0.2), text(8pt, fill: graph-colors.at(0))[$A$])
-            rect((2.0, -0.5), (3.0, half - 0.5),
-              fill: graph-colors.at(1).transparentize(90%),
-              stroke: (dash: "dashed", paint: graph-colors.at(1), thickness: 0.8pt))
-            content((2.5, half - 0.2), text(8pt, fill: graph-colors.at(1))[$B$])
-          })
-          // Draw nodes
-          for (k, pos) in verts.enumerate() {
-            let in-a = config.at(k) == 0
-            g-node(pos, name: "v" + str(k),
-              fill: if in-a { graph-colors.at(0) } else { graph-colors.at(1) },
-              label: text(fill: white)[$v_#k$])
-          }
-        }),
-        caption: [Graph with $n = #nv$ vertices partitioned into $A$ (blue) and $B$ (red). The #cut-val crossing edges are shown in bold red; internal edges are gray.],
-      ) <fig:graph-partitioning>
     ]
   ]
 }
@@ -6503,57 +6438,6 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ For VC solution $C$, return $S = V backslash C$, i.e.\ flip each variable: $s_v = 1 - c_v$.
 ]
 
-#let gp_mc = load-example("GraphPartitioning", "MaxCut")
-#let gp_mc_sol = gp_mc.solutions.at(0)
-#let gp_mc_source_edges = gp_mc.source.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-#let gp_mc_target_edges = gp_mc.target.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-#let gp_mc_weights = gp_mc.target.instance.edge_weights
-#let gp_mc_nv = gp_mc.source.instance.graph.num_vertices
-#let gp_mc_ne = gp_mc_source_edges.len()
-#let gp_mc_penalty = gp_mc_ne + 1
-#let gp_mc_side_a = range(gp_mc_nv).filter(i => gp_mc_sol.source_config.at(i) == 0)
-#let gp_mc_side_b = range(gp_mc_nv).filter(i => gp_mc_sol.source_config.at(i) == 1)
-#let gp_mc_weight_lo = gp_mc_target_edges.enumerate().filter(((i, e)) => gp_mc_weights.at(i) == gp_mc_penalty - 1).map(((i, e)) => e)
-#let gp_mc_weight_hi = gp_mc_target_edges.enumerate().filter(((i, e)) => gp_mc_weights.at(i) == gp_mc_penalty).map(((i, e)) => e)
-#let gp_mc_source_cross = gp_mc_source_edges.filter(e => gp_mc_sol.source_config.at(e.at(0)) != gp_mc_sol.source_config.at(e.at(1)))
-#let gp_mc_cut_lo = gp_mc_target_edges.enumerate().filter(((i, e)) =>
-  gp_mc_weights.at(i) == gp_mc_penalty - 1 and
-  gp_mc_sol.target_config.at(e.at(0)) != gp_mc_sol.target_config.at(e.at(1))
-).map(((i, e)) => e)
-#let gp_mc_cut_hi = gp_mc_target_edges.enumerate().filter(((i, e)) =>
-  gp_mc_weights.at(i) == gp_mc_penalty and
-  gp_mc_sol.target_config.at(e.at(0)) != gp_mc_sol.target_config.at(e.at(1))
-).map(((i, e)) => e)
-#let gp_mc_cut_value = gp_mc_target_edges.enumerate().filter(((i, e)) =>
-  gp_mc_sol.target_config.at(e.at(0)) != gp_mc_sol.target_config.at(e.at(1))
-).map(((i, e)) => gp_mc_weights.at(i)).sum(default: 0)
-#reduction-rule("GraphPartitioning", "MaxCut",
-  example: true,
-  example-caption: [6-vertex minimum bisection to weighted Max-Cut],
-  extra: [
-    #pred-commands(
-      "pred create --example GraphPartitioning -o graphpartitioning.json",
-      "pred reduce graphpartitioning.json --to " + target-spec(gp_mc) + " -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate graphpartitioning.json --config " + gp_mc_sol.source_config.map(str).join(","),
-    )
-    Here $m = #gp_mc_ne$, so $P = m + 1 = #gp_mc_penalty$ \
-    Weight $#(gp_mc_penalty - 1)$ edges (original edges): {#gp_mc_weight_lo.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")} \
-    Weight $#gp_mc_penalty$ edges (non-edges): {#gp_mc_weight_hi.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")} \
-    Canonical witness $A = {#gp_mc_side_a.map(i => $v_#i$).join(", ")}$, $B = {#gp_mc_side_b.map(i => $v_#i$).join(", ")}$ cuts source edges {#gp_mc_source_cross.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")} and attains weighted cut $#gp_mc_cut_lo.len() * #(gp_mc_penalty - 1) + #gp_mc_cut_hi.len() * #gp_mc_penalty = #gp_mc_cut_value$ #sym.checkmark
-  ],
-)[
-  @garey1976 Graph Partitioning minimizes cut edges subject to a perfect-balance constraint, while Max-Cut maximizes a weighted cut without any balance constraint. A standard folklore construction in combinatorial optimization removes that constraint by rewarding every cross-pair equally and then subtracting one unit on original edges. The resulting weighted complete graph forces every optimum to be balanced first, and among balanced cuts it exactly minimizes the original bisection width.
-][
-  _Construction._ Given a Graph Partitioning instance $G = (V, E)$ with $n = |V|$ and $m = |E|$, set $P = m + 1$. Build the complete graph $G' = (V, E')$ on the same vertex set, where $E'$ contains every unordered pair $\{u, v\}$ with $u != v$. Assign weight $w'_(u, v) = P - 1$ when $(u, v) in E$, and $w'_(u, v) = P$ otherwise. For any partition $(A, B)$ of $V$, the weighted cut in $G'$ is
-  $ "cut"_(G')(A, B) = P |A| |B| - "cut"_G(A, B). $
-
-  _Correctness._ ($arrow.r.double$) Let $(A, B)$ be a maximum cut of $G'$. If it were unbalanced, then $|A| |B|$ would be at least one smaller than for a balanced partition $(A', B')$. Hence
-  $ "cut"_(G')(A', B') - "cut"_(G')(A, B) >= P - ("cut"_G(A', B') - "cut"_G(A, B)) >= P - m > 0, $
-  because $0 <= "cut"_G(·, ·) <= m$ and $P = m + 1$. Therefore every maximum cut of $G'$ is balanced. Among balanced partitions, $P |A| |B| = P (n slash 2)^2$ is constant, so maximizing $"cut"_(G')(A, B)$ is equivalent to minimizing $"cut"_G(A, B)$. ($arrow.l.double$) Conversely, every minimum bisection of $G$ is balanced and therefore maximizes $P |A| |B| - "cut"_G(A, B)$ in $G'$.
-
-  _Solution extraction._ Read off the same partition vector on the original vertex set: the Max-Cut bit for vertex $v$ is already the Graph Partitioning bit for $v$.
-]
 
 #let mis_clique = load-example("MaximumIndependentSet", "MaximumClique")
 #let mis_clique_sol = mis_clique.solutions.at(0)
@@ -7074,53 +6958,6 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ For each vertex $u$, find terminal position $t$ with $x_(u,t) = 1$. For each edge $(u,v)$, output 1 (cut) if $u$ and $v$ are in different components, 0 otherwise.
 ]
 
-#let gp_qubo = load-example("GraphPartitioning", "QUBO")
-#let gp_qubo_sol = gp_qubo.solutions.at(0)
-#let gp_qubo_edges = gp_qubo.source.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-#let gp_qubo_n = gp_qubo.source.instance.graph.num_vertices
-#let gp_qubo_m = gp_qubo_edges.len()
-#let gp_qubo_penalty = gp_qubo_m + 1
-#let gp_qubo_diag = range(0, gp_qubo_n).map(i => gp_qubo.target.instance.matrix.at(i).at(i))
-#let gp_qubo_cut_edges = gp_qubo_edges.filter(e => gp_qubo_sol.source_config.at(e.at(0)) != gp_qubo_sol.source_config.at(e.at(1)))
-#let gp_qubo_cut_size = gp_qubo_cut_edges.len()
-#reduction-rule("GraphPartitioning", "QUBO",
-  example: true,
-  example-caption: [6-vertex balanced partition instance ($n = #gp_qubo_n$, $|E| = #gp_qubo_m$)],
-  extra: [
-    #pred-commands(
-      "pred create --example GraphPartitioning -o graphpartitioning.json",
-      "pred reduce graphpartitioning.json --to " + target-spec(gp_qubo) + " -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate graphpartitioning.json --config " + gp_qubo_sol.source_config.map(str).join(","),
-    )
-    *Step 1 -- Binary partition variables.* Introduce one binary variable per vertex: $x_i = 0$ means vertex $i$ is in the left block, $x_i = 1$ means it is in the right block. For the canonical instance, this gives $n = #gp_qubo_n$ QUBO variables:
-    $ x_0, x_1, x_2, x_3, x_4, x_5 $
-
-    *Step 2 -- Choose the balance penalty.* The source graph has $m = #gp_qubo_m$ edges, so the construction uses $P = m + 1 = #gp_qubo_penalty$. Any imbalance contributes at least $P$, which is already larger than the maximum possible cut size of any balanced partition.
-
-    *Step 3 -- Fill the QUBO matrix.* The diagonal entries are $Q_(i i) = deg(i) + P(1 - n)$, which evaluates here to $(#gp_qubo_diag.map(str).join(", "))$. For every pair $i < j$, start from $Q_(i j) = 2P = #(2 * gp_qubo_penalty)$, then subtract $2$ when $(i,j)$ is an edge. Hence edge coefficients become $18$ while non-edge coefficients stay $20$; the exported upper-triangular matrix matches the issue example exactly.\
-
-    *Step 4 -- Verify a solution.* The exported witness is $bold(x) = (#gp_qubo_sol.target_config.map(str).join(", "))$, which is also the source partition encoding. The cut edges are #gp_qubo_cut_edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", "), so the cut size is $#gp_qubo_cut_size$ and the balance penalty vanishes because exactly #(gp_qubo_n / 2) vertices are assigned to the right block #sym.checkmark.
-  ],
-)[
-  Graph Partitioning (minimum bisection) asks for a balanced bipartition minimizing the number of crossing edges. Lucas's Ising formulation @lucas2014 translates directly to a QUBO by combining a cut-counting quadratic objective with a quadratic equality penalty enforcing $sum_i x_i = n / 2$. The reduction uses one binary variable per source vertex, so the QUBO has exactly $n$ variables.
-][
-  _Construction._ Given an undirected graph $G = (V, E)$ with even $n = |V|$ and $m = |E|$, introduce binary variables $x_i in {0,1}$ for each vertex $i in V$. Interpret $x_i = 0$ as $i in A$ and $x_i = 1$ as $i in B$. The cut objective is:
-  $ H_"cut" = sum_((u,v) in E) (x_u + x_v - 2 x_u x_v) $
-  because the term equals $1$ exactly when edge $(u,v)$ crosses the partition. To enforce balance, add:
-  $ H_"bal" = P (sum_i x_i - n/2)^2 $
-  with penalty $P = m + 1$. The QUBO objective is $H = H_"cut" + H_"bal"$.
-
-  Expanding $H_"bal"$ with $x_i^2 = x_i$ gives:
-  $ H_"bal" = P (1 - n) sum_i x_i + 2 P sum_(i < j) x_i x_j + P n^2 / 4 $
-  so the upper-triangular QUBO coefficients are:
-  $ Q_(i i) = deg(i) + P (1 - n) $
-  and for $i < j$, $Q_(i j) = 2 P$ for every pair, then subtract $2$ whenever $(i,j) in E$. Equivalently, edge pairs have coefficient $2P - 2$ and non-edge pairs have coefficient $2P$. The additive constant $P n^2 / 4$ does not affect the minimizer.
-
-  _Correctness._ ($arrow.r.double$) If $bold(x)$ encodes a balanced partition, then $sum_i x_i = n/2$ and $H_"bal" = 0$, so the QUBO objective equals the cut size exactly. ($arrow.l.double$) If $bold(x)$ is imbalanced, then $|sum_i x_i - n/2| >= 1$, hence $H_"bal" >= P = m + 1$. Every balanced partition has cut size at most $m$, so any imbalanced assignment has objective strictly larger than at least one balanced assignment. Therefore every QUBO minimizer is balanced, and among balanced assignments minimizing $H$ is identical to minimizing the cut size.
-
-  _Solution extraction._ Return the QUBO bit-vector directly: the same binary assignment already records the source partition.
-]
 
 #let qubo_ilp = load-example("QUBO", "ILP")
 #let qubo_ilp_sol = qubo_ilp.solutions.at(0)
@@ -7655,55 +7492,6 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $K = {v : x_v = 1}$.
 ]
 
-#let gp_ilp = load-example("GraphPartitioning", "ILP")
-#let gp_ilp_sol = gp_ilp.solutions.at(0)
-#let gp_n = graph-num-vertices(gp_ilp.source.instance)
-#let gp_edges = gp_ilp.source.instance.graph.edges
-#let gp_m = gp_edges.len()
-#let gp_part_a = range(gp_n).filter(i => gp_ilp_sol.source_config.at(i) == 0)
-#let gp_part_b = range(gp_n).filter(i => gp_ilp_sol.source_config.at(i) == 1)
-#let gp_crossing = range(gp_m).filter(i => gp_ilp_sol.target_config.at(gp_n + i) == 1)
-#let gp_crossing_edges = gp_crossing.map(i => gp_edges.at(i))
-#reduction-rule("GraphPartitioning", "ILP",
-  example: true,
-  example-caption: [Two triangles linked by three crossing edges encoded as a 15-variable ILP.],
-  extra: [
-    #pred-commands(
-      "pred create --example GraphPartitioning -o graphpartitioning.json",
-      "pred reduce graphpartitioning.json --to " + target-spec(gp_ilp) + " -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate graphpartitioning.json --config " + gp_ilp_sol.source_config.map(str).join(","),
-    )
-    *Step 1 -- Balanced partition variables.* Introduce $x_v in {0,1}$ for each vertex. In the canonical witness, $A = {#gp_part_a.map(str).join(", ")}$ and $B = {#gp_part_b.map(str).join(", ")}$, so $bold(x) = (#gp_ilp_sol.source_config.map(str).join(", "))$.\
-
-    *Step 2 -- Crossing indicators.* Add one binary variable per edge, so the target has $#gp_ilp.target.instance.num_vars$ binary variables and #gp_ilp.target.instance.constraints.len() constraints in total. The three active crossing indicators correspond to edges $\{#gp_crossing_edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")\}$.\
-
-    *Step 3 -- Verify the objective.* The target witness $bold(z) = (#gp_ilp_sol.target_config.map(str).join(", "))$ sets exactly #gp_crossing.len() edge-indicator variables to 1, so the ILP objective equals the bisection width #gp_crossing.len() #sym.checkmark
-  ],
-)[
-  The node-and-edge integer-programming formulation of Chopra and Rao @chopra1993 models a balanced cut with one binary variable per vertex and one binary crossing indicator per edge. A single balance equality enforces the bisection, and two linear inequalities per edge linearize $|x_u - x_v|$ so that the objective can minimize the number of crossing edges directly.
-][
-  _Construction._ Given graph $G = (V, E)$ with $n = |V|$ and $m = |E|$:
-
-  _Variables._ Binary $x_v in {0, 1}$ for each $v in V$, where $x_v = 1$ means vertex $v$ is placed in side $B$. For each edge $e = (u, v) in E$, binary $y_e in {0, 1}$ indicates whether $e$ crosses the partition. Total: $n + m$ variables.
-
-  _Constraints._ (1) Balance: $sum_(v in V) x_v = n / 2$. If $n$ is odd, the right-hand side is fractional, so the ILP is infeasible exactly when Graph Partitioning has no valid balanced partition. (2) For each edge $e = (u, v)$: $y_e >= x_u - x_v$ and $y_e >= x_v - x_u$. Since $y_e$ is binary and the objective minimizes $sum_e y_e$, these inequalities force $y_e = 1$ exactly for crossing edges. Total: $2m + 1$ constraints.
-
-  _Objective._ Minimize $sum_(e in E) y_e$.
-
-  The ILP is:
-  $
-    min quad & sum_(e in E) y_e \
-    "subject to" quad & sum_(v in V) x_v = n / 2 \
-    & y_e >= x_u - x_v quad forall e = (u, v) in E \
-    & y_e >= x_v - x_u quad forall e = (u, v) in E \
-    & x_v in {0, 1}, y_e in {0, 1}
-  $.
-
-  _Correctness._ ($arrow.r.double$) Given a balanced partition $(A, B)$, set $x_v = 1$ iff $v in B$, and set $y_e = 1$ iff edge $e$ has one endpoint in each side. The balance constraint holds because $|B| = n / 2$, and the linking inequalities hold because $|x_u - x_v| = 1$ exactly on crossing edges. The objective is therefore the cut size. ($arrow.l.double$) Any feasible ILP solution satisfies the balance equation, so exactly half the vertices have $x_v = 1$ when $n$ is even. For each edge, the linking inequalities imply $y_e >= |x_u - x_v|$; minimization therefore chooses $y_e = |x_u - x_v|$, making the objective count precisely the crossing edges of the extracted partition.
-
-  _Solution extraction._ Return the first $n$ variables $(x_v)_(v in V)$ as the Graph Partitioning configuration; the edge-indicator variables are auxiliary.
-]
 
 #let ks_ilp = load-example("Knapsack", "ILP")
 #let ks_ilp_sol = ks_ilp.solutions.at(0)
