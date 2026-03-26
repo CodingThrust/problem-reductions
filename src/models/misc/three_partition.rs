@@ -54,10 +54,10 @@ impl ThreePartition {
             return Err("All sizes must be positive (> 0)".to_string());
         }
 
+        let bound128 = u128::from(bound);
         for &size in sizes {
             let size = u128::from(size);
-            let bound = u128::from(bound);
-            if !(4 * size > bound && 2 * size < bound) {
+            if !(4 * size > bound128 && 2 * size < bound128) {
                 return Err("Every size must lie strictly between B/4 and B/2".to_string());
             }
         }
