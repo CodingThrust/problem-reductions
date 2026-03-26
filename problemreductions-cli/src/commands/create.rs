@@ -13,8 +13,8 @@ use problemreductions::models::algebraic::{
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
-    DisjointConnectingPaths, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
-    HamiltonianPath, IntegralFlowBundles, LengthBoundedDisjointPaths, LongestCircuit, LongestPath,
+    DisjointConnectingPaths, GeneralizedHex, HamiltonianCircuit, HamiltonianPath,
+    IntegralFlowBundles, LengthBoundedDisjointPaths, LongestCircuit, LongestPath,
     MinimumCutIntoBoundedSets, MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman,
     MultipleChoiceBranching, PathConstrainedNetworkFlow, RootedTreeArrangement, SteinerTree,
     SteinerTreeInGraphs, StrongConnectivityAugmentation,
@@ -537,7 +537,6 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
         "KClique" => "--graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3",
-        "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
         "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
         "IntegralFlowBundles" => {
             "--arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4"
@@ -1133,19 +1132,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let terminals = parse_terminals(args, graph.num_vertices())?;
             let data = ser(SteinerTree::new(graph, edge_weights, terminals))?;
             (data, resolved_variant.clone())
-        }
-
-        // Graph partitioning (graph only, no weights)
-        "GraphPartitioning" => {
-            let (graph, _) = parse_graph(args).map_err(|e| {
-                anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create GraphPartitioning --graph 0-1,1-2,2-3,0-2,1-3,0-3"
-                )
-            })?;
-            (
-                ser(GraphPartitioning::new(graph))?,
-                resolved_variant.clone(),
-            )
         }
 
         // Generalized Hex (graph + source + sink)
@@ -5903,27 +5889,6 @@ fn create_random(
                 ))?,
                 variant,
             )
-        }
-
-        // GraphPartitioning (graph only, no weights; requires even vertex count)
-        "GraphPartitioning" => {
-            let num_vertices = if num_vertices % 2 != 0 {
-                eprintln!(
-                    "Warning: GraphPartitioning requires even vertex count; rounding {} up to {}",
-                    num_vertices,
-                    num_vertices + 1
-                );
-                num_vertices + 1
-            } else {
-                num_vertices
-            };
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
-            if !(0.0..=1.0).contains(&edge_prob) {
-                bail!("--edge-prob must be between 0.0 and 1.0");
-            }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
-            let variant = variant_map(&[("graph", "SimpleGraph")]);
-            (ser(GraphPartitioning::new(graph))?, variant)
         }
 
         // Hamiltonian Circuit (graph only, no weights)

@@ -135,7 +135,6 @@ Registered problems: 50 types, 59 reductions, 69 variant nodes
   ExactCoverBy3Sets *                               X3C                 O(2^universe_size)
   Factoring *                                                        2  O(exp((m + n)^0.3333333333333333 * log(m + n)^0.6666666666666666))
   FlowShopScheduling *                                                  O(factorial(num_jobs))
-  GraphPartitioning/SimpleGraph *                                       O(2^num_vertices)
   HamiltonianPath/SimpleGraph *                                         O(1.657^num_vertices)
   ILP/bool *                                                         2  O(2^num_vars)
   ILP/i32                                                               O(num_vars^num_vars)
