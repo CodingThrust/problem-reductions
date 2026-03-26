@@ -103,7 +103,7 @@ impl ReduceTo<ILP<bool>> for PrecedenceConstrainedScheduling {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "precedenceconstrainedscheduling_to_ilp",
         build: || {
             // 3 tasks, 2 processors, deadline 2, with task 0 < task 2

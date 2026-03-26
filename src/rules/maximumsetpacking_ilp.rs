@@ -79,7 +79,7 @@ impl ReduceTo<ILP<bool>> for MaximumSetPacking<i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "maximumsetpacking_to_ilp",
         build: || {
             let source = MaximumSetPacking::new(vec![

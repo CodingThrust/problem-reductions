@@ -116,7 +116,7 @@ fn weighted_distances_mmc(
 #[reduction(
     overhead = {
         num_vars = "num_vertices + num_vertices^2 + 1",
-        num_constraints = "2 * num_vertices^2 + 4 * num_vertices + 2",
+        num_constraints = "2 * num_vertices^2 + 3 * num_vertices + 2",
     }
 )]
 impl ReduceTo<ILP<i32>> for MinMaxMulticenter<SimpleGraph, i32> {
@@ -139,7 +139,7 @@ impl ReduceTo<ILP<i32>> for MinMaxMulticenter<SimpleGraph, i32> {
         let z_var = n + n * n;
 
         let num_vars = n + n * n + 1;
-        let mut constraints = Vec::with_capacity(2 * n * n + 4 * n + 1);
+        let mut constraints = Vec::with_capacity(2 * n * n + 3 * n + 2);
 
         // Cardinality constraint: Σ_j x_j = k
         let center_terms: Vec<(usize, f64)> = (0..n).map(|j| (x_var(j), 1.0)).collect();
@@ -182,9 +182,8 @@ impl ReduceTo<ILP<i32>> for MinMaxMulticenter<SimpleGraph, i32> {
             .iter()
             .enumerate()
             .flat_map(|(i, row)| {
-                row.iter().filter_map(move |d| {
-                    d.map(|d| (vertex_weights[i] as f64) * (d as f64))
-                })
+                row.iter()
+                    .filter_map(move |d| d.map(|d| (vertex_weights[i] as f64) * (d as f64)))
             })
             .fold(0.0_f64, f64::max);
         constraints.push(LinearConstraint::le(vec![(z_var, 1.0)], z_upper));
@@ -216,7 +215,7 @@ impl ReduceTo<ILP<i32>> for MinMaxMulticenter<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "minmaxmulticenter_to_ilp",
         build: || {
             // 3-vertex path: 0 - 1 - 2, unit weights/lengths, K=1

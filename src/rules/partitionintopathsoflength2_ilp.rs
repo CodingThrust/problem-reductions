@@ -128,7 +128,7 @@ impl ReduceTo<ILP<bool>> for PartitionIntoPathsOfLength2<SimpleGraph> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "partitionintopathsoflength2_to_ilp",
         build: || {
             // Two P3 paths: 0-1-2 and 3-4-5

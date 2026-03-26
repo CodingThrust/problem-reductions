@@ -101,7 +101,7 @@ impl ReduceTo<ILP<bool>> for CapacityAssignment {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "capacityassignment_to_ilp",
         build: || {
             // 2 links, 2 capacity levels

@@ -94,7 +94,7 @@ impl ReduceTo<ILP<bool>> for ResourceConstrainedScheduling {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "resourceconstrainedscheduling_to_ilp",
         build: || {
             // 6 tasks, 3 processors, 1 resource with bound 20, deadline 2

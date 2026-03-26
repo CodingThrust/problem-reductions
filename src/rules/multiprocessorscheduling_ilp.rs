@@ -90,7 +90,7 @@ impl ReduceTo<ILP<bool>> for MultiprocessorScheduling {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "multiprocessorscheduling_to_ilp",
         build: || {
             // 3 tasks with lengths [4, 5, 3], 2 processors, deadline 7

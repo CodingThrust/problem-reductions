@@ -364,7 +364,6 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::rules::ReduceTo as _;
     use crate::topology::MixedGraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {

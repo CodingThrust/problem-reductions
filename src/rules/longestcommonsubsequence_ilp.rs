@@ -162,7 +162,7 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "longestcommonsubsequence_to_ilp",
         build: || {
             // Source: alphabet {0,1,2}, strings [0,1,2] and [1,0,2], max_length = 3

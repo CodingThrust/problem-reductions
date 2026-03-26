@@ -215,8 +215,6 @@ impl ReduceTo<ILP<i32>> for RuralPostman<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::rules::ReduceTo as _;
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "ruralpostman_to_ilp",
         build: || {

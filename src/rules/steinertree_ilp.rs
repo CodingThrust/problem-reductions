@@ -124,7 +124,7 @@ impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "steinertree_to_ilp",
         build: || {
             let source = SteinerTree::new(

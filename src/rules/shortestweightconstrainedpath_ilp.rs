@@ -214,7 +214,7 @@ impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "shortestweightconstrainedpath_to_ilp",
         build: || {
             // 3-vertex path: 0 -- 1 -- 2, s=0, t=2

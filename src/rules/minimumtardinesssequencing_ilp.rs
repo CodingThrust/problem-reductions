@@ -103,7 +103,7 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumtardinesssequencing_to_ilp",
         build: || {
             let source = MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]);

@@ -101,7 +101,7 @@ impl ReduceTo<ILP<bool>> for QUBO<f64> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "qubo_to_ilp",
         build: || {
             let mut matrix = vec![vec![0.0; 4]; 4];

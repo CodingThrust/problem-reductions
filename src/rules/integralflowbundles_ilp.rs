@@ -93,13 +93,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "integralflowbundles_to_ilp",
         build: || {
             let source = IntegralFlowBundles::new(
-                    DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]),
-                    0,
-                    3,
-                    vec![vec![0, 1], vec![2, 5], vec![3, 4]],
-                    vec![1, 1, 1],
-                    1,
-                );
+                DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]),
+                0,
+                3,
+                vec![vec![0, 1], vec![2, 5], vec![3, 4]],
+                vec![1, 1, 1],
+                1,
+            );
             crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
         },
     }]

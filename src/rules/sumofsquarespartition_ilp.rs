@@ -146,7 +146,7 @@ impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "sumofsquarespartition_to_ilp",
         build: || {
             // 4 elements [1, 2, 3, 4], K=2 groups

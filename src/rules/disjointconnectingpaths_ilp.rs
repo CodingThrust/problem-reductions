@@ -170,8 +170,6 @@ impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::rules::ReduceTo as _;
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "disjointconnectingpaths_to_ilp",
         build: || {

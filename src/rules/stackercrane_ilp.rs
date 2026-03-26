@@ -200,8 +200,6 @@ fn all_pairs_shortest_paths(
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::rules::ReduceTo as _;
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "stackercrane_to_ilp",
         build: || {

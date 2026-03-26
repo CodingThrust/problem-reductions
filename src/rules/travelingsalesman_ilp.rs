@@ -198,7 +198,7 @@ impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "travelingsalesman_to_ilp",
         build: || {
             let source = TravelingSalesman::new(

@@ -83,7 +83,7 @@ impl ReduceTo<ILP<bool>> for MinimumSetCovering<i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumsetcovering_to_ilp",
         build: || {
             let source = MinimumSetCovering::new(

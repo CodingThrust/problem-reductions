@@ -106,7 +106,7 @@ impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "schedulingwithindividualdeadlines_to_ilp",
         build: || {
             // 3 tasks, 2 processors, deadlines [2, 2, 3], precedence (0, 2)

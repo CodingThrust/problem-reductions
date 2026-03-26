@@ -96,7 +96,7 @@ impl ReduceTo<ILP<bool>> for TimetableDesign {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "timetabledesign_to_ilp",
         build: || {
             // Small 2-craftsman, 2-task, 2-period instance

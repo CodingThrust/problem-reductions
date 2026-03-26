@@ -207,7 +207,7 @@ impl ReduceTo<ILP<i32>> for FlowShopScheduling {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "flowshopscheduling_to_ilp",
         build: || {
             // 2 machines, 3 jobs, deadline 10

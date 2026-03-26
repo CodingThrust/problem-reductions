@@ -108,7 +108,7 @@ impl ReduceTo<ILP<bool>> for PartitionIntoTriangles<SimpleGraph> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "partitionintotriangles_to_ilp",
         build: || {
             // Two triangles: 0-1-2 and 3-4-5

@@ -82,7 +82,7 @@ impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumdominatingset_to_ilp",
         build: || {
             let (n, edges) = crate::topology::small_graphs::petersen();

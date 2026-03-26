@@ -80,7 +80,7 @@ impl ReduceTo<ILP<bool>> for MaximumClique<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "maximumclique_to_ilp",
         build: || {
             let (n, edges) = crate::topology::small_graphs::octahedral();

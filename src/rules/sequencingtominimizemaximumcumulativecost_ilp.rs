@@ -114,7 +114,7 @@ impl ReduceTo<ILP<i32>> for SequencingToMinimizeMaximumCumulativeCost {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-        vec![crate::example_db::specs::RuleExampleSpec {
+    vec![crate::example_db::specs::RuleExampleSpec {
         id: "sequencingtominimizemaximumcumulativecost_to_ilp",
         build: || {
             let source =
