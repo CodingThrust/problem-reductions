@@ -2,7 +2,7 @@ use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::SteinerTree;
 use crate::rules::ReduceTo;
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -100,10 +100,5 @@ fn test_reduction_rejects_zero_weights() {
 fn test_steinertree_to_ilp_bf_vs_ilp() {
     let problem = canonical_instance();
     let reduction: ReductionSteinerTreeToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
-    let bf_value = BruteForce::new().solve(&problem);
-    let ilp_solution = ILPSolver::new()
-        .solve(reduction.target_problem())
-        .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), bf_value);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

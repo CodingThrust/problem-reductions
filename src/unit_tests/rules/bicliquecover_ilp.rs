@@ -3,7 +3,6 @@ use crate::models::algebraic::ILP;
 use crate::models::graph::BicliqueCover;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::rules::ReduceTo;
-use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::topology::BipartiteGraph;
 use crate::traits::Problem;
 
@@ -67,10 +66,5 @@ fn test_single_edge() {
 fn test_bicliquecover_to_ilp_bf_vs_ilp() {
     let source = small_instance();
     let reduction: ReductionBicliqueCoverToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
-    let bf_value = BruteForce::new().solve(&source);
-    let ilp_solution = ILPSolver::new()
-        .solve(reduction.target_problem())
-        .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(source.evaluate(&extracted), bf_value);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }

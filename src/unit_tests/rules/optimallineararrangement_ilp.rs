@@ -101,10 +101,5 @@ fn test_solution_extraction() {
 fn test_optimallineararrangement_to_ilp_bf_vs_ilp() {
     let problem = OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     let reduction: ReductionOLAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
-    let bf_value = BruteForce::new().solve(&problem);
-    let ilp_solution = ILPSolver::new()
-        .solve(reduction.target_problem())
-        .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), bf_value);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

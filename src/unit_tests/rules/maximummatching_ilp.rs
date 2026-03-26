@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
@@ -254,10 +254,5 @@ fn test_maximummatching_to_ilp_bf_vs_ilp() {
     let problem =
         MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     let reduction: ReductionMatchingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
-    let bf_value = BruteForce::new().solve(&problem);
-    let ilp_solution = ILPSolver::new()
-        .solve(reduction.target_problem())
-        .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), bf_value);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

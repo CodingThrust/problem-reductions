@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
@@ -123,10 +123,5 @@ fn test_directedtwocommodityintegralflow_to_ilp_extract_solution() {
 fn test_directedtwocommodityintegralflow_to_ilp_bf_vs_ilp() {
     let problem = feasible_instance();
     let reduction: ReductionD2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
-    let bf_value = BruteForce::new().solve(&problem);
-    let ilp_solution = ILPSolver::new()
-        .solve(reduction.target_problem())
-        .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), bf_value);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
