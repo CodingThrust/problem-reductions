@@ -6569,20 +6569,18 @@ mod tests {
         fs::remove_file(output_path).ok();
 
         assert_eq!(created["type"], "ThreePartition");
-        assert_eq!(created["data"]["sizes"], serde_json::json!([4, 5, 6, 4, 6, 5]));
+        assert_eq!(
+            created["data"]["sizes"],
+            serde_json::json!([4, 5, 6, 4, 6, 5])
+        );
         assert_eq!(created["data"]["bound"], 15);
     }
 
     #[test]
     fn test_create_three_partition_requires_bound() {
-        let cli = Cli::try_parse_from([
-            "pred",
-            "create",
-            "ThreePartition",
-            "--sizes",
-            "4,5,6,4,6,5",
-        ])
-        .expect("parse create command");
+        let cli =
+            Cli::try_parse_from(["pred", "create", "ThreePartition", "--sizes", "4,5,6,4,6,5"])
+                .expect("parse create command");
 
         let args = match cli.command {
             Commands::Create(args) => args,

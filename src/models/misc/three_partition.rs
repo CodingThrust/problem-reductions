@@ -42,7 +42,9 @@ impl ThreePartition {
             return Err("ThreePartition requires at least one element".to_string());
         }
         if !sizes.len().is_multiple_of(3) {
-            return Err("ThreePartition requires the number of elements to be a multiple of 3".to_string());
+            return Err(
+                "ThreePartition requires the number of elements to be a multiple of 3".to_string(),
+            );
         }
         if bound == 0 {
             return Err("ThreePartition requires a positive bound".to_string());
@@ -55,9 +57,7 @@ impl ThreePartition {
             let size = u128::from(size);
             let bound = u128::from(bound);
             if !(4 * size > bound && 2 * size < bound) {
-                return Err(
-                    "Every size must lie strictly between B/4 and B/2".to_string(),
-                );
+                return Err("Every size must lie strictly between B/4 and B/2".to_string());
             }
         }
 
@@ -107,7 +107,10 @@ impl ThreePartition {
         self.sizes
             .iter()
             .copied()
-            .reduce(|acc, value| acc.checked_add(value).expect("validated sum must fit in u64"))
+            .reduce(|acc, value| {
+                acc.checked_add(value)
+                    .expect("validated sum must fit in u64")
+            })
             .unwrap_or(0)
     }
 
