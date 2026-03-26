@@ -96,9 +96,7 @@ impl ReduceTo<ILP<bool>> for TimetableDesign {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-
-    vec![crate::example_db::specs::RuleExampleSpec {
+        vec![crate::example_db::specs::RuleExampleSpec {
         id: "timetabledesign_to_ilp",
         build: || {
             // Small 2-craftsman, 2-task, 2-period instance
@@ -110,18 +108,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![vec![true, true], vec![true, true]],
                 vec![vec![1, 0], vec![0, 1]],
             );
-            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
-            let ilp_solution = crate::solvers::ILPSolver::new()
-                .solve(reduction.target_problem())
-                .expect("canonical example must be solvable");
-            let source_config = reduction.extract_solution(&ilp_solution);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config,
-                    target_config: ilp_solution,
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

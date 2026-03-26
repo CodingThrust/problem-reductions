@@ -90,9 +90,7 @@ impl ReduceTo<ILP<bool>> for MultiprocessorScheduling {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-
-    vec![crate::example_db::specs::RuleExampleSpec {
+        vec![crate::example_db::specs::RuleExampleSpec {
         id: "multiprocessorscheduling_to_ilp",
         build: || {
             // 3 tasks with lengths [4, 5, 3], 2 processors, deadline 7
@@ -101,18 +99,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Assignment: task 0 → processor 0, task 1 → processor 1, task 2 → processor 0
             // Loads: processor 0 = 4+3=7, processor 1 = 5 ≤ 7. Feasible!
             let source = MultiprocessorScheduling::new(vec![4, 5, 3], 2, 7);
-            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
-            let ilp_solution = crate::solvers::ILPSolver::new()
-                .solve(reduction.target_problem())
-                .expect("canonical example must be solvable");
-            let source_config = reduction.extract_solution(&ilp_solution);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config,
-                    target_config: ilp_solution,
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

@@ -146,26 +146,13 @@ impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-
-    vec![crate::example_db::specs::RuleExampleSpec {
+        vec![crate::example_db::specs::RuleExampleSpec {
         id: "sumofsquarespartition_to_ilp",
         build: || {
             // 4 elements [1, 2, 3, 4], K=2 groups
             // Group {1,4}: sum=5, Group {2,3}: sum=5 → sos = 25+25 = 50
             let source = SumOfSquaresPartition::new(vec![1, 2, 3, 4], 2);
-            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
-            let ilp_solution = crate::solvers::ILPSolver::new()
-                .solve(reduction.target_problem())
-                .expect("canonical example must be solvable");
-            let source_config = reduction.extract_solution(&ilp_solution);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config,
-                    target_config: ilp_solution,
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }
