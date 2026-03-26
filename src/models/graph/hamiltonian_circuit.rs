@@ -144,22 +144,9 @@ pub(crate) fn is_valid_hamiltonian_circuit<G: Graph>(graph: &G, config: &[usize]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "hamiltonian_circuit_simplegraph",
-        // Prism graph (triangular prism): 6 vertices, 9 edges
-        instance: Box::new(HamiltonianCircuit::new(SimpleGraph::new(
-            6,
-            vec![
-                (0, 1),
-                (1, 2),
-                (2, 0),
-                (3, 4),
-                (4, 5),
-                (5, 3),
-                (0, 3),
-                (1, 4),
-                (2, 5),
-            ],
-        ))),
-        optimal_config: vec![0, 1, 2, 5, 4, 3],
+        // Complete graph K4: 4 vertices, 6 edges — every permutation is a valid HC
+        instance: Box::new(HamiltonianCircuit::new(SimpleGraph::complete(4))),
+        optimal_config: vec![0, 1, 2, 3],
         optimal_value: serde_json::json!(true),
     }]
 }
