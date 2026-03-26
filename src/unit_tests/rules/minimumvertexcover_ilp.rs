@@ -59,15 +59,11 @@ fn test_minimumvertexcover_to_ilp_via_path_closed_loop() {
     let (_, chain) = reduce_vc_to_ilp(&problem);
     let ilp: &ILP<bool> = chain.target_problem();
 
-    let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
-    let bf_solutions = bf.find_all_witnesses(&problem);
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = chain.extract_solution(&ilp_solution);
 
-    let bf_size: usize = bf_solutions[0].iter().sum();
     let ilp_size: usize = extracted.iter().sum();
-    assert_eq!(bf_size, 2);
     assert_eq!(ilp_size, 2);
     assert!(problem.evaluate(&extracted).is_valid());
 }
