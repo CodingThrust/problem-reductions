@@ -66,6 +66,20 @@ impl<G: Graph> KClique<G> {
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
         is_kclique_config(&self.graph, config, self.k)
     }
+
+    /// Build a binary selection config from the listed vertices.
+    pub fn config_from_vertices(num_vertices: usize, selected_vertices: &[usize]) -> Vec<usize> {
+        let mut config = vec![0; num_vertices];
+        for &vertex in selected_vertices {
+            config[vertex] = 1;
+        }
+        config
+    }
+
+    /// Convenience wrapper around [`Self::config_from_vertices`] using `self.num_vertices()`.
+    pub fn config_from_selected_vertices(&self, selected_vertices: &[usize]) -> Vec<usize> {
+        Self::config_from_vertices(self.num_vertices(), selected_vertices)
+    }
 }
 
 impl<G> Problem for KClique<G>
