@@ -14,7 +14,7 @@ inventory::submit! {
     ProblemSchemaEntry {
         name: "MaxCut",
         display_name: "Max Cut",
-        aliases: &[],
+        aliases: &["GraphPartitioning"],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
