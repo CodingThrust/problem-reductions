@@ -4,7 +4,8 @@
 //! determine whether they can be partitioned into m triples that all sum to B.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
+use crate::types::Or;
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -152,7 +153,7 @@ impl<'de> Deserialize<'de> for ThreePartition {
 
 impl Problem for ThreePartition {
     const NAME: &'static str = "ThreePartition";
-    type Metric = bool;
+    type Value = Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -162,20 +163,20 @@ impl Problem for ThreePartition {
         vec![self.num_groups(); self.num_elements()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let Some((counts, sums)) = self.group_counts_and_sums(config) else {
-            return false;
-        };
+    fn evaluate(&self, config: &[usize]) -> Or {
+        Or({
+            let Some((counts, sums)) = self.group_counts_and_sums(config) else {
+                return Or(false);
+            };
 
-        let target = u128::from(self.bound);
-        counts.into_iter().all(|count| count == 3) && sums.into_iter().all(|sum| sum == target)
+            let target = u128::from(self.bound);
+            counts.into_iter().all(|count| count == 3) && sums.into_iter().all(|sum| sum == target)
+        })
     }
 }
 
-impl SatisfactionProblem for ThreePartition {}
-
 crate::declare_variants! {
-    default sat ThreePartition => "3^num_elements",
+    default ThreePartition => "3^num_elements",
 }
 
 #[cfg(feature = "example-db")]

@@ -1,6 +1,7 @@
 use crate::models::misc::ThreePartition;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
+use crate::types::Or;
 
 fn yes_problem() -> ThreePartition {
     ThreePartition::new(vec![4, 5, 6, 4, 6, 5], 15)
@@ -23,49 +24,49 @@ fn test_three_partition_basic() {
 #[test]
 fn test_three_partition_evaluate_yes_instance() {
     let problem = yes_problem();
-    assert!(problem.evaluate(&[0, 0, 0, 1, 1, 1]));
+    assert_eq!(problem.evaluate(&[0, 0, 0, 1, 1, 1]), Or(true));
 }
 
 #[test]
 fn test_three_partition_rejects_wrong_group_sizes_or_sums() {
     let problem = yes_problem();
-    assert!(!problem.evaluate(&[0, 0, 1, 1, 1, 1]));
-    assert!(!problem.evaluate(&[0, 1, 0, 1, 0, 1]));
+    assert_eq!(problem.evaluate(&[0, 0, 1, 1, 1, 1]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 0, 1, 0, 1]), Or(false));
 }
 
 #[test]
 fn test_three_partition_rejects_invalid_configs() {
     let problem = yes_problem();
-    assert!(!problem.evaluate(&[0, 0, 0]));
-    assert!(!problem.evaluate(&[0, 0, 0, 1, 1, 1, 0]));
-    assert!(!problem.evaluate(&[0, 0, 0, 1, 1, 2]));
+    assert_eq!(problem.evaluate(&[0, 0, 0]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 0, 0, 1, 1, 1, 0]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 0, 0, 1, 1, 2]), Or(false));
 }
 
 #[test]
-fn test_three_partition_solver_finds_satisfying_assignment() {
+fn test_three_partition_solver_finds_witness() {
     let problem = yes_problem();
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem).unwrap();
-    assert!(problem.evaluate(&solution));
+    let solution = solver.find_witness(&problem).unwrap();
+    assert_eq!(problem.evaluate(&solution), Or(true));
 }
 
 #[test]
 fn test_three_partition_solver_reports_unsatisfiable_instance() {
     let problem = ThreePartition::new(vec![6, 6, 6, 6, 7, 9], 20);
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
 fn test_three_partition_paper_example() {
     let problem = yes_problem();
     let config = vec![0, 0, 0, 1, 1, 1];
-    assert!(problem.evaluate(&config));
+    assert_eq!(problem.evaluate(&config), Or(true));
 
     let solver = BruteForce::new();
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert_eq!(all.len(), 8);
-    assert!(all.iter().all(|sol| problem.evaluate(sol)));
+    assert!(all.iter().all(|sol| problem.evaluate(sol) == Or(true)));
 }
 
 #[test]
