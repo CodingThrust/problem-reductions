@@ -24,61 +24,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToBottleneckTravelingSalesma
     }
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let graph = self.target.graph();
-        let n = graph.num_vertices();
-        if n == 0 {
-            return vec![];
-        }
-
-        let edges = graph.edges();
-        if target_solution.len() != edges.len() {
-            return vec![0; n];
-        }
-
-        // Build adjacency from selected edges
-        let mut adjacency = vec![Vec::new(); n];
-        let mut selected_count = 0usize;
-        for (idx, &selected) in target_solution.iter().enumerate() {
-            if selected != 1 {
-                continue;
-            }
-            let (u, v) = edges[idx];
-            adjacency[u].push(v);
-            adjacency[v].push(u);
-            selected_count += 1;
-        }
-
-        if selected_count != n || adjacency.iter().any(|neighbors| neighbors.len() != 2) {
-            return vec![0; n];
-        }
-
-        for neighbors in &mut adjacency {
-            neighbors.sort_unstable();
-        }
-
-        // Walk the cycle to produce a permutation
-        let mut order = Vec::with_capacity(n);
-        let mut prev = None;
-        let mut current = 0usize;
-
-        for _ in 0..n {
-            order.push(current);
-            let neighbors = &adjacency[current];
-            let next = match prev {
-                Some(previous) => {
-                    if neighbors[0] == previous {
-                        neighbors[1]
-                    } else {
-                        neighbors[0]
-                    }
-                }
-                None => neighbors[0],
-            };
-            prev = Some(current);
-            current = next;
-        }
-
-        order
+        crate::rules::graph_helpers::edges_to_cycle_order(self.target.graph(), target_solution)
     }
 }
 

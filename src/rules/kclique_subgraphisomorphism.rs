@@ -58,14 +58,7 @@ impl ReduceTo<SubgraphIsomorphism> for KClique<SimpleGraph> {
         let n = self.graph().num_vertices();
         let k = self.k();
 
-        // Build the complete graph K_k as the pattern
-        let mut pattern_edges = Vec::new();
-        for i in 0..k {
-            for j in (i + 1)..k {
-                pattern_edges.push((i, j));
-            }
-        }
-        let pattern = SimpleGraph::new(k, pattern_edges);
+        let pattern = SimpleGraph::complete(k);
 
         // Host graph is the original graph, cloned into a SimpleGraph
         let host_edges = self.graph().edges();

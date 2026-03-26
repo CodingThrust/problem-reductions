@@ -58,15 +58,10 @@ impl ReduceTo<ConjunctiveBooleanQuery> for KClique<SimpleGraph> {
         let n = self.graph().num_vertices();
         let k = self.k();
 
-        // Build the single binary relation: for each edge {u,v}, include (u,v) and (v,u).
         let mut tuples = Vec::new();
-        for u in 0..n {
-            for v in (u + 1)..n {
-                if self.graph().has_edge(u, v) {
-                    tuples.push(vec![u, v]);
-                    tuples.push(vec![v, u]);
-                }
-            }
+        for (u, v) in self.graph().edges() {
+            tuples.push(vec![u, v]);
+            tuples.push(vec![v, u]);
         }
         let relation = CbqRelation { arity: 2, tuples };
 

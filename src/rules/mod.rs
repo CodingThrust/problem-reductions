@@ -12,6 +12,7 @@ pub(crate) mod coloring_qubo;
 pub(crate) mod exactcoverby3sets_staffscheduling;
 pub(crate) mod factoring_circuit;
 mod graph;
+pub(crate) mod graph_helpers;
 pub(crate) mod hamiltoniancircuit_bottlenecktravelingsalesman;
 pub(crate) mod hamiltoniancircuit_hamiltonianpath;
 pub(crate) mod hamiltoniancircuit_travelingsalesman;

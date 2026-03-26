@@ -30,13 +30,9 @@ impl ReductionResult for ReductionSATToNAESAT {
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         let n = self.source_num_vars;
-        // Guard against malformed configs from external callers.
-        assert!(
-            target_solution.len() > n,
-            "target config too short: expected at least {} entries, got {}",
-            n + 1,
-            target_solution.len()
-        );
+        if target_solution.len() <= n {
+            return vec![0; n];
+        }
         // The sentinel variable is the last variable (index n).
         let sentinel_value = target_solution[n];
         if sentinel_value == 0 {
