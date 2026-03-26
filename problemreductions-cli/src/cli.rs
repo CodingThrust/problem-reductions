@@ -247,6 +247,7 @@ Flags by problem type:
   BinPacking                      --sizes, --capacity
   CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --delay-budget
   SubsetSum                       --sizes, --target
+  ThreePartition                  --sizes, --bound
   SumOfSquaresPartition           --sizes, --num-groups
   ExpectedRetrievalCost           --probabilities, --num-sectors
   PaintShop                       --sequence

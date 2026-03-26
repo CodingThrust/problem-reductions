@@ -29,7 +29,7 @@ use problemreductions::models::misc::{
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
     SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
-    SumOfSquaresPartition, TimetableDesign,
+    SumOfSquaresPartition, ThreePartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -668,6 +668,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
         }
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "ThreePartition" => "--sizes 4,5,6,4,6,5 --bound 15",
         "BoyceCoddNormalFormViolation" => {
             "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
         }
@@ -2284,6 +2285,33 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let target = util::parse_decimal_biguint(target)?;
             (
                 ser(SubsetSum::new(sizes, target))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ThreePartition
+        "ThreePartition" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ThreePartition requires --sizes and --bound\n\n\
+                     Usage: pred create ThreePartition --sizes 4,5,6,4,6,5 --bound 15"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ThreePartition requires --bound\n\n\
+                     Usage: pred create ThreePartition --sizes 4,5,6,4,6,5 --bound 15"
+                )
+            })?;
+            let bound = u64::try_from(bound).map_err(|_| {
+                anyhow::anyhow!(
+                    "ThreePartition requires a positive integer --bound\n\n\
+                     Usage: pred create ThreePartition --sizes 4,5,6,4,6,5 --bound 15"
+                )
+            })?;
+            let sizes: Vec<u64> = util::parse_comma_list(sizes_str)?;
+            (
+                ser(ThreePartition::try_new(sizes, bound).map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
         }
@@ -6499,6 +6527,104 @@ mod tests {
         let example = example_for("PathConstrainedNetworkFlow", None);
         assert!(example.contains("--paths"));
         assert!(example.contains("--requirement"));
+    }
+
+    #[test]
+    fn test_example_for_three_partition_mentions_sizes_and_bound() {
+        let example = example_for("ThreePartition", None);
+        assert!(example.contains("--sizes"));
+        assert!(example.contains("--bound"));
+    }
+
+    #[test]
+    fn test_create_three_partition_outputs_problem_json() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "ThreePartition",
+            "--sizes",
+            "4,5,6,4,6,5",
+            "--bound",
+            "15",
+        ])
+        .expect("parse create command");
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let output_path = temp_output_path("three_partition_create");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).expect("create ThreePartition JSON");
+
+        let created: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output_path).unwrap()).unwrap();
+        fs::remove_file(output_path).ok();
+
+        assert_eq!(created["type"], "ThreePartition");
+        assert_eq!(
+            created["data"]["sizes"],
+            serde_json::json!([4, 5, 6, 4, 6, 5])
+        );
+        assert_eq!(created["data"]["bound"], 15);
+    }
+
+    #[test]
+    fn test_create_three_partition_requires_bound() {
+        let cli =
+            Cli::try_parse_from(["pred", "create", "ThreePartition", "--sizes", "4,5,6,4,6,5"])
+                .expect("parse create command");
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("ThreePartition requires --bound"));
+    }
+
+    #[test]
+    fn test_create_three_partition_rejects_invalid_instance() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "ThreePartition",
+            "--sizes",
+            "4,5,6,4,6,5",
+            "--bound",
+            "14",
+        ])
+        .expect("parse create command");
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("must equal m * bound"));
     }
 
     #[test]

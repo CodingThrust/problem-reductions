@@ -145,6 +145,7 @@
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "SubsetSum": [Subset Sum],
   "Partition": [Partition],
+  "ThreePartition": [3-Partition],
   "PartialFeedbackEdgeSet": [Partial Feedback Edge Set],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
@@ -4586,6 +4587,43 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
   *Example.* Let $A = {5, 3, 8, 2, 7, 1}$ ($n = 6$) and $K = 3$ groups. The partition $A_1 = {8, 1}$, $A_2 = {5, 2}$, $A_3 = {3, 7}$ gives group sums $9, 7, 10$ and sum of squares $81 + 49 + 100 = 230$. The optimal partition has group sums ${9, 9, 8}$ yielding $81 + 81 + 64 = 226$.
 ]
+
+#{
+  let x = load-model-example("ThreePartition")
+  let sizes = x.instance.sizes
+  let bound = x.instance.bound
+  let config = x.optimal_config
+  let m = int(sizes.len() / 3)
+  // Group elements by their assignment in optimal_config
+  let groups = range(m).map(g => {
+    let indices = range(sizes.len()).filter(i => config.at(i) == g)
+    indices.map(i => sizes.at(i))
+  })
+  [
+    #problem-def("ThreePartition")[
+      Given a set $A = {a_0, dots, a_(3m-1)}$ of $3m$ elements, a bound $B in ZZ^+$, and sizes $s(a) in ZZ^+$ such that $B/4 lt s(a) lt B/2$ for every $a in A$ and $sum_(a in A) s(a) = m B$, determine whether $A$ can be partitioned into $m$ disjoint triples $A_1, dots, A_m$ with $sum_(a in A_i) s(a) = B$ for every $i$.
+    ][
+      3-Partition is Garey and Johnson's strongly NP-complete benchmark SP15 @garey1979. Unlike ordinary Partition, the strict size window forces every feasible block to contain exactly three elements, making the problem the canonical source for strong NP-completeness reductions to scheduling, packing, and layout models. The implementation in this repository uses one group-assignment variable per element, so the exported exact-search baseline is $O^*(3^n)$#footnote[This is the direct worst-case bound induced by the implementation's configuration space and matches the registered catalog expression `3^num_elements`; no sharper general exact bound was independently verified while preparing this entry.].
+
+      *Example.* Let $B = #bound$ and consider the #(sizes.len())-element instance with sizes $(#sizes.map(str).join(", "))$. The witness triples #groups.enumerate().map(((i, g)) => [$A_#(i+1) = {#g.map(str).join(", ")}$]).join([ and ]) both sum to $#bound$, so this instance is satisfiable.
+
+      #pred-commands(
+        "pred create --example ThreePartition -o three-partition.json",
+        "pred solve three-partition.json",
+        "pred evaluate three-partition.json --config " + config.map(str).join(","),
+      )
+
+      #align(center, table(
+        columns: 3,
+        align: center,
+        table.header([Triple], [Elements], [Sum]),
+        ..groups.enumerate().map(((i, g)) => (
+          [$A_#(i+1)$], [$#(g.map(str).join(", "))$], [$#bound$],
+        )).flatten(),
+      ))
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("SequencingWithReleaseTimesAndDeadlines")

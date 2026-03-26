@@ -78,7 +78,8 @@ pub mod prelude {
         SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
         SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
         SequencingWithinIntervals, ShortestCommonSupersequence, StackerCrane, StaffScheduling,
-        StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, TimetableDesign,
+        StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, ThreePartition,
+        TimetableDesign,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
