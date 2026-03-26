@@ -182,7 +182,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Row 0: [1,0,1] needs 1 flip (the middle 0), cost=1
             // Row 1: [0,1,1] needs 0 flips, cost=0
             // Total = 1 <= 1
-            let source_config = vec![0, 1, 2];
             let reduction: ReductionCOMAToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
             let ilp_solver = crate::solvers::ILPSolver::new();
             let target_config = ilp_solver

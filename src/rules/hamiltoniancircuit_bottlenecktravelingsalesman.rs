@@ -1,23 +1,23 @@
-//! Reduction from HamiltonianCircuit to TravelingSalesman.
+//! Reduction from HamiltonianCircuit to BottleneckTravelingSalesman.
 //!
 //! The standard construction embeds the source graph into the complete graph on the
 //! same vertex set, assigning weight 1 to source edges and weight 2 to non-edges.
-//! The target optimum is exactly n iff the source graph contains a Hamiltonian circuit.
+//! The optimal bottleneck tour equals 1 iff the source graph contains a Hamiltonian circuit.
 
-use crate::models::graph::{HamiltonianCircuit, TravelingSalesman};
+use crate::models::graph::{BottleneckTravelingSalesman, HamiltonianCircuit};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
-/// Result of reducing HamiltonianCircuit to TravelingSalesman.
+/// Result of reducing HamiltonianCircuit to BottleneckTravelingSalesman.
 #[derive(Debug, Clone)]
-pub struct ReductionHamiltonianCircuitToTravelingSalesman {
-    target: TravelingSalesman<SimpleGraph, i32>,
+pub struct ReductionHamiltonianCircuitToBottleneckTravelingSalesman {
+    target: BottleneckTravelingSalesman,
 }
 
-impl ReductionResult for ReductionHamiltonianCircuitToTravelingSalesman {
+impl ReductionResult for ReductionHamiltonianCircuitToBottleneckTravelingSalesman {
     type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = TravelingSalesman<SimpleGraph, i32>;
+    type Target = BottleneckTravelingSalesman;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -34,8 +34,8 @@ impl ReductionResult for ReductionHamiltonianCircuitToTravelingSalesman {
         num_edges = "num_vertices * (num_vertices - 1) / 2",
     }
 )]
-impl ReduceTo<TravelingSalesman<SimpleGraph, i32>> for HamiltonianCircuit<SimpleGraph> {
-    type Result = ReductionHamiltonianCircuitToTravelingSalesman;
+impl ReduceTo<BottleneckTravelingSalesman> for HamiltonianCircuit<SimpleGraph> {
+    type Result = ReductionHamiltonianCircuitToBottleneckTravelingSalesman;
 
     fn reduce_to(&self) -> Self::Result {
         let num_vertices = self.num_vertices();
@@ -45,9 +45,9 @@ impl ReduceTo<TravelingSalesman<SimpleGraph, i32>> for HamiltonianCircuit<Simple
             .into_iter()
             .map(|(u, v)| if self.graph().has_edge(u, v) { 1 } else { 2 })
             .collect();
-        let target = TravelingSalesman::new(target_graph, weights);
+        let target = BottleneckTravelingSalesman::new(target_graph, weights);
 
-        ReductionHamiltonianCircuitToTravelingSalesman { target }
+        ReductionHamiltonianCircuitToBottleneckTravelingSalesman { target }
     }
 }
 
@@ -56,13 +56,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     use crate::export::SolutionPair;
 
     vec![crate::example_db::specs::RuleExampleSpec {
-        id: "hamiltoniancircuit_to_travelingsalesman",
+        id: "hamiltoniancircuit_to_bottlenecktravelingsalesman",
         build: || {
             let source = HamiltonianCircuit::new(SimpleGraph::cycle(4));
-            crate::example_db::specs::rule_example_with_witness::<
-                _,
-                TravelingSalesman<SimpleGraph, i32>,
-            >(
+            crate::example_db::specs::rule_example_with_witness::<_, BottleneckTravelingSalesman>(
                 source,
                 SolutionPair {
                     source_config: vec![0, 1, 2, 3],
@@ -74,5 +71,5 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 }
 
 #[cfg(test)]
-#[path = "../unit_tests/rules/hamiltoniancircuit_travelingsalesman.rs"]
+#[path = "../unit_tests/rules/hamiltoniancircuit_bottlenecktravelingsalesman.rs"]
 mod tests;
