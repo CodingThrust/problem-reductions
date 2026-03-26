@@ -66,7 +66,7 @@ fn test_bcnf_evaluate_invalid_config_values() {
 fn test_bcnf_solver_finds_violation() {
     let problem = canonical_problem();
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     // All returned solutions must evaluate to true.
     for sol in &solutions {
@@ -81,7 +81,7 @@ fn test_bcnf_no_violation_when_fds_trivial() {
     // Only trivial FD: {0} → {0}. No non-trivial closure possible.
     let problem = BoyceCoddNormalFormViolation::new(3, vec![(vec![0], vec![0])], vec![0, 1, 2]);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(solutions.is_empty());
 }
 
@@ -187,7 +187,7 @@ fn test_bcnf_cyclic_keys_no_violation() {
         vec![0, 1, 2, 3],
     );
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(
         solutions.is_empty(),
         "Cyclic-key instance should have no BCNF violation"

@@ -5,7 +5,7 @@
 //! respecting precedences. NP-complete via reduction from 3SAT (Ullman, 1975).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -47,7 +47,7 @@ inventory::submit! {
 /// // 4 tasks, 2 processors, deadline 3, with t0 < t2 and t1 < t3
 /// let problem = PrecedenceConstrainedScheduling::new(4, 2, 3, vec![(0, 2), (1, 3)]);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,7 +118,7 @@ impl PrecedenceConstrainedScheduling {
 
 impl Problem for PrecedenceConstrainedScheduling {
     const NAME: &'static str = "PrecedenceConstrainedScheduling";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -128,36 +128,36 @@ impl Problem for PrecedenceConstrainedScheduling {
         vec![self.deadline; self.num_tasks]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_tasks {
-            return false;
-        }
-        // Check all values are valid time slots
-        if config.iter().any(|&v| v >= self.deadline) {
-            return false;
-        }
-        // Check processor capacity: at most num_processors tasks per time slot
-        let mut slot_count = vec![0usize; self.deadline];
-        for &slot in config {
-            slot_count[slot] += 1;
-            if slot_count[slot] > self.num_processors {
-                return false;
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.num_tasks {
+                return crate::types::Or(false);
             }
-        }
-        // Check precedence constraints: for (i, j), slot[j] >= slot[i] + 1
-        for &(i, j) in &self.precedences {
-            if config[j] < config[i] + 1 {
-                return false;
+            // Check all values are valid time slots
+            if config.iter().any(|&v| v >= self.deadline) {
+                return crate::types::Or(false);
             }
-        }
-        true
+            // Check processor capacity: at most num_processors tasks per time slot
+            let mut slot_count = vec![0usize; self.deadline];
+            for &slot in config {
+                slot_count[slot] += 1;
+                if slot_count[slot] > self.num_processors {
+                    return crate::types::Or(false);
+                }
+            }
+            // Check precedence constraints: for (i, j), slot[j] >= slot[i] + 1
+            for &(i, j) in &self.precedences {
+                if config[j] < config[i] + 1 {
+                    return crate::types::Or(false);
+                }
+            }
+            true
+        })
     }
 }
 
-impl SatisfactionProblem for PrecedenceConstrainedScheduling {}
-
 crate::declare_variants! {
-    default sat PrecedenceConstrainedScheduling => "2^num_tasks",
+    default PrecedenceConstrainedScheduling => "2^num_tasks",
 }
 
 #[cfg(feature = "example-db")]

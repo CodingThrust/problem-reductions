@@ -7,7 +7,7 @@ use crate::models::graph::{MaxCut, SpinGlass};
 use crate::models::misc::Factoring;
 use crate::rules::test_helpers::assert_optimization_round_trip_chain;
 use crate::rules::{MinimizeSteps, ReductionGraph};
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::ProblemSize;
@@ -58,7 +58,7 @@ fn test_jl_parity_maxcut_to_spinglass_path() {
     assert_eq!(SpinGlass::<SimpleGraph, f64>::NAME, "SpinGlass");
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_best(target).unwrap();
+    let target_solution = solver.find_witness(target).unwrap();
     let source_solution = chain.extract_solution(&target_solution);
 
     // Source solution should be valid
@@ -115,7 +115,7 @@ fn test_jl_parity_maxcut_to_qubo_path() {
 
 /// Julia: factoring = Factoring(2, 1, 3)
 /// Julia: paths = reduction_paths(Factoring, SpinGlass)
-/// Julia: all(solution_size.(Ref(factoring), extract_solution.(Ref(res), sol)) .== Ref(SolutionSize(0, true)))
+/// Julia: all(solution_size.(Ref(factoring), extract_solution.(Ref(res), sol)) .== Ref(valid objective 0))
 #[cfg(feature = "ilp-solver")]
 #[test]
 fn test_jl_parity_factoring_to_spinglass_path() {

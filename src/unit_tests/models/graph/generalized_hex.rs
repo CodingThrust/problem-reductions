@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -64,9 +64,9 @@ fn test_generalized_hex_detects_losing_position() {
 fn test_generalized_hex_solver_returns_empty_config_for_win() {
     let problem = winning_example();
     let solver = BruteForce::new();
-    assert_eq!(solver.find_satisfying(&problem), Some(vec![]));
+    assert_eq!(solver.find_witness(&problem), Some(vec![]));
     assert_eq!(
-        solver.find_all_satisfying(&problem),
+        solver.find_all_witnesses(&problem),
         Vec::<Vec<usize>>::from([vec![]])
     );
 }
@@ -99,7 +99,7 @@ fn test_generalized_hex_issue_example_is_losing_under_optimal_play() {
 fn test_generalized_hex_paper_example() {
     let problem = winning_example();
     assert!(problem.evaluate(&[]));
-    assert_eq!(BruteForce::new().find_satisfying(&problem), Some(vec![]));
+    assert_eq!(BruteForce::new().find_witness(&problem), Some(vec![]));
 }
 
 #[test]

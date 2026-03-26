@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 
@@ -100,7 +100,7 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "RootedTreeArrangement";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -111,12 +111,10 @@ where
         vec![n; 2 * n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_solution(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_valid_solution(config))
     }
 }
-
-impl<G: Graph + VariantParam> SatisfactionProblem for RootedTreeArrangement<G> {}
 
 fn analyze_parent_array(parent: &[usize]) -> Option<TreeInfo> {
     let n = parent.len();
@@ -207,7 +205,7 @@ fn are_ancestor_comparable(parent: &[usize], u: usize, v: usize) -> bool {
 }
 
 crate::declare_variants! {
-    default sat RootedTreeArrangement<SimpleGraph> => "2^num_vertices",
+    default RootedTreeArrangement<SimpleGraph> => "2^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

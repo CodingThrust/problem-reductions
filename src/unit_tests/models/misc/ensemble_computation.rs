@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 fn issue_problem() -> EnsembleComputation {
@@ -62,11 +62,11 @@ fn test_ensemble_computation_small_bruteforce_instance() {
     let problem = EnsembleComputation::new(2, vec![vec![0, 1]], 1);
     let solver = BruteForce::new();
 
-    let satisfying = solver.find_all_satisfying(&problem);
+    let satisfying = solver.find_all_witnesses(&problem);
     assert_eq!(satisfying.len(), 2);
     assert!(satisfying.contains(&vec![0, 1]));
     assert!(satisfying.contains(&vec![1, 0]));
-    assert_eq!(solver.find_satisfying(&problem), Some(vec![0, 1]));
+    assert_eq!(solver.find_witness(&problem), Some(vec![0, 1]));
 }
 
 #[test]

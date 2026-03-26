@@ -42,7 +42,7 @@ fn test_jl_parity_is_to_vertexcovering() {
         MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i32; nv]);
     let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(&source, &result, "JL parity MIS->VC");
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
@@ -63,7 +63,7 @@ fn test_jl_parity_rule_is_to_vertexcovering() {
         MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i32; nv]);
     let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,

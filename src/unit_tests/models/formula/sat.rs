@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 include!("../../jl_helpers.rs");
 
@@ -97,9 +97,9 @@ fn test_empty_formula_zero_vars_solver() {
     let problem = Satisfiability::new(0, vec![]);
     let solver = BruteForce::new();
 
-    assert_eq!(solver.find_satisfying(&problem), Some(vec![]));
+    assert_eq!(solver.find_witness(&problem), Some(vec![]));
     assert_eq!(
-        solver.find_all_satisfying(&problem),
+        solver.find_all_witnesses(&problem),
         vec![Vec::<usize>::new()]
     );
 }
@@ -109,8 +109,8 @@ fn test_zero_vars_unsat_solver() {
     let problem = Satisfiability::new(0, vec![CNFClause::new(vec![1])]);
     let solver = BruteForce::new();
 
-    assert_eq!(solver.find_satisfying(&problem), None);
-    assert!(solver.find_all_satisfying(&problem).is_empty());
+    assert_eq!(solver.find_witness(&problem), None);
+    assert!(solver.find_all_witnesses(&problem).is_empty());
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn test_single_literal_clauses() {
     let problem = Satisfiability::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![1, 0]); // x1=T, x2=F
 }
@@ -186,7 +186,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
         }
-        let rust_best = BruteForce::new().find_all_satisfying(&problem);
+        let rust_best = BruteForce::new().find_all_witnesses(&problem);
         let rust_best_set: HashSet<Vec<usize>> = rust_best.into_iter().collect();
         if !rust_best_set.is_empty() {
             let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
@@ -223,6 +223,6 @@ fn test_sat_paper_example() {
     assert!(problem.evaluate(&[1, 0, 1]));
 
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
 }

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::One;
@@ -90,11 +90,11 @@ fn test_biconnectivity_augmentation_solver() {
     let solver = BruteForce::new();
 
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("expected a satisfying augmentation");
     assert_eq!(solution, vec![0, 0, 1]);
 
-    let all_solutions = solver.find_all_satisfying(&problem);
+    let all_solutions = solver.find_all_witnesses(&problem);
     assert_eq!(all_solutions, vec![vec![0, 0, 1]]);
 }
 
@@ -103,8 +103,8 @@ fn test_biconnectivity_augmentation_no_solution() {
     let problem = BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 2, 1)], 1);
     let solver = BruteForce::new();
 
-    assert!(solver.find_satisfying(&problem).is_none());
-    assert!(solver.find_all_satisfying(&problem).is_empty());
+    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_all_witnesses(&problem).is_empty());
 }
 
 #[test]
@@ -112,7 +112,7 @@ fn test_biconnectivity_augmentation_paper_example() {
     let problem = example_instance();
     let solver = BruteForce::new();
     let satisfying_config = vec![1, 0, 0, 1, 0, 0, 1, 0, 1];
-    let satisfying_solutions = solver.find_all_satisfying(&problem);
+    let satisfying_solutions = solver.find_all_witnesses(&problem);
 
     assert!(problem.evaluate(&satisfying_config));
     assert!(satisfying_solutions.contains(&satisfying_config));
@@ -133,7 +133,7 @@ fn test_biconnectivity_augmentation_paper_example() {
         3,
     );
     assert!(!over_budget_problem.evaluate(&satisfying_config));
-    assert!(solver.find_satisfying(&over_budget_problem).is_none());
+    assert!(solver.find_witness(&over_budget_problem).is_none());
 }
 
 #[test]

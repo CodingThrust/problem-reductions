@@ -1,7 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::traits::Problem;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -68,12 +67,6 @@ fn test_compute_energy_with_fields() {
 }
 
 #[test]
-fn test_direction() {
-    let problem = SpinGlass::<SimpleGraph, f64>::without_fields(2, vec![]);
-    assert_eq!(problem.direction(), Direction::Minimize);
-}
-
-#[test]
 fn test_num_variables() {
     let problem = SpinGlass::<SimpleGraph, f64>::without_fields(5, vec![]);
     assert_eq!(problem.num_variables(), 5);
@@ -130,7 +123,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
         }
-        let best = BruteForce::new().find_all_best(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem);
         let jl_best = jl_flip_configs_set(&jl_parse_configs_set(&instance["best_solutions"]));
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "SpinGlass best solutions mismatch");
@@ -172,7 +165,7 @@ fn test_spinglass_paper_example() {
     assert_eq!(result.unwrap(), -3);
 
     // Verify this is optimal
-    let all_best = BruteForce::new().find_all_best(&problem);
+    let all_best = BruteForce::new().find_all_witnesses(&problem);
     assert!(!all_best.is_empty());
     assert_eq!(problem.evaluate(&all_best[0]).unwrap(), -3);
 }

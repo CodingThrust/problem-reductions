@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "example-db")]
 use std::collections::BTreeSet;
@@ -102,7 +102,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "PartialFeedbackEdgeSet";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -112,14 +112,9 @@ where
         vec![2; self.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_solution(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_valid_solution(config))
     }
-}
-
-impl<G> SatisfactionProblem for PartialFeedbackEdgeSet<G> where
-    G: Graph + crate::variant::VariantParam
-{
 }
 
 fn has_cycle_with_length_at_most<G: Graph>(
@@ -247,7 +242,7 @@ fn normalize_edge(u: usize, v: usize) -> (usize, usize) {
 }
 
 crate::declare_variants! {
-    default sat PartialFeedbackEdgeSet<SimpleGraph> => "2^num_edges",
+    default PartialFeedbackEdgeSet<SimpleGraph> => "2^num_edges",
 }
 
 #[cfg(test)]

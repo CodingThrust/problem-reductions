@@ -73,9 +73,9 @@ fn test_unsatisfiable_formula() {
     let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
     let coloring = reduction.target_problem();
 
-    // Solve the coloring problem - use find_all_satisfying since KColoring is a satisfaction problem
+    // Solve the coloring problem - use find_all_witnesses since KColoring is a satisfaction problem
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(coloring);
+    let solutions = solver.find_all_witnesses(coloring);
 
     // For an unsatisfiable formula, the coloring should have no valid solutions
     // OR no valid coloring exists that extracts to a satisfying SAT assignment
@@ -190,7 +190,7 @@ fn test_single_literal_clauses() {
     let coloring = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(coloring);
+    let solutions = solver.find_all_witnesses(coloring);
 
     let mut found_correct = false;
     for sol in &solutions {
@@ -325,7 +325,7 @@ fn test_jl_parity_sat_to_coloring() {
             .expect("ILP should find a coloring");
         let extracted = result.extract_solution(&target_sol);
         let best_source: HashSet<Vec<usize>> = BruteForce::new()
-            .find_all_satisfying(&source)
+            .find_all_witnesses(&source)
             .into_iter()
             .collect();
         assert!(

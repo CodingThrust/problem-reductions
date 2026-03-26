@@ -27,7 +27,7 @@ fn test_knapsack_to_qubo_single_item() {
     assert_eq!(qubo.num_vars(), 2);
 
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(qubo);
+    let best_target = solver.find_all_witnesses(qubo);
     let extracted = reduction.extract_solution(&best_target[0]);
     assert_eq!(extracted, vec![1]);
 }
@@ -39,7 +39,7 @@ fn test_knapsack_to_qubo_infeasible_rejected() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(qubo);
+    let best_target = solver.find_all_witnesses(qubo);
 
     for sol in &best_target {
         let source_sol = reduction.extract_solution(sol);
@@ -60,7 +60,7 @@ fn test_knapsack_to_qubo_empty() {
     assert_eq!(qubo.num_vars(), 3);
 
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(qubo);
+    let best_target = solver.find_all_witnesses(qubo);
     let extracted = reduction.extract_solution(&best_target[0]);
     assert_eq!(extracted, vec![0, 0]);
 }

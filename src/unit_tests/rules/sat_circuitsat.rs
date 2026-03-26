@@ -30,7 +30,7 @@ fn test_sat_to_circuitsat_unsatisfiable() {
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
     let result = ReduceTo::<CircuitSAT>::reduce_to(&sat);
     let solver = BruteForce::new();
-    let best_target = solver.find_all_satisfying(result.target_problem());
+    let best_target = solver.find_all_witnesses(result.target_problem());
     assert!(
         best_target.is_empty(),
         "Unsatisfiable SAT -> CircuitSAT should have no solutions"

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -70,7 +70,7 @@ fn test_string_to_string_correction_solver() {
     let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1, 0], 1);
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("should find a solution");
     assert!(problem.evaluate(&solution));
 }
@@ -84,7 +84,7 @@ fn test_string_to_string_correction_paper_example() {
 
     // Verify all solutions with brute force
     let solver = BruteForce::new();
-    let all_solutions = solver.find_all_satisfying(&problem);
+    let all_solutions = solver.find_all_witnesses(&problem);
     assert!(!all_solutions.is_empty());
     // The known solution must be among them
     assert!(all_solutions.contains(&vec![8, 5]));
@@ -101,7 +101,7 @@ fn test_string_to_string_correction_unsatisfiable() {
     assert!(!problem.evaluate(&[]));
 
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
@@ -127,7 +127,7 @@ fn test_string_to_string_correction_delete_only() {
 
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("should find a solution");
     assert!(problem.evaluate(&solution));
 }

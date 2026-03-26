@@ -4,7 +4,7 @@ use crate::rules::{MinimizeSteps, ReductionChain, ReductionGraph, ReductionPath}
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::{ProblemSize, SolutionSize};
+use crate::types::{Min, ProblemSize};
 
 fn reduce_vc_to_ilp(
     problem: &MinimumVertexCover<SimpleGraph, i32>,
@@ -61,7 +61,7 @@ fn test_minimumvertexcover_to_ilp_via_path_closed_loop() {
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = chain.extract_solution(&ilp_solution);
 
@@ -83,6 +83,6 @@ fn test_minimumvertexcover_to_ilp_via_path_weighted() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = chain.extract_solution(&ilp_solution);
 
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
     assert_eq!(extracted, vec![0, 1, 0]);
 }

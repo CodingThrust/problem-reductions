@@ -60,7 +60,7 @@ fn test_consecutive_block_minimization_brute_force() {
         2,
     );
     let solver = BruteForce::new();
-    let mut solutions = solver.find_all_satisfying(&problem);
+    let mut solutions = solver.find_all_witnesses(&problem);
     solutions.sort();
     let mut expected = vec![vec![0, 2, 1], vec![1, 2, 0]];
     expected.sort();

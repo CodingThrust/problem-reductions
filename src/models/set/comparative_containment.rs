@@ -5,7 +5,7 @@
 //! in the first family is at least its containment weight in the second.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use crate::types::{One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -177,14 +177,14 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "ComparativeContainment";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.universe_size]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_solution(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_valid_solution(config))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -192,15 +192,10 @@ where
     }
 }
 
-impl<W> SatisfactionProblem for ComparativeContainment<W> where
-    W: WeightElement + crate::variant::VariantParam
-{
-}
-
 crate::declare_variants! {
-    sat ComparativeContainment<One> => "2^universe_size",
-    default sat ComparativeContainment<i32> => "2^universe_size",
-    sat ComparativeContainment<f64> => "2^universe_size",
+    ComparativeContainment<One> => "2^universe_size",
+    default ComparativeContainment<i32> => "2^universe_size",
+    ComparativeContainment<f64> => "2^universe_size",
 }
 
 fn validate_set_family(label: &str, universe_size: usize, sets: &[Vec<usize>]) {

@@ -8,7 +8,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -64,7 +64,7 @@ inventory::submit! {
 ///     graph, vec![1; 8], 0, 4, 1, 5, 1, 1,
 /// );
 /// let solver = BruteForce::new();
-/// assert!(solver.find_satisfying(&problem).is_some());
+/// assert!(solver.find_witness(&problem).is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DirectedTwoCommodityIntegralFlow {
@@ -244,7 +244,7 @@ impl DirectedTwoCommodityIntegralFlow {
 
 impl Problem for DirectedTwoCommodityIntegralFlow {
     const NAME: &'static str = "DirectedTwoCommodityIntegralFlow";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         self.capacities
@@ -254,8 +254,8 @@ impl Problem for DirectedTwoCommodityIntegralFlow {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_feasible(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_feasible(config))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -263,10 +263,8 @@ impl Problem for DirectedTwoCommodityIntegralFlow {
     }
 }
 
-impl SatisfactionProblem for DirectedTwoCommodityIntegralFlow {}
-
 crate::declare_variants! {
-    default sat DirectedTwoCommodityIntegralFlow => "(max_capacity + 1)^(2 * num_arcs)",
+    default DirectedTwoCommodityIntegralFlow => "(max_capacity + 1)^(2 * num_arcs)",
 }
 
 #[cfg(feature = "example-db")]

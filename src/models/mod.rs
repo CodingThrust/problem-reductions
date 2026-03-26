@@ -20,8 +20,8 @@ pub use formula::{
 pub use graph::{
     AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
     BottleneckTravelingSalesman, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
-    DisjointConnectingPaths, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
-    HamiltonianPath, IntegralFlowBundles, IntegralFlowHomologousArcs, IntegralFlowWithMultipliers,
+    DisjointConnectingPaths, GeneralizedHex, HamiltonianCircuit, HamiltonianPath,
+    IntegralFlowBundles, IntegralFlowHomologousArcs, IntegralFlowWithMultipliers,
     IsomorphicSpanningTree, KClique, KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths,
     LongestCircuit, LongestPath, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
     MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
@@ -38,9 +38,9 @@ pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
     AdditionalKey, BinPacking, CapacityAssignment, CbqRelation, ConjunctiveBooleanQuery,
     ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
-    ExpectedRetrievalCost, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, Partition,
-    PrecedenceConstrainedScheduling, QueryArg, RectilinearPictureCompression,
+    ExpectedRetrievalCost, Factoring, FlowShopScheduling, GroupingBySwapping, Knapsack,
+    LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
+    Partition, PrecedenceConstrainedScheduling, QueryArg, RectilinearPictureCompression,
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,

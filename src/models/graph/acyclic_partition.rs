@@ -7,7 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use crate::types::WeightElement;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -156,7 +156,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "AcyclicPartition";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
@@ -166,21 +166,18 @@ where
         vec![self.graph.num_vertices(); self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        is_valid_acyclic_partition(
-            &self.graph,
-            &self.vertex_weights,
-            &self.arc_costs,
-            &self.weight_bound,
-            &self.cost_bound,
-            config,
-        )
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            is_valid_acyclic_partition(
+                &self.graph,
+                &self.vertex_weights,
+                &self.arc_costs,
+                &self.weight_bound,
+                &self.cost_bound,
+                config,
+            )
+        })
     }
-}
-
-impl<W> SatisfactionProblem for AcyclicPartition<W> where
-    W: WeightElement + crate::variant::VariantParam
-{
 }
 
 fn is_valid_acyclic_partition<W: WeightElement>(
@@ -240,7 +237,7 @@ fn is_valid_acyclic_partition<W: WeightElement>(
 }
 
 crate::declare_variants! {
-    default sat AcyclicPartition<i32> => "num_vertices^num_vertices",
+    default AcyclicPartition<i32> => "num_vertices^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

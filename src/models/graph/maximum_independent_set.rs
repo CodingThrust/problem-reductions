@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, One, SolutionSize, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Max, One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -53,7 +53,7 @@ inventory::submit! {
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Maximum independent set in a triangle has size 1
 /// assert!(solutions.iter().all(|s| s.iter().sum::<usize>() == 1));
@@ -119,7 +119,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumIndependentSet";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = Max<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -129,9 +129,9 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
         if !is_independent_set_config(&self.graph, config) {
-            return SolutionSize::Invalid;
+            return Max(None);
         }
         let mut total = W::Sum::zero();
         for (i, &selected) in config.iter().enumerate() {
@@ -139,19 +139,7 @@ where
                 total += self.weights[i].to_sum();
             }
         }
-        SolutionSize::Valid(total)
-    }
-}
-
-impl<G, W> OptimizationProblem for MaximumIndependentSet<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Value = W::Sum;
-
-    fn direction(&self) -> Direction {
-        Direction::Maximize
+        Max(Some(total))
     }
 }
 
@@ -166,13 +154,13 @@ fn is_independent_set_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    opt MaximumIndependentSet<SimpleGraph, i32>        => "1.1996^num_vertices",
-    default opt MaximumIndependentSet<SimpleGraph, One>         => "1.1996^num_vertices",
-    opt MaximumIndependentSet<KingsSubgraph, i32>      => "2^sqrt(num_vertices)",
-    opt MaximumIndependentSet<KingsSubgraph, One>       => "2^sqrt(num_vertices)",
-    opt MaximumIndependentSet<TriangularSubgraph, i32> => "2^sqrt(num_vertices)",
-    opt MaximumIndependentSet<UnitDiskGraph, i32>      => "2^sqrt(num_vertices)",
-    opt MaximumIndependentSet<UnitDiskGraph, One>       => "2^sqrt(num_vertices)",
+    MaximumIndependentSet<SimpleGraph, i32>        => "1.1996^num_vertices",
+    default MaximumIndependentSet<SimpleGraph, One>         => "1.1996^num_vertices",
+    MaximumIndependentSet<KingsSubgraph, i32>      => "2^sqrt(num_vertices)",
+    MaximumIndependentSet<KingsSubgraph, One>       => "2^sqrt(num_vertices)",
+    MaximumIndependentSet<TriangularSubgraph, i32> => "2^sqrt(num_vertices)",
+    MaximumIndependentSet<UnitDiskGraph, i32>      => "2^sqrt(num_vertices)",
+    MaximumIndependentSet<UnitDiskGraph, One>       => "2^sqrt(num_vertices)",
 }
 
 #[cfg(feature = "example-db")]
@@ -204,7 +192,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 vec![One; 10],
             )),
             optimal_config: vec![1, 0, 1, 0, 0, 0, 0, 0, 1, 1],
-            optimal_value: serde_json::json!({"Valid": 4}),
+            optimal_value: serde_json::json!(4),
         },
         crate::example_db::specs::ModelExampleSpec {
             id: "maximum_independent_set_simplegraph_i32",
@@ -232,7 +220,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 vec![5, 1, 1, 1, 1, 3, 1, 1, 1, 3],
             )),
             optimal_config: vec![1, 0, 1, 0, 0, 0, 0, 0, 1, 1],
-            optimal_value: serde_json::json!({"Valid": 10}),
+            optimal_value: serde_json::json!(10),
         },
     ]
 }

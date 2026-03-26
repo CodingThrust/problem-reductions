@@ -91,12 +91,12 @@ configuration space.
 ```rust,ignore
 let solution = reduction.extract_solution(&ilp_solution);
 let metric = problem.evaluate(&solution);
-println!("Packing solution: {:?} -> size {:?}", solution, metric);
+println!("Packing solution: {:?} -> size {}", solution, metric);
 assert!(metric.is_valid());
 ```
 
 ```text
-Packing solution: [1, 0, 1, 1] -> size Valid(3)
+Packing solution: [1, 0, 1, 1] -> size Max(3)
 ```
 
 For convenience, `ILPSolver::solve_reduced` combines reduce + solve + extract

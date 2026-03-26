@@ -8,7 +8,7 @@
 //! reductions can construct large instances without fixed-width overflow.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use num_bigint::{BigUint, ToBigUint};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,7 @@ inventory::submit! {
 ///
 /// let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,7 +108,7 @@ impl SubsetSum {
 
 impl Problem for SubsetSum {
     const NAME: &'static str = "SubsetSum";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -118,27 +118,27 @@ impl Problem for SubsetSum {
         vec![2; self.num_elements()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_elements() {
-            return false;
-        }
-        if config.iter().any(|&v| v >= 2) {
-            return false;
-        }
-        let mut total = BigUint::zero();
-        for (i, &x) in config.iter().enumerate() {
-            if x == 1 {
-                total += &self.sizes[i];
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.num_elements() {
+                return crate::types::Or(false);
             }
-        }
-        total == self.target
+            if config.iter().any(|&v| v >= 2) {
+                return crate::types::Or(false);
+            }
+            let mut total = BigUint::zero();
+            for (i, &x) in config.iter().enumerate() {
+                if x == 1 {
+                    total += &self.sizes[i];
+                }
+            }
+            total == self.target
+        })
     }
 }
 
-impl SatisfactionProblem for SubsetSum {}
-
 crate::declare_variants! {
-    default sat SubsetSum => "2^(num_elements / 2)",
+    default SubsetSum => "2^(num_elements / 2)",
 }
 
 mod decimal_biguint {

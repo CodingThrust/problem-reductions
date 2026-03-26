@@ -6,11 +6,23 @@ use std::fmt;
 
 use crate::traits::Problem;
 
+/// Format a metric for CLI- and registry-facing dynamic dispatch.
+///
+/// Dynamic formatting uses the aggregate display form directly, so optimization
+/// metrics appear as `Max(...)` / `Min(...)` alongside aggregate-only values
+/// such as `Or(true)` or `Sum(56)`.
+pub fn format_metric<T>(metric: &T) -> String
+where
+    T: fmt::Display,
+{
+    metric.to_string()
+}
+
 /// Type-erased problem interface for dynamic dispatch.
 ///
 /// Implemented via blanket impl for any `T: Problem + Serialize + 'static`.
 pub trait DynProblem: Any {
-    /// Evaluate a configuration and return the result as a debug string.
+    /// Evaluate a configuration and return the CLI-facing metric string.
     fn evaluate_dyn(&self, config: &[usize]) -> String;
     /// Evaluate a configuration and return the result as a serializable JSON value.
     fn evaluate_json(&self, config: &[usize]) -> Value;
@@ -31,10 +43,10 @@ pub trait DynProblem: Any {
 impl<T> DynProblem for T
 where
     T: Problem + Serialize + 'static,
-    T::Metric: fmt::Debug + Serialize,
+    T::Value: fmt::Display + Serialize,
 {
     fn evaluate_dyn(&self, config: &[usize]) -> String {
-        format!("{:?}", self.evaluate(config))
+        format_metric(&self.evaluate(config))
     }
 
     fn evaluate_json(&self, config: &[usize]) -> Value {
@@ -66,15 +78,19 @@ where
     }
 }
 
-/// Function pointer type for brute-force solve dispatch.
-pub type SolveFn = fn(&dyn Any) -> Option<(Vec<usize>, String)>;
+/// Function pointer type for brute-force value solve dispatch.
+pub type SolveValueFn = fn(&dyn Any) -> String;
+
+/// Function pointer type for brute-force witness solve dispatch.
+pub type SolveWitnessFn = fn(&dyn Any) -> Option<(Vec<usize>, String)>;
 
 /// A loaded problem with type-erased solve capability.
 ///
-/// Wraps a `Box<dyn DynProblem>` with a brute-force solve function pointer.
+/// Wraps a `Box<dyn DynProblem>` with brute-force value and witness function pointers.
 pub struct LoadedDynProblem {
     inner: Box<dyn DynProblem>,
-    solve_fn: SolveFn,
+    solve_value_fn: SolveValueFn,
+    solve_witness_fn: SolveWitnessFn,
 }
 
 impl std::fmt::Debug for LoadedDynProblem {
@@ -87,13 +103,31 @@ impl std::fmt::Debug for LoadedDynProblem {
 
 impl LoadedDynProblem {
     /// Create a new loaded dynamic problem.
-    pub fn new(inner: Box<dyn DynProblem>, solve_fn: SolveFn) -> Self {
-        Self { inner, solve_fn }
+    pub fn new(
+        inner: Box<dyn DynProblem>,
+        solve_value_fn: SolveValueFn,
+        solve_witness_fn: SolveWitnessFn,
+    ) -> Self {
+        Self {
+            inner,
+            solve_value_fn,
+            solve_witness_fn,
+        }
     }
 
-    /// Solve the problem using brute force.
+    /// Solve the problem using brute force and return its aggregate value string.
+    pub fn solve_brute_force_value(&self) -> String {
+        (self.solve_value_fn)(self.inner.as_any())
+    }
+
+    /// Solve the problem using brute force and return a witness when available.
+    pub fn solve_brute_force_witness(&self) -> Option<(Vec<usize>, String)> {
+        (self.solve_witness_fn)(self.inner.as_any())
+    }
+
+    /// Backward-compatible witness solve entry point.
     pub fn solve_brute_force(&self) -> Option<(Vec<usize>, String)> {
-        (self.solve_fn)(self.inner.as_any())
+        self.solve_brute_force_witness()
     }
 }
 

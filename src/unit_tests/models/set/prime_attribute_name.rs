@@ -92,7 +92,7 @@ fn test_prime_attribute_name_evaluate_invalid_config() {
 fn test_prime_attribute_name_solver() {
     let problem = example1();
     let solver = BruteForce::new();
-    let mut solutions = solver.find_all_satisfying(&problem);
+    let mut solutions = solver.find_all_witnesses(&problem);
     solutions.sort();
     assert!(!solutions.is_empty());
     for sol in &solutions {
@@ -108,7 +108,7 @@ fn test_prime_attribute_name_solver() {
 fn test_prime_attribute_name_no_solution() {
     let problem = example2();
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(solutions.is_empty());
 }
 

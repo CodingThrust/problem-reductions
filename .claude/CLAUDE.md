@@ -7,7 +7,7 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 These repo-local skills live under `.claude/skills/*/SKILL.md`.
 
 - [run-pipeline](skills/run-pipeline/SKILL.md) -- Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr -> Review pool. One issue at a time; forever-loop handles iteration.
-- [issue-to-pr](skills/issue-to-pr/SKILL.md) -- Convert a GitHub issue into a PR with an implementation plan. One item per PR: `[Rule]` issues require both models to exist on `main`; never bundle model + rule in the same PR.
+- [issue-to-pr](skills/issue-to-pr/SKILL.md) -- Convert a GitHub issue into a PR with an implementation plan. Default rule: one item per PR. Exception: a `[Model]` issue that explicitly claims direct ILP solvability should implement the model and its direct `<Model> -> ILP` rule together; `[Rule]` issues still require both models to exist on `main`.
 - [add-model](skills/add-model/SKILL.md) -- Add a new problem model. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
 - [add-rule](skills/add-rule/SKILL.md) -- Add a new reduction rule. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
 - [review-structural](skills/review-structural/SKILL.md) -- Project-specific structural completeness check: model/rule checklists, build, semantic correctness, issue compliance. Read-only, no code changes. Called by `review-pipeline`.
@@ -87,9 +87,9 @@ make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
   - `misc/` - Unique input structures
   - Run `pred list` for the full catalog of problems, variants, and reductions; `pred show <name>` for details on a specific problem
 - `src/rules/` - Reduction rules + inventory registration
-- `src/solvers/` - BruteForce solver, ILP solver (feature-gated). To check if a problem supports ILP solving (via reduction path), run `pred path <ProblemName> ILP`
-- `src/traits.rs` - `Problem`, `OptimizationProblem`, `SatisfactionProblem` traits
-- `src/rules/traits.rs` - `ReduceTo<T>`, `ReductionResult` traits
+- `src/solvers/` - BruteForce solver for aggregate values plus witness recovery when supported, ILP solver (feature-gated, witness-only). To check if a problem supports ILP solving via a witness-capable reduction path, run `pred path <ProblemName> ILP`
+- `src/traits.rs` - `Problem` trait
+- `src/rules/traits.rs` - `ReduceTo<T>`, `ReduceToAggregate<T>`, `ReductionResult`, `AggregateReductionResult` traits
 - `src/registry/` - Compile-time reduction metadata collection
 - `problemreductions-cli/` - `pred` CLI tool (separate crate in workspace)
 - `src/unit_tests/` - Unit test files (mirroring `src/` structure, referenced via `#[path]`)
@@ -104,36 +104,33 @@ make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 Problem (core trait — all problems must implement)
 │
 ├── const NAME: &'static str           // e.g., "MaximumIndependentSet"
-├── type Metric: Clone                 // SolutionSize<W> for optimization, bool for satisfaction
+├── type Value: Clone                  // aggregate value: Max/Min/Sum/Or/And/Extremum/...
 ├── fn dims(&self) -> Vec<usize>       // config space: [2, 2, 2] for 3 binary variables
-├── fn evaluate(&self, config) -> Metric
+├── fn evaluate(&self, config) -> Value
 ├── fn variant() -> Vec<(&str, &str)>  // e.g., [("graph","SimpleGraph"), ("weight","i32")]
 ├── fn num_variables(&self) -> usize   // default: dims().len()
 └── fn problem_type() -> ProblemType   // catalog bridge: registry lookup by NAME
-
-OptimizationProblem : Problem<Metric = SolutionSize<Self::Value>> (extension for optimization)
-│
-├── type Value: PartialOrd + Clone     // inner objective type (i32, f64, etc.)
-└── fn direction(&self) -> Direction   // Maximize or Minimize
-
-SatisfactionProblem : Problem<Metric = bool> (marker trait for decision problems)
 ```
 
-**Satisfaction problems** (e.g., `Satisfiability`) use `Metric = bool` and implement `SatisfactionProblem`.
+**Witness-capable objective problems** (e.g., `MaximumIndependentSet`) typically use `Value = Max<W::Sum>`, `Min<W::Sum>`, or `Extremum<W::Sum>`.
 
-**Optimization problems** (e.g., `MaximumIndependentSet`) use `Metric = SolutionSize<W>` where:
+**Witness-capable feasibility problems** (e.g., `Satisfiability`) typically use `Value = Or`.
+
+**Aggregate-only problems** use fold values such as `Sum<W>` or `And`; these solve to a value but have no representative witness configuration.
+
+Common aggregate wrappers live in `src/types.rs`:
 ```rust
-enum SolutionSize<T> { Valid(T), Invalid }  // Invalid = infeasible config
-enum Direction { Maximize, Minimize }
+Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 ```
 
 ### Key Patterns
 - `variant_params!` macro implements `Problem::variant()` — e.g., `crate::variant_params![G, W]` for two type params, `crate::variant_params![]` for none (see `src/variant.rs`)
-- `declare_variants!` proc macro registers concrete type instantiations with best-known complexity and registry-backed dynamic dispatch metadata — every entry must specify `opt` or `sat`, and one entry per problem may be marked `default` (see `src/models/graph/maximum_independent_set.rs`). Variable names in complexity strings are validated at compile time against actual getter methods.
+- `declare_variants!` proc macro registers concrete type instantiations with best-known complexity and registry-backed load/serialize/value-solve/witness-solve metadata. One entry per problem may be marked `default`, and variable names in complexity strings are validated at compile time against actual getter methods.
 - Problems parameterized by graph type `G` and optionally weight type `W` (problem-dependent)
-- `ReductionResult` provides `target_problem()` and `extract_solution()`
-- `Solver::find_best()` → `Option<Vec<usize>>` for optimization problems; `Solver::find_satisfying()` → `Option<Vec<usize>>` for `Metric = bool`
-- `BruteForce::find_all_best()` / `find_all_satisfying()` return `Vec<Vec<usize>>` for all optimal/satisfying solutions
+- `Solver::solve()` computes the aggregate value for any `Problem` whose `Value` implements `Aggregate`
+- `BruteForce::find_witness()` / `find_all_witnesses()` recover witnesses only when `P::Value::supports_witnesses()`
+- `ReductionResult` provides `target_problem()` and `extract_solution()` for witness/config workflows; `AggregateReductionResult` provides `extract_value()` for aggregate/value workflows
+- CLI-facing dynamic formatting uses aggregate wrapper names directly (for example `Max(2)`, `Min(None)`, `Or(true)`, or `Sum(56)`)
 - Graph types: SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph
 - Weight types: `One` (unit weight marker), `i32`, `f64` — all implement `WeightElement` trait
 - `WeightElement` trait: `type Sum: NumericSize` + `fn to_sum(&self)` — converts weight to a summable numeric type
@@ -170,10 +167,12 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Default variant ranking: `SimpleGraph`, `One`, `KN` are considered default values; variants with the most default values sort first
 - Nodes come exclusively from `#[reduction]` registrations; natural edges between same-name variants are inferred from the graph/weight subtype partial order
 - Each primitive reduction is determined by the exact `(source_variant, target_variant)` endpoint pair
-- `#[reduction]` accepts only `overhead = { ... }`
+- Reduction edges carry `EdgeCapabilities { witness, aggregate }`; graph search defaults to witness mode, and aggregate mode is available through `ReductionMode::Aggregate`
+- `#[reduction]` accepts only `overhead = { ... }` and currently registers witness/config reductions; aggregate-only edges require manual `ReductionEntry` registration with `reduce_aggregate_fn`
 
 ### Extension Points
 - New models register dynamic load/serialize/brute-force dispatch through `declare_variants!` in the model file, not by adding manual match arms in the CLI
+- Aggregate-only models are first-class in `declare_variants!`; aggregate-only reduction edges still need manual `ReductionEntry` wiring because `#[reduction]` only registers witness/config reductions today
 - Exact registry dispatch lives in `src/registry/`; alias resolution and partial/default variant resolution live in `problemreductions-cli/src/problem_name.rs`
 - `pred create` UX lives in `problemreductions-cli/src/commands/create.rs`
 - Canonical paper and CLI examples live in `src/example_db/model_builders.rs` and `src/example_db/rule_builders.rs`
@@ -199,8 +198,8 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 **Reference implementations — read these first:**
 - **Reduction test:** `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs` — closed-loop pattern
 - **Model test:** `src/unit_tests/models/graph/maximum_independent_set.rs` — evaluation, serialization
-- **Solver test:** `src/unit_tests/solvers/brute_force.rs` — `find_best` + `find_satisfying`
-- **Trait definitions:** `src/traits.rs` (`Problem`, `OptimizationProblem`), `src/solvers/mod.rs` (`Solver`)
+- **Solver test:** `src/unit_tests/solvers/brute_force.rs` — aggregate `solve()` plus witness recovery helpers
+- **Trait definitions:** `src/traits.rs` (`Problem`), `src/solvers/mod.rs` (`Solver`)
 
 ### Coverage
 

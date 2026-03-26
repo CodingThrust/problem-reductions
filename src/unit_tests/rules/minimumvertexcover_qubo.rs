@@ -1,10 +1,10 @@
 use crate::models::algebraic::QUBO;
 use crate::models::graph::MinimumVertexCover;
 use crate::rules::{Minimize, ReductionChain, ReductionGraph, ReductionPath};
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::types::{ProblemSize, SolutionSize};
+use crate::types::{Min, ProblemSize};
 
 fn reduce_vc_to_qubo(
     problem: &MinimumVertexCover<SimpleGraph, i32>,
@@ -56,7 +56,7 @@ fn test_minimumvertexcover_to_qubo_via_path_closed_loop() {
     assert_eq!(qubo.num_variables(), 4);
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_best(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo);
     for sol in &qubo_solutions {
         let extracted = chain.extract_solution(sol);
         assert!(problem.evaluate(&extracted).is_valid());
@@ -73,11 +73,11 @@ fn test_minimumvertexcover_to_qubo_via_path_weighted() {
 
     let solver = BruteForce::new();
     let qubo_solution = solver
-        .find_best(qubo)
+        .find_witness(qubo)
         .expect("QUBO should be solvable via path");
     let extracted = chain.extract_solution(&qubo_solution);
 
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
     assert_eq!(extracted, vec![0, 1, 0]);
 }
 
@@ -93,9 +93,9 @@ fn test_minimumvertexcover_to_qubo_via_path_star_graph() {
     assert_eq!(qubo.num_variables(), 4);
 
     let solver = BruteForce::new();
-    let qubo_solution = solver.find_best(qubo).expect("QUBO should be solvable");
+    let qubo_solution = solver.find_witness(qubo).expect("QUBO should be solvable");
     let extracted = chain.extract_solution(&qubo_solution);
 
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
     assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 1);
 }

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::variant::{K2, K3, KN};
 include!("../../jl_helpers.rs");
@@ -60,7 +60,7 @@ fn test_3sat_brute_force() {
         ],
     );
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
 
     assert!(!solutions.is_empty());
     for sol in &solutions {
@@ -173,7 +173,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
         }
-        let rust_best = BruteForce::new().find_all_satisfying(&problem);
+        let rust_best = BruteForce::new().find_all_witnesses(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best_set: HashSet<Vec<usize>> = rust_best.into_iter().collect();
         assert_eq!(rust_best_set, jl_best, "KSat best solutions mismatch");
@@ -241,6 +241,6 @@ fn test_ksat_paper_example() {
     assert!(problem.evaluate(&[1, 0, 1]));
 
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
 }

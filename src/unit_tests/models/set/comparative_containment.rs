@@ -75,11 +75,11 @@ fn test_comparative_containment_contains_selected_subset_requires_valid_config()
 fn test_comparative_containment_solver() {
     let solver = BruteForce::new();
 
-    let yes_solutions = solver.find_all_satisfying(&yes_instance());
+    let yes_solutions = solver.find_all_witnesses(&yes_instance());
     assert!(yes_solutions.contains(&vec![1, 0, 0, 0]));
     assert!(!yes_solutions.is_empty());
 
-    let no_solutions = solver.find_all_satisfying(&no_instance());
+    let no_solutions = solver.find_all_witnesses(&no_instance());
     assert!(no_solutions.is_empty());
 }
 
@@ -102,7 +102,7 @@ fn test_comparative_containment_paper_example() {
     assert!(problem.evaluate(&config));
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert_eq!(solutions.len(), 3);
     assert!(solutions.contains(&config));
 }

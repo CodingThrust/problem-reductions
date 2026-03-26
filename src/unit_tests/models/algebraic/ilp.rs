@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::Problem;
+use crate::types::Extremum;
 
 // ============================================================
 // Comparison tests
@@ -97,17 +97,6 @@ fn test_linear_constraint_out_of_bounds() {
 // ObjectiveSense tests
 // ============================================================
 
-#[test]
-fn test_objective_sense_direction_conversions() {
-    // Test that ObjectiveSense and Direction can be converted
-    let max_sense = ObjectiveSense::Maximize;
-    let min_sense = ObjectiveSense::Minimize;
-
-    // Direction values match ObjectiveSense semantics
-    assert_eq!(max_sense, ObjectiveSense::Maximize);
-    assert_eq!(min_sense, ObjectiveSense::Minimize);
-}
-
 // ============================================================
 // ILP tests
 // ============================================================
@@ -190,15 +179,6 @@ fn test_ilp_num_variables() {
 }
 
 #[test]
-fn test_ilp_direction() {
-    let max_ilp = ILP::<bool>::new(2, vec![], vec![], ObjectiveSense::Maximize);
-    let min_ilp = ILP::<bool>::new(2, vec![], vec![], ObjectiveSense::Minimize);
-
-    assert_eq!(max_ilp.direction(), Direction::Maximize);
-    assert_eq!(min_ilp.direction(), Direction::Minimize);
-}
-
-#[test]
 fn test_ilp_evaluate_valid() {
     // Maximize x0 + 2*x1 subject to x0 + x1 <= 1
     let ilp = ILP::<bool>::new(
@@ -209,10 +189,16 @@ fn test_ilp_evaluate_valid() {
     );
 
     // Config [0, 1] means x0=0, x1=1 => obj = 2, valid
-    assert_eq!(Problem::evaluate(&ilp, &[0, 1]), SolutionSize::Valid(2.0));
+    assert_eq!(
+        Problem::evaluate(&ilp, &[0, 1]),
+        Extremum::maximize(Some(2.0))
+    );
 
     // Config [1, 0] means x0=1, x1=0 => obj = 1, valid
-    assert_eq!(Problem::evaluate(&ilp, &[1, 0]), SolutionSize::Valid(1.0));
+    assert_eq!(
+        Problem::evaluate(&ilp, &[1, 0]),
+        Extremum::maximize(Some(1.0))
+    );
 }
 
 #[test]
@@ -226,7 +212,7 @@ fn test_ilp_evaluate_invalid() {
     );
 
     // Config [1, 1] means x0=1, x1=1 => invalid (1+1 > 1), returns Invalid
-    assert_eq!(Problem::evaluate(&ilp, &[1, 1]), SolutionSize::Invalid);
+    assert_eq!(Problem::evaluate(&ilp, &[1, 1]), Extremum::maximize(None));
 }
 
 #[test]
@@ -240,7 +226,7 @@ fn test_ilp_brute_force_maximization() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&ilp);
+    let solutions = solver.find_all_witnesses(&ilp);
 
     // Optimal: x1=1, x0=0 => objective = 2
     assert_eq!(solutions.len(), 1);
@@ -258,12 +244,12 @@ fn test_ilp_brute_force_minimization() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&ilp);
+    let solutions = solver.find_all_witnesses(&ilp);
 
     // Optimal: x0=1,x1=0 or x0=0,x1=1 => objective = 1
     assert_eq!(solutions.len(), 2);
     for sol in &solutions {
-        assert_eq!(Problem::evaluate(&ilp, sol), SolutionSize::Valid(1.0));
+        assert_eq!(Problem::evaluate(&ilp, sol), Extremum::minimize(Some(1.0)));
     }
 }
 
@@ -281,7 +267,7 @@ fn test_ilp_brute_force_no_feasible() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&ilp);
+    let solutions = solver.find_all_witnesses(&ilp);
 
     // All solutions are infeasible - BruteForce should return empty list
     assert!(
@@ -291,7 +277,7 @@ fn test_ilp_brute_force_no_feasible() {
 
     // Verify all configs are indeed infeasible
     for config in &[[0], [1]] {
-        assert_eq!(Problem::evaluate(&ilp, config), SolutionSize::Invalid);
+        assert_eq!(Problem::evaluate(&ilp, config), Extremum::minimize(None));
         let values = ilp.config_to_values(config);
         assert!(!ilp.is_feasible(&values));
     }
@@ -308,7 +294,7 @@ fn test_ilp_unconstrained() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&ilp);
+    let solutions = solver.find_all_witnesses(&ilp);
 
     // Optimal: both = 1
     assert_eq!(solutions.len(), 1);
@@ -326,7 +312,7 @@ fn test_ilp_equality_constraint() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&ilp);
+    let solutions = solver.find_all_witnesses(&ilp);
 
     // Optimal: x0=0, x1=1 => objective = 0
     assert_eq!(solutions.len(), 1);
@@ -350,7 +336,7 @@ fn test_ilp_multiple_constraints() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&ilp);
+    let solutions = solver.find_all_witnesses(&ilp);
 
     // Optimal: x0=1, x1=0, x2=1 => objective = 2
     assert_eq!(solutions.len(), 1);
@@ -379,15 +365,22 @@ fn test_ilp_problem() {
     assert_eq!(ilp.dims(), vec![2, 2]);
 
     // [0, 0] -> feasible, obj = 0
-    assert_eq!(Problem::evaluate(&ilp, &[0, 0]), SolutionSize::Valid(0.0));
+    assert_eq!(
+        Problem::evaluate(&ilp, &[0, 0]),
+        Extremum::maximize(Some(0.0))
+    );
     // [0, 1] -> feasible, obj = 2
-    assert_eq!(Problem::evaluate(&ilp, &[0, 1]), SolutionSize::Valid(2.0));
+    assert_eq!(
+        Problem::evaluate(&ilp, &[0, 1]),
+        Extremum::maximize(Some(2.0))
+    );
     // [1, 0] -> feasible, obj = 1
-    assert_eq!(Problem::evaluate(&ilp, &[1, 0]), SolutionSize::Valid(1.0));
+    assert_eq!(
+        Problem::evaluate(&ilp, &[1, 0]),
+        Extremum::maximize(Some(1.0))
+    );
     // [1, 1] -> infeasible
-    assert_eq!(Problem::evaluate(&ilp, &[1, 1]), SolutionSize::Invalid);
-
-    assert_eq!(ilp.direction(), Direction::Maximize);
+    assert_eq!(Problem::evaluate(&ilp, &[1, 1]), Extremum::maximize(None));
 }
 
 #[test]
@@ -399,9 +392,14 @@ fn test_ilp_problem_minimize() {
         vec![(0, 1.0), (1, 1.0)],
         ObjectiveSense::Minimize,
     );
-    assert_eq!(Problem::evaluate(&ilp, &[0, 0]), SolutionSize::Valid(0.0));
-    assert_eq!(Problem::evaluate(&ilp, &[1, 1]), SolutionSize::Valid(2.0));
-    assert_eq!(ilp.direction(), Direction::Minimize);
+    assert_eq!(
+        Problem::evaluate(&ilp, &[0, 0]),
+        Extremum::minimize(Some(0.0))
+    );
+    assert_eq!(
+        Problem::evaluate(&ilp, &[1, 1]),
+        Extremum::minimize(Some(2.0))
+    );
 }
 
 #[test]
@@ -443,7 +441,7 @@ fn test_ilp_paper_example() {
 
     // Verify optimal solution x* = (3, 2) → config [3, 2]
     let result = Problem::evaluate(&ilp, &[3, 2]);
-    assert_eq!(result, SolutionSize::Valid(-27.0));
+    assert_eq!(result, Extremum::minimize(Some(-27.0)));
 
     // Verify feasibility: 3+2=5≤5, 4*3+7*2=26≤28
     assert!(ilp.is_feasible(&[3, 2]));
@@ -453,5 +451,5 @@ fn test_ilp_paper_example() {
 
     // Verify suboptimal feasible point: -5*0 - 6*4 = -24 > -27
     let result2 = Problem::evaluate(&ilp, &[0, 4]);
-    assert_eq!(result2, SolutionSize::Valid(-24.0));
+    assert_eq!(result2, Extremum::minimize(Some(-24.0)));
 }

@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 
@@ -46,7 +46,7 @@ inventory::submit! {
 /// let problem = HamiltonianCircuit::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_satisfying(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Verify all solutions are valid Hamiltonian circuits
 /// for sol in &solutions {
@@ -92,7 +92,7 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "HamiltonianCircuit";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -103,8 +103,8 @@ where
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        is_valid_hamiltonian_circuit(&self.graph, config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(is_valid_hamiltonian_circuit(&self.graph, config))
     }
 }
 
@@ -140,8 +140,6 @@ pub(crate) fn is_valid_hamiltonian_circuit<G: Graph>(graph: &G, config: &[usize]
     true
 }
 
-impl<G: Graph + VariantParam> SatisfactionProblem for HamiltonianCircuit<G> {}
-
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -167,7 +165,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default sat HamiltonianCircuit<SimpleGraph> => "1.657^num_vertices",
+    default HamiltonianCircuit<SimpleGraph> => "1.657^num_vertices",
 }
 
 #[cfg(test)]

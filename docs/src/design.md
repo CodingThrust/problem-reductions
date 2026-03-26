@@ -25,29 +25,25 @@ This guide covers the library internals for contributors.
 
 ## Problem Model
 
-Every problem implements `Problem`. Optimization problems additionally implement `OptimizationProblem`; satisfaction problems implement `SatisfactionProblem`.
+Every problem implements `Problem`. The associated `Value` type is the per-configuration aggregate returned by `evaluate()`. Solvers fold these values across the configuration space, and witness-capable aggregates can also recover representative configurations.
 
 ```rust,ignore
 trait Problem: Clone {
     const NAME: &'static str;              // e.g., "MaximumIndependentSet"
-    type Metric: Clone;                    // SolutionSize<W> or bool
+    type Value: Clone;                     // e.g., Max<i32>, Or, Sum<i32>
     fn dims(&self) -> Vec<usize>;          // config space per variable
-    fn evaluate(&self, config: &[usize]) -> Self::Metric;
+    fn evaluate(&self, config: &[usize]) -> Self::Value;
     fn variant() -> Vec<(&'static str, &'static str)>; // e.g., [("graph", "SimpleGraph"), ("weight", "i32")]
     fn num_variables(&self) -> usize;      // default: dims().len()
+    fn problem_type() -> ProblemType;      // default: registry lookup by NAME
 }
-
-trait OptimizationProblem: Problem<Metric = SolutionSize<Self::Value>> {
-    type Value: PartialOrd + Clone;        // e.g., i32, f64
-    fn direction(&self) -> Direction;      // Maximize or Minimize
-}
-
-trait SatisfactionProblem: Problem<Metric = bool> {}  // marker trait
 ```
 
-- **`Problem`** — the base trait. Every problem declares a `NAME` (e.g., `"MaximumIndependentSet"`). The solver explores the configuration space defined by `dims()` and scores each configuration with `evaluate()`. For example, a 4-vertex MIS has `dims() = [2, 2, 2, 2]` (each vertex is selected or not); `evaluate(&[1, 0, 1, 0])` returns `Valid(2)` if vertices 0 and 2 form an independent set, or `Invalid` if they share an edge. Each problem also provides inherent getter methods (e.g., `num_vertices()`, `num_edges()`) used by reduction overhead expressions.
-- **`OptimizationProblem`** — extends `Problem` with a comparable `Value` type and a `direction()` (`Maximize` or `Minimize`).
-- **`SatisfactionProblem`** — constrains `Metric = bool`: `true` if all constraints are satisfied, `false` otherwise.
+- **`Problem`** — the base trait. Every problem declares a `NAME` (e.g., `"MaximumIndependentSet"`). The solver explores the configuration space defined by `dims()` and scores each configuration with `evaluate()`. For example, a 4-vertex MIS has `dims() = [2, 2, 2, 2]` (each vertex is selected or not); `evaluate(&[1, 0, 1, 0])` returns `Max(Some(2))` if vertices 0 and 2 form an independent set, or `Max(None)` if they share an edge. Each problem also provides inherent getter methods (e.g., `num_vertices()`, `num_edges()`) used by reduction overhead expressions.
+- **Witness-capable objective problems** — typically use `Max<V>`, `Min<V>`, or `Extremum<V>` as `Value`.
+- **Witness-capable feasibility problems** — typically use `Or`.
+- **Aggregate-only problems** — use fold values such as `Sum<W>` or `And`; these solve to a value but do not admit representative witness configurations.
+- **Common aggregate wrappers** — `Max<V>`, `Min<V>`, `Sum<W>`, `Or`, `And`, `Extremum<V>`, `ExtremumSense`.
 
 ## Variant System
 
@@ -315,15 +311,17 @@ Solvers implement the `Solver` trait:
 
 ```rust,ignore
 pub trait Solver {
-    fn find_best<P: OptimizationProblem>(&self, problem: &P) -> Option<Vec<usize>>;
-    fn find_satisfying<P: Problem<Metric = bool>>(&self, problem: &P) -> Option<Vec<usize>>;
+    fn solve<P>(&self, problem: &P) -> P::Value
+    where
+        P: Problem,
+        P::Value: Aggregate;
 }
 ```
 
 | Solver | Description |
 |--------|-------------|
-| **BruteForce** | Enumerates all configurations. Also provides `find_all_best()` and `find_all_satisfying()`. Used for testing and verification. |
-| **ILPSolver** | Enabled by default (`ilp` feature). Uses HiGHS via `good_lp`. Also provides `solve_reduced()` for problems that implement `ReduceTo<ILP>`. |
+| **BruteForce** | Enumerates all configurations. `solve()` works for any aggregate problem; `find_witness()`, `find_all_witnesses()`, and `solve_with_witnesses()` are available when `P::Value` supports witnesses. Used for testing and verification. |
+| **ILPSolver** | Enabled by default. Solves ILP instances directly with HiGHS via `good_lp`. Also provides `solve_reduced()` for witness-capable problems that implement `ReduceTo<ILP<bool>>`. |
 
 ## JSON Serialization
 

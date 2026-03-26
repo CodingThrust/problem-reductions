@@ -2,7 +2,7 @@
 
 use crate::models::algebraic::{Comparison, ObjectiveSense, VariableDomain, ILP};
 use crate::models::misc::TimetableDesign;
-use crate::rules::{ReduceTo, ReductionResult};
+use crate::rules::{ReduceTo, ReductionMode, ReductionResult};
 #[cfg(not(feature = "ilp-highs"))]
 use good_lp::default_solver;
 #[cfg(feature = "ilp-highs")]
@@ -40,6 +40,33 @@ pub struct ILPSolver {
     pub time_limit: Option<f64>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SolveViaReductionError {
+    WitnessPathRequired { name: String },
+    NoReductionPath { name: String },
+    NoSolution { name: String },
+}
+
+impl std::fmt::Display for SolveViaReductionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SolveViaReductionError::WitnessPathRequired { name } => write!(
+                f,
+                "ILP solving requires a witness-capable source problem and reduction path; only aggregate-value solving is available for {}.",
+                name
+            ),
+            SolveViaReductionError::NoReductionPath { name } => {
+                write!(f, "No reduction path from {} to ILP", name)
+            }
+            SolveViaReductionError::NoSolution { name } => {
+                write!(f, "ILP solver found no solution for {}", name)
+            }
+        }
+    }
+}
+
+impl std::error::Error for SolveViaReductionError {}
+
 impl ILPSolver {
     /// Create a new ILP solver with default settings.
     pub fn new() -> Self {
@@ -61,16 +88,36 @@ impl ILPSolver {
     pub fn solve<V: VariableDomain>(&self, problem: &ILP<V>) -> Option<Vec<usize>> {
         let n = problem.num_vars;
         if n == 0 {
-            return Some(vec![]);
+            return problem.is_feasible(&[]).then_some(vec![]);
         }
 
-        // Create integer variables with bounds from variable domain
+        // Derive tighter per-variable upper bounds from single-variable ≤ constraints.
+        // This avoids giving HiGHS the full domain (e.g. 2^31 for i32), which can
+        // cause severe performance degradation even when constraints already bound
+        // the variable to a small range.
+        let default_ub = (V::DIMS_PER_VAR - 1) as f64;
+        let mut upper_bounds = vec![default_ub; n];
+        for constraint in &problem.constraints {
+            if constraint.cmp == crate::models::algebraic::Comparison::Le
+                && constraint.terms.len() == 1
+            {
+                let (var_idx, coef) = constraint.terms[0];
+                if coef > 0.0 && var_idx < n {
+                    let ub = constraint.rhs / coef;
+                    if ub < upper_bounds[var_idx] {
+                        upper_bounds[var_idx] = ub;
+                    }
+                }
+            }
+        }
+
+        // Create integer variables with tightened bounds
         let mut vars_builder = ProblemVariables::new();
         let vars: Vec<Variable> = (0..n)
-            .map(|_| {
+            .map(|i| {
                 let mut v = variable().integer();
                 v = v.min(0.0);
-                v = v.max((V::DIMS_PER_VAR - 1) as f64);
+                v = v.max(upper_bounds[i]);
                 vars_builder.add(v)
             })
             .collect();
@@ -188,6 +235,90 @@ impl ILPSolver {
         None
     }
 
+    fn supports_direct_dyn(&self, any: &dyn std::any::Any) -> bool {
+        any.is::<ILP<bool>>() || any.is::<ILP<i32>>() || any.is::<TimetableDesign>()
+    }
+
+    fn best_path_to_ilp(
+        &self,
+        graph: &crate::rules::ReductionGraph,
+        name: &str,
+        variant: &std::collections::BTreeMap<String, String>,
+        mode: ReductionMode,
+    ) -> Option<crate::rules::ReductionPath> {
+        use crate::types::ProblemSize;
+
+        let ilp_variants = graph.variants_for("ILP");
+        let input_size = ProblemSize::new(vec![]);
+        let mut best_path = None;
+
+        for dv in &ilp_variants {
+            if let Some(path) = graph.find_cheapest_path_mode(
+                name,
+                variant,
+                "ILP",
+                dv,
+                mode,
+                &input_size,
+                &crate::rules::MinimizeSteps,
+            ) {
+                let is_better = best_path
+                    .as_ref()
+                    .is_none_or(|current: &crate::rules::ReductionPath| path.len() < current.len());
+                if is_better {
+                    best_path = Some(path);
+                }
+            }
+        }
+
+        best_path
+    }
+
+    pub fn try_solve_via_reduction(
+        &self,
+        name: &str,
+        variant: &std::collections::BTreeMap<String, String>,
+        instance: &dyn std::any::Any,
+    ) -> Result<Vec<usize>, SolveViaReductionError> {
+        if self.supports_direct_dyn(instance) {
+            return self
+                .solve_dyn(instance)
+                .ok_or_else(|| SolveViaReductionError::NoSolution {
+                    name: name.to_string(),
+                });
+        }
+
+        let graph = crate::rules::ReductionGraph::new();
+
+        let Some(path) = self.best_path_to_ilp(&graph, name, variant, ReductionMode::Witness)
+        else {
+            if self
+                .best_path_to_ilp(&graph, name, variant, ReductionMode::Aggregate)
+                .is_some()
+            {
+                return Err(SolveViaReductionError::WitnessPathRequired {
+                    name: name.to_string(),
+                });
+            }
+
+            return Err(SolveViaReductionError::NoReductionPath {
+                name: name.to_string(),
+            });
+        };
+
+        let chain = graph.reduce_along_path(&path, instance).ok_or_else(|| {
+            SolveViaReductionError::WitnessPathRequired {
+                name: name.to_string(),
+            }
+        })?;
+        let ilp_solution = self.solve_dyn(chain.target_problem_any()).ok_or_else(|| {
+            SolveViaReductionError::NoSolution {
+                name: name.to_string(),
+            }
+        })?;
+        Ok(chain.extract_solution(&ilp_solution))
+    }
+
     /// Solve a type-erased problem by finding a reduction path to ILP.
     ///
     /// Tries all ILP variants, picks the cheapest path, reduces, solves,
@@ -201,36 +332,7 @@ impl ILPSolver {
         variant: &std::collections::BTreeMap<String, String>,
         instance: &dyn std::any::Any,
     ) -> Option<Vec<usize>> {
-        // Direct ILP solve if the problem is already ILP
-        if let Some(config) = self.solve_dyn(instance) {
-            return Some(config);
-        }
-
-        use crate::rules::{MinimizeSteps, ReductionGraph};
-        use crate::types::ProblemSize;
-
-        let graph = ReductionGraph::new();
-        let ilp_variants = graph.variants_for("ILP");
-        let input_size = ProblemSize::new(vec![]);
-
-        let mut best_path = None;
-        for dv in &ilp_variants {
-            if let Some(path) =
-                graph.find_cheapest_path(name, variant, "ILP", dv, &input_size, &MinimizeSteps)
-            {
-                let is_better = best_path
-                    .as_ref()
-                    .is_none_or(|current: &crate::rules::ReductionPath| path.len() < current.len());
-                if is_better {
-                    best_path = Some(path);
-                }
-            }
-        }
-
-        let path = best_path?;
-        let chain = graph.reduce_along_path(&path, instance)?;
-        let ilp_solution = self.solve_dyn(chain.target_problem_any())?;
-        Some(chain.extract_solution(&ilp_solution))
+        self.try_solve_via_reduction(name, variant, instance).ok()
     }
 }
 

@@ -3,7 +3,6 @@ use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization
 use crate::solvers::BruteForce;
 use crate::topology::Graph;
 use crate::traits::Problem;
-use crate::types::SolutionSize;
 
 #[test]
 fn test_maximumclique_to_maximumindependentset_closed_loop() {
@@ -44,7 +43,7 @@ fn test_maximumclique_to_maximumindependentset_triangle() {
     assert_eq!(target.graph().num_edges(), 0);
 
     let solver = BruteForce::new();
-    let target_solutions = solver.find_all_best(target);
+    let target_solutions = solver.find_all_witnesses(target);
 
     // MIS on empty graph is all vertices selected
     assert!(target_solutions
@@ -53,10 +52,7 @@ fn test_maximumclique_to_maximumindependentset_triangle() {
 
     // Extract solution: should be the full clique {0,1,2}
     let source_sol = reduction.extract_solution(&target_solutions[0]);
-    assert!(matches!(
-        source.evaluate(&source_sol),
-        SolutionSize::Valid(3)
-    ));
+    assert_eq!(source.evaluate(&source_sol).unwrap(), 3);
 }
 
 #[test]
@@ -80,7 +76,7 @@ fn test_maximumclique_to_maximumindependentset_empty_graph() {
     assert_eq!(target.graph().num_edges(), 3);
 
     let solver = BruteForce::new();
-    let target_solutions = solver.find_all_best(target);
+    let target_solutions = solver.find_all_witnesses(target);
 
     // MIS on K3 is any single vertex
     assert!(target_solutions

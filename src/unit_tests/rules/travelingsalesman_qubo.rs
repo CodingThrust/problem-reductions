@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Min;
 
 #[test]
 fn test_travelingsalesman_to_qubo_closed_loop() {
@@ -12,7 +12,7 @@ fn test_travelingsalesman_to_qubo_closed_loop() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_best(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo);
 
     // All QUBO solutions should extract to valid TSP solutions
     for sol in &qubo_solutions {
@@ -20,7 +20,7 @@ fn test_travelingsalesman_to_qubo_closed_loop() {
         let metric = tsp.evaluate(&extracted);
         assert!(metric.is_valid(), "Extracted solution should be valid");
         // K3 has only one Hamiltonian cycle (all 3 edges), cost = 1+2+3 = 6
-        assert_eq!(metric, SolutionSize::Valid(6));
+        assert_eq!(metric, Min(Some(6)));
     }
 
     // There are multiple QUBO optima (different position assignments for the same tour),
@@ -40,14 +40,14 @@ fn test_travelingsalesman_to_qubo_k4() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_best(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo);
 
     // Every Hamiltonian cycle in K4 uses exactly 4 edges, so cost = 4
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
         let metric = tsp.evaluate(&extracted);
         assert!(metric.is_valid(), "Extracted solution should be valid");
-        assert_eq!(metric, SolutionSize::Valid(4));
+        assert_eq!(metric, Min(Some(4)));
     }
 
     // K4 has 3 distinct Hamiltonian cycles, but each has multiple position encodings

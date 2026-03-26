@@ -13,8 +13,8 @@ use problemreductions::models::algebraic::{
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
-    DisjointConnectingPaths, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
-    HamiltonianPath, IntegralFlowBundles, LengthBoundedDisjointPaths, LongestCircuit, LongestPath,
+    DisjointConnectingPaths, GeneralizedHex, HamiltonianCircuit, HamiltonianPath,
+    IntegralFlowBundles, LengthBoundedDisjointPaths, LongestCircuit, LongestPath,
     MinimumCutIntoBoundedSets, MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman,
     MultipleChoiceBranching, PathConstrainedNetworkFlow, RootedTreeArrangement, SteinerTree,
     SteinerTreeInGraphs, StrongConnectivityAugmentation,
@@ -22,7 +22,7 @@ use problemreductions::models::graph::{
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
     ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
-    ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, KnownValue,
+    ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping, KnownValue,
     LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
     PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
@@ -42,13 +42,13 @@ use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
 const MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS: &str =
-    "--graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8";
+    "--graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1";
 const MULTIPLE_COPY_FILE_ALLOCATION_USAGE: &str =
-    "Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8";
+    "Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1";
 const EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS: &str =
-    "--probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3 --latency-bound 1.01";
+    "--probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3";
 const EXPECTED_RETRIEVAL_COST_USAGE: &str =
-    "Usage: pred create ExpectedRetrievalCost --probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3 --latency-bound 1.01";
+    "Usage: pred create ExpectedRetrievalCost --probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3";
 
 /// Check if all data flags are None (no problem-specific input provided).
 fn all_data_flags_empty(args: &CreateArgs) -> bool {
@@ -121,10 +121,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.length_bound.is_none()
         && args.weight_bound.is_none()
         && args.cost_bound.is_none()
-        && args.cost_budget.is_none()
         && args.delay_budget.is_none()
         && args.pattern.is_none()
         && args.strings.is_none()
+        && args.string.is_none()
         && args.costs.is_none()
         && args.arc_costs.is_none()
         && args.arcs.is_none()
@@ -537,7 +537,6 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
         "KClique" => "--graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3",
-        "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
         "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
         "IntegralFlowBundles" => {
             "--arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4"
@@ -546,7 +545,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2"
         }
         "MinimumCutIntoBoundedSets" => {
-            "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 3 --size-bound 3 --cut-bound 1"
+            "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 3 --size-bound 3"
         }
         "BoundedComponentSpanningForest" => {
             "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6"
@@ -568,7 +567,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\""
         }
         "LengthBoundedDisjointPaths" => {
-            "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3"
+            "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --bound 4"
         }
         "PathConstrainedNetworkFlow" => {
             "--arcs \"0>1,0>2,1>3,1>4,2>4,3>5,4>5,4>6,5>7,6>7\" --capacities 2,1,1,1,1,1,1,1,2,1 --source 0 --sink 7 --paths \"0,2,5,8;0,3,6,8;0,3,7,9;1,4,6,8;1,4,7,9\" --requirement 3"
@@ -576,13 +575,13 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "KthBestSpanningTree" => "--graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3",
         "LongestCircuit" => {
-            "--graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2 --bound 17"
+            "--graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2"
         }
         "BottleneckTravelingSalesman" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
         "ShortestWeightConstrainedPath" => {
-            "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
+            "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --weight-bound 8"
         }
         "SteinerTreeInGraphs" => "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --terminals 0,3",
         "BiconnectivityAugmentation" => {
@@ -605,7 +604,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "EnsembleComputation" => "--universe 4 --sets \"0,1,2;0,1,3\" --budget 4",
         "RootedTreeStorageAssignment" => "--universe 5 --sets \"0,2;1,3;0,4;2,4\" --bound 1",
         "MinMaxMulticenter" => {
-            "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 --bound 2"
+            "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
         }
         "MinimumSumMulticenter" => {
             "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
@@ -616,7 +615,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
         "CapacityAssignment" => {
-            "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12"
+            "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12"
         }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
         "MinimumMultiwayCut" => "--graph 0-1,1-2,2-3 --terminals 0,2 --edge-weights 1,1,1",
@@ -635,7 +634,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "AcyclicPartition" => {
             "--arcs \"0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5\" --weights 2,3,2,1,3,1 --arc-costs 1,1,1,1,1,1,1,1 --weight-bound 5 --cost-bound 5"
         }
-        "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
+        "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3",
         "RootedTreeArrangement" => "--graph 0-1,0-2,1-2,2-3,3-4 --bound 7",
         "DirectedTwoCommodityIntegralFlow" => {
             "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
@@ -646,13 +645,13 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1"
         }
         "MixedChinesePostman" => {
-            "--graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 --bound 24"
+            "--graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4"
         }
         "RuralPostman" => {
-            "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
+            "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2"
         }
         "StackerCrane" => {
-            "--arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --bound 20 --num-vertices 6"
+            "--arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --num-vertices 6"
         }
         "MultipleChoiceBranching" => {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
@@ -673,16 +672,17 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "BoyceCoddNormalFormViolation" => {
             "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
         }
-        "SumOfSquaresPartition" => "--sizes 5,3,8,2,7,1 --num-groups 3 --bound 240",
+        "SumOfSquaresPartition" => "--sizes 5,3,8,2,7,1 --num-groups 3",
         "ComparativeContainment" => {
             "--universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
         }
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
         "LongestCommonSubsequence" => {
-            "--strings \"010110;100101;001011\" --bound 3 --alphabet-size 2"
+            "--strings \"010110;100101;001011\" --alphabet-size 2"
         }
+        "GroupingBySwapping" => "--string \"0,1,2,0,1,2\" --bound 5",
         "MinimumCardinalityKey" => {
-            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --bound 2"
+            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\""
         }
         "PrimeAttributeName" => {
             "--universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
@@ -690,7 +690,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "TwoDimensionalConsecutiveSets" => {
             "--alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
         }
-        "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
+        "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\"",
         "ConsecutiveBlockMinimization" => {
             "--matrix '[[true,false,true],[false,true,true]]' --bound 2"
         }
@@ -705,7 +705,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "ConjunctiveQueryFoldability" => "(use --example ConjunctiveQueryFoldability)",
         "SequencingToMinimizeMaximumCumulativeCost" => {
-            "--costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+            "--costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\""
         }
         "StringToStringCorrection" => {
             "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
@@ -810,6 +810,7 @@ fn help_flag_hint(
         ("LongestCommonSubsequence", "strings") => {
             "raw strings: \"ABAC;BACA\" or symbol lists: \"0,1,0;1,0,1\""
         }
+        ("GroupingBySwapping", "string") => "symbol list: \"0,1,2,0,1,2\"",
         ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
         ("IntegralFlowHomologousArcs", "homologous_pairs") => {
@@ -929,25 +930,25 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
             } else if field.type_name == "MixedGraph" {
                 eprintln!(
-                    "  --{:<16} {} ({})",
-                    "graph", "Undirected edges E of the mixed graph", "edge list: 0-1,1-2,2-3"
+                    "  --{:<16} Undirected edges E of the mixed graph (edge list: 0-1,1-2,2-3)",
+                    "graph"
                 );
                 eprintln!(
-                    "  --{:<16} {} ({})",
-                    "arcs", "Directed arcs A of the mixed graph", "directed arcs: 0>1,1>2,2>0"
+                    "  --{:<16} Directed arcs A of the mixed graph (directed arcs: 0>1,1>2,2>0)",
+                    "arcs"
                 );
             } else if field.type_name == "BipartiteGraph" {
                 eprintln!(
-                    "  --{:<16} {} ({})",
-                    "left", "Vertices in the left partition", "integer"
+                    "  --{:<16} Vertices in the left partition (integer)",
+                    "left"
                 );
                 eprintln!(
-                    "  --{:<16} {} ({})",
-                    "right", "Vertices in the right partition", "integer"
+                    "  --{:<16} Vertices in the right partition (integer)",
+                    "right"
                 );
                 eprintln!(
-                    "  --{:<16} {} ({})",
-                    "biedges", "Bipartite edges as left-right pairs", "edge list: 0-0,0-1,1-2"
+                    "  --{:<16} Bipartite edges as left-right pairs (edge list: 0-0,0-1,1-2)",
+                    "biedges"
                 );
             } else {
                 let hint = help_flag_hint(canonical, &field.name, &field.type_name, graph_type);
@@ -1016,7 +1017,6 @@ fn validate_length_bounded_disjoint_paths_args(
     num_vertices: usize,
     source: usize,
     sink: usize,
-    num_paths_required: usize,
     bound: i64,
     usage: Option<&str>,
 ) -> Result<usize> {
@@ -1038,34 +1038,10 @@ fn validate_length_bounded_disjoint_paths_args(
             usage,
         ));
     }
-    if num_paths_required == 0 {
-        return Err(lbdp_validation_error(
-            "--num-paths-required must be positive",
-            usage,
-        ));
-    }
     if max_length == 0 {
         return Err(lbdp_validation_error("--bound must be positive", usage));
     }
     Ok(max_length)
-}
-
-fn validate_longest_circuit_bound(bound: i64, usage: Option<&str>) -> Result<i32> {
-    let bound = i32::try_from(bound).map_err(|_| {
-        let msg = format!("LongestCircuit --bound must fit in i32 (got {bound})");
-        match usage {
-            Some(u) => anyhow::anyhow!("{msg}\n\n{u}"),
-            None => anyhow::anyhow!("{msg}"),
-        }
-    })?;
-    if bound <= 0 {
-        let msg = "LongestCircuit --bound must be positive (> 0)";
-        return Err(match usage {
-            Some(u) => anyhow::anyhow!("{msg}\n\n{u}"),
-            None => anyhow::anyhow!("{msg}"),
-        });
-    }
-    Ok(bound)
 }
 
 /// Resolve the graph type from the variant map (e.g., "KingsSubgraph", "UnitDiskGraph", or "SimpleGraph").
@@ -1157,19 +1133,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let terminals = parse_terminals(args, graph.num_vertices())?;
             let data = ser(SteinerTree::new(graph, edge_weights, terminals))?;
             (data, resolved_variant.clone())
-        }
-
-        // Graph partitioning (graph only, no weights)
-        "GraphPartitioning" => {
-            let (graph, _) = parse_graph(args).map_err(|e| {
-                anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create GraphPartitioning --graph 0-1,1-2,2-3,0-2,1-3,0-3"
-                )
-            })?;
-            (
-                ser(GraphPartitioning::new(graph))?,
-                resolved_variant.clone(),
-            )
         }
 
         // Generalized Hex (graph + source + sink)
@@ -1301,7 +1264,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "MinimumCutIntoBoundedSets" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create MinimumCutIntoBoundedSets --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 2 --size-bound 2 --cut-bound 1"
+                    "{e}\n\nUsage: pred create MinimumCutIntoBoundedSets --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 2 --size-bound 2"
                 )
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
@@ -1314,9 +1277,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let size_bound = args
                 .size_bound
                 .context("--size-bound is required for MinimumCutIntoBoundedSets")?;
-            let cut_bound = args
-                .cut_bound
-                .context("--cut-bound is required for MinimumCutIntoBoundedSets")?;
             (
                 ser(MinimumCutIntoBoundedSets::new(
                     graph,
@@ -1324,7 +1284,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     source,
                     sink,
                     size_bound,
-                    cut_bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -1470,7 +1429,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // ShortestWeightConstrainedPath
         "ShortestWeightConstrainedPath" => {
-            let usage = "pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8";
+            let usage = "pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --weight-bound 8";
             let (graph, _) =
                 parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
             if args.weights.is_some() {
@@ -1504,11 +1463,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     "ShortestWeightConstrainedPath requires --target-vertex\n\nUsage: {usage}"
                 )
             })?;
-            let length_bound = args.length_bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "ShortestWeightConstrainedPath requires --length-bound\n\nUsage: {usage}"
-                )
-            })?;
             let weight_bound = args.weight_bound.ok_or_else(|| {
                 anyhow::anyhow!(
                     "ShortestWeightConstrainedPath requires --weight-bound\n\nUsage: {usage}"
@@ -1516,7 +1470,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             ensure_vertex_in_bounds(source_vertex, graph.num_vertices(), "source_vertex")?;
             ensure_vertex_in_bounds(target_vertex, graph.num_vertices(), "target_vertex")?;
-            ensure_positive_i32(length_bound, "length_bound")?;
             ensure_positive_i32(weight_bound, "weight_bound")?;
             (
                 ser(ShortestWeightConstrainedPath::new(
@@ -1525,14 +1478,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     edge_weights,
                     source_vertex,
                     target_vertex,
-                    length_bound,
                     weight_bound,
                 ))?,
                 resolved_variant.clone(),
             )
         }
 
-        // MultipleCopyFileAllocation (graph + usage + storage + bound)
+        // MultipleCopyFileAllocation (graph + usage + storage)
         "MultipleCopyFileAllocation" => {
             let (graph, num_vertices) = parse_graph(args)
                 .map_err(|e| anyhow::anyhow!("{e}\n\n{MULTIPLE_COPY_FILE_ALLOCATION_USAGE}"))?;
@@ -1550,20 +1502,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 "MultipleCopyFileAllocation",
                 MULTIPLE_COPY_FILE_ALLOCATION_USAGE,
             )?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "MultipleCopyFileAllocation requires --bound\n\n{MULTIPLE_COPY_FILE_ALLOCATION_USAGE}"
-                )
-            })?;
             (
-                ser(MultipleCopyFileAllocation::new(
-                    graph, usage, storage, bound,
-                ))?,
+                ser(MultipleCopyFileAllocation::new(graph, usage, storage))?,
                 resolved_variant.clone(),
             )
         }
 
-        // ExpectedRetrievalCost (probabilities + sectors + latency bound)
+        // ExpectedRetrievalCost (probabilities + sectors)
         "ExpectedRetrievalCost" => {
             let probabilities_str = args.probabilities.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
@@ -1596,22 +1541,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 "ExpectedRetrievalCost requires at least two sectors\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
             );
 
-            let latency_bound = args.latency_bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "ExpectedRetrievalCost requires --latency-bound\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
-                )
-            })?;
-            anyhow::ensure!(
-                latency_bound.is_finite() && latency_bound >= 0.0,
-                "ExpectedRetrievalCost requires a finite non-negative --latency-bound\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
-            );
-
             (
-                ser(ExpectedRetrievalCost::new(
-                    probabilities,
-                    num_sectors,
-                    latency_bound,
-                ))?,
+                ser(ExpectedRetrievalCost::new(probabilities, num_sectors))?,
                 resolved_variant.clone(),
             )
         }
@@ -1752,20 +1683,15 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        // LengthBoundedDisjointPaths (graph + source + sink + path count + bound)
+        // LengthBoundedDisjointPaths (graph + source + sink + bound)
         "LengthBoundedDisjointPaths" => {
-            let usage = "Usage: pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3";
+            let usage = "Usage: pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --bound 3";
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let source = args.source.ok_or_else(|| {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --source\n\n{usage}")
             })?;
             let sink = args.sink.ok_or_else(|| {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --sink\n\n{usage}")
-            })?;
-            let num_paths_required = args.num_paths_required.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "LengthBoundedDisjointPaths requires --num-paths-required\n\n{usage}"
-                )
             })?;
             let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --bound\n\n{usage}")
@@ -1774,18 +1700,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 graph.num_vertices(),
                 source,
                 sink,
-                num_paths_required,
                 bound,
                 Some(usage),
             )?;
 
             (
                 ser(LengthBoundedDisjointPaths::new(
-                    graph,
-                    source,
-                    sink,
-                    num_paths_required,
-                    max_length,
+                    graph, source, sink, max_length,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -1900,30 +1821,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                    "{e}\n\nUsage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2"
                 )
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
             let required_edges_str = args.required_edges.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "RuralPostman requires --required-edges\n\n\
-                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2"
                 )
             })?;
             let required_edges: Vec<usize> = util::parse_comma_list(required_edges_str)?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "RuralPostman requires --bound\n\n\
-                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
-                )
-            })? as i32;
             (
-                ser(RuralPostman::new(
-                    graph,
-                    edge_weights,
-                    required_edges,
-                    bound,
-                ))?,
+                ser(RuralPostman::new(graph, edge_weights, required_edges))?,
                 resolved_variant.clone(),
             )
         }
@@ -1931,26 +1841,22 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // LongestCircuit
         "LongestCircuit" => {
             reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
-            let usage = "pred create LongestCircuit --graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2 --bound 17";
+            let usage = "pred create LongestCircuit --graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2";
             let (graph, _) =
                 parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
             let edge_lengths = parse_edge_weights(args, graph.num_edges())?;
             if edge_lengths.iter().any(|&length| length <= 0) {
                 bail!("LongestCircuit --edge-weights must be positive (> 0)");
             }
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("LongestCircuit requires --bound\n\nUsage: {usage}")
-            })?;
-            let bound = validate_longest_circuit_bound(bound, Some(usage))?;
             (
-                ser(LongestCircuit::new(graph, edge_lengths, bound))?,
+                ser(LongestCircuit::new(graph, edge_lengths))?,
                 resolved_variant.clone(),
             )
         }
 
         // StackerCrane
         "StackerCrane" => {
-            let usage = "Usage: pred create StackerCrane --arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --bound 20 --num-vertices 6";
+            let usage = "Usage: pred create StackerCrane --arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --num-vertices 6";
             let arcs_str = args
                 .arcs
                 .as_deref()
@@ -1972,13 +1878,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 edges_graph.num_edges(),
                 "edge length",
             )?;
-            let bound_raw = args
-                .bound
-                .ok_or_else(|| anyhow::anyhow!("StackerCrane requires --bound\n\n{usage}"))?;
-            let bound = parse_nonnegative_usize_bound(bound_raw, "StackerCrane", usage)?;
-            let bound = i32::try_from(bound).map_err(|_| {
-                anyhow::anyhow!("StackerCrane --bound must fit in i32 (got {bound_raw})\n\n{usage}")
-            })?;
             (
                 ser(StackerCrane::try_new(
                     num_vertices,
@@ -1986,7 +1885,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     edges_graph.edges(),
                     arc_lengths,
                     edge_lengths,
-                    bound,
                 )
                 .map_err(|e| anyhow::anyhow!(e))?)?,
                 resolved_variant.clone(),
@@ -2422,25 +2320,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "SumOfSquaresPartition" => {
             let sizes_str = args.sizes.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "SumOfSquaresPartition requires --sizes, --num-groups, and --bound\n\n\
-                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3 --bound 240"
+                    "SumOfSquaresPartition requires --sizes and --num-groups\n\n\
+                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3"
                 )
             })?;
             let num_groups = args.num_groups.ok_or_else(|| {
                 anyhow::anyhow!(
                     "SumOfSquaresPartition requires --num-groups\n\n\
-                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3 --bound 240"
-                )
-            })?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SumOfSquaresPartition requires --bound\n\n\
-                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3 --bound 240"
+                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3"
                 )
             })?;
             let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
             (
-                ser(SumOfSquaresPartition::try_new(sizes, num_groups, bound)
+                ser(SumOfSquaresPartition::try_new(sizes, num_groups)
                     .map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
@@ -2695,12 +2587,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "MinimumCardinalityKey" => {
             let num_attributes = args.num_attributes.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "MinimumCardinalityKey requires --num-attributes, --dependencies, and --bound\n\n\
-                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --bound 2"
+                    "MinimumCardinalityKey requires --num-attributes and --dependencies\n\n\
+                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\""
                 )
-            })?;
-            let k = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("MinimumCardinalityKey requires --bound (bound on key cardinality)")
             })?;
             let deps_str = args.dependencies.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
@@ -2712,7 +2601,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 ser(problemreductions::models::set::MinimumCardinalityKey::new(
                     num_attributes,
                     dependencies,
-                    k,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -2888,19 +2776,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // LongestCommonSubsequence
         "LongestCommonSubsequence" => {
             let usage =
-                "Usage: pred create LCS --strings \"010110;100101;001011\" --bound 3 [--alphabet-size 2]";
+                "Usage: pred create LCS --strings \"010110;100101;001011\" [--alphabet-size 2]";
             let strings_str = args.strings.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("LongestCommonSubsequence requires --strings\n\n{usage}")
             })?;
-            let bound_i64 = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("LongestCommonSubsequence requires --bound\n\n{usage}")
-            })?;
-            anyhow::ensure!(
-                bound_i64 >= 0,
-                "LongestCommonSubsequence requires a nonnegative --bound, got {}",
-                bound_i64
-            );
-            let bound = bound_i64 as usize;
 
             let segments: Vec<&str> = strings_str.split(';').map(str::trim).collect();
             let comma_mode = segments.iter().any(|segment| segment.contains(','));
@@ -2961,11 +2840,65 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 inferred_alphabet_size
             );
             anyhow::ensure!(
-                alphabet_size > 0 || (bound == 0 && strings.iter().all(|string| string.is_empty())),
-                "LongestCommonSubsequence requires a positive alphabet. Provide --alphabet-size when all strings are empty and --bound > 0.\n\n{usage}"
+                strings.iter().any(|string| !string.is_empty()),
+                "LongestCommonSubsequence requires at least one non-empty string.\n\n{usage}"
+            );
+            anyhow::ensure!(
+                alphabet_size > 0,
+                "LongestCommonSubsequence requires a positive alphabet. Provide --alphabet-size when all strings are empty.\n\n{usage}"
             );
             (
-                ser(LongestCommonSubsequence::new(alphabet_size, strings, bound))?,
+                ser(LongestCommonSubsequence::new(alphabet_size, strings))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // GroupingBySwapping
+        "GroupingBySwapping" => {
+            let usage =
+                "Usage: pred create GroupingBySwapping --string \"0,1,2,0,1,2\" --bound 5 [--alphabet-size 3]";
+            let string_str = args.string.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("GroupingBySwapping requires --string\n\n{usage}")
+            })?;
+            let bound = parse_nonnegative_usize_bound(
+                args.bound.ok_or_else(|| {
+                    anyhow::anyhow!("GroupingBySwapping requires --bound\n\n{usage}")
+                })?,
+                "GroupingBySwapping",
+                usage,
+            )?;
+
+            let string = if string_str.trim().is_empty() {
+                Vec::new()
+            } else {
+                string_str
+                    .split(',')
+                    .map(|value| {
+                        value
+                            .trim()
+                            .parse::<usize>()
+                            .context("invalid symbol index")
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            };
+            let inferred = string.iter().copied().max().map_or(0, |value| value + 1);
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            anyhow::ensure!(
+                alphabet_size >= inferred,
+                "--alphabet-size {} is smaller than max symbol + 1 ({}) in the input string",
+                alphabet_size,
+                inferred
+            );
+            anyhow::ensure!(
+                alphabet_size > 0 || string.is_empty(),
+                "GroupingBySwapping requires a positive alphabet for non-empty strings.\n\n{usage}"
+            );
+            anyhow::ensure!(
+                !string.is_empty() || bound == 0,
+                "GroupingBySwapping requires --bound 0 when --string is empty.\n\n{usage}"
+            );
+            (
+                ser(GroupingBySwapping::new(alphabet_size, string, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -3073,10 +3006,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         }
 
         "CapacityAssignment" => {
-            let usage = "Usage: pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12";
+            let usage = "Usage: pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12";
             let capacities_str = args.capacities.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "CapacityAssignment requires --capacities, --cost-matrix, --delay-matrix, --cost-budget, and --delay-budget\n\n{usage}"
+                    "CapacityAssignment requires --capacities, --cost-matrix, --delay-matrix, and --delay-budget\n\n{usage}"
                 )
             })?;
             let cost_matrix_str = args.cost_matrix.as_deref().ok_or_else(|| {
@@ -3084,9 +3017,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             let delay_matrix_str = args.delay_matrix.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("CapacityAssignment requires --delay-matrix\n\n{usage}")
-            })?;
-            let cost_budget = args.cost_budget.ok_or_else(|| {
-                anyhow::anyhow!("CapacityAssignment requires --cost-budget\n\n{usage}")
             })?;
             let delay_budget = args.delay_budget.ok_or_else(|| {
                 anyhow::anyhow!("CapacityAssignment requires --delay-budget\n\n{usage}")
@@ -3149,7 +3079,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     capacities,
                     cost,
                     delay,
-                    cost_budget,
                     delay_budget,
                 ))?,
                 resolved_variant.clone(),
@@ -3398,13 +3327,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let costs_str = args.costs.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeMaximumCumulativeCost requires --costs\n\n\
-                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
-                )
-            })?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SequencingToMinimizeMaximumCumulativeCost requires --bound\n\n\
-                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\""
                 )
             })?;
             let costs: Vec<i64> = util::parse_comma_list(costs_str)?;
@@ -3414,7 +3337,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 ser(SequencingToMinimizeMaximumCumulativeCost::new(
                     costs,
                     precedences,
-                    bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -3451,19 +3373,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        // OptimalLinearArrangement — graph + bound
+        // OptimalLinearArrangement — graph only (optimization)
         "OptimalLinearArrangement" => {
-            let usage = "Usage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3 --bound 5";
+            let usage = "Usage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3";
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let bound_raw = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "OptimalLinearArrangement requires --bound (upper bound K on total edge length)\n\n{usage}"
-                )
-            })?;
-            let bound =
-                parse_nonnegative_usize_bound(bound_raw, "OptimalLinearArrangement", usage)?;
             (
-                ser(OptimalLinearArrangement::new(graph, bound))?,
+                ser(OptimalLinearArrangement::new(graph))?,
                 resolved_variant.clone(),
             )
         }
@@ -3842,25 +3757,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // MinMaxMulticenter (vertex p-center)
         "MinMaxMulticenter" => {
-            let usage = "Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 [--weights 1,1,1,1] [--edge-weights 1,1,1] --k 2 --bound 2";
+            let usage = "Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 [--weights 1,1,1,1] [--edge-weights 1,1,1] --k 2";
             let (graph, n) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let vertex_weights = parse_vertex_weights(args, n)?;
             let edge_lengths = parse_edge_weights(args, graph.num_edges())?;
             let k = args.k.ok_or_else(|| {
                 anyhow::anyhow!(
                     "MinMaxMulticenter requires --k (number of centers)\n\n\
-                     Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --k 2 --bound 2"
-                )
-            })?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "MinMaxMulticenter requires --bound (distance bound B)\n\n\
-                     Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --k 2 --bound 2"
-                )
-            })?;
-            let bound = i32::try_from(bound).map_err(|_| {
-                anyhow::anyhow!(
-                    "MinMaxMulticenter --bound must fit in i32 (got {bound})\n\n{usage}"
+                     Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --k 2"
                 )
             })?;
             if vertex_weights.iter().any(|&weight| weight < 0) {
@@ -3869,16 +3773,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             if edge_lengths.iter().any(|&length| length < 0) {
                 bail!("MinMaxMulticenter --edge-weights must be non-negative");
             }
-            if bound < 0 {
-                bail!("MinMaxMulticenter --bound must be non-negative");
-            }
             (
                 ser(MinMaxMulticenter::new(
                     graph,
                     vertex_weights,
                     edge_lengths,
                     k,
-                    bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -3928,18 +3828,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // MixedChinesePostman
         "MixedChinesePostman" => {
-            let usage = "Usage: pred create MixedChinesePostman --graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 --bound 24 [--num-vertices N]";
+            let usage = "Usage: pred create MixedChinesePostman --graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 [--num-vertices N]";
             let graph = parse_mixed_graph(args, usage)?;
             let arc_costs = parse_arc_costs(args, graph.num_arcs())?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("MixedChinesePostman requires --bound\n\n{usage}")
-            })?;
-            let bound = i32::try_from(bound).map_err(|_| {
-                anyhow::anyhow!(
-                    "MixedChinesePostman --bound must fit in i32 (got {bound})\n\n{usage}"
-                )
-            })?;
             if arc_costs.iter().any(|&cost| cost < 0) {
                 bail!("MixedChinesePostman --arc-costs must be non-negative\n\n{usage}");
             }
@@ -3956,12 +3848,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 );
             }
             (
-                ser(MixedChinesePostman::new(
-                    graph,
-                    arc_costs,
-                    edge_weights,
-                    bound,
-                ))?,
+                ser(MixedChinesePostman::new(graph, arc_costs, edge_weights))?,
                 resolved_variant.clone(),
             )
         }
@@ -4056,15 +3943,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // ShortestCommonSupersequence
         "ShortestCommonSupersequence" => {
-            let usage = "Usage: pred create SCS --strings \"0,1,2;1,2,0\" --bound 4";
+            let usage = "Usage: pred create SCS --strings \"0,1,2;1,2,0\"";
             let strings_str = args.strings.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("ShortestCommonSupersequence requires --strings\n\n{usage}")
             })?;
-            let bound_raw = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("ShortestCommonSupersequence requires --bound\n\n{usage}")
-            })?;
-            let bound =
-                parse_nonnegative_usize_bound(bound_raw, "ShortestCommonSupersequence", usage)?;
             let strings: Vec<Vec<usize>> = strings_str
                 .split(';')
                 .map(|s| {
@@ -4098,11 +3980,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 );
             }
             (
-                ser(ShortestCommonSupersequence::new(
-                    alphabet_size,
-                    strings,
-                    bound,
-                ))?,
+                ser(ShortestCommonSupersequence::new(alphabet_size, strings))?,
                 resolved_variant.clone(),
             )
         }
@@ -6026,13 +5904,8 @@ fn create_random(
             let num_edges = graph.num_edges();
             let edge_weights = vec![1i32; num_edges];
             let source = 0;
-            let sink = if num_vertices > 1 {
-                num_vertices - 1
-            } else {
-                0
-            };
+            let sink = num_vertices.saturating_sub(1);
             let size_bound = num_vertices; // no effective size constraint
-            let cut_bound = num_edges as i32; // generous bound
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
             (
                 ser(MinimumCutIntoBoundedSets::new(
@@ -6041,31 +5914,9 @@ fn create_random(
                     source,
                     sink,
                     size_bound,
-                    cut_bound,
                 ))?,
                 variant,
             )
-        }
-
-        // GraphPartitioning (graph only, no weights; requires even vertex count)
-        "GraphPartitioning" => {
-            let num_vertices = if num_vertices % 2 != 0 {
-                eprintln!(
-                    "Warning: GraphPartitioning requires even vertex count; rounding {} up to {}",
-                    num_vertices,
-                    num_vertices + 1
-                );
-                num_vertices + 1
-            } else {
-                num_vertices
-            };
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
-            if !(0.0..=1.0).contains(&edge_prob) {
-                bail!("--edge-prob must be between 0.0 and 1.0");
-            }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
-            let variant = variant_map(&[("graph", "SimpleGraph")]);
-            (ser(GraphPartitioning::new(graph))?, variant)
         }
 
         // Hamiltonian Circuit (graph only, no weights)
@@ -6090,7 +5941,7 @@ fn create_random(
             (ser(HamiltonianPath::new(graph))?, variant)
         }
 
-        // LongestCircuit (graph + unit edge lengths + positive bound)
+        // LongestCircuit (graph + unit edge lengths)
         "LongestCircuit" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
@@ -6098,13 +5949,8 @@ fn create_random(
             }
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let edge_lengths = vec![1i32; graph.num_edges()];
-            let usage = "Usage: pred create LongestCircuit --random --num-vertices 6 [--edge-prob 0.5] [--seed 42] --bound 4";
-            let bound = validate_longest_circuit_bound(
-                args.bound.unwrap_or(num_vertices.max(3) as i64),
-                Some(usage),
-            )?;
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-            (ser(LongestCircuit::new(graph, edge_lengths, bound))?, variant)
+            (ser(LongestCircuit::new(graph, edge_lengths))?, variant)
         }
 
         // GeneralizedHex (graph only, with source/sink defaults)
@@ -6145,13 +5991,11 @@ fn create_random(
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let source = args.source.unwrap_or(0);
             let sink = args.sink.unwrap_or(num_vertices - 1);
-            let num_paths_required = args.num_paths_required.unwrap_or(1);
             let bound = args.bound.unwrap_or((num_vertices - 1) as i64);
             let max_length = validate_length_bounded_disjoint_paths_args(
                 num_vertices,
                 source,
                 sink,
-                num_paths_required,
                 bound,
                 None,
             )?;
@@ -6161,7 +6005,6 @@ fn create_random(
                     graph,
                     source,
                     sink,
-                    num_paths_required,
                     max_length,
                 ))?,
                 variant,
@@ -6269,23 +6112,15 @@ fn create_random(
             util::ser_kcoloring(graph, k)?
         }
 
-        // OptimalLinearArrangement — graph + bound
+        // OptimalLinearArrangement — graph only (optimization)
         "OptimalLinearArrangement" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
-            // Default bound: (n-1) * num_edges ensures satisfiability (max edge stretch is n-1)
-            let n = graph.num_vertices();
-            let usage = "Usage: pred create OptimalLinearArrangement --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] [--bound 10]";
-            let bound = args
-                .bound
-                .map(|b| parse_nonnegative_usize_bound(b, "OptimalLinearArrangement", usage))
-                .transpose()?
-                .unwrap_or((n.saturating_sub(1)) * graph.num_edges());
             let variant = variant_map(&[("graph", "SimpleGraph")]);
-            (ser(OptimalLinearArrangement::new(graph, bound))?, variant)
+            (ser(OptimalLinearArrangement::new(graph))?, variant)
         }
 
         // RootedTreeArrangement — graph + bound
@@ -6359,13 +6194,8 @@ mod tests {
     #[test]
     fn test_problem_help_preserves_generic_field_kebab_case() {
         assert_eq!(
-            problem_help_flag_name(
-                "LengthBoundedDisjointPaths",
-                "num_paths_required",
-                "usize",
-                false,
-            ),
-            "num-paths-required"
+            problem_help_flag_name("LengthBoundedDisjointPaths", "max_paths", "usize", false,),
+            "max-paths"
         );
     }
 
@@ -7003,8 +6833,6 @@ mod tests {
             "1,3,6;2,4,7;1,2,5",
             "--delay-matrix",
             "8,4,1;7,3,1;6,3,1",
-            "--cost-budget",
-            "10",
             "--delay-budget",
             "12",
         ])
@@ -7027,7 +6855,6 @@ mod tests {
         fs::remove_file(&output).unwrap();
         assert_eq!(json["type"], "CapacityAssignment");
         assert_eq!(json["data"]["capacities"], serde_json::json!([1, 2, 3]));
-        assert_eq!(json["data"]["cost_budget"], 10);
         assert_eq!(json["data"]["delay_budget"], 12);
     }
 
@@ -7138,8 +6965,6 @@ mod tests {
             "1,3,2;2,4,7;1,2,5",
             "--delay-matrix",
             "8,4,1;7,3,1;6,3,1",
-            "--cost-budget",
-            "10",
             "--delay-budget",
             "12",
         ])
@@ -7172,8 +6997,6 @@ mod tests {
             "1,3;2,4,7;1,2,5",
             "--delay-matrix",
             "8,4,1;7,3,1;6,3,1",
-            "--cost-budget",
-            "10",
             "--delay-budget",
             "12",
         ])
@@ -7369,10 +7192,10 @@ mod tests {
             length_bound: None,
             weight_bound: None,
             cost_bound: None,
-            cost_budget: None,
             delay_budget: None,
             pattern: None,
             strings: None,
+            string: None,
             arc_costs: None,
             arcs: None,
             values: None,
@@ -7741,7 +7564,6 @@ mod tests {
         args.problem = Some("ExpectedRetrievalCost".to_string());
         args.probabilities = Some("0.2,0.15,0.15,0.2,0.1,0.2".to_string());
         args.num_sectors = Some(3);
-        args.latency_bound = Some(1.01);
 
         let output_path = std::env::temp_dir().join(format!(
             "expected-retrieval-cost-{}.json",
@@ -7763,28 +7585,13 @@ mod tests {
         let problem: ExpectedRetrievalCost = serde_json::from_value(created.data).unwrap();
         assert_eq!(problem.num_records(), 6);
         assert_eq!(problem.num_sectors(), 3);
-        assert!(problem.evaluate(&[0, 1, 2, 1, 0, 2]));
+        use problemreductions::types::Min;
+        assert!(matches!(
+            problem.evaluate(&[0, 1, 2, 1, 0, 2]),
+            Min(Some(_))
+        ));
 
         let _ = std::fs::remove_file(output_path);
-    }
-
-    #[test]
-    fn test_create_expected_retrieval_cost_requires_latency_bound() {
-        let mut args = empty_args();
-        args.problem = Some("ExpectedRetrievalCost".to_string());
-        args.probabilities = Some("0.2,0.15,0.15,0.2,0.1,0.2".to_string());
-        args.num_sectors = Some(3);
-        args.latency_bound = None;
-
-        let out = OutputConfig {
-            output: None,
-            quiet: true,
-            json: false,
-            auto_json: false,
-        };
-
-        let err = create(&args, &out).unwrap_err().to_string();
-        assert!(err.contains("ExpectedRetrievalCost requires --latency-bound"));
     }
 
     #[test]
@@ -7828,7 +7635,6 @@ mod tests {
         args.graph = Some("0-1,1-2,2-3,3-5,4-5,0-3,1-5".to_string());
         args.arc_costs = Some("3,4,2,5,3".to_string());
         args.edge_lengths = Some("2,1,3,2,1,4,3".to_string());
-        args.bound = Some(20);
 
         let output_path = std::env::temp_dir().join("pred_test_create_stacker_crane.json");
         let out = OutputConfig {
@@ -7844,7 +7650,6 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(&content).unwrap();
         assert_eq!(json["type"], "StackerCrane");
         assert_eq!(json["data"]["num_vertices"], 6);
-        assert_eq!(json["data"]["bound"], 20);
         assert_eq!(json["data"]["arcs"][0], serde_json::json!([0, 4]));
         assert_eq!(json["data"]["edge_lengths"][6], 3);
 

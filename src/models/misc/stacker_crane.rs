@@ -1,11 +1,12 @@
 //! Stacker Crane problem implementation.
 //!
-//! Given required directed arcs, optional undirected edges, and a bound on the
-//! total route length, determine whether there exists a closed walk that
-//! traverses every required arc in some order and stays within the bound.
+//! Given required directed arcs and optional undirected edges, find a closed
+//! walk that traverses every required arc in some order and minimizes the
+//! total route length.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
@@ -17,14 +18,13 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),
-        description: "Find a closed walk that traverses each required directed arc and has total length at most B",
+        description: "Find a closed walk that traverses each required directed arc and minimizes total length",
         fields: &[
             FieldInfo { name: "num_vertices", type_name: "usize", description: "Number of vertices in the mixed graph" },
             FieldInfo { name: "arcs", type_name: "Vec<(usize, usize)>", description: "Required directed arcs that must be traversed" },
             FieldInfo { name: "edges", type_name: "Vec<(usize, usize)>", description: "Undirected edges available for connector paths" },
             FieldInfo { name: "arc_lengths", type_name: "Vec<i32>", description: "Nonnegative lengths of the required directed arcs" },
             FieldInfo { name: "edge_lengths", type_name: "Vec<i32>", description: "Nonnegative lengths of the undirected connector edges" },
-            FieldInfo { name: "bound", type_name: "i32", description: "Upper bound on the total closed-walk length" },
         ],
     }
 }
@@ -35,6 +35,7 @@ inventory::submit! {
 /// traverses those arcs in the chosen order, connecting the head of each arc
 /// to the tail of the next arc by a shortest path in the mixed graph induced
 /// by the required directed arcs together with the undirected edges.
+/// The objective is to minimize the total walk length.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(try_from = "StackerCraneDef")]
 pub struct StackerCrane {
@@ -43,7 +44,6 @@ pub struct StackerCrane {
     edges: Vec<(usize, usize)>,
     arc_lengths: Vec<i32>,
     edge_lengths: Vec<i32>,
-    bound: i32,
 }
 
 impl StackerCrane {
@@ -52,16 +52,15 @@ impl StackerCrane {
     /// # Panics
     ///
     /// Panics if the instance data are inconsistent or contain negative
-    /// lengths or a negative bound.
+    /// lengths.
     pub fn new(
         num_vertices: usize,
         arcs: Vec<(usize, usize)>,
         edges: Vec<(usize, usize)>,
         arc_lengths: Vec<i32>,
         edge_lengths: Vec<i32>,
-        bound: i32,
     ) -> Self {
-        Self::try_new(num_vertices, arcs, edges, arc_lengths, edge_lengths, bound)
+        Self::try_new(num_vertices, arcs, edges, arc_lengths, edge_lengths)
             .unwrap_or_else(|message| panic!("{message}"))
     }
 
@@ -72,16 +71,12 @@ impl StackerCrane {
         edges: Vec<(usize, usize)>,
         arc_lengths: Vec<i32>,
         edge_lengths: Vec<i32>,
-        bound: i32,
     ) -> Result<Self, String> {
         if arc_lengths.len() != arcs.len() {
             return Err("arc_lengths length must match arcs length".to_string());
         }
         if edge_lengths.len() != edges.len() {
             return Err("edge_lengths length must match edges length".to_string());
-        }
-        if bound < 0 {
-            return Err("bound must be nonnegative".to_string());
         }
         for (arc_index, &(tail, head)) in arcs.iter().enumerate() {
             if tail >= num_vertices || head >= num_vertices {
@@ -114,7 +109,6 @@ impl StackerCrane {
             edges,
             arc_lengths,
             edge_lengths,
-            bound,
         })
     }
 
@@ -141,11 +135,6 @@ impl StackerCrane {
     /// Get the undirected edge lengths.
     pub fn edge_lengths(&self) -> &[i32] {
         &self.edge_lengths
-    }
-
-    /// Get the upper bound on total walk length.
-    pub fn bound(&self) -> i32 {
-        self.bound
     }
 
     /// Get the number of required arcs.
@@ -259,7 +248,7 @@ impl StackerCrane {
 
 impl Problem for StackerCrane {
     const NAME: &'static str = "StackerCrane";
-    type Metric = bool;
+    type Value = Min<i32>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -269,15 +258,16 @@ impl Problem for StackerCrane {
         vec![self.num_arcs(); self.num_arcs()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        matches!(self.closed_walk_length(config), Some(total) if total <= self.bound)
+    fn evaluate(&self, config: &[usize]) -> Min<i32> {
+        match self.closed_walk_length(config) {
+            Some(total) => Min(Some(total)),
+            None => Min(None),
+        }
     }
 }
 
-impl SatisfactionProblem for StackerCrane {}
-
 crate::declare_variants! {
-    default sat StackerCrane => "num_vertices^2 * 2^num_arcs",
+    default StackerCrane => "num_vertices^2 * 2^num_arcs",
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -287,7 +277,6 @@ struct StackerCraneDef {
     edges: Vec<(usize, usize)>,
     arc_lengths: Vec<i32>,
     edge_lengths: Vec<i32>,
-    bound: i32,
 }
 
 impl TryFrom<StackerCraneDef> for StackerCrane {
@@ -300,7 +289,6 @@ impl TryFrom<StackerCraneDef> for StackerCrane {
             value.edges,
             value.arc_lengths,
             value.edge_lengths,
-            value.bound,
         )
     }
 }
@@ -315,10 +303,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![(0, 1), (1, 2), (2, 3), (3, 5), (4, 5), (0, 3), (1, 5)],
             vec![3, 4, 2, 5, 3],
             vec![2, 1, 3, 2, 1, 4, 3],
-            20,
         )),
         optimal_config: vec![0, 2, 1, 4, 3],
-        optimal_value: serde_json::json!(true),
+        optimal_value: serde_json::json!(20),
     }]
 }
 

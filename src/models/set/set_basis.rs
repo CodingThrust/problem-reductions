@@ -5,7 +5,7 @@
 //! can be reconstructed as a union of some subcollection of the basis.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -96,7 +96,7 @@ impl SetBasis {
 
     /// Check whether the configuration is a satisfying Set Basis solution.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config)
+        self.evaluate(config).0
     }
 
     fn decode_basis(&self, config: &[usize]) -> Option<Vec<Vec<usize>>> {
@@ -147,20 +147,22 @@ impl SetBasis {
 
 impl Problem for SetBasis {
     const NAME: &'static str = "SetBasis";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.k * self.universe_size]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let Some(basis) = self.decode_basis(config) else {
-            return false;
-        };
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let Some(basis) = self.decode_basis(config) else {
+                return crate::types::Or(false);
+            };
 
-        self.collection
-            .iter()
-            .all(|target| Self::can_represent_target(&basis, target, self.universe_size))
+            self.collection
+                .iter()
+                .all(|target| Self::can_represent_target(&basis, target, self.universe_size))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -168,10 +170,8 @@ impl Problem for SetBasis {
     }
 }
 
-impl SatisfactionProblem for SetBasis {}
-
 crate::declare_variants! {
-    default sat SetBasis => "2^(basis_size * universe_size)",
+    default SetBasis => "2^(basis_size * universe_size)",
 }
 
 #[cfg(feature = "example-db")]

@@ -1,9 +1,9 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Max;
 
 fn issue_problem() -> LongestPath<SimpleGraph, i32> {
     LongestPath::new(
@@ -59,10 +59,10 @@ fn test_longestpath_to_ilp_closed_loop_on_issue_example() {
     let problem = issue_problem();
     let brute_force = BruteForce::new();
     let best = brute_force
-        .find_best(&problem)
+        .find_witness(&problem)
         .expect("brute-force optimum");
     let best_value = problem.evaluate(&best);
-    assert_eq!(best_value, SolutionSize::Valid(20));
+    assert_eq!(best_value, Max(Some(20)));
 
     let reduction: ReductionLongestPathToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp_solver = ILPSolver::new();
@@ -85,7 +85,7 @@ fn test_solution_extraction_from_handcrafted_ilp_assignment() {
     let extracted = reduction.extract_solution(&target_solution);
 
     assert_eq!(extracted, vec![1, 1]);
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(5));
+    assert_eq!(problem.evaluate(&extracted), Max(Some(5)));
 }
 
 #[test]
@@ -104,5 +104,5 @@ fn test_source_equals_target_uses_empty_path() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     assert_eq!(extracted, vec![0, 0, 0]);
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(0));
+    assert_eq!(problem.evaluate(&extracted), Max(Some(0)));
 }

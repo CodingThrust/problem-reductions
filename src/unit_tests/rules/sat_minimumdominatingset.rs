@@ -200,7 +200,7 @@ fn test_jl_parity_sat_to_dominatingset() {
         let result = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&source);
         let solver = BruteForce::new();
         let sat_solutions: HashSet<Vec<usize>> =
-            solver.find_all_satisfying(&source).into_iter().collect();
+            solver.find_all_witnesses(&source).into_iter().collect();
         for case in data["cases"].as_array().unwrap() {
             if sat_solutions.is_empty() {
                 let target_solution = solve_optimization_problem(result.target_problem())

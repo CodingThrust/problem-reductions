@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 
@@ -58,7 +58,7 @@ inventory::submit! {
 /// let problem = HamiltonianPath::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,7 +99,7 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "HamiltonianPath";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -110,12 +110,10 @@ where
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        is_valid_hamiltonian_path(&self.graph, config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(is_valid_hamiltonian_path(&self.graph, config))
     }
 }
-
-impl<G: Graph + VariantParam> SatisfactionProblem for HamiltonianPath<G> {}
 
 /// Check if a configuration represents a valid Hamiltonian path in the graph.
 ///
@@ -170,7 +168,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 
 // Use Bjorklund (2014) O*(1.657^n) as best known for general undirected graphs
 crate::declare_variants! {
-    default sat HamiltonianPath<SimpleGraph> => "1.657^num_vertices",
+    default HamiltonianPath<SimpleGraph> => "1.657^num_vertices",
 }
 
 #[cfg(test)]

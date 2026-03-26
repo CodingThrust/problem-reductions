@@ -6,7 +6,7 @@
 //! the separate MaxSatisfiability type (if available).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -106,7 +106,7 @@ impl CNFClause {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_satisfying(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Verify solutions satisfy all clauses
 /// for sol in solutions {
@@ -169,7 +169,7 @@ impl Satisfiability {
     ///
     /// For SAT, a valid solution is one that satisfies all clauses.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config)
+        self.evaluate(config).0
     }
 
     /// Convert a usize config to boolean assignment.
@@ -180,15 +180,17 @@ impl Satisfiability {
 
 impl Problem for Satisfiability {
     const NAME: &'static str = "Satisfiability";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_vars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let assignment = Self::config_to_assignment(config);
-        self.is_satisfying(&assignment)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let assignment = Self::config_to_assignment(config);
+            self.is_satisfying(&assignment)
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -196,10 +198,8 @@ impl Problem for Satisfiability {
     }
 }
 
-impl SatisfactionProblem for Satisfiability {}
-
 crate::declare_variants! {
-    default sat Satisfiability => "2^num_variables",
+    default Satisfiability => "2^num_variables",
 }
 
 /// Check if an assignment satisfies a SAT formula.

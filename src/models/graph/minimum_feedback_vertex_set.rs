@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -46,7 +46,7 @@ inventory::submit! {
 /// let problem = MinimumFeedbackVertexSet::new(graph, vec![1; 3]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Any single vertex breaks the cycle
 /// assert_eq!(solutions.len(), 3);
@@ -122,7 +122,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumFeedbackVertexSet";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = Min<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
@@ -132,15 +132,15 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
         if config.len() != self.graph.num_vertices() {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
         // keep[v] = true if vertex v is NOT selected for removal
         let keep: Vec<bool> = config.iter().map(|&c| c == 0).collect();
         let subgraph = self.graph.induced_subgraph(&keep);
         if !subgraph.is_dag() {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
         let mut total = W::Sum::zero();
         for (i, &selected) in config.iter().enumerate() {
@@ -148,23 +148,12 @@ where
                 total += self.weights[i].to_sum();
             }
         }
-        SolutionSize::Valid(total)
-    }
-}
-
-impl<W> OptimizationProblem for MinimumFeedbackVertexSet<W>
-where
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Value = W::Sum;
-
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+        Min(Some(total))
     }
 }
 
 crate::declare_variants! {
-    default opt MinimumFeedbackVertexSet<i32> => "1.9977^num_vertices",
+    default MinimumFeedbackVertexSet<i32> => "1.9977^num_vertices",
 }
 
 #[cfg(feature = "example-db")]
@@ -180,7 +169,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![1i32; 5],
         )),
         optimal_config: vec![1, 0, 0, 0, 0],
-        optimal_value: serde_json::json!({"Valid": 1}),
+        optimal_value: serde_json::json!(1),
     }]
 }
 

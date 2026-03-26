@@ -8,7 +8,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 
@@ -54,7 +54,7 @@ inventory::submit! {
 /// let problem = PartitionIntoPathsOfLength2::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,7 +148,7 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "PartitionIntoPathsOfLength2";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -159,15 +159,13 @@ where
         vec![q; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_partition(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_valid_partition(config))
     }
 }
 
-impl<G: Graph + VariantParam> SatisfactionProblem for PartitionIntoPathsOfLength2<G> {}
-
 crate::declare_variants! {
-    default sat PartitionIntoPathsOfLength2<SimpleGraph> => "3^num_vertices",
+    default PartitionIntoPathsOfLength2<SimpleGraph> => "3^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

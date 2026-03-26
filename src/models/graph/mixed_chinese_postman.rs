@@ -1,14 +1,13 @@
 //! Mixed Chinese Postman problem implementation.
 //!
-//! Given a mixed graph with directed arcs and undirected edges, determine
-//! whether there exists a closed walk of bounded total length that traverses
-//! every directed arc in its prescribed direction and every undirected edge in
-//! at least one direction.
+//! Given a mixed graph with directed arcs and undirected edges, find a
+//! minimum-cost closed walk that traverses every directed arc in its prescribed
+//! direction and every undirected edge in at least one direction.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{DirectedGraph, MixedGraph};
-use crate::traits::{Problem, SatisfactionProblem};
-use crate::types::{One, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -24,12 +23,11 @@ inventory::submit! {
             VariantDimension::new("weight", "i32", &["i32", "One"]),
         ],
         module_path: module_path!(),
-        description: "Determine whether a mixed graph has a bounded closed walk covering all arcs and edges",
+        description: "Find a minimum-cost closed walk covering all arcs and edges in a mixed graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "MixedGraph", description: "The mixed graph G=(V,A,E)" },
             FieldInfo { name: "arc_weights", type_name: "Vec<W>", description: "Lengths for the directed arcs in A" },
             FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Lengths for the undirected edges in E" },
-            FieldInfo { name: "bound", type_name: "W::Sum", description: "Upper bound B on the total walk length" },
         ],
     }
 }
@@ -45,7 +43,6 @@ pub struct MixedChinesePostman<W: WeightElement<Sum = i32>> {
     graph: MixedGraph,
     arc_weights: Vec<W>,
     edge_weights: Vec<W>,
-    bound: W::Sum,
 }
 
 impl<W: WeightElement<Sum = i32>> MixedChinesePostman<W> {
@@ -54,13 +51,8 @@ impl<W: WeightElement<Sum = i32>> MixedChinesePostman<W> {
     /// # Panics
     ///
     /// Panics if the weight-vector lengths do not match the graph shape or if
-    /// any weight or the bound is negative.
-    pub fn new(
-        graph: MixedGraph,
-        arc_weights: Vec<W>,
-        edge_weights: Vec<W>,
-        bound: W::Sum,
-    ) -> Self {
+    /// any weight is negative.
+    pub fn new(graph: MixedGraph, arc_weights: Vec<W>, edge_weights: Vec<W>) -> Self {
         assert_eq!(
             arc_weights.len(),
             graph.num_arcs(),
@@ -70,13 +62,6 @@ impl<W: WeightElement<Sum = i32>> MixedChinesePostman<W> {
             edge_weights.len(),
             graph.num_edges(),
             "edge_weights length must match num_edges"
-        );
-        assert!(
-            matches!(
-                bound.partial_cmp(&W::Sum::zero()),
-                Some(Ordering::Equal | Ordering::Greater)
-            ),
-            "bound must be nonnegative"
         );
         for (index, weight) in arc_weights.iter().enumerate() {
             assert!(
@@ -103,7 +88,6 @@ impl<W: WeightElement<Sum = i32>> MixedChinesePostman<W> {
             graph,
             arc_weights,
             edge_weights,
-            bound,
         }
     }
 
@@ -120,11 +104,6 @@ impl<W: WeightElement<Sum = i32>> MixedChinesePostman<W> {
     /// Return the undirected-edge lengths.
     pub fn edge_weights(&self) -> &[W] {
         &self.edge_weights
-    }
-
-    /// Return the bound.
-    pub fn bound(&self) -> &W::Sum {
-        &self.bound
     }
 
     /// Return the number of vertices.
@@ -207,9 +186,10 @@ impl<W> MixedChinesePostman<W>
 where
     W: WeightElement<Sum = i32> + crate::variant::VariantParam,
 {
-    /// Check whether a configuration is satisfying.
+    /// Check whether a configuration yields a valid orientation (strongly
+    /// connected with proper coverage).
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config)
+        self.evaluate(config).0.is_some()
     }
 }
 
@@ -218,7 +198,7 @@ where
     W: WeightElement<Sum = i32> + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MixedChinesePostman";
-    type Metric = bool;
+    type Value = Min<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
@@ -228,9 +208,9 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
         let Some(oriented_pairs) = self.oriented_arc_pairs(config) else {
-            return false;
+            return Min(None);
         };
 
         // Connectivity uses the full available graph: original arcs plus both
@@ -238,7 +218,7 @@ where
         if !DirectedGraph::new(self.graph.num_vertices(), self.available_arc_pairs())
             .is_strongly_connected()
         {
-            return false;
+            return Min(None);
         }
 
         // Shortest paths also use the full available graph so that balancing
@@ -249,21 +229,17 @@ where
         // arcs plus the chosen orientation of each undirected edge).
         let balance = degree_imbalances(self.graph.num_vertices(), &oriented_pairs);
         let Some(extra_cost) = minimum_balancing_cost(&balance, &distances) else {
-            return false;
+            return Min(None);
         };
 
-        self.base_cost() + extra_cost <= i64::from(self.bound)
+        let total = self.base_cost() + extra_cost;
+        Min(Some(total as W::Sum))
     }
 }
 
-impl<W> SatisfactionProblem for MixedChinesePostman<W> where
-    W: WeightElement<Sum = i32> + crate::variant::VariantParam
-{
-}
-
 crate::declare_variants! {
-    default sat MixedChinesePostman<i32> => "2^num_edges * num_vertices^3",
-    sat MixedChinesePostman<One> => "2^num_edges * num_vertices^3",
+    default MixedChinesePostman<i32> => "2^num_edges * num_vertices^3",
+    MixedChinesePostman<One> => "2^num_edges * num_vertices^3",
 }
 
 #[cfg(feature = "example-db")]
@@ -278,10 +254,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ),
             vec![2, 3, 1, 4],
             vec![2, 3, 1, 2],
-            24,
         )),
         optimal_config: vec![1, 1, 0, 0],
-        optimal_value: serde_json::json!(true),
+        optimal_value: serde_json::json!(21),
     }]
 }
 

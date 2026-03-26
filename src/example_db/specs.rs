@@ -62,3 +62,32 @@ where
     let target = reduction.target_problem();
     assemble_rule_example(&source, target, vec![solution])
 }
+
+/// Reduce the source to an ILP, solve it, and assemble the rule example.
+///
+/// This is the standard pattern for canonical ILP rule examples: reduce once,
+/// solve the ILP, extract the source config, and build the example — avoiding
+/// the double `reduce_to()` that would occur with `rule_example_with_witness`.
+#[cfg(feature = "ilp-solver")]
+pub fn rule_example_via_ilp<S, V>(source: S) -> RuleExample
+where
+    S: Problem + Serialize + ReduceTo<crate::models::algebraic::ILP<V>>,
+    V: crate::models::algebraic::VariableDomain,
+    <S as ReduceTo<crate::models::algebraic::ILP<V>>>::Result:
+        ReductionResult<Source = S, Target = crate::models::algebraic::ILP<V>>,
+{
+    use crate::export::SolutionPair;
+    let reduction = source.reduce_to();
+    let ilp_solution = crate::solvers::ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("canonical example must be ILP-solvable");
+    let source_config = reduction.extract_solution(&ilp_solution);
+    assemble_rule_example(
+        &source,
+        reduction.target_problem(),
+        vec![SolutionPair {
+            source_config,
+            target_config: ilp_solution,
+        }],
+    )
+}

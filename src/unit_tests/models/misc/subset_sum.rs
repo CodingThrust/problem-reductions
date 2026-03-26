@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use num_bigint::BigUint;
 
@@ -76,7 +76,7 @@ fn test_subsetsum_brute_force() {
     let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("should find a solution");
     assert!(problem.evaluate(&solution));
 }
@@ -85,7 +85,7 @@ fn test_subsetsum_brute_force() {
 fn test_subsetsum_brute_force_all() {
     let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     for sol in &solutions {
         assert!(problem.evaluate(sol));
@@ -97,7 +97,7 @@ fn test_subsetsum_unsatisfiable() {
     // Target 100 is unreachable
     let problem = SubsetSum::new(vec![1u32, 2, 3], 100u32);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_none());
 }
 

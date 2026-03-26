@@ -1,8 +1,7 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::traits::Problem;
 
 #[test]
 fn test_min_sum_multicenter_creation() {
@@ -22,13 +21,6 @@ fn test_min_sum_multicenter_size_getters() {
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 4);
     assert_eq!(problem.num_centers(), 2);
-}
-
-#[test]
-fn test_min_sum_multicenter_direction() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumSumMulticenter::new(graph, vec![1i32; 3], vec![1i32; 2], 1);
-    assert_eq!(problem.direction(), Direction::Minimize);
 }
 
 #[test]
@@ -127,7 +119,7 @@ fn test_min_sum_multicenter_solver() {
     let problem = MinimumSumMulticenter::new(graph, vec![1i32; 7], vec![1i32; 8], 2);
 
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
+    let best = solver.find_witness(&problem).unwrap();
     let best_cost = problem.evaluate(&best).unwrap();
 
     // Optimal cost should be 6 (centers at {2, 5})
@@ -226,7 +218,7 @@ fn test_min_sum_multicenter_paper_example() {
 
     // Verify optimality with brute force
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
+    let best = solver.find_witness(&problem).unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), 6);
 }
 
@@ -238,13 +230,13 @@ fn test_min_sum_multicenter_dims() {
 }
 
 #[test]
-fn test_min_sum_multicenter_find_all_best() {
+fn test_min_sum_multicenter_find_all_witnesses() {
     // Path: 0-1-2, unit weights, K=1. Center at 1 is optimal (cost 2)
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumSumMulticenter::new(graph, vec![1i32; 3], vec![1i32; 2], 1);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![0, 1, 0]);
 }

@@ -4,7 +4,7 @@
 //! The goal is to find variable assignments that satisfy the circuit constraints.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -210,7 +210,7 @@ impl Circuit {
 ///
 /// let problem = CircuitSAT::new(circuit);
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_satisfying(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Multiple satisfying assignments exist
 /// assert!(!solutions.is_empty());
@@ -289,14 +289,14 @@ pub(crate) fn is_circuit_satisfying(
 
 impl Problem for CircuitSAT {
     const NAME: &'static str = "CircuitSAT";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.variables.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.count_satisfied(config) == self.circuit.num_assignments()
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.count_satisfied(config) == self.circuit.num_assignments())
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -304,10 +304,8 @@ impl Problem for CircuitSAT {
     }
 }
 
-impl SatisfactionProblem for CircuitSAT {}
-
 crate::declare_variants! {
-    default sat CircuitSAT => "2^num_variables",
+    default CircuitSAT => "2^num_variables",
 }
 
 #[cfg(feature = "example-db")]

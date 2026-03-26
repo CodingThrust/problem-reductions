@@ -6,7 +6,7 @@ use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization
 use crate::rules::traits::ReductionResult;
 use crate::rules::ReduceTo;
 #[cfg(feature = "example-db")]
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};
 #[cfg(feature = "example-db")]
 use crate::traits::Problem;
@@ -119,10 +119,10 @@ fn test_canonical_rule_example_spec_builds() {
     );
 
     let best_source = BruteForce::new()
-        .find_best(&source)
+        .find_witness(&source)
         .expect("source example should have an optimum");
     let best_target = BruteForce::new()
-        .find_best(&target)
+        .find_witness(&target)
         .expect("target example should have an optimum");
 
     assert_eq!(source_metric, source.evaluate(&best_source));

@@ -41,7 +41,7 @@ fn test_maximumindependentset_to_maximumclique_weighted() {
 
     // In empty graph, max clique is a single vertex. Best is vertex 2 (weight 30).
     let solver = BruteForce::new();
-    let best = solver.find_all_best(target);
+    let best = solver.find_all_witnesses(target);
     for sol in &best {
         let extracted = reduction.extract_solution(sol);
         let metric = source.evaluate(&extracted);
@@ -62,7 +62,7 @@ fn test_maximumindependentset_to_maximumclique_empty_graph() {
 
     // All 4 vertices form a clique in complement = all 4 are independent set in source
     let solver = BruteForce::new();
-    let best_target = solver.find_all_best(target);
+    let best_target = solver.find_all_witnesses(target);
     assert!(best_target.iter().all(|s| s.iter().sum::<usize>() == 4));
 }
 
@@ -80,6 +80,6 @@ fn test_maximumindependentset_to_maximumclique_complete_graph() {
 
     // Max clique in empty graph is single vertex, max IS in K4 is also single vertex
     let solver = BruteForce::new();
-    let best = solver.find_all_best(target);
+    let best = solver.find_all_witnesses(target);
     assert!(best.iter().all(|s| s.iter().sum::<usize>() == 1));
 }

@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -44,7 +44,7 @@ inventory::submit! {
 /// let problem = IsomorphicSpanningTree::new(graph, tree);
 ///
 /// let solver = BruteForce::new();
-/// let sol = solver.find_satisfying(&problem);
+/// let sol = solver.find_witness(&problem);
 /// assert!(sol.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,45 +125,45 @@ impl IsomorphicSpanningTree {
 
 impl Problem for IsomorphicSpanningTree {
     const NAME: &'static str = "IsomorphicSpanningTree";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         let n = self.graph.num_vertices();
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let n = self.graph.num_vertices();
-        if config.len() != n {
-            return false;
-        }
-
-        // Check that config is a valid permutation: all values in 0..n, all distinct
-        let mut seen = vec![false; n];
-        for &v in config {
-            if v >= n || seen[v] {
-                return false;
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let n = self.graph.num_vertices();
+            if config.len() != n {
+                return crate::types::Or(false);
             }
-            seen[v] = true;
-        }
 
-        // Check that every tree edge maps to a graph edge under the permutation
-        // config[i] = π(i): tree vertex i maps to graph vertex config[i]
-        for (u, v) in self.tree.edges() {
-            if !self.graph.has_edge(config[u], config[v]) {
-                return false;
+            // Check that config is a valid permutation: all values in 0..n, all distinct
+            let mut seen = vec![false; n];
+            for &v in config {
+                if v >= n || seen[v] {
+                    return crate::types::Or(false);
+                }
+                seen[v] = true;
             }
-        }
 
-        true
+            // Check that every tree edge maps to a graph edge under the permutation
+            // config[i] = π(i): tree vertex i maps to graph vertex config[i]
+            for (u, v) in self.tree.edges() {
+                if !self.graph.has_edge(config[u], config[v]) {
+                    return crate::types::Or(false);
+                }
+            }
+
+            true
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 }
-
-impl SatisfactionProblem for IsomorphicSpanningTree {}
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
@@ -179,7 +179,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default sat IsomorphicSpanningTree => "factorial(num_vertices)",
+    default IsomorphicSpanningTree => "factorial(num_vertices)",
 }
 
 #[cfg(test)]

@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, One, SolutionSize, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -63,7 +63,7 @@ inventory::submit! {
 /// let problem = SteinerTreeInGraphs::new(graph, vec![0, 3], vec![1, 1, 1]);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_best(&problem).unwrap();
+/// let solution = solver.find_witness(&problem).unwrap();
 /// // Optimal: select all 3 edges (the only path from 0 to 3)
 /// assert_eq!(solution, vec![1, 1, 1]);
 /// ```
@@ -175,7 +175,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "SteinerTreeInGraphs";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = Min<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -185,13 +185,13 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
         if config.len() != self.graph.num_edges() {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
         let selected: Vec<bool> = config.iter().map(|&s| s == 1).collect();
         if !is_steiner_tree(&self.graph, &self.terminals, &selected) {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
         let mut total = W::Sum::zero();
         for (idx, &sel) in config.iter().enumerate() {
@@ -201,19 +201,7 @@ where
                 }
             }
         }
-        SolutionSize::Valid(total)
-    }
-}
-
-impl<G, W> OptimizationProblem for SteinerTreeInGraphs<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Value = W::Sum;
-
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+        Min(Some(total))
     }
 }
 
@@ -286,8 +274,8 @@ pub(crate) fn is_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], selected
 }
 
 crate::declare_variants! {
-    default opt SteinerTreeInGraphs<SimpleGraph, i32> => "2^num_terminals * num_vertices^3",
-    opt SteinerTreeInGraphs<SimpleGraph, One> => "2^num_terminals * num_vertices^3",
+    default SteinerTreeInGraphs<SimpleGraph, i32> => "2^num_terminals * num_vertices^3",
+    SteinerTreeInGraphs<SimpleGraph, One> => "2^num_terminals * num_vertices^3",
 }
 
 #[cfg(feature = "example-db")]
@@ -304,7 +292,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         // Optimal: edges {0,2}(w=2), {2,3}(w=1), {2,5}(w=2) = weight 5
         optimal_config: vec![0, 1, 0, 1, 1, 0, 0],
-        optimal_value: serde_json::json!({"Valid": 5}),
+        optimal_value: serde_json::json!(5),
     }]
 }
 

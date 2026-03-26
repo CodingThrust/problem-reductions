@@ -1,5 +1,5 @@
 use crate::models::misc::TimetableDesign;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 #[cfg(feature = "ilp-solver")]
 use std::collections::BTreeMap;
@@ -124,7 +124,7 @@ fn test_timetable_design_rejects_requirement_mismatch() {
 #[test]
 fn test_timetable_design_bruteforce_solver_finds_solution() {
     let problem = timetable_design_toy_problem();
-    let solution = BruteForce::new().find_satisfying(&problem);
+    let solution = BruteForce::new().find_witness(&problem);
 
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()));
