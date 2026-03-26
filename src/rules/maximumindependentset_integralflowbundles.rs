@@ -12,16 +12,18 @@
 //!    Flow conservation at w_i forces arc_in_i = arc_out_i = f_i, so the
 //!    bundle sum is 2*f_i <= 2, giving f_i in {0, 1}. This bundle also
 //!    ensures every arc is covered by at least one bundle.
-//! 5. Set requirement R = optimal MIS value (computed via brute force).
+//! 5. Set requirement R = 1 (any non-empty independent set gives a feasible flow).
 //!
 //! An independent set of size k corresponds to a feasible flow of value k.
+//! The bundle constraints ensure only independent sets produce valid flows.
 
 use crate::models::graph::{IntegralFlowBundles, MaximumIndependentSet};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::solvers::{BruteForce, Solver};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::Max;
+
+#[cfg(feature = "example-db")]
+use crate::solvers::BruteForce;
 
 /// Result of reducing MaximumIndependentSet to IntegralFlowBundles.
 #[derive(Debug, Clone)]
@@ -68,9 +70,9 @@ impl ReduceTo<IntegralFlowBundles> for MaximumIndependentSet<SimpleGraph, i32> {
         let n = self.graph().num_vertices();
         let edges = self.graph().edges();
 
-        // Compute optimal MIS value via brute force
-        let optimal: Max<i32> = BruteForce::new().solve(self);
-        let requirement = optimal.unwrap() as u64;
+        // Set requirement = 1: any independent set of size >= 1 maps to a feasible flow.
+        // The bundle constraints ensure only independent sets produce valid flows.
+        let requirement = 1u64;
 
         // Vertices: s = 0, w_i = i + 1 (for i in 0..n), t = n + 1
         let source_vertex = 0;

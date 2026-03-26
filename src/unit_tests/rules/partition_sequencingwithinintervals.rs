@@ -60,16 +60,16 @@ fn test_partition_to_sequencingwithinintervals_odd_sum() {
     let (source, reduction) = reduce_partition(&[2, 4, 5]);
     let target = reduction.target_problem();
 
-    // Enforcer: release=floor(11/2)=5, deadline=ceil(12/2)=6, length=1
+    // Enforcer: release=5, deadline=6, length=1
     assert_eq!(target.release_times()[3], 5);
     assert_eq!(target.deadlines()[3], 6);
     assert_eq!(target.lengths()[3], 1);
 
-    // Source is infeasible (odd sum)
+    // Source is infeasible (odd sum, no balanced partition).
+    // Note: Target may be feasible (unequal windows allow scheduling)
+    // but any extracted witness would not satisfy Partition (forward-only reduction).
     let solver = BruteForce::new();
     assert!(solver.find_witness(&source).is_none());
-    // Target may still be feasible (the enforcer only guarantees forward direction:
-    // partition exists → sequencing exists, not the converse for odd sums)
 }
 
 #[test]

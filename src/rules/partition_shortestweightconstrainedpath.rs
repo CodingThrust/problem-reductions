@@ -71,20 +71,23 @@ impl ReduceTo<ShortestWeightConstrainedPath<SimpleGraph, i32>> for Partition {
 
         for i in 0..n {
             let a_i = partition_size_to_i32(self.sizes()[i]);
+            let a_i_plus_1 = a_i.checked_add(1).expect("a_i + 1 overflows i32");
 
             // "Include" edge: length = a_i + 1, weight = 1
             edges.push((i, i + 1));
-            edge_lengths.push(a_i + 1);
+            edge_lengths.push(a_i_plus_1);
             edge_weights.push(1);
 
             // "Exclude" edge: length = 1, weight = a_i + 1
             edges.push((i, i + 1));
             edge_lengths.push(1);
-            edge_weights.push(a_i + 1);
+            edge_weights.push(a_i_plus_1);
         }
 
         let total_sum = partition_size_to_i32(self.total_sum());
-        let weight_bound = total_sum / 2 + partition_size_to_i32(n as u64);
+        let weight_bound = (total_sum / 2)
+            .checked_add(partition_size_to_i32(n as u64))
+            .expect("weight_bound overflows i32");
 
         let graph = SimpleGraph::new(num_vertices, edges);
 

@@ -53,7 +53,10 @@ impl ReduceTo<MinimumFeedbackArcSet<i32>> for MinimumVertexCover<SimpleGraph, i3
         // Internal arcs: (v^in → v^out) for each vertex v, with weight w(v)
         // Crossing arcs: for each edge {u,v}, add (u^out → v^in) and (v^out → u^in) with weight M
 
-        let big_m: i32 = 1 + self.weights().iter().sum::<i32>();
+        let weight_sum: i32 = self.weights().iter().sum::<i32>();
+        let big_m: i32 = weight_sum
+            .checked_add(1)
+            .expect("penalty M = 1 + sum(weights) overflows i32");
 
         let mut arcs = Vec::with_capacity(n + 2 * edges.len());
         let mut weights = Vec::with_capacity(n + 2 * edges.len());

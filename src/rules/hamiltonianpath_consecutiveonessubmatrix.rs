@@ -51,11 +51,12 @@ impl ReductionResult for ReductionHamiltonianPathToConsecutiveOnesSubmatrix {
 
         // target_solution is a binary vector over columns (edges).
         // Selected columns correspond to edges forming the Hamiltonian path.
+        // Guard: in the Tucker fallback branch, edges may be shorter than target columns.
         let selected_edges: Vec<(usize, usize)> = target_solution
             .iter()
             .enumerate()
             .filter(|(_, &v)| v == 1)
-            .map(|(j, _)| self.edges[j])
+            .filter_map(|(j, _)| self.edges.get(j).copied())
             .collect();
 
         if selected_edges.len() != n - 1 {

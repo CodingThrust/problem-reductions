@@ -73,11 +73,10 @@ impl ReduceTo<SequencingWithinIntervals> for Partition {
         let mut deadlines = vec![s + 1; n];
         let mut lengths: Vec<u64> = self.sizes().to_vec();
 
-        // Enforcer task: release=floor(S/2), deadline=ceil((S+1)/2), length=1
-        let enforcer_release = half;
-        let enforcer_deadline = (s + 1).div_ceil(2); // ceil((S+1)/2)
-        release_times.push(enforcer_release);
-        deadlines.push(enforcer_deadline);
+        // Enforcer task: release=S/2, deadline=S/2+1, length=1
+        // The enforcer is pinned at time S/2, splitting the timeline into two equal blocks.
+        release_times.push(half);
+        deadlines.push(half + 1);
         lengths.push(1);
 
         ReductionPartitionToSWI {
