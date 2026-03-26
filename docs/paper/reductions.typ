@@ -4592,26 +4592,34 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let x = load-model-example("ThreePartition")
   let sizes = x.instance.sizes
   let bound = x.instance.bound
+  let config = x.optimal_config
+  let m = int(sizes.len() / 3)
+  // Group elements by their assignment in optimal_config
+  let groups = range(m).map(g => {
+    let indices = range(sizes.len()).filter(i => config.at(i) == g)
+    indices.map(i => sizes.at(i))
+  })
   [
     #problem-def("ThreePartition")[
       Given a set $A = {a_0, dots, a_(3m-1)}$ of $3m$ elements, a bound $B in ZZ^+$, and sizes $s(a) in ZZ^+$ such that $B/4 lt s(a) lt B/2$ for every $a in A$ and $sum_(a in A) s(a) = m B$, determine whether $A$ can be partitioned into $m$ disjoint triples $A_1, dots, A_m$ with $sum_(a in A_i) s(a) = B$ for every $i$.
     ][
       3-Partition is Garey and Johnson's strongly NP-complete benchmark SP15 @garey1979. Unlike ordinary Partition, the strict size window forces every feasible block to contain exactly three elements, making the problem the canonical source for strong NP-completeness reductions to scheduling, packing, and layout models. The implementation in this repository uses one group-assignment variable per element, so the exported exact-search baseline is $O^*(3^n)$#footnote[This is the direct worst-case bound induced by the implementation's configuration space and matches the registered catalog expression `3^num_elements`; no sharper general exact bound was independently verified while preparing this entry.].
 
-      *Example.* Let $B = #bound$ and consider the six-element instance with sizes $(#sizes.map(str).join(", "))$. The witness triples $A_1 = {#sizes.slice(0, 3).map(str).join(", ")}$ and $A_2 = {#sizes.slice(3, 6).map(str).join(", ")}$ both sum to $#bound$, so this instance is satisfiable.
+      *Example.* Let $B = #bound$ and consider the #(sizes.len())-element instance with sizes $(#sizes.map(str).join(", "))$. The witness triples #groups.enumerate().map(((i, g)) => [$A_#(i+1) = {#g.map(str).join(", ")}$]).join([ and ]) both sum to $#bound$, so this instance is satisfiable.
 
       #pred-commands(
         "pred create --example ThreePartition -o three-partition.json",
         "pred solve three-partition.json",
-        "pred evaluate three-partition.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate three-partition.json --config " + config.map(str).join(","),
       )
 
       #align(center, table(
         columns: 3,
         align: center,
         table.header([Triple], [Elements], [Sum]),
-        [$A_1$], [$#(sizes.slice(0, 3).map(str).join(", "))$], [$#bound$],
-        [$A_2$], [$#(sizes.slice(3, 6).map(str).join(", "))$], [$#bound$],
+        ..groups.enumerate().map(((i, g)) => (
+          [$A_#(i+1)$], [$#(g.map(str).join(", "))$], [$#bound$],
+        )).flatten(),
       ))
     ]
   ]
