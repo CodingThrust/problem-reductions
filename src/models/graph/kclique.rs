@@ -76,7 +76,7 @@ impl<G: Graph> KClique<G> {
         config
     }
 
-    /// Build a binary selection config from the listed vertices.
+    /// Convenience wrapper around [`Self::config_from_vertices`] using `self.num_vertices()`.
     pub fn config_from_selected_vertices(&self, selected_vertices: &[usize]) -> Vec<usize> {
         Self::config_from_vertices(self.num_vertices(), selected_vertices)
     }
