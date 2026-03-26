@@ -19,12 +19,12 @@ fn test_reduction_creates_valid_ilp() {
     let ilp = reduction.target_problem();
     // num_vars = n + n^2 + 1 = 3 + 9 + 1 = 13
     assert_eq!(ilp.num_vars, 13, "n + n^2 + 1 variables");
-    // num_constraints = 1 (cardinality) + n (assignment) + n^2 (link) + n (x bounds) + n^2 (y bounds) + n (minimax)
-    //                 = 1 + 3 + 9 + 3 + 9 + 3 = 28
+    // num_constraints = 1 (cardinality) + n (assignment) + n^2 (link) + n (x bounds) + n^2 (y bounds) + 1 (z bound) + n (minimax)
+    //                 = 1 + 3 + 9 + 3 + 9 + 1 + 3 = 29
     assert_eq!(
         ilp.constraints.len(),
-        28,
-        "cardinality + assignment + link + binary bounds + minimax constraints"
+        29,
+        "cardinality + assignment + link + binary bounds + z bound + minimax constraints"
     );
     assert_eq!(ilp.sense, ObjectiveSense::Minimize);
     // Objective should minimize z (last variable)

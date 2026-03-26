@@ -55,7 +55,7 @@ impl ReductionCDFTToILP {
     }
 
     /// Encode a satisfying source assignment as a concrete ILP variable vector.
-    #[cfg_attr(not(any(test, feature = "example-db")), allow(dead_code))]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn encode_source_solution(&self, source_solution: &[usize]) -> Vec<usize> {
         let mut target_solution = vec![0usize; self.target.num_vars];
         let num_attributes = self.source.num_attributes();
@@ -223,14 +223,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     KnownValue::new(1, 2, 1),
                 ],
             );
-            let source_config = vec![0, 0, 0, 0, 1, 1, 0, 2, 1, 1, 0, 1, 1, 1, 1, 1, 2, 0];
-            let reduction = source.clone().reduce_to();
-            let target_config = reduction.encode_source_solution(&source_config);
+            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let ilp_solution = crate::solvers::ILPSolver::new()
+                .solve(reduction.target_problem())
+                .expect("canonical example must be solvable");
+            let source_config = reduction.extract_solution(&ilp_solution);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
                     source_config,
-                    target_config,
+                    target_config: ilp_solution,
                 },
             )
         },

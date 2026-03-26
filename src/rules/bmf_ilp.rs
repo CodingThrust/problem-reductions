@@ -120,26 +120,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // 2x2 identity matrix, rank 2
             let source = BMF::new(vec![vec![true, false], vec![false, true]], 2);
-            // B = [[1,0],[0,1]], C = [[1,0],[0,1]]
-            // b: [1,0,0,1], c: [1,0,0,1]
-            let source_config = vec![1, 0, 0, 1, 1, 0, 0, 1];
-            let reduction: ReductionBMFToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
-            // Build target config by encoding:
-            // p_{0,0,0}=1, p_{0,0,1}=0, p_{0,1,0}=0, p_{0,1,1}=0
-            // p_{1,0,0}=0, p_{1,0,1}=0, p_{1,1,0}=0, p_{1,1,1}=1
-            // w: [1,0,0,1], e: [0,0,0,0]
-            let target_config = vec![
-                1, 0, 0, 1, // B
-                1, 0, 0, 1, // C
-                1, 0, 0, 0, 0, 0, 0, 1, // P
-                1, 0, 0, 1, // W
-                0, 0, 0, 0, // E
-            ];
+            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let ilp_solution = crate::solvers::ILPSolver::new()
+                .solve(reduction.target_problem())
+                .expect("canonical example must be solvable");
+            let source_config = reduction.extract_solution(&ilp_solution);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
                     source_config,
-                    target_config,
+                    target_config: ilp_solution,
                 },
             )
         },

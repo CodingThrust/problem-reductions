@@ -155,22 +155,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![1, 1, 1],
                 vec![5, 5, 5],
             );
-            // x_1 = 1; y_{0,1}=1, y_{1,1}=1, y_{2,1}=1
-            // source config: [0, 1, 0] (copy only at vertex 1)
-            // target config: x_0=0, x_1=1, x_2=0,
-            //   y_{0,0}=0, y_{0,1}=1, y_{0,2}=0,
-            //   y_{1,0}=0, y_{1,1}=1, y_{1,2}=0,
-            //   y_{2,0}=0, y_{2,1}=1, y_{2,2}=0
+            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let ilp_solution = crate::solvers::ILPSolver::new()
+                .solve(reduction.target_problem())
+                .expect("canonical example must be solvable");
+            let source_config = reduction.extract_solution(&ilp_solution);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 0],
-                    target_config: vec![
-                        0, 1, 0, // x_0, x_1, x_2
-                        0, 1, 0, // y_{0,0}, y_{0,1}, y_{0,2}
-                        0, 1, 0, // y_{1,0}, y_{1,1}, y_{1,2}
-                        0, 1, 0, // y_{2,0}, y_{2,1}, y_{2,2}
-                    ],
+                    source_config,
+                    target_config: ilp_solution,
                 },
             )
         },

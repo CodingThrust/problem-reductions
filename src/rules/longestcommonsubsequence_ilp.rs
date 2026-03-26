@@ -171,38 +171,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Optimal LCS: [0,2] (length 2) or [1,2] (length 2)
             // Config with padding: e.g. [0, 2, 3] (symbol 3 = padding)
             let source = LongestCommonSubsequence::new(3, vec![vec![0, 1, 2], vec![1, 0, 2]]);
-            // num_symbols = 4, max_length = 3
-            // symbol_var_count = 3 * 4 = 12
-            // total_length = 6, match vars = 3 * 6 = 18, total vars = 30
-            //
-            // Using witness [0, 2, padding]:
-            // Symbol vars: x_(0,0)=1 → var 0, x_(1,2)=1 → var 6, x_(2,3)=1 → var 11
-            // For string 0 = [0,1,2]:
-            //   pos 0 active → match j=0 (str[0]=0): match_var(0,0,0) = 12
-            //   pos 1 active → match j=2 (str[2]=2): match_var(0,1,2) = 12+6+2 = 20
-            //   pos 2 padding → all match vars = 0 (sum + x_pad = 1, x_pad=1)
-            // For string 1 = [1,0,2]:
-            //   pos 0 active → match j=1 (str[1]=0): match_var(1,0,1) = 12+3+1 = 16
-            //   pos 1 active → match j=2 (str[2]=2): match_var(1,1,2) = 12+6+3+2 = 23
-            //   pos 2 padding → all match vars = 0
-            let mut target_config = vec![0usize; 30];
-            // symbol vars
-            target_config[0] = 1; // x_(0,0) = 1
-            target_config[6] = 1; // x_(1,2) = 1
-            target_config[11] = 1; // x_(2,padding=3) = 1
-                                   // match vars for string 0
-            target_config[12] = 1; // y_(0,0,0) = 1
-            target_config[20] = 1; // y_(0,1,2) = 1
-                                   // match vars for string 1
-            target_config[16] = 1; // y_(1,0,1) = 1
-            target_config[23] = 1; // y_(1,1,2) = 1
-                                   // pos 2 match vars: all zero (padding)
-
+            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let ilp_solution = crate::solvers::ILPSolver::new()
+                .solve(reduction.target_problem())
+                .expect("canonical example must be solvable");
+            let source_config = reduction.extract_solution(&ilp_solution);
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 2, 3],
-                    target_config,
+                    source_config,
+                    target_config: ilp_solution,
                 },
             )
         },
