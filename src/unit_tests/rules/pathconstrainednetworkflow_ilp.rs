@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::rules::ReduceTo;
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
@@ -28,4 +28,23 @@ fn test_pathconstrainednetworkflow_to_ilp_closed_loop() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     assert!(source.evaluate(&extracted));
+}
+
+#[test]
+fn test_pathconstrainednetworkflow_to_ilp_bf_vs_ilp() {
+    let source = PathConstrainedNetworkFlow::new(
+        DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1, 1, 1],
+        0,
+        2,
+        vec![vec![0, 1], vec![2]],
+        2,
+    );
+    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let bf_value = BruteForce::new().solve(&source);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(source.evaluate(&extracted), bf_value);
 }

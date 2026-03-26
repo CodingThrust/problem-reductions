@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::traits::Problem;
 use crate::types::Max;
 
@@ -126,4 +126,16 @@ fn test_solve_reduced() {
 
     assert!(problem.evaluate(&solution).is_valid());
     assert_eq!(problem.evaluate(&solution), Max(Some(2)));
+}
+
+#[test]
+fn test_maximumsetpacking_to_ilp_bf_vs_ilp() {
+    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let reduction: ReductionSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let bf_value = BruteForce::new().solve(&problem);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(problem.evaluate(&extracted), bf_value);
 }

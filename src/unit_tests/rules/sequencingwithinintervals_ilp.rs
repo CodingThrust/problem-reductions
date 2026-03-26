@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::traits::Problem;
 
 fn feasible_instance() -> SequencingWithinIntervals {
@@ -88,4 +88,16 @@ fn test_sequencingwithinintervals_to_ilp_extract_solution() {
         problem.evaluate(&extracted).0,
         "manually constructed solution is valid"
     );
+}
+
+#[test]
+fn test_sequencingwithinintervals_to_ilp_bf_vs_ilp() {
+    let problem = feasible_instance();
+    let reduction: ReductionSWIToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let bf_value = BruteForce::new().solve(&problem);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(problem.evaluate(&extracted), bf_value);
 }

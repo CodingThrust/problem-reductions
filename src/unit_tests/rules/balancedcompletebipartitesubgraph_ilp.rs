@@ -3,6 +3,7 @@ use crate::models::algebraic::ILP;
 use crate::models::graph::BalancedCompleteBipartiteSubgraph;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::topology::BipartiteGraph;
 use crate::traits::Problem;
 
@@ -57,4 +58,16 @@ fn test_extract_solution_identity() {
     let extracted = reduction.extract_solution(&target_sol);
     assert_eq!(extracted, vec![1, 1, 0, 1, 1, 0]);
     assert!(source.evaluate(&extracted).0);
+}
+
+#[test]
+fn test_balancedcompletebipartitesubgraph_to_ilp_bf_vs_ilp() {
+    let source = small_instance();
+    let reduction: ReductionBCBSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let bf_value = BruteForce::new().solve(&source);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(source.evaluate(&extracted), bf_value);
 }

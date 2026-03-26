@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::ILPSolver;
+use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::traits::Problem;
 
 /// Check if a configuration represents a valid clique in the graph.
 /// A clique is valid if all selected vertices are pairwise adjacent.
@@ -305,4 +306,19 @@ fn test_star_graph() {
 
     assert!(is_valid_clique(&problem, &extracted));
     assert_eq!(clique_size(&problem, &extracted), 2);
+}
+
+#[test]
+fn test_maximumclique_to_ilp_bf_vs_ilp() {
+    let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1; 4],
+    );
+    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let bf_value = BruteForce::new().solve(&problem);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(problem.evaluate(&extracted), bf_value);
 }

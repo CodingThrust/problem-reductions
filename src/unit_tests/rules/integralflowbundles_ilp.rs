@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
@@ -110,4 +110,16 @@ fn test_integral_flow_bundles_to_ilp_sink_requirement_constraint() {
         .expect("expected one sink inflow lower bound");
     assert_eq!(sink_constraint.rhs, 1.0);
     assert_eq!(sink_constraint.terms, vec![(2, 1.0), (3, 1.0)]);
+}
+
+#[test]
+fn test_integralflowbundles_to_ilp_bf_vs_ilp() {
+    let problem = yes_instance();
+    let reduction: ReductionIFBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let bf_value = BruteForce::new().solve(&problem);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(problem.evaluate(&extracted), bf_value);
 }

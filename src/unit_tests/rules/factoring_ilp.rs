@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::traits::Problem;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
@@ -296,4 +297,16 @@ fn test_variable_count_formula() {
             m, n
         );
     }
+}
+
+#[test]
+fn test_factoring_to_ilp_bf_vs_ilp() {
+    let problem = Factoring::new(2, 2, 6);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let bf_value = BruteForce::new().solve(&problem);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(problem.evaluate(&extracted), bf_value);
 }

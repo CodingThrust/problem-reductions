@@ -2,7 +2,7 @@ use super::*;
 use crate::models::algebraic::ILP;
 use crate::models::graph::StrongConnectivityAugmentation;
 use crate::rules::ReduceTo;
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
@@ -91,4 +91,16 @@ fn test_infeasible_budget() {
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     assert!(solver.solve(ilp).is_none());
+}
+
+#[test]
+fn test_strongconnectivityaugmentation_to_ilp_bf_vs_ilp() {
+    let source = small_instance();
+    let reduction: ReductionSCAToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let bf_value = BruteForce::new().solve(&source);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(source.evaluate(&extracted), bf_value);
 }

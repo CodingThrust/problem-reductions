@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::rules::ReduceTo;
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -55,4 +55,20 @@ fn test_ruralpostman_to_ilp_optimization() {
         ilp_value, bf_value,
         "ILP optimum must match brute-force optimum"
     );
+}
+
+#[test]
+fn test_ruralpostman_to_ilp_bf_vs_ilp() {
+    let source = RuralPostman::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1, 1, 1],
+        vec![0],
+    );
+    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let bf_value = BruteForce::new().solve(&source);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(source.evaluate(&extracted), bf_value);
 }

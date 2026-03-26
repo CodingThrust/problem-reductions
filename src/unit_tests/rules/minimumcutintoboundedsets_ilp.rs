@@ -3,6 +3,7 @@ use crate::models::algebraic::ILP;
 use crate::models::graph::MinimumCutIntoBoundedSets;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::rules::ReduceTo;
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -65,4 +66,16 @@ fn test_larger_instance() {
         &reduction,
         "MinCutBS larger instance",
     );
+}
+
+#[test]
+fn test_minimumcutintoboundedsets_to_ilp_bf_vs_ilp() {
+    let source = small_instance();
+    let reduction: ReductionMinCutBSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let bf_value = BruteForce::new().solve(&source);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(source.evaluate(&extracted), bf_value);
 }

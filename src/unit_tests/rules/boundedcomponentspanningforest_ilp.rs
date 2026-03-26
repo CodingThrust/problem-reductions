@@ -2,7 +2,7 @@ use super::*;
 use crate::models::algebraic::ILP;
 use crate::models::graph::BoundedComponentSpanningForest;
 use crate::rules::ReduceTo;
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -82,4 +82,16 @@ fn test_infeasible_instance() {
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     assert!(solver.solve(ilp).is_none());
+}
+
+#[test]
+fn test_boundedcomponentspanningforest_to_ilp_bf_vs_ilp() {
+    let source = small_instance();
+    let reduction: ReductionBCSFToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let bf_value = BruteForce::new().solve(&source);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(source.evaluate(&extracted), bf_value);
 }

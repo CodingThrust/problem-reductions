@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -224,4 +224,16 @@ fn test_constraint_structure() {
     assert!(!vars2.contains(&0));
     assert!(!vars2.contains(&1));
     assert!(vars2.contains(&2));
+}
+
+#[test]
+fn test_minimumsetcovering_to_ilp_bf_vs_ilp() {
+    let problem = MinimumSetCovering::<i32>::new(3, vec![vec![0, 1], vec![1, 2], vec![0, 2]]);
+    let reduction: ReductionSCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let bf_value = BruteForce::new().solve(&problem);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(problem.evaluate(&extracted), bf_value);
 }

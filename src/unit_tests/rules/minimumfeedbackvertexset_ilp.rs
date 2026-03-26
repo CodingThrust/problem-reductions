@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -192,4 +192,17 @@ fn test_solution_extraction() {
 
     // Verify this is a valid FVS (removing vertex 0 breaks the 3-cycle)
     assert!(problem.evaluate(&extracted).is_valid());
+}
+
+#[test]
+fn test_minimumfeedbackvertexset_to_ilp_bf_vs_ilp() {
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i32; 3]);
+    let reduction: ReductionMFVSToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let bf_value = BruteForce::new().solve(&problem);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(problem.evaluate(&extracted), bf_value);
 }

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -71,7 +71,6 @@ fn test_optimallineararrangement_to_ilp_optimization() {
 
     // Cannot brute-force ILP<i32> (integer domain too large), so compare BF source vs ILP solver
     let bf = BruteForce::new();
-    use crate::Solver;
     let bf_value = bf.solve(&problem);
 
     let ilp_solver = ILPSolver::new();
@@ -96,4 +95,16 @@ fn test_solution_extraction() {
         .expect("solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
     assert!(problem.evaluate(&extracted).0.is_some());
+}
+
+#[test]
+fn test_optimallineararrangement_to_ilp_bf_vs_ilp() {
+    let problem = OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let reduction: ReductionOLAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let bf_value = BruteForce::new().solve(&problem);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(problem.evaluate(&extracted), bf_value);
 }

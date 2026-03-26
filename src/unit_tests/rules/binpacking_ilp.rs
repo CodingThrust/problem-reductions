@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -140,4 +140,16 @@ fn test_solve_reduced() {
 
     assert!(problem.evaluate(&solution).is_valid());
     assert_eq!(problem.evaluate(&solution), Min(Some(3)));
+}
+
+#[test]
+fn test_binpacking_to_ilp_bf_vs_ilp() {
+    let problem = BinPacking::new(vec![3, 3, 2], 5);
+    let reduction: ReductionBPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let bf_value = BruteForce::new().solve(&problem);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(problem.evaluate(&extracted), bf_value);
 }

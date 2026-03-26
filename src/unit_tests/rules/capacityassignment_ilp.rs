@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -100,4 +100,21 @@ fn test_capacityassignment_to_ilp_trivial() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution);
     assert!(problem.evaluate(&extracted).0.is_some());
+}
+
+#[test]
+fn test_capacityassignment_to_ilp_bf_vs_ilp() {
+    let problem = CapacityAssignment::new(
+        vec![1, 2, 3],
+        vec![vec![1, 3, 6], vec![2, 4, 7], vec![1, 2, 5]],
+        vec![vec![8, 4, 1], vec![7, 3, 1], vec![6, 3, 1]],
+        12,
+    );
+    let reduction: ReductionCAToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let bf_value = BruteForce::new().solve(&problem);
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(problem.evaluate(&extracted), bf_value);
 }
