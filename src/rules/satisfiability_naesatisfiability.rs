@@ -30,6 +30,13 @@ impl ReductionResult for ReductionSATToNAESAT {
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         let n = self.source_num_vars;
+        // Guard against malformed configs from external callers.
+        assert!(
+            target_solution.len() > n,
+            "target config too short: expected at least {} entries, got {}",
+            n + 1,
+            target_solution.len()
+        );
         // The sentinel variable is the last variable (index n).
         let sentinel_value = target_solution[n];
         if sentinel_value == 0 {
@@ -59,9 +66,15 @@ impl ReduceTo<NAESatisfiability> for Satisfiability {
             .clauses()
             .iter()
             .map(|clause| {
-                let mut lits = clause.literals.clone();
-                lits.push(sentinel_lit);
-                CNFClause::new(lits)
+                if clause.literals.is_empty() {
+                    // SAT allows empty clauses, which make the instance unsatisfiable.
+                    // Map to a fixed unsatisfiable NAE clause (s, s) of length 2.
+                    CNFClause::new(vec![sentinel_lit, sentinel_lit])
+                } else {
+                    let mut lits = clause.literals.clone();
+                    lits.push(sentinel_lit);
+                    CNFClause::new(lits)
+                }
             })
             .collect();
 

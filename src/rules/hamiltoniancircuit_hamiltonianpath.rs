@@ -107,6 +107,20 @@ impl ReduceTo<HamiltonianPath<SimpleGraph>> for HamiltonianCircuit<SimpleGraph> 
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_vertices();
+
+        // HC is unsatisfiable for n < 3; return a trivially unsatisfiable HP instance.
+        if n < 3 {
+            // A single isolated vertex has no Hamiltonian path of length > 0,
+            // so HP on 1 vertex is trivially satisfied but HC on < 3 is not.
+            // Use a disconnected 2-vertex graph (no edges) which has no HP.
+            let target_graph = SimpleGraph::new(n + 3, vec![]);
+            let target = HamiltonianPath::new(target_graph);
+            return ReductionHamiltonianCircuitToHamiltonianPath {
+                target,
+                num_original_vertices: n,
+            };
+        }
+
         let source_graph = self.graph();
 
         // New vertex indices:

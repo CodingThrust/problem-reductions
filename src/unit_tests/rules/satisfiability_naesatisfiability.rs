@@ -51,7 +51,7 @@ fn test_reduction_structure() {
             "clause {} should have one extra literal",
             i
         );
-        // Last literal should be the sentinel (positive literal for variable 3, i.e., literal 4)
+        // Last literal should be the sentinel (positive literal for variable 4, i.e., literal 4)
         assert_eq!(*clause.literals.last().unwrap(), 4);
     }
 }
