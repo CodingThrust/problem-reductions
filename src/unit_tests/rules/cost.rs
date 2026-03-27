@@ -48,3 +48,39 @@ fn test_minimize_missing_field() {
 
     assert_eq!(cost_fn.edge_cost(&overhead, &size), 0.0);
 }
+
+#[test]
+fn test_minimize_output_size() {
+    let cost_fn = MinimizeOutputSize;
+    let size = ProblemSize::new(vec![("n", 10), ("m", 5)]);
+    let overhead = test_overhead();
+
+    // output n = 20, output m = 5 → total = 25
+    assert_eq!(cost_fn.edge_cost(&overhead, &size), 25.0);
+}
+
+#[test]
+fn test_minimize_steps_then_overhead() {
+    let cost_fn = MinimizeStepsThenOverhead;
+    let size = ProblemSize::new(vec![("n", 10), ("m", 5)]);
+    let overhead = test_overhead();
+
+    let cost = cost_fn.edge_cost(&overhead, &size);
+    // Should be dominated by the step weight (1e9) with small overhead tiebreaker
+    assert!(cost > 1e8, "step weight should dominate");
+    assert!(cost < 2e9, "should be roughly 1e9 + small tiebreaker");
+
+    // Two edges with different overhead should have different costs
+    let small_overhead =
+        ReductionOverhead::new(vec![("n", Expr::Const(1.0)), ("m", Expr::Const(1.0))]);
+    let cost_small = cost_fn.edge_cost(&small_overhead, &size);
+    // Both have the same step weight but different tiebreakers
+    assert!(cost > cost_small, "larger overhead should cost more");
+}
+
+#[test]
+fn test_problem_size_total() {
+    let size = ProblemSize::new(vec![("a", 3), ("b", 7), ("c", 10)]);
+    assert_eq!(size.total(), 20);
+    assert_eq!(ProblemSize::new(vec![]).total(), 0);
+}

@@ -904,6 +904,54 @@ impl ReductionGraph {
         result
     }
 
+    /// Evaluate the cumulative output size along a reduction path.
+    ///
+    /// Walks the path from start to end, applying each edge's overhead
+    /// expressions to transform the problem size at each step.
+    /// Returns `None` if any edge in the path cannot be found.
+    pub fn evaluate_path_overhead(
+        &self,
+        path: &ReductionPath,
+        input_size: &ProblemSize,
+    ) -> Option<ProblemSize> {
+        let mut current_size = input_size.clone();
+        for pair in path.steps.windows(2) {
+            let src = self.lookup_node(&pair[0].name, &pair[0].variant)?;
+            let dst = self.lookup_node(&pair[1].name, &pair[1].variant)?;
+            let edge_idx = self.graph.find_edge(src, dst)?;
+            let edge = &self.graph[edge_idx];
+            current_size = edge.overhead.evaluate_output_size(&current_size);
+        }
+        Some(current_size)
+    }
+
+    /// Compute the source problem's size from a type-erased instance.
+    ///
+    /// Iterates over all registered reduction entries with a matching source name
+    /// and merges their `source_size_fn` results to capture all size fields.
+    /// Different entries may reference different getter methods (e.g., one uses
+    /// `num_vertices` while another also uses `num_edges`).
+    pub fn compute_source_size(name: &str, instance: &dyn Any) -> ProblemSize {
+        let mut merged: Vec<(String, usize)> = Vec::new();
+        let mut seen: HashSet<String> = HashSet::new();
+
+        for entry in inventory::iter::<ReductionEntry> {
+            if entry.source_name == name {
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    (entry.source_size_fn)(instance)
+                }));
+                if let Ok(size) = result {
+                    for (k, v) in size.components {
+                        if seen.insert(k.clone()) {
+                            merged.push((k, v));
+                        }
+                    }
+                }
+            }
+        }
+        ProblemSize { components: merged }
+    }
+
     /// Get all incoming reductions to a problem (across all its variants).
     pub fn incoming_reductions(&self, name: &str) -> Vec<ReductionEdgeInfo> {
         let Some(indices) = self.name_to_nodes.get(name) else {
