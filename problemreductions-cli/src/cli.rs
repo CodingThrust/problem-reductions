@@ -298,6 +298,7 @@ Flags by problem type:
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   QAP                             --matrix (cost), --distance-matrix
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
+  JobShopScheduling               --job-tasks [--num-processors]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   StaffScheduling                 --schedules, --requirements, --num-workers, --k
   TimetableDesign                 --num-periods, --num-craftsmen, --num-tasks, --craftsman-avail, --task-avail, --requirements
@@ -643,10 +644,13 @@ pub struct CreateArgs {
     /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
     #[arg(long)]
     pub task_lengths: Option<String>,
+    /// Job tasks for JobShopScheduling (semicolon-separated jobs, comma-separated processor:length tasks, e.g., "0:3,1:4;1:2,0:3,1:2")
+    #[arg(long)]
+    pub job_tasks: Option<String>,
     /// Deadline for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
     #[arg(long)]
     pub deadline: Option<u64>,
-    /// Number of processors/machines for FlowShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines
+    /// Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines
     #[arg(long)]
     pub num_processors: Option<usize>,
     /// Binary schedule patterns for StaffScheduling (semicolon-separated rows, e.g., "1,1,0;0,1,1")
@@ -883,7 +887,7 @@ mod tests {
         ));
         assert!(
             help.contains(
-                "Number of processors/machines for FlowShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines"
+                "Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines"
             ),
             "create help should describe --num-processors for both scheduling models"
         );

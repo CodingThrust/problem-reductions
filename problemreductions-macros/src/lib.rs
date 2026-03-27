@@ -252,6 +252,47 @@ fn generate_overhead_eval_fn(
     })
 }
 
+/// Generate a function that extracts the source problem's size fields from `&dyn Any`.
+///
+/// Collects all variable names referenced in the overhead expressions, generates
+/// getter calls for each, and returns a `ProblemSize`.
+fn generate_source_size_fn(
+    fields: &[(String, String)],
+    source_type: &Type,
+) -> syn::Result<TokenStream2> {
+    let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
+
+    // Collect all unique variable names from overhead expressions
+    let mut var_names = std::collections::BTreeSet::new();
+    for (_, expr_str) in fields {
+        let parsed = parser::parse_expr(expr_str).map_err(|e| {
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                format!("error parsing overhead expression \"{expr_str}\": {e}"),
+            )
+        })?;
+        for v in parsed.variables() {
+            var_names.insert(v.to_string());
+        }
+    }
+
+    let getter_tokens: Vec<_> = var_names
+        .iter()
+        .map(|var| {
+            let getter = syn::Ident::new(var, proc_macro2::Span::call_site());
+            let name_lit = var.as_str();
+            quote! { (#name_lit, #src_ident.#getter() as usize) }
+        })
+        .collect();
+
+    Ok(quote! {
+        |__any_src: &dyn std::any::Any| -> crate::types::ProblemSize {
+            let #src_ident = __any_src.downcast_ref::<#source_type>().unwrap();
+            crate::types::ProblemSize::new(vec![#(#getter_tokens),*])
+        }
+    })
+}
+
 /// Generate the reduction entry code
 fn generate_reduction_entry(
     attrs: &ReductionAttrs,
@@ -288,8 +329,8 @@ fn generate_reduction_entry(
     let source_variant_body = make_variant_fn_body(source_type, &type_generics)?;
     let target_variant_body = make_variant_fn_body(&target_type, &type_generics)?;
 
-    // Generate overhead and eval fn
-    let (overhead, overhead_eval_fn) = match &attrs.overhead {
+    // Generate overhead, eval fn, and source size fn
+    let (overhead, overhead_eval_fn, source_size_fn) = match &attrs.overhead {
         Some(OverheadSpec::Legacy(tokens)) => {
             let eval_fn = quote! {
                 |_: &dyn std::any::Any| -> crate::types::ProblemSize {
@@ -297,12 +338,18 @@ fn generate_reduction_entry(
                             migrate to parsed syntax: field = \"expression\"")
                 }
             };
-            (tokens.clone(), eval_fn)
+            let size_fn = quote! {
+                |_: &dyn std::any::Any| -> crate::types::ProblemSize {
+                    crate::types::ProblemSize::new(vec![])
+                }
+            };
+            (tokens.clone(), eval_fn, size_fn)
         }
         Some(OverheadSpec::Parsed(fields)) => {
             let overhead_tokens = generate_parsed_overhead(fields)?;
             let eval_fn = generate_overhead_eval_fn(fields, source_type)?;
-            (overhead_tokens, eval_fn)
+            let size_fn = generate_source_size_fn(fields, source_type)?;
+            (overhead_tokens, eval_fn, size_fn)
         }
         None => {
             return Err(syn::Error::new(
@@ -337,6 +384,7 @@ fn generate_reduction_entry(
                 reduce_aggregate_fn: None,
                 capabilities: #capabilities,
                 overhead_eval_fn: #overhead_eval_fn,
+                source_size_fn: #source_size_fn,
             }
         }
 
