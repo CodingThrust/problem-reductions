@@ -298,7 +298,7 @@ Flags by problem type:
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   QAP                             --matrix (cost), --distance-matrix
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
-  JobShopScheduling               --job-tasks, --deadline [--num-processors]
+  JobShopScheduling               --job-tasks [--num-processors]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   StaffScheduling                 --schedules, --requirements, --num-workers, --k
   TimetableDesign                 --num-periods, --num-craftsmen, --num-tasks, --craftsman-avail, --task-avail, --requirements
@@ -647,7 +647,7 @@ pub struct CreateArgs {
     /// Job tasks for JobShopScheduling (semicolon-separated jobs, comma-separated processor:length tasks, e.g., "0:3,1:4;1:2,0:3,1:2")
     #[arg(long)]
     pub job_tasks: Option<String>,
-    /// Deadline for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
+    /// Deadline for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
     #[arg(long)]
     pub deadline: Option<u64>,
     /// Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines

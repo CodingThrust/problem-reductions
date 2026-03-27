@@ -5125,7 +5125,6 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
 #{
   let x = load-model-example("JobShopScheduling")
-  let D = x.instance.deadline
   let blocks = (
     (0, 0, 0, 0, 3),
     (0, 1, 1, 3, 6),
@@ -5143,11 +5142,11 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let makespan = 19
   [
     #problem-def("JobShopScheduling")[
-      Given a positive integer $m$, a set $J$ of jobs, where each job $j in J$ consists of an ordered list of tasks $t_1[j], dots, t_(n_j)[j]$ with processor assignments $p(t_k[j]) in {1, dots, m}$, processing lengths $ell(t_k[j]) in ZZ^+_0$, consecutive-processor constraint $p(t_k[j]) != p(t_(k+1)[j])$, and a deadline $D in ZZ^+$, find start times $sigma(t_k[j]) in ZZ^+_0$ such that tasks sharing a processor do not overlap, each job respects $sigma(t_(k+1)[j]) >= sigma(t_k[j]) + ell(t_k[j])$, and every job finishes by time $D$.
+      Given a positive integer $m$, a set $J$ of jobs, where each job $j in J$ consists of an ordered list of tasks $t_1[j], dots, t_(n_j)[j]$ with processor assignments $p(t_k[j]) in {1, dots, m}$, processing lengths $ell(t_k[j]) in ZZ^+_0$, and consecutive-processor constraint $p(t_k[j]) != p(t_(k+1)[j])$, find start times $sigma(t_k[j]) in ZZ^+_0$ such that tasks sharing a processor do not overlap, each job respects $sigma(t_(k+1)[j]) >= sigma(t_k[j]) + ell(t_k[j])$, and the makespan $max_(j in J) (sigma(t_(n_j)[j]) + ell(t_(n_j)[j]))$ is minimized.
     ][
-      Job-Shop Scheduling is the classical disjunctive scheduling problem SS18 in Garey & Johnson; Garey, Johnson, and Sethi proved it strongly NP-complete already for two machines @garey1976. Unlike Flow Shop Scheduling, each job carries its own machine route, so the difficulty lies in choosing a compatible relative order on every machine and then checking whether those local orders admit global start times. This implementation follows the original Garey-Johnson formulation, including the requirement that consecutive tasks of the same job use different processors, and evaluates a witness by orienting the machine-order edges and propagating longest paths through the resulting precedence DAG. The registered baseline therefore exposes a factorial upper bound over task orders#footnote[The auto-generated complexity table records the concrete upper bound used by the Rust implementation; no sharper exact bound is cited here.].
+      Job-Shop Scheduling is the classical disjunctive scheduling problem SS18 in Garey & Johnson; Garey, Johnson, and Sethi proved it strongly NP-hard already for two machines @garey1976. Unlike Flow Shop Scheduling, each job carries its own machine route, so the difficulty lies in choosing a compatible relative order on every machine and then finding the schedule with minimum makespan. This implementation follows the original Garey-Johnson formulation, including the requirement that consecutive tasks of the same job use different processors, and evaluates a witness by orienting the machine-order edges and propagating longest paths through the resulting precedence DAG. The registered baseline therefore exposes a factorial upper bound over task orders#footnote[The auto-generated complexity table records the concrete upper bound used by the Rust implementation; no sharper exact bound is cited here.].
 
-      *Example.* The canonical fixture has two machines, deadline $D = #D$, and five jobs
+      *Example.* The canonical fixture has two machines and five jobs
       $
         J_1 = ((M_1, 3), (M_2, 4)),
         J_2 = ((M_2, 2), (M_1, 3), (M_2, 2)),
@@ -5155,7 +5154,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         J_4 = ((M_2, 5), (M_1, 2)),
         J_5 = ((M_1, 2), (M_2, 3), (M_1, 1)).
       $
-      The witness stored in the example DB orders the six tasks on $M_1$ as $(J_1^1, J_2^2, J_3^1, J_4^2, J_5^1, J_5^3)$ and the six tasks on $M_2$ as $(J_2^1, J_4^1, J_1^2, J_3^2, J_5^2, J_2^3)$. Taking the earliest schedule consistent with those machine orders yields the Gantt chart in @fig:jobshop, whose last completion time is $#makespan <= #D$, so the verifier returns YES.
+      The witness stored in the example DB orders the six tasks on $M_1$ as $(J_1^1, J_2^2, J_3^1, J_4^2, J_5^1, J_5^3)$ and the six tasks on $M_2$ as $(J_2^1, J_4^1, J_1^2, J_3^2, J_5^2, J_2^3)$. Taking the earliest schedule consistent with those machine orders yields the Gantt chart in @fig:jobshop, whose makespan is $#makespan$.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o job-shop-scheduling.json",
@@ -5203,12 +5202,8 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
             content((x, y-axis - 0.25), text(6pt, str(makespan)))
           }
           content((makespan * scale / 2, y-axis - 0.5), text(7pt)[$t$])
-
-          let dl-x = D * scale
-          line((dl-x, row-h / 2 + 0.1), (dl-x, y-axis), stroke: (paint: red, thickness: 0.8pt, dash: "dashed"))
-          content((dl-x, row-h / 2 + 0.25), text(6pt, fill: red)[$D = #D$])
         }),
-        caption: [Job-shop schedule induced by the canonical machine-order witness. The final completion time is #makespan, which stays to the left of the deadline marker $D = #D$.],
+        caption: [Job-shop schedule induced by the canonical machine-order witness. The optimal makespan is #makespan.],
       ) <fig:jobshop>
     ]
   ]

@@ -1,13 +1,13 @@
 //! Job Shop Scheduling problem implementation.
 //!
 //! Given `m` processors and a set of jobs, each job consisting of an ordered
-//! sequence of processor-length tasks, determine whether the tasks can be
-//! scheduled to finish by a global deadline while respecting both within-job
+//! sequence of processor-length tasks, find a schedule that minimizes the
+//! makespan (completion time of the last task) while respecting both within-job
 //! precedence and single-processor capacity constraints.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
-use crate::types::Or;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
@@ -18,11 +18,10 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),
-        description: "Determine whether a job-shop schedule meets a global deadline",
+        description: "Minimize the makespan of a job-shop schedule",
         fields: &[
             FieldInfo { name: "num_processors", type_name: "usize", description: "Number of processors m" },
             FieldInfo { name: "jobs", type_name: "Vec<Vec<(usize, u64)>>", description: "jobs[j][k] = (processor, length) for the k-th task of job j" },
-            FieldInfo { name: "deadline", type_name: "u64", description: "Global deadline D" },
         ],
     }
 }
@@ -31,7 +30,6 @@ inventory::submit! {
 pub struct JobShopScheduling {
     num_processors: usize,
     jobs: Vec<Vec<(usize, u64)>>,
-    deadline: u64,
 }
 
 struct FlattenedTasks {
@@ -41,7 +39,7 @@ struct FlattenedTasks {
 }
 
 impl JobShopScheduling {
-    pub fn new(num_processors: usize, jobs: Vec<Vec<(usize, u64)>>, deadline: u64) -> Self {
+    pub fn new(num_processors: usize, jobs: Vec<Vec<(usize, u64)>>) -> Self {
         let num_tasks: usize = jobs.iter().map(Vec::len).sum();
         if num_tasks > 0 {
             assert!(
@@ -71,7 +69,6 @@ impl JobShopScheduling {
         Self {
             num_processors,
             jobs,
-            deadline,
         }
     }
 
@@ -81,10 +78,6 @@ impl JobShopScheduling {
 
     pub fn jobs(&self) -> &[Vec<(usize, u64)>] {
         &self.jobs
-    }
-
-    pub fn deadline(&self) -> u64 {
-        self.deadline
     }
 
     pub fn num_jobs(&self) -> usize {
@@ -150,7 +143,9 @@ impl JobShopScheduling {
         Some(orders)
     }
 
-    fn schedule_from_config(&self, config: &[usize]) -> Option<Vec<u64>> {
+    /// Compute start times from a Lehmer-code config. Returns `None` if the
+    /// config is invalid or induces a cycle in the precedence DAG.
+    pub fn schedule_from_config(&self, config: &[usize]) -> Option<Vec<u64>> {
         let flattened = self.flatten_tasks();
         let machine_orders = self.decode_machine_orders(config, &flattened)?;
         let num_tasks = flattened.lengths.len();
@@ -203,20 +198,24 @@ impl JobShopScheduling {
             return None;
         }
 
-        for (task_id, &start) in start_times.iter().enumerate() {
-            let finish = start.checked_add(flattened.lengths[task_id])?;
-            if finish > self.deadline {
-                return None;
-            }
-        }
-
         Some(start_times)
+    }
+
+    /// Compute the makespan (completion time of last task) from start times.
+    fn makespan(&self, start_times: &[u64]) -> u64 {
+        let flattened = self.flatten_tasks();
+        start_times
+            .iter()
+            .enumerate()
+            .map(|(i, &s)| s + flattened.lengths[i])
+            .max()
+            .unwrap_or(0)
     }
 }
 
 impl Problem for JobShopScheduling {
     const NAME: &'static str = "JobShopScheduling";
-    type Value = Or;
+    type Value = Min<u64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -230,8 +229,11 @@ impl Problem for JobShopScheduling {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or(self.schedule_from_config(config).is_some())
+    fn evaluate(&self, config: &[usize]) -> Min<u64> {
+        match self.schedule_from_config(config) {
+            Some(start_times) => Min(Some(self.makespan(&start_times))),
+            None => Min(None),
+        }
     }
 }
 
@@ -252,12 +254,11 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 vec![(1, 5), (0, 2)],
                 vec![(0, 2), (1, 3), (0, 1)],
             ],
-            20,
         )),
         // Machine 0 order [0,3,5,8,9,11] => [0,0,0,0,0,0]
         // Machine 1 order [2,7,1,6,10,4] => [1,3,0,1,1,0]
         optimal_config: vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0],
-        optimal_value: serde_json::json!(true),
+        optimal_value: serde_json::json!(19),
     }]
 }
 

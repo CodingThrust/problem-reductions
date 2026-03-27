@@ -665,7 +665,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
         "JobShopScheduling" => {
-            "--job-tasks \"0:3,1:4;1:2,0:3,1:2;0:4,1:3;1:5,0:2;0:2,1:3,0:1\" --deadline 20 --num-processors 2"
+            "--job-tasks \"0:3,1:4;1:2,0:3,1:2;0:4,1:3;1:5,0:2;0:2,1:3,0:1\" --num-processors 2"
         }
         "MinimumMultiwayCut" => "--graph 0-1,1-2,2-3 --terminals 0,2 --edge-weights 1,1,1",
         "ExpectedRetrievalCost" => EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS,
@@ -3503,12 +3503,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // JobShopScheduling
         "JobShopScheduling" => {
-            let usage = "Usage: pred create JobShopScheduling --job-tasks \"0:3,1:4;1:2,0:3,1:2;0:4,1:3\" --deadline 20 --num-processors 2";
+            let usage = "Usage: pred create JobShopScheduling --job-tasks \"0:3,1:4;1:2,0:3,1:2;0:4,1:3\" --num-processors 2";
             let job_tasks = args.job_tasks.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("JobShopScheduling requires --job-tasks and --deadline\n\n{usage}")
-            })?;
-            let deadline = args.deadline.ok_or_else(|| {
-                anyhow::anyhow!("JobShopScheduling requires --deadline\n\n{usage}")
+                anyhow::anyhow!("JobShopScheduling requires --job-tasks\n\n{usage}")
             })?;
             let jobs = parse_job_shop_jobs(job_tasks)?;
             let inferred_processors = jobs
@@ -3539,9 +3536,16 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                         "job {job_index} task {task_index} uses processor {processor}, but num_processors = {num_processors}"
                     );
                 }
+                for (task_index, pair) in job.windows(2).enumerate() {
+                    anyhow::ensure!(
+                        pair[0].0 != pair[1].0,
+                        "job {job_index} tasks {task_index} and {} must use different processors\n\n{usage}",
+                        task_index + 1
+                    );
+                }
             }
             (
-                ser(JobShopScheduling::new(num_processors, jobs, deadline))?,
+                ser(JobShopScheduling::new(num_processors, jobs))?,
                 resolved_variant.clone(),
             )
         }
@@ -7700,11 +7704,12 @@ mod tests {
     fn test_create_job_shop_scheduling_json() {
         use crate::dispatch::ProblemJsonOutput;
         use problemreductions::models::misc::JobShopScheduling;
+        use problemreductions::traits::Problem;
+        use problemreductions::types::Min;
 
         let mut args = empty_args();
         args.problem = Some("JobShopScheduling".to_string());
         args.job_tasks = Some("0:3,1:4;1:2,0:3,1:2;0:4,1:3;1:5,0:2;0:2,1:3,0:1".to_string());
-        args.deadline = Some(20);
 
         let output_path =
             std::env::temp_dir().join(format!("job-shop-scheduling-{}.json", std::process::id()));
@@ -7725,7 +7730,10 @@ mod tests {
         let problem: JobShopScheduling = serde_json::from_value(created.data).unwrap();
         assert_eq!(problem.num_processors(), 2);
         assert_eq!(problem.num_jobs(), 5);
-        assert!(problem.evaluate(&[0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0]));
+        assert_eq!(
+            problem.evaluate(&[0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0]),
+            Min(Some(19))
+        );
 
         let _ = std::fs::remove_file(output_path);
     }
@@ -7734,7 +7742,7 @@ mod tests {
     fn test_create_job_shop_scheduling_requires_job_tasks() {
         let mut args = empty_args();
         args.problem = Some("JobShopScheduling".to_string());
-        args.deadline = Some(20);
+        args.num_processors = Some(2);
 
         let out = OutputConfig {
             output: None,
@@ -7752,7 +7760,6 @@ mod tests {
         let mut args = empty_args();
         args.problem = Some("JobShopScheduling".to_string());
         args.job_tasks = Some("0-3,1:4".to_string());
-        args.deadline = Some(20);
 
         let out = OutputConfig {
             output: None,
@@ -7763,6 +7770,23 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("expected 'processor:length'"));
+    }
+
+    #[test]
+    fn test_create_job_shop_scheduling_rejects_consecutive_same_processor() {
+        let mut args = empty_args();
+        args.problem = Some("JobShopScheduling".to_string());
+        args.job_tasks = Some("0:1,0:1".to_string());
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("must use different processors"));
     }
 
     #[test]

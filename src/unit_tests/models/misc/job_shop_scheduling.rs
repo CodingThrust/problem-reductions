@@ -1,7 +1,7 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::traits::Problem;
-use crate::types::Or;
+use crate::types::Min;
 
 fn issue_example() -> JobShopScheduling {
     JobShopScheduling::new(
@@ -13,12 +13,11 @@ fn issue_example() -> JobShopScheduling {
             vec![(1, 5), (0, 2)],
             vec![(0, 2), (1, 3), (0, 1)],
         ],
-        20,
     )
 }
 
 fn small_two_job_instance() -> JobShopScheduling {
-    JobShopScheduling::new(2, vec![vec![(0, 1), (1, 1)], vec![(1, 1), (0, 1)]], 2)
+    JobShopScheduling::new(2, vec![vec![(0, 1), (1, 1)], vec![(1, 1), (0, 1)]])
 }
 
 #[test]
@@ -34,7 +33,7 @@ fn test_job_shop_scheduling_creation_and_dims() {
 fn test_job_shop_scheduling_evaluate_issue_example() {
     let problem = issue_example();
     let config = vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0];
-    assert_eq!(problem.evaluate(&config), Or(true));
+    assert_eq!(problem.evaluate(&config), Min(Some(19)));
 }
 
 #[test]
@@ -62,20 +61,19 @@ fn test_job_shop_scheduling_paper_example_schedule() {
 fn test_job_shop_scheduling_rejects_cyclic_machine_orders() {
     let problem = small_two_job_instance();
     let config = vec![1, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Or(false));
+    assert_eq!(problem.evaluate(&config), Min(None));
 }
 
 #[test]
 fn test_job_shop_scheduling_invalid_config_and_serialization() {
     let problem = small_two_job_instance();
-    assert_eq!(problem.evaluate(&[2, 0, 0, 0]), Or(false));
-    assert_eq!(problem.evaluate(&[0, 0, 0]), Or(false));
+    assert_eq!(problem.evaluate(&[2, 0, 0, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 0, 0]), Min(None));
 
     let json = serde_json::to_value(&problem).unwrap();
     let restored: JobShopScheduling = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_processors(), problem.num_processors());
     assert_eq!(restored.jobs(), problem.jobs());
-    assert_eq!(restored.deadline(), problem.deadline());
 }
 
 #[test]
@@ -88,7 +86,8 @@ fn test_job_shop_scheduling_problem_name_and_variant() {
 fn test_job_shop_scheduling_brute_force_solver_small_instance() {
     let problem = small_two_job_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
-    assert!(solution.is_some());
-    assert_eq!(problem.evaluate(&solution.unwrap()), Or(true));
+    let value = Solver::solve(&solver, &problem);
+    assert_eq!(value, Min(Some(2)));
+    let witness = solver.find_witness(&problem).unwrap();
+    assert_eq!(problem.evaluate(&witness), Min(Some(2)));
 }
