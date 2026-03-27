@@ -125,19 +125,10 @@ impl JobShopScheduling {
         let mut orders = Vec::with_capacity(flattened.machine_task_ids.len());
 
         for machine_tasks in &flattened.machine_task_ids {
-            let next_offset = offset + machine_tasks.len();
-            let segment = &config[offset..next_offset];
-            offset = next_offset;
-
-            let mut available = machine_tasks.clone();
-            let mut order = Vec::with_capacity(machine_tasks.len());
-            for &digit in segment {
-                if digit >= available.len() {
-                    return None;
-                }
-                order.push(available.remove(digit));
-            }
-            orders.push(order);
+            let k = machine_tasks.len();
+            let perm = super::decode_lehmer(&config[offset..offset + k], k)?;
+            orders.push(perm.into_iter().map(|i| machine_tasks[i]).collect());
+            offset += k;
         }
 
         Some(orders)
@@ -221,7 +212,7 @@ impl Problem for JobShopScheduling {
         self.flatten_tasks()
             .machine_task_ids
             .into_iter()
-            .flat_map(|machine_tasks| (0..machine_tasks.len()).rev().map(|i| i + 1))
+            .flat_map(|machine_tasks| super::lehmer_dims(machine_tasks.len()))
             .collect()
     }
 

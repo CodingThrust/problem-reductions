@@ -11,7 +11,7 @@
 //! - [`Factoring`]: Integer factorization
 //! - [`FlowShopScheduling`]: Flow Shop Scheduling (meet deadline on m processors)
 //! - [`GroupingBySwapping`]: Group equal symbols into contiguous blocks by adjacent swaps
-//! - [`JobShopScheduling`]: Meet a deadline with per-job processor routes
+//! - [`JobShopScheduling`]: Minimize makespan with per-job processor routes
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
 //! - [`MultiprocessorScheduling`]: Schedule tasks on processors to meet a deadline
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
@@ -36,6 +36,31 @@
 //! - [`SumOfSquaresPartition`]: Partition integers into K groups minimizing sum of squared group sums
 
 pub(crate) mod additional_key;
+
+/// Decode a Lehmer code into a permutation of `0..n`.
+///
+/// Each element of `config` selects from the remaining items:
+/// `config[i]` must be `< n - i`. Returns `None` if the config is
+/// invalid (wrong length or out-of-range digit).
+pub(crate) fn decode_lehmer(config: &[usize], n: usize) -> Option<Vec<usize>> {
+    if config.len() != n {
+        return None;
+    }
+    let mut available: Vec<usize> = (0..n).collect();
+    let mut schedule = Vec::with_capacity(n);
+    for &digit in config {
+        if digit >= available.len() {
+            return None;
+        }
+        schedule.push(available.remove(digit));
+    }
+    Some(schedule)
+}
+
+/// Return the Lehmer-code dimension vector `[n, n-1, ..., 1]`.
+pub(crate) fn lehmer_dims(n: usize) -> Vec<usize> {
+    (0..n).rev().map(|i| i + 1).collect()
+}
 mod bin_packing;
 mod boyce_codd_normal_form_violation;
 mod capacity_assignment;
