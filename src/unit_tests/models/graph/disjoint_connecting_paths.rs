@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -63,7 +63,7 @@ fn test_disjoint_connecting_paths_yes_instance() {
 fn test_disjoint_connecting_paths_no_instance() {
     let problem = issue_no_problem();
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
@@ -103,7 +103,7 @@ fn test_disjoint_connecting_paths_paper_example() {
     assert!(problem.evaluate(&config));
 
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()));
 }

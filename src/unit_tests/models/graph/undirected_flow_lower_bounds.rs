@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
@@ -59,7 +59,7 @@ fn test_undirected_flow_lower_bounds_evaluation_yes() {
 fn test_undirected_flow_lower_bounds_evaluation_no() {
     let problem = canonical_no_instance();
     assert!(!problem.evaluate(&[0, 0, 0, 0]));
-    assert!(BruteForce::new().find_satisfying(&problem).is_none());
+    assert!(BruteForce::new().find_witness(&problem).is_none());
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn test_undirected_flow_lower_bounds_serialization() {
 fn test_undirected_flow_lower_bounds_solver_yes() {
     let problem = canonical_yes_instance();
     let solution = BruteForce::new()
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("expected a satisfying orientation");
     assert!(problem.evaluate(&solution));
     assert_eq!(solution.len(), problem.num_edges());
@@ -99,6 +99,6 @@ fn test_undirected_flow_lower_bounds_paper_example() {
     let config = yes_orientation_config();
     assert!(problem.evaluate(&config));
 
-    let all = BruteForce::new().find_all_satisfying(&problem);
+    let all = BruteForce::new().find_all_witnesses(&problem);
     assert!(all.contains(&config));
 }

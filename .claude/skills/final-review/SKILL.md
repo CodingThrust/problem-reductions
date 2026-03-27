@@ -217,7 +217,7 @@ Verify the PR includes all required components:
 **For [Model] PRs:**
 - [ ] Model implementation (`src/models/...`)
 - [ ] Unit tests (`src/unit_tests/models/...`)
-- [ ] `declare_variants!` macro with explicit `opt`/`sat` solver-kind markers and intended default variant
+- [ ] Variant registration exists: usually `declare_variants!` with the intended default variant, or justified manual `VariantEntry` wiring for unusual dynamic-registration work
 - [ ] Schema / registry entry for CLI-facing model creation (`ProblemSchemaEntry`)
 - [ ] `canonical_model_example_specs()` function in the model file (gated by `#[cfg(feature = "example-db")]`) and registered in the category `mod.rs` example chain
 - [ ] Paper section in `docs/paper/reductions.typ` (`problem-def` entry)

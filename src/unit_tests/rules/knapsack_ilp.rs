@@ -1,7 +1,8 @@
 use super::*;
 use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
-use crate::solvers::ILPSolver;
+use crate::solvers::{BruteForce, ILPSolver};
+use crate::traits::Problem;
 
 #[test]
 fn test_knapsack_to_ilp_closed_loop() {
@@ -19,6 +20,24 @@ fn test_knapsack_to_ilp_closed_loop() {
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
     assert_eq!(extracted, vec![0, 1, 1, 0]);
+}
+
+#[test]
+fn test_knapsack_to_ilp_bf_vs_ilp() {
+    let knapsack = Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack);
+
+    let bf_solutions = BruteForce::new().find_all_witnesses(&knapsack);
+    let bf_value = knapsack.evaluate(&bf_solutions[0]);
+
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    let ilp_value = knapsack.evaluate(&extracted);
+
+    assert_eq!(bf_value, ilp_value);
+    assert!(ilp_value.is_valid());
 }
 
 #[test]

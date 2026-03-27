@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -48,7 +48,7 @@ inventory::submit! {
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Minimum vertex cover is just vertex 1
 /// assert!(solutions.contains(&vec![0, 1, 0]));
@@ -114,7 +114,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumVertexCover";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = Min<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -124,9 +124,9 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
         if !is_vertex_cover_config(&self.graph, config) {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
         let mut total = W::Sum::zero();
         for (i, &selected) in config.iter().enumerate() {
@@ -134,19 +134,7 @@ where
                 total += self.weights[i].to_sum();
             }
         }
-        SolutionSize::Valid(total)
-    }
-}
-
-impl<G, W> OptimizationProblem for MinimumVertexCover<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Value = W::Sum;
-
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+        Min(Some(total))
     }
 }
 
@@ -163,7 +151,7 @@ fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    default opt MinimumVertexCover<SimpleGraph, i32> => "1.1996^num_vertices",
+    default MinimumVertexCover<SimpleGraph, i32> => "1.1996^num_vertices",
 }
 
 #[cfg(feature = "example-db")]
@@ -175,7 +163,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![1i32; 5],
         )),
         optimal_config: vec![1, 0, 0, 1, 1],
-        optimal_value: serde_json::json!({"Valid": 3}),
+        optimal_value: serde_json::json!(3),
     }]
 }
 

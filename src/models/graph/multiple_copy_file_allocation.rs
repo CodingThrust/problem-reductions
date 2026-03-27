@@ -1,11 +1,12 @@
 //! Multiple Copy File Allocation problem implementation.
 //!
-//! The Multiple Copy File Allocation problem asks whether a set of file-copy
-//! locations can keep the combined storage and access cost below a bound.
+//! The Multiple Copy File Allocation problem asks for a placement of file copies
+//! on graph vertices that minimizes the combined storage and access cost.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
@@ -16,12 +17,11 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),
-        description: "Place file copies on graph vertices so storage plus access cost stays within a bound",
+        description: "Place file copies on graph vertices to minimize total storage plus access cost",
         fields: &[
             FieldInfo { name: "graph", type_name: "SimpleGraph", description: "The network graph G=(V,E)" },
             FieldInfo { name: "usage", type_name: "Vec<i64>", description: "Usage frequencies u(v) for each vertex" },
             FieldInfo { name: "storage", type_name: "Vec<i64>", description: "Storage costs s(v) for placing a copy at each vertex" },
-            FieldInfo { name: "bound", type_name: "i64", description: "Upper bound K on total storage plus access cost" },
         ],
     }
 }
@@ -36,10 +36,10 @@ inventory::submit! {
 /// Multiple Copy File Allocation problem.
 ///
 /// Given an undirected graph G = (V, E), a usage value u(v) for each vertex,
-/// a storage cost s(v) for each vertex, and a bound K, determine whether there
-/// exists a subset V' of copy vertices such that:
+/// and a storage cost s(v) for each vertex, find a subset V' of copy vertices
+/// that minimizes:
 ///
-/// Σ_{v ∈ V'} s(v) + Σ_{v ∈ V} u(v) · d(v, V') ≤ K
+/// Σ_{v ∈ V'} s(v) + Σ_{v ∈ V} u(v) · d(v, V')
 ///
 /// where d(v, V') is the shortest-path distance from v to the nearest copy in V'.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,12 +47,11 @@ pub struct MultipleCopyFileAllocation {
     graph: SimpleGraph,
     usage: Vec<i64>,
     storage: Vec<i64>,
-    bound: i64,
 }
 
 impl MultipleCopyFileAllocation {
     /// Create a new Multiple Copy File Allocation instance.
-    pub fn new(graph: SimpleGraph, usage: Vec<i64>, storage: Vec<i64>, bound: i64) -> Self {
+    pub fn new(graph: SimpleGraph, usage: Vec<i64>, storage: Vec<i64>) -> Self {
         assert_eq!(
             usage.len(),
             graph.num_vertices(),
@@ -67,7 +66,6 @@ impl MultipleCopyFileAllocation {
             graph,
             usage,
             storage,
-            bound,
         }
     }
 
@@ -84,11 +82,6 @@ impl MultipleCopyFileAllocation {
     /// Get the storage costs.
     pub fn storage(&self) -> &[i64] {
         &self.storage
-    }
-
-    /// Get the bound K.
-    pub fn bound(&self) -> i64 {
-        self.bound
     }
 
     /// Get the number of vertices.
@@ -170,16 +163,15 @@ impl MultipleCopyFileAllocation {
         Some(storage_cost + access_cost)
     }
 
-    /// Check whether a configuration satisfies the bound.
+    /// Check whether a configuration is a valid placement (at least one copy, all reachable).
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.total_cost(config)
-            .is_some_and(|cost| cost <= self.bound)
+        self.total_cost(config).is_some()
     }
 }
 
 impl Problem for MultipleCopyFileAllocation {
     const NAME: &'static str = "MultipleCopyFileAllocation";
-    type Metric = bool;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -189,12 +181,10 @@ impl Problem for MultipleCopyFileAllocation {
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_solution(config)
+    fn evaluate(&self, config: &[usize]) -> Min<i64> {
+        Min(self.total_cost(config))
     }
 }
-
-impl SatisfactionProblem for MultipleCopyFileAllocation {}
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
@@ -204,15 +194,14 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             SimpleGraph::cycle(6),
             vec![10; 6],
             vec![1; 6],
-            33,
         )),
-        optimal_config: vec![0, 1, 0, 1, 0, 1],
-        optimal_value: serde_json::json!(true),
+        optimal_config: vec![1, 1, 1, 1, 1, 1],
+        optimal_value: serde_json::json!(6),
     }]
 }
 
 crate::declare_variants! {
-    default sat MultipleCopyFileAllocation => "2^num_vertices",
+    default MultipleCopyFileAllocation => "2^num_vertices",
 }
 
 #[cfg(test)]

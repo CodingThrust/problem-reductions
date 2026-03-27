@@ -5,7 +5,9 @@ use crate::dispatch::{
 use crate::output::OutputConfig;
 use crate::problem_name::resolve_problem_ref;
 use anyhow::{Context, Result};
-use problemreductions::rules::{MinimizeSteps, ReductionGraph, ReductionPath, ReductionStep};
+use problemreductions::rules::{
+    MinimizeSteps, ReductionGraph, ReductionMode, ReductionPath, ReductionStep,
+};
 use problemreductions::types::ProblemSize;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -112,18 +114,19 @@ pub fn reduce(
 
         // Auto-discover cheapest path
         let input_size = ProblemSize::new(vec![]);
-        let best_path = graph.find_cheapest_path(
+        let best_path = graph.find_cheapest_path_mode(
             source_name,
             &source_variant,
             &dst_ref.name,
             &dst_ref.variant,
+            ReductionMode::Witness,
             &input_size,
             &MinimizeSteps,
         );
 
         best_path.ok_or_else(|| {
             anyhow::anyhow!(
-                "No reduction path from {} to {}\n\n\
+                "No witness-capable reduction path from {} to {}\n\n\
                  Hint: generate a path file first, then pass it with --via:\n\
                    pred path {} {} -o path.json\n\
                    pred reduce {} --via path.json -o reduced.json",
@@ -139,7 +142,11 @@ pub fn reduce(
     // 4. Execute reduction chain via reduce_along_path
     let chain = graph
         .reduce_along_path(&reduction_path, source.as_any())
-        .ok_or_else(|| anyhow::anyhow!("Failed to execute reduction chain"))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "Reduction bundles require witness-capable paths; this path cannot produce a recoverable witness."
+            )
+        })?;
 
     // 5. Serialize target
     let target_step = reduction_path.steps.last().unwrap();

@@ -1,9 +1,8 @@
 use super::is_feedback_vertex_set;
 use crate::models::graph::MinimumFeedbackVertexSet;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::traits::Problem;
 
 /// Build the 9-vertex, 15-arc example from the issue.
 ///
@@ -60,13 +59,6 @@ fn test_minimum_feedback_vertex_set_basic() {
 }
 
 #[test]
-fn test_minimum_feedback_vertex_set_direction() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i32; 3]);
-    assert_eq!(problem.direction(), Direction::Minimize);
-}
-
-#[test]
 fn test_minimum_feedback_vertex_set_serialization() {
     let graph = example_graph();
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i32; 9]);
@@ -86,14 +78,14 @@ fn test_minimum_feedback_vertex_set_solver() {
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i32; 9]);
 
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem);
+    let best = solver.find_witness(&problem);
     assert!(best.is_some(), "Expected a solution to exist");
     let best_config = best.unwrap();
     let best_result = problem.evaluate(&best_config);
     assert!(best_result.is_valid());
     assert_eq!(best_result.unwrap(), 3, "Expected optimal FVS size 3");
 
-    let all_best = BruteForce::new().find_all_best(&problem);
+    let all_best = BruteForce::new().find_all_witnesses(&problem);
     assert_eq!(all_best.len(), 18, "Expected 18 optimal FVS solutions");
 }
 
@@ -208,6 +200,6 @@ fn test_minimum_feedback_vertex_set_paper_example() {
 
     // Verify optimal FVS weight is 1
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
+    let best = solver.find_witness(&problem).unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), 1);
 }

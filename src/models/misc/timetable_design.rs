@@ -5,7 +5,7 @@
 //! requirements.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -303,47 +303,51 @@ impl TimetableDesign {
 
 impl Problem for TimetableDesign {
     const NAME: &'static str = "TimetableDesign";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.config_len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.config_len() {
-            return false;
-        }
-        if config.iter().any(|&value| value > 1) {
-            return false;
-        }
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.config_len() {
+                return crate::types::Or(false);
+            }
+            if config.iter().any(|&value| value > 1) {
+                return crate::types::Or(false);
+            }
 
-        let mut craftsman_busy = vec![vec![false; self.num_periods]; self.num_craftsmen];
-        let mut task_busy = vec![vec![false; self.num_periods]; self.num_tasks];
-        let mut pair_counts = vec![vec![0u64; self.num_tasks]; self.num_craftsmen];
+            let mut craftsman_busy = vec![vec![false; self.num_periods]; self.num_craftsmen];
+            let mut task_busy = vec![vec![false; self.num_periods]; self.num_tasks];
+            let mut pair_counts = vec![vec![0u64; self.num_tasks]; self.num_craftsmen];
 
-        for craftsman in 0..self.num_craftsmen {
-            for task in 0..self.num_tasks {
-                for period in 0..self.num_periods {
-                    if config[self.index(craftsman, task, period)] == 0 {
-                        continue;
+            for craftsman in 0..self.num_craftsmen {
+                for task in 0..self.num_tasks {
+                    for period in 0..self.num_periods {
+                        if config[self.index(craftsman, task, period)] == 0 {
+                            continue;
+                        }
+
+                        if !self.craftsman_avail[craftsman][period]
+                            || !self.task_avail[task][period]
+                        {
+                            return crate::types::Or(false);
+                        }
+
+                        if craftsman_busy[craftsman][period] || task_busy[task][period] {
+                            return crate::types::Or(false);
+                        }
+
+                        craftsman_busy[craftsman][period] = true;
+                        task_busy[task][period] = true;
+                        pair_counts[craftsman][task] += 1;
                     }
-
-                    if !self.craftsman_avail[craftsman][period] || !self.task_avail[task][period] {
-                        return false;
-                    }
-
-                    if craftsman_busy[craftsman][period] || task_busy[task][period] {
-                        return false;
-                    }
-
-                    craftsman_busy[craftsman][period] = true;
-                    task_busy[task][period] = true;
-                    pair_counts[craftsman][task] += 1;
                 }
             }
-        }
 
-        pair_counts == self.requirements
+            pair_counts == self.requirements
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -351,10 +355,8 @@ impl Problem for TimetableDesign {
     }
 }
 
-impl SatisfactionProblem for TimetableDesign {}
-
 crate::declare_variants! {
-    default sat TimetableDesign => "2^(num_craftsmen * num_tasks * num_periods)",
+    default TimetableDesign => "2^(num_craftsmen * num_tasks * num_periods)",
 }
 
 #[cfg(any(test, feature = "example-db"))]

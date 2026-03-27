@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Max, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -53,7 +53,7 @@ inventory::submit! {
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Maximum clique in a triangle (K3) is size 3
 /// assert!(solutions.iter().all(|s| s.iter().sum::<usize>() == 3));
@@ -119,7 +119,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumClique";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = Max<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -129,9 +129,9 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
         if !is_clique_config(&self.graph, config) {
-            return SolutionSize::Invalid;
+            return Max(None);
         }
         let mut total = W::Sum::zero();
         for (i, &selected) in config.iter().enumerate() {
@@ -139,19 +139,7 @@ where
                 total += self.weights[i].to_sum();
             }
         }
-        SolutionSize::Valid(total)
-    }
-}
-
-impl<G, W> OptimizationProblem for MaximumClique<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Value = W::Sum;
-
-    fn direction(&self) -> Direction {
-        Direction::Maximize
+        Max(Some(total))
     }
 }
 
@@ -177,7 +165,7 @@ fn is_clique_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    default opt MaximumClique<SimpleGraph, i32> => "1.1996^num_vertices",
+    default MaximumClique<SimpleGraph, i32> => "1.1996^num_vertices",
 }
 
 #[cfg(feature = "example-db")]
@@ -189,7 +177,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![1i32; 5],
         )),
         optimal_config: vec![0, 0, 1, 1, 1],
-        optimal_value: serde_json::json!({"Valid": 3}),
+        optimal_value: serde_json::json!(3),
     }]
 }
 

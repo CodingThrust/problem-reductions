@@ -53,8 +53,8 @@ fn validate_model_uniqueness(models: &[ModelExample]) -> Result<()> {
 
 /// Build the full example database from specs.
 ///
-/// Fast — specs store concrete instances and pre-computed solutions,
-/// no solver is called.
+/// ILP rule examples call the ILP solver at build time to compute solutions
+/// dynamically (feature-gated behind `ilp-solver`).
 pub fn build_example_db() -> Result<ExampleDb> {
     let model_db = build_model_db()?;
     let rule_db = build_rule_db()?;

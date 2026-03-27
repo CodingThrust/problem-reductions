@@ -7,7 +7,9 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
-use problemreductions::rules::{CustomCost, MinimizeSteps, ReductionGraph, TraversalDirection};
+use problemreductions::rules::{
+    CustomCost, MinimizeSteps, ReductionGraph, ReductionMode, TraversalFlow,
+};
 use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
 };
@@ -39,7 +41,7 @@ pub struct NeighborsParams {
     pub problem: String,
     #[schemars(description = "Number of hops to explore (default: 1)")]
     pub hops: Option<usize>,
-    #[schemars(description = "Direction: out (default), in, or both")]
+    #[schemars(description = "Traversal direction: out (default), in, or both")]
     pub direction: Option<String>,
 }
 
@@ -101,7 +103,7 @@ pub struct ReduceParams {
 pub struct SolveParams {
     #[schemars(description = "Problem JSON string (from create_problem or reduce)")]
     pub problem_json: String,
-    #[schemars(description = "Solver: 'ilp' (default) or 'brute-force'")]
+    #[schemars(description = "Solver: 'ilp' (default), 'brute-force', or 'customized'")]
     pub solver: Option<String>,
     #[schemars(description = "Timeout in seconds (0 = no limit, default: 0)")]
     pub timeout: Option<u64>,
@@ -811,23 +813,32 @@ impl McpServer {
 
         // Auto-discover cheapest path
         let input_size = ProblemSize::new(vec![]);
-        let best_path = graph.find_cheapest_path(
+        let best_path = graph.find_cheapest_path_mode(
             source_name,
             &source_variant,
             &dst_ref.name,
             &dst_ref.variant,
+            ReductionMode::Witness,
             &input_size,
             &MinimizeSteps,
         );
 
         let reduction_path = best_path.ok_or_else(|| {
-            anyhow::anyhow!("No reduction path from {} to {}", source_name, dst_ref.name)
+            anyhow::anyhow!(
+                "No witness-capable reduction path from {} to {}",
+                source_name,
+                dst_ref.name
+            )
         })?;
 
         // Execute reduction chain
         let chain = graph
             .reduce_along_path(&reduction_path, source.as_any())
-            .ok_or_else(|| anyhow::anyhow!("Failed to execute reduction chain"))?;
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Reduction bundles require witness-capable paths; this path cannot produce a recoverable witness."
+                )
+            })?;
 
         // Serialize target
         let target_step = reduction_path.steps.last().unwrap();
@@ -869,9 +880,9 @@ impl McpServer {
         timeout: Option<u64>,
     ) -> anyhow::Result<String> {
         let solver_name = solver.unwrap_or("ilp");
-        if solver_name != "brute-force" && solver_name != "ilp" {
+        if solver_name != "brute-force" && solver_name != "ilp" && solver_name != "customized" {
             anyhow::bail!(
-                "Unknown solver: {}. Available solvers: brute-force, ilp",
+                "Unknown solver: {}. Available solvers: brute-force, ilp, customized",
                 solver_name
             );
         }
@@ -1029,7 +1040,7 @@ impl McpServer {
             .map_err(|e| e.to_string())
     }
 
-    /// Solve a problem instance using brute-force or ILP solver
+    /// Solve a problem instance using brute-force, ILP, or customized solver
     #[tool(
         name = "solve",
         annotations(read_only_hint = true, open_world_hint = false)
@@ -1094,11 +1105,11 @@ impl rmcp::ServerHandler for McpServer {
 // helpers
 // ---------------------------------------------------------------------------
 
-fn parse_direction(s: &str) -> anyhow::Result<TraversalDirection> {
+fn parse_direction(s: &str) -> anyhow::Result<TraversalFlow> {
     match s {
-        "out" => Ok(TraversalDirection::Outgoing),
-        "in" => Ok(TraversalDirection::Incoming),
-        "both" => Ok(TraversalDirection::Both),
+        "out" => Ok(TraversalFlow::Outgoing),
+        "in" => Ok(TraversalFlow::Incoming),
+        "both" => Ok(TraversalFlow::Both),
         _ => anyhow::bail!("Unknown direction: {}. Use 'out', 'in', or 'both'.", s),
     }
 }
@@ -1145,6 +1156,22 @@ fn format_path_json(
 
 fn ser<T: Serialize>(problem: T) -> anyhow::Result<serde_json::Value> {
     util::ser(problem)
+}
+
+fn solve_result_json(
+    problem: &str,
+    solver: &str,
+    result: &crate::dispatch::SolveResult,
+) -> serde_json::Value {
+    let mut json = serde_json::json!({
+        "problem": problem,
+        "solver": solver,
+        "evaluation": result.evaluation,
+    });
+    if let Some(config) = &result.config {
+        json["solution"] = serde_json::json!(config);
+    }
+    json
 }
 
 fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
@@ -1445,26 +1472,29 @@ fn solve_problem_inner(
 
     match solver_name {
         "brute-force" => {
-            let result = problem.solve_brute_force()?;
-            let json = serde_json::json!({
-                "problem": name,
-                "solver": "brute-force",
-                "solution": result.config,
-                "evaluation": result.evaluation,
-            });
+            let result = problem.solve_brute_force();
+            let json = solve_result_json(name, "brute-force", &result);
             Ok(serde_json::to_string_pretty(&json)?)
         }
         "ilp" => {
             let result = problem.solve_with_ilp()?;
-            let mut json = serde_json::json!({
-                "problem": name,
-                "solver": "ilp",
-                "solution": result.config,
-                "evaluation": result.evaluation,
-            });
+            let result = crate::dispatch::SolveResult {
+                config: Some(result.config),
+                evaluation: result.evaluation,
+            };
+            let mut json = solve_result_json(name, "ilp", &result);
             if name != "ILP" {
                 json["reduced_to"] = serde_json::json!("ILP");
             }
+            Ok(serde_json::to_string_pretty(&json)?)
+        }
+        "customized" => {
+            let result = problem.solve_with_customized()?;
+            let result = crate::dispatch::SolveResult {
+                config: Some(result.config),
+                evaluation: result.evaluation,
+            };
+            let json = solve_result_json(name, "customized", &result);
             Ok(serde_json::to_string_pretty(&json)?)
         }
         _ => unreachable!(),
@@ -1481,8 +1511,14 @@ fn solve_bundle_inner(bundle: ReductionBundle, solver_name: &str) -> anyhow::Res
     let target_name = target.problem_name();
 
     let target_result = match solver_name {
-        "brute-force" => target.solve_brute_force()?,
+        "brute-force" => target.solve_brute_force_witness().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Bundle solving requires a witness-capable target problem and witness-capable reduction path; {} only supports aggregate-value solving.",
+                target_name
+            )
+        })?,
         "ilp" => target.solve_with_ilp()?,
+        "customized" => target.solve_with_customized()?,
         _ => unreachable!(),
     };
 
@@ -1508,9 +1544,9 @@ fn solve_bundle_inner(bundle: ReductionBundle, solver_name: &str) -> anyhow::Res
 
     let chain = graph
         .reduce_along_path(&reduction_path, source.as_any())
-        .ok_or_else(|| {
-            anyhow::anyhow!("Failed to re-execute reduction chain for solution extraction")
-        })?;
+        .ok_or_else(|| anyhow::anyhow!(
+            "Bundle solving requires a witness-capable reduction path; this bundle cannot recover a source solution."
+        ))?;
 
     let source_config = chain.extract_solution(&target_result.config);
     let source_eval = source.evaluate_dyn(&source_config);

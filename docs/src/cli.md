@@ -56,7 +56,7 @@ pred create MIS --graph 0-1,1-2,2-3 --weights 3,1,2,1 -o weighted.json
 pred create SteinerTree --graph 0-1,0-3,1-2,1-3,2-3,2-4,3-4 --edge-weights 2,5,2,1,5,6,1 --terminals 0,2,4 -o steiner.json
 
 # Create a Length-Bounded Disjoint Paths instance
-pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3 -o lbdp.json
+pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --bound 4 -o lbdp.json
 
 # Create a Consecutive Block Minimization instance (alias: CBM)
 pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound 2 -o cbm.json
@@ -85,7 +85,7 @@ pred solve problem.json --solver brute-force
 # LengthBoundedDisjointPaths currently needs brute-force
 pred solve lbdp.json --solver brute-force
 
-# Evaluate a specific configuration (shows Valid(N) or Invalid)
+# Evaluate a specific configuration (shows the aggregate value, e.g. Max(2) or Min(None))
 pred evaluate problem.json --config 1,0,1,0
 
 # Reduce to another problem type and solve via brute-force
@@ -135,7 +135,6 @@ Registered problems: 50 types, 59 reductions, 69 variant nodes
   ExactCoverBy3Sets *                               X3C                 O(2^universe_size)
   Factoring *                                                        2  O(exp((m + n)^0.3333333333333333 * log(m + n)^0.6666666666666666))
   FlowShopScheduling *                                                  O(factorial(num_jobs))
-  GraphPartitioning/SimpleGraph *                                       O(2^num_vertices)
   HamiltonianPath/SimpleGraph *                                         O(1.657^num_vertices)
   ILP/bool *                                                         2  O(2^num_vars)
   ILP/i32                                                               O(num_vars^num_vars)
@@ -149,7 +148,7 @@ Registered problems: 50 types, 59 reductions, 69 variant nodes
   KSatisfiability/K2                                                    O(num_clauses + num_variables)
   KSatisfiability/K3                                                    O(1.307^num_variables)
   Knapsack *                                                         1  O(2^(0.5 * num_items))
-  LengthBoundedDisjointPaths/SimpleGraph *                              O(2^(num_paths_required * num_vertices))
+  LengthBoundedDisjointPaths/SimpleGraph *                              O(2^(max_paths * num_vertices))
   LongestCommonSubsequence *                        LCS              1  O(2^min_string_length)
   MaxCut/SimpleGraph/i32 *                                           1  O(2^(0.7906666666666666 * num_vertices))
   MaximalIS/SimpleGraph/i32 *                                           O(3^(0.3333333333333333 * num_vertices))
@@ -353,18 +352,18 @@ pred create KColoring --k 3 --graph 0-1,1-2,2-0 -o kcol.json
 pred create KthBestSpanningTree --graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3 -o kth.json
 pred create SpinGlass --graph 0-1,1-2 -o sg.json
 pred create MaxCut --graph 0-1,1-2,2-0 -o maxcut.json
-pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 --bound 1 -o pcenter.json
-pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8 -o swcp.json
+pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 -o pcenter.json
+pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --weight-bound 8 -o swcp.json
 pred create RectilinearPictureCompression --matrix "1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1" --k 2 -o rpc.json
 pred solve rpc.json --solver brute-force
 pred create MinimumMultiwayCut --graph 0-1,1-2,2-3,3-0 --terminals 0,2 --edge-weights 3,1,2,4 -o mmc.json
 pred create SteinerTree --graph 0-1,0-3,1-2,1-3,2-3,2-4,3-4 --edge-weights 2,5,2,1,5,6,1 --terminals 0,2,4 -o steiner.json
 pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1 -o utcif.json
-pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3 -o lbdp.json
+pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --bound 4 -o lbdp.json
 pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
 pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
 pred create X3C --universe 9 --sets "0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8" -o x3c.json
-pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" --k 2 -o mck.json
+pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" -o mck.json
 pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 --precedence-pairs "0>3,1>3,1>4,2>4" -o mts.json
 pred create SchedulingWithIndividualDeadlines --n 7 --deadlines 2,1,2,2,3,3,2 --num-processors 3 --precedence-pairs "0>3,1>3,1>4,2>4,2>5" -o swid.json
 pred solve swid.json --solver brute-force
@@ -442,7 +441,7 @@ Evaluate a configuration against a problem instance:
 
 ```bash
 $ pred evaluate problem.json --config 1,0,1,0
-Valid(2)
+Max(2)
 ```
 
 Stdin is supported with `-`:
@@ -516,7 +515,7 @@ Stdin is supported with `-`:
 ```bash
 pred create MIS --graph 0-1,1-2,2-3 | pred solve -
 pred create MIS --graph 0-1,1-2,2-3 | pred solve - --solver brute-force
-pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 --bound 1 | pred solve - --solver brute-force
+pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 | pred solve - --solver brute-force
 pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets "0,1,2;3,4,5;1,3;2,4;0,5" | pred solve - --solver brute-force
 ```
 
@@ -527,7 +526,7 @@ $ pred solve problem.json
 Problem: MaximumIndependentSet (reduced to ILP)
 Solver: ilp
 Solution: [1, 0, 0, 1]
-Evaluation: Valid(2)
+Evaluation: Max(2)
 ```
 
 Solve a reduction bundle (from `pred reduce`):
@@ -537,9 +536,9 @@ $ pred solve reduced.json --solver brute-force
 Source: MaximumIndependentSet
 Target: QUBO (solved with brute-force)
 Target solution: [0, 1, 0, 1]
-Target evaluation: Valid(-2.0)
+Target evaluation: Min(-2.0)
 Source solution: [0, 1, 0, 1]
-Source evaluation: Valid(2)
+Source evaluation: Max(2)
 ```
 
 > **Note:** The ILP solver requires a reduction path from the target problem to ILP.
@@ -551,7 +550,7 @@ Source evaluation: Valid(2)
 For example, the canonical Minimum Cardinality Key instance can be created and solved with:
 
 ```bash
-pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" --k 2 -o mck.json
+pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" -o mck.json
 pred solve mck.json --solver brute-force
 ```
 

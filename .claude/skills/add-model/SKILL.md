@@ -17,16 +17,16 @@ Before any implementation, collect all required information. If called from `iss
 |---|------|-------------|---------|
 | 1 | **Problem name** | Struct name with optimization prefix | `MaximumClique`, `MinimumDominatingSet` |
 | 2 | **Mathematical definition** | Formal definition with objective/constraints | "Given graph G=(V,E), find max-weight subset S where all pairs in S are adjacent" |
-| 3 | **Problem type** | Optimization (maximize/minimize) or satisfaction | Optimization (Maximize) |
+| 3 | **Problem type** | Objective (`Max`/`Min`), witness (`bool`), or aggregate-only (`Sum`/`And`/custom `Aggregate`) | Objective (Maximize) |
 | 4 | **Type parameters** | Graph type `G`, weight type `W`, or other | `G: Graph`, `W: WeightElement` |
 | 5 | **Struct fields** | What the struct holds | `graph: G`, `weights: Vec<W>` |
 | 6 | **Configuration space** | What `dims()` returns | `vec![2; num_vertices]` for binary vertex selection |
 | 7 | **Feasibility check** | How to validate a configuration | "All selected vertices must be pairwise adjacent" |
-| 8 | **Objective function** | How to compute the metric | "Sum of weights of selected vertices" |
+| 8 | **Per-configuration value** | How `evaluate()` computes the aggregate contribution | "Return `Max(Some(total_weight))` for feasible configs" |
 | 9 | **Best known exact algorithm** | Complexity with variable definitions | "O(1.1996^n) by Xiao & Nagamochi (2017), where n = \|V\|" |
 | 10 | **Solving strategy** | How it can be solved | "BruteForce works; ILP reduction available" |
 | 11 | **Category** | Which sub-module under `src/models/` | `graph`, `formula`, `set`, `algebraic`, `misc` |
-| 12 | **Expected outcome from the issue** | Concrete outcome for the issue's example instance | Optimization: one optimal solution + optimal value. Satisfaction: one valid/satisfying solution + why it is valid |
+| 12 | **Expected outcome from the issue** | Concrete outcome for the issue's example instance | Objective: one optimal solution + optimal value. Witness: one valid/satisfying solution + why it is valid. Aggregate-only: the final aggregate value and how it is derived |
 
 If any item is missing, ask the user to provide it. Do NOT proceed until the checklist is complete.
 
@@ -55,13 +55,18 @@ Before implementation, verify that at least one reduction rule exists or is plan
 
 **If associated rules are found:** List them and continue.
 
+**If the issue explicitly claims ILP solvability in "How to solve":**
+- One associated rule MUST be a direct `[Rule] <ProblemName> to ILP`
+- Treat that direct ILP rule as part of the same implementation scope
+- Do NOT split the model and its direct ILP rule into separate PRs
+
 ## Reference Implementations
 
 Read these first to understand the patterns:
 - **Optimization problem:** `src/models/graph/maximum_independent_set.rs`
 - **Satisfaction problem:** `src/models/formula/sat.rs`
 - **Model tests:** `src/unit_tests/models/graph/maximum_independent_set.rs`
-- **Trait definitions:** `src/traits.rs` (`Problem`, `OptimizationProblem`, `SatisfactionProblem`)
+- **Trait definitions / aggregate types:** `src/traits.rs` (`Problem`), `src/types.rs` (`Aggregate`, `Max`, `Min`, `Sum`, `Or`, `And`, `Extremum`)
 - **Registry dispatch boundary:** `src/registry/mod.rs`, `src/registry/variant.rs`
 - **CLI aliases:** `problemreductions-cli/src/problem_name.rs`
 - **CLI creation:** `problemreductions-cli/src/commands/create.rs`
@@ -71,9 +76,11 @@ Read these first to understand the patterns:
 
 Before implementing, make sure the plan explicitly covers these items that structural review checks later:
 - `ProblemSchemaEntry` metadata is complete for the current schema shape (`display_name`, `aliases`, `dimensions`, and constructor-facing `fields`)
-- `declare_variants!` is present with the correct `opt`/`sat` marker and exactly one `default` variant when multiple concrete variants exist
+- `Problem::Value` uses the correct aggregate wrapper and witness support is intentional
+- `declare_variants!` is present with exactly one `default` variant when multiple concrete variants exist
 - CLI discovery and `pred create <ProblemName>` support are included where applicable
 - A canonical model example is registered for example-db / `pred create --example`
+- If the issue explicitly claims direct ILP solving, the plan also includes the direct `<Problem> -> ILP` rule with exact overhead metadata, feature-gated registration, strong regression tests, and ILP-enabled verification
 - `docs/paper/reductions.typ` adds both the display-name dictionary entry and the `problem-def(...)`
 
 ## Step 1: Determine the category
@@ -110,19 +117,20 @@ Create `src/models/<category>/<name>.rs`:
 // 1. inventory::submit! for ProblemSchemaEntry
 // 2. Struct definition with #[derive(Debug, Clone, Serialize, Deserialize)]
 // 3. Constructor (new) + accessor methods
-// 4. Problem trait impl (NAME, Metric, dims, evaluate, variant)
-// 5. OptimizationProblem or SatisfactionProblem impl
-// 6. #[cfg(test)] #[path = "..."] mod tests;
+// 4. Problem trait impl (NAME, Value, dims, evaluate, variant)
+// 5. #[cfg(test)] #[path = "..."] mod tests;
 ```
 
 Key decisions:
 - **Schema metadata:** `ProblemSchemaEntry` must reflect the current registry schema shape, including `display_name`, `aliases`, `dimensions`, and constructor-facing `fields`
-- **Optimization problems:** `type Metric = SolutionSize<W::Sum>`, implement `OptimizationProblem` with `direction()`
-- **Satisfaction problems:** `type Metric = bool`, implement `SatisfactionProblem` (marker trait)
+- **Objective problems:** use `type Value = Max<_>`, `Min<_>`, or `Extremum<_>` when the model should expose optimization-style witness helpers
+- **Witness problems:** use `type Value = Or` for existential feasibility problems
+- **Aggregate-only problems:** use a value-only aggregate such as `Sum<_>`, `And`, or a custom `Aggregate` when witnesses are not meaningful
 - **Weight management:** use inherent methods (`weights()`, `set_weights()`, `is_weighted()`), NOT traits
 - **`dims()`:** returns the configuration space dimensions (e.g., `vec![2; n]` for binary variables)
-- **`evaluate()`:** must check feasibility first, then compute objective
+- **`evaluate()`:** must return the per-configuration aggregate value. For models with invalid configs, check feasibility first and return the appropriate invalid/false contribution
 - **`variant()`:** use the `variant_params!` macro — e.g., `crate::variant_params![G, W]` for `Problem<G, W>`, or `crate::variant_params![]` for problems with no type parameters. Each type parameter must implement `VariantParam` (already done for standard types like `SimpleGraph`, `i32`, `One`). See `src/variant.rs`.
+- **Solve surface:** `Solver::solve()` always computes the aggregate value. `pred solve problem.json` prints a `Solution` only when a witness exists; `pred solve bundle.json` and `--solver ilp` remain witness-only workflows
 
 ## Step 2.5: Register variant complexity
 
@@ -130,14 +138,11 @@ Add `declare_variants!` at the bottom of the model file (after the trait impls, 
 
 ```rust
 crate::declare_variants! {
-    opt ProblemName<SimpleGraph, i32> => "1.1996^num_vertices",
-    default opt ProblemName<SimpleGraph, One> => "1.1996^num_vertices",
+    ProblemName<SimpleGraph, i32> => "1.1996^num_vertices",
+    default ProblemName<SimpleGraph, One> => "1.1996^num_vertices",
 }
 ```
 
-- Each entry must include an explicit solver kind:
-  - `opt` for optimization problems (`BruteForce::find_best`)
-  - `sat` for satisfaction problems (`BruteForce::find_satisfying`)
 - Mark exactly one concrete variant `default` when the problem has multiple registered variants
 - The complexity string references the getter method names from Step 1.5 (e.g., `num_vertices`) — variable names are validated at compile time against actual getters, so typos cause compile errors
 - One entry per supported `(graph, weight)` combination
@@ -145,6 +150,8 @@ crate::declare_variants! {
 - Use only concrete numeric values (e.g., `"1.1996^num_vertices"`, not `"(2-epsilon)^num_vertices"`)
 - A compiled `complexity_eval_fn` plus registry-backed load/serialize/solve dispatch metadata are auto-generated alongside the symbolic expression
 - See `src/models/graph/maximum_independent_set.rs` for the reference pattern
+
+`declare_variants!` now handles objective, witness-capable, and aggregate-only models uniformly. Use manual `VariantEntry` wiring only for unusual dynamic-registration work, not for ordinary models.
 
 ## Step 3: Register the model
 
@@ -160,7 +167,6 @@ The CLI now loads, serializes, and brute-force solves problems through the core 
 
 1. **Registry-backed dispatch comes from `declare_variants!`:**
    - Make sure every concrete variant you want the CLI to load is listed in `declare_variants!`
-   - Use the correct `opt`/`sat` marker per entry
    - Mark the intended default variant with `default` when applicable
 
 2. **`problemreductions-cli/src/problem_name.rs`:**
@@ -193,6 +199,19 @@ This example is now the canonical source for:
 - paper/example exports via `load-model-example()` in `reductions.typ`
 - example-db invariants tested in `src/unit_tests/example_db.rs`
 
+## Step 4.7: Implement Direct ILP Rule When Claimed
+
+If the issue explicitly says the model is solvable by reducing **directly** to ILP, implement `src/rules/<problem>_ilp.rs` in the **same PR** as the model. This is the one exception to the normal "one item per PR" policy: the direct `<Problem> -> ILP` rule is part of the model feature, not optional follow-up work.
+
+Completeness bar:
+- Feature-gate the rule under `ilp-solver` and register it normally
+- Add exact overhead expressions and any required size-field getters; metadata must match the constructed ILP exactly
+- Add strong tests in `src/unit_tests/rules/<problem>_ilp.rs`: structure/metadata, closed-loop semantics vs the source problem or brute force, extraction, `solve_reduced()` or ILP path coverage when appropriate, and weighted/infeasible/pathological regressions whenever the model semantics admit them
+- Update CLI/example-db/paper paths so the claimed ILP solver route is actually usable and documented
+- Verify with ILP-enabled workspace commands, not just non-ILP unit tests
+
+A direct ILP rule shipped with a model issue must match the completeness bar of a standalone production ILP reduction. Do not add a stub just to satisfy the issue text.
+
 ## Step 5: Write unit tests
 
 Create `src/unit_tests/models/<category>/<name>.rs`:
@@ -200,11 +219,13 @@ Create `src/unit_tests/models/<category>/<name>.rs`:
 Every model needs **at least 3 test functions** (the structural reviewer enforces this). Choose from the coverage areas below — pick whichever are relevant to the model:
 
 - **Creation/basic** — exercise constructor inputs, key accessors, `dims()` / `num_variables()`.
-- **Evaluation** — valid and invalid configs so the feasibility boundary is explicit.
-- **Direction** — verify optimization direction (optimization problems only).
-- **Solver** — brute-force solver finds correct solutions (when the model is small enough).
+- **Evaluation** — valid and invalid configs so the feasibility boundary or aggregate contribution is explicit.
+- **Direction / sense** — verify runtime optimization sense only for models that use `Extremum<_>`.
+- **Solver** — brute-force `solve()` returns the correct aggregate value; if witnesses are supported, verify `find_witness()` / `find_all_witnesses()` as well.
 - **Serialization** — round-trip serde (when the model is used in CLI/example-db flows).
 - **Paper example** — verify the worked example from the paper entry (see below).
+
+If Step 4.7 applies, also add a dedicated ILP rule test file under `src/unit_tests/rules/<problem>_ilp.rs`. Use strong direct-to-ILP reductions in the repo as the reference bar: the tests should validate the actual formulation semantics, not just that an ILP file exists.
 
 When you add `test_<name>_paper_example`, it should:
 1. Construct the same instance shown in the paper's example figure
@@ -259,8 +280,15 @@ Checklist: display name registered, notation self-contained, background present,
 
 ## Step 7: Verify
 
+For ordinary model-only work:
 ```bash
 make test clippy  # Must pass
+```
+
+If Step 4.7 applied, run ILP-enabled workspace verification instead:
+```bash
+cargo clippy --all-targets --features ilp-highs -- -D warnings
+cargo test --features "ilp-highs example-db" --workspace --verbose
 ```
 
 Structural and quality review is handled by the `review-pipeline` stage, not here. The run stage just needs to produce working code.
@@ -280,9 +308,11 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 | Forgetting `inventory::submit!` | Every problem needs a `ProblemSchemaEntry` registration |
 | Missing `#[path]` test link | Add `#[cfg(test)] #[path = "..."] mod tests;` at file bottom |
 | Wrong `dims()` | Must match the actual configuration space (e.g., `vec![2; n]` for binary) |
+| Using the wrong aggregate wrapper | Objective models use `Max` / `Min` / `Extremum`, witness models use `bool`, aggregate-only models use a fold value like `Sum` / `And` |
 | Not registering in `mod.rs` | Must update both `<category>/mod.rs` and `models/mod.rs` |
 | Forgetting `declare_variants!` | Required for variant complexity metadata and registry-backed load/serialize/solve dispatch |
-| Wrong `declare_variants!` syntax | Every entry now needs `opt` or `sat`; one entry per problem may be marked `default` |
+| Wrong aggregate wrapper | Use `Max` / `Min` / `Extremum` for objective problems, `Or` for existential witness problems, and `Sum` / `And` (or a custom aggregate) for value-only folds |
+| Wrong `declare_variants!` syntax | Entries no longer use `opt` / `sat`; one entry per problem may be marked `default` |
 | Forgetting CLI alias | Must add lowercase entry in `problem_name.rs` `resolve_alias()` |
 | Inventing short aliases | Only use well-established literature abbreviations (MIS, SAT, TSP); do NOT invent new ones |
 | Forgetting CLI create | Must add creation handler in `commands/create.rs` and flags in `cli.rs` |
@@ -290,3 +320,4 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 | Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |
 | Missing canonical model example | Add a builder in `src/example_db/model_builders.rs` and keep it aligned with paper/example workflows |
 | Paper example not tested | Must include `test_<name>_paper_example` that verifies the exact instance, solution, and solution count shown in the paper |
+| Claiming direct ILP solving but leaving `<Problem> -> ILP` for later | If the issue promises a direct ILP path, implement that rule in the same PR with exact overhead metadata and production-level ILP tests |

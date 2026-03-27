@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -139,7 +139,7 @@ impl IntegralFlowHomologousArcs {
     }
 
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config)
+        self.evaluate(config).0
     }
 
     fn domain_size(capacity: u64) -> usize {
@@ -152,7 +152,7 @@ impl IntegralFlowHomologousArcs {
 
 impl Problem for IntegralFlowHomologousArcs {
     const NAME: &'static str = "IntegralFlowHomologousArcs";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -165,50 +165,50 @@ impl Problem for IntegralFlowHomologousArcs {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_arcs() {
-            return false;
-        }
-
-        for &(a, b) in &self.homologous_pairs {
-            if config[a] != config[b] {
-                return false;
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.num_arcs() {
+                return crate::types::Or(false);
             }
-        }
 
-        let mut balances = vec![0_i128; self.num_vertices()];
-        for (arc_index, ((u, v), &capacity)) in self
-            .graph
-            .arcs()
-            .into_iter()
-            .zip(self.capacities.iter())
-            .enumerate()
-        {
-            let Ok(flow) = u64::try_from(config[arc_index]) else {
-                return false;
-            };
-            if flow > capacity {
-                return false;
+            for &(a, b) in &self.homologous_pairs {
+                if config[a] != config[b] {
+                    return crate::types::Or(false);
+                }
             }
-            let flow = i128::from(flow);
-            balances[u] -= flow;
-            balances[v] += flow;
-        }
 
-        for (vertex, &balance) in balances.iter().enumerate() {
-            if vertex != self.source && vertex != self.sink && balance != 0 {
-                return false;
+            let mut balances = vec![0_i128; self.num_vertices()];
+            for (arc_index, ((u, v), &capacity)) in self
+                .graph
+                .arcs()
+                .into_iter()
+                .zip(self.capacities.iter())
+                .enumerate()
+            {
+                let Ok(flow) = u64::try_from(config[arc_index]) else {
+                    return crate::types::Or(false);
+                };
+                if flow > capacity {
+                    return crate::types::Or(false);
+                }
+                let flow = i128::from(flow);
+                balances[u] -= flow;
+                balances[v] += flow;
             }
-        }
 
-        balances[self.sink] >= i128::from(self.requirement)
+            for (vertex, &balance) in balances.iter().enumerate() {
+                if vertex != self.source && vertex != self.sink && balance != 0 {
+                    return crate::types::Or(false);
+                }
+            }
+
+            balances[self.sink] >= i128::from(self.requirement)
+        })
     }
 }
 
-impl SatisfactionProblem for IntegralFlowHomologousArcs {}
-
 crate::declare_variants! {
-    default sat IntegralFlowHomologousArcs => "(max_capacity + 1)^num_arcs",
+    default IntegralFlowHomologousArcs => "(max_capacity + 1)^num_arcs",
 }
 
 #[cfg(feature = "example-db")]

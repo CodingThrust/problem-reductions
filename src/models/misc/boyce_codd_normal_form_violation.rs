@@ -6,7 +6,7 @@
 //! some but not all attributes of `A' \ X` — i.e., a witness to a BCNF violation.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -176,36 +176,38 @@ impl BoyceCoddNormalFormViolation {
 
 impl Problem for BoyceCoddNormalFormViolation {
     const NAME: &'static str = "BoyceCoddNormalFormViolation";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.target_subset.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.target_subset.len() || config.iter().any(|&v| v > 1) {
-            return false;
-        }
-        let x: HashSet<usize> = config
-            .iter()
-            .enumerate()
-            .filter(|(_, &v)| v == 1)
-            .map(|(i, _)| self.target_subset[i])
-            .collect();
-        let closure = Self::compute_closure(&x, &self.functional_deps);
-        // Check: ∃ y, z ∈ A' \ X s.t. y ∈ closure ∧ z ∉ closure
-        let mut has_in_closure = false;
-        let mut has_not_in_closure = false;
-        for &a in &self.target_subset {
-            if !x.contains(&a) {
-                if closure.contains(&a) {
-                    has_in_closure = true;
-                } else {
-                    has_not_in_closure = true;
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.target_subset.len() || config.iter().any(|&v| v > 1) {
+                return crate::types::Or(false);
+            }
+            let x: HashSet<usize> = config
+                .iter()
+                .enumerate()
+                .filter(|(_, &v)| v == 1)
+                .map(|(i, _)| self.target_subset[i])
+                .collect();
+            let closure = Self::compute_closure(&x, &self.functional_deps);
+            // Check: ∃ y, z ∈ A' \ X s.t. y ∈ closure ∧ z ∉ closure
+            let mut has_in_closure = false;
+            let mut has_not_in_closure = false;
+            for &a in &self.target_subset {
+                if !x.contains(&a) {
+                    if closure.contains(&a) {
+                        has_in_closure = true;
+                    } else {
+                        has_not_in_closure = true;
+                    }
                 }
             }
-        }
-        has_in_closure && has_not_in_closure
+            has_in_closure && has_not_in_closure
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -213,10 +215,8 @@ impl Problem for BoyceCoddNormalFormViolation {
     }
 }
 
-impl SatisfactionProblem for BoyceCoddNormalFormViolation {}
-
 crate::declare_variants! {
-    default sat BoyceCoddNormalFormViolation => "2^num_target_attributes * num_target_attributes^2 * num_functional_deps",
+    default BoyceCoddNormalFormViolation => "2^num_target_attributes * num_target_attributes^2 * num_functional_deps",
 }
 
 #[cfg(feature = "example-db")]

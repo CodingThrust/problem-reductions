@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -54,7 +54,7 @@ inventory::submit! {
 /// let problem = MinimumSumMulticenter::new(graph, vec![1i32; 3], vec![1i32; 2], 1);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_best(&problem).unwrap();
+/// let solution = solver.find_witness(&problem).unwrap();
 /// // Center at vertex 1 gives total distance 0+1+1 = 2 (optimal)
 /// assert_eq!(solution, vec![0, 1, 0]);
 /// ```
@@ -214,7 +214,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumSumMulticenter";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = Min<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -224,17 +224,17 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
         // Check exactly K centers are selected
         let num_selected: usize = config.iter().sum();
         if num_selected != self.k {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
 
         // Compute shortest distances to nearest center
         let distances = match self.shortest_distances(config) {
             Some(d) => d,
-            None => return SolutionSize::Invalid,
+            None => return Min(None),
         };
 
         // Compute total weighted distance: Σ w(v) * d(v)
@@ -243,24 +243,12 @@ where
             total += self.vertex_weights[v].to_sum() * dist.clone();
         }
 
-        SolutionSize::Valid(total)
-    }
-}
-
-impl<G, W> OptimizationProblem for MinimumSumMulticenter<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Value = W::Sum;
-
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+        Min(Some(total))
     }
 }
 
 crate::declare_variants! {
-    default opt MinimumSumMulticenter<SimpleGraph, i32> => "2^num_vertices",
+    default MinimumSumMulticenter<SimpleGraph, i32> => "2^num_vertices",
 }
 
 #[cfg(feature = "example-db")]
@@ -286,7 +274,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             2,
         )),
         optimal_config: vec![0, 0, 1, 0, 0, 1, 0],
-        optimal_value: serde_json::json!({"Valid": 6}),
+        optimal_value: serde_json::json!(6),
     }]
 }
 

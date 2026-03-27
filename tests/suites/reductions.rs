@@ -31,7 +31,7 @@ mod is_vc_reductions {
 
         // Solve the target VC problem
         let solver = BruteForce::new();
-        let vc_solutions = solver.find_all_best(vc_problem);
+        let vc_solutions = solver.find_all_witnesses(vc_problem);
 
         // Extract back to IS solution
         let is_solution = result.extract_solution(&vc_solutions[0]);
@@ -58,7 +58,7 @@ mod is_vc_reductions {
 
         // Solve the target IS problem
         let solver = BruteForce::new();
-        let is_solutions = solver.find_all_best(is_problem);
+        let is_solutions = solver.find_all_witnesses(is_problem);
 
         // Extract back to VC solution
         let vc_solution = result.extract_solution(&is_solutions[0]);
@@ -91,7 +91,7 @@ mod is_vc_reductions {
 
         // Solve the final problem
         let solver = BruteForce::new();
-        let solutions = solver.find_all_best(final_is);
+        let solutions = solver.find_all_witnesses(final_is);
 
         // Extract through the chain
         let intermediate_sol = back_to_is.extract_solution(&solutions[0]);
@@ -126,10 +126,10 @@ mod is_vc_reductions {
         let solver = BruteForce::new();
 
         // Solve IS, reduce to VC solution
-        let is_solutions = solver.find_all_best(&is_problem);
+        let is_solutions = solver.find_all_witnesses(&is_problem);
         let max_is = is_solutions[0].iter().sum::<usize>();
 
-        let vc_solutions = solver.find_all_best(&vc_problem);
+        let vc_solutions = solver.find_all_witnesses(&vc_problem);
         let min_vc = vc_solutions[0].iter().sum::<usize>();
 
         assert_eq!(max_is + min_vc, n);
@@ -156,7 +156,7 @@ mod is_sp_reductions {
 
         // Solve
         let solver = BruteForce::new();
-        let sp_solutions = solver.find_all_best(sp_problem);
+        let sp_solutions = solver.find_all_witnesses(sp_problem);
 
         // Extract to IS solution
         let is_solution = result.extract_solution(&sp_solutions[0]);
@@ -178,7 +178,7 @@ mod is_sp_reductions {
 
         // Solve
         let solver = BruteForce::new();
-        let is_solutions = solver.find_all_best(is_problem);
+        let is_solutions = solver.find_all_witnesses(is_problem);
 
         // Extract to SP solution
         let sp_solution = result.extract_solution(&is_solutions[0]);
@@ -201,7 +201,7 @@ mod is_sp_reductions {
 
         // Solve SP
         let solver = BruteForce::new();
-        let sp_solutions = solver.find_all_best(sp_problem);
+        let sp_solutions = solver.find_all_witnesses(sp_problem);
 
         // Extract to IS solution
         let is_solution = to_sp.extract_solution(&sp_solutions[0]);
@@ -210,7 +210,7 @@ mod is_sp_reductions {
         assert!(original.evaluate(&is_solution).is_valid());
 
         // Should match directly solving IS
-        let direct_solutions = solver.find_all_best(&original);
+        let direct_solutions = solver.find_all_witnesses(&original);
         let direct_max = direct_solutions[0].iter().sum::<usize>();
         let reduced_max = is_solution.iter().sum::<usize>();
 
@@ -234,7 +234,7 @@ mod sg_qubo_reductions {
 
         // Solve QUBO
         let solver = BruteForce::new();
-        let qubo_solutions = solver.find_all_best(qubo);
+        let qubo_solutions = solver.find_all_witnesses(qubo);
 
         // Extract to SG solution
         let sg_solution = result.extract_solution(&qubo_solutions[0]);
@@ -253,7 +253,7 @@ mod sg_qubo_reductions {
 
         // Solve SG
         let solver = BruteForce::new();
-        let sg_solutions = solver.find_all_best(sg);
+        let sg_solutions = solver.find_all_witnesses(sg);
 
         // Extract to QUBO solution
         let qubo_solution = result.extract_solution(&sg_solutions[0]);
@@ -275,8 +275,8 @@ mod sg_qubo_reductions {
         // Check that ground states correspond
         let solver = BruteForce::new();
 
-        let sg_solutions = solver.find_all_best(&sg);
-        let qubo_solutions = solver.find_all_best(qubo);
+        let sg_solutions = solver.find_all_witnesses(&sg);
+        let qubo_solutions = solver.find_all_witnesses(qubo);
 
         // Extract QUBO solution back to SG
         let extracted = result.extract_solution(&qubo_solutions[0]);
@@ -316,7 +316,7 @@ mod sg_maxcut_reductions {
 
         // Solve MaxCut
         let solver = BruteForce::new();
-        let maxcut_solutions = solver.find_all_best(maxcut);
+        let maxcut_solutions = solver.find_all_witnesses(maxcut);
 
         // Extract to SG solution
         let sg_solution = result.extract_solution(&maxcut_solutions[0]);
@@ -338,7 +338,7 @@ mod sg_maxcut_reductions {
 
         // Solve SG
         let solver = BruteForce::new();
-        let sg_solutions = solver.find_all_best(sg);
+        let sg_solutions = solver.find_all_witnesses(sg);
 
         // Extract to MaxCut solution
         let maxcut_solution = result.extract_solution(&sg_solutions[0]);
@@ -360,8 +360,8 @@ mod sg_maxcut_reductions {
         let solver = BruteForce::new();
 
         // Solve both
-        let sg_solutions = solver.find_all_best(&sg);
-        let maxcut_solutions = solver.find_all_best(maxcut);
+        let sg_solutions = solver.find_all_witnesses(&sg);
+        let maxcut_solutions = solver.find_all_witnesses(maxcut);
 
         // Extract MaxCut solution back to SG
         let extracted = result.extract_solution(&maxcut_solutions[0]);
@@ -389,7 +389,7 @@ mod topology_tests {
         let sp = MaximumSetPacking::<i32>::new(vec![vec![0, 1, 2], vec![2, 3], vec![3, 4]]);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_best(&sp);
+        let solutions = solver.find_all_witnesses(&sp);
 
         assert!(sp.evaluate(&solutions[0]).is_valid());
     }
@@ -410,7 +410,7 @@ mod topology_tests {
         let is_problem = MaximumIndependentSet::new(SimpleGraph::new(4, edges), vec![1i32; 4]);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_best(&is_problem);
+        let solutions = solver.find_all_witnesses(&is_problem);
 
         // Vertices 0-1 are connected, 2-3 are connected
         // Max IS: {0, 2} or {0, 3} or {1, 2} or {1, 3} = size 2
@@ -479,7 +479,7 @@ mod qubo_reductions {
         assert_eq!(qubo.num_variables(), data.qubo_num_vars);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_best(qubo);
+        let solutions = solver.find_all_witnesses(qubo);
 
         // All QUBO optimal solutions should extract to valid IS solutions
         for sol in &solutions {
@@ -524,7 +524,7 @@ mod qubo_reductions {
         assert_eq!(qubo.num_variables(), data.qubo_num_vars);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_best(qubo);
+        let solutions = solver.find_all_witnesses(qubo);
 
         for sol in &solutions {
             let extracted = reduction.extract_solution(sol);
@@ -561,7 +561,7 @@ mod qubo_reductions {
         assert_eq!(qubo.num_variables(), data.qubo_num_vars);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_best(qubo);
+        let solutions = solver.find_all_witnesses(qubo);
 
         for sol in &solutions {
             let extracted = reduction.extract_solution(sol);
@@ -626,7 +626,7 @@ mod qubo_reductions {
         assert_eq!(qubo.num_variables(), data.qubo_num_vars);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_best(qubo);
+        let solutions = solver.find_all_witnesses(qubo);
 
         for sol in &solutions {
             let extracted = reduction.extract_solution(sol);
@@ -710,7 +710,7 @@ mod qubo_reductions {
         assert!(qubo.num_variables() >= data.qubo_num_vars);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_best(qubo);
+        let solutions = solver.find_all_witnesses(qubo);
 
         for sol in &solutions {
             let extracted = reduction.extract_solution(sol);
@@ -778,7 +778,7 @@ mod qubo_reductions {
         let qubo: &QUBO<f64> = chain.target_problem();
 
         let solver = BruteForce::new();
-        let solutions = solver.find_all_best(qubo);
+        let solutions = solver.find_all_witnesses(qubo);
 
         // Extract back through the full chain to get VC solution
         for sol in &solutions {
@@ -866,20 +866,20 @@ mod end_to_end {
 
         // Solve directly
         let solver = BruteForce::new();
-        let is_solutions = solver.find_all_best(&is);
+        let is_solutions = solver.find_all_witnesses(&is);
         let direct_size = is_solutions[0].iter().sum::<usize>();
 
         // Reduce to VC and solve
         let to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is);
         let vc = to_vc.target_problem();
-        let vc_solutions = solver.find_all_best(vc);
+        let vc_solutions = solver.find_all_witnesses(vc);
         let vc_extracted = to_vc.extract_solution(&vc_solutions[0]);
         let via_vc_size = vc_extracted.iter().sum::<usize>();
 
         // Reduce to MaximumSetPacking and solve
         let to_sp = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is);
         let sp = to_sp.target_problem();
-        let sp_solutions = solver.find_all_best(sp);
+        let sp_solutions = solver.find_all_witnesses(sp);
         let sp_extracted = to_sp.extract_solution(&sp_solutions[0]);
         let via_sp_size = sp_extracted.iter().sum::<usize>();
 
@@ -899,7 +899,7 @@ mod end_to_end {
 
         // Solve directly
         let solver = BruteForce::new();
-        let sg_solutions = solver.find_all_best(&sg);
+        let sg_solutions = solver.find_all_witnesses(&sg);
 
         // Convert usize solution to i32 spin values for compute_energy
         let direct_spins: Vec<i32> = sg_solutions[0].iter().map(|&x| x as i32).collect();
@@ -908,7 +908,7 @@ mod end_to_end {
         // Reduce to MaxCut and solve
         let to_maxcut = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
         let maxcut = to_maxcut.target_problem();
-        let maxcut_solutions = solver.find_all_best(maxcut);
+        let maxcut_solutions = solver.find_all_witnesses(maxcut);
         let maxcut_extracted = to_maxcut.extract_solution(&maxcut_solutions[0]);
 
         // Convert extracted solution to spins for energy computation
@@ -935,7 +935,7 @@ mod end_to_end {
 
         // Solve VC
         let solver = BruteForce::new();
-        let vc_solutions = solver.find_all_best(vc);
+        let vc_solutions = solver.find_all_witnesses(vc);
 
         // Extract back through chain
         let is_sol = is_to_vc.extract_solution(&vc_solutions[0]);

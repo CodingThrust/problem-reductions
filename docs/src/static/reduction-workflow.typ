@@ -27,7 +27,7 @@
 
     // Edges with labels
     edge(<a>, <b>, "->", stroke: 1.5pt + accent, label: text(size: 9pt)[`reduce_to`], label-sep: 5pt, label-pos: 0.5, label-side: left),
-    edge(<b>, <sol-b>, "->", stroke: 1.5pt + accent, label: text(size: 9pt)[`find_best`], label-sep: 5pt, label-pos: 0.5, label-side: left),
+    edge(<b>, <sol-b>, "->", stroke: 1.5pt + accent, label: text(size: 9pt)[`find_witness`], label-sep: 5pt, label-pos: 0.5, label-side: left),
     edge(<sol-b>, <sol-a>, "->", stroke: 1.5pt + success, label: text(size: 9pt)[`extract_solution`], label-sep: 2pt, label-pos: 0.5, label-side: left),
   )
 }

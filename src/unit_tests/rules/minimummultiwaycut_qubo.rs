@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Min;
 
 #[test]
 fn test_minimummultiwaycut_to_qubo_closed_loop() {
@@ -13,7 +13,7 @@ fn test_minimummultiwaycut_to_qubo_closed_loop() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_best(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo);
 
     assert!(!qubo_solutions.is_empty(), "QUBO solver found no solutions");
 
@@ -21,7 +21,7 @@ fn test_minimummultiwaycut_to_qubo_closed_loop() {
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
         let metric = source.evaluate(&extracted);
-        assert_eq!(metric, SolutionSize::Valid(8));
+        assert_eq!(metric, Min(Some(8)));
     }
 }
 
@@ -35,7 +35,7 @@ fn test_minimummultiwaycut_to_qubo_small() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_best(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo);
 
     assert!(!qubo_solutions.is_empty(), "QUBO solver found no solutions");
 
@@ -44,7 +44,7 @@ fn test_minimummultiwaycut_to_qubo_small() {
         let extracted = reduction.extract_solution(sol);
         let metric = source.evaluate(&extracted);
         // With 2 terminals and path 0-1-2, minimum cut is 1 (cut either edge)
-        assert_eq!(metric, SolutionSize::Valid(1));
+        assert_eq!(metric, Min(Some(1)));
     }
 }
 
@@ -70,7 +70,7 @@ fn test_minimummultiwaycut_to_qubo_terminal_pinning() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_best(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo);
 
     let k = terminals.len();
     for sol in &qubo_solutions {

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 /// Tucker matrix (3×4) — the classic C1P obstruction.
@@ -70,7 +70,7 @@ fn test_consecutive_ones_submatrix_brute_force() {
     let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3);
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("should find a solution");
     assert!(problem.evaluate(&solution));
 }
@@ -79,7 +79,7 @@ fn test_consecutive_ones_submatrix_brute_force() {
 fn test_consecutive_ones_submatrix_brute_force_all() {
     let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 3);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     for sol in &solutions {
         assert!(problem.evaluate(sol));
@@ -91,7 +91,7 @@ fn test_consecutive_ones_submatrix_unsatisfiable() {
     // Tucker matrix with K=4: no permutation of all 4 columns gives C1P
     let problem = ConsecutiveOnesSubmatrix::new(tucker_matrix(), 4);
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
@@ -104,9 +104,7 @@ fn test_consecutive_ones_submatrix_trivial_c1p() {
     ];
     let problem = ConsecutiveOnesSubmatrix::new(matrix, 3);
     let solver = BruteForce::new();
-    let solution = solver
-        .find_satisfying(&problem)
-        .expect("full matrix has C1P");
+    let solution = solver.find_witness(&problem).expect("full matrix has C1P");
     assert!(problem.evaluate(&solution));
 }
 
@@ -116,7 +114,7 @@ fn test_consecutive_ones_submatrix_single_column() {
     let matrix = vec![vec![true, false, true], vec![false, true, false]];
     let problem = ConsecutiveOnesSubmatrix::new(matrix, 1);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert_eq!(solutions.len(), 3); // each column works individually
 }
 
@@ -130,7 +128,7 @@ fn test_consecutive_ones_submatrix_empty_rows() {
     ];
     let problem = ConsecutiveOnesSubmatrix::new(matrix, 2);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     for sol in &solutions {
         assert!(problem.evaluate(sol));
@@ -166,7 +164,7 @@ fn test_consecutive_ones_submatrix_paper_example() {
     assert!(problem.evaluate(&[1, 1, 0, 1]));
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // All solutions must be valid
     for sol in &solutions {
         assert!(problem.evaluate(sol));

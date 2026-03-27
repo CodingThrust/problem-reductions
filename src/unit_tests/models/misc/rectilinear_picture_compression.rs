@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 fn two_block_matrix() -> Vec<Vec<bool>> {
@@ -96,7 +96,7 @@ fn test_rectilinear_picture_compression_evaluate_invalid_variable_value() {
 fn test_rectilinear_picture_compression_issue_matrix_satisfiable() {
     let problem = RectilinearPictureCompression::new(issue_matrix(), 3);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     let sol = solution.unwrap();
     assert!(problem.evaluate(&sol));
@@ -106,7 +106,7 @@ fn test_rectilinear_picture_compression_issue_matrix_satisfiable() {
 fn test_rectilinear_picture_compression_issue_matrix_unsatisfiable() {
     let problem = RectilinearPictureCompression::new(issue_matrix(), 2);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_none());
 }
 
@@ -115,7 +115,7 @@ fn test_rectilinear_picture_compression_brute_force() {
     let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("should find a solution");
     assert!(problem.evaluate(&solution));
 }
@@ -124,7 +124,7 @@ fn test_rectilinear_picture_compression_brute_force() {
 fn test_rectilinear_picture_compression_brute_force_all() {
     let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // Two disjoint 2x2 blocks with K=2: exactly one satisfying config [1,1].
     assert_eq!(solutions.len(), 1);
     for sol in &solutions {
@@ -200,7 +200,7 @@ fn test_rectilinear_picture_compression_overlapping_rectangles() {
     assert!(rects.contains(&(0, 0, 1, 0)));
     assert!(rects.contains(&(0, 0, 0, 1)));
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem).unwrap();
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(problem.evaluate(&solution));
 }
 

@@ -19,9 +19,10 @@ where
         + std::ops::Mul<Output = W>
         + std::fmt::Debug
         + NumericSize,
+    <W as WeightElement>::Sum: std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned,
 {
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&gadget.problem);
+    let solutions = solver.find_all_witnesses(&gadget.problem);
 
     // For each expected input/output pair, verify there's a matching ground state
     for (inputs, outputs) in expected {
@@ -120,7 +121,7 @@ fn test_set0_gadget() {
     assert_eq!(gadget.outputs, vec![0]);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&gadget.problem);
+    let solutions = solver.find_all_witnesses(&gadget.problem);
     // Ground state should be spin down (0)
     assert!(solutions.contains(&vec![0]));
     assert!(!solutions.contains(&vec![1]));
@@ -134,7 +135,7 @@ fn test_set1_gadget() {
     assert_eq!(gadget.outputs, vec![0]);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&gadget.problem);
+    let solutions = solver.find_all_witnesses(&gadget.problem);
     // Ground state should be spin up (1)
     assert!(solutions.contains(&vec![1]));
     assert!(!solutions.contains(&vec![0]));
@@ -152,7 +153,7 @@ fn test_constant_true() {
     let sg = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(sg);
+    let solutions = solver.find_all_witnesses(sg);
 
     let extracted: Vec<Vec<usize>> = solutions
         .iter()
@@ -179,7 +180,7 @@ fn test_constant_false() {
     let sg = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(sg);
+    let solutions = solver.find_all_witnesses(sg);
 
     let extracted: Vec<Vec<usize>> = solutions
         .iter()
@@ -210,7 +211,7 @@ fn test_multi_input_and() {
     let sg = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(sg);
+    let solutions = solver.find_all_witnesses(sg);
 
     let extracted: Vec<Vec<usize>> = solutions
         .iter()

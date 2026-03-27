@@ -2,7 +2,7 @@ use super::*;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Max;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
@@ -55,7 +55,7 @@ fn test_maximummatching_to_ilp_closed_loop() {
     let ilp_solver = ILPSolver::new();
 
     // Solve with brute force on original problem
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
 
     // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -64,8 +64,8 @@ fn test_maximummatching_to_ilp_closed_loop() {
     // Both should find optimal size = 1 (one edge)
     let bf_size = problem.evaluate(&bf_solutions[0]);
     let ilp_size = problem.evaluate(&extracted);
-    assert_eq!(bf_size, SolutionSize::Valid(1));
-    assert_eq!(ilp_size, SolutionSize::Valid(1));
+    assert_eq!(bf_size, Max(Some(1)));
+    assert_eq!(ilp_size, Max(Some(1)));
 
     // Verify the ILP solution is valid for the original problem
     assert!(
@@ -86,7 +86,7 @@ fn test_ilp_solution_equals_brute_force_path() {
     let ilp_solver = ILPSolver::new();
 
     // Solve with brute force
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let bf_size = problem.evaluate(&bf_solutions[0]);
 
     // Solve via ILP
@@ -94,8 +94,8 @@ fn test_ilp_solution_equals_brute_force_path() {
     let extracted = reduction.extract_solution(&ilp_solution);
     let ilp_size = problem.evaluate(&extracted);
 
-    assert_eq!(bf_size, SolutionSize::Valid(2));
-    assert_eq!(ilp_size, SolutionSize::Valid(2));
+    assert_eq!(bf_size, Max(Some(2)));
+    assert_eq!(ilp_size, Max(Some(2)));
 
     // Verify validity
     assert!(problem.evaluate(&extracted).is_valid());
@@ -114,15 +114,15 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let bf_obj = problem.evaluate(&bf_solutions[0]);
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
     let ilp_obj = problem.evaluate(&extracted);
 
-    assert_eq!(bf_obj, SolutionSize::Valid(100));
-    assert_eq!(ilp_obj, SolutionSize::Valid(100));
+    assert_eq!(bf_obj, Max(Some(100)));
+    assert_eq!(ilp_obj, Max(Some(100)));
 
     // Verify the solution selects edge 0 (0-1)
     assert_eq!(extracted, vec![1, 0]);
@@ -169,7 +169,7 @@ fn test_empty_graph() {
     assert_eq!(ilp.constraints.len(), 0);
 
     assert!(problem.evaluate(&[]).is_valid());
-    assert_eq!(problem.evaluate(&[]), SolutionSize::Valid(0));
+    assert_eq!(problem.evaluate(&[]), Max(Some(0)));
 }
 
 #[test]
@@ -191,7 +191,7 @@ fn test_k4_perfect_matching() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(2)); // Perfect matching has 2 edges
+    assert_eq!(problem.evaluate(&extracted), Max(Some(2))); // Perfect matching has 2 edges
 
     // Verify all vertices are matched
     let sum: usize = extracted.iter().sum();
@@ -212,7 +212,7 @@ fn test_star_graph() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
+    assert_eq!(problem.evaluate(&extracted), Max(Some(1)));
 }
 
 #[test]
@@ -231,7 +231,7 @@ fn test_bipartite_graph() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(2));
+    assert_eq!(problem.evaluate(&extracted), Max(Some(2)));
 }
 
 #[test]
@@ -246,5 +246,5 @@ fn test_solve_reduced() {
         .expect("solve_reduced should work");
 
     assert!(problem.evaluate(&solution).is_valid());
-    assert_eq!(problem.evaluate(&solution), SolutionSize::Valid(2));
+    assert_eq!(problem.evaluate(&solution), Max(Some(2)));
 }

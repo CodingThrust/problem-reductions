@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Min;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
@@ -29,7 +29,7 @@ fn test_binpacking_to_ilp_closed_loop() {
     let ilp_solver = ILPSolver::new();
 
     // Solve original with brute force
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let bf_obj = problem.evaluate(&bf_solutions[0]);
 
     // Solve via ILP
@@ -37,8 +37,8 @@ fn test_binpacking_to_ilp_closed_loop() {
     let extracted = reduction.extract_solution(&ilp_solution);
     let ilp_obj = problem.evaluate(&extracted);
 
-    assert_eq!(bf_obj, SolutionSize::Valid(2));
-    assert_eq!(ilp_obj, SolutionSize::Valid(2));
+    assert_eq!(bf_obj, Min(Some(2)));
+    assert_eq!(ilp_obj, Min(Some(2)));
 }
 
 #[test]
@@ -55,7 +55,7 @@ fn test_single_item() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
 }
 
 #[test]
@@ -70,7 +70,7 @@ fn test_same_weight_items() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(2));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(2)));
 }
 
 #[test]
@@ -85,7 +85,7 @@ fn test_exact_fill() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
 }
 
 #[test]
@@ -139,5 +139,5 @@ fn test_solve_reduced() {
         .expect("solve_reduced should work");
 
     assert!(problem.evaluate(&solution).is_valid());
-    assert_eq!(problem.evaluate(&solution), SolutionSize::Valid(3));
+    assert_eq!(problem.evaluate(&solution), Min(Some(3)));
 }

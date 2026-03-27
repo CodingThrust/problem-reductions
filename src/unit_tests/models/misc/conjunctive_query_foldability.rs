@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 /// Build the YES instance (foldable):
@@ -92,14 +92,14 @@ fn test_conjunctive_query_foldability_yes_instance() {
 fn test_conjunctive_query_foldability_no_instance() {
     let problem = no_instance();
     // No substitution σ on {U0, U1, U2} maps the triangle into a 2-cycle
-    let result = BruteForce::new().find_satisfying(&problem);
+    let result = BruteForce::new().find_witness(&problem);
     assert_eq!(result, None);
 }
 
 #[test]
 fn test_conjunctive_query_foldability_solver() {
     let problem = yes_instance();
-    let result = BruteForce::new().find_satisfying(&problem);
+    let result = BruteForce::new().find_witness(&problem);
     assert!(
         result.is_some(),
         "YES instance must have a satisfying config"
@@ -141,7 +141,7 @@ fn test_conjunctive_query_foldability_paper_example() {
     // Enumerate all satisfying configs.
     // U(2) (= a) does not appear in Q1, so σ(U2) is a free choice (4 values).
     // Only σ(U0)=3 and σ(U1)=3 are required; σ(U2) can be anything in 0..4.
-    let all = BruteForce::new().find_all_satisfying(&problem);
+    let all = BruteForce::new().find_all_witnesses(&problem);
     assert_eq!(
         all.len(),
         4,

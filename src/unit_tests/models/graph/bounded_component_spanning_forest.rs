@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use std::alloc::{GlobalAlloc, Layout, System};
@@ -150,12 +150,12 @@ fn test_bounded_component_spanning_forest_solver_yes_and_no_instances() {
     let solver = BruteForce::new();
 
     let yes_problem = yes_instance();
-    let solution = solver.find_satisfying(&yes_problem);
+    let solution = solver.find_witness(&yes_problem);
     assert!(solution.is_some());
     assert!(yes_problem.evaluate(solution.as_ref().unwrap()));
 
     let no_problem = no_instance();
-    assert!(solver.find_satisfying(&no_problem).is_none());
+    assert!(solver.find_witness(&no_problem).is_none());
 }
 
 #[test]
@@ -165,7 +165,7 @@ fn test_bounded_component_spanning_forest_paper_example() {
     assert!(problem.evaluate(&config));
 
     let solver = BruteForce::new();
-    let all_solutions = solver.find_all_satisfying(&problem);
+    let all_solutions = solver.find_all_witnesses(&problem);
     assert!(all_solutions.iter().any(|solution| solution == &config));
 }
 

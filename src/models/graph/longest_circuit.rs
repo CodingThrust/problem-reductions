@@ -1,12 +1,12 @@
 //! Longest Circuit problem implementation.
 //!
-//! The Longest Circuit problem asks whether a graph contains a simple circuit
-//! whose total edge length is at least a given bound.
+//! The Longest Circuit problem asks for a simple circuit in a graph
+//! that maximizes the total edge length.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
-use crate::types::WeightElement;
+use crate::traits::Problem;
+use crate::types::{Max, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -21,20 +21,18 @@ inventory::submit! {
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
         module_path: module_path!(),
-        description: "Determine whether a graph contains a simple circuit with total length at least K",
+        description: "Find a simple circuit in a graph that maximizes total edge length",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
             FieldInfo { name: "edge_lengths", type_name: "Vec<W>", description: "Positive edge lengths l: E -> Z_(> 0)" },
-            FieldInfo { name: "bound", type_name: "W::Sum", description: "Lower bound K on the total circuit length" },
         ],
     }
 }
 
 /// The Longest Circuit problem.
 ///
-/// Given an undirected graph `G = (V, E)` with positive edge lengths `l(e)` and
-/// a positive bound `K`, determine whether there exists a simple circuit in `G`
-/// whose total edge-length sum is at least `K`.
+/// Given an undirected graph `G = (V, E)` with positive edge lengths `l(e)`,
+/// find a simple circuit in `G` that maximizes the total edge-length sum.
 ///
 /// # Representation
 ///
@@ -42,15 +40,12 @@ inventory::submit! {
 /// - `0`: edge is not in the circuit
 /// - `1`: edge is in the circuit
 ///
-/// A valid configuration must select edges that:
-/// - form exactly one connected simple circuit
-/// - use only edges from `graph`
-/// - have total selected length at least `bound`
+/// A valid configuration must select edges that form exactly one connected
+/// simple circuit using only edges from `graph`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LongestCircuit<G, W: WeightElement> {
     graph: G,
     edge_lengths: Vec<W>,
-    bound: W::Sum,
 }
 
 impl<G: Graph, W: WeightElement> LongestCircuit<G, W> {
@@ -59,8 +54,8 @@ impl<G: Graph, W: WeightElement> LongestCircuit<G, W> {
     /// # Panics
     ///
     /// Panics if the number of edge lengths does not match the graph's edge
-    /// count, if any edge length is non-positive, or if `bound` is non-positive.
-    pub fn new(graph: G, edge_lengths: Vec<W>, bound: W::Sum) -> Self {
+    /// count, or if any edge length is non-positive.
+    pub fn new(graph: G, edge_lengths: Vec<W>) -> Self {
         assert_eq!(
             edge_lengths.len(),
             graph.num_edges(),
@@ -73,11 +68,9 @@ impl<G: Graph, W: WeightElement> LongestCircuit<G, W> {
                 .all(|length| length.to_sum() > zero.clone()),
             "All edge lengths must be positive (> 0)"
         );
-        assert!(bound > zero, "bound must be positive (> 0)");
         Self {
             graph,
             edge_lengths,
-            bound,
         }
     }
 
@@ -118,11 +111,6 @@ impl<G: Graph, W: WeightElement> LongestCircuit<G, W> {
         self.edge_lengths.clone()
     }
 
-    /// Get the lower bound K.
-    pub fn bound(&self) -> &W::Sum {
-        &self.bound
-    }
-
     /// Get the number of vertices in the graph.
     pub fn num_vertices(&self) -> usize {
         self.graph.num_vertices()
@@ -138,20 +126,9 @@ impl<G: Graph, W: WeightElement> LongestCircuit<G, W> {
         !W::IS_UNIT
     }
 
-    /// Check whether a configuration is a valid satisfying simple circuit.
+    /// Check whether a configuration is a valid simple circuit.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        if !is_simple_circuit(&self.graph, config) {
-            return false;
-        }
-
-        let mut total = W::Sum::zero();
-        for (idx, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.edge_lengths[idx].to_sum();
-            }
-        }
-
-        total >= self.bound
+        is_simple_circuit(&self.graph, config)
     }
 }
 
@@ -161,7 +138,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "LongestCircuit";
-    type Metric = bool;
+    type Value = Max<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -171,8 +148,17 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_solution(config)
+    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
+        if !is_simple_circuit(&self.graph, config) {
+            return Max(None);
+        }
+        let mut total = W::Sum::zero();
+        for (idx, &selected) in config.iter().enumerate() {
+            if selected == 1 {
+                total += self.edge_lengths[idx].to_sum();
+            }
+        }
+        Max(Some(total))
     }
 }
 
@@ -242,13 +228,6 @@ pub(crate) fn is_simple_circuit<G: Graph>(graph: &G, config: &[usize]) -> bool {
     visited_selected_vertices == selected_vertices.len()
 }
 
-impl<G, W> SatisfactionProblem for LongestCircuit<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-}
-
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -270,15 +249,14 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 ],
             ),
             vec![3, 2, 4, 1, 5, 2, 3, 2, 1, 2],
-            17,
         )),
-        optimal_config: vec![1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
-        optimal_value: serde_json::json!(true),
+        optimal_config: vec![1, 0, 1, 0, 1, 0, 1, 1, 1, 0],
+        optimal_value: serde_json::json!(18),
     }]
 }
 
 crate::declare_variants! {
-    default sat LongestCircuit<SimpleGraph, i32> => "2^num_vertices * num_vertices^2",
+    default LongestCircuit<SimpleGraph, i32> => "2^num_vertices * num_vertices^2",
 }
 
 #[cfg(test)]

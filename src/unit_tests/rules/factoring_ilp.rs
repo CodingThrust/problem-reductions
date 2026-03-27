@@ -177,7 +177,7 @@ fn test_factoring_to_ilp_closed_loop() {
 
     // Get brute force solutions
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
 
     // ILP solution should be among brute force solutions
     let (a, b) = problem.read_factors(&ilp_factors);

@@ -1,7 +1,7 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::solvers::BruteForce;
+use crate::traits::Problem;
+use crate::types::Min;
 
 #[test]
 fn test_cvp_creation() {
@@ -35,16 +35,7 @@ fn test_cvp_evaluate() {
     // config offset: x_i - lower = 1 - (-2) = 3
     let config_111 = vec![3, 3, 3]; // maps to x=(1,1,1)
     let result = Problem::evaluate(&cvp, &config_111);
-    assert_eq!(result, SolutionSize::Valid(1.0));
-}
-
-#[test]
-fn test_cvp_direction() {
-    let basis = vec![vec![1, 0], vec![0, 1]];
-    let target = vec![0.5, 0.5];
-    let bounds = vec![VarBounds::bounded(0, 2), VarBounds::bounded(0, 2)];
-    let cvp = ClosestVectorProblem::new(basis, target, bounds);
-    assert_eq!(cvp.direction(), Direction::Minimize);
+    assert_eq!(result, Min(Some(1.0)));
 }
 
 #[test]
@@ -103,14 +94,14 @@ fn test_cvp_brute_force() {
     let cvp = ClosestVectorProblem::new(basis, target, bounds);
 
     let solver = BruteForce::new();
-    let solution = solver.find_best(&cvp).expect("should find a solution");
+    let solution = solver.find_witness(&cvp).expect("should find a solution");
     let values: Vec<i64> = solution
         .iter()
         .enumerate()
         .map(|(i, &c)| cvp.bounds()[i].lower.unwrap() + c as i64)
         .collect();
     assert_eq!(values, vec![1, 1, 1]);
-    assert_eq!(Problem::evaluate(&cvp, &solution), SolutionSize::Valid(1.0));
+    assert_eq!(Problem::evaluate(&cvp, &solution), Min(Some(1.0)));
 }
 
 #[test]
@@ -145,7 +136,7 @@ fn test_cvp_f64_basis() {
     let cvp = ClosestVectorProblem::new(basis, target, bounds);
 
     let solver = BruteForce::new();
-    let solution = solver.find_best(&cvp).expect("should find a solution");
+    let solution = solver.find_witness(&cvp).expect("should find a solution");
     let values: Vec<i64> = solution
         .iter()
         .enumerate()
@@ -169,7 +160,7 @@ fn test_cvp_2d_identity() {
     let cvp = ClosestVectorProblem::new(basis, target, bounds);
 
     let solver = BruteForce::new();
-    let solution = solver.find_best(&cvp).expect("should find a solution");
+    let solution = solver.find_witness(&cvp).expect("should find a solution");
     let values: Vec<i64> = solution
         .iter()
         .enumerate()
@@ -189,7 +180,7 @@ fn test_cvp_evaluate_exact_solution() {
     // x=(2,2), Bx=(2,2), distance=0
     let config = vec![2, 2]; // offset from lower=0
     let result = Problem::evaluate(&cvp, &config);
-    assert_eq!(result, SolutionSize::Valid(0.0));
+    assert_eq!(result, Min(Some(0.0)));
 }
 
 #[test]
@@ -228,7 +219,7 @@ fn test_cvp_paper_example() {
     assert!((dist - 0.29_f64.sqrt()).abs() < 1e-10);
 
     let solver = BruteForce::new();
-    let best = solver.find_best(&cvp).unwrap();
+    let best = solver.find_witness(&cvp).unwrap();
     let best_dist = Problem::evaluate(&cvp, &best).unwrap();
     assert!((best_dist - 0.29_f64.sqrt()).abs() < 1e-10);
 }

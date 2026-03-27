@@ -1,11 +1,11 @@
 //! Sequencing to Minimize Maximum Cumulative Cost problem implementation.
 //!
-//! Given a set of tasks with integer costs and precedence constraints, determine
-//! whether there exists a valid one-machine schedule whose running cumulative
-//! cost never exceeds a given bound.
+//! Given a set of tasks with integer costs and precedence constraints, find
+//! a valid one-machine schedule that minimizes the maximum cumulative cost
+//! over all prefixes.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 
@@ -16,20 +16,19 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),
-        description: "Schedule tasks with precedence constraints so every cumulative cost prefix stays within a bound",
+        description: "Schedule tasks with precedence constraints to minimize the maximum cumulative cost prefix",
         fields: &[
             FieldInfo { name: "costs", type_name: "Vec<i64>", description: "Task costs in schedule order-independent indexing" },
             FieldInfo { name: "precedences", type_name: "Vec<(usize, usize)>", description: "Precedence pairs (predecessor, successor)" },
-            FieldInfo { name: "bound", type_name: "i64", description: "Upper bound on every cumulative cost prefix" },
         ],
     }
 }
 
 /// Sequencing to Minimize Maximum Cumulative Cost.
 ///
-/// Given a set of tasks `T`, a cost `c(t) in Z` for each task, a partial order
-/// on the tasks, and a bound `K`, determine whether there exists a schedule that
-/// respects the precedences and whose running cumulative cost never exceeds `K`.
+/// Given a set of tasks `T`, a cost `c(t) in Z` for each task, and a partial
+/// order on the tasks, find a schedule that respects the precedences and
+/// minimizes the maximum cumulative cost over all prefixes.
 ///
 /// # Representation
 ///
@@ -39,14 +38,12 @@ inventory::submit! {
 pub struct SequencingToMinimizeMaximumCumulativeCost {
     costs: Vec<i64>,
     precedences: Vec<(usize, usize)>,
-    bound: i64,
 }
 
 #[derive(Debug, Deserialize)]
 struct SequencingToMinimizeMaximumCumulativeCostUnchecked {
     costs: Vec<i64>,
     precedences: Vec<(usize, usize)>,
-    bound: i64,
 }
 
 impl SequencingToMinimizeMaximumCumulativeCost {
@@ -55,13 +52,9 @@ impl SequencingToMinimizeMaximumCumulativeCost {
     /// # Panics
     ///
     /// Panics if any precedence endpoint is out of range.
-    pub fn new(costs: Vec<i64>, precedences: Vec<(usize, usize)>, bound: i64) -> Self {
+    pub fn new(costs: Vec<i64>, precedences: Vec<(usize, usize)>) -> Self {
         validate_precedences(&precedences, costs.len());
-        Self {
-            costs,
-            precedences,
-            bound,
-        }
+        Self { costs, precedences }
     }
 
     /// Return the task costs.
@@ -72,11 +65,6 @@ impl SequencingToMinimizeMaximumCumulativeCost {
     /// Return the precedence constraints.
     pub fn precedences(&self) -> &[(usize, usize)] {
         &self.precedences
-    }
-
-    /// Return the cumulative-cost bound.
-    pub fn bound(&self) -> i64 {
-        self.bound
     }
 
     /// Return the number of tasks.
@@ -122,7 +110,6 @@ impl<'de> Deserialize<'de> for SequencingToMinimizeMaximumCumulativeCost {
         Ok(Self {
             costs: unchecked.costs,
             precedences: unchecked.precedences,
-            bound: unchecked.bound,
         })
     }
 }
@@ -153,7 +140,7 @@ fn precedence_validation_error(precedences: &[(usize, usize)], num_tasks: usize)
 
 impl Problem for SequencingToMinimizeMaximumCumulativeCost {
     const NAME: &'static str = "SequencingToMinimizeMaximumCumulativeCost";
-    type Metric = bool;
+    type Value = crate::types::Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -164,9 +151,9 @@ impl Problem for SequencingToMinimizeMaximumCumulativeCost {
         (0..n).rev().map(|i| i + 1).collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
+    fn evaluate(&self, config: &[usize]) -> crate::types::Min<i64> {
         let Some(schedule) = self.decode_schedule(config) else {
-            return false;
+            return crate::types::Min(None);
         };
 
         let mut positions = vec![0usize; self.num_tasks()];
@@ -175,25 +162,24 @@ impl Problem for SequencingToMinimizeMaximumCumulativeCost {
         }
         for &(pred, succ) in &self.precedences {
             if positions[pred] >= positions[succ] {
-                return false;
+                return crate::types::Min(None);
             }
         }
 
         let mut cumulative = 0i64;
+        let mut max_cumulative = 0i64;
         for &task in &schedule {
             cumulative += self.costs[task];
-            if cumulative > self.bound {
-                return false;
+            if cumulative > max_cumulative {
+                max_cumulative = cumulative;
             }
         }
-        true
+        crate::types::Min(Some(max_cumulative))
     }
 }
 
-impl SatisfactionProblem for SequencingToMinimizeMaximumCumulativeCost {}
-
 crate::declare_variants! {
-    default sat SequencingToMinimizeMaximumCumulativeCost => "factorial(num_tasks)",
+    default SequencingToMinimizeMaximumCumulativeCost => "factorial(num_tasks)",
 }
 
 #[cfg(feature = "example-db")]
@@ -203,10 +189,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         instance: Box::new(SequencingToMinimizeMaximumCumulativeCost::new(
             vec![2, -1, 3, -2, 1, -3],
             vec![(0, 2), (1, 2), (1, 3), (2, 4), (3, 5), (4, 5)],
-            4,
         )),
         optimal_config: vec![1, 0, 1, 0, 0, 0],
-        optimal_value: serde_json::json!(true),
+        optimal_value: serde_json::json!(3),
     }]
 }
 

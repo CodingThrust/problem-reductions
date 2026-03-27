@@ -1,7 +1,7 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::solvers::BruteForce;
+use crate::traits::Problem;
+use crate::types::Min;
 
 include!("../../jl_helpers.rs");
 
@@ -80,11 +80,11 @@ fn test_evaluate() {
 
     // Exact factorization -> distance 0
     let config = vec![1, 0, 0, 1, 1, 0, 0, 1];
-    assert_eq!(Problem::evaluate(&problem, &config), SolutionSize::Valid(0));
+    assert_eq!(Problem::evaluate(&problem, &config), Min(Some(0)));
 
     // Non-exact -> distance 2
     let config = vec![0, 0, 0, 0, 0, 0, 0, 0];
-    assert_eq!(Problem::evaluate(&problem, &config), SolutionSize::Valid(2));
+    assert_eq!(Problem::evaluate(&problem, &config), Min(Some(2)));
 }
 
 #[test]
@@ -94,10 +94,10 @@ fn test_brute_force_ones() {
     let problem = BMF::new(matrix, 1);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     for sol in &solutions {
         // Exact factorization has distance 0
-        assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(0));
+        assert_eq!(Problem::evaluate(&problem, sol), Min(Some(0)));
     }
 }
 
@@ -108,7 +108,7 @@ fn test_brute_force_identity() {
     let problem = BMF::new(matrix, 2);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // Should find exact factorization
     for sol in &solutions {
         assert!(problem.is_exact(sol));
@@ -122,7 +122,7 @@ fn test_brute_force_insufficient_rank() {
     let problem = BMF::new(matrix, 1);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // Best approximation has distance > 0
     let best_distance = problem.hamming_distance(&solutions[0]);
     // With rank 1, best we can do is distance 1 (all ones or all zeros except one)
@@ -148,19 +148,12 @@ fn test_matrix_hamming_distance_function() {
 }
 
 #[test]
-fn test_direction() {
-    let matrix = vec![vec![true]];
-    let problem = BMF::new(matrix, 1);
-    assert_eq!(problem.direction(), Direction::Minimize);
-}
-
-#[test]
 fn test_empty_matrix() {
     let matrix: Vec<Vec<bool>> = vec![];
     let problem = BMF::new(matrix, 1);
     assert_eq!(problem.num_variables(), 0);
     // Empty matrix has distance 0
-    assert_eq!(Problem::evaluate(&problem, &[]), SolutionSize::Valid(0));
+    assert_eq!(Problem::evaluate(&problem, &[]), Min(Some(0)));
 }
 
 #[test]
@@ -173,8 +166,7 @@ fn test_is_exact() {
 
 #[test]
 fn test_bmf_problem() {
-    use crate::traits::{OptimizationProblem, Problem};
-    use crate::types::Direction;
+    use crate::traits::Problem;
 
     // 2x2 identity matrix with rank 2
     let matrix = vec![vec![true, false], vec![false, true]];
@@ -187,24 +179,23 @@ fn test_bmf_problem() {
     // Config: [1,0,0,1, 1,0,0,1]
     assert_eq!(
         Problem::evaluate(&problem, &[1, 0, 0, 1, 1, 0, 0, 1]),
-        SolutionSize::Valid(0)
+        Min(Some(0))
     );
 
     // All zeros -> product is all zeros, distance = 2
     assert_eq!(
         Problem::evaluate(&problem, &[0, 0, 0, 0, 0, 0, 0, 0]),
-        SolutionSize::Valid(2)
+        Min(Some(2))
     );
 
-    // Direction is minimize
-    assert_eq!(problem.direction(), Direction::Minimize);
+    // ExtremumSense is minimize
 
     // Test with 1x1 matrix
     let matrix = vec![vec![true]];
     let problem = BMF::new(matrix, 1);
     assert_eq!(problem.dims(), vec![2; 2]); // B(1*1) + C(1*1)
-    assert_eq!(Problem::evaluate(&problem, &[1, 1]), SolutionSize::Valid(0)); // Exact
-    assert_eq!(Problem::evaluate(&problem, &[0, 0]), SolutionSize::Valid(1)); // Distance 1
+    assert_eq!(Problem::evaluate(&problem, &[1, 1]), Min(Some(0))); // Exact
+    assert_eq!(Problem::evaluate(&problem, &[0, 0]), Min(Some(1))); // Distance 1
 }
 
 #[test]
@@ -229,15 +220,15 @@ fn test_jl_parity_evaluation() {
             let config = jl_parse_config(&eval["config"]);
             let result = problem.evaluate(&config);
             let jl_size = eval["size"].as_i64().unwrap() as i32;
-            // BMF always returns Valid(hamming_distance)
+            // BMF always returns Min(hamming_distance).
             assert_eq!(
                 result,
-                SolutionSize::Valid(jl_size),
+                Min(Some(jl_size)),
                 "BMF: size mismatch for config {:?}",
                 config
             );
         }
-        let best = BruteForce::new().find_all_best(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "BMF best solutions mismatch");
@@ -269,9 +260,9 @@ fn test_bmf_paper_example() {
     // C: c00=1,c01=1,c02=0, c10=0,c11=1,c12=1
     let config = vec![1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1];
     let result = Problem::evaluate(&problem, &config);
-    assert_eq!(result, SolutionSize::Valid(0)); // exact factorization
+    assert_eq!(result, Min(Some(0))); // exact factorization
 
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
-    assert_eq!(Problem::evaluate(&problem, &best), SolutionSize::Valid(0));
+    let best = solver.find_witness(&problem).unwrap();
+    assert_eq!(Problem::evaluate(&problem, &best), Min(Some(0)));
 }

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 fn issue_example_yes() -> SequencingToMinimizeWeightedTardiness {
@@ -77,7 +77,7 @@ fn test_sequencing_to_minimize_weighted_tardiness_solver_yes() {
     let problem = issue_example_yes();
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("should find a schedule");
     assert!(problem.evaluate(&solution));
     assert!(problem.total_weighted_tardiness(&solution).unwrap() <= problem.bound());
@@ -87,8 +87,8 @@ fn test_sequencing_to_minimize_weighted_tardiness_solver_yes() {
 fn test_sequencing_to_minimize_weighted_tardiness_solver_no() {
     let problem = issue_example_no();
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
-    assert!(solver.find_all_satisfying(&problem).is_empty());
+    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_all_witnesses(&problem).is_empty());
 }
 
 #[test]
@@ -102,9 +102,9 @@ fn test_sequencing_to_minimize_weighted_tardiness_paper_example() {
     assert!(yes.evaluate(&config));
     assert!(!no.evaluate(&config));
 
-    let satisfying = solver.find_all_satisfying(&yes);
+    let satisfying = solver.find_all_witnesses(&yes);
     assert_eq!(satisfying, vec![config]);
-    assert!(solver.find_all_satisfying(&no).is_empty());
+    assert!(solver.find_all_witnesses(&no).is_empty());
 }
 
 #[test]

@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::mcp::tools::McpServer;
+    use crate::test_support::{aggregate_bundle, aggregate_problem_json};
 
     #[test]
     fn test_list_problems_returns_json() {
@@ -353,6 +354,27 @@ mod tests {
     }
 
     #[test]
+    fn test_solve_customized_supported_problem() {
+        let server = McpServer::new();
+        let problem_json = serde_json::json!({
+            "type": "MinimumCardinalityKey",
+            "variant": {},
+            "data": {
+                "num_attributes": 4,
+                "dependencies": [[[0], [1, 2]], [[1, 2], [3]]],
+                "bound": 2
+            }
+        })
+        .to_string();
+
+        let result = server.solve_inner(&problem_json, Some("customized"), None);
+        assert!(result.is_ok(), "solve failed: {:?}", result);
+        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert_eq!(json["solver"], "customized");
+        assert!(json["solution"].is_array(), "{json}");
+    }
+
+    #[test]
     fn test_solve_unknown_solver() {
         let server = McpServer::new();
         let problem_json = create_test_mis(&server);
@@ -371,6 +393,20 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert!(json["solution"].is_array());
         assert_eq!(json["problem"], "MaximumIndependentSet");
+    }
+
+    #[test]
+    fn test_solve_customized_bundle_rejects_unsupported_target_without_panicking() {
+        let server = McpServer::new();
+        let problem_json = create_test_mis(&server);
+        let bundle_json = server.reduce_inner(&problem_json, "QUBO").unwrap();
+        let result = server.solve_inner(&bundle_json, Some("customized"), None);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("unsupported by customized solver"),
+            "unexpected error: {err}"
+        );
     }
 
     #[test]
@@ -402,8 +438,7 @@ mod tests {
                 },
                 "vertex_weights": [1, 1, 1, 1],
                 "edge_lengths": [1, 1, 1],
-                "k": 2,
-                "bound": 1
+                "k": 2
             }
         })
         .to_string();
@@ -421,6 +456,35 @@ mod tests {
     }
 
     #[test]
+    fn test_inspect_minimum_cardinality_key_lists_customized_solver() {
+        let server = McpServer::new();
+        let problem_json = serde_json::json!({
+            "type": "MinimumCardinalityKey",
+            "variant": {},
+            "data": {
+                "num_attributes": 4,
+                "dependencies": [[[0], [1, 2]], [[1, 2], [3]]],
+                "bound": 2
+            }
+        })
+        .to_string();
+
+        let result = server.inspect_problem_inner(&problem_json);
+        assert!(result.is_ok(), "inspect failed: {:?}", result);
+        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        let solvers: Vec<&str> = json["solvers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert!(
+            solvers.contains(&"customized"),
+            "inspect should list customized when supported, got: {json}"
+        );
+    }
+
+    #[test]
     fn test_solve_sat_problem() {
         let server = McpServer::new();
         let params = serde_json::json!({"num_vars": 2, "clauses": "1;-2"});
@@ -429,5 +493,43 @@ mod tests {
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert_eq!(json["solver"], "brute-force");
+    }
+
+    #[test]
+    fn test_reduce_rejects_aggregate_only_path() {
+        let server = McpServer::new();
+        let result = server.reduce_inner(&aggregate_problem_json(), "CliTestAggregateValueTarget");
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("witness"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn test_solve_aggregate_only_problem_omits_solution() {
+        let server = McpServer::new();
+        let result = server.solve_inner(&aggregate_problem_json(), Some("brute-force"), None);
+        assert!(result.is_ok());
+        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert_eq!(json["evaluation"], "Sum(56)");
+        assert!(json.get("solution").is_none(), "{json}");
+    }
+
+    #[test]
+    fn test_solve_ilp_rejects_aggregate_only_problem() {
+        let server = McpServer::new();
+        let result = server.solve_inner(&aggregate_problem_json(), Some("ilp"), None);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("witness-capable"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn test_solve_bundle_rejects_aggregate_only_path() {
+        let server = McpServer::new();
+        let bundle_json = serde_json::to_string(&aggregate_bundle()).unwrap();
+        let result = server.solve_inner(&bundle_json, Some("brute-force"), None);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("witness"), "unexpected error: {err}");
     }
 }

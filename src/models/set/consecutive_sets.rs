@@ -6,7 +6,7 @@
 //! contiguous block in some order) within the string.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -55,7 +55,7 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 ///
 /// // w = [0, 4, 2, 5, 1, 3] is a valid solution
 /// assert!(solution.is_some());
@@ -135,83 +135,85 @@ impl ConsecutiveSets {
 
 impl Problem for ConsecutiveSets {
     const NAME: &'static str = "ConsecutiveSets";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         // Each position can be any symbol (0..alphabet_size-1) or "unused" (alphabet_size)
         vec![self.alphabet_size + 1; self.bound_k]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        // 1. Validate config
-        if config.len() != self.bound_k || config.iter().any(|&v| v > self.alphabet_size) {
-            return false;
-        }
-
-        // 2. Build string: find the actual string length (strip trailing "unused")
-        let unused = self.alphabet_size;
-        let str_len = config
-            .iter()
-            .rposition(|&v| v != unused)
-            .map_or(0, |p| p + 1);
-
-        // 3. Check no internal "unused" symbols
-        let w = &config[..str_len];
-        if w.contains(&unused) {
-            return false;
-        }
-
-        let mut subset_membership = vec![0usize; self.alphabet_size];
-        let mut seen_in_window = vec![0usize; self.alphabet_size];
-        let mut subset_stamp = 1usize;
-        let mut window_stamp = 1usize;
-
-        // 4. Check each subset has a consecutive block
-        for subset in &self.subsets {
-            let subset_len = subset.len();
-            if subset_len == 0 {
-                continue; // empty subset trivially satisfied
-            }
-            if subset_len > str_len {
-                return false; // can't fit
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            // 1. Validate config
+            if config.len() != self.bound_k || config.iter().any(|&v| v > self.alphabet_size) {
+                return crate::types::Or(false);
             }
 
-            for &elem in subset {
-                subset_membership[elem] = subset_stamp;
+            // 2. Build string: find the actual string length (strip trailing "unused")
+            let unused = self.alphabet_size;
+            let str_len = config
+                .iter()
+                .rposition(|&v| v != unused)
+                .map_or(0, |p| p + 1);
+
+            // 3. Check no internal "unused" symbols
+            let w = &config[..str_len];
+            if w.contains(&unused) {
+                return crate::types::Or(false);
             }
 
-            let mut found = false;
-            for start in 0..=(str_len - subset_len) {
-                let window = &w[start..start + subset_len];
-                let current_window_stamp = window_stamp;
-                window_stamp += 1;
+            let mut subset_membership = vec![0usize; self.alphabet_size];
+            let mut seen_in_window = vec![0usize; self.alphabet_size];
+            let mut subset_stamp = 1usize;
+            let mut window_stamp = 1usize;
 
-                // Because subsets are validated to contain unique elements,
-                // a window matches iff every symbol belongs to the subset and
-                // appears at most once.
-                if window.iter().all(|&elem| {
-                    let is_member = subset_membership[elem] == subset_stamp;
-                    let is_new = seen_in_window[elem] != current_window_stamp;
-                    if is_member && is_new {
-                        seen_in_window[elem] = current_window_stamp;
-                        true
-                    } else {
-                        false
-                    }
-                }) {
-                    // subset is already sorted
-                    found = true;
-                    break;
+            // 4. Check each subset has a consecutive block
+            for subset in &self.subsets {
+                let subset_len = subset.len();
+                if subset_len == 0 {
+                    continue; // empty subset trivially satisfied
                 }
-            }
-            if !found {
-                return false;
+                if subset_len > str_len {
+                    return crate::types::Or(false); // can't fit
+                }
+
+                for &elem in subset {
+                    subset_membership[elem] = subset_stamp;
+                }
+
+                let mut found = false;
+                for start in 0..=(str_len - subset_len) {
+                    let window = &w[start..start + subset_len];
+                    let current_window_stamp = window_stamp;
+                    window_stamp += 1;
+
+                    // Because subsets are validated to contain unique elements,
+                    // a window matches iff every symbol belongs to the subset and
+                    // appears at most once.
+                    if window.iter().all(|&elem| {
+                        let is_member = subset_membership[elem] == subset_stamp;
+                        let is_new = seen_in_window[elem] != current_window_stamp;
+                        if is_member && is_new {
+                            seen_in_window[elem] = current_window_stamp;
+                            true
+                        } else {
+                            false
+                        }
+                    }) {
+                        // subset is already sorted
+                        found = true;
+                        break;
+                    }
+                }
+                if !found {
+                    return crate::types::Or(false);
+                }
+
+                subset_stamp += 1;
             }
 
-            subset_stamp += 1;
-        }
-
-        true
+            true
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -219,10 +221,8 @@ impl Problem for ConsecutiveSets {
     }
 }
 
-impl SatisfactionProblem for ConsecutiveSets {}
-
 crate::declare_variants! {
-    default sat ConsecutiveSets => "alphabet_size^bound_k * num_subsets",
+    default ConsecutiveSets => "alphabet_size^bound_k * num_subsets",
 }
 
 #[cfg(feature = "example-db")]

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 fn issue_yes_matrix() -> Vec<Vec<bool>> {
@@ -51,7 +51,7 @@ fn test_consecutive_ones_matrix_augmentation_no_instance() {
     let problem = ConsecutiveOnesMatrixAugmentation::new(issue_no_matrix(), 0);
 
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]

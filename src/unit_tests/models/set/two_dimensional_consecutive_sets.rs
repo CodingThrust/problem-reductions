@@ -72,7 +72,7 @@ fn test_two_dimensional_consecutive_sets_no_instance() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(solutions.is_empty());
 }
 
@@ -82,7 +82,7 @@ fn test_two_dimensional_consecutive_sets_solver() {
     let problem = TwoDimensionalConsecutiveSets::new(4, vec![vec![0, 1], vec![2, 3], vec![1, 2]]);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     for sol in &solutions {
         assert!(problem.evaluate(sol));
@@ -142,7 +142,7 @@ fn test_two_dimensional_consecutive_sets_paper_example() {
 
     // Use brute force to find all solutions
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     // The known solution should be among them
     assert!(solutions.contains(&valid_config));

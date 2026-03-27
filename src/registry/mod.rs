@@ -51,7 +51,7 @@ pub mod problem_type;
 mod schema;
 pub mod variant;
 
-pub use dyn_problem::{DynProblem, LoadedDynProblem, SolveFn};
+pub use dyn_problem::{format_metric, DynProblem, LoadedDynProblem, SolveValueFn, SolveWitnessFn};
 pub use info::{ComplexityClass, FieldInfo, ProblemInfo, ProblemMetadata};
 pub use problem_ref::{parse_catalog_problem_ref, require_graph_variant, ProblemRef};
 pub use problem_type::{find_problem_type, find_problem_type_by_alias, problem_types, ProblemType};
@@ -81,7 +81,11 @@ pub fn load_dyn(
 
     let inner =
         (entry.factory)(data).map_err(|e| format!("Failed to deserialize `{name}`: {e}"))?;
-    Ok(LoadedDynProblem::new(inner, entry.solve_fn))
+    Ok(LoadedDynProblem::new(
+        inner,
+        entry.solve_value_fn,
+        entry.solve_witness_fn,
+    ))
 }
 
 /// Serialize a `&dyn Any` by exact problem name and exact variant map.

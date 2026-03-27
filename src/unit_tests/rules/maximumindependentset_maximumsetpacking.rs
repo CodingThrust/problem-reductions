@@ -26,7 +26,7 @@ fn test_empty_graph() {
     assert_eq!(sp_problem.num_sets(), 3);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(sp_problem);
+    let solutions = solver.find_all_witnesses(sp_problem);
 
     // With no overlaps, we can select all sets
     assert_eq!(solutions[0].iter().sum::<usize>(), 3);
@@ -81,7 +81,7 @@ fn test_jl_parity_is_to_setpacking() {
         MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i32; nv]);
     let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
@@ -104,7 +104,7 @@ fn test_jl_parity_setpacking_to_is() {
     let source = MaximumSetPacking::<i32>::new(jl_parse_sets(&inst["sets"]));
     let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
@@ -129,7 +129,7 @@ fn test_jl_parity_rule_is_to_setpacking() {
         MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i32; nv]);
     let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
@@ -155,7 +155,7 @@ fn test_jl_parity_doc_is_to_setpacking() {
         MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i32; nv]);
     let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
@@ -177,7 +177,7 @@ fn test_maximumindependentset_one_to_maximumsetpacking_closed_loop() {
     assert_eq!(sp_problem.num_sets(), 3);
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_all_best(sp_problem);
+    let sp_solutions = solver.find_all_witnesses(sp_problem);
     assert!(!sp_solutions.is_empty());
 
     let original_solution = reduction.extract_solution(&sp_solutions[0]);
@@ -197,7 +197,7 @@ fn test_maximumsetpacking_one_to_maximumindependentset_closed_loop() {
     assert_eq!(is_problem.graph().num_vertices(), 3);
 
     let solver = BruteForce::new();
-    let is_solutions = solver.find_all_best(is_problem);
+    let is_solutions = solver.find_all_witnesses(is_problem);
     assert!(!is_solutions.is_empty());
 
     let original_solution = reduction.extract_solution(&is_solutions[0]);

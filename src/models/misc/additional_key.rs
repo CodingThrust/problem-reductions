@@ -8,7 +8,7 @@
 //! The problem is NP-complete (Garey & Johnson, SR7).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -56,7 +56,7 @@ inventory::submit! {
 ///     vec![],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -192,7 +192,7 @@ impl AdditionalKey {
 
 impl Problem for AdditionalKey {
     const NAME: &'static str = "AdditionalKey";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -202,62 +202,62 @@ impl Problem for AdditionalKey {
         vec![2; self.relation_attrs.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        // Check config length
-        if config.len() != self.relation_attrs.len() {
-            return false;
-        }
-        // Check all values are 0 or 1
-        if config.iter().any(|&v| v >= 2) {
-            return false;
-        }
-
-        // Build selected attribute set
-        let selected: Vec<usize> = config
-            .iter()
-            .enumerate()
-            .filter(|(_, &v)| v == 1)
-            .map(|(i, _)| self.relation_attrs[i])
-            .collect();
-
-        // Empty selection is not a key
-        if selected.is_empty() {
-            return false;
-        }
-
-        // Compute closure of selected attributes
-        let mut attr_set = vec![false; self.num_attributes];
-        for &a in &selected {
-            attr_set[a] = true;
-        }
-        let closure = self.compute_closure(&attr_set);
-
-        // Check closure covers all relation_attrs
-        if !self.relation_attrs.iter().all(|&a| closure[a]) {
-            return false;
-        }
-
-        // Check minimality: removing any single selected attribute should break coverage
-        for &a in &selected {
-            let mut reduced = attr_set.clone();
-            reduced[a] = false;
-            let reduced_closure = self.compute_closure(&reduced);
-            if self.relation_attrs.iter().all(|&ra| reduced_closure[ra]) {
-                return false; // Not minimal
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            // Check config length
+            if config.len() != self.relation_attrs.len() {
+                return crate::types::Or(false);
             }
-        }
+            // Check all values are 0 or 1
+            if config.iter().any(|&v| v >= 2) {
+                return crate::types::Or(false);
+            }
 
-        // Build sorted selected vec and check it's not in known_keys
-        let mut sorted_selected = selected;
-        sorted_selected.sort_unstable();
-        !self.known_keys.contains(&sorted_selected)
+            // Build selected attribute set
+            let selected: Vec<usize> = config
+                .iter()
+                .enumerate()
+                .filter(|(_, &v)| v == 1)
+                .map(|(i, _)| self.relation_attrs[i])
+                .collect();
+
+            // Empty selection is not a key
+            if selected.is_empty() {
+                return crate::types::Or(false);
+            }
+
+            // Compute closure of selected attributes
+            let mut attr_set = vec![false; self.num_attributes];
+            for &a in &selected {
+                attr_set[a] = true;
+            }
+            let closure = self.compute_closure(&attr_set);
+
+            // Check closure covers all relation_attrs
+            if !self.relation_attrs.iter().all(|&a| closure[a]) {
+                return crate::types::Or(false);
+            }
+
+            // Check minimality: removing any single selected attribute should break coverage
+            for &a in &selected {
+                let mut reduced = attr_set.clone();
+                reduced[a] = false;
+                let reduced_closure = self.compute_closure(&reduced);
+                if self.relation_attrs.iter().all(|&ra| reduced_closure[ra]) {
+                    return crate::types::Or(false); // Not minimal
+                }
+            }
+
+            // Build sorted selected vec and check it's not in known_keys
+            let mut sorted_selected = selected;
+            sorted_selected.sort_unstable();
+            !self.known_keys.contains(&sorted_selected)
+        })
     }
 }
 
-impl SatisfactionProblem for AdditionalKey {}
-
 crate::declare_variants! {
-    default sat AdditionalKey => "2^num_relation_attrs * num_dependencies * num_attributes",
+    default AdditionalKey => "2^num_relation_attrs * num_dependencies * num_attributes",
 }
 
 #[cfg(feature = "example-db")]

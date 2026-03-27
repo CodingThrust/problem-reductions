@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
@@ -66,7 +66,7 @@ fn test_undirected_two_commodity_integral_flow_evaluation_no_shared_bottleneck()
     let problem = shared_bottleneck_instance();
     assert!(!problem.evaluate(&example_config()));
     assert!(!problem.is_valid_solution(&example_config()));
-    assert!(BruteForce::new().find_satisfying(&problem).is_none());
+    assert!(BruteForce::new().find_witness(&problem).is_none());
 }
 
 #[test]
@@ -118,7 +118,7 @@ fn test_undirected_two_commodity_integral_flow_paper_example() {
     let config = example_config();
     assert!(problem.evaluate(&config));
 
-    let all = BruteForce::new().find_all_satisfying(&problem);
+    let all = BruteForce::new().find_all_witnesses(&problem);
     assert_eq!(all.len(), 2);
     assert!(all.contains(&config));
 }

@@ -1,6 +1,6 @@
 use super::*;
 use crate::registry::VariantEntry;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 fn issue_example_matrix() -> Vec<Vec<bool>> {
@@ -67,11 +67,11 @@ fn test_sparse_matrix_compression_bruteforce_finds_unique_solution() {
     let solver = BruteForce::new();
 
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("issue example should be satisfiable");
     assert_eq!(solution, vec![1, 1, 1, 0]);
 
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert_eq!(all, vec![vec![1, 1, 1, 0]]);
 }
 

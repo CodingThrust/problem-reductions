@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use crate::variant::VariantParam;
 
 inventory::submit! {
@@ -239,7 +239,7 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "GeneralizedHex";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -249,22 +249,22 @@ where
         vec![]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if !config.is_empty() {
-            return false;
-        }
-        let playable_vertices = self.playable_vertices();
-        let vertex_to_state_index = self.vertex_to_state_index(&playable_vertices);
-        let mut state = vec![ClaimState::Unclaimed; playable_vertices.len()];
-        let mut memo = HashMap::new();
-        self.first_player_wins(&mut state, &vertex_to_state_index, &mut memo)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if !config.is_empty() {
+                return crate::types::Or(false);
+            }
+            let playable_vertices = self.playable_vertices();
+            let vertex_to_state_index = self.vertex_to_state_index(&playable_vertices);
+            let mut state = vec![ClaimState::Unclaimed; playable_vertices.len()];
+            let mut memo = HashMap::new();
+            self.first_player_wins(&mut state, &vertex_to_state_index, &mut memo)
+        })
     }
 }
 
-impl<G> SatisfactionProblem for GeneralizedHex<G> where G: Graph + VariantParam {}
-
 crate::declare_variants! {
-    default sat GeneralizedHex<SimpleGraph> => "3^num_playable_vertices",
+    default GeneralizedHex<SimpleGraph> => "3^num_playable_vertices",
 }
 
 #[cfg(feature = "example-db")]

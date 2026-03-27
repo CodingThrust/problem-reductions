@@ -5,7 +5,7 @@
 //! by assigning each row a shift in `{1, ..., K}` without collisions.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -119,14 +119,14 @@ impl SparseMatrixCompression {
 
 impl Problem for SparseMatrixCompression {
     const NAME: &'static str = "SparseMatrixCompression";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.bound_k; self.num_rows()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.storage_vector(config).is_some()
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.storage_vector(config).is_some())
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -134,10 +134,8 @@ impl Problem for SparseMatrixCompression {
     }
 }
 
-impl SatisfactionProblem for SparseMatrixCompression {}
-
 crate::declare_variants! {
-    default sat SparseMatrixCompression => "(bound_k ^ num_rows) * num_rows * num_cols",
+    default SparseMatrixCompression => "(bound_k ^ num_rows) * num_rows * num_cols",
 }
 
 #[cfg(feature = "example-db")]

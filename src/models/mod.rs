@@ -20,8 +20,8 @@ pub use formula::{
 pub use graph::{
     AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
     BottleneckTravelingSalesman, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
-    DisjointConnectingPaths, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
-    HamiltonianPath, IntegralFlowBundles, IntegralFlowHomologousArcs, IntegralFlowWithMultipliers,
+    DisjointConnectingPaths, GeneralizedHex, HamiltonianCircuit, HamiltonianPath,
+    IntegralFlowBundles, IntegralFlowHomologousArcs, IntegralFlowWithMultipliers,
     IsomorphicSpanningTree, KClique, KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths,
     LongestCircuit, LongestPath, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
     MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
@@ -45,7 +45,8 @@ pub use misc::{
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
     SequencingWithinIntervals, ShortestCommonSupersequence, StackerCrane, StaffScheduling,
-    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, TimetableDesign,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, ThreePartition,
+    TimetableDesign,
 };
 pub use set::{
     ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,

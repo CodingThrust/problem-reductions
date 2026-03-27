@@ -23,7 +23,7 @@
 //! - [`RectilinearPictureCompression`]: Cover 1-entries with bounded rectangles
 //! - [`ResourceConstrainedScheduling`]: Schedule unit-length tasks on processors with resource constraints
 //! - [`SchedulingWithIndividualDeadlines`]: Meet per-task deadlines on parallel processors
-//! - [`StackerCrane`]: Route a crane through required arcs within a length bound
+//! - [`StackerCrane`]: Minimize the total length of a closed walk through required arcs
 //! - [`SequencingToMinimizeMaximumCumulativeCost`]: Keep every cumulative schedule cost prefix under a bound
 //! - [`SequencingToMinimizeWeightedCompletionTime`]: Minimize total weighted completion time
 //! - [`SequencingToMinimizeWeightedTardiness`]: Decide whether a schedule meets a weighted tardiness bound
@@ -70,6 +70,7 @@ mod staff_scheduling;
 pub(crate) mod string_to_string_correction;
 mod subset_sum;
 pub(crate) mod sum_of_squares_partition;
+mod three_partition;
 mod timetable_design;
 
 pub use additional_key::AdditionalKey;
@@ -109,6 +110,7 @@ pub use staff_scheduling::StaffScheduling;
 pub use string_to_string_correction::StringToStringCorrection;
 pub use subset_sum::SubsetSum;
 pub use sum_of_squares_partition::SumOfSquaresPartition;
+pub use three_partition::ThreePartition;
 pub use timetable_design::TimetableDesign;
 
 #[cfg(feature = "example-db")]
@@ -150,5 +152,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(bin_packing::canonical_model_example_specs());
     specs.extend(knapsack::canonical_model_example_specs());
     specs.extend(subset_sum::canonical_model_example_specs());
+    specs.extend(three_partition::canonical_model_example_specs());
     specs
 }

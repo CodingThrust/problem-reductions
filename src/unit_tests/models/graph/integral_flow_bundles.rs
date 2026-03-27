@@ -74,7 +74,7 @@ fn test_integral_flow_bundles_rejects_bad_bundle_sum_or_conservation() {
 fn test_integral_flow_bundles_solver_and_paper_example() {
     let problem = yes_instance();
     let solver = BruteForce::new();
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert!(!all.is_empty());
     assert!(all.contains(&satisfying_config()));
     assert!(problem.evaluate(&satisfying_config()));

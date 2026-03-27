@@ -3,7 +3,7 @@
 use std::any::Any;
 use std::collections::BTreeMap;
 
-use crate::registry::dyn_problem::{DynProblem, SolveFn};
+use crate::registry::dyn_problem::{DynProblem, SolveValueFn, SolveWitnessFn};
 
 /// A registered problem variant entry.
 ///
@@ -26,8 +26,10 @@ pub struct VariantEntry {
     pub factory: fn(serde_json::Value) -> Result<Box<dyn DynProblem>, serde_json::Error>,
     /// Serialize: downcast `&dyn Any` and serialize to JSON.
     pub serialize_fn: fn(&dyn Any) -> Option<serde_json::Value>,
-    /// Solve: downcast `&dyn Any` and brute-force solve.
-    pub solve_fn: SolveFn,
+    /// Solve value: downcast `&dyn Any` and brute-force solve to an aggregate string.
+    pub solve_value_fn: SolveValueFn,
+    /// Solve witness: downcast `&dyn Any` and brute-force recover a witness when available.
+    pub solve_witness_fn: SolveWitnessFn,
 }
 
 impl VariantEntry {

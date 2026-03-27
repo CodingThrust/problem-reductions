@@ -64,7 +64,7 @@ fn test_exact_cover_by_3_sets_solver() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
 
     // S0={0,1,2}, S2={3,4,5}, S4={6,7,8} is an exact cover
     assert!(!solutions.is_empty());
@@ -83,7 +83,7 @@ fn test_exact_cover_by_3_sets_no_solution() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [0, 3, 4], [0, 4, 5]]);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(solutions.is_empty());
 }
 
@@ -128,7 +128,7 @@ fn test_exact_cover_by_3_sets_empty() {
     let problem = ExactCoverBy3Sets::new(0, vec![]);
     assert!(problem.evaluate(&[]));
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert_eq!(solutions, vec![Vec::<usize>::new()]);
 }
 

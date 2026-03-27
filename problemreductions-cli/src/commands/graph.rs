@@ -2,7 +2,7 @@ use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_problem_ref};
 use anyhow::{Context, Result};
 use problemreductions::registry::collect_schemas;
-use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph, TraversalDirection};
+use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph, TraversalFlow};
 use problemreductions::types::ProblemSize;
 use problemreductions::{big_o_normal_form, Expr};
 use std::collections::BTreeMap;
@@ -693,11 +693,11 @@ pub fn export(out: &OutputConfig) -> Result<()> {
     out.emit_with_default_name("reduction_graph.json", &text, &json)
 }
 
-fn parse_direction(s: &str) -> Result<TraversalDirection> {
+fn parse_direction(s: &str) -> Result<TraversalFlow> {
     match s {
-        "out" => Ok(TraversalDirection::Outgoing),
-        "in" => Ok(TraversalDirection::Incoming),
-        "both" => Ok(TraversalDirection::Both),
+        "out" => Ok(TraversalFlow::Outgoing),
+        "in" => Ok(TraversalFlow::Incoming),
+        "both" => Ok(TraversalFlow::Both),
         _ => anyhow::bail!("Unknown direction: {}. Use 'out', 'in', or 'both'.", s),
     }
 }
@@ -718,9 +718,9 @@ pub fn neighbors(
     let neighbors = graph.k_neighbors(&spec_name, &variant, max_hops, direction);
 
     let dir_label = match direction {
-        TraversalDirection::Outgoing => "outgoing",
-        TraversalDirection::Incoming => "incoming",
-        TraversalDirection::Both => "both directions",
+        TraversalFlow::Outgoing => "outgoing",
+        TraversalFlow::Incoming => "incoming",
+        TraversalFlow::Both => "both directions",
     };
 
     // Build tree structure via BFS with parent tracking

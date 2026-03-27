@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Max;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
@@ -47,7 +47,7 @@ fn test_maximumsetpacking_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
 
@@ -74,15 +74,15 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let bf_obj = problem.evaluate(&bf_solutions[0]);
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
     let ilp_obj = problem.evaluate(&extracted);
 
-    assert_eq!(bf_obj, SolutionSize::Valid(6));
-    assert_eq!(ilp_obj, SolutionSize::Valid(6));
+    assert_eq!(bf_obj, Max(Some(6)));
+    assert_eq!(ilp_obj, Max(Some(6)));
     assert_eq!(extracted, vec![0, 1, 1]);
 }
 
@@ -112,7 +112,7 @@ fn test_disjoint_sets() {
 
     assert_eq!(extracted, vec![1, 1, 1, 1]);
     assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(4));
+    assert_eq!(problem.evaluate(&extracted), Max(Some(4)));
 }
 
 #[test]
@@ -125,5 +125,5 @@ fn test_solve_reduced() {
         .expect("solve_reduced should work");
 
     assert!(problem.evaluate(&solution).is_valid());
-    assert_eq!(problem.evaluate(&solution), SolutionSize::Valid(2));
+    assert_eq!(problem.evaluate(&solution), Max(Some(2)));
 }

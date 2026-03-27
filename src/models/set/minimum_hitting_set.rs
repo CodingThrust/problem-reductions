@@ -4,8 +4,8 @@
 //! elements that intersects every set in a collection.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -117,24 +117,24 @@ impl MinimumHittingSet {
 
 impl Problem for MinimumHittingSet {
     const NAME: &'static str = "MinimumHittingSet";
-    type Metric = SolutionSize<usize>;
+    type Value = Min<usize>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.universe_size]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<usize> {
+    fn evaluate(&self, config: &[usize]) -> Min<usize> {
         let Some(selected) = self.selected_elements(config) else {
-            return SolutionSize::Invalid;
+            return Min(None);
         };
 
         if self.sets.iter().all(|set| {
             set.iter()
                 .any(|element| selected.binary_search(element).is_ok())
         }) {
-            SolutionSize::Valid(selected.len())
+            Min(Some(selected.len()))
         } else {
-            SolutionSize::Invalid
+            Min(None)
         }
     }
 
@@ -143,16 +143,8 @@ impl Problem for MinimumHittingSet {
     }
 }
 
-impl OptimizationProblem for MinimumHittingSet {
-    type Value = usize;
-
-    fn direction(&self) -> Direction {
-        Direction::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt MinimumHittingSet => "2^universe_size",
+    default MinimumHittingSet => "2^universe_size",
 }
 
 #[cfg(feature = "example-db")]
@@ -172,7 +164,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
         )),
         optimal_config: vec![0, 1, 0, 1, 1, 0],
-        optimal_value: serde_json::json!({"Valid": 3}),
+        optimal_value: serde_json::json!(3),
     }]
 }
 

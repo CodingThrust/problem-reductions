@@ -5,7 +5,7 @@
 //! augmentations such that every row has consecutive 1s.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -114,15 +114,17 @@ impl ConsecutiveOnesMatrixAugmentation {
 
 impl Problem for ConsecutiveOnesMatrixAugmentation {
     const NAME: &'static str = "ConsecutiveOnesMatrixAugmentation";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.num_cols(); self.num_cols()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.total_augmentation_cost(config)
-            .is_some_and(|cost| cost <= self.bound as usize)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            self.total_augmentation_cost(config)
+                .is_some_and(|cost| cost <= self.bound as usize)
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -134,10 +136,8 @@ impl Problem for ConsecutiveOnesMatrixAugmentation {
     }
 }
 
-impl SatisfactionProblem for ConsecutiveOnesMatrixAugmentation {}
-
 crate::declare_variants! {
-    default sat ConsecutiveOnesMatrixAugmentation => "factorial(num_cols) * num_rows * num_cols",
+    default ConsecutiveOnesMatrixAugmentation => "factorial(num_cols) * num_rows * num_cols",
 }
 
 #[cfg(feature = "example-db")]

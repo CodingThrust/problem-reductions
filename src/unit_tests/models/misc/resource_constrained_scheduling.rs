@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -111,7 +111,7 @@ fn test_resource_constrained_scheduling_brute_force_infeasible() {
         2,
     );
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     // 1 processor * 2 time slots = 2 tasks max, but we have 4
     assert!(solution.is_none());
 }
@@ -170,7 +170,7 @@ fn test_resource_constrained_scheduling_single_task_exceeds_bound() {
     assert!(!problem.evaluate(&[0]));
     assert!(!problem.evaluate(&[1]));
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
@@ -189,7 +189,7 @@ fn test_resource_constrained_scheduling_canonical_brute_force() {
         2,
     );
     let solver = BruteForce::new();
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert!(!all.is_empty());
     // Verify the hardcoded canonical solution is among the brute-force results
     assert!(all.contains(&vec![0, 0, 0, 1, 1, 1]));

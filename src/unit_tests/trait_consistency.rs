@@ -22,7 +22,6 @@ fn check_problem_trait<P: Problem>(problem: &P, name: &str) {
         );
     }
 }
-
 #[test]
 fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
@@ -130,7 +129,6 @@ fn test_all_problems_implement_trait_correctly() {
             vec![1i32; 3],
             vec![1i32; 2],
             1,
-            1,
         ),
         "MinMaxMulticenter",
     );
@@ -155,7 +153,6 @@ fn test_all_problems_implement_trait_correctly() {
             SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
             vec![1; 3],
             vec![1; 3],
-            3,
         ),
         "MultipleCopyFileAllocation",
     );
@@ -183,7 +180,7 @@ fn test_all_problems_implement_trait_correctly() {
         "LengthBoundedDisjointPaths",
     );
     check_problem_trait(
-        &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 3),
+        &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
         "OptimalLinearArrangement",
     );
     check_problem_trait(
@@ -194,7 +191,7 @@ fn test_all_problems_implement_trait_correctly() {
         "IsomorphicSpanningTree",
     );
     check_problem_trait(
-        &ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3),
+        &ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]),
         "ShortestCommonSupersequence",
     );
     check_problem_trait(
@@ -233,87 +230,11 @@ fn test_all_problems_implement_trait_correctly() {
         "SequencingWithReleaseTimesAndDeadlines",
     );
     check_problem_trait(
-        &SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240),
+        &SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3),
         "SumOfSquaresPartition",
     );
     check_problem_trait(
         &ConsecutiveOnesSubmatrix::new(vec![vec![true, false], vec![false, true]], 1),
         "ConsecutiveOnesSubmatrix",
-    );
-}
-
-#[test]
-fn test_direction() {
-    use crate::traits::OptimizationProblem;
-    use crate::types::Direction;
-
-    // Minimization problems
-    assert_eq!(
-        MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
-        Direction::Minimize
-    );
-    assert_eq!(
-        MinimumDominatingSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
-        Direction::Minimize
-    );
-    assert_eq!(
-        MinimumSetCovering::<i32>::new(2, vec![vec![0, 1]]).direction(),
-        Direction::Minimize
-    );
-    assert_eq!(
-        PaintShop::new(vec!["a", "a"]).direction(),
-        Direction::Minimize
-    );
-    assert_eq!(
-        QUBO::from_matrix(vec![vec![1.0]]).direction(),
-        Direction::Minimize
-    );
-    assert_eq!(
-        SpinGlass::new(1, vec![], vec![0.0]).direction(),
-        Direction::Minimize
-    );
-    assert_eq!(
-        BMF::new(vec![vec![true]], 1).direction(),
-        Direction::Minimize
-    );
-    assert_eq!(Factoring::new(6, 2, 2).direction(), Direction::Minimize);
-    assert_eq!(
-        BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1).direction(),
-        Direction::Minimize
-    );
-    assert_eq!(
-        QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 1], vec![1, 0]])
-            .direction(),
-        Direction::Minimize
-    );
-
-    // Maximization problems
-    assert_eq!(
-        MaximumIndependentSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
-        Direction::Maximize
-    );
-    assert_eq!(
-        MaximalIS::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
-        Direction::Maximize
-    );
-    assert_eq!(
-        MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32]).direction(),
-        Direction::Maximize
-    );
-    assert_eq!(
-        MaximumMatching::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32]).direction(),
-        Direction::Maximize
-    );
-    assert_eq!(
-        MaximumSetPacking::<i32>::new(vec![vec![0]]).direction(),
-        Direction::Maximize
-    );
-    assert_eq!(
-        MaximumClique::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
-        Direction::Maximize
-    );
-    assert_eq!(
-        PartiallyOrderedKnapsack::new(vec![2, 3], vec![3, 2], vec![(0, 1)], 5).direction(),
-        Direction::Maximize
     );
 }

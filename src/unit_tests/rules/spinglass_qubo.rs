@@ -12,7 +12,7 @@ fn test_spinglass_to_qubo_closed_loop() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(qubo);
+    let solutions = solver.find_all_witnesses(qubo);
 
     // Anti-ferromagnetic: opposite spins are optimal
     for sol in &solutions {
@@ -33,7 +33,7 @@ fn test_with_onsite_fields() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(qubo);
+    let solutions = solver.find_all_witnesses(qubo);
 
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![0], "Should prefer x=0 (s=-1)");
@@ -84,7 +84,7 @@ fn test_jl_parity_spinglass_to_qubo() {
     let source = SpinGlass::<SimpleGraph, f64>::new(nv, interactions, h_values);
     let result = ReduceTo::<QUBO<f64>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
@@ -126,7 +126,7 @@ fn test_jl_parity_qubo_to_spinglass() {
     let source = QUBO::from_matrix(rust_matrix);
     let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
@@ -169,7 +169,7 @@ fn test_jl_parity_rule_qubo_to_spinglass() {
     let source = QUBO::from_matrix(rust_matrix);
     let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
