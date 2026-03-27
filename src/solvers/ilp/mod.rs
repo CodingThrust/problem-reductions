@@ -21,7 +21,7 @@
 //! let solution = solver.solve(&ilp);
 //! ```
 
-mod highs_raw;
+pub(crate) mod highs_raw;
 mod solver;
 
 pub use solver::ILPSolver;

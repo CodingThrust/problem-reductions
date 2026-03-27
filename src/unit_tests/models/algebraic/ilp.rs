@@ -571,3 +571,112 @@ fn test_ilp_to_lp_format_multiple_constraints() {
     assert!(lp.contains("c0:"));
     assert!(lp.contains("c1:"));
 }
+
+// ============================================================
+// LP export roundtrip: export → read back with HiGHS → compare
+// ============================================================
+
+#[cfg(feature = "ilp-solver")]
+#[test]
+fn test_ilp_lp_export_roundtrip_bool() {
+    use crate::solvers::ilp::highs_raw::HiGHSModel;
+
+    // Maximize 2*x0 + 3*x1 + x2 subject to:
+    //   x0 + x1 + x2 <= 2
+    //   x0 + x1 >= 1
+    let ilp = ILP::<bool>::new(
+        3,
+        vec![
+            LinearConstraint::le(vec![(0, 1.0), (1, 1.0), (2, 1.0)], 2.0),
+            LinearConstraint::ge(vec![(0, 1.0), (1, 1.0)], 1.0),
+        ],
+        vec![(0, 2.0), (1, 3.0), (2, 1.0)],
+        ObjectiveSense::Maximize,
+    );
+
+    // Solve with built-in solver
+    let solver = crate::solvers::ILPSolver::new();
+    let builtin_sol = solver
+        .solve(&ilp)
+        .expect("built-in solver should find a solution");
+    let builtin_obj: f64 = ilp
+        .objective
+        .iter()
+        .map(|&(var, coef)| coef * builtin_sol[var] as f64)
+        .sum();
+
+    // Export to LP file, read back with HiGHS, solve
+    let lp_text = ilp.to_lp_format();
+    let tmp_path = std::env::temp_dir().join("test_roundtrip_bool.lp");
+    std::fs::write(&tmp_path, &lp_text).expect("write LP file");
+
+    let mut model = HiGHSModel::new();
+    model.set_int_option("random_seed", 0);
+    model.set_string_option("presolve", "off");
+    let file_sol = model
+        .read_and_solve(tmp_path.to_str().unwrap())
+        .expect("HiGHS should solve the LP file");
+    std::fs::remove_file(&tmp_path).ok();
+
+    // Compare objective values
+    let file_obj: f64 = ilp
+        .objective
+        .iter()
+        .map(|&(var, coef)| coef * file_sol[var])
+        .sum();
+    assert!(
+        (builtin_obj - file_obj).abs() < 1e-6,
+        "objective mismatch: built-in={builtin_obj}, from LP file={file_obj}"
+    );
+}
+
+#[cfg(feature = "ilp-solver")]
+#[test]
+fn test_ilp_lp_export_roundtrip_i32() {
+    use crate::solvers::ilp::highs_raw::HiGHSModel;
+
+    // Minimize -5*x0 - 6*x1 subject to:
+    //   x0 + x1 <= 5
+    //   4*x0 + 7*x1 <= 28
+    let ilp = ILP::<i32>::new(
+        2,
+        vec![
+            LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 5.0),
+            LinearConstraint::le(vec![(0, 4.0), (1, 7.0)], 28.0),
+        ],
+        vec![(0, -5.0), (1, -6.0)],
+        ObjectiveSense::Minimize,
+    );
+
+    let solver = crate::solvers::ILPSolver::new();
+    let builtin_sol = solver
+        .solve(&ilp)
+        .expect("built-in solver should find a solution");
+    let builtin_obj: f64 = ilp
+        .objective
+        .iter()
+        .map(|&(var, coef)| coef * builtin_sol[var] as f64)
+        .sum();
+
+    let lp_text = ilp.to_lp_format();
+    let tmp_path = std::env::temp_dir().join("test_roundtrip_i32.lp");
+    std::fs::write(&tmp_path, &lp_text).expect("write LP file");
+
+    let mut model = HiGHSModel::new();
+    model.set_int_option("random_seed", 0);
+    model.set_string_option("presolve", "off");
+    let file_sol = model
+        .read_and_solve(tmp_path.to_str().unwrap())
+        .expect("HiGHS should solve the LP file");
+    std::fs::remove_file(&tmp_path).ok();
+
+    let file_obj: f64 = ilp
+        .objective
+        .iter()
+        .map(|&(var, coef)| coef * file_sol[var])
+        .sum();
+    assert!(
+        (builtin_obj - file_obj).abs() < 1e-6,
+        "objective mismatch: built-in={builtin_obj}, from LP file={file_obj}"
+    );
+}

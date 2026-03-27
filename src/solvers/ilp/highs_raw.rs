@@ -210,6 +210,29 @@ impl HiGHSModel {
         SolutionStatus::from_raw(value)
     }
 
+    /// Load a model from a file (LP, MPS, etc.) and solve it.
+    /// Returns column values if optimal, or `None` on failure.
+    #[cfg(test)]
+    pub(crate) fn read_and_solve(&mut self, path: &str) -> Option<Vec<f64>> {
+        let c_path = CString::new(path).expect("invalid file path");
+        let status = unsafe { highs_sys::Highs_readModel(self.ptr, c_path.as_ptr()) };
+        if HiGHSStatus::from_raw(status).is_err() {
+            return None;
+        }
+
+        let run_status = self.solve();
+        if run_status.is_err() {
+            return None;
+        }
+
+        if self.model_status() != ModelStatus::Optimal {
+            return None;
+        }
+
+        let num_vars = unsafe { highs_sys::Highs_getNumCols(self.ptr) } as usize;
+        Some(self.solution_values(num_vars))
+    }
+
     /// Extract column (variable) values from the solution.
     pub(crate) fn solution_values(&self, num_vars: usize) -> Vec<f64> {
         let mut col_value = vec![0.0f64; num_vars];
