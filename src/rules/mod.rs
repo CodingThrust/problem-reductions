@@ -3,7 +3,9 @@
 pub mod analysis;
 pub mod cost;
 pub mod registry;
-pub use cost::{CustomCost, Minimize, MinimizeSteps, PathCostFn};
+pub use cost::{
+    CustomCost, Minimize, MinimizeOutputSize, MinimizeSteps, MinimizeStepsThenOverhead, PathCostFn,
+};
 pub use registry::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
 
 pub(crate) mod circuit_spinglass;

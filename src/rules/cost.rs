@@ -27,6 +27,39 @@ impl PathCostFn for MinimizeSteps {
     }
 }
 
+/// Minimize total output size (sum of all output field values).
+///
+/// Prefers reduction paths that produce smaller intermediate and final problems.
+/// Breaks ties that `MinimizeSteps` cannot resolve (e.g., two 2-step paths
+/// where one produces 144 ILP variables and the other 1,332).
+pub struct MinimizeOutputSize;
+
+impl PathCostFn for MinimizeOutputSize {
+    fn edge_cost(&self, overhead: &ReductionOverhead, size: &ProblemSize) -> f64 {
+        let output = overhead.evaluate_output_size(size);
+        output.total() as f64
+    }
+}
+
+/// Minimize steps first, then use output size as tiebreaker.
+///
+/// Each edge has a primary cost of `STEP_WEIGHT` (ensuring fewer-step paths
+/// always win) plus a small overhead-based cost that breaks ties between
+/// equal-step paths.
+pub struct MinimizeStepsThenOverhead;
+
+impl PathCostFn for MinimizeStepsThenOverhead {
+    fn edge_cost(&self, overhead: &ReductionOverhead, size: &ProblemSize) -> f64 {
+        // Use a large step weight to ensure step count dominates.
+        // The overhead tiebreaker uses log1p to compress the range,
+        // keeping it far smaller than STEP_WEIGHT for any realistic problem size.
+        const STEP_WEIGHT: f64 = 1e9;
+        let output = overhead.evaluate_output_size(size);
+        let overhead_tiebreaker = (1.0 + output.total() as f64).ln();
+        STEP_WEIGHT + overhead_tiebreaker
+    }
+}
+
 /// Custom cost function from closure.
 pub struct CustomCost<F>(pub F);
 

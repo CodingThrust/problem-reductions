@@ -180,6 +180,7 @@ problemreductions::inventory::submit! {
         }),
         capabilities: EdgeCapabilities::aggregate_only(),
         overhead_eval_fn: |_| ProblemSize::new(vec![]),
+        source_size_fn: |_| ProblemSize::new(vec![]),
     }
 }
 
@@ -202,6 +203,7 @@ problemreductions::inventory::submit! {
         }),
         capabilities: EdgeCapabilities::aggregate_only(),
         overhead_eval_fn: |_| ProblemSize::new(vec![]),
+        source_size_fn: |_| ProblemSize::new(vec![]),
     }
 }
 
