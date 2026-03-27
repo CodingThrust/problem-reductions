@@ -51,8 +51,8 @@ pub struct MinimizeStepsThenOverhead;
 impl PathCostFn for MinimizeStepsThenOverhead {
     fn edge_cost(&self, overhead: &ReductionOverhead, size: &ProblemSize) -> f64 {
         // Use a large step weight to ensure step count dominates.
-        // The overhead tiebreaker is normalized to [0, 1) by using log1p,
-        // so it never outweighs a single step difference.
+        // The overhead tiebreaker uses log1p to compress the range,
+        // keeping it far smaller than STEP_WEIGHT for any realistic problem size.
         const STEP_WEIGHT: f64 = 1e9;
         let output = overhead.evaluate_output_size(size);
         let overhead_tiebreaker = (1.0 + output.total() as f64).ln();

@@ -239,6 +239,11 @@ impl ILPSolver {
         any.is::<ILP<bool>>() || any.is::<ILP<i32>>() || any.is::<TimetableDesign>()
     }
 
+    /// Two-level path selection:
+    /// 1. Dijkstra finds the cheapest path to each ILP variant using
+    ///    `MinimizeStepsThenOverhead` (additive edge costs: step count + log overhead).
+    /// 2. Across ILP variants, we pick the path whose composed final output size
+    ///    is smallest — this is the actual ILP problem size the solver will face.
     fn best_path_to_ilp(
         &self,
         graph: &crate::rules::ReductionGraph,
@@ -262,6 +267,8 @@ impl ILPSolver {
                 &input_size,
                 &crate::rules::MinimizeStepsThenOverhead,
             ) {
+                // Use composed final output size for cross-variant comparison,
+                // since this determines the actual ILP problem size.
                 let final_size = graph
                     .evaluate_path_overhead(&path, &input_size)
                     .unwrap_or_default();

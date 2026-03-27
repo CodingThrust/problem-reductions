@@ -1635,3 +1635,48 @@ fn test_evaluate_path_overhead() {
     assert_eq!(final_size.get("num_vertices"), Some(10));
     assert_eq!(final_size.get("num_edges"), Some(20));
 }
+
+#[test]
+fn test_evaluate_path_overhead_multistep() {
+    use crate::rules::cost::MinimizeStepsThenOverhead;
+
+    // MIS → SetPacking<One> → SetPacking<i32> → ILP<bool> (3 steps with size transformations)
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, One>::variant());
+    let dst_variants = graph.variants_for("ILP");
+    let dst = dst_variants
+        .iter()
+        .find(|v| v.get("variable") == Some(&"bool".to_string()))
+        .expect("ILP<bool> variant should exist");
+    let input_size = ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
+
+    let path = graph
+        .find_cheapest_path_mode(
+            "MaximumIndependentSet",
+            &src,
+            "ILP",
+            dst,
+            ReductionMode::Witness,
+            &input_size,
+            &MinimizeStepsThenOverhead,
+        )
+        .expect("should find path");
+
+    assert!(
+        path.len() >= 2,
+        "path should have at least 2 steps, got {}",
+        path.len()
+    );
+
+    let final_size = graph
+        .evaluate_path_overhead(&path, &input_size)
+        .expect("should evaluate overhead");
+
+    // MIS(V=10,E=20) → SetPacking(sets=V=10, universe=E=20) → ... → ILP(vars=10, constraints=20)
+    // The final ILP dimensions should reflect the composed overhead, not the input.
+    assert_eq!(final_size.get("num_vars"), Some(10));
+    assert_eq!(final_size.get("num_constraints"), Some(20));
+    // Original MIS fields should NOT appear in the final output
+    assert_eq!(final_size.get("num_vertices"), None);
+    assert_eq!(final_size.get("num_edges"), None);
+}
