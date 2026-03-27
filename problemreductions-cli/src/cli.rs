@@ -887,7 +887,7 @@ mod tests {
         ));
         assert!(
             help.contains(
-                "Number of processors/machines for FlowShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines"
+                "Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines"
             ),
             "create help should describe --num-processors for both scheduling models"
         );

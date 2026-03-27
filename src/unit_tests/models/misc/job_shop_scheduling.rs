@@ -1,6 +1,7 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
+use crate::types::Or;
 
 fn issue_example() -> JobShopScheduling {
     JobShopScheduling::new(
@@ -33,7 +34,7 @@ fn test_job_shop_scheduling_creation_and_dims() {
 fn test_job_shop_scheduling_evaluate_issue_example() {
     let problem = issue_example();
     let config = vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0];
-    assert!(problem.evaluate(&config));
+    assert_eq!(problem.evaluate(&config), Or(true));
 }
 
 #[test]
@@ -61,14 +62,14 @@ fn test_job_shop_scheduling_paper_example_schedule() {
 fn test_job_shop_scheduling_rejects_cyclic_machine_orders() {
     let problem = small_two_job_instance();
     let config = vec![1, 0, 0, 0];
-    assert!(!problem.evaluate(&config));
+    assert_eq!(problem.evaluate(&config), Or(false));
 }
 
 #[test]
 fn test_job_shop_scheduling_invalid_config_and_serialization() {
     let problem = small_two_job_instance();
-    assert!(!problem.evaluate(&[2, 0, 0, 0]));
-    assert!(!problem.evaluate(&[0, 0, 0]));
+    assert_eq!(problem.evaluate(&[2, 0, 0, 0]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 0, 0]), Or(false));
 
     let json = serde_json::to_value(&problem).unwrap();
     let restored: JobShopScheduling = serde_json::from_value(json).unwrap();
@@ -87,7 +88,7 @@ fn test_job_shop_scheduling_problem_name_and_variant() {
 fn test_job_shop_scheduling_brute_force_solver_small_instance() {
     let problem = small_two_job_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert_eq!(problem.evaluate(&solution.unwrap()), Or(true));
 }

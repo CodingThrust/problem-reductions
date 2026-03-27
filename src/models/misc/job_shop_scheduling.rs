@@ -6,7 +6,8 @@
 //! precedence and single-processor capacity constraints.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
+use crate::types::Or;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
@@ -215,7 +216,7 @@ impl JobShopScheduling {
 
 impl Problem for JobShopScheduling {
     const NAME: &'static str = "JobShopScheduling";
-    type Metric = bool;
+    type Value = Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -229,15 +230,13 @@ impl Problem for JobShopScheduling {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.schedule_from_config(config).is_some()
+    fn evaluate(&self, config: &[usize]) -> Or {
+        Or(self.schedule_from_config(config).is_some())
     }
 }
 
-impl SatisfactionProblem for JobShopScheduling {}
-
 crate::declare_variants! {
-    default sat JobShopScheduling => "factorial(num_tasks)",
+    default JobShopScheduling => "factorial(num_tasks)",
 }
 
 #[cfg(feature = "example-db")]

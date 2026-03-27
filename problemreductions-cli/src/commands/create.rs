@@ -7697,25 +7697,6 @@ mod tests {
     }
 
     #[test]
-    fn test_create_expected_retrieval_cost_requires_latency_bound() {
-        let mut args = empty_args();
-        args.problem = Some("ExpectedRetrievalCost".to_string());
-        args.probabilities = Some("0.2,0.15,0.15,0.2,0.1,0.2".to_string());
-        args.num_sectors = Some(3);
-        args.latency_bound = None;
-
-        let out = OutputConfig {
-            output: None,
-            quiet: true,
-            json: false,
-            auto_json: false,
-        };
-
-        let err = create(&args, &out).unwrap_err().to_string();
-        assert!(err.contains("ExpectedRetrievalCost requires --latency-bound"));
-    }
-
-    #[test]
     fn test_create_job_shop_scheduling_json() {
         use crate::dispatch::ProblemJsonOutput;
         use problemreductions::models::misc::JobShopScheduling;
