@@ -114,20 +114,7 @@ impl SequencingToMinimizeWeightedTardiness {
     }
 
     fn decode_schedule(&self, config: &[usize]) -> Option<Vec<usize>> {
-        let n = self.num_tasks();
-        if config.len() != n {
-            return None;
-        }
-
-        let mut available: Vec<usize> = (0..n).collect();
-        let mut schedule = Vec::with_capacity(n);
-        for &digit in config {
-            if digit >= available.len() {
-                return None;
-            }
-            schedule.push(available.remove(digit));
-        }
-        Some(schedule)
+        super::decode_lehmer(config, self.num_tasks())
     }
 
     fn schedule_weighted_tardiness(&self, schedule: &[usize]) -> Option<u64> {
@@ -160,8 +147,7 @@ impl Problem for SequencingToMinimizeWeightedTardiness {
     }
 
     fn dims(&self) -> Vec<usize> {
-        let n = self.num_tasks();
-        (0..n).rev().map(|i| i + 1).collect()
+        super::lehmer_dims(self.num_tasks())
     }
 
     fn evaluate(&self, config: &[usize]) -> crate::types::Or {

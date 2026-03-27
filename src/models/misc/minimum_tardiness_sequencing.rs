@@ -132,26 +132,14 @@ impl Problem for MinimumTardinessSequencing {
     }
 
     fn dims(&self) -> Vec<usize> {
-        let n = self.num_tasks;
-        (0..n).rev().map(|i| i + 1).collect()
+        super::lehmer_dims(self.num_tasks)
     }
 
     fn evaluate(&self, config: &[usize]) -> Min<usize> {
         let n = self.num_tasks;
-        if config.len() != n {
+        let Some(schedule) = super::decode_lehmer(config, n) else {
             return Min(None);
-        }
-
-        // Decode Lehmer code into a permutation.
-        // config[i] must be < n - i (the domain size for position i).
-        let mut available: Vec<usize> = (0..n).collect();
-        let mut schedule = Vec::with_capacity(n);
-        for &c in config.iter() {
-            if c >= available.len() {
-                return Min(None);
-            }
-            schedule.push(available.remove(c));
-        }
+        };
 
         // schedule[i] = the task scheduled at position i.
         // We need sigma(task) = position, i.e., the inverse permutation.

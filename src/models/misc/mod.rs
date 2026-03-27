@@ -11,6 +11,7 @@
 //! - [`Factoring`]: Integer factorization
 //! - [`FlowShopScheduling`]: Flow Shop Scheduling (meet deadline on m processors)
 //! - [`GroupingBySwapping`]: Group equal symbols into contiguous blocks by adjacent swaps
+//! - [`JobShopScheduling`]: Minimize makespan with per-job processor routes
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
 //! - [`MultiprocessorScheduling`]: Schedule tasks on processors to meet a deadline
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
@@ -35,6 +36,31 @@
 //! - [`SumOfSquaresPartition`]: Partition integers into K groups minimizing sum of squared group sums
 
 pub(crate) mod additional_key;
+
+/// Decode a Lehmer code into a permutation of `0..n`.
+///
+/// Each element of `config` selects from the remaining items:
+/// `config[i]` must be `< n - i`. Returns `None` if the config is
+/// invalid (wrong length or out-of-range digit).
+pub(crate) fn decode_lehmer(config: &[usize], n: usize) -> Option<Vec<usize>> {
+    if config.len() != n {
+        return None;
+    }
+    let mut available: Vec<usize> = (0..n).collect();
+    let mut schedule = Vec::with_capacity(n);
+    for &digit in config {
+        if digit >= available.len() {
+            return None;
+        }
+        schedule.push(available.remove(digit));
+    }
+    Some(schedule)
+}
+
+/// Return the Lehmer-code dimension vector `[n, n-1, ..., 1]`.
+pub(crate) fn lehmer_dims(n: usize) -> Vec<usize> {
+    (0..n).rev().map(|i| i + 1).collect()
+}
 mod bin_packing;
 mod boyce_codd_normal_form_violation;
 mod capacity_assignment;
@@ -46,6 +72,7 @@ pub(crate) mod expected_retrieval_cost;
 pub(crate) mod factoring;
 mod flow_shop_scheduling;
 mod grouping_by_swapping;
+mod job_shop_scheduling;
 mod knapsack;
 mod longest_common_subsequence;
 mod minimum_tardiness_sequencing;
@@ -85,6 +112,7 @@ pub use expected_retrieval_cost::ExpectedRetrievalCost;
 pub use factoring::Factoring;
 pub use flow_shop_scheduling::FlowShopScheduling;
 pub use grouping_by_swapping::GroupingBySwapping;
+pub use job_shop_scheduling::JobShopScheduling;
 pub use knapsack::Knapsack;
 pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
@@ -143,6 +171,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(sequencing_to_minimize_maximum_cumulative_cost::canonical_model_example_specs());
     specs.extend(sum_of_squares_partition::canonical_model_example_specs());
     specs.extend(precedence_constrained_scheduling::canonical_model_example_specs());
+    specs.extend(job_shop_scheduling::canonical_model_example_specs());
     specs.extend(sequencing_with_release_times_and_deadlines::canonical_model_example_specs());
     specs.extend(flow_shop_scheduling::canonical_model_example_specs());
     specs.extend(bin_packing::canonical_model_example_specs());

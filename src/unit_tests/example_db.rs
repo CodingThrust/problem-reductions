@@ -113,6 +113,24 @@ fn test_find_model_example_multiprocessor_scheduling() {
 }
 
 #[test]
+fn test_find_model_example_job_shop_scheduling() {
+    let problem = ProblemRef {
+        name: "JobShopScheduling".to_string(),
+        variant: BTreeMap::new(),
+    };
+
+    let example = find_model_example(&problem).expect("JobShopScheduling example exists");
+    assert_eq!(example.problem, "JobShopScheduling");
+    assert_eq!(example.variant, problem.variant);
+    assert_eq!(example.instance["num_processors"], 2);
+    assert!(example.instance["jobs"].is_array());
+    assert_eq!(
+        example.optimal_config,
+        vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0]
+    );
+}
+
+#[test]
 fn test_find_model_example_integral_flow_bundles() {
     let problem = ProblemRef {
         name: "IntegralFlowBundles".to_string(),
