@@ -38,9 +38,9 @@ pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
     AdditionalKey, BinPacking, CapacityAssignment, CbqRelation, ConjunctiveBooleanQuery,
     ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
-    ExpectedRetrievalCost, Factoring, FlowShopScheduling, GroupingBySwapping, Knapsack,
-    LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
-    Partition, PrecedenceConstrainedScheduling, QueryArg, RectilinearPictureCompression,
+    ExpectedRetrievalCost, Factoring, FlowShopScheduling, GroupingBySwapping, JobShopScheduling,
+    Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
+    PaintShop, Partition, PrecedenceConstrainedScheduling, QueryArg, RectilinearPictureCompression,
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
