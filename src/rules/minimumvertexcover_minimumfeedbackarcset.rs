@@ -89,7 +89,6 @@ impl ReduceTo<MinimumFeedbackArcSet<i32>> for MinimumVertexCover<SimpleGraph, i3
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
     use crate::solvers::BruteForce;
-    use crate::traits::Problem;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumvertexcover_to_minimumfeedbackarcset",
