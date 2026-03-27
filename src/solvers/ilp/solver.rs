@@ -141,6 +141,7 @@ impl ILPSolver {
             let mut model = unsolved
                 .using(highs)
                 .set_option("random_seed", 0i32)
+                .set_option("presolve", "off")
                 .set_parallel(HighsParallelType::Off)
                 .set_threads(1);
             if let Some(seconds) = self.time_limit {
