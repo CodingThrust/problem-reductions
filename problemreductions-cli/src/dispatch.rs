@@ -101,7 +101,19 @@ impl LoadedProblem {
         solvers
     }
 
-    /// Solve using the ILP solver. If the problem is not ILP, auto-reduce to ILP first.
+    /// Export the problem in LP format. Returns `None` if the type is not ILP.
+    pub fn export_lp(&self) -> Option<String> {
+        use problemreductions::models::algebraic::ILP;
+        let any = self.as_any();
+        if let Some(ilp) = any.downcast_ref::<ILP<bool>>() {
+            return Some(ilp.to_lp_format());
+        }
+        if let Some(ilp) = any.downcast_ref::<ILP<i32>>() {
+            return Some(ilp.to_lp_format());
+        }
+        None
+    }
+
     pub fn solve_with_ilp(&self) -> Result<WitnessSolveResult> {
         let name = self.problem_name();
         let variant = self.variant_map();

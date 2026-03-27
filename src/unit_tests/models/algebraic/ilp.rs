@@ -453,3 +453,121 @@ fn test_ilp_paper_example() {
     let result2 = Problem::evaluate(&ilp, &[0, 4]);
     assert_eq!(result2, Extremum::minimize(Some(-24.0)));
 }
+
+// ============================================================
+// LP-format export tests
+// ============================================================
+
+#[test]
+fn test_ilp_to_lp_format_maximize() {
+    let ilp = ILP::<bool>::new(
+        2,
+        vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0)],
+        vec![(0, 1.0), (1, 2.0)],
+        ObjectiveSense::Maximize,
+    );
+    let lp = ilp.to_lp_format();
+    assert!(lp.contains("Maximize"));
+    assert!(lp.contains("x0"));
+    assert!(lp.contains("x1"));
+    assert!(lp.contains("Subject To"));
+    assert!(lp.contains("<="));
+    assert!(lp.contains("Binary"));
+    assert!(lp.contains("End"));
+}
+
+#[test]
+fn test_ilp_to_lp_format_minimize() {
+    let ilp = ILP::<bool>::new(
+        2,
+        vec![LinearConstraint::ge(vec![(0, 1.0), (1, 1.0)], 1.0)],
+        vec![(0, 1.0), (1, 1.0)],
+        ObjectiveSense::Minimize,
+    );
+    let lp = ilp.to_lp_format();
+    assert!(lp.contains("Minimize"));
+    assert!(lp.contains(">="));
+}
+
+#[test]
+fn test_ilp_to_lp_format_equality() {
+    let ilp = ILP::<bool>::new(
+        2,
+        vec![LinearConstraint::eq(vec![(0, 1.0), (1, 1.0)], 1.0)],
+        vec![(0, 1.0)],
+        ObjectiveSense::Maximize,
+    );
+    let lp = ilp.to_lp_format();
+    let constraint_line = lp.lines().find(|l| l.contains("c0:")).unwrap();
+    assert!(
+        constraint_line.contains(" = "),
+        "equality constraint: {constraint_line}"
+    );
+}
+
+#[test]
+fn test_ilp_to_lp_format_i32_uses_generals() {
+    let ilp = ILP::<i32>::new(
+        2,
+        vec![LinearConstraint::le(vec![(0, 1.0)], 5.0)],
+        vec![(0, 1.0), (1, 1.0)],
+        ObjectiveSense::Maximize,
+    );
+    let lp = ilp.to_lp_format();
+    assert!(
+        lp.contains("Generals"),
+        "i32 vars should be in Generals section"
+    );
+}
+
+#[test]
+fn test_ilp_to_lp_format_bool_uses_binary() {
+    let ilp = ILP::<bool>::new(
+        2,
+        vec![],
+        vec![(0, 1.0), (1, 1.0)],
+        ObjectiveSense::Maximize,
+    );
+    let lp = ilp.to_lp_format();
+    assert!(
+        lp.contains("Binary"),
+        "bool vars should be in Binary section"
+    );
+}
+
+#[test]
+fn test_ilp_to_lp_format_negative_coefficient() {
+    let ilp = ILP::<bool>::new(
+        2,
+        vec![LinearConstraint::le(vec![(0, 1.0), (1, -2.0)], 3.0)],
+        vec![(0, 3.0), (1, -1.0)],
+        ObjectiveSense::Maximize,
+    );
+    let lp = ilp.to_lp_format();
+    assert!(lp.contains("- 2"), "negative coef in constraint");
+    assert!(lp.contains("- 1"), "negative coef in objective");
+}
+
+#[test]
+fn test_ilp_to_lp_format_empty_problem() {
+    let ilp = ILP::<bool>::empty();
+    let lp = ilp.to_lp_format();
+    assert!(lp.contains("Minimize"));
+    assert!(lp.contains("End"));
+}
+
+#[test]
+fn test_ilp_to_lp_format_multiple_constraints() {
+    let ilp = ILP::<bool>::new(
+        3,
+        vec![
+            LinearConstraint::le(vec![(0, 1.0), (1, 1.0), (2, 1.0)], 2.0),
+            LinearConstraint::ge(vec![(0, 1.0), (1, 1.0)], 1.0),
+        ],
+        vec![(0, 2.0), (1, 3.0), (2, 1.0)],
+        ObjectiveSense::Maximize,
+    );
+    let lp = ilp.to_lp_format();
+    assert!(lp.contains("c0:"));
+    assert!(lp.contains("c1:"));
+}

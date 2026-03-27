@@ -3,13 +3,8 @@
 use crate::models::algebraic::{Comparison, ObjectiveSense, VariableDomain, ILP};
 use crate::models::misc::TimetableDesign;
 use crate::rules::{ReduceTo, ReductionMode, ReductionResult};
-#[cfg(not(feature = "ilp-highs"))]
-use good_lp::default_solver;
-#[cfg(feature = "ilp-highs")]
-use good_lp::highs;
-#[cfg(feature = "ilp-highs")]
-use good_lp::solvers::highs::HighsParallelType;
-use good_lp::{variable, ProblemVariables, Solution, SolverModel, Variable};
+
+use super::highs_raw::{HiGHSModel, ModelStatus, SolutionStatus};
 
 /// An ILP solver using the HiGHS backend.
 ///
@@ -91,6 +86,8 @@ impl ILPSolver {
             return problem.is_feasible(&[]).then_some(vec![]);
         }
 
+        let num_constraints = problem.constraints.len();
+
         // Derive tighter per-variable upper bounds from single-variable ≤ constraints.
         // This avoids giving HiGHS the full domain (e.g. 2^31 for i32), which can
         // cause severe performance degradation even when constraints already bound
@@ -98,9 +95,7 @@ impl ILPSolver {
         let default_ub = (V::DIMS_PER_VAR - 1) as f64;
         let mut upper_bounds = vec![default_ub; n];
         for constraint in &problem.constraints {
-            if constraint.cmp == crate::models::algebraic::Comparison::Le
-                && constraint.terms.len() == 1
-            {
+            if constraint.cmp == Comparison::Le && constraint.terms.len() == 1 {
                 let (var_idx, coef) = constraint.terms[0];
                 if coef > 0.0 && var_idx < n {
                     let ub = constraint.rhs / coef;
@@ -111,77 +106,166 @@ impl ILPSolver {
             }
         }
 
-        // Create integer variables with tightened bounds
-        let mut vars_builder = ProblemVariables::new();
-        let vars: Vec<Variable> = (0..n)
-            .map(|i| {
-                let mut v = variable().integer();
-                v = v.min(0.0);
-                v = v.max(upper_bounds[i]);
-                vars_builder.add(v)
-            })
-            .collect();
-
-        // Build objective expression
-        let objective: good_lp::Expression = problem
-            .objective
-            .iter()
-            .map(|&(var_idx, coef)| coef * vars[var_idx])
-            .sum();
-
-        // Build the model with objective
-        let unsolved = match problem.sense {
-            ObjectiveSense::Maximize => vars_builder.maximise(&objective),
-            ObjectiveSense::Minimize => vars_builder.minimise(&objective),
-        };
-
-        // Create the solver model
-        #[cfg(feature = "ilp-highs")]
-        let mut model = {
-            let mut model = unsolved
-                .using(highs)
-                .set_option("random_seed", 0i32)
-                .set_option("presolve", "off")
-                .set_parallel(HighsParallelType::Off)
-                .set_threads(1);
-            if let Some(seconds) = self.time_limit {
-                model = model.set_time_limit(seconds);
+        // Build dense objective coefficient vector
+        let mut col_cost = vec![0.0f64; n];
+        for &(var_idx, coef) in &problem.objective {
+            if var_idx < n {
+                col_cost[var_idx] = coef;
             }
-            model
-        };
-
-        #[cfg(not(feature = "ilp-highs"))]
-        let mut model = unsolved.using(default_solver);
-
-        // Add constraints
-        for constraint in &problem.constraints {
-            // Build left-hand side expression
-            let lhs: good_lp::Expression = constraint
-                .terms
-                .iter()
-                .map(|&(var_idx, coef)| coef * vars[var_idx])
-                .sum();
-
-            // Create the constraint based on comparison type
-            let good_lp_constraint = match constraint.cmp {
-                Comparison::Le => lhs.leq(constraint.rhs),
-                Comparison::Ge => lhs.geq(constraint.rhs),
-                Comparison::Eq => lhs.eq(constraint.rhs),
-            };
-
-            model = model.with(good_lp_constraint);
         }
 
-        // Solve
-        let solution = model.solve().ok()?;
+        let col_lower = vec![0.0f64; n];
+        let integrality = vec![1i32; n]; // all integer
+
+        // Build constraint matrix in CSC (column-wise) format.
+        //
+        // Two-pass approach: first count nonzeros per column, then fill flat arrays.
+        // This avoids N small Vec allocations.
+        let total_nnz: usize = problem.constraints.iter().map(|c| c.terms.len()).sum();
+        let mut col_count = vec![0u32; n];
+        for constraint in &problem.constraints {
+            for &(var_idx, _) in &constraint.terms {
+                if var_idx < n {
+                    col_count[var_idx] += 1;
+                }
+            }
+        }
+
+        // Build a_start from cumulative counts
+        let mut a_start: Vec<i32> = Vec::with_capacity(n + 1);
+        let mut cumulative = 0i32;
+        for &count in &col_count {
+            a_start.push(cumulative);
+            cumulative += count as i32;
+        }
+        a_start.push(cumulative);
+
+        // Fill a_index and a_value using write cursors per column
+        let mut a_index = vec![0i32; total_nnz];
+        let mut a_value = vec![0.0f64; total_nnz];
+        let mut cursor = vec![0u32; n]; // write offset within each column
+        for (row_idx, constraint) in problem.constraints.iter().enumerate() {
+            for &(var_idx, coef) in &constraint.terms {
+                if var_idx < n {
+                    let pos = a_start[var_idx] as usize + cursor[var_idx] as usize;
+                    a_index[pos] = row_idx as i32;
+                    a_value[pos] = coef;
+                    cursor[var_idx] += 1;
+                }
+            }
+        }
+
+        // Merge duplicate row indices within each column by summing coefficients.
+        // HiGHS rejects duplicate indices in the same column.
+        // Sort each column's slice by row index, then compact duplicates in-place.
+        let mut write_total = 0usize;
+        for col in 0..n {
+            let start = a_start[col] as usize;
+            let end = a_start[col + 1] as usize;
+
+            // Sort entries by row index using paired key
+            let mut pairs: Vec<(i32, f64)> = a_index[start..end]
+                .iter()
+                .zip(&a_value[start..end])
+                .map(|(&i, &v)| (i, v))
+                .collect();
+            pairs.sort_by_key(|&(row, _)| row);
+            pairs.dedup_by(|b, a| {
+                if a.0 == b.0 {
+                    a.1 += b.1;
+                    true
+                } else {
+                    false
+                }
+            });
+
+            a_start[col] = write_total as i32;
+            for &(row, val) in &pairs {
+                a_index[write_total] = row;
+                a_value[write_total] = val;
+                write_total += 1;
+            }
+        }
+        a_start[n] = write_total as i32;
+        a_index.truncate(write_total);
+        a_value.truncate(write_total);
+
+        // Build row bounds
+        let mut row_lower = vec![f64::NEG_INFINITY; num_constraints];
+        let mut row_upper = vec![f64::INFINITY; num_constraints];
+        for (i, constraint) in problem.constraints.iter().enumerate() {
+            match constraint.cmp {
+                Comparison::Le => {
+                    row_upper[i] = constraint.rhs;
+                }
+                Comparison::Ge => {
+                    row_lower[i] = constraint.rhs;
+                }
+                Comparison::Eq => {
+                    row_lower[i] = constraint.rhs;
+                    row_upper[i] = constraint.rhs;
+                }
+            }
+        }
+
+        // Configure and solve
+        let sense = match problem.sense {
+            ObjectiveSense::Maximize => highs_sys::OBJECTIVE_SENSE_MAXIMIZE,
+            ObjectiveSense::Minimize => highs_sys::OBJECTIVE_SENSE_MINIMIZE,
+        };
+
+        let mut model = HiGHSModel::new();
+
+        let status = model.pass_mip(
+            n,
+            num_constraints,
+            sense,
+            &col_cost,
+            &col_lower,
+            &upper_bounds,
+            &row_lower,
+            &row_upper,
+            &a_start,
+            &a_index,
+            &a_value,
+            &integrality,
+        );
+        if status.is_err() {
+            return None;
+        }
+
+        // Deterministic, single-threaded solving
+        model.set_int_option("random_seed", 0);
+        model.set_string_option("presolve", "off");
+        model.set_string_option("parallel", "off");
+        model.set_int_option("threads", 1);
+        if let Some(seconds) = self.time_limit {
+            model.set_double_option("time_limit", seconds);
+        }
+
+        let run_status = model.solve();
+        if run_status.is_err() {
+            return None;
+        }
+
+        // Check model status and solution feasibility
+        match model.model_status() {
+            ModelStatus::Optimal => {}
+            ModelStatus::TimeLimitOrOther => {
+                // Time/iteration limit reached — only continue if a feasible
+                // solution was found before the limit.
+                if model.primal_solution_status() != SolutionStatus::Feasible {
+                    return None;
+                }
+            }
+            _ => return None,
+        }
 
         // Extract solution: config index = value (no lower bound offset)
-        let result: Vec<usize> = vars
+        let col_values = model.solution_values(n);
+        let result: Vec<usize> = col_values
             .iter()
-            .map(|v| {
-                let val = solution.value(*v);
-                val.round().max(0.0) as usize
-            })
+            .map(|&val| val.round().max(0.0) as usize)
             .collect();
 
         Some(result)

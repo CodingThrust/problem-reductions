@@ -1,7 +1,7 @@
 //! ILP (Integer Linear Programming) solver module.
 //!
-//! This module provides an ILP solver using the HiGHS solver via the `good_lp` crate.
-//! It is only available when the `ilp` feature is enabled.
+//! This module provides an ILP solver using the HiGHS solver via direct `highs-sys` calls.
+//! It is only available when the `ilp-highs` feature is enabled.
 //!
 //! # Example
 //!
@@ -21,6 +21,7 @@
 //! let solution = solver.solve(&ilp);
 //! ```
 
+mod highs_raw;
 mod solver;
 
 pub use solver::ILPSolver;

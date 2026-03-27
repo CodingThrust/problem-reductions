@@ -34,7 +34,11 @@ fn main() -> anyhow::Result<()> {
     // Data-producing commands auto-output JSON when piped
     let auto_json = matches!(
         cli.command,
-        Commands::Reduce(_) | Commands::Solve(_) | Commands::Evaluate(_) | Commands::Inspect(_)
+        Commands::Reduce(_)
+            | Commands::Solve(_)
+            | Commands::Evaluate(_)
+            | Commands::Inspect(_)
+            | Commands::Export(_)
     );
 
     let out = OutputConfig {
@@ -65,6 +69,7 @@ fn main() -> anyhow::Result<()> {
         Commands::ExportGraph => commands::graph::export(&out),
         Commands::Inspect(args) => commands::inspect::inspect(&args.input, &out),
         Commands::Create(args) => commands::create::create(&args, &out),
+        Commands::Export(args) => commands::export::export(&args.input, &args.format, &out),
         Commands::Solve(args) => {
             commands::solve::solve(&args.input, &args.solver, args.timeout, &out)
         }

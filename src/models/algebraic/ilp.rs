@@ -240,6 +240,86 @@ impl<V: VariableDomain> ILP<V> {
     pub fn num_constraints(&self) -> usize {
         self.constraints.len()
     }
+
+    /// Export this ILP problem in LP format (CPLEX LP).
+    ///
+    /// The LP format is human-readable and accepted by HiGHS, CPLEX, Gurobi,
+    /// GLPK, and most other solvers. Variables are named `x0`, `x1`, etc.
+    pub fn to_lp_format(&self) -> String {
+        use std::fmt::Write;
+
+        fn write_linear_expr(out: &mut String, terms: &[(usize, f64)]) {
+            if terms.is_empty() {
+                out.push('0');
+                return;
+            }
+            for (i, &(var_idx, coef)) in terms.iter().enumerate() {
+                if i == 0 {
+                    if coef < 0.0 {
+                        let _ = write!(out, "- {} x{}", coef.abs(), var_idx);
+                    } else {
+                        let _ = write!(out, "{} x{}", coef, var_idx);
+                    }
+                } else if coef < 0.0 {
+                    let _ = write!(out, " - {} x{}", coef.abs(), var_idx);
+                } else {
+                    let _ = write!(out, " + {} x{}", coef, var_idx);
+                }
+            }
+        }
+
+        let mut out = String::new();
+
+        // Objective
+        match self.sense {
+            ObjectiveSense::Maximize => out.push_str("Maximize\n"),
+            ObjectiveSense::Minimize => out.push_str("Minimize\n"),
+        }
+        out.push_str("  obj: ");
+        write_linear_expr(&mut out, &self.objective);
+        out.push('\n');
+
+        // Constraints
+        out.push_str("Subject To\n");
+        for (i, constraint) in self.constraints.iter().enumerate() {
+            let _ = write!(out, "  c{}: ", i);
+            write_linear_expr(&mut out, &constraint.terms);
+            match constraint.cmp {
+                Comparison::Le => {
+                    let _ = write!(out, " <= {}", constraint.rhs);
+                }
+                Comparison::Ge => {
+                    let _ = write!(out, " >= {}", constraint.rhs);
+                }
+                Comparison::Eq => {
+                    let _ = write!(out, " = {}", constraint.rhs);
+                }
+            }
+            out.push('\n');
+        }
+
+        // Variable type section
+        if self.num_vars > 0 {
+            if V::DIMS_PER_VAR == 2 {
+                out.push_str("Binary\n");
+                for i in 0..self.num_vars {
+                    let _ = writeln!(out, "  x{}", i);
+                }
+            } else {
+                out.push_str("Bounds\n");
+                for i in 0..self.num_vars {
+                    let _ = writeln!(out, "  0 <= x{} <= {}", i, V::DIMS_PER_VAR - 1);
+                }
+                out.push_str("Generals\n");
+                for i in 0..self.num_vars {
+                    let _ = writeln!(out, "  x{}", i);
+                }
+            }
+        }
+
+        out.push_str("End\n");
+        out
+    }
 }
 
 impl<V: VariableDomain> Problem for ILP<V> {

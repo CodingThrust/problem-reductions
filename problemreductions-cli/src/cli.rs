@@ -156,6 +156,8 @@ Examples:
   pred inspect bundle.json
   pred create MIS --graph 0-1,1-2 | pred inspect -")]
     Inspect(InspectArgs),
+    /// Export a problem instance in a solver-readable format (e.g., LP)
+    Export(ExportArgs),
     /// Solve a problem instance
     Solve(SolveArgs),
     /// Start MCP (Model Context Protocol) server for AI assistant integration
@@ -737,6 +739,25 @@ pub struct CreateArgs {
 #[derive(clap::Args)]
 #[command(after_help = "\
 Examples:
+  pred export ilp.json                           # export ILP problem in LP format
+  pred export ilp.json -o problem.lp             # save to file
+  pred create ILP --example | pred export -      # pipe from create
+
+Input: a problem JSON from `pred create`. Currently only ILP problems support direct export.
+For other problems, reduce to ILP first with `pred reduce ... --to ILP`, then export.
+
+LP format is accepted by HiGHS, CPLEX, Gurobi, GLPK, and most solvers.")]
+pub struct ExportArgs {
+    /// Problem JSON file (from `pred create`). Use - for stdin.
+    pub input: PathBuf,
+    /// Output format
+    #[arg(long, default_value = "lp")]
+    pub format: String,
+}
+
+#[derive(clap::Args)]
+#[command(after_help = "\
+Examples:
   pred solve problem.json                        # ILP solver (default, auto-reduces to ILP)
   pred solve problem.json --solver brute-force   # brute-force (exhaustive search)
   pred solve problem.json --solver customized    # customized (structure-exploiting exact solver)
@@ -767,10 +788,8 @@ Customized solver: exact witness recovery for select problems via structure-expl
 backends. Currently supports MinimumCardinalityKey, AdditionalKey, PrimeAttributeName,
 BoyceCoddNormalFormViolation, PartialFeedbackEdgeSet, and RootedTreeArrangement.
 
-ILP backend (default: HiGHS). To use a different backend:
-  cargo install problemreductions-cli --features coin-cbc
-  cargo install problemreductions-cli --features scip
-  cargo install problemreductions-cli --no-default-features --features clarabel")]
+ILP backend: HiGHS (via highs-sys).
+Use `pred export` to produce LP-format files for external solvers (Gurobi, CPLEX, etc.).")]
 pub struct SolveArgs {
     /// Problem JSON file (from `pred create`) or reduction bundle (from `pred reduce`). Use - for stdin.
     pub input: PathBuf,
