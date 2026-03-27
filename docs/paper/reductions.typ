@@ -5125,34 +5125,105 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
 #{
   let x = load-model-example("JobShopScheduling")
-  let blocks = (
-    (0, 0, 0, 0, 3),
-    (0, 1, 1, 3, 6),
-    (0, 2, 0, 6, 10),
-    (0, 3, 1, 10, 12),
-    (0, 4, 0, 12, 14),
-    (0, 4, 2, 17, 18),
-    (1, 1, 0, 0, 2),
-    (1, 3, 0, 2, 7),
-    (1, 0, 1, 7, 11),
-    (1, 2, 1, 11, 14),
-    (1, 4, 1, 14, 17),
-    (1, 1, 2, 17, 19),
-  )
-  let makespan = 19
+  let jobs = x.instance.jobs
+  let m = x.instance.num_processors
+  let n = jobs.len()
+  let lehmer = x.optimal_config
+
+  // Flatten tasks: build per-machine task lists and lengths
+  let task-lengths = ()
+  let task-job = ()      // which job each flat task belongs to
+  let task-index = ()    // which task within the job
+  let machine-tasks = range(m).map(_ => ())
+  let tid = 0
+  for (ji, job) in jobs.enumerate() {
+    for (ki, op) in job.enumerate() {
+      let (mi, len) = op
+      task-lengths.push(len)
+      task-job.push(ji)
+      task-index.push(ki)
+      machine-tasks.at(mi).push(tid)
+      tid += 1
+    }
+  }
+  let T = task-lengths.len()
+
+  // Decode per-machine Lehmer codes into machine orders
+  let offset = 0
+  let machine-orders = ()
+  for mi in range(m) {
+    let mt = machine-tasks.at(mi)
+    let k = mt.len()
+    let seg = lehmer.slice(offset, offset + k)
+    let avail = range(k)
+    let order = ()
+    for c in seg {
+      order.push(mt.at(avail.at(c)))
+      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
+    }
+    machine-orders.push(order)
+    offset += k
+  }
+
+  // Build DAG edges (job precedence + machine order)
+  let successors = range(T).map(_ => ())
+  let indegree = range(T).map(_ => 0)
+  // Job precedence edges
+  let job-task-start = 0
+  for job in jobs {
+    for i in range(job.len() - 1) {
+      let u = job-task-start + i
+      let v = job-task-start + i + 1
+      successors.at(u).push(v)
+      indegree.at(v) += 1
+    }
+    job-task-start += job.len()
+  }
+  // Machine order edges
+  for order in machine-orders {
+    for i in range(order.len() - 1) {
+      let u = order.at(i)
+      let v = order.at(i + 1)
+      successors.at(u).push(v)
+      indegree.at(v) += 1
+    }
+  }
+
+  // Topological sort + longest-path to compute start times
+  let start-times = range(T).map(_ => 0)
+  let queue = ()
+  for t in range(T) {
+    if indegree.at(t) == 0 { queue.push(t) }
+  }
+  while queue.len() > 0 {
+    let u = queue.remove(0)
+    let finish = start-times.at(u) + task-lengths.at(u)
+    for v in successors.at(u) {
+      if finish > start-times.at(v) { start-times.at(v) = finish }
+      indegree.at(v) -= 1
+      if indegree.at(v) == 0 { queue.push(v) }
+    }
+  }
+
+  // Build Gantt blocks: (machine, job, task-within-job, start, end)
+  let blocks = ()
+  for t in range(T) {
+    let (mi, _len) = jobs.at(task-job.at(t)).at(task-index.at(t))
+    blocks.push((mi, task-job.at(t), task-index.at(t), start-times.at(t), start-times.at(t) + task-lengths.at(t)))
+  }
+  let makespan = calc.max(..range(T).map(t => start-times.at(t) + task-lengths.at(t)))
   [
     #problem-def("JobShopScheduling")[
       Given a positive integer $m$, a set $J$ of jobs, where each job $j in J$ consists of an ordered list of tasks $t_1[j], dots, t_(n_j)[j]$ with processor assignments $p(t_k[j]) in {1, dots, m}$, processing lengths $ell(t_k[j]) in ZZ^+_0$, and consecutive-processor constraint $p(t_k[j]) != p(t_(k+1)[j])$, find start times $sigma(t_k[j]) in ZZ^+_0$ such that tasks sharing a processor do not overlap, each job respects $sigma(t_(k+1)[j]) >= sigma(t_k[j]) + ell(t_k[j])$, and the makespan $max_(j in J) (sigma(t_(n_j)[j]) + ell(t_(n_j)[j]))$ is minimized.
     ][
       Job-Shop Scheduling is the classical disjunctive scheduling problem SS18 in Garey & Johnson; Garey, Johnson, and Sethi proved it strongly NP-hard already for two machines @garey1976. Unlike Flow Shop Scheduling, each job carries its own machine route, so the difficulty lies in choosing a compatible relative order on every machine and then finding the schedule with minimum makespan. This implementation follows the original Garey-Johnson formulation, including the requirement that consecutive tasks of the same job use different processors, and evaluates a witness by orienting the machine-order edges and propagating longest paths through the resulting precedence DAG. The registered baseline therefore exposes a factorial upper bound over task orders#footnote[The auto-generated complexity table records the concrete upper bound used by the Rust implementation; no sharper exact bound is cited here.].
 
-      *Example.* The canonical fixture has two machines and five jobs
+      *Example.* The canonical fixture has #m machines and #n jobs
       $
-        J_1 = ((M_1, 3), (M_2, 4)),
-        J_2 = ((M_2, 2), (M_1, 3), (M_2, 2)),
-        J_3 = ((M_1, 4), (M_2, 3)),
-        J_4 = ((M_2, 5), (M_1, 2)),
-        J_5 = ((M_1, 2), (M_2, 3), (M_1, 1)).
+        #for (ji, job) in jobs.enumerate() {
+          $J_#(ji+1) = (#job.map(((mi, len)) => $(M_#(mi+1), #len)$).join($,$))$
+          if ji < n - 1 [$,$] else [.]
+        }
       $
       The witness stored in the example DB orders the six tasks on $M_1$ as $(J_1^1, J_2^2, J_3^1, J_4^2, J_5^1, J_5^3)$ and the six tasks on $M_2$ as $(J_2^1, J_4^1, J_1^2, J_3^2, J_5^2, J_2^3)$. Taking the earliest schedule consistent with those machine orders yields the Gantt chart in @fig:jobshop, whose makespan is $#makespan$.
 
@@ -5170,7 +5241,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
           let row-h = 0.6
           let gap = 0.15
 
-          for mi in range(2) {
+          for mi in range(m) {
             let y = -mi * (row-h + gap)
             content((-0.8, y), text(8pt, "M" + str(mi + 1)))
           }
@@ -5189,7 +5260,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
             content(((x0 + x1) / 2, y), text(6pt, "j" + str(ji + 1) + "." + str(ti + 1)))
           }
 
-          let y-axis = -(2 - 1) * (row-h + gap) - row-h / 2 - 0.2
+          let y-axis = -(m - 1) * (row-h + gap) - row-h / 2 - 0.2
           line((0, y-axis), (makespan * scale, y-axis), stroke: 0.4pt)
           for t in range(calc.ceil(makespan / 5) + 1).map(i => calc.min(i * 5, makespan)) {
             let x = t * scale
