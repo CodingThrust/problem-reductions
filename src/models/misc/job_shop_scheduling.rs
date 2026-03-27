@@ -146,8 +146,15 @@ impl JobShopScheduling {
     /// Compute start times from a Lehmer-code config. Returns `None` if the
     /// config is invalid or induces a cycle in the precedence DAG.
     pub fn schedule_from_config(&self, config: &[usize]) -> Option<Vec<u64>> {
-        let flattened = self.flatten_tasks();
-        let machine_orders = self.decode_machine_orders(config, &flattened)?;
+        self.schedule_from_config_inner(config, &self.flatten_tasks())
+    }
+
+    fn schedule_from_config_inner(
+        &self,
+        config: &[usize],
+        flattened: &FlattenedTasks,
+    ) -> Option<Vec<u64>> {
+        let machine_orders = self.decode_machine_orders(config, flattened)?;
         let num_tasks = flattened.lengths.len();
 
         if num_tasks == 0 {
@@ -200,17 +207,6 @@ impl JobShopScheduling {
 
         Some(start_times)
     }
-
-    /// Compute the makespan (completion time of last task) from start times.
-    fn makespan(&self, start_times: &[u64]) -> u64 {
-        let flattened = self.flatten_tasks();
-        start_times
-            .iter()
-            .enumerate()
-            .map(|(i, &s)| s + flattened.lengths[i])
-            .max()
-            .unwrap_or(0)
-    }
 }
 
 impl Problem for JobShopScheduling {
@@ -230,8 +226,17 @@ impl Problem for JobShopScheduling {
     }
 
     fn evaluate(&self, config: &[usize]) -> Min<u64> {
-        match self.schedule_from_config(config) {
-            Some(start_times) => Min(Some(self.makespan(&start_times))),
+        let flattened = self.flatten_tasks();
+        match self.schedule_from_config_inner(config, &flattened) {
+            Some(start_times) => {
+                let makespan = start_times
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &s)| s + flattened.lengths[i])
+                    .max()
+                    .unwrap_or(0);
+                Min(Some(makespan))
+            }
             None => Min(None),
         }
     }
