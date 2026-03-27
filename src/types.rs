@@ -504,7 +504,7 @@ impl<V: fmt::Display> fmt::Display for Extremum<V> {
 }
 
 /// Problem size metadata (varies by problem type).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProblemSize {
     /// Named size components.
     pub components: Vec<(String, usize)>,
@@ -527,6 +527,11 @@ impl ProblemSize {
             .iter()
             .find(|(k, _)| k == name)
             .map(|(_, v)| *v)
+    }
+
+    /// Sum of all component values.
+    pub fn total(&self) -> usize {
+        self.components.iter().map(|(_, v)| *v).sum()
     }
 }
 

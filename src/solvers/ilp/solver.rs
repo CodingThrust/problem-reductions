@@ -141,6 +141,7 @@ impl ILPSolver {
             let mut model = unsolved
                 .using(highs)
                 .set_option("random_seed", 0i32)
+                .set_option("presolve", "off")
                 .set_parallel(HighsParallelType::Off)
                 .set_threads(1);
             if let Some(seconds) = self.time_limit {
@@ -239,18 +240,23 @@ impl ILPSolver {
         any.is::<ILP<bool>>() || any.is::<ILP<i32>>() || any.is::<TimetableDesign>()
     }
 
+    /// Two-level path selection:
+    /// 1. Dijkstra finds the cheapest path to each ILP variant using
+    ///    `MinimizeStepsThenOverhead` (additive edge costs: step count + log overhead).
+    /// 2. Across ILP variants, we pick the path whose composed final output size
+    ///    is smallest — this is the actual ILP problem size the solver will face.
     fn best_path_to_ilp(
         &self,
         graph: &crate::rules::ReductionGraph,
         name: &str,
         variant: &std::collections::BTreeMap<String, String>,
         mode: ReductionMode,
+        instance: &dyn std::any::Any,
     ) -> Option<crate::rules::ReductionPath> {
-        use crate::types::ProblemSize;
-
         let ilp_variants = graph.variants_for("ILP");
-        let input_size = ProblemSize::new(vec![]);
-        let mut best_path = None;
+        let input_size = crate::rules::ReductionGraph::compute_source_size(name, instance);
+        let mut best_path: Option<crate::rules::ReductionPath> = None;
+        let mut best_cost = f64::INFINITY;
 
         for dv in &ilp_variants {
             if let Some(path) = graph.find_cheapest_path_mode(
@@ -260,12 +266,16 @@ impl ILPSolver {
                 dv,
                 mode,
                 &input_size,
-                &crate::rules::MinimizeSteps,
+                &crate::rules::MinimizeStepsThenOverhead,
             ) {
-                let is_better = best_path
-                    .as_ref()
-                    .is_none_or(|current: &crate::rules::ReductionPath| path.len() < current.len());
-                if is_better {
+                // Use composed final output size for cross-variant comparison,
+                // since this determines the actual ILP problem size.
+                let final_size = graph
+                    .evaluate_path_overhead(&path, &input_size)
+                    .unwrap_or_default();
+                let cost = final_size.total() as f64;
+                if cost < best_cost {
+                    best_cost = cost;
                     best_path = Some(path);
                 }
             }
@@ -290,10 +300,11 @@ impl ILPSolver {
 
         let graph = crate::rules::ReductionGraph::new();
 
-        let Some(path) = self.best_path_to_ilp(&graph, name, variant, ReductionMode::Witness)
+        let Some(path) =
+            self.best_path_to_ilp(&graph, name, variant, ReductionMode::Witness, instance)
         else {
             if self
-                .best_path_to_ilp(&graph, name, variant, ReductionMode::Aggregate)
+                .best_path_to_ilp(&graph, name, variant, ReductionMode::Aggregate, instance)
                 .is_some()
             {
                 return Err(SolveViaReductionError::WitnessPathRequired {

@@ -1588,3 +1588,95 @@ fn test_variant_complexity() {
         None
     );
 }
+
+#[test]
+fn test_compute_source_size() {
+    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1, 1, 1, 1],
+    );
+    let size = ReductionGraph::compute_source_size("MaximumIndependentSet", &problem);
+    assert_eq!(size.get("num_vertices"), Some(4));
+    assert_eq!(size.get("num_edges"), Some(3));
+}
+
+#[test]
+fn test_compute_source_size_unknown_problem() {
+    let problem = 42u32;
+    let size = ReductionGraph::compute_source_size("NonExistentProblem", &problem);
+    assert!(size.components.is_empty());
+}
+
+#[test]
+fn test_evaluate_path_overhead() {
+    use crate::rules::cost::MinimizeStepsThenOverhead;
+
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let input_size = ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
+
+    let path = graph
+        .find_cheapest_path(
+            "MaximumIndependentSet",
+            &src,
+            "MinimumVertexCover",
+            &dst,
+            &input_size,
+            &MinimizeStepsThenOverhead,
+        )
+        .expect("should find path");
+
+    let final_size = graph
+        .evaluate_path_overhead(&path, &input_size)
+        .expect("should evaluate overhead");
+
+    // MIS → MVC preserves num_vertices and num_edges
+    assert_eq!(final_size.get("num_vertices"), Some(10));
+    assert_eq!(final_size.get("num_edges"), Some(20));
+}
+
+#[test]
+fn test_evaluate_path_overhead_multistep() {
+    use crate::rules::cost::MinimizeStepsThenOverhead;
+
+    // MIS → SetPacking<One> → SetPacking<i32> → ILP<bool> (3 steps with size transformations)
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, One>::variant());
+    let dst_variants = graph.variants_for("ILP");
+    let dst = dst_variants
+        .iter()
+        .find(|v| v.get("variable") == Some(&"bool".to_string()))
+        .expect("ILP<bool> variant should exist");
+    let input_size = ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
+
+    let path = graph
+        .find_cheapest_path_mode(
+            "MaximumIndependentSet",
+            &src,
+            "ILP",
+            dst,
+            ReductionMode::Witness,
+            &input_size,
+            &MinimizeStepsThenOverhead,
+        )
+        .expect("should find path");
+
+    assert!(
+        path.len() >= 2,
+        "path should have at least 2 steps, got {}",
+        path.len()
+    );
+
+    let final_size = graph
+        .evaluate_path_overhead(&path, &input_size)
+        .expect("should evaluate overhead");
+
+    // MIS(V=10,E=20) → SetPacking(sets=V=10, universe=E=20) → ... → ILP(vars=10, constraints=20)
+    // The final ILP dimensions should reflect the composed overhead, not the input.
+    assert_eq!(final_size.get("num_vars"), Some(10));
+    assert_eq!(final_size.get("num_constraints"), Some(20));
+    // Original MIS fields should NOT appear in the final output
+    assert_eq!(final_size.get("num_vertices"), None);
+    assert_eq!(final_size.get("num_edges"), None);
+}
