@@ -6993,6 +6993,57 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   ]
 }
 
+#{
+  let ss-ca = load-example("SubsetSum", "CapacityAssignment")
+  let ss-ca-sol = ss-ca.solutions.at(0)
+  let ss-ca-sizes = ss-ca.source.instance.sizes.map(int)
+  let ss-ca-target = int(ss-ca.source.instance.target)
+  let ss-ca-n = ss-ca-sizes.len()
+  let ss-ca-S = ss-ca-sizes.fold(0, (a, b) => a + b)
+  let ss-ca-J = ss-ca-S - ss-ca-target
+  let ss-ca-selected = ss-ca-sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+  let ss-ca-selected-sizes = ss-ca-selected.map(i => ss-ca-sizes.at(i))
+  let ss-ca-selected-sum = ss-ca-selected-sizes.fold(0, (a, b) => a + b)
+  let ss-ca-not-selected = ss-ca-sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
+  let ss-ca-delay-sum = ss-ca-not-selected.map(i => ss-ca-sizes.at(i)).fold(0, (a, b) => a + b)
+  [
+    #reduction-rule("SubsetSum", "CapacityAssignment",
+      example: true,
+      example-caption: [#ss-ca-n elements, target sum $B = #ss-ca-target$],
+      extra: [
+        #pred-commands(
+          "pred create --example SubsetSum -o subsetsum.json",
+          "pred reduce subsetsum.json --to " + target-spec(ss-ca) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate subsetsum.json --config " + ss-ca-sol.source_config.map(str).join(","),
+        )
+        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#ss-ca-sizes.map(str).join(", "))$ and target $B = #ss-ca-target$. The total sum is $S = #ss-ca-S$.
+
+        *Step 2 -- Build the Capacity Assignment instance.* The reduction creates #ss-ca-n communication links with two capacities ${1, 2}$. For each link $c_i$ with element value $a_i$: cost row $(0, a_i)$ and delay row $(a_i, 0)$. The delay budget is $J = S - B = #ss-ca-S - #ss-ca-target = #ss-ca-J$.
+
+        *Step 3 -- Verify the canonical witness.* The fixture stores source config $(#ss-ca-sol.source_config.map(str).join(", "))$, selecting elements at indices $#ss-ca-selected.map(str).join(", ")$ with values $#ss-ca-selected-sizes.map(str).join(" + ") = #ss-ca-selected-sum = B$. In the target, these links get high capacity (index 1) with total cost $#ss-ca-selected-sum$ and the remaining links get low capacity (index 0) with total delay $#ss-ca-delay-sum <= #ss-ca-J = J$.
+
+        *Witness semantics.* The example DB stores one canonical witness. Other subsets summing to $B$ would also yield valid witnesses.
+      ],
+    )[
+      This $O(n)$ reduction from Subset Sum to Capacity Assignment follows the original NP-completeness proof of Van Sickle and Chandy @vansicklechandy1977 (GJ SR7 @garey1979). Each element becomes a communication link with two capacity levels; the cost/delay duality encodes complementary subset selection.
+    ][
+      _Construction._ Given sizes $a_1, dots, a_n in ZZ^+$ and target $B$, let $S = sum_(i=1)^n a_i$. Create $n$ communication links with capacity set $M = {1, 2}$. For each link $c_i$:
+      - Cost: $g(c_i, 1) = 0$, $g(c_i, 2) = a_i$ (non-decreasing since $0 <= a_i$).
+      - Delay: $d(c_i, 1) = a_i$, $d(c_i, 2) = 0$ (non-increasing since $a_i >= 0$).
+      Set the delay budget $J = S - B$.
+
+      _Correctness._ For any assignment $sigma$, the total cost is $sum_(i: sigma(c_i)=2) a_i$ and the total delay is $sum_(i: sigma(c_i)=1) a_i$. Since every element contributes to exactly one of these sums, cost $+$ delay $= S$.
+
+      ($arrow.r.double$) If $A' subset.eq A$ sums to $B$, assign $sigma(c_i) = 2$ for $a_i in A'$ and $sigma(c_i) = 1$ otherwise. Total cost $= B$, total delay $= S - B = J$.
+
+      ($arrow.l.double$) The delay constraint forces delay $<= S - B$, so cost $>= S - (S - B) = B$. If the optimal cost equals $B$, the high-capacity links form a subset summing to exactly $B$. If no such subset exists, the minimum cost is strictly greater than $B$.
+
+      _Solution extraction._ Return the target configuration unchanged: capacity index 1 (high) for link $c_i$ means element $a_i$ is selected.
+    ]
+  ]
+}
+
 #reduction-rule("ILP", "QUBO")[
   A binary ILP optimizes a linear objective over binary variables subject to linear constraints. The penalty method converts each equality constraint $bold(a)_k^top bold(x) = b_k$ into the quadratic penalty $(bold(a)_k^top bold(x) - b_k)^2$, which is zero if and only if the constraint is satisfied. Inequality constraints are first converted to equalities using binary slack variables with powers-of-two coefficients. The resulting unconstrained quadratic over binary variables is a QUBO whose matrix $Q$ combines the negated objective (as diagonal terms) with the expanded constraint penalties (as a Gram matrix $A^top A$).
 ][
