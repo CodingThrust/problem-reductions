@@ -248,6 +248,7 @@ Flags by problem type:
   CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --delay-budget
   SubsetSum                       --sizes, --target
   ThreePartition                  --sizes, --bound
+  KthLargestMTuple                --sets, --k, --bound
   SumOfSquaresPartition           --sizes, --num-groups
   ExpectedRetrievalCost           --probabilities, --num-sectors
   PaintShop                       --sequence
