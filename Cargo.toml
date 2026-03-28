@@ -18,11 +18,6 @@ ilp = ["ilp-highs"]  # backward compat shorthand
 ilp-solver = []      # marker: enables ILP solver code
 ilp-highs = ["ilp-solver", "dep:good_lp", "good_lp/highs"]
 ilp-cplex = ["ilp-solver", "dep:good_lp", "good_lp/cplex-rs"]
-ilp-lpsolve = ["ilp-solver", "dep:good_lp", "good_lp/lpsolve"]
-ilp-coin-cbc = ["ilp-solver", "dep:good_lp", "good_lp/coin_cbc"]
-ilp-clarabel = ["ilp-solver", "dep:good_lp", "good_lp/clarabel"]
-ilp-scip = ["ilp-solver", "dep:good_lp", "good_lp/scip"]
-ilp-microlp = ["ilp-solver", "dep:good_lp", "good_lp/microlp"]
 ilp-lp-solvers = ["ilp-solver", "dep:good_lp", "good_lp/lp-solvers"]
 
 [dependencies]
