@@ -19,7 +19,7 @@ default = ["highs"]
 all = ["highs", "mcp"]
 highs = ["problemreductions/ilp-highs"]
 mcp = ["dep:rmcp", "dep:tokio", "dep:schemars", "dep:tracing", "dep:tracing-subscriber"]
-lp-solvers = ["problemreductions/ilp-lp-solvers"]
+cplex = ["problemreductions/ilp-cplex"]
 
 [dependencies]
 problemreductions = { version = "0.4.0", path = "..", default-features = false, features = ["example-db"] }

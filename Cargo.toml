@@ -17,7 +17,7 @@ example-db = []
 ilp = ["ilp-highs"]  # backward compat shorthand
 ilp-solver = []      # marker: enables ILP solver code
 ilp-highs = ["ilp-solver", "dep:good_lp", "good_lp/highs"]
-ilp-lp-solvers = ["ilp-solver", "dep:good_lp", "good_lp/lp-solvers"]
+ilp-cplex = ["ilp-solver", "dep:good_lp", "good_lp/cplex-rs"]
 
 [dependencies]
 petgraph = { version = "0.8", features = ["serde-1"] }
