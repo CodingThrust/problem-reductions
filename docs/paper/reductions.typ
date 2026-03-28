@@ -178,6 +178,7 @@
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
   "RootedTreeStorageAssignment": [Rooted Tree Storage Assignment],
+  "SchedulingToMinimizeWeightedCompletionTime": [Scheduling to Minimize Weighted Completion Time],
   "SchedulingWithIndividualDeadlines": [Scheduling With Individual Deadlines],
   "SequencingToMinimizeMaximumCumulativeCost": [Sequencing to Minimize Maximum Cumulative Cost],
   "SequencingToMinimizeWeightedCompletionTime": [Sequencing to Minimize Weighted Completion Time],
@@ -5578,6 +5579,104 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     ]
   ]
 }
+#{
+  let x = load-model-example("SchedulingToMinimizeWeightedCompletionTime")
+  let ntasks = x.instance.lengths.len()
+  let m = x.instance.num_processors
+  let lengths = x.instance.lengths
+  let weights = x.instance.weights
+  let sigma = x.optimal_config
+  // Group tasks by processor
+  let tasks-by-proc = range(m).map(p =>
+    range(ntasks).filter(i => sigma.at(i) == p)
+  )
+  [
+    #problem-def("SchedulingToMinimizeWeightedCompletionTime")[
+      Given a finite set $T$ of tasks with processing lengths $ell: T -> ZZ^+$ and weights $w: T -> ZZ^+$, and a number $m in ZZ^+$ of identical processors, find an assignment $p: T -> {1, dots, m}$ that minimizes the total weighted completion time $sum_(t in T) w(t) dot C(t)$, where on each processor tasks are ordered by Smith's rule (non-decreasing $ell(t) "/" w(t)$ ratio) and $C(t) = sigma(t) + ell(t)$ is the completion time of task $t$.
+    ][
+      Scheduling to Minimize Weighted Completion Time is problem A5 SS13 in Garey & Johnson @garey1979. NP-complete for $m = 2$ by reduction from Partition @lenstra1977, and NP-complete in the strong sense for arbitrary $m$. For a fixed assignment of tasks to processors, Smith's rule gives the optimal ordering on each processor, reducing the search space to $m^n$ processor assignments @smith1956. The problem is solvable in polynomial time when all lengths are equal or when all weights are equal @conway1967 @horn1973.
+
+      *Example.* Let $T = {t_1, dots, t_#ntasks}$ with lengths $(#lengths.map(str).join(", "))$, weights $(#weights.map(str).join(", "))$, and $m = #m$ processors. The optimal assignment $(#sigma.map(v => str(v + 1)).join(", "))$ achieves total weighted completion time #x.optimal_value:
+      #for p in range(m) [
+        - Processor #(p + 1): ${#tasks-by-proc.at(p).map(i => $t_#(i + 1)$).join(", ")}$#if tasks-by-proc.at(p).len() > 0 {
+          let proc-tasks = tasks-by-proc.at(p)
+          let elapsed = 0
+          let contributions = ()
+          for t in proc-tasks {
+            elapsed = elapsed + lengths.at(t)
+            contributions.push($#elapsed times #(weights.at(t)) = #(elapsed * weights.at(t))$)
+          }
+          [ -- contributions: #contributions.join(", ")]
+        }
+      ]
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o scheduling-wct.json",
+        "pred solve scheduling-wct.json --solver brute-force",
+        "pred evaluate scheduling-wct.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        canvas(length: 1cm, {
+          import draw: *
+          let scale = 0.2
+          let width = 1.2
+          let gap = 0.8
+          let colors = (
+            rgb("#4e79a7"),
+            rgb("#e15759"),
+            rgb("#76b7b2"),
+            rgb("#f28e2b"),
+            rgb("#59a14f"),
+          )
+
+          for p in range(m) {
+            let x0 = p * (width + gap)
+            let max-time = tasks-by-proc.at(p).fold(0, (acc, t) => acc + lengths.at(t))
+            rect((x0, 0), (x0 + width, max-time * scale), stroke: 0.8pt + black)
+            let y = 0
+            for task in tasks-by-proc.at(p) {
+              let len = lengths.at(task)
+              let col = colors.at(task)
+              rect(
+                (x0, y),
+                (x0 + width, y + len * scale),
+                fill: col.transparentize(25%),
+                stroke: 0.4pt + col,
+              )
+              content(
+                (x0 + width / 2, y + len * scale / 2),
+                text(7pt, fill: white)[$t_#(task + 1)$],
+              )
+              y += len * scale
+            }
+            content((x0 + width / 2, -0.3), text(8pt)[$P_#(p + 1)$])
+          }
+        })
+      },
+      caption: [Canonical Scheduling to Minimize Weighted Completion Time instance with #ntasks tasks on #m processors. Tasks are ordered on each processor by Smith's rule.],
+      ) <fig:scheduling-wct>
+    ]
+  ]
+}
+
+// Reduction: SchedulingToMinimizeWeightedCompletionTime -> ILP
+#reduction-rule("SchedulingToMinimizeWeightedCompletionTime", "ILP",
+  example: false,
+)[
+  This $O(n^2 m)$ reduction constructs an ILP with binary assignment variables $x_(t,p)$, integer completion-time variables $C_t$, and binary ordering variables $y_(i,j)$ for task pairs. Big-M disjunctive constraints enforce non-overlapping execution on shared processors.
+][
+  _Construction._ Let $n = |T|$ and $m$ be the number of processors. Create $n m$ binary assignment variables $x_(t,p) in {0, 1}$ (task $t$ on processor $p$), $n$ integer completion-time variables $C_t$, and $n(n-1)/2$ binary ordering variables $y_(i,j)$ for $i < j$. The constraints are:
+  (1) Assignment: $sum_p x_(t,p) = 1$ for each $t$.
+  (2) Completion bounds: $C_t >= ell(t)$ for each $t$.
+  (3) Disjunctive: for each pair $(i,j)$ with $i < j$ and each processor $p$, big-M constraints ensure that if both tasks are on processor $p$, one must complete before the other starts.
+  The objective minimizes $sum_t w(t) dot C_t$.
+
+  _Correctness._ ($arrow.r.double$) Any valid schedule gives a feasible ILP solution with the same objective. ($arrow.l.double$) Any ILP solution encodes a valid assignment and non-overlapping schedule.
+
+  _Solution extraction._ For each task $t$, find the processor $p$ with $x_(t,p) = 1$.
+]
+
 #{
   let x = load-model-example("SequencingWithinIntervals")
   let ntasks = x.instance.lengths.len()

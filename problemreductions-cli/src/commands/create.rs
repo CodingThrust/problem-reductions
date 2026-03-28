@@ -26,10 +26,11 @@ use problemreductions::models::misc::{
     JobShopScheduling, KnownValue, LongestCommonSubsequence, MinimumTardinessSequencing,
     MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, QueryArg,
     RectilinearPictureCompression, ResourceConstrainedScheduling,
-    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
+    SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
+    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
+    SumOfSquaresPartition, ThreePartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -664,6 +665,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12"
         }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
+        "SchedulingToMinimizeWeightedCompletionTime" => {
+            "--lengths 1,2,3,4,5 --weights 6,4,3,2,1 --num-processors 2"
+        }
         "JobShopScheduling" => {
             "--job-tasks \"0:3,1:4;1:2,0:3,1:2;0:4,1:3;1:5,0:2;0:2,1:3,0:1\" --num-processors 2"
         }
@@ -3051,6 +3055,37 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     lengths,
                     num_processors,
                     deadline,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SchedulingToMinimizeWeightedCompletionTime
+        "SchedulingToMinimizeWeightedCompletionTime" => {
+            let usage = "Usage: pred create SchedulingToMinimizeWeightedCompletionTime --lengths 1,2,3,4,5 --weights 6,4,3,2,1 --num-processors 2";
+            let lengths_str = args.lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingToMinimizeWeightedCompletionTime requires --lengths, --weights, and --num-processors\n\n{usage}"
+                )
+            })?;
+            let weights_str = args.weights.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingToMinimizeWeightedCompletionTime requires --weights\n\n{usage}"
+                )
+            })?;
+            let num_processors = args.num_processors.ok_or_else(|| {
+                anyhow::anyhow!("SchedulingToMinimizeWeightedCompletionTime requires --num-processors\n\n{usage}")
+            })?;
+            if num_processors == 0 {
+                bail!("SchedulingToMinimizeWeightedCompletionTime requires --num-processors > 0\n\n{usage}");
+            }
+            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
+            let weights: Vec<u64> = util::parse_comma_list(weights_str)?;
+            (
+                ser(SchedulingToMinimizeWeightedCompletionTime::new(
+                    lengths,
+                    weights,
+                    num_processors,
                 ))?,
                 resolved_variant.clone(),
             )

@@ -276,6 +276,7 @@ Flags by problem type:
   AcyclicPartition                --arcs [--weights] [--arc-costs] --weight-bound --cost-bound [--num-vertices]
   CVP                             --basis, --target-vec [--bounds]
   MultiprocessorScheduling        --lengths, --num-processors, --deadline
+  SchedulingToMinimizeWeightedCompletionTime  --lengths, --weights, --num-processors
   SequencingWithinIntervals       --release-times, --deadlines, --lengths
   OptimalLinearArrangement        --graph
   RootedTreeArrangement           --graph, --bound
@@ -339,6 +340,7 @@ Examples:
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
   pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10
+  pred create SchedulingToMinimizeWeightedCompletionTime --lengths 1,2,3,4,5 --weights 6,4,3,2,1 --num-processors 2
   pred create UndirectedFlowLowerBounds --graph 0-1,0-2,1-3,2-3,1-4,3-5,4-5 --capacities 2,2,2,2,1,3,2 --lower-bounds 1,1,0,0,1,0,1 --source 0 --sink 5 --requirement 3
   pred create ConsistencyOfDatabaseFrequencyTables --num-objects 6 --attribute-domains \"2,3,2\" --frequency-tables \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\" --known-values \"0,0,0;3,0,1;1,2,1\"
   pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5
@@ -650,7 +652,7 @@ pub struct CreateArgs {
     /// Deadline for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
     #[arg(long)]
     pub deadline: Option<u64>,
-    /// Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines
+    /// Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime, or SchedulingWithIndividualDeadlines
     #[arg(long)]
     pub num_processors: Option<usize>,
     /// Binary schedule patterns for StaffScheduling (semicolon-separated rows, e.g., "1,1,0;0,1,1")
@@ -887,7 +889,7 @@ mod tests {
         ));
         assert!(
             help.contains(
-                "Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines"
+                "Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime, or SchedulingWithIndividualDeadlines"
             ),
             "create help should describe --num-processors for both scheduling models"
         );
