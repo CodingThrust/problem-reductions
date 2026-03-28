@@ -22,10 +22,10 @@ use problemreductions::models::graph::{
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
     ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
-    ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping,
-    JobShopScheduling, KnownValue, LongestCommonSubsequence, MinimumTardinessSequencing,
-    MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, QueryArg,
-    RectilinearPictureCompression, ResourceConstrainedScheduling,
+    ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping, IntExpr,
+    IntegerExpressionMembership, JobShopScheduling, KnownValue, LongestCommonSubsequence,
+    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack,
+    QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
     SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
     SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
     SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
@@ -187,6 +187,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.domain_size.is_none()
         && args.relations.is_none()
         && args.conjuncts_spec.is_none()
+        && args.expression.is_none()
         && args.deps.is_none()
         && args.query.is_none()
 }
@@ -717,6 +718,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
         }
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "IntegerExpressionMembership" => {
+            "--expression '{\"Sum\":[{\"Sum\":[{\"Union\":[{\"Atom\":1},{\"Atom\":4}]},{\"Union\":[{\"Atom\":3},{\"Atom\":6}]}]},{\"Union\":[{\"Atom\":2},{\"Atom\":5}]}]}' --target 12"
+        }
         "ThreePartition" => "--sizes 4,5,6,4,6,5 --bound 15",
         "BoyceCoddNormalFormViolation" => {
             "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
@@ -2336,6 +2340,28 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let target = util::parse_decimal_biguint(target)?;
             (
                 ser(SubsetSum::new(sizes, target))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // IntegerExpressionMembership
+        "IntegerExpressionMembership" => {
+            let usage = "Usage: pred create IntegerExpressionMembership --expression '{\"Sum\":[{\"Atom\":1},{\"Atom\":2}]}' --target 3";
+            let expr_str = args.expression.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "IntegerExpressionMembership requires --expression and --target\n\n{usage}"
+                )
+            })?;
+            let target = args.target.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegerExpressionMembership requires --target\n\n{usage}")
+            })?;
+            let target: u64 = target
+                .parse()
+                .context("IntegerExpressionMembership --target must be a positive integer")?;
+            let expr: IntExpr = serde_json::from_str(expr_str)
+                .context("IntegerExpressionMembership --expression must be valid JSON representing an IntExpr tree")?;
+            (
+                ser(IntegerExpressionMembership::new(expr, target))?,
                 resolved_variant.clone(),
             )
         }
@@ -7344,6 +7370,7 @@ mod tests {
             storage: None,
             quantifiers: None,
             homologous_pairs: None,
+            expression: None,
         }
     }
 

@@ -161,6 +161,7 @@
   "FlowShopScheduling": [Flow Shop Scheduling],
   "JobShopScheduling": [Job-Shop Scheduling],
   "GroupingBySwapping": [Grouping by Swapping],
+  "IntegerExpressionMembership": [Integer Expression Membership],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
   "MinimumDummyActivitiesPert": [Minimum Dummy Activities in PERT Networks],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
@@ -6542,6 +6543,69 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }),
         caption: [Canonical Sparse Matrix Compression YES instance. Row-colored 1-entries on the left are shifted into the overlay vector on the right, producing $b = (4, 1, 2, 3, 1, 0)$.],
       ) <fig:sparse-matrix-compression>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("IntegerExpressionMembership")
+  [
+    #problem-def("IntegerExpressionMembership")[
+      Given a recursive integer expression $e$ over union ($union$) and Minkowski sum ($+$) operations on singleton positive integers, and a target $K in NN^+$, determine whether $K in "eval"(e)$, where $"eval"("Atom"(n)) = \{n\}$, $"eval"(F union G) = "eval"(F) union "eval"(G)$, and $"eval"(F + G) = \{m + n : m in "eval"(F), n in "eval"(G)\}$.
+    ][
+      Integer Expression Membership asks whether a specific integer is reachable by selecting one branch at each union node in a recursive expression tree. Each configuration assigns a binary choice (left or right) at every union node in depth-first order; with all unions resolved, the expression reduces to a chain of sums and atoms that evaluates to a single integer.#footnote[No algorithm improving on brute-force enumeration of all $2^u$ union-branch combinations (where $u$ is the number of union nodes) is known for the general case.]
+
+      *Example.* Consider $e = (1 union 4) + (3 union 6) + (2 union 5)$ with $K = 12$. There are $u = 3$ union nodes, giving $2^3 = 8$ configurations. The reachable set is $\{6, 9, 12, 15\}$. Since $12 in \{6, 9, 12, 15\}$, the answer is YES. One witness: choose right ($4$), right ($6$), left ($2$) at the three union nodes, giving $4 + 6 + 2 = 12 = K$.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o iem.json",
+        "pred solve iem.json --solver brute-force",
+        "pred evaluate iem.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 0.7cm, {
+          import draw: *
+          // Draw expression tree: Sum( Sum( Union(1,4), Union(3,6) ), Union(2,5) )
+          let node-r = 0.45
+          let level-gap = 1.5
+          let spread = 2.0
+          // Root: Sum (level 0)
+          circle((0, 0), radius: node-r, name: "root", fill: rgb("#e8f0fe"))
+          content("root", text(8pt, $+$))
+          // Left child: Sum (level 1)
+          circle((-spread, -level-gap), radius: node-r, name: "lsum", fill: rgb("#e8f0fe"))
+          content("lsum", text(8pt, $+$))
+          line("root.south-west", "lsum.north", mark: (end: "straight"))
+          // Right child: Union (level 1)
+          circle((spread, -level-gap), radius: node-r, name: "ru", fill: rgb("#fce8e6"))
+          content("ru", text(8pt, $union$))
+          line("root.south-east", "ru.north", mark: (end: "straight"))
+          // Left-Left: Union (level 2)
+          circle((-spread - 1.2, -2 * level-gap), radius: node-r, name: "llu", fill: rgb("#fce8e6"))
+          content("llu", text(8pt, $union$))
+          line("lsum.south-west", "llu.north", mark: (end: "straight"))
+          // Left-Right: Union (level 2)
+          circle((-spread + 1.2, -2 * level-gap), radius: node-r, name: "lru", fill: rgb("#fce8e6"))
+          content("lru", text(8pt, $union$))
+          line("lsum.south-east", "lru.north", mark: (end: "straight"))
+          // Leaves (level 3)
+          let leaf-spread = 0.7
+          for (parent, vals, xoff) in (
+            ("llu", (1, 4), -spread - 1.2),
+            ("lru", (3, 6), -spread + 1.2),
+            ("ru", (2, 5), spread),
+          ) {
+            circle((xoff - leaf-spread, -3 * level-gap), radius: node-r, name: parent + "l", fill: rgb("#e6f4ea"))
+            content(parent + "l", text(8pt, str(vals.at(0))))
+            line(parent + ".south-west", (parent + "l") + ".north", mark: (end: "straight"))
+            circle((xoff + leaf-spread, -3 * level-gap), radius: node-r, name: parent + "r", fill: rgb("#e6f4ea"))
+            content(parent + "r", text(8pt, str(vals.at(1))))
+            line(parent + ".south-east", (parent + "r") + ".north", mark: (end: "straight"))
+          }
+        }),
+        caption: [Expression tree $e = (1 union 4) + (3 union 6) + (2 union 5)$ with target $K = 12$. Blue nodes are sums ($+$), red nodes are unions ($union$), green leaves are atoms. Choosing right at the first two unions and left at the third yields $4 + 6 + 2 = 12$.],
+      ) <fig:integer-expression-membership>
     ]
   ]
 }
