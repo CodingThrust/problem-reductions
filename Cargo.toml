@@ -18,6 +18,7 @@ ilp = ["ilp-highs"]  # backward compat shorthand
 ilp-solver = []      # marker: enables ILP solver code
 ilp-highs = ["ilp-solver", "dep:good_lp", "good_lp/highs"]
 ilp-cplex = ["ilp-solver", "dep:good_lp", "good_lp/cplex-rs"]
+ilp-lpsolve = ["ilp-solver", "dep:good_lp", "good_lp/lpsolve"]
 
 [dependencies]
 petgraph = { version = "0.8", features = ["serde-1"] }
