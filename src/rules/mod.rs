@@ -35,6 +35,7 @@ pub(crate) mod ksatisfiability_kclique;
 pub(crate) mod ksatisfiability_minimumvertexcover;
 pub(crate) mod ksatisfiability_qubo;
 pub(crate) mod ksatisfiability_subsetsum;
+pub(crate) mod longestcommonsubsequence_maximumindependentset;
 pub(crate) mod maximumclique_maximumindependentset;
 mod maximumindependentset_casts;
 mod maximumindependentset_gridgraph;
@@ -280,6 +281,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(kclique_conjunctivebooleanquery::canonical_rule_example_specs());
     specs.extend(kclique_subgraphisomorphism::canonical_rule_example_specs());
     specs.extend(knapsack_qubo::canonical_rule_example_specs());
+    specs.extend(longestcommonsubsequence_maximumindependentset::canonical_rule_example_specs());
     specs.extend(ksatisfiability_kclique::canonical_rule_example_specs());
     specs.extend(ksatisfiability_minimumvertexcover::canonical_rule_example_specs());
     specs.extend(ksatisfiability_qubo::canonical_rule_example_specs());

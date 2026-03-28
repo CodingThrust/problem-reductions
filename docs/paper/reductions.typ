@@ -8099,6 +8099,36 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ From QUBO solution $x^*$, for each position $p$ find the unique vertex $v$ with $x^*_(v n + p) = 1$. Map consecutive position pairs to edge indices.
 ]
 
+#let lcs_mis = load-example("LongestCommonSubsequence", "MaximumIndependentSet")
+#let lcs_mis_sol = lcs_mis.solutions.at(0)
+#reduction-rule("LongestCommonSubsequence", "MaximumIndependentSet",
+  example: true,
+  example-caption: [LCS of two strings over a 3-symbol alphabet],
+  extra: [
+    #pred-commands(
+      "pred create --example LCS -o lcs.json",
+      "pred reduce lcs.json --to " + target-spec(lcs_mis) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate lcs.json --config " + lcs_mis_sol.source_config.map(str).join(","),
+    )
+    Source LCS: config $(#lcs_mis_sol.source_config.map(str).join(", "))$ \
+    Target MIS: $S = {#lcs_mis_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #lcs_mis_sol.target_config.filter(x => x == 1).len()) \
+    MIS size $=$ LCS length $= #lcs_mis_sol.target_config.filter(x => x == 1).len()$ #sym.checkmark
+  ],
+)[
+  A match-node construction transforms a $k$-string LCS instance into a Maximum Independent Set problem on a conflict graph. Each vertex represents a $k$-tuple of positions (one per string) that all share the same character, and edges connect pairs that cannot coexist in any valid common subsequence. The MIS of this graph equals the LCS length.
+][
+  _Construction._ Given $k$ strings $s_1, dots, s_k$ over alphabet $Sigma$ (size $|Sigma|$):
+
+  _Vertices:_ For each character $c in Sigma$, create a vertex for every $k$-tuple $(p_1, dots, p_k)$ where $s_i [p_i] = c$ for all $i$. The total vertex count equals $sum_(c in Sigma) product_(i=1)^k "count"(c, s_i)$.
+
+  _Edges:_ Two vertices $u = (a_1, dots, a_k)$ and $v = (b_1, dots, b_k)$ are connected if they _conflict_ --- they cannot both appear in a valid common subsequence. A conflict occurs when the position differences are not consistently ordered: $not (forall i: a_i < b_i)$ and $not (forall i: a_i > b_i)$.
+
+  _Correctness._ ($arrow.r.double$) A common subsequence of length $ell$ selects $ell$ match nodes whose positions are strictly increasing in every string, so no two are adjacent --- forming an independent set of size $ell$. ($arrow.l.double$) An independent set of size $ell$ consists of $ell$ mutually non-conflicting match nodes, meaning their positions are consistently ordered across all strings. Sorting by any string's position yields a valid common subsequence of length $ell$.
+
+  _Solution extraction._ Sort the selected vertices by position in $s_1$. Read off the characters to obtain the common subsequence, then pad to `max_length` with the padding symbol.
+]
+
 #reduction-rule("LongestCommonSubsequence", "ILP")[
   An optimization ILP formulation maximizes the length of a common subsequence. Binary variables choose a symbol (or padding) at each witness position. Match variables link active positions to source string indices, and the objective maximizes the number of non-padding positions.
 ][
