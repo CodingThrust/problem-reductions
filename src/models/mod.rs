@@ -11,7 +11,8 @@ pub mod set;
 // Re-export commonly used types
 pub use algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
-    ConsecutiveOnesSubmatrix, QuadraticAssignment, SparseMatrixCompression, BMF, ILP, QUBO,
+    ConsecutiveOnesSubmatrix, QuadraticAssignment, QuadraticDiophantineEquations,
+    SparseMatrixCompression, BMF, ILP, QUBO,
 };
 pub use formula::{
     CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, QuantifiedBooleanFormulas,
