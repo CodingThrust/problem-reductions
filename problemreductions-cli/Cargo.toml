@@ -19,11 +19,7 @@ default = ["highs"]
 all = ["highs", "mcp"]
 highs = ["problemreductions/ilp-highs"]
 mcp = ["dep:rmcp", "dep:tokio", "dep:schemars", "dep:tracing", "dep:tracing-subscriber"]
-coin-cbc = ["problemreductions/ilp-coin-cbc"]
-clarabel = ["problemreductions/ilp-clarabel"]
-scip = ["problemreductions/ilp-scip"]
-lpsolve = ["problemreductions/ilp-lpsolve"]
-microlp = ["problemreductions/ilp-microlp"]
+lp-solvers = ["problemreductions/ilp-lp-solvers"]
 
 [dependencies]
 problemreductions = { version = "0.4.0", path = "..", default-features = false, features = ["example-db"] }

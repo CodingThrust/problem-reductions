@@ -767,10 +767,9 @@ Customized solver: exact witness recovery for select problems via structure-expl
 backends. Currently supports MinimumCardinalityKey, AdditionalKey, PrimeAttributeName,
 BoyceCoddNormalFormViolation, PartialFeedbackEdgeSet, and RootedTreeArrangement.
 
-ILP backend (default: HiGHS). To use a different backend:
-  cargo install problemreductions-cli --features coin-cbc
-  cargo install problemreductions-cli --features scip
-  cargo install problemreductions-cli --no-default-features --features clarabel")]
+ILP backend (default: HiGHS). To use Gurobi, CPLEX, CBC, or GLPK instead:
+  cargo install problemreductions-cli --features lp-solvers
+(Requires the solver CLI to be installed on your system, e.g., gurobi_cl, cbc, glpsol.)")]
 pub struct SolveArgs {
     /// Problem JSON file (from `pred create`) or reduction bundle (from `pred reduce`). Use - for stdin.
     pub input: PathBuf,
