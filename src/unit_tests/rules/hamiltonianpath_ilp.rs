@@ -63,6 +63,13 @@ fn test_hamiltonianpath_to_ilp_cycle_graph() {
 }
 
 #[test]
+fn test_hamiltonianpath_to_ilp_bf_vs_ilp() {
+    let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let reduction: ReductionHamiltonianPathToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}
+
+#[test]
 fn test_hamiltonianpath_to_ilp_no_path() {
     // Disconnected graph: no Hamiltonian path
     let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]));

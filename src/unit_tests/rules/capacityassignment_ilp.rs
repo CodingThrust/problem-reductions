@@ -101,3 +101,15 @@ fn test_capacityassignment_to_ilp_trivial() {
     let extracted = reduction.extract_solution(&ilp_solution);
     assert!(problem.evaluate(&extracted).0.is_some());
 }
+
+#[test]
+fn test_capacityassignment_to_ilp_bf_vs_ilp() {
+    let problem = CapacityAssignment::new(
+        vec![1, 2, 3],
+        vec![vec![1, 3, 6], vec![2, 4, 7], vec![1, 2, 5]],
+        vec![vec![8, 4, 1], vec![7, 3, 1], vec![6, 3, 1]],
+        12,
+    );
+    let reduction: ReductionCAToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

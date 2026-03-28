@@ -41,15 +41,15 @@ fn test_hamiltoniancircuit_to_stackercrane_structure() {
     for &len in target.arc_lengths() {
         assert_eq!(len, 1);
     }
-    // All edges have length 0
+    // All connector edges have length 1
     for &len in target.edge_lengths() {
-        assert_eq!(len, 0);
+        assert_eq!(len, 1);
     }
 }
 
 #[test]
 fn test_hamiltoniancircuit_to_stackercrane_optimal_cost() {
-    // A 4-cycle has a Hamiltonian circuit; optimal StackerCrane cost = 4.
+    // A 4-cycle has a Hamiltonian circuit; optimal StackerCrane cost = 2n = 8.
     let source = cycle4_hc();
     let reduction = ReduceTo::<StackerCrane>::reduce_to(&source);
     let target = reduction.target_problem();
@@ -58,13 +58,13 @@ fn test_hamiltoniancircuit_to_stackercrane_optimal_cost() {
         .find_witness(target)
         .expect("target should have a solution");
     let cost = target.evaluate(&witness);
-    assert_eq!(cost, Min(Some(4)));
+    assert_eq!(cost, Min(Some(8)));
 }
 
 #[test]
 fn test_hamiltoniancircuit_to_stackercrane_non_hamiltonian() {
     // Star graph on 4 vertices: no Hamiltonian circuit.
-    // The optimal StackerCrane cost should exceed n = 4.
+    // The optimal StackerCrane cost should exceed 2n = 8.
     let source = HamiltonianCircuit::new(SimpleGraph::star(4));
     let reduction = ReduceTo::<StackerCrane>::reduce_to(&source);
     let target = reduction.target_problem();
@@ -74,8 +74,8 @@ fn test_hamiltoniancircuit_to_stackercrane_non_hamiltonian() {
         Some(w) => {
             let cost = target.evaluate(&w);
             assert!(
-                cost.0.unwrap() > 4,
-                "non-Hamiltonian graph should have cost > n"
+                cost.0.unwrap() > 8,
+                "non-Hamiltonian graph should have cost > 2n"
             );
         }
         None => {
@@ -97,5 +97,31 @@ fn test_hamiltoniancircuit_to_stackercrane_extract_solution() {
     assert!(
         source.evaluate(&extracted).0,
         "extracted solution should be a valid HC"
+    );
+}
+
+#[test]
+fn test_hamiltoniancircuit_to_stackercrane_prism_graph() {
+    // Regression test for #789: prism graph (6 vertices, 9 edges) has a
+    // Hamiltonian circuit, but with zero-cost connectors the ILP could find
+    // an optimal SC permutation that doesn't correspond to a valid HC.
+    let edges = vec![
+        (0, 1),
+        (1, 2),
+        (2, 0),
+        (3, 4),
+        (4, 5),
+        (5, 3),
+        (0, 3),
+        (1, 4),
+        (2, 5),
+    ];
+    let source = HamiltonianCircuit::new(SimpleGraph::new(6, edges));
+    let reduction = ReduceTo::<StackerCrane>::reduce_to(&source);
+
+    assert_satisfaction_round_trip_from_optimization_target(
+        &source,
+        &reduction,
+        "HamiltonianCircuit -> StackerCrane (prism graph)",
     );
 }
