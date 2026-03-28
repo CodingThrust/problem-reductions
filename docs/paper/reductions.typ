@@ -8997,6 +8997,42 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Mark an edge selected in the source config iff it appears between two consecutive positions in the decoded cycle.
 ]
 
+#let hc_lc = load-example("HamiltonianCircuit", "LongestCircuit")
+#let hc_lc_sol = hc_lc.solutions.at(0)
+#let hc_lc_n = graph-num-vertices(hc_lc.source.instance)
+#let hc_lc_source_edges = hc_lc.source.instance.graph.edges
+#let hc_lc_target_edges = hc_lc.target.instance.graph.edges
+#let hc_lc_target_weights = hc_lc.target.instance.edge_lengths
+#let hc_lc_selected_edges = hc_lc_target_edges.enumerate().filter(((i, _)) => hc_lc_sol.target_config.at(i) == 1).map(((i, e)) => (e.at(0), e.at(1)))
+#reduction-rule("HamiltonianCircuit", "LongestCircuit",
+  example: true,
+  example-caption: [Cycle graph on $#hc_lc_n$ vertices with unit edge lengths],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_lc.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_lc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_lc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Start from the source graph.* The canonical source fixture is the cycle on vertices ${0, 1, dots, #(hc_lc_n - 1)}$ with $#hc_lc_source_edges.len()$ edges. The stored Hamiltonian-circuit witness is the permutation $[#hc_lc_sol.source_config.map(str).join(", ")]$.\
+
+    *Step 2 -- Assign unit edge lengths.* The target keeps the same $#hc_lc_n$ vertices and $#hc_lc_target_edges.len()$ edges. Every edge receives length $1$, so the edge-length vector is $[#hc_lc_target_weights.map(str).join(", ")]$.\
+
+    *Step 3 -- Verify the canonical witness.* The stored target configuration $[#hc_lc_sol.target_config.map(str).join(", ")]$ selects the edges #hc_lc_selected_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The total circuit length is $#hc_lc_selected_edges.len() times 1 = #hc_lc_n = n$, confirming a Hamiltonian circuit. Traversing the selected edges recovers the vertex permutation $[#hc_lc_sol.source_config.map(str).join(", ")]$.\
+
+    *Multiplicity:* The fixture stores one canonical witness. For the $#hc_lc_n$-cycle there are $#hc_lc_n times 2 = #(hc_lc_n * 2)$ directed Hamiltonian circuits (choice of start vertex and direction), but they all select the same undirected edge set.
+  ],
+)[
+  @garey1979 This $O(m)$ reduction copies the graph unchanged and assigns unit weight to every edge ($n$ target vertices, $m$ target edges). A Hamiltonian circuit exists iff the optimal circuit length equals $n$.
+][
+  _Construction._ Given a Hamiltonian Circuit instance $G = (V, E)$ with $n = |V|$ and $m = |E|$, construct a Longest Circuit instance on the same graph $G' = G$ with edge lengths $l(e) = 1$ for every $e in E$.
+
+  _Correctness._ ($arrow.r.double$) If $G$ has a Hamiltonian circuit $v_0, v_1, dots, v_(n-1), v_0$, then this circuit uses $n$ edges each of length 1, giving total length $n$. Since a simple circuit on $n$ vertices can use at most $n$ edges, this is optimal. ($arrow.l.double$) If the longest circuit in $G'$ has length $n$, it uses $n$ unit-weight edges and therefore visits $n$ distinct vertices, i.e., every vertex exactly once. This circuit is therefore a Hamiltonian circuit in $G$.
+
+  _Solution extraction._ Read the selected target edges, traverse the unique degree-2 cycle they form, and return the resulting vertex permutation as the source Hamiltonian-circuit witness.
+]
+
 #reduction-rule("LongestCircuit", "ILP")[
   A direct cycle-selection ILP uses binary edge variables, degree constraints, and a connectivity witness to force exactly one simple circuit of length at least the bound.
 ][
