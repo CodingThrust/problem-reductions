@@ -17,6 +17,7 @@
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
 //! - [`MinimumTardinessSequencing`]: Minimize tardy tasks in single-machine scheduling
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
+//! - [`CosineProductIntegration`]: Balanced sign assignment for integer frequencies
 //! - [`Partition`]: Partition a multiset into two equal-sum subsets
 //! - [`PartiallyOrderedKnapsack`]: Knapsack with precedence constraints
 //! - [`PrecedenceConstrainedScheduling`]: Schedule unit tasks on processors by deadline
@@ -68,6 +69,7 @@ mod capacity_assignment;
 pub(crate) mod conjunctive_boolean_query;
 pub(crate) mod conjunctive_query_foldability;
 mod consistency_of_database_frequency_tables;
+mod cosine_product_integration;
 mod ensemble_computation;
 pub(crate) mod expected_retrieval_cost;
 pub(crate) mod factoring;
@@ -109,6 +111,7 @@ pub use conjunctive_query_foldability::{ConjunctiveQueryFoldability, Term};
 pub use consistency_of_database_frequency_tables::{
     ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue,
 };
+pub use cosine_product_integration::CosineProductIntegration;
 pub use ensemble_computation::EnsembleComputation;
 pub use expected_retrieval_cost::ExpectedRetrievalCost;
 pub use factoring::Factoring;
@@ -182,5 +185,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(knapsack::canonical_model_example_specs());
     specs.extend(subset_sum::canonical_model_example_specs());
     specs.extend(three_partition::canonical_model_example_specs());
+    specs.extend(cosine_product_integration::canonical_model_example_specs());
     specs
 }
