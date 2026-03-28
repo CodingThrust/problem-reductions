@@ -8124,6 +8124,40 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Remark._ Zero-weight edges are excluded because they allow degenerate optimal ILP solutions containing redundant cycles at no cost; following the convention of practical solvers (e.g., SCIP-Jack @kochmartin1998steiner), such edges should be contracted before applying the reduction.
 ]
 
+#let mvc_hs = load-example("MinimumVertexCover", "MinimumHittingSet")
+#let mvc_hs_sol = mvc_hs.solutions.at(0)
+#let mvc_hs_cover = mvc_hs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let mvc_hs_hit = mvc_hs_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#reduction-rule("MinimumVertexCover", "MinimumHittingSet",
+  example: true,
+  example-caption: [Unit-weight VC to Hitting Set ($n = #graph-num-vertices(mvc_hs.source.instance)$, $|E| = #graph-num-edges(mvc_hs.source.instance)$)],
+  extra: [
+    #pred-commands(
+      "pred create --example 'MVC {weight: One}' -o mvc.json",
+      "pred reduce mvc.json --to " + target-spec(mvc_hs) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate mvc.json --config " + mvc_hs_sol.source_config.map(str).join(","),
+    )
+    Source VC: $C = {#mvc_hs_cover.map(str).join(", ")}$ (size #mvc_hs_cover.len()) #h(1em)
+    Target HS: $H = {#mvc_hs_hit.map(str).join(", ")}$ (size #mvc_hs_hit.len()) \
+    The hitting set $H$ is identical to the vertex cover $C$ because the universe elements are the vertices and the subsets are the edges.
+  ],
+)[
+  Vertex Cover is the special case of Hitting Set where every set has exactly two elements @garey1979. Given a unit-weight VC instance $G = (V, E)$, let the universe $U = V$ and define one 2-element subset ${u, v}$ per edge $(u, v) in E$. The budget is unchanged.
+][
+  _Construction._ Given unit-weight VC instance $(G, k)$ with $G = (V, E)$, construct Hitting Set instance $(U, cal(S), k)$:
+  - Universe: $U = V$ with $|U| = |V|$ elements.
+  - Collection: $cal(S) = {{u, v} : (u, v) in E}$ with $|cal(S)| = |E|$ subsets, each of size 2.
+  - Budget: $k' = k$ (unchanged).
+
+  _Correctness._ ($arrow.r.double$) If $C subset.eq V$ is a vertex cover, then for every edge $(u, v) in E$, at least one of $u, v$ lies in $C$, so $C$ intersects the subset ${u, v} in cal(S)$. Hence $C$ is a hitting set.
+  ($arrow.l.double$) If $H subset.eq U$ hits every subset ${u, v} in cal(S)$, then for every edge $(u, v) in E$, $H$ contains $u$ or $v$, so $H$ is a vertex cover.
+
+  Since both problems minimise cardinality (unit weights), an optimal vertex cover of size $k$ corresponds to an optimal hitting set of the same size.
+
+  _Solution extraction._ The hitting set $H$ is directly the vertex cover: $c_v = h_v$ for each $v in V$.
+]
+
 #reduction-rule("MinimumHittingSet", "ILP")[
   Each set must contain at least one selected element -- a standard set-covering constraint on the element indicators.
 ][
