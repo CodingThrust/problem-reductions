@@ -82,9 +82,9 @@ pub mod prelude {
         SubsetSum, SumOfSquaresPartition, Term, ThreePartition, TimetableDesign,
     };
     pub use crate::models::set::{
-        ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
-        MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering, PrimeAttributeName,
-        RootedTreeStorageAssignment, SetBasis,
+        ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, IntegerKnapsack,
+        MaximumSetPacking, MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering,
+        PrimeAttributeName, RootedTreeStorageAssignment, SetBasis,
     };
 
     // Core traits

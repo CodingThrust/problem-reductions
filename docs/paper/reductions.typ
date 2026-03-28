@@ -111,6 +111,7 @@
   "SpinGlass": [Spin Glass],
   "QUBO": [QUBO],
   "ILP": [Integer Linear Programming],
+  "IntegerKnapsack": [Integer Knapsack],
   "Knapsack": [Knapsack],
   "PartiallyOrderedKnapsack": [Partially Ordered Knapsack],
   "Satisfiability": [SAT],
@@ -4015,6 +4016,33 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred create --example Knapsack -o knapsack.json",
         "pred solve knapsack.json",
         "pred evaluate knapsack.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("IntegerKnapsack")
+  let sizes = x.instance.sizes
+  let values = x.instance.values
+  let B = x.instance.capacity
+  let n = sizes.len()
+  let config = x.optimal_config
+  let opt-val = metric-value(x.optimal_value)
+  let total-s = range(n).map(i => config.at(i) * sizes.at(i)).sum()
+  let total-v = range(n).map(i => config.at(i) * values.at(i)).sum()
+  [
+    #problem-def("IntegerKnapsack")[
+      Given $n$ items with sizes $s_0, dots, s_(n-1) in ZZ^+$ and values $v_0, dots, v_(n-1) in ZZ^+$, and a capacity $B in NN$, find non-negative integer multiplicities $c_0, dots, c_(n-1) in NN$ maximizing $sum_(i=0)^(n-1) c_i dot v_i$ subject to $sum_(i=0)^(n-1) c_i dot s_i lt.eq B$.
+    ][
+      The Integer Knapsack (also called the _unbounded knapsack problem_) generalizes the 0-1 Knapsack by allowing each item to be selected more than once. Like 0-1 Knapsack, it admits a pseudo-polynomial $O(n B)$ dynamic-programming algorithm @garey1979. The problem is weakly NP-hard: when item sizes are bounded by a polynomial in $n$, DP runs in polynomial time. The brute-force approach enumerates all multiplicity vectors, giving $O(product_(i=0)^(n-1)(floor.l B slash s_i floor.r + 1))$ configurations.#footnote[No algorithm improving on brute-force enumeration of multiplicity vectors is known for the general Integer Knapsack problem.]
+
+      *Example.* Let $n = #n$ items with sizes $(#sizes.map(s => str(s)).join(", "))$, values $(#values.map(v => str(v)).join(", "))$, and capacity $B = #B$. Setting multiplicities $(#config.map(c => str(c)).join(", "))$ gives total size $#total-s lt.eq B$ and total value $#total-v$, which is optimal.
+
+      #pred-commands(
+        "pred create --example IntegerKnapsack -o ik.json",
+        "pred solve ik.json",
+        "pred evaluate ik.json --config " + x.optimal_config.map(str).join(","),
       )
     ]
   ]

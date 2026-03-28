@@ -49,7 +49,7 @@ pub use misc::{
     TimetableDesign,
 };
 pub use set::{
-    ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
+    ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, IntegerKnapsack, MaximumSetPacking,
     MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering, PrimeAttributeName,
     RootedTreeStorageAssignment, SetBasis, TwoDimensionalConsecutiveSets,
 };

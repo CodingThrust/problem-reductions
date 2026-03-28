@@ -295,6 +295,7 @@ Flags by problem type:
   SteinerTreeInGraphs             --graph, --edge-weights, --terminals
   PartitionIntoPathsOfLength2     --graph
   ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
+  IntegerKnapsack                 --sizes, --values, --capacity
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   QAP                             --matrix (cost), --distance-matrix
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]

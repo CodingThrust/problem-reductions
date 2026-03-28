@@ -716,6 +716,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SequencingToMinimizeWeightedTardiness" => {
             "--sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
         }
+        "IntegerKnapsack" => "--sizes 3,4,5,2,7 --values 4,5,7,3,9 --capacity 15",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "ThreePartition" => "--sizes 4,5,6,4,6,5 --bound 15",
         "BoyceCoddNormalFormViolation" => {
@@ -2313,6 +2314,32 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     attribute_domains,
                     frequency_tables,
                     known_values,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // IntegerKnapsack
+        "IntegerKnapsack" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "IntegerKnapsack requires --sizes, --values, and --capacity\n\n\
+                     Usage: pred create IntegerKnapsack --sizes 3,4,5,2,7 --values 4,5,7,3,9 --capacity 15"
+                )
+            })?;
+            let values_str = args.values.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegerKnapsack requires --values (e.g., 4,5,7,3,9)")
+            })?;
+            let cap_str = args
+                .capacity
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("IntegerKnapsack requires --capacity (e.g., 15)"))?;
+            let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
+            let values: Vec<i64> = util::parse_comma_list(values_str)?;
+            let capacity: i64 = cap_str.parse()?;
+            (
+                ser(problemreductions::models::set::IntegerKnapsack::new(
+                    sizes, values, capacity,
                 ))?,
                 resolved_variant.clone(),
             )
