@@ -58,6 +58,7 @@ pub(crate) mod partition_sequencingwithinintervals;
 pub(crate) mod partition_shortestweightconstrainedpath;
 pub(crate) mod partition_subsetsum;
 pub(crate) mod partitionintopathsoflength2_boundedcomponentspanningforest;
+pub(crate) mod rootedtreearrangement_rootedtreestorageassignment;
 pub(crate) mod sat_circuitsat;
 pub(crate) mod sat_coloring;
 pub(crate) mod sat_ksat;
@@ -298,6 +299,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(partition_sequencingwithinintervals::canonical_rule_example_specs());
     specs.extend(partition_shortestweightconstrainedpath::canonical_rule_example_specs());
     specs.extend(partition_subsetsum::canonical_rule_example_specs());
+    specs.extend(rootedtreearrangement_rootedtreestorageassignment::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_maximumindependentset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackarcset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackvertexset::canonical_rule_example_specs());

@@ -9700,6 +9700,34 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each tree vertex $u$, output the unique graph vertex $v$ with $x_(u,v) = 1$.
 ]
 
+#let rta_rtsa = load-example("RootedTreeArrangement", "RootedTreeStorageAssignment")
+#let rta_rtsa_sol = rta_rtsa.solutions.at(0)
+#reduction-rule("RootedTreeArrangement", "RootedTreeStorageAssignment",
+  example: true,
+  example-caption: [Path graph $P_4$ ($n = 4$, $|E| = 3$, $K = 5$)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(rta_rtsa.source) + " -o rta.json",
+      "pred reduce rta.json --to " + target-spec(rta_rtsa) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate rta.json --config " + rta_rtsa_sol.source_config.map(str).join(","),
+    )
+    Source: path graph $P_4$ with vertices ${0, 1, 2, 3}$, edges $\{0,1\}, \{1,2\}, \{2,3\}$, and bound $K = 5$. \
+    Target: universe $X = {0, 1, 2, 3}$, subsets $\{0,1\}, \{1,2\}, \{2,3\}$, bound $K' = 5 - 3 = 2$. \
+    The chain tree $0 arrow 1 arrow 2 arrow 3$ (parent array $(0, 0, 1, 2)$) with identity mapping gives total stretch $1 + 1 + 1 = 3 <= 5$ in the source. In the target, every edge subset is already a parent-child pair, so extension cost is $0 + 0 + 0 = 0 <= 2$ #sym.checkmark
+  ],
+)[
+  This $O(|E|)$ reduction @gavril1977 transforms a graph-embedding arrangement problem into a set-system path-cover problem. Each edge $\{u, v\}$ of the source graph becomes a 2-element required subset $\{u, v\}$ whose elements must lie on a directed path in a rooted tree. The bound adjusts by $K' = K - |E|$, since each edge contributes at least 1 to the arrangement cost but 0 to the extension cost when its endpoints are adjacent in the tree.
+][
+  _Construction._ Given a Rooted Tree Arrangement instance with graph $G = (V, E)$ and bound $K$, construct a Rooted Tree Storage Assignment instance as follows. Set the universe $X = V$ with $|X| = |V|$ elements. For each edge $\{u, v\} in E$, create a 2-element subset $X_e = \{u, v\}$, yielding a collection $cal(C) = \{X_e : e in E\}$ of $|E|$ subsets. Set the bound $K' = K - |E|$.
+
+  _Correctness._ ($arrow.r.double$) Suppose there exists a rooted tree $T$ on $|V|$ nodes and a bijection $f: V arrow U$ with $sum_(\{u,v\} in E) d_T(f(u), f(v)) <= K$, where every edge pair lies on a common root-to-leaf path. Using $T$ as the storage tree and the identity embedding (since $X = V$), for each edge $e = \{u, v\}$ the extended subset $X'_e$ consists of all nodes on the path from $f(u)$ to $f(v)$, costing $d_T(f(u), f(v)) - 1$ additional elements. The total extension cost is $sum_(e in E) (d_T(f(u), f(v)) - 1) = (sum d_T) - |E| <= K - |E| = K'$.
+
+  ($arrow.l.double$) Suppose there exists a rooted tree $T = (X, A)$ and extended subsets forming directed paths with total extension cost $<= K'$. The same tree $T$ with the identity mapping $f(v) = v$ gives total arrangement stretch $= "extension cost" + |E| <= K' + |E| = K$.
+
+  _Solution extraction._ The target solution is a parent array defining a rooted tree on $X = V$. The source solution is this same parent array concatenated with the identity mapping $f(v) = v$ for all $v in V$.
+]
+
 #reduction-rule("RootedTreeStorageAssignment", "ILP")[
   Choose one parent for each non-root element, enforce acyclicity with depth variables, and linearize the path-extension cost of every subset by selecting its top and bottom vertices in the rooted tree.
 ][
