@@ -141,3 +141,10 @@ fn test_solve_reduced() {
     assert!(problem.evaluate(&solution).is_valid());
     assert_eq!(problem.evaluate(&solution), Min(Some(3)));
 }
+
+#[test]
+fn test_binpacking_to_ilp_bf_vs_ilp() {
+    let problem = BinPacking::new(vec![3, 3, 2], 5);
+    let reduction: ReductionBPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

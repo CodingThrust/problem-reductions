@@ -4,11 +4,13 @@
 //! Each vertex v_i is split into v_i^in (= 2i) and v_i^out (= 2i+1). A mandatory
 //! directed arc (v_i^in → v_i^out) of length 1 is added for each vertex. For each
 //! undirected edge {v_i, v_j} in the source graph, two undirected connector edges
-//! {v_i^out, v_j^in} and {v_j^out, v_i^in} of length 0 are added.
+//! {v_i^out, v_j^in} and {v_j^out, v_i^in} of length 1 are added.
 //!
 //! The source graph has a Hamiltonian circuit iff the optimal Stacker Crane tour
-//! cost equals n (the number of vertices), since each arc contributes cost 1 and
-//! each zero-cost connector edge links consecutive arcs for free.
+//! cost equals 2n (n arcs of cost 1 plus n single-hop connectors of cost 1).
+//! Using connector length 1 (rather than 0) ensures that multi-hop connector
+//! paths cost strictly more than single-hop ones, so every optimal permutation
+//! corresponds to a valid Hamiltonian circuit.
 
 use crate::models::graph::HamiltonianCircuit;
 use crate::models::misc::StackerCrane;
@@ -59,15 +61,17 @@ impl ReduceTo<StackerCrane> for HamiltonianCircuit<SimpleGraph> {
         let arc_lengths: Vec<i32> = vec![1; n];
 
         // For each original edge {u, v}, add two undirected connector edges:
-        //   {u^out, v^in} = {2u+1, 2v}  with length 0
-        //   {v^out, u^in} = {2v+1, 2u}  with length 0
+        //   {u^out, v^in} = {2u+1, 2v}  with length 1
+        //   {v^out, u^in} = {2v+1, 2u}  with length 1
+        // Using length 1 (not 0) prevents multi-hop zero-cost shortcuts that
+        // would create optimal SC permutations not corresponding to valid HCs.
         let mut edges = Vec::new();
         let mut edge_lengths = Vec::new();
         for (u, v) in self.graph().edges() {
             edges.push((2 * u + 1, 2 * v));
-            edge_lengths.push(0);
+            edge_lengths.push(1);
             edges.push((2 * v + 1, 2 * u));
-            edge_lengths.push(0);
+            edge_lengths.push(1);
         }
 
         let target = StackerCrane::new(target_num_vertices, arcs, edges, arc_lengths, edge_lengths);

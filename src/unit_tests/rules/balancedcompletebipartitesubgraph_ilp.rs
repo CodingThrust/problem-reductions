@@ -58,3 +58,10 @@ fn test_extract_solution_identity() {
     assert_eq!(extracted, vec![1, 1, 0, 1, 1, 0]);
     assert!(source.evaluate(&extracted).0);
 }
+
+#[test]
+fn test_balancedcompletebipartitesubgraph_to_ilp_bf_vs_ilp() {
+    let source = small_instance();
+    let reduction: ReductionBCBSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
+}
