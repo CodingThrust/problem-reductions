@@ -207,7 +207,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             //   c=B(1): v2=(1,0)
             //   c=C(2): v5=(3,2)
             // MIS {v2, v3, v5} => positions B@(1,0), A@(2,1), C@(3,2)
-            // target_config = [0, 0, 1, 1, 0, 1]
+            // target_config = [0, 0, 1, 0, 1, 1] (v2=(2,1), v4=(1,0), v5=(3,2))
             // source_config = [1, 0, 2, 3] (B, A, C, padding)
             crate::example_db::specs::rule_example_with_witness::<
                 _,
@@ -216,7 +216,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 lcs_abac_baca(),
                 SolutionPair {
                     source_config: vec![1, 0, 2, 3],
-                    target_config: vec![0, 0, 1, 1, 0, 1],
+                    target_config: vec![0, 0, 1, 0, 1, 1],
                 },
             )
         },
