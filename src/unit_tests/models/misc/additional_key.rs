@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 /// Instance 1: 6 attributes, cyclic FDs, 3 known keys.
@@ -81,7 +81,7 @@ fn test_additional_key_no_additional_key() {
     let problem = instance2();
     // Only candidate key is {0}, which is already known.
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_none());
 }
 
@@ -103,7 +103,7 @@ fn test_additional_key_brute_force() {
     let problem = instance1();
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("should find a solution");
     assert!(problem.evaluate(&solution));
 }
@@ -112,7 +112,7 @@ fn test_additional_key_brute_force() {
 fn test_additional_key_brute_force_all() {
     let problem = instance1();
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // Exactly 2 additional keys: {0,2} and {0,3,5}
     assert_eq!(solutions.len(), 2);
     for sol in &solutions {

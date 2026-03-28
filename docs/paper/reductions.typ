@@ -48,6 +48,20 @@
   }
 }
 
+#let metric-value(metric) = {
+  if type(metric) == dictionary {
+    if "Valid" in metric {
+      metric.Valid
+    } else if "value" in metric {
+      metric.value
+    } else {
+      metric
+    }
+  } else {
+    metric
+  }
+}
+
 #let graph-num-vertices(instance) = instance.graph.num_vertices
 #let graph-num-edges(instance) = instance.graph.edges.len()
 #let spin-num-spins(instance) = instance.fields.len()
@@ -67,7 +81,6 @@
   "MaximumIndependentSet": [Maximum Independent Set],
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
-  "GraphPartitioning": [Graph Partitioning],
   "GeneralizedHex": [Generalized Hex],
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
@@ -132,6 +145,7 @@
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "SubsetSum": [Subset Sum],
   "Partition": [Partition],
+  "ThreePartition": [3-Partition],
   "PartialFeedbackEdgeSet": [Partial Feedback Edge Set],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
@@ -145,6 +159,7 @@
   "IntegralFlowWithMultipliers": [Integral Flow With Multipliers],
   "MinMaxMulticenter": [Min-Max Multicenter],
   "FlowShopScheduling": [Flow Shop Scheduling],
+  "JobShopScheduling": [Job-Shop Scheduling],
   "GroupingBySwapping": [Grouping by Swapping],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
   "MinimumDummyActivitiesPert": [Minimum Dummy Activities in PERT Networks],
@@ -498,7 +513,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   // Pick optimal config = {v1, v3, v5, v9} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let alpha = sol.metric.Valid
+  let alpha = metric-value(sol.metric)
   [
     #problem-def("MaximumIndependentSet")[
       Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
@@ -531,7 +546,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   // Pick optimal config = {v0, v3, v4} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let cover = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let wS = sol.metric.Valid
+  let wS = metric-value(sol.metric)
   let complement = sol.config.enumerate().filter(((i, v)) => v == 0).map(((i, _)) => i)
   let alpha = complement.len()
   [
@@ -570,7 +585,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let side-s = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let side-sbar = sol.config.enumerate().filter(((i, v)) => v == 0).map(((i, _)) => i)
-  let cut-val = sol.metric.Valid
+  let cut-val = metric-value(sol.metric)
   let cut-edges = edges.filter(e => side-s.contains(e.at(0)) != side-s.contains(e.at(1)))
   let uncut-edges = edges.filter(e => side-s.contains(e.at(0)) == side-s.contains(e.at(1)))
   [
@@ -597,79 +612,15 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ]
   ]
 }
-#{
-  let x = load-model-example("GraphPartitioning")
-  let nv = graph-num-vertices(x.instance)
-  let ne = graph-num-edges(x.instance)
-  let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-  let config = x.optimal_config
-  let cut-val = x.optimal_value.Valid
-  let side-a = range(nv).filter(i => config.at(i) == 0)
-  let side-b = range(nv).filter(i => config.at(i) == 1)
-  let cut-edges = edges.filter(e => config.at(e.at(0)) != config.at(e.at(1)))
-  [
-    #problem-def("GraphPartitioning")[
-      Given an undirected graph $G = (V, E)$ with $|V| = n$ (even), find a partition of $V$ into two disjoint sets $A$ and $B$ with $|A| = |B| = n slash 2$ that minimizes the number of edges crossing the partition:
-      $ "cut"(A, B) = |{(u, v) in E : u in A, v in B}|. $
-    ][
-      Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel computing, and scientific simulation, where balanced workload distribution with minimal communication is essential. Closely related to Max-Cut (which _maximizes_ rather than _minimizes_ the cut) and to the Ising Spin Glass model. NP-completeness was proved by Garey, Johnson and Stockmeyer @garey1976. Arora, Rao and Vazirani @arora2009 gave an $O(sqrt(log n))$-approximation algorithm. The best known unconditional exact algorithm is brute-force enumeration of all $binom(n, n slash 2) = O^*(2^n)$ balanced partitions; no faster worst-case algorithm is known. Cygan et al. @cygan2014 showed that Minimum Bisection is fixed-parameter tractable in $O(2^(O(k^3)) dot n^3 log^3 n)$ time parameterized by bisection width $k$. Standard partitioning tools include METIS, KaHIP, and Scotch.
-
-      *Example.* Consider the graph $G$ with $n = #nv$ vertices and #ne edges. The optimal balanced partition is $A = {#side-a.map(i => $v_#i$).join($,$)}$, $B = {#side-b.map(i => $v_#i$).join($,$)}$, with cut value #cut-val.
-
-      #pred-commands(
-        "pred create --example GraphPartitioning -o graph-partitioning.json",
-        "pred solve graph-partitioning.json",
-        "pred evaluate graph-partitioning.json --config " + x.optimal_config.map(str).join(","),
-      )
-
-      #figure(
-        canvas(length: 1cm, {
-          // Two-column layout for balanced partition
-          let half = int(nv / 2)
-          let verts = (
-            ..range(half).map(i => (0, (half - 1 - i))),
-            ..range(half).map(i => (2.5, (half - 1 - i))),
-          )
-          // Draw edges
-          for (u, v) in edges {
-            let crossing = config.at(u) != config.at(v)
-            g-edge(verts.at(u), verts.at(v),
-              stroke: if crossing { 2pt + graph-colors.at(1) } else { 1pt + luma(180) })
-          }
-          // Draw partition regions
-          import draw: *
-          on-layer(-1, {
-            rect((-0.5, -0.5), (0.5, half - 0.5),
-              fill: graph-colors.at(0).transparentize(90%),
-              stroke: (dash: "dashed", paint: graph-colors.at(0), thickness: 0.8pt))
-            content((0, half - 0.2), text(8pt, fill: graph-colors.at(0))[$A$])
-            rect((2.0, -0.5), (3.0, half - 0.5),
-              fill: graph-colors.at(1).transparentize(90%),
-              stroke: (dash: "dashed", paint: graph-colors.at(1), thickness: 0.8pt))
-            content((2.5, half - 0.2), text(8pt, fill: graph-colors.at(1))[$B$])
-          })
-          // Draw nodes
-          for (k, pos) in verts.enumerate() {
-            let in-a = config.at(k) == 0
-            g-node(pos, name: "v" + str(k),
-              fill: if in-a { graph-colors.at(0) } else { graph-colors.at(1) },
-              label: text(fill: white)[$v_#k$])
-          }
-        }),
-        caption: [Graph with $n = #nv$ vertices partitioned into $A$ (blue) and $B$ (red). The #cut-val crossing edges are shown in bold red; internal edges are gray.],
-      ) <fig:graph-partitioning>
-    ]
-  ]
-}
 #problem-def("MinimumCutIntoBoundedSets")[
-  Given an undirected graph $G = (V, E)$ with edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, a positive integer $B <= |V|$, and a positive integer $K$, determine whether there exists a partition of $V$ into disjoint sets $V_1$ and $V_2$ such that $s in V_1$, $t in V_2$, $|V_1| <= B$, $|V_2| <= B$, and
-  $ sum_({u,v} in E: u in V_1, v in V_2) w({u,v}) <= K. $
+  Given an undirected graph $G = (V, E)$ with edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, and a positive integer $B <= |V|$, find a partition of $V$ into disjoint sets $V_1$ and $V_2$ such that $s in V_1$, $t in V_2$, $|V_1| <= B$, $|V_2| <= B$, that minimizes the total cut weight
+  $ sum_({u,v} in E: u in V_1, v in V_2) w({u,v}). $
 ][
 Minimum Cut Into Bounded Sets (Garey & Johnson ND17) combines the classical minimum $s$-$t$ cut problem with a balance constraint on partition sizes. Without the balance constraint ($B = |V|$), the problem reduces to standard minimum $s$-$t$ cut, solvable in polynomial time via network flow. Adding the requirement $|V_1| <= B$ and $|V_2| <= B$ makes the problem NP-complete; it remains NP-complete even for $B = |V| slash 2$ and unit edge weights (the minimum bisection problem) @garey1976. Applications include VLSI layout, load balancing, and graph bisection.
 
 The best known exact algorithm is brute-force enumeration of all $2^n$ vertex partitions in $O(2^n)$ time. For the special case of minimum bisection, Cygan et al. @cygan2014 showed fixed-parameter tractability with respect to the cut size. No polynomial-time finite approximation factor exists for balanced graph partition unless $P = N P$ (Andreev and Racke, 2006). Arora, Rao, and Vazirani @arora2009 gave an $O(sqrt(log n))$-approximation for balanced separator.
 
-*Example.* Consider $G$ with 4 vertices and edges $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$ with unit weights, $s = v_0$, $t = v_3$, $B = 3$, $K = 1$. The partition $V_1 = {v_0, v_1}$, $V_2 = {v_2, v_3}$ gives cut weight $w({v_1, v_2}) = 1 <= K$. Both $|V_1| = 2 <= 3$ and $|V_2| = 2 <= 3$. Answer: YES.
+*Example.* Consider $G$ with 4 vertices and edges $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$ with unit weights, $s = v_0$, $t = v_3$, $B = 3$. The optimal partition $V_1 = {v_0, v_1}$, $V_2 = {v_2, v_3}$ gives minimum cut weight $w({v_1, v_2}) = 1$. Both $|V_1| = 2 <= 3$ and $|V_2| = 2 <= 3$.
 ]
 #problem-def("BiconnectivityAugmentation")[
   Given an undirected graph $G = (V, E)$, a set $F$ of candidate edges on $V$ with $F inter E = emptyset$, weights $w: F -> RR$, and a budget $B in RR$, find $F' subset.eq F$ such that $sum_(e in F') w(e) <= B$ and the augmented graph $G' = (V, E union F')$ is biconnected, meaning $G'$ is connected and deleting any single vertex leaves it connected.
@@ -788,20 +739,19 @@ Biconnectivity augmentation is a classical network-design problem: add backup li
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let ne = edges.len()
   let edge-lengths = x.instance.edge_lengths
-  let K = x.instance.bound
   let config = x.optimal_config
   let selected = range(ne).filter(i => config.at(i) == 1)
   let total-length = selected.map(i => edge-lengths.at(i)).sum()
-  let cycle-order = (0, 1, 2, 3, 4, 5)
+  let cycle-order = (0, 1, 4, 5, 2, 3)
   [
     #problem-def("LongestCircuit")[
-      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$ and a positive bound $K$, determine whether there exists a simple circuit $C subset.eq E$ such that $sum_(e in C) l(e) >= K$.
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$, find a simple circuit $C subset.eq E$ that maximizes $sum_(e in C) l(e)$.
     ][
-      Longest Circuit is the decision version of the classical longest-cycle problem. Hamiltonian Circuit is the special case where every edge has unit length and $K = |V|$, so Longest Circuit is NP-complete via Karp's original Hamiltonicity result @karp1972. A standard exact baseline uses Held--Karp-style subset dynamic programming in $O(n^2 dot 2^n)$ time @heldkarp1962; unlike Hamiltonicity, the goal here is to certify a sufficiently long simple cycle rather than specifically a spanning one.
+      Longest Circuit is the optimization version of the classical longest-cycle problem. Hamiltonian Circuit is the special case where every edge has unit length and the optimum equals $|V|$, so Longest Circuit is NP-hard via Karp's original Hamiltonicity result @karp1972. A standard exact baseline uses Held--Karp-style subset dynamic programming in $O(n^2 dot 2^n)$ time @heldkarp1962; unlike Hamiltonicity, the goal here is to find the longest simple cycle rather than specifically a spanning one.
 
-      In the implementation, a configuration selects a subset of edges. It is satisfying exactly when the selected edges induce one connected 2-regular subgraph and the total selected length reaches the threshold $K$.
+      In the implementation, a configuration selects a subset of edges. A witness is a configuration whose selected edges induce one connected 2-regular subgraph; the objective value is the total selected length.
 
-      *Example.* Consider the canonical 6-vertex instance with bound $K = #K$. The outer cycle $v_0 arrow v_1 arrow v_2 arrow v_3 arrow v_4 arrow v_5 arrow v_0$ uses edge lengths $3 + 2 + 4 + 1 + 5 + 2 = #total-length$, so it is a satisfying circuit with total length exactly $K$. The extra chords $(v_0, v_3)$, $(v_1, v_4)$, $(v_2, v_5)$, and $(v_3, v_5)$ provide alternative routes but are not needed for this witness.
+      *Example.* Consider the canonical 6-vertex instance. The optimal circuit $v_0 arrow v_1 arrow v_4 arrow v_5 arrow v_2 arrow v_3 arrow v_0$ uses edge lengths $3 + 2 + 5 + 1 + 4 + 3 = #total-length$, which is the maximum circuit length. The remaining edges are available but yield shorter circuits.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o longest-circuit.json",
@@ -850,7 +800,7 @@ Biconnectivity augmentation is a classical network-design problem: add backup li
             content(pos, text(7pt)[$v_#i$])
           }
         }),
-        caption: [Longest Circuit instance on #nv vertices. The highlighted cycle $#cycle-order.map(v => $v_#v$).join($arrow$) arrow v_#(cycle-order.at(0))$ has total length #total-length $= K$; the gray dashed chords are available but unused.],
+        caption: [Longest Circuit instance on #nv vertices. The highlighted cycle $#cycle-order.map(v => $v_#v$).join($arrow$) arrow v_#(cycle-order.at(0))$ has maximum total length #total-length; the remaining edges yield shorter circuits.],
       ) <fig:longest-circuit>
     ]
   ]
@@ -913,17 +863,17 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let edges = x.instance.graph.edges
   let s = x.instance.source
   let t = x.instance.sink
-  let J = x.instance.num_paths_required
+  let M = x.instance.max_paths
   let K = x.instance.max_length
-  let chosen-verts = (0, 1, 2, 3, 6)
-  let chosen-edges = ((0, 1), (1, 6), (0, 2), (2, 3), (3, 6))
+  let chosen-verts = (0, 1, 2, 3, 4)
+  let chosen-edges = ((0, 1), (1, 4), (0, 2), (2, 4), (0, 3), (3, 4))
   [
     #problem-def("LengthBoundedDisjointPaths")[
-      Given an undirected graph $G = (V, E)$, distinct terminals $s, t in V$, and positive integers $J, K$, determine whether $G$ contains at least $J$ pairwise internally vertex-disjoint paths from $s$ to $t$, each using at most $K$ edges.
+      Given an undirected graph $G = (V, E)$, distinct terminals $s, t in V$, and a positive integer $K$, maximize the number of pairwise internally vertex-disjoint paths from $s$ to $t$, each using at most $K$ edges.
     ][
-      Length-Bounded Disjoint Paths is the bounded-routing version of the classical disjoint-path problem, with applications in network routing and VLSI where multiple connections must fit simultaneously under quality-of-service limits. Garey & Johnson list it as ND41 and summarize the sharp threshold proved by Itai, Perl, and Shiloach: the problem is NP-complete for every fixed $K >= 5$, polynomial-time solvable for $K <= 4$, and becomes polynomial again when the length bound is removed entirely @garey1979. The implementation here uses the natural $J dot |V|$ binary membership encoding, so brute-force search over configurations runs in $O^*(2^(J dot |V|))$.
+      Length-Bounded Disjoint Paths is the bounded-routing version of the classical disjoint-path problem, with applications in network routing and VLSI where multiple connections must fit simultaneously under quality-of-service limits. Garey & Johnson list it as ND41 and summarize the sharp threshold proved by Itai, Perl, and Shiloach: the problem is NP-complete for every fixed $K >= 5$, polynomial-time solvable for $K <= 4$, and becomes polynomial again when the length bound is removed entirely @garey1979. The implementation here uses $M dot |V|$ binary variables where $M = min(deg(s), deg(t))$ is an upper bound on the number of vertex-disjoint $s$-$t$ paths, so brute-force search over configurations runs in $O^*(2^(M dot |V|))$.
 
-      *Example.* Consider the graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, terminals $s = v_#s$, $t = v_#t$, $J = #J$, and $K = #K$. The two paths $P_1 = v_0 arrow v_1 arrow v_6$ and $P_2 = v_0 arrow v_2 arrow v_3 arrow v_6$ are both of length at most 3, and their internal vertex sets ${v_1}$ and ${v_2, v_3}$ are disjoint. Hence this instance is satisfying. The third branch $v_0 arrow v_4 arrow v_5 arrow v_6$ is available but unused, so the instance has multiple satisfying path-slot assignments.
+      *Example.* Consider the graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, terminals $s = v_#s$, $t = v_#t$, and $K = #K$. Here $M = #M$ path slots are available. The three paths $P_1 = v_0 arrow v_1 arrow v_4$, $P_2 = v_0 arrow v_2 arrow v_4$, and $P_3 = v_0 arrow v_3 arrow v_4$ are each of length 2 (at most $K = 3$), and their internal vertex sets ${v_1}$, ${v_2}$, and ${v_3}$ are pairwise disjoint. The optimal value is therefore $3$.
 
       #pred-commands(
         "pred create --example LengthBoundedDisjointPaths -o length-bounded-disjoint-paths.json",
@@ -936,13 +886,11 @@ is feasible: each set induces a connected subgraph, the component weights are $2
           let blue = graph-colors.at(0)
           let gray = luma(180)
           let verts = (
-            (0, 1),    // v0 = s
-            (1.3, 1.8),
-            (1.3, 1.0),
-            (2.6, 1.0),
-            (1.3, 0.2),
-            (2.6, 0.2),
-            (3.9, 1),  // v6 = t
+            (0, 1),     // v0 = s
+            (1.5, 1.8), // v1
+            (1.5, 1.0), // v2
+            (1.5, 0.2), // v3
+            (3.0, 1),   // v4 = t
           )
           for (u, v) in edges {
             let selected = chosen-edges.any(e =>
@@ -968,7 +916,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
               ])
           }
         }),
-        caption: [A satisfying Length-Bounded Disjoint Paths instance with $s = v_0$, $t = v_6$, $J = 2$, and $K = 3$. The highlighted paths are $v_0 arrow v_1 arrow v_6$ and $v_0 arrow v_2 arrow v_3 arrow v_6$; the lower branch through $v_4, v_5$ remains unused.],
+        caption: [An optimal Length-Bounded Disjoint Paths instance with $s = v_0$, $t = v_4$, and $K = 3$. All three vertex-disjoint paths $v_0 arrow v_1 arrow v_4$, $v_0 arrow v_2 arrow v_4$, and $v_0 arrow v_3 arrow v_4$ are highlighted, giving an optimal value of $3$.],
       ) <fig:length-bounded-disjoint-paths>
     ]
   ]
@@ -1489,20 +1437,19 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let weights = x.instance.edge_weights
   let s = x.instance.source_vertex
   let t = x.instance.target_vertex
-  let K = x.instance.length_bound
   let W = x.instance.weight_bound
   let path-config = x.optimal_config
   let path-edges = edges.enumerate().filter(((idx, _)) => path-config.at(idx) == 1).map(((idx, e)) => e)
   let path-order = (0, 2, 3, 5)
   [
     #problem-def("ShortestWeightConstrainedPath")[
-      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$, positive edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, and bounds $K, W in ZZ^+$, determine whether there exists a simple path $P$ from $s$ to $t$ such that $sum_(e in P) l(e) <= K$ and $sum_(e in P) w(e) <= W$.
+      Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$, positive edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, and a weight bound $W in ZZ^+$, find a simple path $P$ from $s$ to $t$ that minimizes $sum_(e in P) l(e)$ subject to $sum_(e in P) w(e) <= W$.
     ][
       Also called the _restricted shortest path_ or _resource-constrained shortest path_ problem. Garey and Johnson list it as ND30 and show NP-completeness via transformation from Partition @garey1979. The model captures bicriteria routing: one resource measures path length or delay, while the other captures a second consumable budget such as cost, risk, or bandwidth. Because pseudo-polynomial dynamic programming formulations are known @joksch1966, the hardness is weak rather than strong; approximation schemes were later developed by Hassin @hassin1992 and improved by Lorenz and Raz @lorenzraz2001.
 
-      The implementation catalog reports the natural brute-force complexity of the edge-subset encoding used here: with $m = |E|$ binary variables, exhaustive search over all candidate subsets costs $O^*(2^m)$. A configuration is satisfying precisely when the selected edges form a single simple $s$-$t$ path and both resource sums stay within their bounds.
+      The implementation catalog reports the natural brute-force complexity of the edge-subset encoding used here: with $m = |E|$ binary variables, exhaustive search over all candidate subsets costs $O^*(2^m)$. A configuration is feasible when the selected edges form a single simple $s$-$t$ path whose total weight stays within the bound; the objective is to minimize total length over all such feasible paths.
 
-      *Example.* Consider the graph on #nv vertices with source $s = v_#s$, target $t = v_#t$, length bound $K = #K$, and weight bound $W = #W$. Edge labels are written as $(l(e), w(e))$. The highlighted path $#path-order.map(v => $v_#v$).join($arrow$)$ uses edges ${#path-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, so its total length is $4 + 1 + 4 = 9 <= #K$ and its total weight is $1 + 3 + 3 = 7 <= #W$. This instance has 2 satisfying edge selections; another feasible path is $v_0 arrow v_1 arrow v_4 arrow v_5$.
+      *Example.* Consider the graph on #nv vertices with source $s = v_#s$, target $t = v_#t$, and weight bound $W = #W$. Edge labels are written as $(l(e), w(e))$. The highlighted path $#path-order.map(v => $v_#v$).join($arrow$)$ uses edges ${#path-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, so its total length is $4 + 1 + 4 = 9$ and its total weight is $1 + 3 + 3 = 7 <= #W$. This is the minimum-length feasible path; another weight-feasible path $v_0 arrow v_1 arrow v_4 arrow v_5$ has length $10$.
 
       #pred-commands(
         "pred create --example ShortestWeightConstrainedPath -o shortest-weight-constrained-path.json",
@@ -1580,7 +1527,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   // Pick optimal config = {v2, v3} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let wS = sol.metric.Valid
+  let wS = metric-value(sol.metric)
   // Compute neighbors dominated by each vertex in S
   let dominated = S.map(s => {
     let nbrs = ()
@@ -1621,7 +1568,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   // Pick optimal config [1,0,0,0,1,0] = edges {(0,1),(2,4)} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let matched-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
-  let wM = sol.metric.Valid
+  let wM = metric-value(sol.metric)
   // Collect matched vertices
   let matched-verts = ()
   for (u, v) in matched-edges {
@@ -1660,7 +1607,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let ew = x.instance.edge_weights
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let tour-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
-  let bottleneck = sol.metric.Valid
+  let bottleneck = metric-value(sol.metric)
   let tour-weights = tour-edges.map(((u, v)) => {
     let idx = edges.position(e => e == (u, v) or e == (v, u))
     int(ew.at(idx))
@@ -1750,7 +1697,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let ew = x.instance.edge_weights
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let tour-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
-  let tour-cost = sol.metric.Valid
+  let tour-cost = metric-value(sol.metric)
   // Build ordered tour from tour-edges starting at vertex 0
   let tour-order = (0,)
   let remaining = tour-edges
@@ -1820,7 +1767,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let tree-edges = tree-edge-indices.map(i => edges.at(i))
-  let cost = sol.metric.Valid
+  let cost = metric-value(sol.metric)
   // Steiner vertices: in tree but not terminals
   let tree-verts = tree-edges.map(e => (e.at(0), e.at(1))).fold((), (acc, pair) => {
     let (u, v) = pair
@@ -1968,7 +1915,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let cut-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let cut-edges = cut-edge-indices.map(i => edges.at(i))
-  let cost = sol.metric.Valid
+  let cost = metric-value(sol.metric)
   [
     #problem-def("MinimumMultiwayCut")[
       Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR_(>0)$ and a set of $k$ terminal vertices $T = {t_1, ..., t_k} subset.eq V$, find a minimum-weight set of edges $C subset.eq E$ such that no two terminals remain in the same connected component of $G' = (V, E backslash C)$.
@@ -2013,19 +1960,18 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-  let K = x.instance.bound
   let config = x.optimal_config
   // Compute total cost
   let total-cost = edges.map(e => calc.abs(config.at(e.at(0)) - config.at(e.at(1)))).sum()
   [
     #problem-def("OptimalLinearArrangement")[
-      Given an undirected graph $G=(V,E)$ and a non-negative integer $K$, is there a bijection $f: V -> {0, 1, dots, |V|-1}$ such that $sum_({u,v} in E) |f(u) - f(v)| <= K$?
+      Given an undirected graph $G=(V,E)$, find a bijection $f: V -> {0, 1, dots, |V|-1}$ that minimizes the total edge length $sum_({u,v} in E) |f(u) - f(v)|$.
     ][
-      A classical NP-complete decision problem from Garey & Johnson (GT42) @garey1979, with applications in VLSI design, graph drawing, and sparse matrix reordering. The problem asks whether vertices can be placed on a line so that the total "stretch" of all edges is at most $K$.
+      A classical NP-hard optimization problem from Garey & Johnson (GT42) @garey1979, with applications in VLSI design, graph drawing, and sparse matrix reordering. The problem asks for a vertex ordering on a line that minimizes the total "stretch" of all edges.
 
-      NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-complete on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
+      NP-hardness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-hard on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
 
-      *Example.* Consider a graph with #nv vertices and #ne edges, with bound $K = #K$. The arrangement $f = (#config.map(c => str(c)).join(", "))$ gives total cost $#edges.map(e => $|#config.at(e.at(0)) - #config.at(e.at(1))|$).join($+$) = #total-cost lt.eq #K$, so this is a YES instance.
+      *Example.* Consider a graph with #nv vertices and #ne edges. The arrangement $f = (#config.map(c => str(c)).join(", "))$ gives total cost $#edges.map(e => $|#config.at(e.at(0)) - #config.at(e.at(1))|$).join($+$) = #total-cost$, which is optimal.
 
       #pred-commands(
         "pred create --example OptimalLinearArrangement -o optimal-linear-arrangement.json",
@@ -2099,7 +2045,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   // optimal config = {v2, v3, v4}
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let K = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let omega = sol.metric.Valid
+  let omega = metric-value(sol.metric)
   // Edges within the clique
   let clique-edges = edges.filter(e => K.contains(e.at(0)) and K.contains(e.at(1)))
   [
@@ -2133,7 +2079,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   // optimal config = {v0,v2,v4} with w=3 (maximum-weight maximal IS)
   let opt = (config: x.optimal_config, metric: x.optimal_value)
   let S-opt = opt.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let w-opt = opt.metric.Valid
+  let w-opt = metric-value(opt.metric)
   // Suboptimal maximal IS {v1,v3} with w=2 (hardcoded — no longer in fixture)
   let S-sub = (1, 3)
   let w-sub = 2
@@ -2168,7 +2114,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let merged = arcs.enumerate().filter(((i, _)) => sol.config.at(i) == 1).map(((i, arc)) => arc)
   let dummy = arcs.enumerate().filter(((i, _)) => sol.config.at(i) == 0).map(((i, arc)) => arc)
-  let opt = sol.metric.Valid
+  let opt = metric-value(sol.metric)
   let blue = graph-colors.at(0)
   [
     #problem-def("MinimumDummyActivitiesPert")[
@@ -2220,7 +2166,7 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   // Pick optimal config = {v0} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let wS = sol.metric.Valid
+  let wS = metric-value(sol.metric)
   [
     #problem-def("MinimumFeedbackVertexSet")[
       Given a directed graph $G = (V, A)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that the induced subgraph $G[V backslash S]$ is a directed acyclic graph (DAG).
@@ -2273,7 +2219,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let terminals = x.instance.terminals
   let weights = x.instance.edge_weights
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let opt-weight = sol.metric.Valid
+  let opt-weight = metric-value(sol.metric)
   // Derive tree edges from optimal config
   let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   let tree-edges = tree-edge-indices.map(i => edges.at(i))
@@ -2328,7 +2274,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let nv = graph-num-vertices(x.instance)
   let edges = x.instance.graph.edges
   let K = x.instance.k
-  let opt-cost = x.optimal_value.Valid
+  let opt-cost = metric-value(x.optimal_value)
   // Pick optimal config = {v2, v5} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let centers = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
@@ -2378,20 +2324,20 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let nv = graph-num-vertices(x.instance)
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let K = x.instance.k
-  let B = x.instance.bound
+  let opt = x.optimal_value
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let centers = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   [
     #problem-def("MinMaxMulticenter")[
-      Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, a positive integer $K <= |V|$, and a rational bound $B > 0$, does there exist $S subset.eq V$ with $|S| = K$ such that $max_(v in V) w(v) dot d(v, S) <= B$, where $d(v, S) = min_(s in S) d(v, s)$ is the shortest weighted-path distance from $v$ to the nearest vertex in $S$?
+      Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, and a positive integer $K <= |V|$, find $S subset.eq V$ with $|S| = K$ that minimizes $max_(v in V) w(v) dot d(v, S)$, where $d(v, S) = min_(s in S) d(v, s)$ is the shortest weighted-path distance from $v$ to the nearest vertex in $S$.
     ][
-    Also known as the _vertex p-center problem_ (Garey & Johnson A2 ND50). The goal is to place $K$ facilities so that the worst-case weighted distance from any demand point to its nearest facility is at most $B$. NP-complete even with unit weights and unit edge lengths (Kariv and Hakimi, 1979).
+    Also known as the _vertex p-center problem_ (Garey & Johnson A2 ND50). The goal is to place $K$ facilities so that the worst-case weighted distance from any demand point to its nearest facility is minimized. NP-hard even with unit weights and unit edge lengths (Kariv and Hakimi, 1979).
 
-    Closely related to Dominating Set: on unweighted unit-length graphs, a $K$-center with radius $B = 1$ is exactly a dominating set of size $K$. The best known exact algorithm runs in $O^*(1.4969^n)$ via binary search over distance thresholds combined with dominating set computation @vanrooij2011. An optimal 2-approximation exists (Hochbaum and Shmoys, 1985); no $(2 - epsilon)$-approximation is possible unless $P = "NP"$ (Hsu and Nemhauser, 1979).
+    Closely related to Dominating Set: on unweighted unit-length graphs, a $K$-center with optimal radius 1 corresponds to a dominating set of size $K$. The best known exact algorithm runs in $O^*(1.4969^n)$ via binary search over distance thresholds combined with dominating set computation @vanrooij2011. An optimal 2-approximation exists (Hochbaum and Shmoys, 1985); no $(2 - epsilon)$-approximation is possible unless $P = "NP"$ (Hsu and Nemhauser, 1979).
 
-    Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. A configuration is satisfying when exactly $K$ centers are selected and $max_(v in V) w(v) dot d(v, S) <= B$.
+    Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. The objective value is $min_(|S| = K) max_(v in V) w(v) dot d(v, S)$; configurations with $|S| != K$ or unreachable vertices evaluate to $bot$ (infeasible).
 
-    *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$, unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, $K = #K$, and $B = #B$. Placing centers at $S = {#centers.map(i => $v_#i$).join(", ")}$ gives maximum distance $max_v d(v, S) = 1 <= B$, so this is a feasible solution.
+    *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$, unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, and $K = #K$. Placing centers at $S = {#centers.map(i => $v_#i$).join(", ")}$ gives maximum distance $max_v d(v, S) = #opt$, which is optimal.
 
     #pred-commands(
       "pred create --example MinMaxMulticenter -o min-max-multicenter.json",
@@ -2416,7 +2362,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }
       })
     },
-    caption: [Min-Max Multicenter with $K = #K$, $B = #B$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) ensure every vertex is within distance $B$ of some center.],
+    caption: [Min-Max Multicenter with $K = #K$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) achieve optimal maximum distance #opt.],
     ) <fig:min-max-multicenter>
     ]
   ]
@@ -2425,18 +2371,17 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 #{
   let x = load-model-example("MultipleCopyFileAllocation")
   let edges = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-  let K = x.instance.bound
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let copies = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   [
     #problem-def("MultipleCopyFileAllocation")[
-      Given a graph $G = (V, E)$, usage values $u: V -> ZZ_(> 0)$, storage costs $s: V -> ZZ_(> 0)$, and a positive integer $K$, determine whether there exists a subset $V' subset.eq V$ such that
-      $sum_(v in V') s(v) + sum_(v in V) u(v) dot d(v, V') <= K,$
+      Given a graph $G = (V, E)$, usage values $u: V -> ZZ_(> 0)$, and storage costs $s: V -> ZZ_(> 0)$, find a subset $V' subset.eq V$ that minimizes
+      $sum_(v in V') s(v) + sum_(v in V) u(v) dot d(v, V'),$
       where $d(v, V') = min_(w in V') d_G(v, w)$ is the shortest-path distance from $v$ to the nearest copy vertex.
     ][
-    Multiple Copy File Allocation appears in the storage-and-retrieval section of Garey and Johnson (SR6) @garey1979. The model combines two competing costs: each chosen copy vertex incurs a storage charge, while every vertex pays an access cost weighted by its demand and graph distance to the nearest copy. Garey and Johnson record the problem as NP-complete in the strong sense, even when usage and storage costs are uniform @garey1979.
+    Multiple Copy File Allocation appears in the storage-and-retrieval section of Garey and Johnson (SR6) @garey1979. The model combines two competing costs: each chosen copy vertex incurs a storage charge, while every vertex pays an access cost weighted by its demand and graph distance to the nearest copy. Garey and Johnson record the problem as NP-hard in the strong sense, even when usage and storage costs are uniform @garey1979.
 
-    *Example.* Consider the 6-cycle $C_6$ with uniform usage $u(v) = 10$, uniform storage $s(v) = 1$, and bound $K = #K$. Placing copies at $V' = {#copies.map(i => $v_#i$).join(", ")}$ gives storage cost $1 + 1 + 1 = 3$. The remaining vertices $v_0, v_2, v_4$ are each at distance 1 from the nearest copy, so the access cost is $10 + 10 + 10 = 30$. Thus the total cost is $3 + 30 = 33 <= #K$, so this placement is satisfying. The alternating placement shown below is one symmetric witness.
+    *Example.* Consider the 6-cycle $C_6$ with uniform usage $u(v) = 10$ and uniform storage $s(v) = 1$. Placing copies at every vertex $V' = {#copies.map(i => $v_#i$).join(", ")}$ gives storage cost $6 dot 1 = 6$ and access cost $0$ (each vertex is distance $0$ from its own copy), for a total cost of $#sol.metric$. This is optimal: removing any copy saves $1$ in storage but adds at least $10$ in access cost for each neighbor that must now reach a more distant copy.
 
     #pred-commands(
       "pred create --example MultipleCopyFileAllocation -o multiple-copy-file-allocation.json",
@@ -2461,7 +2406,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }
       })
     },
-    caption: [Multiple Copy File Allocation on a 6-cycle. Copy vertices $v_1$, $v_3$, and $v_5$ are shown in blue; every white vertex is one hop from the nearest copy, so the total cost is $33$.],
+    caption: [Multiple Copy File Allocation on a 6-cycle. All vertices (shown in blue) host copies; total cost is $#sol.metric$.],
     ) <fig:multiple-copy-file-allocation>
     ]
   ]
@@ -2469,20 +2414,19 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
 #{
   let x = load-model-example("ExpectedRetrievalCost")
-  let K = x.instance.bound
   [
     #problem-def("ExpectedRetrievalCost")[
-      Given a set $R = {r_1, dots, r_n}$ of records, access probabilities $p(r) in [0, 1]$ with $sum_(r in R) p(r) = 1$, a positive integer $m$ of circular storage sectors, and a bound $K$, determine whether there exists a partition $R_1, dots, R_m$ of $R$ such that
-      $sum_(i=1)^m sum_(j=1)^m p(R_i) p(R_j) d(i, j) <= K,$
+      Given a set $R = {r_1, dots, r_n}$ of records, access probabilities $p(r) in [0, 1]$ with $sum_(r in R) p(r) = 1$, and a positive integer $m$ of circular storage sectors, find a partition $R_1, dots, R_m$ of $R$ that minimizes
+      $sum_(i=1)^m sum_(j=1)^m p(R_i) p(R_j) d(i, j),$
       where $p(R_i) = sum_(r in R_i) p(r)$ and
       $d(i, j) = j - i - 1$ for $1 <= i < j <= m$, while $d(i, j) = m - i + j - 1$ for $1 <= j <= i <= m$.
     ][
-    Expected Retrieval Cost is storage-and-retrieval problem SR4 in Garey and Johnson @garey1979. The model abstracts a drum-like storage device with fixed read heads: placing probability mass evenly around the cycle reduces the expected waiting time until the next requested sector rotates under the head. Cody and Coffman introduced the formulation and analyzed exact and heuristic record-allocation algorithms for fixed numbers of sectors @codycoffman1976. Garey and Johnson record that the general decision problem is NP-complete in the strong sense via transformations from Partition and 3-Partition @garey1979. The implementation in this repository uses one $m$-ary variable per record, so the registered exact baseline enumerates $m^n$ assignments. For practicality, the code stores the probabilities and bound as floating-point values even though the book states $K$ as an integer.
+    Expected Retrieval Cost is storage-and-retrieval problem SR4 in Garey and Johnson @garey1979. The model abstracts a drum-like storage device with fixed read heads: placing probability mass evenly around the cycle reduces the expected waiting time until the next requested sector rotates under the head. Cody and Coffman introduced the formulation and analyzed exact and heuristic record-allocation algorithms for fixed numbers of sectors @codycoffman1976. Garey and Johnson record that the general decision problem is NP-complete in the strong sense via transformations from Partition and 3-Partition @garey1979. The implementation in this repository uses one $m$-ary variable per record, so the registered exact baseline enumerates $m^n$ assignments.
 
-    *Example.* Take six records with probabilities $(0.2, 0.15, 0.15, 0.2, 0.1, 0.2)$, three sectors, and $K = #K$. Assign
+    *Example.* Take six records with probabilities $(0.2, 0.15, 0.15, 0.2, 0.1, 0.2)$ and three sectors. Assign
     $R_1 = {r_1, r_5}$, $R_2 = {r_2, r_4}$, and $R_3 = {r_3, r_6}$.
     Then the sector masses are $(p(R_1), p(R_2), p(R_3)) = (0.3, 0.35, 0.35)$.
-    For $m = 3$, the non-zero latencies are $d(1, 1) = d(2, 2) = d(3, 3) = 2$, $d(1, 3) = d(2, 1) = d(3, 2) = 1$, and the remaining pairs contribute 0. Hence the expected retrieval cost is $1.0025 <= #K$, so the allocation is satisfying.
+    For $m = 3$, the non-zero latencies are $d(1, 1) = d(2, 2) = d(3, 3) = 2$, $d(1, 3) = d(2, 1) = d(3, 2) = 1$, and the remaining pairs contribute 0. Hence the expected retrieval cost is $1.0025$, which is optimal for this instance.
 
     #pred-commands(
       "pred create --example ExpectedRetrievalCost -o expected-retrieval-cost.json",
@@ -2500,7 +2444,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         [$S_2$], [$r_2, r_4$], [$0.35$],
         [$S_3$], [$r_3, r_6$], [$0.35$],
       ),
-      caption: [Expected Retrieval Cost example with cyclic sector order $S_1 -> S_2 -> S_3 -> S_1$. The satisfying allocation yields masses $(0.3, 0.35, 0.35)$ and total cost $1.0025$.],
+      caption: [Expected Retrieval Cost example with cyclic sector order $S_1 -> S_2 -> S_3 -> S_1$. The optimal allocation yields masses $(0.3, 0.35, 0.35)$ and minimum cost $1.0025$.],
     ) <fig:expected-retrieval-cost>
     ]
   ]
@@ -2518,7 +2462,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   // Pick optimal config = {S1, S3} (0-indexed: sets 0, 2) to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let wP = sol.metric.Valid
+  let wP = metric-value(sol.metric)
   // Format a set as {e1+1, e2+1, ...} (1-indexed)
   let fmt-set(s) = "${" + s.map(e => str(e + 1)).join(", ") + "}$"
   [
@@ -2561,7 +2505,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let U-size = x.instance.universe_size
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let wC = sol.metric.Valid
+  let wC = metric-value(sol.metric)
   let fmt-set(s) = "${" + s.map(e => str(e + 1)).join(", ") + "}$"
   [
     #problem-def("MinimumSetCovering")[
@@ -2606,7 +2550,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let U-size = x.instance.universe_size
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let hit-size = sol.metric.Valid
+  let hit-size = metric-value(sol.metric)
   let fmt-set(s) = if s.len() == 0 {
     $emptyset$
   } else {
@@ -2896,18 +2840,17 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let n = x.instance.num_attributes
   let deps = x.instance.dependencies
   let m = deps.len()
-  let bound = x.instance.bound
   let key-attrs = range(n).filter(i => x.optimal_config.at(i) == 1)
   let fmt-set(s) = "${" + s.map(e => str(e)).join(", ") + "}$"
   let fmt-fd(d) = fmt-set(d.at(0)) + " $arrow.r$ " + fmt-set(d.at(1))
   [
     #problem-def("MinimumCardinalityKey")[
-      Given a set $A$ of attribute names, a collection $F$ of functional dependencies (ordered pairs of subsets of $A$), and a positive integer $M$, does there exist a candidate key $K subset.eq A$ with $|K| <= M$, i.e., a minimal subset $K$ such that the closure of $K$ under $F^*$ equals $A$?
+      Given a set $A$ of attribute names and a collection $F$ of functional dependencies (ordered pairs of subsets of $A$), find a key $K subset.eq A$ of minimum cardinality, i.e., a subset $K$ such that the closure of $K$ under $F^*$ equals $A$ and $|K|$ is minimized.
     ][
     The Minimum Cardinality Key problem arises in relational database theory, where identifying the smallest candidate key determines the most efficient way to uniquely identify rows in a relation. It was shown NP-complete by Lucchesi and Osborn (1978) @lucchesi1978keys via transformation from Vertex Cover. The problem appears as SR26 in Garey & Johnson (A4) @garey1979. The closure $F^*$ is defined by Armstrong's axioms: reflexivity ($B subset.eq C$ implies $C arrow.r B$), transitivity, and union. The best known exact algorithm is brute-force enumeration of all subsets of $A$, giving $O^*(2^(|A|))$ time#footnote[Lucchesi and Osborn give an output-polynomial algorithm for enumerating all candidate keys, but the number of keys can be exponential.].
 
-    *Example.* Let $A = {0, 1, ..., #(n - 1)}$ ($|A| = #n$) with $M = #bound$ and functional dependencies $F = {#deps.enumerate().map(((i, d)) => fmt-fd(d)).join(", ")}$.
-    The candidate key $K = #fmt-set(key-attrs)$ has $|K| = #key-attrs.len() <= #bound$. Its closure: start with ${0, 1}$; apply ${0, 1} arrow.r {2}$ to get ${0, 1, 2}$; apply ${0, 2} arrow.r {3}$ to get ${0, 1, 2, 3}$; apply ${1, 3} arrow.r {4}$ to get ${0, 1, 2, 3, 4}$; apply ${2, 4} arrow.r {5}$ to get $A$. Neither ${0}$ nor ${1}$ alone determines $A$, so $K$ is minimal.
+    *Example.* Let $A = {0, 1, ..., #(n - 1)}$ ($|A| = #n$) with functional dependencies $F = {#deps.enumerate().map(((i, d)) => fmt-fd(d)).join(", ")}$.
+    The optimal key $K = #fmt-set(key-attrs)$ has $|K| = #key-attrs.len()$. Its closure: start with ${0, 1}$; apply ${0, 1} arrow.r {2}$ to get ${0, 1, 2}$; apply ${0, 2} arrow.r {3}$ to get ${0, 1, 2, 3}$; apply ${1, 3} arrow.r {4}$ to get ${0, 1, 2, 3, 4}$; apply ${2, 4} arrow.r {5}$ to get $A$. Neither ${0}$ nor ${1}$ alone determines $A$, so $K$ is a minimum-cardinality key.
 
     #pred-commands(
       "pred create --example MinimumCardinalityKey -o minimum-cardinality-key.json",
@@ -3045,7 +2988,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   // Convert config (0=+1, 1=-1) to spin values
   let spins = sol.config.map(v => if v == 0 { 1 } else { -1 })
-  let H = sol.metric.Valid
+  let H = metric-value(sol.metric)
   let spin-str = spins.map(s => if s > 0 { "+" } else { "-" }).join(", ")
   // Count satisfied and frustrated edges
   let sat-count = edges.filter(((u, v)) => spins.at(u) * spins.at(v) < 0).len()
@@ -3092,7 +3035,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let Q = x.instance.matrix
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let xstar = sol.config
-  let fstar = sol.metric.Valid
+  let fstar = metric-value(sol.metric)
   // Format the Q matrix as semicolon-separated rows
   let mat-rows = Q.map(row => row.map(v => {
     let vi = int(v)
@@ -3132,7 +3075,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let constraints = x.instance.constraints
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let xstar = sol.config
-  let fstar = sol.metric.Valid
+  let fstar = metric-value(sol.metric)
   // Format objective: c1*x1 + c2*x2 + ...
   let fmt-obj = obj.map(((i, c)) => {
     let ci = int(c)
@@ -3151,7 +3094,12 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   }
   [
     #problem-def("ILP")[
-      Given $n$ variables $bold(x)$ over a domain $cal(D)$ (binary $cal(D) = {0,1}$ or integer $cal(D) = ZZ_(>=0)$), constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x) in cal(D)^n$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$.
+      Given $n$ variables $bold(x)$ over a domain $cal(D)$ (binary $cal(D) = {0,1}$ or integer $cal(D) = ZZ_(>=0)$), constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, solve
+      $
+        min quad & bold(c)^top bold(x) \
+        "subject to" quad & A bold(x) <= bold(b) \
+        & bold(x) in cal(D)^n
+      $.
     ][
     Integer Linear Programming is a universal modeling framework: virtually every NP-hard combinatorial optimization problem admits an ILP formulation. Relaxing integrality to $bold(x) in RR^n$ yields a linear program solvable in polynomial time, forming the basis of branch-and-bound solvers. When the number of integer variables $n$ is fixed, ILP is solvable in polynomial time by Lenstra's algorithm @lenstra1983 using the geometry of numbers, making it fixed-parameter tractable in $n$. The best known general algorithm achieves $O^*(n^n)$ via an FPT algorithm based on lattice techniques @dadush2012.
 
@@ -3221,7 +3169,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let m = D.len()
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let fstar = sol.config
-  let cost-star = sol.metric.Valid
+  let cost-star = metric-value(sol.metric)
   // Convert integer matrix to math.mat content
   let to-mat(m) = math.mat(..m.map(row => row.map(v => $#v$)))
   // Compute identity assignment cost
@@ -3312,7 +3260,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let target = x.instance.target
   let bounds = x.instance.bounds
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let dist = sol.metric.Valid
+  let dist = metric-value(sol.metric)
   // Config encodes offset from lower bound; recover actual integer coordinates
   let coords = sol.config.enumerate().map(((i, v)) => v + bounds.at(i).lower)
   // Compute B*x: sum over j of coords[j] * basis[j]
@@ -3678,7 +3626,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let nc = x.instance.n
   let k = x.instance.k
   let A = x.instance.matrix
-  let dH = x.optimal_value.Valid
+  let dH = metric-value(x.optimal_value)
   // Decode B and C from optimal config
   // Config layout: B is m*k values, then C is k*n values
   let cfg = x.optimal_config
@@ -3777,7 +3725,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let is-first = x.instance.is_first
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let assign = sol.config  // color assignment per car
-  let num-changes = sol.metric.Valid
+  let num-changes = metric-value(sol.metric)
   // Build the full sequence of car labels
   let seq-labels = seq-indices.map(i => labels.at(i))
   // Build color sequence: for each position, if is_first[pos] then color = assign[car], else 1-assign[car]
@@ -3831,7 +3779,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let bip-edges = x.instance.graph.edges  // (li, rj) pairs
   let ne = bip-edges.len()
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let total-size = sol.metric.Valid
+  let total-size = metric-value(sol.metric)
   [
     #problem-def("BicliqueCover")[
       Given a bipartite graph $G = (L, R, E)$ and integer $k$, find $k$ bicliques $(L_1, R_1), dots, (L_k, R_k)$ that cover all edges ($E subset.eq union.big_i L_i times R_i$) while minimizing the total size $sum_i (|L_i| + |R_i|)$.
@@ -3994,7 +3942,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let n = sizes.len()
   let C = x.instance.capacity
   let config = x.optimal_config
-  let num-bins = x.optimal_value.Valid
+  let num-bins = metric-value(x.optimal_value)
   // Group items by bin
   let bins-contents = range(num-bins).map(b =>
     range(n).filter(i => config.at(i) == b)
@@ -4052,7 +4000,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let C = x.instance.capacity
   let n = weights.len()
   let config = x.optimal_config
-  let opt-val = x.optimal_value.Valid
+  let opt-val = metric-value(x.optimal_value)
   let selected = range(n).filter(i => config.at(i) == 1)
   let total-w = selected.map(i => weights.at(i)).sum()
   let total-v = selected.map(i => values.at(i)).sum()
@@ -4149,18 +4097,17 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let edge-lengths = x.instance.edge_lengths
   let required = x.instance.required_edges
   let nr = required.len()
-  let B = x.instance.bound
   let config = x.optimal_config
   // Selected edges (multiplicity >= 1)
   let selected = range(ne).filter(i => config.at(i) >= 1)
   let total-cost = selected.map(i => config.at(i) * edge-lengths.at(i)).sum()
   [
     #problem-def("RuralPostman")[
-      Given an undirected graph $G = (V, E)$ with edge lengths $l: E -> ZZ_(gt.eq 0)$, a subset $E' subset.eq E$ of required edges, and a bound $B in ZZ^+$, determine whether there exists a circuit (closed walk) in $G$ that traverses every edge in $E'$ and has total length at most $B$.
+      Given an undirected graph $G = (V, E)$ with edge lengths $l: E -> ZZ_(gt.eq 0)$ and a subset $E' subset.eq E$ of required edges, find a circuit (closed walk) in $G$ that traverses every edge in $E'$ and has minimum total length.
     ][
       The Rural Postman Problem (RPP) is a fundamental NP-complete arc-routing problem @lenstra1976 that generalizes the Chinese Postman Problem. When $E' = E$, the problem reduces to finding an Eulerian circuit with minimum augmentation (polynomial-time solvable via $T$-join matching). For general $E' subset.eq E$, exact algorithms use dynamic programming over subsets of required edges in $O(n^2 dot 2^r)$ time, where $r = |E'|$ and $n = |V|$, analogous to the Held-Karp algorithm for TSP. The problem admits a $3 slash 2$-approximation for metric instances @frederickson1979.
 
-      *Example.* Consider a graph with #nv vertices and #ne edges, where #(ne - 2) outer edges have length 1 and 2 diagonal edges have length 2. The required edges are $E' = {#required.map(i => {let e = edges.at(i); $(v_#(e.at(0)), v_#(e.at(1)))$}).join($,$)}$ with bound $B = #B$. The outer cycle #range(nv).map(i => $v_#i$).join($->$)$-> v_0$ covers all #nr required edges with total length $#total-cost = B$, so the answer is YES.
+      *Example.* Consider a graph with #nv vertices and #ne edges, where #(ne - 2) outer edges have length 1 and 2 diagonal edges have length 2. The required edges are $E' = {#required.map(i => {let e = edges.at(i); $(v_#(e.at(0)), v_#(e.at(1)))$}).join($,$)}$. The outer cycle #range(nv).map(i => $v_#i$).join($->$)$-> v_0$ covers all #nr required edges with minimum total length #total-cost.
 
       #pred-commands(
         "pred create --example RuralPostman -o rural-postman.json",
@@ -4202,7 +4149,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
             content(pos, text(7pt)[$v_#i$])
           }
         }),
-        caption: [Rural Postman instance: #nv vertices, #ne edges, #nr required edges (red, bold). The outer cycle (blue + red edges) has total cost #total-cost $= B$, covering all required edges.],
+        caption: [Rural Postman instance: #nv vertices, #ne edges, #nr required edges (red, bold). The outer cycle (blue + red edges) has minimum total cost #total-cost, covering all required edges.],
       ) <fig:rural-postman>
     ]
   ]
@@ -4215,18 +4162,17 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let edges = x.instance.graph.edges
   let arc-weights = x.instance.arc_weights
   let edge-weights = x.instance.edge_weights
-  let B = x.instance.bound
   let config = x.optimal_config
   let oriented = edges.enumerate().map(((i, e)) => if config.at(i) == 0 { e } else { (e.at(1), e.at(0)) })
   let base-cost = arc-weights.sum() + edge-weights.sum()
-  let total-cost = 22
+  let total-cost = x.optimal_value
   [
     #problem-def("MixedChinesePostman")[
-      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, integer lengths $l(e) >= 0$ for every $e in A union E$, and a bound $B in ZZ^+$, determine whether there exists a closed walk in $G$ that traverses every arc in its prescribed direction and every undirected edge at least once in some direction with total length at most $B$.
+      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, and integer lengths $l(e) >= 0$ for every $e in A union E$, find a closed walk in $G$ that traverses every arc in its prescribed direction and every undirected edge at least once in some direction, minimizing total length.
     ][
       Mixed Chinese Postman is the mixed-graph arc-routing problem ND25 in Garey and Johnson @garey1979. Papadimitriou proved the mixed case NP-complete even when all lengths are 1, the graph is planar, and the maximum degree is 3 @papadimitriou1976edge. In contrast, the pure undirected and pure directed cases are polynomial-time solvable via matching / circulation machinery @edmondsjohnson1973. The implementation here uses one binary variable per undirected edge orientation, so the search space contributes the $2^|E|$ factor visible in the registered exact bound.
 
-      *Example.* Consider the instance on #nv vertices with directed arcs $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_0)$ of lengths $2, 3, 1, 4$ and undirected edges $\{v_0, v_2\}$, $\{v_1, v_3\}$, $\{v_0, v_4\}$, $\{v_4, v_2\}$ of lengths $2, 3, 1, 2$. The config $(1, 1, 0, 0)$ orients those edges as $(v_2, v_0)$, $(v_3, v_1)$, $(v_0, v_4)$, and $(v_4, v_2)$, producing a strongly connected digraph. The base traversal cost is #base-cost, and duplicating the shortest path $v_1 arrow v_2 arrow v_3$ adds 4 more, so the total cost is $#total-cost <= B = #B$, proving the answer is YES.
+      *Example.* Consider the instance on #nv vertices with directed arcs $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_0)$ of lengths $2, 3, 1, 4$ and undirected edges $\{v_0, v_2\}$, $\{v_1, v_3\}$, $\{v_0, v_4\}$, $\{v_4, v_2\}$ of lengths $2, 3, 1, 2$. The config $(#config.map(str).join(", "))$ orients those edges as $(v_2, v_0)$, $(v_3, v_1)$, $(v_0, v_4)$, and $(v_4, v_2)$, producing a strongly connected digraph. The base traversal cost is #base-cost, and the minimum balancing cost brings the total to #total-cost.
 
       #pred-commands(
         "pred create --example MixedChinesePostman/i32 -o mixed-chinese-postman.json",
@@ -4293,7 +4239,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
             content(pos, text(7pt)[$v_#i$])
           }
         }),
-        caption: [Mixed Chinese Postman example. Gray arrows are the original directed arcs, while blue arrows are the chosen orientations of the former undirected edges under config $(1, 1, 0, 0)$. Duplicating the path $v_1 arrow v_2 arrow v_3$ yields total cost #total-cost.],
+        caption: [Mixed Chinese Postman example. Gray arrows are the original directed arcs, while blue arrows are the chosen orientations of the former undirected edges under config $(#config.map(str).join(", "))$. The optimal walk has total cost #total-cost.],
       ) <fig:mixed-chinese-postman>
     ]
   ]
@@ -4303,7 +4249,6 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let x = load-model-example("StackerCrane")
   let arcs = x.instance.arcs.map(a => (a.at(0), a.at(1)))
   let edges = x.instance.edges.map(e => (e.at(0), e.at(1)))
-  let B = x.instance.bound
   let config = x.optimal_config
   let positions = (
     (-2.0, 0.9),
@@ -4315,13 +4260,13 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   )
   [
     #problem-def("StackerCrane")[
-      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, nonnegative lengths $l: A union E -> ZZ_(gt.eq 0)$, and a bound $B in ZZ^+$, determine whether there exists a closed walk in $G$ that traverses every arc in $A$ in its prescribed direction and has total length at most $B$.
+      Given a mixed graph $G = (V, A, E)$ with directed arcs $A$, undirected edges $E$, and nonnegative lengths $l: A union E -> ZZ_(gt.eq 0)$, find a closed walk in $G$ that traverses every arc in $A$ in its prescribed direction and has minimum total length.
     ][
       Stacker Crane is the mixed-graph arc-routing problem listed as ND26 in Garey and Johnson @garey1979. Frederickson, Hecht, and Kim prove the problem NP-complete via reduction from Hamiltonian Circuit and give the classical $9 slash 5$-approximation for the metric case @frederickson1978routing. The problem stays difficult even on trees @fredericksonguan1993. The standard Held-Karp-style dynamic program over (current vertex, covered-arc subset) runs in $O(|V|^2 dot 2^|A|)$ time#footnote[Included as a straightforward exact dynamic-programming baseline over subsets of required arcs; no sharper exact bound was independently verified while preparing this entry.].
 
       A configuration is a permutation of the required arcs, interpreted as the order in which those arcs are forced into the tour. The verifier traverses each chosen arc, then inserts the shortest available connector path from that arc's head to the tail of the next arc, wrapping around at the end to close the walk.
 
-      *Example.* The canonical instance has 6 vertices, 5 required arcs, 7 undirected edges, and bound $B = #B$. The witness configuration $[#config.map(str).join(", ")]$ orders the required arcs as $a_0, a_2, a_1, a_4, a_3$. Traversing those arcs contributes 17 units of required-arc length, and the shortest connector paths contribute $1 + 1 + 1 + 0 + 0 = 3$, so the resulting closed walk has total length $20 = B$. Reducing the bound to 19 makes the same instance unsatisfiable.
+      *Example.* The canonical instance has 6 vertices, 5 required arcs, and 7 undirected edges. The optimal configuration $[#config.map(str).join(", ")]$ orders the required arcs as $a_0, a_2, a_1, a_4, a_3$. Traversing those arcs contributes 17 units of required-arc length, and the shortest connector paths contribute $1 + 1 + 1 + 0 + 0 = 3$, so the resulting closed walk has minimum total length $20$.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o stacker-crane.json",
@@ -4353,7 +4298,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
             content(pos, text(7pt)[$v_#i$])
           }
         }),
-        caption: [Stacker Crane hourglass instance. Required directed arcs are shown in blue and labeled $a_0$ through $a_4$; undirected connector edges are gray. The satisfying order $a_0, a_2, a_1, a_4, a_3$ yields total length 20.],
+        caption: [Stacker Crane hourglass instance. Required directed arcs are shown in blue and labeled $a_0$ through $a_4$; undirected connector edges are gray. The optimal order $a_0, a_2, a_1, a_4, a_3$ yields minimum total length 20.],
       ) <fig:stacker-crane>
     ]
   ]
@@ -4447,7 +4392,9 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 #{
   let x = load-model-example("LongestCommonSubsequence")
   let strings = x.instance.strings
-  let witness = x.optimal_config
+  let alphabet-size = x.instance.alphabet_size
+  // optimal_config includes padding symbols; extract the non-padding prefix
+  let witness = x.optimal_config.filter(c => c < alphabet-size)
   let fmt-str(s) = "\"" + s.map(c => str(c)).join("") + "\""
   let string-list = strings.map(fmt-str).join(", ")
   let find-embed(target, candidate) = {
@@ -4464,11 +4411,11 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let embeds = strings.map(s => find-embed(s, witness))
   [
     #problem-def("LongestCommonSubsequence")[
-      Given a finite alphabet $Sigma$, a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, and a positive integer $K$, determine whether there exists a string $w in Sigma^*$ with $|w| gt.eq K$ such that every string $r_i in R$ contains $w$ as a _subsequence_: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|w|) lt.eq |r_i|$ with $r_i[j_t] = w[t]$ for all $t$.
+      Given a finite alphabet $Sigma$ and a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, find a longest string $w in Sigma^*$ such that every string $r_i in R$ contains $w$ as a _subsequence_: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|w|) lt.eq |r_i|$ with $r_i[j_t] = w[t]$ for all $t$.
     ][
-      A classic NP-complete string problem, listed as problem SR10 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness, while Garey and Johnson note polynomial-time cases for fixed $K$ or fixed $|R|$. For the special case of two strings, the classical dynamic-programming algorithm of #cite(<wagnerfischer1974>, form: "prose") runs in $O(|r_1| dot |r_2|)$ time. The decision model implemented in this repository fixes the witness length to exactly $K$; this is equivalent to the standard "$|w| gt.eq K$" formulation because any longer common subsequence has a length-$K$ prefix.
+      A classic NP-hard string problem, listed as problem SR10 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness of the decision version, while Garey and Johnson note polynomial-time cases for fixed $|R|$. For the special case of two strings, the classical dynamic-programming algorithm of #cite(<wagnerfischer1974>, form: "prose") runs in $O(|r_1| dot |r_2|)$ time. The optimization model implemented in this repository maximizes the subsequence length directly using a padding-based encoding.
 
-      *Example.* Let $Sigma = {0, 1}$ and let the input set $R$ contain the strings #string-list. The witness $w = $ #fmt-str(witness) is a common subsequence of every string in $R$.
+      *Example.* Let $Sigma = {0, 1}$ and let the input set $R$ contain the strings #string-list. The witness $w = $ #fmt-str(witness) is a longest common subsequence of every string in $R$, with $|w| = #witness.len()$.
 
       #pred-commands(
         "pred create --example LongestCommonSubsequence -o longest-common-subsequence.json",
@@ -4500,7 +4447,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         ))
       })
 
-      The highlighted positions show one left-to-right embedding of $w = $ #fmt-str(witness) in each input string, certifying the YES answer for $K = 3$.
+      The highlighted positions show one left-to-right embedding of $w = $ #fmt-str(witness) in each input string, certifying that the longest common subsequence has length #witness.len().
     ]
   ]
 }
@@ -4618,18 +4565,67 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
   _Objective:_ Minimize $0$ (feasibility problem).
 
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(x in D_a) y_(v,a,x) = 1 quad forall v in V, a in A \
+    & y_(v,a,x) = 1 quad forall (v, a, x) in K \
+    & z_(t,v,x,x') <= y_(v,a,x) quad forall t in cal(T), v in V, (x, x') in D_a times D_b \
+    & z_(t,v,x,x') <= y_(v,b,x') quad forall t in cal(T), v in V, (x, x') in D_a times D_b \
+    & z_(t,v,x,x') >= y_(v,a,x) + y_(v,b,x') - 1 quad forall t in cal(T), v in V, (x, x') in D_a times D_b \
+    & sum_(v in V) z_(t,v,x,x') = f_t(x, x') quad forall t in cal(T), (x, x') in D_a times D_b \
+    & y_(v,a,x), z_(t,v,x,x') in {0, 1}
+  $.
+
   _Correctness._ ($arrow.r.double$) A consistent assignment defines one-hot indicators and their products; all constraints hold by construction, and the frequency equalities match the published counts. ($arrow.l.double$) Any feasible binary solution assigns exactly one value per object-attribute (one-hot), respects known values, and the McCormick constraints force $z_(t,v,x,x') = y_(v,a,x) dot y_(v,b,x')$ for binary variables, so the frequency equalities certify consistency.
 
   _Solution extraction._ For each object $v$ and attribute $a$, find $x$ with $y_(v,a,x) = 1$; assign value $x$ to $(v, a)$.
 ]
 
 #problem-def("SumOfSquaresPartition")[
-  Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$, a positive integer $K lt.eq |A|$ (number of groups), and a positive integer $J$ (bound), determine whether $A$ can be partitioned into $K$ disjoint sets $A_1, dots, A_K$ such that $sum_(i=1)^K (sum_(a in A_i) s(a))^2 lt.eq J$.
+  Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$ and a positive integer $K lt.eq |A|$ (number of groups), find a partition of $A$ into $K$ disjoint sets $A_1, dots, A_K$ that minimizes $sum_(i=1)^K (sum_(a in A_i) s(a))^2$.
 ][
   Problem SP19 in Garey and Johnson @garey1979. NP-complete in the strong sense, so no pseudo-polynomial time algorithm exists unless $P = "NP"$. For fixed $K$, a dynamic-programming algorithm runs in $O(n S^(K-1))$ pseudo-polynomial time, where $S = sum s(a)$. The problem remains NP-complete when the exponent 2 is replaced by any fixed rational $alpha > 1$. #footnote[No algorithm improving on brute-force $O(K^n)$ enumeration is known for the general case.] The squared objective penalizes imbalanced partitions, connecting it to variance minimization, load balancing, and $k$-means clustering. Sum of Squares Partition generalizes Partition ($K = 2$, $J = S^2 slash 2$).
 
-  *Example.* Let $A = {5, 3, 8, 2, 7, 1}$ ($n = 6$), $K = 3$ groups, and bound $J = 240$. The partition $A_1 = {8, 1}$, $A_2 = {5, 2}$, $A_3 = {3, 7}$ gives group sums $9, 7, 10$ and sum of squares $81 + 49 + 100 = 230 lt.eq 240 = J$. With a tighter bound $J = 225$, the best achievable partition has group sums ${9, 9, 8}$ yielding $81 + 81 + 64 = 226 > 225$, so the answer is NO.
+  *Example.* Let $A = {5, 3, 8, 2, 7, 1}$ ($n = 6$) and $K = 3$ groups. The partition $A_1 = {8, 1}$, $A_2 = {5, 2}$, $A_3 = {3, 7}$ gives group sums $9, 7, 10$ and sum of squares $81 + 49 + 100 = 230$. The optimal partition has group sums ${9, 9, 8}$ yielding $81 + 81 + 64 = 226$.
 ]
+
+#{
+  let x = load-model-example("ThreePartition")
+  let sizes = x.instance.sizes
+  let bound = x.instance.bound
+  let config = x.optimal_config
+  let m = int(sizes.len() / 3)
+  // Group elements by their assignment in optimal_config
+  let groups = range(m).map(g => {
+    let indices = range(sizes.len()).filter(i => config.at(i) == g)
+    indices.map(i => sizes.at(i))
+  })
+  [
+    #problem-def("ThreePartition")[
+      Given a set $A = {a_0, dots, a_(3m-1)}$ of $3m$ elements, a bound $B in ZZ^+$, and sizes $s(a) in ZZ^+$ such that $B/4 lt s(a) lt B/2$ for every $a in A$ and $sum_(a in A) s(a) = m B$, determine whether $A$ can be partitioned into $m$ disjoint triples $A_1, dots, A_m$ with $sum_(a in A_i) s(a) = B$ for every $i$.
+    ][
+      3-Partition is Garey and Johnson's strongly NP-complete benchmark SP15 @garey1979. Unlike ordinary Partition, the strict size window forces every feasible block to contain exactly three elements, making the problem the canonical source for strong NP-completeness reductions to scheduling, packing, and layout models. The implementation in this repository uses one group-assignment variable per element, so the exported exact-search baseline is $O^*(3^n)$#footnote[This is the direct worst-case bound induced by the implementation's configuration space and matches the registered catalog expression `3^num_elements`; no sharper general exact bound was independently verified while preparing this entry.].
+
+      *Example.* Let $B = #bound$ and consider the #(sizes.len())-element instance with sizes $(#sizes.map(str).join(", "))$. The witness triples #groups.enumerate().map(((i, g)) => [$A_#(i+1) = {#g.map(str).join(", ")}$]).join([ and ]) both sum to $#bound$, so this instance is satisfiable.
+
+      #pred-commands(
+        "pred create --example ThreePartition -o three-partition.json",
+        "pred solve three-partition.json",
+        "pred evaluate three-partition.json --config " + config.map(str).join(","),
+      )
+
+      #align(center, table(
+        columns: 3,
+        align: center,
+        table.header([Triple], [Elements], [Sum]),
+        ..groups.enumerate().map(((i, g)) => (
+          [$A_#(i+1)$], [$#(g.map(str).join(", "))$], [$#bound$],
+        )).flatten(),
+      ))
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("SequencingWithReleaseTimesAndDeadlines")
@@ -4690,16 +4686,17 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 #{
   let x = load-model-example("ShortestCommonSupersequence")
   let alpha-size = x.instance.alphabet_size
-  let bound = x.instance.bound
+  let max-length = x.instance.max_length
   let strings = x.instance.strings
   let nr = strings.len()
   // Alphabet mapping: 0->a, 1->b, 2->c, ...
   let alpha-map = range(alpha-size).map(i => str.from-unicode(97 + i))
   let fmt-str(s) = "\"" + s.map(c => alpha-map.at(c)).join("") + "\""
-  // Pick optimal config = [1,0,1,2] = "babc" to match figure
+  // Optimal config includes padding; extract non-padding prefix
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let w = sol.config.map(c => alpha-map.at(c))
-  let w-str = fmt-str(sol.config)
+  let w-cfg = sol.config.filter(c => c < alpha-size)
+  let w = w-cfg.map(c => alpha-map.at(c))
+  let w-str = fmt-str(w-cfg)
   let w-len = w.len()
   // Format input strings
   let r-strs = strings.map(s => fmt-str(s))
@@ -4716,16 +4713,16 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     }
     positions
   }
-  let embeds = strings.map(s => compute-embed(s, sol.config))
+  let embeds = strings.map(s => compute-embed(s, w-cfg))
   [
     #problem-def("ShortestCommonSupersequence")[
-      Given a finite alphabet $Sigma$, a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, and a positive integer $K$, determine whether there exists a string $w in Sigma^*$ with $|w| lt.eq K$ such that every string $r_i in R$ is a _subsequence_ of $w$: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|r_i|) lt.eq |w|$ with $w[j_k] = r_i [k]$ for all $k$.
+      Given a finite alphabet $Sigma$ and a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, find a string $w in Sigma^*$ of minimum length such that every string $r_i in R$ is a _subsequence_ of $w$: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|r_i|) lt.eq |w|$ with $w[j_k] = r_i [k]$ for all $k$.
     ][
-      A classic NP-complete string problem, listed as problem SR8 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness; #cite(<raiha1981>, form: "prose") showed the problem remains NP-complete even over a binary alphabet ($|Sigma| = 2$). Note that _subsequence_ (characters may be non-contiguous) differs from _substring_ (contiguous block): the Shortest Common Supersequence asks that each input string can be embedded into $w$ by selecting characters in order but not necessarily adjacently.
+      A classic NP-hard string problem, listed as problem SR8 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness of the decision version; #cite(<raiha1981>, form: "prose") showed the problem remains NP-complete even over a binary alphabet ($|Sigma| = 2$). Note that _subsequence_ (characters may be non-contiguous) differs from _substring_ (contiguous block): the Shortest Common Supersequence asks that each input string can be embedded into $w$ by selecting characters in order but not necessarily adjacently.
 
-      For $|R| = 2$ strings, the problem is solvable in polynomial time via the duality with the Longest Common Subsequence (LCS): if $"LCS"(r_1, r_2)$ has length $ell$, then the shortest common supersequence has length $|r_1| + |r_2| - ell$, computable in $O(|r_1| dot |r_2|)$ time by dynamic programming. For general $|R| = m$, the brute-force search over all strings of length at most $K$ takes $O(|Sigma|^K)$ time. Applications include bioinformatics (reconstructing ancestral sequences from fragments), data compression (representing multiple strings compactly), and scheduling (merging instruction sequences).
+      For $|R| = 2$ strings, the problem is solvable in polynomial time via the duality with the Longest Common Subsequence (LCS): if $"LCS"(r_1, r_2)$ has length $ell$, then the shortest common supersequence has length $|r_1| + |r_2| - ell$, computable in $O(|r_1| dot |r_2|)$ time by dynamic programming. For general $|R| = m$, the brute-force search explores all candidate supersequences up to the maximum possible length $sum_i |r_i|$. Applications include bioinformatics (reconstructing ancestral sequences from fragments), data compression (representing multiple strings compactly), and scheduling (merging instruction sequences).
 
-      *Example.* Let $Sigma = {#alpha-map.join(", ")}$ and $R = {#r-strs.join(", ")}$. We seek a string $w$ of length at most $K = #bound$ that contains every $r_i$ as a subsequence.
+      *Example.* Let $Sigma = {#alpha-map.join(", ")}$ and $R = {#r-strs.join(", ")}$. We seek the shortest string $w$ that contains every $r_i$ as a subsequence.
 
       #pred-commands(
         "pred create --example ShortestCommonSupersequence -o shortest-common-supersequence.json",
@@ -4766,7 +4763,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       caption: [Shortest Common Supersequence: $w = #w-str$ (length #w-len) contains #range(nr).map(ri => [$r_#(ri + 1) = #r-strs.at(ri)$ (positions #embeds.at(ri).map(p => str(p)).join(","))]).join(", ") as subsequences. Dots mark unused positions.],
       ) <fig:scs>
 
-      The supersequence $w = #w-str$ has length #w-len $lt.eq K = #bound$ and contains all #nr input strings as subsequences.
+      The optimal supersequence $w = #w-str$ has length #w-len and contains all #nr input strings as subsequences.
     ]
   ]
 }
@@ -4850,7 +4847,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let na = arcs.len()
   let weights = x.instance.weights
   let config = x.optimal_config
-  let opt-val = x.optimal_value.Valid
+  let opt-val = metric-value(x.optimal_value)
   let removed = range(na).filter(i => config.at(i) == 1)
   [
     #problem-def("MinimumFeedbackArcSet")[
@@ -5127,6 +5124,163 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 
+#{
+  let x = load-model-example("JobShopScheduling")
+  let jobs = x.instance.jobs
+  let m = x.instance.num_processors
+  let n = jobs.len()
+  let lehmer = x.optimal_config
+
+  // Flatten tasks: build per-machine task lists and lengths
+  let task-lengths = ()
+  let task-job = ()      // which job each flat task belongs to
+  let task-index = ()    // which task within the job
+  let machine-tasks = range(m).map(_ => ())
+  let tid = 0
+  for (ji, job) in jobs.enumerate() {
+    for (ki, op) in job.enumerate() {
+      let (mi, len) = op
+      task-lengths.push(len)
+      task-job.push(ji)
+      task-index.push(ki)
+      machine-tasks.at(mi).push(tid)
+      tid += 1
+    }
+  }
+  let T = task-lengths.len()
+
+  // Decode per-machine Lehmer codes into machine orders
+  let offset = 0
+  let machine-orders = ()
+  for mi in range(m) {
+    let mt = machine-tasks.at(mi)
+    let k = mt.len()
+    let seg = lehmer.slice(offset, offset + k)
+    let avail = range(k)
+    let order = ()
+    for c in seg {
+      order.push(mt.at(avail.at(c)))
+      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
+    }
+    machine-orders.push(order)
+    offset += k
+  }
+
+  // Build DAG edges (job precedence + machine order)
+  let successors = range(T).map(_ => ())
+  let indegree = range(T).map(_ => 0)
+  // Job precedence edges
+  let job-task-start = 0
+  for job in jobs {
+    for i in range(job.len() - 1) {
+      let u = job-task-start + i
+      let v = job-task-start + i + 1
+      successors.at(u).push(v)
+      indegree.at(v) += 1
+    }
+    job-task-start += job.len()
+  }
+  // Machine order edges
+  for order in machine-orders {
+    for i in range(order.len() - 1) {
+      let u = order.at(i)
+      let v = order.at(i + 1)
+      successors.at(u).push(v)
+      indegree.at(v) += 1
+    }
+  }
+
+  // Topological sort + longest-path to compute start times
+  let start-times = range(T).map(_ => 0)
+  let queue = ()
+  for t in range(T) {
+    if indegree.at(t) == 0 { queue.push(t) }
+  }
+  while queue.len() > 0 {
+    let u = queue.remove(0)
+    let finish = start-times.at(u) + task-lengths.at(u)
+    for v in successors.at(u) {
+      if finish > start-times.at(v) { start-times.at(v) = finish }
+      indegree.at(v) -= 1
+      if indegree.at(v) == 0 { queue.push(v) }
+    }
+  }
+
+  // Build Gantt blocks: (machine, job, task-within-job, start, end)
+  let blocks = ()
+  for t in range(T) {
+    let (mi, _len) = jobs.at(task-job.at(t)).at(task-index.at(t))
+    blocks.push((mi, task-job.at(t), task-index.at(t), start-times.at(t), start-times.at(t) + task-lengths.at(t)))
+  }
+  let makespan = calc.max(..range(T).map(t => start-times.at(t) + task-lengths.at(t)))
+  [
+    #problem-def("JobShopScheduling")[
+      Given a positive integer $m$, a set $J$ of jobs, where each job $j in J$ consists of an ordered list of tasks $t_1[j], dots, t_(n_j)[j]$ with processor assignments $p(t_k[j]) in {1, dots, m}$, processing lengths $ell(t_k[j]) in ZZ^+_0$, and consecutive-processor constraint $p(t_k[j]) != p(t_(k+1)[j])$, find start times $sigma(t_k[j]) in ZZ^+_0$ such that tasks sharing a processor do not overlap, each job respects $sigma(t_(k+1)[j]) >= sigma(t_k[j]) + ell(t_k[j])$, and the makespan $max_(j in J) (sigma(t_(n_j)[j]) + ell(t_(n_j)[j]))$ is minimized.
+    ][
+      Job-Shop Scheduling is the classical disjunctive scheduling problem SS18 in Garey & Johnson; Garey, Johnson, and Sethi proved it strongly NP-hard already for two machines @garey1976. Unlike Flow Shop Scheduling, each job carries its own machine route, so the difficulty lies in choosing a compatible relative order on every machine and then finding the schedule with minimum makespan. This implementation follows the original Garey-Johnson formulation, including the requirement that consecutive tasks of the same job use different processors, and evaluates a witness by orienting the machine-order edges and propagating longest paths through the resulting precedence DAG. The registered baseline therefore exposes a factorial upper bound over task orders#footnote[The auto-generated complexity table records the concrete upper bound used by the Rust implementation; no sharper exact bound is cited here.].
+
+      *Example.* The canonical fixture has #m machines and #n jobs
+      $
+        #for (ji, job) in jobs.enumerate() {
+          $J_#(ji+1) = (#job.map(((mi, len)) => $(M_#(mi+1), #len)$).join($,$))$
+          if ji < n - 1 [$,$] else [.]
+        }
+      $
+      The witness stored in the example DB orders the six tasks on $M_1$ as $(J_1^1, J_2^2, J_3^1, J_4^2, J_5^1, J_5^3)$ and the six tasks on $M_2$ as $(J_2^1, J_4^1, J_1^2, J_3^2, J_5^2, J_2^3)$. Taking the earliest schedule consistent with those machine orders yields the Gantt chart in @fig:jobshop, whose makespan is $#makespan$.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o job-shop-scheduling.json",
+        "pred solve job-shop-scheduling.json --solver brute-force",
+        "pred evaluate job-shop-scheduling.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"))
+          let scale = 0.38
+          let row-h = 0.6
+          let gap = 0.15
+
+          for mi in range(m) {
+            let y = -mi * (row-h + gap)
+            content((-0.8, y), text(8pt, "M" + str(mi + 1)))
+          }
+
+          for block in blocks {
+            let (mi, ji, ti, s, e) = block
+            let x0 = s * scale
+            let x1 = e * scale
+            let y = -mi * (row-h + gap)
+            rect(
+              (x0, y - row-h / 2),
+              (x1, y + row-h / 2),
+              fill: colors.at(ji).transparentize(30%),
+              stroke: 0.4pt + colors.at(ji),
+            )
+            content(((x0 + x1) / 2, y), text(6pt, "j" + str(ji + 1) + "." + str(ti + 1)))
+          }
+
+          let y-axis = -(m - 1) * (row-h + gap) - row-h / 2 - 0.2
+          line((0, y-axis), (makespan * scale, y-axis), stroke: 0.4pt)
+          for t in range(calc.ceil(makespan / 5) + 1).map(i => calc.min(i * 5, makespan)) {
+            let x = t * scale
+            line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
+            content((x, y-axis - 0.25), text(6pt, str(t)))
+          }
+          if calc.rem(makespan, 5) != 0 {
+            let x = makespan * scale
+            line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
+            content((x, y-axis - 0.25), text(6pt, str(makespan)))
+          }
+          content((makespan * scale / 2, y-axis - 0.5), text(7pt)[$t$])
+        }),
+        caption: [Job-shop schedule induced by the canonical machine-order witness. The optimal makespan is #makespan.],
+      ) <fig:jobshop>
+    ]
+  ]
+}
+
 #problem-def("StaffScheduling")[
   Given a collection $C$ of binary schedule patterns of length $m$, where each pattern has exactly $k$ ones, a requirement vector $overline(R) in ZZ_(>= 0)^m$, and a worker budget $n in ZZ_(>= 0)$, determine whether there exists a function $f: C -> ZZ_(>= 0)$ such that $sum_(c in C) f(c) <= n$ and $sum_(c in C) f(c) dot c >= overline(R)$ component-wise.
 ][
@@ -5338,11 +5492,11 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let x = load-model-example("CapacityAssignment")
   [
     #problem-def("CapacityAssignment")[
-      Given a finite set $C$ of communication links, an ordered set $M subset ZZ_(> 0)$ of capacities, cost and delay functions $g: C times M -> ZZ_(>= 0)$ and $d: C times M -> ZZ_(>= 0)$ such that for every $c in C$ and $i < j$ in the order of $M$ we have $g(c, i) <= g(c, j)$ and $d(c, i) >= d(c, j)$, and budgets $K, J in ZZ_(>= 0)$, determine whether there exists an assignment $sigma: C -> M$ such that $sum_(c in C) g(c, sigma(c)) <= K$ and $sum_(c in C) d(c, sigma(c)) <= J$.
+      Given a finite set $C$ of communication links, an ordered set $M subset ZZ_(> 0)$ of capacities, cost and delay functions $g: C times M -> ZZ_(>= 0)$ and $d: C times M -> ZZ_(>= 0)$ such that for every $c in C$ and $i < j$ in the order of $M$ we have $g(c, i) <= g(c, j)$ and $d(c, i) >= d(c, j)$, and a delay budget $J in ZZ_(>= 0)$, find an assignment $sigma: C -> M$ minimizing $sum_(c in C) g(c, sigma(c))$ subject to $sum_(c in C) d(c, sigma(c)) <= J$.
     ][
       Capacity Assignment is the bicriteria communication-network design problem SR7 in Garey & Johnson @garey1979. The original NP-completeness proof, via reduction from Subset Sum, is due to Van Sickle and Chandy @vansicklechandy1977. The model captures discrete provisioning of communication links, where upgrading a link increases installation cost but decreases delay. The direct witness encoding implemented in this repository yields an $O^*(|M|^(|C|))$ exact algorithm by brute-force enumeration#footnote[No algorithm improving on brute-force enumeration is known for the exact witness encoding used in this repository.]. Garey and Johnson also note a pseudo-polynomial dynamic-programming formulation when the budgets are small @garey1979.
 
-      *Example.* Let $C = {c_1, c_2, c_3}$, $M = {1, 2, 3}$, $K = 10$, and $J = 12$. With cost rows $(1, 3, 6)$, $(2, 4, 7)$, $(1, 2, 5)$ and delay rows $(8, 4, 1)$, $(7, 3, 1)$, $(6, 3, 1)$, the assignment $sigma = (2, 2, 2)$ has total cost $3 + 4 + 2 = 9 <= 10$ and total delay $4 + 3 + 3 = 10 <= 12$, so the instance is satisfiable. Brute-force enumeration finds exactly 5 satisfying assignments; for contrast, $sigma = (1, 1, 1)$ violates the delay budget and $sigma = (3, 3, 3)$ violates the cost budget.
+      *Example.* Let $C = {c_1, c_2, c_3}$, $M = {1, 2, 3}$, and $J = 12$. With cost rows $(1, 3, 6)$, $(2, 4, 7)$, $(1, 2, 5)$ and delay rows $(8, 4, 1)$, $(7, 3, 1)$, $(6, 3, 1)$, the optimal assignment is $sigma = (2, 2, 2)$ with total cost $3 + 4 + 2 = 9$ and total delay $4 + 3 + 3 = 10 <= 12$. For contrast, $sigma = (1, 1, 1)$ has total delay $8 + 7 + 6 = 21 > 12$ and is therefore infeasible.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o capacity-assignment.json",
@@ -5361,7 +5515,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
           [$c_3$], [$(1, 2, 5)$], [$(6, 3, 1)$],
         )
       },
-      caption: [Canonical Capacity Assignment instance with budgets $K = 10$ and $J = 12$. Each row lists the cost-delay trade-off for one communication link.],
+      caption: [Canonical Capacity Assignment instance with delay budget $J = 12$. Each row lists the cost-delay trade-off for one communication link.],
       ) <fig:capacity-assignment>
     ]
   ]
@@ -5564,7 +5718,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let deadlines = x.instance.deadlines
   let precs = x.instance.precedences
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let tardy-count = sol.metric.Valid
+  let tardy-count = metric-value(sol.metric)
   // Decode Lehmer code to permutation (schedule order)
   let lehmer = sol.config
   let schedule = {
@@ -5647,7 +5801,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let precs = x.instance.precedences
   let ntasks = lengths.len()
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let opt = sol.metric.Valid
+  let opt = metric-value(sol.metric)
   let lehmer = sol.config
   let schedule = {
     let avail = range(ntasks)
@@ -5802,7 +5956,6 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let x = load-model-example("SequencingToMinimizeMaximumCumulativeCost")
   let costs = x.instance.costs
   let precs = x.instance.precedences
-  let bound = x.instance.bound
   let ntasks = costs.len()
   let lehmer = x.optimal_config
   let schedule = {
@@ -5825,15 +5978,14 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   }
   [
     #problem-def("SequencingToMinimizeMaximumCumulativeCost")[
-      Given a set $T$ of $n$ tasks, a precedence relation $prec.eq$ on $T$, an integer cost function $c: T -> ZZ$ (negative values represent profits), and a bound $K in ZZ$, determine whether there exists a one-machine schedule $sigma: T -> {1, 2, dots, n}$ that respects the precedence constraints and satisfies
-      $sum_(sigma(t') lt.eq sigma(t)) c(t') lt.eq K$
-      for every task $t in T$.
+      Given a set $T$ of $n$ tasks, a precedence relation $prec.eq$ on $T$, and an integer cost function $c: T -> ZZ$ (negative values represent profits), find a one-machine schedule $sigma: T -> {1, 2, dots, n}$ that respects the precedence constraints and minimizes the maximum cumulative cost
+      $min_sigma max_(t in T) sum_(sigma(t') lt.eq sigma(t)) c(t').$
     ][
       Sequencing to Minimize Maximum Cumulative Cost is the scheduling problem SS7 in Garey & Johnson @garey1979. It is NP-complete by transformation from Register Sufficiency, even when every task cost is in ${-1, 0, 1}$ @garey1979. The problem models precedence-constrained task systems with resource consumption and release, where a negative cost corresponds to a profit or resource refund accumulated as the schedule proceeds.
 
       When the precedence constraints form a series-parallel digraph, #cite(<abdelWahabKameda1978>, form: "prose") gave a polynomial-time algorithm running in $O(n^2)$ time. #cite(<monmaSidney1979>, form: "prose") placed the problem in a broader family of sequencing objectives solvable efficiently on series-parallel precedence structures. The implementation here uses Lehmer-code enumeration of task orders, so the direct exact search induced by the model runs in $O(n!)$ time.
 
-      *Example.* Consider $n = #ntasks$ tasks with costs $(#costs.map(c => str(c)).join(", "))$, precedence constraints #{precs.map(p => [$t_#(p.at(0) + 1) prec.eq t_#(p.at(1) + 1)$]).join(", ")}, and bound $K = #bound$. The sample schedule $(#schedule.map(t => $t_#(t + 1)$).join(", "))$ has cumulative sums $(#prefix-sums.map(v => str(v)).join(", "))$, so every prefix stays at or below $K = #bound$.
+      *Example.* Consider $n = #ntasks$ tasks with costs $(#costs.map(c => str(c)).join(", "))$ and precedence constraints #{precs.map(p => [$t_#(p.at(0) + 1) prec.eq t_#(p.at(1) + 1)$]).join(", ")}. The optimal schedule $(#schedule.map(t => $t_#(t + 1)$).join(", "))$ has cumulative sums $(#prefix-sums.map(v => str(v)).join(", "))$, achieving a maximum cumulative cost of $#x.optimal_value$.
 
       #pred-commands(
         "pred create --example SequencingToMinimizeMaximumCumulativeCost -o sequencing-to-minimize-maximum-cumulative-cost.json",
@@ -5872,7 +6024,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
             text(7pt, [prefix sums after each scheduled task]),
           ))
         },
-        caption: [A satisfying schedule for Sequencing to Minimize Maximum Cumulative Cost. Orange boxes add cost, teal boxes release cost, and the displayed prefix sums $(#prefix-sums.map(v => str(v)).join(", "))$ never exceed $K = #bound$.],
+        caption: [An optimal schedule for Sequencing to Minimize Maximum Cumulative Cost. Orange boxes add cost, teal boxes release cost, and the displayed prefix sums $(#prefix-sums.map(v => str(v)).join(", "))$ achieve a maximum of $#calc.max(..prefix-sums)$.],
       ) <fig:seq-max-cumulative>
     ]
   ]
@@ -6534,57 +6686,6 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ For VC solution $C$, return $S = V backslash C$, i.e.\ flip each variable: $s_v = 1 - c_v$.
 ]
 
-#let gp_mc = load-example("GraphPartitioning", "MaxCut")
-#let gp_mc_sol = gp_mc.solutions.at(0)
-#let gp_mc_source_edges = gp_mc.source.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-#let gp_mc_target_edges = gp_mc.target.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-#let gp_mc_weights = gp_mc.target.instance.edge_weights
-#let gp_mc_nv = gp_mc.source.instance.graph.num_vertices
-#let gp_mc_ne = gp_mc_source_edges.len()
-#let gp_mc_penalty = gp_mc_ne + 1
-#let gp_mc_side_a = range(gp_mc_nv).filter(i => gp_mc_sol.source_config.at(i) == 0)
-#let gp_mc_side_b = range(gp_mc_nv).filter(i => gp_mc_sol.source_config.at(i) == 1)
-#let gp_mc_weight_lo = gp_mc_target_edges.enumerate().filter(((i, e)) => gp_mc_weights.at(i) == gp_mc_penalty - 1).map(((i, e)) => e)
-#let gp_mc_weight_hi = gp_mc_target_edges.enumerate().filter(((i, e)) => gp_mc_weights.at(i) == gp_mc_penalty).map(((i, e)) => e)
-#let gp_mc_source_cross = gp_mc_source_edges.filter(e => gp_mc_sol.source_config.at(e.at(0)) != gp_mc_sol.source_config.at(e.at(1)))
-#let gp_mc_cut_lo = gp_mc_target_edges.enumerate().filter(((i, e)) =>
-  gp_mc_weights.at(i) == gp_mc_penalty - 1 and
-  gp_mc_sol.target_config.at(e.at(0)) != gp_mc_sol.target_config.at(e.at(1))
-).map(((i, e)) => e)
-#let gp_mc_cut_hi = gp_mc_target_edges.enumerate().filter(((i, e)) =>
-  gp_mc_weights.at(i) == gp_mc_penalty and
-  gp_mc_sol.target_config.at(e.at(0)) != gp_mc_sol.target_config.at(e.at(1))
-).map(((i, e)) => e)
-#let gp_mc_cut_value = gp_mc_target_edges.enumerate().filter(((i, e)) =>
-  gp_mc_sol.target_config.at(e.at(0)) != gp_mc_sol.target_config.at(e.at(1))
-).map(((i, e)) => gp_mc_weights.at(i)).sum(default: 0)
-#reduction-rule("GraphPartitioning", "MaxCut",
-  example: true,
-  example-caption: [6-vertex minimum bisection to weighted Max-Cut],
-  extra: [
-    #pred-commands(
-      "pred create --example GraphPartitioning -o graphpartitioning.json",
-      "pred reduce graphpartitioning.json --to " + target-spec(gp_mc) + " -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate graphpartitioning.json --config " + gp_mc_sol.source_config.map(str).join(","),
-    )
-    Here $m = #gp_mc_ne$, so $P = m + 1 = #gp_mc_penalty$ \
-    Weight $#(gp_mc_penalty - 1)$ edges (original edges): {#gp_mc_weight_lo.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")} \
-    Weight $#gp_mc_penalty$ edges (non-edges): {#gp_mc_weight_hi.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")} \
-    Canonical witness $A = {#gp_mc_side_a.map(i => $v_#i$).join(", ")}$, $B = {#gp_mc_side_b.map(i => $v_#i$).join(", ")}$ cuts source edges {#gp_mc_source_cross.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")} and attains weighted cut $#gp_mc_cut_lo.len() * #(gp_mc_penalty - 1) + #gp_mc_cut_hi.len() * #gp_mc_penalty = #gp_mc_cut_value$ #sym.checkmark
-  ],
-)[
-  @garey1976 Graph Partitioning minimizes cut edges subject to a perfect-balance constraint, while Max-Cut maximizes a weighted cut without any balance constraint. A standard folklore construction in combinatorial optimization removes that constraint by rewarding every cross-pair equally and then subtracting one unit on original edges. The resulting weighted complete graph forces every optimum to be balanced first, and among balanced cuts it exactly minimizes the original bisection width.
-][
-  _Construction._ Given a Graph Partitioning instance $G = (V, E)$ with $n = |V|$ and $m = |E|$, set $P = m + 1$. Build the complete graph $G' = (V, E')$ on the same vertex set, where $E'$ contains every unordered pair $\{u, v\}$ with $u != v$. Assign weight $w'_(u, v) = P - 1$ when $(u, v) in E$, and $w'_(u, v) = P$ otherwise. For any partition $(A, B)$ of $V$, the weighted cut in $G'$ is
-  $ "cut"_(G')(A, B) = P |A| |B| - "cut"_G(A, B). $
-
-  _Correctness._ ($arrow.r.double$) Let $(A, B)$ be a maximum cut of $G'$. If it were unbalanced, then $|A| |B|$ would be at least one smaller than for a balanced partition $(A', B')$. Hence
-  $ "cut"_(G')(A', B') - "cut"_(G')(A, B) >= P - ("cut"_G(A', B') - "cut"_G(A, B)) >= P - m > 0, $
-  because $0 <= "cut"_G(·, ·) <= m$ and $P = m + 1$. Therefore every maximum cut of $G'$ is balanced. Among balanced partitions, $P |A| |B| = P (n slash 2)^2$ is constant, so maximizing $"cut"_(G')(A, B)$ is equivalent to minimizing $"cut"_G(A, B)$. ($arrow.l.double$) Conversely, every minimum bisection of $G$ is balanced and therefore maximizes $P |A| |B| - "cut"_G(A, B)$ in $G'$.
-
-  _Solution extraction._ Read off the same partition vector on the original vertex set: the Max-Cut bit for vertex $v$ is already the Graph Partitioning bit for $v$.
-]
 
 #let mis_clique = load-example("MaximumIndependentSet", "MaximumClique")
 #let mis_clique_sol = mis_clique.solutions.at(0)
@@ -7105,53 +7206,6 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ For each vertex $u$, find terminal position $t$ with $x_(u,t) = 1$. For each edge $(u,v)$, output 1 (cut) if $u$ and $v$ are in different components, 0 otherwise.
 ]
 
-#let gp_qubo = load-example("GraphPartitioning", "QUBO")
-#let gp_qubo_sol = gp_qubo.solutions.at(0)
-#let gp_qubo_edges = gp_qubo.source.instance.graph.edges.map(e => (e.at(0), e.at(1)))
-#let gp_qubo_n = gp_qubo.source.instance.graph.num_vertices
-#let gp_qubo_m = gp_qubo_edges.len()
-#let gp_qubo_penalty = gp_qubo_m + 1
-#let gp_qubo_diag = range(0, gp_qubo_n).map(i => gp_qubo.target.instance.matrix.at(i).at(i))
-#let gp_qubo_cut_edges = gp_qubo_edges.filter(e => gp_qubo_sol.source_config.at(e.at(0)) != gp_qubo_sol.source_config.at(e.at(1)))
-#let gp_qubo_cut_size = gp_qubo_cut_edges.len()
-#reduction-rule("GraphPartitioning", "QUBO",
-  example: true,
-  example-caption: [6-vertex balanced partition instance ($n = #gp_qubo_n$, $|E| = #gp_qubo_m$)],
-  extra: [
-    #pred-commands(
-      "pred create --example GraphPartitioning -o graphpartitioning.json",
-      "pred reduce graphpartitioning.json --to " + target-spec(gp_qubo) + " -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate graphpartitioning.json --config " + gp_qubo_sol.source_config.map(str).join(","),
-    )
-    *Step 1 -- Binary partition variables.* Introduce one binary variable per vertex: $x_i = 0$ means vertex $i$ is in the left block, $x_i = 1$ means it is in the right block. For the canonical instance, this gives $n = #gp_qubo_n$ QUBO variables:
-    $ x_0, x_1, x_2, x_3, x_4, x_5 $
-
-    *Step 2 -- Choose the balance penalty.* The source graph has $m = #gp_qubo_m$ edges, so the construction uses $P = m + 1 = #gp_qubo_penalty$. Any imbalance contributes at least $P$, which is already larger than the maximum possible cut size of any balanced partition.
-
-    *Step 3 -- Fill the QUBO matrix.* The diagonal entries are $Q_(i i) = deg(i) + P(1 - n)$, which evaluates here to $(#gp_qubo_diag.map(str).join(", "))$. For every pair $i < j$, start from $Q_(i j) = 2P = #(2 * gp_qubo_penalty)$, then subtract $2$ when $(i,j)$ is an edge. Hence edge coefficients become $18$ while non-edge coefficients stay $20$; the exported upper-triangular matrix matches the issue example exactly.\
-
-    *Step 4 -- Verify a solution.* The exported witness is $bold(x) = (#gp_qubo_sol.target_config.map(str).join(", "))$, which is also the source partition encoding. The cut edges are #gp_qubo_cut_edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", "), so the cut size is $#gp_qubo_cut_size$ and the balance penalty vanishes because exactly #(gp_qubo_n / 2) vertices are assigned to the right block #sym.checkmark.
-  ],
-)[
-  Graph Partitioning (minimum bisection) asks for a balanced bipartition minimizing the number of crossing edges. Lucas's Ising formulation @lucas2014 translates directly to a QUBO by combining a cut-counting quadratic objective with a quadratic equality penalty enforcing $sum_i x_i = n / 2$. The reduction uses one binary variable per source vertex, so the QUBO has exactly $n$ variables.
-][
-  _Construction._ Given an undirected graph $G = (V, E)$ with even $n = |V|$ and $m = |E|$, introduce binary variables $x_i in {0,1}$ for each vertex $i in V$. Interpret $x_i = 0$ as $i in A$ and $x_i = 1$ as $i in B$. The cut objective is:
-  $ H_"cut" = sum_((u,v) in E) (x_u + x_v - 2 x_u x_v) $
-  because the term equals $1$ exactly when edge $(u,v)$ crosses the partition. To enforce balance, add:
-  $ H_"bal" = P (sum_i x_i - n/2)^2 $
-  with penalty $P = m + 1$. The QUBO objective is $H = H_"cut" + H_"bal"$.
-
-  Expanding $H_"bal"$ with $x_i^2 = x_i$ gives:
-  $ H_"bal" = P (1 - n) sum_i x_i + 2 P sum_(i < j) x_i x_j + P n^2 / 4 $
-  so the upper-triangular QUBO coefficients are:
-  $ Q_(i i) = deg(i) + P (1 - n) $
-  and for $i < j$, $Q_(i j) = 2 P$ for every pair, then subtract $2$ whenever $(i,j) in E$. Equivalently, edge pairs have coefficient $2P - 2$ and non-edge pairs have coefficient $2P$. The additive constant $P n^2 / 4$ does not affect the minimizer.
-
-  _Correctness._ ($arrow.r.double$) If $bold(x)$ encodes a balanced partition, then $sum_i x_i = n/2$ and $H_"bal" = 0$, so the QUBO objective equals the cut size exactly. ($arrow.l.double$) If $bold(x)$ is imbalanced, then $|sum_i x_i - n/2| >= 1$, hence $H_"bal" >= P = m + 1$. Every balanced partition has cut size at most $m$, so any imbalanced assignment has objective strictly larger than at least one balanced assignment. Therefore every QUBO minimizer is balanced, and among balanced assignments minimizing $H$ is identical to minimizing the cut size.
-
-  _Solution extraction._ Return the QUBO bit-vector directly: the same binary assignment already records the source partition.
-]
 
 #let qubo_ilp = load-example("QUBO", "ILP")
 #let qubo_ilp_sol = qubo_ilp.solutions.at(0)
@@ -7180,6 +7234,15 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   $ y_(i j) <= x_i, quad y_(i j) <= x_j, quad y_(i j) >= x_i + x_j - 1 $
 
   _ILP formulation._ Minimize $sum_i Q_(i i) x_i + sum_(i < j) Q_(i j) y_(i j)$ subject to the McCormick constraints and $x_i, y_(i j) in {0, 1}$.
+
+  The ILP is:
+  $
+    min quad & sum_i Q_(i i) x_i + sum_(i < j) Q_(i j) y_(i j) \
+    "subject to" quad & y_(i j) <= x_i quad forall i < j, Q_(i j) != 0 \
+    & y_(i j) <= x_j quad forall i < j, Q_(i j) != 0 \
+    & y_(i j) >= x_i + x_j - 1 quad forall i < j, Q_(i j) != 0 \
+    & x_i, y_(i j) in {0, 1}
+  $.
 
   _Correctness._ ($arrow.r.double$) For binary $x_i, x_j$, the three McCormick inequalities are tight: $y_(i j) = x_i x_j$ is the unique feasible value. Hence the ILP objective equals $bold(x)^top Q bold(x)$, and any ILP minimizer is a QUBO minimizer. ($arrow.l.double$) Given a QUBO minimizer $bold(x)^*$, setting $y_(i j) = x_i^* x_j^*$ satisfies all constraints and achieves the same objective value.
 
@@ -7214,6 +7277,21 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   - XOR (binary, chained pairwise): $c <= a + b$, $c >= a - b$, $c >= b - a$, $c <= 2 - a - b$
 
   _Objective._ Minimize $0$ (feasibility problem): any feasible solution satisfies the circuit.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & c + a = 1 quad "for each NOT gate" \
+    & c <= a_i quad forall i quad "for each AND gate" \
+    & c >= sum_i a_i - (k - 1) quad "for each AND gate" \
+    & c >= a_i quad forall i quad "for each OR gate" \
+    & c <= sum_i a_i quad "for each OR gate" \
+    & c <= a + b quad "for each XOR gate" \
+    & c >= a - b quad "for each XOR gate" \
+    & c >= b - a quad "for each XOR gate" \
+    & c <= 2 - a - b quad "for each XOR gate" \
+    & "all gate and input variables are binary"
+  $.
 
   _Correctness._ ($arrow.r.double$) Each gate encoding is the convex hull of the gate's truth table rows (viewed as binary vectors), so a satisfying circuit assignment satisfies all constraints. ($arrow.l.double$) Any binary feasible solution respects every gate's input-output relation, and since gates are composed in topological order, the full circuit evaluates to true.
 
@@ -7515,6 +7593,14 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Objective:_ Feasibility problem (minimize 0).
 
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(c=1)^k x_(v,c) = 1 quad forall v in V \
+    & x_(u,c) + x_(v,c) <= 1 quad forall (u, v) in E, c in {1, dots, k} \
+    & x_(v,c) in {0, 1}
+  $.
+
   _Correctness._ ($arrow.r.double$) A valid $k$-coloring assigns exactly one color per vertex with different colors on adjacent vertices; setting $x_(v,c) = 1$ for the assigned color satisfies all constraints. ($arrow.l.double$) Any feasible ILP solution has exactly one $x_(v,c) = 1$ per vertex; this defines a coloring, and constraint (2) ensures adjacent vertices differ.
 
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$; assign color $c$ to $v$.
@@ -7536,6 +7622,17 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _No overflow:_ $c_(m+n-1) = 0$.
 
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & z_(i j) <= p_i quad forall i, j \
+    & z_(i j) <= q_j quad forall i, j \
+    & z_(i j) >= p_i + q_j - 1 quad forall i, j \
+    & sum_(i+j=k) z_(i j) + c_(k-1) = N_k + 2 c_k quad forall k in {0, dots, m + n - 1} \
+    & c_(m+n-1) = 0 \
+    & p_i, q_j, z_(i j) in {0, 1}, c_k in ZZ_(>=0)
+  $.
+
   _Correctness._ The McCormick constraints enforce $z_(i j) = p_i dot q_j$ for binary variables. The bit equations encode $p times q = N$ via carry propagation, matching array multiplier semantics.
 
   _Solution extraction._ Read $p = sum_i p_i 2^i$ and $q = sum_j q_j 2^j$ from the binary variables.
@@ -7548,7 +7645,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MaximumSetPacking", "ILP")[
   Each set is either selected or not, and every universe element may belong to at most one selected set -- an element-based constraint that is directly linear in binary indicator variables.
 ][
-  _Construction._ Variables: $x_i in {0, 1}$ for each set $S_i in cal(S)$. Constraints: $sum_(S_i in.rev e) x_i <= 1$ for each element $e in U$. Objective: maximize $sum_i w_i x_i$.
+  _Construction._ Variables: $x_i in {0, 1}$ for each set $S_i in cal(S)$. The ILP is:
+  $
+    max quad & sum_i w_i x_i \
+    "subject to" quad & sum_(S_i in.rev e) x_i <= 1 quad forall e in U \
+    & x_i in {0, 1} quad forall i
+  $.
 
   _Correctness._ ($arrow.r.double$) A valid packing chooses pairwise disjoint sets, so each element is covered at most once. ($arrow.l.double$) Any feasible binary solution covers each element at most once, hence the chosen sets are pairwise disjoint; the objective maximizes total weight.
 
@@ -7558,7 +7660,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MaximumMatching", "ILP")[
   Each edge is either selected or not, and each vertex may be incident to at most one selected edge -- a degree-bound constraint that is directly linear in binary edge indicators.
 ][
-  _Construction._ Variables: $x_e in {0, 1}$ for each $e in E$. Constraints: $sum_(e in.rev v) x_e <= 1$ for each $v in V$. Objective: maximize $sum_e w_e x_e$.
+  _Construction._ Variables: $x_e in {0, 1}$ for each $e in E$. The ILP is:
+  $
+    max quad & sum_e w_e x_e \
+    "subject to" quad & sum_(e in.rev v) x_e <= 1 quad forall v in V \
+    & x_e in {0, 1} quad forall e in E
+  $.
 
   _Correctness._ ($arrow.r.double$) A matching has at most one edge per vertex, so all degree constraints hold. ($arrow.l.double$) Any feasible solution is a matching by construction; the objective maximizes total weight.
 
@@ -7568,7 +7675,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MinimumSetCovering", "ILP")[
   Every universe element must be covered by at least one selected set -- a lower-bound constraint on the sum of indicators for sets containing that element, which is directly linear.
 ][
-  _Construction._ Variables: $x_i in {0, 1}$ for each $S_i in cal(S)$. Constraints: $sum_(S_i in.rev u) x_i >= 1$ for each $u in U$. Objective: minimize $sum_i w_i x_i$.
+  _Construction._ Variables: $x_i in {0, 1}$ for each $S_i in cal(S)$. The ILP is:
+  $
+    min quad & sum_i w_i x_i \
+    "subject to" quad & sum_(S_i in.rev u) x_i >= 1 quad forall u in U \
+    & x_i in {0, 1} quad forall i
+  $.
 
   _Correctness._ ($arrow.r.double$) A set cover includes at least one set containing each element, satisfying all constraints. ($arrow.l.double$) Any feasible solution covers every element; the objective minimizes total weight.
 
@@ -7578,7 +7690,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MinimumDominatingSet", "ILP")[
   Every vertex must be dominated -- either selected itself or adjacent to a selected vertex -- which is a lower-bound constraint on the sum of indicators over its closed neighborhood.
 ][
-  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_v + sum_(u in N(v)) x_u >= 1$ for each $v in V$ (each vertex dominated). Objective: minimize $sum_v w_v x_v$.
+  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. The ILP is:
+  $
+    min quad & sum_v w_v x_v \
+    "subject to" quad & x_v + sum_(u in N(v)) x_u >= 1 quad forall v in V \
+    & x_v in {0, 1} quad forall v in V
+  $.
 
   _Correctness._ ($arrow.r.double$) A dominating set includes a vertex or one of its neighbors for every vertex, satisfying all constraints. ($arrow.l.double$) Any feasible solution dominates every vertex; the objective minimizes total weight.
 
@@ -7596,6 +7713,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Objective:_ Minimize $sum_v w_v x_v$.
 
+  The ILP is:
+  $
+    min quad & sum_v w_v x_v \
+    "subject to" quad & o_v - o_u >= 1 - n (x_u + x_v) quad forall (u -> v) in A \
+    & x_v in {0, 1}, o_v in {0, dots, n - 1} quad forall v in V
+  $.
+
   _Correctness._ ($arrow.r.double$) If $S$ is a feedback vertex set, then $G[V backslash S]$ is a DAG with a topological ordering. Set $x_v = 1$ for $v in S$, $o_v$ to the topological position for kept vertices, and $o_v = 0$ for removed vertices. All constraints are satisfied. ($arrow.l.double$) If the ILP is feasible with all arc constraints satisfied, no directed cycle can exist among kept vertices: a cycle $v_1 -> dots -> v_k -> v_1$ would require $o_(v_1) < o_(v_2) < dots < o_(v_k) < o_(v_1)$, a contradiction.
 
   _Solution extraction._ $S = {v : x_v = 1}$.
@@ -7604,53 +7728,18 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MaximumClique", "ILP")[
   A clique requires every pair of selected vertices to be adjacent; equivalently, no two selected vertices may share a _non_-edge. This is the independent set formulation on the complement graph $overline(G)$.
 ][
-  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_u + x_v <= 1$ for each $(u, v) in.not E$ (non-edges). Objective: maximize $sum_v x_v$.
+  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. The ILP is:
+  $
+    max quad & sum_v x_v \
+    "subject to" quad & x_u + x_v <= 1 quad forall (u, v) in.not E \
+    & x_v in {0, 1} quad forall v in V
+  $.
 
   _Correctness._ ($arrow.r.double$) In a clique, every pair of selected vertices is adjacent, so no non-edge constraint is violated. ($arrow.l.double$) Any feasible solution selects only mutually adjacent vertices, forming a clique; the objective maximizes its size.
 
   _Solution extraction._ $K = {v : x_v = 1}$.
 ]
 
-#let gp_ilp = load-example("GraphPartitioning", "ILP")
-#let gp_ilp_sol = gp_ilp.solutions.at(0)
-#let gp_n = graph-num-vertices(gp_ilp.source.instance)
-#let gp_edges = gp_ilp.source.instance.graph.edges
-#let gp_m = gp_edges.len()
-#let gp_part_a = range(gp_n).filter(i => gp_ilp_sol.source_config.at(i) == 0)
-#let gp_part_b = range(gp_n).filter(i => gp_ilp_sol.source_config.at(i) == 1)
-#let gp_crossing = range(gp_m).filter(i => gp_ilp_sol.target_config.at(gp_n + i) == 1)
-#let gp_crossing_edges = gp_crossing.map(i => gp_edges.at(i))
-#reduction-rule("GraphPartitioning", "ILP",
-  example: true,
-  example-caption: [Two triangles linked by three crossing edges encoded as a 15-variable ILP.],
-  extra: [
-    #pred-commands(
-      "pred create --example GraphPartitioning -o graphpartitioning.json",
-      "pred reduce graphpartitioning.json --to " + target-spec(gp_ilp) + " -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate graphpartitioning.json --config " + gp_ilp_sol.source_config.map(str).join(","),
-    )
-    *Step 1 -- Balanced partition variables.* Introduce $x_v in {0,1}$ for each vertex. In the canonical witness, $A = {#gp_part_a.map(str).join(", ")}$ and $B = {#gp_part_b.map(str).join(", ")}$, so $bold(x) = (#gp_ilp_sol.source_config.map(str).join(", "))$.\
-
-    *Step 2 -- Crossing indicators.* Add one binary variable per edge, so the target has $#gp_ilp.target.instance.num_vars$ binary variables and #gp_ilp.target.instance.constraints.len() constraints in total. The three active crossing indicators correspond to edges $\{#gp_crossing_edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")\}$.\
-
-    *Step 3 -- Verify the objective.* The target witness $bold(z) = (#gp_ilp_sol.target_config.map(str).join(", "))$ sets exactly #gp_crossing.len() edge-indicator variables to 1, so the ILP objective equals the bisection width #gp_crossing.len() #sym.checkmark
-  ],
-)[
-  The node-and-edge integer-programming formulation of Chopra and Rao @chopra1993 models a balanced cut with one binary variable per vertex and one binary crossing indicator per edge. A single balance equality enforces the bisection, and two linear inequalities per edge linearize $|x_u - x_v|$ so that the objective can minimize the number of crossing edges directly.
-][
-  _Construction._ Given graph $G = (V, E)$ with $n = |V|$ and $m = |E|$:
-
-  _Variables._ Binary $x_v in {0, 1}$ for each $v in V$, where $x_v = 1$ means vertex $v$ is placed in side $B$. For each edge $e = (u, v) in E$, binary $y_e in {0, 1}$ indicates whether $e$ crosses the partition. Total: $n + m$ variables.
-
-  _Constraints._ (1) Balance: $sum_(v in V) x_v = n / 2$. If $n$ is odd, the right-hand side is fractional, so the ILP is infeasible exactly when Graph Partitioning has no valid balanced partition. (2) For each edge $e = (u, v)$: $y_e >= x_u - x_v$ and $y_e >= x_v - x_u$. Since $y_e$ is binary and the objective minimizes $sum_e y_e$, these inequalities force $y_e = 1$ exactly for crossing edges. Total: $2m + 1$ constraints.
-
-  _Objective._ Minimize $sum_(e in E) y_e$.
-
-  _Correctness._ ($arrow.r.double$) Given a balanced partition $(A, B)$, set $x_v = 1$ iff $v in B$, and set $y_e = 1$ iff edge $e$ has one endpoint in each side. The balance constraint holds because $|B| = n / 2$, and the linking inequalities hold because $|x_u - x_v| = 1$ exactly on crossing edges. The objective is therefore the cut size. ($arrow.l.double$) Any feasible ILP solution satisfies the balance equation, so exactly half the vertices have $x_v = 1$ when $n$ is even. For each edge, the linking inequalities imply $y_e >= |x_u - x_v|$; minimization therefore chooses $y_e = |x_u - x_v|$, making the objective count precisely the crossing edges of the extracted partition.
-
-  _Solution extraction._ Return the first $n$ variables $(x_v)_(v in V)$ as the Graph Partitioning configuration; the edge-indicator variables are auxiliary.
-]
 
 #let ks_ilp = load-example("Knapsack", "ILP")
 #let ks_ilp_sol = ks_ilp.solutions.at(0)
@@ -7683,11 +7772,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 )[
   A 0-1 Knapsack instance is already a binary Integer Linear Program @papadimitriou-steiglitz1982: each item-selection bit becomes a binary variable, the capacity condition is a single linear inequality, and the value objective is linear. The reduction preserves the number of decision variables exactly, producing an ILP with $n$ variables and one constraint.
 ][
-  _Construction._ Given nonnegative weights $w_0, dots, w_(n-1)$, nonnegative values $v_0, dots, v_(n-1)$, and capacity $C$, introduce binary variables $x_0, dots, x_(n-1) in {0,1}$ where $x_i = 1$ iff item $i$ is selected. Construct the binary ILP:
-  $ max sum_(i=0)^(n-1) v_i x_i $
-  subject to
-  $ sum_(i=0)^(n-1) w_i x_i <= C $
-  and $x_i in {0,1}$ for all $i$. The target therefore has exactly $n$ variables and one linear constraint.
+  _Construction._ Given nonnegative weights $w_0, dots, w_(n-1)$, nonnegative values $v_0, dots, v_(n-1)$, and capacity $C$, introduce binary variables $x_0, dots, x_(n-1) in {0,1}$ where $x_i = 1$ iff item $i$ is selected. The ILP is:
+  $
+    max quad & sum_(i=0)^(n-1) v_i x_i \
+    "subject to" quad & sum_(i=0)^(n-1) w_i x_i <= C \
+    & x_i in {0, 1} quad forall i in {0, dots, n - 1}
+  $.
+  The target therefore has exactly $n$ variables and one linear constraint.
 
   _Correctness._ ($arrow.r.double$) Any feasible knapsack solution $bold(x)$ satisfies $sum_i w_i x_i <= C$, so the same binary vector is feasible for the ILP and attains identical objective value $sum_i v_i x_i$. ($arrow.l.double$) Any feasible binary ILP solution selects exactly the items with $x_i = 1$; the single inequality guarantees the chosen set fits in the knapsack, and the ILP objective equals the knapsack value. Therefore optimal solutions correspond one-to-one and preserve the optimum value.
 
@@ -7728,6 +7819,14 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Objective:_ Minimize $sum_(j=0)^(n-1) y_j$.
 
+  The ILP is:
+  $
+    min quad & sum_(j=0)^(n-1) y_j \
+    "subject to" quad & sum_(j=0)^(n-1) x_(i j) = 1 quad forall i in {0, dots, n - 1} \
+    & sum_(i=0)^(n-1) s_i x_(i j) <= C y_j quad forall j in {0, dots, n - 1} \
+    & x_(i j), y_j in {0, 1}
+  $.
+
   _Correctness._ ($arrow.r.double$) A valid packing assigns each item to exactly one bin (satisfying (1)); each bin's load is at most $C$ and $y_j = 1$ for any used bin (satisfying (2)). ($arrow.l.double$) Any feasible solution assigns each item to one bin by (1), respects capacity by (2), and the objective counts the number of open bins.
 
   _Solution extraction._ For each item $i$, find the unique $j$ with $x_(i j) = 1$; assign item $i$ to bin $j$.
@@ -7748,6 +7847,15 @@ The following reductions to Integer Linear Programming are straightforward formu
   $sum_(a_i = (u, t) in A) x_i - sum_(a_i = (t, w) in A) x_i >= R$.
 
   _Objective._ Minimize 0. The target is a pure feasibility ILP, so any constant objective works.
+
+  The ILP is:
+  $
+    "find" quad & (x_i)_(i = 0)^(m - 1) \
+    "subject to" quad & sum_(a_i in I_j) x_i <= c_j quad forall j in {1, dots, k} \
+    & sum_(a_i = (u, v) in A) x_i - sum_(a_i = (v, w) in A) x_i = 0 quad forall v in V backslash {s, t} \
+    & sum_(a_i = (u, t) in A) x_i - sum_(a_i = (t, w) in A) x_i >= R \
+    & x_i in ZZ_(>=0) quad forall i in {0, dots, m - 1}
+  $.
 
   _Correctness._ ($arrow.r.double$) Any satisfying bundled flow assigns a non-negative integer to each arc, satisfies every bundle inequality by definition, satisfies every nonterminal conservation equality, and yields sink inflow at least $R$, so it is a feasible ILP solution. ($arrow.l.double$) Any feasible ILP solution gives non-negative integral arc values obeying the same bundle, conservation, and sink-inflow constraints, hence it is a satisfying solution to the original Integral Flow with Bundles instance.
 
@@ -7770,6 +7878,16 @@ The following reductions to Integer Linear Programming are straightforward formu
   Exactly one of the two orderings is therefore active.
 
   _Objective._ Minimize $sum_j w_j C_j$.
+
+  The ILP is:
+  $
+    min quad & sum_j w_j C_j \
+    "subject to" quad & l_j <= C_j <= M quad forall j \
+    & C_j - C_i >= l_j quad forall i prec.eq j \
+    & C_j - C_i + M (1 - y_(i j)) >= l_j quad forall i < j \
+    & C_i - C_j + M y_(i j) >= l_i quad forall i < j \
+    & y_(i j) in {0, 1}, C_j in ZZ_(>=0)
+  $.
 
   _Correctness._ ($arrow.r.double$) Any feasible schedule defines completion times and pairwise order values satisfying the bounds, precedence inequalities, and disjunctive machine constraints; its weighted completion time is exactly the ILP objective. ($arrow.l.double$) Any feasible ILP solution assigns a strict order to every task pair and forbids overlap, so the completion times correspond to a valid single-machine schedule that respects all precedences. Minimizing the ILP objective therefore minimizes the original weighted completion-time objective.
 
@@ -7840,6 +7958,18 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Objective:_ Minimize $sum_((u,v) in E) w(u,v) dot sum_k (y_(u,v,k) + y_(v,u,k))$.
 
+  The ILP is:
+  $
+    min quad & sum_((u,v) in E) w(u,v) sum_k (y_(u,v,k) + y_(v,u,k)) \
+    "subject to" quad & sum_(k=0)^(n-1) x_(v,k) = 1 quad forall v in V \
+    & sum_(v in V) x_(v,k) = 1 quad forall k in {0, dots, n - 1} \
+    & x_(v,k) + x_(w,(k+1) mod n) <= 1 quad forall {v, w} in.not E, k in {0, dots, n - 1} \
+    & y_(u,v,k) <= x_(u,k) quad forall (u, v) in E, k in {0, dots, n - 1} \
+    & y_(u,v,k) <= x_(v,(k+1) mod n) quad forall (u, v) in E, k in {0, dots, n - 1} \
+    & y_(u,v,k) >= x_(u,k) + x_(v,(k+1) mod n) - 1 quad forall (u, v) in E, k in {0, dots, n - 1} \
+    & x_(v,k), y_(u,v,k) in {0, 1}
+  $.
+
   _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix $(x_(v,k))$ satisfying constraints (1)--(2); consecutive vertices are adjacent by construction, so (3) holds; McCormick constraints (4) force $y = x_(u,k) x_(v,k+1)$, making the objective equal to the tour cost. ($arrow.l.double$) Any feasible binary solution defines a permutation (by (1)--(2)) where consecutive positions are connected by edges (by (3)), forming a Hamiltonian tour; the linearized objective equals the tour cost.
 
   _Solution extraction._ For each position $k$, find vertex $v$ with $x_(v,k) = 1$ to recover the tour permutation; then select edges between consecutive positions.
@@ -7876,6 +8006,19 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Constraints:_ (1) Flow balance: $sum_(w : {v,w} in E) x_(v,w) - sum_(u : {u,v} in E) x_(u,v) = 1$ at the source, equals $-1$ at the target, and equals $0$ at every other vertex. (2) Degree bounds: every vertex has at most one selected outgoing arc and at most one selected incoming arc. (3) Edge exclusivity: $x_(u,v) + x_(v,u) <= 1$ for each undirected edge. (4) Ordering: for every oriented edge $u -> v$, $o_v - o_u >= 1 - n(1 - x_(u,v))$. (5) Anchor the path at the source with $o_s = 0$.
 
   _Objective._ Maximize $sum_({u,v} in E) l({u,v}) dot (x_(u,v) + x_(v,u))$.
+
+  The ILP is:
+  $
+    max quad & sum_({u,v} in E) l({u,v}) (x_(u,v) + x_(v,u)) \
+    "subject to" quad & sum_(w : {v,w} in E) x_(v,w) - sum_(u : {u,v} in E) x_(u,v) = b_v quad forall v in V \
+    & sum_(w : {v,w} in E) x_(v,w) <= 1 quad forall v in V \
+    & sum_(u : {u,v} in E) x_(u,v) <= 1 quad forall v in V \
+    & x_(u,v) + x_(v,u) <= 1 quad forall {u, v} in E \
+    & o_v - o_u >= 1 - n (1 - x_(u,v)) quad forall u -> v \
+    & o_s = 0 \
+    & x_(u,v) in {0, 1}, o_v in {0, dots, n - 1}
+  $,
+  where $b_s = 1$, $b_t = -1$, and $b_v = 0$ otherwise.
 
   _Correctness._ ($arrow.r.double$) Any simple $s$-$t$ path can be oriented from $s$ to $t$, giving exactly one outgoing arc at $s$, one incoming arc at $t$, balanced flow at every internal vertex, and strictly increasing order values along the path. ($arrow.l.double$) Any feasible ILP solution satisfies the flow equations and degree bounds, so the selected arcs form vertex-disjoint directed paths and cycles. The ordering inequalities make every selected arc increase the order value by at least 1, so directed cycles are impossible. The only remaining positive-flow component is therefore a single directed $s$-$t$ path, whose objective is exactly the total selected edge length.
 
@@ -7918,19 +8061,30 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("LongestCommonSubsequence", "ILP")[
-  A bounded-witness ILP formulation turns the decision version of LCS into a feasibility problem. Binary variables choose the symbol at each witness position and, for every input string, choose where that witness position is realized. Linear constraints enforce symbol consistency and strictly increasing source positions.
+  An optimization ILP formulation maximizes the length of a common subsequence. Binary variables choose a symbol (or padding) at each witness position. Match variables link active positions to source string indices, and the objective maximizes the number of non-padding positions.
 ][
-  _Construction._ Given alphabet $Sigma$, strings $R = {r_1, dots, r_m}$, and bound $K$:
+  _Construction._ Given alphabet $Sigma$ (size $k$), strings $R = {r_1, dots, r_m}$, and maximum length $L = min_i |r_i|$:
 
-  _Variables:_ Binary $x_(p, a) in {0, 1}$ for witness position $p in {1, dots, K}$ and symbol $a in Sigma$, with $x_(p, a) = 1$ iff the $p$-th witness symbol equals $a$. For every input string $r_i$, witness position $p$, and source index $j in {1, dots, |r_i|}$, binary $y_(i, p, j) = 1$ iff the $p$-th witness symbol is matched to position $j$ of $r_i$.
+  _Variables:_ Binary $x_(p, a) in {0, 1}$ for witness position $p in {1, dots, L}$ and symbol $a in Sigma union {bot}$ (where $bot$ is the padding symbol), with $x_(p, a) = 1$ iff position $p$ holds symbol $a$. For every input string $r_i$, witness position $p$, and source index $j in {1, dots, |r_i|}$, binary $y_(i, p, j) = 1$ iff position $p$ is matched to index $j$ of $r_i$.
 
-  _Constraints:_ (1) Exactly one symbol per witness position: $sum_(a in Sigma) x_(p, a) = 1$ for all $p$. (2) Exactly one matched source position for each $(i, p)$: $sum_(j = 1)^(|r_i|) y_(i, p, j) = 1$. (3) Character consistency: if $r_i[j] = a$, then $y_(i, p, j) lt.eq x_(p, a)$. (4) Strictly increasing matches: for consecutive witness positions $p$ and $p + 1$, forbid $y_(i, p, j') = y_(i, p + 1, j) = 1$ whenever $j' gt.eq j$.
+  _Constraints:_ (1) Exactly one symbol (including padding) per position: $sum_(a in Sigma union {bot}) x_(p, a) = 1$ for all $p$. (2) Contiguity: $x_(p+1, bot) gt.eq x_(p, bot)$ for consecutive positions. (3) Conditional matching: $sum_(j=1)^(|r_i|) y_(i, p, j) + x_(p, bot) = 1$ for each $(i, p)$, so active positions select exactly one match and padding positions select none. (4) Character consistency: $y_(i, p, j) lt.eq x_(p, r_i[j])$. (5) Strictly increasing matches: for consecutive positions $p$ and $p + 1$, forbid $y_(i, p, j') = y_(i, p+1, j) = 1$ whenever $j' gt.eq j$.
 
-  _Objective:_ Use the zero objective. The target ILP is feasible iff the source LCS instance is a YES instance.
+  _Objective:_ Maximize $sum_p sum_(a in Sigma) x_(p, a)$ (the number of non-padding positions).
 
-  _Correctness._ ($arrow.r.double$) If a witness $w = w_1 dots w_K$ is a common subsequence of every string, set $x_(p, w_p) = 1$ and choose, in every $r_i$, the positions where that embedding occurs. Constraints (1)--(4) are satisfied, so the ILP is feasible. ($arrow.l.double$) Any feasible ILP solution selects exactly one symbol for each witness position and exactly one realization in each source string. Character consistency ensures the chosen positions spell the same witness string in every input string, and the ordering constraints ensure those positions are strictly increasing. Therefore the extracted witness is a common subsequence of length $K$.
+  The ILP is:
+  $
+    "maximize" quad & sum_p sum_(a in Sigma) x_(p, a) \
+    "subject to" quad & sum_(a in Sigma union {bot}) x_(p, a) = 1 quad forall p in {1, dots, L} \
+    & x_(p+1, bot) >= x_(p, bot) quad forall p \
+    & sum_(j = 1)^(|r_i|) y_(i, p, j) + x_(p, bot) = 1 quad forall i, p \
+    & y_(i, p, j) <= x_(p, r_i [j]) quad forall i, p, j \
+    & y_(i, p, j') + y_(i, p + 1, j) <= 1 quad forall i, p, j' >= j \
+    & x_(p, a), y_(i, p, j) in {0, 1}
+  $.
 
-  _Solution extraction._ For each witness position $p$, read the unique symbol $a$ with $x_(p, a) = 1$ and output the resulting length-$K$ string.
+  _Correctness._ ($arrow.r.double$) Given an optimal common subsequence $w$ of length $ell$, set $x_(p, w_p) = 1$ for $p lt.eq ell$ and $x_(p, bot) = 1$ for $p > ell$. For active positions, choose the embedding indices in each source string. All constraints are satisfied and the objective equals $ell$. ($arrow.l.double$) Any optimal ILP solution selects contiguous non-padding positions followed by padding. The active prefix, together with character consistency and ordering constraints, forms a valid common subsequence whose length equals the objective value.
+
+  _Solution extraction._ For each position $p$, read the selected symbol $a$ (which may be $bot$). The resulting length-$L$ vector with padding is the source configuration.
 ]
 
 #reduction-rule("MinimumMultiwayCut", "ILP")[
@@ -7943,6 +8097,17 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Constraints:_ (1) Terminal fixing: $y_(i, t_i) = 1$ for each $i$ (terminal $t_i$ is in its own component); $y_(j, t_i) = 0$ for $j eq.not i$ (each terminal excluded from other components). (2) Partition: $sum_(i=0)^(k-1) y_(i v) = 1$ for each $v in V$ (each vertex in exactly one component). (3) Edge-cut linking: for each edge $e = (u, v)$ and each terminal $i$: $x_e gt.eq y_(i u) - y_(i v)$ and $x_e gt.eq y_(i v) - y_(i u)$ (force $x_e = 1$ when endpoints are in different components). Total: $k^2 + n + 2 k m$ constraints.
 
   _Objective:_ Minimize $sum_(e in E) w_e dot x_e$.
+
+  The ILP is:
+  $
+    min quad & sum_(e in E) w_e x_e \
+    "subject to" quad & y_(i, t_i) = 1 quad forall i in {0, dots, k - 1} \
+    & y_(j, t_i) = 0 quad forall i != j \
+    & sum_(i=0)^(k-1) y_(i v) = 1 quad forall v in V \
+    & x_e >= y_(i u) - y_(i v) quad forall e = (u, v) in E, i in {0, dots, k - 1} \
+    & x_e >= y_(i v) - y_(i u) quad forall e = (u, v) in E, i in {0, dots, k - 1} \
+    & x_e, y_(i v) in {0, 1}
+  $.
 
   _Correctness._ ($arrow.r.double$) A multiway cut $C$ partitions $V$ into $k$ components, one per terminal. Setting $y_(i v) = 1$ iff $v$ is in $t_i$'s component and $x_e = 1$ iff $e in C$ satisfies all constraints: partition by construction, terminal fixing by definition, and linking because any edge with endpoints in different components is in $C$. The objective equals the cut weight. ($arrow.l.double$) Any feasible ILP solution defines a valid partition (by constraint (2)) separating all terminals (by constraint (1)). The linking constraints (3) force $x_e = 1$ for all cross-component edges, so the objective is at least the multiway cut weight; minimization ensures optimality.
 
@@ -7993,6 +8158,15 @@ The following reductions to Integer Linear Programming are straightforward formu
   $ f^t_(u,v) <= y_e quad "and" quad f^t_(v,u) <= y_e. $
   Binary flow variables suffice because any Steiner tree yields a unique simple root-to-terminal path for each commodity, so every commodity can be realized as a 0/1 path indicator.
 
+  The ILP is:
+  $
+    min quad & sum_(e in E) w_e y_e \
+    "subject to" quad & sum_(u : (u, v) in A) f^t_(u,v) - sum_(u : (v, u) in A) f^t_(v,u) = b_(t,v) quad forall t in T backslash {r}, v in V \
+    & f^t_(u,v) <= y_e quad forall t in T backslash {r}, e = {u, v} in E \
+    & f^t_(v,u) <= y_e quad forall t in T backslash {r}, e = {u, v} in E \
+    & y_e, f^t_(u,v) in {0, 1}
+  $.
+
   _Correctness._ ($arrow.r.double$) If $S subset.eq E$ is a Steiner tree, set $y_e = 1$ exactly for $e in S$. For each non-root terminal $t$, the unique path from $r$ to $t$ inside the tree defines a binary flow assignment satisfying the conservation equations, and every used arc lies on a selected edge, so all linking inequalities hold. The ILP objective equals $sum_(e in S) w_e$. ($arrow.l.double$) Any feasible ILP solution with edge selector set $Y = {e in E : y_e = 1}$ supports one unit of flow from $r$ to every non-root terminal, so the selected edges contain a connected subgraph spanning all terminals. Because all edge weights are strictly positive, any cycle in the selected subgraph has positive total cost; the optimizer therefore never includes redundant edges, so the selected subgraph is already a Steiner tree. Therefore an optimal ILP solution induces a minimum-cost Steiner tree.
 
   _Variable mapping._ The first $m$ ILP variables are the source-edge indicators $y_0, dots, y_(m-1)$ in source edge order. For terminal $t_p$ with $p in {1, dots, k-1}$, the next block of $2 m$ variables stores the directed arc indicators $f^(t_p)_(u,v)$ and $f^(t_p)_(v,u)$ for each source edge $(u, v)$.
@@ -8000,6 +8174,1493 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Read the first $m$ target variables as the source edge-selection vector. Since those coordinates are exactly the $y_e$ variables, the extracted source configuration is valid whenever the selected subgraph is pruned to its Steiner tree witness.
 
   _Remark._ Zero-weight edges are excluded because they allow degenerate optimal ILP solutions containing redundant cycles at no cost; following the convention of practical solvers (e.g., SCIP-Jack @kochmartin1998steiner), such edges should be contracted before applying the reduction.
+]
+
+#reduction-rule("MinimumHittingSet", "ILP")[
+  Each set must contain at least one selected element -- a standard set-covering constraint on the element indicators.
+][
+  _Construction._ Variables: $x_e in {0, 1}$ for each element $e in U$. The ILP is:
+  $
+    min quad & sum_e x_e \
+    "subject to" quad & sum_(e in S) x_e >= 1 quad forall S in cal(S) \
+    & x_e in {0, 1} quad forall e in U
+  $.
+
+  _Correctness._ ($arrow.r.double$) A hitting set includes at least one element from each set. ($arrow.l.double$) Any feasible solution hits every set.
+
+  _Solution extraction._ $H = {e : x_e = 1}$.
+]
+
+#reduction-rule("ExactCoverBy3Sets", "ILP")[
+  Each element must be covered by exactly one triple, and the number of selected triples must equal $|U|\/3$.
+][
+  _Construction._ Variables: $x_j in {0, 1}$ for each triple $T_j$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(j : e in T_j) x_j = 1 quad forall e in U \
+    & sum_j x_j = |U| / 3 \
+    & x_j in {0, 1} quad forall j
+  $.
+
+  _Correctness._ The equality constraints force each element to appear in exactly one selected triple, which is the definition of an exact cover.
+
+  _Solution extraction._ $cal(C) = {T_j : x_j = 1}$.
+]
+
+#reduction-rule("NAESatisfiability", "ILP")[
+  Each clause must have at least one true and at least one false literal, encoded as a pair of linear inequalities per clause.
+][
+  _Construction._ Variables: $x_i in {0, 1}$ per Boolean variable. For each clause $C$ with literals $l_1, dots, l_k$, substitute $l_i = x_i$ for positive and $l_i = 1 - x_i$ for negative literals. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_i "coeff"_(C,i) x_i >= 1 - "neg"(C) quad "for each clause" C \
+    & sum_i "coeff"_(C,i) x_i <= |C| - 1 - "neg"(C) quad "for each clause" C \
+    & x_i in {0, 1} quad forall i
+  $.
+
+  _Correctness._ The two constraints per clause jointly enforce the not-all-equal condition.
+
+  _Solution extraction._ Direct: $x_i = 1$ iff variable $i$ is true.
+]
+
+#reduction-rule("KClique", "ILP")[
+  A $k$-clique requires at least $k$ selected vertices with no non-edge between any pair.
+][
+  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_v x_v >= k \
+    & x_u + x_v <= 1 quad forall (u, v) in.not E \
+    & x_v in {0, 1} quad forall v in V
+  $.
+
+  _Correctness._ ($arrow.r.double$) A $k$-clique selects $>= k$ mutually adjacent vertices, satisfying all constraints. ($arrow.l.double$) Any feasible solution selects $>= k$ vertices with no non-edge pair, forming a clique of size $>= k$.
+
+  _Solution extraction._ $K = {v : x_v = 1}$.
+]
+
+#reduction-rule("MaximalIS", "ILP")[
+  An independent set that is also maximal: no vertex outside the set can be added without violating independence.
+][
+  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. The ILP is:
+  $
+    max quad & sum_v w_v x_v \
+    "subject to" quad & x_u + x_v <= 1 quad forall (u, v) in E \
+    & x_v + sum_(u in N(v)) x_u >= 1 quad forall v in V \
+    & x_v in {0, 1} quad forall v in V
+  $.
+
+  _Correctness._ Independence constraints prevent adjacent selections; maximality constraints ensure every vertex is either selected or has a selected neighbor.
+
+  _Solution extraction._ $I = {v : x_v = 1}$.
+]
+
+#reduction-rule("PartiallyOrderedKnapsack", "ILP")[
+  Standard knapsack with precedence constraints: item $b$ can only be selected if item $a$ is also selected for each precedence $(a, b)$.
+][
+  _Construction._ Variables: $x_i in {0, 1}$ per item. The ILP is:
+  $
+    max quad & sum_i v_i x_i \
+    "subject to" quad & sum_i w_i x_i <= C \
+    & x_b <= x_a quad "for each precedence" (a, b) \
+    & x_i in {0, 1} quad forall i
+  $.
+
+  _Correctness._ Capacity and precedence constraints are directly linear. Any feasible ILP solution is a valid knapsack packing respecting the partial order.
+
+  _Solution extraction._ Selected items: ${i : x_i = 1}$.
+]
+
+#reduction-rule("RectilinearPictureCompression", "ILP")[
+  Cover all 1-cells with at most $B$ maximal all-1 rectangles.
+][
+  _Construction._ Variables: $x_r in {0, 1}$ per maximal rectangle $r$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(r "covers" (i,j)) x_r >= 1 quad forall (i, j) "with source cell" = 1 \
+    & sum_r x_r <= B \
+    & x_r in {0, 1} quad forall r
+  $.
+
+  _Correctness._ Coverage constraints ensure every 1-cell is covered; the cardinality bound limits the number of rectangles.
+
+  _Solution extraction._ Selected rectangles: ${r : x_r = 1}$.
+]
+
+#reduction-rule("ShortestWeightConstrainedPath", "ILP")[
+  Find a minimum-length $s$-$t$ path subject to a weight budget, using directed arc variables with MTZ ordering $o_v - o_u >= 1 - M (1 - a_(u,v))$ on selected arcs to prevent subtours.
+][
+  _Construction._ Let $A$ contain both orientations of every undirected edge and let $M = n$. Variables: binary $a_(u,v) in {0, 1}$ for each directed arc $(u, v) in A$, plus integer $o_v in {0, dots, n-1}$ per vertex. The ILP is:
+  $
+    "minimize" quad & sum_((u,v) in A) l_(u,v) a_(u,v) \
+    "subject to" quad & sum_(w : (v, w) in A) a_(v,w) - sum_(u : (u, v) in A) a_(u,v) = b_v quad forall v in V \
+    & sum_(w : (v, w) in A) a_(v,w) <= 1 quad forall v in V \
+    & sum_(u : (u, v) in A) a_(u,v) <= 1 quad forall v in V \
+    & a_(u,v) + a_(v,u) <= 1 quad forall {u, v} in E \
+    & o_v - o_u >= 1 - M (1 - a_(u,v)) quad forall (u, v) in A \
+    & sum_((u,v) in A) w_(u,v) a_(u,v) <= W \
+    & a_(u,v) in {0, 1}, o_v in {0, dots, n - 1}
+  $,
+  where $b_s = 1$, $b_t = -1$, and $b_v = 0$ otherwise.
+
+  _Correctness._ Flow balance forces an $s$-$t$ path; the MTZ inequalities apply only on selected arcs and therefore eliminate subtours; the weight constraint enforces the budget; the objective minimizes total path length.
+
+  _Solution extraction._ Edge $\{u, v\}$ is selected iff $a_(u,v) + a_(v,u) > 0$.
+]
+
+#reduction-rule("MultipleCopyFileAllocation", "ILP")[
+  Place file copies at vertices to minimize total storage plus weighted access cost.
+][
+  _Construction._ Variables: binary $x_v$ (copy at $v$) and $y_(v,u)$ (vertex $v$ served by copy at $u$). The ILP is:
+  $
+    "minimize" quad & sum_v s_v x_v + sum_(v,u) "usage"_v d(v, u) y_(v,u) \
+    "subject to" quad & sum_u y_(v,u) = 1 quad forall v \
+    & y_(v,u) <= x_u quad forall v, u \
+    & x_v, y_(v,u) in {0, 1}
+  $.
+
+  _Correctness._ Assignment constraints ensure each vertex is served by exactly one copy; capacity links prevent assignment to non-copy vertices; the objective linearizes the total cost.
+
+  _Solution extraction._ Copy placement: ${v : x_v = 1}$.
+]
+
+#reduction-rule("MinimumSumMulticenter", "ILP")[
+  Select $k$ centers and assign each vertex to a center, minimizing the total weighted distance.
+][
+  _Construction._ Variables: binary $x_j$ (vertex $j$ is center), $y_(i,j)$ (vertex $i$ assigned to center $j$). The ILP is:
+  $
+    min quad & sum_(i,j) w_i d(i, j) y_(i,j) \
+    "subject to" quad & sum_j x_j = k \
+    & y_(i,j) <= x_j quad forall i, j \
+    & sum_j y_(i,j) = 1 quad forall i \
+    & x_j, y_(i,j) in {0, 1}
+  $.
+
+  _Correctness._ The assignment structure and cardinality constraint directly encode the $k$-median objective with precomputed shortest-path distances.
+
+  _Solution extraction._ Centers: ${j : x_j = 1}$.
+]
+
+#reduction-rule("MinMaxMulticenter", "ILP")[
+  Select $k$ centers minimizing the maximum weighted distance from any vertex to its assigned center.
+][
+  _Construction._ Same assignment structure as MinimumSumMulticenter (binary $x_j$, $y_(i,j)$), plus an integer variable $z$. The ILP is:
+  $
+    "minimize" quad & z \
+    "subject to" quad & sum_j x_j = k \
+    & y_(i,j) <= x_j quad forall i, j \
+    & sum_j y_(i,j) = 1 quad forall i \
+    & sum_j w_i d(i, j) y_(i,j) <= z quad forall i \
+    & x_j, y_(i,j) in {0, 1}, z in bb(Z)
+  $.
+
+  _Correctness._ Each minimax constraint forces $z$ to be at least the weighted distance from vertex $i$ to its assigned center. Minimizing $z$ yields the optimal maximum weighted distance.
+
+  _Solution extraction._ Centers: ${j : x_j = 1}$.
+]
+
+#reduction-rule("MultiprocessorScheduling", "ILP")[
+  Assign tasks to processors so that no processor's total load exceeds the deadline.
+][
+  _Construction._ Variables: binary $x_(j,p)$ (task $j$ on processor $p$), one-hot per task. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
+    & sum_j l_j x_(j,p) <= D quad forall p \
+    & x_(j,p) in {0, 1}
+  $.
+
+  _Correctness._ One-hot constraints ensure each task is assigned to exactly one processor; load constraints enforce the deadline on every processor.
+
+  _Solution extraction._ Task $j$ goes to processor $arg max_p x_(j,p)$.
+]
+
+#reduction-rule("CapacityAssignment", "ILP")[
+  Assign a capacity level to each link to minimize total cost subject to a delay budget.
+][
+  _Construction._ Variables: binary $x_(l,c)$ (link $l$ gets capacity $c$), one-hot per link. The ILP is:
+  $
+    "minimize" quad & sum_(l,c) "cost"[l][c] x_(l,c) \
+    "subject to" quad & sum_c x_(l,c) = 1 quad forall l \
+    & sum_(l,c) "delay"[l][c] x_(l,c) <= J \
+    & x_(l,c) in {0, 1}
+  $.
+
+  _Correctness._ One-hot constraints fix one capacity per link; the delay budget constraint is linear in the indicators; the objective sums the selected costs.
+
+  _Solution extraction._ Link $l$ gets capacity $arg max_c x_(l,c)$.
+]
+
+#reduction-rule("ExpectedRetrievalCost", "ILP")[
+  Assign records to sectors to minimize expected retrieval cost, using product linearization for the quadratic cost terms.
+][
+  _Construction._ Variables: binary $x_(r,s)$ (record $r$ in sector $s$), one-hot per record, plus linearization variables $z_((r,s),(r',s')) = x_(r,s) dot x_(r',s')$. The ILP is:
+  $
+    "minimize" quad & sum d(s,s') p_r p_(r') z_((r,s),(r',s')) \
+    "subject to" quad & sum_s x_(r,s) = 1 quad forall r \
+    & z_((r,s),(r',s')) <= x_(r,s) quad forall r, s, r', s' \
+    & z_((r,s),(r',s')) <= x_(r',s') quad forall r, s, r', s' \
+    & z_((r,s),(r',s')) >= x_(r,s) + x_(r',s') - 1 quad forall r, s, r', s' \
+    & x_(r,s), z_((r,s),(r',s')) in {0, 1}
+  $.
+
+  _Correctness._ McCormick constraints force $z$ to equal the product of binary indicators, linearizing the quadratic cost. The ILP objective directly encodes the expected retrieval cost.
+
+  _Solution extraction._ Record $r$ goes to sector $arg max_s x_(r,s)$.
+]
+
+#reduction-rule("PartitionIntoTriangles", "ILP")[
+  Partition vertices into groups of 3 such that each group forms a triangle in the graph.
+][
+  _Construction._ Variables: binary $x_(v,g)$ (vertex $v$ in group $g$), one-hot per vertex, $q = n\/3$ groups. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_g x_(v,g) = 1 quad forall v \
+    & sum_v x_(v,g) = 3 quad forall g in {1, dots, q} \
+    & x_(u,g) + x_(v,g) <= 1 quad forall g in {1, dots, q}, (u, v) in.not E \
+    & x_(v,g) in {0, 1}
+  $.
+
+  _Correctness._ Size-3 groups with no non-edge pair within any group forces each group to be a triangle.
+
+  _Solution extraction._ Vertex $v$ goes to group $arg max_g x_(v,g)$.
+]
+
+#reduction-rule("PartitionIntoPathsOfLength2", "ILP")[
+  Partition vertices into groups of 3 such that each group induces a path of length 2 (at least 2 edges within the group).
+][
+  _Construction._ Variables: binary $x_(v,g)$ plus product linearization variables $z_((u,v),g) = x_(u,g) dot x_(v,g)$ for edges $(u, v)$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_g x_(v,g) = 1 quad forall v \
+    & sum_v x_(v,g) = 3 quad forall g \
+    & sum_((u,v) in E) z_((u,v),g) >= 2 quad forall g \
+    & z_((u,v),g) <= x_(u,g) quad forall (u, v) in E, g \
+    & z_((u,v),g) <= x_(v,g) quad forall (u, v) in E, g \
+    & z_((u,v),g) >= x_(u,g) + x_(v,g) - 1 quad forall (u, v) in E, g \
+    & x_(v,g), z_((u,v),g) in {0, 1}
+  $.
+
+  _Correctness._ The edge count constraint ensures connectivity within each group. Combined with group size 3, this forces a path of length 2.
+
+  _Solution extraction._ Vertex $v$ goes to group $arg max_g x_(v,g)$.
+]
+
+#reduction-rule("SumOfSquaresPartition", "ILP")[
+  Partition elements into groups minimizing $sum_g (sum_(i in g) s_i)^2$.
+][
+  _Construction._ Variables: binary $x_(i,g)$ (element $i$ in group $g$), plus $z_((i,j),g) = x_(i,g) dot x_(j,g)$. The ILP is:
+  $
+    "minimize" quad & sum_g sum_(i,j) s_i s_j z_((i,j),g) \
+    "subject to" quad & sum_g x_(i,g) = 1 quad forall i \
+    & z_((i,j),g) <= x_(i,g) quad forall i, j, g \
+    & z_((i,j),g) <= x_(j,g) quad forall i, j, g \
+    & z_((i,j),g) >= x_(i,g) + x_(j,g) - 1 quad forall i, j, g \
+    & x_(i,g), z_((i,j),g) in {0, 1}
+  $.
+
+  _Correctness._ Product linearization captures the quadratic sum-of-squares objective; the ILP minimizes the linearized form directly.
+
+  _Solution extraction._ Element $i$ goes to group $arg max_g x_(i,g)$.
+]
+
+#reduction-rule("PrecedenceConstrainedScheduling", "ILP")[
+  Assign unit-length tasks to time slots on $m$ processors, respecting precedence constraints and a deadline.
+][
+  _Construction._ Variables: binary $x_(j,t)$ (task $j$ at time $t$), one-hot per task. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_t x_(j,t) = 1 quad forall j \
+    & sum_j x_(j,t) <= m quad forall t \
+    & sum_t t x_(j,t) >= sum_t t x_(i,t) + 1 quad "for each precedence" (i, j) \
+    & x_(j,t) in {0, 1}
+  $.
+
+  _Correctness._ One-hot ensures each task is scheduled once; capacity limits processors per slot; precedence is linearized via weighted time indicators.
+
+  _Solution extraction._ Task $j$ is scheduled at time $arg max_t x_(j,t)$.
+]
+
+#reduction-rule("SchedulingWithIndividualDeadlines", "ILP")[
+  Schedule unit-length tasks on $m$ processors, each task $j$ must complete before its individual deadline $d_j$.
+][
+  _Construction._ Variables: binary $x_(j,t)$ (task $j$ at time $t in {0, dots, d_j - 1}$), one-hot per task. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(t = 0)^(d_j - 1) x_(j,t) = 1 quad forall j \
+    & sum_j x_(j,t) <= m quad forall t \
+    & sum_t t x_(j,t) >= sum_t t x_(i,t) + 1 quad "for each precedence" (i, j) \
+    & x_(j,t) in {0, 1}
+  $.
+
+  _Correctness._ Per-task deadline is enforced by restricting the time domain of each task's indicator variables.
+
+  _Solution extraction._ Task $j$ is scheduled at time $arg max_t x_(j,t)$.
+]
+
+#reduction-rule("SequencingWithinIntervals", "ILP")[
+  Schedule tasks with release times, deadlines, and processing lengths on a single machine without overlap.
+][
+  _Construction._ Variables: binary $x_(j,t)$ (task $j$ starts at time $t in [r_j, d_j - l_j]$), one-hot per task. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(t = r_j)^(d_j - l_j) x_(j,t) = 1 quad forall j \
+    & sum_(j, t : t <= tau < t + l_j) x_(j,t) <= 1 quad forall tau \
+    & x_(j,t) in {0, 1}
+  $.
+
+  _Correctness._ One-hot ensures each task starts once within its feasible window; non-overlap prevents simultaneous execution.
+
+  _Solution extraction._ Task $j$ starts at time $arg max_t x_(j,t)$; config$[j] = t - r_j$.
+]
+
+#reduction-rule("MinimumFeedbackArcSet", "ILP")[
+  Remove minimum-weight arcs to make a directed graph acyclic, using MTZ-style ordering to enforce acyclicity among kept arcs.
+][
+  _Construction._ Variables: binary $y_a in {0, 1}$ per arc ($y_a = 1$ iff removed), integer $o_v in {0, dots, n-1}$ per vertex. The ILP is:
+  $
+    min quad & sum_a w_a y_a \
+    "subject to" quad & o_v - o_u >= 1 - n y_a quad forall a = (u -> v) \
+    & y_a in {0, 1} quad forall a \
+    & o_v in {0, dots, n - 1} quad forall v
+  $.
+
+  _Correctness._ ($arrow.r.double$) Removing a FAS leaves a DAG with a topological ordering satisfying all constraints. ($arrow.l.double$) Among kept arcs, the ordering variables enforce acyclicity: a cycle would require $o_(v_1) < dots < o_(v_k) < o_(v_1)$, a contradiction.
+
+  _Solution extraction._ Removed arcs: ${a : y_a = 1}$.
+]
+
+#reduction-rule("UndirectedTwoCommodityIntegralFlow", "ILP")[
+  Route two commodities on an undirected graph with shared edge capacities, using direction indicators to enforce anti-parallel flow constraints.
+][
+  _Construction._ Variables: integer flow variables $f^k_(u,v), f^k_(v,u)$ per edge per commodity ($k in {1, 2}$), plus binary direction indicators $d^k_e$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & f^k_(u,v) <= "cap"_e d^k_e quad forall e = {u, v} in E, k in {1, 2} \
+    & f^k_(v,u) <= "cap"_e (1 - d^k_e) quad forall e = {u, v} in E, k in {1, 2} \
+    & sum_(k=1)^2 (f^k_(u,v) + f^k_(v,u)) <= "cap"_e quad forall e = {u, v} in E \
+    & sum_(w) f^k_(v,w) - sum_(u) f^k_(u,v) = b^k_v quad forall k in {1, 2}, v in V \
+    & d^k_e in {0, 1}, f^k_(u,v) in ZZ_(>=0)
+  $.
+
+  _Correctness._ Direction indicators linearize the capacity-sharing constraint; flow conservation and demand constraints ensure valid multi-commodity flow.
+
+  _Solution extraction._ Flow variables (first $4|E|$ variables).
+]
+
+#reduction-rule("DirectedTwoCommodityIntegralFlow", "ILP")[
+  Route two commodities on a directed graph with shared arc capacities.
+][
+  _Construction._ Variables: integer $f^1_a, f^2_a >= 0$ per arc $a$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & f^1_a + f^2_a <= "cap"(a) quad forall a in A \
+    & sum_(a in delta^+(v)) f^k_a - sum_(a in delta^-(v)) f^k_a = b^k_v quad forall k in {1, 2}, v in V \
+    & sum_(a in delta^-(t_k)) f^k_a - sum_(a in delta^+(t_k)) f^k_a >= R_k quad forall k in {1, 2} \
+    & f^1_a, f^2_a in ZZ_(>=0) quad forall a in A
+  $.
+
+  _Correctness._ Joint capacity and conservation constraints directly encode the two-commodity flow problem.
+
+  _Solution extraction._ Direct: $2|A|$ flow variables.
+]
+
+#reduction-rule("UndirectedFlowLowerBounds", "ILP")[
+  Find a feasible single-commodity flow on an undirected graph with both upper and lower capacity bounds per edge.
+][
+  _Construction._ Variables: integer $f_(u,v), f_(v,u) >= 0$ per edge, plus direction indicator $z_e in {0, 1}$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & f_(u,v) <= "cap"_e z_e quad forall e = {u, v} in E \
+    & f_(v,u) <= "cap"_e (1 - z_e) quad forall e = {u, v} in E \
+    & f_(u,v) >= "lower"_e z_e quad forall e = {u, v} in E \
+    & f_(v,u) >= "lower"_e (1 - z_e) quad forall e = {u, v} in E \
+    & sum_(a in delta^+(v)) f_a - sum_(a in delta^-(v)) f_a = b_v quad forall v in V \
+    & sum_(a in delta^-(t)) f_a - sum_(a in delta^+(t)) f_a >= R \
+    & z_e in {0, 1}, f_(u,v) in ZZ_(>=0)
+  $.
+
+  _Correctness._ Direction indicators force flow in one direction per edge; bounds enforce both upper and lower capacity limits.
+
+  _Solution extraction._ Edge orientations: $z_e$ values.
+]
+
+// Flow-based
+
+#reduction-rule("IntegralFlowHomologousArcs", "ILP")[
+  Use one integer flow variable per arc, with standard conservation plus equality constraints on every homologous pair.
+][
+  _Construction._ Variables: integer $f_a >= 0$ per arc $a in A$. The ILP is:
+  $
+    "find" quad & (f_a)_(a in A) \
+    "subject to" quad & f_a <= c_a quad forall a in A \
+    & sum_(a in delta^-(v)) f_a = sum_(a in delta^+(v)) f_a quad forall v in V backslash {s, t} \
+    & f_a = f_b quad forall (a, b) \
+    & sum_(a in delta^-(t)) f_a - sum_(a in delta^+(t)) f_a >= R \
+    & f_a in ZZ_(>=0) quad forall a in A
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible integral flow already satisfies the capacity, conservation, equality, and sink-demand constraints. ($arrow.l.double$) Any feasible ILP assignment is exactly an integral arc-flow meeting the homologous-pair and requirement conditions.
+
+  _Solution extraction._ Output the arc-flow vector $(f_a)_(a in A)$ in the source arc order.
+]
+
+#reduction-rule("IntegralFlowWithMultipliers", "ILP")[
+  The source constraints are linear after writing one integer flow variable per arc and enforcing multiplier-scaled conservation at each non-terminal.
+][
+  _Construction._ Variables: integer $f_a >= 0$ per arc $a = (u -> v)$. The ILP is:
+  $
+    "find" quad & (f_a)_(a in A) \
+    "subject to" quad & f_a <= c_a quad forall a in A \
+    & sum_(a in delta^+(v)) f_a = h(v) sum_(a in delta^-(v)) f_a quad forall v in V backslash {s, t} \
+    & sum_(a in delta^-(t)) f_a - sum_(a in delta^+(t)) f_a >= R \
+    & f_a in ZZ_(>=0) quad forall a in A
+  $.
+
+  _Correctness._ ($arrow.r.double$) A valid multiplier flow satisfies these linear equalities and inequalities by definition. ($arrow.l.double$) Any feasible ILP solution gives an integral arc flow whose non-terminal outflow equals the prescribed multiple of its inflow and whose sink inflow meets the requirement.
+
+  _Solution extraction._ Output the arc-flow vector $(f_a)_(a in A)$.
+]
+
+#reduction-rule("PathConstrainedNetworkFlow", "ILP")[
+  Because flow may use only the prescribed $s$-$t$ paths, it suffices to assign an integer amount to each allowed path and aggregate those loads on every arc.
+][
+  _Construction._ Let $P_1, dots, P_q$ be the prescribed paths. Variables: integer $f_i >= 0$ for each path $P_i$. The ILP is:
+  $
+    "find" quad & (f_i)_(i = 1)^q \
+    "subject to" quad & sum_(i : a in P_i) f_i <= c_a quad forall a in A \
+    & sum_i f_i >= R \
+    & f_i in ZZ_(>=0) quad forall i in {1, dots, q}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any valid path-flow assignment respects every arc capacity and delivers at least $R$ units in total. ($arrow.l.double$) Any feasible ILP solution assigns integral flow only to the prescribed paths, and the aggregated arc loads satisfy the network capacities.
+
+  _Solution extraction._ Output the path-flow vector $(f_1, dots, f_q)$.
+]
+
+#reduction-rule("DisjointConnectingPaths", "ILP")[
+  Route one unit of flow for each terminal pair on an oriented copy of the graph, and forbid internal vertices from carrying more than one commodity.
+][
+  _Construction._ For terminal pairs $(s_k, t_k)$, variables: binary $f^k_(u,v)$ on each orientation of each edge and integer order variables $h^k_v$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(w) f^k_(s_k,w) - sum_(u) f^k_(u,s_k) = 1 quad forall k \
+    & sum_(u) f^k_(u,t_k) - sum_(w) f^k_(t_k,w) = 1 quad forall k \
+    & sum_(w) f^k_(v,w) - sum_(u) f^k_(u,v) = 0 quad forall k, v in V backslash {s_k, t_k} \
+    & f^k_(u,v) + f^k_(v,u) <= 1 quad forall {u, v} in E, k \
+    & sum_k sum_(w in N(v)) f^k_(v,w) <= 1 quad forall "non-terminal" v \
+    & h^k_v >= h^k_u + 1 - M (1 - f^k_(u,v)) quad forall k, u -> v \
+    & f^k_(u,v) in {0, 1}, h^k_v in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) A family of pairwise internally vertex-disjoint connecting paths orients each path from its source to its sink and satisfies all constraints. ($arrow.l.double$) The conservation, disjointness, and ordering constraints force each commodity to trace one simple path, and different commodities can intersect only at terminals.
+
+  _Solution extraction._ Mark an edge selected in the source config iff some orientation of that edge carries flow for some commodity.
+]
+
+#reduction-rule("LengthBoundedDisjointPaths", "ILP")[
+  Use one unit-flow commodity for each requested path and add hop variables so every chosen path has at most the source bound $K$ edges.
+][
+  _Construction._ Variables: binary $f^k_(u,v)$ on each orientation of each edge for each path slot $k$, plus integer hop variables $h^k_v in {0, dots, K}$, where $K$ is the path-length bound and $M = K + 1$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(w) f^k_(s,w) - sum_(u) f^k_(u,s) = 1 quad forall k \
+    & sum_(u) f^k_(u,t) - sum_(w) f^k_(t,w) = 1 quad forall k \
+    & sum_(w) f^k_(v,w) - sum_(u) f^k_(u,v) = 0 quad forall k, v in V backslash {s, t} \
+    & f^k_(u,v) + f^k_(v,u) <= 1 quad forall {u, v} in E, k \
+    & sum_k sum_(w in N(v)) f^k_(v,w) <= 1 quad forall v in V backslash {s, t} \
+    & h^k_s = 0 quad forall k \
+    & h^k_v >= h^k_u + 1 - M (1 - f^k_(u,v)) quad forall k, u -> v \
+    & h^k_t <= K quad forall k \
+    & f^k_(u,v) in {0, 1}, h^k_v in {0, dots, K}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A collection of $J$ internally disjoint $s$-$t$ paths of length at most $K$ yields feasible commodity flows and consistent hop labels. ($arrow.l.double$) The flow and hop constraints force each commodity to be a simple $s$-$t$ path, while the vertex-disjointness inequalities match the source requirement.
+
+  _Solution extraction._ For each path slot $k$, set the source vertex-indicator block to 1 exactly on the vertices incident to the commodity-$k$ path, including $s$ and $t$.
+]
+
+#reduction-rule("MixedChinesePostman", "ILP")[
+  Choose an orientation for every undirected edge, then add integer traversal variables on the available directed arcs to balance the oriented required multigraph within the length bound.
+][
+  _Construction._ Let $n = |V|$, let the original directed arcs be $A = {a_0, dots, a_(m-1)}$ with $a_i = (alpha_i, beta_i)$, and let the undirected edges be $E = {e_0, dots, e_(q-1)}$ with $e_k = {u_k, v_k}$. Set $R = m + q$. If $R = 0$, return the empty feasible ILP: the empty walk already has length 0. Otherwise form the available directed-arc list
+  $A^* = {b_0, dots, b_(L-1)}$ with $L = m + 2 q$,
+  where $b_i = a_i$ for $0 <= i < m$, $b_(m + 2 k) = (u_k, v_k)$, and $b_(m + 2 k + 1) = (v_k, u_k)$.
+  Write $b_j = ("tail"_j, "head"_j)$ and let $ell_j$ be the corresponding length. Use `ILP<i32>` with binary variables encoded by bounds $0 <= x <= 1$. Order the variables as
+  $(d_0, dots, d_(q-1), g_0, dots, g_(L-1), y_0, dots, y_(L-1), z_0, dots, z_(n-1), rho_0, dots, rho_(n-1), s, b_0, dots, b_(n-1), f_0, dots, f_(L-1), h_0, dots, h_(L-1))$,
+  so $d_k$ has index $k$, $g_j$ has index $q + j$, $y_j$ has index $q + L + j$, $z_v$ has index $q + 2 L + v$, $rho_v$ has index $q + 2 L + n + v$, $s$ has index $q + 2 L + 2 n$, $b_v$ has index $q + 2 L + 2 n + 1 + v$, $f_j$ has index $q + 2 L + 3 n + 1 + j$, and $h_j$ has index $q + 3 L + 3 n + 1 + j$. There are $q + 4 L + 3 n + 1$ variables in total.
+
+  The orientation bit $d_k in {0, 1}$ means $d_k = 0$ chooses $u_k -> v_k$ and $d_k = 1$ chooses $v_k -> u_k$. Define the required multiplicity on each available arc explicitly by
+  $r_i(d) = 1$ for $0 <= i < m$,
+  $r_(m + 2 k)(d) = 1 - d_k$,
+  and $r_(m + 2 k + 1)(d) = d_k$.
+  Thus the two oriented copies of each undirected edge are already linear in the orientation bit.
+
+  Let $G = R (n - 1)$ and $M_"use" = 1 + G$. The variable $g_j in {0, dots, G}$ counts extra traversals of $b_j$ beyond the required multiplicity, so the total multiplicity of $b_j$ is $r_j(d) + g_j$. The bound $G = R (n - 1)$ is exact for this formulation: any closed walk can be shortcut so that between consecutive required traversals it uses a simple connector path of at most $n - 1$ arcs, and there are exactly $R$ such connector segments in the cyclic order of the required traversals.
+
+  The constraints are:
+  $sum_(j : "tail"_j = v) (r_j(d) + g_j) - sum_(j : "head"_j = v) (r_j(d) + g_j) = 0$ for every $v in V$;
+  $r_j(d) + g_j <= M_"use" y_j$ and $y_j <= r_j(d) + g_j$ for every $j in {0, dots, L - 1}$, so $y_j = 1$ iff arc $b_j$ is used at least once;
+  $y_j <= z_"tail"_j$ and $y_j <= z_"head"_j$ for every $j$, and $z_v <= sum_(j : "tail"_j = v " or " "head"_j = v) y_j$ for every vertex $v$, so $z_v = 1$ iff $v$ is incident to some used arc;
+  $s = sum_v z_v$;
+  $sum_v rho_v = 1$, $rho_v <= z_v$ for every $v$, and the product linearization $b_v <= s$, $b_v <= n rho_v$, $b_v >= s - n (1 - rho_v)$, $b_v >= 0$ for every $v$, so $b_v = s rho_v$ and therefore the unique root chosen by $rho$ supplies $s - 1$ units of connectivity flow;
+  $0 <= f_j <= (n - 1) y_j$ and $0 <= h_j <= (n - 1) y_j$ for every available arc $b_j$; here the exact big-$M$ for arc activation is $n - 1$, because at most one unit is demanded by each non-root active vertex;
+  $sum_(j : "tail"_j = v) f_j - sum_(j : "head"_j = v) f_j = b_v - z_v$ for every vertex $v$; and
+  $sum_(j : "head"_j = v) h_j - sum_(j : "tail"_j = v) h_j = b_v - z_v$ for every vertex $v$.
+  The $f$-flow makes every active vertex reachable from the chosen root, and the $h$-flow makes the root reachable from every active vertex on the same used support.
+  Finally impose the length bound
+  $sum_(j = 0)^(L - 1) ell_j (r_j(d) + g_j) <= B$.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(j : "tail"_j = v) (r_j(d) + g_j) - sum_(j : "head"_j = v) (r_j(d) + g_j) = 0 quad forall v in V \
+    & r_j(d) + g_j <= M_"use" y_j, y_j <= r_j(d) + g_j quad forall j in {0, dots, L - 1} \
+    & y_j <= z_"tail"_j, y_j <= z_"head"_j quad forall j \
+    & z_v <= sum_(j : "tail"_j = v " or " "head"_j = v) y_j quad forall v in V \
+    & s = sum_v z_v; sum_v rho_v = 1; rho_v <= z_v quad forall v in V \
+    & "the standard product linearization enforces" b_v = s rho_v quad forall v in V \
+    & 0 <= f_j, h_j <= (n - 1) y_j quad forall j in {0, dots, L - 1} \
+    & "forward and reverse root-flow conservation hold on the used support" \
+    & sum_(j = 0)^(L - 1) ell_j (r_j(d) + g_j) <= B \
+    & d_k, y_j, z_v, rho_v in {0, 1}; g_j in {0, dots, G}; f_j, h_j in {0, dots, n - 1}; s, b_v in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) From any feasible mixed-postman tour, set $d_k$ from the direction in which edge $e_k$ is first required, let $g_j$ be the number of extra copies of $b_j$ beyond the required multiplicity, and let $y_j$ mark the positive-support arcs. The tour itself visits exactly the active vertices, so some active vertex can be chosen as the root. Taking one outgoing spanning arborescence and one incoming spanning arborescence of the used Eulerian digraph gives feasible $f$- and $h$-flows. The walk length is exactly $sum_j ell_j (r_j(d) + g_j)$, hence the ILP is feasible.
+  ($arrow.l.double$) A feasible ILP solution chooses one direction for every undirected edge, and the balance equations make the directed multigraph with multiplicities $r_j(d) + g_j$ Eulerian. The two root-flow systems imply that the positive-support digraph on the active vertices is strongly connected. Therefore the used multigraph admits an Euler tour, and its total length is exactly the bounded linear form above, so the source instance is a YES-instance.
+
+  _Solution extraction._ Return the orientation bits $d_e$ in the source edge order.
+]
+
+#reduction-rule("RuralPostman", "ILP")[
+  Use one traversal-multiplicity variable per edge, together with activation and connectivity constraints, to encode an Eulerian connected subgraph covering all required edges.
+][
+  _Construction._ If $E' = emptyset$, the empty circuit already satisfies the source instance whenever $B >= 0$, so use the empty ILP. Otherwise fix a root vertex $r$ incident to some required edge and let $n = |V|$. Variables: integer $t_e in {0, 1, 2}$ and parity variables $q_v$, binary edge-activation flags $y_e$, binary vertex-activity flags $z_v$, and nonnegative connectivity-flow variables $f_(u,v)$ on both orientations of every edge. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & y_e <= t_e <= 2 y_e quad forall e in E \
+    & t_e >= 1 quad forall e in E' \
+    & sum_(e : v in e) t_e = 2 q_v quad forall v \
+    & y_e <= z_u, y_e <= z_v quad forall e = {u, v} in E \
+    & z_v <= sum_(e : v in e) y_e quad forall v in V \
+    & f_(u,v) <= (n - 1) y_e, f_(v,u) <= (n - 1) y_e quad forall e = {u, v} in E \
+    & sum_(w : {r, w} in E) f_(r,w) - sum_(u : {u, r} in E) f_(u,r) = sum_v z_v - 1 \
+    & sum_(u : {u, v} in E) f_(u,v) - sum_(w : {v, w} in E) f_(v,w) = z_v quad forall v in V backslash {r} \
+    & sum_e ell_e t_e <= B \
+    & y_e, z_v in {0, 1}, t_e in {0, 1, 2}, q_v, f_(u,v) in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible rural-postman circuit uses each edge at most twice, has even degrees, is connected on its positive-support edges, and satisfies the bound. ($arrow.l.double$) A feasible ILP solution defines a connected Eulerian multigraph containing every required edge, hence an Eulerian circuit of total length at most $B$.
+
+  _Solution extraction._ Output the traversal multiplicities $(t_e)_(e in E)$.
+]
+
+#reduction-rule("StackerCrane", "ILP")[
+  Encode the required-arc order by a one-hot position assignment and charge the shortest connector distance between each consecutive pair of required arcs.
+][
+  _Construction._ Let the required arcs be $A = {a_0, dots, a_(m-1)}$ with $a_i = ("tail"_i, "head"_i)$. Build the mixed connector graph
+  $H = (V, A union {(u, v), (v, u) : {u, v} in E})$,
+  where the original required arcs keep their given lengths and each undirected edge contributes both orientations with the same length. Because all lengths are nonnegative, compute the all-pairs connector distances
+  $D[u, v] = "dist"_H(u, v)$
+  either by running Dijkstra from every source vertex or by Floyd--Warshall on the $n$-vertex graph $H$; this is exactly the graph queried by `mixed_graph_adjacency()` and `shortest_path_length()` in the model. If $D[u, v] = oo$, the pair is impossible and will be forbidden explicitly.
+
+  Use `ILP<bool>`. The binary position variables are $x_(i,p)$ for $i, p in {0, dots, m - 1}$, with index
+  $"idx"_x(i, p) = i m + p$.
+  The binary McCormick variables are $z_(i,j,p)$ for $i, j, p in {0, dots, m - 1}$, where position $p + 1$ is interpreted cyclically as $(p + 1) mod m$; their indices are
+  $"idx"_z(i, j, p) = m^2 + p m^2 + i m + j$.
+  There are $m^2 + m^3$ binary variables.
+
+  The constraints are:
+  $sum_(p = 0)^(m - 1) x_(i,p) = 1$ for each required arc $i$;
+  $sum_(i = 0)^(m - 1) x_(i,p) = 1$ for each position $p$;
+  $z_(i,j,p) <= x_(i,p)$, $z_(i,j,p) <= x_(j,(p + 1) mod m)$, and $z_(i,j,p) >= x_(i,p) + x_(j,(p + 1) mod m) - 1$ for all $i, j, p$;
+  if $D["head"_i, "tail"_j] = oo$, then either set $z_(i,j,p) = 0$ for all $p$ or, equivalently, impose $x_(i,p) + x_(j,(p + 1) mod m) <= 1$ for all $p$;
+  and finally
+  $sum_(i = 0)^(m - 1) ell_i + sum_(p = 0)^(m - 1) sum_(i = 0)^(m - 1) sum_(j = 0)^(m - 1) D["head"_i, "tail"_j] z_(i,j,p) <= B$.
+  The first term is the total length of the required traversals, and the second term charges exactly one connector distance for each consecutive pair in the cyclic order.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(p = 0)^(m - 1) x_(i,p) = 1 quad forall i in {0, dots, m - 1} \
+    & sum_(i = 0)^(m - 1) x_(i,p) = 1 quad forall p in {0, dots, m - 1} \
+    & z_(i,j,p) <= x_(i,p), z_(i,j,p) <= x_(j,(p + 1) mod m) quad forall i, j, p \
+    & z_(i,j,p) >= x_(i,p) + x_(j,(p + 1) mod m) - 1 quad forall i, j, p \
+    & z_(i,j,p) = 0 quad "whenever" D["head"_i, "tail"_j] = oo \
+    & sum_(i = 0)^(m - 1) ell_i + sum_(p = 0)^(m - 1) sum_(i = 0)^(m - 1) sum_(j = 0)^(m - 1) D["head"_i, "tail"_j] z_(i,j,p) <= B \
+    & x_(i,p), z_(i,j,p) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible Stacker Crane permutation determines a one-hot assignment and consecutive-pair indicators whose connector costs equal the route length. ($arrow.l.double$) Any feasible ILP solution yields a permutation of the required arcs, and the linearized connector term is exactly the sum of shortest paths between consecutive arcs.
+
+  _Solution extraction._ Decode the permutation by taking, for each position $p$, the unique arc $a$ with $x_(a,p) = 1$.
+]
+
+#reduction-rule("SteinerTreeInGraphs", "ILP")[
+  Select edges and certify terminal connectivity by sending one unit of flow from a root terminal to every other terminal through the selected subgraph.
+][
+  _Construction._ Fix a root terminal $r in R$. Variables: binary $y_(u,v)$ for each undirected edge $\{u,v\}$ and nonnegative flow variables $f^t_(u,v)$ on each directed edge orientation for every terminal $t in R backslash {r}$. The ILP is:
+  $
+    min quad & sum_({u,v} in E) w_(u,v) y_(u,v) \
+    "subject to" quad & sum_(u) f^t_(u,v) - sum_(w) f^t_(v,w) = b_(t,v) quad forall t in R backslash {r}, v in V \
+    & f^t_(u,v) <= y_(u,v) quad forall {u, v} in E, t in R backslash {r} \
+    & f^t_(v,u) <= y_(u,v) quad forall {u, v} in E, t in R backslash {r} \
+    & y_(u,v) in {0, 1}, f^t_(u,v) in ZZ_(>=0)
+  $,
+  where $b_(t,v) = -1$ if $v = r$, $b_(t,v) = 1$ if $v = t$, and $b_(t,v) = 0$ otherwise.
+
+  _Correctness._ ($arrow.r.double$) A Steiner tree supports a unit flow from the root to every other terminal using exactly its selected edges, with the same total weight. ($arrow.l.double$) Any feasible ILP solution selects a connected subgraph spanning all terminals, and with nonnegative edge weights an optimum solution is a minimum-weight Steiner tree.
+
+  _Solution extraction._ Output the binary edge-selection vector $(y_e)_(e in E)$.
+]
+
+// Scheduling
+
+#reduction-rule("FlowShopScheduling", "ILP")[
+  Order the jobs with pairwise precedence bits and completion-time variables on every machine; the deadline becomes a makespan bound.
+][
+  _Construction._ Let $q in {1, dots, m}$ index the machines, let $p_(j,q) = ell(t_q [j])$ be the processing time of job $j$ on machine $q$, and let $M = D + max_(j, q) p_(j,q)$. Variables: binary $y_(i,j)$ with $y_(i,j) = 1$ iff job $i$ precedes job $j$, and integer completion times $C_(j,q)$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & y_(i,j) + y_(j,i) = 1 quad forall i != j \
+    & C_(j,1) >= p_(j,1) quad forall j \
+    & C_(j,q + 1) >= C_(j,q) + p_(j,q + 1) quad forall j, q in {1, dots, m - 1} \
+    & C_(j,q) >= C_(i,q) + p_(j,q) - M (1 - y_(i,j)) quad forall i != j, q in {1, dots, m} \
+    & C_(j,m) <= D quad forall j \
+    & y_(i,j) in {0, 1}, C_(j,q) in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible flow-shop permutation induces a total order and completion times satisfying the machine and deadline constraints. ($arrow.l.double$) Any feasible ILP solution defines one common order of the jobs on all machines, and the resulting schedule completes by the deadline.
+
+  _Solution extraction._ Sort the jobs by their final-machine completion times $C_(j,m)$ and convert that permutation to Lehmer code.
+]
+
+#reduction-rule("MinimumTardinessSequencing", "ILP")[
+  A position-assignment ILP captures the permutation, the precedence constraints, and a binary tardy indicator for each unit-length task.
+][
+  _Construction._ Variables: binary $x_(j,p)$ placing task $j$ in position $p in {0, dots, n-1}$ and binary tardy indicators $u_j$, where $M = n$. The ILP is:
+  $
+    min quad & sum_j u_j \
+    "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
+    & sum_j x_(j,p) = 1 quad forall p \
+    & sum_p p x_(i,p) + 1 <= sum_p p x_(j,p) quad "for each precedence" (i, j) \
+    & sum_p (p + 1) x_(j,p) - d_j <= M u_j quad forall j \
+    & x_(j,p), u_j in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible schedule gives a permutation and tardy bits with objective equal to the number of tardy tasks. ($arrow.l.double$) Any feasible ILP assignment decodes to a precedence-respecting permutation, and each $u_j$ is forced to record whether task $j$ misses its deadline.
+
+  _Solution extraction._ Decode the permutation from $x_(j,p)$ and encode it as Lehmer code.
+]
+
+#reduction-rule("ResourceConstrainedScheduling", "ILP")[
+  The source witness is already a time-slot assignment, so a standard time-indexed ILP suffices.
+][
+  _Construction._ Variables: binary $x_(j,t)$ with $x_(j,t) = 1$ iff task $j$ is run in slot $t in {0, dots, D - 1}$, where $r_(j,q) = R_q(t_j)$ denotes the amount of resource $q$ consumed by task $j$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_t x_(j,t) = 1 quad forall j \
+    & sum_j x_(j,t) <= m quad forall t \
+    & sum_j r_(j,q) x_(j,t) <= B_q quad forall q, t \
+    & x_(j,t) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible schedule chooses one slot per task while respecting processor and resource capacities in every period. ($arrow.l.double$) Any feasible ILP solution directly gives such a slot assignment.
+
+  _Solution extraction._ Task $j$ is assigned to the unique slot $t$ with $x_(j,t) = 1$.
+]
+
+#reduction-rule("SequencingToMinimizeMaximumCumulativeCost", "ILP")[
+  Assign each task to one position in the permutation and bound the running cumulative cost at every prefix.
+][
+  _Construction._ Variables: binary $x_(j,p)$ with $x_(j,p) = 1$ iff task $j$ is scheduled in position $p$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
+    & sum_j x_(j,p) = 1 quad forall p \
+    & sum_p p x_(i,p) + 1 <= sum_p p x_(j,p) quad "for each precedence" (i, j) \
+    & sum_j sum_(p in {0, dots, q}) c_j x_(j,p) <= K quad forall q \
+    & x_(j,p) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A feasible permutation satisfies the precedence constraints and keeps every prefix sum at most $K$. ($arrow.l.double$) Any feasible ILP assignment is a permutation whose cumulative cost after each prefix is exactly the linear expression being bounded.
+
+  _Solution extraction._ Decode the position assignment and convert the resulting permutation to Lehmer code.
+]
+
+#reduction-rule("SequencingToMinimizeWeightedTardiness", "ILP")[
+  Encode the single-machine order with pairwise precedence bits and completion times, then linearize the weighted tardiness bound with nonnegative tardiness variables.
+][
+  _Construction._ Variables: binary $y_(i,j)$ with $y_(i,j) = 1$ iff job $i$ precedes job $j$, integer completion times $C_j$, and nonnegative tardiness variables $T_j$, where $M = sum_j ell_j$ is a valid schedule-horizon bound. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & y_(i,j) + y_(j,i) = 1 quad forall i != j \
+    & C_j >= ell_j quad forall j \
+    & C_j >= C_i + ell_j - M (1 - y_(i,j)) quad forall i != j \
+    & T_j >= C_j - d_j quad forall j \
+    & T_j >= 0 quad forall j \
+    & sum_j w_j T_j <= K \
+    & y_(i,j) in {0, 1}, C_j in ZZ_(>=0), T_j in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any job order induces completion times and tardiness values satisfying the bound exactly when the source instance is feasible. ($arrow.l.double$) Any feasible ILP solution yields a single-machine order whose weighted tardiness equals the encoded linear objective term.
+
+  _Solution extraction._ Sort the jobs by $C_j$ and encode that permutation as Lehmer code.
+]
+
+#reduction-rule("SequencingWithReleaseTimesAndDeadlines", "ILP")[
+  A time-indexed formulation captures the admissible start window of each task and forbids overlap on the single machine.
+][
+  _Construction._ Variables: binary $x_(j,t)$ with $x_(j,t) = 1$ iff task $j$ starts at time $t$, where $p_j = ell(t_j)$ is the processing time (length) of task $j$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(t = r_j)^(d_j - p_j) x_(j,t) = 1 quad forall j \
+    & sum_(j, t : t <= tau < t + p_j) x_(j,t) <= 1 quad forall tau \
+    & x_(j,t) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible non-preemptive schedule chooses one valid start time per task and never overlaps two active jobs. ($arrow.l.double$) Any feasible ILP solution gives exactly such a start-time assignment, so executing the jobs in increasing start order solves the source instance.
+
+  _Solution extraction._ Read each task's chosen start time, sort the tasks by that order, and encode the resulting permutation as Lehmer code.
+]
+
+#reduction-rule("TimetableDesign", "ILP")[
+  The source witness is a binary craftsman-task-period incidence table, and all feasibility conditions are already linear.
+][
+  _Construction._ Variables: binary $x_(c,t,h)$ with $x_(c,t,h) = 1$ iff craftsman $c$ works on task $t$ in period $h$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & x_(c,t,h) = 0 quad "whenever either side is unavailable" \
+    & sum_t x_(c,t,h) <= 1 quad forall c, h \
+    & sum_c x_(c,t,h) <= 1 quad forall t, h \
+    & sum_h x_(c,t,h) = r_(c,t) quad forall c, t \
+    & x_(c,t,h) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any valid timetable satisfies availability, exclusivity, and exact requirement counts. ($arrow.l.double$) Any feasible ILP solution is exactly such a timetable because the variable layout matches the source configuration.
+
+  _Solution extraction._ Output the flattened binary array $(x_(c,t,h))$ in source order.
+]
+
+// Position/Assignment
+
+#reduction-rule("HamiltonianPath", "ILP")[
+  Place each vertex in exactly one path position and use auxiliary variables for consecutive pairs so only graph edges may appear between adjacent positions.
+][
+  _Construction._ Variables: binary $x_(v,p)$ with $x_(v,p) = 1$ iff vertex $v$ is placed at position $p$, and binary $z_((u,v),p)$ linearizing $x_(u,p) x_(v,p+1)$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_p x_(v,p) = 1 quad forall v \
+    & sum_v x_(v,p) = 1 quad forall p \
+    & z_((u,v),p) <= x_(u,p) quad forall (u, v), p \
+    & z_((u,v),p) <= x_(v,p+1) quad forall (u, v), p \
+    & z_((u,v),p) >= x_(u,p) + x_(v,p+1) - 1 quad forall (u, v), p \
+    & sum_((u,v) in E) z_((u,v),p) = 1 quad forall p \
+    & x_(v,p), z_((u,v),p) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian path defines a permutation of the vertices and therefore a feasible assignment matrix with one admissible graph edge between every consecutive pair. ($arrow.l.double$) Any feasible ILP solution is a vertex permutation whose consecutive pairs are graph edges, hence a Hamiltonian path.
+
+  _Solution extraction._ For each position $p$, output the unique vertex $v$ with $x_(v,p) = 1$.
+]
+
+#reduction-rule("BottleneckTravelingSalesman", "ILP")[
+  Use a cyclic position assignment for the tour and a bottleneck variable that dominates the weight of every chosen tour edge.
+][
+  _Construction._ Variables: binary $x_(v,p)$ for city-position assignment, binary $z_((u,v),p)$ for consecutive tour edges, and integer bottleneck variable $b$. The ILP is:
+  $
+    min quad & b \
+    "subject to" quad & sum_p x_(v,p) = 1 quad forall v \
+    & sum_v x_(v,p) = 1 quad forall p \
+    & z_((u,v),p) <= x_(u,p) quad forall (u, v), p \
+    & z_((u,v),p) <= x_(v,(p+1) mod n) quad forall (u, v), p \
+    & z_((u,v),p) >= x_(u,p) + x_(v,(p+1) mod n) - 1 quad forall (u, v), p \
+    & sum_((u,v) in E) z_((u,v),p) = 1 quad forall p \
+    & b >= w_(u,v) z_((u,v),p) quad forall (u, v), p \
+    & x_(v,p), z_((u,v),p) in {0, 1}, b in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any Hamiltonian tour yields a feasible assignment and sets $b$ to the maximum selected edge weight. ($arrow.l.double$) Any feasible ILP solution encodes a Hamiltonian cycle, and the minimax constraints force $b$ to equal its bottleneck edge weight.
+
+  _Solution extraction._ Mark an edge selected in the source config iff it appears between two consecutive positions in the decoded cycle.
+]
+
+#reduction-rule("LongestCircuit", "ILP")[
+  A direct cycle-selection ILP uses binary edge variables, degree constraints, and a connectivity witness to force exactly one simple circuit of length at least the bound.
+][
+  _Construction._ Variables: binary $y_e$ for edges, binary $s_v$ indicating whether vertex $v$ lies on the circuit, and root-flow variables on selected edges. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(e : v in e) y_e = 2 s_v quad forall v \
+    & sum_e y_e >= 3 \
+    & sum_e l_e y_e >= K \
+    & "root-flow connectivity constraints hold on the selected edges" \
+    & y_e, s_v in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A simple circuit has degree 2 at each used vertex, is connected, and meets the length bound $K$. ($arrow.l.double$) The degree and connectivity constraints force the selected edges to form exactly one simple circuit, and the final inequality enforces the required total length.
+
+  _Solution extraction._ Output the binary edge-selection vector $(y_e)_(e in E)$.
+]
+
+#reduction-rule("QuadraticAssignment", "ILP")[
+  Assign each facility to exactly one location, enforce injectivity, and linearize every quadratic cost term with McCormick products.
+][
+  _Construction._ Variables: binary $x_(i,p)$ with $x_(i,p) = 1$ iff facility $i$ is placed at location $p$, and binary $z_((i,p),(j,q))$ for the products $x_(i,p) x_(j,q)$. The ILP is:
+  $
+    min quad & sum_(i != j) sum_(p,q) c_(i,j) d_(p,q) z_((i,p),(j,q)) \
+    "subject to" quad & sum_p x_(i,p) = 1 quad forall i \
+    & sum_i x_(i,p) <= 1 quad forall p \
+    & z_((i,p),(j,q)) <= x_(i,p) quad forall i, p, j, q \
+    & z_((i,p),(j,q)) <= x_(j,q) quad forall i, p, j, q \
+    & z_((i,p),(j,q)) >= x_(i,p) + x_(j,q) - 1 quad forall i, p, j, q \
+    & x_(i,p), z_((i,p),(j,q)) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any injective facility placement gives a feasible ILP assignment with exactly the same quadratic cost. ($arrow.l.double$) Any feasible ILP solution decodes to an injective facility-to-location map, and the linearized objective equals the source objective term by term.
+
+  _Solution extraction._ For each facility $i$, output the unique location $p$ with $x_(i,p) = 1$.
+]
+
+#reduction-rule("OptimalLinearArrangement", "ILP")[
+  Assign each vertex to one position and use absolute-value auxiliaries to measure the length of every edge in the arrangement.
+][
+  _Construction._ Variables: binary $x_(v,p)$ with $x_(v,p) = 1$ iff vertex $v$ gets position $p$, integer position variables $p_v = sum_p p x_(v,p)$, and nonnegative $z_(u,v)$ per edge $\{u,v\}$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_p x_(v,p) = 1 quad forall v \
+    & sum_v x_(v,p) = 1 quad forall p \
+    & z_(u,v) >= p_u - p_v quad forall {u, v} in E \
+    & z_(u,v) >= p_v - p_u quad forall {u, v} in E \
+    & sum_({u,v} in E) z_(u,v) <= K \
+    & x_(v,p) in {0, 1}, z_(u,v) in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any valid linear arrangement satisfies the permutation constraints and gives edge lengths $|p_u - p_v|$ within the bound. ($arrow.l.double$) Any feasible ILP solution is a bijection from vertices to positions, and the auxiliary variables exactly upper-bound the edge lengths, so the total arrangement cost is at most $K$.
+
+  _Solution extraction._ For each vertex $v$, output its decoded position $p_v$.
+]
+
+#reduction-rule("SubgraphIsomorphism", "ILP")[
+  Choose an injective image of every pattern vertex in the host graph and forbid any mapped pattern edge from landing on a host non-edge.
+][
+  _Construction._ Variables: binary $x_(v,u)$ with $x_(v,u) = 1$ iff pattern vertex $v$ maps to host vertex $u$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_u x_(v,u) = 1 quad forall v \
+    & sum_v x_(v,u) <= 1 quad forall u \
+    & x_(v,u) + x_(w,u') <= 1 quad forall {v, w} in E_"pat", {u, u'} in.not E_"host" \
+    & x_(v,u') + x_(w,u) <= 1 quad forall {v, w} in E_"pat", {u, u'} in.not E_"host" \
+    & x_(v,u) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any injective edge-preserving embedding satisfies the assignment and non-edge constraints. ($arrow.l.double$) Any feasible ILP solution is an injective vertex map, and the non-edge inequalities ensure every pattern edge is sent to a host edge.
+
+  _Solution extraction._ For each pattern vertex $v$, output the unique host vertex $u$ with $x_(v,u) = 1$.
+]
+
+// Graph structure
+
+#reduction-rule("AcyclicPartition", "ILP")[
+  Assign every vertex to one partition class, bound the weight and crossing cost of those classes, and impose a topological order on the quotient digraph.
+][
+  _Construction._ Let $n = |V|$ and let the directed arcs be $A = {a_0, dots, a_(m-1)}$ with $a_t = (u_t -> v_t)$. The source witness already allows every vertex to choose one label in ${0, dots, n - 1}$, so the ILP uses exactly the same label range. Use `ILP<i32>` with variable order
+  $(x_(v,c))_(v,c), (s_(t,c))_(t,c), (y_t)_t, (o_c)_c, (p_v)_v$.
+  The indices are
+  $"idx"_x(v,c) = v n + c$,
+  $"idx"_s(t,c) = n^2 + t n + c$,
+  $"idx"_y(t) = n^2 + m n + t$,
+  $"idx"_o(c) = n^2 + m n + m + c$,
+  and $ "idx"_p(v) = n^2 + m n + m + n + v$.
+  There are $n^2 + m n + m + 2 n$ variables.
+
+  Here $x_(v,c) in {0, 1}$ means vertex $v$ is assigned to class $c$, $s_(t,c) in {0, 1}$ means both endpoints of arc $a_t$ lie in class $c$, $y_t in {0, 1}$ marks that arc $a_t$ crosses between two different classes, $o_c in {0, dots, n - 1}$ is the order assigned to class $c$, and $p_v in {0, dots, n - 1}$ copies the order of the class chosen by vertex $v$.
+
+  The constraints are:
+  $sum_(c = 0)^(n - 1) x_(v,c) = 1$ for every vertex $v$;
+  $sum_v w_v x_(v,c) <= B$ for every class $c$;
+  $s_(t,c) <= x_(u_t,c)$, $s_(t,c) <= x_(v_t,c)$, and $s_(t,c) >= x_(u_t,c) + x_(v_t,c) - 1$ for every arc $a_t$ and class $c$;
+  $y_t + sum_(c = 0)^(n - 1) s_(t,c) = 1$ for every arc $a_t$, so $y_t = 1$ exactly for crossing arcs;
+  $sum_(t = 0)^(m - 1) "cost"(a_t) y_t <= K$;
+  $0 <= o_c <= n - 1$ and $0 <= p_v <= n - 1$ for all classes $c$ and vertices $v$;
+  $p_v - o_c <= (n - 1) (1 - x_(v,c))$ and $o_c - p_v <= (n - 1) (1 - x_(v,c))$ for all $v, c$, so $p_v = o_c$ whenever $x_(v,c) = 1$;
+  and for every arc $a_t = (u_t -> v_t)$,
+  $p_(v_t) - p_(u_t) >= 1 - n sum_(c = 0)^(n - 1) s_(t,c)$.
+  The exact big-$M$ here is $M = n$: if $u_t$ and $v_t$ lie in the same class, then $sum_c s_(t,c) = 1$ and the right-hand side is $1 - n = -(n - 1)$, which is precisely the smallest possible difference between two order variables in ${0, dots, n - 1}$. If the arc crosses between two distinct classes, then $sum_c s_(t,c) = 0$ and the inequality becomes $p_(v_t) - p_(u_t) >= 1$. For the realized classes $c$ and $d$ of the endpoints, this is exactly the requested form
+  $o_d - o_c >= 1 - M sum_h s_(t,h)$.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(c = 0)^(n - 1) x_(v,c) = 1 quad forall v in V \
+    & sum_v w_v x_(v,c) <= B quad forall c in {0, dots, n - 1} \
+    & s_(t,c) <= x_(u_t,c), s_(t,c) <= x_(v_t,c) quad forall t, c \
+    & s_(t,c) >= x_(u_t,c) + x_(v_t,c) - 1 quad forall t, c \
+    & y_t + sum_(c = 0)^(n - 1) s_(t,c) = 1 quad forall t in {0, dots, m - 1} \
+    & sum_(t = 0)^(m - 1) "cost"(a_t) y_t <= K \
+    & p_v - o_c <= (n - 1) (1 - x_(v,c)), o_c - p_v <= (n - 1) (1 - x_(v,c)) quad forall v, c \
+    & p_(v_t) - p_(u_t) >= 1 - n sum_(c = 0)^(n - 1) s_(t,c) quad forall t in {0, dots, m - 1} \
+    & x_(v,c), s_(t,c), y_t in {0, 1}; o_c, p_v in {0, dots, n - 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any valid acyclic partition gives a class assignment whose quotient arcs respect some topological ordering, with the same class weights and crossing cost. ($arrow.l.double$) Any feasible ILP solution partitions the vertices, keeps every class within the weight bound, charges exactly the inter-class arcs, and the order variables force the quotient digraph to be acyclic.
+
+  _Solution extraction._ For each vertex $v$, output the unique class label $c$ with $x_(v,c) = 1$.
+]
+
+#reduction-rule("BalancedCompleteBipartiteSubgraph", "ILP")[
+  Choose exactly $k$ vertices on each side of the bipartite graph and forbid any selected left-right pair that is not an edge.
+][
+  _Construction._ Let $L$ and $R$ be the bipartition. Variables: binary $x_l$ for $l in L$ and $y_r$ for $r in R$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(l in L) x_l = k \
+    & sum_(r in R) y_r = k \
+    & x_l + y_r <= 1 quad forall (l, r) in.not E \
+    & x_l, y_r in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A balanced complete bipartite subgraph of size $k + k$ satisfies the cardinality constraints and has no selected non-edge pair. ($arrow.l.double$) Any feasible ILP solution selects $k$ left vertices and $k$ right vertices with every cross-pair present, hence a balanced biclique.
+
+  _Solution extraction._ Output the concatenated left/right binary selection vector.
+]
+
+#reduction-rule("BicliqueCover", "ILP")[
+  Use $k$ candidate bicliques, assign vertices to any of them, force every graph edge to be covered by some common biclique, and minimize the total membership size.
+][
+  _Construction._ Variables: binary $x_(l,b)$ for left vertices, binary $y_(r,b)$ for right vertices, and binary $z_((l,r),b)$ linearizing $x_(l,b) y_(r,b)$. The ILP is:
+  $
+    min quad & sum_(l,b) x_(l,b) + sum_(r,b) y_(r,b) \
+    "subject to" quad & z_((l,r),b) <= x_(l,b) quad forall l, r, b \
+    & z_((l,r),b) <= y_(r,b) quad forall l, r, b \
+    & z_((l,r),b) >= x_(l,b) + y_(r,b) - 1 quad forall l, r, b \
+    & sum_b z_((l,r),b) >= 1 quad forall (l, r) in E \
+    & x_(l,b) + y_(r,b) <= 1 quad forall (l, r) in.not E, b \
+    & x_(l,b), y_(r,b), z_((l,r),b) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any valid $k$-biclique cover assigns each covered edge to a biclique containing both endpoints, with objective equal to the total biclique size. ($arrow.l.double$) Any feasible ILP solution defines $k$ complete bipartite subgraphs whose union covers every edge, and the objective is exactly the source objective.
+
+  _Solution extraction._ Output the flattened vertex-by-biclique membership bits and discard the coverage auxiliaries.
+]
+
+#reduction-rule("BiconnectivityAugmentation", "ILP")[
+  Select candidate edges under the budget and, for every deleted vertex, certify that the remaining augmented graph stays connected by a flow witness.
+][
+  _Construction._ Let the base graph edges be $E = {e_0, dots, e_(m-1)}$ with $e_i = {u_i, v_i}$, and let the candidate edges be $F = {f_0, dots, f_(p-1)}$ with $f_j = {s_j, t_j}$. If $n = |V| <= 1$, return the empty feasible ILP, since every 0- or 1-vertex graph is already biconnected in the model. Otherwise fix, for each deleted vertex $q$, the surviving root
+  $r_q = 0$ if $q != 0$, and $r_0 = 1$.
+  This choice is explicit and valid because $n >= 2$.
+
+  Use `ILP<i32>`. The candidate-selection bits are $y_j in {0, 1}$ with index $j$. For the connectivity witnesses, allocate the full $(q, t)$ commodity grid with $q, t in {0, dots, n - 1}$, even though the commodities with $t = q$ or $t = r_q$ will be pinned to 0. For each base edge $e_i$ and orientation flag $eta in {0, 1}$, let $eta = 0$ mean $u_i -> v_i$ and $eta = 1$ mean $v_i -> u_i$; define binary flow variables $f^(q,t)_(i,eta)$ with index
+  $p + (((q n + t) m + i) 2 + eta)$.
+  For each candidate edge $f_j$ and orientation flag $eta in {0, 1}$, let $eta = 0$ mean $s_j -> t_j$ and $eta = 1$ mean $t_j -> s_j$; define binary flow variables $g^(q,t)_(j,eta)$ with index
+  $p + 2 m n^2 + (((q n + t) p + j) 2 + eta)$.
+  There are $p + 2 n^2 (m + p)$ variables in total.
+
+  The constraints are:
+  $sum_(j = 0)^(p - 1) w_j y_j <= B$;
+  for every deleted vertex $q$ and target $t$, if $t = q$ or $t = r_q$, set all $f^(q,t)_(i,eta)$ and $g^(q,t)_(j,eta)$ equal to 0;
+  if the deleted vertex $q$ is incident to base edge $e_i$ or candidate edge $f_j$, set the corresponding directed flow variables for that $(q,t)$ to 0, because they do not exist in $G - q$;
+  for each candidate edge variable, the exact activation big-$M$ is 1:
+  $g^(q,t)_(j,eta) <= y_j$ for every $q, t, j, eta$;
+  and for every valid pair $(q,t)$ with $t in.not {q, r_q}$ and every surviving vertex $v != q$, impose flow conservation
+  $sum_"out of v" (f^(q,t) + g^(q,t)) - sum_"into v" (f^(q,t) + g^(q,t)) = 1$
+  when $v = r_q$,
+  $= -1$ when $v = t$,
+  and $= 0$ otherwise.
+  The sums range over both orientations of all base and candidate edges that avoid $q$. Since every commodity carries exactly one unit, binary flows are sufficient.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(j = 0)^(p - 1) w_j y_j <= B \
+    & f^(q,t)_(i,eta) = 0 quad "whenever" t in {q, r_q} "or" e_i "is incident to" q \
+    & g^(q,t)_(j,eta) = 0 quad "whenever" t in {q, r_q} "or" f_j "is incident to" q \
+    & g^(q,t)_(j,eta) <= y_j quad forall q, t in {0, dots, n - 1}, j in {0, dots, p - 1}, eta in {0, 1} \
+    & "for each valid pair" (q,t) ", unit-flow conservation from" r_q "to" t "holds in" G - q \
+    & y_j, f^(q,t)_(i,eta), g^(q,t)_(j,eta) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) If the chosen augmentation makes the graph biconnected, then every vertex-deleted graph is connected and therefore supports the required flows. ($arrow.l.double$) If the ILP is feasible, then removing any single vertex leaves a connected graph, which is exactly the definition of biconnectivity for the augmented graph.
+
+  _Solution extraction._ Output the binary selection vector of candidate edges.
+]
+
+#reduction-rule("BoundedComponentSpanningForest", "ILP")[
+  Assign every vertex to one of at most $K$ components, bound each component's total weight, and certify connectivity inside each used component by a flow witness.
+][
+  _Construction._ Let $n = |V|$, let the graph edges be $E = {e_0, dots, e_(m-1)}$ with $e_i = {u_i, v_i}$, and let the allowed component labels be $c in {0, dots, K - 1}$. Use `ILP<i32>` with variables ordered as
+  $(x_(v,c))_(v,c), (u_c)_c, (r_(v,c))_(v,c), (s_c)_c, (b_(v,c))_(v,c), (f_(i,eta,c))_(i,eta,c)$.
+  Their indices are
+  $"idx"_x(v,c) = v K + c$,
+  $"idx"_u(c) = n K + c$,
+  $"idx"_r(v,c) = n K + K + v K + c$,
+  $"idx"_s(c) = 2 n K + K + c$,
+  $"idx"_b(v,c) = 2 n K + 2 K + v K + c$,
+  and, with $eta = 0$ meaning $u_i -> v_i$ and $eta = 1$ meaning $v_i -> u_i$,
+  $"idx"_f(i, eta, c) = 3 n K + 2 K + (i 2 + eta) K + c$.
+  There are $3 n K + 2 K + 2 m K$ variables.
+
+  Here $x_(v,c) in {0, 1}$ means vertex $v$ is placed in component $c$, $u_c in {0, 1}$ says that component $c$ is nonempty, $r_(v,c) in {0, 1}$ chooses the root of nonempty component $c$, $s_c in {0, dots, n}$ is its size, $b_(v,c) in {0, dots, n}$ linearizes the product $s_c r_(v,c)$, and $f_(i,eta,c) in {0, dots, n - 1}$ is the root-flow on the chosen component edges.
+
+  The constraints are:
+  $sum_(c = 0)^(K - 1) x_(v,c) = 1$ for every vertex $v$;
+  $sum_v w_v x_(v,c) <= B$ for every component label $c$;
+  $s_c = sum_v x_(v,c)$ for every $c$;
+  $u_c <= s_c$ and $s_c <= n u_c$ for every $c$, so $u_c = 1$ iff the component is nonempty;
+  $sum_v r_(v,c) = u_c$ and $r_(v,c) <= x_(v,c)$ for every $c$ and $v$, which chooses exactly one root in every nonempty component;
+  the product linearization $b_(v,c) <= s_c$, $b_(v,c) <= n r_(v,c)$, $b_(v,c) >= s_c - n (1 - r_(v,c))$, $b_(v,c) >= 0$ for every $v, c$, so $b_(v,c) = s_c r_(v,c)$; the exact big-$M$ here is $n$;
+  for every edge $e_i = {u_i, v_i}$, orientation flag $eta in {0, 1}$, and component $c$,
+  $0 <= f_(i,eta,c) <= (n - 1) x_(u_i,c)$ and $0 <= f_(i,eta,c) <= (n - 1) x_(v_i,c)$.
+  The exact capacity big-$M$ is $n - 1$: a component of size $s_c$ needs to route at most $s_c - 1 <= n - 1$ units across any oriented edge of a spanning tree.
+  Finally, for every vertex $v$ and component $c$,
+  $sum_"out of v in c" f - sum_"into v in c" f = b_(v,c) - x_(v,c)$.
+  If $v$ is the chosen root of component $c$, then the right-hand side is $s_c - 1$; every other assigned vertex consumes one unit; unassigned vertices have right-hand side 0.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(c = 0)^(K - 1) x_(v,c) = 1 quad forall v in V \
+    & sum_v w_v x_(v,c) <= B quad forall c in {0, dots, K - 1} \
+    & s_c = sum_v x_(v,c) quad forall c in {0, dots, K - 1} \
+    & u_c <= s_c <= n u_c quad forall c in {0, dots, K - 1} \
+    & sum_v r_(v,c) = u_c, r_(v,c) <= x_(v,c) quad forall v, c \
+    & "the standard product linearization enforces" b_(v,c) = s_c r_(v,c) quad forall v, c \
+    & 0 <= f_(i,eta,c) <= (n - 1) x_(u_i,c), 0 <= f_(i,eta,c) <= (n - 1) x_(v_i,c) quad forall i, eta, c \
+    & sum_"out of v in c" f - sum_"into v in c" f = b_(v,c) - x_(v,c) quad forall v, c \
+    & x_(v,c), u_c, r_(v,c) in {0, 1}; s_c in {0, dots, n}; b_(v,c), f_(i,eta,c) in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any valid bounded-component partition assigns each component a connected supporting subgraph and respects the weight bound. ($arrow.l.double$) Any feasible ILP solution partitions the vertices into at most $K$ connected sets, each of total weight at most $B$, exactly as required by the source problem.
+
+  _Solution extraction._ For each vertex $v$, output the unique component label $c$ with $x_(v,c) = 1$.
+]
+
+#reduction-rule("MinimumCutIntoBoundedSets", "ILP")[
+  A binary side variable for each vertex, together with cut indicators on the edges, directly linearizes the bounded two-way cut conditions.
+][
+  _Construction._ Variables: binary $x_v$ with $x_v = 1$ iff $v$ is placed on the sink side, and binary $y_e$ for edges. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & x_s = 0 \
+    & x_t = 1 \
+    & sum_v x_v <= B \
+    & sum_v (1 - x_v) <= B \
+    & y_e >= x_u - x_v quad forall e = {u, v} in E \
+    & y_e >= x_v - x_u quad forall e = {u, v} in E \
+    & sum_e w_e y_e <= K \
+    & x_v, y_e in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible bounded cut determines a 0/1 side assignment, and the edge indicators are 1 exactly on the cut edges. ($arrow.l.double$) Any feasible ILP solution partitions the vertices into two bounded sets with $s$ and $t$ separated and total cut weight at most $K$.
+
+  _Solution extraction._ Output the partition bit-vector $(x_v)_(v in V)$.
+]
+
+#reduction-rule("StrongConnectivityAugmentation", "ILP")[
+  Select candidate arcs under the budget and certify strong connectivity by sending flow both from a root to every vertex and back again.
+][
+  _Construction._ Let the base arcs be $A = {a_0, dots, a_(m-1)}$ with $a_i = (u_i, v_i)$, let the candidate arcs be $C = {c_0, dots, c_(p-1)}$ with $c_j = (s_j, t_j)$, and, when $n = |V| >= 1$, fix the root to be vertex $r = 0$. If $n <= 1$, return the empty feasible ILP. Use `ILP<i32>` with variables ordered as
+  $(y_j)_j, (f^t_i)_(t,i), (bar(f)^t_j)_(t,j), (g^t_i)_(t,i), (bar(g)^t_j)_(t,j)$,
+  where $f^t$ is the forward root-to-$t$ flow on base arcs, $bar(f)^t$ is the forward flow on candidate arcs, $g^t$ is the backward $t$-to-root flow on base arcs, and $bar(g)^t$ is the backward flow on candidate arcs.
+  The indices are
+  $"idx"_y(j) = j$,
+  $"idx"_(f^t_i) = p + t m + i$,
+  $"idx"_(bar(f)^t_j) = p + n m + t p + j$,
+  $"idx"_(g^t_i) = p + n (m + p) + t m + i$,
+  and $ "idx"_(bar(g)^t_j) = p + n (2 m + p) + t p + j$.
+  There are $p + 2 n (m + p)$ variables.
+
+  The constraints are:
+  $sum_(j = 0)^(p - 1) w_j y_j <= B$;
+  for the dummy commodity $t = r$, set all four flow blocks $f^r_i$, $bar(f)^r_j$, $g^r_i$, $bar(g)^r_j$ to 0;
+  for every candidate arc and target vertex, use the exact activation big-$M = 1$:
+  $bar(f)^t_j <= y_j$ and $bar(g)^t_j <= y_j$ for all $t, j$;
+  for every $t != r$ and every vertex $v$,
+  $sum_"out of v" (f^t + bar(f)^t) - sum_"into v" (f^t + bar(f)^t) = 1$
+  when $v = r$,
+  $= -1$ when $v = t$,
+  and $= 0$ otherwise;
+  and
+  $sum_"out of v" (g^t + bar(g)^t) - sum_"into v" (g^t + bar(g)^t) = 1$
+  when $v = t$,
+  $= -1$ when $v = r$,
+  and $= 0$ otherwise.
+  All flow variables are binary, because each commodity carries a single unit.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(j = 0)^(p - 1) w_j y_j <= B \
+    & f^r_i = 0, bar(f)^r_j = 0, g^r_i = 0, bar(g)^r_j = 0 \
+    & bar(f)^t_j <= y_j, bar(g)^t_j <= y_j quad forall t in {0, dots, n - 1}, j in {0, dots, p - 1} \
+    & "root-to-target unit-flow conservation holds on" f^t, bar(f)^t quad forall t != r \
+    & "target-to-root unit-flow conservation holds on" g^t, bar(g)^t quad forall t != r \
+    & y_j, f^t_i, bar(f)^t_j, g^t_i, bar(g)^t_j in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A strongly connected augmentation provides both directions of reachability between the root and every other vertex, hence all required flows. ($arrow.l.double$) If those flows exist for every vertex, then every vertex is reachable from the root and can reach the root, so the augmented digraph is strongly connected.
+
+  _Solution extraction._ Output the binary candidate-arc selection vector $(y_a)$.
+]
+
+// Matrix/encoding
+
+#reduction-rule("BMF", "ILP")[
+  Split the witness into binary factor matrices $B$ and $C$, reconstruct their Boolean product with McCormick auxiliaries, and minimize the Hamming distance to the target matrix.
+][
+  _Construction._ Variables: binary $b_(i,r)$, binary $c_(r,j)$, binary $p_(i,r,j)$ linearizing $b_(i,r) c_(r,j)$, binary $w_(i,j)$ for the reconstructed entry, and nonnegative error variables $e_(i,j)$. The ILP is:
+  $
+    min quad & sum_(i,j) e_(i,j) \
+    "subject to" quad & p_(i,r,j) <= b_(i,r) quad forall i, r, j \
+    & p_(i,r,j) <= c_(r,j) quad forall i, r, j \
+    & p_(i,r,j) >= b_(i,r) + c_(r,j) - 1 quad forall i, r, j \
+    & w_(i,j) >= p_(i,r,j) quad forall i, r, j \
+    & w_(i,j) <= sum_r p_(i,r,j) quad forall i, j \
+    & e_(i,j) >= A_(i,j) - w_(i,j) quad forall i, j \
+    & e_(i,j) >= w_(i,j) - A_(i,j) quad forall i, j \
+    & b_(i,r), c_(r,j), p_(i,r,j), w_(i,j) in {0, 1}, e_(i,j) in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any choice of factor matrices induces the same Boolean product and Hamming error in the ILP. ($arrow.l.double$) Any feasible ILP assignment determines factor matrices $B$ and $C$, and the linearization forces the objective to equal the Hamming distance between $A$ and $B dot C$.
+
+  _Solution extraction._ Output the flattened bits of $B$ followed by the flattened bits of $C$, discarding the reconstruction auxiliaries.
+]
+
+#reduction-rule("ConsecutiveBlockMinimization", "ILP")[
+  Permute the columns with a one-hot assignment and count row-wise block starts by detecting each 0-to-1 transition after permutation.
+][
+  _Construction._ Variables: binary $x_(c,p)$ with $x_(c,p) = 1$ iff column $c$ goes to position $p$, binary $a_(r,p)$ for the value seen by row $r$ at position $p$, and binary block-start indicators $b_(r,p)$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_p x_(c,p) = 1 quad forall c \
+    & sum_c x_(c,p) = 1 quad forall p \
+    & a_(r,p) = sum_c A_(r,c) x_(c,p) quad forall r, p \
+    & b_(r,0) = a_(r,0) quad forall r \
+    & b_(r,p) >= a_(r,p) - a_(r,p-1) quad forall r, p > 0 \
+    & sum_(r,p) b_(r,p) <= K \
+    & x_(c,p), a_(r,p), b_(r,p) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any column permutation determines exactly one block-start variable for each maximal run of 1s in every row. ($arrow.l.double$) A feasible ILP solution is a column permutation whose counted block starts sum to at most $K$, which is precisely the source criterion.
+
+  _Solution extraction._ Decode the column permutation from $x_(c,p)$.
+]
+
+#reduction-rule("ConsecutiveOnesMatrixAugmentation", "ILP")[
+  Choose a column permutation and, for each row, choose the interval that will become its consecutive block of 1s; flips are needed only for zeros inside that interval.
+][
+  _Construction._ Let the matrix have $m$ rows and $n$ columns, and let $A_(r,c) in {0, 1}$ be the given entry. For each row define the constant
+  $beta_r = 1$ if row $r$ contains at least one 1, and $beta_r = 0$ otherwise.
+  Use `ILP<bool>` with variable order
+  $(x_(c,p))_(c,p), (a_(r,p))_(r,p), (ell_(r,p))_(r,p), (u_(r,p))_(r,p), (h_(r,p))_(r,p), (f_(r,p))_(r,p)$.
+  The indices are
+  $"idx"_x(c,p) = c n + p$,
+  $"idx"_a(r,p) = n^2 + r n + p$,
+  $"idx"_ell(r,p) = n^2 + m n + r n + p$,
+  $"idx"_u(r,p) = n^2 + 2 m n + r n + p$,
+  $"idx"_h(r,p) = n^2 + 3 m n + r n + p$,
+  and $ "idx"_f(r,p) = n^2 + 4 m n + r n + p$.
+  There are $n^2 + 5 m n$ binary variables.
+
+  Here $x_(c,p) = 1$ means original column $c$ is placed at position $p$ of the permutation, $a_(r,p)$ is the value seen in row $r$ at permuted position $p$, $ell_(r,p)$ and $u_(r,p)$ choose the left and right interval boundaries of row $r$, $h_(r,p)$ indicates that position $p$ lies inside that chosen interval, and $f_(r,p)$ indicates that row $r$ flips a 0 to a 1 at position $p$.
+
+  The constraints are:
+  $sum_p x_(c,p) = 1$ for every column $c$;
+  $sum_c x_(c,p) = 1$ for every position $p$;
+  $a_(r,p) = sum_c A_(r,c) x_(c,p)$ for every row $r$ and position $p$;
+  $sum_p ell_(r,p) = beta_r$ and $sum_p u_(r,p) = beta_r$ for every row $r$;
+  $sum_p p ell_(r,p) <= sum_p p u_(r,p) + (n - 1) (1 - beta_r)$ for every row $r$, which forces the left boundary not to exceed the right boundary when the row is nonzero;
+  for every row $r$ and position $p$,
+  $h_(r,p) <= sum_(q = 0)^p ell_(r,q)$,
+  $h_(r,p) <= sum_(q = p)^(n - 1) u_(r,q)$,
+  and
+  $h_(r,p) >= sum_(q = 0)^p ell_(r,q) + sum_(q = p)^(n - 1) u_(r,q) - 1$;
+  $a_(r,p) <= h_(r,p)$ for every $r, p$, so every original 1 lies inside the chosen interval;
+  $h_(r,p) <= a_(r,p) + f_(r,p)$, $f_(r,p) <= h_(r,p)$, and $f_(r,p) + a_(r,p) <= 1$ for every $r, p$, so $f_(r,p) = 1$ exactly when the position lies inside the interval but the original matrix has a 0 there;
+  and the augmentation budget
+  $sum_(r = 0)^(m - 1) sum_(p = 0)^(n - 1) f_(r,p) <= K$.
+  These are the exact consecutive-ones constraints: after permutation, row $r$ is 1 exactly on the positions with $h_(r,p) = 1$, and the only modifications charged are the zero-to-one flips recorded by $f$.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_p x_(c,p) = 1 quad forall c \
+    & sum_c x_(c,p) = 1 quad forall p \
+    & a_(r,p) = sum_c A_(r,c) x_(c,p) quad forall r, p \
+    & sum_p ell_(r,p) = beta_r, sum_p u_(r,p) = beta_r quad forall r \
+    & sum_p p ell_(r,p) <= sum_p p u_(r,p) + (n - 1) (1 - beta_r) quad forall r \
+    & h_(r,p) <= sum_(q = 0)^p ell_(r,q), h_(r,p) <= sum_(q = p)^(n - 1) u_(r,q) quad forall r, p \
+    & h_(r,p) >= sum_(q = 0)^p ell_(r,q) + sum_(q = p)^(n - 1) u_(r,q) - 1 quad forall r, p \
+    & a_(r,p) <= h_(r,p); h_(r,p) <= a_(r,p) + f_(r,p); f_(r,p) <= h_(r,p); f_(r,p) + a_(r,p) <= 1 quad forall r, p \
+    & sum_(r = 0)^(m - 1) sum_(p = 0)^(n - 1) f_(r,p) <= K \
+    & x_(c,p), a_(r,p), ell_(r,p), u_(r,p), h_(r,p), f_(r,p) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A feasible augmentation chooses a permutation and flips exactly the zeros lying inside each row's final consecutive-ones interval. ($arrow.l.double$) Any feasible ILP solution yields a permuted matrix whose rows become consecutive-ones after the encoded zero-to-one augmentations, with total augmentation cost at most $K$.
+
+  _Solution extraction._ Decode the column permutation from $x_(c,p)$ and discard the auxiliary flip variables.
+]
+
+#reduction-rule("ConsecutiveOnesSubmatrix", "ILP")[
+  Select exactly $K$ columns, permute only those selected columns, and require every row to have a single consecutive block within the chosen submatrix.
+][
+  _Construction._ Variables: binary selection bits $s_c$, binary placement variables $x_(c,p)$ for selected columns, and row-interval auxiliaries as in ConsecutiveOnesMatrixAugmentation. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_c s_c = K \
+    & sum_p x_(c,p) = s_c quad forall c \
+    & sum_c x_(c,p) = 1 quad forall p in {1, dots, K} \
+    & "the selected rows satisfy the consecutive-ones interval constraints" \
+    & s_c, x_(c,p) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible column subset with a valid permutation satisfies the selection and interval constraints. ($arrow.l.double$) Any feasible ILP solution chooses exactly $K$ columns whose induced submatrix admits a consecutive-ones permutation.
+
+  _Solution extraction._ Output the column-selection bits $(s_c)_(c = 1)^n$ and ignore the permutation auxiliaries.
+]
+
+#reduction-rule("SparseMatrixCompression", "ILP")[
+  Assign each row one shift value and forbid any pair of shifted 1-entries from colliding in the storage vector.
+][
+  _Construction._ Variables: binary $x_(r,g)$ with $x_(r,g) = 1$ iff row $r$ uses shift $g in {0, dots, K - 1}$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_g x_(r,g) = 1 quad forall r \
+    & x_(r,g) + x_(s,h) <= 1 quad "whenever" A_(r,i) = A_(s,j) = 1 "and" i + g = j + h \
+    & x_(r,g) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A valid compression chooses one shift per row and never overlays 1-entries from different rows in the same storage position. ($arrow.l.double$) Any feasible ILP solution gives exactly such a collision-free shift assignment, hence a valid storage vector of length $n + K$.
+
+  _Solution extraction._ For each row $r$, output the unique zero-based shift $g$ with $x_(r,g) = 1$.
+]
+
+// Sequence/misc
+
+#reduction-rule("ShortestCommonSupersequence", "ILP")[
+  Fill the $B$ positions of the supersequence with one-hot symbol variables and match each input string monotonically into those positions.
+][
+  _Construction._ Variables: binary $x_(p,a)$ with $x_(p,a) = 1$ iff position $p$ carries symbol $a$, and binary matching variables $m_(s,j,p)$ saying that the $j$-th symbol of string $s$ is matched to position $p$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_a x_(p,a) = 1 quad forall p \
+    & sum_p m_(s,j,p) = 1 quad forall s, j \
+    & m_(s,j,p) <= x_(p,a) quad forall s, j, p " with symbol " a \
+    & "matching positions are strictly increasing in j for every string s" \
+    & x_(p,a), m_(s,j,p) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any common supersequence of length at most $B$ induces a one-hot symbol assignment and a monotone match of every input string. ($arrow.l.double$) Any feasible ILP solution yields a length-$B$ string into which every source string embeds as a subsequence.
+
+  _Solution extraction._ At each position $p$, output the unique symbol $a$ with $x_(p,a) = 1$.
+]
+
+#reduction-rule("StringToStringCorrection", "ILP")[
+  A time-expanded ILP chooses one edit operation at each of the $K$ stages and tracks the evolving string state until it matches the target.
+][
+  _Construction._ Let the source length be $n$, the target length be $m$, and the operation bound be $K$. If $m > n$ or $m < n - K$, return an infeasible empty ILP, because the model rejects such instances before any search. Otherwise use `ILP<bool>`. Track the evolving string by the identities of the original source positions, not only by their symbols: token $i in {0, dots, n - 1}$ carries symbol $x_i$ from the source string.
+
+  The state variables are $z_(t,p,i)$ for $t in {0, dots, K}$, $p in {0, dots, n - 1}$, $i in {0, dots, n - 1}$, where $z_(t,p,i) = 1$ iff token $i$ occupies position $p$ after step $t$. Their indices are
+  $"idx"_z(t,p,i) = t n^2 + p n + i$.
+  The emptiness bits are $e_(t,p)$ with index
+  $"idx"_e(t,p) = (K + 1) n^2 + t n + p$.
+  The operation variables are delete bits $d_(t,j)$ for $t in {1, dots, K}$ and $j in {0, dots, n - 1}$ with index
+  $"idx"_d(t,j) = (K + 1) (n^2 + n) + (t - 1) n + j$;
+  swap bits $s_(t,j)$ for $j in {0, dots, n - 2}$ with index
+  $"idx"_s(t,j) = (K + 1) (n^2 + n) + K n + (t - 1) (n - 1) + j$;
+  and no-op bits $nu_t$ with index
+  $"idx"_nu(t) = (K + 1) (n^2 + n) + K n + K (n - 1) + (t - 1)$.
+  There are $(K + 1) (n^2 + n) + K (2 n)$ variables.
+
+  The state validity constraints are:
+  $e_(t,p) + sum_i z_(t,p,i) = 1$ for every $t, p$;
+  $sum_p z_(t,p,i) <= 1$ for every $t, i$;
+  and $e_(t,p) <= e_(t,p + 1)$ for every $t$ and $p < n - 1$, forcing the active string to occupy a prefix and the deleted positions to form a suffix.
+  The initial state is fixed by
+  $z_(0,p,p) = 1$ for every $p$,
+  $z_(0,p,i) = 0$ for every $i != p$,
+  and $e_(0,p) = 0$ for every position $p$.
+
+  At each step $t$, choose exactly one operation:
+  $sum_(j = 0)^(n - 1) d_(t,j) + sum_(j = 0)^(n - 2) s_(t,j) + nu_t = 1$.
+  Delete at position $j$ is legal only when that current position exists, so
+  $d_(t,j) <= 1 - e_(t - 1,j)$.
+  Swap at position $j$ is legal only when both positions $j$ and $j + 1$ exist, so
+  $s_(t,j) <= 1 - e_(t - 1,j)$ and $s_(t,j) <= 1 - e_(t - 1,j + 1)$.
+
+  The state-update equations are conditioned by exact big-$M$ bounds with $M = 1$, because every left-hand side and every referenced right-hand side is binary. For every token $i$, step $t$, and position $p$:
+  if no-op is chosen, impose
+  $z_(t,p,i) - z_(t - 1,p,i) <= 1 - nu_t$ and $z_(t - 1,p,i) - z_(t,p,i) <= 1 - nu_t$;
+  for every delete position $j$, if $p < j$ impose
+  $z_(t,p,i) - z_(t - 1,p,i) <= 1 - d_(t,j)$ and $z_(t - 1,p,i) - z_(t,p,i) <= 1 - d_(t,j)$;
+  if $j <= p < n - 1$, impose
+  $z_(t,p,i) - z_(t - 1,p + 1,i) <= 1 - d_(t,j)$ and $z_(t - 1,p + 1,i) - z_(t,p,i) <= 1 - d_(t,j)$;
+  and for the last position impose $z_(t,n - 1,i) <= 1 - d_(t,j)$;
+  for every swap position $j$, if $p in.not {j, j + 1}$ impose
+  $z_(t,p,i) - z_(t - 1,p,i) <= 1 - s_(t,j)$ and $z_(t - 1,p,i) - z_(t,p,i) <= 1 - s_(t,j)$;
+  if $p = j$, impose
+  $z_(t,j,i) - z_(t - 1,j + 1,i) <= 1 - s_(t,j)$ and $z_(t - 1,j + 1,i) - z_(t,j,i) <= 1 - s_(t,j)$;
+  and if $p = j + 1$, impose
+  $z_(t,j + 1,i) - z_(t - 1,j,i) <= 1 - s_(t,j)$ and $z_(t - 1,j,i) - z_(t,j + 1,i) <= 1 - s_(t,j)$.
+
+  Finally force the step-$K$ state to equal the target string:
+  $sum_(i : x_i = y_p) z_(K,p,i) = 1$ for every target position $p in {0, dots, m - 1}$,
+  and $e_(K,p) = 1$ for every $p in {m, dots, n - 1}$.
+  This exactly matches the model semantics, which compare the final working string to the target after $K$ operations.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & e_(t,p) + sum_i z_(t,p,i) = 1 quad forall t in {0, dots, K}, p in {0, dots, n - 1} \
+    & sum_p z_(t,p,i) <= 1 quad forall t in {0, dots, K}, i in {0, dots, n - 1} \
+    & e_(t,p) <= e_(t,p + 1) quad forall t in {0, dots, K}, p in {0, dots, n - 2} \
+    & z_(0,p,p) = 1, z_(0,p,i) = 0 quad forall i != p, e_(0,p) = 0 quad forall p \
+    & sum_(j = 0)^(n - 1) d_(t,j) + sum_(j = 0)^(n - 2) s_(t,j) + nu_t = 1 quad forall t in {1, dots, K} \
+    & d_(t,j) <= 1 - e_(t - 1,j) quad forall t, j \
+    & s_(t,j) <= 1 - e_(t - 1,j), s_(t,j) <= 1 - e_(t - 1,j + 1) quad forall t, j \
+    & "the exact M = 1 state-update equations enforce no-op, delete, and adjacent-swap transitions" \
+    & sum_(i : x_i = y_p) z_(K,p,i) = 1 quad forall p in {0, dots, m - 1} \
+    & e_(K,p) = 1 quad forall p in {m, dots, n - 1} \
+    & z_(t,p,i), e_(t,p), d_(t,j), s_(t,j), nu_t in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any valid length-$K$ edit script yields a feasible sequence of operations and states ending at the target. ($arrow.l.double$) Any feasible ILP solution traces a legal sequence of deletes, adjacent swaps, and no-ops whose final string is the target.
+
+  _Solution extraction._ For each step $t$, compute the current length
+  $ell_(t - 1) = sum_(p = 0)^(n - 1) (1 - e_(t - 1,p))$.
+  If $nu_t = 1$, output the source code $2 n$. If $d_(t,j) = 1$, output $j$. If $s_(t,j) = 1$, output $ell_(t - 1) + j$. This is exactly the encoding used by `evaluate()`: deletions use raw positions, swaps are offset by the current length, and no-op is the distinguished value $2 n$.
+]
+
+#reduction-rule("PaintShop", "ILP")[
+  One binary variable per car determines its first color, the second occurrence receives the opposite color automatically, and switch indicators count color changes along the sequence.
+][
+  _Construction._ Variables: binary $x_i$ for each car $i$, binary color variables $k_p$ for sequence positions, and binary switch indicators $c_p$ for positions $p > 0$. The ILP is:
+  $
+    min quad & sum_p c_p \
+    "subject to" quad & k_p = x_i quad "if p is the first occurrence of car i" \
+    & k_p = 1 - x_i quad "otherwise" \
+    & c_p >= k_p - k_(p-1) quad forall p > 0 \
+    & c_p >= k_(p-1) - k_p quad forall p > 0 \
+    & x_i, k_p, c_p in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any first-occurrence coloring determines the whole paint sequence and induces exactly the same number of switches in the ILP. ($arrow.l.double$) Any ILP assignment is already a valid source witness, and the switch variables are forced to count adjacent color changes.
+
+  _Solution extraction._ Output the first-occurrence color bits $(x_i)$.
+]
+
+#reduction-rule("IsomorphicSpanningTree", "ILP")[
+  A bijection from the tree vertices to the graph vertices is enough: every tree edge must map to a graph edge, which then defines the desired spanning tree.
+][
+  _Construction._ Variables: binary $x_(u,v)$ with $x_(u,v) = 1$ iff tree vertex $u$ maps to graph vertex $v$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_v x_(u,v) = 1 quad forall u \
+    & sum_u x_(u,v) = 1 quad forall v \
+    & x_(u,v) + x_(w,z) <= 1 quad forall {u, w} in E_"tree", {v, z} in.not E_"graph" \
+    & x_(u,z) + x_(w,v) <= 1 quad forall {u, w} in E_"tree", {v, z} in.not E_"graph" \
+    & x_(u,v) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any isomorphism from the given tree to a spanning tree of the graph satisfies the bijection and non-edge constraints. ($arrow.l.double$) Any feasible ILP solution is a bijection that preserves every tree edge, so the image edges form a spanning tree of the graph isomorphic to the source tree.
+
+  _Solution extraction._ For each tree vertex $u$, output the unique graph vertex $v$ with $x_(u,v) = 1$.
+]
+
+#reduction-rule("RootedTreeStorageAssignment", "ILP")[
+  Choose one parent for each non-root element, enforce acyclicity with depth variables, and linearize the path-extension cost of every subset by selecting its top and bottom vertices in the rooted tree.
+][
+  _Construction._ Let $X = {0, dots, n - 1}$ and let the subset family be $cal(C) = {S_0, dots, S_(m-1)}$. For every subset of size 0 or 1 the model charges extension cost 0 automatically, so only the nontrivial subsets matter. Enumerate them as
+  $I = {k_0 < dots < k_(r-1)} = {k : |S_k| >= 2}$.
+  Use `ILP<i32>`. The variable blocks are:
+  parent indicators $p_(v,u) in {0, 1}$ for all $v, u in X$;
+  depths $d_v in {0, dots, n - 1}$;
+  ancestor indicators $a_(u,v) in {0, 1}$, where $a_(u,v) = 1$ means $u$ is an ancestor of $v$ (allowing $u = v$);
+  auxiliary transitive-closure variables $h_(u,v,w) in {0, 1}$;
+  and, for each nontrivial subset gadget $s in {0, dots, r - 1}$ corresponding to original subset $S_(k_s)$, top selectors $t_(s,u)$, bottom selectors $b_(s,v)$, pair selectors $m_(s,u,v)$, endpoint depths $T_s, B_s$, and extension cost $c_s$.
+
+  The indices are
+  $"idx"_p(v,u) = v n + u$,
+  $"idx"_d(v) = n^2 + v$,
+  $"idx"_a(u,v) = n^2 + n + u n + v$,
+  $"idx"_h(u,v,w) = 2 n^2 + n + (u n + v) n + w$,
+  $"idx"_t(s,u) = n^3 + 2 n^2 + n + s n + u$,
+  $"idx"_b(s,v) = n^3 + 2 n^2 + n + r n + s n + v$,
+  $"idx"_m(s,u,v) = n^3 + 2 n^2 + n + 2 r n + s n^2 + u n + v$,
+  $"idx"_T(s) = n^3 + 2 n^2 + n + 2 r n + r n^2 + s$,
+  $"idx"_B(s) = n^3 + 2 n^2 + n + 2 r n + r n^2 + r + s$,
+  and $ "idx"_c(s) = n^3 + 2 n^2 + n + 2 r n + r n^2 + 2 r + s$.
+  The total number of variables is
+  $n^3 + 2 n^2 + n + r (n^2 + 2 n + 3)$.
+
+  The rooted-tree constraints are:
+  $sum_(u = 0)^(n - 1) p_(v,u) = 1$ for every vertex $v$;
+  $sum_v p_(v,v) = 1$, so exactly one vertex chooses itself as parent and becomes the root;
+  $d_v <= (n - 1) (1 - p_(v,v))$ for every $v$, hence the unique root has depth 0;
+  and for every ordered pair $u != v$,
+  $d_v - d_u >= 1 - n (1 - p_(v,u))$ and $d_v - d_u <= 1 + n (1 - p_(v,u))$.
+  The exact big-$M$ here is $M = n$: the expression $d_v - d_u - 1$ ranges from $-n$ to $n - 2$ when both depths lie in ${0, dots, n - 1}$.
+
+  The ancestor relation is defined explicitly by
+  $a_(v,v) = 1$ for every $v$,
+  $h_(u,v,v) = 0$ for all $u, v$,
+  and, for every $u != v$,
+  $a_(u,v) = sum_(w = 0)^(n - 1) h_(u,v,w)$.
+  The helper variables linearize the recursion "u is an ancestor of v iff u is an ancestor of the unique parent of v":
+  $h_(u,v,w) <= p_(v,w)$,
+  $h_(u,v,w) <= a_(u,w)$,
+  and
+  $h_(u,v,w) >= p_(v,w) + a_(u,w) - 1$
+  for all $u, v, w$ with $w != v$.
+
+  For each nontrivial subset gadget $s$ corresponding to $S_(k_s)$, choose path endpoints only from the subset itself:
+  $sum_(u in S_(k_s)) t_(s,u) = 1$, $t_(s,u) = 0$ for $u in.not S_(k_s)$,
+  $sum_(v in S_(k_s)) b_(s,v) = 1$, $b_(s,v) = 0$ for $v in.not S_(k_s)$.
+  Linearize the chosen ordered endpoint pair by
+  $m_(s,u,v) <= t_(s,u)$,
+  $m_(s,u,v) <= b_(s,v)$,
+  $m_(s,u,v) >= t_(s,u) + b_(s,v) - 1$.
+  Because exactly one top and one bottom are chosen, exactly one pair selector is 1.
+
+  The path condition for subset $S_(k_s)$ is then fully explicit:
+  $m_(s,u,v) <= a_(u,v)$ for every $u, v$, so the chosen top is an ancestor of the chosen bottom;
+  and for every element $w in S_(k_s)$,
+  $m_(s,u,v) <= a_(u,w)$ and $m_(s,u,v) <= a_(w,v)$ for all $u, v$.
+  Thus every subset element lies on the ancestor chain from the chosen top to the chosen bottom.
+
+  Bind the endpoint depths to the chosen selectors by exact big-$M$ constraints with $M = n - 1$:
+  $T_s - d_u <= (n - 1) (1 - t_(s,u))$ and $d_u - T_s <= (n - 1) (1 - t_(s,u))$ for every $u$;
+  $B_s - d_v <= (n - 1) (1 - b_(s,v))$ and $d_v - B_s <= (n - 1) (1 - b_(s,v))$ for every $v$.
+  Finally set the extension cost of the subset to the exact path surplus
+  $c_s = B_s - T_s + 1 - |S_(k_s)|$,
+  require $c_s >= 0$,
+  and bound the total cost by
+  $sum_(s = 0)^(r - 1) c_s <= K$.
+  This matches the model's `subset_extension_cost()`: the top and bottom are the shallowest and deepest members of the subset on the chosen chain, and the path contributes exactly the interior vertices not already present in the subset.
+
+  The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(u = 0)^(n - 1) p_(v,u) = 1 quad forall v in X \
+    & sum_v p_(v,v) = 1, d_v <= (n - 1) (1 - p_(v,v)) quad forall v in X \
+    & d_v - d_u >= 1 - n (1 - p_(v,u)), d_v - d_u <= 1 + n (1 - p_(v,u)) quad forall u != v \
+    & a_(v,v) = 1, h_(u,v,v) = 0, a_(u,v) = sum_(w = 0)^(n - 1) h_(u,v,w) quad forall u, v in X \
+    & h_(u,v,w) <= p_(v,w), h_(u,v,w) <= a_(u,w), h_(u,v,w) >= p_(v,w) + a_(u,w) - 1 quad forall u, v, w in X " with " w != v \
+    & sum_(u in S_(k_s)) t_(s,u) = 1, t_(s,u) = 0 quad forall u in.not S_(k_s), s \
+    & sum_(v in S_(k_s)) b_(s,v) = 1, b_(s,v) = 0 quad forall v in.not S_(k_s), s \
+    & m_(s,u,v) <= t_(s,u), m_(s,u,v) <= b_(s,v), m_(s,u,v) >= t_(s,u) + b_(s,v) - 1 quad forall s, u, v \
+    & m_(s,u,v) <= a_(u,v), m_(s,u,v) <= a_(u,w), m_(s,u,v) <= a_(w,v) quad forall s, u, v, w in S_(k_s) \
+    & T_s - d_u <= (n - 1) (1 - t_(s,u)), d_u - T_s <= (n - 1) (1 - t_(s,u)) quad forall s, u \
+    & B_s - d_v <= (n - 1) (1 - b_(s,v)), d_v - B_s <= (n - 1) (1 - b_(s,v)) quad forall s, v \
+    & c_s = B_s - T_s + 1 - |S_(k_s)|, c_s >= 0 quad forall s; sum_s c_s <= K \
+    & p_(v,u), a_(u,v), h_(u,v,w), t_(s,u), b_(s,v), m_(s,u,v) in {0, 1} \
+    & d_v, T_s, B_s, c_s in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any rooted tree satisfying all subset-path conditions induces parent, depth, and path-endpoint variables with the same total extension cost. ($arrow.l.double$) Any feasible ILP solution defines a rooted tree in which every subset lies on one ancestor chain, and the encoded path lengths keep the total extension cost within the bound.
+
+  _Solution extraction._ For each vertex $v$, output its unique parent $u$ with $p_(v,u) = 1$.
 ]
 
 == Unit Disk Mapping

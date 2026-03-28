@@ -1,5 +1,5 @@
 use crate::models::misc::Partition;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -45,14 +45,14 @@ fn test_partition_odd_total() {
     // Total = 7 (odd), no equal partition possible
     let problem = Partition::new(vec![3, 1, 2, 1]);
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
 fn test_partition_solver() {
     let problem = Partition::new(vec![3, 1, 1, 2, 2, 1]);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()));
 }
@@ -61,7 +61,7 @@ fn test_partition_solver() {
 fn test_partition_solver_all() {
     let problem = Partition::new(vec![3, 1, 1, 2, 2, 1]);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // 10 satisfying configs for {3,1,1,2,2,1} with target half-sum 5
     assert_eq!(solutions.len(), 10);
     for sol in &solutions {
@@ -74,14 +74,14 @@ fn test_partition_single_element() {
     // Single element can never be partitioned equally
     let problem = Partition::new(vec![5]);
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
 fn test_partition_two_equal_elements() {
     let problem = Partition::new(vec![4, 4]);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()));
 }

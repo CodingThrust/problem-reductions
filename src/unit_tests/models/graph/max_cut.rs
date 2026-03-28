@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 include!("../../jl_helpers.rs");
 
@@ -51,15 +51,6 @@ fn test_edges() {
     let problem = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 2]);
     let edges = problem.edges();
     assert_eq!(edges.len(), 2);
-}
-
-#[test]
-fn test_direction() {
-    use crate::traits::OptimizationProblem;
-    use crate::types::Direction;
-
-    let problem = MaxCut::<_, i32>::unweighted(SimpleGraph::new(2, vec![(0, 1)]));
-    assert_eq!(problem.direction(), Direction::Maximize);
 }
 
 #[test]
@@ -122,7 +113,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
         }
-        let best = BruteForce::new().find_all_best(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "MaxCut best solutions mismatch");
@@ -160,6 +151,6 @@ fn test_maxcut_paper_example() {
     assert_eq!(result.unwrap(), 5);
 
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
+    let best = solver.find_witness(&problem).unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), 5);
 }

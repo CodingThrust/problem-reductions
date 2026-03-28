@@ -1,6 +1,6 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, ILPSolver};
 
 #[test]
 fn test_qubo_to_ilp_closed_loop() {
@@ -18,6 +18,24 @@ fn test_qubo_to_ilp_closed_loop() {
 }
 
 #[test]
+fn test_qubo_to_ilp_bf_vs_ilp() {
+    // QUBO: minimize 2*x0 - 3*x1 + x0*x1
+    let qubo = QUBO::from_matrix(vec![vec![2.0, 1.0], vec![0.0, -3.0]]);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&qubo);
+
+    let bf_solutions = BruteForce::new().find_all_witnesses(&qubo);
+    let bf_value = qubo.evaluate(&bf_solutions[0]);
+
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    let ilp_value = qubo.evaluate(&extracted);
+
+    assert_eq!(bf_value, ilp_value);
+}
+
+#[test]
 fn test_qubo_to_ilp_diagonal_only() {
     // No quadratic terms: minimize 3*x0 - 2*x1
     // Optimal: x = [0, 1] with obj = -2
@@ -30,7 +48,7 @@ fn test_qubo_to_ilp_diagonal_only() {
     assert!(ilp.constraints.is_empty());
 
     let solver = BruteForce::new();
-    let best = solver.find_all_best(ilp);
+    let best = solver.find_all_witnesses(ilp);
     let extracted = reduction.extract_solution(&best[0]);
     assert_eq!(extracted, vec![0, 1]);
 }
@@ -53,7 +71,7 @@ fn test_qubo_to_ilp_3var() {
     assert_eq!(ilp.constraints.len(), 6);
 
     let solver = BruteForce::new();
-    let best = solver.find_all_best(ilp);
+    let best = solver.find_all_witnesses(ilp);
     let extracted = reduction.extract_solution(&best[0]);
     assert_eq!(extracted, vec![1, 0, 1]);
 }

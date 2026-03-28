@@ -1,41 +1,130 @@
 use super::*;
+use crate::types::Aggregate;
 
 #[test]
-fn test_solution_size_valid() {
-    let size: SolutionSize<i32> = SolutionSize::Valid(42);
-    assert!(size.is_valid());
-    assert_eq!(size.size(), Some(&42));
+fn test_max_identity_and_combine() {
+    assert_eq!(Max::<i32>::identity(), Max(None));
+    assert_eq!(Max(Some(7)).combine(Max(Some(3))), Max(Some(7)));
+    assert_eq!(Max(Some(3)).combine(Max(Some(7))), Max(Some(7)));
+    assert_eq!(Max::<i32>::identity().combine(Max(Some(5))), Max(Some(5)));
 }
 
 #[test]
-fn test_solution_size_invalid() {
-    let size: SolutionSize<i32> = SolutionSize::Invalid;
+fn test_min_identity_and_combine() {
+    assert_eq!(Min::<i32>::identity(), Min(None));
+    assert_eq!(Min(Some(3)).combine(Min(Some(7))), Min(Some(3)));
+    assert_eq!(Min(Some(7)).combine(Min(Some(3))), Min(Some(3)));
+    assert_eq!(Min::<i32>::identity().combine(Min(Some(5))), Min(Some(5)));
+}
+
+#[test]
+fn test_sum_identity_and_combine() {
+    assert_eq!(Sum::<u64>::identity(), Sum(0));
+    assert_eq!(Sum(4_u64).combine(Sum(3_u64)), Sum(7));
+}
+
+#[test]
+fn test_or_identity_and_combine() {
+    assert_eq!(Or::identity(), Or(false));
+    assert_eq!(Or(false).combine(Or(true)), Or(true));
+    assert_eq!(Or(false).combine(Or(false)), Or(false));
+}
+
+#[test]
+fn test_and_identity_and_combine() {
+    assert_eq!(And::identity(), And(true));
+    assert_eq!(And(true).combine(And(false)), And(false));
+    assert_eq!(And(true).combine(And(true)), And(true));
+}
+
+#[test]
+fn test_sum_witness_defaults() {
+    assert!(!Sum::<u64>::supports_witnesses());
+    assert!(!Sum::<u64>::contributes_to_witnesses(&Sum(3), &Sum(7)));
+}
+
+#[test]
+fn test_and_witness_defaults() {
+    assert!(!And::supports_witnesses());
+    assert!(!And::contributes_to_witnesses(&And(true), &And(true)));
+}
+
+#[test]
+fn test_max_witness_hooks() {
+    assert!(Max::<i32>::supports_witnesses());
+    assert!(Max::contributes_to_witnesses(&Max(Some(7)), &Max(Some(7))));
+    assert!(!Max::contributes_to_witnesses(&Max(Some(3)), &Max(Some(7))));
+    assert!(!Max::contributes_to_witnesses(&Max(None), &Max(Some(7))));
+}
+
+#[test]
+fn test_min_witness_hooks() {
+    assert!(Min::<i32>::supports_witnesses());
+    assert!(Min::contributes_to_witnesses(&Min(Some(3)), &Min(Some(3))));
+    assert!(!Min::contributes_to_witnesses(&Min(Some(7)), &Min(Some(3))));
+    assert!(!Min::contributes_to_witnesses(&Min(None), &Min(Some(3))));
+}
+
+#[test]
+fn test_or_witness_hooks() {
+    assert!(Or::supports_witnesses());
+    assert!(Or::contributes_to_witnesses(&Or(true), &Or(true)));
+    assert!(!Or::contributes_to_witnesses(&Or(false), &Or(true)));
+    assert!(!Or::contributes_to_witnesses(&Or(true), &Or(false)));
+}
+
+#[test]
+fn test_max_helpers() {
+    let size = Max(Some(42));
+    assert!(size.is_valid());
+    assert_eq!(size.size(), Some(&42));
+    assert_eq!(size.unwrap(), 42);
+}
+
+#[test]
+fn test_max_invalid() {
+    let size = Max::<i32>(None);
     assert!(!size.is_valid());
     assert_eq!(size.size(), None);
 }
 
 #[test]
-fn test_solution_size_unwrap() {
-    let valid: SolutionSize<i32> = SolutionSize::Valid(10);
-    assert_eq!(valid.unwrap(), 10);
-}
-
-#[test]
-#[should_panic(expected = "called unwrap on Invalid")]
-fn test_solution_size_unwrap_panics() {
-    let invalid: SolutionSize<i32> = SolutionSize::Invalid;
+#[should_panic(expected = "called unwrap on invalid Max value")]
+fn test_max_unwrap_panics() {
+    let invalid = Max::<i32>(None);
     invalid.unwrap();
 }
 
 #[test]
-fn test_solution_size_map() {
-    let valid: SolutionSize<i32> = SolutionSize::Valid(10);
-    let mapped = valid.map(|x| x * 2);
-    assert_eq!(mapped, SolutionSize::Valid(20));
+fn test_min_helpers() {
+    let size = Min(Some(10));
+    assert!(size.is_valid());
+    assert_eq!(size.size(), Some(&10));
+    assert_eq!(size.unwrap(), 10);
+}
 
-    let invalid: SolutionSize<i32> = SolutionSize::Invalid;
-    let mapped_invalid = invalid.map(|x| x * 2);
-    assert_eq!(mapped_invalid, SolutionSize::Invalid);
+#[test]
+#[should_panic(expected = "called unwrap on invalid Min value")]
+fn test_min_unwrap_panics() {
+    let invalid = Min::<i32>(None);
+    invalid.unwrap();
+}
+
+#[test]
+fn test_extremum_helpers() {
+    let max = Extremum::maximize(Some(10));
+    assert!(max.is_valid());
+    assert_eq!(max.size(), Some(&10));
+    assert_eq!(max.sense, ExtremumSense::Maximize);
+
+    let min = Extremum::minimize(Some(5));
+    assert!(min.is_valid());
+    assert_eq!(min.size(), Some(&5));
+    assert_eq!(min.sense, ExtremumSense::Minimize);
+
+    let invalid = Extremum::<i32>::minimize(None);
+    assert!(!invalid.is_valid());
+    assert_eq!(invalid.size(), None);
 }
 
 #[test]
@@ -65,16 +154,6 @@ fn test_one_json() {
 
     let parsed: Vec<One> = serde_json::from_value(json).unwrap();
     assert_eq!(parsed, vec![One, One]);
-}
-
-#[test]
-fn test_direction() {
-    let max_dir = Direction::Maximize;
-    let min_dir = Direction::Minimize;
-
-    assert_eq!(max_dir, Direction::Maximize);
-    assert_eq!(min_dir, Direction::Minimize);
-    assert_ne!(max_dir, min_dir);
 }
 
 #[test]
@@ -140,48 +219,95 @@ fn test_weight_element_f64() {
 }
 
 #[test]
-fn test_is_better_maximize_valid_vs_valid() {
-    // For maximization: larger is better
-    let a = SolutionSize::Valid(10);
-    let b = SolutionSize::Valid(5);
-    assert!(a.is_better(&b, Direction::Maximize));
-    assert!(!b.is_better(&a, Direction::Maximize));
+fn test_extremum_aggregate_identity_and_combine() {
+    // identity is Maximize(None)
+    let id = Extremum::<i32>::identity();
+    assert_eq!(id.sense, ExtremumSense::Maximize);
+    assert_eq!(id.value, None);
+
+    // None + Some => Some (takes rhs sense)
+    let combined = Extremum::<i32>::identity().combine(Extremum::maximize(Some(5)));
+    assert_eq!(combined, Extremum::maximize(Some(5)));
+
+    // Some + None => Some (keeps lhs sense)
+    let combined = Extremum::minimize(Some(3)).combine(Extremum::<i32>::identity());
+    assert_eq!(combined, Extremum::minimize(Some(3)));
+
+    // Maximize: keeps the larger
+    let combined = Extremum::maximize(Some(3)).combine(Extremum::maximize(Some(7)));
+    assert_eq!(combined, Extremum::maximize(Some(7)));
+    let combined = Extremum::maximize(Some(7)).combine(Extremum::maximize(Some(3)));
+    assert_eq!(combined, Extremum::maximize(Some(7)));
+
+    // Minimize: keeps the smaller
+    let combined = Extremum::minimize(Some(3)).combine(Extremum::minimize(Some(7)));
+    assert_eq!(combined, Extremum::minimize(Some(3)));
+    let combined = Extremum::minimize(Some(7)).combine(Extremum::minimize(Some(3)));
+    assert_eq!(combined, Extremum::minimize(Some(3)));
 }
 
 #[test]
-fn test_is_better_minimize_valid_vs_valid() {
-    // For minimization: smaller is better
-    let a = SolutionSize::Valid(5);
-    let b = SolutionSize::Valid(10);
-    assert!(a.is_better(&b, Direction::Minimize));
-    assert!(!b.is_better(&a, Direction::Minimize));
+fn test_extremum_witness_hooks() {
+    assert!(Extremum::<i32>::supports_witnesses());
+
+    // Matching value and sense -> contributes
+    assert!(Extremum::contributes_to_witnesses(
+        &Extremum::maximize(Some(10)),
+        &Extremum::maximize(Some(10)),
+    ));
+
+    // Different value -> does not contribute
+    assert!(!Extremum::contributes_to_witnesses(
+        &Extremum::maximize(Some(5)),
+        &Extremum::maximize(Some(10)),
+    ));
+
+    // None config -> does not contribute
+    assert!(!Extremum::contributes_to_witnesses(
+        &Extremum::<i32>::maximize(None),
+        &Extremum::maximize(Some(10)),
+    ));
 }
 
 #[test]
-fn test_is_better_valid_vs_invalid() {
-    // Valid is always better than invalid
-    let valid = SolutionSize::Valid(0);
-    let invalid: SolutionSize<i32> = SolutionSize::Invalid;
-    assert!(valid.is_better(&invalid, Direction::Maximize));
-    assert!(valid.is_better(&invalid, Direction::Minimize));
-    assert!(!invalid.is_better(&valid, Direction::Maximize));
-    assert!(!invalid.is_better(&valid, Direction::Minimize));
+fn test_extremum_display() {
+    assert_eq!(format!("{}", Extremum::maximize(Some(42))), "Max(42)");
+    assert_eq!(format!("{}", Extremum::<i32>::maximize(None)), "Max(None)");
+    assert_eq!(format!("{}", Extremum::minimize(Some(7))), "Min(7)");
+    assert_eq!(format!("{}", Extremum::<i32>::minimize(None)), "Min(None)");
 }
 
 #[test]
-fn test_is_better_invalid_vs_invalid() {
-    // Neither invalid is better
-    let a: SolutionSize<i32> = SolutionSize::Invalid;
-    let b: SolutionSize<i32> = SolutionSize::Invalid;
-    assert!(!a.is_better(&b, Direction::Maximize));
-    assert!(!a.is_better(&b, Direction::Minimize));
+#[should_panic(expected = "called unwrap on invalid Extremum value")]
+fn test_extremum_unwrap_panics() {
+    Extremum::<i32>::minimize(None).unwrap();
 }
 
 #[test]
-fn test_is_better_equal_valid() {
-    // Equal values: neither is better
-    let a = SolutionSize::Valid(5);
-    let b = SolutionSize::Valid(5);
-    assert!(!a.is_better(&b, Direction::Maximize));
-    assert!(!a.is_better(&b, Direction::Minimize));
+fn test_max_display() {
+    assert_eq!(format!("{}", Max(Some(42))), "Max(42)");
+    assert_eq!(format!("{}", Max::<i32>(None)), "Max(None)");
+}
+
+#[test]
+fn test_min_display() {
+    assert_eq!(format!("{}", Min(Some(7))), "Min(7)");
+    assert_eq!(format!("{}", Min::<i32>(None)), "Min(None)");
+}
+
+#[test]
+fn test_sum_display() {
+    assert_eq!(format!("{}", Sum(56_u64)), "Sum(56)");
+}
+
+#[test]
+fn test_or_display() {
+    assert_eq!(format!("{}", Or(true)), "Or(true)");
+    assert_eq!(format!("{}", Or(false)), "Or(false)");
+}
+
+#[test]
+fn test_and_display() {
+    assert_eq!(format!("{}", And(true)), "And(true)");
+    assert_eq!(format!("{}", And(false)), "And(false)");
 }

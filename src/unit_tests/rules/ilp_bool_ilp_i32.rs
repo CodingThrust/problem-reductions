@@ -1,6 +1,6 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -19,7 +19,7 @@ fn test_ilp_bool_to_ilp_i32_closed_loop() {
     // Find optimal on source via brute force
     let solver = BruteForce::new();
     let source_best = solver
-        .find_best(&source)
+        .find_witness(&source)
         .expect("source should have optimal");
     let source_obj = source.evaluate(&source_best);
 

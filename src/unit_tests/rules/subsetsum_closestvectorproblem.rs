@@ -1,9 +1,9 @@
 use super::*;
 use crate::models::algebraic::{ClosestVectorProblem, VarBounds};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Min;
 use std::collections::HashSet;
 
 #[test]
@@ -42,7 +42,7 @@ fn test_subsetsum_to_closestvectorproblem_issue_example_minimizers() {
     let reduction = ReduceTo::<ClosestVectorProblem<i32>>::reduce_to(&source);
     let target = reduction.target_problem();
     let solutions: HashSet<Vec<usize>> = BruteForce::new()
-        .find_all_best(target)
+        .find_all_witnesses(target)
         .into_iter()
         .collect();
 
@@ -50,7 +50,7 @@ fn test_subsetsum_to_closestvectorproblem_issue_example_minimizers() {
     assert_eq!(solutions, expected);
 
     for solution in &solutions {
-        assert_eq!(target.evaluate(solution), SolutionSize::Valid(1.0));
+        assert_eq!(target.evaluate(solution), Min(Some(1.0)));
     }
 }
 
@@ -60,13 +60,12 @@ fn test_subsetsum_to_closestvectorproblem_unsatisfiable_instance() {
     let reduction = ReduceTo::<ClosestVectorProblem<i32>>::reduce_to(&source);
     let target = reduction.target_problem();
     let best = BruteForce::new()
-        .find_best(target)
+        .find_witness(target)
         .expect("unsatisfiable instance should still have a best CVP assignment");
 
-    match target.evaluate(&best) {
-        SolutionSize::Valid(value) => assert!(value > (source.num_elements() as f64).sqrt() / 2.0),
-        SolutionSize::Invalid => panic!("CVP solution should be valid"),
-    }
+    let metric = target.evaluate(&best);
+    assert!(metric.is_valid(), "CVP solution should be valid");
+    assert!(metric.unwrap() > (source.num_elements() as f64).sqrt() / 2.0);
 }
 
 #[test]

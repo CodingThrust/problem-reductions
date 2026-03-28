@@ -3,8 +3,8 @@
 //! QUBO minimizes a quadratic function over binary variables.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -47,7 +47,7 @@ inventory::submit! {
 /// ]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Optimal is x = [0, 1] with value -2
 /// assert!(solutions.contains(&vec![0, 1]));
@@ -158,14 +158,14 @@ where
         + std::ops::Mul<Output = W>,
 {
     const NAME: &'static str = "QUBO";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = Min<W::Sum>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_vars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
-        SolutionSize::Valid(self.evaluate(config).to_sum())
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
+        Min(Some(self.evaluate(config).to_sum()))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -173,26 +173,8 @@ where
     }
 }
 
-impl<W> OptimizationProblem for QUBO<W>
-where
-    W: WeightElement
-        + crate::variant::VariantParam
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + std::ops::Mul<Output = W>,
-{
-    type Value = W::Sum;
-
-    fn direction(&self) -> Direction {
-        Direction::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt QUBO<f64> => "2^num_vars",
+    default QUBO<f64> => "2^num_vars",
 }
 
 #[cfg(feature = "example-db")]
@@ -205,7 +187,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![0.0, 0.0, -1.0],
         ])),
         optimal_config: vec![1, 0, 1],
-        optimal_value: serde_json::json!({"Valid": -2.0}),
+        optimal_value: serde_json::json!(-2.0),
     }]
 }
 

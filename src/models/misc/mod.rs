@@ -11,6 +11,7 @@
 //! - [`Factoring`]: Integer factorization
 //! - [`FlowShopScheduling`]: Flow Shop Scheduling (meet deadline on m processors)
 //! - [`GroupingBySwapping`]: Group equal symbols into contiguous blocks by adjacent swaps
+//! - [`JobShopScheduling`]: Minimize makespan with per-job processor routes
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
 //! - [`MultiprocessorScheduling`]: Schedule tasks on processors to meet a deadline
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
@@ -23,7 +24,7 @@
 //! - [`RectilinearPictureCompression`]: Cover 1-entries with bounded rectangles
 //! - [`ResourceConstrainedScheduling`]: Schedule unit-length tasks on processors with resource constraints
 //! - [`SchedulingWithIndividualDeadlines`]: Meet per-task deadlines on parallel processors
-//! - [`StackerCrane`]: Route a crane through required arcs within a length bound
+//! - [`StackerCrane`]: Minimize the total length of a closed walk through required arcs
 //! - [`SequencingToMinimizeMaximumCumulativeCost`]: Keep every cumulative schedule cost prefix under a bound
 //! - [`SequencingToMinimizeWeightedCompletionTime`]: Minimize total weighted completion time
 //! - [`SequencingToMinimizeWeightedTardiness`]: Decide whether a schedule meets a weighted tardiness bound
@@ -36,6 +37,31 @@
 //! - [`SumOfSquaresPartition`]: Partition integers into K groups minimizing sum of squared group sums
 
 pub(crate) mod additional_key;
+
+/// Decode a Lehmer code into a permutation of `0..n`.
+///
+/// Each element of `config` selects from the remaining items:
+/// `config[i]` must be `< n - i`. Returns `None` if the config is
+/// invalid (wrong length or out-of-range digit).
+pub(crate) fn decode_lehmer(config: &[usize], n: usize) -> Option<Vec<usize>> {
+    if config.len() != n {
+        return None;
+    }
+    let mut available: Vec<usize> = (0..n).collect();
+    let mut schedule = Vec::with_capacity(n);
+    for &digit in config {
+        if digit >= available.len() {
+            return None;
+        }
+        schedule.push(available.remove(digit));
+    }
+    Some(schedule)
+}
+
+/// Return the Lehmer-code dimension vector `[n, n-1, ..., 1]`.
+pub(crate) fn lehmer_dims(n: usize) -> Vec<usize> {
+    (0..n).rev().map(|i| i + 1).collect()
+}
 mod bin_packing;
 mod boyce_codd_normal_form_violation;
 mod capacity_assignment;
@@ -47,6 +73,7 @@ pub(crate) mod expected_retrieval_cost;
 pub(crate) mod factoring;
 mod flow_shop_scheduling;
 mod grouping_by_swapping;
+mod job_shop_scheduling;
 mod knapsack;
 mod longest_common_subsequence;
 mod minimum_tardiness_sequencing;
@@ -70,6 +97,7 @@ mod staff_scheduling;
 pub(crate) mod string_to_string_correction;
 mod subset_sum;
 pub(crate) mod sum_of_squares_partition;
+mod three_partition;
 mod timetable_design;
 
 pub use additional_key::AdditionalKey;
@@ -86,6 +114,7 @@ pub use expected_retrieval_cost::ExpectedRetrievalCost;
 pub use factoring::Factoring;
 pub use flow_shop_scheduling::FlowShopScheduling;
 pub use grouping_by_swapping::GroupingBySwapping;
+pub use job_shop_scheduling::JobShopScheduling;
 pub use knapsack::Knapsack;
 pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
@@ -109,6 +138,7 @@ pub use staff_scheduling::StaffScheduling;
 pub use string_to_string_correction::StringToStringCorrection;
 pub use subset_sum::SubsetSum;
 pub use sum_of_squares_partition::SumOfSquaresPartition;
+pub use three_partition::ThreePartition;
 pub use timetable_design::TimetableDesign;
 
 #[cfg(feature = "example-db")]
@@ -145,10 +175,12 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(sequencing_to_minimize_maximum_cumulative_cost::canonical_model_example_specs());
     specs.extend(sum_of_squares_partition::canonical_model_example_specs());
     specs.extend(precedence_constrained_scheduling::canonical_model_example_specs());
+    specs.extend(job_shop_scheduling::canonical_model_example_specs());
     specs.extend(sequencing_with_release_times_and_deadlines::canonical_model_example_specs());
     specs.extend(flow_shop_scheduling::canonical_model_example_specs());
     specs.extend(bin_packing::canonical_model_example_specs());
     specs.extend(knapsack::canonical_model_example_specs());
     specs.extend(subset_sum::canonical_model_example_specs());
+    specs.extend(three_partition::canonical_model_example_specs());
     specs
 }

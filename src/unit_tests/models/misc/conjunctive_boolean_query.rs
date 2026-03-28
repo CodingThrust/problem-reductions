@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 /// Helper to build the issue example instance.
@@ -85,7 +85,7 @@ fn test_conjunctivebooleanquery_brute_force() {
     let problem = issue_example();
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("should find a solution");
     assert!(problem.evaluate(&solution));
 }
@@ -105,7 +105,7 @@ fn test_conjunctivebooleanquery_unsatisfiable() {
     ];
     let problem = ConjunctiveBooleanQuery::new(2, relations, 1, conjuncts);
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]
@@ -121,7 +121,7 @@ fn test_conjunctivebooleanquery_paper_example() {
     // Same instance as the issue example — count all satisfying assignments
     let problem = issue_example();
     let solver = BruteForce::new();
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     // (0,1) satisfies; verify count manually:
     // For each (y0, y1) in {0..5}x{0..5}:
     //   need R_0(y0, 3) and R_0(y1, 3) and R_1(y0, y1, 5)

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -86,7 +86,7 @@ fn test_rootedtreearrangement_solver_and_serialization() {
 
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("expected satisfying solution");
     assert!(problem.evaluate(&solution));
 

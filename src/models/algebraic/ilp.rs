@@ -8,8 +8,8 @@
 //! - `ILP<i32>`: non-negative integer variables (0..2^31-1)
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::Problem;
+use crate::types::Extremum;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
@@ -244,18 +244,25 @@ impl<V: VariableDomain> ILP<V> {
 
 impl<V: VariableDomain> Problem for ILP<V> {
     const NAME: &'static str = "ILP";
-    type Metric = SolutionSize<f64>;
+    type Value = Extremum<f64>;
 
     fn dims(&self) -> Vec<usize> {
         vec![V::DIMS_PER_VAR; self.num_vars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<f64> {
+    fn evaluate(&self, config: &[usize]) -> Extremum<f64> {
         let values = self.config_to_values(config);
         if !self.is_feasible(&values) {
-            return SolutionSize::Invalid;
+            return match self.sense {
+                ObjectiveSense::Maximize => Extremum::maximize(None),
+                ObjectiveSense::Minimize => Extremum::minimize(None),
+            };
         }
-        SolutionSize::Valid(self.evaluate_objective(&values))
+        let objective = self.evaluate_objective(&values);
+        match self.sense {
+            ObjectiveSense::Maximize => Extremum::maximize(Some(objective)),
+            ObjectiveSense::Minimize => Extremum::minimize(Some(objective)),
+        }
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -263,20 +270,9 @@ impl<V: VariableDomain> Problem for ILP<V> {
     }
 }
 
-impl<V: VariableDomain> OptimizationProblem for ILP<V> {
-    type Value = f64;
-
-    fn direction(&self) -> Direction {
-        match self.sense {
-            ObjectiveSense::Maximize => Direction::Maximize,
-            ObjectiveSense::Minimize => Direction::Minimize,
-        }
-    }
-}
-
 crate::declare_variants! {
-    default opt ILP<bool> => "2^num_vars",
-    opt ILP<i32> => "num_vars^num_vars",
+    default ILP<bool> => "2^num_vars",
+    ILP<i32> => "num_vars^num_vars",
 }
 
 #[cfg(feature = "example-db")]
@@ -293,7 +289,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ObjectiveSense::Minimize,
         )),
         optimal_config: vec![3, 2],
-        optimal_value: serde_json::json!({"Valid": -27.0}),
+        optimal_value: serde_json::json!({
+            "sense": "Minimize",
+            "value": -27.0,
+        }),
     }]
 }
 

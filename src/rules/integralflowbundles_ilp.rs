@@ -87,26 +87,20 @@ impl ReduceTo<ILP<i32>> for IntegralFlowBundles {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
     use crate::topology::DirectedGraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "integralflowbundles_to_ilp",
         build: || {
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
-                IntegralFlowBundles::new(
-                    DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]),
-                    0,
-                    3,
-                    vec![vec![0, 1], vec![2, 5], vec![3, 4]],
-                    vec![1, 1, 1],
-                    1,
-                ),
-                SolutionPair {
-                    source_config: vec![1, 0, 1, 0, 0, 0],
-                    target_config: vec![1, 0, 1, 0, 0, 0],
-                },
-            )
+            let source = IntegralFlowBundles::new(
+                DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3), (1, 2), (2, 1)]),
+                0,
+                3,
+                vec![vec![0, 1], vec![2, 5], vec![3, 4]],
+                vec![1, 1, 1],
+                1,
+            );
+            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
         },
     }]
 }

@@ -1,13 +1,13 @@
 //! Shortest Weight-Constrained Path problem implementation.
 //!
-//! The Shortest Weight-Constrained Path problem asks whether a graph contains
-//! a simple path from a source vertex to a target vertex whose total length
-//! and total weight both stay within prescribed bounds.
+//! The Shortest Weight-Constrained Path problem finds a simple path from a
+//! source vertex to a target vertex that minimizes total length while keeping
+//! the total weight within a prescribed bound.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
-use crate::types::WeightElement;
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -22,14 +22,13 @@ inventory::submit! {
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
         module_path: module_path!(),
-        description: "Find a simple s-t path whose total length and weight stay within given bounds",
+        description: "Find a simple s-t path minimizing total length subject to a weight budget",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
             FieldInfo { name: "edge_lengths", type_name: "Vec<W>", description: "Edge lengths l: E -> ZZ_(> 0)" },
             FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights w: E -> ZZ_(> 0)" },
             FieldInfo { name: "source_vertex", type_name: "usize", description: "Source vertex s" },
             FieldInfo { name: "target_vertex", type_name: "usize", description: "Target vertex t" },
-            FieldInfo { name: "length_bound", type_name: "W::Sum", description: "Upper bound K on total path length" },
             FieldInfo { name: "weight_bound", type_name: "W::Sum", description: "Upper bound W on total path weight" },
         ],
     }
@@ -38,9 +37,9 @@ inventory::submit! {
 /// The Shortest Weight-Constrained Path problem.
 ///
 /// Given a graph G = (V, E) with positive edge lengths l(e) and edge weights
-/// w(e), designated vertices s and t, and bounds K and W, determine whether
-/// there exists a simple path from s to t with total length at most K and
-/// total weight at most W.
+/// w(e), designated vertices s and t, and a weight bound W, find a simple
+/// path from s to t that minimizes total length subject to total weight at
+/// most W.
 ///
 /// # Representation
 ///
@@ -51,7 +50,9 @@ inventory::submit! {
 /// A valid configuration must:
 /// - form a single simple path from `source_vertex` to `target_vertex`
 /// - use only edges present in the graph
-/// - satisfy both the length and weight bounds
+/// - satisfy the weight bound
+///
+/// The objective value is the total length of the path (`Min<N::Sum>`).
 ///
 /// # Type Parameters
 ///
@@ -69,8 +70,6 @@ pub struct ShortestWeightConstrainedPath<G, N: WeightElement> {
     source_vertex: usize,
     /// Target vertex t.
     target_vertex: usize,
-    /// Upper bound K on total path length.
-    length_bound: N::Sum,
     /// Upper bound W on total path weight.
     weight_bound: N::Sum,
 }
@@ -95,14 +94,12 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
     ///
     /// Panics if either edge vector length does not match the graph's edge
     /// count, or if the source / target vertices are out of bounds.
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         graph: G,
         edge_lengths: Vec<N>,
         edge_weights: Vec<N>,
         source_vertex: usize,
         target_vertex: usize,
-        length_bound: N::Sum,
         weight_bound: N::Sum,
     ) -> Self {
         assert_eq!(
@@ -129,7 +126,6 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
             target_vertex,
             graph.num_vertices()
         );
-        Self::assert_positive_bound(&length_bound, "length_bound");
         Self::assert_positive_bound(&weight_bound, "weight_bound");
         Self {
             graph,
@@ -137,7 +133,6 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
             edge_weights,
             source_vertex,
             target_vertex,
-            length_bound,
             weight_bound,
         }
     }
@@ -189,11 +184,6 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
         self.target_vertex
     }
 
-    /// Get the length bound.
-    pub fn length_bound(&self) -> &N::Sum {
-        &self.length_bound
-    }
-
     /// Get the weight bound.
     pub fn weight_bound(&self) -> &N::Sum {
         &self.weight_bound
@@ -214,18 +204,20 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
         self.graph.num_edges()
     }
 
-    /// Check if a configuration is a valid constrained s-t path.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    /// Check if a configuration is a valid weight-constrained s-t path.
+    ///
+    /// Returns `Some(total_length)` for a valid simple s-t path whose total
+    /// weight is within the weight bound, or `None` otherwise.
+    pub fn is_valid_solution(&self, config: &[usize]) -> Option<N::Sum> {
         if config.len() != self.graph.num_edges() || config.iter().any(|&value| value > 1) {
-            return false;
+            return None;
         }
 
         if self.source_vertex == self.target_vertex {
             if config.contains(&1) {
-                return false;
+                return None;
             }
-            let zero = N::Sum::zero();
-            return zero <= self.length_bound.clone() && zero <= self.weight_bound.clone();
+            return Some(N::Sum::zero());
         }
 
         let edges = self.graph.edges();
@@ -250,15 +242,15 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
         }
 
         if selected_edge_count == 0 {
-            return false;
+            return None;
         }
 
-        if total_length > self.length_bound.clone() || total_weight > self.weight_bound.clone() {
-            return false;
+        if total_weight > self.weight_bound.clone() {
+            return None;
         }
 
         if degree[self.source_vertex] != 1 || degree[self.target_vertex] != 1 {
-            return false;
+            return None;
         }
 
         for (vertex, &vertex_degree) in degree.iter().enumerate() {
@@ -266,7 +258,7 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
                 continue;
             }
             if vertex_degree != 0 && vertex_degree != 2 {
-                return false;
+                return None;
             }
         }
 
@@ -285,7 +277,7 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
         }
 
         if !visited[self.target_vertex] {
-            return false;
+            return None;
         }
 
         let used_vertex_count = degree
@@ -294,11 +286,15 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
             .count();
         for (vertex, &vertex_degree) in degree.iter().enumerate() {
             if vertex_degree > 0 && !visited[vertex] {
-                return false;
+                return None;
             }
         }
 
-        used_vertex_count == selected_edge_count + 1
+        if used_vertex_count == selected_edge_count + 1 {
+            Some(total_length)
+        } else {
+            None
+        }
     }
 }
 
@@ -308,7 +304,7 @@ where
     N: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "ShortestWeightConstrainedPath";
-    type Metric = bool;
+    type Value = Min<N::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, N]
@@ -318,16 +314,9 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_solution(config)
+    fn evaluate(&self, config: &[usize]) -> Min<N::Sum> {
+        Min(self.is_valid_solution(config))
     }
-}
-
-impl<G, N> SatisfactionProblem for ShortestWeightConstrainedPath<G, N>
-where
-    G: Graph + crate::variant::VariantParam,
-    N: WeightElement + crate::variant::VariantParam,
-{
 }
 
 #[cfg(feature = "example-db")]
@@ -352,16 +341,15 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![5, 1, 2, 3, 2, 3, 1, 1],
             0,
             5,
-            10,
             8,
         )),
         optimal_config: vec![0, 1, 0, 1, 0, 1, 0, 0],
-        optimal_value: serde_json::json!(true),
+        optimal_value: serde_json::json!(9),
     }]
 }
 
 crate::declare_variants! {
-    default sat ShortestWeightConstrainedPath<SimpleGraph, i32> => "2^num_edges",
+    default ShortestWeightConstrainedPath<SimpleGraph, i32> => "2^num_edges",
 }
 
 #[cfg(test)]

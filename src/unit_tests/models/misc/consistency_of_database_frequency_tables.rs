@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 fn issue_yes_instance() -> ConsistencyOfDatabaseFrequencyTables {
@@ -113,7 +113,7 @@ fn test_cdft_bruteforce_finds_small_satisfying_assignment() {
     let problem = small_yes_instance();
     let solver = BruteForce::new();
     let solution = solver
-        .find_satisfying(&problem)
+        .find_witness(&problem)
         .expect("small instance should be satisfiable");
     assert!(problem.evaluate(&solution));
 }
@@ -122,7 +122,7 @@ fn test_cdft_bruteforce_finds_small_satisfying_assignment() {
 fn test_cdft_bruteforce_detects_small_unsat_instance() {
     let problem = small_no_instance();
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_witness(&problem).is_none());
 }
 
 #[test]

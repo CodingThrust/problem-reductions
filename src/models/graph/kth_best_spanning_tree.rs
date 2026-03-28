@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use crate::types::WeightElement;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -207,7 +207,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "KthBestSpanningTree";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
@@ -217,14 +217,9 @@ where
         vec![2; self.k * self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.evaluate_config(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.evaluate_config(config))
     }
-}
-
-impl<W> SatisfactionProblem for KthBestSpanningTree<W> where
-    W: WeightElement + crate::variant::VariantParam
-{
 }
 
 #[cfg(feature = "example-db")]
@@ -245,7 +240,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default sat KthBestSpanningTree<i32> => "2^(num_edges * k)",
+    default KthBestSpanningTree<i32> => "2^(num_edges * k)",
 }
 
 #[cfg(test)]

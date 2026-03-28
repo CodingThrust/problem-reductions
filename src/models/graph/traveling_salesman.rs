@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -150,7 +150,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "TravelingSalesman";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = Min<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -160,9 +160,9 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
         if !self.is_valid_hamiltonian_cycle(config) {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
         let mut total = W::Sum::zero();
         for (idx, &selected) in config.iter().enumerate() {
@@ -172,19 +172,7 @@ where
                 }
             }
         }
-        SolutionSize::Valid(total)
-    }
-}
-
-impl<G, W> OptimizationProblem for TravelingSalesman<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Value = W::Sum;
-
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+        Min(Some(total))
     }
 }
 
@@ -267,12 +255,12 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![1, 3, 2, 2, 3, 1],
         )),
         optimal_config: vec![1, 0, 1, 1, 0, 1],
-        optimal_value: serde_json::json!({"Valid": 6}),
+        optimal_value: serde_json::json!(6),
     }]
 }
 
 crate::declare_variants! {
-    default opt TravelingSalesman<SimpleGraph, i32> => "2^num_vertices",
+    default TravelingSalesman<SimpleGraph, i32> => "2^num_vertices",
 }
 
 #[cfg(test)]

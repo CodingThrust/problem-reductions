@@ -1,7 +1,7 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::solvers::BruteForce;
+use crate::traits::Problem;
+use crate::types::Max;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -47,16 +47,10 @@ fn test_is_set_packing_function() {
 }
 
 #[test]
-fn test_direction() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1]]);
-    assert_eq!(problem.direction(), Direction::Maximize);
-}
-
-#[test]
 fn test_empty_sets() {
     let problem = MaximumSetPacking::<i32>::new(vec![]);
     // Empty packing is valid with size 0
-    assert_eq!(Problem::evaluate(&problem, &[]), SolutionSize::Valid(0));
+    assert_eq!(Problem::evaluate(&problem, &[]), Max(Some(0)));
 }
 
 #[test]
@@ -83,8 +77,8 @@ fn test_relationship_to_independent_set() {
 
     let solver = BruteForce::new();
 
-    let sp_solutions = solver.find_all_best(&sp_problem);
-    let is_solutions = solver.find_all_best(&is_problem);
+    let sp_solutions = solver.find_all_witnesses(&sp_problem);
+    let is_solutions = solver.find_all_witnesses(&is_problem);
 
     // Should have same optimal value
     let sp_size: usize = sp_solutions[0].iter().sum();
@@ -130,7 +124,7 @@ fn test_jl_parity_evaluation() {
                 );
             }
         }
-        let best = BruteForce::new().find_all_best(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "SetPacking best solutions mismatch");
@@ -172,6 +166,6 @@ fn test_setpacking_paper_example() {
     assert_eq!(result.unwrap(), 2);
 
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
+    let best = solver.find_witness(&problem).unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), 2);
 }

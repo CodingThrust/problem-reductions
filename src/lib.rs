@@ -11,8 +11,8 @@
 //! | [`rules`] | Reduction rules, [`ReductionGraph`](rules::ReductionGraph) for path search |
 //! | [`solvers`] | [`BruteForce`] and [`ILPSolver`](solvers::ILPSolver) |
 //! | [`topology`] | Graph types — [`SimpleGraph`](topology::SimpleGraph), [`UnitDiskGraph`](topology::UnitDiskGraph), etc. |
-//! | [`traits`] | Core traits — [`Problem`], [`OptimizationProblem`], [`SatisfactionProblem`] |
-//! | [`types`] | [`SolutionSize`], [`Direction`], [`ProblemSize`], [`WeightElement`] |
+//! | [`traits`] | Core traits — [`Problem`] |
+//! | [`types`] | [`Max`], [`Min`], [`Extremum`], [`ExtremumSense`], [`ProblemSize`], [`WeightElement`] |
 //! | [`variant`] | Variant parameter system for problem type parameterization |
 //!
 //! Use [`prelude`] for convenient imports.
@@ -53,10 +53,10 @@ pub mod prelude {
         AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover,
         BiconnectivityAugmentation, BottleneckTravelingSalesman, BoundedComponentSpanningForest,
         DirectedTwoCommodityIntegralFlow, DisjointConnectingPaths, GeneralizedHex,
-        GraphPartitioning, HamiltonianCircuit, HamiltonianPath, IntegralFlowBundles,
-        IntegralFlowHomologousArcs, IntegralFlowWithMultipliers, IsomorphicSpanningTree, KClique,
-        KthBestSpanningTree, LengthBoundedDisjointPaths, LongestPath, MixedChinesePostman,
-        SpinGlass, SteinerTree, StrongConnectivityAugmentation, SubgraphIsomorphism,
+        HamiltonianCircuit, HamiltonianPath, IntegralFlowBundles, IntegralFlowHomologousArcs,
+        IntegralFlowWithMultipliers, IsomorphicSpanningTree, KClique, KthBestSpanningTree,
+        LengthBoundedDisjointPaths, LongestPath, MixedChinesePostman, SpinGlass, SteinerTree,
+        StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, LongestCircuit, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
@@ -72,14 +72,15 @@ pub mod prelude {
         AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
         ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables,
         EnsembleComputation, ExpectedRetrievalCost, Factoring, FlowShopScheduling,
-        GroupingBySwapping, Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing,
-        MultiprocessorScheduling, PaintShop, Partition, ProductionPlanning, QueryArg,
-        RectilinearPictureCompression,
+        GroupingBySwapping, JobShopScheduling, Knapsack, LongestCommonSubsequence,
+        MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, Partition,
+        ProductionPlanning, QueryArg, RectilinearPictureCompression,
         ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
         SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
         SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
         SequencingWithinIntervals, ShortestCommonSupersequence, StackerCrane, StaffScheduling,
-        StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, TimetableDesign,
+        StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, ThreePartition,
+        TimetableDesign,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
@@ -90,11 +91,13 @@ pub mod prelude {
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};
     pub use crate::solvers::{BruteForce, Solver};
-    pub use crate::traits::{OptimizationProblem, Problem, SatisfactionProblem};
+    pub use crate::traits::Problem;
 
     // Types
     pub use crate::error::{ProblemError, Result};
-    pub use crate::types::{Direction, One, ProblemSize, SolutionSize, Unweighted};
+    pub use crate::types::{
+        And, Extremum, ExtremumSense, Max, Min, One, Or, ProblemSize, Sum, Unweighted,
+    };
 }
 
 // Re-export commonly used items at crate root
@@ -104,9 +107,10 @@ pub use error::{ProblemError, Result};
 pub use expr::{asymptotic_normal_form, AsymptoticAnalysisError, CanonicalizationError, Expr};
 pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
-pub use traits::{OptimizationProblem, Problem, SatisfactionProblem};
+pub use traits::Problem;
 pub use types::{
-    Direction, NumericSize, One, ProblemSize, SolutionSize, Unweighted, WeightElement,
+    And, Extremum, ExtremumSense, Max, Min, NumericSize, One, Or, ProblemSize, Sum, Unweighted,
+    WeightElement,
 };
 
 // Re-export proc macros for reduction registration and variant declaration

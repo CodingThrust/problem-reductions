@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use problemreductions::registry::{DynProblem, LoadedDynProblem};
-use problemreductions::rules::{MinimizeSteps, ReductionGraph};
-use problemreductions::solvers::ILPSolver;
+use problemreductions::rules::{MinimizeSteps, ReductionGraph, ReductionMode};
+use problemreductions::solvers::{CustomizedSolver, ILPSolver};
 use problemreductions::types::ProblemSize;
 use serde_json::Value;
 use std::any::Any;
@@ -37,12 +37,19 @@ impl std::ops::Deref for LoadedProblem {
 }
 
 impl LoadedProblem {
-    pub fn solve_brute_force(&self) -> Result<SolveResult> {
-        let (config, evaluation) = self
-            .inner
-            .solve_brute_force()
-            .ok_or_else(|| anyhow::anyhow!("No solution found"))?;
-        Ok(SolveResult { config, evaluation })
+    pub fn solve_brute_force_value(&self) -> String {
+        self.inner.solve_brute_force_value()
+    }
+
+    pub fn solve_brute_force_witness(&self) -> Option<WitnessSolveResult> {
+        let (config, evaluation) = self.inner.solve_brute_force_witness()?;
+        Some(WitnessSolveResult { config, evaluation })
+    }
+
+    pub fn solve_brute_force(&self) -> SolveResult {
+        let evaluation = self.solve_brute_force_value();
+        let config = self.solve_brute_force_witness().map(|result| result.config);
+        SolveResult { config, evaluation }
     }
 
     pub fn supports_ilp_solver(&self) -> bool {
@@ -54,28 +61,56 @@ impl LoadedProblem {
             let input_size = ProblemSize::new(vec![]);
             ilp_variants.iter().any(|dv| {
                 graph
-                    .find_cheapest_path(name, &variant, "ILP", dv, &input_size, &MinimizeSteps)
+                    .find_cheapest_path_mode(
+                        name,
+                        &variant,
+                        "ILP",
+                        dv,
+                        ReductionMode::Witness,
+                        &input_size,
+                        &MinimizeSteps,
+                    )
                     .is_some()
             })
         }
     }
 
+    pub fn supports_customized_solver(&self) -> bool {
+        CustomizedSolver::supports_problem(self.as_any())
+    }
+
+    pub fn solve_with_customized(&self) -> Result<WitnessSolveResult> {
+        let solver = CustomizedSolver::new();
+        let config = solver
+            .solve_dyn(self.as_any())
+            .ok_or_else(|| anyhow::anyhow!("Problem unsupported by customized solver"))?;
+        let evaluation = self.evaluate_dyn(&config);
+        Ok(WitnessSolveResult { config, evaluation })
+    }
+
+    #[cfg_attr(not(feature = "mcp"), allow(dead_code))]
+    pub fn available_solvers(&self) -> Vec<&'static str> {
+        let mut solvers = Vec::new();
+        if self.supports_ilp_solver() {
+            solvers.push("ilp");
+        }
+        solvers.push("brute-force");
+        if self.supports_customized_solver() {
+            solvers.push("customized");
+        }
+        solvers
+    }
+
     /// Solve using the ILP solver. If the problem is not ILP, auto-reduce to ILP first.
-    pub fn solve_with_ilp(&self) -> Result<SolveResult> {
+    pub fn solve_with_ilp(&self) -> Result<WitnessSolveResult> {
         let name = self.problem_name();
         let variant = self.variant_map();
         let solver = ILPSolver::new();
         let config = solver
-            .solve_via_reduction(name, &variant, self.as_any())
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "No reduction path from {} to ILP or ILP solver found no solution. \
-                     Try `--solver brute-force`.",
-                    name
-                )
-            })?;
+            .try_solve_via_reduction(name, &variant, self.as_any())
+            .map_err(|err| anyhow::anyhow!(err))?;
         let evaluation = self.evaluate_dyn(&config);
-        Ok(SolveResult { config, evaluation })
+        Ok(WitnessSolveResult { config, evaluation })
     }
 }
 
@@ -140,7 +175,17 @@ pub struct PathStep {
 }
 
 /// Result of solving a problem.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SolveResult {
+    /// The solution configuration when the problem supports witness extraction.
+    pub config: Option<Vec<usize>>,
+    /// Evaluation of the solution.
+    pub evaluation: String,
+}
+
+/// Result of solving a witness-capable problem.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WitnessSolveResult {
     /// The solution configuration.
     pub config: Vec<usize>,
     /// Evaluation of the solution.
@@ -150,6 +195,7 @@ pub struct SolveResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::{AggregateValueSource, AGGREGATE_SOURCE_NAME};
     use problemreductions::models::graph::MaximumIndependentSet;
     use problemreductions::models::misc::BinPacking;
     use problemreductions::topology::SimpleGraph;
@@ -223,6 +269,64 @@ mod tests {
         let err = loaded.err().unwrap();
         assert!(
             err.to_string().contains("expected positive integer, got 0"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_solve_brute_force_value_only_problem_has_no_witness() {
+        let loaded = load_problem(
+            AGGREGATE_SOURCE_NAME,
+            &BTreeMap::new(),
+            serde_json::to_value(AggregateValueSource::sample()).unwrap(),
+        )
+        .unwrap();
+
+        let result = loaded.solve_brute_force();
+        assert_eq!(result.config, None);
+        assert_eq!(result.evaluation, "Sum(56)");
+    }
+
+    #[test]
+    fn test_available_solvers_excludes_customized_for_unsupported_problem() {
+        let loaded = load_problem(
+            AGGREGATE_SOURCE_NAME,
+            &BTreeMap::new(),
+            serde_json::to_value(AggregateValueSource::sample()).unwrap(),
+        )
+        .unwrap();
+
+        assert!(!loaded.available_solvers().contains(&"customized"));
+    }
+
+    #[test]
+    fn test_solve_with_customized_rejects_unsupported_problem() {
+        let loaded = load_problem(
+            AGGREGATE_SOURCE_NAME,
+            &BTreeMap::new(),
+            serde_json::to_value(AggregateValueSource::sample()).unwrap(),
+        )
+        .unwrap();
+
+        let err = loaded.solve_with_customized().unwrap_err();
+        assert!(
+            err.to_string().contains("unsupported by customized solver"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_solve_with_ilp_rejects_aggregate_only_problem() {
+        let loaded = load_problem(
+            AGGREGATE_SOURCE_NAME,
+            &BTreeMap::new(),
+            serde_json::to_value(AggregateValueSource::sample()).unwrap(),
+        )
+        .unwrap();
+
+        let err = loaded.solve_with_ilp().unwrap_err();
+        assert!(
+            err.to_string().contains("witness-capable"),
             "unexpected error: {err}"
         );
     }

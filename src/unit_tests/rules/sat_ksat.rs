@@ -117,11 +117,11 @@ fn test_sat_to_ksat_closed_loop() {
     let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
-    // Solve both problems - use find_all_satisfying for satisfaction problems
+    // Solve both problems - use find_all_witnesses for satisfaction problems
     let solver = BruteForce::new();
 
-    let sat_solutions = solver.find_all_satisfying(&sat);
-    let ksat_solutions = solver.find_all_satisfying(ksat);
+    let sat_solutions = solver.find_all_witnesses(&sat);
+    let ksat_solutions = solver.find_all_witnesses(ksat);
 
     // If SAT is satisfiable, K-SAT should be too
     let sat_satisfiable = !sat_solutions.is_empty();
@@ -146,9 +146,9 @@ fn test_sat_to_3sat_solution_extraction() {
     let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
-    // Solve K-SAT - use find_all_satisfying for satisfaction problems
+    // Solve K-SAT - use find_all_witnesses for satisfaction problems
     let solver = BruteForce::new();
-    let ksat_solutions = solver.find_all_satisfying(ksat);
+    let ksat_solutions = solver.find_all_witnesses(ksat);
 
     // Extract and verify solutions
     for ksat_sol in &ksat_solutions {
@@ -208,12 +208,12 @@ fn test_roundtrip_sat_3sat_sat() {
     let to_sat = ReduceTo::<Satisfiability>::reduce_to(ksat);
     let final_sat = to_sat.target_problem();
 
-    // Solve all three - use find_all_satisfying for satisfaction problems
+    // Solve all three - use find_all_witnesses for satisfaction problems
     let solver = BruteForce::new();
 
-    let orig_solutions = solver.find_all_satisfying(&original_sat);
-    let ksat_solutions = solver.find_all_satisfying(ksat);
-    let final_solutions = solver.find_all_satisfying(final_sat);
+    let orig_solutions = solver.find_all_witnesses(&original_sat);
+    let ksat_solutions = solver.find_all_witnesses(ksat);
+    let final_solutions = solver.find_all_witnesses(final_sat);
 
     // All should be satisfiable (have at least one solution)
     assert!(!orig_solutions.is_empty());
@@ -286,7 +286,7 @@ fn test_mixed_clause_sizes() {
         assert_eq!(clause.len(), 3);
     }
 
-    // Verify satisfiability is preserved - use find_all_satisfying for satisfaction problems
+    // Verify satisfiability is preserved - use find_all_witnesses for satisfaction problems
     assert_satisfaction_round_trip_from_satisfaction_target(
         &sat,
         &reduction,
@@ -303,8 +303,8 @@ fn test_unsatisfiable_formula() {
     let ksat = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let best_target = solver.find_all_satisfying(ksat);
-    let best_source: HashSet<Vec<usize>> = solver.find_all_satisfying(&sat).into_iter().collect();
+    let best_target = solver.find_all_witnesses(ksat);
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&sat).into_iter().collect();
 
     // Both should be empty (unsatisfiable)
     assert!(best_source.is_empty());
@@ -324,8 +324,7 @@ fn test_jl_parity_sat_to_ksat() {
     let source = Satisfiability::new(num_vars, clauses);
     let result = ReduceTo::<KSatisfiability<K3>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> =
-        solver.find_all_satisfying(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &result,
@@ -349,8 +348,7 @@ fn test_jl_parity_ksat_to_sat() {
     let source = KSatisfiability::<K3>::new(num_vars, clauses);
     let result = ReduceTo::<Satisfiability>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> =
-        solver.find_all_satisfying(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &result,
@@ -374,8 +372,7 @@ fn test_jl_parity_rule_sat_to_ksat() {
     let source = Satisfiability::new(num_vars, clauses);
     let result = ReduceTo::<KSatisfiability<K3>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> =
-        solver.find_all_satisfying(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &result,

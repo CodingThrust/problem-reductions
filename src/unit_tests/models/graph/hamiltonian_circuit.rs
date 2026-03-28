@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -65,7 +65,7 @@ fn test_hamiltonian_circuit_small_graphs() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = HamiltonianCircuit::new(graph);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // K3 has 6 directed Hamiltonian circuits: 3 rotations x 2 directions
     assert_eq!(solutions.len(), 6);
 }
@@ -77,7 +77,7 @@ fn test_hamiltonian_circuit_complete_graph_k4() {
     let problem = HamiltonianCircuit::new(graph);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // K4 has 3 distinct undirected Hamiltonian circuits, each yielding
     // 4 rotations x 2 directions = 8 directed permutations => 24 total
     assert_eq!(solutions.len(), 24);
@@ -93,8 +93,8 @@ fn test_hamiltonian_circuit_no_solution() {
     let problem = HamiltonianCircuit::new(graph);
 
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_none());
-    assert!(solver.find_all_satisfying(&problem).is_empty());
+    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_all_witnesses(&problem).is_empty());
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn test_hamiltonian_circuit_solver() {
     let problem = HamiltonianCircuit::new(graph);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
 
     // 4-cycle has 8 Hamiltonian circuits: 4 starting positions x 2 directions
     assert_eq!(solutions.len(), 8);

@@ -29,10 +29,46 @@ fn parse_input(path: &Path) -> Result<SolveInput> {
     }
 }
 
+fn solve_result_text(problem: &str, solver: &str, result: &crate::dispatch::SolveResult) -> String {
+    let mut text = format!("Problem: {}\nSolver: {}", problem, solver);
+    if let Some(config) = &result.config {
+        text.push_str(&format!("\nSolution: {:?}", config));
+    }
+    text.push_str(&format!("\nEvaluation: {}", result.evaluation));
+    text
+}
+
+fn solve_result_json(
+    problem: &str,
+    solver: &str,
+    result: &crate::dispatch::SolveResult,
+) -> serde_json::Value {
+    let mut json = serde_json::json!({
+        "problem": problem,
+        "solver": solver,
+        "evaluation": result.evaluation,
+    });
+    if let Some(config) = &result.config {
+        json["solution"] = serde_json::json!(config);
+    }
+    json
+}
+
+fn plain_problem_output(
+    problem: &str,
+    solver: &str,
+    result: &crate::dispatch::SolveResult,
+) -> (String, serde_json::Value) {
+    (
+        solve_result_text(problem, solver, result),
+        solve_result_json(problem, solver, result),
+    )
+}
+
 pub fn solve(input: &Path, solver_name: &str, timeout: u64, out: &OutputConfig) -> Result<()> {
-    if solver_name != "brute-force" && solver_name != "ilp" {
+    if solver_name != "brute-force" && solver_name != "ilp" && solver_name != "customized" {
         anyhow::bail!(
-            "Unknown solver: {}. Available solvers: brute-force, ilp",
+            "Unknown solver: {}. Available solvers: brute-force, ilp, customized",
             solver_name
         );
     }
@@ -79,17 +115,8 @@ fn solve_problem(
 
     match solver_name {
         "brute-force" => {
-            let result = problem.solve_brute_force()?;
-            let text = format!(
-                "Problem: {}\nSolver: brute-force\nSolution: {:?}\nEvaluation: {}",
-                name, result.config, result.evaluation,
-            );
-            let json = serde_json::json!({
-                "problem": name,
-                "solver": "brute-force",
-                "solution": result.config,
-                "evaluation": result.evaluation,
-            });
+            let result = problem.solve_brute_force();
+            let (text, json) = plain_problem_output(name, "brute-force", &result);
             let result = out.emit_with_default_name("", &text, &json);
             if out.output.is_none() && crate::output::stderr_is_tty() {
                 out.info("\nHint: use -o to save full solution details as JSON.");
@@ -103,19 +130,30 @@ fn solve_problem(
             } else {
                 "ilp (via ILP)".to_string()
             };
-            let text = format!(
-                "Problem: {}\nSolver: {}\nSolution: {:?}\nEvaluation: {}",
-                name, solver_desc, result.config, result.evaluation,
-            );
-            let mut json = serde_json::json!({
-                "problem": name,
-                "solver": "ilp",
-                "solution": result.config,
-                "evaluation": result.evaluation,
-            });
+            let result = crate::dispatch::SolveResult {
+                config: Some(result.config),
+                evaluation: result.evaluation,
+            };
+            let text = solve_result_text(name, &solver_desc, &result);
+            let mut json = solve_result_json(name, "ilp", &result);
             if name != "ILP" {
                 json["reduced_to"] = serde_json::json!("ILP");
             }
+            let result = out.emit_with_default_name("", &text, &json);
+            if out.output.is_none() && crate::output::stderr_is_tty() {
+                out.info("\nHint: use -o to save full solution details as JSON.");
+            }
+            result
+        }
+        "customized" => {
+            let result = problem
+                .solve_with_customized()
+                .map_err(add_customized_solver_hint)?;
+            let result = crate::dispatch::SolveResult {
+                config: Some(result.config),
+                evaluation: result.evaluation,
+            };
+            let (text, json) = plain_problem_output(name, "customized", &result);
             let result = out.emit_with_default_name("", &text, &json);
             if out.output.is_none() && crate::output::stderr_is_tty() {
                 out.info("\nHint: use -o to save full solution details as JSON.");
@@ -138,8 +176,16 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
 
     // 2. Solve the target problem
     let target_result = match solver_name {
-        "brute-force" => target.solve_brute_force()?,
+        "brute-force" => target.solve_brute_force_witness().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Bundle solving requires a witness-capable target problem and witness-capable reduction path; {} only supports aggregate-value solving.",
+                target_name
+            )
+        })?,
         "ilp" => target.solve_with_ilp().map_err(add_ilp_solver_hint)?,
+        "customized" => target
+            .solve_with_customized()
+            .map_err(add_customized_solver_hint)?,
         _ => unreachable!(),
     };
 
@@ -167,9 +213,9 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
 
     let chain = graph
         .reduce_along_path(&reduction_path, source.as_any())
-        .ok_or_else(|| {
-            anyhow::anyhow!("Failed to re-execute reduction chain for solution extraction")
-        })?;
+        .ok_or_else(|| anyhow::anyhow!(
+            "Bundle solving requires a witness-capable reduction path; this bundle cannot recover a source solution."
+        ))?;
 
     // 4. Extract solution back to source problem space
     let source_config = chain.extract_solution(&target_result.config);
@@ -201,13 +247,64 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
     result
 }
 
+fn add_customized_solver_hint(err: anyhow::Error) -> anyhow::Error {
+    let message = err.to_string();
+    if message.contains("unsupported by customized solver") {
+        anyhow::anyhow!(
+            "{message}\n\nHint: the customized solver only supports select problems (FD-based models, PartialFeedbackEdgeSet, RootedTreeArrangement).\nTry `--solver brute-force` or `--solver ilp` instead."
+        )
+    } else {
+        err
+    }
+}
+
 fn add_ilp_solver_hint(err: anyhow::Error) -> anyhow::Error {
     let message = err.to_string();
-    if message.starts_with("No reduction path from ") && message.ends_with(" to ILP") {
+    if (message.starts_with("No reduction path from ") && message.ends_with(" to ILP"))
+        || message.contains("witness-capable")
+    {
         anyhow::anyhow!(
             "{message}\n\nHint: try `--solver brute-force` for direct exhaustive search on small instances."
         )
     } else {
         err
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dispatch::SolveResult;
+    use crate::output::OutputConfig;
+    use crate::test_support::aggregate_bundle;
+
+    #[test]
+    fn test_solve_value_only_problem_omits_solution() {
+        let result = SolveResult {
+            config: None,
+            evaluation: "Sum(56)".to_string(),
+        };
+        let (text, json) =
+            plain_problem_output("CliTestAggregateValueSource", "brute-force", &result);
+        assert!(text.contains("Evaluation: Sum(56)"), "{text}");
+        assert!(!text.contains("Solution:"), "{text}");
+        assert!(json.get("solution").is_none(), "{json}");
+    }
+
+    #[test]
+    fn test_solve_bundle_rejects_aggregate_only_path() {
+        let bundle = aggregate_bundle();
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = solve_bundle(bundle, "brute-force", &out).unwrap_err();
+        assert!(
+            err.to_string().contains("witness"),
+            "unexpected error: {err}"
+        );
     }
 }

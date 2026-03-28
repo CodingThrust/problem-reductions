@@ -6,8 +6,8 @@
 //! Corresponds to scheduling notation `1|prec, pj=1|sum Uj`.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -52,7 +52,7 @@ inventory::submit! {
 ///     vec![(0, 2)],  // task 0 must precede task 2
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_best(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,33 +125,21 @@ impl MinimumTardinessSequencing {
 
 impl Problem for MinimumTardinessSequencing {
     const NAME: &'static str = "MinimumTardinessSequencing";
-    type Metric = SolutionSize<usize>;
+    type Value = Min<usize>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
     fn dims(&self) -> Vec<usize> {
-        let n = self.num_tasks;
-        (0..n).rev().map(|i| i + 1).collect()
+        super::lehmer_dims(self.num_tasks)
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<usize> {
+    fn evaluate(&self, config: &[usize]) -> Min<usize> {
         let n = self.num_tasks;
-        if config.len() != n {
-            return SolutionSize::Invalid;
-        }
-
-        // Decode Lehmer code into a permutation.
-        // config[i] must be < n - i (the domain size for position i).
-        let mut available: Vec<usize> = (0..n).collect();
-        let mut schedule = Vec::with_capacity(n);
-        for &c in config.iter() {
-            if c >= available.len() {
-                return SolutionSize::Invalid;
-            }
-            schedule.push(available.remove(c));
-        }
+        let Some(schedule) = super::decode_lehmer(config, n) else {
+            return Min(None);
+        };
 
         // schedule[i] = the task scheduled at position i.
         // We need sigma(task) = position, i.e., the inverse permutation.
@@ -163,7 +151,7 @@ impl Problem for MinimumTardinessSequencing {
         // Check precedence constraints: for each (pred, succ), sigma(pred) < sigma(succ)
         for &(pred, succ) in &self.precedences {
             if sigma[pred] >= sigma[succ] {
-                return SolutionSize::Invalid;
+                return Min(None);
             }
         }
 
@@ -174,20 +162,12 @@ impl Problem for MinimumTardinessSequencing {
             .filter(|&(t, &pos)| pos + 1 > self.deadlines[t])
             .count();
 
-        SolutionSize::Valid(tardy_count)
-    }
-}
-
-impl OptimizationProblem for MinimumTardinessSequencing {
-    type Value = usize;
-
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+        Min(Some(tardy_count))
     }
 }
 
 crate::declare_variants! {
-    default opt MinimumTardinessSequencing => "2^num_tasks",
+    default MinimumTardinessSequencing => "2^num_tasks",
 }
 
 #[cfg(feature = "example-db")]
@@ -203,7 +183,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         // Lehmer code [0,0,0,0] = identity permutation (schedule order 0,1,2,3)
         optimal_config: vec![0, 0, 0, 0],
-        optimal_value: serde_json::json!({"Valid": 1}),
+        optimal_value: serde_json::json!(1),
     }]
 }
 

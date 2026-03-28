@@ -1,8 +1,7 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::traits::Problem;
 
 #[test]
 fn test_minimum_feedback_arc_set_creation() {
@@ -26,13 +25,6 @@ fn test_minimum_feedback_arc_set_creation() {
     assert_eq!(problem.num_arcs(), 9);
     assert_eq!(problem.dims().len(), 9);
     assert!(problem.dims().iter().all(|&d| d == 2));
-}
-
-#[test]
-fn test_minimum_feedback_arc_set_direction() {
-    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-    let problem = MinimumFeedbackArcSet::new(graph, vec![1i32; 3]);
-    assert_eq!(problem.direction(), Direction::Minimize);
 }
 
 #[test]
@@ -91,7 +83,7 @@ fn test_minimum_feedback_arc_set_solver_simple_cycle() {
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i32; 3]);
 
-    let solutions = BruteForce::new().find_all_best(&problem);
+    let solutions = BruteForce::new().find_all_witnesses(&problem);
     // Minimum FAS has size 1 (remove any one arc)
     for sol in &solutions {
         assert_eq!(sol.iter().sum::<usize>(), 1);
@@ -119,7 +111,7 @@ fn test_minimum_feedback_arc_set_solver_issue_example() {
     );
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i32; 9]);
 
-    let solution = BruteForce::new().find_best(&problem).unwrap();
+    let solution = BruteForce::new().find_witness(&problem).unwrap();
     // The optimal FAS has size 2
     let fas_size: usize = solution.iter().sum();
     assert_eq!(fas_size, 2);
@@ -136,7 +128,7 @@ fn test_minimum_feedback_arc_set_weighted() {
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![10i32, 1, 1]);
 
-    let solution = BruteForce::new().find_best(&problem).unwrap();
+    let solution = BruteForce::new().find_witness(&problem).unwrap();
     let result = problem.evaluate(&solution);
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 1); // should pick a cheap arc
@@ -180,7 +172,7 @@ fn test_minimum_feedback_arc_set_two_disjoint_cycles() {
     let graph = DirectedGraph::new(4, vec![(0, 1), (1, 0), (2, 3), (3, 2)]);
     let problem = MinimumFeedbackArcSet::new(graph, vec![1i32; 4]);
 
-    let solution = BruteForce::new().find_best(&problem).unwrap();
+    let solution = BruteForce::new().find_witness(&problem).unwrap();
     // Need to remove at least one arc from each cycle -> size 2
     assert_eq!(solution.iter().sum::<usize>(), 2);
 }

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -121,7 +121,7 @@ fn test_flow_shop_scheduling_brute_force_solver() {
     // Small instance: 2 machines, 3 jobs, generous deadline
     let problem = FlowShopScheduling::new(2, vec![vec![3, 2], vec![2, 4], vec![1, 3]], 20);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     let config = solution.unwrap();
     assert!(problem.evaluate(&config));
@@ -137,7 +137,7 @@ fn test_flow_shop_scheduling_brute_force_unsatisfiable() {
     // Deadline 10 < 15 => unsatisfiable
     let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5]], 10);
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_none());
 }
 
@@ -151,7 +151,7 @@ fn test_flow_shop_scheduling_empty() {
 }
 
 #[test]
-fn test_flow_shop_scheduling_find_all_satisfying() {
+fn test_flow_shop_scheduling_find_all_witnesses() {
     // Issue #507 example: 3 machines, 5 jobs, D=25
     // Search space = 5! = 120 permutations
     let problem = FlowShopScheduling::new(
@@ -166,7 +166,7 @@ fn test_flow_shop_scheduling_find_all_satisfying() {
         25,
     );
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     for sol in &solutions {
         assert!(problem.evaluate(sol));
     }
@@ -178,12 +178,12 @@ fn test_flow_shop_scheduling_find_all_satisfying() {
 }
 
 #[test]
-fn test_flow_shop_scheduling_find_all_satisfying_empty() {
+fn test_flow_shop_scheduling_find_all_witnesses_empty() {
     // 2 machines, 2 symmetric jobs [5,5], deadline 10
     // Both orderings give makespan 15 > 10
     let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5]], 10);
     let solver = BruteForce::new();
-    assert!(solver.find_all_satisfying(&problem).is_empty());
+    assert!(solver.find_all_witnesses(&problem).is_empty());
 }
 
 #[test]

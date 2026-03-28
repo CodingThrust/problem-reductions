@@ -1,9 +1,9 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::misc::SequencingToMinimizeWeightedCompletionTime;
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Min;
 
 #[test]
 fn test_reduction_creates_expected_ilp_shape() {
@@ -44,7 +44,7 @@ fn test_extract_solution_encodes_schedule_as_lehmer_code() {
     // y_{0,1} = 0 means task 1 before task 0.
     let extracted = reduction.extract_solution(&[3, 1, 0]);
     assert_eq!(extracted, vec![1, 0]);
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(14));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(14)));
 }
 
 #[test]
@@ -61,7 +61,7 @@ fn test_issue_example_closed_loop() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     assert_eq!(extracted, vec![1, 2, 0, 1, 0]);
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(46));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(46)));
 }
 
 #[test]
@@ -74,7 +74,7 @@ fn test_ilp_matches_bruteforce_optimum() {
 
     let brute_force = BruteForce::new();
     let brute_force_solution = brute_force
-        .find_best(&problem)
+        .find_witness(&problem)
         .expect("brute force should find a schedule");
     let brute_force_metric = problem.evaluate(&brute_force_solution);
 
@@ -155,5 +155,12 @@ fn test_solve_reduced_matches_source_optimum() {
     let source_solution = reduction.extract_solution(&ilp_solution);
 
     assert_eq!(source_solution, vec![1, 2, 0, 1, 0]);
-    assert_eq!(problem.evaluate(&source_solution), SolutionSize::Valid(46));
+    assert_eq!(problem.evaluate(&source_solution), Min(Some(46)));
+}
+
+#[test]
+fn test_sequencingtominimizeweightedcompletiontime_to_ilp_bf_vs_ilp() {
+    let problem = SequencingToMinimizeWeightedCompletionTime::new(vec![2, 1], vec![3, 5], vec![]);
+    let reduction: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

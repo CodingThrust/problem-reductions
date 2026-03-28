@@ -1,10 +1,5 @@
 use super::*;
-use crate::{
-    solvers::BruteForce,
-    topology::SimpleGraph,
-    traits::{OptimizationProblem, Problem},
-    types::Direction,
-};
+use crate::{solvers::BruteForce, topology::SimpleGraph, traits::Problem};
 
 /// Issue #122 example: 5 vertices, 7 edges, terminals {0, 2, 4}.
 /// Edges in order: (0,1)=2, (0,3)=5, (1,2)=2, (1,3)=1, (2,3)=5, (2,4)=6, (3,4)=1
@@ -35,12 +30,6 @@ fn test_steiner_tree_rejects_duplicate_terminals() {
 }
 
 #[test]
-fn test_steiner_tree_direction() {
-    let problem = example_instance();
-    assert_eq!(problem.direction(), Direction::Minimize);
-}
-
-#[test]
 fn test_steiner_tree_size_getters() {
     let problem = example_instance();
     assert_eq!(problem.num_vertices(), 5);
@@ -54,7 +43,7 @@ fn test_steiner_tree_evaluate_optimal() {
     // Optimal: edges (0,1)=2, (1,2)=2, (1,3)=1, (3,4)=1 => cost 6
     // Edge indices: 0=(0,1), 2=(1,2), 3=(1,3), 6=(3,4)
     let config = vec![1, 0, 1, 1, 0, 0, 1];
-    assert_eq!(problem.evaluate(&config), SolutionSize::Valid(6));
+    assert_eq!(problem.evaluate(&config), Min(Some(6)));
 }
 
 #[test]
@@ -62,7 +51,7 @@ fn test_steiner_tree_evaluate_invalid_disconnected() {
     let problem = example_instance();
     // Only edge (0,1) — terminals 2, 4 unreachable
     let config = vec![1, 0, 0, 0, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), SolutionSize::Invalid);
+    assert_eq!(problem.evaluate(&config), Min(None));
 }
 
 #[test]
@@ -70,25 +59,25 @@ fn test_steiner_tree_evaluate_invalid_cycle() {
     let problem = example_instance();
     // Edges (0,1), (0,3), (1,2), (1,3), (3,4) — cycle 0-1-3-0
     let config = vec![1, 1, 1, 1, 0, 0, 1];
-    assert_eq!(problem.evaluate(&config), SolutionSize::Invalid);
+    assert_eq!(problem.evaluate(&config), Min(None));
 }
 
 #[test]
 fn test_steiner_tree_evaluate_empty() {
     let problem = example_instance();
     let config = vec![0; 7];
-    assert_eq!(problem.evaluate(&config), SolutionSize::Invalid);
+    assert_eq!(problem.evaluate(&config), Min(None));
 }
 
 #[test]
 fn test_steiner_tree_brute_force() {
     let problem = example_instance();
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     // All optimal solutions should have cost 6
     for sol in &solutions {
-        assert_eq!(problem.evaluate(sol), SolutionSize::Valid(6));
+        assert_eq!(problem.evaluate(sol), Min(Some(6)));
     }
 }
 
@@ -100,11 +89,11 @@ fn test_steiner_tree_all_terminals() {
     let terminals = vec![0, 1, 2];
     let problem = SteinerTree::new(graph, edge_weights, terminals);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     // MST = edges (0,1)=1, (1,2)=2 => cost 3
     for sol in &solutions {
-        assert_eq!(problem.evaluate(sol), SolutionSize::Valid(3));
+        assert_eq!(problem.evaluate(sol), Min(Some(3)));
     }
 }
 
@@ -156,7 +145,7 @@ fn test_steiner_tree_disconnected_non_terminal_edges() {
     // Edges: 0=(0,1), 1=(1,2), 2=(2,3), 3=(3,4)
     // Select edges 0, 1, 3 — disconnected: {0,1,2} and {3,4}
     let config = vec![1, 1, 0, 1];
-    assert_eq!(problem.evaluate(&config), SolutionSize::Invalid);
+    assert_eq!(problem.evaluate(&config), Min(None));
     assert!(!problem.is_valid_solution(&config));
 }
 
@@ -171,7 +160,7 @@ fn test_steiner_tree_edge_weights_and_set_weights() {
     assert_eq!(problem.edge_weights(), &[1, 1, 1, 1, 1, 1, 1]);
     // The same tree (0,1),(1,2),(1,3),(3,4) now costs 4
     let config = vec![1, 0, 1, 1, 0, 0, 1];
-    assert_eq!(problem.evaluate(&config), SolutionSize::Valid(4));
+    assert_eq!(problem.evaluate(&config), Min(Some(4)));
 }
 
 #[test]

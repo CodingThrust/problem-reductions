@@ -1,7 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::solvers::BruteForce;
+use crate::traits::Problem;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -56,17 +55,11 @@ fn test_count_paint_switches_function() {
 }
 
 #[test]
-fn test_direction() {
-    let problem = PaintShop::new(vec!["a", "a"]);
-    assert_eq!(problem.direction(), Direction::Minimize);
-}
-
-#[test]
 fn test_single_car() {
     let problem = PaintShop::new(vec!["a", "a"]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // Both configs give 1 switch: a(0)->a(1) or a(1)->a(0)
     assert_eq!(solutions.len(), 2);
     for sol in &solutions {
@@ -80,7 +73,7 @@ fn test_adjacent_same_car() {
     let problem = PaintShop::new(vec!["a", "a", "b", "b"]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     // Best case: [0,0] -> [0,1,0,1] = 3 switches, or [0,1] -> [0,1,1,0] = 2 switches
     // Actually: [0,0] -> a=0,a=1,b=0,b=1 = [0,1,0,1] = 3 switches
     // [0,1] -> a=0,a=1,b=1,b=0 = [0,1,1,0] = 2 switches
@@ -124,7 +117,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
         }
-        let best = BruteForce::new().find_all_best(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "PaintShop best solutions mismatch");
@@ -148,6 +141,6 @@ fn test_paintshop_paper_example() {
     // Config [0, 0, 1]: A first=0, B first=0, C first=1
     // Coloring: A(0), B(0), A(1), C(1), B(1), C(0) -> [0,0,1,1,1,0] -> 2 switches
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
+    let best = solver.find_witness(&problem).unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), 2);
 }

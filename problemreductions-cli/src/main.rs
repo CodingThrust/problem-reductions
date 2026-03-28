@@ -5,6 +5,8 @@ mod dispatch;
 mod mcp;
 mod output;
 mod problem_name;
+#[cfg(test)]
+mod test_support;
 mod util;
 
 use clap::{CommandFactory, Parser};

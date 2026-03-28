@@ -4,7 +4,7 @@
 //! contains at least one true literal and at least one false literal.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 use super::CNFClause;
@@ -96,7 +96,7 @@ impl NAESatisfiability {
 
     /// Check if a solution (config) is valid.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config)
+        self.evaluate(config).0
     }
 
     fn config_to_assignment(config: &[usize]) -> Vec<bool> {
@@ -135,15 +135,17 @@ impl NAESatisfiability {
 
 impl Problem for NAESatisfiability {
     const NAME: &'static str = "NAESatisfiability";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_vars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let assignment = Self::config_to_assignment(config);
-        self.is_nae_satisfying(&assignment)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let assignment = Self::config_to_assignment(config);
+            self.is_nae_satisfying(&assignment)
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -151,10 +153,8 @@ impl Problem for NAESatisfiability {
     }
 }
 
-impl SatisfactionProblem for NAESatisfiability {}
-
 crate::declare_variants! {
-    default sat NAESatisfiability => "2^num_variables",
+    default NAESatisfiability => "2^num_variables",
 }
 
 #[derive(Debug, Clone, Deserialize)]

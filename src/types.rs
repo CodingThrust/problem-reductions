@@ -1,6 +1,6 @@
 //! Common types used across the problemreductions library.
 
-use serde::de::{self, Visitor};
+use serde::de::{self, DeserializeOwned, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
@@ -164,102 +164,347 @@ impl From<i32> for One {
 /// Backward-compatible alias for `One`.
 pub type Unweighted = One;
 
-/// Result of evaluating a constrained optimization problem.
-///
-/// For optimization problems with constraints (like MaximumIndependentSet),
-/// configurations may be infeasible. This enum explicitly represents validity.
-///
-/// # Example
-///
-/// ```
-/// use problemreductions::types::SolutionSize;
-///
-/// let valid = SolutionSize::Valid(42);
-/// assert!(valid.is_valid());
-/// assert_eq!(valid.size(), Some(&42));
-///
-/// let invalid: SolutionSize<i32> = SolutionSize::Invalid;
-/// assert!(!invalid.is_valid());
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-pub enum SolutionSize<T> {
-    /// A valid (feasible) solution with the given objective value.
-    Valid(T),
-    /// An invalid (infeasible) solution that violates constraints.
-    #[default]
-    Invalid,
-}
+/// Foldable aggregate values for enumerating a problem's configuration space.
+pub trait Aggregate: Clone + fmt::Debug + Serialize + DeserializeOwned {
+    /// Neutral element for folding.
+    fn identity() -> Self;
 
-impl<T> SolutionSize<T> {
-    /// Returns true if this is a valid solution.
-    pub fn is_valid(&self) -> bool {
-        matches!(self, SolutionSize::Valid(_))
+    /// Associative combine operation.
+    fn combine(self, other: Self) -> Self;
+
+    /// Whether this aggregate admits representative witness configurations.
+    fn supports_witnesses() -> bool {
+        false
     }
 
-    /// Returns the size if valid, None if invalid.
-    pub fn size(&self) -> Option<&T> {
-        match self {
-            SolutionSize::Valid(t) => Some(t),
-            SolutionSize::Invalid => None,
-        }
-    }
-
-    /// Unwraps the size, panicking if invalid.
-    pub fn unwrap(self) -> T {
-        match self {
-            SolutionSize::Valid(t) => t,
-            SolutionSize::Invalid => panic!("called unwrap on Invalid SolutionSize"),
-        }
-    }
-
-    /// Maps the inner value if valid.
-    pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> SolutionSize<U> {
-        match self {
-            SolutionSize::Valid(t) => SolutionSize::Valid(f(t)),
-            SolutionSize::Invalid => SolutionSize::Invalid,
-        }
+    /// Whether a configuration-level value belongs to the witness set
+    /// for the final aggregate value.
+    fn contributes_to_witnesses(_config_value: &Self, _total: &Self) -> bool {
+        false
     }
 }
 
-impl<T: PartialOrd> SolutionSize<T> {
-    /// Returns true if self is a better solution than other for the given direction.
-    ///
-    /// - For maximization: larger values are better
-    /// - For minimization: smaller values are better
-    /// - Valid solutions are always better than invalid ones
-    /// - Two invalid solutions are equally bad (neither is better)
-    ///
-    /// # Panics
-    ///
-    /// Panics if comparing two valid values that are not comparable (e.g., NaN for f64).
-    pub fn is_better(&self, other: &Self, direction: Direction) -> bool {
-        match (self, other) {
-            (SolutionSize::Valid(a), SolutionSize::Valid(b)) => {
-                use std::cmp::Ordering;
-                let ord = a.partial_cmp(b).expect("cannot compare values (NaN?)");
-                match direction {
-                    Direction::Maximize => ord == Ordering::Greater,
-                    Direction::Minimize => ord == Ordering::Less,
+/// Maximum aggregate over feasible values.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Max<V>(pub Option<V>);
+
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregate for Max<V> {
+    fn identity() -> Self {
+        Max(None)
+    }
+
+    fn combine(self, other: Self) -> Self {
+        use std::cmp::Ordering;
+
+        match (self.0, other.0) {
+            (None, rhs) => Max(rhs),
+            (lhs, None) => Max(lhs),
+            (Some(lhs), Some(rhs)) => {
+                let ord = lhs.partial_cmp(&rhs).expect("cannot compare values (NaN?)");
+                match ord {
+                    Ordering::Less => Max(Some(rhs)),
+                    Ordering::Equal | Ordering::Greater => Max(Some(lhs)),
                 }
             }
-            (SolutionSize::Valid(_), SolutionSize::Invalid) => true,
-            (SolutionSize::Invalid, SolutionSize::Valid(_)) => false,
-            (SolutionSize::Invalid, SolutionSize::Invalid) => false,
+        }
+    }
+
+    fn supports_witnesses() -> bool {
+        true
+    }
+
+    fn contributes_to_witnesses(config_value: &Self, total: &Self) -> bool {
+        matches!((config_value, total), (Max(Some(value)), Max(Some(best))) if value == best)
+    }
+}
+
+impl<V: fmt::Display> fmt::Display for Max<V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.0 {
+            Some(value) => write!(f, "Max({value})"),
+            None => write!(f, "Max(None)"),
         }
     }
 }
 
-/// Optimization direction.
+impl<V> Max<V> {
+    pub fn is_valid(&self) -> bool {
+        self.0.is_some()
+    }
+
+    pub fn size(&self) -> Option<&V> {
+        self.0.as_ref()
+    }
+
+    pub fn unwrap(self) -> V {
+        self.0.expect("called unwrap on invalid Max value")
+    }
+}
+
+/// Minimum aggregate over feasible values.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Min<V>(pub Option<V>);
+
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregate for Min<V> {
+    fn identity() -> Self {
+        Min(None)
+    }
+
+    fn combine(self, other: Self) -> Self {
+        use std::cmp::Ordering;
+
+        match (self.0, other.0) {
+            (None, rhs) => Min(rhs),
+            (lhs, None) => Min(lhs),
+            (Some(lhs), Some(rhs)) => {
+                let ord = lhs.partial_cmp(&rhs).expect("cannot compare values (NaN?)");
+                match ord {
+                    Ordering::Greater => Min(Some(rhs)),
+                    Ordering::Equal | Ordering::Less => Min(Some(lhs)),
+                }
+            }
+        }
+    }
+
+    fn supports_witnesses() -> bool {
+        true
+    }
+
+    fn contributes_to_witnesses(config_value: &Self, total: &Self) -> bool {
+        matches!((config_value, total), (Min(Some(value)), Min(Some(best))) if value == best)
+    }
+}
+
+impl<V: fmt::Display> fmt::Display for Min<V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.0 {
+            Some(value) => write!(f, "Min({value})"),
+            None => write!(f, "Min(None)"),
+        }
+    }
+}
+
+impl<V> Min<V> {
+    pub fn is_valid(&self) -> bool {
+        self.0.is_some()
+    }
+
+    pub fn size(&self) -> Option<&V> {
+        self.0.as_ref()
+    }
+
+    pub fn unwrap(self) -> V {
+        self.0.expect("called unwrap on invalid Min value")
+    }
+}
+
+/// Sum aggregate for value-only problems.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Sum<W>(pub W);
+
+impl<W: fmt::Debug + NumericSize + Serialize + DeserializeOwned> Aggregate for Sum<W> {
+    fn identity() -> Self {
+        Sum(W::zero())
+    }
+
+    fn combine(self, other: Self) -> Self {
+        let mut total = self.0;
+        total += other.0;
+        Sum(total)
+    }
+}
+
+impl<W: fmt::Display> fmt::Display for Sum<W> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Sum({})", self.0)
+    }
+}
+
+/// Disjunction aggregate for existential satisfaction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Direction {
-    /// Maximize the objective value.
+pub struct Or(pub bool);
+
+impl Or {
+    pub fn is_valid(&self) -> bool {
+        self.0
+    }
+
+    pub fn unwrap(self) -> bool {
+        self.0
+    }
+}
+
+impl Aggregate for Or {
+    fn identity() -> Self {
+        Or(false)
+    }
+
+    fn combine(self, other: Self) -> Self {
+        Or(self.0 || other.0)
+    }
+
+    fn supports_witnesses() -> bool {
+        true
+    }
+
+    fn contributes_to_witnesses(config_value: &Self, total: &Self) -> bool {
+        config_value.0 && total.0
+    }
+}
+
+impl fmt::Display for Or {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Or({})", self.0)
+    }
+}
+
+impl std::ops::Not for Or {
+    type Output = bool;
+
+    fn not(self) -> Self::Output {
+        !self.0
+    }
+}
+
+impl PartialEq<bool> for Or {
+    fn eq(&self, other: &bool) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<Or> for bool {
+    fn eq(&self, other: &Or) -> bool {
+        *self == other.0
+    }
+}
+
+/// Conjunction aggregate for universal satisfaction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct And(pub bool);
+
+impl Aggregate for And {
+    fn identity() -> Self {
+        And(true)
+    }
+
+    fn combine(self, other: Self) -> Self {
+        And(self.0 && other.0)
+    }
+}
+
+impl fmt::Display for And {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "And({})", self.0)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ExtremumSense {
     Maximize,
-    /// Minimize the objective value.
     Minimize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Extremum<V> {
+    pub sense: ExtremumSense,
+    pub value: Option<V>,
+}
+
+impl<V> Extremum<V> {
+    pub fn maximize(value: Option<V>) -> Self {
+        Self {
+            sense: ExtremumSense::Maximize,
+            value,
+        }
+    }
+
+    pub fn minimize(value: Option<V>) -> Self {
+        Self {
+            sense: ExtremumSense::Minimize,
+            value,
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.value.is_some()
+    }
+
+    pub fn size(&self) -> Option<&V> {
+        self.value.as_ref()
+    }
+
+    pub fn unwrap(self) -> V {
+        self.value.expect("called unwrap on invalid Extremum value")
+    }
+}
+
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregate for Extremum<V> {
+    fn identity() -> Self {
+        Self::maximize(None)
+    }
+
+    fn combine(self, other: Self) -> Self {
+        use std::cmp::Ordering;
+
+        match (self.value, other.value) {
+            (None, rhs) => Self {
+                sense: other.sense,
+                value: rhs,
+            },
+            (lhs, None) => Self {
+                sense: self.sense,
+                value: lhs,
+            },
+            (Some(lhs), Some(rhs)) => {
+                assert_eq!(
+                    self.sense, other.sense,
+                    "cannot combine Extremum values with different senses"
+                );
+                let ord = lhs.partial_cmp(&rhs).expect("cannot compare values (NaN?)");
+                let keep_self = match self.sense {
+                    ExtremumSense::Maximize => matches!(ord, Ordering::Equal | Ordering::Greater),
+                    ExtremumSense::Minimize => matches!(ord, Ordering::Equal | Ordering::Less),
+                };
+                if keep_self {
+                    Self {
+                        sense: self.sense,
+                        value: Some(lhs),
+                    }
+                } else {
+                    Self {
+                        sense: other.sense,
+                        value: Some(rhs),
+                    }
+                }
+            }
+        }
+    }
+
+    fn supports_witnesses() -> bool {
+        true
+    }
+
+    fn contributes_to_witnesses(config_value: &Self, total: &Self) -> bool {
+        matches!(
+            (config_value.value.as_ref(), total.value.as_ref()),
+            (Some(value), Some(best)) if config_value.sense == total.sense && value == best
+        )
+    }
+}
+
+impl<V: fmt::Display> fmt::Display for Extremum<V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match (&self.sense, &self.value) {
+            (ExtremumSense::Maximize, Some(value)) => write!(f, "Max({value})"),
+            (ExtremumSense::Maximize, None) => write!(f, "Max(None)"),
+            (ExtremumSense::Minimize, Some(value)) => write!(f, "Min({value})"),
+            (ExtremumSense::Minimize, None) => write!(f, "Min(None)"),
+        }
+    }
+}
+
 /// Problem size metadata (varies by problem type).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProblemSize {
     /// Named size components.
     pub components: Vec<(String, usize)>,
@@ -282,6 +527,11 @@ impl ProblemSize {
             .iter()
             .find(|(k, _)| k == name)
             .map(|(_, v)| *v)
+    }
+
+    /// Sum of all component values.
+    pub fn total(&self) -> usize {
+        self.components.iter().map(|(_, v)| *v).sum()
     }
 }
 

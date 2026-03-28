@@ -39,7 +39,7 @@ fn test_consecutive_sets_no_instance() {
     // Search space: 4^3 = 64 configs, very fast.
     let problem = ConsecutiveSets::new(3, vec![vec![0, 1], vec![1, 2], vec![0, 2]], 3);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(solutions.is_empty());
 }
 
@@ -49,7 +49,7 @@ fn test_consecutive_sets_solver() {
     // Valid string: [0, 1, 2] — {0,1} at positions 0-1, {1,2} at positions 1-2
     let problem = ConsecutiveSets::new(3, vec![vec![0, 1], vec![1, 2]], 3);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
     for sol in &solutions {
         assert!(problem.evaluate(sol));
@@ -103,7 +103,7 @@ fn test_consecutive_sets_empty_subsets() {
     // All unused = empty string is fine
     assert!(problem.evaluate(&[3, 3, 3]));
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert!(!solutions.is_empty());
 }
 

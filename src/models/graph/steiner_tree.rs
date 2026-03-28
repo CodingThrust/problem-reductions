@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     registry::{FieldInfo, ProblemSchemaEntry, VariantDimension},
     topology::{Graph, SimpleGraph},
-    traits::{OptimizationProblem, Problem},
-    types::{Direction, One, SolutionSize, WeightElement},
+    traits::Problem,
+    types::{Min, One, WeightElement},
 };
 
 inventory::submit! {
@@ -221,7 +221,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "SteinerTree";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = Min<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -231,9 +231,9 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
         if !is_valid_steiner_tree(&self.graph, &self.terminals, config) {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
         let mut total = W::Sum::zero();
         for (idx, &selected) in config.iter().enumerate() {
@@ -243,25 +243,13 @@ where
                 }
             }
         }
-        SolutionSize::Valid(total)
-    }
-}
-
-impl<G, W> OptimizationProblem for SteinerTree<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Value = W::Sum;
-
-    fn direction(&self) -> Direction {
-        Direction::Minimize
+        Min(Some(total))
     }
 }
 
 crate::declare_variants! {
-    default opt SteinerTree<SimpleGraph, i32> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
-    opt SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
+    default SteinerTree<SimpleGraph, i32> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
+    SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
 }
 
 #[cfg(feature = "example-db")]
@@ -277,7 +265,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![0, 2, 4],
         )),
         optimal_config: vec![1, 0, 1, 1, 0, 0, 1],
-        optimal_value: serde_json::json!({"Valid": 6}),
+        optimal_value: serde_json::json!(6),
     }]
 }
 

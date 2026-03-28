@@ -252,6 +252,47 @@ fn generate_overhead_eval_fn(
     })
 }
 
+/// Generate a function that extracts the source problem's size fields from `&dyn Any`.
+///
+/// Collects all variable names referenced in the overhead expressions, generates
+/// getter calls for each, and returns a `ProblemSize`.
+fn generate_source_size_fn(
+    fields: &[(String, String)],
+    source_type: &Type,
+) -> syn::Result<TokenStream2> {
+    let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
+
+    // Collect all unique variable names from overhead expressions
+    let mut var_names = std::collections::BTreeSet::new();
+    for (_, expr_str) in fields {
+        let parsed = parser::parse_expr(expr_str).map_err(|e| {
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                format!("error parsing overhead expression \"{expr_str}\": {e}"),
+            )
+        })?;
+        for v in parsed.variables() {
+            var_names.insert(v.to_string());
+        }
+    }
+
+    let getter_tokens: Vec<_> = var_names
+        .iter()
+        .map(|var| {
+            let getter = syn::Ident::new(var, proc_macro2::Span::call_site());
+            let name_lit = var.as_str();
+            quote! { (#name_lit, #src_ident.#getter() as usize) }
+        })
+        .collect();
+
+    Ok(quote! {
+        |__any_src: &dyn std::any::Any| -> crate::types::ProblemSize {
+            let #src_ident = __any_src.downcast_ref::<#source_type>().unwrap();
+            crate::types::ProblemSize::new(vec![#(#getter_tokens),*])
+        }
+    })
+}
+
 /// Generate the reduction entry code
 fn generate_reduction_entry(
     attrs: &ReductionAttrs,
@@ -275,6 +316,11 @@ fn generate_reduction_entry(
         .ok_or_else(|| syn::Error::new_spanned(source_type, "Cannot extract source type name"))?;
     let target_name = extract_type_name(&target_type)
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
+    let capabilities = if source_name == target_name {
+        quote! { crate::rules::EdgeCapabilities::both() }
+    } else {
+        quote! { crate::rules::EdgeCapabilities::witness_only() }
+    };
 
     // Collect generic parameter info from the impl block
     let type_generics = collect_type_generic_names(&impl_block.generics);
@@ -283,8 +329,8 @@ fn generate_reduction_entry(
     let source_variant_body = make_variant_fn_body(source_type, &type_generics)?;
     let target_variant_body = make_variant_fn_body(&target_type, &type_generics)?;
 
-    // Generate overhead and eval fn
-    let (overhead, overhead_eval_fn) = match &attrs.overhead {
+    // Generate overhead, eval fn, and source size fn
+    let (overhead, overhead_eval_fn, source_size_fn) = match &attrs.overhead {
         Some(OverheadSpec::Legacy(tokens)) => {
             let eval_fn = quote! {
                 |_: &dyn std::any::Any| -> crate::types::ProblemSize {
@@ -292,12 +338,18 @@ fn generate_reduction_entry(
                             migrate to parsed syntax: field = \"expression\"")
                 }
             };
-            (tokens.clone(), eval_fn)
+            let size_fn = quote! {
+                |_: &dyn std::any::Any| -> crate::types::ProblemSize {
+                    crate::types::ProblemSize::new(vec![])
+                }
+            };
+            (tokens.clone(), eval_fn, size_fn)
         }
         Some(OverheadSpec::Parsed(fields)) => {
             let overhead_tokens = generate_parsed_overhead(fields)?;
             let eval_fn = generate_overhead_eval_fn(fields, source_type)?;
-            (overhead_tokens, eval_fn)
+            let size_fn = generate_source_size_fn(fields, source_type)?;
+            (overhead_tokens, eval_fn, size_fn)
         }
         None => {
             return Err(syn::Error::new(
@@ -319,7 +371,7 @@ fn generate_reduction_entry(
                 target_variant_fn: || { #target_variant_body },
                 overhead_fn: || { #overhead },
                 module_path: module_path!(),
-                reduce_fn: |src: &dyn std::any::Any| -> Box<dyn crate::rules::traits::DynReductionResult> {
+                reduce_fn: Some(|src: &dyn std::any::Any| -> Box<dyn crate::rules::traits::DynReductionResult> {
                     let src = src.downcast_ref::<#source_type>().unwrap_or_else(|| {
                         panic!(
                             "DynReductionResult: source type mismatch: expected `{}`, got `{}`",
@@ -328,8 +380,11 @@ fn generate_reduction_entry(
                         )
                     });
                     Box::new(<#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src))
-                },
+                }),
+                reduce_aggregate_fn: None,
+                capabilities: #capabilities,
                 overhead_eval_fn: #overhead_eval_fn,
+                source_size_fn: #source_size_fn,
             }
         }
 
@@ -370,24 +425,14 @@ fn extract_target_from_trait(path: &Path) -> syn::Result<Type> {
 
 // --- declare_variants! proc macro ---
 
-/// Solver kind for dispatch generation.
-#[derive(Debug, Clone, Copy)]
-enum SolverKind {
-    /// Optimization problem — uses `find_best`.
-    Opt,
-    /// Satisfaction problem — uses `find_satisfying`.
-    Sat,
-}
-
 /// Input for the `declare_variants!` proc macro.
 struct DeclareVariantsInput {
     entries: Vec<DeclareVariantEntry>,
 }
 
-/// A single entry: `[default] opt|sat Type => "complexity_string"`.
+/// A single entry: `[default] Type => "complexity_string"`.
 struct DeclareVariantEntry {
     is_default: bool,
-    solver_kind: SolverKind,
     ty: Type,
     complexity: syn::LitStr,
 }
@@ -402,39 +447,11 @@ impl syn::parse::Parse for DeclareVariantsInput {
                 input.parse::<syn::Token![default]>()?;
             }
 
-            // Require `opt` or `sat` keyword
-            let solver_kind = if input.peek(syn::Ident) {
-                let fork = input.fork();
-                if let Ok(ident) = fork.parse::<syn::Ident>() {
-                    match ident.to_string().as_str() {
-                        "opt" => {
-                            input.parse::<syn::Ident>()?; // consume
-                            SolverKind::Opt
-                        }
-                        "sat" => {
-                            input.parse::<syn::Ident>()?; // consume
-                            SolverKind::Sat
-                        }
-                        _ => {
-                            return Err(syn::Error::new(
-                                ident.span(),
-                                "expected `opt` or `sat` before type name",
-                            ));
-                        }
-                    }
-                } else {
-                    return Err(input.error("expected `opt` or `sat` before type name"));
-                }
-            } else {
-                return Err(input.error("expected `opt` or `sat` before type name"));
-            };
-
             let ty: Type = input.parse()?;
             input.parse::<syn::Token![=>]>()?;
             let complexity: syn::LitStr = input.parse()?;
             entries.push(DeclareVariantEntry {
                 is_default,
-                solver_kind,
                 ty,
                 complexity,
             });
@@ -461,7 +478,7 @@ impl syn::parse::Parse for DeclareVariantsInput {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// declare_variants! {
 ///     MaximumIndependentSet<SimpleGraph, i32>   => "1.1996^num_vertices",
 ///     MaximumIndependentSet<KingsSubgraph, i32> => "2^sqrt(num_vertices)",
@@ -557,14 +574,14 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         // Generate compiled complexity eval fn
         let complexity_eval_fn = generate_complexity_eval_fn(&parsed, ty)?;
 
-        // Generate dispatch fields based on solver kind
-        let solve_body = match entry.solver_kind {
-            SolverKind::Opt => quote! {
-                let config = <crate::solvers::BruteForce as crate::solvers::Solver>::find_best(&solver, p)?;
-            },
-            SolverKind::Sat => quote! {
-                let config = <crate::solvers::BruteForce as crate::solvers::Solver>::find_satisfying(&solver, p)?;
-            },
+        // Generate dispatch fields based on aggregate value solving plus optional witnesses.
+        let solve_value_body = quote! {
+            let total = <crate::solvers::BruteForce as crate::solvers::Solver>::solve(&solver, p);
+            crate::registry::format_metric(&total)
+        };
+
+        let solve_witness_body = quote! {
+            let config = crate::solvers::BruteForce::find_witness(&solver, p)?;
         };
 
         let dispatch_fields = quote! {
@@ -576,11 +593,18 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
                 let p = any.downcast_ref::<#ty>()?;
                 Some(serde_json::to_value(p).expect("serialize failed"))
             },
-            solve_fn: |any: &dyn std::any::Any| -> Option<(Vec<usize>, String)> {
+            solve_value_fn: |any: &dyn std::any::Any| -> String {
+                let p = any
+                    .downcast_ref::<#ty>()
+                    .expect("type-erased solve_value downcast failed");
+                let solver = crate::solvers::BruteForce::new();
+                #solve_value_body
+            },
+            solve_witness_fn: |any: &dyn std::any::Any| -> Option<(Vec<usize>, String)> {
                 let p = any.downcast_ref::<#ty>()?;
                 let solver = crate::solvers::BruteForce::new();
-                #solve_body
-                let evaluation = format!("{:?}", crate::traits::Problem::evaluate(p, &config));
+                #solve_witness_body
+                let evaluation = crate::registry::format_metric(&crate::traits::Problem::evaluate(p, &config));
                 Some((config, evaluation))
             },
         };
@@ -632,7 +656,7 @@ mod tests {
     #[test]
     fn declare_variants_accepts_single_default() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            default opt Foo => "1",
+            default Foo => "1",
         };
         assert!(generate_declare_variants(&input).is_ok());
     }
@@ -640,7 +664,7 @@ mod tests {
     #[test]
     fn declare_variants_requires_one_default_per_problem() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            opt Foo => "1",
+            Foo => "1",
         };
         let err = generate_declare_variants(&input).unwrap_err();
         assert!(
@@ -653,8 +677,8 @@ mod tests {
     #[test]
     fn declare_variants_rejects_multiple_defaults_for_one_problem() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            default opt Foo => "1",
-            default opt Foo => "2",
+            default Foo => "1",
+            default Foo => "2",
         };
         let err = generate_declare_variants(&input).unwrap_err();
         assert!(
@@ -667,7 +691,7 @@ mod tests {
     #[test]
     fn declare_variants_rejects_missing_default_marker() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            opt Foo => "1",
+            Foo => "1",
         };
         let err = generate_declare_variants(&input).unwrap_err();
         assert!(
@@ -680,8 +704,8 @@ mod tests {
     #[test]
     fn declare_variants_marks_only_explicit_default() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            opt Foo => "1",
-            default opt Foo => "2",
+            Foo => "1",
+            default Foo => "2",
         };
         let result = generate_declare_variants(&input);
         assert!(result.is_ok());
@@ -693,27 +717,27 @@ mod tests {
     }
 
     #[test]
-    fn declare_variants_accepts_solver_kind_markers() {
+    fn declare_variants_accepts_entries_without_solver_kind_markers() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            default opt Foo => "1",
-            default sat Bar => "2",
+            default Foo => "1",
+            default Bar => "2",
         };
         assert!(generate_declare_variants(&input).is_ok());
     }
 
     #[test]
-    fn declare_variants_rejects_missing_solver_kind() {
-        let result = syn::parse_str::<DeclareVariantsInput>("Foo => \"1\"");
+    fn declare_variants_rejects_legacy_solver_kind_markers() {
+        let result = syn::parse_str::<DeclareVariantsInput>("default opt Foo => \"1\"");
         assert!(
             result.is_err(),
-            "expected parse error for missing solver kind"
+            "expected parse error for legacy solver kind marker"
         );
     }
 
     #[test]
-    fn declare_variants_generates_find_best_for_opt_entries() {
+    fn declare_variants_generates_aggregate_value_and_witness_dispatch() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            default opt Foo => "1",
+            default Foo => "1",
         };
         let tokens = generate_declare_variants(&input).unwrap().to_string();
         assert!(tokens.contains("factory :"), "expected factory field");
@@ -721,7 +745,14 @@ mod tests {
             tokens.contains("serialize_fn :"),
             "expected serialize_fn field"
         );
-        assert!(tokens.contains("solve_fn :"), "expected solve_fn field");
+        assert!(
+            tokens.contains("solve_value_fn :"),
+            "expected solve_value_fn field"
+        );
+        assert!(
+            tokens.contains("solve_witness_fn :"),
+            "expected solve_witness_fn field"
+        );
         assert!(
             !tokens.contains("factory : None"),
             "factory should not be None"
@@ -731,39 +762,28 @@ mod tests {
             "serialize_fn should not be None"
         );
         assert!(
-            !tokens.contains("solve_fn : None"),
-            "solve_fn should not be None"
-        );
-        assert!(tokens.contains("find_best"), "expected find_best in tokens");
-    }
-
-    #[test]
-    fn declare_variants_generates_find_satisfying_for_sat_entries() {
-        let input: DeclareVariantsInput = syn::parse_quote! {
-            default sat Foo => "1",
-        };
-        let tokens = generate_declare_variants(&input).unwrap().to_string();
-        assert!(tokens.contains("factory :"), "expected factory field");
-        assert!(
-            tokens.contains("serialize_fn :"),
-            "expected serialize_fn field"
-        );
-        assert!(tokens.contains("solve_fn :"), "expected solve_fn field");
-        assert!(
-            !tokens.contains("factory : None"),
-            "factory should not be None"
+            !tokens.contains("solve_value_fn : None"),
+            "solve_value_fn should not be None"
         );
         assert!(
-            !tokens.contains("serialize_fn : None"),
-            "serialize_fn should not be None"
+            !tokens.contains("solve_witness_fn : None"),
+            "solve_witness_fn should not be None"
         );
         assert!(
-            !tokens.contains("solve_fn : None"),
-            "solve_fn should not be None"
+            tokens.contains("let total ="),
+            "expected aggregate value solve"
         );
         assert!(
-            tokens.contains("find_satisfying"),
-            "expected find_satisfying in tokens"
+            tokens.contains("find_witness"),
+            "expected find_witness in tokens"
+        );
+        assert!(
+            !tokens.contains("find_best"),
+            "did not expect legacy find_best in tokens"
+        );
+        assert!(
+            !tokens.contains("SolutionSize :: Invalid"),
+            "did not expect legacy invalid fallback in tokens"
         );
     }
 
@@ -791,14 +811,16 @@ mod tests {
     #[test]
     fn declare_variants_codegen_uses_required_dispatch_fields() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            default opt Foo => "1",
+            default Foo => "1",
         };
         let tokens = generate_declare_variants(&input).unwrap().to_string();
         assert!(tokens.contains("factory :"));
         assert!(tokens.contains("serialize_fn :"));
-        assert!(tokens.contains("solve_fn :"));
+        assert!(tokens.contains("solve_value_fn :"));
+        assert!(tokens.contains("solve_witness_fn :"));
         assert!(!tokens.contains("factory : None"));
         assert!(!tokens.contains("serialize_fn : None"));
-        assert!(!tokens.contains("solve_fn : None"));
+        assert!(!tokens.contains("solve_value_fn : None"));
+        assert!(!tokens.contains("solve_witness_fn : None"));
     }
 }

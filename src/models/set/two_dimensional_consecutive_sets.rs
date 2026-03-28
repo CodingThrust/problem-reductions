@@ -6,7 +6,7 @@
 //! are spread across consecutive groups.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -145,55 +145,57 @@ impl TwoDimensionalConsecutiveSets {
 
 impl Problem for TwoDimensionalConsecutiveSets {
     const NAME: &'static str = "TwoDimensionalConsecutiveSets";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.alphabet_size; self.alphabet_size]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.alphabet_size {
-            return false;
-        }
-        if config.iter().any(|&v| v >= self.alphabet_size) {
-            return false;
-        }
-
-        // Empty labels do not create gaps in the partition order, so compress used labels first.
-        let mut used = vec![false; self.alphabet_size];
-        for &group in config {
-            used[group] = true;
-        }
-        let mut dense_labels = vec![0; self.alphabet_size];
-        let mut next_label = 0;
-        for (label, is_used) in used.into_iter().enumerate() {
-            if is_used {
-                dense_labels[label] = next_label;
-                next_label += 1;
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.alphabet_size {
+                return crate::types::Or(false);
             }
-        }
-
-        for subset in &self.subsets {
-            if subset.is_empty() {
-                continue;
-            }
-            let groups: Vec<usize> = subset.iter().map(|&s| dense_labels[config[s]]).collect();
-
-            // Intersection constraint: all group indices must be distinct
-            let unique: HashSet<usize> = groups.iter().copied().collect();
-            if unique.len() != subset.len() {
-                return false;
+            if config.iter().any(|&v| v >= self.alphabet_size) {
+                return crate::types::Or(false);
             }
 
-            // Consecutiveness: group indices must form a contiguous range
-            let min_g = *unique.iter().min().unwrap();
-            let max_g = *unique.iter().max().unwrap();
-            if max_g - min_g + 1 != subset.len() {
-                return false;
+            // Empty labels do not create gaps in the partition order, so compress used labels first.
+            let mut used = vec![false; self.alphabet_size];
+            for &group in config {
+                used[group] = true;
             }
-        }
+            let mut dense_labels = vec![0; self.alphabet_size];
+            let mut next_label = 0;
+            for (label, is_used) in used.into_iter().enumerate() {
+                if is_used {
+                    dense_labels[label] = next_label;
+                    next_label += 1;
+                }
+            }
 
-        true
+            for subset in &self.subsets {
+                if subset.is_empty() {
+                    continue;
+                }
+                let groups: Vec<usize> = subset.iter().map(|&s| dense_labels[config[s]]).collect();
+
+                // Intersection constraint: all group indices must be distinct
+                let unique: HashSet<usize> = groups.iter().copied().collect();
+                if unique.len() != subset.len() {
+                    return crate::types::Or(false);
+                }
+
+                // Consecutiveness: group indices must form a contiguous range
+                let min_g = *unique.iter().min().unwrap();
+                let max_g = *unique.iter().max().unwrap();
+                if max_g - min_g + 1 != subset.len() {
+                    return crate::types::Or(false);
+                }
+            }
+
+            true
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -201,10 +203,8 @@ impl Problem for TwoDimensionalConsecutiveSets {
     }
 }
 
-impl SatisfactionProblem for TwoDimensionalConsecutiveSets {}
-
 crate::declare_variants! {
-    default sat TwoDimensionalConsecutiveSets => "alphabet_size^alphabet_size",
+    default TwoDimensionalConsecutiveSets => "alphabet_size^alphabet_size",
 }
 
 #[cfg(feature = "example-db")]

@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -117,7 +117,7 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "DisjointConnectingPaths";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -127,12 +127,10 @@ where
         vec![2; self.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_solution(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_valid_solution(config))
     }
 }
-
-impl<G: Graph + VariantParam> SatisfactionProblem for DisjointConnectingPaths<G> {}
 
 fn canonical_edges<G: Graph>(graph: &G) -> Vec<(usize, usize)> {
     let mut edges = graph
@@ -245,7 +243,7 @@ fn is_valid_disjoint_connecting_paths<G: Graph>(
 }
 
 crate::declare_variants! {
-    default sat DisjointConnectingPaths<SimpleGraph> => "2^num_edges",
+    default DisjointConnectingPaths<SimpleGraph> => "2^num_edges",
 }
 
 #[cfg(feature = "example-db")]

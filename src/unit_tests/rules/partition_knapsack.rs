@@ -1,9 +1,9 @@
 use super::*;
 use crate::models::misc::Partition;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Max;
 
 #[test]
 fn test_partition_to_knapsack_closed_loop() {
@@ -35,10 +35,10 @@ fn test_partition_to_knapsack_odd_total_is_not_satisfying() {
     let reduction = ReduceTo::<Knapsack>::reduce_to(&source);
     let target = reduction.target_problem();
     let best = BruteForce::new()
-        .find_best(target)
+        .find_witness(target)
         .expect("Knapsack target should always have an optimal solution");
 
-    assert_eq!(target.evaluate(&best), SolutionSize::Valid(5));
+    assert_eq!(target.evaluate(&best), Max(Some(5)));
 
     let extracted = reduction.extract_solution(&best);
     assert!(!source.evaluate(&extracted));

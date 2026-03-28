@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
@@ -99,7 +99,7 @@ fn test_directed_two_commodity_integral_flow_negative_net_flow_at_sink_is_infeas
 fn test_directed_two_commodity_integral_flow_solver_yes() {
     let problem = yes_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_some());
     let sol = solution.unwrap();
     assert!(problem.evaluate(&sol));
@@ -109,7 +109,7 @@ fn test_directed_two_commodity_integral_flow_solver_yes() {
 fn test_directed_two_commodity_integral_flow_solver_no() {
     let problem = no_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem);
+    let solution = solver.find_witness(&problem);
     assert!(solution.is_none());
 }
 
@@ -154,7 +154,7 @@ fn test_directed_two_commodity_integral_flow_paper_example() {
     assert!(problem.evaluate(&config));
 
     // Find all satisfying solutions and verify count
-    let all_solutions = solver.find_all_satisfying(&problem);
+    let all_solutions = solver.find_all_witnesses(&problem);
     assert!(!all_solutions.is_empty());
 
     // Each solution must evaluate to true
@@ -193,5 +193,5 @@ fn test_directed_two_commodity_integral_flow_higher_capacity() {
     assert!(problem.evaluate(&config));
 
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&problem).is_some());
+    assert!(solver.find_witness(&problem).is_some());
 }

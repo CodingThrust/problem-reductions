@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -66,6 +66,20 @@ impl<G: Graph> KClique<G> {
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
         is_kclique_config(&self.graph, config, self.k)
     }
+
+    /// Build a binary selection config from the listed vertices.
+    pub fn config_from_vertices(num_vertices: usize, selected_vertices: &[usize]) -> Vec<usize> {
+        let mut config = vec![0; num_vertices];
+        for &vertex in selected_vertices {
+            config[vertex] = 1;
+        }
+        config
+    }
+
+    /// Convenience wrapper around [`Self::config_from_vertices`] using `self.num_vertices()`.
+    pub fn config_from_selected_vertices(&self, selected_vertices: &[usize]) -> Vec<usize> {
+        Self::config_from_vertices(self.num_vertices(), selected_vertices)
+    }
 }
 
 impl<G> Problem for KClique<G>
@@ -73,7 +87,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "KClique";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -83,12 +97,10 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        is_kclique_config(&self.graph, config, self.k)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(is_kclique_config(&self.graph, config, self.k))
     }
 }
-
-impl<G> SatisfactionProblem for KClique<G> where G: Graph + crate::variant::VariantParam {}
 
 fn is_kclique_config<G: Graph>(graph: &G, config: &[usize], k: usize) -> bool {
     if config.len() != graph.num_vertices() {
@@ -124,7 +136,7 @@ fn is_kclique_config<G: Graph>(graph: &G, config: &[usize], k: usize) -> bool {
 }
 
 crate::declare_variants! {
-    default sat KClique<SimpleGraph> => "1.1996^num_vertices",
+    default KClique<SimpleGraph> => "1.1996^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

@@ -97,7 +97,7 @@ fn test_jl_parity_spinglass_to_maxcut() {
     let source = SpinGlass::<SimpleGraph, i32>::new(nv, interactions, h_values);
     let result = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
@@ -124,7 +124,7 @@ fn test_jl_parity_maxcut_to_spinglass() {
     let source = MaxCut::new(SimpleGraph::new(nv, edges), weights);
     let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
@@ -153,7 +153,7 @@ fn test_jl_parity_rule_maxcut_to_spinglass() {
     );
     let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
@@ -181,7 +181,7 @@ fn test_jl_parity_rule_spinglass_to_maxcut() {
     let source = SpinGlass::<SimpleGraph, i32>::new(nv, interactions, h_values);
     let result = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,

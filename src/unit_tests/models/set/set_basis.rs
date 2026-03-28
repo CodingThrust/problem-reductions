@@ -42,20 +42,22 @@ fn test_set_basis_no_solution_for_k_two() {
     assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0, 1, 0]));
 
     let solver = BruteForce::new();
-    assert!(solver.find_all_satisfying(&problem).is_empty());
+    assert!(solver.find_all_witnesses(&problem).is_empty());
 }
 
 #[test]
 fn test_set_basis_solver() {
     let problem = issue_example_problem(3);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     let solution_set: HashSet<Vec<usize>> = solutions.iter().cloned().collect();
 
     assert_eq!(solutions.len(), 12);
     assert_eq!(solution_set.len(), 12);
     assert!(solution_set.contains(&canonical_solution()));
-    assert!(solutions.iter().all(|solution| problem.evaluate(solution)));
+    assert!(solutions
+        .iter()
+        .all(|solution| problem.evaluate(solution).0));
 }
 
 #[test]
@@ -78,7 +80,7 @@ fn test_set_basis_paper_example() {
     assert!(problem.evaluate(&solution));
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     assert_eq!(solutions.len(), 12);
 }
 

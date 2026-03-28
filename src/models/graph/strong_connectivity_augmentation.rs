@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use crate::types::WeightElement;
 use num_traits::Zero;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -179,7 +179,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "StrongConnectivityAugmentation";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
@@ -189,18 +189,13 @@ where
         vec![2; self.candidate_arcs.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.evaluate_config(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.evaluate_config(config))
     }
 }
 
-impl<W> SatisfactionProblem for StrongConnectivityAugmentation<W> where
-    W: WeightElement + crate::variant::VariantParam
-{
-}
-
 crate::declare_variants! {
-    default sat StrongConnectivityAugmentation<i32> => "2^num_potential_arcs",
+    default StrongConnectivityAugmentation<i32> => "2^num_potential_arcs",
 }
 
 #[derive(Deserialize)]

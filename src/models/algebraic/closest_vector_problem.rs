@@ -4,8 +4,8 @@
 //! minimizing ‖Bx - t‖₂.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -240,7 +240,7 @@ where
         + 'static,
 {
     const NAME: &'static str = "ClosestVectorProblem";
-    type Metric = SolutionSize<f64>;
+    type Value = Min<f64>;
 
     fn dims(&self) -> Vec<usize> {
         self.bounds
@@ -253,7 +253,7 @@ where
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<f64> {
+    fn evaluate(&self, config: &[usize]) -> Min<f64> {
         let values = self.config_to_values(config);
         let m = self.ambient_dimension();
         let mut diff = vec![0.0f64; m];
@@ -266,7 +266,7 @@ where
             *d -= t;
         }
         let norm = diff.iter().map(|d| d * d).sum::<f64>().sqrt();
-        SolutionSize::Valid(norm)
+        Min(Some(norm))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -274,26 +274,9 @@ where
     }
 }
 
-impl<T> OptimizationProblem for ClosestVectorProblem<T>
-where
-    T: Clone
-        + Into<f64>
-        + crate::variant::VariantParam
-        + Serialize
-        + for<'de> Deserialize<'de>
-        + std::fmt::Debug
-        + 'static,
-{
-    type Value = f64;
-
-    fn direction(&self) -> Direction {
-        Direction::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt ClosestVectorProblem<i32> => "2^num_basis_vectors",
-    opt ClosestVectorProblem<f64> => "2^num_basis_vectors",
+    default ClosestVectorProblem<i32> => "2^num_basis_vectors",
+    ClosestVectorProblem<f64> => "2^num_basis_vectors",
 }
 
 #[cfg(feature = "example-db")]
@@ -306,7 +289,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![VarBounds::bounded(-2, 4), VarBounds::bounded(-2, 4)],
         )),
         optimal_config: vec![3, 3],
-        optimal_value: serde_json::json!({"Valid": 0.5385164807134505}),
+        optimal_value: serde_json::json!(0.5385164807134505),
     }]
 }
 

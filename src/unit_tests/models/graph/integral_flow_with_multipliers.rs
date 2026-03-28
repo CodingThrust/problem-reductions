@@ -1,6 +1,6 @@
 use super::*;
 use crate::registry::declared_size_fields;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use std::collections::HashSet;
@@ -64,7 +64,7 @@ fn test_integral_flow_with_multipliers_evaluate_yes_instance() {
 #[test]
 fn test_integral_flow_with_multipliers_evaluate_no_instance() {
     let solver = BruteForce::new();
-    assert!(solver.find_satisfying(&no_instance()).is_none());
+    assert!(solver.find_witness(&no_instance()).is_none());
 }
 
 #[test]
@@ -103,7 +103,7 @@ fn test_integral_flow_with_multipliers_serialization_round_trip() {
 fn test_integral_flow_with_multipliers_solver_yes_instance() {
     let problem = yes_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_satisfying(&problem).unwrap();
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(problem.evaluate(&solution));
 }
 
@@ -144,6 +144,6 @@ fn test_integral_flow_with_multipliers_paper_example() {
     assert_eq!([config[6], config[8], config[10]], [2, 4, 6]);
     assert_eq!(config[6] + config[8] + config[10], 12);
 
-    let all_solutions = solver.find_all_satisfying(&problem);
+    let all_solutions = solver.find_all_witnesses(&problem);
     assert!(all_solutions.iter().any(|solution| solution == &config));
 }

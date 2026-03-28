@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use crate::variant::{KValue, VariantParam, K2, K3, K4, K5, KN};
 use serde::{Deserialize, Serialize};
 
@@ -49,7 +49,7 @@ inventory::submit! {
 /// let problem = KColoring::<K3, _>::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_satisfying(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Verify all solutions are valid colorings
 /// for sol in &solutions {
@@ -145,7 +145,7 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "KColoring";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![K, G]
@@ -155,12 +155,10 @@ where
         vec![self.num_colors; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_coloring(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or(self.is_valid_coloring(config))
     }
 }
-
-impl<K: KValue, G: Graph + VariantParam> SatisfactionProblem for KColoring<K, G> {}
 
 /// Check if a coloring is valid for a graph.
 ///
@@ -203,12 +201,12 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default sat KColoring<KN, SimpleGraph> => "2^num_vertices",
-    sat KColoring<K2, SimpleGraph> => "num_vertices + num_edges",
-    sat KColoring<K3, SimpleGraph> => "1.3289^num_vertices",
-    sat KColoring<K4, SimpleGraph> => "1.7159^num_vertices",
+    default KColoring<KN, SimpleGraph> => "2^num_vertices",
+    KColoring<K2, SimpleGraph> => "num_vertices + num_edges",
+    KColoring<K3, SimpleGraph> => "1.3289^num_vertices",
+    KColoring<K4, SimpleGraph> => "1.7159^num_vertices",
     // Best known: O*((2-ε)^n) for some ε > 0 (Zamir 2021), concrete ε unknown
-    sat KColoring<K5, SimpleGraph> => "2^num_vertices",
+    KColoring<K5, SimpleGraph> => "2^num_vertices",
 }
 
 #[cfg(test)]

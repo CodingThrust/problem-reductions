@@ -1,8 +1,7 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::traits::Problem;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -43,12 +42,6 @@ fn test_is_vertex_cover_function() {
 }
 
 #[test]
-fn test_direction() {
-    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
-    assert_eq!(problem.direction(), Direction::Minimize);
-}
-
-#[test]
 fn test_complement_relationship() {
     // For a graph, if S is an independent set, then V\S is a vertex cover
     use crate::models::graph::MaximumIndependentSet;
@@ -59,7 +52,7 @@ fn test_complement_relationship() {
 
     let solver = BruteForce::new();
 
-    let is_solutions = solver.find_all_best(&is_problem);
+    let is_solutions = solver.find_all_witnesses(&is_problem);
     for is_sol in &is_solutions {
         // Complement should be a valid vertex cover
         let vc_config: Vec<usize> = is_sol.iter().map(|&x| 1 - x).collect();
@@ -138,7 +131,7 @@ fn test_jl_parity_evaluation() {
                 );
             }
         }
-        let best = BruteForce::new().find_all_best(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "VC best solutions mismatch");
@@ -173,6 +166,6 @@ fn test_mvc_paper_example() {
     assert_eq!(result.unwrap(), 3);
 
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
+    let best = solver.find_witness(&problem).unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), 3);
 }

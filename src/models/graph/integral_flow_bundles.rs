@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -172,7 +172,7 @@ impl IntegralFlowBundles {
 
     /// Check whether a configuration is feasible.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config)
+        self.evaluate(config).0
     }
 
     fn arc_upper_bounds(&self) -> Vec<u64> {
@@ -202,7 +202,7 @@ impl IntegralFlowBundles {
 
 impl Problem for IntegralFlowBundles {
     const NAME: &'static str = "IntegralFlowBundles";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         self.arc_upper_bounds()
@@ -216,47 +216,49 @@ impl Problem for IntegralFlowBundles {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_arcs() {
-            return false;
-        }
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.num_arcs() {
+                return crate::types::Or(false);
+            }
 
-        let upper_bounds = self.arc_upper_bounds();
-        for (&value, &upper_bound) in config.iter().zip(&upper_bounds) {
-            if u64::try_from(value).map_or(true, |value| value > upper_bound) {
-                return false;
+            let upper_bounds = self.arc_upper_bounds();
+            for (&value, &upper_bound) in config.iter().zip(&upper_bounds) {
+                if u64::try_from(value).map_or(true, |value| value > upper_bound) {
+                    return crate::types::Or(false);
+                }
             }
-        }
 
-        for (bundle, &capacity) in self.bundles.iter().zip(&self.bundle_capacities) {
-            let mut total = 0u64;
-            for &arc_index in bundle {
-                let Ok(flow) = u64::try_from(config[arc_index]) else {
-                    return false;
-                };
-                let Some(next_total) = total.checked_add(flow) else {
-                    return false;
-                };
-                total = next_total;
+            for (bundle, &capacity) in self.bundles.iter().zip(&self.bundle_capacities) {
+                let mut total = 0u64;
+                for &arc_index in bundle {
+                    let Ok(flow) = u64::try_from(config[arc_index]) else {
+                        return crate::types::Or(false);
+                    };
+                    let Some(next_total) = total.checked_add(flow) else {
+                        return crate::types::Or(false);
+                    };
+                    total = next_total;
+                }
+                if total > capacity {
+                    return crate::types::Or(false);
+                }
             }
-            if total > capacity {
-                return false;
-            }
-        }
 
-        for vertex in 0..self.num_vertices() {
-            if vertex == self.source || vertex == self.sink {
-                continue;
+            for vertex in 0..self.num_vertices() {
+                if vertex == self.source || vertex == self.sink {
+                    continue;
+                }
+                if self.vertex_balance(config, vertex) != Some(0) {
+                    return crate::types::Or(false);
+                }
             }
-            if self.vertex_balance(config, vertex) != Some(0) {
-                return false;
-            }
-        }
 
-        matches!(
-            self.vertex_balance(config, self.sink),
-            Some(balance) if balance >= i128::from(self.requirement)
-        )
+            matches!(
+                self.vertex_balance(config, self.sink),
+                Some(balance) if balance >= i128::from(self.requirement)
+            )
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -264,10 +266,8 @@ impl Problem for IntegralFlowBundles {
     }
 }
 
-impl SatisfactionProblem for IntegralFlowBundles {}
-
 crate::declare_variants! {
-    default sat IntegralFlowBundles => "2^num_arcs",
+    default IntegralFlowBundles => "2^num_arcs",
 }
 
 #[cfg(feature = "example-db")]

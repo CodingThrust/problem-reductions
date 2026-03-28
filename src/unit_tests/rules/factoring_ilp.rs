@@ -177,7 +177,7 @@ fn test_factoring_to_ilp_closed_loop() {
 
     // Get brute force solutions
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
 
     // ILP solution should be among brute force solutions
     let (a, b) = problem.read_factors(&ilp_factors);
@@ -296,4 +296,11 @@ fn test_variable_count_formula() {
             m, n
         );
     }
+}
+
+#[test]
+fn test_factoring_to_ilp_bf_vs_ilp() {
+    let problem = Factoring::new(2, 2, 6);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

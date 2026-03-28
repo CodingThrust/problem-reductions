@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -77,12 +77,12 @@ fn test_isomorphicspanningtree_solver_yes() {
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     let solver = BruteForce::new();
-    let sol = solver.find_satisfying(&problem);
+    let sol = solver.find_witness(&problem);
     assert!(sol.is_some());
     assert!(problem.evaluate(&sol.unwrap()));
 
     // All satisfying solutions should be valid
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert!(!all.is_empty());
     for s in &all {
         assert!(problem.evaluate(s));
@@ -97,10 +97,10 @@ fn test_isomorphicspanningtree_solver_no() {
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     let solver = BruteForce::new();
-    let sol = solver.find_satisfying(&problem);
+    let sol = solver.find_witness(&problem);
     assert!(sol.is_none());
 
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert!(all.is_empty());
 }
 
@@ -164,7 +164,7 @@ fn test_isomorphicspanningtree_paper_example() {
 
     // All 4! = 24 permutations should work since K4 has every edge
     let solver = BruteForce::new();
-    let all = solver.find_all_satisfying(&problem);
+    let all = solver.find_all_witnesses(&problem);
     assert_eq!(all.len(), 24);
 }
 

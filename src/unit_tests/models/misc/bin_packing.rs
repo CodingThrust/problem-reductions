@@ -1,7 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::solvers::BruteForce;
+use crate::traits::Problem;
 
 #[test]
 fn test_bin_packing_creation() {
@@ -12,12 +11,6 @@ fn test_bin_packing_creation() {
     assert_eq!(problem.dims().len(), 6);
     // Each variable has domain {0, ..., 5}
     assert!(problem.dims().iter().all(|&d| d == 6));
-}
-
-#[test]
-fn test_bin_packing_direction() {
-    let problem = BinPacking::new(vec![1, 2, 3], 5);
-    assert_eq!(problem.direction(), Direction::Minimize);
 }
 
 #[test]
@@ -70,7 +63,9 @@ fn test_bin_packing_brute_force_solver() {
     // Optimal: 3 bins (lower bound ceil(30/10) = 3)
     let problem = BinPacking::new(vec![6, 6, 5, 5, 4, 4], 10);
     let solver = BruteForce::new();
-    let solution = solver.find_best(&problem).expect("should find a solution");
+    let solution = solver
+        .find_witness(&problem)
+        .expect("should find a solution");
     let metric = problem.evaluate(&solution);
     assert!(metric.is_valid());
     assert_eq!(metric.unwrap(), 3);
@@ -82,7 +77,9 @@ fn test_bin_packing_brute_force_small() {
     // Optimal: 2 bins (e.g., {3,4} + {3})
     let problem = BinPacking::new(vec![3, 3, 4], 7);
     let solver = BruteForce::new();
-    let solution = solver.find_best(&problem).expect("should find a solution");
+    let solution = solver
+        .find_witness(&problem)
+        .expect("should find a solution");
     let metric = problem.evaluate(&solution);
     assert!(metric.is_valid());
     assert_eq!(metric.unwrap(), 2);

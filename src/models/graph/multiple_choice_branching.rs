@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use crate::types::WeightElement;
 use num_traits::Zero;
 use serde::de::Error as _;
@@ -176,7 +176,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MultipleChoiceBranching";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
@@ -186,20 +186,17 @@ where
         vec![2; self.graph.num_arcs()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        is_valid_multiple_choice_branching(
-            &self.graph,
-            &self.weights,
-            &self.partition,
-            &self.threshold,
-            config,
-        )
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            is_valid_multiple_choice_branching(
+                &self.graph,
+                &self.weights,
+                &self.partition,
+                &self.threshold,
+                config,
+            )
+        })
     }
-}
-
-impl<W> SatisfactionProblem for MultipleChoiceBranching<W> where
-    W: WeightElement + crate::variant::VariantParam
-{
 }
 
 fn validate_partition(partition: &[Vec<usize>], num_arcs: usize) {
@@ -297,7 +294,7 @@ fn is_valid_multiple_choice_branching<W: WeightElement>(
 }
 
 crate::declare_variants! {
-    default sat MultipleChoiceBranching<i32> => "2^num_arcs",
+    default MultipleChoiceBranching<i32> => "2^num_arcs",
 }
 
 #[cfg(feature = "example-db")]

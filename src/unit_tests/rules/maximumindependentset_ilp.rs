@@ -1,10 +1,10 @@
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MaximumIndependentSet;
 use crate::rules::{MinimizeSteps, ReductionChain, ReductionGraph, ReductionPath};
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::{ProblemSize, SolutionSize};
+use crate::types::{Max, ProblemSize};
 
 fn reduce_mis_to_ilp(
     problem: &MaximumIndependentSet<SimpleGraph, i32>,
@@ -62,15 +62,11 @@ fn test_maximumindependentset_to_ilp_via_path_closed_loop() {
     let (_, chain) = reduce_mis_to_ilp(&problem);
     let ilp: &ILP<bool> = chain.target_problem();
 
-    let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
-    let bf_solutions = bf.find_all_best(&problem);
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = chain.extract_solution(&ilp_solution);
 
-    let bf_size: usize = bf_solutions[0].iter().sum();
     let ilp_size: usize = extracted.iter().sum();
-    assert_eq!(bf_size, 2);
     assert_eq!(ilp_size, 2);
     assert!(problem.evaluate(&extracted).is_valid());
 }
@@ -86,6 +82,20 @@ fn test_maximumindependentset_to_ilp_via_path_weighted() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = chain.extract_solution(&ilp_solution);
 
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(100));
+    assert_eq!(problem.evaluate(&extracted), Max(Some(100)));
     assert_eq!(extracted, vec![0, 1, 0]);
+}
+
+#[test]
+fn test_maximumindependentset_to_ilp_bf_vs_ilp() {
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1i32; 4],
+    );
+    let (_, chain) = reduce_mis_to_ilp(&problem);
+    let ilp: &ILP<bool> = chain.target_problem();
+    let bf_value = BruteForce::new().solve(&problem);
+    let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
+    let extracted = chain.extract_solution(&ilp_solution);
+    assert_eq!(problem.evaluate(&extracted), bf_value);
 }

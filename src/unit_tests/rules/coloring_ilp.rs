@@ -53,8 +53,8 @@ fn test_coloring_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    // Solve with brute force on original problem - use find_all_satisfying for satisfaction problems
-    let bf_solutions = bf.find_all_satisfying(&problem);
+    // Solve with brute force on original problem - use find_all_witnesses for satisfaction problems
+    let bf_solutions = bf.find_all_witnesses(&problem);
     assert!(
         !bf_solutions.is_empty(),
         "Brute force should find solutions"
@@ -270,4 +270,11 @@ fn test_single_edge() {
 
     assert!(problem.evaluate(&extracted));
     assert_ne!(extracted[0], extracted[1]);
+}
+
+#[test]
+fn test_coloring_to_ilp_bf_vs_ilp() {
+    let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

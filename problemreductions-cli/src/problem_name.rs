@@ -281,6 +281,8 @@ mod tests {
         assert_eq!(resolve_alias("MVC"), "MinimumVertexCover");
         assert_eq!(resolve_alias("SAT"), "Satisfiability");
         assert_eq!(resolve_alias("X3C"), "ExactCoverBy3Sets");
+        assert_eq!(resolve_alias("3Partition"), "ThreePartition");
+        assert_eq!(resolve_alias("3-partition"), "ThreePartition");
         // 3SAT is no longer a registered alias (removed to avoid confusion with KSatisfiability/KN)
         assert_eq!(resolve_alias("3SAT"), "3SAT"); // pass-through
         assert_eq!(resolve_alias("QUBO"), "QUBO");

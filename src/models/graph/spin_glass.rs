@@ -4,8 +4,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -56,7 +56,7 @@ inventory::submit! {
 /// let problem = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Ground state has opposite spins
 /// for sol in &solutions {
@@ -220,15 +220,15 @@ where
         + From<i32>,
 {
     const NAME: &'static str = "SpinGlass";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = Min<W::Sum>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
         let spins = Self::config_to_spins(config);
-        SolutionSize::Valid(self.compute_energy(&spins).to_sum())
+        Min(Some(self.compute_energy(&spins).to_sum()))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -236,29 +236,9 @@ where
     }
 }
 
-impl<G, W> OptimizationProblem for SpinGlass<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement
-        + crate::variant::VariantParam
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + std::ops::Mul<Output = W>
-        + From<i32>,
-{
-    type Value = W::Sum;
-
-    fn direction(&self) -> Direction {
-        Direction::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt SpinGlass<SimpleGraph, i32> => "2^num_spins",
-    opt SpinGlass<SimpleGraph, f64> => "2^num_spins",
+    default SpinGlass<SimpleGraph, i32> => "2^num_spins",
+    SpinGlass<SimpleGraph, f64> => "2^num_spins",
 }
 
 #[cfg(feature = "example-db")]
@@ -278,7 +258,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
         )),
         optimal_config: vec![1, 0, 1, 1, 0],
-        optimal_value: serde_json::json!({"Valid": -3}),
+        optimal_value: serde_json::json!(-3),
     }]
 }
 

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde_json;
@@ -165,11 +165,11 @@ fn test_multiple_choice_branching_solver_issue_examples() {
     let yes_problem = yes_instance();
     let solver = BruteForce::new();
 
-    let solution = solver.find_satisfying(&yes_problem);
+    let solution = solver.find_witness(&yes_problem);
     assert!(solution.is_some());
     assert!(yes_problem.evaluate(&solution.unwrap()));
 
-    let all_solutions = solver.find_all_satisfying(&yes_problem);
+    let all_solutions = solver.find_all_witnesses(&yes_problem);
     assert!(!all_solutions.is_empty());
     assert!(all_solutions.contains(&vec![1, 0, 1, 0, 0, 1, 0, 1]));
     for config in &all_solutions {
@@ -177,7 +177,7 @@ fn test_multiple_choice_branching_solver_issue_examples() {
     }
 
     let no_problem = no_instance();
-    assert!(solver.find_satisfying(&no_problem).is_none());
+    assert!(solver.find_witness(&no_problem).is_none());
 }
 
 #[test]
@@ -187,7 +187,7 @@ fn test_multiple_choice_branching_paper_example() {
 
     assert!(problem.evaluate(&config));
 
-    let all_solutions = BruteForce::new().find_all_satisfying(&problem);
+    let all_solutions = BruteForce::new().find_all_witnesses(&problem);
     assert_eq!(all_solutions.len(), 11);
     assert!(all_solutions.contains(&config));
 }

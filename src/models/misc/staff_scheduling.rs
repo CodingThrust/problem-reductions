@@ -5,7 +5,7 @@
 //! all requirements are met without exceeding the budget.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -150,19 +150,21 @@ impl StaffScheduling {
 
 impl Problem for StaffScheduling {
     const NAME: &'static str = "StaffScheduling";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.worker_limit() + 1; self.num_schedules()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_schedules() {
-            return false;
-        }
-        self.worker_counts_valid(config)
-            && self.within_budget(config)
-            && self.meets_requirements(config)
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            if config.len() != self.num_schedules() {
+                return crate::types::Or(false);
+            }
+            self.worker_counts_valid(config)
+                && self.within_budget(config)
+                && self.meets_requirements(config)
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -170,10 +172,8 @@ impl Problem for StaffScheduling {
     }
 }
 
-impl SatisfactionProblem for StaffScheduling {}
-
 crate::declare_variants! {
-    default sat StaffScheduling => "(num_workers + 1)^num_schedules",
+    default StaffScheduling => "(num_workers + 1)^num_schedules",
 }
 
 #[cfg(feature = "example-db")]

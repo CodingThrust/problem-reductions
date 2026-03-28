@@ -1,8 +1,8 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::BipartiteGraph;
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::traits::Problem;
+use crate::types::Min;
 
 include!("../../jl_helpers.rs");
 
@@ -74,10 +74,10 @@ fn test_evaluate() {
     let problem = BicliqueCover::new(graph, 1);
 
     // Valid cover with size 2
-    assert_eq!(problem.evaluate(&[1, 0, 1, 0]), SolutionSize::Valid(2));
+    assert_eq!(problem.evaluate(&[1, 0, 1, 0]), Min(Some(2)));
 
     // Invalid cover returns Invalid
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), SolutionSize::Invalid);
+    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), Min(None));
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn test_brute_force_simple() {
     let problem = BicliqueCover::new(graph, 1);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     for sol in &solutions {
         assert!(problem.is_valid_cover(sol));
         // Minimum size is 2 (one left, one right vertex)
@@ -103,7 +103,7 @@ fn test_brute_force_two_bicliques() {
     let problem = BicliqueCover::new(graph, 2);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_best(&problem);
+    let solutions = solver.find_all_witnesses(&problem);
     for sol in &solutions {
         assert!(problem.is_valid_cover(sol));
     }
@@ -136,24 +136,16 @@ fn test_is_biclique_cover_function() {
 }
 
 #[test]
-fn test_direction() {
-    let graph = BipartiteGraph::new(1, 1, vec![(0, 0)]);
-    let problem = BicliqueCover::new(graph, 1);
-    assert_eq!(problem.direction(), Direction::Minimize);
-}
-
-#[test]
 fn test_empty_edges() {
     let graph = BipartiteGraph::new(2, 2, vec![]);
     let problem = BicliqueCover::new(graph, 1);
     // No edges to cover -> valid with size 0
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), SolutionSize::Valid(0));
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), Min(Some(0)));
 }
 
 #[test]
 fn test_biclique_problem() {
-    use crate::traits::{OptimizationProblem, Problem};
-    use crate::types::Direction;
+    use crate::traits::Problem;
 
     // Single edge (0,0) in local coords with k=1, 2 left + 2 right vertices
     let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]);
@@ -164,27 +156,23 @@ fn test_biclique_problem() {
 
     // Valid cover: vertex 0 and vertex 2 in biclique 0
     // Config: [v0_b0=1, v1_b0=0, v2_b0=1, v3_b0=0]
-    assert_eq!(problem.evaluate(&[1, 0, 1, 0]), SolutionSize::Valid(2));
+    assert_eq!(problem.evaluate(&[1, 0, 1, 0]), Min(Some(2)));
 
     // Invalid cover: only vertex 0, edge (0,2) not covered
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), SolutionSize::Invalid);
+    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), Min(None));
 
     // Valid cover with all vertices -> size 4
-    assert_eq!(problem.evaluate(&[1, 1, 1, 1]), SolutionSize::Valid(4));
+    assert_eq!(problem.evaluate(&[1, 1, 1, 1]), Min(Some(4)));
 
     // Empty config: no vertices in biclique, edge not covered
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), SolutionSize::Invalid);
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), Min(None));
 
-    // Direction is minimize
-    assert_eq!(problem.direction(), Direction::Minimize);
+    // ExtremumSense is minimize
 
     // Test with no edges: any config is valid
     let empty_graph = BipartiteGraph::new(2, 2, vec![]);
     let empty_problem = BicliqueCover::new(empty_graph, 1);
-    assert_eq!(
-        empty_problem.evaluate(&[0, 0, 0, 0]),
-        SolutionSize::Valid(0)
-    );
+    assert_eq!(empty_problem.evaluate(&[0, 0, 0, 0]), Min(Some(0)));
 }
 
 #[test]
@@ -213,18 +201,18 @@ fn test_jl_parity_evaluation() {
             if jl_valid {
                 assert_eq!(
                     result,
-                    SolutionSize::Valid(jl_size),
+                    Min(Some(jl_size)),
                     "BicliqueCover: valid config mismatch"
                 );
             } else {
                 assert_eq!(
                     result,
-                    SolutionSize::Invalid,
+                    Min(None),
                     "BicliqueCover: invalid config should be Invalid"
                 );
             }
         }
-        let best = BruteForce::new().find_all_best(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "BicliqueCover best solutions mismatch");
@@ -269,7 +257,7 @@ fn test_biclique_paper_example() {
     assert_eq!(result.unwrap(), 6);
 
     let solver = BruteForce::new();
-    let best = solver.find_best(&problem).unwrap();
+    let best = solver.find_witness(&problem).unwrap();
     let best_size = problem.evaluate(&best).unwrap();
     assert!(best_size <= 6);
 }

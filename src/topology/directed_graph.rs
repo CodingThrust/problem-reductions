@@ -115,7 +115,7 @@ impl DirectedGraph {
     /// These are all vertices `u` such that there is an arc `u → v`.
     pub fn predecessors(&self, v: usize) -> Vec<usize> {
         self.inner
-            .neighbors_directed(NodeIndex::new(v), petgraph::Direction::Incoming)
+            .neighbors_directed(NodeIndex::new(v), petgraph::Incoming)
             .map(|n| n.index())
             .collect()
     }

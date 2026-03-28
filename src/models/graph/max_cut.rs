@@ -5,8 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Max, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -14,7 +14,7 @@ inventory::submit! {
     ProblemSchemaEntry {
         name: "MaxCut",
         display_name: "Max Cut",
-        aliases: &[],
+        aliases: &["GraphPartitioning"],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
@@ -52,7 +52,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MaxCut;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::types::SolutionSize;
+/// use problemreductions::types::Max;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Create a triangle with unit weights
@@ -61,12 +61,12 @@ inventory::submit! {
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Maximum cut in triangle is 2 (any partition cuts 2 edges)
 /// for sol in solutions {
 ///     let size = problem.evaluate(&sol);
-///     assert_eq!(size, SolutionSize::Valid(2));
+///     assert_eq!(size, Max(Some(2)));
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -171,7 +171,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaxCut";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = Max<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -181,22 +181,10 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
         // All cuts are valid, so always return Valid
         let partition: Vec<bool> = config.iter().map(|&c| c != 0).collect();
-        SolutionSize::Valid(cut_size(&self.graph, &self.edge_weights, &partition))
-    }
-}
-
-impl<G, W> OptimizationProblem for MaxCut<G, W>
-where
-    G: Graph + crate::variant::VariantParam,
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Value = W::Sum;
-
-    fn direction(&self) -> Direction {
-        Direction::Maximize
+        Max(Some(cut_size(&self.graph, &self.edge_weights, &partition)))
     }
 }
 
@@ -221,7 +209,7 @@ where
 }
 
 crate::declare_variants! {
-    default opt MaxCut<SimpleGraph, i32> => "2^(2.372 * num_vertices / 3)",
+    default MaxCut<SimpleGraph, i32> => "2^(2.372 * num_vertices / 3)",
 }
 
 #[cfg(feature = "example-db")]
@@ -233,7 +221,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
         ))),
         optimal_config: vec![1, 0, 0, 1, 0],
-        optimal_value: serde_json::json!({"Valid": 5}),
+        optimal_value: serde_json::json!(5),
     }]
 }
 

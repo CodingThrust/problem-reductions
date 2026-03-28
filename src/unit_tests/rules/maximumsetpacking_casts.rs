@@ -1,7 +1,7 @@
 use super::*;
 use crate::rules::traits::ReductionResult;
 use crate::rules::ReduceTo;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -14,7 +14,7 @@ fn test_maximumsetpacking_one_to_i32_cast_closed_loop() {
     assert_eq!(sp_i32.weights_ref(), &vec![1i32, 1, 1]);
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_best(sp_i32).unwrap();
+    let target_solution = solver.find_witness(sp_i32).unwrap();
     let source_solution = reduction.extract_solution(&target_solution);
 
     let metric = sp_one.evaluate(&source_solution);
@@ -31,7 +31,7 @@ fn test_maximumsetpacking_i32_to_f64_cast_closed_loop() {
     assert_eq!(sp_f64.weights_ref(), &vec![2.0f64, 3.0, 5.0]);
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_best(sp_f64).unwrap();
+    let target_solution = solver.find_witness(sp_f64).unwrap();
     let source_solution = reduction.extract_solution(&target_solution);
 
     let metric = sp_i32.evaluate(&source_solution);

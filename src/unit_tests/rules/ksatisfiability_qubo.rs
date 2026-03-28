@@ -21,7 +21,7 @@ fn test_ksatisfiability_to_qubo_closed_loop() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_best(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo);
 
     // Verify all solutions satisfy all clauses
     for sol in &qubo_solutions {
@@ -38,7 +38,7 @@ fn test_ksatisfiability_to_qubo_simple() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_best(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
@@ -62,7 +62,7 @@ fn test_ksatisfiability_to_qubo_contradiction() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_best(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo);
 
     // Both x=0 and x=1 satisfy exactly 1 clause
     assert_eq!(qubo_solutions.len(), 2);
@@ -83,7 +83,7 @@ fn test_ksatisfiability_to_qubo_reversed_vars() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_best(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
@@ -126,7 +126,7 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
     assert_eq!(qubo.num_variables(), 12);
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_best(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo);
 
     // Verify all extracted solutions maximize satisfied clauses
     for sol in &qubo_solutions {
@@ -149,7 +149,7 @@ fn test_k3satisfiability_to_qubo_single_clause() {
     assert_eq!(qubo.num_variables(), 4);
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_best(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo);
 
     // All solutions should satisfy the single clause
     for sol in &qubo_solutions {
@@ -169,7 +169,7 @@ fn test_k3satisfiability_to_qubo_all_negated() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_best(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);

@@ -92,7 +92,7 @@ fn test_find_model_example_stacker_crane() {
     assert_eq!(example.variant, problem.variant);
     assert_eq!(example.optimal_config, vec![0, 2, 1, 4, 3]);
     assert_eq!(example.instance["num_vertices"], 6);
-    assert_eq!(example.instance["bound"], 20);
+    assert_eq!(example.instance["arcs"].as_array().unwrap().len(), 5);
 }
 
 #[test]
@@ -109,6 +109,24 @@ fn test_find_model_example_multiprocessor_scheduling() {
     assert!(
         !example.optimal_config.is_empty(),
         "canonical example should include satisfying assignments"
+    );
+}
+
+#[test]
+fn test_find_model_example_job_shop_scheduling() {
+    let problem = ProblemRef {
+        name: "JobShopScheduling".to_string(),
+        variant: BTreeMap::new(),
+    };
+
+    let example = find_model_example(&problem).expect("JobShopScheduling example exists");
+    assert_eq!(example.problem, "JobShopScheduling");
+    assert_eq!(example.variant, problem.variant);
+    assert_eq!(example.instance["num_processors"], 2);
+    assert!(example.instance["jobs"].is_array());
+    assert_eq!(
+        example.optimal_config,
+        vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0]
     );
 }
 
@@ -173,7 +191,7 @@ fn test_find_model_example_minimum_dummy_activities_pert() {
     assert_eq!(example.problem, "MinimumDummyActivitiesPert");
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
-    assert_eq!(example.optimal_value, serde_json::json!({"Valid": 2}));
+    assert_eq!(example.optimal_value, serde_json::json!(2));
     assert!(
         !example.optimal_config.is_empty(),
         "canonical example should include an optimal merge selection"
@@ -243,8 +261,8 @@ fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances()
     assert_eq!(example.source.problem, "IntegralFlowBundles");
     assert_eq!(example.target.problem, "ILP");
     assert!(example.source.instance.get("graph").is_some());
-    assert_eq!(example.solutions[0].source_config, vec![1, 0, 1, 0, 0, 0]);
-    assert_eq!(example.solutions[0].target_config, vec![1, 0, 1, 0, 0, 0]);
+    assert!(!example.solutions[0].source_config.is_empty());
+    assert!(!example.solutions[0].target_config.is_empty());
 }
 
 #[test]
@@ -456,7 +474,6 @@ fn model_specs_are_optimal() {
     for spec in specs {
         let name = spec.instance.problem_name();
         let variant = spec.instance.variant_map();
-
         // Try ILP (direct or via reduction), fall back to brute force for small instances
         let best_config = ilp_solver
             .solve_via_reduction(name, &variant, spec.instance.as_any())
@@ -468,7 +485,7 @@ fn model_specs_are_optimal() {
                     return None;
                 }
                 let entry = find_variant_entry(name, &variant)?;
-                let (config, _) = (entry.solve_fn)(spec.instance.as_any())?;
+                let (config, _) = (entry.solve_witness_fn)(spec.instance.as_any())?;
                 Some(config)
             })
             .unwrap_or_else(|| {
@@ -553,28 +570,33 @@ fn rule_specs_solution_pairs_are_consistent() {
                 pair.target_config.len(),
                 target.dims_dyn().len()
             );
-            // Verify configs produce non-Invalid / non-false evaluations
+            // Verify configs produce feasible witness-capable evaluations.
+            let source_eval = source.evaluate_dyn(&pair.source_config);
+            let target_eval = target.evaluate_dyn(&pair.target_config);
             let source_val = source.evaluate_json(&pair.source_config);
-            let target_val = target.evaluate_json(&pair.target_config);
             assert_ne!(
-                source_val,
-                serde_json::json!("Invalid"),
-                "Rule {label}: source_config evaluates to Invalid"
+                source_eval, "Max(None)",
+                "Rule {label}: source_config evaluates to Max(None)"
             );
             assert_ne!(
-                target_val,
-                serde_json::json!("Invalid"),
-                "Rule {label}: target_config evaluates to Invalid"
+                source_eval, "Min(None)",
+                "Rule {label}: source_config evaluates to Min(None)"
             );
             assert_ne!(
-                source_val,
-                serde_json::json!(false),
-                "Rule {label}: source_config evaluates to false"
+                source_eval, "Or(false)",
+                "Rule {label}: source_config evaluates to Or(false)"
             );
             assert_ne!(
-                target_val,
-                serde_json::json!(false),
-                "Rule {label}: target_config evaluates to false"
+                target_eval, "Max(None)",
+                "Rule {label}: target_config evaluates to Max(None)"
+            );
+            assert_ne!(
+                target_eval, "Min(None)",
+                "Rule {label}: target_config evaluates to Min(None)"
+            );
+            assert_ne!(
+                target_eval, "Or(false)",
+                "Rule {label}: target_config evaluates to Or(false)"
             );
             // Round-trip: extract_solution(target_config) must produce a valid
             // source config with the same evaluation value

@@ -2,7 +2,7 @@ use super::*;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Min;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
@@ -32,7 +32,7 @@ fn test_minimumfeedbackvertexset_to_ilp_closed_loop() {
     let ilp_solver = ILPSolver::new();
 
     // Solve with brute force on original problem
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let bf_size = problem.evaluate(&bf_solutions[0]);
 
     // Solve via ILP reduction
@@ -41,8 +41,8 @@ fn test_minimumfeedbackvertexset_to_ilp_closed_loop() {
     let ilp_size = problem.evaluate(&extracted);
 
     // Both should find optimal size = 1
-    assert_eq!(bf_size, SolutionSize::Valid(1));
-    assert_eq!(ilp_size, SolutionSize::Valid(1));
+    assert_eq!(bf_size, Min(Some(1)));
+    assert_eq!(ilp_size, Min(Some(1)));
 
     // Verify the ILP solution is valid for the original problem
     assert!(
@@ -89,7 +89,7 @@ fn test_cycle_of_triangles() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     let size = problem.evaluate(&extracted);
-    assert_eq!(size, SolutionSize::Valid(3), "FVS should be 3");
+    assert_eq!(size, Min(Some(3)), "FVS should be 3");
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn test_dag_no_removal() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     let size = problem.evaluate(&extracted);
-    assert_eq!(size, SolutionSize::Valid(0), "DAG needs no removal");
+    assert_eq!(size, Min(Some(0)), "DAG needs no removal");
     assert_eq!(extracted, vec![0, 0, 0]);
 }
 
@@ -126,7 +126,7 @@ fn test_single_vertex() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     assert_eq!(extracted, vec![0]);
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(0));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(0)));
 }
 
 #[test]
@@ -153,7 +153,7 @@ fn test_weighted() {
 
     // Should remove vertex 1 (cheapest)
     assert_eq!(extracted[1], 1, "Should remove vertex 1 (cheapest)");
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
 }
 
 #[test]
@@ -164,7 +164,7 @@ fn test_two_disjoint_cycles() {
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i32; 4]);
 
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let bf_size = problem.evaluate(&bf_solutions[0]);
 
     let reduction: ReductionMFVSToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
@@ -174,8 +174,8 @@ fn test_two_disjoint_cycles() {
     let extracted = reduction.extract_solution(&ilp_solution);
     let ilp_size = problem.evaluate(&extracted);
 
-    assert_eq!(bf_size, SolutionSize::Valid(2));
-    assert_eq!(ilp_size, SolutionSize::Valid(2));
+    assert_eq!(bf_size, Min(Some(2)));
+    assert_eq!(ilp_size, Min(Some(2)));
 }
 
 #[test]
@@ -192,4 +192,12 @@ fn test_solution_extraction() {
 
     // Verify this is a valid FVS (removing vertex 0 breaks the 3-cycle)
     assert!(problem.evaluate(&extracted).is_valid());
+}
+
+#[test]
+fn test_minimumfeedbackvertexset_to_ilp_bf_vs_ilp() {
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i32; 3]);
+    let reduction: ReductionMFVSToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

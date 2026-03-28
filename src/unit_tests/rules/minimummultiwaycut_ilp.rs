@@ -3,7 +3,7 @@ use crate::models::algebraic::ObjectiveSense;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Min;
 
 /// Build the canonical 5-vertex, 3-terminal example from issue #185.
 fn canonical_instance() -> MinimumMultiwayCut<SimpleGraph, i32> {
@@ -37,7 +37,7 @@ fn test_minimummultiwaycut_to_ilp_closed_loop() {
     let ilp_solver = ILPSolver::new();
 
     // Solve original with brute force
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let bf_obj = problem.evaluate(&bf_solutions[0]);
 
     // Solve via ILP
@@ -46,8 +46,8 @@ fn test_minimummultiwaycut_to_ilp_closed_loop() {
     let ilp_obj = problem.evaluate(&extracted);
 
     // Optimal cut cost is 8
-    assert_eq!(bf_obj, SolutionSize::Valid(8));
-    assert_eq!(ilp_obj, SolutionSize::Valid(8));
+    assert_eq!(bf_obj, Min(Some(8)));
+    assert_eq!(ilp_obj, Min(Some(8)));
 }
 
 #[test]
@@ -66,7 +66,7 @@ fn test_triangle_with_3_terminals() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     let obj = problem.evaluate(&extracted);
-    assert_eq!(obj, SolutionSize::Valid(6));
+    assert_eq!(obj, Min(Some(6)));
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn test_two_terminals() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     let obj = problem.evaluate(&extracted);
-    assert_eq!(obj, SolutionSize::Valid(1));
+    assert_eq!(obj, Min(Some(1)));
 }
 
 #[test]
@@ -122,7 +122,7 @@ fn test_solution_extraction() {
     assert_eq!(extracted, vec![1, 0, 0, 1, 1, 0]);
 
     let obj = problem.evaluate(&extracted);
-    assert_eq!(obj, SolutionSize::Valid(8));
+    assert_eq!(obj, Min(Some(8)));
 }
 
 #[test]
@@ -135,5 +135,12 @@ fn test_solve_reduced() {
         .expect("solve_reduced should work");
 
     assert!(problem.evaluate(&solution).is_valid());
-    assert_eq!(problem.evaluate(&solution), SolutionSize::Valid(8));
+    assert_eq!(problem.evaluate(&solution), Min(Some(8)));
+}
+
+#[test]
+fn test_minimummultiwaycut_to_ilp_bf_vs_ilp() {
+    let problem = canonical_instance();
+    let reduction: ReductionMMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

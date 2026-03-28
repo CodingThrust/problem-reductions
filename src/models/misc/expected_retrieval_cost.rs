@@ -1,11 +1,11 @@
 //! Expected Retrieval Cost problem implementation.
 //!
-//! Given record access probabilities, decide whether records can be assigned to
-//! circular storage sectors so the expected rotational latency stays below a
-//! prescribed bound.
+//! Given record access probabilities, find an assignment of records to circular
+//! storage sectors that minimizes the expected rotational latency.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 const FLOAT_TOLERANCE: f64 = 1e-9;
@@ -17,11 +17,10 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),
-        description: "Assign records to circular storage sectors so the expected retrieval latency stays within a bound",
+        description: "Assign records to circular storage sectors to minimize expected retrieval latency",
         fields: &[
             FieldInfo { name: "probabilities", type_name: "Vec<f64>", description: "Access probabilities p(r) for each record" },
             FieldInfo { name: "num_sectors", type_name: "usize", description: "Number of sectors on the drum-like device" },
-            FieldInfo { name: "bound", type_name: "f64", description: "Upper bound K on the expected retrieval cost" },
         ],
     }
 }
@@ -37,11 +36,10 @@ inventory::submit! {
 pub struct ExpectedRetrievalCost {
     probabilities: Vec<f64>,
     num_sectors: usize,
-    bound: f64,
 }
 
 impl ExpectedRetrievalCost {
-    pub fn new(probabilities: Vec<f64>, num_sectors: usize, bound: f64) -> Self {
+    pub fn new(probabilities: Vec<f64>, num_sectors: usize) -> Self {
         assert!(
             !probabilities.is_empty(),
             "ExpectedRetrievalCost requires at least one record"
@@ -50,8 +48,6 @@ impl ExpectedRetrievalCost {
             num_sectors >= 2,
             "ExpectedRetrievalCost requires at least two sectors"
         );
-        assert!(bound.is_finite(), "bound must be finite");
-        assert!(bound >= 0.0, "bound must be non-negative");
         for &probability in &probabilities {
             assert!(
                 probability.is_finite(),
@@ -70,7 +66,6 @@ impl ExpectedRetrievalCost {
         Self {
             probabilities,
             num_sectors,
-            bound,
         }
     }
 
@@ -84,10 +79,6 @@ impl ExpectedRetrievalCost {
 
     pub fn num_sectors(&self) -> usize {
         self.num_sectors
-    }
-
-    pub fn bound(&self) -> f64 {
-        self.bound
     }
 
     pub fn sector_masses(&self, config: &[usize]) -> Option<Vec<f64>> {
@@ -119,14 +110,13 @@ impl ExpectedRetrievalCost {
     }
 
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.expected_cost(config)
-            .is_some_and(|cost| cost <= self.bound + FLOAT_TOLERANCE)
+        self.expected_cost(config).is_some()
     }
 }
 
 impl Problem for ExpectedRetrievalCost {
     const NAME: &'static str = "ExpectedRetrievalCost";
-    type Metric = bool;
+    type Value = Min<f64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -136,12 +126,13 @@ impl Problem for ExpectedRetrievalCost {
         vec![self.num_sectors; self.num_records()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        self.is_valid_solution(config)
+    fn evaluate(&self, config: &[usize]) -> Min<f64> {
+        match self.expected_cost(config) {
+            Some(cost) => Min(Some(cost)),
+            None => Min(None),
+        }
     }
 }
-
-impl SatisfactionProblem for ExpectedRetrievalCost {}
 
 fn latency_distance(num_sectors: usize, source: usize, target: usize) -> usize {
     if source < target {
@@ -152,7 +143,7 @@ fn latency_distance(num_sectors: usize, source: usize, target: usize) -> usize {
 }
 
 crate::declare_variants! {
-    default sat ExpectedRetrievalCost => "num_sectors ^ num_records",
+    default ExpectedRetrievalCost => "num_sectors ^ num_records",
 }
 
 #[cfg(feature = "example-db")]
@@ -162,10 +153,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         instance: Box::new(ExpectedRetrievalCost::new(
             vec![0.2, 0.15, 0.15, 0.2, 0.1, 0.2],
             3,
-            1.01,
         )),
         optimal_config: vec![0, 1, 2, 1, 0, 2],
-        optimal_value: serde_json::json!(true),
+        optimal_value: serde_json::json!(1.0025),
     }]
 }
 

@@ -9,7 +9,6 @@
 //! - [`MinimumFeedbackVertexSet`]: Minimum weight feedback vertex set in a directed graph
 //! - [`MaximumClique`]: Maximum weight clique
 //! - [`MaxCut`]: Maximum cut on weighted graphs
-//! - [`GraphPartitioning`]: Minimum bisection (balanced graph partitioning)
 //! - [`MinimumCutIntoBoundedSets`]: Minimum cut into bounded sets (Garey & Johnson ND17)
 //! - [`MinimumDummyActivitiesPert`]: Minimum dummy activities in activity-on-arc PERT networks
 //! - [`HamiltonianCircuit`]: Hamiltonian circuit (decision problem)
@@ -64,7 +63,6 @@ pub(crate) mod bounded_component_spanning_forest;
 pub(crate) mod directed_two_commodity_integral_flow;
 pub(crate) mod disjoint_connecting_paths;
 pub(crate) mod generalized_hex;
-pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_circuit;
 pub(crate) mod hamiltonian_path;
 pub(crate) mod integral_flow_bundles;
@@ -120,7 +118,6 @@ pub use bounded_component_spanning_forest::BoundedComponentSpanningForest;
 pub use directed_two_commodity_integral_flow::DirectedTwoCommodityIntegralFlow;
 pub use disjoint_connecting_paths::DisjointConnectingPaths;
 pub use generalized_hex::GeneralizedHex;
-pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_circuit::HamiltonianCircuit;
 pub use hamiltonian_path::HamiltonianPath;
 pub use integral_flow_bundles::IntegralFlowBundles;
@@ -218,7 +215,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(undirected_two_commodity_integral_flow::canonical_model_example_specs());
     specs.extend(strong_connectivity_augmentation::canonical_model_example_specs());
     specs.extend(rural_postman::canonical_model_example_specs());
-    specs.extend(graph_partitioning::canonical_model_example_specs());
     specs.extend(integral_flow_homologous_arcs::canonical_model_example_specs());
     specs.extend(minimum_feedback_arc_set::canonical_model_example_specs());
     specs.extend(optimal_linear_arrangement::canonical_model_example_specs());

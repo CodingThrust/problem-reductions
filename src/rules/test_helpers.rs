@@ -1,6 +1,7 @@
 use crate::rules::{ReductionChain, ReductionResult};
-use crate::solvers::{BruteForce, Solver};
-use crate::traits::{OptimizationProblem, Problem, SatisfactionProblem};
+use crate::solvers::BruteForce;
+use crate::traits::Problem;
+use crate::types::Aggregate;
 use std::collections::HashSet;
 
 fn verify_optimization_round_trip<Source, Extract>(
@@ -10,9 +11,8 @@ fn verify_optimization_round_trip<Source, Extract>(
     target_solution_kind: &str,
     context: &str,
 ) where
-    Source: OptimizationProblem + 'static,
-    <Source as OptimizationProblem>::Value: std::fmt::Debug + PartialEq,
-    <Source as Problem>::Metric: std::fmt::Debug + PartialEq,
+    Source: Problem + 'static,
+    <Source as Problem>::Value: Aggregate + std::fmt::Debug + PartialEq,
     Extract: Fn(&[usize]) -> Vec<usize>,
 {
     assert!(
@@ -22,7 +22,7 @@ fn verify_optimization_round_trip<Source, Extract>(
 
     let solver = BruteForce::new();
     let reference_solutions: HashSet<Vec<usize>> =
-        solver.find_all_best(source).into_iter().collect();
+        solver.find_all_witnesses(source).into_iter().collect();
     assert!(
         !reference_solutions.is_empty(),
         "{context}: direct source solver found no optimal solutions"
@@ -48,11 +48,6 @@ fn verify_optimization_round_trip<Source, Extract>(
     );
     for source_solution in &extracted {
         let extracted_metric = source.evaluate(source_solution);
-        assert!(
-            extracted_metric.is_valid(),
-            "{context}: extracted source solution is infeasible: {:?}",
-            source_solution
-        );
         assert_eq!(
             extracted_metric, reference_metric,
             "{context}: extracted source objective does not match direct solve"
@@ -67,7 +62,8 @@ fn verify_satisfaction_round_trip<Source, Extract>(
     target_solution_kind: &str,
     context: &str,
 ) where
-    Source: SatisfactionProblem + 'static,
+    Source: Problem + 'static,
+    <Source as Problem>::Value: Aggregate + std::fmt::Debug,
     Extract: Fn(&[usize]) -> Vec<usize>,
 {
     assert!(
@@ -82,9 +78,11 @@ fn verify_satisfaction_round_trip<Source, Extract>(
         !extracted.is_empty(),
         "{context}: no extracted source solutions"
     );
+    let total = <BruteForce as crate::solvers::Solver>::solve(&BruteForce::new(), source);
     for source_solution in &extracted {
+        let value = source.evaluate(source_solution);
         assert!(
-            source.evaluate(source_solution),
+            <Source::Value as Aggregate>::contributes_to_witnesses(&value, &total),
             "{context}: extracted source solution is not satisfying: {:?}",
             source_solution
         );
@@ -97,12 +95,12 @@ pub(crate) fn assert_optimization_round_trip_from_optimization_target<R>(
     context: &str,
 ) where
     R: ReductionResult,
-    R::Source: OptimizationProblem + 'static,
-    R::Target: OptimizationProblem + 'static,
-    <R::Source as OptimizationProblem>::Value: std::fmt::Debug + PartialEq,
-    <R::Source as Problem>::Metric: std::fmt::Debug + PartialEq,
+    R::Source: Problem + 'static,
+    R::Target: Problem + 'static,
+    <R::Source as Problem>::Value: Aggregate + std::fmt::Debug + PartialEq,
+    <R::Target as Problem>::Value: Aggregate,
 {
-    let target_solutions = BruteForce::new().find_all_best(reduction.target_problem());
+    let target_solutions = BruteForce::new().find_all_witnesses(reduction.target_problem());
     verify_optimization_round_trip(
         source,
         target_solutions,
@@ -118,12 +116,12 @@ pub(crate) fn assert_optimization_round_trip_from_satisfaction_target<R>(
     context: &str,
 ) where
     R: ReductionResult,
-    R::Source: OptimizationProblem + 'static,
-    R::Target: SatisfactionProblem + 'static,
-    <R::Source as OptimizationProblem>::Value: std::fmt::Debug + PartialEq,
-    <R::Source as Problem>::Metric: std::fmt::Debug + PartialEq,
+    R::Source: Problem + 'static,
+    R::Target: Problem + 'static,
+    <R::Source as Problem>::Value: Aggregate + std::fmt::Debug + PartialEq,
+    <R::Target as Problem>::Value: Aggregate,
 {
-    let target_solutions = BruteForce::new().find_all_satisfying(reduction.target_problem());
+    let target_solutions = BruteForce::new().find_all_witnesses(reduction.target_problem());
     verify_optimization_round_trip(
         source,
         target_solutions,
@@ -138,12 +136,12 @@ pub(crate) fn assert_optimization_round_trip_chain<Source, Target>(
     chain: &ReductionChain,
     context: &str,
 ) where
-    Source: OptimizationProblem + 'static,
-    Target: OptimizationProblem + 'static,
-    <Source as OptimizationProblem>::Value: std::fmt::Debug + PartialEq,
-    <Source as Problem>::Metric: std::fmt::Debug + PartialEq,
+    Source: Problem + 'static,
+    Target: Problem + 'static,
+    <Source as Problem>::Value: Aggregate + std::fmt::Debug + PartialEq,
+    <Target as Problem>::Value: Aggregate,
 {
-    let target_solutions = BruteForce::new().find_all_best(chain.target_problem::<Target>());
+    let target_solutions = BruteForce::new().find_all_witnesses(chain.target_problem::<Target>());
     verify_optimization_round_trip(
         source,
         target_solutions,
@@ -159,10 +157,12 @@ pub(crate) fn assert_satisfaction_round_trip_from_optimization_target<R>(
     context: &str,
 ) where
     R: ReductionResult,
-    R::Source: SatisfactionProblem + 'static,
-    R::Target: OptimizationProblem + 'static,
+    R::Source: Problem + 'static,
+    R::Target: Problem + 'static,
+    <R::Source as Problem>::Value: Aggregate + std::fmt::Debug,
+    <R::Target as Problem>::Value: Aggregate,
 {
-    let target_solutions = BruteForce::new().find_all_best(reduction.target_problem());
+    let target_solutions = BruteForce::new().find_all_witnesses(reduction.target_problem());
     verify_satisfaction_round_trip(
         source,
         target_solutions,
@@ -178,10 +178,12 @@ pub(crate) fn assert_satisfaction_round_trip_from_satisfaction_target<R>(
     context: &str,
 ) where
     R: ReductionResult,
-    R::Source: SatisfactionProblem + 'static,
-    R::Target: SatisfactionProblem + 'static,
+    R::Source: Problem + 'static,
+    R::Target: Problem + 'static,
+    <R::Source as Problem>::Value: Aggregate + std::fmt::Debug,
+    <R::Target as Problem>::Value: Aggregate,
 {
-    let target_solutions = BruteForce::new().find_all_satisfying(reduction.target_problem());
+    let target_solutions = BruteForce::new().find_all_witnesses(reduction.target_problem());
     verify_satisfaction_round_trip(
         source,
         target_solutions,
@@ -191,18 +193,37 @@ pub(crate) fn assert_satisfaction_round_trip_from_satisfaction_target<R>(
     );
 }
 
+#[cfg(feature = "ilp-solver")]
+pub(crate) fn assert_bf_vs_ilp<R>(source: &R::Source, reduction: &R)
+where
+    R: ReductionResult,
+    R::Source: Problem + 'static,
+    R::Target: 'static,
+    <R::Source as Problem>::Value: Aggregate + std::fmt::Debug + PartialEq,
+{
+    use crate::solvers::{ILPSolver, Solver};
+    let bf_value = BruteForce::new().solve(source);
+    let ilp_solution = ILPSolver::new()
+        .solve_dyn(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(source.evaluate(&extracted), bf_value);
+}
+
 pub(crate) fn solve_optimization_problem<P>(problem: &P) -> Option<Vec<usize>>
 where
-    P: OptimizationProblem + 'static,
+    P: Problem + 'static,
+    P::Value: Aggregate,
 {
-    BruteForce::new().find_best(problem)
+    BruteForce::new().find_witness(problem)
 }
 
 pub(crate) fn solve_satisfaction_problem<P>(problem: &P) -> Option<Vec<usize>>
 where
-    P: SatisfactionProblem + 'static,
+    P: Problem + 'static,
+    P::Value: Aggregate,
 {
-    BruteForce::new().find_satisfying(problem)
+    BruteForce::new().find_witness(problem)
 }
 
 #[cfg(test)]
@@ -214,24 +235,24 @@ mod tests {
         assert_satisfaction_round_trip_from_satisfaction_target,
     };
     use crate::rules::ReductionResult;
-    use crate::traits::{OptimizationProblem, Problem, SatisfactionProblem};
-    use crate::types::{Direction, SolutionSize};
+    use crate::traits::Problem;
+    use crate::types::{Max, Or};
 
     #[derive(Clone)]
-    struct ToyOptimizationProblem;
+    struct ToyExtremumProblem;
 
-    impl Problem for ToyOptimizationProblem {
-        const NAME: &'static str = "ToyOptimizationProblem";
-        type Metric = SolutionSize<i32>;
+    impl Problem for ToyExtremumProblem {
+        const NAME: &'static str = "ToyExtremumProblem";
+        type Value = Max<i32>;
 
         fn dims(&self) -> Vec<usize> {
             vec![2, 2]
         }
 
-        fn evaluate(&self, config: &[usize]) -> Self::Metric {
+        fn evaluate(&self, config: &[usize]) -> Self::Value {
             match config {
-                [1, 0] | [0, 1] => SolutionSize::Valid(1),
-                _ => SolutionSize::Invalid,
+                [1, 0] | [0, 1] => Max(Some(1)),
+                _ => Max(None),
             }
         }
 
@@ -240,27 +261,19 @@ mod tests {
         }
     }
 
-    impl OptimizationProblem for ToyOptimizationProblem {
-        type Value = i32;
-
-        fn direction(&self) -> Direction {
-            Direction::Maximize
-        }
-    }
-
     #[derive(Clone)]
-    struct ToySatisfactionProblem;
+    struct ToyOrProblem;
 
-    impl Problem for ToySatisfactionProblem {
-        const NAME: &'static str = "ToySatisfactionProblem";
-        type Metric = bool;
+    impl Problem for ToyOrProblem {
+        const NAME: &'static str = "ToyOrProblem";
+        type Value = Or;
 
         fn dims(&self) -> Vec<usize> {
             vec![2, 2]
         }
 
-        fn evaluate(&self, config: &[usize]) -> Self::Metric {
-            matches!(config, [1, 0] | [0, 1])
+        fn evaluate(&self, config: &[usize]) -> Self::Value {
+            Or(matches!(config, [1, 0] | [0, 1]))
         }
 
         fn variant() -> Vec<(&'static str, &'static str)> {
@@ -268,15 +281,13 @@ mod tests {
         }
     }
 
-    impl SatisfactionProblem for ToySatisfactionProblem {}
-
     struct OptToOptReduction {
-        target: ToyOptimizationProblem,
+        target: ToyExtremumProblem,
     }
 
     impl ReductionResult for OptToOptReduction {
-        type Source = ToyOptimizationProblem;
-        type Target = ToyOptimizationProblem;
+        type Source = ToyExtremumProblem;
+        type Target = ToyExtremumProblem;
 
         fn target_problem(&self) -> &Self::Target {
             &self.target
@@ -288,12 +299,12 @@ mod tests {
     }
 
     struct OptToSatReduction {
-        target: ToySatisfactionProblem,
+        target: ToyOrProblem,
     }
 
     impl ReductionResult for OptToSatReduction {
-        type Source = ToyOptimizationProblem;
-        type Target = ToySatisfactionProblem;
+        type Source = ToyExtremumProblem;
+        type Target = ToyOrProblem;
 
         fn target_problem(&self) -> &Self::Target {
             &self.target
@@ -305,12 +316,12 @@ mod tests {
     }
 
     struct SatToOptReduction {
-        target: ToyOptimizationProblem,
+        target: ToyExtremumProblem,
     }
 
     impl ReductionResult for SatToOptReduction {
-        type Source = ToySatisfactionProblem;
-        type Target = ToyOptimizationProblem;
+        type Source = ToyOrProblem;
+        type Target = ToyExtremumProblem;
 
         fn target_problem(&self) -> &Self::Target {
             &self.target
@@ -322,12 +333,12 @@ mod tests {
     }
 
     struct SatToSatReduction {
-        target: ToySatisfactionProblem,
+        target: ToyOrProblem,
     }
 
     impl ReductionResult for SatToSatReduction {
-        type Source = ToySatisfactionProblem;
-        type Target = ToySatisfactionProblem;
+        type Source = ToyOrProblem;
+        type Target = ToyOrProblem;
 
         fn target_problem(&self) -> &Self::Target {
             &self.target
@@ -340,41 +351,41 @@ mod tests {
 
     #[test]
     fn test_optimization_round_trip_wrappers_accept_identity_reductions() {
-        let source = ToyOptimizationProblem;
+        let source = ToyExtremumProblem;
 
         assert_optimization_round_trip_from_optimization_target(
             &source,
             &OptToOptReduction {
-                target: ToyOptimizationProblem,
+                target: ToyExtremumProblem,
             },
-            "opt->opt",
+            "extremum->extremum",
         );
         assert_optimization_round_trip_from_satisfaction_target(
             &source,
             &OptToSatReduction {
-                target: ToySatisfactionProblem,
+                target: ToyOrProblem,
             },
-            "opt->sat",
+            "extremum->witness",
         );
     }
 
     #[test]
     fn test_satisfaction_round_trip_wrappers_accept_identity_reductions() {
-        let source = ToySatisfactionProblem;
+        let source = ToyOrProblem;
 
         assert_satisfaction_round_trip_from_optimization_target(
             &source,
             &SatToOptReduction {
-                target: ToyOptimizationProblem,
+                target: ToyExtremumProblem,
             },
-            "sat->opt",
+            "witness->extremum",
         );
         assert_satisfaction_round_trip_from_satisfaction_target(
             &source,
             &SatToSatReduction {
-                target: ToySatisfactionProblem,
+                target: ToyOrProblem,
             },
-            "sat->sat",
+            "witness->witness",
         );
     }
 }

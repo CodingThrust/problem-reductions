@@ -54,13 +54,13 @@ Only run if review type includes "model". Given: problem name `P`, category `C`,
 | 2 | `inventory::submit!` present | `Grep("inventory::submit", file)` |
 | 3 | `#[derive(...Serialize, Deserialize)]` on struct | `Grep("Serialize.*Deserialize", file)` |
 | 4 | `Problem` trait impl | `Grep("impl.*Problem for.*{P}", file)` |
-| 5 | `OptimizationProblem` or `SatisfactionProblem` impl | `Grep("(OptimizationProblem|SatisfactionProblem).*for.*{P}", file)` |
+| 5 | Aggregate value is present | `Grep("type Value =", file)` |
 | 6 | `#[cfg(test)]` + `#[path = "..."]` test link | `Grep("#\\[path =", file)` |
 | 7 | Test file exists | `Glob("src/unit_tests/models/{C}/{F}.rs")` |
 | 8 | Test file has >= 3 test functions | `Grep("fn test_", test_file)` — count matches, FAIL if < 3 |
 | 9 | Registered in `{C}/mod.rs` | `Grep("mod {F}", "src/models/{C}/mod.rs")` |
 | 10 | Re-exported in `models/mod.rs` | `Grep("{P}", "src/models/mod.rs")` |
-| 11 | `declare_variants!` entry exists | `Grep("declare_variants!|default opt|default sat|opt {P}|sat {P}", file)` |
+| 11 | Variant registration exists | `Grep("declare_variants!|VariantEntry", file)` |
 | 12 | CLI `resolve_alias` entry | `Grep("{P}", "problemreductions-cli/src/problem_name.rs")` |
 | 13 | CLI `create` support | `Grep('"{P}"', "problemreductions-cli/src/commands/create.rs")` |
 | 14 | Canonical model example registered | `Grep("{P}", "src/example_db/model_builders.rs")` |
@@ -107,7 +107,7 @@ Report pass/fail. If tests fail, identify which tests. **Do NOT fix anything** �
 ## Step 4: Semantic Review
 
 ### For Models:
-1. **`evaluate()` correctness** — Does it check feasibility before computing the objective? Does it return `SolutionSize::Invalid` / `false` for infeasible configs?
+1. **`evaluate()` correctness** — Does it check feasibility before computing the objective when the model has invalid configurations? Objective models should return `Max/Min/Extremum(None)` for infeasible configs, witness problems should return `false`, and aggregate-only models should return the per-configuration contribution that matches the intended fold semantics.
 2. **`dims()` correctness** — Does it return the actual configuration space? (e.g., `vec![2; n]` for binary)
 3. **Size getter consistency** — Do inherent getter methods (e.g., `num_vertices()`, `num_edges()`) match names used in overhead expressions?
 4. **Weight handling** — Are weights managed via inherent methods, not traits?
@@ -127,7 +127,7 @@ Only if a linked issue was provided.
 |---|-------|
 | 1 | Problem name matches issue |
 | 2 | Mathematical definition matches |
-| 3 | Problem type (opt/sat) matches |
+| 3 | Problem framing (objective / witness / aggregate-only) matches |
 | 4 | Type parameters match |
 | 5 | Configuration space matches |
 | 6 | Feasibility check matches |

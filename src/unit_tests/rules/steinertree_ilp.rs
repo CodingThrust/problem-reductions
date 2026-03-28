@@ -5,7 +5,7 @@ use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Min;
 
 fn canonical_instance() -> SteinerTree<SimpleGraph, i32> {
     let graph = SimpleGraph::new(
@@ -46,12 +46,12 @@ fn test_steinertree_to_ilp_closed_loop() {
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
-    let best_source = bf.find_all_best(&problem);
+    let best_source = bf.find_all_witnesses(&problem);
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
 
-    assert_eq!(problem.evaluate(&best_source[0]), SolutionSize::Valid(6));
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(6));
+    assert_eq!(problem.evaluate(&best_source[0]), Min(Some(6)));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(6)));
     assert!(problem.is_valid_solution(&extracted));
 }
 
@@ -77,7 +77,7 @@ fn test_solve_reduced_uses_new_rule() {
     let solution = ILPSolver::new()
         .solve_reduced(&problem)
         .expect("solve_reduced should find the Steiner tree via ILP");
-    assert_eq!(problem.evaluate(&solution), SolutionSize::Valid(6));
+    assert_eq!(problem.evaluate(&solution), Min(Some(6)));
 }
 
 #[test]
@@ -94,4 +94,11 @@ fn test_reduction_rejects_zero_weights() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let problem = SteinerTree::new(graph, vec![0, 0, 0], vec![0, 1]);
     let _ = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+}
+
+#[test]
+fn test_steinertree_to_ilp_bf_vs_ilp() {
+    let problem = canonical_instance();
+    let reduction: ReductionSteinerTreeToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

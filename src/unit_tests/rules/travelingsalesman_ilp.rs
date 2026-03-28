@@ -2,7 +2,7 @@ use super::*;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::types::Min;
 
 fn k4_tsp() -> TravelingSalesman<SimpleGraph, i32> {
     TravelingSalesman::new(
@@ -43,7 +43,7 @@ fn test_reduction_c4_closed_loop() {
     // Verify extracted solution is valid on source problem
     let metric = problem.evaluate(&extracted);
     assert!(metric.is_valid(), "Extracted solution must be valid");
-    assert_eq!(metric, SolutionSize::Valid(4));
+    assert_eq!(metric, Min(Some(4)));
 }
 
 #[test]
@@ -60,7 +60,7 @@ fn test_reduction_k4_weighted_closed_loop() {
 
     // Solve via brute force for cross-check
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     let bf_metric = problem.evaluate(&bf_solutions[0]);
     let ilp_metric = problem.evaluate(&extracted);
 
@@ -87,7 +87,7 @@ fn test_reduction_c5_unweighted_closed_loop() {
 
     let metric = problem.evaluate(&extracted);
     assert!(metric.is_valid());
-    assert_eq!(metric, SolutionSize::Valid(5));
+    assert_eq!(metric, Min(Some(5)));
 }
 
 #[test]
@@ -144,6 +144,16 @@ fn test_solve_reduced() {
 
     // Cross-check with brute force
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_all_best(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem);
     assert_eq!(metric, problem.evaluate(&bf_solutions[0]));
+}
+
+#[test]
+fn test_travelingsalesman_to_ilp_bf_vs_ilp() {
+    let problem = TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(
+        4,
+        vec![(0, 1), (1, 2), (2, 3), (3, 0)],
+    ));
+    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

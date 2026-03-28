@@ -4,8 +4,8 @@
 //! that covers all elements in the universe.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -51,7 +51,7 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_best(&problem);
+/// let solutions = solver.find_all_witnesses(&problem);
 ///
 /// // Verify solutions cover all elements
 /// for sol in solutions {
@@ -143,18 +143,18 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumSetCovering";
-    type Metric = SolutionSize<W::Sum>;
+    type Value = Min<W::Sum>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.sets.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
         let covered = self.covered_elements(config);
         let is_valid = covered.len() == self.universe_size
             && (0..self.universe_size).all(|e| covered.contains(&e));
         if !is_valid {
-            return SolutionSize::Invalid;
+            return Min(None);
         }
         let mut total = W::Sum::zero();
         for (i, &selected) in config.iter().enumerate() {
@@ -162,7 +162,7 @@ where
                 total += self.weights[i].to_sum();
             }
         }
-        SolutionSize::Valid(total)
+        Min(Some(total))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -170,19 +170,8 @@ where
     }
 }
 
-impl<W> OptimizationProblem for MinimumSetCovering<W>
-where
-    W: WeightElement + crate::variant::VariantParam,
-{
-    type Value = W::Sum;
-
-    fn direction(&self) -> Direction {
-        Direction::Minimize
-    }
-}
-
 crate::declare_variants! {
-    default opt MinimumSetCovering<i32> => "2^num_sets",
+    default MinimumSetCovering<i32> => "2^num_sets",
 }
 
 /// Check if a selection of sets forms a valid set cover.
@@ -211,7 +200,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![vec![0, 1, 2], vec![1, 3], vec![2, 3, 4]],
         )),
         optimal_config: vec![1, 0, 1],
-        optimal_value: serde_json::json!({"Valid": 2}),
+        optimal_value: serde_json::json!(2),
     }]
 }
 

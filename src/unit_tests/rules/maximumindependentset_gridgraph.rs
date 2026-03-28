@@ -44,7 +44,7 @@ fn test_mis_simple_one_to_kings_one_closed_loop() {
     assert!(target.graph().num_vertices() > 5);
 
     let solver = BruteForce::new();
-    let grid_solutions = solver.find_all_best(target);
+    let grid_solutions = solver.find_all_witnesses(target);
     assert!(!grid_solutions.is_empty());
 
     let original_solution = result.extract_solution(&grid_solutions[0]);

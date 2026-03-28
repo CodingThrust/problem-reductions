@@ -6,7 +6,7 @@
 //! Strongly NP-complete (Garey & Johnson, A5 SS1).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -52,7 +52,7 @@ inventory::submit! {
 ///     vec![3, 3, 4],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_satisfying(&problem);
+/// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -106,52 +106,40 @@ impl SequencingWithReleaseTimesAndDeadlines {
 
 impl Problem for SequencingWithReleaseTimesAndDeadlines {
     const NAME: &'static str = "SequencingWithReleaseTimesAndDeadlines";
-    type Metric = bool;
+    type Value = crate::types::Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
     fn dims(&self) -> Vec<usize> {
-        let n = self.num_tasks();
-        (0..n).rev().map(|i| i + 1).collect()
+        super::lehmer_dims(self.num_tasks())
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        let n = self.num_tasks();
-        if config.len() != n {
-            return false;
-        }
+    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
+        crate::types::Or({
+            let Some(schedule) = super::decode_lehmer(config, self.num_tasks()) else {
+                return crate::types::Or(false);
+            };
 
-        // Decode Lehmer code into a permutation of task indices.
-        let mut available: Vec<usize> = (0..n).collect();
-        let mut schedule = Vec::with_capacity(n);
-        for &c in config.iter() {
-            if c >= available.len() {
-                return false;
+            // Schedule tasks left-to-right: each task starts at max(release_time, current_time).
+            let mut current_time: u64 = 0;
+            for &task in &schedule {
+                let start = current_time.max(self.release_times[task]);
+                let finish = start + self.lengths[task];
+                if finish > self.deadlines[task] {
+                    return crate::types::Or(false);
+                }
+                current_time = finish;
             }
-            schedule.push(available.remove(c));
-        }
 
-        // Schedule tasks left-to-right: each task starts at max(release_time, current_time).
-        let mut current_time: u64 = 0;
-        for &task in &schedule {
-            let start = current_time.max(self.release_times[task]);
-            let finish = start + self.lengths[task];
-            if finish > self.deadlines[task] {
-                return false;
-            }
-            current_time = finish;
-        }
-
-        true
+            true
+        })
     }
 }
 
-impl SatisfactionProblem for SequencingWithReleaseTimesAndDeadlines {}
-
 crate::declare_variants! {
-    default sat SequencingWithReleaseTimesAndDeadlines => "2^num_tasks * num_tasks",
+    default SequencingWithReleaseTimesAndDeadlines => "2^num_tasks * num_tasks",
 }
 
 #[cfg(feature = "example-db")]
