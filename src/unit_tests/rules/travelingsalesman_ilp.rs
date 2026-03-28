@@ -147,3 +147,13 @@ fn test_solve_reduced() {
     let bf_solutions = bf.find_all_witnesses(&problem);
     assert_eq!(metric, problem.evaluate(&bf_solutions[0]));
 }
+
+#[test]
+fn test_travelingsalesman_to_ilp_bf_vs_ilp() {
+    let problem = TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(
+        4,
+        vec![(0, 1), (1, 2), (2, 3), (3, 0)],
+    ));
+    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

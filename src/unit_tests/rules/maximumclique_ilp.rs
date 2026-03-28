@@ -306,3 +306,13 @@ fn test_star_graph() {
     assert!(is_valid_clique(&problem, &extracted));
     assert_eq!(clique_size(&problem, &extracted), 2);
 }
+
+#[test]
+fn test_maximumclique_to_ilp_bf_vs_ilp() {
+    let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1; 4],
+    );
+    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

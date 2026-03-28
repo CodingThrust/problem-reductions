@@ -93,3 +93,10 @@ fn test_lcs_to_ilp_single_position_all_padding() {
     let value = problem.evaluate(&extracted);
     assert_eq!(value, Max(Some(0)));
 }
+
+#[test]
+fn test_longestcommonsubsequence_to_ilp_bf_vs_ilp() {
+    let problem = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1]]);
+    let reduction: ReductionLCSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

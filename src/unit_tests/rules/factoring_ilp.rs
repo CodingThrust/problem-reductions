@@ -297,3 +297,10 @@ fn test_variable_count_formula() {
         );
     }
 }
+
+#[test]
+fn test_factoring_to_ilp_bf_vs_ilp() {
+    let problem = Factoring::new(2, 2, 6);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

@@ -193,6 +193,23 @@ pub(crate) fn assert_satisfaction_round_trip_from_satisfaction_target<R>(
     );
 }
 
+#[cfg(feature = "ilp-solver")]
+pub(crate) fn assert_bf_vs_ilp<R>(source: &R::Source, reduction: &R)
+where
+    R: ReductionResult,
+    R::Source: Problem + 'static,
+    R::Target: 'static,
+    <R::Source as Problem>::Value: Aggregate + std::fmt::Debug + PartialEq,
+{
+    use crate::solvers::{ILPSolver, Solver};
+    let bf_value = BruteForce::new().solve(source);
+    let ilp_solution = ILPSolver::new()
+        .solve_dyn(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    assert_eq!(source.evaluate(&extracted), bf_value);
+}
+
 pub(crate) fn solve_optimization_problem<P>(problem: &P) -> Option<Vec<usize>>
 where
     P: Problem + 'static,
