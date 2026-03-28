@@ -7053,6 +7053,46 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Return the same binary selection vector on the original elements: item $i$ is selected in the knapsack witness if and only if element $i$ belongs to the extracted partition subset.
 ]
 
+#let part_ss = load-example("Partition", "SubsetSum")
+#let part_ss_sol = part_ss.solutions.at(0)
+#let part_ss_sizes = part_ss.source.instance.sizes
+#let part_ss_n = part_ss_sizes.len()
+#let part_ss_total = part_ss_sizes.fold(0, (a, b) => a + b)
+#let part_ss_target = part_ss_total / 2
+#let part_ss_selected = part_ss_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_ss_selected_sizes = part_ss_selected.map(i => part_ss_sizes.at(i))
+#let part_ss_selected_sum = part_ss_selected_sizes.fold(0, (a, b) => a + b)
+#reduction-rule("Partition", "SubsetSum",
+  example: true,
+  example-caption: [#part_ss_n elements, total sum $S = #part_ss_total$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_ss.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_ss) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_ss_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_ss_sizes.map(str).join(", "))$ with total sum $S = #part_ss_total$, so a balanced witness must hit exactly $S / 2 = #part_ss_target$.
+
+    *Step 2 -- Build the Subset Sum instance.* The reduction copies the sizes directly: $(#part_ss_sizes.map(str).join(", "))$, and sets the target $B = S / 2 = #part_ss_target$. The number of binary variables is unchanged ($n = #part_ss_n$).
+
+    *Step 3 -- Verify the canonical witness.* The serialized witness uses the same binary vector on both sides, $bold(x) = (#part_ss_sol.source_config.map(str).join(", "))$. It selects elements at indices $\{#part_ss_selected.map(str).join(", ")\}$ with sizes $(#part_ss_selected_sizes.map(str).join(", "))$, so the chosen subset sums to $#part_ss_selected_sum = #part_ss_target = B$ #sym.checkmark.
+
+    *Witness semantics.* The example DB stores one canonical balanced subset. Multiple subsets may sum to $B$, but one witness suffices to demonstrate the reduction.
+  ],
+)[
+  This $O(n)$ reduction @garey1979[SP13] @karp1972 embeds a Partition instance into Subset Sum by copying the element sizes and setting the target to half the total sum. For $n$ source elements it produces $n$ Subset Sum items.
+][
+  _Construction._ Given positive sizes $s_0, dots, s_(n-1)$ with total sum $S = sum_(i=0)^(n-1) s_i$, construct a Subset Sum instance with the same sizes and target
+  $ B = S / 2. $
+  If $S$ is odd, return a trivially infeasible Subset Sum instance (empty sizes, target $= 1$).
+
+  _Correctness._ ($arrow.r.double$) If the Partition instance is satisfiable, some subset $A'$ has sum $S / 2 = B$, so the Subset Sum instance is satisfiable. ($arrow.l.double$) If the Subset Sum instance is satisfiable, some subset sums to $B = S / 2$, so its complement sums to $S - S / 2 = S / 2$, giving a balanced partition. When $S$ is odd, $S / 2$ is not an integer and no subset of positive integers can sum to it; the trivially infeasible target instance correctly reflects this.
+
+  _Solution extraction._ Return the same binary selection vector: element $i$ is in the partition subset if and only if it is selected in the Subset Sum witness.
+]
+
 #let ks_qubo = load-example("Knapsack", "QUBO")
 #let ks_qubo_sol = ks_qubo.solutions.at(0)
 #let ks_qubo_num_items = ks_qubo.source.instance.weights.len()
