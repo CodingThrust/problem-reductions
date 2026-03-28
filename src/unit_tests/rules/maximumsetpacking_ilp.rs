@@ -127,3 +127,10 @@ fn test_solve_reduced() {
     assert!(problem.evaluate(&solution).is_valid());
     assert_eq!(problem.evaluate(&solution), Max(Some(2)));
 }
+
+#[test]
+fn test_maximumsetpacking_to_ilp_bf_vs_ilp() {
+    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let reduction: ReductionSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}
