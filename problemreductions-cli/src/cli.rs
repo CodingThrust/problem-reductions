@@ -308,6 +308,7 @@ Flags by problem type:
   SequencingToMinimizeMaximumCumulativeCost --costs [--precedence-pairs]
   SequencingToMinimizeWeightedCompletionTime --lengths, --weights [--precedence-pairs]
   SequencingToMinimizeWeightedTardiness --sizes, --weights, --deadlines, --bound
+  MinimumExternalMacroDataCompression --string, --pointer-cost [--alphabet-size]
   SCS                             --strings [--alphabet-size]
   StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
@@ -732,6 +733,9 @@ pub struct CreateArgs {
     /// Target string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,3,2")
     #[arg(long)]
     pub target_string: Option<String>,
+    /// Pointer cost for MinimumExternalMacroDataCompression (positive integer)
+    #[arg(long)]
+    pub pointer_cost: Option<usize>,
 }
 
 #[derive(clap::Args)]

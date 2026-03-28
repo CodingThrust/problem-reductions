@@ -23,9 +23,9 @@ use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
     ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
     ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping,
-    JobShopScheduling, KnownValue, LongestCommonSubsequence, MinimumTardinessSequencing,
-    MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, QueryArg,
-    RectilinearPictureCompression, ResourceConstrainedScheduling,
+    JobShopScheduling, KnownValue, LongestCommonSubsequence, MinimumExternalMacroDataCompression,
+    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack,
+    QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
     SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
     SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
     SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
@@ -167,6 +167,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.num_attributes.is_none()
         && args.source_string.is_none()
         && args.target_string.is_none()
+        && args.pointer_cost.is_none()
         && args.capacities.is_none()
         && args.source_1.is_none()
         && args.sink_1.is_none()
@@ -730,6 +731,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--strings \"010110;100101;001011\" --alphabet-size 2"
         }
         "GroupingBySwapping" => "--string \"0,1,2,0,1,2\" --bound 5",
+        "MinimumExternalMacroDataCompression" => {
+            "--string \"0,1,0,1\" --pointer-cost 2 --alphabet-size 2"
+        }
         "MinimumCardinalityKey" => {
             "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\""
         }
@@ -862,6 +866,8 @@ fn help_flag_hint(
             "raw strings: \"ABAC;BACA\" or symbol lists: \"0,1,0;1,0,1\""
         }
         ("GroupingBySwapping", "string") => "symbol list: \"0,1,2,0,1,2\"",
+        ("MinimumExternalMacroDataCompression", "string") => "symbol list: \"0,1,0,1\"",
+        ("MinimumExternalMacroDataCompression", "pointer_cost") => "positive integer: 2",
         ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
         ("IntegralFlowHomologousArcs", "homologous_pairs") => {
@@ -2950,6 +2956,57 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             );
             (
                 ser(GroupingBySwapping::new(alphabet_size, string, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumExternalMacroDataCompression
+        "MinimumExternalMacroDataCompression" => {
+            let usage = "Usage: pred create MinimumExternalMacroDataCompression --string \"0,1,0,1\" --pointer-cost 2 [--alphabet-size 2]";
+            let string_str = args.string.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumExternalMacroDataCompression requires --string\n\n{usage}")
+            })?;
+            let pointer_cost = args.pointer_cost.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumExternalMacroDataCompression requires --pointer-cost\n\n{usage}"
+                )
+            })?;
+            anyhow::ensure!(
+                pointer_cost > 0,
+                "--pointer-cost must be a positive integer\n\n{usage}"
+            );
+
+            let string: Vec<usize> = if string_str.trim().is_empty() {
+                Vec::new()
+            } else {
+                string_str
+                    .split(',')
+                    .map(|value| {
+                        value
+                            .trim()
+                            .parse::<usize>()
+                            .context("invalid symbol index")
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            };
+            let inferred = string.iter().copied().max().map_or(0, |value| value + 1);
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            anyhow::ensure!(
+                alphabet_size >= inferred,
+                "--alphabet-size {} is smaller than max symbol + 1 ({}) in the input string",
+                alphabet_size,
+                inferred
+            );
+            anyhow::ensure!(
+                alphabet_size > 0 || string.is_empty(),
+                "MinimumExternalMacroDataCompression requires a positive alphabet for non-empty strings.\n\n{usage}"
+            );
+            (
+                ser(MinimumExternalMacroDataCompression::new(
+                    alphabet_size,
+                    string,
+                    pointer_cost,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -7344,6 +7401,7 @@ mod tests {
             storage: None,
             quantifiers: None,
             homologous_pairs: None,
+            pointer_cost: None,
         }
     }
 

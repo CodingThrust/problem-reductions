@@ -15,6 +15,7 @@
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
 //! - [`MultiprocessorScheduling`]: Schedule tasks on processors to meet a deadline
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
+//! - [`MinimumExternalMacroDataCompression`]: Minimize compression cost using external dictionary
 //! - [`MinimumTardinessSequencing`]: Minimize tardy tasks in single-machine scheduling
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
 //! - [`Partition`]: Partition a multiset into two equal-sum subsets
@@ -75,6 +76,7 @@ mod grouping_by_swapping;
 mod job_shop_scheduling;
 mod knapsack;
 mod longest_common_subsequence;
+mod minimum_external_macro_data_compression;
 mod minimum_tardiness_sequencing;
 mod multiprocessor_scheduling;
 pub(crate) mod paintshop;
@@ -115,6 +117,7 @@ pub use grouping_by_swapping::GroupingBySwapping;
 pub use job_shop_scheduling::JobShopScheduling;
 pub use knapsack::Knapsack;
 pub use longest_common_subsequence::LongestCommonSubsequence;
+pub use minimum_external_macro_data_compression::MinimumExternalMacroDataCompression;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use multiprocessor_scheduling::MultiprocessorScheduling;
 pub use paintshop::PaintShop;
@@ -178,5 +181,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(knapsack::canonical_model_example_specs());
     specs.extend(subset_sum::canonical_model_example_specs());
     specs.extend(three_partition::canonical_model_example_specs());
+    specs.extend(minimum_external_macro_data_compression::canonical_model_example_specs());
     specs
 }

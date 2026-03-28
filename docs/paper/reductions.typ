@@ -188,6 +188,7 @@
   "StaffScheduling": [Staff Scheduling],
   "SteinerTree": [Steiner Tree],
   "SteinerTreeInGraphs": [Steiner Tree in Graphs],
+  "MinimumExternalMacroDataCompression": [Minimum External Macro Data Compression],
   "StringToStringCorrection": [String-to-String Correction],
   "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
@@ -4835,6 +4836,62 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       ) <fig:stsc>
 
       The transformation uses exactly $K = #bound-k$ operations (1 swap + 1 deletion), which is the minimum: a single operation cannot account for both the transposition of two symbols and the removal of one.
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumExternalMacroDataCompression")
+  let alpha-size = x.instance.alphabet_size
+  let s = x.instance.string
+  let n = s.len()
+  let h = x.instance.pointer_cost
+  let alpha-map = range(alpha-size).map(i => str.from-unicode(97 + i))
+  let s-str = s.map(c => alpha-map.at(c)).join("")
+  let opt-val = metric-value(x.optimal_value)
+  [
+    #problem-def("MinimumExternalMacroDataCompression")[
+      Given a finite alphabet $Sigma$ of size $k$, a string $s in Sigma^*$ of length $n$, and a pointer cost $h in ZZ^+$, find a dictionary string $D in Sigma^*$ and a compressed string $C in (Sigma union {p_1, dots, p_n})^*$, where each $p_i$ is a pointer referencing a contiguous substring of $D$, such that $s$ can be obtained from $C$ by replacing every pointer with its referenced substring, minimizing the total cost $|D| + |C| + (h - 1) times$ (number of pointer occurrences in $C$).
+    ][
+      A classical NP-hard data compression problem, listed as SR22 in Garey and Johnson @garey1979. The macro model of data compression was introduced by #cite(<storer1977>, form: "prose"), who proved NP-completeness via transformation from Vertex Cover. #cite(<storer1982>, form: "prose") provided a comprehensive analysis of the macro compression framework, showing that NP-completeness persists even when $h$ is any fixed integer $gt.eq 2$, when the alphabet has $gt.eq 3$ symbols, and when $D$ contains no pointers (the "external" variant). The LZ-family of practical compression algorithms (LZ77, LZSS, LZ78) are restricted forms of this general macro model. The related Smallest Grammar Problem is APX-hard @charikar2005.#footnote[No algorithm improving on brute-force enumeration is known for optimal external macro compression.]
+
+      *Example.* Let $Sigma = {#alpha-map.join(", ")}$ and $s = #s-str$ (length #n) with pointer cost $h = #h$.
+
+      #pred-commands(
+        "pred create --example MinimumExternalMacroDataCompression -o min-emdc.json",
+        "pred solve min-emdc.json",
+        "pred evaluate min-emdc.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        let blue = graph-colors.at(0)
+        let cell(ch, highlight: false) = {
+          let fill = if highlight { blue.transparentize(70%) } else { white }
+          box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
+            align(center + horizon, text(9pt, weight: "bold", ch)))
+        }
+        align(center, stack(dir: ttb, spacing: 0.5cm,
+          // Source string
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 1.5cm, height: 0.5cm, align(right + horizon, text(8pt)[$s: quad$])),
+            ..s.map(c => cell(alpha-map.at(c))),
+          ),
+          // Optimal: uncompressed (D empty, C = s)
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 1.5cm, height: 0.5cm, align(right + horizon, text(8pt)[$D: quad$])),
+            box(width: 0.55cm, height: 0.55cm, stroke: 0.5pt + luma(200),
+              align(center + horizon, text(8pt, fill: luma(150))[$emptyset$])),
+          ),
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 1.5cm, height: 0.5cm, align(right + horizon, text(8pt)[$C: quad$])),
+            ..s.map(c => cell(alpha-map.at(c), highlight: true)),
+          ),
+        ))
+      },
+      caption: [Minimum External Macro Data Compression: with $s = #s-str$ and $h = #h$, the optimal compression uses no dictionary ($D = emptyset$) and $C = s$ directly, achieving cost $|D| + |C| + (#h - 1) times 0 = 0 + #n + 0 = #opt-val$.],
+      ) <fig:emdc>
+
+      For this small instance ($n = #n$, $h = #h$), the uncompressed representation $C = s$ is already optimal with cost #opt-val. Compression via pointers requires $D$ to store the referenced substrings, and each pointer adds $h - 1 = #(h - 1)$ to the cost, which exceeds the savings for short strings. The compression benefit becomes significant for longer strings with repeated patterns and lower pointer costs.
     ]
   ]
 }
