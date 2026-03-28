@@ -157,3 +157,10 @@ fn test_solve_reduced_matches_source_optimum() {
     assert_eq!(source_solution, vec![1, 2, 0, 1, 0]);
     assert_eq!(problem.evaluate(&source_solution), Min(Some(46)));
 }
+
+#[test]
+fn test_sequencingtominimizeweightedcompletiontime_to_ilp_bf_vs_ilp() {
+    let problem = SequencingToMinimizeWeightedCompletionTime::new(vec![2, 1], vec![3, 5], vec![]);
+    let reduction: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

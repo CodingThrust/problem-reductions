@@ -78,3 +78,10 @@ fn test_infeasible_instance() {
     let solver = ILPSolver::new();
     assert!(solver.solve(ilp).is_none());
 }
+
+#[test]
+fn test_acyclicpartition_to_ilp_bf_vs_ilp() {
+    let source = small_instance();
+    let reduction: ReductionAcyclicPartitionToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
+}
