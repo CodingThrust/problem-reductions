@@ -9480,6 +9480,50 @@ The following reductions to Integer Linear Programming are straightforward formu
   If $nu_t = 1$, output the source code $2 n$. If $d_(t,j) = 1$, output $j$. If $s_(t,j) = 1$, output $ell_(t - 1) + j$. This is exactly the encoding used by `evaluate()`: deletions use raw positions, swaps are offset by the current length, and no-op is the distinguished value $2 n$.
 ]
 
+#let ps_qubo = load-example("PaintShop", "QUBO")
+#let ps_qubo_sol = ps_qubo.solutions.at(0)
+#reduction-rule("PaintShop", "QUBO",
+  example: true,
+  example-caption: [4 cars, sequence length 8],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ps_qubo.source) + " -o paintshop.json",
+      "pred reduce paintshop.json --to " + target-spec(ps_qubo) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate paintshop.json --config " + ps_qubo_sol.source_config.map(str).join(","),
+    )
+    #{
+      let n = ps_qubo.source.instance.num_cars
+      let seq = ps_qubo.source.instance.sequence_indices
+      let labels = ps_qubo.source.instance.car_labels
+      let is-first = ps_qubo.source.instance.is_first
+      let seq-labels = seq.map(i => labels.at(i))
+      let coloring = seq.enumerate().map(((pos, car)) => {
+        let first-color = ps_qubo_sol.source_config.at(car)
+        if is-first.at(pos) { first-color } else { 1 - first-color }
+      })
+      [*Source:* $n = #n$ cars, sequence $(#seq-labels.join(", "))$. \
+      *Parity:* #seq.enumerate().map(((pos, _)) => if is-first.at(pos) { "1st" } else { "2nd" }).join(", ") \
+      *Step 1 -- One QUBO variable per car.* Binary variable $x_i in {0,1}$ for each car $i$: $x_i = 0$ means "first occurrence gets color 0, second gets color 1"; $x_i = 1$ reverses. \
+      *Step 2 -- Build the $Q$ matrix from adjacent pairs.* For each adjacent pair $(j, j+1)$ in the sequence with distinct cars $a, b$: if both positions have the _same_ parity (both first or both second occurrence), a color switch occurs when $x_a != x_b$, contributing $+1$ to $Q_(a a)$, $+1$ to $Q_(b b)$, and $-2$ to $Q_(a b)$. If they have _different_ parity, a switch occurs when $x_a = x_b$, contributing $-1$ to $Q_(a a)$, $-1$ to $Q_(b b)$, and $+2$ to $Q_(a b)$. \
+      *Step 3 -- Verify.* The QUBO solution $bold(x) = (#ps_qubo_sol.target_config.map(str).join(", "))$ yields coloring $(#coloring.map(str).join(", "))$ with #{coloring.windows(2).filter(w => w.at(0) != w.at(1)).len()} color switches #sym.checkmark ]
+    }
+  ],
+)[
+  Each car's two occurrences must receive opposite colors, so a single binary variable per car determines the full coloring. Adjacent pairs in the sequence contribute quadratic terms to a QUBO matrix based on their parity (first vs.\ second occurrence), and the QUBO minimum plus a constant offset equals the minimum number of color switches @Streif2021.
+][
+  _Construction._ Given $n$ cars, each appearing exactly twice in a sequence of length $2n$, introduce binary variables $x_1, ..., x_n$ (one per car). Initialize an $n times n$ upper-triangular matrix $Q$ of zeros. For each adjacent pair of positions $(j, j+1)$ with distinct cars $a, b$:
+
+  - *Same parity* (both first or both second occurrence): a color switch occurs iff $x_a != x_b$. The switch indicator is $x_a + x_b - 2 x_a x_b$, so add $+1$ to $Q_(a a)$, $+1$ to $Q_(b b)$, and $-2$ to $Q_(a b)$.
+  - *Different parity* (one first, one second): a color switch occurs iff $x_a = x_b$. The switch indicator is $1 - x_a - x_b + 2 x_a x_b$, so add $-1$ to $Q_(a a)$, $-1$ to $Q_(b b)$, and $+2$ to $Q_(a b)$, with a constant offset of $+1$.
+
+  Adjacent pairs where both positions are the same car always produce a switch (constant term), and are skipped. The QUBO objective is $min bold(x)^top Q bold(x)$; the minimum number of color switches equals the QUBO minimum plus the total constant offset (number of different-parity pairs plus number of same-car pairs).
+
+  _Correctness._ ($arrow.r.double$) Any PaintShop coloring corresponds to a binary assignment $bold(x)$ with the same number of switches (up to the constant offset). ($arrow.l.double$) Any QUBO minimizer $bold(x)$ defines a valid coloring (each car's two occurrences get opposite colors), and the offset-adjusted objective equals the switch count. Since the correspondence is bijective and value-preserving, optimality is preserved.
+
+  _Solution extraction._ The QUBO solution $(x_1, ..., x_n)$ maps directly back: car $i$'s first occurrence gets color $x_i$, second gets $1 - x_i$.
+]
+
 #reduction-rule("PaintShop", "ILP")[
   One binary variable per car determines its first color, the second occurrence receives the opposite color automatically, and switch indicators count color changes along the sequence.
 ][
