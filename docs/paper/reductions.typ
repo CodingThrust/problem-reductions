@@ -8352,6 +8352,54 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $K = {v : x_v = 1}$.
 ]
 
+#{
+  let kc_bcbs = load-example("KClique", "BalancedCompleteBipartiteSubgraph",
+    source-variant: ("graph": "SimpleGraph"))
+  let kc_bcbs_sol = kc_bcbs.solutions.at(0)
+  let src = kc_bcbs.source.instance
+  let tgt = kc_bcbs.target.instance
+  let n = src.graph.num_vertices
+  let m = src.graph.edges.len()
+  let k = src.k
+  let ck2 = calc.div-euclid(k * (k - 1), 2)
+  let n_prime = n + ck2
+  let target_k = n_prime - k
+  [
+#reduction-rule("KClique", "BalancedCompleteBipartiteSubgraph",
+  example: true,
+  example-caption: [#n-vertex graph with $k = #k$: non-incidence gadget construction],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(kc_bcbs.source) + " -o kclique.json",
+      "pred reduce kclique.json --to " + target-spec(kc_bcbs) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate kclique.json --config " + kc_bcbs_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Pad the vertex set.* $C(#k, 2) = #ck2$ padding vertices are added, giving $n' = #n + #ck2 = #n_prime$ left vertices (Part $A$).
+
+    *Step 2 -- Build Part $B$.* Part $B$ has $#m$ edge elements (one per original edge) plus $#n - #k = #{n - k}$ padding elements, for $|B| = #tgt.graph.right_size$.
+
+    *Step 3 -- Bipartite edges.* For each $v in A$ and edge element $e_j = {u, w}$, add $(v, e_j)$ iff $v in.not {u, w}$ (non-incidence). All padding elements connect to all left vertices.
+
+    *Step 4 -- Set target parameter.* $K' = n' - k = #n_prime - #k = #target_k$.
+
+    *Step 5 -- Verify a solution.* The #k-clique is $S = {#kc_bcbs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$. The #target_k left vertices NOT in $S$ plus the #ck2 padding vertices form the left side $A'$. The right side $B'$ contains the #ck2 intra-clique edge elements plus #{n - k} padding elements ($|B'| = #target_k$). All $#target_k times #target_k$ cross-edges are present because no $v in A'$ is an endpoint of any selected edge element.
+
+    *Multiplicity:* The fixture stores one canonical witness.
+  ],
+)[
+  This $O(n^2 + n m)$ reduction (Johnson, 1987; Garey and Johnson GT24) constructs a bipartite graph $H = (A union.dot B, F)$ with $|A| = n + binom(k, 2)$ and $|B| = m + n - k$ using a non-incidence encoding. The target biclique size is $K' = n + binom(k, 2) - k$.
+][
+  _Construction._ Given $k$-Clique instance $(G = (V, E), k)$ with $n = |V|$, $m = |E|$: Let $C = binom(k, 2) = k(k-1)/2$. Add $C$ isolated vertices to $V$, giving $V' = {v_0, ..., v_(n'-1)}$ with $n' = n + C$. Part $A = V'$. Part $B$ has $m$ _edge elements_ ${e_0, ..., e_(m-1)}$ (one per edge of $G$) and $n - k$ _padding elements_ ${w_0, ..., w_(n-k-1)}$. Add bipartite edge $(v, e_j)$ iff $v$ is NOT an endpoint of $e_j$ (non-incidence). Add $(v, w_i)$ for all $v in A$, $w_i in W$ (full padding). Set $K' = n' - k$.
+
+  _Correctness._ ($arrow.r.double$) If $S subset.eq V$ is a $k$-clique, let $A' = V' without S$ ($|A'| = n' - k = K'$) and $B' = E(S) union W$ where $E(S)$ is the set of intra-clique edges. Since $|E(S)| = C$ and $|W| = n - k$, we have $|B'| = K'$. For any $v in A'$ and $e_j in E(S)$: both endpoints of $e_j$ lie in $S$ but $v in.not S$, so $v$ is not an endpoint --- the non-incidence edge exists. For padding elements, all edges exist by construction. ($arrow.l.double$) If $(A', B')$ is a balanced $K'$-biclique, let $S = {v in V : v in.not A'}$ with $|S| = k$. Any edge $e_j$ with an endpoint $u in A'$ cannot be in $B'$ (since $(u, e_j) in.not F$). So $B' sect E subset.eq E(S)$. Since $|B'| = K'$ and $|W| = n - k$, we need $|B' sect E| >= K' - |W| = C$. But $|E(S)| <= binom(k, 2) = C$, so $|E(S)| = C$, meaning $S$ is a $k$-clique.
+
+  _Solution extraction._ For each original vertex $v in {0, ..., n-1}$: $"source"[v] = 1 - "target"[v]$ (vertices NOT selected on the left side form the clique).
+]
+  ]
+}
+
 #reduction-rule("MaximalIS", "ILP")[
   An independent set that is also maximal: no vertex outside the set can be added without violating independence.
 ][

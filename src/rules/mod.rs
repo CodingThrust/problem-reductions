@@ -26,6 +26,7 @@ pub(crate) mod hamiltoniancircuit_strongconnectivityaugmentation;
 pub(crate) mod hamiltoniancircuit_travelingsalesman;
 pub(crate) mod hamiltonianpath_consecutiveonessubmatrix;
 pub(crate) mod hamiltonianpath_isomorphicspanningtree;
+pub(crate) mod kclique_balancedcompletebipartitesubgraph;
 pub(crate) mod kclique_conjunctivebooleanquery;
 pub(crate) mod kclique_subgraphisomorphism;
 mod kcoloring_casts;
@@ -279,6 +280,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(hamiltoniancircuit_travelingsalesman::canonical_rule_example_specs());
     specs.extend(hamiltonianpath_consecutiveonessubmatrix::canonical_rule_example_specs());
     specs.extend(hamiltonianpath_isomorphicspanningtree::canonical_rule_example_specs());
+    specs.extend(kclique_balancedcompletebipartitesubgraph::canonical_rule_example_specs());
     specs.extend(kclique_conjunctivebooleanquery::canonical_rule_example_specs());
     specs.extend(kclique_subgraphisomorphism::canonical_rule_example_specs());
     specs.extend(knapsack_qubo::canonical_rule_example_specs());
