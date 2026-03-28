@@ -6691,6 +6691,16 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ For covering ${S_v : v in C}$, return VC $= C$ (same variable assignment).
 ]
 
+#reduction-rule("MinimumVertexCover", "EnsembleComputation")[
+  This $O(|V| + |E|)$ reduction @garey1979 encodes the vertex-cover constraint as an ensemble-computation problem over disjoint unions. A fresh element $a_0$ is introduced, and each edge becomes a 3-element target subset. The budget $J = |V| + |E|$ is an upper bound ensuring the instance is always satisfiable. Vertices used as singletons in the satisfying sequence form a valid vertex cover.
+][
+  _Construction._ Given a VC instance $(G = (V, E), bold(w))$, let $a_0$ be a fresh element not in $V$. Set the universe $A = V union {a_0}$ with $|A| = |V| + 1$. For each edge ${u, v} in E$, add the subset ${a_0, u, v}$ to the collection $C$. Set budget $J = |V| + |E|$.
+
+  _Correctness._ ($arrow.r.double$) If $C'$ is a vertex cover of size $K$, label its elements $v_1, dots, v_K$ and the edges $e_1, dots, e_m$. Since $C'$ covers every edge, each $e_j = {u_j, v_(r[j])}$ where $v_(r[j]) in C'$. The sequence of $K + m$ operations $z_i = {a_0} union {v_i}$ for $i = 1, dots, K$ followed by $z_(K+j) = {u_j} union z_(r[j])$ for $j = 1, dots, m$ produces every target subset within $J$ steps. ($arrow.l.double$) Given a satisfying sequence of $j <= J$ operations, the set $V' = {u in V : z_i = {a_0} union {u} "appears in the sequence"}$ is a vertex cover: an exchange argument (Garey & Johnson, PO9) shows that any minimum-length sequence can be normalized to use only ${a_0} union {u}$ and ${v} union z_k$ forms, and each edge's target subset requires at least one endpoint to be among the ${a_0}$-augmented vertices.
+
+  _Solution extraction._ Collect all vertices that appear as singleton operands (indices $< |V|$) in the satisfying sequence. These form a valid vertex cover, since every target subset ${a_0, u, v}$ requires both $u$ and $v$ to enter the computation chain as singletons.
+]
+
 #reduction-rule("MaximumMatching", "MaximumSetPacking")[
   A matching selects edges that share no endpoints; set packing selects sets that share no elements. By representing each edge as the 2-element set of its endpoints and using vertices as the universe, two edges conflict (share an endpoint) if and only if their sets overlap. This embeds matching as a special case of set packing where every set has size exactly 2.
 ][
