@@ -61,3 +61,10 @@ fn test_single_edge() {
         "single edge biclique cover",
     );
 }
+
+#[test]
+fn test_bicliquecover_to_ilp_bf_vs_ilp() {
+    let source = small_instance();
+    let reduction: ReductionBicliqueCoverToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
+}

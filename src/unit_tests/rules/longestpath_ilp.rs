@@ -106,3 +106,10 @@ fn test_source_equals_target_uses_empty_path() {
     assert_eq!(extracted, vec![0, 0, 0]);
     assert_eq!(problem.evaluate(&extracted), Max(Some(0)));
 }
+
+#[test]
+fn test_longestpath_to_ilp_bf_vs_ilp() {
+    let problem = simple_path_problem();
+    let reduction: ReductionLongestPathToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

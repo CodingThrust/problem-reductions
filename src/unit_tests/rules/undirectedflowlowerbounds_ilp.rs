@@ -94,3 +94,10 @@ fn test_undirectedflowlowerbounds_to_ilp_extract_solution() {
         "manually extracted orientation should be valid"
     );
 }
+
+#[test]
+fn test_undirectedflowlowerbounds_to_ilp_bf_vs_ilp() {
+    let problem = feasible_instance();
+    let reduction: ReductionUFLBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

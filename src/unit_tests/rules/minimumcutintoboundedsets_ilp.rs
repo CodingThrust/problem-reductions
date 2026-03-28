@@ -66,3 +66,10 @@ fn test_larger_instance() {
         "MinCutBS larger instance",
     );
 }
+
+#[test]
+fn test_minimumcutintoboundedsets_to_ilp_bf_vs_ilp() {
+    let source = small_instance();
+    let reduction: ReductionMinCutBSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
+}

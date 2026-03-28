@@ -30,3 +30,17 @@ fn test_integralflowhomologousarcs_to_ilp_closed_loop() {
 
     assert!(source.evaluate(&extracted));
 }
+
+#[test]
+fn test_integralflowhomologousarcs_to_ilp_bf_vs_ilp() {
+    let source = IntegralFlowHomologousArcs::new(
+        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
+        vec![2, 2, 2, 2],
+        0,
+        3,
+        2,
+        vec![(0, 1)],
+    );
+    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
+}

@@ -29,3 +29,17 @@ fn test_pathconstrainednetworkflow_to_ilp_closed_loop() {
 
     assert!(source.evaluate(&extracted));
 }
+
+#[test]
+fn test_pathconstrainednetworkflow_to_ilp_bf_vs_ilp() {
+    let source = PathConstrainedNetworkFlow::new(
+        DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1, 1, 1],
+        0,
+        2,
+        vec![vec![0, 1], vec![2]],
+        2,
+    );
+    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
+}
