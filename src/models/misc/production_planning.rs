@@ -6,7 +6,8 @@
 //! backlogging and stays within budget.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{Problem, SatisfactionProblem};
+use crate::traits::Problem;
+use crate::types::Or;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -120,7 +121,7 @@ impl ProductionPlanning {
 
 impl Problem for ProductionPlanning {
     const NAME: &'static str = "ProductionPlanning";
-    type Metric = bool;
+    type Value = Or;
 
     fn dims(&self) -> Vec<usize> {
         self.capacities
@@ -134,46 +135,48 @@ impl Problem for ProductionPlanning {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> bool {
-        if config.len() != self.num_periods {
-            return false;
-        }
-
-        let mut cumulative_production = 0u128;
-        let mut cumulative_demand = 0u128;
-        let mut total_cost = 0u128;
-        let cost_bound = self.cost_bound as u128;
-
-        for (i, &production) in config.iter().enumerate() {
-            let capacity = match usize::try_from(self.capacities[i]) {
-                Ok(value) => value,
-                Err(_) => return false,
-            };
-            if production > capacity {
-                return false;
+    fn evaluate(&self, config: &[usize]) -> Or {
+        Or({
+            if config.len() != self.num_periods {
+                return Or(false);
             }
 
-            let production = production as u128;
-            cumulative_production += production;
-            cumulative_demand += self.demands[i] as u128;
+            let mut cumulative_production = 0u128;
+            let mut cumulative_demand = 0u128;
+            let mut total_cost = 0u128;
+            let cost_bound = self.cost_bound as u128;
 
-            if cumulative_production < cumulative_demand {
-                return false;
+            for (i, &production) in config.iter().enumerate() {
+                let capacity = match usize::try_from(self.capacities[i]) {
+                    Ok(value) => value,
+                    Err(_) => return Or(false),
+                };
+                if production > capacity {
+                    return Or(false);
+                }
+
+                let production = production as u128;
+                cumulative_production += production;
+                cumulative_demand += self.demands[i] as u128;
+
+                if cumulative_production < cumulative_demand {
+                    return Or(false);
+                }
+
+                let inventory = cumulative_production - cumulative_demand;
+                total_cost += self.production_costs[i] as u128 * production;
+                total_cost += self.inventory_costs[i] as u128 * inventory;
+                if production > 0 {
+                    total_cost += self.setup_costs[i] as u128;
+                }
+
+                if total_cost > cost_bound {
+                    return Or(false);
+                }
             }
 
-            let inventory = cumulative_production - cumulative_demand;
-            total_cost += self.production_costs[i] as u128 * production;
-            total_cost += self.inventory_costs[i] as u128 * inventory;
-            if production > 0 {
-                total_cost += self.setup_costs[i] as u128;
-            }
-
-            if total_cost > cost_bound {
-                return false;
-            }
-        }
-
-        total_cost <= cost_bound
+            total_cost <= cost_bound
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -181,10 +184,8 @@ impl Problem for ProductionPlanning {
     }
 }
 
-impl SatisfactionProblem for ProductionPlanning {}
-
 crate::declare_variants! {
-    default sat ProductionPlanning => "(max_capacity + 1)^num_periods",
+    default ProductionPlanning => "(max_capacity + 1)^num_periods",
 }
 
 #[cfg(feature = "example-db")]

@@ -668,7 +668,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12"
         }
         "ProductionPlanning" => {
-            "--num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-budget 80"
+            "--num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-bound 80"
         }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
         "JobShopScheduling" => {
@@ -3064,12 +3064,16 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         }
 
         "ProductionPlanning" => {
-            let usage = "Usage: pred create ProductionPlanning --num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-budget 80";
+            let usage = "Usage: pred create ProductionPlanning --num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-bound 80";
             let num_periods = args.num_periods.ok_or_else(|| {
                 anyhow::anyhow!("ProductionPlanning requires --num-periods\n\n{usage}")
             })?;
-            let demands =
-                parse_named_u64_list(args.demands.as_deref(), "ProductionPlanning", "--demands", usage)?;
+            let demands = parse_named_u64_list(
+                args.demands.as_deref(),
+                "ProductionPlanning",
+                "--demands",
+                usage,
+            )?;
             let capacities = parse_named_u64_list(
                 args.capacities.as_deref(),
                 "ProductionPlanning",
@@ -3094,9 +3098,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 "--inventory-costs",
                 usage,
             )?;
-            let cost_bound = args.cost_budget.ok_or_else(|| {
-                anyhow::anyhow!("ProductionPlanning requires --cost-budget\n\n{usage}")
-            })?;
+            let cost_bound = args.cost_bound.ok_or_else(|| {
+                anyhow::anyhow!("ProductionPlanning requires --cost-bound\n\n{usage}")
+            })? as u64;
 
             for (flag, len) in [
                 ("--demands", demands.len()),
@@ -7061,7 +7065,7 @@ mod tests {
             "1,1,1,1,1,1",
             "--inventory-costs",
             "1,1,1,1,1,1",
-            "--cost-budget",
+            "--cost-bound",
             "80",
         ])
         .expect("parse create command");
@@ -7083,7 +7087,10 @@ mod tests {
         fs::remove_file(&output).unwrap();
         assert_eq!(json["type"], "ProductionPlanning");
         assert_eq!(json["data"]["num_periods"], 6);
-        assert_eq!(json["data"]["demands"], serde_json::json!([5, 3, 7, 2, 8, 5]));
+        assert_eq!(
+            json["data"]["demands"],
+            serde_json::json!([5, 3, 7, 2, 8, 5])
+        );
         assert_eq!(
             json["data"]["capacities"],
             serde_json::json!([12, 12, 12, 12, 12, 12])
@@ -7119,7 +7126,7 @@ mod tests {
             "10,10,10,10,10,10",
             "--inventory-costs",
             "1,1,1,1,1,1",
-            "--cost-budget",
+            "--cost-bound",
             "80",
         ])
         .expect("parse create command");
@@ -7158,7 +7165,7 @@ mod tests {
             "1,1,1,1,1,1",
             "--inventory-costs",
             "1,1,1,1,1,1",
-            "--cost-budget",
+            "--cost-bound",
             "80",
         ])
         .expect("parse create command");
