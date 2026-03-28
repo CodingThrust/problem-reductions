@@ -21,6 +21,7 @@
 //! - [`PartiallyOrderedKnapsack`]: Knapsack with precedence constraints
 //! - [`PrecedenceConstrainedScheduling`]: Schedule unit tasks on processors by deadline
 //! - [`RectilinearPictureCompression`]: Cover 1-entries with bounded rectangles
+//! - [`RegisterSufficiency`]: Evaluate DAG computation with bounded registers
 //! - [`ResourceConstrainedScheduling`]: Schedule unit-length tasks on processors with resource constraints
 //! - [`SchedulingWithIndividualDeadlines`]: Meet per-task deadlines on parallel processors
 //! - [`StackerCrane`]: Minimize the total length of a closed walk through required arcs
@@ -82,6 +83,7 @@ pub(crate) mod partially_ordered_knapsack;
 pub(crate) mod partition;
 mod precedence_constrained_scheduling;
 mod rectilinear_picture_compression;
+mod register_sufficiency;
 pub(crate) mod resource_constrained_scheduling;
 mod scheduling_with_individual_deadlines;
 mod sequencing_to_minimize_maximum_cumulative_cost;
@@ -122,6 +124,7 @@ pub use partially_ordered_knapsack::PartiallyOrderedKnapsack;
 pub use partition::Partition;
 pub use precedence_constrained_scheduling::PrecedenceConstrainedScheduling;
 pub use rectilinear_picture_compression::RectilinearPictureCompression;
+pub use register_sufficiency::RegisterSufficiency;
 pub use resource_constrained_scheduling::ResourceConstrainedScheduling;
 pub use scheduling_with_individual_deadlines::SchedulingWithIndividualDeadlines;
 pub use sequencing_to_minimize_maximum_cumulative_cost::SequencingToMinimizeMaximumCumulativeCost;
@@ -178,5 +181,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(knapsack::canonical_model_example_specs());
     specs.extend(subset_sum::canonical_model_example_specs());
     specs.extend(three_partition::canonical_model_example_specs());
+    specs.extend(register_sufficiency::canonical_model_example_specs());
     specs
 }

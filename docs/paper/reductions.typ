@@ -176,6 +176,7 @@
   "QuadraticAssignment": [Quadratic Assignment],
   "QuantifiedBooleanFormulas": [Quantified Boolean Formulas (QBF)],
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
+  "RegisterSufficiency": [Register Sufficiency],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
   "RootedTreeStorageAssignment": [Rooted Tree Storage Assignment],
   "SchedulingWithIndividualDeadlines": [Scheduling With Individual Deadlines],
@@ -4084,6 +4085,33 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       },
       caption: [Rectilinear Picture Compression: matrix $M$ covered by two rectangles $R_1$ (blue, top-left $2 times 2$) and $R_2$ (teal, bottom-right $2 times 2$), with $|{R_1, R_2}| = 2 lt.eq K = #K$.],
     ) <fig:rpc>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("RegisterSufficiency")
+  let n = x.instance.num_vertices
+  let arcs = x.instance.arcs
+  let K = x.instance.bound
+  let sigma = x.optimal_config
+  // Build evaluation order (position -> vertex)
+  let order = range(n).map(pos =>
+    range(n).find(v => sigma.at(v) == pos)
+  )
+  [
+    #problem-def("RegisterSufficiency")[
+      Given a directed acyclic graph $G = (V, A)$ with $n = |V|$ vertices, where each arc $(v, u) in A$ means vertex $v$ depends on vertex $u$, and a positive integer $K$, determine whether there exists an evaluation ordering $v_(pi(0)), v_(pi(1)), dots, v_(pi(n-1))$ of all vertices such that the computation can be performed using at most $K$ registers. A value must reside in a register from the moment it is computed until all vertices that depend on it have been evaluated.
+    ][
+      Register Sufficiency is problem SS19 (also A11 PO1) in Garey & Johnson @garey1979. NP-complete via reduction from 3-SAT @sethi1975. Remains NP-complete even when all vertices have out-degree at most 2. For expression trees (DAGs with tree structure), the Sethi--Ullman algorithm solves the problem in $O(n)$ time @sethiUllman1970. For general DAGs, Kessler's dynamic programming over register states runs in $O(n^2 dot 2^n)$ time @kessler1998.
+
+      *Example.* Let $n = #n$ vertices with arcs (dependencies): #{arcs.map(a => $v_#(a.at(0)) arrow.r v_#(a.at(1))$).join(", ")}. Bound $K = #K$. The evaluation order $pi = (#order.map(v => $v_#v$).join(", "))$ achieves a maximum of $#K$ registers.
+
+      #pred-commands(
+        "pred create --example RegisterSufficiency -o register-sufficiency.json",
+        "pred solve register-sufficiency.json",
+        "pred evaluate register-sufficiency.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }

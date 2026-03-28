@@ -25,7 +25,7 @@ use problemreductions::models::misc::{
     ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping,
     JobShopScheduling, KnownValue, LongestCommonSubsequence, MinimumTardinessSequencing,
     MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, QueryArg,
-    RectilinearPictureCompression, ResourceConstrainedScheduling,
+    RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
     SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
     SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
     SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
@@ -690,6 +690,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "MinimumDummyActivitiesPert" => "--arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6",
+        "RegisterSufficiency" => {
+            "--arcs \"2>0,2>1,3>1,4>2,4>3,5>0,6>4,6>5\" --bound 3 --num-vertices 7"
+        }
         "StrongConnectivityAugmentation" => {
             "--arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1"
         }
@@ -3922,6 +3925,34 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
             (
                 ser(MinimumDummyActivitiesPert::try_new(graph).map_err(|e| anyhow::anyhow!(e))?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // RegisterSufficiency
+        "RegisterSufficiency" => {
+            let usage = "Usage: pred create RegisterSufficiency --arcs \"2>0,2>1,3>1,4>2,4>3,5>0,6>4,6>5\" --bound 3 [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RegisterSufficiency requires --arcs and --bound\n\n\
+                     {usage}"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RegisterSufficiency requires --bound\n\n\
+                     {usage}"
+                )
+            })?;
+            if bound < 0 {
+                bail!("RegisterSufficiency --bound must be non-negative\n\n{usage}");
+            }
+            let bound = bound as usize;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let n = graph.num_vertices();
+            let arcs = graph.arcs();
+            (
+                ser(RegisterSufficiency::new(n, arcs, bound))?,
                 resolved_variant.clone(),
             )
         }
