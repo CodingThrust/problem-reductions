@@ -30,6 +30,7 @@ pub(crate) mod kclique_balancedcompletebipartitesubgraph;
 pub(crate) mod kclique_conjunctivebooleanquery;
 pub(crate) mod kclique_subgraphisomorphism;
 mod kcoloring_casts;
+pub(crate) mod kcoloring_twodimensionalconsecutivesets;
 mod knapsack_qubo;
 mod ksatisfiability_casts;
 pub(crate) mod ksatisfiability_kclique;
@@ -283,6 +284,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(kclique_balancedcompletebipartitesubgraph::canonical_rule_example_specs());
     specs.extend(kclique_conjunctivebooleanquery::canonical_rule_example_specs());
     specs.extend(kclique_subgraphisomorphism::canonical_rule_example_specs());
+    specs.extend(kcoloring_twodimensionalconsecutivesets::canonical_rule_example_specs());
     specs.extend(knapsack_qubo::canonical_rule_example_specs());
     specs.extend(longestcommonsubsequence_maximumindependentset::canonical_rule_example_specs());
     specs.extend(ksatisfiability_kclique::canonical_rule_example_specs());

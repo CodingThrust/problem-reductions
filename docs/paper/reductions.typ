@@ -7655,6 +7655,16 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$; assign color $c$ to $v$.
 ]
 
+#reduction-rule("KColoring", "TwoDimensionalConsecutiveSets")[
+  @lipski1977fct A graph 3-coloring can be encoded as a partition problem on an alphabet. Each edge becomes a size-3 subset containing the two endpoint symbols plus a unique dummy symbol, and a valid 3-coloring corresponds to partitioning the alphabet into 3 groups where each edge-subset spans exactly 3 consecutive groups with one element per group. The reduction uses $n + m$ alphabet symbols and $m$ subsets for a graph with $n$ vertices and $m$ edges.
+][
+  _Construction._ Given $G = (V, E)$ with $|V| = n$ and $|E| = m$, build alphabet $Sigma = V union {d_e : e in E}$ of size $n + m$. For each edge $e = {u, v} in E$, define subset $Sigma_e = {u, v, d_e}$. The collection is $cal(C) = {Sigma_e : e in E}$ with $|cal(C)| = m$ subsets, each of size 3.
+
+  _Correctness._ ($arrow.r.double$) Given a valid 3-coloring $chi: V arrow {1, 2, 3}$, define partition groups $X_c = {v in V : chi(v) = c}$ for $c in {1, 2, 3}$. For each edge $e = {u, v}$, assign dummy $d_e$ to the unique third color $c^* in {1, 2, 3} backslash {chi(u), chi(v)}$ (which exists since $chi(u) != chi(v)$). Then $Sigma_e = {u, v, d_e}$ has its three elements in three distinct groups ${X_(chi(u)), X_(chi(v)), X_(c^*)} = {X_1, X_2, X_3}$, which are consecutive with one element per group. ($arrow.l.double$) If a valid partition into $k$ groups exists, each size-3 subset ${u, v, d_e}$ must occupy 3 distinct consecutive groups. In particular, $u$ and $v$ are in different groups. Mapping groups to colors gives a valid 3-coloring.
+
+  _Solution extraction._ The first $n$ symbols in the target configuration correspond to the graph vertices. Their group assignments, compressed to $0, 1, 2$, yield the 3-coloring.
+]
+
 #reduction-rule("Factoring", "ILP")[
   Integer multiplication $p times q = N$ is a system of bilinear equations over binary factor bits with carry propagation. Each bit-product $p_i q_j$ is a bilinear term that McCormick linearization replaces with an auxiliary variable and three inequalities. The carry-chain equations are already linear, so the full system becomes a binary ILP with $O(m n)$ variables and constraints.
 ][
