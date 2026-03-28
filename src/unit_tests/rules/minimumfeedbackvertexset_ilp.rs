@@ -193,3 +193,11 @@ fn test_solution_extraction() {
     // Verify this is a valid FVS (removing vertex 0 breaks the 3-cycle)
     assert!(problem.evaluate(&extracted).is_valid());
 }
+
+#[test]
+fn test_minimumfeedbackvertexset_to_ilp_bf_vs_ilp() {
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i32; 3]);
+    let reduction: ReductionMFVSToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}
