@@ -8428,6 +8428,36 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Vertex $v$ goes to group $arg max_g x_(v,g)$.
 ]
 
+#let ppl2_bcsf = load-example("PartitionIntoPathsOfLength2", "BoundedComponentSpanningForest")
+#let ppl2_bcsf_sol = ppl2_bcsf.solutions.at(0)
+#reduction-rule("PartitionIntoPathsOfLength2", "BoundedComponentSpanningForest",
+  example: true,
+  example-caption: [6-vertex graph ($n = 6$, $q = 2$): two $P_3$ paths],
+  extra: [
+    #pred-commands(
+      "pred create --example PartitionIntoPathsOfLength2 -o ppl2.json",
+      "pred reduce ppl2.json --to " + target-spec(ppl2_bcsf) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ppl2.json --config " + ppl2_bcsf_sol.source_config.map(str).join(","),
+    )
+    Source PPL2: groups $= {#ppl2_bcsf_sol.source_config.map(str).join(", ")}$ on a graph with $n = #graph-num-vertices(ppl2_bcsf.source.instance)$ vertices and $|E| = #graph-num-edges(ppl2_bcsf.source.instance)$ edges \
+    Target BCSF: components $= {#ppl2_bcsf_sol.target_config.map(str).join(", ")}$, $K = #ppl2_bcsf.target.instance.max_components$, $B = #ppl2_bcsf.target.instance.max_weight$ \
+    Identity mapping: source and target configs coincide #sym.checkmark
+  ],
+)[
+  This $O(n + m)$ parameter-setting reduction (Hadlock, 1974; Garey and Johnson @garey1979[ND10, p.~208]) constructs a Bounded Component Spanning Forest instance on the same graph with unit vertex weights, $K = |V| slash 3$ components, and weight bound $B = 3$.
+][
+  _Construction._ Given a Partition into Paths of Length 2 instance on graph $G = (V, E)$ with $|V| = 3q$:
+  - Graph: use $G$ unchanged.
+  - Vertex weights: $w(v) = 1$ for all $v in V$.
+  - Component bound: $K = q = |V| slash 3$.
+  - Weight bound: $B = 3$.
+
+  _Correctness._ ($arrow.r.double$) Suppose $V$ has a valid $P_3$-partition $V_1, dots, V_q$ where each $V_t$ induces at least 2 edges. Since a graph on 3 vertices with at least 2 edges is connected, each $V_t$ is a connected component of weight $1 + 1 + 1 = 3 <= B$. There are $q = K$ components. ($arrow.l.double$) Suppose $V$ has a partition into at most $K = q$ connected components each of weight at most $B = 3$. Since all weights are 1, each component has at most 3 vertices. With $3q$ vertices and at most $q$ components, the pigeonhole principle forces exactly $q$ components of exactly 3 vertices each. A connected graph on 3 vertices has at least 2 edges (a path $P_3$ or a triangle $K_3$), satisfying the $P_3$-partition requirement.
+
+  _Solution extraction._ Identity: the component assignment in BCSF is directly a group assignment in PPL2.
+]
+
 #reduction-rule("SumOfSquaresPartition", "ILP")[
   Partition elements into groups minimizing $sum_g (sum_(i in g) s_i)^2$.
 ][

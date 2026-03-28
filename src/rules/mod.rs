@@ -55,6 +55,7 @@ pub(crate) mod partition_knapsack;
 pub(crate) mod partition_multiprocessorscheduling;
 pub(crate) mod partition_sequencingwithinintervals;
 pub(crate) mod partition_shortestweightconstrainedpath;
+pub(crate) mod partitionintopathsoflength2_boundedcomponentspanningforest;
 pub(crate) mod sat_circuitsat;
 pub(crate) mod sat_coloring;
 pub(crate) mod sat_ksat;
@@ -287,6 +288,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(minimummultiwaycut_qubo::canonical_rule_example_specs());
     specs.extend(paintshop_qubo::canonical_rule_example_specs());
     specs.extend(partition_knapsack::canonical_rule_example_specs());
+    specs.extend(
+        partitionintopathsoflength2_boundedcomponentspanningforest::canonical_rule_example_specs(),
+    );
     specs.extend(partition_multiprocessorscheduling::canonical_rule_example_specs());
     specs.extend(partition_sequencingwithinintervals::canonical_rule_example_specs());
     specs.extend(partition_shortestweightconstrainedpath::canonical_rule_example_specs());
