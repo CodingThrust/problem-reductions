@@ -110,3 +110,39 @@ fn test_hamiltoniancircuit_to_quadraticassignment_extract_solution() {
         "extracted solution should be a valid HC"
     );
 }
+
+#[cfg(feature = "ilp-solver")]
+#[test]
+fn test_prism_graph_hc_via_qap_ilp_roundtrip() {
+    use crate::models::algebraic::ILP;
+    use crate::solvers::ILPSolver;
+
+    // Prism graph: 6 vertices, 9 edges — the instance from #780.
+    let edges = vec![
+        (0, 1),
+        (1, 2),
+        (2, 0),
+        (3, 4),
+        (4, 5),
+        (5, 3),
+        (0, 3),
+        (1, 4),
+        (2, 5),
+    ];
+    let hc = HamiltonianCircuit::new(SimpleGraph::new(6, edges));
+
+    // HC → QAP → ILP → solve → extract back
+    let r1 = ReduceTo::<QuadraticAssignment>::reduce_to(&hc);
+    let r2 = ReduceTo::<ILP<bool>>::reduce_to(r1.target_problem());
+    let ilp_sol = ILPSolver::new()
+        .solve(r2.target_problem())
+        .expect("ILP should be feasible");
+    let qap_sol = r2.extract_solution(&ilp_sol);
+    let hc_sol = r1.extract_solution(&qap_sol);
+
+    assert!(
+        hc.evaluate(&hc_sol).0,
+        "prism graph HC via QAP→ILP should produce a valid Hamiltonian circuit, got {:?}",
+        hc_sol
+    );
+}

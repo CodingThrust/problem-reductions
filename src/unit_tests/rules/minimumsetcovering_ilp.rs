@@ -225,3 +225,10 @@ fn test_constraint_structure() {
     assert!(!vars2.contains(&1));
     assert!(vars2.contains(&2));
 }
+
+#[test]
+fn test_minimumsetcovering_to_ilp_bf_vs_ilp() {
+    let problem = MinimumSetCovering::<i32>::new(3, vec![vec![0, 1], vec![1, 2], vec![0, 2]]);
+    let reduction: ReductionSCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

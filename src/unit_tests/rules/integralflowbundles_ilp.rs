@@ -111,3 +111,10 @@ fn test_integral_flow_bundles_to_ilp_sink_requirement_constraint() {
     assert_eq!(sink_constraint.rhs, 1.0);
     assert_eq!(sink_constraint.terms, vec![(2, 1.0), (3, 1.0)]);
 }
+
+#[test]
+fn test_integralflowbundles_to_ilp_bf_vs_ilp() {
+    let problem = yes_instance();
+    let reduction: ReductionIFBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}
