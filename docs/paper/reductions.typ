@@ -163,6 +163,7 @@
   "MinMaxMulticenter": [Min-Max Multicenter],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "JobShopScheduling": [Job-Shop Scheduling],
+  "OpenShopScheduling": [Open Shop Scheduling],
   "GroupingBySwapping": [Grouping by Swapping],
   "IntegerExpressionMembership": [Integer Expression Membership],
   "MinimumCutIntoBoundedSets": [Minimum Cut Into Bounded Sets],
@@ -5587,6 +5588,119 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 
+#{
+  let x = load-model-example("OpenShopScheduling")
+  let p = x.instance.processing_times
+  let m = x.instance.num_machines
+  let n = p.len()
+  let cfg = x.optimal_config
+  // Decode per-machine orderings: cfg[i*n..(i+1)*n] is machine i's job order
+  let orders = range(m).map(i => cfg.slice(i * n, (i + 1) * n))
+
+  // Greedy simulation to compute start times
+  let machine-avail = range(m).map(_ => 0)
+  let job-avail = range(n).map(_ => 0)
+  let next-on = range(m).map(_ => 0)
+  let start-times = range(n).map(_ => range(m).map(_ => 0))
+  let finish-times = range(n).map(_ => range(m).map(_ => 0))
+
+  let total-tasks = n * m
+  let scheduled = 0
+  while scheduled < total-tasks {
+    // Find machine with earliest next start
+    let best-start = 999999
+    let best-machine = -1
+    for i in range(m) {
+      if next-on.at(i) < n {
+        let j = orders.at(i).at(next-on.at(i))
+        let s = calc.max(machine-avail.at(i), job-avail.at(j))
+        if s < best-start or (s == best-start and (best-machine == -1 or i < best-machine)) {
+          best-start = s
+          best-machine = i
+        }
+      }
+    }
+    let i = best-machine
+    let j = orders.at(i).at(next-on.at(i))
+    let s = calc.max(machine-avail.at(i), job-avail.at(j))
+    let f = s + p.at(j).at(i)
+    start-times.at(j).at(i) = s
+    finish-times.at(j).at(i) = f
+    machine-avail.at(i) = f
+    job-avail.at(j) = f
+    next-on.at(i) += 1
+    scheduled += 1
+  }
+
+  let makespan = calc.max(..range(n).map(j => calc.max(..range(m).map(i => finish-times.at(j).at(i)))))
+
+  [
+    #problem-def("OpenShopScheduling")[
+      Given $m$ machines and a set $J$ of $n$ jobs, where each job $j in J$ has one task per machine $i$ with processing time $p(j, i) in ZZ^+_0$, find a non-preemptive schedule minimizing the *makespan* $max_(j,i)(sigma(j, i) + p(j, i))$, subject to:
+      1. *Machine constraint:* Each machine processes at most one job at a time.
+      2. *Job constraint:* Each job occupies at most one machine at a time.
+      Unlike flow-shop or job-shop scheduling, there is no prescribed order for a job's tasks across machines.
+    ][
+      Open Shop Scheduling is problem SS14 in Garey and Johnson's catalog @garey1979 (decision version: does a schedule exist with makespan $<= D$?). NP-completeness for $m >= 3$ machines was established by Gonzalez and Sahni via reduction from Partition @gonzalez1976. The problem is solvable in polynomial time for $m = 2$ and also for the preemptive variant with any $m$ @gonzalez1976. This codebase evaluates a candidate schedule by simulating a greedy active schedule: for each step, the machine with the earliest feasible next-job start is processed next. The configuration encodes one permutation of jobs per machine (direct indices), giving $(n!)^m$ candidate orderings.
+
+      *Example.* Let $m = #m$ machines and $n = #n$ jobs with processing times
+      #align(center, math.equation([$P = #math.mat(..p.map(row => row.map(v => [#v])))$]))
+      The canonical optimal orderings are:
+      #align(center, table(
+        columns: 2,
+        align: (left, left),
+        table.header([Machine], [Job order]),
+        ..range(m).map(i => ([M#(i+1)], orders.at(i).map(j => [$J_#(j+1)$]).join[$,$])).flatten()
+      ))
+      giving the Gantt chart in @fig:openshop and makespan *#makespan*.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o open-shop-scheduling.json",
+        "pred solve open-shop-scheduling.json",
+        "pred evaluate open-shop-scheduling.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"), rgb("#b07aa1"))
+          let scale = 0.55
+          let row-h = 0.6
+          let gap = 0.15
+
+          for mi in range(m) {
+            let y = -mi * (row-h + gap)
+            content((-0.8, y), text(8pt, "M" + str(mi + 1)))
+          }
+
+          for j in range(n) {
+            for i in range(m) {
+              let s = start-times.at(j).at(i)
+              let f = finish-times.at(j).at(i)
+              let x0 = s * scale
+              let x1 = f * scale
+              let y = -i * (row-h + gap)
+              rect((x0, y - row-h / 2), (x1, y + row-h / 2),
+                fill: colors.at(j).transparentize(30%), stroke: 0.4pt + colors.at(j))
+              content(((x0 + x1) / 2, y), text(6pt, [$J_#(j + 1)$]))
+            }
+          }
+
+          let y-axis = -(m - 1) * (row-h + gap) - row-h / 2 - 0.2
+          line((0, y-axis), (makespan * scale, y-axis), stroke: 0.4pt)
+          for t in range(makespan + 1) {
+            let x = t * scale
+            line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
+            content((x, y-axis - 0.25), text(6pt, str(t)))
+          }
+          content((makespan * scale / 2, y-axis - 0.5), text(7pt)[$t$])
+        }),
+        caption: [Open-shop schedule for #n jobs on #m machines. Optimal makespan is #makespan. Each color represents one job; no two tasks of the same job overlap in time.],
+      ) <fig:openshop>
+    ]
+  ]
+}
+
 #problem-def("StaffScheduling")[
   Given a collection $C$ of binary schedule patterns of length $m$, where each pattern has exactly $k$ ones, a requirement vector $overline(R) in ZZ_(>= 0)^m$, and a worker budget $n in ZZ_(>= 0)$, determine whether there exists a function $f: C -> ZZ_(>= 0)$ such that $sum_(c in C) f(c) <= n$ and $sum_(c in C) f(c) dot c >= overline(R)$ component-wise.
 ][
@@ -9545,6 +9659,26 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) Any feasible flow-shop permutation induces a total order and completion times satisfying the machine and deadline constraints. ($arrow.l.double$) Any feasible ILP solution defines one common order of the jobs on all machines, and the resulting schedule completes by the deadline.
 
   _Solution extraction._ Sort the jobs by their final-machine completion times $C_(j,m)$ and convert that permutation to Lehmer code.
+]
+
+#reduction-rule("OpenShopScheduling", "ILP")[
+  Binary ordering variables and integer start times encode the disjunctive non-overlap constraints for both machines and jobs; the makespan is the minimized objective.
+][
+  _Construction._ Let $M = sum_(j,i) p(j,i)$ be the big-$M$ constant (an upper bound on the makespan). For each pair $j < k$ and each machine $i$, let $x_{j k i} in {0,1}$ with $x_{j k i} = 1$ iff job $j$ precedes job $k$ on machine $i$. For each job $j$ and pair of machines $i < i'$, let $y_{j i i'} in {0,1}$ with $y_{j i i'} = 1$ iff machine $i$ is processed before machine $i'$ for job $j$. Let $s_{j,i} in ZZ_{>=0}$ be the start time of job $j$ on machine $i$, and $C$ be the integer makespan variable. The ILP is:
+  $
+    min quad & C \
+    "subject to" quad
+    & s_(k,i) - s_(j,i) - M x_(j k i) >= p(j, i) - M quad forall j < k, i \
+    & s_(j,i) - s_(k,i) + M x_(j k i) >= p(k, i) quad forall j < k, i \
+    & s_(j,i') - s_(j,i) - M y_(j i i') >= p(j, i) - M quad forall j, i < i' \
+    & s_(j,i) - s_(j,i') + M y_(j i i') >= p(j, i') quad forall j, i < i' \
+    & C - s_(j,i) >= p(j, i) quad forall j, i \
+    & x_(j k i), y_(j i i') in {0,1},; s_(j,i), C in ZZ_(>=0)
+  $.
+
+  _Correctness._ ($arrow.r.double$) Any feasible open-shop schedule with the given permutations $sigma_i$ induces valid ordering bits $x_{j k i}$ and $y_{j i i'}$ and start times satisfying all non-overlap constraints. ($arrow.l.double$) Any feasible ILP solution defines non-overlapping start times for all tasks, respecting both machine and job constraints.
+
+  _Solution extraction._ For each machine $i$, sort jobs by their ILP start times $s_{j,i}$ to recover the per-machine permutation; output the concatenation of these $m$ direct-index permutations.
 ]
 
 #reduction-rule("MinimumTardinessSequencing", "ILP")[

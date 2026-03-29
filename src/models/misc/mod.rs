@@ -15,6 +15,7 @@
 //! - [`JobShopScheduling`]: Minimize makespan with per-job processor routes
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
 //! - [`MultiprocessorScheduling`]: Schedule tasks on processors to meet a deadline
+//! - [`OpenShopScheduling`]: Open Shop Scheduling (minimize makespan, free task order per job)
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
 //! - [`MinimumExternalMacroDataCompression`]: Minimize compression cost using external dictionary
 //! - [`MinimumInternalMacroDataCompression`]: Minimize self-referencing compression cost
@@ -91,6 +92,7 @@ mod minimum_external_macro_data_compression;
 mod minimum_internal_macro_data_compression;
 mod minimum_tardiness_sequencing;
 mod multiprocessor_scheduling;
+mod open_shop_scheduling;
 pub(crate) mod paintshop;
 pub(crate) mod partially_ordered_knapsack;
 pub(crate) mod partition;
@@ -142,6 +144,7 @@ pub use minimum_external_macro_data_compression::MinimumExternalMacroDataCompres
 pub use minimum_internal_macro_data_compression::MinimumInternalMacroDataCompression;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use multiprocessor_scheduling::MultiprocessorScheduling;
+pub use open_shop_scheduling::OpenShopScheduling;
 pub use paintshop::PaintShop;
 pub use partially_ordered_knapsack::PartiallyOrderedKnapsack;
 pub use partition::Partition;
@@ -183,6 +186,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(grouping_by_swapping::canonical_model_example_specs());
     specs.extend(longest_common_subsequence::canonical_model_example_specs());
     specs.extend(multiprocessor_scheduling::canonical_model_example_specs());
+    specs.extend(open_shop_scheduling::canonical_model_example_specs());
     specs.extend(paintshop::canonical_model_example_specs());
     specs.extend(partition::canonical_model_example_specs());
     specs.extend(production_planning::canonical_model_example_specs());
