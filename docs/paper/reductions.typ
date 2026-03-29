@@ -111,6 +111,7 @@
   "SpinGlass": [Spin Glass],
   "QUBO": [QUBO],
   "ILP": [Integer Linear Programming],
+  "IntegerKnapsack": [Integer Knapsack],
   "Knapsack": [Knapsack],
   "PartiallyOrderedKnapsack": [Partially Ordered Knapsack],
   "Satisfiability": [SAT],
@@ -154,6 +155,7 @@
   "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
   "ConsecutiveOnesMatrixAugmentation": [Consecutive Ones Matrix Augmentation],
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
+  "FeasibleBasisExtension": [Feasible Basis Extension],
   "SparseMatrixCompression": [Sparse Matrix Compression],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
   "IntegralFlowHomologousArcs": [Integral Flow with Homologous Arcs],
@@ -177,10 +179,12 @@
   "PrecedenceConstrainedScheduling": [Precedence Constrained Scheduling],
   "PrimeAttributeName": [Prime Attribute Name],
   "QuadraticAssignment": [Quadratic Assignment],
+  "QuadraticDiophantineEquations": [Quadratic Diophantine Equations],
   "QuantifiedBooleanFormulas": [Quantified Boolean Formulas (QBF)],
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
   "RootedTreeStorageAssignment": [Rooted Tree Storage Assignment],
+  "SchedulingToMinimizeWeightedCompletionTime": [Scheduling to Minimize Weighted Completion Time],
   "SchedulingWithIndividualDeadlines": [Scheduling With Individual Deadlines],
   "SequencingToMinimizeMaximumCumulativeCost": [Sequencing to Minimize Maximum Cumulative Cost],
   "SequencingToMinimizeWeightedCompletionTime": [Sequencing to Minimize Weighted Completion Time],
@@ -197,6 +201,7 @@
   "SumOfSquaresPartition": [Sum of Squares Partition],
   "TimetableDesign": [Timetable Design],
   "TwoDimensionalConsecutiveSets": [2-Dimensional Consecutive Sets],
+  "KthLargestMTuple": [$K$th Largest $m$-Tuple],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -3257,6 +3262,53 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("QuadraticDiophantineEquations")
+  let a = x.instance.a
+  let b = x.instance.b
+  let c = x.instance.c
+  let config = x.optimal_config
+  let xval = config.at(0) + 1
+  let yval = int((c - a * xval * xval) / b)
+  // Enumerate all valid x values for the table
+  let max-x = calc.floor(calc.sqrt(c / a))
+  let rows = range(1, max-x + 1).map(xi => {
+    let rem = c - a * xi * xi
+    let feasible = rem > 0 and calc.rem(rem, b) == 0
+    let yi = if feasible { int(rem / b) } else { none }
+    (xi, rem, feasible, yi)
+  })
+  [
+    #problem-def("QuadraticDiophantineEquations")[
+      Given positive integers $a$, $b$, $c$, determine whether there exist positive integers $x$, $y$ such that $a x^2 + b y = c$.
+    ][
+      Quadratic Diophantine equations of the form $a x^2 + b y = c$ form one of the simplest families of mixed-degree Diophantine problems. The variable $y$ is entirely determined by $x$ via $y = (c - a x^2) slash b$, so the decision problem reduces to checking whether any $x in {1, dots, floor(sqrt(c slash a))}$ yields a positive integer $y$. This can be done in $O(sqrt(c))$ time by trial#footnote[No algorithm improving on brute-force trial of all candidate $x$ values is known; the registered complexity `sqrt(c)` reflects this direct enumeration bound.].
+
+      *Example.* Let $a = #a$, $b = #b$, $c = #c$. Then $x$ ranges over $1, dots, #max-x$:
+
+      #pred-commands(
+        "pred create --example QuadraticDiophantineEquations -o qde.json",
+        "pred solve qde.json --solver brute-force",
+        "pred evaluate qde.json --config " + config.map(str).join(","),
+      )
+
+      #align(center, table(
+        columns: 4,
+        align: center,
+        table.header([$x$], [$c - a x^2$], [Divisible by $b$?], [$y$]),
+        ..rows.map(((xi, rem, ok, yi)) => (
+          [$#xi$],
+          [$#rem$],
+          [#if ok [Yes] else [No]],
+          [#if yi != none [$#yi$] else [$dash$]],
+        )).flatten(),
+      ))
+
+      The instance is satisfiable: $x = #xval, y = #yval$ gives $#a dot #xval^2 + #b dot #yval = #c$.
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("ClosestVectorProblem")
   let basis = x.instance.basis
   let target = x.instance.target
@@ -4023,6 +4075,33 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 
+#{
+  let x = load-model-example("IntegerKnapsack")
+  let sizes = x.instance.sizes
+  let values = x.instance.values
+  let B = x.instance.capacity
+  let n = sizes.len()
+  let config = x.optimal_config
+  let opt-val = metric-value(x.optimal_value)
+  let total-s = range(n).map(i => config.at(i) * sizes.at(i)).sum()
+  let total-v = range(n).map(i => config.at(i) * values.at(i)).sum()
+  [
+    #problem-def("IntegerKnapsack")[
+      Given $n$ items with sizes $s_0, dots, s_(n-1) in ZZ^+$ and values $v_0, dots, v_(n-1) in ZZ^+$, and a capacity $B in NN$, find non-negative integer multiplicities $c_0, dots, c_(n-1) in NN$ maximizing $sum_(i=0)^(n-1) c_i dot v_i$ subject to $sum_(i=0)^(n-1) c_i dot s_i lt.eq B$.
+    ][
+      The Integer Knapsack (also called the _unbounded knapsack problem_) generalizes the 0-1 Knapsack by allowing each item to be selected more than once. Like 0-1 Knapsack, it admits a pseudo-polynomial $O(n B)$ dynamic-programming algorithm @garey1979. The problem is weakly NP-hard: when item sizes are bounded by a polynomial in $n$, DP runs in polynomial time. The brute-force approach enumerates all multiplicity vectors, giving $O(product_(i=0)^(n-1)(floor.l B slash s_i floor.r + 1))$ configurations.#footnote[No algorithm improving on brute-force enumeration of multiplicity vectors is known for the general Integer Knapsack problem.]
+
+      *Example.* Let $n = #n$ items with sizes $(#sizes.map(s => str(s)).join(", "))$, values $(#values.map(v => str(v)).join(", "))$, and capacity $B = #B$. Setting multiplicities $(#config.map(c => str(c)).join(", "))$ gives total size $#total-s lt.eq B$ and total value $#total-v$, which is optimal.
+
+      #pred-commands(
+        "pred create --example IntegerKnapsack -o ik.json",
+        "pred solve ik.json",
+        "pred evaluate ik.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
 #problem-def("PartiallyOrderedKnapsack")[
   Given $n$ items with weights $w_0, dots, w_(n-1) in NN$ and values $v_0, dots, v_(n-1) in NN$, a partial order $prec$ on the items (given by its cover relations), and a capacity $C in NN$, find a downward-closed subset $S subset.eq {0, dots, n - 1}$ (i.e., if $i in S$ and $j prec i$ then $j in S$) maximizing $sum_(i in S) v_i$ subject to $sum_(i in S) w_i lt.eq C$.
 ][
@@ -4625,6 +4704,32 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
           [$A_#(i+1)$], [$#(g.map(str).join(", "))$], [$#bound$],
         )).flatten(),
       ))
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("KthLargestMTuple")
+  let sets = x.instance.sets
+  let k = x.instance.k
+  let bound = x.instance.bound
+  let config = x.optimal_config
+  let m = sets.len()
+  // Count qualifying tuples by enumerating the Cartesian product
+  let total = sets.fold(1, (acc, s) => acc * s.len())
+  [
+    #problem-def("KthLargestMTuple")[
+      Given $m$ finite sets $X_1, dots, X_m$ of positive integers, a bound $B in ZZ^+$, and a threshold $K in ZZ^+$, count the number of distinct $m$-tuples $(x_1, dots, x_m) in X_1 times dots.c times X_m$ satisfying $sum_(i=1)^m x_i >= B$. The answer is _yes_ iff this count is at least $K$.
+    ][
+      The $K$th Largest $m$-Tuple problem is MP10 in Garey and Johnson's appendix @garey1979. It is _not known to be in NP_, because a "yes" certificate may need to exhibit $K$ qualifying tuples and $K$ can be exponentially large. The problem is PP-complete under polynomial-time Turing reductions @haase2016, though the special case $m = 2$, $K = 1$ is NP-complete via reduction from Subset Sum. In the general case, the only known exact approach is brute-force enumeration of all $product_(i=1)^m |X_i|$ tuples, so the registered catalog complexity is `total_tuples * num_sets`#footnote[No algorithm improving on brute-force is known for the general $K$th Largest $m$-Tuple problem.].
+
+      *Example.* Let $m = #m$, $B = #bound$, and $K = #k$ with sets #sets.enumerate().map(((i, s)) => [$X_#(i+1) = {#s.map(str).join(", ")}$]).join([, ]). The Cartesian product has $#total$ tuples. For instance, the tuple $(#config.enumerate().map(((i, c)) => str(sets.at(i).at(c))).join(", "))$ has sum $#config.enumerate().map(((i, c)) => sets.at(i).at(c)).sum() >= #bound$, contributing 1 to the count. In total, #k of the #total tuples satisfy the bound, so the answer is _yes_ (count $= K$).
+
+      #pred-commands(
+        "pred create --example KthLargestMTuple -o kth-largest-m-tuple.json",
+        "pred solve kth-largest-m-tuple.json --solver brute-force",
+        "pred evaluate kth-largest-m-tuple.json --config " + config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -5640,6 +5745,104 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     ]
   ]
 }
+#{
+  let x = load-model-example("SchedulingToMinimizeWeightedCompletionTime")
+  let ntasks = x.instance.lengths.len()
+  let m = x.instance.num_processors
+  let lengths = x.instance.lengths
+  let weights = x.instance.weights
+  let sigma = x.optimal_config
+  // Group tasks by processor
+  let tasks-by-proc = range(m).map(p =>
+    range(ntasks).filter(i => sigma.at(i) == p)
+  )
+  [
+    #problem-def("SchedulingToMinimizeWeightedCompletionTime")[
+      Given a finite set $T$ of tasks with processing lengths $ell: T -> ZZ^+$ and weights $w: T -> ZZ^+$, and a number $m in ZZ^+$ of identical processors, find an assignment $p: T -> {1, dots, m}$ that minimizes the total weighted completion time $sum_(t in T) w(t) dot C(t)$, where on each processor tasks are ordered by Smith's rule (non-decreasing $ell(t) "/" w(t)$ ratio) and $C(t)$ is the completion time of task $t$ (i.e., the cumulative processing time up to and including $t$ on its assigned processor).
+    ][
+      Scheduling to Minimize Weighted Completion Time is problem A5 SS13 in Garey & Johnson @garey1979. NP-complete for $m = 2$ by reduction from Partition @lenstra1977, and NP-complete in the strong sense for arbitrary $m$. For a fixed assignment of tasks to processors, Smith's rule gives the optimal ordering on each processor, reducing the search space to $m^n$ processor assignments @smith1956. The problem is solvable in polynomial time when all lengths are equal or when all weights are equal @conway1967 @horn1973.
+
+      *Example.* Let $T = {t_1, dots, t_#ntasks}$ with lengths $(#lengths.map(str).join(", "))$, weights $(#weights.map(str).join(", "))$, and $m = #m$ processors. The optimal assignment $(#sigma.map(v => str(v + 1)).join(", "))$ achieves total weighted completion time #x.optimal_value:
+      #for p in range(m) [
+        - Processor #(p + 1): ${#tasks-by-proc.at(p).map(i => $t_#(i + 1)$).join(", ")}$#if tasks-by-proc.at(p).len() > 0 {
+          let proc-tasks = tasks-by-proc.at(p)
+          let elapsed = 0
+          let contributions = ()
+          for t in proc-tasks {
+            elapsed = elapsed + lengths.at(t)
+            contributions.push($#elapsed times #(weights.at(t)) = #(elapsed * weights.at(t))$)
+          }
+          [ -- contributions: #contributions.join(", ")]
+        }
+      ]
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o scheduling-wct.json",
+        "pred solve scheduling-wct.json --solver brute-force",
+        "pred evaluate scheduling-wct.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        canvas(length: 1cm, {
+          import draw: *
+          let scale = 0.2
+          let width = 1.2
+          let gap = 0.8
+          let colors = (
+            rgb("#4e79a7"),
+            rgb("#e15759"),
+            rgb("#76b7b2"),
+            rgb("#f28e2b"),
+            rgb("#59a14f"),
+          )
+
+          for p in range(m) {
+            let x0 = p * (width + gap)
+            let max-time = tasks-by-proc.at(p).fold(0, (acc, t) => acc + lengths.at(t))
+            rect((x0, 0), (x0 + width, max-time * scale), stroke: 0.8pt + black)
+            let y = 0
+            for task in tasks-by-proc.at(p) {
+              let len = lengths.at(task)
+              let col = colors.at(task)
+              rect(
+                (x0, y),
+                (x0 + width, y + len * scale),
+                fill: col.transparentize(25%),
+                stroke: 0.4pt + col,
+              )
+              content(
+                (x0 + width / 2, y + len * scale / 2),
+                text(7pt, fill: white)[$t_#(task + 1)$],
+              )
+              y += len * scale
+            }
+            content((x0 + width / 2, -0.3), text(8pt)[$P_#(p + 1)$])
+          }
+        })
+      },
+      caption: [Canonical Scheduling to Minimize Weighted Completion Time instance with #ntasks tasks on #m processors. Tasks are ordered on each processor by Smith's rule.],
+      ) <fig:scheduling-wct>
+    ]
+  ]
+}
+
+// Reduction: SchedulingToMinimizeWeightedCompletionTime -> ILP
+#reduction-rule("SchedulingToMinimizeWeightedCompletionTime", "ILP",
+  example: false,
+)[
+  This $O(n^2 m)$ reduction constructs an ILP with binary assignment variables $x_(t,p)$, integer completion-time variables $C_t$, and binary ordering variables $y_(i,j)$ for task pairs. Big-M disjunctive constraints enforce non-overlapping execution on shared processors.
+][
+  _Construction._ Let $n = |T|$ and $m$ be the number of processors. Create $n m$ binary assignment variables $x_(t,p) in {0, 1}$ (task $t$ on processor $p$), $n$ integer completion-time variables $C_t$, and $n(n-1)/2$ binary ordering variables $y_(i,j)$ for $i < j$. The constraints are:
+  (1) Assignment: $sum_p x_(t,p) = 1$ for each $t$.
+  (2) Completion bounds: $C_t >= ell(t)$ for each $t$.
+  (3) Disjunctive: for each pair $(i,j)$ with $i < j$ and each processor $p$, big-M constraints ensure that if both tasks are on processor $p$, one must complete before the other starts.
+  The objective minimizes $sum_t w(t) dot C_t$.
+
+  _Correctness._ ($arrow.r.double$) Any valid schedule gives a feasible ILP solution with the same objective. ($arrow.l.double$) Any ILP solution encodes a valid assignment and non-overlapping schedule.
+
+  _Solution extraction._ For each task $t$, find the processor $p$ with $x_(t,p) = 1$.
+]
+
 #{
   let x = load-model-example("SequencingWithinIntervals")
   let ntasks = x.instance.lengths.len()
@@ -6667,6 +6870,101 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }),
         caption: [Expression tree $e = (1 union 4) + (3 union 6) + (2 union 5)$ with target $K = 12$. Blue nodes are sums ($+$), red nodes are unions ($union$), green leaves are atoms. Choosing right at the first two unions and left at the third yields $4 + 6 + 2 = 12$.],
       ) <fig:integer-expression-membership>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("FeasibleBasisExtension")
+  let A = x.instance.matrix
+  let m = A.len()
+  let n = A.at(0).len()
+  let rhs = x.instance.rhs
+  let S = x.instance.required_columns
+  let cfg = x.optimal_config
+  // Free column indices (those not in S)
+  let free-cols = range(n).filter(j => j not in S)
+  // Selected free columns from config
+  let selected = cfg.enumerate().filter(((i, v)) => v == 1).map(((i, v)) => free-cols.at(i))
+  // Full basis: required + selected
+  let basis = S + selected
+  [
+    #problem-def("FeasibleBasisExtension")[
+      Given an $m times n$ integer matrix $A$ with $m < n$, a column vector $overline(a) in bb(Z)^m$, and a subset $S$ of column indices with $|S| < m$, determine whether there exists a _feasible basis_ $B$ --- a set of $m$ column indices including $S$ --- such that the $m times m$ submatrix $A_B$ is nonsingular and $A_B^(-1) overline(a) >= 0$ (componentwise).
+    ][
+      The Feasible Basis Extension problem arises in linear programming theory and the study of simplex method pivoting rules. It was shown NP-complete by Murty @Murty1972 via a reduction from Hamiltonian Circuit, establishing that determining whether a partial basis can be extended to a feasible one is computationally intractable in general. The problem is closely related to the question of whether a given linear program has a feasible basic solution containing specified variables. The best known exact algorithm is brute-force enumeration of all $binom(n - |S|, m - |S|)$ candidate extensions, testing each for nonsingularity and non-negativity of the solution in $O(m^3)$ time.#footnote[No algorithm improving on brute-force enumeration is known for the general Feasible Basis Extension problem.]
+
+      *Example.* Consider the $#m times #n$ matrix $A = mat(#A.map(row => row.map(v => str(v)).join(", ")).join("; "))$ with $overline(a) = (#rhs.map(str).join(", "))^top$ and required columns $S = \{#S.map(str).join(", ")\}$. We need $#(m - S.len())$ additional column from the free set $\{#free-cols.map(str).join(", ")\}$. Selecting column #selected.at(0) gives basis $B = \{#basis.map(str).join(", ")\}$, which yields $A_B^(-1) overline(a) = (4, 5, 3)^top >= 0$. Column 4 makes $A_B$ singular, and column 5 produces a negative component.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o feasible-basis-extension.json",
+        "pred solve feasible-basis-extension.json --solver brute-force",
+        "pred evaluate feasible-basis-extension.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 0.7cm, {
+          import draw: *
+          let cell-size = 0.9
+          let gap = 0.15
+          // Draw the matrix
+          for i in range(m) {
+            for j in range(n) {
+              let val = A.at(i).at(j)
+              let is-basis = j in basis
+              let is-required = j in S
+              let f = if is-required {
+                graph-colors.at(1).transparentize(50%)
+              } else if is-basis {
+                graph-colors.at(0).transparentize(30%)
+              } else {
+                white
+              }
+              rect(
+                (j * cell-size, -i * cell-size),
+                (j * cell-size + cell-size - gap, -i * cell-size - cell-size + gap),
+                fill: f,
+                stroke: 0.3pt + luma(180),
+              )
+              content(
+                (j * cell-size + (cell-size - gap) / 2, -i * cell-size - (cell-size - gap) / 2),
+                text(8pt, str(val)),
+              )
+            }
+          }
+          // Column labels
+          for j in range(n) {
+            let label-color = if j in S { graph-colors.at(1) } else if j in basis { graph-colors.at(0) } else { black }
+            content(
+              (j * cell-size + (cell-size - gap) / 2, 0.4),
+              text(7pt, fill: label-color)[$c_#j$],
+            )
+          }
+          // Row labels
+          for i in range(m) {
+            content(
+              (-0.5, -i * cell-size - (cell-size - gap) / 2),
+              text(7pt)[$r_#(i + 1)$],
+            )
+          }
+          // RHS vector
+          let rhs-x = n * cell-size + 0.6
+          content((rhs-x + (cell-size - gap) / 2, 0.4), text(7pt, weight: "bold")[$overline(a)$])
+          for i in range(m) {
+            rect(
+              (rhs-x, -i * cell-size),
+              (rhs-x + cell-size - gap, -i * cell-size - cell-size + gap),
+              fill: luma(240),
+              stroke: 0.3pt + luma(180),
+            )
+            content(
+              (rhs-x + (cell-size - gap) / 2, -i * cell-size - (cell-size - gap) / 2),
+              text(8pt, str(rhs.at(i))),
+            )
+          }
+        }),
+        caption: [Feasible Basis Extension instance ($#m times #n$). Orange columns are required ($S = \{#S.map(str).join(", ")\}$), blue column is the selected extension. Together they form a nonsingular basis with non-negative solution.],
+      ) <fig:feasible-basis-extension>
     ]
   ]
 }

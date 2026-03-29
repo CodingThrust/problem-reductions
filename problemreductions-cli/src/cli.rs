@@ -249,6 +249,8 @@ Flags by problem type:
   ProductionPlanning             --num-periods, --demands, --capacities, --setup-costs, --production-costs, --inventory-costs, --cost-bound
   SubsetSum                       --sizes, --target
   ThreePartition                  --sizes, --bound
+  KthLargestMTuple                --sets, --k, --bound
+  QuadraticDiophantineEquations    --coeff-a, --coeff-b, --coeff-c
   SumOfSquaresPartition           --sizes, --num-groups
   ExpectedRetrievalCost           --probabilities, --num-sectors
   PaintShop                       --sequence
@@ -272,11 +274,13 @@ Flags by problem type:
   ConsecutiveOnesMatrixAugmentation --matrix (0/1), --bound
   ConsecutiveOnesSubmatrix        --matrix (0/1), --k
   SparseMatrixCompression         --matrix (0/1), --bound
+  FeasibleBasisExtension          --matrix (JSON 2D i64), --rhs, --required-columns
   SteinerTree                     --graph, --edge-weights, --terminals
   MultipleCopyFileAllocation      --graph, --usage, --storage
   AcyclicPartition                --arcs [--weights] [--arc-costs] --weight-bound --cost-bound [--num-vertices]
   CVP                             --basis, --target-vec [--bounds]
   MultiprocessorScheduling        --lengths, --num-processors, --deadline
+  SchedulingToMinimizeWeightedCompletionTime  --lengths, --weights, --num-processors
   SequencingWithinIntervals       --release-times, --deadlines, --lengths
   OptimalLinearArrangement        --graph
   RootedTreeArrangement           --graph, --bound
@@ -296,6 +300,7 @@ Flags by problem type:
   SteinerTreeInGraphs             --graph, --edge-weights, --terminals
   PartitionIntoPathsOfLength2     --graph
   ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
+  IntegerKnapsack                 --sizes, --values, --capacity
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   QAP                             --matrix (cost), --distance-matrix
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
@@ -342,6 +347,7 @@ Examples:
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
   pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10
+  pred create SchedulingToMinimizeWeightedCompletionTime --lengths 1,2,3,4,5 --weights 6,4,3,2,1 --num-processors 2
   pred create UndirectedFlowLowerBounds --graph 0-1,0-2,1-3,2-3,1-4,3-5,4-5 --capacities 2,2,2,2,1,3,2 --lower-bounds 1,1,0,0,1,0,1 --source 0 --sink 5 --requirement 3
   pred create ConsistencyOfDatabaseFrequencyTables --num-objects 6 --attribute-domains \"2,3,2\" --frequency-tables \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\" --known-values \"0,0,0;3,0,1;1,2,1\"
   pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5
@@ -665,7 +671,7 @@ pub struct CreateArgs {
     /// Deadline for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
     #[arg(long)]
     pub deadline: Option<u64>,
-    /// Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines
+    /// Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime, or SchedulingWithIndividualDeadlines
     #[arg(long)]
     pub num_processors: Option<usize>,
     /// Binary schedule patterns for StaffScheduling (semicolon-separated rows, e.g., "1,1,0;0,1,1")
@@ -735,6 +741,12 @@ pub struct CreateArgs {
     /// Query attribute index for PrimeAttributeName
     #[arg(long)]
     pub query: Option<usize>,
+    /// Right-hand side vector for FeasibleBasisExtension (comma-separated, e.g., "7,5,3")
+    #[arg(long)]
+    pub rhs: Option<String>,
+    /// Required column indices for FeasibleBasisExtension (comma-separated, e.g., "0,1")
+    #[arg(long)]
+    pub required_columns: Option<String>,
     /// Number of groups for SumOfSquaresPartition
     #[arg(long)]
     pub num_groups: Option<usize>,
@@ -750,6 +762,15 @@ pub struct CreateArgs {
     /// Expression tree for IntegerExpressionMembership (JSON, e.g., '{"Sum":[{"Atom":1},{"Atom":2}]}')
     #[arg(long)]
     pub expression: Option<String>,
+    /// Coefficient a for QuadraticDiophantineEquations (coefficient of x²)
+    #[arg(long)]
+    pub coeff_a: Option<u64>,
+    /// Coefficient b for QuadraticDiophantineEquations (coefficient of y)
+    #[arg(long)]
+    pub coeff_b: Option<u64>,
+    /// Constant c for QuadraticDiophantineEquations (right-hand side of ax² + by = c)
+    #[arg(long)]
+    pub coeff_c: Option<u64>,
 }
 
 #[derive(clap::Args)]
@@ -904,7 +925,7 @@ mod tests {
         ));
         assert!(
             help.contains(
-                "Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines"
+                "Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime, or SchedulingWithIndividualDeadlines"
             ),
             "create help should describe --num-processors for both scheduling models"
         );
