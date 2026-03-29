@@ -105,3 +105,10 @@ fn test_quadraticassignment_to_ilp_rectangular() {
     assert!(ilp_value.is_valid());
     assert_eq!(ilp_value, bf_value);
 }
+
+#[test]
+fn test_quadraticassignment_to_ilp_bf_vs_ilp() {
+    let problem = small_qap();
+    let reduction: ReductionQAPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

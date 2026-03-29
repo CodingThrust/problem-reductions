@@ -54,11 +54,14 @@ impl ReduceTo<BoundedComponentSpanningForest<SimpleGraph, i32>>
         let n = self.num_vertices();
         let q = n / 3;
 
+        // Handle empty graph: max_components must be >= 1
+        let max_components = if q == 0 { 1 } else { q };
+
         let target = BoundedComponentSpanningForest::new(
             SimpleGraph::new(n, self.graph().edges()),
-            vec![1i32; n], // unit weights
-            q,             // K = |V|/3
-            3,             // B = 3
+            vec![1i32; n],  // unit weights
+            max_components, // K = max(|V|/3, 1)
+            3,              // B = 3
         );
 
         ReductionPPL2ToBCSF { target }

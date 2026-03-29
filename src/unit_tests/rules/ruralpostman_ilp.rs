@@ -56,3 +56,14 @@ fn test_ruralpostman_to_ilp_optimization() {
         "ILP optimum must match brute-force optimum"
     );
 }
+
+#[test]
+fn test_ruralpostman_to_ilp_bf_vs_ilp() {
+    let source = RuralPostman::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1, 1, 1],
+        vec![0],
+    );
+    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
+}

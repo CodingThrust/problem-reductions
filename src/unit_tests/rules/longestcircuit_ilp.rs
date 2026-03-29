@@ -89,3 +89,13 @@ fn test_solution_extraction() {
     let extracted = reduction.extract_solution(&ilp_solution);
     assert!(problem.evaluate(&extracted).0.is_some());
 }
+
+#[test]
+fn test_longestcircuit_to_ilp_bf_vs_ilp() {
+    let problem = LongestCircuit::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1, 1, 1],
+    );
+    let reduction: ReductionLongestCircuitToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

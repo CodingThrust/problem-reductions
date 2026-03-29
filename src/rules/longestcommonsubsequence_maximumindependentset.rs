@@ -201,13 +201,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "longestcommonsubsequence_to_maximumindependentset",
         build: || {
-            // Issue example: MIS solution {v2, v3, v5} gives LCS "BAC" (length 3).
+            // Issue example: MIS solution {v2, v4, v5} gives LCS "BAC" (length 3).
             // Match nodes (ordered by character):
-            //   c=A(0): v0=(0,1), v1=(0,3), v3=(2,1), v4=(2,3)
-            //   c=B(1): v2=(1,0)
+            //   c=A(0): v0=(0,1), v1=(0,3), v2=(2,1), v3=(2,3)
+            //   c=B(1): v4=(1,0)
             //   c=C(2): v5=(3,2)
-            // MIS {v2, v3, v5} => positions B@(1,0), A@(2,1), C@(3,2)
-            // target_config = [0, 0, 1, 0, 1, 1] (v2=(2,1), v4=(1,0), v5=(3,2))
+            // MIS {v2, v4, v5} => positions B@(1,0), A@(2,1), C@(3,2)
             // source_config = [1, 0, 2, 3] (B, A, C, padding)
             crate::example_db::specs::rule_example_with_witness::<
                 _,

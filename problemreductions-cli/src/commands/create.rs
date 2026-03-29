@@ -24,7 +24,7 @@ use problemreductions::models::misc::{
     ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
     ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping,
     JobShopScheduling, KnownValue, LongestCommonSubsequence, MinimumTardinessSequencing,
-    MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, QueryArg,
+    MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, ProductionPlanning, QueryArg,
     RectilinearPictureCompression, ResourceConstrainedScheduling,
     SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
     SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
@@ -57,6 +57,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.edge_weights.is_none()
         && args.edge_lengths.is_none()
         && args.capacities.is_none()
+        && args.demands.is_none()
+        && args.setup_costs.is_none()
+        && args.production_costs.is_none()
+        && args.inventory_costs.is_none()
         && args.bundle_capacities.is_none()
         && args.cost_matrix.is_none()
         && args.delay_matrix.is_none()
@@ -662,6 +666,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "Factoring" => "--target 15 --m 4 --n 4",
         "CapacityAssignment" => {
             "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12"
+        }
+        "ProductionPlanning" => {
+            "--num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-bound 80"
         }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
         "JobShopScheduling" => {
@@ -3056,6 +3063,69 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        "ProductionPlanning" => {
+            let usage = "Usage: pred create ProductionPlanning --num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-bound 80";
+            let num_periods = args.num_periods.ok_or_else(|| {
+                anyhow::anyhow!("ProductionPlanning requires --num-periods\n\n{usage}")
+            })?;
+            let demands = parse_named_u64_list(
+                args.demands.as_deref(),
+                "ProductionPlanning",
+                "--demands",
+                usage,
+            )?;
+            let capacities = parse_named_u64_list(
+                args.capacities.as_deref(),
+                "ProductionPlanning",
+                "--capacities",
+                usage,
+            )?;
+            let setup_costs = parse_named_u64_list(
+                args.setup_costs.as_deref(),
+                "ProductionPlanning",
+                "--setup-costs",
+                usage,
+            )?;
+            let production_costs = parse_named_u64_list(
+                args.production_costs.as_deref(),
+                "ProductionPlanning",
+                "--production-costs",
+                usage,
+            )?;
+            let inventory_costs = parse_named_u64_list(
+                args.inventory_costs.as_deref(),
+                "ProductionPlanning",
+                "--inventory-costs",
+                usage,
+            )?;
+            let cost_bound = args.cost_bound.ok_or_else(|| {
+                anyhow::anyhow!("ProductionPlanning requires --cost-bound\n\n{usage}")
+            })? as u64;
+
+            for (flag, len) in [
+                ("--demands", demands.len()),
+                ("--capacities", capacities.len()),
+                ("--setup-costs", setup_costs.len()),
+                ("--production-costs", production_costs.len()),
+                ("--inventory-costs", inventory_costs.len()),
+            ] {
+                ensure_named_len(len, num_periods, flag, usage)?;
+            }
+
+            (
+                ser(ProductionPlanning::new(
+                    num_periods,
+                    demands,
+                    capacities,
+                    setup_costs,
+                    production_costs,
+                    inventory_costs,
+                    cost_bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         "CapacityAssignment" => {
             let usage = "Usage: pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12";
             let capacities_str = args.capacities.as_deref().ok_or_else(|| {
@@ -5429,6 +5499,24 @@ fn parse_requirements(args: &CreateArgs, usage: &str) -> Result<Vec<u64>> {
     util::parse_comma_list(requirements_str)
 }
 
+fn parse_named_u64_list(
+    raw: Option<&str>,
+    problem: &str,
+    flag: &str,
+    usage: &str,
+) -> Result<Vec<u64>> {
+    let raw = raw.ok_or_else(|| anyhow::anyhow!("{problem} requires {flag}\n\n{usage}"))?;
+    util::parse_comma_list(raw).map_err(|err| anyhow::anyhow!("{err}\n\n{usage}"))
+}
+
+fn ensure_named_len(len: usize, expected: usize, flag: &str, usage: &str) -> Result<()> {
+    anyhow::ensure!(
+        len == expected,
+        "{flag} must contain exactly {expected} entries\n\n{usage}"
+    );
+    Ok(())
+}
+
 fn validate_staff_scheduling_args(
     schedules: &[Vec<bool>],
     requirements: &[u64],
@@ -6957,6 +7045,182 @@ mod tests {
     }
 
     #[test]
+    fn test_create_production_planning_serializes_problem_json() {
+        let output = temp_output_path("production_planning_create");
+        let cli = Cli::try_parse_from([
+            "pred",
+            "-o",
+            output.to_str().unwrap(),
+            "create",
+            "ProductionPlanning",
+            "--num-periods",
+            "6",
+            "--demands",
+            "5,3,7,2,8,5",
+            "--capacities",
+            "12,12,12,12,12,12",
+            "--setup-costs",
+            "10,10,10,10,10,10",
+            "--production-costs",
+            "1,1,1,1,1,1",
+            "--inventory-costs",
+            "1,1,1,1,1,1",
+            "--cost-bound",
+            "80",
+        ])
+        .expect("parse create command");
+        let out = OutputConfig {
+            output: cli.output.clone(),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output).unwrap()).unwrap();
+        fs::remove_file(&output).unwrap();
+        assert_eq!(json["type"], "ProductionPlanning");
+        assert_eq!(json["data"]["num_periods"], 6);
+        assert_eq!(
+            json["data"]["demands"],
+            serde_json::json!([5, 3, 7, 2, 8, 5])
+        );
+        assert_eq!(
+            json["data"]["capacities"],
+            serde_json::json!([12, 12, 12, 12, 12, 12])
+        );
+        assert_eq!(
+            json["data"]["setup_costs"],
+            serde_json::json!([10, 10, 10, 10, 10, 10])
+        );
+        assert_eq!(
+            json["data"]["production_costs"],
+            serde_json::json!([1, 1, 1, 1, 1, 1])
+        );
+        assert_eq!(
+            json["data"]["inventory_costs"],
+            serde_json::json!([1, 1, 1, 1, 1, 1])
+        );
+        assert_eq!(json["data"]["cost_bound"], 80);
+    }
+
+    #[test]
+    fn test_create_production_planning_requires_all_period_vectors() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "ProductionPlanning",
+            "--num-periods",
+            "6",
+            "--demands",
+            "5,3,7,2,8,5",
+            "--capacities",
+            "12,12,12,12,12,12",
+            "--setup-costs",
+            "10,10,10,10,10,10",
+            "--inventory-costs",
+            "1,1,1,1,1,1",
+            "--cost-bound",
+            "80",
+        ])
+        .expect("parse create command");
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("ProductionPlanning requires --production-costs"));
+    }
+
+    #[test]
+    fn test_create_production_planning_rejects_mismatched_period_lengths() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "ProductionPlanning",
+            "--num-periods",
+            "6",
+            "--demands",
+            "5,3,7,2,8",
+            "--capacities",
+            "12,12,12,12,12,12",
+            "--setup-costs",
+            "10,10,10,10,10,10",
+            "--production-costs",
+            "1,1,1,1,1,1",
+            "--inventory-costs",
+            "1,1,1,1,1,1",
+            "--cost-bound",
+            "80",
+        ])
+        .expect("parse create command");
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("--demands must contain exactly 6 entries"));
+    }
+
+    #[test]
+    fn test_create_example_production_planning_uses_canonical_example() {
+        let output = temp_output_path("production_planning_example_create");
+        let cli = Cli::try_parse_from([
+            "pred",
+            "-o",
+            output.to_str().unwrap(),
+            "create",
+            "--example",
+            "ProductionPlanning",
+        ])
+        .expect("parse create command");
+        let out = OutputConfig {
+            output: cli.output.clone(),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output).unwrap()).unwrap();
+        fs::remove_file(&output).unwrap();
+        assert_eq!(json["type"], "ProductionPlanning");
+        assert_eq!(json["data"]["num_periods"], 4);
+        assert_eq!(json["data"]["demands"], serde_json::json!([2, 1, 3, 2]));
+        assert_eq!(json["data"]["cost_bound"], 16);
+    }
+
+    #[test]
     fn test_create_longest_path_serializes_problem_json() {
         let output = temp_output_path("longest_path_create");
         let cli = Cli::try_parse_from([
@@ -7227,6 +7491,10 @@ mod tests {
             edge_weights: None,
             edge_lengths: None,
             capacities: None,
+            demands: None,
+            setup_costs: None,
+            production_costs: None,
+            inventory_costs: None,
             bundle_capacities: None,
             cost_matrix: None,
             delay_matrix: None,

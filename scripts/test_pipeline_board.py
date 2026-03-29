@@ -26,13 +26,13 @@ from pipeline_board import (
     claim_entry_from_entries,
     eligible_review_candidate_entries,
     final_review_entries,
+    load_state,
     normalize_status_name,
     print_next_item,
     process_snapshot,
     ready_entries,
     review_candidates,
     review_entries,
-    select_entry_from_entries,
     select_next_entry,
     status_items,
 )
@@ -106,7 +106,7 @@ def success_check(name: str = "ci") -> dict:
 
 
 class PipelineBoardPollTests(unittest.TestCase):
-    def test_ready_queue_retries_same_item_until_ack(self) -> None:
+    def test_ready_selection_ignores_ack_until_board_changes(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             state_file = Path(tmpdir) / "ready-state.json"
             snapshot = {
@@ -124,7 +124,7 @@ class PipelineBoardPollTests(unittest.TestCase):
 
             ack_item(state_file, "PVTI_1")
             item_id, number = process_snapshot("ready", snapshot, state_file)
-            self.assertEqual((item_id, number), ("PVTI_2", 102))
+            self.assertEqual((item_id, number), ("PVTI_1", 101))
 
     def test_ready_entries_filters_blocked_rules(self) -> None:
         """[Rule] issues whose source/target model is missing are excluded when repo_root is set."""
@@ -156,6 +156,86 @@ class PipelineBoardPollTests(unittest.TestCase):
             entries = ready_entries(snapshot, repo_root=tmpdir)
             numbers = {e["number"] for e in entries.values()}
             self.assertEqual(numbers, {184, 100})
+
+    def test_select_next_entry_ready_ignores_stale_state_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "ready-state.json"
+            state_file.write_text(
+                json.dumps(
+                    {
+                        "pending": [],
+                        "visible": {
+                            "PVTI_1": {
+                                "number": 101,
+                                "issue_number": 101,
+                                "pr_number": None,
+                                "status": STATUS_READY,
+                                "title": "[Model] ExactCoverBy3Sets",
+                            }
+                        },
+                    }
+                )
+            )
+
+            entry = select_next_entry(
+                "ready",
+                {
+                    "items": [
+                        make_issue_item(
+                            "PVTI_1",
+                            101,
+                            title="[Model] ExactCoverBy3Sets",
+                        )
+                    ]
+                },
+                state_file,
+            )
+
+        self.assertEqual(
+            entry,
+            {
+                "item_id": "PVTI_1",
+                "number": 101,
+                "issue_number": 101,
+                "pr_number": None,
+                "status": STATUS_READY,
+                "title": "[Model] ExactCoverBy3Sets",
+            },
+        )
+
+    def test_select_next_entry_ready_prefers_models_before_rules(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "ready-state.json"
+            entry = select_next_entry(
+                "ready",
+                {
+                    "items": [
+                        make_issue_item(
+                            "PVTI_2",
+                            100,
+                            title="[Rule] MaxCut to ILP",
+                        ),
+                        make_issue_item(
+                            "PVTI_1",
+                            200,
+                            title="[Model] ExactCoverBy3Sets",
+                        ),
+                    ]
+                },
+                state_file,
+            )
+
+        self.assertEqual(
+            entry,
+            {
+                "item_id": "PVTI_1",
+                "number": 200,
+                "issue_number": 200,
+                "pr_number": None,
+                "status": STATUS_READY,
+                "title": "[Model] ExactCoverBy3Sets",
+            },
+        )
 
     def test_is_rule_blocked_helper(self) -> None:
         existing = {"ILP", "MaximumIndependentSet"}
@@ -288,42 +368,85 @@ class PipelineBoardPollTests(unittest.TestCase):
 
 
 class ReviewCandidateQueueTests(unittest.TestCase):
-    def test_select_entry_from_entries_tracks_pending_until_ack(self) -> None:
-        entries = eligible_review_candidate_entries(
-            [
-                {
-                    "item_id": "PVTI_1",
-                    "issue_number": 117,
-                    "pr_number": 570,
-                    "status": "Review pool",
-                    "title": "[Model] GraphPartitioning",
-                    "eligibility": "eligible",
-                },
-                {
-                    "item_id": "PVTI_2",
-                    "issue_number": 118,
-                    "pr_number": 571,
-                    "status": "Review pool",
-                    "title": "[Rule] BinPacking to ILP",
-                    "eligibility": "eligible",
-                },
-            ]
-        )
+    def test_select_next_entry_review_ignores_stale_state_file(self) -> None:
+        def fake_pr_resolver(repo: str, issue_number: int) -> int | None:
+            self.assertEqual(repo, "CodingThrust/problem-reductions")
+            self.assertEqual(issue_number, 117)
+            return 570
+
+        def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
+            self.assertEqual(repo, "CodingThrust/problem-reductions")
+            self.assertEqual(pr_number, 570)
+            return "OPEN"
 
         with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "review-state.json"
+            state_file.write_text(
+                json.dumps(
+                    {
+                        "pending": [],
+                        "visible": {
+                            "PVTI_1": {
+                                "issue_number": 117,
+                                "number": 570,
+                                "pr_number": 570,
+                                "status": "Review pool",
+                                "title": "[Model] GraphPartitioning",
+                            }
+                        },
+                    }
+                )
+            )
+
+            entry = select_next_entry(
+                "review",
+                {
+                    "items": [
+                        make_issue_item(
+                            "PVTI_1",
+                            117,
+                            status="Review pool",
+                            title="[Model] GraphPartitioning",
+                        )
+                    ]
+                },
+                state_file,
+                repo="CodingThrust/problem-reductions",
+                pr_resolver=fake_pr_resolver,
+                pr_state_fetcher=fake_pr_state_fetcher,
+            )
+
+        self.assertEqual(
+            entry,
+            {
+                "item_id": "PVTI_1",
+                "number": 570,
+                "issue_number": 117,
+                "pr_number": 570,
+                "status": STATUS_REVIEW_POOL,
+                "title": "[Model] GraphPartitioning",
+            },
+        )
+
+    def test_ack_item_clears_retry_state_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
             state_file = Path(tmpdir) / "review-candidates.json"
-
-            first = select_entry_from_entries(entries, state_file)
-            self.assertEqual(first["item_id"], "PVTI_1")
-            self.assertEqual(first["pr_number"], 570)
-
-            retry = select_entry_from_entries(entries, state_file)
-            self.assertEqual(retry["item_id"], "PVTI_1")
+            state_file.write_text(
+                json.dumps(
+                    {
+                        "retries": {
+                            "PVTI_1": 2,
+                            "PVTI_2": 1,
+                        }
+                    }
+                )
+            )
 
             ack_item(state_file, "PVTI_1")
-            second = select_entry_from_entries(entries, state_file)
-            self.assertEqual(second["item_id"], "PVTI_2")
-            self.assertEqual(second["pr_number"], 571)
+            self.assertEqual(
+                load_state(state_file),
+                {"retries": {"PVTI_2": 1}},
+            )
 
     def test_claim_entry_from_entries_moves_selected_review_item(self) -> None:
         entries = eligible_review_candidate_entries(

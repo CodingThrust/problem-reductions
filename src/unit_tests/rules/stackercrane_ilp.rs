@@ -14,3 +14,10 @@ fn test_stackercrane_to_ilp_closed_loop() {
         "StackerCrane->ILP closed loop",
     );
 }
+
+#[test]
+fn test_stackercrane_to_ilp_bf_vs_ilp() {
+    let source = StackerCrane::new(3, vec![(0, 1), (2, 0)], vec![(1, 2)], vec![1, 1], vec![1]);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
+}

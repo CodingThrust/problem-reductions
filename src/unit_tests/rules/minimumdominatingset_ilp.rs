@@ -241,3 +241,13 @@ fn test_cycle_graph() {
 
     assert!(problem.evaluate(&extracted).is_valid());
 }
+
+#[test]
+fn test_minimumdominatingset_to_ilp_bf_vs_ilp() {
+    let problem = MinimumDominatingSet::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
+        vec![1i32; 4],
+    );
+    let reduction: ReductionDSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

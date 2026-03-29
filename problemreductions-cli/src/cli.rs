@@ -245,7 +245,8 @@ Flags by problem type:
   PathConstrainedNetworkFlow      --arcs, --capacities, --source, --sink, --paths, --requirement
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
-  CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --delay-budget
+  CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --cost-budget, --delay-budget
+  ProductionPlanning             --num-periods, --demands, --capacities, --setup-costs, --production-costs, --inventory-costs, --cost-bound
   SubsetSum                       --sizes, --target
   ThreePartition                  --sizes, --bound
   SumOfSquaresPartition           --sizes, --num-groups
@@ -329,7 +330,8 @@ Examples:
   pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
-  pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12
+  pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12
+  pred create ProductionPlanning --num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-bound 80
   pred create GeneralizedHex --graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5
   pred create IntegralFlowWithMultipliers --arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2
   pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
@@ -379,6 +381,18 @@ pub struct CreateArgs {
     /// Capacities (edge capacities for flow problems, capacity levels for CapacityAssignment)
     #[arg(long)]
     pub capacities: Option<String>,
+    /// Demands for ProductionPlanning (comma-separated, e.g., "5,3,7,2,8,5")
+    #[arg(long)]
+    pub demands: Option<String>,
+    /// Setup costs for ProductionPlanning (comma-separated, e.g., "10,10,10,10,10,10")
+    #[arg(long)]
+    pub setup_costs: Option<String>,
+    /// Per-unit production costs for ProductionPlanning (comma-separated, e.g., "1,1,1,1,1,1")
+    #[arg(long)]
+    pub production_costs: Option<String>,
+    /// Per-unit inventory costs for ProductionPlanning (comma-separated, e.g., "1,1,1,1,1,1")
+    #[arg(long)]
+    pub inventory_costs: Option<String>,
     /// Bundle capacities for IntegralFlowBundles (e.g., 1,1,1)
     #[arg(long)]
     pub bundle_capacities: Option<String>,
@@ -767,10 +781,9 @@ Customized solver: exact witness recovery for select problems via structure-expl
 backends. Currently supports MinimumCardinalityKey, AdditionalKey, PrimeAttributeName,
 BoyceCoddNormalFormViolation, PartialFeedbackEdgeSet, and RootedTreeArrangement.
 
-ILP backend (default: HiGHS). To use a different backend:
-  cargo install problemreductions-cli --features coin-cbc
-  cargo install problemreductions-cli --features scip
-  cargo install problemreductions-cli --no-default-features --features clarabel")]
+ILP backend (default: HiGHS). To use CPLEX instead:
+  cargo install problemreductions-cli --features cplex
+(Requires CPLEX to be installed on your system.)")]
 pub struct SolveArgs {
     /// Problem JSON file (from `pred create`) or reduction bundle (from `pred reduce`). Use - for stdin.
     pub input: PathBuf,

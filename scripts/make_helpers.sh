@@ -61,7 +61,7 @@ run_agent() {
 
 # --- Project board ---
 
-# Detect the next eligible item and preserve retryable state in a queue.
+# Detect the next eligible item from the current board snapshot.
 #   poll_project_items <mode> <state-file> [repo] [number] [format]
 poll_project_items() {
     mode=$1

@@ -71,6 +71,28 @@ fn test_subsetsum_to_capacityassignment_small() {
 }
 
 #[test]
+fn test_subsetsum_to_capacityassignment_target_exceeds_sum() {
+    // target > sum(sizes): unsatisfiable, should not panic from underflow
+    let source = SubsetSum::new(vec![1u32, 2, 3], 100u32);
+    let reduction = ReduceTo::<CapacityAssignment>::reduce_to(&source);
+    let target = reduction.target_problem();
+
+    // delay_budget = saturating_sub(6, 100) = 0
+    assert_eq!(target.delay_budget(), 0);
+
+    // No subset sums to 100, so source is unsatisfiable
+    let solver = BruteForce::new();
+    let witness = solver.find_witness(target);
+    if let Some(config) = witness {
+        let extracted = reduction.extract_solution(&config);
+        assert!(
+            !source.evaluate(&extracted),
+            "source should be unsatisfiable"
+        );
+    }
+}
+
+#[test]
 fn test_subsetsum_to_capacityassignment_monotonicity() {
     // Verify cost non-decreasing and delay non-increasing for all links
     let source = SubsetSum::new(vec![5u32, 10, 15], 20u32);

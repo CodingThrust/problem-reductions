@@ -71,7 +71,9 @@ impl ReduceTo<CapacityAssignment> for SubsetSum {
             .target()
             .try_into()
             .expect("SubsetSum target must fit in u64 for CapacityAssignment reduction");
-        let delay_budget = total_sum - target_val;
+        // Use saturating subtraction to avoid underflow when target_val > total_sum.
+        // In that case, treat the delay budget as 0 so the reduction remains sound.
+        let delay_budget = total_sum.saturating_sub(target_val);
 
         ReductionSubsetSumToCapacityAssignment {
             target: CapacityAssignment::new(capacities, cost, delay, delay_budget),

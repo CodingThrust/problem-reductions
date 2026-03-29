@@ -92,6 +92,15 @@ fn test_paintshop_to_qubo_two_cars() {
     );
 }
 
+#[test]
+fn test_paintshop_to_qubo_empty_sequence() {
+    // Empty PaintShop with 0 cars should not panic
+    let source = PaintShop::new(Vec::<&str>::new());
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    let qubo = reduction.target_problem();
+    assert_eq!(qubo.num_vars(), 0);
+}
+
 #[cfg(feature = "example-db")]
 #[test]
 fn test_paintshop_to_qubo_canonical_example_spec() {

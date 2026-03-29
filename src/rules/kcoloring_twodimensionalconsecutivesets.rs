@@ -23,8 +23,6 @@ pub struct ReductionKColoringToTDCS {
     target: TwoDimensionalConsecutiveSets,
     /// Number of vertices in the source graph.
     num_vertices: usize,
-    /// Edges of the source graph (stored for solution extraction).
-    edges: Vec<(usize, usize)>,
 }
 
 impl ReductionResult for ReductionKColoringToTDCS {
@@ -45,25 +43,23 @@ impl ReductionResult for ReductionKColoringToTDCS {
         // The target solution is config[symbol] = group_index.
         // Vertex symbols are indices 0..num_vertices.
         // We need to remap the group indices to colors 0, 1, 2.
-        // Since there are only 3 groups used, we can directly use the group indices
-        // if they are already 0, 1, 2. But the target may use any 3 labels from
-        // 0..alphabet_size, so we need to compress them to 0..2.
+        // The target may use any labels, so we compress the distinct
+        // group indices used by vertex symbols to 0..2.
 
-        let vertex_groups: Vec<usize> = target_solution[..self.num_vertices].to_vec();
+        let vertex_groups = &target_solution[..self.num_vertices];
 
-        // Collect all distinct group indices used by all symbols and compress to 0..k-1
-        let mut used_groups: Vec<usize> = target_solution.to_vec();
-        used_groups.sort();
-        used_groups.dedup();
+        // Collect distinct group indices used by vertices and map to 0..k-1
+        let mut used: Vec<usize> = vertex_groups.to_vec();
+        used.sort();
+        used.dedup();
 
-        let mut group_to_color = vec![0usize; self.num_vertices + self.edges.len()];
-        for (color, &group) in used_groups.iter().enumerate() {
-            if group < group_to_color.len() {
-                group_to_color[group] = color;
-            }
-        }
+        let group_to_color: std::collections::HashMap<usize, usize> = used
+            .into_iter()
+            .enumerate()
+            .map(|(color, group)| (group, color % 3))
+            .collect();
 
-        vertex_groups.iter().map(|&g| group_to_color[g]).collect()
+        vertex_groups.iter().map(|&g| group_to_color[&g]).collect()
     }
 }
 
@@ -94,7 +90,6 @@ impl ReduceTo<TwoDimensionalConsecutiveSets> for KColoring<K3, SimpleGraph> {
         ReductionKColoringToTDCS {
             target,
             num_vertices: n,
-            edges,
         }
     }
 }

@@ -46,7 +46,7 @@ impl ReduceTo<QUBO<f64>> for PaintShop {
         let mut matrix = vec![vec![0.0f64; n]; n];
 
         // For each adjacent pair in the sequence
-        for pos in 0..(seq_len - 1) {
+        for pos in 0..seq_len.saturating_sub(1) {
             let a = seq[pos];
             let b = seq[pos + 1];
 

@@ -104,3 +104,23 @@ fn test_rootedtreearrangement_to_rootedtreestorageassignment_empty_graph() {
 
     assert_satisfaction_round_trip_from_satisfaction_target(&source, &reduction, "empty graph");
 }
+
+#[test]
+fn test_rootedtreearrangement_to_rootedtreestorageassignment_infeasible_underflow() {
+    // K < |E|: bound is too small for a 3-edge path, so source is infeasible.
+    // The reduction should return an infeasible gadget rather than panic.
+    let source = RootedTreeArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 2);
+    let reduction = ReduceTo::<RootedTreeStorageAssignment>::reduce_to(&source);
+    let target = reduction.target_problem();
+
+    // Gadget should be infeasible
+    let solver = BruteForce::new();
+    assert!(
+        solver.find_witness(&source).is_none(),
+        "source with K=2 < |E|=3 should be infeasible"
+    );
+    assert!(
+        solver.find_witness(target).is_none(),
+        "gadget target should also be infeasible"
+    );
+}

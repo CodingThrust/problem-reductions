@@ -95,3 +95,10 @@ fn test_reduction_rejects_zero_weights() {
     let problem = SteinerTree::new(graph, vec![0, 0, 0], vec![0, 1]);
     let _ = ReduceTo::<ILP<bool>>::reduce_to(&problem);
 }
+
+#[test]
+fn test_steinertree_to_ilp_bf_vs_ilp() {
+    let problem = canonical_instance();
+    let reduction: ReductionSteinerTreeToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

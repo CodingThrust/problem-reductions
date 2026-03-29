@@ -64,8 +64,28 @@ impl ReduceTo<RootedTreeStorageAssignment> for RootedTreeArrangement<SimpleGraph
         // Each edge becomes a 2-element subset
         let subsets: Vec<Vec<usize>> = edges.iter().map(|&(u, v)| vec![u, v]).collect();
 
-        // Bound K' = K - |E|; saturate at 0 to avoid underflow
-        let bound = self.bound().saturating_sub(num_edges);
+        // Bound K' = K - |E|. If this underflows (K < |E|), the source instance
+        // is infeasible (each edge contributes at least 1 to the arrangement
+        // cost). In that case, return a fixed gadget instance that is
+        // guaranteed infeasible for the target problem as well.
+        let bound = match self.bound().checked_sub(num_edges) {
+            Some(b) => b,
+            None => {
+                // Gadget: universe {0,1,2} with all 2-element subsets and bound 0.
+                // For any rooted tree on three vertices, at least one pair has
+                // distance 2, so at least one subset has extension cost >= 1.
+                // Thus the minimum total extension cost is >= 1, making this
+                // instance infeasible for bound 0.
+                let gadget_n = 3;
+                let gadget_subsets = vec![vec![0, 1], vec![1, 2], vec![0, 2]];
+                let target = RootedTreeStorageAssignment::new(gadget_n, gadget_subsets, 0);
+
+                return ReductionRootedTreeArrangementToRootedTreeStorageAssignment {
+                    target,
+                    num_vertices: gadget_n,
+                };
+            }
+        };
 
         let target = RootedTreeStorageAssignment::new(n, subsets, bound);
 

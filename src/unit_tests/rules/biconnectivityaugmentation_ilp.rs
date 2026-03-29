@@ -77,3 +77,10 @@ fn test_already_biconnected() {
     let extracted = reduction.extract_solution(&ilp_sol);
     assert!(source.evaluate(&extracted).0);
 }
+
+#[test]
+fn test_biconnectivityaugmentation_to_ilp_bf_vs_ilp() {
+    let source = small_instance();
+    let reduction: ReductionBiconnAugToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
+}

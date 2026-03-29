@@ -29,3 +29,17 @@ fn test_integralflowwithmultipliers_to_ilp_closed_loop() {
 
     assert!(source.evaluate(&extracted));
 }
+
+#[test]
+fn test_integralflowwithmultipliers_to_ilp_bf_vs_ilp() {
+    let source = IntegralFlowWithMultipliers::new(
+        DirectedGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
+        0,
+        3,
+        vec![1, 1, 1, 1],
+        vec![2, 2, 2, 2],
+        2,
+    );
+    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
+}

@@ -94,3 +94,12 @@ fn test_solution_extraction() {
     let extracted = reduction.extract_solution(&ilp_solution);
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
+
+#[test]
+fn test_subgraphisomorphism_to_ilp_bf_vs_ilp() {
+    let host = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
+    let pattern = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let problem = SubgraphIsomorphism::new(host, pattern);
+    let reduction: ReductionSubIsoToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

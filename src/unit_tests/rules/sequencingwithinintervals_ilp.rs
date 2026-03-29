@@ -89,3 +89,10 @@ fn test_sequencingwithinintervals_to_ilp_extract_solution() {
         "manually constructed solution is valid"
     );
 }
+
+#[test]
+fn test_sequencingwithinintervals_to_ilp_bf_vs_ilp() {
+    let problem = feasible_instance();
+    let reduction: ReductionSWIToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

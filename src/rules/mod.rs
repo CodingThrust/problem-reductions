@@ -56,6 +56,7 @@ pub(crate) mod minimumvertexcover_minimumfeedbackvertexset;
 pub(crate) mod minimumvertexcover_minimumhittingset;
 pub(crate) mod minimumvertexcover_minimumsetcovering;
 pub(crate) mod paintshop_qubo;
+pub(crate) mod partition_cosineproductintegration;
 pub(crate) mod partition_knapsack;
 pub(crate) mod partition_multiprocessorscheduling;
 pub(crate) mod partition_sequencingwithinintervals;
@@ -299,6 +300,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(maximumsetpacking_qubo::canonical_rule_example_specs());
     specs.extend(minimummultiwaycut_qubo::canonical_rule_example_specs());
     specs.extend(paintshop_qubo::canonical_rule_example_specs());
+    specs.extend(partition_cosineproductintegration::canonical_rule_example_specs());
     specs.extend(partition_knapsack::canonical_rule_example_specs());
     specs.extend(
         partitionintopathsoflength2_boundedcomponentspanningforest::canonical_rule_example_specs(),
