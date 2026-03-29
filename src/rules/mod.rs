@@ -196,6 +196,8 @@ pub(crate) mod pathconstrainednetworkflow_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod precedenceconstrainedscheduling_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod preemptivescheduling_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod quadraticassignment_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod qubo_ilp;
@@ -375,6 +377,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(partitionintotriangles_ilp::canonical_rule_example_specs());
         specs.extend(pathconstrainednetworkflow_ilp::canonical_rule_example_specs());
         specs.extend(precedenceconstrainedscheduling_ilp::canonical_rule_example_specs());
+        specs.extend(preemptivescheduling_ilp::canonical_rule_example_specs());
         specs.extend(quadraticassignment_ilp::canonical_rule_example_specs());
         specs.extend(qubo_ilp::canonical_rule_example_specs());
         specs.extend(rectilinearpicturecompression_ilp::canonical_rule_example_specs());

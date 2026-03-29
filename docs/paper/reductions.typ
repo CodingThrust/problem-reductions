@@ -177,6 +177,7 @@
   "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
   "PartitionIntoTriangles": [Partition Into Triangles],
   "PrecedenceConstrainedScheduling": [Precedence Constrained Scheduling],
+  "PreemptiveScheduling": [Preemptive Scheduling],
   "PrimeAttributeName": [Prime Attribute Name],
   "QuadraticAssignment": [Quadratic Assignment],
   "QuadraticDiophantineEquations": [Quadratic Diophantine Equations],
@@ -5936,6 +5937,39 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 #{
+  let x = load-model-example("PreemptiveScheduling")
+  let n = x.instance.lengths.len()
+  let m = x.instance.num_processors
+  let lengths = x.instance.lengths
+  let precs = x.instance.precedences
+  let d_max = lengths.fold(0, (acc, l) => acc + l)
+  let cfg = x.optimal_config
+  // For each task t, collect active time slots from the flat binary config
+  let active-slots = range(n).map(t =>
+    range(d_max).filter(u => cfg.at(t * d_max + u) == 1)
+  )
+  let makespan = x.optimal_value
+  [
+    #problem-def("PreemptiveScheduling")[
+      Given a set $T$ of $n$ tasks with processing lengths $ell: T -> ZZ^+$, a number $m in ZZ^+$ of identical processors, and a set of precedence constraints $prec$ on $T$, find a preemptive schedule that minimizes the makespan.
+
+      A preemptive schedule assigns each task $t$ a (possibly non-contiguous) set $S(t) subset.eq {0, 1, dots, D_"max" - 1}$ of unit time slots, where $D_"max" = sum_t ell(t)$, such that $|S(t)| = ell(t)$ for all $t$, at most $m$ tasks are active at each slot, and for every precedence $(t_i prec t_j)$, the last slot of $t_i$ precedes the first slot of $t_j$.
+
+      The makespan is $max_{t in T} (max S(t) + 1)$.
+    ][
+      Preemptive Scheduling is problem A5 SS6 in Garey & Johnson @garey1979. NP-complete in general; the special case without precedences ($m$ arbitrary) is solvable in polynomial time (McNaughton's wrap-around algorithm), and the preemptive open-shop variant is also polynomial. The configuration representation is a binary vector of length $n dot D_"max"$ encoding per-slot assignments.
+
+      *Example.* Let $n = #n$ tasks with lengths $(#lengths.map(str).join(", "))$, $m = #m$ processors, and precedences #{precs.map(p => $t_#(p.at(0)) prec t_#(p.at(1))$).join(", ")}. Optimal makespan: $#makespan$. Schedule: #range(n).map(t => [$t_#t$ at slots $[#active-slots.at(t).map(str).join(", ")]$]).join("; ").
+
+      #pred-commands(
+        "pred create --example PreemptiveScheduling -o preemptive-scheduling.json",
+        "pred solve preemptive-scheduling.json",
+        "pred evaluate preemptive-scheduling.json --config " + cfg.map(str).join(","),
+      )
+    ]
+  ]
+}
+#{
   let x = load-model-example("SchedulingToMinimizeWeightedCompletionTime")
   let ntasks = x.instance.lengths.len()
   let m = x.instance.num_processors
@@ -9156,6 +9190,24 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ Per-task deadline is enforced by restricting the time domain of each task's indicator variables.
 
   _Solution extraction._ Task $j$ is scheduled at time $arg max_t x_(j,t)$.
+]
+
+#reduction-rule("PreemptiveScheduling", "ILP")[
+  Minimize makespan for preemptive parallel scheduling with variable-length tasks and precedence constraints.
+][
+  _Construction._ Let $D = sum_t ell(t)$ be the horizon. Variables: binary $x_(t,u) in {0,1}$ (task $t$ processed at slot $u$) for $t in {0, dots, n-1}$, $u in {0, dots, D-1}$; integer $M in {0, dots, D}$ (makespan). The ILP is:
+  $
+    min quad & M \
+    "subject to" quad & sum_u x_(t,u) = ell(t) quad forall t quad "(work)" \
+    & sum_t x_(t,u) <= m quad forall u quad "(capacity)" \
+    & sum_u u dot x_(j,u) - sum_u u dot x_(i,u) >= 1 quad "for each" (i prec j) quad "(precedence)" \
+    & M - (u+1) dot x_(t,u) >= 0 quad forall t, u quad "(makespan)" \
+    & x_(t,u) in {0, 1}, quad M in ZZ_(>= 0)
+  $.
+
+  _Correctness._ Work constraints enforce each task runs for exactly $ell(t)$ slots. Capacity limits at most $m$ tasks per slot. Precedences are enforced by weighted time indicators. Makespan lower bounds force $M >= u+1$ whenever task $t$ is active at slot $u$.
+
+  _Solution extraction._ Config$[t dot D + u] = x_(t,u)$ for all $t, u$.
 ]
 
 #reduction-rule("SequencingWithinIntervals", "ILP")[

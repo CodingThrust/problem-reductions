@@ -24,6 +24,7 @@
 //! - [`Partition`]: Partition a multiset into two equal-sum subsets
 //! - [`PartiallyOrderedKnapsack`]: Knapsack with precedence constraints
 //! - [`PrecedenceConstrainedScheduling`]: Schedule unit tasks on processors by deadline
+//! - [`PreemptiveScheduling`]: Preemptive parallel scheduling with precedences (minimize makespan)
 //! - [`ProductionPlanning`]: Meet all period demands within capacity and total-cost bounds
 //! - [`RectilinearPictureCompression`]: Cover 1-entries with bounded rectangles
 //! - [`RegisterSufficiency`]: Evaluate DAG computation with bounded registers
@@ -94,6 +95,7 @@ pub(crate) mod paintshop;
 pub(crate) mod partially_ordered_knapsack;
 pub(crate) mod partition;
 mod precedence_constrained_scheduling;
+mod preemptive_scheduling;
 mod production_planning;
 mod rectilinear_picture_compression;
 mod register_sufficiency;
@@ -144,6 +146,7 @@ pub use paintshop::PaintShop;
 pub use partially_ordered_knapsack::PartiallyOrderedKnapsack;
 pub use partition::Partition;
 pub use precedence_constrained_scheduling::PrecedenceConstrainedScheduling;
+pub use preemptive_scheduling::PreemptiveScheduling;
 pub use production_planning::ProductionPlanning;
 pub use rectilinear_picture_compression::RectilinearPictureCompression;
 pub use register_sufficiency::RegisterSufficiency;
@@ -216,5 +219,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(minimum_internal_macro_data_compression::canonical_model_example_specs());
     specs.extend(register_sufficiency::canonical_model_example_specs());
     specs.extend(kth_largest_m_tuple::canonical_model_example_specs());
+    specs.extend(preemptive_scheduling::canonical_model_example_specs());
     specs
 }

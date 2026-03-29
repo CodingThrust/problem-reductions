@@ -27,7 +27,7 @@ use problemreductions::models::misc::{
     IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
     LongestCommonSubsequence, MinimumExternalMacroDataCompression,
     MinimumInternalMacroDataCompression, MinimumTardinessSequencing, MultiprocessorScheduling,
-    PaintShop, PartiallyOrderedKnapsack, ProductionPlanning, QueryArg,
+    PaintShop, PartiallyOrderedKnapsack, PreemptiveScheduling, ProductionPlanning, QueryArg,
     RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
     SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
@@ -686,6 +686,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-bound 80"
         }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
+        "PreemptiveScheduling" => {
+            "--sizes 2,1,3,2,1 --num-processors 2 --precedence-pairs \"0>2,1>3\""
+        }
         "SchedulingToMinimizeWeightedCompletionTime" => {
             "--lengths 1,2,3,4,5 --weights 6,4,3,2,1 --num-processors 2"
         }
@@ -3433,6 +3436,64 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     production_costs,
                     inventory_costs,
                     cost_bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // PreemptiveScheduling
+        "PreemptiveScheduling" => {
+            let usage = "Usage: pred create PreemptiveScheduling --sizes 2,1,3,2,1 --num-processors 2 [--precedence-pairs \"0>2,1>3\"]";
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PreemptiveScheduling requires --sizes and --num-processors\n\n{usage}"
+                )
+            })?;
+            let num_processors = args.num_processors.ok_or_else(|| {
+                anyhow::anyhow!("PreemptiveScheduling requires --num-processors\n\n{usage}")
+            })?;
+            anyhow::ensure!(
+                num_processors > 0,
+                "PreemptiveScheduling requires --num-processors > 0\n\n{usage}"
+            );
+            let lengths: Vec<usize> = util::parse_comma_list(sizes_str)?;
+            anyhow::ensure!(
+                lengths.iter().all(|&l| l > 0),
+                "PreemptiveScheduling: all task lengths must be positive\n\n{usage}"
+            );
+            let num_tasks = lengths.len();
+            let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
+                Some(s) if !s.is_empty() => s
+                    .split(',')
+                    .map(|pair| {
+                        let parts: Vec<&str> = pair.trim().split('>').collect();
+                        anyhow::ensure!(
+                            parts.len() == 2,
+                            "Invalid precedence format '{}', expected 'u>v'",
+                            pair.trim()
+                        );
+                        Ok((
+                            parts[0].trim().parse::<usize>()?,
+                            parts[1].trim().parse::<usize>()?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                _ => vec![],
+            };
+            for &(pred, succ) in &precedences {
+                anyhow::ensure!(
+                    pred < num_tasks && succ < num_tasks,
+                    "precedence index out of range: ({}, {}) but num_tasks = {}",
+                    pred,
+                    succ,
+                    num_tasks
+                );
+            }
+            (
+                ser(PreemptiveScheduling::new(
+                    lengths,
+                    num_processors,
+                    precedences,
                 ))?,
                 resolved_variant.clone(),
             )
