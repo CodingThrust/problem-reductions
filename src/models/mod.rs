@@ -42,12 +42,12 @@ pub use misc::{
     JobShopScheduling, Knapsack, KthLargestMTuple, LongestCommonSubsequence,
     MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, Partition,
     PrecedenceConstrainedScheduling, ProductionPlanning, QueryArg, RectilinearPictureCompression,
-    ResourceConstrainedScheduling,
-    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StackerCrane, StaffScheduling, StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
-    Term, ThreePartition, TimetableDesign,
+    ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
+    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StackerCrane, StaffScheduling,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, ThreePartition,
+    TimetableDesign,
 };
 pub use set::{
     ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
