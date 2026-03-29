@@ -3278,7 +3278,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     #problem-def("QuadraticDiophantineEquations")[
       Given positive integers $a$, $b$, $c$, determine whether there exist positive integers $x$, $y$ such that $a x^2 + b y = c$.
     ][
-      Quadratic Diophantine equations of the form $a x^2 + b y = c$ form one of the simplest families of mixed-degree Diophantine problems. The variable $y$ is entirely determined by $x$ via $y = (c - a x^2) slash b$, so the decision problem reduces to checking whether any $x in {1, dots, floor(sqrt(c slash a))}$ yields a positive integer $y$. This can be done in $O(sqrt(c))$ time by trial#footnote[No algorithm improving on brute-force trial of all candidate $x$ values is known; the registered complexity `sqrt(c_val)` reflects this direct enumeration bound.].
+      Quadratic Diophantine equations of the form $a x^2 + b y = c$ form one of the simplest families of mixed-degree Diophantine problems. The variable $y$ is entirely determined by $x$ via $y = (c - a x^2) slash b$, so the decision problem reduces to checking whether any $x in {1, dots, floor(sqrt(c slash a))}$ yields a positive integer $y$. This can be done in $O(sqrt(c))$ time by trial#footnote[No algorithm improving on brute-force trial of all candidate $x$ values is known; the registered complexity `sqrt(c)` reflects this direct enumeration bound.].
 
       *Example.* Let $a = #a$, $b = #b$, $c = #c$. Then $x$ ranges over $1, dots, #max-x$:
 
