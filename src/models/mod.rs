@@ -37,16 +37,16 @@ pub use graph::{
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
     AdditionalKey, BinPacking, CapacityAssignment, CbqRelation, ConjunctiveBooleanQuery,
-    ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
-    ExpectedRetrievalCost, Factoring, FlowShopScheduling, GroupingBySwapping, JobShopScheduling,
-    Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
-    PaintShop, Partition, PrecedenceConstrainedScheduling, QueryArg, RectilinearPictureCompression,
-    ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
-    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
-    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StackerCrane, StaffScheduling,
-    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, ThreePartition,
-    TimetableDesign,
+    ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables, CosineProductIntegration,
+    EnsembleComputation, ExpectedRetrievalCost, Factoring, FlowShopScheduling, GroupingBySwapping,
+    JobShopScheduling, Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing,
+    MultiprocessorScheduling, PaintShop, Partition, PrecedenceConstrainedScheduling,
+    ProductionPlanning, QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
+    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StackerCrane, StaffScheduling, StringToStringCorrection, SubsetSum, SumOfSquaresPartition,
+    Term, ThreePartition, TimetableDesign,
 };
 pub use set::{
     ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, IntegerKnapsack, MaximumSetPacking,

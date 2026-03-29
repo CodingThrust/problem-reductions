@@ -16,6 +16,7 @@ from pipeline_pr import (
     extract_codecov_summary,
     extract_linked_issue_number,
     fetch_linked_issue_bundle,
+    fetch_pr_data,
     format_issue_context,
     post_pr_comment,
     parse_args,
@@ -75,6 +76,20 @@ def make_check_run(
 
 
 class PipelinePrHelpersTests(unittest.TestCase):
+    @mock.patch("pipeline_pr.run_gh_json")
+    def test_fetch_pr_data_does_not_request_unsupported_closing_issue_field(
+        self,
+        run_gh_json: mock.Mock,
+    ) -> None:
+        run_gh_json.return_value = {"number": 816}
+
+        fetch_pr_data("CodingThrust/problem-reductions", 816)
+
+        self.assertNotIn(
+            "closingIssuesReferences",
+            run_gh_json.call_args.args[-1],
+        )
+
     def test_extract_linked_issue_number_prefers_body_over_title(self) -> None:
         linked_issue = extract_linked_issue_number(
             "Fix #117: Add GraphPartitioning model",
