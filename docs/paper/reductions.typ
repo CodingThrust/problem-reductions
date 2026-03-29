@@ -196,6 +196,7 @@
   "StaffScheduling": [Staff Scheduling],
   "SteinerTree": [Steiner Tree],
   "SteinerTreeInGraphs": [Steiner Tree in Graphs],
+  "MinimumExternalMacroDataCompression": [Minimum External Macro Data Compression],
   "StringToStringCorrection": [String-to-String Correction],
   "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
@@ -4982,6 +4983,88 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     ]
   ]
 }
+
+#{
+  let x = load-model-example("MinimumExternalMacroDataCompression")
+  let alpha-size = x.instance.alphabet_size
+  let s = x.instance.string
+  let n = s.len()
+  let h = x.instance.pointer_cost
+  let alpha-map = range(alpha-size).map(i => str.from-unicode(97 + i))
+  let s-str = s.map(c => alpha-map.at(c)).join("")
+  let opt-val = metric-value(x.optimal_value)
+  [
+    #problem-def("MinimumExternalMacroDataCompression")[
+      Given a finite alphabet $Sigma$ of size $k$, a string $s in Sigma^*$ of length $n$, and a pointer cost $h in ZZ^+$, find a dictionary string $D in Sigma^*$ and a compressed string $C in (Sigma union {p_1, dots, p_n})^*$, where each $p_i$ is a pointer referencing a contiguous substring of $D$, such that $s$ can be obtained from $C$ by replacing every pointer with its referenced substring, minimizing the total cost $|D| + |C| + (h - 1) times$ (number of pointer occurrences in $C$).
+    ][
+      A classical NP-hard data compression problem, listed as SR22 in Garey and Johnson @garey1979. The macro model of data compression was introduced by #cite(<storer1977>, form: "prose"), who proved NP-completeness via transformation from Vertex Cover. #cite(<storer1982>, form: "prose") provided a comprehensive analysis of the macro compression framework, showing that NP-completeness persists even when $h$ is any fixed integer $gt.eq 2$, when the alphabet has $gt.eq 3$ symbols, and when $D$ contains no pointers (the "external" variant). The LZ-family of practical compression algorithms (LZ77, LZSS, LZ78) are restricted forms of this general macro model. The related Smallest Grammar Problem is APX-hard @charikar2005.#footnote[No algorithm improving on brute-force enumeration is known for optimal external macro compression.]
+
+      *Example.* Let $Sigma = {#alpha-map.join(", ")}$ and $s = #s-str$ (length #n) with pointer cost $h = #h$.
+
+      #pred-commands(
+        "pred create --example MinimumExternalMacroDataCompression -o min-emdc.json",
+        "pred solve min-emdc.json",
+        "pred evaluate min-emdc.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        let blue = graph-colors.at(0)
+        let green = graph-colors.at(1)
+        let cell(ch, highlight: false, ptr: false) = {
+          let fill = if ptr { green.transparentize(70%) } else if highlight { blue.transparentize(70%) } else { white }
+          box(width: 0.5cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
+            align(center + horizon, text(8pt, weight: "bold", ch)))
+        }
+        let ptr-cell(label) = {
+          box(width: 1.5cm, height: 0.55cm, fill: green.transparentize(70%), stroke: 0.5pt + luma(120),
+            align(center + horizon, text(7pt, weight: "bold", label)))
+        }
+        // D = first 6 symbols of s (one copy of the pattern)
+        let d-len = alpha-size
+        let d-syms = s.slice(0, d-len)
+        // C = 3 pointers, each referencing D[0..6]
+        let num-ptrs = calc.div-euclid(n, d-len)
+        align(center, stack(dir: ttb, spacing: 0.5cm,
+          // Source string
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 1.5cm, height: 0.5cm, align(right + horizon, text(8pt)[$s: quad$])),
+            ..s.map(c => cell(alpha-map.at(c))),
+          ),
+          // Dictionary D
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 1.5cm, height: 0.5cm, align(right + horizon, text(8pt)[$D: quad$])),
+            ..d-syms.map(c => cell(alpha-map.at(c), highlight: true)),
+          ),
+          // Compressed string C = 3 pointers
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 1.5cm, height: 0.5cm, align(right + horizon, text(8pt)[$C: quad$])),
+            ..range(num-ptrs).map(_ => ptr-cell[$arrow.r D[0..#d-len]$]),
+          ),
+        ))
+      },
+      caption: [Minimum External Macro Data Compression: with $s = #s-str$ (length #n) and pointer cost $h = #h$, the optimal compression stores $D = #s-str.slice(0, alpha-size)$ (#alpha-size symbols) and uses #calc.div-euclid(n, alpha-size) pointers in $C$, achieving cost $#alpha-size + #calc.div-euclid(n, alpha-size) + (#h - 1) times #calc.div-euclid(n, alpha-size) = #opt-val$ vs.~uncompressed cost #n.],
+      ) <fig:emdc>
+
+      This instance has a repeating pattern of length #alpha-size, allowing the dictionary $D$ to store one copy and the compressed string $C$ to reference it via pointers. Each pointer costs $h = #h$ (the pointer symbol itself plus $h - 1 = #(h - 1)$ extra), so the total cost is $|D| + |C| + (h - 1) times |"pointers"| = #alpha-size + #calc.div-euclid(n, alpha-size) + #(h - 1) times #calc.div-euclid(n, alpha-size) = #opt-val$, saving $#(n - int(opt-val))$ over the uncompressed cost of #n.
+    ]
+  ]
+}
+
+#reduction-rule("MinimumExternalMacroDataCompression", "ILP")[
+  The compression problem decomposes into a dictionary selection (which symbols appear at which positions in $D$) and a string partitioning (which segments of $s$ are literals vs.~pointers). Both are naturally expressed with binary variables and linear constraints. The partition structure is modeled as a flow on a DAG whose nodes are string positions and whose arcs are candidate segments.
+][
+  _Construction._ For alphabet $Sigma$ of size $k$, string $s$ of length $n$, and pointer cost $h$:
+
+  _Variables:_ (1) Binary $d_(j,c) in {0,1}$ for each dictionary position $j in {0, dots, n-1}$ and symbol $c in Sigma$: $d_(j,c) = 1$ iff $D[j] = c$. (2) Binary $u_j in {0,1}$: $u_j = 1$ iff dictionary position $j$ is used. (3) Binary $ell_i in {0,1}$ for each string position $i$: $ell_i = 1$ iff position $i$ is covered by a literal. (4) Binary $p_(i,lambda,delta) in {0,1}$ for each valid triple $(i, lambda, delta)$ with $i + lambda <= n$ and $delta + lambda <= n$: $p_(i,lambda,delta) = 1$ iff positions $[i, i + lambda)$ are covered by a pointer referencing $D[delta .. delta + lambda)$.
+
+  _Constraints:_ (1) Dictionary one-hot: $sum_(c in Sigma) d_(j,c) <= 1$ for all $j$. (2) Linking: $d_(j,c) <= u_j$ for all $j, c$. (3) Contiguity: $u_(j+1) <= u_j$ for all $j < n - 1$. (4) Partition flow: the segments form a partition of ${0, dots, n-1}$ via flow conservation on nodes $0, dots, n$. (5) Pointer matching: $p_(i,lambda,delta) <= d_(delta+r, s[i+r])$ for all offsets $r in {0, dots, lambda - 1}$.
+
+  _Objective:_ Minimize $sum_j u_j + sum_i ell_i + h sum_(i,lambda,delta) p_(i,lambda,delta)$.
+
+  _Correctness._ ($arrow.r.double$) An optimal $(D, C)$ pair determines a feasible ILP assignment: set $d_(j,c) = 1$ for each symbol in $D$, $u_j = 1$ for used positions, and activate the corresponding literal or pointer variables for each $C$-slot. The partition flow is satisfied by construction. ($arrow.l.double$) Any feasible ILP solution defines a valid dictionary (one-hot + contiguity) and a valid partition of $s$ into literal and pointer segments (flow conservation + matching), with cost equal to the objective.
+
+  _Solution extraction._ Read $D$ from the $d_(j,c)$ indicators. Walk through the active segments (via $ell_i$ and $p_(i,lambda,delta)$) to reconstruct $C$.
+]
 
 #{
   let x = load-model-example("MinimumFeedbackArcSet")
