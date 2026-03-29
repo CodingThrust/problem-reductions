@@ -42,6 +42,7 @@ use problemreductions::topology::{
     BipartiteGraph, DirectedGraph, Graph, KingsSubgraph, MixedGraph, SimpleGraph,
     TriangularSubgraph, UnitDiskGraph,
 };
+use problemreductions::types::One;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -3564,33 +3565,55 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "MinimumTardinessSequencing" => {
             let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "MinimumTardinessSequencing requires --deadlines and --n\n\n\
-                     Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 [--precedence-pairs \"0>3,1>3,1>4,2>4\"]"
-                )
-            })?;
-            let num_tasks = args.n.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "MinimumTardinessSequencing requires --n (number of tasks)\n\n\
-                     Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3"
+                    "MinimumTardinessSequencing requires --deadlines\n\n\
+                     Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 [--precedence-pairs \"0>3,1>3,1>4,2>4\"] [--sizes 3,2,2,1,2]"
                 )
             })?;
             let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
             let precedences = parse_precedence_pairs(args.precedence_pairs.as_deref())?;
-            anyhow::ensure!(
-                deadlines.len() == num_tasks,
-                "deadlines length ({}) must equal num_tasks ({})",
-                deadlines.len(),
-                num_tasks
-            );
-            validate_precedence_pairs(&precedences, num_tasks)?;
-            (
-                ser(MinimumTardinessSequencing::new(
-                    num_tasks,
-                    deadlines,
-                    precedences,
-                ))?,
-                resolved_variant.clone(),
-            )
+
+            if let Some(sizes_str) = args.sizes.as_deref() {
+                // Arbitrary-length variant (W = usize)
+                let lengths: Vec<usize> = util::parse_comma_list(sizes_str)?;
+                anyhow::ensure!(
+                    lengths.len() == deadlines.len(),
+                    "sizes length ({}) must equal deadlines length ({})",
+                    lengths.len(),
+                    deadlines.len()
+                );
+                validate_precedence_pairs(&precedences, lengths.len())?;
+                (
+                    ser(MinimumTardinessSequencing::<usize>::with_lengths(
+                        lengths,
+                        deadlines,
+                        precedences,
+                    ))?,
+                    resolved_variant.clone(),
+                )
+            } else {
+                // Unit-length variant (W = One)
+                let num_tasks = args.n.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "MinimumTardinessSequencing requires --n (number of tasks) or --sizes\n\n\
+                         Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3"
+                    )
+                })?;
+                anyhow::ensure!(
+                    deadlines.len() == num_tasks,
+                    "deadlines length ({}) must equal num_tasks ({})",
+                    deadlines.len(),
+                    num_tasks
+                );
+                validate_precedence_pairs(&precedences, num_tasks)?;
+                (
+                    ser(MinimumTardinessSequencing::<One>::new(
+                        num_tasks,
+                        deadlines,
+                        precedences,
+                    ))?,
+                    resolved_variant.clone(),
+                )
+            }
         }
 
         // SchedulingWithIndividualDeadlines

@@ -6114,8 +6114,8 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 #{
-  let x = load-model-example("MinimumTardinessSequencing")
-  let ntasks = x.instance.num_tasks
+  let x = load-model-example("MinimumTardinessSequencing", variant: (weight: "One"))
+  let ntasks = x.instance.lengths.len()
   let deadlines = x.instance.deadlines
   let precs = x.instance.precedences
   let sol = (config: x.optimal_config, metric: x.optimal_value)
