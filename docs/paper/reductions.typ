@@ -154,6 +154,7 @@
   "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
   "ConsecutiveOnesMatrixAugmentation": [Consecutive Ones Matrix Augmentation],
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
+  "FeasibleBasisExtension": [Feasible Basis Extension],
   "SparseMatrixCompression": [Sparse Matrix Compression],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
   "IntegralFlowHomologousArcs": [Integral Flow with Homologous Arcs],
@@ -6603,6 +6604,101 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }),
         caption: [Canonical Sparse Matrix Compression YES instance. Row-colored 1-entries on the left are shifted into the overlay vector on the right, producing $b = (4, 1, 2, 3, 1, 0)$.],
       ) <fig:sparse-matrix-compression>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("FeasibleBasisExtension")
+  let A = x.instance.matrix
+  let m = A.len()
+  let n = A.at(0).len()
+  let rhs = x.instance.rhs
+  let S = x.instance.required_columns
+  let cfg = x.optimal_config
+  // Free column indices (those not in S)
+  let free-cols = range(n).filter(j => j not in S)
+  // Selected free columns from config
+  let selected = cfg.enumerate().filter(((i, v)) => v == 1).map(((i, v)) => free-cols.at(i))
+  // Full basis: required + selected
+  let basis = S + selected
+  [
+    #problem-def("FeasibleBasisExtension")[
+      Given an $m times n$ integer matrix $A$ with $m < n$, a column vector $overline(a) in bb(Z)^m$, and a subset $S$ of column indices with $|S| < m$, determine whether there exists a _feasible basis_ $B$ --- a set of $m$ column indices including $S$ --- such that the $m times m$ submatrix $A_B$ is nonsingular and $A_B^(-1) overline(a) >= 0$ (componentwise).
+    ][
+      The Feasible Basis Extension problem arises in linear programming theory and the study of simplex method pivoting rules. It was shown NP-complete by Murty @Murty1972 via a reduction from Hamiltonian Circuit, establishing that determining whether a partial basis can be extended to a feasible one is computationally intractable in general. The problem is closely related to the question of whether a given linear program has a feasible basic solution containing specified variables. The best known exact algorithm is brute-force enumeration of all $binom(n - |S|, m - |S|)$ candidate extensions, testing each for nonsingularity and non-negativity of the solution in $O(m^3)$ time.#footnote[No algorithm improving on brute-force enumeration is known for the general Feasible Basis Extension problem.]
+
+      *Example.* Consider the $#m times #n$ matrix $A = mat(#A.map(row => row.map(v => str(v)).join(", ")).join("; "))$ with $overline(a) = (#rhs.map(str).join(", "))^top$ and required columns $S = \{#S.map(str).join(", ")\}$. We need $#(m - S.len())$ additional column from the free set $\{#free-cols.map(str).join(", ")\}$. Selecting column #selected.at(0) gives basis $B = \{#basis.map(str).join(", ")\}$, which yields $A_B^(-1) overline(a) = (4, 5, 3)^top >= 0$. Column 4 makes $A_B$ singular, and column 5 produces a negative component.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o feasible-basis-extension.json",
+        "pred solve feasible-basis-extension.json --solver brute-force",
+        "pred evaluate feasible-basis-extension.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 0.7cm, {
+          import draw: *
+          let cell-size = 0.9
+          let gap = 0.15
+          // Draw the matrix
+          for i in range(m) {
+            for j in range(n) {
+              let val = A.at(i).at(j)
+              let is-basis = j in basis
+              let is-required = j in S
+              let f = if is-required {
+                graph-colors.at(1).transparentize(50%)
+              } else if is-basis {
+                graph-colors.at(0).transparentize(30%)
+              } else {
+                white
+              }
+              rect(
+                (j * cell-size, -i * cell-size),
+                (j * cell-size + cell-size - gap, -i * cell-size - cell-size + gap),
+                fill: f,
+                stroke: 0.3pt + luma(180),
+              )
+              content(
+                (j * cell-size + (cell-size - gap) / 2, -i * cell-size - (cell-size - gap) / 2),
+                text(8pt, str(val)),
+              )
+            }
+          }
+          // Column labels
+          for j in range(n) {
+            let label-color = if j in S { graph-colors.at(1) } else if j in basis { graph-colors.at(0) } else { black }
+            content(
+              (j * cell-size + (cell-size - gap) / 2, 0.4),
+              text(7pt, fill: label-color)[$c_#j$],
+            )
+          }
+          // Row labels
+          for i in range(m) {
+            content(
+              (-0.5, -i * cell-size - (cell-size - gap) / 2),
+              text(7pt)[$r_#(i + 1)$],
+            )
+          }
+          // RHS vector
+          let rhs-x = n * cell-size + 0.6
+          content((rhs-x + (cell-size - gap) / 2, 0.4), text(7pt, weight: "bold")[$overline(a)$])
+          for i in range(m) {
+            rect(
+              (rhs-x, -i * cell-size),
+              (rhs-x + cell-size - gap, -i * cell-size - cell-size + gap),
+              fill: luma(240),
+              stroke: 0.3pt + luma(180),
+            )
+            content(
+              (rhs-x + (cell-size - gap) / 2, -i * cell-size - (cell-size - gap) / 2),
+              text(8pt, str(rhs.at(i))),
+            )
+          }
+        }),
+        caption: [Feasible Basis Extension instance ($#m times #n$). Orange columns are required ($S = \{#S.map(str).join(", ")\}$), blue column is the selected extension. Together they form a nonsingular basis with non-negative solution.],
+      ) <fig:feasible-basis-extension>
     ]
   ]
 }
