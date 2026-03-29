@@ -187,6 +187,14 @@ fn test_integer_knapsack_deserialization_rejects_invalid_fields() {
             }),
             "nonnegative",
         ),
+        (
+            serde_json::json!({
+                "sizes": [1, 2, 3],
+                "values": [4, 5],
+                "capacity": 10,
+            }),
+            "same length",
+        ),
     ];
 
     for (invalid, expected_msg) in invalid_cases {

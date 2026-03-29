@@ -2344,6 +2344,15 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
             let values: Vec<i64> = util::parse_comma_list(values_str)?;
             let capacity: i64 = cap_str.parse()?;
+            anyhow::ensure!(
+                sizes.len() == values.len(),
+                "sizes and values must have the same length, got {} and {}",
+                sizes.len(),
+                values.len()
+            );
+            anyhow::ensure!(sizes.iter().all(|&s| s > 0), "all sizes must be positive");
+            anyhow::ensure!(values.iter().all(|&v| v > 0), "all values must be positive");
+            anyhow::ensure!(capacity >= 0, "capacity must be nonnegative");
             (
                 ser(problemreductions::models::set::IntegerKnapsack::new(
                     sizes, values, capacity,

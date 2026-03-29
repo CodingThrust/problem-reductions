@@ -47,13 +47,11 @@ inventory::submit! {
 /// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(into = "RawIntegerKnapsack")]
 pub struct IntegerKnapsack {
-    #[serde(deserialize_with = "positive_i64_vec::deserialize")]
     sizes: Vec<i64>,
-    #[serde(deserialize_with = "positive_i64_vec::deserialize")]
     values: Vec<i64>,
-    #[serde(deserialize_with = "nonnegative_i64::deserialize")]
     capacity: i64,
 }
 
@@ -153,39 +151,62 @@ crate::declare_variants! {
     default IntegerKnapsack => "(capacity + 1)^num_items",
 }
 
-mod nonnegative_i64 {
-    use serde::de::Error;
-    use serde::{Deserialize, Deserializer};
+/// Raw representation for serde deserialization with full validation.
+#[derive(Deserialize, Serialize)]
+struct RawIntegerKnapsack {
+    sizes: Vec<i64>,
+    values: Vec<i64>,
+    capacity: i64,
+}
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<i64, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = i64::deserialize(deserializer)?;
-        if value < 0 {
-            return Err(D::Error::custom(format!(
-                "expected nonnegative integer, got {value}"
-            )));
+impl From<IntegerKnapsack> for RawIntegerKnapsack {
+    fn from(ik: IntegerKnapsack) -> Self {
+        RawIntegerKnapsack {
+            sizes: ik.sizes,
+            values: ik.values,
+            capacity: ik.capacity,
         }
-        Ok(value)
     }
 }
 
-mod positive_i64_vec {
-    use serde::de::Error;
-    use serde::{Deserialize, Deserializer};
+impl TryFrom<RawIntegerKnapsack> for IntegerKnapsack {
+    type Error = String;
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<i64>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let values = Vec::<i64>::deserialize(deserializer)?;
-        if let Some(value) = values.iter().copied().find(|value| *value <= 0) {
-            return Err(D::Error::custom(format!(
-                "expected positive integers, got {value}"
-            )));
+    fn try_from(raw: RawIntegerKnapsack) -> Result<Self, String> {
+        if raw.sizes.len() != raw.values.len() {
+            return Err(format!(
+                "sizes and values must have the same length, got {} and {}",
+                raw.sizes.len(),
+                raw.values.len()
+            ));
         }
-        Ok(values)
+        if let Some(&s) = raw.sizes.iter().find(|&&s| s <= 0) {
+            return Err(format!("expected positive sizes, got {s}"));
+        }
+        if let Some(&v) = raw.values.iter().find(|&&v| v <= 0) {
+            return Err(format!("expected positive values, got {v}"));
+        }
+        if raw.capacity < 0 {
+            return Err(format!(
+                "expected nonnegative capacity, got {}",
+                raw.capacity
+            ));
+        }
+        Ok(IntegerKnapsack {
+            sizes: raw.sizes,
+            values: raw.values,
+            capacity: raw.capacity,
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for IntegerKnapsack {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = RawIntegerKnapsack::deserialize(deserializer)?;
+        IntegerKnapsack::try_from(raw).map_err(serde::de::Error::custom)
     }
 }
 
