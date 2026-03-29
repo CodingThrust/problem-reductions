@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review run-batch
 
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
@@ -39,6 +39,7 @@ help:
 	@echo "  run-pipeline-forever - Loop: poll Ready column for new issues, run-pipeline when new ones appear"
 	@echo "  run-review [N=<number>] - Pick PR from Review pool, fix comments/CI, run agentic tests"
 	@echo "  run-review-forever - Loop: poll Review pool for eligible PRs, dispatch run-review"
+	@echo "  run-batch ISSUES='N ...' - Batch fix + implement issues into single PR"
 	@echo "  board-next MODE=<ready|review|final-review> [NUMBER=<n>] [FORMAT=text|json] - Get the next eligible queued project item"
 	@echo "  board-claim MODE=<ready|review> [NUMBER=<n>] [FORMAT=text|json] - Claim and move the next eligible queued project item"
 	@echo "  board-ack MODE=<ready|review|final-review> ITEM=<id> - Acknowledge a queued project item"
@@ -586,6 +587,12 @@ run-review-forever:
 	REPO=$$(gh repo view --json nameWithOwner --jq .nameWithOwner) || { echo "Failed to detect repo (gh repo view failed)"; exit 1; }; \
 	if [ -z "$$REPO" ]; then echo "Failed to detect repo (empty result)"; exit 1; fi; \
 	MAKE=$(MAKE) watch_and_dispatch review run-review "Review pool PRs" "$$REPO"
+
+# Batch fix + implement issues into a single PR
+# Usage: make run-batch ISSUES="238 381 166 ..."
+#        make run-batch ISSUES="238 381" JOBS=4
+run-batch:
+	python3 scripts/pipeline_batch.py fix-and-implement $(ISSUES) $(if $(JOBS),--jobs $(JOBS),)
 
 # Request Copilot code review on the current PR
 # Requires: gh extension install ChrisCarini/gh-copilot-review
