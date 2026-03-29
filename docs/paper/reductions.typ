@@ -4111,7 +4111,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
       #pred-commands(
         "pred create --example RegisterSufficiency -o register-sufficiency.json",
-        "pred solve register-sufficiency.json",
+        "pred solve register-sufficiency.json --solver brute-force",
         "pred evaluate register-sufficiency.json --config " + x.optimal_config.map(str).join(","),
       )
     ]
