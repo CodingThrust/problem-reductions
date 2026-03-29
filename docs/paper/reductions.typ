@@ -8473,7 +8473,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
     *Step 4 -- Set target parameter.* $K' = n' - k = #n_prime - #k = #target_k$.
 
-    *Step 5 -- Verify a solution.* The #k-clique is $S = {#kc_bcbs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$. The #target_k left vertices NOT in $S$ plus the #ck2 padding vertices form the left side $A'$. The right side $B'$ contains the #ck2 intra-clique edge elements plus #{n - k} padding elements ($|B'| = #target_k$). All $#target_k times #target_k$ cross-edges are present because no $v in A'$ is an endpoint of any selected edge element.
+    *Step 5 -- Verify a solution.* The #k\-clique is $S = {#kc_bcbs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$. The #target_k left vertices NOT in $S$ plus the #ck2 padding vertices form the left side $A'$. The right side $B'$ contains the #ck2 intra-clique edge elements plus #{n - k} padding elements ($|B'| = #target_k$). All $#target_k times #target_k$ cross-edges are present because no $v in A'$ is an endpoint of any selected edge element.
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
