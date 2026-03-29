@@ -11,8 +11,8 @@ pub mod set;
 // Re-export commonly used types
 pub use algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
-    ConsecutiveOnesSubmatrix, QuadraticAssignment, QuadraticDiophantineEquations,
-    SparseMatrixCompression, BMF, ILP, QUBO,
+    ConsecutiveOnesSubmatrix, FeasibleBasisExtension, QuadraticAssignment,
+    QuadraticDiophantineEquations, SparseMatrixCompression, BMF, ILP, QUBO,
 };
 pub use formula::{
     CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, QuantifiedBooleanFormulas,
@@ -50,7 +50,7 @@ pub use misc::{
     Term, ThreePartition, TimetableDesign,
 };
 pub use set::{
-    ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking,
+    ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, IntegerKnapsack, MaximumSetPacking,
     MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering, PrimeAttributeName,
     RootedTreeStorageAssignment, SetBasis, TwoDimensionalConsecutiveSets,
 };

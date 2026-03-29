@@ -273,6 +273,7 @@ Flags by problem type:
   ConsecutiveOnesMatrixAugmentation --matrix (0/1), --bound
   ConsecutiveOnesSubmatrix        --matrix (0/1), --k
   SparseMatrixCompression         --matrix (0/1), --bound
+  FeasibleBasisExtension          --matrix (JSON 2D i64), --rhs, --required-columns
   SteinerTree                     --graph, --edge-weights, --terminals
   MultipleCopyFileAllocation      --graph, --usage, --storage
   AcyclicPartition                --arcs [--weights] [--arc-costs] --weight-bound --cost-bound [--num-vertices]
@@ -297,6 +298,7 @@ Flags by problem type:
   SteinerTreeInGraphs             --graph, --edge-weights, --terminals
   PartitionIntoPathsOfLength2     --graph
   ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
+  IntegerKnapsack                 --sizes, --values, --capacity
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   QAP                             --matrix (cost), --distance-matrix
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
@@ -735,6 +737,12 @@ pub struct CreateArgs {
     /// Query attribute index for PrimeAttributeName
     #[arg(long)]
     pub query: Option<usize>,
+    /// Right-hand side vector for FeasibleBasisExtension (comma-separated, e.g., "7,5,3")
+    #[arg(long)]
+    pub rhs: Option<String>,
+    /// Required column indices for FeasibleBasisExtension (comma-separated, e.g., "0,1")
+    #[arg(long)]
+    pub required_columns: Option<String>,
     /// Number of groups for SumOfSquaresPartition
     #[arg(long)]
     pub num_groups: Option<usize>,
