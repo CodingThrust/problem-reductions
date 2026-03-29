@@ -8250,6 +8250,18 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Direct: $x_i = 1$ iff variable $i$ is true.
 ]
 
+#reduction-rule("NAESatisfiability", "MaxCut",
+  example: false,
+)[
+  @gareyJohnsonStockmeyer1976 This $O(n + m)$ reduction constructs a weighted graph with $2n$ vertices and at most $n + 3m$ edges. Variable gadgets force complementary literal vertices to opposite sides; clause triangles contribute exactly 2 cut edges per NAE-satisfied clause.
+][
+  _Construction._ Given a NAE-3-SAT instance with $n$ variables and $m$ clauses, let $M = 2m + 1$. For each variable $x_i$, create two vertices $v_i$ (positive literal) and $v_i'$ (negative literal) connected by an edge of weight $M$. For each clause $C_j = (ell_a, ell_b, ell_c)$, add a triangle of weight-1 edges between the three literal vertices. If a clause edge coincides with a variable-gadget edge (when a clause contains both $x_i$ and $not x_i$), merge by summing weights.
+
+  _Correctness._ ($arrow.r.double$) If the instance is NAE-satisfiable, the assignment partitions literal vertices so that $v_i$ and $v_i'$ are on opposite sides (cutting all variable edges for $n M$). Each NAE-satisfied clause has a 1:2 or 2:1 split across the triangle, contributing exactly 2 edges. Total cut $= n M + 2m$. ($arrow.l.double$) Since $M > 2m$, any optimal partition must cut every variable edge (otherwise the loss of $M$ exceeds the maximum clause gain of $2m$). With all variable edges cut, each clause triangle contributes 0 (all-same side, violating NAE) or 2 (NAE-satisfied). If the instance is unsatisfiable, at least one clause contributes 0, so the cut $<= n M + 2(m-1) < n M + 2m$.
+
+  _Solution extraction._ For each variable $x_i$, set $x_i = 1$ if $v_i$ is in partition side 1, else $x_i = 0$.
+]
+
 #reduction-rule("KClique", "ILP")[
   A $k$-clique requires at least $k$ selected vertices with no non-edge between any pair.
 ][

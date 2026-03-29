@@ -243,7 +243,9 @@ fn test_find_dominated_rules_returns_known_set() {
     let allowed: std::collections::HashSet<(&str, &str)> = [
         // Composite through CircuitSAT → ILP is better
         ("Factoring", "ILP {variable: \"i32\"}"),
-        // K3-SAT → QUBO via SAT → CircuitSAT → SpinGlass chain
+        // K2-SAT → QUBO via SAT → NAE-SAT → MaxCut → SpinGlass chain
+        ("KSatisfiability {k: \"K2\"}", "QUBO {weight: \"f64\"}"),
+        // K3-SAT → QUBO via MVC → MIS → MaxSetPacking chain
         ("KSatisfiability {k: \"K3\"}", "QUBO {weight: \"f64\"}"),
         // Knapsack -> ILP -> QUBO is better than the direct penalty reduction
         ("Knapsack", "QUBO {weight: \"f64\"}"),
