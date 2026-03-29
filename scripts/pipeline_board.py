@@ -428,22 +428,24 @@ def item_identity(item: dict) -> str:
 
 def load_state(state_file: Path) -> dict:
     if not state_file.exists():
-        return {"visible": {}, "pending": []}
+        return {"retries": {}}
 
     raw = state_file.read_text().strip()
     if not raw:
-        return {"visible": {}, "pending": []}
+        return {"retries": {}}
 
     data = json.loads(raw)
     if not isinstance(data, dict):
         raise ValueError(f"State file must contain a JSON object: {state_file}")
 
-    visible = data.get("visible", {})
-    pending = data.get("pending", [])
-    if not isinstance(visible, dict) or not isinstance(pending, list):
+    retries = data.get("retries", {})
+    if not isinstance(retries, dict):
         raise ValueError(f"Invalid poll state format: {state_file}")
 
-    return {"visible": visible, "pending": [str(item_id) for item_id in pending]}
+    normalized_retries: dict[str, int] = {}
+    for item_id, count in retries.items():
+        normalized_retries[str(item_id)] = int(count)
+    return {"retries": normalized_retries}
 
 
 def save_state(state_file: Path, state: dict) -> None:
@@ -963,22 +965,36 @@ def select_entry_from_entries(
     state_file: Path,
     target_number: int | None = None,
 ) -> dict | None:
-    state = load_state(state_file)
-    previous_visible = state["visible"]
-
-    pending = [item_id for item_id in state["pending"] if item_id in current_visible]
-    entered = sorted(
-        (item_id for item_id in current_visible if item_id not in previous_visible),
-        key=lambda item_id: (current_visible[item_id]["number"], item_id),
+    del state_file
+    return select_current_entry_from_entries(
+        "review",
+        current_visible,
+        target_number=target_number,
     )
-    for item_id in entered:
-        if item_id not in pending:
-            pending.append(item_id)
 
-    state["visible"] = current_visible
-    state["pending"] = pending
-    save_state(state_file, state)
 
+def current_entry_sort_key(
+    mode: str,
+    entry: dict,
+    item_id: str,
+) -> tuple[int, int, str] | tuple[int, str]:
+    if mode == "ready":
+        title = entry.get("title") or ""
+        if title.startswith("[Model]"):
+            kind_priority = 0
+        elif title.startswith("[Rule]"):
+            kind_priority = 1
+        else:
+            kind_priority = 2
+        return (kind_priority, int(entry["number"]), item_id)
+    return (int(entry["number"]), item_id)
+
+
+def select_current_entry_from_entries(
+    mode: str,
+    current_visible: dict[str, dict],
+    target_number: int | None = None,
+) -> dict | None:
     if target_number is not None:
         matching_item_id = next(
             (
@@ -990,17 +1006,40 @@ def select_entry_from_entries(
         )
         if matching_item_id is None:
             return None
-        entry = dict(current_visible[matching_item_id])
-        entry["item_id"] = matching_item_id
-        return entry
+        return {
+            **current_visible[matching_item_id],
+            "item_id": matching_item_id,
+        }
 
-    if not pending:
+    if not current_visible:
         return None
 
-    item_id = pending[0]
-    entry = dict(current_visible[item_id])
-    entry["item_id"] = item_id
-    return entry
+    item_id = min(
+        current_visible,
+        key=lambda candidate_id: current_entry_sort_key(
+            mode,
+            current_visible[candidate_id],
+            candidate_id,
+        ),
+    )
+    return {
+        **current_visible[item_id],
+        "item_id": item_id,
+    }
+
+
+def select_polled_entry_from_entries(
+    mode: str,
+    current_visible: dict[str, dict],
+    state_file: Path,
+    target_number: int | None = None,
+) -> dict | None:
+    del state_file
+    return select_current_entry_from_entries(
+        mode,
+        current_visible,
+        target_number=target_number,
+    )
 
 
 def select_next_entry(
@@ -1024,7 +1063,8 @@ def select_next_entry(
         batch_pr_fetcher=batch_pr_fetcher,
         repo_root=repo_root,
     )
-    return select_entry_from_entries(
+    return select_polled_entry_from_entries(
+        mode,
         current_visible,
         state_file,
         target_number=target_number,
@@ -1033,9 +1073,9 @@ def select_next_entry(
 
 def ack_item(state_file: Path, item_id: str) -> None:
     state = load_state(state_file)
-    state["pending"] = [
-        pending_id for pending_id in state["pending"] if pending_id != item_id
-    ]
+    retries = state.get("retries", {})
+    retries.pop(str(item_id), None)
+    state["retries"] = retries
     save_state(state_file, state)
 
 
@@ -1219,7 +1259,8 @@ def claim_entry_from_entries(
     target_number: int | None = None,
     mover: Callable[[str, str], None] | None = None,
 ) -> dict | None:
-    next_entry = select_entry_from_entries(
+    next_entry = select_polled_entry_from_entries(
+        mode,
         current_visible,
         state_file,
         target_number=target_number,
@@ -1650,7 +1691,8 @@ def main(argv: list[str] | None = None) -> int:
                 batch_pr_fetcher=batch_fetch_prs_with_reviews,
             )
         )
-        next_item = select_entry_from_entries(
+        next_item = select_polled_entry_from_entries(
+            args.mode,
             review_entries_map,
             args.state_file,
             target_number=args.number,

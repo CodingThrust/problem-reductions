@@ -535,8 +535,7 @@ def fetch_pr_data(repo: str, pr_number: int) -> dict:
         "--json",
         (
             "number,title,body,labels,files,additions,deletions,commits,"
-            "headRefName,baseRefName,headRefOid,url,state,mergeable,author,"
-            "closingIssuesReferences"
+            "headRefName,baseRefName,headRefOid,url,state,mergeable,author"
         ),
     )
 

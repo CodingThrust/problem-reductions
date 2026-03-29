@@ -123,7 +123,7 @@ def process_snapshot(
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Track newly eligible board items for forever pollers."
+        description="Select eligible board items from the current project-board snapshot."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
