@@ -4916,6 +4916,22 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 
+#reduction-rule("MinimumExternalMacroDataCompression", "ILP")[
+  The compression problem decomposes into a dictionary selection (which symbols appear at which positions in $D$) and a string partitioning (which segments of $s$ are literals vs.~pointers). Both are naturally expressed with binary variables and linear constraints. The partition structure is modeled as a flow on a DAG whose nodes are string positions and whose arcs are candidate segments.
+][
+  _Construction._ For alphabet $Sigma$ of size $k$, string $s$ of length $n$, and pointer cost $h$:
+
+  _Variables:_ (1) Binary $d_(j,c) in {0,1}$ for each dictionary position $j in {0, dots, n-1}$ and symbol $c in Sigma$: $d_(j,c) = 1$ iff $D[j] = c$. (2) Binary $u_j in {0,1}$: $u_j = 1$ iff dictionary position $j$ is used. (3) Binary $ell_i in {0,1}$ for each string position $i$: $ell_i = 1$ iff position $i$ is covered by a literal. (4) Binary $p_(i,lambda,delta) in {0,1}$ for each valid triple $(i, lambda, delta)$ with $i + lambda <= n$ and $delta + lambda <= n$: $p_(i,lambda,delta) = 1$ iff positions $[i, i + lambda)$ are covered by a pointer referencing $D[delta .. delta + lambda)$.
+
+  _Constraints:_ (1) Dictionary one-hot: $sum_(c in Sigma) d_(j,c) <= 1$ for all $j$. (2) Linking: $d_(j,c) <= u_j$ for all $j, c$. (3) Contiguity: $u_(j+1) <= u_j$ for all $j < n - 1$. (4) Partition flow: the segments form a partition of ${0, dots, n-1}$ via flow conservation on nodes $0, dots, n$. (5) Pointer matching: $p_(i,lambda,delta) <= d_(delta+r, s[i+r])$ for all offsets $r in {0, dots, lambda - 1}$.
+
+  _Objective:_ Minimize $sum_j u_j + sum_i ell_i + h sum_(i,lambda,delta) p_(i,lambda,delta)$.
+
+  _Correctness._ ($arrow.r.double$) An optimal $(D, C)$ pair determines a feasible ILP assignment: set $d_(j,c) = 1$ for each symbol in $D$, $u_j = 1$ for used positions, and activate the corresponding literal or pointer variables for each $C$-slot. The partition flow is satisfied by construction. ($arrow.l.double$) Any feasible ILP solution defines a valid dictionary (one-hot + contiguity) and a valid partition of $s$ into literal and pointer segments (flow conservation + matching), with cost equal to the objective.
+
+  _Solution extraction._ Read $D$ from the $d_(j,c)$ indicators. Walk through the active segments (via $ell_i$ and $p_(i,lambda,delta)$) to reconstruct $C$.
+]
+
 #{
   let x = load-model-example("MinimumFeedbackArcSet")
   let nv = x.instance.graph.num_vertices
