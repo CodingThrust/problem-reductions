@@ -5653,7 +5653,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   )
   [
     #problem-def("SchedulingToMinimizeWeightedCompletionTime")[
-      Given a finite set $T$ of tasks with processing lengths $ell: T -> ZZ^+$ and weights $w: T -> ZZ^+$, and a number $m in ZZ^+$ of identical processors, find an assignment $p: T -> {1, dots, m}$ that minimizes the total weighted completion time $sum_(t in T) w(t) dot C(t)$, where on each processor tasks are ordered by Smith's rule (non-decreasing $ell(t) "/" w(t)$ ratio) and $C(t) = sigma(t) + ell(t)$ is the completion time of task $t$.
+      Given a finite set $T$ of tasks with processing lengths $ell: T -> ZZ^+$ and weights $w: T -> ZZ^+$, and a number $m in ZZ^+$ of identical processors, find an assignment $p: T -> {1, dots, m}$ that minimizes the total weighted completion time $sum_(t in T) w(t) dot C(t)$, where on each processor tasks are ordered by Smith's rule (non-decreasing $ell(t) "/" w(t)$ ratio) and $C(t)$ is the completion time of task $t$ (i.e., the cumulative processing time up to and including $t$ on its assigned processor).
     ][
       Scheduling to Minimize Weighted Completion Time is problem A5 SS13 in Garey & Johnson @garey1979. NP-complete for $m = 2$ by reduction from Partition @lenstra1977, and NP-complete in the strong sense for arbitrary $m$. For a fixed assignment of tasks to processors, Smith's rule gives the optimal ordering on each processor, reducing the search space to $m^n$ processor assignments @smith1956. The problem is solvable in polynomial time when all lengths are equal or when all weights are equal @conway1967 @horn1973.
 
