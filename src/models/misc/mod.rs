@@ -31,6 +31,7 @@
 //! - [`SchedulingWithIndividualDeadlines`]: Meet per-task deadlines on parallel processors
 //! - [`StackerCrane`]: Minimize the total length of a closed walk through required arcs
 //! - [`SequencingToMinimizeMaximumCumulativeCost`]: Keep every cumulative schedule cost prefix under a bound
+//! - [`SequencingToMinimizeTardyTaskWeight`]: Minimize total weight of tardy tasks
 //! - [`SequencingToMinimizeWeightedCompletionTime`]: Minimize total weighted completion time
 //! - [`SequencingToMinimizeWeightedTardiness`]: Decide whether a schedule meets a weighted tardiness bound
 //! - [`SequencingWithReleaseTimesAndDeadlines`]: Single-machine scheduling feasibility
@@ -99,6 +100,7 @@ pub(crate) mod resource_constrained_scheduling;
 mod scheduling_to_minimize_weighted_completion_time;
 mod scheduling_with_individual_deadlines;
 mod sequencing_to_minimize_maximum_cumulative_cost;
+mod sequencing_to_minimize_tardy_task_weight;
 mod sequencing_to_minimize_weighted_completion_time;
 mod sequencing_to_minimize_weighted_tardiness;
 mod sequencing_with_release_times_and_deadlines;
@@ -147,6 +149,7 @@ pub use resource_constrained_scheduling::ResourceConstrainedScheduling;
 pub use scheduling_to_minimize_weighted_completion_time::SchedulingToMinimizeWeightedCompletionTime;
 pub use scheduling_with_individual_deadlines::SchedulingWithIndividualDeadlines;
 pub use sequencing_to_minimize_maximum_cumulative_cost::SequencingToMinimizeMaximumCumulativeCost;
+pub use sequencing_to_minimize_tardy_task_weight::SequencingToMinimizeTardyTaskWeight;
 pub use sequencing_to_minimize_weighted_completion_time::SequencingToMinimizeWeightedCompletionTime;
 pub use sequencing_to_minimize_weighted_tardiness::SequencingToMinimizeWeightedTardiness;
 pub use sequencing_with_release_times_and_deadlines::SequencingWithReleaseTimesAndDeadlines;
@@ -193,6 +196,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(sequencing_to_minimize_weighted_tardiness::canonical_model_example_specs());
     specs.extend(additional_key::canonical_model_example_specs());
     specs.extend(sequencing_to_minimize_maximum_cumulative_cost::canonical_model_example_specs());
+    specs.extend(sequencing_to_minimize_tardy_task_weight::canonical_model_example_specs());
     specs.extend(sum_of_squares_partition::canonical_model_example_specs());
     specs.extend(precedence_constrained_scheduling::canonical_model_example_specs());
     specs.extend(job_shop_scheduling::canonical_model_example_specs());

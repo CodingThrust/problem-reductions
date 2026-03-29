@@ -312,6 +312,7 @@ Flags by problem type:
   RectilinearPictureCompression   --matrix (0/1), --k
   SchedulingWithIndividualDeadlines --n, --num-processors/--m, --deadlines [--precedence-pairs]
   SequencingToMinimizeMaximumCumulativeCost --costs [--precedence-pairs]
+  SequencingToMinimizeTardyTaskWeight --sizes, --weights, --deadlines
   SequencingToMinimizeWeightedCompletionTime --lengths, --weights [--precedence-pairs]
   SequencingToMinimizeWeightedTardiness --sizes, --weights, --deadlines, --bound
   MinimumExternalMacroDataCompression --string, --pointer-cost [--alphabet-size]

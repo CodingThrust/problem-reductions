@@ -30,10 +30,10 @@ use problemreductions::models::misc::{
     PaintShop, PartiallyOrderedKnapsack, ProductionPlanning, QueryArg,
     RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
     SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
-    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
-    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
-    SumOfSquaresPartition, ThreePartition, TimetableDesign,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
+    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -3680,6 +3680,57 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     num_processors,
                     deadlines,
                     precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingToMinimizeTardyTaskWeight
+        "SequencingToMinimizeTardyTaskWeight" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeTardyTaskWeight requires --sizes, --weights, and --deadlines\n\n\
+                     Usage: pred create SequencingToMinimizeTardyTaskWeight --sizes 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
+                )
+            })?;
+            let weights_str = args.weights.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeTardyTaskWeight requires --weights\n\n\
+                     Usage: pred create SequencingToMinimizeTardyTaskWeight --sizes 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
+                )
+            })?;
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeTardyTaskWeight requires --deadlines\n\n\
+                     Usage: pred create SequencingToMinimizeTardyTaskWeight --sizes 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
+                )
+            })?;
+            let lengths: Vec<u64> = util::parse_comma_list(sizes_str)?;
+            let weights: Vec<u64> = util::parse_comma_list(weights_str)?;
+            let deadlines: Vec<u64> = util::parse_comma_list(deadlines_str)?;
+            anyhow::ensure!(
+                lengths.len() == weights.len(),
+                "sizes length ({}) must equal weights length ({})",
+                lengths.len(),
+                weights.len()
+            );
+            anyhow::ensure!(
+                lengths.len() == deadlines.len(),
+                "sizes length ({}) must equal deadlines length ({})",
+                lengths.len(),
+                deadlines.len()
+            );
+            anyhow::ensure!(
+                lengths.iter().all(|&l| l > 0),
+                "task lengths must be positive"
+            );
+            anyhow::ensure!(
+                weights.iter().all(|&w| w > 0),
+                "task weights must be positive"
+            );
+            (
+                ser(SequencingToMinimizeTardyTaskWeight::new(
+                    lengths, weights, deadlines,
                 ))?,
                 resolved_variant.clone(),
             )

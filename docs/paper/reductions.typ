@@ -188,6 +188,7 @@
   "SchedulingToMinimizeWeightedCompletionTime": [Scheduling to Minimize Weighted Completion Time],
   "SchedulingWithIndividualDeadlines": [Scheduling With Individual Deadlines],
   "SequencingToMinimizeMaximumCumulativeCost": [Sequencing to Minimize Maximum Cumulative Cost],
+  "SequencingToMinimizeTardyTaskWeight": [Sequencing to Minimize Tardy Task Weight],
   "SequencingToMinimizeWeightedCompletionTime": [Sequencing to Minimize Weighted Completion Time],
   "SequencingToMinimizeWeightedTardiness": [Sequencing to Minimize Weighted Tardiness],
   "SequencingWithReleaseTimesAndDeadlines": [Sequencing with Release Times and Deadlines],
@@ -6431,7 +6432,47 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 
-#{ 
+#{
+  let x = load-model-example("SequencingToMinimizeTardyTaskWeight")
+  let lengths = x.instance.lengths
+  let weights = x.instance.weights
+  let deadlines = x.instance.deadlines
+  let ntasks = lengths.len()
+  let schedule = x.optimal_config
+  let completions = {
+    let t = 0
+    let result = ()
+    for task in schedule {
+      t += lengths.at(task)
+      result.push(t)
+    }
+    result
+  }
+  let tardy-weights = schedule.enumerate().map(((pos, task)) => {
+    if completions.at(pos) > deadlines.at(task) { weights.at(task) } else { 0 }
+  })
+  [
+    #problem-def("SequencingToMinimizeTardyTaskWeight")[
+      Given a set $T$ of $n$ tasks, a processing-time function $ell: T -> ZZ^+$, a weight function $w: T -> ZZ^+$, and a deadline function $d: T -> ZZ^+$, find a one-machine schedule that minimizes
+      $sum_(t in T) w(t) U(t),$
+      where $U(t) = 1$ if the completion time $C(t) > d(t)$ (task $t$ is tardy) and $U(t) = 0$ otherwise.
+    ][
+      Sequencing to Minimize Tardy Task Weight is problem SS8 in Garey & Johnson @garey1979, usually written $1 || sum w_j U_j$. The unweighted variant $1 || sum U_j$ (minimize number of tardy tasks) is solvable in $O(n log n)$ by Moore's algorithm @moore1968, but the weighted version is NP-complete. The problem is closely related to $1 || sum w_j T_j$ (Sequencing to Minimize Weighted Tardiness) but differs in using a 0/1 indicator $U_j$ instead of the actual tardiness $T_j = max(0, C_j - d_j)$.
+
+      Configurations are direct permutation encodings: the config vector $(sigma_0, dots, sigma_{n-1})$ specifies which task occupies each position, i.e., $sigma_p$ is the index of the task scheduled at position $p$. A configuration is valid iff it is a permutation of $\{0, dots, n-1\}$.
+
+      *Example.* Consider $n = #ntasks$ tasks with lengths $ell = (#lengths.map(v => str(v)).join(", "))$, weights $w = (#weights.map(v => str(v)).join(", "))$, and deadlines $d = (#deadlines.map(v => str(v)).join(", "))$. The optimal schedule $(#schedule.map(t => $t_(#(t + 1))$).join(", "))$ achieves completion times $(#completions.map(v => str(v)).join(", "))$. Tasks with completion time exceeding their deadline contribute weights $(#tardy-weights.map(v => str(v)).join(", "))$, giving total tardy weight $#x.optimal_value$.
+
+      #pred-commands(
+        "pred create --example SequencingToMinimizeTardyTaskWeight -o sequencing-to-minimize-tardy-task-weight.json",
+        "pred solve sequencing-to-minimize-tardy-task-weight.json",
+        "pred evaluate sequencing-to-minimize-tardy-task-weight.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("IntegralFlowHomologousArcs")
   let arcs = x.instance.graph.arcs
   let sol = x.optimal_config
@@ -9463,6 +9504,24 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A feasible permutation satisfies the precedence constraints and keeps every prefix sum at most $K$. ($arrow.l.double$) Any feasible ILP assignment is a permutation whose cumulative cost after each prefix is exactly the linear expression being bounded.
 
   _Solution extraction._ Decode the position assignment and convert the resulting permutation to Lehmer code.
+]
+
+#reduction-rule("SequencingToMinimizeTardyTaskWeight", "ILP")[
+  Place each task in exactly one schedule position with a binary tardy indicator forced on whenever the completion time at that position exceeds the task's deadline.
+][
+  _Construction._ Variables: binary $x_(j,p)$ with $x_(j,p) = 1$ iff task $j$ occupies position $p$, and binary tardy indicator $u_j$. Let $M = sum_j ell_j$. The ILP is:
+  $
+    "minimize" quad & sum_j w_j u_j \
+    "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
+    & sum_j x_(j,p) = 1 quad forall p \
+    & M x_(j,p) + sum_(p' < p) sum_(j') ell_(j') x_(j',p') - M u_j <= d_j - ell_j + M quad forall j, p \
+    & x_(j,p) in {0, 1}, u_j in {0, 1}
+  $.
+  The third family of constraints enforces: if task $j$ is at position $p$ (so $x_(j,p) = 1$), then its completion time $ell_j + sum_(p' < p) sum_(j') ell_(j') x_(j',p')$ exceeds $d_j$ only when $u_j = 1$.
+
+  _Correctness._ ($arrow.r.double$) Any schedule induces completion times; for each tardy task the big-$M$ constraint forces $u_j = 1$, so the objective counts exactly the total tardy weight. ($arrow.l.double$) Any feasible ILP assignment is a valid permutation (by the assignment constraints) and the tardy indicators agree with the actual completion times.
+
+  _Solution extraction._ Read the unique position $p$ with $x_(j,p) = 1$ for each task $j$ to recover the schedule permutation.
 ]
 
 #reduction-rule("SequencingToMinimizeWeightedTardiness", "ILP")[
