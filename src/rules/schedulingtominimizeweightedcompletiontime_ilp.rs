@@ -65,7 +65,7 @@ impl ReductionResult for ReductionSMWCTToILP {
 #[reduction(
     overhead = {
         num_vars = "num_tasks * num_processors + num_tasks + num_tasks * (num_tasks - 1) / 2",
-        num_constraints = "num_tasks + num_tasks * num_processors + num_tasks + 2 * num_tasks * (num_tasks - 1) / 2 * num_processors + num_tasks * (num_tasks - 1) / 2",
+        num_constraints = "num_tasks + num_tasks * num_processors + 2 * num_tasks + 2 * num_tasks * (num_tasks - 1) / 2 * num_processors + num_tasks * (num_tasks - 1) / 2",
     }
 )]
 impl ReduceTo<ILP<i32>> for SchedulingToMinimizeWeightedCompletionTime {
@@ -103,12 +103,13 @@ impl ReduceTo<ILP<i32>> for SchedulingToMinimizeWeightedCompletionTime {
             }
         }
 
-        // 3. Completion time lower bounds: C_t >= l_t
+        // 3. Completion time bounds: l_t <= C_t <= M
         for t in 0..n {
             constraints.push(LinearConstraint::ge(
                 vec![(result.c_var(t), 1.0)],
                 self.lengths()[t] as f64,
             ));
+            constraints.push(LinearConstraint::le(vec![(result.c_var(t), 1.0)], big_m));
         }
 
         // 4. Disjunctive constraints: for each pair (i,j) with i < j, on each processor p:
