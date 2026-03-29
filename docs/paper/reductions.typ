@@ -4875,33 +4875,43 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
       #figure({
         let blue = graph-colors.at(0)
-        let cell(ch, highlight: false) = {
-          let fill = if highlight { blue.transparentize(70%) } else { white }
-          box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
-            align(center + horizon, text(9pt, weight: "bold", ch)))
+        let green = graph-colors.at(1)
+        let cell(ch, highlight: false, ptr: false) = {
+          let fill = if ptr { green.transparentize(70%) } else if highlight { blue.transparentize(70%) } else { white }
+          box(width: 0.5cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
+            align(center + horizon, text(8pt, weight: "bold", ch)))
         }
+        let ptr-cell(label) = {
+          box(width: 1.5cm, height: 0.55cm, fill: green.transparentize(70%), stroke: 0.5pt + luma(120),
+            align(center + horizon, text(7pt, weight: "bold", label)))
+        }
+        // D = first 6 symbols of s (one copy of the pattern)
+        let d-len = alpha-size
+        let d-syms = s.slice(0, d-len)
+        // C = 3 pointers, each referencing D[0..6]
+        let num-ptrs = calc.div-euclid(n, d-len)
         align(center, stack(dir: ttb, spacing: 0.5cm,
           // Source string
           stack(dir: ltr, spacing: 0pt,
             box(width: 1.5cm, height: 0.5cm, align(right + horizon, text(8pt)[$s: quad$])),
             ..s.map(c => cell(alpha-map.at(c))),
           ),
-          // Optimal: uncompressed (D empty, C = s)
+          // Dictionary D
           stack(dir: ltr, spacing: 0pt,
             box(width: 1.5cm, height: 0.5cm, align(right + horizon, text(8pt)[$D: quad$])),
-            box(width: 0.55cm, height: 0.55cm, stroke: 0.5pt + luma(200),
-              align(center + horizon, text(8pt, fill: luma(150))[$emptyset$])),
+            ..d-syms.map(c => cell(alpha-map.at(c), highlight: true)),
           ),
+          // Compressed string C = 3 pointers
           stack(dir: ltr, spacing: 0pt,
             box(width: 1.5cm, height: 0.5cm, align(right + horizon, text(8pt)[$C: quad$])),
-            ..s.map(c => cell(alpha-map.at(c), highlight: true)),
+            ..range(num-ptrs).map(_ => ptr-cell[$arrow.r D[0..#d-len]$]),
           ),
         ))
       },
-      caption: [Minimum External Macro Data Compression: with $s = #s-str$ and $h = #h$, the optimal compression uses no dictionary ($D = emptyset$) and $C = s$ directly, achieving cost $|D| + |C| + (#h - 1) times 0 = 0 + #n + 0 = #opt-val$.],
+      caption: [Minimum External Macro Data Compression: with $s = #s-str$ (length #n) and pointer cost $h = #h$, the optimal compression stores $D = #s-str.slice(0, alpha-size)$ (#alpha-size symbols) and uses #calc.div-euclid(n, alpha-size) pointers in $C$, achieving cost $#alpha-size + #calc.div-euclid(n, alpha-size) + (#h - 1) times #calc.div-euclid(n, alpha-size) = #opt-val$ vs.~uncompressed cost #n.],
       ) <fig:emdc>
 
-      For this small instance ($n = #n$, $h = #h$), the uncompressed representation $C = s$ is already optimal with cost #opt-val. Compression via pointers requires $D$ to store the referenced substrings, and each pointer adds $h - 1 = #(h - 1)$ to the cost, which exceeds the savings for short strings. The compression benefit becomes significant for longer strings with repeated patterns and lower pointer costs.
+      This instance has a repeating pattern of length #alpha-size, allowing the dictionary $D$ to store one copy and the compressed string $C$ to reference it via pointers. Each pointer costs $h = #h$ (the pointer symbol itself plus $h - 1 = #(h - 1)$ extra), so the total cost is $|D| + |C| + (h - 1) times |"pointers"| = #alpha-size + #calc.div-euclid(n, alpha-size) + #(h - 1) times #calc.div-euclid(n, alpha-size) = #opt-val$, saving $#(n - int(opt-val))$ over the uncompressed cost of #n.
     ]
   ]
 }

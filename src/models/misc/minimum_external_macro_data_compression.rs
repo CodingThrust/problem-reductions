@@ -254,69 +254,24 @@ crate::declare_variants! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // Small example: alphabet {a, b}, string "abab" (len 4), pointer_cost h=2
-    // D = "ab" (len 2), C = "ptr(0,2) ptr(0,2)" (len 2, 2 pointers)
-    // Cost = 2 + 2 + (2-1)*2 = 6. Uncompressed = 4 (no compression benefit with h=2 for short strings).
-    // Actually for "abab" with h=2: no compression gives cost 4. Let's use a better example.
+    // Issue #441 example: alphabet {a,b,c,d,e,f} (6), s="abcdefabcdefabcdef" (18), h=2.
+    // Optimal: D="abcdef"(6), C = ptr(0,6) ptr(0,6) ptr(0,6), cost = 6+3+(2-1)*3 = 12.
+    // Solved via ILP reduction (brute force infeasible at this size).
     //
-    // Alphabet {a,b}, string "aaaa" (len 4), pointer_cost h=2
-    // D = "aaaa" (len 4), C = "ptr(0,4)" (len 1, 1 pointer) => cost = 4+1+1*1 = 6. Worse than 4.
-    // D = "aa" (len 2), C = "ptr(0,2) ptr(0,2)" (len 2, 2 pointers) => cost = 2+2+1*2 = 6. Worse.
-    // D = "", C = "aaaa" (len 4, 0 pointers) => cost = 0+4+0 = 4. This is just uncompressed.
-    //
-    // Better: alphabet {a,b}, string "aabbaabb" (len 8), h=2
-    // D = "aabb" (4), C = "ptr(0,4) ptr(0,4)" (2, 2 ptrs) => cost = 4+2+1*2 = 8. Same as uncompressed.
-    //
-    // Use the issue's example (smaller version):
-    // alphabet {a,b,c}, s = "abcabc" (len 6), h=2
-    // D = "abc" (3), C = "ptr(0,3) ptr(0,3)" (2, 2 ptrs) => cost = 3+2+1*2 = 7. Uncompressed = 6.
-    // Hmm, this is worse. Need a longer string or lower h.
-    //
-    // With h=1: pointers cost 0 extra! So pointer_cost = 1.
-    // s = "abcabc" (len 6), h=1
-    // D = "abc" (3), C = "ptr(0,3) ptr(0,3)" (2 slots, 2 ptrs) => cost = 3+2+0*2 = 5.
-    // Uncompressed: cost = 0+6+0 = 6. So compression saves 1.
-    //
-    // Even better: s = "ababab" (len 6), alphabet {a,b}, h=1
-    // D = "ab" (2), C = "ptr(0,2) ptr(0,2) ptr(0,2)" (3, 3 ptrs) => cost = 2+3+0 = 5
-    // Uncompressed = 6.
-    //
-    // For a small example that fits in brute force (2*n variables, small domain):
-    // s = "abab" (len 4), alphabet {a,b} (size 2), h=1
-    // 2*4 = 8 variables. D-domain = 3, C-domain = 3 + 4*5/2 = 13. Total configs = 3^4 * 13^4 = 2,313,441
-    // That's too large for brute force.
-    //
-    // s = "aab" (len 3), alphabet {a,b} (size 2), h=2
-    // 2*3 = 6 variables. D-domain = 3, C-domain = 3 + 3*4/2 = 9. Total = 3^3 * 9^3 = 27 * 729 = 19,683
-    // Optimal: D="", C="aab" => cost = 0+3+0 = 3 (uncompressed, no pointers).
-    // D="a", C="ptr(0,1)ptr(0,1)b" => cost = 1+3+2*1 = 6. Worse.
-    // So for h=2 on short strings, uncompressed is optimal.
-    //
-    // s = "aab" (len 3), alphabet {a,b} (size 2), h=1
-    // D="a", C="ptr(0,1)ptr(0,1)b" => cost = 1+3+0 = 4. Worse than 3.
-    // Uncompressed = 3 is optimal.
-    //
-    // For a small example where compression helps:
-    // s = "aa" (len 2), alphabet {a} (size 1), h=1
-    // 2*2 = 4 variables. D-domain = 2, C-domain = 2 + 2*3/2 = 5. Total = 2^2 * 5^2 = 100
-    // D="a"(1), C="ptr(0,1)ptr(0,1)"(2,2ptrs) => cost=1+2+0=3. Worse than uncompressed 2.
-    // Uncompressed: D="", C="aa" => cost = 2. Optimal.
-    //
-    // Actually, for very small strings compression rarely helps. Let's just use a minimal
-    // example where uncompressed is optimal and verify brute force confirms it.
-    //
-    // s = "ab" (len 2), alphabet {a,b} (size 2), h=2
-    // 2*2 = 4 vars. D-domain = 3, C-domain = 3 + 2*3/2 = 6. Total = 3^2 * 6^2 = 324
-    // Uncompressed: D="", C="ab" => cost = 0+2+0 = 2. Can we do better? No (string has length 2, min cost >= 2).
-    // Optimal value = 2.
-    //
-    // Config for uncompressed: D-slots = [empty, empty] = [2, 2], C-slots = [0, 1] = [0, 1]
-    // Full config: [2, 2, 0, 1]
+    // Config encoding (2*18 = 36 slots):
+    // D-slots: [0,1,2,3,4,5, 6,6,...,6] (6 symbols + 12 empty, empty=alphabet_size=6)
+    // C-slots: [ptr(0,6), ptr(0,6), ptr(0,6), 6,6,...,6] (3 pointers + 15 empty)
+    // ptr(0,6) index: start=0, len=6 → index 5 → encoded as 6+1+5 = 12
+    let s: Vec<usize> = (0..6).cycle().take(18).collect();
+    let mut optimal_config = vec![0, 1, 2, 3, 4, 5];
+    optimal_config.extend(vec![6; 12]); // empty D-slots
+    optimal_config.extend(vec![12, 12, 12]); // 3 pointers to D[0..6]
+    optimal_config.extend(vec![6; 15]); // empty C-slots
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_external_macro_data_compression",
-        instance: Box::new(MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2)),
-        optimal_config: vec![2, 2, 0, 1],
-        optimal_value: serde_json::json!(2),
+        instance: Box::new(MinimumExternalMacroDataCompression::new(6, s, 2)),
+        optimal_config,
+        optimal_value: serde_json::json!(12),
     }]
 }
 
