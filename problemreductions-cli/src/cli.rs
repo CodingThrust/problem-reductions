@@ -315,6 +315,7 @@ Flags by problem type:
   SequencingToMinimizeTardyTaskWeight --sizes, --weights, --deadlines
   SequencingToMinimizeWeightedCompletionTime --lengths, --weights [--precedence-pairs]
   SequencingToMinimizeWeightedTardiness --sizes, --weights, --deadlines, --bound
+  SequencingWithDeadlinesAndSetUpTimes --sizes, --deadlines, --compilers, --setup-times
   MinimumExternalMacroDataCompression --string, --pointer-cost [--alphabet-size]
   MinimumInternalMacroDataCompression --string, --pointer-cost [--alphabet-size]
   SCS                             --strings [--alphabet-size]
@@ -757,6 +758,12 @@ pub struct CreateArgs {
     /// Number of sectors for ExpectedRetrievalCost
     #[arg(long)]
     pub num_sectors: Option<usize>,
+    /// Compiler index for each task in SequencingWithDeadlinesAndSetUpTimes (comma-separated, e.g., "0,1,0,1,0")
+    #[arg(long)]
+    pub compilers: Option<String>,
+    /// Setup times per compiler for SequencingWithDeadlinesAndSetUpTimes (comma-separated, e.g., "1,2")
+    #[arg(long)]
+    pub setup_times: Option<String>,
     /// Source string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,2,3")
     #[arg(long)]
     pub source_string: Option<String>,

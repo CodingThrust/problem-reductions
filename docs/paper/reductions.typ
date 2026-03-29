@@ -191,6 +191,7 @@
   "SequencingToMinimizeTardyTaskWeight": [Sequencing to Minimize Tardy Task Weight],
   "SequencingToMinimizeWeightedCompletionTime": [Sequencing to Minimize Weighted Completion Time],
   "SequencingToMinimizeWeightedTardiness": [Sequencing to Minimize Weighted Tardiness],
+  "SequencingWithDeadlinesAndSetUpTimes": [Sequencing with Deadlines and Set-Up Times],
   "SequencingWithReleaseTimesAndDeadlines": [Sequencing with Release Times and Deadlines],
   "SequencingWithinIntervals": [Sequencing Within Intervals],
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
@@ -6473,6 +6474,47 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("SequencingWithDeadlinesAndSetUpTimes")
+  let lengths = x.instance.lengths
+  let deadlines = x.instance.deadlines
+  let compilers = x.instance.compilers
+  let setup_times = x.instance.setup_times
+  let ntasks = lengths.len()
+  let schedule = x.optimal_config
+  let completions = {
+    let t = 0
+    let prev_compiler = none
+    let result = ()
+    for task in schedule {
+      if prev_compiler != none and prev_compiler != compilers.at(task) {
+        t += setup_times.at(compilers.at(task))
+      }
+      t += lengths.at(task)
+      result.push(t)
+      prev_compiler = compilers.at(task)
+    }
+    result
+  }
+  [
+    #problem-def("SequencingWithDeadlinesAndSetUpTimes")[
+      Given a set $T$ of $n$ tasks, a processing-time function $ell: T -> ZZ^+$, a deadline function $d: T -> ZZ^+$, a compiler assignment $k: T -> C$ for a finite set $C$ of compilers, and a setup-time function $s: C -> ZZ_(>=0)$, determine whether there exists a single-machine schedule such that every task $t$ completes by its deadline $d(t)$, where an additional setup time $s(k(t))$ is charged before $t$ whenever $k(t) != k(t')$ for the immediately preceding task $t'$.
+    ][
+      Sequencing with Deadlines and Set-Up Times is problem SS14 in Garey & Johnson @garey1979, usually written $1 | s_(i j) | "feasibility"$. The problem is NP-complete even when all setup times are equal. It generalises Sequencing with Release Times and Deadlines (SS13) by replacing release-time windows with compiler-switch penalties.
+
+      Configurations are direct permutation encodings: the config vector $(sigma_0, dots, sigma_(n-1))$ specifies which task occupies each position, and a configuration is valid iff it is a permutation of $\{0, dots, n-1\}$.
+
+      *Example.* Consider $n = #ntasks$ tasks with lengths $ell = (#lengths.map(v => str(v)).join(", "))$, deadlines $d = (#deadlines.map(v => str(v)).join(", "))$, compilers $k = (#compilers.map(v => str(v)).join(", "))$, and setup times $s = (#setup_times.map(v => str(v)).join(", "))$. The schedule $(#schedule.map(t => $t_(#(t + 1))$).join(", "))$ achieves completion times $(#completions.map(v => str(v)).join(", "))$; every task meets its deadline, so the instance is feasible.
+
+      #pred-commands(
+        "pred create --example SequencingWithDeadlinesAndSetUpTimes -o sequencing-with-deadlines-and-set-up-times.json",
+        "pred solve sequencing-with-deadlines-and-set-up-times.json",
+        "pred evaluate sequencing-with-deadlines-and-set-up-times.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("IntegralFlowHomologousArcs")
   let arcs = x.instance.graph.arcs
   let sol = x.optimal_config
@@ -9520,6 +9562,26 @@ The following reductions to Integer Linear Programming are straightforward formu
   The third family of constraints enforces: if task $j$ is at position $p$ (so $x_(j,p) = 1$), then its completion time $ell_j + sum_(p' < p) sum_(j') ell_(j') x_(j',p')$ exceeds $d_j$ only when $u_j = 1$.
 
   _Correctness._ ($arrow.r.double$) Any schedule induces completion times; for each tardy task the big-$M$ constraint forces $u_j = 1$, so the objective counts exactly the total tardy weight. ($arrow.l.double$) Any feasible ILP assignment is a valid permutation (by the assignment constraints) and the tardy indicators agree with the actual completion times.
+
+  _Solution extraction._ Read the unique position $p$ with $x_(j,p) = 1$ for each task $j$ to recover the schedule permutation.
+]
+
+#reduction-rule("SequencingWithDeadlinesAndSetUpTimes", "ILP")[
+  Assign tasks to positions with switch-detection auxiliaries that gate per-compiler setup costs into the deadline constraints.
+][
+  _Construction._ Let $n$ be the number of tasks. Variables: binary $x_(j,p)$ with $x_(j,p) = 1$ iff task $j$ occupies position $p$; binary $"sw"_p$ for $p >= 1$ indicating a compiler switch before position $p$; binary $a_(j,p) = x_(j,p) dot "sw"_p$ (linearised product). Let $M = sum_j ell_j + max_c s(c) dot (n-1)$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
+    & sum_j x_(j,p) = 1 quad forall p \
+    & x_(j,p) + x_(j',p-1) - "sw"_p <= 1 quad forall p >= 1, j, j' : k(j) != k(j') \
+    & a_(j,p) <= x_(j,p), quad a_(j,p) <= "sw"_p, quad x_(j,p) + "sw"_p - a_(j,p) <= 1 quad forall j, p >= 1 \
+    & M x_(j,p) + sum_(p' < p) sum_(j') ell_(j') x_(j',p') + sum_(p'=1)^(p) sum_(j') s(k(j')) a_(j',p') <= d_j - ell_j + M quad forall j, p \
+    & x_(j,p), "sw"_p, a_(j,p) in {0, 1}
+  $.
+  The switch-detection row forces $"sw"_p = 1$ whenever the tasks at positions $p-1$ and $p$ use different compilers. The $a_(j,p)$ linearisation then routes the correct per-compiler setup time into the completion-time bound for each position.
+
+  _Correctness._ ($arrow.r.double$) Any feasible schedule assigns each task to a position; the switch indicator equals one exactly when consecutive compilers differ, and the deadline constraint is satisfied by hypothesis. ($arrow.l.double$) Any feasible ILP solution is a valid permutation and the deadline bound ensures each task finishes on time accounting for all setup penalties.
 
   _Solution extraction._ Read the unique position $p$ with $x_(j,p) = 1$ for each task $j$ to recover the schedule permutation.
 ]

@@ -220,6 +220,8 @@ pub(crate) mod sequencingtominimizeweightedcompletiontime_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingtominimizeweightedtardiness_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod sequencingwithdeadlinesandsetuptimes_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingwithinintervals_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingwithreleasetimesanddeadlines_ilp;
@@ -384,6 +386,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(schedulingwithindividualdeadlines_ilp::canonical_rule_example_specs());
         specs.extend(sequencingtominimizemaximumcumulativecost_ilp::canonical_rule_example_specs());
         specs.extend(sequencingtominimizetardytaskweight_ilp::canonical_rule_example_specs());
+        specs.extend(sequencingwithdeadlinesandsetuptimes_ilp::canonical_rule_example_specs());
         specs
             .extend(sequencingtominimizeweightedcompletiontime_ilp::canonical_rule_example_specs());
         specs.extend(sequencingtominimizeweightedtardiness_ilp::canonical_rule_example_specs());

@@ -32,8 +32,9 @@ use problemreductions::models::misc::{
     SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
     SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
+    SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
+    SumOfSquaresPartition, ThreePartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -205,6 +206,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.rhs.is_none()
         && args.coeff_c.is_none()
         && args.required_columns.is_none()
+        && args.compilers.is_none()
+        && args.setup_times.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -3731,6 +3734,70 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (
                 ser(SequencingToMinimizeTardyTaskWeight::new(
                     lengths, weights, deadlines,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingWithDeadlinesAndSetUpTimes
+        "SequencingWithDeadlinesAndSetUpTimes" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingWithDeadlinesAndSetUpTimes requires --sizes, --deadlines, --compilers, and --setup-times\n\n\
+                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --sizes 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
+                )
+            })?;
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingWithDeadlinesAndSetUpTimes requires --deadlines\n\n\
+                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --sizes 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
+                )
+            })?;
+            let compilers_str = args.compilers.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingWithDeadlinesAndSetUpTimes requires --compilers\n\n\
+                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --sizes 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
+                )
+            })?;
+            let setup_times_str = args.setup_times.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingWithDeadlinesAndSetUpTimes requires --setup-times\n\n\
+                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --sizes 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
+                )
+            })?;
+            let lengths: Vec<u64> = util::parse_comma_list(sizes_str)?;
+            let deadlines: Vec<u64> = util::parse_comma_list(deadlines_str)?;
+            let compilers: Vec<usize> = util::parse_comma_list(compilers_str)?;
+            let setup_times: Vec<u64> = util::parse_comma_list(setup_times_str)?;
+            anyhow::ensure!(
+                lengths.len() == deadlines.len(),
+                "lengths length ({}) must equal deadlines length ({})",
+                lengths.len(),
+                deadlines.len()
+            );
+            anyhow::ensure!(
+                lengths.len() == compilers.len(),
+                "lengths length ({}) must equal compilers length ({})",
+                lengths.len(),
+                compilers.len()
+            );
+            anyhow::ensure!(
+                lengths.iter().all(|&l| l > 0),
+                "task lengths must be positive"
+            );
+            let num_compilers = setup_times.len();
+            for &c in &compilers {
+                anyhow::ensure!(
+                    c < num_compilers,
+                    "compiler index {c} is out of range for setup_times of length {num_compilers}"
+                );
+            }
+            (
+                ser(SequencingWithDeadlinesAndSetUpTimes::new(
+                    lengths,
+                    deadlines,
+                    compilers,
+                    setup_times,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -8060,6 +8127,8 @@ mod tests {
             rhs: None,
             coeff_c: None,
             required_columns: None,
+            compilers: None,
+            setup_times: None,
         }
     }
 
