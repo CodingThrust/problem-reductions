@@ -43,7 +43,7 @@ pub use misc::{
     IntExpr, IntegerExpressionMembership, JobShopScheduling, Knapsack, KthLargestMTuple,
     LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
     Partition, PrecedenceConstrainedScheduling, ProductionPlanning, QueryArg,
-    RectilinearPictureCompression, ResourceConstrainedScheduling,
+    RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
     SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,

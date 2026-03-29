@@ -24,6 +24,7 @@
 //! - [`PrecedenceConstrainedScheduling`]: Schedule unit tasks on processors by deadline
 //! - [`ProductionPlanning`]: Meet all period demands within capacity and total-cost bounds
 //! - [`RectilinearPictureCompression`]: Cover 1-entries with bounded rectangles
+//! - [`RegisterSufficiency`]: Evaluate DAG computation with bounded registers
 //! - [`ResourceConstrainedScheduling`]: Schedule unit-length tasks on processors with resource constraints
 //! - [`SchedulingWithIndividualDeadlines`]: Meet per-task deadlines on parallel processors
 //! - [`StackerCrane`]: Minimize the total length of a closed walk through required arcs
@@ -89,6 +90,7 @@ pub(crate) mod partition;
 mod precedence_constrained_scheduling;
 mod production_planning;
 mod rectilinear_picture_compression;
+mod register_sufficiency;
 pub(crate) mod resource_constrained_scheduling;
 mod scheduling_to_minimize_weighted_completion_time;
 mod scheduling_with_individual_deadlines;
@@ -134,6 +136,7 @@ pub use partition::Partition;
 pub use precedence_constrained_scheduling::PrecedenceConstrainedScheduling;
 pub use production_planning::ProductionPlanning;
 pub use rectilinear_picture_compression::RectilinearPictureCompression;
+pub use register_sufficiency::RegisterSufficiency;
 pub use resource_constrained_scheduling::ResourceConstrainedScheduling;
 pub use scheduling_to_minimize_weighted_completion_time::SchedulingToMinimizeWeightedCompletionTime;
 pub use scheduling_with_individual_deadlines::SchedulingWithIndividualDeadlines;
@@ -195,6 +198,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(subset_sum::canonical_model_example_specs());
     specs.extend(three_partition::canonical_model_example_specs());
     specs.extend(cosine_product_integration::canonical_model_example_specs());
+    specs.extend(register_sufficiency::canonical_model_example_specs());
     specs.extend(kth_largest_m_tuple::canonical_model_example_specs());
     specs
 }

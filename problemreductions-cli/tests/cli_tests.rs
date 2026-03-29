@@ -4089,6 +4089,38 @@ fn test_create_rectilinear_picture_compression_rejects_ragged_matrix() {
 }
 
 #[test]
+fn test_create_register_sufficiency() {
+    let output_file = std::env::temp_dir().join("pred_test_create_register_sufficiency.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "RegisterSufficiency",
+            "--arcs",
+            "2>0,2>1,3>1,4>2,4>3,5>0,6>4,6>5",
+            "--bound",
+            "3",
+            "--num-vertices",
+            "7",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "RegisterSufficiency");
+    assert_eq!(json["data"]["num_vertices"], 7);
+    assert_eq!(json["data"]["bound"], 3);
+    assert_eq!(json["data"]["arcs"].as_array().unwrap().len(), 8);
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
 fn test_create_help_uses_generic_matrix_and_k_descriptions() {
     let output = pred().args(["create", "--help"]).output().unwrap();
     assert!(output.status.success());
