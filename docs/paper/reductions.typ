@@ -6626,13 +6626,13 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     #problem-def("FeasibleBasisExtension")[
       Given an $m times n$ integer matrix $A$ with $m < n$, a column vector $overline(a) in bb(Z)^m$, and a subset $S$ of column indices with $|S| < m$, determine whether there exists a _feasible basis_ $B$ --- a set of $m$ column indices including $S$ --- such that the $m times m$ submatrix $A_B$ is nonsingular and $A_B^(-1) overline(a) >= 0$ (componentwise).
     ][
-      The Feasible Basis Extension problem arises in linear programming theory and the study of simplex method pivoting rules. It was shown NP-complete by Murty @murty1980 via a reduction from 3-SAT, establishing that determining whether a partial basis can be extended to a feasible one is computationally intractable in general. The problem is closely related to the question of whether a given linear program has a feasible basic solution containing specified variables. The best known exact algorithm is brute-force enumeration of all $binom(n - |S|, m - |S|)$ candidate extensions, testing each for nonsingularity and non-negativity of the solution in $O(m^3)$ time.#footnote[No algorithm improving on brute-force enumeration is known for the general Feasible Basis Extension problem.]
+      The Feasible Basis Extension problem arises in linear programming theory and the study of simplex method pivoting rules. It was shown NP-complete by Murty @Murty1972 via a reduction from Hamiltonian Circuit, establishing that determining whether a partial basis can be extended to a feasible one is computationally intractable in general. The problem is closely related to the question of whether a given linear program has a feasible basic solution containing specified variables. The best known exact algorithm is brute-force enumeration of all $binom(n - |S|, m - |S|)$ candidate extensions, testing each for nonsingularity and non-negativity of the solution in $O(m^3)$ time.#footnote[No algorithm improving on brute-force enumeration is known for the general Feasible Basis Extension problem.]
 
       *Example.* Consider the $#m times #n$ matrix $A = mat(#A.map(row => row.map(v => str(v)).join(", ")).join("; "))$ with $overline(a) = (#rhs.map(str).join(", "))^top$ and required columns $S = \{#S.map(str).join(", ")\}$. We need $#(m - S.len())$ additional column from the free set $\{#free-cols.map(str).join(", ")\}$. Selecting column #selected.at(0) gives basis $B = \{#basis.map(str).join(", ")\}$, which yields $A_B^(-1) overline(a) = (4, 5, 3)^top >= 0$. Column 4 makes $A_B$ singular, and column 5 produces a negative component.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o feasible-basis-extension.json",
-        "pred solve feasible-basis-extension.json",
+        "pred solve feasible-basis-extension.json --solver brute-force",
         "pred evaluate feasible-basis-extension.json --config " + x.optimal_config.map(str).join(","),
       )
 

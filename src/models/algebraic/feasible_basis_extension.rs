@@ -169,29 +169,29 @@ impl FeasibleBasisExtension {
         let m = self.num_rows();
         assert_eq!(basis_cols.len(), m);
 
-        // Build augmented matrix [A_B | a_bar] using (numerator, denominator) pairs.
-        // We'll use Bareiss algorithm for fraction-free Gaussian elimination.
-        let mut aug: Vec<Vec<i64>> = Vec::with_capacity(m);
+        // Build augmented matrix [A_B | a_bar] in i128 to avoid overflow
+        // during Bareiss fraction-free Gaussian elimination.
+        let mut aug128: Vec<Vec<i128>> = Vec::with_capacity(m);
         for i in 0..m {
             let mut row = Vec::with_capacity(m + 1);
             for &col in basis_cols {
-                row.push(self.matrix[i][col]);
+                row.push(self.matrix[i][col] as i128);
             }
-            row.push(self.rhs[i]);
-            aug.push(row);
+            row.push(self.rhs[i] as i128);
+            aug128.push(row);
         }
 
         // Bareiss algorithm: fraction-free Gaussian elimination.
         // After elimination, the system is upper-triangular.
-        let mut prev_pivot = 1i64;
+        let mut prev_pivot = 1i128;
 
         for k in 0..m {
             // Partial pivoting
             let mut max_row = k;
-            let mut max_val = aug[k][k].abs();
+            let mut max_val = aug128[k][k].abs();
             for i in (k + 1)..m {
-                if aug[i][k].abs() > max_val {
-                    max_val = aug[i][k].abs();
+                if aug128[i][k].abs() > max_val {
+                    max_val = aug128[i][k].abs();
                     max_row = i;
                 }
             }
@@ -199,16 +199,17 @@ impl FeasibleBasisExtension {
                 return false; // singular
             }
             if max_row != k {
-                aug.swap(k, max_row);
+                aug128.swap(k, max_row);
             }
 
             for i in (k + 1)..m {
                 for j in (k + 1)..=m {
-                    aug[i][j] = (aug[k][k] * aug[i][j] - aug[i][k] * aug[k][j]) / prev_pivot;
+                    aug128[i][j] =
+                        (aug128[k][k] * aug128[i][j] - aug128[i][k] * aug128[k][j]) / prev_pivot;
                 }
-                aug[i][k] = 0;
+                aug128[i][k] = 0;
             }
-            prev_pivot = aug[k][k];
+            prev_pivot = aug128[k][k];
         }
 
         // Back-substitution to solve. We solve in rational form: x_i = num_i / det.
@@ -216,22 +217,22 @@ impl FeasibleBasisExtension {
         // num_i / det >= 0 for all i, i.e., num_i and det have the same sign (or num_i = 0).
         // Back-substitution using rational arithmetic to check x >= 0.
         // Simple rational back-substitution:
-        // x[i] = (aug[i][m] - sum_{j>i} aug[i][j] * x[j]) / aug[i][i]
+        // x[i] = (aug128[i][m] - sum_{j>i} aug128[i][j] * x[j]) / aug128[i][i]
         // We track x[i] as (numerator, denominator) pairs.
 
         let mut x_nums = vec![0i128; m];
         let mut x_dens = vec![1i128; m];
 
         for i in (0..m).rev() {
-            // numerator of (aug[i][m] - sum_{j>i} aug[i][j] * x[j])
-            let mut num = aug[i][m] as i128;
+            // numerator of (aug128[i][m] - sum_{j>i} aug128[i][j] * x[j])
+            let mut num = aug128[i][m];
             let mut den = 1i128;
 
             for j in (i + 1)..m {
-                // subtract aug[i][j] * (x_nums[j] / x_dens[j])
-                // num/den - aug[i][j] * x_nums[j] / x_dens[j]
-                // = (num * x_dens[j] - den * aug[i][j] * x_nums[j]) / (den * x_dens[j])
-                let a = aug[i][j] as i128;
+                // subtract aug128[i][j] * (x_nums[j] / x_dens[j])
+                // num/den - aug128[i][j] * x_nums[j] / x_dens[j]
+                // = (num * x_dens[j] - den * aug128[i][j] * x_nums[j]) / (den * x_dens[j])
+                let a = aug128[i][j];
                 num = num * x_dens[j] - den * a * x_nums[j];
                 den *= x_dens[j];
                 // Simplify to avoid overflow
@@ -241,8 +242,8 @@ impl FeasibleBasisExtension {
                     den /= g;
                 }
             }
-            // x[i] = (num/den) / aug[i][i] = num / (den * aug[i][i])
-            let diag = aug[i][i] as i128;
+            // x[i] = (num/den) / aug128[i][i] = num / (den * aug128[i][i])
+            let diag = aug128[i][i];
             x_nums[i] = num;
             x_dens[i] = den * diag;
             // Normalize sign: make denominator positive
