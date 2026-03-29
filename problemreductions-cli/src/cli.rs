@@ -249,6 +249,7 @@ Flags by problem type:
   ProductionPlanning             --num-periods, --demands, --capacities, --setup-costs, --production-costs, --inventory-costs, --cost-bound
   SubsetSum                       --sizes, --target
   ThreePartition                  --sizes, --bound
+  QuadraticDiophantineEquations    --coeff-a, --coeff-b, --coeff-c
   SumOfSquaresPartition           --sizes, --num-groups
   ExpectedRetrievalCost           --probabilities, --num-sectors
   PaintShop                       --sequence
@@ -754,6 +755,15 @@ pub struct CreateArgs {
     /// Target string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,3,2")
     #[arg(long)]
     pub target_string: Option<String>,
+    /// Coefficient a for QuadraticDiophantineEquations (coefficient of x²)
+    #[arg(long)]
+    pub coeff_a: Option<u64>,
+    /// Coefficient b for QuadraticDiophantineEquations (coefficient of y)
+    #[arg(long)]
+    pub coeff_b: Option<u64>,
+    /// Constant c for QuadraticDiophantineEquations (right-hand side of ax² + by = c)
+    #[arg(long)]
+    pub coeff_c: Option<u64>,
 }
 
 #[derive(clap::Args)]

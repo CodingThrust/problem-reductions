@@ -9,7 +9,8 @@ use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
-    ConsecutiveOnesSubmatrix, FeasibleBasisExtension, SparseMatrixCompression, BMF,
+    ConsecutiveOnesSubmatrix, FeasibleBasisExtension, QuadraticDiophantineEquations,
+    SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -193,7 +194,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.conjuncts_spec.is_none()
         && args.deps.is_none()
         && args.query.is_none()
+        && args.coeff_a.is_none()
+        && args.coeff_b.is_none()
         && args.rhs.is_none()
+        && args.coeff_c.is_none()
         && args.required_columns.is_none()
 }
 
@@ -728,6 +732,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "IntegerKnapsack" => "--sizes 3,4,5,2,7 --values 4,5,7,3,9 --capacity 15",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "ThreePartition" => "--sizes 4,5,6,4,6,5 --bound 15",
+        "QuadraticDiophantineEquations" => "--coeff-a 3 --coeff-b 5 --coeff-c 53",
         "BoyceCoddNormalFormViolation" => {
             "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
         }
@@ -2414,6 +2419,32 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let sizes: Vec<u64> = util::parse_comma_list(sizes_str)?;
             (
                 ser(ThreePartition::try_new(sizes, bound).map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // QuadraticDiophantineEquations
+        "QuadraticDiophantineEquations" => {
+            let a = args.coeff_a.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticDiophantineEquations requires --coeff-a, --coeff-b, and --coeff-c\n\n\
+                     Usage: pred create QuadraticDiophantineEquations --coeff-a 3 --coeff-b 5 --coeff-c 53"
+                )
+            })?;
+            let b = args.coeff_b.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticDiophantineEquations requires --coeff-b\n\n\
+                     Usage: pred create QuadraticDiophantineEquations --coeff-a 3 --coeff-b 5 --coeff-c 53"
+                )
+            })?;
+            let c = args.coeff_c.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticDiophantineEquations requires --coeff-c\n\n\
+                     Usage: pred create QuadraticDiophantineEquations --coeff-a 3 --coeff-b 5 --coeff-c 53"
+                )
+            })?;
+            (
+                ser(QuadraticDiophantineEquations::try_new(a, b, c).map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
         }
@@ -7703,7 +7734,10 @@ mod tests {
             storage: None,
             quantifiers: None,
             homologous_pairs: None,
+            coeff_a: None,
+            coeff_b: None,
             rhs: None,
+            coeff_c: None,
             required_columns: None,
         }
     }

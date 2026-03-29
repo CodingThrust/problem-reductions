@@ -178,6 +178,7 @@
   "PrecedenceConstrainedScheduling": [Precedence Constrained Scheduling],
   "PrimeAttributeName": [Prime Attribute Name],
   "QuadraticAssignment": [Quadratic Assignment],
+  "QuadraticDiophantineEquations": [Quadratic Diophantine Equations],
   "QuantifiedBooleanFormulas": [Quantified Boolean Formulas (QBF)],
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
@@ -3253,6 +3254,53 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       }),
       caption: [Optimal assignment $f^* = (#fstar-display)$ for the $#n times #m$ QAP instance. Facilities (blue, left) are assigned to locations (red, right) by arrows. Facilities $F_#(max-fi + 1)$ and $F_#(max-fj + 1)$ (highest flow $= #max-flow$) are assigned to locations $L_#(assigned-li + 1)$ and $L_#(assigned-lj + 1)$ (distance $= #dist-between$). Total cost $= #cost-star$.],
     ) <fig:qap-example>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("QuadraticDiophantineEquations")
+  let a = x.instance.a
+  let b = x.instance.b
+  let c = x.instance.c
+  let config = x.optimal_config
+  let xval = config.at(0) + 1
+  let yval = int((c - a * xval * xval) / b)
+  // Enumerate all valid x values for the table
+  let max-x = calc.floor(calc.sqrt(c / a))
+  let rows = range(1, max-x + 1).map(xi => {
+    let rem = c - a * xi * xi
+    let feasible = rem > 0 and calc.rem(rem, b) == 0
+    let yi = if feasible { int(rem / b) } else { none }
+    (xi, rem, feasible, yi)
+  })
+  [
+    #problem-def("QuadraticDiophantineEquations")[
+      Given positive integers $a$, $b$, $c$, determine whether there exist positive integers $x$, $y$ such that $a x^2 + b y = c$.
+    ][
+      Quadratic Diophantine equations of the form $a x^2 + b y = c$ form one of the simplest families of mixed-degree Diophantine problems. The variable $y$ is entirely determined by $x$ via $y = (c - a x^2) slash b$, so the decision problem reduces to checking whether any $x in {1, dots, floor(sqrt(c slash a))}$ yields a positive integer $y$. This can be done in $O(sqrt(c))$ time by trial#footnote[No algorithm improving on brute-force trial of all candidate $x$ values is known; the registered complexity `sqrt(c)` reflects this direct enumeration bound.].
+
+      *Example.* Let $a = #a$, $b = #b$, $c = #c$. Then $x$ ranges over $1, dots, #max-x$:
+
+      #pred-commands(
+        "pred create --example QuadraticDiophantineEquations -o qde.json",
+        "pred solve qde.json --solver brute-force",
+        "pred evaluate qde.json --config " + config.map(str).join(","),
+      )
+
+      #align(center, table(
+        columns: 4,
+        align: center,
+        table.header([$x$], [$c - a x^2$], [Divisible by $b$?], [$y$]),
+        ..rows.map(((xi, rem, ok, yi)) => (
+          [$#xi$],
+          [$#rem$],
+          [#if ok [Yes] else [No]],
+          [#if yi != none [$#yi$] else [$dash$]],
+        )).flatten(),
+      ))
+
+      The instance is satisfiable: $x = #xval, y = #yval$ gives $#a dot #xval^2 + #b dot #yval = #c$.
     ]
   ]
 }
