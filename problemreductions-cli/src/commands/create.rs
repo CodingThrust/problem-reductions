@@ -24,9 +24,9 @@ use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
     ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
     ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping,
-    JobShopScheduling, KnownValue, LongestCommonSubsequence, MinimumTardinessSequencing,
-    MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, ProductionPlanning, QueryArg,
-    RectilinearPictureCompression, ResourceConstrainedScheduling,
+    JobShopScheduling, KnownValue, KthLargestMTuple, LongestCommonSubsequence,
+    MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack,
+    ProductionPlanning, QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
     SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
@@ -736,6 +736,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "IntegerKnapsack" => "--sizes 3,4,5,2,7 --values 4,5,7,3,9 --capacity 15",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "ThreePartition" => "--sizes 4,5,6,4,6,5 --bound 15",
+        "KthLargestMTuple" => "--sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12",
         "QuadraticDiophantineEquations" => "--coeff-a 3 --coeff-b 5 --coeff-c 53",
         "BoyceCoddNormalFormViolation" => {
             "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
@@ -2423,6 +2424,40 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let sizes: Vec<u64> = util::parse_comma_list(sizes_str)?;
             (
                 ser(ThreePartition::try_new(sizes, bound).map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // KthLargestMTuple
+        "KthLargestMTuple" => {
+            let sets_str = args.sets.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "KthLargestMTuple requires --sets, --k, and --bound\n\n\
+                     Usage: pred create KthLargestMTuple --sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12"
+                )
+            })?;
+            let k_val = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "KthLargestMTuple requires --k\n\n\
+                     Usage: pred create KthLargestMTuple --sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "KthLargestMTuple requires --bound\n\n\
+                     Usage: pred create KthLargestMTuple --sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12"
+                )
+            })?;
+            let bound = u64::try_from(bound).map_err(|_| {
+                anyhow::anyhow!("KthLargestMTuple requires a positive integer --bound")
+            })?;
+            let sets: Vec<Vec<u64>> = sets_str
+                .split(';')
+                .map(|group| util::parse_comma_list(group))
+                .collect::<Result<_, _>>()?;
+            (
+                ser(KthLargestMTuple::try_new(sets, k_val as u64, bound)
+                    .map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
         }

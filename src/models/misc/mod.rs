@@ -77,6 +77,7 @@ mod flow_shop_scheduling;
 mod grouping_by_swapping;
 mod job_shop_scheduling;
 mod knapsack;
+mod kth_largest_m_tuple;
 mod longest_common_subsequence;
 mod minimum_tardiness_sequencing;
 mod multiprocessor_scheduling;
@@ -120,6 +121,7 @@ pub use flow_shop_scheduling::FlowShopScheduling;
 pub use grouping_by_swapping::GroupingBySwapping;
 pub use job_shop_scheduling::JobShopScheduling;
 pub use knapsack::Knapsack;
+pub use kth_largest_m_tuple::KthLargestMTuple;
 pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use multiprocessor_scheduling::MultiprocessorScheduling;
@@ -189,5 +191,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(subset_sum::canonical_model_example_specs());
     specs.extend(three_partition::canonical_model_example_specs());
     specs.extend(cosine_product_integration::canonical_model_example_specs());
+    specs.extend(kth_largest_m_tuple::canonical_model_example_specs());
     specs
 }
