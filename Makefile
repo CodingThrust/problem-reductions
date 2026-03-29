@@ -583,7 +583,8 @@ run-review:
 # Poll Review pool column for eligible PRs and dispatch run-review
 run-review-forever:
 	@. scripts/make_helpers.sh; \
-	REPO=$$(gh repo view --json nameWithOwner --jq .nameWithOwner); \
+	REPO=$$(gh repo view --json nameWithOwner --jq .nameWithOwner) || { echo "Failed to detect repo (gh repo view failed)"; exit 1; }; \
+	if [ -z "$$REPO" ]; then echo "Failed to detect repo (empty result)"; exit 1; fi; \
 	MAKE=$(MAKE) watch_and_dispatch review run-review "Review pool PRs" "$$REPO"
 
 # Request Copilot code review on the current PR

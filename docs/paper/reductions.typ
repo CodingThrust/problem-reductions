@@ -144,6 +144,7 @@
   "LongestCommonSubsequence": [Longest Common Subsequence],
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "SubsetSum": [Subset Sum],
+  "CosineProductIntegration": [Cosine Product Integration],
   "Partition": [Partition],
   "ThreePartition": [3-Partition],
   "PartialFeedbackEdgeSet": [Partial Feedback Edge Set],
@@ -170,6 +171,7 @@
   "MultipleCopyFileAllocation": [Multiple Copy File Allocation],
   "ExpectedRetrievalCost": [Expected Retrieval Cost],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
+  "ProductionPlanning": [Production Planning],
   "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
   "PartitionIntoTriangles": [Partition Into Triangles],
   "PrecedenceConstrainedScheduling": [Precedence Constrained Scheduling],
@@ -4683,6 +4685,14 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   *Example.* Let $A = {3, 1, 1, 2, 2, 1}$ ($n = 6$, total sum $= 10$). Setting $A' = {3, 2}$ (indices 0, 3) gives sum $3 + 2 = 5 = 10 slash 2$, and $A without A' = {1, 1, 2, 1}$ also sums to 5. Hence a balanced partition exists.
 ]
 
+#problem-def("CosineProductIntegration")[
+  Given a sequence of integers $(a_1, a_2, dots, a_n)$, determine whether there exists a sign assignment $epsilon in {-1, +1}^n$ such that $sum_(i=1)^n epsilon_i a_i = 0$.
+][
+  Garey & Johnson problem A7/AN14. The original formulation asks whether $integral_0^(2 pi) product_(i=1)^n cos(a_i theta) d theta = 0$; by expanding each cosine as $(e^(i a_i theta) + e^(-i a_i theta)) slash 2$ via Euler's formula and integrating, the integral equals $(2 pi slash 2^n)$ times the number of sign assignments $epsilon$ with $sum epsilon_i a_i = 0$. Hence the integral is nonzero if and only if a balanced sign assignment exists, making this equivalent to a generalisation of Partition to signed integers. NP-complete by reduction from Partition @plaisted1976. Solvable in pseudo-polynomial time via dynamic programming on achievable partial sums.
+
+  *Example.* Let $(a_1, a_2, a_3) = (2, 3, 5)$. The sign assignment $(+1, +1, -1)$ gives $2 + 3 - 5 = 0$, so the integral is nonzero.
+]
+
 #{
   let x = load-model-example("ShortestCommonSupersequence")
   let alpha-size = x.instance.alphabet_size
@@ -5433,6 +5443,57 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       },
       caption: [Canonical Multiprocessor Scheduling instance with 5 tasks on 2 processors. Stacked blocks show the satisfying assignment $(1, 2, 2, 2, 1)$; both processor loads equal the deadline $D = 10$.],
       ) <fig:multiprocessor-scheduling>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("ProductionPlanning")
+  let n = x.instance.num_periods
+  let demands = x.instance.demands
+  let capacities = x.instance.capacities
+  let setup-costs = x.instance.setup_costs
+  let production-costs = x.instance.production_costs
+  let inventory-costs = x.instance.inventory_costs
+  let bound = x.instance.cost_bound
+  let plan = x.optimal_config
+  let prefix-production = range(n).map(i => plan.slice(0, i + 1).sum())
+  let prefix-demand = range(n).map(i => demands.slice(0, i + 1).sum())
+  let inventory = range(n).map(i => prefix-production.at(i) - prefix-demand.at(i))
+  let production-total = range(n).map(i => production-costs.at(i) * plan.at(i)).sum()
+  let inventory-total = range(n).map(i => inventory-costs.at(i) * inventory.at(i)).sum()
+  let setup-total = range(n).filter(i => plan.at(i) > 0).map(i => setup-costs.at(i)).sum()
+  [
+    #problem-def("ProductionPlanning")[
+      Given a positive integer $n$, period demands $r_1, dots, r_n in ZZ_(>= 0)$, production capacities $c_1, dots, c_n in ZZ_(>= 0)$, setup costs $b_1, dots, b_n in ZZ_(>= 0)$, per-unit production costs $p_1, dots, p_n in ZZ_(>= 0)$, per-unit inventory costs $h_1, dots, h_n in ZZ_(>= 0)$, and a bound $B in ZZ_(>= 0)$, determine whether there exist production quantities $x_1, dots, x_n$ such that $0 <= x_i <= c_i$ for every period $i$, the inventory prefix $I_i = sum_(j=1)^i (x_j - r_j)$ satisfies $I_i >= 0$ for every $i$, and $sum_(i=1)^n (p_i x_i + h_i I_i) + sum_(i: x_i > 0) b_i <= B$.
+    ][
+      Production Planning is the lot-sizing feasibility problem SS21 in Garey & Johnson @garey1979. Florian, Lenstra, and Rinnooy Kan show that the general problem is NP-complete even under strong restrictions, while also giving pseudo-polynomial dynamic-programming algorithms for capacitated variants @florianLenstraRinnooyKan1980. The implementation in this repository uses one bounded integer variable per period, so the registered exact baseline explores the direct witness space $product_i (c_i + 1)$; under the uniform-capacity bound $C = max_i c_i$, this becomes $O^*((C + 1)^n)$#footnote[This is the search bound induced by the configuration space exposed by the implementation, not a literature-best exact algorithm claim.].
+
+      *Example.* Consider the canonical instance with #n periods, demands $(#demands.map(str).join(", "))$, capacities $(#capacities.map(str).join(", "))$, setup costs $(#setup-costs.map(str).join(", "))$, production costs $(#production-costs.map(str).join(", "))$, inventory costs $(#inventory-costs.map(str).join(", "))$, and budget $B = #bound$. The satisfying production plan $x = (#plan.map(str).join(", "))$ yields prefix inventories $(#inventory.map(str).join(", "))$. The verifier therefore accepts, and its cost breakdown is $#production-total + #inventory-total + #setup-total = #(production-total + inventory-total + setup-total) <= #bound$.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o production-planning.json",
+        "pred solve production-planning.json --solver brute-force",
+        "pred evaluate production-planning.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        table(
+          columns: n + 1,
+          align: center,
+          inset: 4pt,
+          table.header([*Period*], ..range(n).map(i => [#(i + 1)])),
+          [$r_i$], ..range(n).map(i => [#demands.at(i)]),
+          [$c_i$], ..range(n).map(i => [#capacities.at(i)]),
+          [$b_i$], ..range(n).map(i => [#setup-costs.at(i)]),
+          [$p_i$], ..range(n).map(i => [#production-costs.at(i)]),
+          [$h_i$], ..range(n).map(i => [#inventory-costs.at(i)]),
+          [$x_i$], ..range(n).map(i => [#plan.at(i)]),
+          [$I_i$], ..range(n).map(i => [#inventory.at(i)]),
+        )
+      },
+      caption: [Canonical Production Planning instance from the example DB. The documented plan meets every prefix-demand constraint and stays within the budget $B = #bound$.],
+      ) <fig:production-planning>
     ]
   ]
 }
@@ -7105,6 +7166,24 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) If $bold(x)'^*$ is an optimal ILP solution, then $A' bold(x)'^* = bold(b)$ and all penalty terms vanish, so $f(bold(x)'^*) = -bold(c')^top bold(x)'^*$. ($arrow.l.double$) If any constraint is violated, $(bold(a)'_k^(top) bold(x)' - b_k)^2 >= 1$ and the penalty $P > ||bold(c)||_1$ exceeds the entire objective range, so $bold(x)'$ cannot be a QUBO minimizer. Among feasible assignments (all penalties zero), $f$ reduces to $-bold(c')^top bold(x)'$, minimized at the ILP optimum.
 
   _Solution extraction._ Discard slack variables: return $bold(x)' [0..n]$.
+]
+
+#let part_cpi = load-example("Partition", "CosineProductIntegration")
+#let part_cpi_sol = part_cpi.solutions.at(0)
+#let part_cpi_sizes = part_cpi.source.instance.sizes
+#let part_cpi_n = part_cpi_sizes.len()
+#let part_cpi_coeffs = part_cpi.target.instance.coefficients
+#reduction-rule("Partition", "CosineProductIntegration",
+  example: true,
+  example-caption: [#part_cpi_n elements],
+)[
+  This $O(n)$ identity reduction casts each positive integer size $s_i$ to the corresponding integer coefficient $a_i = s_i$. A balanced partition (two subsets of equal sum) exists if and only if a balanced sign assignment ($sum epsilon_i a_i = 0$) exists, because assigning element $i$ to subset $A'$ corresponds to $epsilon_i = -1$ and to $A without A'$ corresponds to $epsilon_i = +1$. Reference: Plaisted (1976) @plaisted1976.
+][
+  _Construction._ Given Partition sizes $s_0, dots, s_(n-1) in ZZ^+$, set the CosineProductIntegration coefficients to $a_i = s_i$ for each $i in {0, dots, n-1}$.
+
+  _Correctness._ ($arrow.r.double$) If a balanced partition exists with subset $A'$ having $sum_(a in A') s(a) = S slash 2$, then the sign assignment $epsilon_i = -1$ for $i in A'$ and $epsilon_i = +1$ otherwise gives $sum epsilon_i a_i = S - 2 dot S slash 2 = 0$. ($arrow.l.double$) If a balanced sign assignment exists with $sum epsilon_i a_i = 0$, the elements with $epsilon_i = -1$ form a subset summing to $S slash 2$, which is a valid partition.
+
+  _Solution extraction._ Return the same binary vector: $x_i = 1$ (element in second subset) corresponds to $epsilon_i = -1$ (negative sign).
 ]
 
 #let part_ks = load-example("Partition", "Knapsack")
