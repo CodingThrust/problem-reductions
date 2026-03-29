@@ -1,8 +1,8 @@
 //! Kth Largest m-Tuple problem implementation.
 //!
-//! Given m sets of positive integers and thresholds K and B, count how many
+//! Given m sets of positive integers and a bound B, count how many
 //! distinct m-tuples (one element per set) have total size at least B.
-//! The answer is YES iff the count is at least K. Garey & Johnson MP10.
+//! Garey & Johnson MP10.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::traits::Problem;
@@ -17,10 +17,9 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),
-        description: "Count m-tuples whose total size meets a bound and compare against a threshold K",
+        description: "Count m-tuples whose total size meets a bound",
         fields: &[
             FieldInfo { name: "sets", type_name: "Vec<Vec<u64>>", description: "m sets, each containing positive integer sizes" },
-            FieldInfo { name: "k", type_name: "u64", description: "Threshold K (answer YES iff count >= K)" },
             FieldInfo { name: "bound", type_name: "u64", description: "Lower bound B on tuple sum" },
         ],
     }
@@ -35,10 +34,9 @@ inventory::submit! {
 
 /// The Kth Largest m-Tuple problem.
 ///
-/// Given sets `X_1, ..., X_m` of positive integers, a threshold `K`, and a
-/// bound `B`, count how many distinct m-tuples `(x_1, ..., x_m)` in
-/// `X_1 x ... x X_m` satisfy `sum(x_i) >= B`. The answer is YES iff the
-/// count is at least `K`.
+/// Given sets `X_1, ..., X_m` of positive integers and a bound `B`, count how
+/// many distinct m-tuples `(x_1, ..., x_m)` in `X_1 x ... x X_m` satisfy
+/// `sum(x_i) >= B`.
 ///
 /// # Representation
 ///
@@ -54,7 +52,6 @@ inventory::submit! {
 ///
 /// let problem = KthLargestMTuple::new(
 ///     vec![vec![2, 5, 8], vec![3, 6], vec![1, 4, 7]],
-///     14,
 ///     12,
 /// );
 /// let solver = BruteForce::new();
@@ -65,12 +62,11 @@ inventory::submit! {
 #[derive(Debug, Clone, Serialize)]
 pub struct KthLargestMTuple {
     sets: Vec<Vec<u64>>,
-    k: u64,
     bound: u64,
 }
 
 impl KthLargestMTuple {
-    fn validate(sets: &[Vec<u64>], k: u64, bound: u64) -> Result<(), String> {
+    fn validate(sets: &[Vec<u64>], bound: u64) -> Result<(), String> {
         if sets.is_empty() {
             return Err("KthLargestMTuple requires at least one set".to_string());
         }
@@ -80,9 +76,6 @@ impl KthLargestMTuple {
         if sets.iter().any(|s| s.contains(&0)) {
             return Err("All sizes must be positive (> 0)".to_string());
         }
-        if k == 0 {
-            return Err("Threshold K must be positive".to_string());
-        }
         if bound == 0 {
             return Err("Bound B must be positive".to_string());
         }
@@ -90,9 +83,9 @@ impl KthLargestMTuple {
     }
 
     /// Try to create a new KthLargestMTuple instance.
-    pub fn try_new(sets: Vec<Vec<u64>>, k: u64, bound: u64) -> Result<Self, String> {
-        Self::validate(&sets, k, bound)?;
-        Ok(Self { sets, k, bound })
+    pub fn try_new(sets: Vec<Vec<u64>>, bound: u64) -> Result<Self, String> {
+        Self::validate(&sets, bound)?;
+        Ok(Self { sets, bound })
     }
 
     /// Create a new KthLargestMTuple instance.
@@ -100,18 +93,13 @@ impl KthLargestMTuple {
     /// # Panics
     ///
     /// Panics if the inputs are invalid.
-    pub fn new(sets: Vec<Vec<u64>>, k: u64, bound: u64) -> Self {
-        Self::try_new(sets, k, bound).unwrap_or_else(|msg| panic!("{msg}"))
+    pub fn new(sets: Vec<Vec<u64>>, bound: u64) -> Self {
+        Self::try_new(sets, bound).unwrap_or_else(|msg| panic!("{msg}"))
     }
 
     /// Returns the sets.
     pub fn sets(&self) -> &[Vec<u64>] {
         &self.sets
-    }
-
-    /// Returns the threshold K.
-    pub fn k(&self) -> u64 {
-        self.k
     }
 
     /// Returns the bound B.
@@ -133,7 +121,6 @@ impl KthLargestMTuple {
 #[derive(Deserialize)]
 struct KthLargestMTupleDef {
     sets: Vec<Vec<u64>>,
-    k: u64,
     bound: u64,
 }
 
@@ -143,7 +130,7 @@ impl<'de> Deserialize<'de> for KthLargestMTuple {
         D: Deserializer<'de>,
     {
         let data = KthLargestMTupleDef::deserialize(deserializer)?;
-        Self::try_new(data.sets, data.k, data.bound).map_err(D::Error::custom)
+        Self::try_new(data.sets, data.bound).map_err(D::Error::custom)
     }
 }
 
@@ -189,13 +176,12 @@ crate::declare_variants! {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    // m=3, X_1={2,5,8}, X_2={3,6}, X_3={1,4,7}, B=12, K=14.
+    // m=3, X_1={2,5,8}, X_2={3,6}, X_3={1,4,7}, B=12.
     // 14 of 18 tuples have sum >= 12. The config [2,1,2] picks (8,6,7) with sum=21 >= 12.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "kth_largest_m_tuple",
         instance: Box::new(KthLargestMTuple::new(
             vec![vec![2, 5, 8], vec![3, 6], vec![1, 4, 7]],
-            14,
             12,
         )),
         optimal_config: vec![2, 1, 2],
