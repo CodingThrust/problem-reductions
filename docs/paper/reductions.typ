@@ -4642,13 +4642,13 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     #problem-def("KthLargestMTuple")[
       Given $m$ finite sets $X_1, dots, X_m$ of positive integers, a bound $B in ZZ^+$, and a threshold $K in ZZ^+$, count the number of distinct $m$-tuples $(x_1, dots, x_m) in X_1 times dots.c times X_m$ satisfying $sum_(i=1)^m x_i >= B$. The answer is _yes_ iff this count is at least $K$.
     ][
-      The $K$th Largest $m$-Tuple problem is MP10 in Garey and Johnson's appendix @garey1979. It is NP-complete because the special case $m = 2$, $K = 1$ reduces from Subset Sum. In the general case, the only known exact approach is brute-force enumeration of all $product_(i=1)^m |X_i|$ tuples, so the registered catalog complexity is `total_tuples * num_sets`#footnote[No algorithm improving on brute-force is known for the general $K$th Largest $m$-Tuple problem.].
+      The $K$th Largest $m$-Tuple problem is MP10 in Garey and Johnson's appendix @garey1979. It is _not known to be in NP_, because a "yes" certificate may need to exhibit $K$ qualifying tuples and $K$ can be exponentially large. The problem is PP-complete under polynomial-time Turing reductions @haase2016, though the special case $m = 2$, $K = 1$ is NP-complete via reduction from Subset Sum. In the general case, the only known exact approach is brute-force enumeration of all $product_(i=1)^m |X_i|$ tuples, so the registered catalog complexity is `total_tuples * num_sets`#footnote[No algorithm improving on brute-force is known for the general $K$th Largest $m$-Tuple problem.].
 
       *Example.* Let $m = #m$, $B = #bound$, and $K = #k$ with sets #sets.enumerate().map(((i, s)) => [$X_#(i+1) = {#s.map(str).join(", ")}$]).join([, ]). The Cartesian product has $#total$ tuples. For instance, the tuple $(#config.enumerate().map(((i, c)) => str(sets.at(i).at(c))).join(", "))$ has sum $#config.enumerate().map(((i, c)) => sets.at(i).at(c)).sum() >= #bound$, contributing 1 to the count. In total, #k of the #total tuples satisfy the bound, so the answer is _yes_ (count $= K$).
 
       #pred-commands(
         "pred create --example KthLargestMTuple -o kth-largest-m-tuple.json",
-        "pred solve kth-largest-m-tuple.json",
+        "pred solve kth-largest-m-tuple.json --solver brute-force",
         "pred evaluate kth-largest-m-tuple.json --config " + config.map(str).join(","),
       )
     ]
