@@ -41,6 +41,16 @@ pub enum IntExpr {
 }
 
 impl IntExpr {
+    /// Returns true if all atoms in the expression are positive (> 0).
+    pub fn all_atoms_positive(&self) -> bool {
+        match self {
+            IntExpr::Atom(n) => *n > 0,
+            IntExpr::Union(l, r) | IntExpr::Sum(l, r) => {
+                l.all_atoms_positive() && r.all_atoms_positive()
+            }
+        }
+    }
+
     /// Count the total number of nodes in the expression tree.
     pub fn size(&self) -> usize {
         match self {
@@ -96,7 +106,7 @@ impl IntExpr {
             IntExpr::Sum(left, right) => {
                 let l = left.evaluate_with_config(config, counter)?;
                 let r = right.evaluate_with_config(config, counter)?;
-                Some(l + r)
+                l.checked_add(r)
             }
         }
     }
@@ -158,6 +168,11 @@ impl IntegerExpressionMembership {
     /// * `expression` - The integer expression tree
     /// * `target` - The target integer K
     pub fn new(expression: IntExpr, target: u64) -> Self {
+        assert!(target > 0, "target must be a positive integer (got 0)");
+        assert!(
+            expression.all_atoms_positive(),
+            "all Atom values must be positive (> 0)"
+        );
         Self { expression, target }
     }
 

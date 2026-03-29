@@ -207,3 +207,29 @@ fn test_integer_expression_membership_nested_unions() {
     assert!(!problem.evaluate(&[1, 0])); // 3 ≠ 2
     assert!(!problem.evaluate(&[1, 1])); // 3 ≠ 2
 }
+
+#[test]
+fn test_integer_expression_membership_overflow_safe() {
+    // Two atoms that sum to > u64::MAX should evaluate to Or(false), not panic.
+    let expr = IntExpr::Sum(
+        Box::new(IntExpr::Atom(u64::MAX)),
+        Box::new(IntExpr::Atom(1)),
+    );
+    let problem = IntegerExpressionMembership::new(expr, 42);
+    // The only config is [] (no union nodes). The sum overflows → None → Or(false).
+    assert!(!problem.evaluate(&[]));
+}
+
+#[test]
+#[should_panic(expected = "all Atom values must be positive")]
+fn test_integer_expression_membership_zero_atom_rejected() {
+    let expr = IntExpr::Atom(0);
+    IntegerExpressionMembership::new(expr, 1);
+}
+
+#[test]
+#[should_panic(expected = "target must be a positive integer")]
+fn test_integer_expression_membership_zero_target_rejected() {
+    let expr = IntExpr::Atom(1);
+    IntegerExpressionMembership::new(expr, 0);
+}

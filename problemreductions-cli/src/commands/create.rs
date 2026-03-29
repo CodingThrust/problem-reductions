@@ -2365,8 +2365,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let target: u64 = target
                 .parse()
                 .context("IntegerExpressionMembership --target must be a positive integer")?;
+            if target == 0 {
+                anyhow::bail!("IntegerExpressionMembership --target must be > 0");
+            }
             let expr: IntExpr = serde_json::from_str(expr_str)
                 .context("IntegerExpressionMembership --expression must be valid JSON representing an IntExpr tree")?;
+            if !expr.all_atoms_positive() {
+                anyhow::bail!("IntegerExpressionMembership --expression must contain only positive integers (all Atom values > 0)");
+            }
             (
                 ser(IntegerExpressionMembership::new(expr, target))?,
                 resolved_variant.clone(),
