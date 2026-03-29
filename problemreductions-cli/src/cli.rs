@@ -315,6 +315,7 @@ Flags by problem type:
   SequencingToMinimizeWeightedCompletionTime --lengths, --weights [--precedence-pairs]
   SequencingToMinimizeWeightedTardiness --sizes, --weights, --deadlines, --bound
   MinimumExternalMacroDataCompression --string, --pointer-cost [--alphabet-size]
+  MinimumInternalMacroDataCompression --string, --pointer-cost [--alphabet-size]
   SCS                             --strings [--alphabet-size]
   StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2

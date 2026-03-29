@@ -197,6 +197,7 @@
   "SteinerTree": [Steiner Tree],
   "SteinerTreeInGraphs": [Steiner Tree in Graphs],
   "MinimumExternalMacroDataCompression": [Minimum External Macro Data Compression],
+  "MinimumInternalMacroDataCompression": [Minimum Internal Macro Data Compression],
   "StringToStringCorrection": [String-to-String Correction],
   "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
@@ -5064,6 +5065,82 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   _Correctness._ ($arrow.r.double$) An optimal $(D, C)$ pair determines a feasible ILP assignment: set $d_(j,c) = 1$ for each symbol in $D$, $u_j = 1$ for used positions, and activate the corresponding literal or pointer variables for each $C$-slot. The partition flow is satisfied by construction. ($arrow.l.double$) Any feasible ILP solution defines a valid dictionary (one-hot + contiguity) and a valid partition of $s$ into literal and pointer segments (flow conservation + matching), with cost equal to the objective.
 
   _Solution extraction._ Read $D$ from the $d_(j,c)$ indicators. Walk through the active segments (via $ell_i$ and $p_(i,lambda,delta)$) to reconstruct $C$.
+]
+
+#{
+  let x = load-model-example("MinimumInternalMacroDataCompression")
+  let alpha-size = x.instance.alphabet_size
+  let s = x.instance.string
+  let n = s.len()
+  let h = x.instance.pointer_cost
+  let alpha-map = range(alpha-size).map(i => str.from-unicode(97 + i))
+  let s-str = s.map(c => alpha-map.at(c)).join("")
+  let opt-val = metric-value(x.optimal_value)
+  [
+    #problem-def("MinimumInternalMacroDataCompression")[
+      Given a finite alphabet $Sigma$ of size $k$, a string $s in Sigma^*$ of length $n$, and a pointer cost $h in ZZ^+$, find a single compressed string $C in (Sigma union {"pointers"})^*$ such that $s$ can be obtained from $C$ by resolving all pointer references _within $C$ itself_ (left-to-right), minimizing the total cost $|C| + (h - 1) times$ (number of pointer occurrences in $C$).
+    ][
+      A classical NP-hard data compression problem, listed as SR23 in Garey and Johnson @garey1979. Unlike the external variant (@def:MinimumExternalMacroDataCompression), there is no separate dictionary --- the compressed string $C$ serves as both dictionary and output, with pointers referencing substrings within $C$ itself. #cite(<storer1977>, form: "prose") proved NP-completeness via transformation from Vertex Cover. #cite(<storer1982>, form: "prose") showed that NP-completeness persists even when $h$ is any fixed integer $gt.eq 2$. The internal macro model is closely related to the smallest grammar problem, which is APX-hard @charikar2005.#footnote[No algorithm improving on brute-force enumeration is known for optimal internal macro compression.]
+
+      *Example.* Let $Sigma = {#alpha-map.join(", ")}$ and $s = #s-str$ (length #n) with pointer cost $h = #h$.
+
+      #pred-commands(
+        "pred create --example MinimumInternalMacroDataCompression -o min-imdc.json",
+        "pred solve min-imdc.json",
+        "pred evaluate min-imdc.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        let blue = graph-colors.at(0)
+        let green = graph-colors.at(1)
+        let cell(ch, highlight: false, ptr: false) = {
+          let fill = if ptr { green.transparentize(70%) } else if highlight { blue.transparentize(70%) } else { white }
+          box(width: 0.5cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
+            align(center + horizon, text(8pt, weight: "bold", ch)))
+        }
+        let ptr-cell(label) = {
+          box(width: 1.5cm, height: 0.55cm, fill: green.transparentize(70%), stroke: 0.5pt + luma(120),
+            align(center + horizon, text(7pt, weight: "bold", label)))
+        }
+        // Source string
+        // C = [a, b, c, ptr(0), ptr(0), EOS, ...]
+        align(center, stack(dir: ttb, spacing: 0.5cm,
+          // Source string
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 1.5cm, height: 0.5cm, align(right + horizon, text(8pt)[$s: quad$])),
+            ..s.map(c => cell(alpha-map.at(c))),
+          ),
+          // Compressed string C
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 1.5cm, height: 0.5cm, align(right + horizon, text(8pt)[$C: quad$])),
+            ..range(alpha-size).map(c => cell(alpha-map.at(c), highlight: true)),
+            ptr-cell[$arrow.r C[0..#alpha-size]$],
+            ptr-cell[$arrow.r C[0..#alpha-size]$],
+          ),
+        ))
+      },
+      caption: [Minimum Internal Macro Data Compression: with $s = #s-str$ (length #n) and pointer cost $h = #h$, the optimal self-referencing compression $C$ starts with #alpha-size literals, then uses 2 pointers back to $C[0..#alpha-size]$, achieving cost $5 + (#h - 1) times 2 = #opt-val$ vs.~uncompressed cost #n.],
+      ) <fig:imdc>
+
+      The compressed string $C$ has #alpha-size literal symbols followed by 2 pointers, each referencing $C[0..#alpha-size]$ to copy "#alpha-map.join("")". Each pointer costs $h = #h$ (the pointer token plus $h - 1 = #(h - 1)$ extra), so the total cost is $|C| + (h - 1) times |"pointers"| = 5 + #(h - 1) times 2 = #opt-val$, saving $#(n - int(opt-val))$ over the uncompressed cost of #n.
+    ]
+  ]
+}
+
+#reduction-rule("MinimumInternalMacroDataCompression", "ILP")[
+  The self-referencing compression problem is formulated as a binary ILP. Since there is no separate dictionary, only the string partition structure needs to be modeled. The partition is expressed as a flow on a DAG whose nodes are string positions and whose arcs are candidate segments.
+][
+  _Construction._ For alphabet $Sigma$ of size $k$, string $s$ of length $n$, and pointer cost $h$:
+
+  _Variables:_ (1) Binary $ell_i in {0,1}$ for each string position $i in {0, dots, n-1}$: $ell_i = 1$ iff position $i$ is covered by a literal. (2) Binary $p_(i,lambda,r) in {0,1}$ for each valid triple $(i, lambda, r)$ where $r + lambda <= i$ and $s[r..r+lambda) = s[i..i+lambda)$: $p_(i,lambda,r) = 1$ iff positions $[i, i+lambda)$ are covered by a pointer referencing the decoded output starting at source position $r$.
+
+  _Constraints:_ Partition flow: the segments form a partition of ${0, dots, n-1}$ via flow conservation on nodes $0, dots, n$. The string-matching constraint ($s[r..r+lambda) = s[i..i+lambda)$) and the precedence constraint ($r + lambda <= i$) are enforced structurally by only generating valid triples.
+
+  _Objective:_ Minimize $sum_i ell_i + h sum_(i,lambda,r) p_(i,lambda,r)$.
+
+  _Correctness._ ($arrow.r.double$) An optimal compressed string $C$ determines a feasible ILP assignment: activate the literal or pointer variable for each segment in the partition. The flow is satisfied by construction. ($arrow.l.double$) Any feasible ILP solution defines a valid partition of $s$ into literal and pointer segments with cost equal to the objective.
+
+  _Solution extraction._ Walk through the active segments (via $ell_i$ and $p_(i,lambda,r)$) to reconstruct $C$, mapping source reference positions to compressed-string positions.
 ]
 
 #{

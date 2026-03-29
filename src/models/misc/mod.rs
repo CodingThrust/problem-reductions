@@ -17,6 +17,7 @@
 //! - [`MultiprocessorScheduling`]: Schedule tasks on processors to meet a deadline
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
 //! - [`MinimumExternalMacroDataCompression`]: Minimize compression cost using external dictionary
+//! - [`MinimumInternalMacroDataCompression`]: Minimize self-referencing compression cost
 //! - [`MinimumTardinessSequencing`]: Minimize tardy tasks in single-machine scheduling
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
 //! - [`CosineProductIntegration`]: Balanced sign assignment for integer frequencies
@@ -84,6 +85,7 @@ mod knapsack;
 mod kth_largest_m_tuple;
 mod longest_common_subsequence;
 mod minimum_external_macro_data_compression;
+mod minimum_internal_macro_data_compression;
 mod minimum_tardiness_sequencing;
 mod multiprocessor_scheduling;
 pub(crate) mod paintshop;
@@ -131,6 +133,7 @@ pub use knapsack::Knapsack;
 pub use kth_largest_m_tuple::KthLargestMTuple;
 pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use minimum_external_macro_data_compression::MinimumExternalMacroDataCompression;
+pub use minimum_internal_macro_data_compression::MinimumInternalMacroDataCompression;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use multiprocessor_scheduling::MultiprocessorScheduling;
 pub use paintshop::PaintShop;
@@ -202,6 +205,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(three_partition::canonical_model_example_specs());
     specs.extend(cosine_product_integration::canonical_model_example_specs());
     specs.extend(minimum_external_macro_data_compression::canonical_model_example_specs());
+    specs.extend(minimum_internal_macro_data_compression::canonical_model_example_specs());
     specs.extend(register_sufficiency::canonical_model_example_specs());
     specs.extend(kth_largest_m_tuple::canonical_model_example_specs());
     specs

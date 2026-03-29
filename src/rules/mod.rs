@@ -162,6 +162,8 @@ pub(crate) mod minimumfeedbackvertexset_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumhittingset_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod minimuminternalmacrodatacompression_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimummultiwaycut_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumsetcovering_ilp;
@@ -349,6 +351,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(minimumcutintoboundedsets_ilp::canonical_rule_example_specs());
         specs.extend(minimumdominatingset_ilp::canonical_rule_example_specs());
         specs.extend(minimumexternalmacrodatacompression_ilp::canonical_rule_example_specs());
+        specs.extend(minimuminternalmacrodatacompression_ilp::canonical_rule_example_specs());
         specs.extend(minimumfeedbackarcset_ilp::canonical_rule_example_specs());
         specs.extend(minimumfeedbackvertexset_ilp::canonical_rule_example_specs());
         specs.extend(minimumhittingset_ilp::canonical_rule_example_specs());
