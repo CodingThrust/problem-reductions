@@ -28,7 +28,7 @@ inventory::submit! {
 inventory::submit! {
     ProblemSizeFieldEntry {
         name: "QuadraticDiophantineEquations",
-        fields: &["c_val"],
+        fields: &["c"],
     }
 }
 
@@ -100,7 +100,7 @@ impl QuadraticDiophantineEquations {
     }
 
     /// Get the right-hand side constant c.
-    pub fn c_val(&self) -> u64 {
+    pub fn c(&self) -> u64 {
         self.c
     }
 
@@ -200,7 +200,7 @@ impl Problem for QuadraticDiophantineEquations {
 }
 
 crate::declare_variants! {
-    default QuadraticDiophantineEquations => "sqrt(c_val)",
+    default QuadraticDiophantineEquations => "sqrt(c)",
 }
 
 #[cfg(feature = "example-db")]

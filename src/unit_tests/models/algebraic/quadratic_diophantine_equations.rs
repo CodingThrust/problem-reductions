@@ -18,7 +18,7 @@ fn test_quadratic_diophantine_equations_basic() {
     let problem = yes_problem();
     assert_eq!(problem.a(), 3);
     assert_eq!(problem.b(), 5);
-    assert_eq!(problem.c_val(), 53);
+    assert_eq!(problem.c(), 53);
     // max_x = isqrt(53/3) = isqrt(17) = 4
     assert_eq!(problem.dims(), vec![4]);
     assert_eq!(problem.num_variables(), 1);
@@ -103,7 +103,7 @@ fn test_quadratic_diophantine_equations_serialization() {
     let restored: QuadraticDiophantineEquations = serde_json::from_value(json).unwrap();
     assert_eq!(restored.a(), problem.a());
     assert_eq!(restored.b(), problem.b());
-    assert_eq!(restored.c_val(), problem.c_val());
+    assert_eq!(restored.c(), problem.c());
 }
 
 #[test]

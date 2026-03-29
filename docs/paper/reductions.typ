@@ -3282,7 +3282,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
       #pred-commands(
         "pred create --example QuadraticDiophantineEquations -o qde.json",
-        "pred solve qde.json",
+        "pred solve qde.json --solver brute-force",
         "pred evaluate qde.json --config " + config.map(str).join(","),
       )
 
