@@ -4,8 +4,8 @@ use crate::traits::Problem;
 use crate::types::Sum;
 
 fn example_problem() -> KthLargestMTuple {
-    // m=3, X_1={2,5,8}, X_2={3,6}, X_3={1,4,7}, B=12
-    KthLargestMTuple::new(vec![vec![2, 5, 8], vec![3, 6], vec![1, 4, 7]], 12)
+    // m=3, X_1={2,5,8}, X_2={3,6}, X_3={1,4,7}, B=12, K=14
+    KthLargestMTuple::new(vec![vec![2, 5, 8], vec![3, 6], vec![1, 4, 7]], 14, 12)
 }
 
 #[test]
@@ -15,6 +15,7 @@ fn test_kth_largest_m_tuple_creation() {
     assert_eq!(p.sets()[0], vec![2, 5, 8]);
     assert_eq!(p.sets()[1], vec![3, 6]);
     assert_eq!(p.sets()[2], vec![1, 4, 7]);
+    assert_eq!(p.k(), 14);
     assert_eq!(p.bound(), 12);
     assert_eq!(p.num_sets(), 3);
     assert_eq!(p.total_tuples(), 18);
@@ -65,10 +66,12 @@ fn test_kth_largest_m_tuple_solver() {
 
 #[test]
 fn test_kth_largest_m_tuple_boundary_example() {
+    // K=14 and count=14, so the answer is YES (count >= K)
     let p = example_problem();
     let solver = BruteForce::new();
     let count = solver.solve(&p);
     assert_eq!(count, Sum(14));
+    assert!(count.0 >= p.k());
 }
 
 #[test]
@@ -79,12 +82,14 @@ fn test_kth_largest_m_tuple_serialization_round_trip() {
         json,
         serde_json::json!({
             "sets": [[2, 5, 8], [3, 6], [1, 4, 7]],
+            "k": 14,
             "bound": 12,
         })
     );
 
     let restored: KthLargestMTuple = serde_json::from_value(json).unwrap();
     assert_eq!(restored.sets(), p.sets());
+    assert_eq!(restored.k(), p.k());
     assert_eq!(restored.bound(), p.bound());
 }
 
@@ -92,13 +97,15 @@ fn test_kth_largest_m_tuple_serialization_round_trip() {
 fn test_kth_largest_m_tuple_deserialization_rejects_invalid() {
     let invalid_cases = [
         // Empty sets
-        serde_json::json!({ "sets": [], "bound": 5 }),
+        serde_json::json!({ "sets": [], "k": 1, "bound": 5 }),
         // A set is empty
-        serde_json::json!({ "sets": [[1, 2], []], "bound": 3 }),
+        serde_json::json!({ "sets": [[1, 2], []], "k": 1, "bound": 3 }),
         // Zero size
-        serde_json::json!({ "sets": [[0, 2]], "bound": 1 }),
+        serde_json::json!({ "sets": [[0, 2]], "k": 1, "bound": 1 }),
+        // K=0
+        serde_json::json!({ "sets": [[1, 2]], "k": 0, "bound": 1 }),
         // Bound=0
-        serde_json::json!({ "sets": [[1, 2]], "bound": 0 }),
+        serde_json::json!({ "sets": [[1, 2]], "k": 1, "bound": 0 }),
     ];
 
     for invalid in invalid_cases {
@@ -109,25 +116,25 @@ fn test_kth_largest_m_tuple_deserialization_rejects_invalid() {
 #[test]
 #[should_panic(expected = "at least one set")]
 fn test_kth_largest_m_tuple_empty_sets_panics() {
-    KthLargestMTuple::new(vec![], 5);
+    KthLargestMTuple::new(vec![], 1, 5);
 }
 
 #[test]
 #[should_panic(expected = "non-empty")]
 fn test_kth_largest_m_tuple_empty_inner_set_panics() {
-    KthLargestMTuple::new(vec![vec![1, 2], vec![]], 3);
+    KthLargestMTuple::new(vec![vec![1, 2], vec![]], 1, 3);
 }
 
 #[test]
 #[should_panic(expected = "positive")]
 fn test_kth_largest_m_tuple_zero_size_panics() {
-    KthLargestMTuple::new(vec![vec![0, 2]], 1);
+    KthLargestMTuple::new(vec![vec![0, 2]], 1, 1);
 }
 
 #[test]
 fn test_kth_largest_m_tuple_paper_example() {
-    // Issue example: m=3, X_1={2,5,8}, X_2={3,6}, X_3={1,4,7}, B=12
-    // 14 of 18 tuples have sum >= 12
+    // Issue example: m=3, X_1={2,5,8}, X_2={3,6}, X_3={1,4,7}, B=12, K=14
+    // 14 of 18 tuples have sum >= 12 -> YES (boundary case: count == K)
     let p = example_problem();
     let solver = BruteForce::new();
     let count = solver.solve(&p);
@@ -143,7 +150,7 @@ fn test_kth_largest_m_tuple_paper_example() {
 #[test]
 fn test_kth_largest_m_tuple_all_qualify() {
     // Two sets each with one large element, B=1 -> all tuples qualify
-    let p = KthLargestMTuple::new(vec![vec![5], vec![10]], 1);
+    let p = KthLargestMTuple::new(vec![vec![5], vec![10]], 1, 1);
     let solver = BruteForce::new();
     assert_eq!(solver.solve(&p), Sum(1));
     assert_eq!(p.total_tuples(), 1);
@@ -152,7 +159,7 @@ fn test_kth_largest_m_tuple_all_qualify() {
 #[test]
 fn test_kth_largest_m_tuple_none_qualify() {
     // B is larger than any possible sum
-    let p = KthLargestMTuple::new(vec![vec![1, 2], vec![1, 2]], 100);
+    let p = KthLargestMTuple::new(vec![vec![1, 2], vec![1, 2]], 1, 100);
     let solver = BruteForce::new();
     assert_eq!(solver.solve(&p), Sum(0));
 }

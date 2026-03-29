@@ -249,7 +249,7 @@ Flags by problem type:
   ProductionPlanning             --num-periods, --demands, --capacities, --setup-costs, --production-costs, --inventory-costs, --cost-bound
   SubsetSum                       --sizes, --target
   ThreePartition                  --sizes, --bound
-  KthLargestMTuple                --sets, --bound
+  KthLargestMTuple                --sets, --k, --bound
   SumOfSquaresPartition           --sizes, --num-groups
   ExpectedRetrievalCost           --probabilities, --num-sectors
   PaintShop                       --sequence
