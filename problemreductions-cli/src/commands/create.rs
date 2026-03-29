@@ -9,7 +9,7 @@ use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
-    ConsecutiveOnesSubmatrix, SparseMatrixCompression, BMF,
+    ConsecutiveOnesSubmatrix, FeasibleBasisExtension, SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -193,6 +193,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.conjuncts_spec.is_none()
         && args.deps.is_none()
         && args.query.is_none()
+        && args.rhs.is_none()
+        && args.required_columns.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -767,6 +769,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "StringToStringCorrection" => {
             "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
         }
+        "FeasibleBasisExtension" => {
+            "--matrix '[[1,0,1,2,-1,0],[0,1,0,1,1,2],[0,0,1,1,0,1]]' --rhs '7,5,3' --required-columns '0,1'"
+        }
         _ => "",
     }
 }
@@ -894,6 +899,9 @@ fn help_flag_hint(
         }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("SparseMatrixCompression", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("FeasibleBasisExtension", "matrix") => "JSON 2D integer array: '[[1,0,1],[0,1,0]]'",
+        ("FeasibleBasisExtension", "rhs") => "comma-separated integers: \"7,5,3\"",
+        ("FeasibleBasisExtension", "required_columns") => "comma-separated column indices: \"0,1\"",
         ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
             "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
         }
@@ -2863,6 +2871,53 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             }
             (
                 ser(SparseMatrixCompression::new(matrix, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // FeasibleBasisExtension
+        "FeasibleBasisExtension" => {
+            let usage = "Usage: pred create FeasibleBasisExtension --matrix '[[1,0,1],[0,1,0]]' --rhs '7,5' --required-columns '0'";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FeasibleBasisExtension requires --matrix (JSON 2D i64 array), --rhs, and --required-columns\n\n{usage}"
+                )
+            })?;
+            let matrix: Vec<Vec<i64>> = serde_json::from_str(matrix_str).map_err(|err| {
+                anyhow::anyhow!(
+                    "FeasibleBasisExtension requires --matrix as a JSON 2D integer array (e.g., '[[1,0,1],[0,1,0]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
+                )
+            })?;
+            let rhs_str = args.rhs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FeasibleBasisExtension requires --rhs (comma-separated integers)\n\n{usage}"
+                )
+            })?;
+            let rhs: Vec<i64> = rhs_str
+                .split(',')
+                .map(|s| s.trim().parse::<i64>())
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|err| {
+                    anyhow::anyhow!(
+                        "Failed to parse --rhs as comma-separated integers: {err}\n\n{usage}"
+                    )
+                })?;
+            let required_str = args.required_columns.as_deref().unwrap_or("");
+            let required_columns: Vec<usize> = if required_str.is_empty() {
+                vec![]
+            } else {
+                required_str
+                    .split(',')
+                    .map(|s| s.trim().parse::<usize>())
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|err| {
+                        anyhow::anyhow!(
+                            "Failed to parse --required-columns as comma-separated indices: {err}\n\n{usage}"
+                        )
+                    })?
+            };
+            (
+                ser(FeasibleBasisExtension::new(matrix, rhs, required_columns))?,
                 resolved_variant.clone(),
             )
         }
@@ -7648,6 +7703,8 @@ mod tests {
             storage: None,
             quantifiers: None,
             homologous_pairs: None,
+            rhs: None,
+            required_columns: None,
         }
     }
 
