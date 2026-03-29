@@ -9,6 +9,7 @@
 //! - [`ConjunctiveQueryFoldability`]: Conjunctive Query Foldability
 //! - [`ExpectedRetrievalCost`]: Allocate records to circular sectors within a latency bound
 //! - [`Factoring`]: Integer factorization
+//! - [`IntegerExpressionMembership`]: Membership in a set defined by an integer expression tree
 //! - [`FlowShopScheduling`]: Flow Shop Scheduling (meet deadline on m processors)
 //! - [`GroupingBySwapping`]: Group equal symbols into contiguous blocks by adjacent swaps
 //! - [`JobShopScheduling`]: Minimize makespan with per-job processor routes
@@ -76,8 +77,10 @@ pub(crate) mod expected_retrieval_cost;
 pub(crate) mod factoring;
 mod flow_shop_scheduling;
 mod grouping_by_swapping;
+pub(crate) mod integer_expression_membership;
 mod job_shop_scheduling;
 mod knapsack;
+mod kth_largest_m_tuple;
 mod longest_common_subsequence;
 mod minimum_tardiness_sequencing;
 mod multiprocessor_scheduling;
@@ -89,6 +92,7 @@ mod production_planning;
 mod rectilinear_picture_compression;
 mod register_sufficiency;
 pub(crate) mod resource_constrained_scheduling;
+mod scheduling_to_minimize_weighted_completion_time;
 mod scheduling_with_individual_deadlines;
 mod sequencing_to_minimize_maximum_cumulative_cost;
 mod sequencing_to_minimize_weighted_completion_time;
@@ -119,8 +123,10 @@ pub use expected_retrieval_cost::ExpectedRetrievalCost;
 pub use factoring::Factoring;
 pub use flow_shop_scheduling::FlowShopScheduling;
 pub use grouping_by_swapping::GroupingBySwapping;
+pub use integer_expression_membership::{IntExpr, IntegerExpressionMembership};
 pub use job_shop_scheduling::JobShopScheduling;
 pub use knapsack::Knapsack;
+pub use kth_largest_m_tuple::KthLargestMTuple;
 pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use multiprocessor_scheduling::MultiprocessorScheduling;
@@ -132,6 +138,7 @@ pub use production_planning::ProductionPlanning;
 pub use rectilinear_picture_compression::RectilinearPictureCompression;
 pub use register_sufficiency::RegisterSufficiency;
 pub use resource_constrained_scheduling::ResourceConstrainedScheduling;
+pub use scheduling_to_minimize_weighted_completion_time::SchedulingToMinimizeWeightedCompletionTime;
 pub use scheduling_with_individual_deadlines::SchedulingWithIndividualDeadlines;
 pub use sequencing_to_minimize_maximum_cumulative_cost::SequencingToMinimizeMaximumCumulativeCost;
 pub use sequencing_to_minimize_weighted_completion_time::SequencingToMinimizeWeightedCompletionTime;
@@ -165,6 +172,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(partition::canonical_model_example_specs());
     specs.extend(production_planning::canonical_model_example_specs());
     specs.extend(rectilinear_picture_compression::canonical_model_example_specs());
+    specs.extend(scheduling_to_minimize_weighted_completion_time::canonical_model_example_specs());
     specs.extend(scheduling_with_individual_deadlines::canonical_model_example_specs());
     specs.extend(sequencing_within_intervals::canonical_model_example_specs());
     specs.extend(staff_scheduling::canonical_model_example_specs());
@@ -186,9 +194,11 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(flow_shop_scheduling::canonical_model_example_specs());
     specs.extend(bin_packing::canonical_model_example_specs());
     specs.extend(knapsack::canonical_model_example_specs());
+    specs.extend(integer_expression_membership::canonical_model_example_specs());
     specs.extend(subset_sum::canonical_model_example_specs());
     specs.extend(three_partition::canonical_model_example_specs());
     specs.extend(cosine_product_integration::canonical_model_example_specs());
     specs.extend(register_sufficiency::canonical_model_example_specs());
+    specs.extend(kth_largest_m_tuple::canonical_model_example_specs());
     specs
 }
