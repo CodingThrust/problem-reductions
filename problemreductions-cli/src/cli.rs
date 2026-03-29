@@ -249,7 +249,7 @@ Flags by problem type:
   ProductionPlanning             --num-periods, --demands, --capacities, --setup-costs, --production-costs, --inventory-costs, --cost-bound
   SubsetSum                       --sizes, --target
   ThreePartition                  --sizes, --bound
-  QuadraticDiophantineEquations    --coeff-a, --coeff-b, --rhs
+  QuadraticDiophantineEquations    --coeff-a, --coeff-b, --qde-rhs
   SumOfSquaresPartition           --sizes, --num-groups
   ExpectedRetrievalCost           --probabilities, --num-sectors
   PaintShop                       --sequence
@@ -763,7 +763,7 @@ pub struct CreateArgs {
     pub coeff_b: Option<u64>,
     /// Right-hand side c for QuadraticDiophantineEquations
     #[arg(long)]
-    pub rhs: Option<u64>,
+    pub qde_rhs: Option<u64>,
 }
 
 #[derive(clap::Args)]
