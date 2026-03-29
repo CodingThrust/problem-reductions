@@ -181,6 +181,7 @@
   "PreemptiveScheduling": [Preemptive Scheduling],
   "PrimeAttributeName": [Prime Attribute Name],
   "QuadraticAssignment": [Quadratic Assignment],
+  "QuadraticCongruences": [Quadratic Congruences],
   "QuadraticDiophantineEquations": [Quadratic Diophantine Equations],
   "QuantifiedBooleanFormulas": [Quantified Boolean Formulas (QBF)],
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
@@ -3264,6 +3265,51 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       }),
       caption: [Optimal assignment $f^* = (#fstar-display)$ for the $#n times #m$ QAP instance. Facilities (blue, left) are assigned to locations (red, right) by arrows. Facilities $F_#(max-fi + 1)$ and $F_#(max-fj + 1)$ (highest flow $= #max-flow$) are assigned to locations $L_#(assigned-li + 1)$ and $L_#(assigned-lj + 1)$ (distance $= #dist-between$). Total cost $= #cost-star$.],
     ) <fig:qap-example>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("QuadraticCongruences")
+  let a = x.instance.a
+  let b = x.instance.b
+  let c = x.instance.c
+  let config = x.optimal_config
+  let xval = config.at(0) + 1
+  // Collect all x in {1..c-1} and check x² mod b == a
+  let rows = range(1, c).map(xi => {
+    let sq = xi * xi
+    let rem = calc.rem(sq, b)
+    let ok = rem == a
+    (xi, sq, rem, ok)
+  })
+  [
+    #problem-def("QuadraticCongruences")[
+      Given non-negative integers $a$, $b$, $c$ with $b > 0$ and $a < b$, determine whether there exists a positive integer $x$ with $1 <= x < c$ such that $x^2 equiv a space (mod space b)$.
+    ][
+      Quadratic Congruences is an NP-complete problem in the setting where $b$ is composite and given in unary (or the factorisation of $b$ is not provided) @garey1979. The problem asks whether $a$ is a _quadratic residue_ modulo $b$ in the range $\{1, dots, c-1\}$. When $b$ is prime, quadratic residuosity can be decided in polynomial time via Euler's criterion or the Legendre symbol, but the general case with composite modulus is believed to be computationally hard without the factorisation of $b$.
+
+      *Example.* Let $a = #a$, $b = #b$, $c = #c$. We test each $x in {1, dots, #(c - 1)}$:
+
+      #pred-commands(
+        "pred create --example QuadraticCongruences -o qc.json",
+        "pred solve qc.json --solver brute-force",
+        "pred evaluate qc.json --config " + config.map(str).join(","),
+      )
+
+      #align(center, table(
+        columns: 4,
+        align: center,
+        table.header([$x$], [$x^2$], [$x^2 mod #b$], [Satisfies?]),
+        ..rows.map(((xi, sq, rem, ok)) => (
+          [$#xi$],
+          [$#sq$],
+          [$#rem$],
+          [#if ok [Yes] else [No]],
+        )).flatten(),
+      ))
+
+      The instance is satisfiable: $x = #xval$ gives $#xval^2 = #(xval * xval) equiv #a space (mod space #b)$.
     ]
   ]
 }

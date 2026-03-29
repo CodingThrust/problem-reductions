@@ -250,6 +250,7 @@ Flags by problem type:
   SubsetSum                       --sizes, --target
   ThreePartition                  --sizes, --bound
   KthLargestMTuple                --sets, --k, --bound
+  QuadraticCongruences             --coeff-a, --coeff-b, --coeff-c
   QuadraticDiophantineEquations    --coeff-a, --coeff-b, --coeff-c
   SumOfSquaresPartition           --sizes, --num-groups
   ExpectedRetrievalCost           --probabilities, --num-sectors
@@ -776,13 +777,13 @@ pub struct CreateArgs {
     /// Expression tree for IntegerExpressionMembership (JSON, e.g., '{"Sum":[{"Atom":1},{"Atom":2}]}')
     #[arg(long)]
     pub expression: Option<String>,
-    /// Coefficient a for QuadraticDiophantineEquations (coefficient of x²)
+    /// Coefficient/parameter a for QuadraticCongruences (residue target) or QuadraticDiophantineEquations (coefficient of x²)
     #[arg(long)]
     pub coeff_a: Option<u64>,
-    /// Coefficient b for QuadraticDiophantineEquations (coefficient of y)
+    /// Coefficient/parameter b for QuadraticCongruences (modulus) or QuadraticDiophantineEquations (coefficient of y)
     #[arg(long)]
     pub coeff_b: Option<u64>,
-    /// Constant c for QuadraticDiophantineEquations (right-hand side of ax² + by = c)
+    /// Constant c for QuadraticCongruences (search-space bound) or QuadraticDiophantineEquations (right-hand side of ax² + by = c)
     #[arg(long)]
     pub coeff_c: Option<u64>,
 }

@@ -9,8 +9,8 @@ use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
-    ConsecutiveOnesSubmatrix, FeasibleBasisExtension, QuadraticDiophantineEquations,
-    SparseMatrixCompression, BMF,
+    ConsecutiveOnesSubmatrix, FeasibleBasisExtension, QuadraticCongruences,
+    QuadraticDiophantineEquations, SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -754,6 +754,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "ThreePartition" => "--sizes 4,5,6,4,6,5 --bound 15",
         "KthLargestMTuple" => "--sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12",
+        "QuadraticCongruences" => "--coeff-a 4 --coeff-b 15 --coeff-c 10",
         "QuadraticDiophantineEquations" => "--coeff-a 3 --coeff-b 5 --coeff-c 53",
         "BoyceCoddNormalFormViolation" => {
             "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
@@ -2510,6 +2511,32 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (
                 ser(KthLargestMTuple::try_new(sets, k_val as u64, bound)
                     .map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // QuadraticCongruences
+        "QuadraticCongruences" => {
+            let a = args.coeff_a.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticCongruences requires --coeff-a, --coeff-b, and --coeff-c\n\n\
+                     Usage: pred create QuadraticCongruences --coeff-a 4 --coeff-b 15 --coeff-c 10"
+                )
+            })?;
+            let b = args.coeff_b.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticCongruences requires --coeff-b\n\n\
+                     Usage: pred create QuadraticCongruences --coeff-a 4 --coeff-b 15 --coeff-c 10"
+                )
+            })?;
+            let c = args.coeff_c.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticCongruences requires --coeff-c\n\n\
+                     Usage: pred create QuadraticCongruences --coeff-a 4 --coeff-b 15 --coeff-c 10"
+                )
+            })?;
+            (
+                ser(QuadraticCongruences::try_new(a, b, c).map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
         }
