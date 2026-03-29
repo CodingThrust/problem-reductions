@@ -9,7 +9,8 @@ use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
-    ConsecutiveOnesSubmatrix, SparseMatrixCompression, BMF,
+    ConsecutiveOnesSubmatrix, FeasibleBasisExtension, QuadraticDiophantineEquations,
+    SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -193,6 +194,11 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.conjuncts_spec.is_none()
         && args.deps.is_none()
         && args.query.is_none()
+        && args.coeff_a.is_none()
+        && args.coeff_b.is_none()
+        && args.rhs.is_none()
+        && args.coeff_c.is_none()
+        && args.required_columns.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -723,9 +729,11 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SequencingToMinimizeWeightedTardiness" => {
             "--sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
         }
+        "IntegerKnapsack" => "--sizes 3,4,5,2,7 --values 4,5,7,3,9 --capacity 15",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "ThreePartition" => "--sizes 4,5,6,4,6,5 --bound 15",
         "KthLargestMTuple" => "--sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12",
+        "QuadraticDiophantineEquations" => "--coeff-a 3 --coeff-b 5 --coeff-c 53",
         "BoyceCoddNormalFormViolation" => {
             "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
         }
@@ -766,6 +774,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "StringToStringCorrection" => {
             "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
+        }
+        "FeasibleBasisExtension" => {
+            "--matrix '[[1,0,1,2,-1,0],[0,1,0,1,1,2],[0,0,1,1,0,1]]' --rhs '7,5,3' --required-columns '0,1'"
         }
         _ => "",
     }
@@ -894,6 +905,9 @@ fn help_flag_hint(
         }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("SparseMatrixCompression", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("FeasibleBasisExtension", "matrix") => "JSON 2D integer array: '[[1,0,1],[0,1,0]]'",
+        ("FeasibleBasisExtension", "rhs") => "comma-separated integers: \"7,5,3\"",
+        ("FeasibleBasisExtension", "required_columns") => "comma-separated column indices: \"0,1\"",
         ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
             "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
         }
@@ -2326,6 +2340,41 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // IntegerKnapsack
+        "IntegerKnapsack" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "IntegerKnapsack requires --sizes, --values, and --capacity\n\n\
+                     Usage: pred create IntegerKnapsack --sizes 3,4,5,2,7 --values 4,5,7,3,9 --capacity 15"
+                )
+            })?;
+            let values_str = args.values.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegerKnapsack requires --values (e.g., 4,5,7,3,9)")
+            })?;
+            let cap_str = args
+                .capacity
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("IntegerKnapsack requires --capacity (e.g., 15)"))?;
+            let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
+            let values: Vec<i64> = util::parse_comma_list(values_str)?;
+            let capacity: i64 = cap_str.parse()?;
+            anyhow::ensure!(
+                sizes.len() == values.len(),
+                "sizes and values must have the same length, got {} and {}",
+                sizes.len(),
+                values.len()
+            );
+            anyhow::ensure!(sizes.iter().all(|&s| s > 0), "all sizes must be positive");
+            anyhow::ensure!(values.iter().all(|&v| v > 0), "all values must be positive");
+            anyhow::ensure!(capacity >= 0, "capacity must be nonnegative");
+            (
+                ser(problemreductions::models::set::IntegerKnapsack::new(
+                    sizes, values, capacity,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // SubsetSum
         "SubsetSum" => {
             let sizes_str = args.sizes.as_deref().ok_or_else(|| {
@@ -2405,6 +2454,32 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (
                 ser(KthLargestMTuple::try_new(sets, k_val as u64, bound)
                     .map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // QuadraticDiophantineEquations
+        "QuadraticDiophantineEquations" => {
+            let a = args.coeff_a.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticDiophantineEquations requires --coeff-a, --coeff-b, and --coeff-c\n\n\
+                     Usage: pred create QuadraticDiophantineEquations --coeff-a 3 --coeff-b 5 --coeff-c 53"
+                )
+            })?;
+            let b = args.coeff_b.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticDiophantineEquations requires --coeff-b\n\n\
+                     Usage: pred create QuadraticDiophantineEquations --coeff-a 3 --coeff-b 5 --coeff-c 53"
+                )
+            })?;
+            let c = args.coeff_c.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticDiophantineEquations requires --coeff-c\n\n\
+                     Usage: pred create QuadraticDiophantineEquations --coeff-a 3 --coeff-b 5 --coeff-c 53"
+                )
+            })?;
+            (
+                ser(QuadraticDiophantineEquations::try_new(a, b, c).map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
         }
@@ -2862,6 +2937,53 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             }
             (
                 ser(SparseMatrixCompression::new(matrix, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // FeasibleBasisExtension
+        "FeasibleBasisExtension" => {
+            let usage = "Usage: pred create FeasibleBasisExtension --matrix '[[1,0,1],[0,1,0]]' --rhs '7,5' --required-columns '0'";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FeasibleBasisExtension requires --matrix (JSON 2D i64 array), --rhs, and --required-columns\n\n{usage}"
+                )
+            })?;
+            let matrix: Vec<Vec<i64>> = serde_json::from_str(matrix_str).map_err(|err| {
+                anyhow::anyhow!(
+                    "FeasibleBasisExtension requires --matrix as a JSON 2D integer array (e.g., '[[1,0,1],[0,1,0]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
+                )
+            })?;
+            let rhs_str = args.rhs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FeasibleBasisExtension requires --rhs (comma-separated integers)\n\n{usage}"
+                )
+            })?;
+            let rhs: Vec<i64> = rhs_str
+                .split(',')
+                .map(|s| s.trim().parse::<i64>())
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|err| {
+                    anyhow::anyhow!(
+                        "Failed to parse --rhs as comma-separated integers: {err}\n\n{usage}"
+                    )
+                })?;
+            let required_str = args.required_columns.as_deref().unwrap_or("");
+            let required_columns: Vec<usize> = if required_str.is_empty() {
+                vec![]
+            } else {
+                required_str
+                    .split(',')
+                    .map(|s| s.trim().parse::<usize>())
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|err| {
+                        anyhow::anyhow!(
+                            "Failed to parse --required-columns as comma-separated indices: {err}\n\n{usage}"
+                        )
+                    })?
+            };
+            (
+                ser(FeasibleBasisExtension::new(matrix, rhs, required_columns))?,
                 resolved_variant.clone(),
             )
         }
@@ -7647,6 +7769,11 @@ mod tests {
             storage: None,
             quantifiers: None,
             homologous_pairs: None,
+            coeff_a: None,
+            coeff_b: None,
+            rhs: None,
+            coeff_c: None,
+            required_columns: None,
         }
     }
 

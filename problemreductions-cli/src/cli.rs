@@ -250,6 +250,7 @@ Flags by problem type:
   SubsetSum                       --sizes, --target
   ThreePartition                  --sizes, --bound
   KthLargestMTuple                --sets, --k, --bound
+  QuadraticDiophantineEquations    --coeff-a, --coeff-b, --coeff-c
   SumOfSquaresPartition           --sizes, --num-groups
   ExpectedRetrievalCost           --probabilities, --num-sectors
   PaintShop                       --sequence
@@ -273,6 +274,7 @@ Flags by problem type:
   ConsecutiveOnesMatrixAugmentation --matrix (0/1), --bound
   ConsecutiveOnesSubmatrix        --matrix (0/1), --k
   SparseMatrixCompression         --matrix (0/1), --bound
+  FeasibleBasisExtension          --matrix (JSON 2D i64), --rhs, --required-columns
   SteinerTree                     --graph, --edge-weights, --terminals
   MultipleCopyFileAllocation      --graph, --usage, --storage
   AcyclicPartition                --arcs [--weights] [--arc-costs] --weight-bound --cost-bound [--num-vertices]
@@ -297,6 +299,7 @@ Flags by problem type:
   SteinerTreeInGraphs             --graph, --edge-weights, --terminals
   PartitionIntoPathsOfLength2     --graph
   ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
+  IntegerKnapsack                 --sizes, --values, --capacity
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   QAP                             --matrix (cost), --distance-matrix
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
@@ -735,6 +738,12 @@ pub struct CreateArgs {
     /// Query attribute index for PrimeAttributeName
     #[arg(long)]
     pub query: Option<usize>,
+    /// Right-hand side vector for FeasibleBasisExtension (comma-separated, e.g., "7,5,3")
+    #[arg(long)]
+    pub rhs: Option<String>,
+    /// Required column indices for FeasibleBasisExtension (comma-separated, e.g., "0,1")
+    #[arg(long)]
+    pub required_columns: Option<String>,
     /// Number of groups for SumOfSquaresPartition
     #[arg(long)]
     pub num_groups: Option<usize>,
@@ -747,6 +756,15 @@ pub struct CreateArgs {
     /// Target string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,3,2")
     #[arg(long)]
     pub target_string: Option<String>,
+    /// Coefficient a for QuadraticDiophantineEquations (coefficient of x²)
+    #[arg(long)]
+    pub coeff_a: Option<u64>,
+    /// Coefficient b for QuadraticDiophantineEquations (coefficient of y)
+    #[arg(long)]
+    pub coeff_b: Option<u64>,
+    /// Constant c for QuadraticDiophantineEquations (right-hand side of ax² + by = c)
+    #[arg(long)]
+    pub coeff_c: Option<u64>,
 }
 
 #[derive(clap::Args)]
