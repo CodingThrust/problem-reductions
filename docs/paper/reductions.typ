@@ -183,6 +183,7 @@
   "QuadraticAssignment": [Quadratic Assignment],
   "QuadraticCongruences": [Quadratic Congruences],
   "QuadraticDiophantineEquations": [Quadratic Diophantine Equations],
+  "SimultaneousIncongruences": [Simultaneous Incongruences],
   "QuantifiedBooleanFormulas": [Quantified Boolean Formulas (QBF)],
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
   "RegisterSufficiency": [Register Sufficiency],
@@ -3357,6 +3358,65 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       ))
 
       The instance is satisfiable: $x = #xval, y = #yval$ gives $#a dot #xval^2 + #b dot #yval = #c$.
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SimultaneousIncongruences")
+  let pairs = x.instance.pairs
+  let config = x.optimal_config
+  let xval = config.at(0)
+  // Build table rows: for each pair (a, b), compute x mod b and check ≠ a mod b
+  let rows = pairs.map(pair => {
+    let a = pair.at(0)
+    let b = pair.at(1)
+    let r = calc.rem(xval, b)
+    let cond = calc.rem(a, b)
+    let ok = r != cond
+    (a, b, r, cond, ok)
+  })
+  let moduli = pairs.map(p => p.at(1))
+  // lcm(2,3,5,7) = 210 for the canonical example
+  let lcm-val = moduli.fold(1, (l, b) => l * b / {
+    // gcd via Euclidean algorithm (unrolled for small values)
+    let aa = l
+    let bb = b
+    while bb != 0 {
+      let tmp = calc.rem(aa, bb)
+      aa = bb
+      bb = tmp
+    }
+    aa
+  })
+  [
+    #problem-def("SimultaneousIncongruences")[
+      Given a list of pairs $(a_i, b_i)$ with $b_i > 0$ and $1 <= a_i <= b_i$ for $i = 1, dots, n$, determine whether there exists a non-negative integer $x$ such that $x equiv.not a_i space (mod space b_i)$ for all $i$.
+    ][
+      Simultaneous Incongruences is an NP-complete problem @garey1979. It asks whether the complement of a system of congruences — a _covering system_ — can be simultaneously avoided. A _covering system_ is a finite collection of congruences $\{a_i space (op("mod") space b_i)\}$ that covers every integer; when the system is a covering system there is no valid $x$ and the instance is a "no" instance. The problem generalises checking whether a given set of congruences is a covering system, which has connections to Erdős's covering conjecture and sieve methods in analytic number theory.
+
+      *Example.* Let $n = #pairs.len()$ with pairs #pairs.map(p => $(#p.at(0), #p.at(1))$).join(", "). The full period is $L = op("lcm")(#moduli.map(str).join(", ")) = #lcm-val$. We test $x = #xval$:
+
+      #pred-commands(
+        "pred create --example SimultaneousIncongruences -o si.json",
+        "pred solve si.json --solver brute-force",
+        "pred evaluate si.json --config " + config.map(str).join(","),
+      )
+
+      #align(center, table(
+        columns: 5,
+        align: center,
+        table.header([$a_i$], [$b_i$], [$#xval mod b_i$], [$a_i mod b_i$], [Avoids?]),
+        ..rows.map(((a, b, r, cond, ok)) => (
+          [$#a$],
+          [$#b$],
+          [$#r$],
+          [$#cond$],
+          [#if ok [Yes] else [No]],
+        )).flatten(),
+      ))
+
+      The instance is satisfiable: $x = #xval$ avoids all congruences.
     ]
   ]
 }

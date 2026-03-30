@@ -10,7 +10,7 @@ use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExamp
 use problemreductions::models::algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
     ConsecutiveOnesSubmatrix, FeasibleBasisExtension, QuadraticCongruences,
-    QuadraticDiophantineEquations, SparseMatrixCompression, BMF,
+    QuadraticDiophantineEquations, SimultaneousIncongruences, SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -205,6 +205,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.coeff_b.is_none()
         && args.rhs.is_none()
         && args.coeff_c.is_none()
+        && args.pairs.is_none()
         && args.required_columns.is_none()
         && args.compilers.is_none()
         && args.setup_times.is_none()
@@ -756,6 +757,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "KthLargestMTuple" => "--sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12",
         "QuadraticCongruences" => "--coeff-a 4 --coeff-b 15 --coeff-c 10",
         "QuadraticDiophantineEquations" => "--coeff-a 3 --coeff-b 5 --coeff-c 53",
+        "SimultaneousIncongruences" => "--pairs \"2,2;1,3;2,5;3,7\"",
         "BoyceCoddNormalFormViolation" => {
             "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
         }
@@ -2563,6 +2565,40 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(QuadraticDiophantineEquations::try_new(a, b, c).map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SimultaneousIncongruences
+        "SimultaneousIncongruences" => {
+            let pairs_str = args.pairs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SimultaneousIncongruences requires --pairs\n\n\
+                     Usage: pred create SimultaneousIncongruences --pairs \"2,2;1,3;2,5;3,7\""
+                )
+            })?;
+            let pairs: Vec<(u64, u64)> = pairs_str
+                .split(';')
+                .map(|s| {
+                    let parts: Vec<&str> = s.split(',').collect();
+                    if parts.len() != 2 {
+                        return Err(anyhow::anyhow!(
+                            "Each pair must be in \"a,b\" format, got: {s}"
+                        ));
+                    }
+                    let a: u64 = parts[0]
+                        .trim()
+                        .parse()
+                        .with_context(|| format!("Invalid integer in pair: {s}"))?;
+                    let b: u64 = parts[1]
+                        .trim()
+                        .parse()
+                        .with_context(|| format!("Invalid integer in pair: {s}"))?;
+                    Ok((a, b))
+                })
+                .collect::<Result<_>>()?;
+            (
+                ser(SimultaneousIncongruences::new(pairs).map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
         }
@@ -8214,6 +8250,7 @@ mod tests {
             coeff_b: None,
             rhs: None,
             coeff_c: None,
+            pairs: None,
             required_columns: None,
             compilers: None,
             setup_times: None,

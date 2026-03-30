@@ -252,6 +252,7 @@ Flags by problem type:
   KthLargestMTuple                --sets, --k, --bound
   QuadraticCongruences             --coeff-a, --coeff-b, --coeff-c
   QuadraticDiophantineEquations    --coeff-a, --coeff-b, --coeff-c
+  SimultaneousIncongruences        --pairs (semicolon-separated a,b pairs)
   SumOfSquaresPartition           --sizes, --num-groups
   ExpectedRetrievalCost           --probabilities, --num-sectors
   PaintShop                       --sequence
@@ -786,6 +787,9 @@ pub struct CreateArgs {
     /// Constant c for QuadraticCongruences (search-space bound) or QuadraticDiophantineEquations (right-hand side of ax² + by = c)
     #[arg(long)]
     pub coeff_c: Option<u64>,
+    /// Incongruence pairs for SimultaneousIncongruences (semicolon-separated "a,b" pairs, e.g., "2,2;1,3;2,5;3,7")
+    #[arg(long)]
+    pub pairs: Option<String>,
 }
 
 #[derive(clap::Args)]

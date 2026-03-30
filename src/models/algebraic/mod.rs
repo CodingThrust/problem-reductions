@@ -10,6 +10,7 @@
 //! - [`QuadraticAssignment`]: Quadratic Assignment Problem
 //! - [`QuadraticCongruences`]: Decide x² ≡ a (mod b) for x in {1, ..., c-1}
 //! - [`QuadraticDiophantineEquations`]: Decide ax² + by = c in positive integers
+//! - [`SimultaneousIncongruences`]: Decide whether x ≢ aᵢ (mod bᵢ) for all i simultaneously
 //! - [`SparseMatrixCompression`]: Sparse Matrix Compression by row overlay
 
 pub(crate) mod bmf;
@@ -23,6 +24,7 @@ pub(crate) mod quadratic_assignment;
 pub(crate) mod quadratic_congruences;
 pub(crate) mod quadratic_diophantine_equations;
 pub(crate) mod qubo;
+pub(crate) mod simultaneous_incongruences;
 pub(crate) mod sparse_matrix_compression;
 
 pub use bmf::BMF;
@@ -36,6 +38,7 @@ pub use quadratic_assignment::QuadraticAssignment;
 pub use quadratic_congruences::QuadraticCongruences;
 pub use quadratic_diophantine_equations::QuadraticDiophantineEquations;
 pub use qubo::QUBO;
+pub use simultaneous_incongruences::SimultaneousIncongruences;
 pub use sparse_matrix_compression::SparseMatrixCompression;
 
 #[cfg(feature = "example-db")]
@@ -52,6 +55,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(quadratic_assignment::canonical_model_example_specs());
     specs.extend(quadratic_congruences::canonical_model_example_specs());
     specs.extend(quadratic_diophantine_equations::canonical_model_example_specs());
+    specs.extend(simultaneous_incongruences::canonical_model_example_specs());
     specs.extend(sparse_matrix_compression::canonical_model_example_specs());
     specs
 }
