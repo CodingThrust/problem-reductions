@@ -101,6 +101,7 @@
   "KClique": [$k$-Clique],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MaximumMatching": [Maximum Matching],
+  "MinimumMaximalMatching": [Minimum Maximal Matching],
   "BottleneckTravelingSalesman": [Bottleneck Traveling Salesman],
   "TravelingSalesman": [Traveling Salesman],
   "MaximumClique": [Maximum Clique],
@@ -2196,6 +2197,44 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     },
     caption: [Path $P_#nv$ with maximal IS $S = {#S-sub.map(i => $v_#i$).join(", ")}$ (blue, $w(S) = #w-sub$). $S$ is maximal --- no white vertex can be added --- but not maximum: ${#S-opt.map(i => $v_#i$).join(", ")}$ achieves $w = #w-opt$.],
     ) <fig:path-maximal-is>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumMaximalMatching")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let matched-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
+  let sz = metric-value(sol.metric)
+  [
+    #problem-def("MinimumMaximalMatching")[
+      Given $G = (V, E)$, find $M subset.eq E$ of minimum cardinality such that $M$ is a matching and $M$ is maximal: every $e in E backslash M$ shares an endpoint with some $e' in M$.
+    ][
+    A maximal matching cannot be extended by any edge, so every non-selected edge must be "blocked" by a selected one. Among all such matchings, the problem seeks one of minimum size. Unlike Maximum Matching (solvable in $O(n^3)$ by Edmonds' algorithm @edmonds1965), Minimum Maximal Matching is NP-hard @yannakakis1980; it can also be viewed as a Minimum Dominating Set in the line graph.
+
+    *Example.* Consider the path graph $P_#nv$ with $n = #nv$ vertices and $#ne$ edges. A minimum maximal matching is $M = {#matched-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$ with $|M| = #sz$. Every unselected edge shares an endpoint with a selected one, so $M$ is maximal.
+
+    #pred-commands(
+      "pred create --example MinimumMaximalMatching -o mmm.json",
+      "pred solve mmm.json",
+      "pred evaluate mmm.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure({
+      let vpos = range(nv).map(i => (i.bit-and(0xffff) * 1.5, 0))
+      draw-edge-highlight(vpos, edges, matched-edges,
+        matched-edges.fold((), (acc, (u, v)) => {
+          let r = acc
+          if u not in r { r.push(u) }
+          if v not in r { r.push(v) }
+          r
+        }))
+    },
+    caption: [Path $P_#nv$ with minimum maximal matching $M = {#matched-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$ (blue, $|M| = #sz$).],
+    ) <fig:path-min-maximal-matching>
     ]
   ]
 }
@@ -9367,6 +9406,23 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $I = {v : x_v = 1}$.
 ]
 
+#reduction-rule("MinimumMaximalMatching", "ILP")[
+  Each edge is either selected or not; matching and maximality constraints are both directly linear in binary edge indicators.
+][
+  _Construction._ Variables: $x_e in {0, 1}$ for each $e in E$. The ILP is:
+  $
+    min quad & sum_e x_e \
+    "subject to" quad & sum_(e in.rev v) x_e <= 1 quad forall v in V \
+    & x_j + sum_(i : i ~ j,\ i eq.not j) x_i >= 1 quad forall j in E \
+    & x_e in {0, 1} quad forall e in E
+  $,
+  where $i ~ j$ denotes that edges $i$ and $j$ share an endpoint.
+
+  _Correctness._ Degree constraints enforce the matching property. For each edge $j$, the maximality constraint requires that $j$ itself or at least one adjacent edge is selected, ensuring the matching cannot be extended. ($arrow.r.double$) A minimum maximal matching satisfies both constraints and minimizes cardinality. ($arrow.l.double$) Any feasible solution is a maximal matching; the objective minimizes its size.
+
+  _Solution extraction._ $M = {e : x_e = 1}$.
+]
+
 #reduction-rule("PartiallyOrderedKnapsack", "ILP")[
   Standard knapsack with precedence constraints: item $b$ can only be selected if item $a$ is also selected for each precedence $(a, b)$.
 ][
@@ -11015,6 +11071,7 @@ The following table shows concrete variable overhead for example instances, take
   (source: "Factoring", target: "ILP"),
   (source: "MinimumSetCovering", target: "ILP"),
   (source: "MinimumDominatingSet", target: "ILP"),
+  (source: "MinimumMaximalMatching", target: "ILP"),
   (source: "MaximumClique", target: "ILP"),
   (source: "TravelingSalesman", target: "ILP"),
 )

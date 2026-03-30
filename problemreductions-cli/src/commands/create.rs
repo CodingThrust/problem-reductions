@@ -17,9 +17,9 @@ use problemreductions::models::graph::{
     DirectedHamiltonianPath, DisjointConnectingPaths, GeneralizedHex, HamiltonianCircuit,
     HamiltonianPath, HamiltonianPathBetweenTwoVertices, IntegralFlowBundles,
     LengthBoundedDisjointPaths, LongestCircuit, LongestPath, MinimumCutIntoBoundedSets,
-    MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching,
-    PathConstrainedNetworkFlow, RootedTreeArrangement, SteinerTree, SteinerTreeInGraphs,
-    StrongConnectivityAugmentation,
+    MinimumDummyActivitiesPert, MinimumMaximalMatching, MinimumMultiwayCut, MixedChinesePostman,
+    MultipleChoiceBranching, PathConstrainedNetworkFlow, RootedTreeArrangement, SteinerTree,
+    SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
@@ -682,6 +682,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "BalancedCompleteBipartiteSubgraph" => {
             "--left 4 --right 4 --biedges 0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3 --k 3"
         }
+        "MinimumMaximalMatching" => "--graph 0-1,1-2,2-3,3-4,4-5",
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
         "CapacityAssignment" => {
@@ -1399,6 +1400,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     size_bound,
                 ))?,
                 resolved_variant.clone(),
+            )
+        }
+
+        // MinimumMaximalMatching (graph only, no weights)
+        "MinimumMaximalMatching" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MinimumMaximalMatching --graph 0-1,1-2,2-3,3-4,4-5"
+                )
+            })?;
+            (
+                ser(MinimumMaximalMatching::new(graph))?,
+                variant_map(&[("graph", "SimpleGraph")]),
             )
         }
 
@@ -6815,6 +6829,17 @@ fn create_random(
                 ))?,
                 variant,
             )
+        }
+
+        // MinimumMaximalMatching (graph only, no weights)
+        "MinimumMaximalMatching" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (ser(MinimumMaximalMatching::new(graph))?, variant)
         }
 
         // Hamiltonian Circuit (graph only, no weights)

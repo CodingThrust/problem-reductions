@@ -19,6 +19,7 @@
 //! - [`KColoring`]: K-vertex coloring
 //! - [`PartitionIntoTriangles`]: Partition vertices into triangles
 //! - [`MaximumMatching`]: Maximum weight matching
+//! - [`MinimumMaximalMatching`]: Minimum-size maximal matching
 //! - [`TravelingSalesman`]: Traveling Salesman (minimum weight Hamiltonian cycle)
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`MinimumMultiwayCut`]: Minimum weight multiway cut
@@ -90,6 +91,7 @@ pub(crate) mod minimum_dominating_set;
 pub(crate) mod minimum_dummy_activities_pert;
 pub(crate) mod minimum_feedback_arc_set;
 pub(crate) mod minimum_feedback_vertex_set;
+pub(crate) mod minimum_maximal_matching;
 pub(crate) mod minimum_multiway_cut;
 pub(crate) mod minimum_sum_multicenter;
 pub(crate) mod minimum_vertex_cover;
@@ -147,6 +149,7 @@ pub use minimum_dominating_set::MinimumDominatingSet;
 pub use minimum_dummy_activities_pert::MinimumDummyActivitiesPert;
 pub use minimum_feedback_arc_set::MinimumFeedbackArcSet;
 pub use minimum_feedback_vertex_set::MinimumFeedbackVertexSet;
+pub use minimum_maximal_matching::MinimumMaximalMatching;
 pub use minimum_multiway_cut::MinimumMultiwayCut;
 pub use minimum_sum_multicenter::MinimumSumMulticenter;
 pub use minimum_vertex_cover::MinimumVertexCover;
@@ -193,6 +196,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(longest_path::canonical_model_example_specs());
     specs.extend(minimum_dominating_set::canonical_model_example_specs());
     specs.extend(maximum_matching::canonical_model_example_specs());
+    specs.extend(minimum_maximal_matching::canonical_model_example_specs());
     specs.extend(traveling_salesman::canonical_model_example_specs());
     specs.extend(maximum_clique::canonical_model_example_specs());
     specs.extend(maximal_is::canonical_model_example_specs());
