@@ -181,6 +181,7 @@
   "PreemptiveScheduling": [Preemptive Scheduling],
   "PrimeAttributeName": [Prime Attribute Name],
   "QuadraticAssignment": [Quadratic Assignment],
+  "EquilibriumPoint": [Equilibrium Point],
   "QuadraticCongruences": [Quadratic Congruences],
   "QuadraticDiophantineEquations": [Quadratic Diophantine Equations],
   "SimultaneousIncongruences": [Simultaneous Incongruences],
@@ -3417,6 +3418,63 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       ))
 
       The instance is satisfiable: $x = #xval$ avoids all congruences.
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("EquilibriumPoint")
+  let polynomials = x.instance.polynomials
+  let range_sets = x.instance.range_sets
+  let config = x.optimal_config
+  let n = range_sets.len()
+  // Recover assignment: y_i = range_sets[i][config[i]]
+  let assignment = range(n).map(i => range_sets.at(i).at(config.at(i)))
+  // Helper: evaluate a single affine factor at assignment
+  let eval-factor(coeffs) = {
+    coeffs.at(0) + range(n).fold(0, (acc, j) => acc + coeffs.at(j + 1) * assignment.at(j))
+  }
+  // Helper: evaluate F_i (product of all factors)
+  let eval-payoff(i) = {
+    polynomials.at(i).fold(1, (prod, f) => prod * eval-factor(f))
+  }
+  [
+    #problem-def("EquilibriumPoint")[
+      Given $n$ players, finite strategy sets $M_i subset ZZ$, and polynomial payoff functions $F_i : M_1 times dots.c times M_n -> ZZ$ expressed as products of affine factors, determine whether there exists a pure-strategy Nash equilibrium: an assignment $bold(y) = (y_1, dots, y_n)$ with $y_i in M_i$ such that for every player $i$ and every $y'_i in M_i$, $F_i(bold(y)) >= F_i(bold(y)^((-i, y'_i)))$, where $bold(y)^((-i, y'_i))$ is $bold(y)$ with the $i$-th component replaced by $y'_i$.
+    ][
+      Equilibrium Point (problem AN15 in Garey & Johnson @garey1979) is NP-complete by reduction from 3-SAT due to Sahni @sahni1974. The problem captures a fundamental question in algorithmic game theory: does a multi-player game with polynomial payoffs admit a stable strategy profile from which no player benefits by deviating? The payoff functions are represented as products of affine factors, enabling compact encoding of degree-$k$ polynomials with $O(k n)$ coefficients per player. The problem remains NP-complete even when all strategy sets are binary.
+
+      *Example.* Consider $n = #n$ players with strategy sets $M_i = \{#range_sets.at(0).map(str).join(", ")\}$ for all $i$, and payoff functions:
+
+      #let fmt-factors(factors) = {
+        factors.map(coeffs => {
+          // Format: a0 + a1*x1 + ... + an*xn, omit zero terms
+          let terms = (coeffs.at(0),) + range(n).map(j => coeffs.at(j+1))
+          let parts = ()
+          if terms.at(0) != 0 { parts.push(str(terms.at(0))) }
+          for j in range(n) {
+            let c = terms.at(j+1)
+            if c == 1 { parts.push("x" + str(j+1)) }
+            else if c == -1 { parts.push("-x" + str(j+1)) }
+            else if c != 0 { parts.push(str(c) + "x" + str(j+1)) }
+          }
+          if parts.len() == 0 { parts.push("0") }
+          "(" + parts.join(" + ") + ")"
+        }).join(sym.dot.op)
+      }
+      #align(center)[
+        $F_1 = #fmt-factors(polynomials.at(0))$,
+        $F_2 = #fmt-factors(polynomials.at(1))$,
+        $F_3 = #fmt-factors(polynomials.at(2))$
+      ]
+
+      The assignment $bold(y) = (#assignment.map(str).join(", "))$ is a Nash equilibrium: $F_i(bold(y)) = #range(n).map(i => str(eval-payoff(i))).join(", ")$ for $i = 1, 2, 3$, and no player can strictly improve their payoff by deviating.
+
+      #pred-commands(
+        "pred create --example EquilibriumPoint -o ep.json",
+        "pred solve ep.json --solver brute-force",
+        "pred evaluate ep.json --config " + config.map(str).join(","),
+      )
     ]
   ]
 }

@@ -7,6 +7,7 @@
 //! - [`BMF`]: Boolean Matrix Factorization
 //! - [`ConsecutiveBlockMinimization`]: Consecutive Block Minimization
 //! - [`ConsecutiveOnesSubmatrix`]: Consecutive Ones Submatrix (column selection with C1P)
+//! - [`EquilibriumPoint`]: Pure-strategy Nash Equilibrium existence
 //! - [`QuadraticAssignment`]: Quadratic Assignment Problem
 //! - [`QuadraticCongruences`]: Decide x² ≡ a (mod b) for x in {1, ..., c-1}
 //! - [`QuadraticDiophantineEquations`]: Decide ax² + by = c in positive integers
@@ -18,6 +19,7 @@ pub(crate) mod closest_vector_problem;
 pub(crate) mod consecutive_block_minimization;
 pub(crate) mod consecutive_ones_matrix_augmentation;
 pub(crate) mod consecutive_ones_submatrix;
+pub(crate) mod equilibrium_point;
 pub(crate) mod feasible_basis_extension;
 pub(crate) mod ilp;
 pub(crate) mod quadratic_assignment;
@@ -32,6 +34,7 @@ pub use closest_vector_problem::{ClosestVectorProblem, VarBounds};
 pub use consecutive_block_minimization::ConsecutiveBlockMinimization;
 pub use consecutive_ones_matrix_augmentation::ConsecutiveOnesMatrixAugmentation;
 pub use consecutive_ones_submatrix::ConsecutiveOnesSubmatrix;
+pub use equilibrium_point::EquilibriumPoint;
 pub use feasible_basis_extension::FeasibleBasisExtension;
 pub use ilp::{Comparison, LinearConstraint, ObjectiveSense, VariableDomain, ILP};
 pub use quadratic_assignment::QuadraticAssignment;
@@ -55,6 +58,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(quadratic_assignment::canonical_model_example_specs());
     specs.extend(quadratic_congruences::canonical_model_example_specs());
     specs.extend(quadratic_diophantine_equations::canonical_model_example_specs());
+    specs.extend(equilibrium_point::canonical_model_example_specs());
     specs.extend(simultaneous_incongruences::canonical_model_example_specs());
     specs.extend(sparse_matrix_compression::canonical_model_example_specs());
     specs

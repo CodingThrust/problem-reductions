@@ -11,7 +11,7 @@ pub mod set;
 // Re-export commonly used types
 pub use algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
-    ConsecutiveOnesSubmatrix, FeasibleBasisExtension, QuadraticAssignment,
+    ConsecutiveOnesSubmatrix, EquilibriumPoint, FeasibleBasisExtension, QuadraticAssignment,
     QuadraticDiophantineEquations, SimultaneousIncongruences, SparseMatrixCompression, BMF, ILP,
     QUBO,
 };

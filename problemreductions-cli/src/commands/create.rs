@@ -9,7 +9,7 @@ use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
-    ConsecutiveOnesSubmatrix, FeasibleBasisExtension, QuadraticCongruences,
+    ConsecutiveOnesSubmatrix, EquilibriumPoint, FeasibleBasisExtension, QuadraticCongruences,
     QuadraticDiophantineEquations, SimultaneousIncongruences, SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
@@ -796,6 +796,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--domain-size 6 --relations \"2:0,3|1,3|2,4;3:0,1,5|1,2,5\" --conjuncts-spec \"0:v0,c3;0:v1,c3;1:v0,v1,c5\""
         }
         "ConjunctiveQueryFoldability" => "(use --example ConjunctiveQueryFoldability)",
+        "EquilibriumPoint" => "(use --example EquilibriumPoint)",
         "SequencingToMinimizeMaximumCumulativeCost" => {
             "--costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\""
         }
@@ -4808,6 +4809,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             bail!(
                 "ConjunctiveQueryFoldability has complex nested input.\n\n\
                  Use: pred create --example ConjunctiveQueryFoldability\n\
+                 Or provide a JSON file directly."
+            )
+        }
+
+        "EquilibriumPoint" => {
+            bail!(
+                "EquilibriumPoint has complex nested input (polynomial factor lists).\n\n\
+                 Use: pred create --example EquilibriumPoint\n\
                  Or provide a JSON file directly."
             )
         }
