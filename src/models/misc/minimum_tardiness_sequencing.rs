@@ -6,7 +6,7 @@
 //!
 //! Variants:
 //! - `MinimumTardinessSequencing<One>` — unit-length tasks (`1|prec, pj=1|∑Uj`)
-//! - `MinimumTardinessSequencing<usize>` — arbitrary-length tasks (`1|prec|∑Uj`)
+//! - `MinimumTardinessSequencing<i32>` — arbitrary-length tasks (`1|prec|∑Uj`)
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
@@ -18,7 +18,7 @@ inventory::submit! {
         name: "MinimumTardinessSequencing",
         display_name: "Minimum Tardiness Sequencing",
         aliases: &[],
-        dimensions: &[VariantDimension::new("weight", "One", &["One", "usize"])],
+        dimensions: &[VariantDimension::new("weight", "One", &["One", "i32"])],
         module_path: module_path!(),
         description: "Schedule tasks with precedence constraints and deadlines to minimize the number of tardy tasks",
         fields: &[
@@ -38,7 +38,7 @@ inventory::submit! {
 ///
 /// # Type Parameters
 ///
-/// * `W` - The weight/length type. `One` for unit-length tasks, `usize` for arbitrary.
+/// * `W` - The weight/length type. `One` for unit-length tasks, `i32` for arbitrary.
 ///
 /// # Example
 ///
@@ -86,7 +86,7 @@ impl MinimumTardinessSequencing<One> {
     }
 }
 
-impl MinimumTardinessSequencing<usize> {
+impl MinimumTardinessSequencing<i32> {
     /// Create a new arbitrary-length MinimumTardinessSequencing instance.
     ///
     /// # Panics
@@ -94,7 +94,7 @@ impl MinimumTardinessSequencing<usize> {
     /// Panics if `lengths.len() != deadlines.len()`, if any length is 0,
     /// or if any task index in `precedences` is out of range.
     pub fn with_lengths(
-        lengths: Vec<usize>,
+        lengths: Vec<i32>,
         deadlines: Vec<usize>,
         precedences: Vec<(usize, usize)>,
     ) -> Self {
@@ -206,12 +206,12 @@ impl Problem for MinimumTardinessSequencing<One> {
     }
 }
 
-impl Problem for MinimumTardinessSequencing<usize> {
+impl Problem for MinimumTardinessSequencing<i32> {
     const NAME: &'static str = "MinimumTardinessSequencing";
     type Value = Min<usize>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        crate::variant_params![usize]
+        crate::variant_params![i32]
     }
 
     fn dims(&self) -> Vec<usize> {
@@ -234,7 +234,7 @@ impl Problem for MinimumTardinessSequencing<usize> {
         let mut completion = vec![0usize; n];
         let mut cumulative = 0usize;
         for &task in &schedule {
-            cumulative += self.lengths[task];
+            cumulative += self.lengths[task] as usize;
             completion[task] = cumulative;
         }
 
@@ -248,7 +248,7 @@ impl Problem for MinimumTardinessSequencing<usize> {
 
 crate::declare_variants! {
     default MinimumTardinessSequencing<One> => "2^num_tasks",
-    MinimumTardinessSequencing<usize> => "2^num_tasks",
+    MinimumTardinessSequencing<i32> => "2^num_tasks",
 }
 
 #[cfg(feature = "example-db")]
@@ -272,7 +272,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             // Optimal schedule: t0,t4,t2,t1,t3 → 2 tardy
             // Lehmer [0,3,1,0,0]: avail=[0,1,2,3,4] pick 0→0; [1,2,3,4] pick 3→4;
             //   [1,2,3] pick 1→2; [1,3] pick 0→1; [3] pick 0→3
-            instance: Box::new(MinimumTardinessSequencing::<usize>::with_lengths(
+            instance: Box::new(MinimumTardinessSequencing::<i32>::with_lengths(
                 vec![3, 2, 2, 1, 2],
                 vec![4, 3, 8, 3, 6],
                 vec![(0, 2), (1, 3)],

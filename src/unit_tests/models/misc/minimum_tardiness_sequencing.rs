@@ -148,11 +148,11 @@ fn test_minimum_tardiness_sequencing_cyclic_precedences() {
     assert!(solver.find_witness(&problem).is_none());
 }
 
-// ===== Arbitrary-length variant (W = usize) =====
+// ===== Arbitrary-length variant (W = i32) =====
 
 #[test]
 fn test_minimum_tardiness_sequencing_weighted_basic() {
-    let problem = MinimumTardinessSequencing::<usize>::with_lengths(
+    let problem = MinimumTardinessSequencing::<i32>::with_lengths(
         vec![3, 2, 2, 1, 2],
         vec![4, 3, 8, 3, 6],
         vec![(0, 2), (1, 3)],
@@ -168,7 +168,7 @@ fn test_minimum_tardiness_sequencing_weighted_evaluate() {
     // Issue example: 5 tasks, lengths [3,2,2,1,2], deadlines [4,3,8,3,6], prec (0→2, 1→3)
     // Schedule: t0,t4,t2,t1,t3
     // Lehmer [0,3,1,0,0] -> schedule [0,4,2,1,3]
-    let problem = MinimumTardinessSequencing::<usize>::with_lengths(
+    let problem = MinimumTardinessSequencing::<i32>::with_lengths(
         vec![3, 2, 2, 1, 2],
         vec![4, 3, 8, 3, 6],
         vec![(0, 2), (1, 3)],
@@ -183,7 +183,7 @@ fn test_minimum_tardiness_sequencing_weighted_evaluate() {
 
 #[test]
 fn test_minimum_tardiness_sequencing_weighted_brute_force() {
-    let problem = MinimumTardinessSequencing::<usize>::with_lengths(
+    let problem = MinimumTardinessSequencing::<i32>::with_lengths(
         vec![3, 2, 2, 1, 2],
         vec![4, 3, 8, 3, 6],
         vec![(0, 2), (1, 3)],
@@ -198,13 +198,10 @@ fn test_minimum_tardiness_sequencing_weighted_brute_force() {
 
 #[test]
 fn test_minimum_tardiness_sequencing_weighted_serialization() {
-    let problem = MinimumTardinessSequencing::<usize>::with_lengths(
-        vec![3, 2, 2],
-        vec![4, 3, 8],
-        vec![(0, 1)],
-    );
+    let problem =
+        MinimumTardinessSequencing::<i32>::with_lengths(vec![3, 2, 2], vec![4, 3, 8], vec![(0, 1)]);
     let json = serde_json::to_value(&problem).unwrap();
-    let restored: MinimumTardinessSequencing<usize> = serde_json::from_value(json).unwrap();
+    let restored: MinimumTardinessSequencing<i32> = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_tasks(), problem.num_tasks());
     assert_eq!(restored.lengths(), problem.lengths());
     assert_eq!(restored.deadlines(), problem.deadlines());
@@ -217,7 +214,7 @@ fn test_minimum_tardiness_sequencing_weighted_different_lengths() {
     // Schedule [0,1,2]: t0(l=1,fin=1≤2✓), t1(l=5,fin=6≤6✓), t2(l=1,fin=7>3✗) → 1 tardy
     // Schedule [1,0,2]: t1(l=5,fin=5≤6✓), t0(l=1,fin=6>2✗), t2(l=1,fin=7>3✗) → 2 tardy
     let problem =
-        MinimumTardinessSequencing::<usize>::with_lengths(vec![1, 5, 1], vec![2, 6, 3], vec![]);
+        MinimumTardinessSequencing::<i32>::with_lengths(vec![1, 5, 1], vec![2, 6, 3], vec![]);
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
@@ -228,7 +225,7 @@ fn test_minimum_tardiness_sequencing_weighted_different_lengths() {
 #[test]
 #[should_panic(expected = "all task lengths must be positive")]
 fn test_minimum_tardiness_sequencing_weighted_zero_length() {
-    MinimumTardinessSequencing::<usize>::with_lengths(vec![1, 0, 2], vec![3, 3, 3], vec![]);
+    MinimumTardinessSequencing::<i32>::with_lengths(vec![1, 0, 2], vec![3, 3, 3], vec![]);
 }
 
 #[test]

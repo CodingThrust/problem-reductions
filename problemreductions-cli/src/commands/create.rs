@@ -3767,8 +3767,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let precedences = parse_precedence_pairs(args.precedence_pairs.as_deref())?;
 
             if let Some(sizes_str) = args.sizes.as_deref() {
-                // Arbitrary-length variant (W = usize)
-                let lengths: Vec<usize> = util::parse_comma_list(sizes_str)?;
+                // Arbitrary-length variant (W = i32)
+                let lengths: Vec<i32> = util::parse_comma_list(sizes_str)?;
                 anyhow::ensure!(
                     lengths.len() == deadlines.len(),
                     "sizes length ({}) must equal deadlines length ({})",
@@ -3777,7 +3777,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 );
                 validate_precedence_pairs(&precedences, lengths.len())?;
                 (
-                    ser(MinimumTardinessSequencing::<usize>::with_lengths(
+                    ser(MinimumTardinessSequencing::<i32>::with_lengths(
                         lengths,
                         deadlines,
                         precedences,

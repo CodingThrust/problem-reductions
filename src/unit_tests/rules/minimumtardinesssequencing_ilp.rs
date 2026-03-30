@@ -68,23 +68,20 @@ fn test_minimumtardinesssequencing_to_ilp_all_tight() {
 
 #[test]
 fn test_minimumtardinesssequencing_weighted_to_ilp_closed_loop() {
-    let problem = MinimumTardinessSequencing::<usize>::with_lengths(
-        vec![2, 1, 3],
-        vec![3, 4, 5],
-        vec![(0, 2)],
-    );
+    let problem =
+        MinimumTardinessSequencing::<i32>::with_lengths(vec![2, 1, 3], vec![3, 4, 5], vec![(0, 2)]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
 
     assert_optimization_round_trip_from_optimization_target(
         &problem,
         &reduction,
-        "MinimumTardinessSequencing<usize>->ILP closed loop",
+        "MinimumTardinessSequencing<i32>->ILP closed loop",
     );
 }
 
 #[test]
 fn test_minimumtardinesssequencing_weighted_to_ilp_vs_brute_force() {
-    let problem = MinimumTardinessSequencing::<usize>::with_lengths(
+    let problem = MinimumTardinessSequencing::<i32>::with_lengths(
         vec![3, 2, 2, 1, 2],
         vec![4, 3, 8, 3, 6],
         vec![(0, 2), (1, 3)],

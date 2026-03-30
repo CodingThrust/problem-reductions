@@ -33,7 +33,7 @@ impl ReductionResult for ReductionMTSToILP {
     }
 }
 
-/// Result of reducing MinimumTardinessSequencing<usize> to ILP<bool>.
+/// Result of reducing MinimumTardinessSequencing<i32> to ILP<bool>.
 #[derive(Debug, Clone)]
 pub struct ReductionMTSWeightedToILP {
     target: ILP<bool>,
@@ -41,7 +41,7 @@ pub struct ReductionMTSWeightedToILP {
 }
 
 impl ReductionResult for ReductionMTSWeightedToILP {
-    type Source = MinimumTardinessSequencing<usize>;
+    type Source = MinimumTardinessSequencing<i32>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -129,14 +129,14 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
     num_vars = "num_tasks * num_tasks + num_tasks",
     num_constraints = "2 * num_tasks + num_precedences + num_tasks * num_tasks",
 })]
-impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<usize> {
+impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i32> {
     type Result = ReductionMTSWeightedToILP;
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_tasks();
         let num_x_vars = n * n;
         let num_vars = num_x_vars + n;
-        let total_length: usize = self.lengths().iter().copied().sum();
+        let total_length: i32 = self.lengths().iter().copied().sum();
         let big_m = total_length as f64;
 
         let x_var = |j: usize, p: usize| -> usize { j * n + p };
@@ -183,7 +183,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         crate::example_db::specs::RuleExampleSpec {
             id: "minimumtardinesssequencing_weighted_to_ilp",
             build: || {
-                let source = MinimumTardinessSequencing::<usize>::with_lengths(
+                let source = MinimumTardinessSequencing::<i32>::with_lengths(
                     vec![2, 1, 3],
                     vec![3, 4, 5],
                     vec![(0, 2)],
