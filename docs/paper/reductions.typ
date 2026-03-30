@@ -85,6 +85,7 @@
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
+  "DirectedHamiltonianPath": [Directed Hamiltonian Path],
   "IntegralFlowBundles": [Integral Flow with Bundles],
   "LongestCircuit": [Longest Circuit],
   "LongestPath": [Longest Path],
@@ -1109,6 +1110,29 @@ is feasible: each set induces a connected subgraph, the component weights are $2
       },
       caption: [Hamiltonian Path in a #{nv}-vertex graph. Blue edges show the path $#path.map(v => $v_#v$).join($arrow$)$.],
       ) <fig:hamiltonian-path>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("DirectedHamiltonianPath")
+  let nv = x.instance.graph.num_vertices
+  let arcs = x.instance.graph.arcs
+  [
+    #problem-def("DirectedHamiltonianPath")[
+      Given a directed graph $G = (V, A)$, determine whether $G$ contains a _directed Hamiltonian path_, i.e., a simple directed path that visits every vertex exactly once following arc directions.
+    ][
+      A classical NP-complete decision problem from Garey & Johnson (A2.1 GT39). The directed version is NP-complete even for tournaments and remains hard for most restricted digraph classes.
+
+      The best known exact algorithm runs in $O(n^2 dot 2^n)$ time using Held--Karp style dynamic programming with bitmask DP.
+
+      Variables: A permutation of the $n$ vertices, encoded as a Lehmer code with $"dims" = [n, n-1, dots, 1]$. A configuration is satisfying when every consecutive pair in the decoded permutation forms a directed arc.
+
+      *Example.* Consider the directed graph $G$ on #nv vertices with arcs ${#arcs.map(((u, v)) => $(#u arrow.r #v)$).join(", ")}$. The directed Hamiltonian path $0 arrow.r 1 arrow.r 3 arrow.r 2 arrow.r 4 arrow.r 5$ visits every vertex exactly once with all consecutive pairs being arcs.
+
+      #pred-commands(
+        "pred create --example DirectedHamiltonianPath -o dhp.json",
+        "pred solve dhp.json",
+      )
     ]
   ]
 }
@@ -10010,6 +10034,23 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A Hamiltonian path defines a permutation of the vertices and therefore a feasible assignment matrix with one admissible graph edge between every consecutive pair. ($arrow.l.double$) Any feasible ILP solution is a vertex permutation whose consecutive pairs are graph edges, hence a Hamiltonian path.
 
   _Solution extraction._ For each position $p$, output the unique vertex $v$ with $x_(v,p) = 1$.
+]
+
+#reduction-rule("DirectedHamiltonianPath", "ILP")[
+  Assign each vertex to exactly one path position and forbid non-arc pairs at consecutive positions.
+][
+  _Construction._ Variables: binary $x_(v,k)$ with $x_(v,k) = 1$ iff vertex $v$ is placed at position $k$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_k x_(v,k) = 1 quad forall v \
+    & sum_v x_(v,k) = 1 quad forall k \
+    & x_(v,k) + x_(w,k+1) <= 1 quad forall k, (v, w) in.not A \
+    & x_(v,k) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A directed Hamiltonian path yields a permutation where every consecutive pair is a directed arc; the arc-exclusion constraints are satisfied by definition. ($arrow.l.double$) Any feasible ILP solution defines a vertex permutation whose consecutive pairs are all directed arcs, hence a directed Hamiltonian path.
+
+  _Solution extraction._ For each position $k$, decode the unique vertex $v$ with $x_(v,k) = 1$ to recover the permutation; convert to Lehmer code for the source configuration.
 ]
 
 #reduction-rule("BottleneckTravelingSalesman", "ILP")[

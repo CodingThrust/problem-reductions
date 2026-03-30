@@ -2,6 +2,7 @@
 //!
 //! Problems whose input is a graph (optionally weighted):
 //! - [`AcyclicPartition`]: Partition a digraph into bounded-weight groups with an acyclic quotient graph
+//! - [`DirectedHamiltonianPath`]: Directed Hamiltonian path (decision problem)
 //! - [`MaximumIndependentSet`]: Maximum weight independent set
 //! - [`MaximalIS`]: Maximal independent set
 //! - [`MinimumVertexCover`]: Minimum weight vertex cover
@@ -60,6 +61,7 @@ pub(crate) mod biclique_cover;
 pub(crate) mod biconnectivity_augmentation;
 pub(crate) mod bottleneck_traveling_salesman;
 pub(crate) mod bounded_component_spanning_forest;
+pub(crate) mod directed_hamiltonian_path;
 pub(crate) mod directed_two_commodity_integral_flow;
 pub(crate) mod disjoint_connecting_paths;
 pub(crate) mod generalized_hex;
@@ -115,6 +117,7 @@ pub use biclique_cover::BicliqueCover;
 pub use biconnectivity_augmentation::BiconnectivityAugmentation;
 pub use bottleneck_traveling_salesman::BottleneckTravelingSalesman;
 pub use bounded_component_spanning_forest::BoundedComponentSpanningForest;
+pub use directed_hamiltonian_path::DirectedHamiltonianPath;
 pub use directed_two_commodity_integral_flow::DirectedTwoCommodityIntegralFlow;
 pub use disjoint_connecting_paths::DisjointConnectingPaths;
 pub use generalized_hex::GeneralizedHex;
@@ -168,6 +171,7 @@ pub use undirected_two_commodity_integral_flow::UndirectedTwoCommodityIntegralFl
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let mut specs = Vec::new();
     specs.extend(acyclic_partition::canonical_model_example_specs());
+    specs.extend(directed_hamiltonian_path::canonical_model_example_specs());
     specs.extend(maximum_independent_set::canonical_model_example_specs());
     specs.extend(minimum_vertex_cover::canonical_model_example_specs());
     specs.extend(max_cut::canonical_model_example_specs());

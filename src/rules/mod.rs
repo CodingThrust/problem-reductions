@@ -102,6 +102,8 @@ pub(crate) mod consecutiveonessubmatrix_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod consistencyofdatabasefrequencytables_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod directedhamiltonianpath_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod directedtwocommodityintegralflow_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod disjointconnectingpaths_ilp;
@@ -334,6 +336,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(consecutiveonesmatrixaugmentation_ilp::canonical_rule_example_specs());
         specs.extend(consecutiveonessubmatrix_ilp::canonical_rule_example_specs());
         specs.extend(consistencyofdatabasefrequencytables_ilp::canonical_rule_example_specs());
+        specs.extend(directedhamiltonianpath_ilp::canonical_rule_example_specs());
         specs.extend(directedtwocommodityintegralflow_ilp::canonical_rule_example_specs());
         specs.extend(disjointconnectingpaths_ilp::canonical_rule_example_specs());
         specs.extend(exactcoverby3sets_ilp::canonical_rule_example_specs());

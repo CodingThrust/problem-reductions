@@ -21,9 +21,9 @@ pub use formula::{
 };
 pub use graph::{
     AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
-    BottleneckTravelingSalesman, BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow,
-    DisjointConnectingPaths, GeneralizedHex, HamiltonianCircuit, HamiltonianPath,
-    IntegralFlowBundles, IntegralFlowHomologousArcs, IntegralFlowWithMultipliers,
+    BottleneckTravelingSalesman, BoundedComponentSpanningForest, DirectedHamiltonianPath,
+    DirectedTwoCommodityIntegralFlow, DisjointConnectingPaths, GeneralizedHex, HamiltonianCircuit,
+    HamiltonianPath, IntegralFlowBundles, IntegralFlowHomologousArcs, IntegralFlowWithMultipliers,
     IsomorphicSpanningTree, KClique, KColoring, KthBestSpanningTree, LengthBoundedDisjointPaths,
     LongestCircuit, LongestPath, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
     MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,

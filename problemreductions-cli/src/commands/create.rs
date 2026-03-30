@@ -14,8 +14,8 @@ use problemreductions::models::algebraic::{
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
-    DisjointConnectingPaths, GeneralizedHex, HamiltonianCircuit, HamiltonianPath,
-    IntegralFlowBundles, LengthBoundedDisjointPaths, LongestCircuit, LongestPath,
+    DirectedHamiltonianPath, DisjointConnectingPaths, GeneralizedHex, HamiltonianCircuit,
+    HamiltonianPath, IntegralFlowBundles, LengthBoundedDisjointPaths, LongestCircuit, LongestPath,
     MinimumCutIntoBoundedSets, MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman,
     MultipleChoiceBranching, PathConstrainedNetworkFlow, RootedTreeArrangement, SteinerTree,
     SteinerTreeInGraphs, StrongConnectivityAugmentation,
@@ -718,6 +718,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
         }
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
+        "DirectedHamiltonianPath" => {
+            "--arcs \"0>1,0>3,1>3,1>4,2>0,2>4,3>2,3>5,4>5,5>1\" --num-vertices 6"
+        }
         "MinimumDummyActivitiesPert" => "--arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6",
         "RegisterSufficiency" => {
             "--arcs \"2>0,2>1,3>1,4>2,4>3,5>0,6>4,6>5\" --bound 3 --num-vertices 7"
@@ -4486,6 +4489,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let weights = parse_arc_weights(args, num_arcs)?;
             (
                 ser(MinimumFeedbackArcSet::new(graph, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // DirectedHamiltonianPath
+        "DirectedHamiltonianPath" => {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "DirectedHamiltonianPath requires --arcs\n\n\
+                     Usage: pred create DirectedHamiltonianPath --arcs \"0>1,1>2,2>3\" [--num-vertices N]"
+                )
+            })?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            (
+                ser(DirectedHamiltonianPath::new(graph))?,
                 resolved_variant.clone(),
             )
         }
