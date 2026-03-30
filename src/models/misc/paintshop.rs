@@ -134,6 +134,16 @@ impl PaintShop {
         &self.car_labels
     }
 
+    /// Get the sequence as car indices.
+    pub fn sequence_indices(&self) -> &[usize] {
+        &self.sequence_indices
+    }
+
+    /// Get whether each position is the first occurrence of its car.
+    pub fn is_first(&self) -> &[bool] {
+        &self.is_first
+    }
+
     /// Get the coloring of the sequence from a configuration.
     ///
     /// Config assigns a color (0 or 1) to each car for its first occurrence.

@@ -6,7 +6,7 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::types::{Min, WeightElement};
+use crate::types::{Min, One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +17,7 @@ inventory::submit! {
         aliases: &["MVC"],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i32", &["i32", "One"]),
         ],
         module_path: module_path!(),
         description: "Find minimum weight vertex cover in a graph",
@@ -152,6 +152,7 @@ fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 
 crate::declare_variants! {
     default MinimumVertexCover<SimpleGraph, i32> => "1.1996^num_vertices",
+    MinimumVertexCover<SimpleGraph, One> => "1.1996^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

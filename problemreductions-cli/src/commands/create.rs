@@ -28,11 +28,11 @@ use problemreductions::models::misc::{
     LongestCommonSubsequence, MinimumExternalMacroDataCompression, MinimumTardinessSequencing,
     MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, ProductionPlanning, QueryArg,
     RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
-    SchedulingToMinimizeWeightedCompletionTime,
-    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
+    SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
+    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
+    SumOfSquaresPartition, ThreePartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -661,7 +661,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "HamiltonianCircuit" => "--graph 0-1,1-2,2-3,3-0",
-        "EnsembleComputation" => "--universe 4 --sets \"0,1,2;0,1,3\" --budget 4",
+        "EnsembleComputation" => "--universe 4 --sets \"0,1,2;0,1,3\"",
         "RootedTreeStorageAssignment" => "--universe 5 --sets \"0,2;1,3;0,4;2,4\" --bound 1",
         "MinMaxMulticenter" => {
             "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
@@ -2622,26 +2622,23 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // EnsembleComputation
         "EnsembleComputation" => {
             let usage =
-                "Usage: pred create EnsembleComputation --universe 4 --sets \"0,1,2;0,1,3\" --budget 4";
+                "Usage: pred create EnsembleComputation --universe 4 --sets \"0,1,2;0,1,3\" [--budget 4]";
             let universe_size = args.universe.ok_or_else(|| {
                 anyhow::anyhow!("EnsembleComputation requires --universe\n\n{usage}")
             })?;
             let subsets = parse_sets(args)?;
-            let budget = args
-                .budget
-                .as_deref()
-                .ok_or_else(|| anyhow::anyhow!("EnsembleComputation requires --budget\n\n{usage}"))?
-                .parse::<usize>()
-                .map_err(|e| {
+            let instance = if let Some(budget_str) = args.budget.as_deref() {
+                let budget = budget_str.parse::<usize>().map_err(|e| {
                     anyhow::anyhow!(
                         "Invalid --budget value for EnsembleComputation: {e}\n\n{usage}"
                     )
                 })?;
-            (
-                ser(EnsembleComputation::try_new(universe_size, subsets, budget)
-                    .map_err(anyhow::Error::msg)?)?,
-                resolved_variant.clone(),
-            )
+                EnsembleComputation::try_new(universe_size, subsets, budget)
+                    .map_err(anyhow::Error::msg)?
+            } else {
+                EnsembleComputation::with_default_budget(universe_size, subsets)
+            };
+            (ser(instance)?, resolved_variant.clone())
         }
 
         // ComparativeContainment
