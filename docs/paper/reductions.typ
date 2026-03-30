@@ -179,6 +179,7 @@
   "ExpectedRetrievalCost": [Expected Retrieval Cost],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
   "ProductionPlanning": [Production Planning],
+  "PartitionIntoForests": [Partition into Forests],
   "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
   "PartitionIntoTriangles": [Partition Into Triangles],
   "PrecedenceConstrainedScheduling": [Precedence Constrained Scheduling],
@@ -4320,6 +4321,31 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }),
         caption: [Partition Into Triangles: #triangles.enumerate().map(((i, tri)) => $V_#(i + 1) = {#tri.map(v => $v_#v$).join(", ")}$).join(" and ") each form a triangle. Cross-edges (gray) are unused.],
       ) <fig:partition-triangles>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("PartitionIntoForests")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let K = x.instance.num_forests
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let classes = range(K).map(c => sol.config.enumerate().filter(((i, v)) => v == c).map(((i, _)) => i))
+  [
+    #problem-def("PartitionIntoForests")[
+      Given an undirected graph $G = (V, E)$ and a positive integer $K$, determine whether the vertex set $V$ can be partitioned into $K$ non-empty classes $V_1, dots, V_K$ such that the subgraph $G[V_i]$ induced by each class $V_i$ is a forest (acyclic graph).
+    ][
+      Partition Into Forests is NP-complete @garey1979[GT18]. The problem asks whether the vertex set can be split into $K$ classes each inducing an acyclic subgraph; it generalises arboricity decomposition (covering all edges with $K$ forests, solvable in polynomial time) to the decision problem where the partition need not cover all edges. The best known exact algorithm uses brute-force enumeration in $O^*(K^n)$ time.
+
+      *Example.* Consider $G$ with $n = #nv$ vertices and edges #edges.map(((u, v)) => [${#u, #v}$]).join(", "). With $K = #K$, the partition #classes.enumerate().map(((i, c)) => $V_#(i + 1) = {#c.map(v => $v_#v$).join(", ")}$).join(", ") is valid: each induced subgraph is acyclic.
+
+      #pred-commands(
+        "pred create --example PartitionIntoForests -o partition-into-forests.json",
+        "pred solve partition-into-forests.json",
+        "pred evaluate partition-into-forests.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }

@@ -27,6 +27,7 @@
 //! - [`HamiltonianPathBetweenTwoVertices`]: Hamiltonian path between two specified vertices (decision problem)
 //! - [`LongestPath`]: Maximum-length simple s-t path
 //! - [`ShortestWeightConstrainedPath`]: Bicriteria simple s-t path with length and weight bounds
+//! - [`PartitionIntoForests`]: Partition vertices into K classes each inducing an acyclic subgraph
 //! - [`PartitionIntoPathsOfLength2`]: Partition vertices into triples with at least two edges each
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
 //! - [`SteinerTreeInGraphs`]: Minimum weight Steiner tree connecting terminal vertices
@@ -100,6 +101,7 @@ pub(crate) mod multiple_choice_branching;
 pub(crate) mod multiple_copy_file_allocation;
 pub(crate) mod optimal_linear_arrangement;
 pub(crate) mod partial_feedback_edge_set;
+pub(crate) mod partition_into_forests;
 pub(crate) mod partition_into_paths_of_length_2;
 pub(crate) mod partition_into_triangles;
 pub(crate) mod path_constrained_network_flow;
@@ -158,6 +160,7 @@ pub use multiple_choice_branching::MultipleChoiceBranching;
 pub use multiple_copy_file_allocation::MultipleCopyFileAllocation;
 pub use optimal_linear_arrangement::OptimalLinearArrangement;
 pub use partial_feedback_edge_set::PartialFeedbackEdgeSet;
+pub use partition_into_forests::PartitionIntoForests;
 pub use partition_into_paths_of_length_2::PartitionIntoPathsOfLength2;
 pub use partition_into_triangles::PartitionIntoTriangles;
 pub use path_constrained_network_flow::PathConstrainedNetworkFlow;
@@ -216,6 +219,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(bottleneck_traveling_salesman::canonical_model_example_specs());
     specs.extend(bounded_component_spanning_forest::canonical_model_example_specs());
     specs.extend(partition_into_triangles::canonical_model_example_specs());
+    specs.extend(partition_into_forests::canonical_model_example_specs());
     specs.extend(partition_into_paths_of_length_2::canonical_model_example_specs());
     specs.extend(path_constrained_network_flow::canonical_model_example_specs());
     specs.extend(rooted_tree_arrangement::canonical_model_example_specs());

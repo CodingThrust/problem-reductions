@@ -684,6 +684,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "MinimumMaximalMatching" => "--graph 0-1,1-2,2-3,3-4,4-5",
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
+        "PartitionIntoForests" => "--graph 0-1,1-2,2-0,3-4,4-5,5-3 --k 2",
         "Factoring" => "--target 15 --m 4 --n 4",
         "CapacityAssignment" => {
             "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12"
@@ -4823,6 +4824,33 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             );
             (
                 ser(PartitionIntoTriangles::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // PartitionIntoForests
+        "PartitionIntoForests" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create PartitionIntoForests --graph 0-1,1-2,2-0,3-4,4-5,5-3 --k 2"
+                )
+            })?;
+            let num_forests = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PartitionIntoForests requires --k (number of forest classes)\n\n\
+                     Usage: pred create PartitionIntoForests --graph 0-1,1-2,2-0,3-4,4-5,5-3 --k 2"
+                )
+            })?;
+            anyhow::ensure!(
+                num_forests >= 1,
+                "PartitionIntoForests requires --k >= 1, got {}",
+                num_forests
+            );
+            (
+                ser(problemreductions::models::graph::PartitionIntoForests::new(
+                    graph,
+                    num_forests,
+                ))?,
                 resolved_variant.clone(),
             )
         }
