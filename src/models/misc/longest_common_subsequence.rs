@@ -118,6 +118,25 @@ impl LongestCommonSubsequence {
     pub fn num_transitions(&self) -> usize {
         self.max_length.saturating_sub(1)
     }
+
+    /// Returns the cross-frequency product: the sum over each alphabet symbol
+    /// of the product of that symbol's frequency across all input strings.
+    ///
+    /// Formally: Σ_{c ∈ 0..alphabet_size} Π_{i=1..k} count(c, strings\[i\])
+    /// where count(c, s) is the number of occurrences of symbol c in string s.
+    ///
+    /// This equals the exact number of match-node vertices in the LCS → MaxIS
+    /// reduction graph.
+    pub fn cross_frequency_product(&self) -> usize {
+        (0..self.alphabet_size)
+            .map(|c| {
+                self.strings
+                    .iter()
+                    .map(|s| s.iter().filter(|&&sym| sym == c).count())
+                    .product::<usize>()
+            })
+            .sum()
+    }
 }
 
 /// Check whether `candidate` is a subsequence of `target` using greedy

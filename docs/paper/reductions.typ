@@ -3906,9 +3906,9 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 ]
 
 #problem-def("EnsembleComputation")[
-  Given a finite set $A$, a collection $C$ of subsets of $A$, and a positive integer $J$, determine whether there exists a sequence $S = (z_1 <- x_1 union y_1, z_2 <- x_2 union y_2, dots, z_j <- x_j union y_j)$ of $j <= J$ union operations such that each operand $x_i, y_i$ is either a singleton ${a}$ for some $a in A$ or a previously computed set $z_k$ with $k < i$, the two operands are disjoint for every step, and every target subset $c in C$ is equal to some computed set $z_i$.
+  Given a finite set $A$ and a collection $C$ of subsets of $A$, find the minimum number of union operations in a sequence $S = (z_1 <- x_1 union y_1, z_2 <- x_2 union y_2, dots, z_j <- x_j union y_j)$ such that each operand $x_i, y_i$ is either a singleton ${a}$ for some $a in A$ or a previously computed set $z_k$ with $k < i$, the two operands are disjoint for every step, and every target subset $c in C$ is equal to some computed set $z_i$.
 ][
-  Ensemble Computation is problem PO9 in Garey and Johnson @garey1979. It can be viewed as monotone circuit synthesis over set union: each operation introduces one reusable intermediate set, and the objective is simply to realize all targets within the given budget. The implementation in this library uses $2J$ operand variables with domain size $|A| + J$ and accepts as soon as some valid prefix has produced every target set, so the original "$j <= J$" semantics are preserved under brute-force enumeration. The resulting search space yields a straightforward exact upper bound of $(|A| + J)^(2J)$. Järvisalo, Kaski, Koivisto, and Korhonen study SAT encodings for finding efficient ensemble computations in a monotone-circuit setting @jarvisalo2012.
+  Ensemble Computation is problem PO9 in Garey and Johnson @garey1979. It can be viewed as monotone circuit synthesis over set union: each operation introduces one reusable intermediate set, and the objective is to realize all targets in the fewest operations. The original GJ formulation is a decision problem with a budget parameter $J$; this library models the optimization variant that minimizes the sequence length, using $J$ as a search-space bound. The implementation uses $2J$ operand variables with domain size $|A| + J$ and reports the first step at which all targets are produced. The resulting search space yields a straightforward exact upper bound of $(|A| + J)^(2J)$. Järvisalo, Kaski, Koivisto, and Korhonen study SAT encodings for finding efficient ensemble computations in a monotone-circuit setting @jarvisalo2012.
 
   *Example.* Let $A = {0, 1, 2, 3}$, $C = {{0, 1, 2}, {0, 1, 3}}$, and $J = 4$. A satisfying witness uses three essential unions:
   $z_1 = {0} union {1} = {0, 1}$,
@@ -7886,6 +7886,16 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ For covering ${S_v : v in C}$, return VC $= C$ (same variable assignment).
 ]
 
+#reduction-rule("MinimumVertexCover", "EnsembleComputation")[
+  This $O(|V| + |E|)$ reduction @garey1979 encodes the unit-weight vertex-cover problem as an ensemble-computation minimization over disjoint unions. A fresh element $a_0$ is introduced, and each edge becomes a 3-element target subset. The minimum sequence length equals $K^* + |E|$, where $K^*$ is the minimum vertex cover size.
+][
+  _Construction._ Given a unit-weight VC instance $G = (V, E)$, let $a_0$ be a fresh element not in $V$. Set the universe $A = V union {a_0}$ with $|A| = |V| + 1$. For each edge ${u, v} in E$, add the subset ${a_0, u, v}$ to the collection $C$. Set the search-space bound $J = |V| + |E|$.
+
+  _Correctness._ ($arrow.r.double$) If $C'$ is a vertex cover of size $K$, label its elements $v_1, dots, v_K$ and the edges $e_1, dots, e_m$. Since $C'$ covers every edge, each $e_j = {u_j, v_(r[j])}$ where $v_(r[j]) in C'$. The sequence of $K + m$ operations $z_i = {a_0} union {v_i}$ for $i = 1, dots, K$ followed by $z_(K+j) = {u_j} union z_(r[j])$ for $j = 1, dots, m$ produces every target subset in exactly $K + |E|$ steps. ($arrow.l.double$) An exchange argument (Garey & Johnson, PO9) shows that any minimum-length sequence can be normalized to use only ${a_0} union {u}$ and ${v} union z_k$ forms. Each edge contributes exactly one operation of the second form, so the number of first-form operations equals the sequence length minus $|E|$. Since the first-form vertices must cover all edges, the minimum sequence length is $K^* + |E|$.
+
+  _Solution extraction._ From an optimal witness, collect all vertices appearing as singleton operands (indices $< |V|$). In a minimum-length normalized sequence, exactly the $K^*$ cover vertices appear as ${a_0}$-paired singletons.
+]
+
 #reduction-rule("MaximumMatching", "MaximumSetPacking")[
   A matching selects edges that share no endpoints; set packing selects sets that share no elements. By representing each edge as the 2-element set of its endpoints and using vertices as the universe, two edges conflict (share an endpoint) if and only if their sets overlap. This embeds matching as a special case of set packing where every set has size exactly 2.
 ][
@@ -8188,6 +8198,57 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   ]
 }
 
+#{
+  let ss-ca = load-example("SubsetSum", "CapacityAssignment")
+  let ss-ca-sol = ss-ca.solutions.at(0)
+  let ss-ca-sizes = ss-ca.source.instance.sizes.map(int)
+  let ss-ca-target = int(ss-ca.source.instance.target)
+  let ss-ca-n = ss-ca-sizes.len()
+  let ss-ca-S = ss-ca-sizes.fold(0, (a, b) => a + b)
+  let ss-ca-J = ss-ca-S - ss-ca-target
+  let ss-ca-selected = ss-ca-sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+  let ss-ca-selected-sizes = ss-ca-selected.map(i => ss-ca-sizes.at(i))
+  let ss-ca-selected-sum = ss-ca-selected-sizes.fold(0, (a, b) => a + b)
+  let ss-ca-not-selected = ss-ca-sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
+  let ss-ca-delay-sum = ss-ca-not-selected.map(i => ss-ca-sizes.at(i)).fold(0, (a, b) => a + b)
+  [
+    #reduction-rule("SubsetSum", "CapacityAssignment",
+      example: true,
+      example-caption: [#ss-ca-n elements, target sum $B = #ss-ca-target$],
+      extra: [
+        #pred-commands(
+          "pred create --example SubsetSum -o subsetsum.json",
+          "pred reduce subsetsum.json --to " + target-spec(ss-ca) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate subsetsum.json --config " + ss-ca-sol.source_config.map(str).join(","),
+        )
+        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#ss-ca-sizes.map(str).join(", "))$ and target $B = #ss-ca-target$. The total sum is $S = #ss-ca-S$.
+
+        *Step 2 -- Build the Capacity Assignment instance.* The reduction creates #ss-ca-n communication links with two capacities ${1, 2}$. For each link $c_i$ with element value $a_i$: cost row $(0, a_i)$ and delay row $(a_i, 0)$. The delay budget is $J = S - B = #ss-ca-S - #ss-ca-target = #ss-ca-J$.
+
+        *Step 3 -- Verify the canonical witness.* The fixture stores source config $(#ss-ca-sol.source_config.map(str).join(", "))$, selecting elements at indices $#ss-ca-selected.map(str).join(", ")$ with values $#ss-ca-selected-sizes.map(str).join(" + ") = #ss-ca-selected-sum = B$. In the target, these links get high capacity (index 1) with total cost $#ss-ca-selected-sum$ and the remaining links get low capacity (index 0) with total delay $#ss-ca-delay-sum <= #ss-ca-J = J$.
+
+        *Witness semantics.* The example DB stores one canonical witness. Other subsets summing to $B$ would also yield valid witnesses.
+      ],
+    )[
+      This $O(n)$ reduction from Subset Sum to Capacity Assignment follows the original NP-completeness proof of Van Sickle and Chandy @vansicklechandy1977 (GJ SR7 @garey1979). Each element becomes a communication link with two capacity levels; the cost/delay duality encodes complementary subset selection.
+    ][
+      _Construction._ Given sizes $a_1, dots, a_n in ZZ^+$ and target $B$, let $S = sum_(i=1)^n a_i$. Create $n$ communication links with capacity set $M = {1, 2}$. For each link $c_i$:
+      - Cost: $g(c_i, 1) = 0$, $g(c_i, 2) = a_i$ (non-decreasing since $0 <= a_i$).
+      - Delay: $d(c_i, 1) = a_i$, $d(c_i, 2) = 0$ (non-increasing since $a_i >= 0$).
+      Set the delay budget $J = S - B$.
+
+      _Correctness._ For any assignment $sigma$, the total cost is $sum_(i: sigma(c_i)=2) a_i$ and the total delay is $sum_(i: sigma(c_i)=1) a_i$. Since every element contributes to exactly one of these sums, cost $+$ delay $= S$.
+
+      ($arrow.r.double$) If $A' subset.eq A$ sums to $B$, assign $sigma(c_i) = 2$ for $a_i in A'$ and $sigma(c_i) = 1$ otherwise. Total cost $= B$, total delay $= S - B = J$.
+
+      ($arrow.l.double$) The delay constraint forces delay $<= S - B$, so cost $>= S - (S - B) = B$. If the optimal cost equals $B$, the high-capacity links form a subset summing to exactly $B$. If no such subset exists, the minimum cost is strictly greater than $B$.
+
+      _Solution extraction._ Return the target configuration unchanged: capacity index 1 (high) for link $c_i$ means element $a_i$ is selected.
+    ]
+  ]
+}
+
 #reduction-rule("ILP", "QUBO")[
   A binary ILP optimizes a linear objective over binary variables subject to linear constraints. The penalty method converts each equality constraint $bold(a)_k^top bold(x) = b_k$ into the quadratic penalty $(bold(a)_k^top bold(x) - b_k)^2$, which is zero if and only if the constraint is satisfied. Inequality constraints are first converted to equalities using binary slack variables with powers-of-two coefficients. The resulting unconstrained quadratic over binary variables is a QUBO whose matrix $Q$ combines the negated objective (as diagonal terms) with the expanded constraint penalties (as a Gram matrix $A^top A$).
 ][
@@ -8264,6 +8325,46 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) If the Partition instance is satisfiable, some subset $A'$ has sum $S / 2$. In particular $S$ is even, so $C = S / 2$, and selecting exactly the corresponding knapsack items is feasible with value $S / 2$. No feasible knapsack solution can have value larger than $C$, because value equals weight for every item and total weight is bounded by $C$. Thus the knapsack optimum is exactly $S / 2$. ($arrow.l.double$) If the knapsack optimum is $S / 2$, then the optimum is an integer and hence $S$ must be even. The selected items have total value $S / 2$, so they also have total weight $S / 2$ because $w_i = v_i$ itemwise. Those items therefore form a subset of the original multiset whose complement has the same sum, giving a valid balanced partition.
 
   _Solution extraction._ Return the same binary selection vector on the original elements: item $i$ is selected in the knapsack witness if and only if element $i$ belongs to the extracted partition subset.
+]
+
+#let part_ss = load-example("Partition", "SubsetSum")
+#let part_ss_sol = part_ss.solutions.at(0)
+#let part_ss_sizes = part_ss.source.instance.sizes
+#let part_ss_n = part_ss_sizes.len()
+#let part_ss_total = part_ss_sizes.fold(0, (a, b) => a + b)
+#let part_ss_target = part_ss_total / 2
+#let part_ss_selected = part_ss_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_ss_selected_sizes = part_ss_selected.map(i => part_ss_sizes.at(i))
+#let part_ss_selected_sum = part_ss_selected_sizes.fold(0, (a, b) => a + b)
+#reduction-rule("Partition", "SubsetSum",
+  example: true,
+  example-caption: [#part_ss_n elements, total sum $S = #part_ss_total$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_ss.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_ss) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_ss_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_ss_sizes.map(str).join(", "))$ with total sum $S = #part_ss_total$, so a balanced witness must hit exactly $S / 2 = #part_ss_target$.
+
+    *Step 2 -- Build the Subset Sum instance.* The reduction copies the sizes directly: $(#part_ss_sizes.map(str).join(", "))$, and sets the target $B = S / 2 = #part_ss_target$. The number of binary variables is unchanged ($n = #part_ss_n$).
+
+    *Step 3 -- Verify the canonical witness.* The serialized witness uses the same binary vector on both sides, $bold(x) = (#part_ss_sol.source_config.map(str).join(", "))$. It selects elements at indices $\{#part_ss_selected.map(str).join(", ")\}$ with sizes $(#part_ss_selected_sizes.map(str).join(", "))$, so the chosen subset sums to $#part_ss_selected_sum = #part_ss_target = B$ #sym.checkmark.
+
+    *Witness semantics.* The example DB stores one canonical balanced subset. Multiple subsets may sum to $B$, but one witness suffices to demonstrate the reduction.
+  ],
+)[
+  This $O(n)$ reduction @garey1979[SP13] @karp1972 embeds a Partition instance into Subset Sum by copying the element sizes and setting the target to half the total sum. For $n$ source elements it produces $n$ Subset Sum items.
+][
+  _Construction._ Given positive sizes $s_0, dots, s_(n-1)$ with total sum $S = sum_(i=0)^(n-1) s_i$, construct a Subset Sum instance with the same sizes and target
+  $ B = S / 2. $
+  If $S$ is odd, return a trivially infeasible Subset Sum instance (empty sizes, target $= 1$).
+
+  _Correctness._ ($arrow.r.double$) If the Partition instance is satisfiable, some subset $A'$ has sum $S / 2 = B$, so the Subset Sum instance is satisfiable. ($arrow.l.double$) If the Subset Sum instance is satisfiable, some subset sums to $B = S / 2$, so its complement sums to $S - S / 2 = S / 2$, giving a balanced partition. When $S$ is odd, $S / 2$ is not an integer and no subset of positive integers can sum to it; the trivially infeasible target instance correctly reflects this.
+
+  _Solution extraction._ Return the same binary selection vector: element $i$ is in the partition subset if and only if it is selected in the Subset Sum witness.
 ]
 
 #let ks_qubo = load-example("Knapsack", "QUBO")
@@ -8767,6 +8868,16 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$; assign color $c$ to $v$.
 ]
 
+#reduction-rule("KColoring", "TwoDimensionalConsecutiveSets")[
+  @lipski1977fct A graph 3-coloring can be encoded as a partition problem on an alphabet. Each edge becomes a size-3 subset containing the two endpoint symbols plus a unique dummy symbol, and a valid 3-coloring corresponds to partitioning the alphabet into 3 groups where each edge-subset spans exactly 3 consecutive groups with one element per group. The reduction uses $n + m$ alphabet symbols and $m$ subsets for a graph with $n$ vertices and $m$ edges.
+][
+  _Construction._ Given $G = (V, E)$ with $|V| = n$ and $|E| = m$, build alphabet $Sigma = V union {d_e : e in E}$ of size $n + m$. For each edge $e = {u, v} in E$, define subset $Sigma_e = {u, v, d_e}$. The collection is $cal(C) = {Sigma_e : e in E}$ with $|cal(C)| = m$ subsets, each of size 3.
+
+  _Correctness._ ($arrow.r.double$) Given a valid 3-coloring $chi: V arrow {1, 2, 3}$, define partition groups $X_c = {v in V : chi(v) = c}$ for $c in {1, 2, 3}$. For each edge $e = {u, v}$, assign dummy $d_e$ to the unique third color $c^* in {1, 2, 3} backslash {chi(u), chi(v)}$ (which exists since $chi(u) != chi(v)$). Then $Sigma_e = {u, v, d_e}$ has its three elements in three distinct groups ${X_(chi(u)), X_(chi(v)), X_(c^*)} = {X_1, X_2, X_3}$, which are consecutive with one element per group. ($arrow.l.double$) If a valid partition into $k$ groups exists, each size-3 subset ${u, v, d_e}$ must occupy 3 distinct consecutive groups. In particular, $u$ and $v$ are in different groups. Mapping groups to colors gives a valid 3-coloring.
+
+  _Solution extraction._ The first $n$ symbols in the target configuration correspond to the graph vertices. Their group assignments, compressed to $0, 1, 2$, yield the 3-coloring.
+]
+
 #reduction-rule("Factoring", "ILP")[
   Integer multiplication $p times q = N$ is a system of bilinear equations over binary factor bits with carry propagation. Each bit-product $p_i q_j$ is a bilinear term that McCormick linearization replaces with an auxiliary variable and three inequalities. The carry-chain equations are already linear, so the full system becomes a binary ILP with $O(m n)$ variables and constraints.
 ][
@@ -9221,6 +9332,36 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ From QUBO solution $x^*$, for each position $p$ find the unique vertex $v$ with $x^*_(v n + p) = 1$. Map consecutive position pairs to edge indices.
 ]
 
+#let lcs_mis = load-example("LongestCommonSubsequence", "MaximumIndependentSet")
+#let lcs_mis_sol = lcs_mis.solutions.at(0)
+#reduction-rule("LongestCommonSubsequence", "MaximumIndependentSet",
+  example: true,
+  example-caption: [LCS of two strings over a 3-symbol alphabet],
+  extra: [
+    #pred-commands(
+      "pred create --example LCS -o lcs.json",
+      "pred reduce lcs.json --to " + target-spec(lcs_mis) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate lcs.json --config " + lcs_mis_sol.source_config.map(str).join(","),
+    )
+    Source LCS: config $(#lcs_mis_sol.source_config.map(str).join(", "))$ \
+    Target MIS: $S = {#lcs_mis_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #lcs_mis_sol.target_config.filter(x => x == 1).len()) \
+    MIS size $=$ LCS length $= #lcs_mis_sol.target_config.filter(x => x == 1).len()$ #sym.checkmark
+  ],
+)[
+  A match-node construction transforms a $k$-string LCS instance into a Maximum Independent Set problem on a conflict graph. Each vertex represents a $k$-tuple of positions (one per string) that all share the same character, and edges connect pairs that cannot coexist in any valid common subsequence. The MIS of this graph equals the LCS length.
+][
+  _Construction._ Given $k$ strings $s_1, dots, s_k$ over alphabet $Sigma$ (size $|Sigma|$):
+
+  _Vertices:_ For each character $c in Sigma$, create a vertex for every $k$-tuple $(p_1, dots, p_k)$ where $s_i [p_i] = c$ for all $i$. The total vertex count equals $sum_(c in Sigma) product_(i=1)^k "count"(c, s_i)$.
+
+  _Edges:_ Two vertices $u = (a_1, dots, a_k)$ and $v = (b_1, dots, b_k)$ are connected if they _conflict_ --- they cannot both appear in a valid common subsequence. A conflict occurs when the position differences are not consistently ordered: $not (forall i: a_i < b_i)$ and $not (forall i: a_i > b_i)$.
+
+  _Correctness._ ($arrow.r.double$) A common subsequence of length $ell$ selects $ell$ match nodes whose positions are strictly increasing in every string, so no two are adjacent --- forming an independent set of size $ell$. ($arrow.l.double$) An independent set of size $ell$ consists of $ell$ mutually non-conflicting match nodes, meaning their positions are consistently ordered across all strings. Sorting by any string's position yields a valid common subsequence of length $ell$.
+
+  _Solution extraction._ Sort the selected vertices by position in $s_1$. Read off the characters to obtain the common subsequence, then pad to `max_length` with the padding symbol.
+]
+
 #reduction-rule("LongestCommonSubsequence", "ILP")[
   An optimization ILP formulation maximizes the length of a common subsequence. Binary variables choose a symbol (or padding) at each witness position. Match variables link active positions to source string indices, and the objective maximizes the number of non-padding positions.
 ][
@@ -9337,6 +9478,40 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Remark._ Zero-weight edges are excluded because they allow degenerate optimal ILP solutions containing redundant cycles at no cost; following the convention of practical solvers (e.g., SCIP-Jack @kochmartin1998steiner), such edges should be contracted before applying the reduction.
 ]
 
+#let mvc_hs = load-example("MinimumVertexCover", "MinimumHittingSet")
+#let mvc_hs_sol = mvc_hs.solutions.at(0)
+#let mvc_hs_cover = mvc_hs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let mvc_hs_hit = mvc_hs_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#reduction-rule("MinimumVertexCover", "MinimumHittingSet",
+  example: true,
+  example-caption: [Unit-weight VC to Hitting Set ($n = #graph-num-vertices(mvc_hs.source.instance)$, $|E| = #graph-num-edges(mvc_hs.source.instance)$)],
+  extra: [
+    #pred-commands(
+      "pred create --example 'MVC {weight: One}' -o mvc.json",
+      "pred reduce mvc.json --to " + target-spec(mvc_hs) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate mvc.json --config " + mvc_hs_sol.source_config.map(str).join(","),
+    )
+    Source VC: $C = {#mvc_hs_cover.map(str).join(", ")}$ (size #mvc_hs_cover.len()) #h(1em)
+    Target HS: $H = {#mvc_hs_hit.map(str).join(", ")}$ (size #mvc_hs_hit.len()) \
+    The hitting set $H$ is identical to the vertex cover $C$ because the universe elements are the vertices and the subsets are the edges.
+  ],
+)[
+  Vertex Cover is the special case of Hitting Set where every set has exactly two elements @garey1979. Given a unit-weight VC instance $G = (V, E)$, let the universe $U = V$ and define one 2-element subset ${u, v}$ per edge $(u, v) in E$. The budget is unchanged.
+][
+  _Construction._ Given unit-weight VC instance $(G, k)$ with $G = (V, E)$, construct Hitting Set instance $(U, cal(S), k)$:
+  - Universe: $U = V$ with $|U| = |V|$ elements.
+  - Collection: $cal(S) = {{u, v} : (u, v) in E}$ with $|cal(S)| = |E|$ subsets, each of size 2.
+  - Budget: $k' = k$ (unchanged).
+
+  _Correctness._ ($arrow.r.double$) If $C subset.eq V$ is a vertex cover, then for every edge $(u, v) in E$, at least one of $u, v$ lies in $C$, so $C$ intersects the subset ${u, v} in cal(S)$. Hence $C$ is a hitting set.
+  ($arrow.l.double$) If $H subset.eq U$ hits every subset ${u, v} in cal(S)$, then for every edge $(u, v) in E$, $H$ contains $u$ or $v$, so $H$ is a vertex cover.
+
+  Since both problems minimise cardinality (unit weights), an optimal vertex cover of size $k$ corresponds to an optimal hitting set of the same size.
+
+  _Solution extraction._ The hitting set $H$ is directly the vertex cover: $c_v = h_v$ for each $v in V$.
+]
+
 #reduction-rule("MinimumHittingSet", "ILP")[
   Each set must contain at least one selected element -- a standard set-covering constraint on the element indicators.
 ][
@@ -9415,6 +9590,54 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Solution extraction._ $K = {v : x_v = 1}$.
 ]
+
+#{
+  let kc_bcbs = load-example("KClique", "BalancedCompleteBipartiteSubgraph",
+    source-variant: ("graph": "SimpleGraph"))
+  let kc_bcbs_sol = kc_bcbs.solutions.at(0)
+  let src = kc_bcbs.source.instance
+  let tgt = kc_bcbs.target.instance
+  let n = src.graph.num_vertices
+  let m = src.graph.edges.len()
+  let k = src.k
+  let ck2 = calc.div-euclid(k * (k - 1), 2)
+  let n_prime = n + ck2
+  let target_k = n_prime - k
+  [
+#reduction-rule("KClique", "BalancedCompleteBipartiteSubgraph",
+  example: true,
+  example-caption: [#n\-vertex graph with $k = #k$: non-incidence gadget construction],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(kc_bcbs.source) + " -o kclique.json",
+      "pred reduce kclique.json --to " + target-spec(kc_bcbs) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate kclique.json --config " + kc_bcbs_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Pad the vertex set.* $C(#k, 2) = #ck2$ padding vertices are added, giving $n' = #n + #ck2 = #n_prime$ left vertices (Part $A$).
+
+    *Step 2 -- Build Part $B$.* Part $B$ has $#m$ edge elements (one per original edge) plus $#n - #k = #{n - k}$ padding elements, for $|B| = #tgt.graph.right_size$.
+
+    *Step 3 -- Bipartite edges.* For each $v in A$ and edge element $e_j = {u, w}$, add $(v, e_j)$ iff $v in.not {u, w}$ (non-incidence). All padding elements connect to all left vertices.
+
+    *Step 4 -- Set target parameter.* $K' = n' - k = #n_prime - #k = #target_k$.
+
+    *Step 5 -- Verify a solution.* The #k\-clique is $S = {#kc_bcbs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$. The #target_k left vertices NOT in $S$ plus the #ck2 padding vertices form the left side $A'$. The right side $B'$ contains the #ck2 intra-clique edge elements plus #{n - k} padding elements ($|B'| = #target_k$). All $#target_k times #target_k$ cross-edges are present because no $v in A'$ is an endpoint of any selected edge element.
+
+    *Multiplicity:* The fixture stores one canonical witness.
+  ],
+)[
+  This $O(n^2 + n m)$ reduction (Johnson, 1987; Garey and Johnson GT24) constructs a bipartite graph $H = (A union.dot B, F)$ with $|A| = n + binom(k, 2)$ and $|B| = m + n - k$ using a non-incidence encoding. The target biclique size is $K' = n + binom(k, 2) - k$.
+][
+  _Construction._ Given $k$-Clique instance $(G = (V, E), k)$ with $n = |V|$, $m = |E|$: Let $C = binom(k, 2) = k(k-1)/2$. Add $C$ isolated vertices to $V$, giving $V' = {v_0, ..., v_(n'-1)}$ with $n' = n + C$. Part $A = V'$. Part $B$ has $m$ _edge elements_ ${e_0, ..., e_(m-1)}$ (one per edge of $G$) and $n - k$ _padding elements_ ${w_0, ..., w_(n-k-1)}$. Add bipartite edge $(v, e_j)$ iff $v$ is NOT an endpoint of $e_j$ (non-incidence). Add $(v, w_i)$ for all $v in A$, $w_i in W$ (full padding). Set $K' = n' - k$.
+
+  _Correctness._ ($arrow.r.double$) If $S subset.eq V$ is a $k$-clique, let $A' = V' without S$ ($|A'| = n' - k = K'$) and $B' = E(S) union W$ where $E(S)$ is the set of intra-clique edges. Since $|E(S)| = C$ and $|W| = n - k$, we have $|B'| = K'$. For any $v in A'$ and $e_j in E(S)$: both endpoints of $e_j$ lie in $S$ but $v in.not S$, so $v$ is not an endpoint --- the non-incidence edge exists. For padding elements, all edges exist by construction. ($arrow.l.double$) If $(A', B')$ is a balanced $K'$-biclique, let $S = {v in V : v in.not A'}$ with $|S| = k$. Any edge $e_j$ with an endpoint $u in A'$ cannot be in $B'$ (since $(u, e_j) in.not F$). So $B' inter E subset.eq E(S)$. Since $|B'| = K'$ and $|W| = n - k$, we need $|B' inter E| >= K' - |W| = C$. But $|E(S)| <= binom(k, 2) = C$, so $|E(S)| = C$, meaning $S$ is a $k$-clique.
+
+  _Solution extraction._ For each original vertex $v in {0, ..., n-1}$: $"source"[v] = 1 - "target"[v]$ (vertices NOT selected on the left side form the clique).
+]
+  ]
+}
 
 #reduction-rule("MaximalIS", "ILP")[
   An independent set that is also maximal: no vertex outside the set can be added without violating independence.
@@ -9638,6 +9861,36 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ The edge count constraint ensures connectivity within each group. Combined with group size 3, this forces a path of length 2.
 
   _Solution extraction._ Vertex $v$ goes to group $arg max_g x_(v,g)$.
+]
+
+#let ppl2_bcsf = load-example("PartitionIntoPathsOfLength2", "BoundedComponentSpanningForest")
+#let ppl2_bcsf_sol = ppl2_bcsf.solutions.at(0)
+#reduction-rule("PartitionIntoPathsOfLength2", "BoundedComponentSpanningForest",
+  example: true,
+  example-caption: [6-vertex graph ($n = 6$, $q = 2$): two $P_3$ paths],
+  extra: [
+    #pred-commands(
+      "pred create --example PartitionIntoPathsOfLength2 -o ppl2.json",
+      "pred reduce ppl2.json --to " + target-spec(ppl2_bcsf) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ppl2.json --config " + ppl2_bcsf_sol.source_config.map(str).join(","),
+    )
+    Source PPL2: groups $= {#ppl2_bcsf_sol.source_config.map(str).join(", ")}$ on a graph with $n = #graph-num-vertices(ppl2_bcsf.source.instance)$ vertices and $|E| = #graph-num-edges(ppl2_bcsf.source.instance)$ edges \
+    Target BCSF: components $= {#ppl2_bcsf_sol.target_config.map(str).join(", ")}$, $K = #ppl2_bcsf.target.instance.max_components$, $B = #ppl2_bcsf.target.instance.max_weight$ \
+    Identity mapping: source and target configs coincide #sym.checkmark
+  ],
+)[
+  This $O(n + m)$ parameter-setting reduction (Hadlock, 1974; Garey and Johnson @garey1979[ND10, p.~208]) constructs a Bounded Component Spanning Forest instance on the same graph with unit vertex weights, $K = |V| slash 3$ components, and weight bound $B = 3$.
+][
+  _Construction._ Given a Partition into Paths of Length 2 instance on graph $G = (V, E)$ with $|V| = 3q$:
+  - Graph: use $G$ unchanged.
+  - Vertex weights: $w(v) = 1$ for all $v in V$.
+  - Component bound: $K = q = |V| slash 3$.
+  - Weight bound: $B = 3$.
+
+  _Correctness._ ($arrow.r.double$) Suppose $V$ has a valid $P_3$-partition $V_1, dots, V_q$ where each $V_t$ induces at least 2 edges. Since a graph on 3 vertices with at least 2 edges is connected, each $V_t$ is a connected component of weight $1 + 1 + 1 = 3 <= B$. There are $q = K$ components. ($arrow.l.double$) Suppose $V$ has a partition into at most $K = q$ connected components each of weight at most $B = 3$. Since all weights are 1, each component has at most 3 vertices. With $3q$ vertices and at most $q$ components, the pigeonhole principle forces exactly $q$ components of exactly 3 vertices each. A connected graph on 3 vertices has at least 2 edges (a path $P_3$ or a triangle $K_3$), satisfying the $P_3$-partition requirement.
+
+  _Solution extraction._ Identity: the component assignment in BCSF is directly a group assignment in PPL2.
 ]
 
 #reduction-rule("SumOfSquaresPartition", "ILP")[
@@ -10272,6 +10525,42 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Mark an edge selected in the source config iff it appears between two consecutive positions in the decoded cycle.
 ]
 
+#let hc_lc = load-example("HamiltonianCircuit", "LongestCircuit")
+#let hc_lc_sol = hc_lc.solutions.at(0)
+#let hc_lc_n = graph-num-vertices(hc_lc.source.instance)
+#let hc_lc_source_edges = hc_lc.source.instance.graph.edges
+#let hc_lc_target_edges = hc_lc.target.instance.graph.edges
+#let hc_lc_target_weights = hc_lc.target.instance.edge_lengths
+#let hc_lc_selected_edges = hc_lc_target_edges.enumerate().filter(((i, _)) => hc_lc_sol.target_config.at(i) == 1).map(((i, e)) => (e.at(0), e.at(1)))
+#reduction-rule("HamiltonianCircuit", "LongestCircuit",
+  example: true,
+  example-caption: [Cycle graph on $#hc_lc_n$ vertices with unit edge lengths],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_lc.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_lc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_lc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Start from the source graph.* The canonical source fixture is the cycle on vertices ${0, 1, dots, #(hc_lc_n - 1)}$ with $#hc_lc_source_edges.len()$ edges. The stored Hamiltonian-circuit witness is the permutation $[#hc_lc_sol.source_config.map(str).join(", ")]$.\
+
+    *Step 2 -- Assign unit edge lengths.* The target keeps the same $#hc_lc_n$ vertices and $#hc_lc_target_edges.len()$ edges. Every edge receives length $1$, so the edge-length vector is $[#hc_lc_target_weights.map(str).join(", ")]$.\
+
+    *Step 3 -- Verify the canonical witness.* The stored target configuration $[#hc_lc_sol.target_config.map(str).join(", ")]$ selects the edges #hc_lc_selected_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The total circuit length is $#hc_lc_selected_edges.len() times 1 = #hc_lc_n = n$, confirming a Hamiltonian circuit. Traversing the selected edges recovers the vertex permutation $[#hc_lc_sol.source_config.map(str).join(", ")]$.\
+
+    *Multiplicity:* The fixture stores one canonical witness. For the $#hc_lc_n$-cycle there are $#hc_lc_n times 2 = #(hc_lc_n * 2)$ directed Hamiltonian circuits (choice of start vertex and direction), but they all select the same undirected edge set.
+  ],
+)[
+  @garey1979 This $O(m)$ reduction copies the graph unchanged and assigns unit weight to every edge ($n$ target vertices, $m$ target edges). A Hamiltonian circuit exists iff the optimal circuit length equals $n$.
+][
+  _Construction._ Given a Hamiltonian Circuit instance $G = (V, E)$ with $n = |V|$ and $m = |E|$, construct a Longest Circuit instance on the same graph $G' = G$ with edge lengths $l(e) = 1$ for every $e in E$.
+
+  _Correctness._ ($arrow.r.double$) If $G$ has a Hamiltonian circuit $v_0, v_1, dots, v_(n-1), v_0$, then this circuit uses $n$ edges each of length 1, giving total length $n$. Since a simple circuit on $n$ vertices can use at most $n$ edges, this is optimal. ($arrow.l.double$) If the longest circuit in $G'$ has length $n$, it uses $n$ unit-weight edges and therefore visits $n$ distinct vertices, i.e., every vertex exactly once. This circuit is therefore a Hamiltonian circuit in $G$.
+
+  _Solution extraction._ Read the selected target edges, traverse the unique degree-2 cycle they form, and return the resulting vertex permutation as the source Hamiltonian-circuit witness.
+]
+
 #reduction-rule("LongestCircuit", "ILP")[
   A direct cycle-selection ILP uses binary edge variables, degree constraints, and a connectivity witness to force exactly one simple circuit of length at least the bound.
 ][
@@ -10819,6 +11108,50 @@ The following reductions to Integer Linear Programming are straightforward formu
   If $nu_t = 1$, output the source code $2 n$. If $d_(t,j) = 1$, output $j$. If $s_(t,j) = 1$, output $ell_(t - 1) + j$. This is exactly the encoding used by `evaluate()`: deletions use raw positions, swaps are offset by the current length, and no-op is the distinguished value $2 n$.
 ]
 
+#let ps_qubo = load-example("PaintShop", "QUBO")
+#let ps_qubo_sol = ps_qubo.solutions.at(0)
+#reduction-rule("PaintShop", "QUBO",
+  example: true,
+  example-caption: [4 cars, sequence length 8],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ps_qubo.source) + " -o paintshop.json",
+      "pred reduce paintshop.json --to " + target-spec(ps_qubo) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate paintshop.json --config " + ps_qubo_sol.source_config.map(str).join(","),
+    )
+    #{
+      let n = ps_qubo.source.instance.num_cars
+      let seq = ps_qubo.source.instance.sequence_indices
+      let labels = ps_qubo.source.instance.car_labels
+      let is-first = ps_qubo.source.instance.is_first
+      let seq-labels = seq.map(i => labels.at(i))
+      let coloring = seq.enumerate().map(((pos, car)) => {
+        let first-color = ps_qubo_sol.source_config.at(car)
+        if is-first.at(pos) { first-color } else { 1 - first-color }
+      })
+      [*Source:* $n = #n$ cars, sequence $(#seq-labels.join(", "))$. \
+      *Parity:* #seq.enumerate().map(((pos, _)) => if is-first.at(pos) { "1st" } else { "2nd" }).join(", ") \
+      *Step 1 -- One QUBO variable per car.* Binary variable $x_i in {0,1}$ for each car $i$: $x_i = 0$ means "first occurrence gets color 0, second gets color 1"; $x_i = 1$ reverses. \
+      *Step 2 -- Build the $Q$ matrix from adjacent pairs.* For each adjacent pair $(j, j+1)$ in the sequence with distinct cars $a, b$: if both positions have the _same_ parity (both first or both second occurrence), a color switch occurs when $x_a != x_b$, contributing $+1$ to $Q_(a a)$, $+1$ to $Q_(b b)$, and $-2$ to $Q_(a b)$. If they have _different_ parity, a switch occurs when $x_a = x_b$, contributing $-1$ to $Q_(a a)$, $-1$ to $Q_(b b)$, and $+2$ to $Q_(a b)$. \
+      *Step 3 -- Verify.* The QUBO solution $bold(x) = (#ps_qubo_sol.target_config.map(str).join(", "))$ yields coloring $(#coloring.map(str).join(", "))$ with #{coloring.windows(2).filter(w => w.at(0) != w.at(1)).len()} color switches #sym.checkmark ]
+    }
+  ],
+)[
+  Each car's two occurrences must receive opposite colors, so a single binary variable per car determines the full coloring. Adjacent pairs in the sequence contribute quadratic terms to a QUBO matrix based on their parity (first vs.\ second occurrence), and the QUBO minimum plus a constant offset equals the minimum number of color switches @Streif2021.
+][
+  _Construction._ Given $n$ cars, each appearing exactly twice in a sequence of length $2n$, introduce binary variables $x_1, ..., x_n$ (one per car). Initialize an $n times n$ upper-triangular matrix $Q$ of zeros. For each adjacent pair of positions $(j, j+1)$ with distinct cars $a, b$:
+
+  - *Same parity* (both first or both second occurrence): a color switch occurs iff $x_a != x_b$. The switch indicator is $x_a + x_b - 2 x_a x_b$, so add $+1$ to $Q_(a a)$, $+1$ to $Q_(b b)$, and $-2$ to $Q_(a b)$.
+  - *Different parity* (one first, one second): a color switch occurs iff $x_a = x_b$. The switch indicator is $1 - x_a - x_b + 2 x_a x_b$, so add $-1$ to $Q_(a a)$, $-1$ to $Q_(b b)$, and $+2$ to $Q_(a b)$, with a constant offset of $+1$.
+
+  Adjacent pairs where both positions are the same car always produce a switch (constant term), and are skipped. The QUBO objective is $min bold(x)^top Q bold(x)$; the minimum number of color switches equals the QUBO minimum plus the total constant offset (number of different-parity pairs plus number of same-car pairs).
+
+  _Correctness._ ($arrow.r.double$) Any PaintShop coloring corresponds to a binary assignment $bold(x)$ with the same number of switches (up to the constant offset). ($arrow.l.double$) Any QUBO minimizer $bold(x)$ defines a valid coloring (each car's two occurrences get opposite colors), and the offset-adjusted objective equals the switch count. Since the correspondence is bijective and value-preserving, optimality is preserved.
+
+  _Solution extraction._ The QUBO solution $(x_1, ..., x_n)$ maps directly back: car $i$'s first occurrence gets color $x_i$, second gets $1 - x_i$.
+]
+
 #reduction-rule("PaintShop", "ILP")[
   One binary variable per car determines its first color, the second occurrence receives the opposite color automatically, and switch indicators count color changes along the sequence.
 ][
@@ -10853,6 +11186,34 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) Any isomorphism from the given tree to a spanning tree of the graph satisfies the bijection and non-edge constraints. ($arrow.l.double$) Any feasible ILP solution is a bijection that preserves every tree edge, so the image edges form a spanning tree of the graph isomorphic to the source tree.
 
   _Solution extraction._ For each tree vertex $u$, output the unique graph vertex $v$ with $x_(u,v) = 1$.
+]
+
+#let rta_rtsa = load-example("RootedTreeArrangement", "RootedTreeStorageAssignment")
+#let rta_rtsa_sol = rta_rtsa.solutions.at(0)
+#reduction-rule("RootedTreeArrangement", "RootedTreeStorageAssignment",
+  example: true,
+  example-caption: [Path graph $P_4$ ($n = 4$, $|E| = 3$, $K = 5$)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(rta_rtsa.source) + " -o rta.json",
+      "pred reduce rta.json --to " + target-spec(rta_rtsa) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate rta.json --config " + rta_rtsa_sol.source_config.map(str).join(","),
+    )
+    Source: path graph $P_4$ with vertices ${0, 1, 2, 3}$, edges $\{0,1\}, \{1,2\}, \{2,3\}$, and bound $K = 5$. \
+    Target: universe $X = {0, 1, 2, 3}$, subsets $\{0,1\}, \{1,2\}, \{2,3\}$, bound $K' = 5 - 3 = 2$. \
+    The chain tree $0 arrow 1 arrow 2 arrow 3$ (parent array $(0, 0, 1, 2)$) with identity mapping gives total stretch $1 + 1 + 1 = 3 <= 5$ in the source. In the target, every edge subset is already a parent-child pair, so extension cost is $0 + 0 + 0 = 0 <= 2$ #sym.checkmark
+  ],
+)[
+  This $O(|E|)$ reduction @gavril1977 transforms a graph-embedding arrangement problem into a set-system path-cover problem. Each edge $\{u, v\}$ of the source graph becomes a 2-element required subset $\{u, v\}$ whose elements must lie on a directed path in a rooted tree. The bound adjusts by $K' = K - |E|$, since each edge contributes at least 1 to the arrangement cost but 0 to the extension cost when its endpoints are adjacent in the tree.
+][
+  _Construction._ Given a Rooted Tree Arrangement instance with graph $G = (V, E)$ and bound $K$, construct a Rooted Tree Storage Assignment instance as follows. Set the universe $X = V$ with $|X| = |V|$ elements. For each edge $\{u, v\} in E$, create a 2-element subset $X_e = \{u, v\}$, yielding a collection $cal(C) = \{X_e : e in E\}$ of $|E|$ subsets. Set the bound $K' = K - |E|$.
+
+  _Correctness._ ($arrow.r.double$) Suppose there exists a rooted tree $T$ on $|V|$ nodes and a bijection $f: V arrow U$ with $sum_(\{u,v\} in E) d_T(f(u), f(v)) <= K$, where every edge pair lies on a common root-to-leaf path. Using $T$ as the storage tree and the identity embedding (since $X = V$), for each edge $e = \{u, v\}$ the extended subset $X'_e$ consists of all nodes on the path from $f(u)$ to $f(v)$, costing $d_T(f(u), f(v)) - 1$ additional elements. The total extension cost is $sum_(e in E) (d_T(f(u), f(v)) - 1) = (sum d_T) - |E| <= K - |E| = K'$.
+
+  ($arrow.l.double$) Suppose there exists a rooted tree $T = (X, A)$ and extended subsets forming directed paths with total extension cost $<= K'$. The same tree $T$ with the identity mapping $f(v) = v$ gives total arrangement stretch $= "extension cost" + |E| <= K' + |E| = K$.
+
+  _Solution extraction._ The target solution is a parent array defining a rooted tree on $X = V$. The source solution is this same parent array concatenated with the identity mapping $f(v) = v$ for all $v in V$.
 ]
 
 #reduction-rule("RootedTreeStorageAssignment", "ILP")[
