@@ -108,6 +108,7 @@
   "MinimumSetCovering": [Minimum Set Covering],
   "ComparativeContainment": [Comparative Containment],
   "SetBasis": [Set Basis],
+  "SetSplitting": [Set Splitting],
   "MinimumCardinalityKey": [Minimum Cardinality Key],
   "SpinGlass": [Spin Glass],
   "QUBO": [QUBO],
@@ -2636,6 +2637,53 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       }),
       caption: [Minimum hitting set: the blue elements $#fmt-set(selected)$ intersect every set region $S_1, dots, S_#m$, so they hit the entire collection $cal(S)$.]
     ) <fig:min-hitting-set>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SetSplitting")
+  let subsets = x.instance.subsets
+  let m = subsets.len()
+  let n = x.instance.universe_size
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let part0 = sol.config.enumerate().filter(((i, v)) => v == 0).map(((i, _)) => i)
+  let part1 = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let fmt-set(s) = "${" + s.map(e => str(e + 1)).join(", ") + "}$"
+  let elems = (
+    (-1.5, 0.0),
+    (0.0, 1.0),
+    (0.0, -1.0),
+    (1.5, 0.0),
+    (-0.5, -1.0),
+    (0.5, 1.0),
+  )
+  [
+    #problem-def("SetSplitting")[
+      Given a finite universe $U$ and a collection $cal(C) = {C_1, dots, C_m}$ of subsets of $U$ each of size $gt.eq 2$, does there exist a 2-coloring $chi: U -> {0, 1}$ such that every $C_i$ is non-monochromatic — i.e., contains at least one element of each color?
+    ][
+    One of Garey and Johnson's NP-complete problems (SP4 in @garey1979), shown NP-complete by reduction from 3-SAT. It is equivalent to deciding whether a hypergraph is 2-colorable (also called Property B). The problem is trivially satisfiable when every subset has size exactly 2, reducing to 2-colorability of the corresponding graph; it becomes NP-complete for subsets of size $gt.eq 3$. The best known exact algorithm runs in $O^*(2^n)$ by brute-force enumeration over the $n = |U|$ elements.
+
+    *Example.* Let $U = {1, 2, dots, #n}$ and $cal(C) = {C_1, dots, C_#m}$ with #range(m).map(i => $C_#(i + 1) = #fmt-set(subsets.at(i))$).join(", "). Coloring $S_1 = #fmt-set(part0)$ and $S_2 = #fmt-set(part1)$ splits all subsets: each $C_i$ has at least one element in each part.
+
+    #pred-commands(
+      "pred create --example SetSplitting -o set-splitting.json",
+      "pred solve set-splitting.json",
+      "pred evaluate set-splitting.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure(
+      canvas(length: 1cm, {
+        for (i, subset) in subsets.enumerate() {
+          let positions = subset.map(e => elems.at(e))
+          sregion(positions, pad: 0.42, label: [$C_#(i + 1)$], ..sregion-dimmed)
+        }
+        for (k, pos) in elems.enumerate() {
+          selem(pos, label: [#(k + 1)], fill: if part1.contains(k) { graph-colors.at(0) } else { white })
+        }
+      }),
+      caption: [Set splitting: white elements $#fmt-set(part0)$ form $S_1$ and blue elements $#fmt-set(part1)$ form $S_2$; every subset $C_1, dots, C_#m$ contains both colors.]
+    ) <fig:set-splitting>
     ]
   ]
 }
@@ -9217,6 +9265,22 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ The two constraints per clause jointly enforce the not-all-equal condition.
 
   _Solution extraction._ Direct: $x_i = 1$ iff variable $i$ is true.
+]
+
+#reduction-rule("SetSplitting", "ILP")[
+  Each subset must contain at least one element of each color, encoded as a pair of linear inequalities per subset.
+][
+  _Construction._ Variables: $x_i in {0, 1}$ for each $u_i in U$ ($x_i = 1$ means $u_i in S_2$). For each subset $C = {i_1, dots, i_k}$ the ILP enforces:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(j in C) x_j >= 1 quad "for each" C in cal(C) \
+    & sum_(j in C) x_j <= |C| - 1 quad "for each" C in cal(C) \
+    & x_i in {0, 1} quad forall i
+  $.
+
+  _Correctness._ ($arrow.r.double$) A valid splitting has at least one element in $S_2$ ($sum >= 1$) and at least one in $S_1$ ($sum <= |C|-1$) for every $C$. ($arrow.l.double$) Any feasible ILP solution defines a valid 2-coloring.
+
+  _Solution extraction._ $S_2 = {u_i : x_i = 1}$, $S_1 = U without S_2$.
 ]
 
 #reduction-rule("KClique", "ILP")[

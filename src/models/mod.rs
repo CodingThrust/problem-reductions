@@ -56,5 +56,5 @@ pub use misc::{
 pub use set::{
     ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, IntegerKnapsack, MaximumSetPacking,
     MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering, PrimeAttributeName,
-    RootedTreeStorageAssignment, SetBasis, TwoDimensionalConsecutiveSets,
+    RootedTreeStorageAssignment, SetBasis, SetSplitting, TwoDimensionalConsecutiveSets,
 };

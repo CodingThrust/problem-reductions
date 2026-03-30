@@ -232,6 +232,8 @@ pub(crate) mod sequencingwithinintervals_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingwithreleasetimesanddeadlines_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod setsplitting_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod shortestcommonsupersequence_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod shortestweightconstrainedpath_ilp;
@@ -402,6 +404,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(sequencingwithinintervals_ilp::canonical_rule_example_specs());
         specs.extend(sequencingwithreleasetimesanddeadlines_ilp::canonical_rule_example_specs());
         specs.extend(shortestcommonsupersequence_ilp::canonical_rule_example_specs());
+        specs.extend(setsplitting_ilp::canonical_rule_example_specs());
         specs.extend(shortestweightconstrainedpath_ilp::canonical_rule_example_specs());
         specs.extend(sparsematrixcompression_ilp::canonical_rule_example_specs());
         specs.extend(stackercrane_ilp::canonical_rule_example_specs());

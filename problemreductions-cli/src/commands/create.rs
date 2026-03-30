@@ -769,6 +769,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
         }
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
+        "SetSplitting" => "--universe 6 --sets \"0,1,2;2,3,4;0,4,5;1,3,5\"",
         "LongestCommonSubsequence" => {
             "--strings \"010110;100101;001011\" --alphabet-size 2"
         }
@@ -2648,6 +2649,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let weights = parse_set_weights(args, num_sets)?;
             (
                 ser(MaximumSetPacking::with_weights(sets, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SetSplitting
+        "SetSplitting" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SetSplitting requires --universe and --sets\n\n\
+                     Usage: pred create SetSplitting --universe 6 --sets \"0,1,2;2,3,4;0,4,5;1,3,5\""
+                )
+            })?;
+            let subsets = parse_sets(args)?;
+            (
+                ser(SetSplitting::try_new(universe, subsets).map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
         }
