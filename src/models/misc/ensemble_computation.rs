@@ -34,6 +34,23 @@ impl EnsembleComputation {
         Self::try_new(universe_size, subsets, budget).unwrap_or_else(|err| panic!("{err}"))
     }
 
+    /// Create with an automatically derived search-space bound.
+    ///
+    /// The default budget is the sum of all subset sizes (worst-case without
+    /// intermediate-set reuse). This is always sufficient for the optimal
+    /// solution to fit within the search space.
+    pub fn with_default_budget(universe_size: usize, subsets: Vec<Vec<usize>>) -> Self {
+        let budget = Self::default_budget(&subsets);
+        Self::new(universe_size, subsets, budget)
+    }
+
+    /// Compute a default search-space bound from the subsets.
+    ///
+    /// Returns the sum of all subset sizes, clamped to at least 1.
+    pub fn default_budget(subsets: &[Vec<usize>]) -> usize {
+        subsets.iter().map(|s| s.len()).sum::<usize>().max(1)
+    }
+
     pub fn try_new(
         universe_size: usize,
         subsets: Vec<Vec<usize>>,
