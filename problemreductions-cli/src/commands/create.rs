@@ -9,7 +9,8 @@ use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
-    ConsecutiveOnesSubmatrix, SparseMatrixCompression, BMF,
+    ConsecutiveOnesSubmatrix, FeasibleBasisExtension, QuadraticDiophantineEquations,
+    SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -22,14 +23,16 @@ use problemreductions::models::graph::{
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
     ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
-    ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping,
-    JobShopScheduling, KnownValue, LongestCommonSubsequence, MinimumTardinessSequencing,
+    ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping, IntExpr,
+    IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
+    LongestCommonSubsequence, MinimumExternalMacroDataCompression, MinimumTardinessSequencing,
     MultiprocessorScheduling, PaintShop, PartiallyOrderedKnapsack, ProductionPlanning, QueryArg,
-    RectilinearPictureCompression, ResourceConstrainedScheduling,
-    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
+    RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
+    SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
+    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
+    SumOfSquaresPartition, ThreePartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -171,6 +174,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.num_attributes.is_none()
         && args.source_string.is_none()
         && args.target_string.is_none()
+        && args.pointer_cost.is_none()
         && args.capacities.is_none()
         && args.source_1.is_none()
         && args.sink_1.is_none()
@@ -191,8 +195,14 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.domain_size.is_none()
         && args.relations.is_none()
         && args.conjuncts_spec.is_none()
+        && args.expression.is_none()
         && args.deps.is_none()
         && args.query.is_none()
+        && args.coeff_a.is_none()
+        && args.coeff_b.is_none()
+        && args.rhs.is_none()
+        && args.coeff_c.is_none()
+        && args.required_columns.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -671,6 +681,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-bound 80"
         }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
+        "SchedulingToMinimizeWeightedCompletionTime" => {
+            "--lengths 1,2,3,4,5 --weights 6,4,3,2,1 --num-processors 2"
+        }
         "JobShopScheduling" => {
             "--job-tasks \"0:3,1:4;1:2,0:3,1:2;0:4,1:3;1:5,0:2;0:2,1:3,0:1\" --num-processors 2"
         }
@@ -697,6 +710,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "MinimumDummyActivitiesPert" => "--arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6",
+        "RegisterSufficiency" => {
+            "--arcs \"2>0,2>1,3>1,4>2,4>3,5>0,6>4,6>5\" --bound 3 --num-vertices 7"
+        }
         "StrongConnectivityAugmentation" => {
             "--arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1"
         }
@@ -723,8 +739,14 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SequencingToMinimizeWeightedTardiness" => {
             "--sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
         }
+        "IntegerKnapsack" => "--sizes 3,4,5,2,7 --values 4,5,7,3,9 --capacity 15",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "IntegerExpressionMembership" => {
+            "--expression '{\"Sum\":[{\"Sum\":[{\"Union\":[{\"Atom\":1},{\"Atom\":4}]},{\"Union\":[{\"Atom\":3},{\"Atom\":6}]}]},{\"Union\":[{\"Atom\":2},{\"Atom\":5}]}]}' --target 12"
+        }
         "ThreePartition" => "--sizes 4,5,6,4,6,5 --bound 15",
+        "KthLargestMTuple" => "--sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12",
+        "QuadraticDiophantineEquations" => "--coeff-a 3 --coeff-b 5 --coeff-c 53",
         "BoyceCoddNormalFormViolation" => {
             "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
         }
@@ -737,6 +759,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--strings \"010110;100101;001011\" --alphabet-size 2"
         }
         "GroupingBySwapping" => "--string \"0,1,2,0,1,2\" --bound 5",
+        "MinimumExternalMacroDataCompression" => {
+            "--string \"0,1,0,1\" --pointer-cost 2 --alphabet-size 2"
+        }
         "MinimumCardinalityKey" => {
             "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\""
         }
@@ -765,6 +790,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "StringToStringCorrection" => {
             "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
+        }
+        "FeasibleBasisExtension" => {
+            "--matrix '[[1,0,1,2,-1,0],[0,1,0,1,1,2],[0,0,1,1,0,1]]' --rhs '7,5,3' --required-columns '0,1'"
         }
         _ => "",
     }
@@ -869,6 +897,8 @@ fn help_flag_hint(
             "raw strings: \"ABAC;BACA\" or symbol lists: \"0,1,0;1,0,1\""
         }
         ("GroupingBySwapping", "string") => "symbol list: \"0,1,2,0,1,2\"",
+        ("MinimumExternalMacroDataCompression", "string") => "symbol list: \"0,1,0,1\"",
+        ("MinimumExternalMacroDataCompression", "pointer_cost") => "positive integer: 2",
         ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
         ("IntegralFlowHomologousArcs", "homologous_pairs") => {
@@ -893,6 +923,9 @@ fn help_flag_hint(
         }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("SparseMatrixCompression", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("FeasibleBasisExtension", "matrix") => "JSON 2D integer array: '[[1,0,1],[0,1,0]]'",
+        ("FeasibleBasisExtension", "rhs") => "comma-separated integers: \"7,5,3\"",
+        ("FeasibleBasisExtension", "required_columns") => "comma-separated column indices: \"0,1\"",
         ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
             "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
         }
@@ -2325,6 +2358,41 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // IntegerKnapsack
+        "IntegerKnapsack" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "IntegerKnapsack requires --sizes, --values, and --capacity\n\n\
+                     Usage: pred create IntegerKnapsack --sizes 3,4,5,2,7 --values 4,5,7,3,9 --capacity 15"
+                )
+            })?;
+            let values_str = args.values.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegerKnapsack requires --values (e.g., 4,5,7,3,9)")
+            })?;
+            let cap_str = args
+                .capacity
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("IntegerKnapsack requires --capacity (e.g., 15)"))?;
+            let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
+            let values: Vec<i64> = util::parse_comma_list(values_str)?;
+            let capacity: i64 = cap_str.parse()?;
+            anyhow::ensure!(
+                sizes.len() == values.len(),
+                "sizes and values must have the same length, got {} and {}",
+                sizes.len(),
+                values.len()
+            );
+            anyhow::ensure!(sizes.iter().all(|&s| s > 0), "all sizes must be positive");
+            anyhow::ensure!(values.iter().all(|&v| v > 0), "all values must be positive");
+            anyhow::ensure!(capacity >= 0, "capacity must be nonnegative");
+            (
+                ser(problemreductions::models::set::IntegerKnapsack::new(
+                    sizes, values, capacity,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // SubsetSum
         "SubsetSum" => {
             let sizes_str = args.sizes.as_deref().ok_or_else(|| {
@@ -2343,6 +2411,34 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let target = util::parse_decimal_biguint(target)?;
             (
                 ser(SubsetSum::new(sizes, target))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // IntegerExpressionMembership
+        "IntegerExpressionMembership" => {
+            let usage = "Usage: pred create IntegerExpressionMembership --expression '{\"Sum\":[{\"Atom\":1},{\"Atom\":2}]}' --target 3";
+            let expr_str = args.expression.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "IntegerExpressionMembership requires --expression and --target\n\n{usage}"
+                )
+            })?;
+            let target = args.target.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegerExpressionMembership requires --target\n\n{usage}")
+            })?;
+            let target: u64 = target
+                .parse()
+                .context("IntegerExpressionMembership --target must be a positive integer")?;
+            if target == 0 {
+                anyhow::bail!("IntegerExpressionMembership --target must be > 0");
+            }
+            let expr: IntExpr = serde_json::from_str(expr_str)
+                .context("IntegerExpressionMembership --expression must be valid JSON representing an IntExpr tree")?;
+            if !expr.all_atoms_positive() {
+                anyhow::bail!("IntegerExpressionMembership --expression must contain only positive integers (all Atom values > 0)");
+            }
+            (
+                ser(IntegerExpressionMembership::new(expr, target))?,
                 resolved_variant.clone(),
             )
         }
@@ -2370,6 +2466,66 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let sizes: Vec<u64> = util::parse_comma_list(sizes_str)?;
             (
                 ser(ThreePartition::try_new(sizes, bound).map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // KthLargestMTuple
+        "KthLargestMTuple" => {
+            let sets_str = args.sets.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "KthLargestMTuple requires --sets, --k, and --bound\n\n\
+                     Usage: pred create KthLargestMTuple --sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12"
+                )
+            })?;
+            let k_val = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "KthLargestMTuple requires --k\n\n\
+                     Usage: pred create KthLargestMTuple --sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "KthLargestMTuple requires --bound\n\n\
+                     Usage: pred create KthLargestMTuple --sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12"
+                )
+            })?;
+            let bound = u64::try_from(bound).map_err(|_| {
+                anyhow::anyhow!("KthLargestMTuple requires a positive integer --bound")
+            })?;
+            let sets: Vec<Vec<u64>> = sets_str
+                .split(';')
+                .map(|group| util::parse_comma_list(group))
+                .collect::<Result<_, _>>()?;
+            (
+                ser(KthLargestMTuple::try_new(sets, k_val as u64, bound)
+                    .map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // QuadraticDiophantineEquations
+        "QuadraticDiophantineEquations" => {
+            let a = args.coeff_a.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticDiophantineEquations requires --coeff-a, --coeff-b, and --coeff-c\n\n\
+                     Usage: pred create QuadraticDiophantineEquations --coeff-a 3 --coeff-b 5 --coeff-c 53"
+                )
+            })?;
+            let b = args.coeff_b.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticDiophantineEquations requires --coeff-b\n\n\
+                     Usage: pred create QuadraticDiophantineEquations --coeff-a 3 --coeff-b 5 --coeff-c 53"
+                )
+            })?;
+            let c = args.coeff_c.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticDiophantineEquations requires --coeff-c\n\n\
+                     Usage: pred create QuadraticDiophantineEquations --coeff-a 3 --coeff-b 5 --coeff-c 53"
+                )
+            })?;
+            (
+                ser(QuadraticDiophantineEquations::try_new(a, b, c).map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
         }
@@ -2831,6 +2987,53 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // FeasibleBasisExtension
+        "FeasibleBasisExtension" => {
+            let usage = "Usage: pred create FeasibleBasisExtension --matrix '[[1,0,1],[0,1,0]]' --rhs '7,5' --required-columns '0'";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FeasibleBasisExtension requires --matrix (JSON 2D i64 array), --rhs, and --required-columns\n\n{usage}"
+                )
+            })?;
+            let matrix: Vec<Vec<i64>> = serde_json::from_str(matrix_str).map_err(|err| {
+                anyhow::anyhow!(
+                    "FeasibleBasisExtension requires --matrix as a JSON 2D integer array (e.g., '[[1,0,1],[0,1,0]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
+                )
+            })?;
+            let rhs_str = args.rhs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FeasibleBasisExtension requires --rhs (comma-separated integers)\n\n{usage}"
+                )
+            })?;
+            let rhs: Vec<i64> = rhs_str
+                .split(',')
+                .map(|s| s.trim().parse::<i64>())
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|err| {
+                    anyhow::anyhow!(
+                        "Failed to parse --rhs as comma-separated integers: {err}\n\n{usage}"
+                    )
+                })?;
+            let required_str = args.required_columns.as_deref().unwrap_or("");
+            let required_columns: Vec<usize> = if required_str.is_empty() {
+                vec![]
+            } else {
+                required_str
+                    .split(',')
+                    .map(|s| s.trim().parse::<usize>())
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|err| {
+                        anyhow::anyhow!(
+                            "Failed to parse --required-columns as comma-separated indices: {err}\n\n{usage}"
+                        )
+                    })?
+            };
+            (
+                ser(FeasibleBasisExtension::new(matrix, rhs, required_columns))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // LongestCommonSubsequence
         "LongestCommonSubsequence" => {
             let usage =
@@ -2957,6 +3160,57 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             );
             (
                 ser(GroupingBySwapping::new(alphabet_size, string, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumExternalMacroDataCompression
+        "MinimumExternalMacroDataCompression" => {
+            let usage = "Usage: pred create MinimumExternalMacroDataCompression --string \"0,1,0,1\" --pointer-cost 2 [--alphabet-size 2]";
+            let string_str = args.string.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumExternalMacroDataCompression requires --string\n\n{usage}")
+            })?;
+            let pointer_cost = args.pointer_cost.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumExternalMacroDataCompression requires --pointer-cost\n\n{usage}"
+                )
+            })?;
+            anyhow::ensure!(
+                pointer_cost > 0,
+                "--pointer-cost must be a positive integer\n\n{usage}"
+            );
+
+            let string: Vec<usize> = if string_str.trim().is_empty() {
+                Vec::new()
+            } else {
+                string_str
+                    .split(',')
+                    .map(|value| {
+                        value
+                            .trim()
+                            .parse::<usize>()
+                            .context("invalid symbol index")
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            };
+            let inferred = string.iter().copied().max().map_or(0, |value| value + 1);
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            anyhow::ensure!(
+                alphabet_size >= inferred,
+                "--alphabet-size {} is smaller than max symbol + 1 ({}) in the input string",
+                alphabet_size,
+                inferred
+            );
+            anyhow::ensure!(
+                alphabet_size > 0 || string.is_empty(),
+                "MinimumExternalMacroDataCompression requires a positive alphabet for non-empty strings.\n\n{usage}"
+            );
+            (
+                ser(MinimumExternalMacroDataCompression::new(
+                    alphabet_size,
+                    string,
+                    pointer_cost,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -3121,6 +3375,37 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     production_costs,
                     inventory_costs,
                     cost_bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SchedulingToMinimizeWeightedCompletionTime
+        "SchedulingToMinimizeWeightedCompletionTime" => {
+            let usage = "Usage: pred create SchedulingToMinimizeWeightedCompletionTime --lengths 1,2,3,4,5 --weights 6,4,3,2,1 --num-processors 2";
+            let lengths_str = args.lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingToMinimizeWeightedCompletionTime requires --lengths, --weights, and --num-processors\n\n{usage}"
+                )
+            })?;
+            let weights_str = args.weights.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingToMinimizeWeightedCompletionTime requires --weights\n\n{usage}"
+                )
+            })?;
+            let num_processors = args.num_processors.ok_or_else(|| {
+                anyhow::anyhow!("SchedulingToMinimizeWeightedCompletionTime requires --num-processors\n\n{usage}")
+            })?;
+            if num_processors == 0 {
+                bail!("SchedulingToMinimizeWeightedCompletionTime requires --num-processors > 0\n\n{usage}");
+            }
+            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
+            let weights: Vec<u64> = util::parse_comma_list(weights_str)?;
+            (
+                ser(SchedulingToMinimizeWeightedCompletionTime::new(
+                    lengths,
+                    weights,
+                    num_processors,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -3992,6 +4277,34 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
             (
                 ser(MinimumDummyActivitiesPert::try_new(graph).map_err(|e| anyhow::anyhow!(e))?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // RegisterSufficiency
+        "RegisterSufficiency" => {
+            let usage = "Usage: pred create RegisterSufficiency --arcs \"2>0,2>1,3>1,4>2,4>3,5>0,6>4,6>5\" --bound 3 [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RegisterSufficiency requires --arcs and --bound\n\n\
+                     {usage}"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RegisterSufficiency requires --bound\n\n\
+                     {usage}"
+                )
+            })?;
+            if bound < 0 {
+                bail!("RegisterSufficiency --bound must be non-negative\n\n{usage}");
+            }
+            let bound = bound as usize;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let n = graph.num_vertices();
+            let arcs = graph.arcs();
+            (
+                ser(RegisterSufficiency::new(n, arcs, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -7612,6 +7925,13 @@ mod tests {
             storage: None,
             quantifiers: None,
             homologous_pairs: None,
+            pointer_cost: None,
+            expression: None,
+            coeff_a: None,
+            coeff_b: None,
+            rhs: None,
+            coeff_c: None,
+            required_columns: None,
         }
     }
 

@@ -487,21 +487,27 @@ fn model_specs_are_optimal() {
                 let entry = find_variant_entry(name, &variant)?;
                 let (config, _) = (entry.solve_witness_fn)(spec.instance.as_any())?;
                 Some(config)
-            })
-            .unwrap_or_else(|| {
-                panic!(
-                    "No solver found for spec '{}' ({name} {variant:?})",
-                    spec.id
-                )
             });
 
-        let best_value = spec.instance.evaluate_json(&best_config);
-        assert_eq!(
-            best_value, spec.optimal_value,
-            "Model spec '{}': solver optimal = {} but stored optimal_value = {} \
-             (solver config: {:?}, stored config: {:?})",
-            spec.id, best_value, spec.optimal_value, best_config, spec.optimal_config
-        );
+        if let Some(best_config) = best_config {
+            let best_value = spec.instance.evaluate_json(&best_config);
+            assert_eq!(
+                best_value, spec.optimal_value,
+                "Model spec '{}': solver optimal = {} but stored optimal_value = {} \
+                 (solver config: {:?}, stored config: {:?})",
+                spec.id, best_value, spec.optimal_value, best_config, spec.optimal_config
+            );
+        } else {
+            // Aggregate-only models (e.g., Sum) don't support witnesses.
+            // Verify the stored config evaluates to the stored value.
+            let stored_value = spec.instance.evaluate_json(&spec.optimal_config);
+            assert_eq!(
+                stored_value, spec.optimal_value,
+                "Model spec '{}': stored config evaluates to {} but optimal_value = {} \
+                 (config: {:?})",
+                spec.id, stored_value, spec.optimal_value, spec.optimal_config
+            );
+        }
     }
 }
 

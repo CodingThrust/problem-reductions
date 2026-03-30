@@ -4,6 +4,7 @@
 //! - [`ConsecutiveSets`]: Consecutive arrangement of subset elements in a string
 //! - [`ExactCoverBy3Sets`]: Exact cover by 3-element subsets (X3C)
 //! - [`ComparativeContainment`]: Compare containment-weight sums for two set families
+//! - [`IntegerKnapsack`]: Maximize value with integer multiplicities subject to capacity
 //! - [`MaximumSetPacking`]: Maximum weight set packing
 //! - [`MinimumHittingSet`]: Minimum-size universe subset hitting every set
 //! - [`MinimumSetCovering`]: Minimum weight set cover
@@ -13,6 +14,7 @@
 pub(crate) mod comparative_containment;
 pub(crate) mod consecutive_sets;
 pub(crate) mod exact_cover_by_3_sets;
+pub(crate) mod integer_knapsack;
 pub(crate) mod maximum_set_packing;
 pub(crate) mod minimum_cardinality_key;
 pub(crate) mod minimum_hitting_set;
@@ -25,6 +27,7 @@ pub(crate) mod two_dimensional_consecutive_sets;
 pub use comparative_containment::ComparativeContainment;
 pub use consecutive_sets::ConsecutiveSets;
 pub use exact_cover_by_3_sets::ExactCoverBy3Sets;
+pub use integer_knapsack::IntegerKnapsack;
 pub use maximum_set_packing::MaximumSetPacking;
 pub use minimum_cardinality_key::MinimumCardinalityKey;
 pub use minimum_hitting_set::MinimumHittingSet;
@@ -40,6 +43,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(comparative_containment::canonical_model_example_specs());
     specs.extend(consecutive_sets::canonical_model_example_specs());
     specs.extend(exact_cover_by_3_sets::canonical_model_example_specs());
+    specs.extend(integer_knapsack::canonical_model_example_specs());
     specs.extend(maximum_set_packing::canonical_model_example_specs());
     specs.extend(minimum_cardinality_key::canonical_model_example_specs());
     specs.extend(minimum_hitting_set::canonical_model_example_specs());

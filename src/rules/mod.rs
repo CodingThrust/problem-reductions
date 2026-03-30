@@ -165,6 +165,8 @@ pub(crate) mod minimumcutintoboundedsets_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumdominatingset_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod minimumexternalmacrodatacompression_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumfeedbackarcset_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumfeedbackvertexset_ilp;
@@ -214,6 +216,8 @@ pub(crate) mod resourceconstrainedscheduling_ilp;
 pub(crate) mod rootedtreestorageassignment_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod ruralpostman_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod schedulingtominimizeweightedcompletiontime_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod schedulingwithindividualdeadlines_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -368,6 +372,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(maximumsetpacking_ilp::canonical_rule_example_specs());
         specs.extend(minimumcutintoboundedsets_ilp::canonical_rule_example_specs());
         specs.extend(minimumdominatingset_ilp::canonical_rule_example_specs());
+        specs.extend(minimumexternalmacrodatacompression_ilp::canonical_rule_example_specs());
         specs.extend(minimumfeedbackarcset_ilp::canonical_rule_example_specs());
         specs.extend(minimumfeedbackvertexset_ilp::canonical_rule_example_specs());
         specs.extend(minimumhittingset_ilp::canonical_rule_example_specs());
@@ -393,6 +398,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(resourceconstrainedscheduling_ilp::canonical_rule_example_specs());
         specs.extend(rootedtreestorageassignment_ilp::canonical_rule_example_specs());
         specs.extend(ruralpostman_ilp::canonical_rule_example_specs());
+        specs
+            .extend(schedulingtominimizeweightedcompletiontime_ilp::canonical_rule_example_specs());
         specs.extend(schedulingwithindividualdeadlines_ilp::canonical_rule_example_specs());
         specs.extend(sequencingtominimizemaximumcumulativecost_ilp::canonical_rule_example_specs());
         specs
