@@ -85,6 +85,7 @@
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
+  "HamiltonianPathBetweenTwoVertices": [Hamiltonian Path Between Two Vertices],
   "DirectedHamiltonianPath": [Directed Hamiltonian Path],
   "IntegralFlowBundles": [Integral Flow with Bundles],
   "LongestCircuit": [Longest Circuit],
@@ -1111,6 +1112,57 @@ is feasible: each set induces a connected subgraph, the component weights are $2
       },
       caption: [Hamiltonian Path in a #{nv}-vertex graph. Blue edges show the path $#path.map(v => $v_#v$).join($arrow$)$.],
       ) <fig:hamiltonian-path>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("HamiltonianPathBetweenTwoVertices")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let s = x.instance.source_vertex
+  let t = x.instance.target_vertex
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let path = sol.config
+  let path-edges = range(path.len() - 1).map(i => (path.at(i), path.at(i + 1)))
+  [
+    #problem-def("HamiltonianPathBetweenTwoVertices")[
+      Given a graph $G = (V, E)$ and two distinguished vertices $s, t in V$, determine whether $G$ contains a _Hamiltonian s–t path_, i.e., a simple path that begins at $s$, ends at $t$, and visits every vertex of $G$ exactly once.
+    ][
+      A classical NP-complete decision problem from Garey & Johnson (GT39, p. 60), closely related to _Hamiltonian Path_. Fixing the two endpoints of a Hamiltonian path gives a natural and useful specialisation: any Hamiltonian circuit can be converted into a Hamiltonian s–t path by removing the edge $(s, t)$, and conversely a Hamiltonian s–t path plus the edge $(s, t)$ yields a Hamiltonian circuit. The problem remains NP-complete for planar graphs and bipartite graphs.
+
+      The best known exact algorithm is Björklund's randomized $O^*(1.657^n)$ "Determinant Sums" method @bjorklund2014. The classical Held--Karp dynamic programming algorithm solves it in $O(n^2 dot 2^n)$ deterministic time by initialising the DP only at $s$ and accepting only solutions that terminate at $t$ @heldkarp1962.
+
+      Variables: $n = |V|$ values forming a permutation. Position $i$ holds the vertex visited at step $i$. A configuration is satisfying when it forms a valid permutation of all vertices, the first element is $s$, the last element is $t$, and consecutive vertices are adjacent in $G$.
+
+      *Example.* Consider the graph $G$ on #nv vertices with edges ${#edges.map(((u, v)) => $\{#u, #v\}$).join(", ")}$, source $s = #s$, and target $t = #t$. The sequence $[#path.map(v => str(v)).join(", ")]$ is a Hamiltonian $s$–$t$ path: it starts at $s$, ends at $t$, visits every vertex exactly once, and each consecutive pair is adjacent --- #path-edges.map(((u, v)) => $\{#u, #v\}$).join($,$) $in E$.
+
+      #pred-commands(
+        "pred create --example HamiltonianPathBetweenTwoVertices -o hpbtv.json",
+        "pred solve hpbtv.json",
+        "pred evaluate hpbtv.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        let blue = graph-colors.at(0)
+        let gray = luma(200)
+        canvas(length: 1cm, {
+          import draw: *
+          let verts = ((0, 1.5), (1.5, 1.5), (3, 1.5), (1.5, 0), (3, 0), (0, 0))
+          for (u, v) in edges {
+            let on-path = path-edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
+            g-edge(verts.at(u), verts.at(v), stroke: if on-path { 2pt + blue } else { 1pt + gray })
+          }
+          for (k, pos) in verts.enumerate() {
+            let is-endpoint = k == s or k == t
+            g-node(pos, name: "v" + str(k),
+              fill: if is-endpoint { graph-colors.at(1) } else { blue },
+              label: text(fill: white)[$v_#k$])
+          }
+        })
+      },
+      caption: [Hamiltonian $s$–$t$ path in a #{nv}-vertex graph with $s = v_#s$ and $t = v_#t$ (orange). Blue edges show the path $#path.map(v => $v_#v$).join($arrow$)$.],
+      ) <fig:hamiltonian-path-between-two-vertices>
     ]
   ]
 }

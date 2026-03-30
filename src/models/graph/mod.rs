@@ -23,6 +23,7 @@
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`MinimumMultiwayCut`]: Minimum weight multiway cut
 //! - [`HamiltonianPath`]: Hamiltonian path (simple path visiting every vertex)
+//! - [`HamiltonianPathBetweenTwoVertices`]: Hamiltonian path between two specified vertices (decision problem)
 //! - [`LongestPath`]: Maximum-length simple s-t path
 //! - [`ShortestWeightConstrainedPath`]: Bicriteria simple s-t path with length and weight bounds
 //! - [`PartitionIntoPathsOfLength2`]: Partition vertices into triples with at least two edges each
@@ -67,6 +68,7 @@ pub(crate) mod disjoint_connecting_paths;
 pub(crate) mod generalized_hex;
 pub(crate) mod hamiltonian_circuit;
 pub(crate) mod hamiltonian_path;
+pub(crate) mod hamiltonian_path_between_two_vertices;
 pub(crate) mod integral_flow_bundles;
 pub(crate) mod integral_flow_homologous_arcs;
 pub(crate) mod integral_flow_with_multipliers;
@@ -123,6 +125,7 @@ pub use disjoint_connecting_paths::DisjointConnectingPaths;
 pub use generalized_hex::GeneralizedHex;
 pub use hamiltonian_circuit::HamiltonianCircuit;
 pub use hamiltonian_path::HamiltonianPath;
+pub use hamiltonian_path_between_two_vertices::HamiltonianPathBetweenTwoVertices;
 pub use integral_flow_bundles::IntegralFlowBundles;
 pub use integral_flow_homologous_arcs::IntegralFlowHomologousArcs;
 pub use integral_flow_with_multipliers::IntegralFlowWithMultipliers;
@@ -178,6 +181,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(generalized_hex::canonical_model_example_specs());
     specs.extend(hamiltonian_circuit::canonical_model_example_specs());
     specs.extend(hamiltonian_path::canonical_model_example_specs());
+    specs.extend(hamiltonian_path_between_two_vertices::canonical_model_example_specs());
     specs.extend(integral_flow_bundles::canonical_model_example_specs());
     specs.extend(integral_flow_with_multipliers::canonical_model_example_specs());
     specs.extend(isomorphic_spanning_tree::canonical_model_example_specs());

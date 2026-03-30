@@ -15,10 +15,11 @@ use problemreductions::models::algebraic::{
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     DirectedHamiltonianPath, DisjointConnectingPaths, GeneralizedHex, HamiltonianCircuit,
-    HamiltonianPath, IntegralFlowBundles, LengthBoundedDisjointPaths, LongestCircuit, LongestPath,
-    MinimumCutIntoBoundedSets, MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman,
-    MultipleChoiceBranching, PathConstrainedNetworkFlow, RootedTreeArrangement, SteinerTree,
-    SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    HamiltonianPath, HamiltonianPathBetweenTwoVertices, IntegralFlowBundles,
+    LengthBoundedDisjointPaths, LongestCircuit, LongestPath, MinimumCutIntoBoundedSets,
+    MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching,
+    PathConstrainedNetworkFlow, RootedTreeArrangement, SteinerTree, SteinerTreeInGraphs,
+    StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
@@ -617,6 +618,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6"
         }
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
+        "HamiltonianPathBetweenTwoVertices" => {
+            "--graph 0-1,0-3,1-2,1-4,2-5,3-4,4-5,2-3 --source-vertex 0 --target-vertex 5"
+        }
         "LongestPath" => {
             "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,4-6,5-6,1-6 --edge-lengths 3,2,4,1,5,2,3,2,4,1 --source-vertex 0 --target-vertex 6"
         }
@@ -1501,6 +1505,37 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 anyhow::anyhow!("{e}\n\nUsage: pred create HamiltonianPath --graph 0-1,1-2,2-3")
             })?;
             (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
+        }
+
+        // Hamiltonian path between two specified vertices
+        "HamiltonianPathBetweenTwoVertices" => {
+            let usage = "pred create HamiltonianPathBetweenTwoVertices --graph 0-1,0-3,1-2,1-4,2-5,3-4,4-5,2-3 --source-vertex 0 --target-vertex 5";
+            let (graph, _) =
+                parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
+            let source_vertex = args.source_vertex.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "HamiltonianPathBetweenTwoVertices requires --source-vertex\n\nUsage: {usage}"
+                )
+            })?;
+            let target_vertex = args.target_vertex.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "HamiltonianPathBetweenTwoVertices requires --target-vertex\n\nUsage: {usage}"
+                )
+            })?;
+            ensure_vertex_in_bounds(source_vertex, graph.num_vertices(), "source_vertex")?;
+            ensure_vertex_in_bounds(target_vertex, graph.num_vertices(), "target_vertex")?;
+            anyhow::ensure!(
+                source_vertex != target_vertex,
+                "source_vertex and target_vertex must be distinct"
+            );
+            (
+                ser(HamiltonianPathBetweenTwoVertices::new(
+                    graph,
+                    source_vertex,
+                    target_vertex,
+                ))?,
+                resolved_variant.clone(),
+            )
         }
 
         // LongestPath
@@ -6802,6 +6837,35 @@ fn create_random(
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (ser(HamiltonianPath::new(graph))?, variant)
+        }
+
+        // HamiltonianPathBetweenTwoVertices (graph + source/target)
+        "HamiltonianPathBetweenTwoVertices" => {
+            let num_vertices = num_vertices.max(2);
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let source_vertex = args.source_vertex.unwrap_or(0);
+            let target_vertex = args
+                .target_vertex
+                .unwrap_or_else(|| num_vertices.saturating_sub(1));
+            ensure_vertex_in_bounds(source_vertex, graph.num_vertices(), "source_vertex")?;
+            ensure_vertex_in_bounds(target_vertex, graph.num_vertices(), "target_vertex")?;
+            anyhow::ensure!(
+                source_vertex != target_vertex,
+                "source_vertex and target_vertex must be distinct"
+            );
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (
+                ser(HamiltonianPathBetweenTwoVertices::new(
+                    graph,
+                    source_vertex,
+                    target_vertex,
+                ))?,
+                variant,
+            )
         }
 
         // LongestCircuit (graph + unit edge lengths)

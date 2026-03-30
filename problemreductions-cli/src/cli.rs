@@ -218,6 +218,7 @@ Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
   MaxCut, MaxMatching, TSP, BottleneckTravelingSalesman --graph, --edge-weights
   LongestPath                     --graph, --edge-lengths, --source-vertex, --target-vertex
+  HamiltonianPathBetweenTwoVertices --graph, --source-vertex, --target-vertex
   ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --weight-bound
   MaximalIS                       --graph, --weights
   SAT, NAESAT                     --num-vars, --clauses
