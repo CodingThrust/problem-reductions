@@ -10,7 +10,11 @@
 //! - [`MinimumSetCovering`]: Minimum weight set cover
 //! - [`PrimeAttributeName`]: Determine if an attribute belongs to any candidate key
 //! - [`RootedTreeStorageAssignment`]: Extend subsets to directed tree paths within a total-cost bound
+//! - [`SetBasis`]: Minimum-cardinality basis generating all sets by union
 //! - [`SetSplitting`]: 2-color universe so every specified subset is non-monochromatic
+//! - [`ThreeDimensionalMatching`]: Perfect matching in a tripartite 3-uniform hypergraph
+//! - [`TwoDimensionalConsecutiveSets`]: 2D consecutive arrangement of subset elements
+//! - [`MinimumCardinalityKey`]: Smallest attribute set that uniquely identifies tuples
 
 pub(crate) mod comparative_containment;
 pub(crate) mod consecutive_sets;
@@ -24,6 +28,7 @@ pub(crate) mod prime_attribute_name;
 pub(crate) mod rooted_tree_storage_assignment;
 pub(crate) mod set_basis;
 pub(crate) mod set_splitting;
+pub(crate) mod three_dimensional_matching;
 pub(crate) mod two_dimensional_consecutive_sets;
 
 pub use comparative_containment::ComparativeContainment;
@@ -38,6 +43,7 @@ pub use prime_attribute_name::PrimeAttributeName;
 pub use rooted_tree_storage_assignment::RootedTreeStorageAssignment;
 pub use set_basis::SetBasis;
 pub use set_splitting::SetSplitting;
+pub use three_dimensional_matching::ThreeDimensionalMatching;
 pub use two_dimensional_consecutive_sets::TwoDimensionalConsecutiveSets;
 
 #[cfg(feature = "example-db")]
@@ -55,6 +61,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(rooted_tree_storage_assignment::canonical_model_example_specs());
     specs.extend(set_basis::canonical_model_example_specs());
     specs.extend(set_splitting::canonical_model_example_specs());
+    specs.extend(three_dimensional_matching::canonical_model_example_specs());
     specs.extend(two_dimensional_consecutive_sets::canonical_model_example_specs());
     specs
 }

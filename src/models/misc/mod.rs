@@ -2,19 +2,24 @@
 //!
 //! Problems with unique input structures that don't fit other categories:
 //! - [`AdditionalKey`]: Determine whether a relational schema has an additional candidate key
+//! - [`Betweenness`]: Find a linear ordering satisfying betweenness constraints on triples
 //! - [`BinPacking`]: Bin Packing (minimize bins)
+//! - [`CyclicOrdering`]: Find a permutation satisfying cyclic ordering constraints on triples
 //! - [`BoyceCoddNormalFormViolation`]: Boyce-Codd Normal Form Violation (BCNF)
 //! - [`ConsistencyOfDatabaseFrequencyTables`]: Pairwise frequency-table consistency
 //! - [`ConjunctiveBooleanQuery`]: Evaluate a conjunctive Boolean query over relations
 //! - [`ConjunctiveQueryFoldability`]: Conjunctive Query Foldability
+//! - [`DynamicStorageAllocation`]: Assign starting addresses in bounded memory for time-varying items
 //! - [`ExpectedRetrievalCost`]: Allocate records to circular sectors within a latency bound
 //! - [`Factoring`]: Integer factorization
+//! - [`FeasibleRegisterAssignment`]: Determine if a DAG computation can be scheduled without register conflicts under a fixed assignment
 //! - [`IntegerExpressionMembership`]: Membership in a set defined by an integer expression tree
 //! - [`FlowShopScheduling`]: Flow Shop Scheduling (meet deadline on m processors)
 //! - [`GroupingBySwapping`]: Group equal symbols into contiguous blocks by adjacent swaps
 //! - [`JobShopScheduling`]: Minimize makespan with per-job processor routes
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
 //! - [`MultiprocessorScheduling`]: Schedule tasks on processors to meet a deadline
+//! - [`Numerical3DimensionalMatching`]: Partition W∪X∪Y into m triples each summing to B
 //! - [`OpenShopScheduling`]: Open Shop Scheduling (minimize makespan, free task order per job)
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
 //! - [`MinimumExternalMacroDataCompression`]: Minimize compression cost using external dictionary
@@ -22,6 +27,7 @@
 //! - [`MinimumTardinessSequencing`]: Minimize tardy tasks in single-machine scheduling
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
 //! - [`CosineProductIntegration`]: Balanced sign assignment for integer frequencies
+//! - [`NonLivenessFreePetriNet`]: Determine whether a free-choice Petri net is not live
 //! - [`Partition`]: Partition a multiset into two equal-sum subsets
 //! - [`PartiallyOrderedKnapsack`]: Knapsack with precedence constraints
 //! - [`PrecedenceConstrainedScheduling`]: Schedule unit tasks on processors by deadline
@@ -42,10 +48,13 @@
 //! - [`ShortestCommonSupersequence`]: Find a common supersequence of bounded length
 //! - [`TimetableDesign`]: Schedule craftsmen on tasks across work periods
 //! - [`StringToStringCorrection`]: String-to-String Correction (derive target via deletions and swaps)
+//! - [`SubsetProduct`]: Find a subset whose product equals exactly a target value
 //! - [`SubsetSum`]: Find a subset summing to exactly a target value
 //! - [`SumOfSquaresPartition`]: Partition integers into K groups minimizing sum of squared group sums
 
 pub(crate) mod additional_key;
+mod betweenness;
+mod cyclic_ordering;
 
 /// Decode a Lehmer code into a permutation of `0..n`.
 ///
@@ -78,9 +87,11 @@ pub(crate) mod conjunctive_boolean_query;
 pub(crate) mod conjunctive_query_foldability;
 mod consistency_of_database_frequency_tables;
 mod cosine_product_integration;
+mod dynamic_storage_allocation;
 mod ensemble_computation;
 pub(crate) mod expected_retrieval_cost;
 pub(crate) mod factoring;
+mod feasible_register_assignment;
 mod flow_shop_scheduling;
 mod grouping_by_swapping;
 pub(crate) mod integer_expression_membership;
@@ -92,6 +103,8 @@ mod minimum_external_macro_data_compression;
 mod minimum_internal_macro_data_compression;
 mod minimum_tardiness_sequencing;
 mod multiprocessor_scheduling;
+mod non_liveness_free_petri_net;
+mod numerical_3_dimensional_matching;
 mod open_shop_scheduling;
 pub(crate) mod paintshop;
 pub(crate) mod partially_ordered_knapsack;
@@ -115,12 +128,14 @@ pub(crate) mod shortest_common_supersequence;
 mod stacker_crane;
 mod staff_scheduling;
 pub(crate) mod string_to_string_correction;
+mod subset_product;
 mod subset_sum;
 pub(crate) mod sum_of_squares_partition;
 mod three_partition;
 mod timetable_design;
 
 pub use additional_key::AdditionalKey;
+pub use betweenness::Betweenness;
 pub use bin_packing::BinPacking;
 pub use boyce_codd_normal_form_violation::BoyceCoddNormalFormViolation;
 pub use capacity_assignment::CapacityAssignment;
@@ -130,9 +145,12 @@ pub use consistency_of_database_frequency_tables::{
     ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue,
 };
 pub use cosine_product_integration::CosineProductIntegration;
+pub use cyclic_ordering::CyclicOrdering;
+pub use dynamic_storage_allocation::DynamicStorageAllocation;
 pub use ensemble_computation::EnsembleComputation;
 pub use expected_retrieval_cost::ExpectedRetrievalCost;
 pub use factoring::Factoring;
+pub use feasible_register_assignment::FeasibleRegisterAssignment;
 pub use flow_shop_scheduling::FlowShopScheduling;
 pub use grouping_by_swapping::GroupingBySwapping;
 pub use integer_expression_membership::{IntExpr, IntegerExpressionMembership};
@@ -144,6 +162,8 @@ pub use minimum_external_macro_data_compression::MinimumExternalMacroDataCompres
 pub use minimum_internal_macro_data_compression::MinimumInternalMacroDataCompression;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use multiprocessor_scheduling::MultiprocessorScheduling;
+pub use non_liveness_free_petri_net::NonLivenessFreePetriNet;
+pub use numerical_3_dimensional_matching::Numerical3DimensionalMatching;
 pub use open_shop_scheduling::OpenShopScheduling;
 pub use paintshop::PaintShop;
 pub use partially_ordered_knapsack::PartiallyOrderedKnapsack;
@@ -167,6 +187,7 @@ pub use shortest_common_supersequence::ShortestCommonSupersequence;
 pub use stacker_crane::StackerCrane;
 pub use staff_scheduling::StaffScheduling;
 pub use string_to_string_correction::StringToStringCorrection;
+pub use subset_product::SubsetProduct;
 pub use subset_sum::SubsetSum;
 pub use sum_of_squares_partition::SumOfSquaresPartition;
 pub use three_partition::ThreePartition;
@@ -216,13 +237,20 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(bin_packing::canonical_model_example_specs());
     specs.extend(knapsack::canonical_model_example_specs());
     specs.extend(integer_expression_membership::canonical_model_example_specs());
+    specs.extend(subset_product::canonical_model_example_specs());
     specs.extend(subset_sum::canonical_model_example_specs());
+    specs.extend(numerical_3_dimensional_matching::canonical_model_example_specs());
     specs.extend(three_partition::canonical_model_example_specs());
     specs.extend(cosine_product_integration::canonical_model_example_specs());
+    specs.extend(dynamic_storage_allocation::canonical_model_example_specs());
     specs.extend(minimum_external_macro_data_compression::canonical_model_example_specs());
     specs.extend(minimum_internal_macro_data_compression::canonical_model_example_specs());
     specs.extend(register_sufficiency::canonical_model_example_specs());
+    specs.extend(feasible_register_assignment::canonical_model_example_specs());
     specs.extend(kth_largest_m_tuple::canonical_model_example_specs());
     specs.extend(preemptive_scheduling::canonical_model_example_specs());
+    specs.extend(betweenness::canonical_model_example_specs());
+    specs.extend(cyclic_ordering::canonical_model_example_specs());
+    specs.extend(non_liveness_free_petri_net::canonical_model_example_specs());
     specs
 }

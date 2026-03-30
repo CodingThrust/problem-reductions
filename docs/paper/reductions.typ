@@ -77,6 +77,9 @@
 // Problem display names for theorem headers
 #let display-name = (
   "AdditionalKey": [Additional Key],
+  "AlgebraicEquationsOverGF2": [Algebraic Equations over GF(2)],
+  "Betweenness": [Betweenness],
+  "CyclicOrdering": [Cyclic Ordering],
   "AcyclicPartition": [Acyclic Partition],
   "MaximumIndependentSet": [Maximum Independent Set],
   "MinimumVertexCover": [Minimum Vertex Cover],
@@ -86,6 +89,8 @@
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
   "HamiltonianPathBetweenTwoVertices": [Hamiltonian Path Between Two Vertices],
+  "BoundedDiameterSpanningTree": [Bounded Diameter Spanning Tree],
+  "DegreeConstrainedSpanningTree": [Degree-Constrained Spanning Tree],
   "DirectedHamiltonianPath": [Directed Hamiltonian Path],
   "IntegralFlowBundles": [Integral Flow with Bundles],
   "LongestCircuit": [Longest Circuit],
@@ -96,10 +101,15 @@
   "PathConstrainedNetworkFlow": [Path-Constrained Network Flow],
   "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
+  "Kernel": [Kernel],
   "KthBestSpanningTree": [Kth Best Spanning Tree],
+  "MaximumAchromaticNumber": [Maximum Achromatic Number],
   "KColoring": [$k$-Coloring],
   "KClique": [$k$-Clique],
+  "MinimumCoveringByCliques": [Minimum Covering by Cliques],
+  "MinimumIntersectionGraphBasis": [Minimum Intersection Graph Basis],
   "MinimumDominatingSet": [Minimum Dominating Set],
+  "MinimumGeometricConnectedDominatingSet": [Minimum Geometric Connected Dominating Set],
   "MaximumMatching": [Maximum Matching],
   "MinimumMaximalMatching": [Minimum Maximal Matching],
   "BottleneckTravelingSalesman": [Bottleneck Traveling Salesman],
@@ -121,6 +131,9 @@
   "Satisfiability": [SAT],
   "NAESatisfiability": [NAE-SAT],
   "KSatisfiability": [$k$-SAT],
+  "NonTautology": [Non-Tautology],
+  "OneInThreeSatisfiability": [1-in-3 SAT],
+  "Planar3Satisfiability": [Planar 3-SAT],
   "CircuitSAT": [CircuitSAT],
   "ConjunctiveQueryFoldability": [Conjunctive Query Foldability],
   "EnsembleComputation": [Ensemble Computation],
@@ -148,10 +161,14 @@
   "StackerCrane": [Stacker Crane],
   "LongestCommonSubsequence": [Longest Common Subsequence],
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
+  "ThreeDimensionalMatching": [Three-Dimensional Matching],
+  "SubsetProduct": [Subset Product],
   "SubsetSum": [Subset Sum],
   "CosineProductIntegration": [Cosine Product Integration],
   "Partition": [Partition],
   "ThreePartition": [3-Partition],
+  "DynamicStorageAllocation": [Dynamic Storage Allocation],
+  "Numerical3DimensionalMatching": [Numerical 3-Dimensional Matching],
   "PartialFeedbackEdgeSet": [Partial Feedback Edge Set],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
@@ -161,6 +178,8 @@
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
   "FeasibleBasisExtension": [Feasible Basis Extension],
   "SparseMatrixCompression": [Sparse Matrix Compression],
+  "MinimumMatrixDomination": [Minimum Matrix Domination],
+  "MinimumWeightSolutionToLinearEquations": [Minimum Weight Solution to Linear Equations],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
   "IntegralFlowHomologousArcs": [Integral Flow with Homologous Arcs],
   "IntegralFlowWithMultipliers": [Integral Flow With Multipliers],
@@ -174,12 +193,16 @@
   "MinimumDummyActivitiesPert": [Minimum Dummy Activities in PERT Networks],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
+  "MonochromaticTriangle": [Monochromatic Triangle],
   "MultipleChoiceBranching": [Multiple Choice Branching],
   "MultipleCopyFileAllocation": [Multiple Copy File Allocation],
   "ExpectedRetrievalCost": [Expected Retrieval Cost],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
+  "NonLivenessFreePetriNet": [Non-Liveness Free Petri Net],
   "ProductionPlanning": [Production Planning],
+  "PartitionIntoCliques": [Partition into Cliques],
   "PartitionIntoForests": [Partition into Forests],
+  "PartitionIntoPerfectMatchings": [Partition into Perfect Matchings],
   "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
   "PartitionIntoTriangles": [Partition Into Triangles],
   "PrecedenceConstrainedScheduling": [Precedence Constrained Scheduling],
@@ -192,6 +215,7 @@
   "SimultaneousIncongruences": [Simultaneous Incongruences],
   "QuantifiedBooleanFormulas": [Quantified Boolean Formulas (QBF)],
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
+  "FeasibleRegisterAssignment": [Feasible Register Assignment],
   "RegisterSufficiency": [Register Sufficiency],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
   "RootedTreeStorageAssignment": [Rooted Tree Storage Assignment],
@@ -1192,6 +1216,27 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   ]
 }
 #{
+  let x = load-model-example("Kernel")
+  let nv = x.instance.graph.num_vertices
+  let arcs = x.instance.graph.arcs
+  [
+    #problem-def("Kernel")[
+      Given a directed graph $G = (V, A)$, find a _kernel_ $V' subset.eq V$ such that (1) $V'$ is _independent_ — no arc joins any two vertices in $V'$ — and (2) $V'$ is _absorbing_ — every vertex $u in.not V'$ has an arc $(u, v) in A$ for some $v in V'$.
+    ][
+      A classical graph-theoretic concept introduced by von Neumann and Morgenstern (1944) in the context of game theory. Deciding whether a directed graph has a kernel is NP-complete in general, though every DAG has a unique kernel. Kernels appear in combinatorial game theory, graph coloring (Galvin's theorem), and stable set problems on digraphs.
+
+      Variables: A binary vector of length $|V|$, where $x_v = 1$ iff vertex $v$ is in the kernel.
+
+      *Example.* Consider the directed graph $G$ on #nv vertices with arcs ${#arcs.map(((u, v)) => $(#u arrow.r #v)$).join(", ")}$. The kernel $V' = {0, 3}$ is independent (no arc between 0 and 3) and absorbing (vertex 1 has arc to 3, vertex 2 has arc to 3, vertex 4 has arc to 0).
+
+      #pred-commands(
+        "pred create --example Kernel -o kernel.json",
+        "pred solve kernel.json",
+      )
+    ]
+  ]
+}
+#{
   let x = load-model-example("LongestPath")
   let nv = graph-num-vertices(x.instance)
   let edges = x.instance.graph.edges
@@ -1617,6 +1662,31 @@ is feasible: each set induces a connected subgraph, the component weights are $2
   ]
 }
 #{
+  let x = load-model-example("MaximumAchromaticNumber")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let num-colors = metric-value(sol.metric)
+  let coloring = sol.config
+  let color-groups = range(num-colors).map(c => coloring.enumerate().filter(((i, v)) => v == c).map(((i, _)) => i))
+  [
+    #problem-def("MaximumAchromaticNumber")[
+      Given an undirected graph $G = (V, E)$, find a proper vertex coloring $c: V -> {1, dots, k}$ that is _complete_ --- for every pair of distinct colors $i, j$ there exists an edge $(u, v) in E$ with $c(u) = i$ and $c(v) = j$ --- maximizing the number of colors $k$.
+    ][
+      The achromatic number $psi(G)$ is the largest $k$ such that $G$ admits a complete proper $k$-coloring. It was introduced by Harary and Hedetniemi (1970) and shown NP-hard @garey1979[GT5]. Applications include network partition and information dissemination. Brute-force enumeration runs in $O^*(n^n)$ time.
+
+      *Example.* Consider the 6-cycle $C_6$ with $n = #nv$ vertices and $|E| = #ne$ edges: #edges.map(((u, v)) => [${#u, #v}$]).join(", "). The coloring #range(nv).map(i => $c(v_#i) = #(coloring.at(i) + 1)$).join(", ") uses $#num-colors$ colors. It is proper (no adjacent pair shares a color) and complete: every pair of color classes is connected by at least one edge. Thus $psi(C_6) >= #num-colors$.
+
+      #pred-commands(
+        "pred create --example MaximumAchromaticNumber -o achromatic.json",
+        "pred solve achromatic.json",
+        "pred evaluate achromatic.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+#{
   let x = load-model-example("MinimumDominatingSet")
   let nv = graph-num-vertices(x.instance)
   let edges = x.instance.graph.edges
@@ -1653,6 +1723,76 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     },
     caption: [The house graph with minimum dominating set $S = {#S.map(i => $v_#i$).join(", ")}$ (blue, $gamma(G) = #wS$). Every white vertex is adjacent to at least one blue vertex.],
     ) <fig:house-ds>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("MinimumGeometricConnectedDominatingSet")
+  let n = x.instance.points.len()
+  let B = x.instance.radius
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let wS = metric-value(sol.metric)
+  [
+    #problem-def("MinimumGeometricConnectedDominatingSet")[
+      Given points $P = {p_1, dots, p_n}$ in $RR^2$ and distance threshold $B > 0$, find $P' subset.eq P$ minimizing $|P'|$ s.t. (1) $forall p in P backslash P': exists q in P'$ with $d(p,q) <= B$ (domination), and (2) the unit-disk graph on $P'$ with radius $B$ is connected.
+    ][
+    Geometric Connected Dominating Set arises in wireless ad-hoc networks: selected nodes form a connected backbone that covers all other nodes within communication range. The problem is NP-hard and generalizes both dominating set (dropping connectivity) and connected subgraph (dropping domination).
+
+    *Example.* Consider $n = #n$ points arranged in a $4 times 2$ ladder with spacing $3$ and threshold $B = #B$. The bottom row $P' = {#S.map(i => $p_#i$).join(", ")}$ forms a minimum connected dominating set of size $#wS$: each bottom-row point dominates the top-row point directly above it (vertical distance $3 <= #B$), and consecutive bottom-row points are within distance $3 <= #B$ of each other, so $P'$ induces a connected path.
+
+    #pred-commands(
+      "pred create --example MinimumGeometricConnectedDominatingSet -o mgcds.json",
+      "pred solve mgcds.json",
+      "pred evaluate mgcds.json --config " + x.optimal_config.map(str).join(","),
+    )
+    ]
+  ]
+}
+#{
+  let x = load-model-example("MinimumCoveringByCliques")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let num-cliques = metric-value(sol.metric)
+  let groups = range(num-cliques).map(c => sol.config.enumerate().filter(((i, v)) => v == c).map(((i, _)) => i))
+  [
+    #problem-def("MinimumCoveringByCliques")[
+      Given an undirected graph $G = (V, E)$, find a collection of cliques $C_1, dots, C_k$ in $G$ such that every edge $e in E$ is contained in at least one $C_i$, and the number of cliques $k$ is minimized.
+    ][
+      Minimum Covering by Cliques (also called _edge clique cover_) is NP-hard @garey1979[GT59]. Applications include intersection graph recognition and computational biology. The minimum edge clique cover number equals the minimum dimension of a dot-product representation of the graph. Brute-force enumeration runs in $O^*(2^(|E|))$ time.
+
+      *Example.* Consider $G$ with $n = #nv$ vertices and $|E| = #ne$ edges: #edges.map(((u, v)) => [${#u, #v}$]).join(", "). An optimal cover uses $#num-cliques$ cliques: #groups.enumerate().filter(((_, g)) => g.len() > 0).map(((i, g)) => [$C_#(i + 1)$: edges #g.map(j => str(j)).join(", ")]).join("; ").
+
+      #pred-commands(
+        "pred create --example MinimumCoveringByCliques -o covering-by-cliques.json",
+        "pred solve covering-by-cliques.json",
+        "pred evaluate covering-by-cliques.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+#{
+  let x = load-model-example("MinimumIntersectionGraphBasis")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let universe-size = metric-value(sol.metric)
+  [
+    #problem-def("MinimumIntersectionGraphBasis")[
+      Given an undirected graph $G = (V, E)$, find a universe $U$ of minimum cardinality and an assignment of subsets $S_v subset.eq U$ for each vertex $v in V$ such that two vertices $u, v$ are adjacent if and only if $S_u inter S_v eq.not emptyset$. The minimum $|U|$ is the _intersection number_ of $G$.
+    ][
+      Minimum Intersection Graph Basis is NP-hard @garey1979[GT60]. Every graph is an intersection graph; the intersection number measures how compactly such a representation can be chosen. The intersection number is at most $|E|$. Brute-force enumeration runs in $O^*(|E|^(|E|))$ time.
+
+      *Example.* Consider the path $P_3$ with $n = #nv$ vertices and $|E| = #ne$ edges: #edges.map(((u, v)) => [${#u, #v}$]).join(", "). An optimal representation uses $#universe-size$ elements: $S_0 = {0}$, $S_1 = {0, 1}$, $S_2 = {1}$.
+
+      #pred-commands(
+        "pred create --example MinimumIntersectionGraphBasis -o intersection-basis.json",
+        "pred solve intersection-basis.json",
+        "pred evaluate intersection-basis.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -2835,6 +2975,34 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let tdm = load-model-example("ThreeDimensionalMatching")
+  let q = tdm.instance.universe_size
+  let triples = tdm.instance.triples
+  let m = triples.len()
+  let sol = tdm.optimal_config
+  // Format a triple as (w+1, x+1, y+1) using 1-indexed notation
+  let fmt-triple(t) = "$(" + str(t.at(0) + 1) + ", " + str(t.at(1) + 1) + ", " + str(t.at(2) + 1) + ")$"
+  // Collect indices of selected triples (0-indexed)
+  let selected = sol.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+
+  [
+    #problem-def("ThreeDimensionalMatching")[
+      Given disjoint sets $W$, $X$, $Y$ each with $q$ elements and a set $M subset.eq W times X times Y$ of triples, does $M$ contain a _matching_ — a subset $M' subset.eq M$ with $|M'| = q$ such that no two triples in $M'$ agree in any coordinate?
+    ][
+    Shown NP-complete by Karp (1972) @karp1972. Three-Dimensional Matching (3DM) is one of the six basic NP-complete problems in Garey & Johnson (A3 SP1) and is closely related to Exact Cover by 3-Sets. While X3C asks for a perfect partition of a single universe into disjoint triples, 3DM asks for a system of distinct representatives across three separate dimensions. The problem remains NP-complete even when each element appears in at most three triples. The direct brute-force algorithm runs in $O^*(2^m)$ time where $m = |M|$.
+
+    *Example.* Let $W = X = Y = {1, 2, dots, #q}$ and $M = {t_1, dots, t_#m}$ with #triples.enumerate().map(((i, t)) => $t_#(i + 1) = #fmt-triple(t)$).join(", "). A valid matching is $M' = {#selected.map(i => $t_#(i + 1)$).join(", ")}$: the $W$-coordinates, $X$-coordinates, and $Y$-coordinates are each pairwise distinct, and $|M'| = #selected.len() = q$.
+
+    #pred-commands(
+      "pred create --example ThreeDimensionalMatching -o three-dimensional-matching.json",
+      "pred solve three-dimensional-matching.json",
+      "pred evaluate three-dimensional-matching.json --config " + tdm.optimal_config.map(str).join(","),
+    )
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("ComparativeContainment")
   let n = x.instance.universe_size
   let R = x.instance.r_sets
@@ -3436,6 +3604,30 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("AlgebraicEquationsOverGF2")
+  let n = x.instance.num_variables
+  let eqs = x.instance.equations
+  let config = x.optimal_config
+  [
+    #problem-def("AlgebraicEquationsOverGF2")[
+      Given $n$ Boolean variables $x_0, dots, x_(n-1)$ and $m$ multilinear polynomials $p_1, dots, p_m$ over $"GF"(2)$, determine whether there exists an assignment $(x_0, dots, x_(n-1)) in {0,1}^n$ such that $p_j (x_0, dots, x_(n-1)) = 0$ for all $j = 1, dots, m$.
+
+      Each polynomial is a sum (XOR) of monomials over $"GF"(2)$. Each monomial is a product (AND) of a subset of the variables; the empty product denotes the constant $1$.
+    ][
+      Algebraic Equations over $"GF"(2)$ generalises systems of linear equations over $"GF"(2)$ by allowing higher-degree monomials. The problem is NP-complete in general @garey1979. When restricted to degree $<= 1$ (linear equations only), the system reduces to Gaussian elimination over $"GF"(2)$ and is solvable in polynomial time.
+
+      *Example.* Let $n = #n$ with #(eqs.len()) equations. The assignment $(#(config.map(str).join(", ")))$ satisfies all equations.
+
+      #pred-commands(
+        "pred create --example AlgebraicEquationsOverGF2 -o agf2.json",
+        "pred solve agf2.json --solver brute-force",
+        "pred evaluate agf2.json --config " + config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("QuadraticCongruences")
   let a = x.instance.a
   let b = x.instance.b
@@ -3790,6 +3982,89 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       "pred create --example " + problem-spec(x) + " -o ksat.json",
       "pred solve ksat.json",
       "pred evaluate ksat.json --config " + x.optimal_config.map(str).join(","),
+    )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("Planar3Satisfiability")
+  let n = x.instance.num_vars
+  let m = x.instance.clauses.len()
+  let clauses = x.instance.clauses
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let assign = sol.config
+  let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
+  let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
+  [
+    #problem-def("Planar3Satisfiability")[
+      Given a 3-CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j$ contains exactly 3 literals, and the variable-clause incidence graph $H(phi)$ is planar, find a satisfying assignment $bold(x) in {0, 1}^n$.
+    ][
+    Planar 3-SAT is a restricted variant of 3-SAT introduced by Lichtenstein @lichtenstein1982, who proved it NP-complete. The incidence graph $H(phi)$ is bipartite with variable nodes and clause nodes, connected by edges when a variable appears in a clause. Requiring $H(phi)$ to be planar is a strong structural constraint that enables reductions to geometric and planar problems (e.g., rectilinear Steiner tree, planar vertex cover). The best known algorithm shares the 3-SAT bound of $O^*(1.307^n)$ via biased-PPSZ @hansen2019, since any Planar 3-SAT instance is also a valid 3-SAT instance.
+
+    *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ satisfies all clauses: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #c.literals.map(l => str(eval-lit(l))).join($or$) paren.r = 1$).join(", ").
+
+    #pred-commands(
+      "pred create --example Planar3Satisfiability -o planar3sat.json",
+      "pred solve planar3sat.json",
+      "pred evaluate planar3sat.json --config " + x.optimal_config.map(str).join(","),
+    )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("OneInThreeSatisfiability")
+  let n = x.instance.num_vars
+  let m = x.instance.clauses.len()
+  let clauses = x.instance.clauses
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let assign = sol.config
+  let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
+  let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
+  let count-true(c) = c.literals.map(eval-lit).sum()
+  [
+    #problem-def("OneInThreeSatisfiability")[
+      Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j$ contains exactly 3 literals, find a truth assignment $bold(x) in {0, 1}^n$ such that each clause has _exactly one_ true literal.
+    ][
+    One-in-Three Satisfiability (1-in-3 SAT) was introduced by Schaefer @schaefer1978 as part of his dichotomy theorem for generalized satisfiability. Unlike standard 3-SAT which requires at least one true literal per clause, 1-in-3 SAT requires exactly one. The problem is NP-complete even for monotone instances (no negations). The best known algorithm runs in $O^*(1.307^n)$ time via biased-PPSZ @hansen2019, since every 1-in-3 SAT instance reduces trivially to 3-SAT.
+
+    *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ satisfies the 1-in-3 condition: #clauses.enumerate().map(((j, c)) => $C_#(j + 1)$+ " has " + str(count-true(c)) + " true literal").join(", ").
+
+    #pred-commands(
+      "pred create --example OneInThreeSatisfiability -o 1in3sat.json",
+      "pred solve 1in3sat.json",
+      "pred evaluate 1in3sat.json --config " + x.optimal_config.map(str).join(","),
+    )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("NonTautology")
+  let n = x.instance.num_vars
+  let m = x.instance.disjuncts.len()
+  let disjuncts = x.instance.disjuncts
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let assign = sol.config
+  let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
+  let fmt-disjunct(d) = $paren.l #d.map(fmt-lit).join($and$) paren.r$
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
+  let disjunct-true(d) = d.map(eval-lit).all(v => v == 1)
+  [
+    #problem-def("NonTautology")[
+      Given a Boolean formula in DNF $phi = or.big_(j=1)^m D_j$ with $m$ disjuncts over $n$ Boolean variables, where each disjunct $D_j$ is a conjunction of literals, find a truth assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 0$ (i.e., every disjunct is false).
+    ][
+    The Non-Tautology problem asks whether a given DNF formula is _not_ a tautology, by finding a falsifying assignment. A disjunct $D_j = ell_1 and dots and ell_k$ is false when at least one of its literals evaluates to false; the formula is false when all disjuncts are false. The problem is coNP-complete in general and closely related to SAT through De Morgan duality: a DNF formula $phi$ is a tautology iff $not phi$ (a CNF formula) is unsatisfiable.
+
+    *Example.* Consider $phi = #disjuncts.map(fmt-disjunct).join($or$)$ with $n = #n$ variables and $m = #m$ disjuncts. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ falsifies the formula: #disjuncts.enumerate().map(((j, d)) => $D_#(j + 1)$+ " is " + if disjunct-true(d) { "true" } else { "false" }).join(", ").
+
+    #pred-commands(
+      "pred create --example NonTautology -o nontaut.json",
+      "pred solve nontaut.json",
+      "pred evaluate nontaut.json --config " + x.optimal_config.map(str).join(","),
     )
     ]
   ]
@@ -4351,6 +4626,132 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("DegreeConstrainedSpanningTree")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let K = x.instance.max_degree
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let selected-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  [
+    #problem-def("DegreeConstrainedSpanningTree")[
+      Given an undirected graph $G = (V, E)$ and a positive integer $K$, determine whether $G$ contains a spanning tree $T$ in which every vertex has degree at most $K$.
+    ][
+      Degree-Constrained Spanning Tree is NP-complete @garey1979[ND1]. The problem generalises the Hamiltonian Path problem (set $K = 2$). The best known exact algorithm uses brute-force enumeration in $O^*(2^n)$ time, where $n = |V|$.
+
+      *Example.* Consider $G$ with $n = #nv$ vertices and $m = #ne$ edges #edges.map(((u, v)) => [${#u, #v}$]).join(", "). With $K = #K$, the spanning tree using edges #selected-edges.map(i => [${#edges.at(i).at(0), #edges.at(i).at(1)}$]).join(", ") has maximum vertex degree $<= #K$.
+
+      #pred-commands(
+        "pred create --example DegreeConstrainedSpanningTree -o dcst.json",
+        "pred solve dcst.json",
+        "pred evaluate dcst.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("BoundedDiameterSpanningTree")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let B = x.instance.weight_bound
+  let D = x.instance.diameter_bound
+  let ew = x.instance.edge_weights
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let selected-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let total-weight = selected-edges.map(i => ew.at(i)).sum()
+  [
+    #problem-def("BoundedDiameterSpanningTree")[
+      Given an undirected graph $G = (V, E)$ with positive edge weights $w: E -> ZZ_(> 0)$, a weight bound $B$, and a diameter bound $D$, determine whether $G$ contains a spanning tree $T$ such that the total weight $sum_(e in T) w(e) <= B$ and the diameter of $T$ (the longest shortest path in number of edges) is at most $D$.
+    ][
+      Bounded Diameter Spanning Tree is NP-hard @garey1979[ND3]. The problem asks for a spanning tree that simultaneously satisfies a budget constraint on total edge weight and a structural constraint on tree diameter. The best known exact algorithm uses brute-force enumeration in $O^*(n^n)$ time, where $n = |V|$.
+
+      *Example.* Consider $G$ with $n = #nv$ vertices and $m = #ne$ edges #edges.map(((u, v)) => [${#u, #v}$]).join(", ") with edge weights #edges.enumerate().map(((i, (u, v))) => [$w({#u, #v}) = #(ew.at(i))$]).join(", "). With $B = #B$ and $D = #D$, the spanning tree using edges #selected-edges.map(i => [${#edges.at(i).at(0), #edges.at(i).at(1)}$]).join(", ") has total weight $#total-weight <= #B$ and diameter $<= #D$.
+
+      #pred-commands(
+        "pred create --example BoundedDiameterSpanningTree -o bdst.json",
+        "pred solve bdst.json",
+        "pred evaluate bdst.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MonochromaticTriangle")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  [
+    #problem-def("MonochromaticTriangle")[
+      Given an undirected graph $G = (V, E)$, determine whether the edges of $G$ can be 2-colored (each edge assigned color 0 or 1) so that no triangle is monochromatic — that is, for every three mutually adjacent vertices $u, v, w$, the three edges ${u, v}$, ${u, w}$, ${v, w}$ do not all receive the same color.
+    ][
+      Monochromatic Triangle is closely related to Ramsey theory. By the classical result $R(3, 3) = 6$, the complete graph $K_6$ admits no valid 2-coloring, while $K_5$ does. The problem is NP-complete in general @garey1979[GT6]. The best known exact algorithm uses brute-force enumeration in $O^*(2^m)$ time, where $m = |E|$.
+
+      *Example.* Consider $K_4$ with $n = #nv$ vertices and $m = #ne$ edges. A valid coloring assigns colors #sol.config.enumerate().map(((i, c)) => [edge #i $arrow.r$ #c]).join(", "), so that no triangle has all three edges the same color.
+
+      #pred-commands(
+        "pred create --example MonochromaticTriangle -o monochromatic-triangle.json",
+        "pred solve monochromatic-triangle.json",
+        "pred evaluate monochromatic-triangle.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("PartitionIntoCliques")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let K = x.instance.num_cliques
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let groups = range(K).map(c => sol.config.enumerate().filter(((i, v)) => v == c).map(((i, _)) => i))
+  [
+    #problem-def("PartitionIntoCliques")[
+      Given an undirected graph $G = (V, E)$ and a positive integer $K <= |V|$, determine whether the vertex set $V$ can be partitioned into $k <= K$ groups $V_1, dots, V_k$ such that each group $V_i$ induces a complete subgraph (clique) in $G$.
+    ][
+      Partition Into Cliques is NP-complete @garey1979[GT15]. The problem is the complement of Graph Coloring: a valid clique cover of $G$ corresponds to a valid coloring of the complement graph $overline(G)$. The best known exact algorithm uses brute-force enumeration in $O^*(2^n)$ time.
+
+      *Example.* Consider $G$ with $n = #nv$ vertices and edges #edges.map(((u, v)) => [${#u, #v}$]).join(", "). With $K = #K$, the partition #groups.enumerate().filter(((_, c)) => c.len() > 0).map(((i, c)) => $V_#(i + 1) = {#c.map(v => $v_#v$).join(", ")}$).join(", ") is valid: each group induces a clique.
+
+      #pred-commands(
+        "pred create --example PartitionIntoCliques -o partition-into-cliques.json",
+        "pred solve partition-into-cliques.json",
+        "pred evaluate partition-into-cliques.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("PartitionIntoPerfectMatchings")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let K = x.instance.num_matchings
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let groups = range(K).map(c => sol.config.enumerate().filter(((i, v)) => v == c).map(((i, _)) => i))
+  [
+    #problem-def("PartitionIntoPerfectMatchings")[
+      Given an undirected graph $G = (V, E)$ and a positive integer $K <= |V|$, determine whether the vertex set $V$ can be partitioned into $k <= K$ groups $V_1, dots, V_k$ such that the subgraph induced by each group $V_i$ is a perfect matching: every vertex in $V_i$ has exactly one neighbor within $V_i$. Empty groups are permitted.
+    ][
+      Partition Into Perfect Matchings is NP-complete @garey1979[GT16]. The problem asks whether the edges of a graph can be decomposed into perfect matchings of vertex-induced subgraphs. The best known exact algorithm uses brute-force enumeration in $O^*(K^n)$ time.
+
+      *Example.* Consider $G$ with $n = #nv$ vertices and edges #edges.map(((u, v)) => [${#u, #v}$]).join(", "). With $K = #K$, the partition #groups.enumerate().filter(((_, c)) => c.len() > 0).map(((i, c)) => $V_#(i + 1) = {#c.map(v => $v_#v$).join(", ")}$).join(", ") is valid: each group induces a perfect matching.
+
+      #pred-commands(
+        "pred create --example PartitionIntoPerfectMatchings -o partition-into-perfect-matchings.json",
+        "pred solve partition-into-perfect-matchings.json",
+        "pred evaluate partition-into-perfect-matchings.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("BinPacking")
   let sizes = x.instance.sizes
   let n = sizes.len()
@@ -4526,6 +4927,33 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       },
       caption: [Rectilinear Picture Compression: matrix $M$ covered by two rectangles $R_1$ (blue, top-left $2 times 2$) and $R_2$ (teal, bottom-right $2 times 2$), with $|{R_1, R_2}| = 2 lt.eq K = #K$.],
     ) <fig:rpc>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("FeasibleRegisterAssignment")
+  let n = x.instance.num_vertices
+  let arcs = x.instance.arcs
+  let K = x.instance.num_registers
+  let asgn = x.instance.assignment
+  let sigma = x.optimal_config
+  let order = range(n).map(pos =>
+    range(n).find(v => sigma.at(v) == pos)
+  )
+  [
+    #problem-def("FeasibleRegisterAssignment")[
+      Given a directed acyclic graph $G = (V, A)$ with $n = |V|$ vertices, where each arc $(v, u) in A$ means vertex $v$ depends on vertex $u$, $K$ registers, and a register assignment $f: V arrow {0, dots, K-1}$, determine whether there exists a topological evaluation ordering such that no register conflict arises: when a vertex $v$ is evaluated and placed in register $f(v)$, no other vertex currently occupying register $f(v)$ still has uncomputed dependents.
+    ][
+      Feasible Register Assignment is NP-complete @bouchez2006. It is closely related to Register Sufficiency (SS19 in Garey & Johnson @garey1979), but here the register assignment is given and only the scheduling order is sought.
+
+      *Example.* Let $n = #n$ vertices with arcs: #{arcs.map(a => $v_#(a.at(0)) arrow.r v_#(a.at(1))$).join(", ")}. Registers $K = #K$, assignment $f = (#asgn.map(r => str(r)).join(", "))$. The evaluation order $(#order.map(v => $v_#v$).join(", "))$ is feasible.
+
+      #pred-commands(
+        "pred create --example FeasibleRegisterAssignment -o feasible-register-assignment.json",
+        "pred solve feasible-register-assignment.json --solver brute-force",
+        "pred evaluate feasible-register-assignment.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -4945,6 +5373,31 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 
+#{
+  let x = load-model-example("SubsetProduct")
+  let sizes = x.instance.sizes
+  let target = x.instance.target
+  let n = sizes.len()
+  let config = x.optimal_config
+  let selected = range(n).filter(i => config.at(i) == 1)
+  let sel-sizes = selected.map(i => sizes.at(i))
+  [
+    #problem-def("SubsetProduct")[
+      Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$ and a target $B in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ such that $product_(a in A') s(a) = B$.
+    ][
+      The multiplicative analogue of Subset Sum. Instead of seeking a subset whose elements sum to a target, we seek one whose product equals the target. NP-complete; the best known exact algorithm is an $O^*(2^(n slash 2))$ meet-in-the-middle approach analogous to Horowitz--Sahni for Subset Sum.
+
+      *Example.* Let $A = {#sizes.map(s => str(s)).join(", ")}$ ($n = #n$) and target $B = #target$. Selecting $A' = {#sel-sizes.map(s => str(s)).join(", ")}$ gives product $#sel-sizes.map(s => str(s)).join(" times ") = #target = B$.
+
+      #pred-commands(
+        "pred create --example SubsetProduct -o subset-product.json",
+        "pred solve subset-product.json",
+        "pred evaluate subset-product.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
 #problem-def("ResourceConstrainedScheduling")[
   Given a set $T$ of $n$ unit-length tasks, $m$ identical processors, $r$ resources with bounds $B_i$ ($1 <= i <= r$), resource requirements $R_i (t)$ for each task $t$ and resource $i$ ($0 <= R_i (t) <= B_i$), and an overall deadline $D in ZZ^+$, determine whether there exists an $m$-processor schedule $sigma : T -> {0, dots, D-1}$ such that for every time slot $u$, at most $m$ tasks are scheduled at $u$ and $sum_(t : sigma(t) = u) R_i (t) <= B_i$ for each resource $i$.
 ][
@@ -5089,6 +5542,130 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         table.header([Triple], [Elements], [Sum]),
         ..groups.enumerate().map(((i, g)) => (
           [$A_#(i+1)$], [$#(g.map(str).join(", "))$], [$#bound$],
+        )).flatten(),
+      ))
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("Numerical3DimensionalMatching")
+  let m = x.instance.sizes_w.len()
+  let sw = x.instance.sizes_w
+  let sx = x.instance.sizes_x
+  let sy = x.instance.sizes_y
+  let bound = x.instance.bound
+  let config = x.optimal_config
+  let x-perm = config.slice(0, m)
+  let y-perm = config.slice(m)
+  [
+    #problem-def("Numerical3DimensionalMatching")[
+      Given disjoint sets $W$, $X$, $Y$ each with $m$ elements, positive integer sizes $s(a)$ with $B\/4 < s(a) < B\/2$ for every element, and a bound $B in ZZ^+$ such that $sum s(a) = m B$, determine whether $W union X union Y$ can be partitioned into $m$ triples, each containing one element from $W$, $X$, and $Y$, with each triple summing to exactly $B$.
+    ][
+      Numerical 3-Dimensional Matching is strongly NP-complete (SP16 in Garey and Johnson @garey1979). The strict size window $B\/4 < s(a) < B\/2$ forces every feasible triple to contain exactly one element from each set. The problem is a key intermediate in strong NP-completeness reductions to bin packing, scheduling, and layout problems. Brute-force enumeration runs in $O^*(m^(2m))$ time.
+
+      *Example.* Let $m = #m$ and $B = #bound$. The sizes are $W = (#sw.map(str).join(", "))$, $X = (#sx.map(str).join(", "))$, $Y = (#sy.map(str).join(", "))$. The matching pairs each $w_i$ with $x_(pi(i))$ and $y_(sigma(i))$: #range(m).map(i => [$w_#i + x_#(x-perm.at(i)) + y_#(y-perm.at(i)) = #(sw.at(i) + sx.at(x-perm.at(i)) + sy.at(y-perm.at(i)))$]).join(", "), all equal to $B$.
+
+      #pred-commands(
+        "pred create --example Numerical3DimensionalMatching -o n3dm.json",
+        "pred solve n3dm.json",
+        "pred evaluate n3dm.json --config " + config.map(str).join(","),
+      )
+    ]
+  ]
+}
+#{
+  let x = load-model-example("NonLivenessFreePetriNet")
+  let np = x.instance.num_places
+  let nt = x.instance.num_transitions
+  let config = x.optimal_config
+  [
+    #problem-def("NonLivenessFreePetriNet")[
+      Given a free-choice Petri net $P = (S, T, F, M_0)$ with $|S|$ places, $|T|$ transitions, flow relation $F$, and initial marking $M_0$, determine whether $P$ is _not live_: does there exist a transition $t in T$ and a marking $M$ reachable from $M_0$ such that $t$ can never fire again from $M$?
+    ][
+      Non-Liveness of free-choice Petri nets is NP-complete (Garey and Johnson @garey1979). A Petri net is _free-choice_ if every two transitions sharing an input place have identical presets. The implementation explores the bounded reachability graph (capped at the initial token sum per place) and checks whether any transition becomes permanently dead.
+
+      *Example.* A chain net with $#np$ places and $#nt$ transitions: $t_0$ moves a token from $s_0$ to $s_1$, $t_1$ from $s_1$ to $s_2$, $t_2$ from $s_2$ to $s_3$. Starting from $M_0 = (1, 0, 0, 0)$, after all transitions fire once the net reaches deadlock at $(0, 0, 0, 1)$ and all transitions are permanently dead. The witness configuration $(#config.map(str).join(", "))$ confirms all transitions are globally dead.
+
+      #pred-commands(
+        "pred create --example NonLivenessFreePetriNet -o petri.json",
+        "pred solve petri.json --solver brute-force",
+        "pred evaluate petri.json --config " + config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("Betweenness")
+  let n = x.instance.num_elements
+  let triples = x.instance.triples
+  let config = x.optimal_config
+  [
+    #problem-def("Betweenness")[
+      Given a finite set $A = {a_0, dots, a_(n-1)}$ of $n$ elements and a collection $C$ of ordered triples $(a, b, c)$, determine whether there exists a linear ordering $f: A -> {0, dots, n-1}$ (a bijection) such that for every $(a, b, c) in C$, either $f(a) < f(b) < f(c)$ or $f(c) < f(b) < f(a)$ — that is, $b$ is _between_ $a$ and $c$ in the ordering.
+    ][
+      Betweenness is problem MS1 in Garey and Johnson @garey1979. It arises in seriation, archaeological sequencing, and DNA physical mapping. The problem is NP-complete even when restricted to dense constraint sets. The implementation represents a solution as a permutation $f$ where $f(i)$ is the position assigned to element $i$.
+
+      *Example.* Consider $n = #n$ elements with triples #triples.map(t => [$(#t.at(0), #t.at(1), #t.at(2))$]).join(", "). The witness ordering $f = (#config.map(str).join(", "))$ (the identity permutation) satisfies all constraints: each middle element of every triple lies between the other two in the ordering.
+
+      #pred-commands(
+        "pred create --example Betweenness -o betweenness.json",
+        "pred solve betweenness.json",
+        "pred evaluate betweenness.json --config " + config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("CyclicOrdering")
+  let n = x.instance.num_elements
+  let triples = x.instance.triples
+  let config = x.optimal_config
+  [
+    #problem-def("CyclicOrdering")[
+      Given a finite set $A = {a_0, dots, a_(n-1)}$ of $n$ elements and a collection $C$ of ordered triples $(a, b, c)$, determine whether there exists a permutation $f: A -> {0, dots, n-1}$ (a bijection) such that for every $(a, b, c) in C$, the values $f(a)$, $f(b)$, $f(c)$ appear in cyclic order — i.e., $f(a) < f(b) < f(c)$ or $f(b) < f(c) < f(a)$ or $f(c) < f(a) < f(b)$.
+    ][
+      Cyclic Ordering is problem MS2 in Garey and Johnson @garey1979. It is closely related to Betweenness (MS1) but enforces a cyclic rather than linear ordering constraint. The problem is NP-complete. The implementation represents a solution as a permutation $f$ where $f(i)$ is the position assigned to element $i$.
+
+      *Example.* Consider $n = #n$ elements with triples #triples.map(t => [$(#t.at(0), #t.at(1), #t.at(2))$]).join(", "). The witness ordering $f = (#config.map(str).join(", "))$ satisfies all constraints: each triple's elements appear in cyclic order under $f$.
+
+      #pred-commands(
+        "pred create --example CyclicOrdering -o cyclic_ordering.json",
+        "pred solve cyclic_ordering.json",
+        "pred evaluate cyclic_ordering.json --config " + config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("DynamicStorageAllocation")
+  let items = x.instance.items
+  let D = x.instance.memory_size
+  let config = x.optimal_config
+  let n = items.len()
+  [
+    #problem-def("DynamicStorageAllocation")[
+      Given $n$ items, each with arrival time $r(a)$, departure time $d(a)$, and size $s(a)$, and a storage size $D$, determine whether there exists a starting address $sigma(a) in {0, dots, D - s(a)}$ for each item $a$ such that for every pair of items $a, a'$ with overlapping time intervals ($r(a) < d(a')$ and $r(a') < d(a)$), the memory intervals $[sigma(a), sigma(a) + s(a) - 1]$ and $[sigma(a'), sigma(a') + s(a') - 1]$ are disjoint.
+    ][
+      Dynamic Storage Allocation is Garey and Johnson's SR2 @garey1979 and models memory allocation for processes with known lifetimes. It generalises strip-packing and bin-packing with time constraints. The implementation encodes each item's starting address as a single variable with domain $D - s(a) + 1$.
+
+      *Example.* Let $D = #D$ and consider #n items with $(r, d, s)$ tuples #items.map(t => $(#t.at(0), #t.at(1), #t.at(2))$).join(", "). The witness assignment $sigma = (#config.map(str).join(", "))$ places every item within $[0, #(D - 1)]$ and ensures no two time-overlapping items share memory cells.
+
+      #pred-commands(
+        "pred create --example DynamicStorageAllocation -o dynamic-storage-allocation.json",
+        "pred solve dynamic-storage-allocation.json",
+        "pred evaluate dynamic-storage-allocation.json --config " + config.map(str).join(","),
+      )
+
+      #align(center, table(
+        columns: 5,
+        align: center,
+        table.header([Item], [Arrival], [Departure], [Size], [$sigma$]),
+        ..items.enumerate().map(((i, t)) => (
+          [$a_#i$], [$#t.at(0)$], [$#t.at(1)$], [$#t.at(2)$], [$#(config.at(i))$],
         )).flatten(),
       ))
     ]
@@ -7579,6 +8156,56 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }),
         caption: [Canonical Sparse Matrix Compression YES instance. Row-colored 1-entries on the left are shifted into the overlay vector on the right, producing $b = (4, 1, 2, 3, 1, 0)$.],
       ) <fig:sparse-matrix-compression>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumMatrixDomination")
+  let M = x.instance.matrix
+  let m = M.len()
+  let n = if m > 0 { M.at(0).len() } else { 0 }
+  let ones = x.instance.ones
+  let cfg = x.optimal_config
+  let selected-ones = ones.enumerate().filter(((k, _)) => cfg.at(k) == 1).map(((_, pos)) => pos)
+  [
+    #problem-def("MinimumMatrixDomination")[
+      Given an $m times n$ binary matrix $M$, find a minimum-cardinality subset $C$ of 1-entries such that every 1-entry not in $C$ shares a row or column with some entry in $C$.
+    ][
+      Minimum Matrix Domination is a matrix analogue of the dominating set problem. Each binary variable corresponds to a 1-entry in row-major order; the evaluator checks that every unselected 1-entry shares a row or column with at least one selected entry. The brute-force complexity is $O(2^k)$ where $k$ is the number of 1-entries.
+
+      *Example.* Let $M$ be the #(m)$times$#(n) adjacency matrix of $P_6$ (the path on 6 vertices), which has #(ones.len()) non-zero entries. The optimal config $(#cfg.map(str).join(", "))$ selects entries at positions #selected-ones.map(((r, c)) => [(#r, #c)]).join(", "), yielding value $= #x.optimal_value$.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o mmd.json",
+        "pred solve mmd.json",
+        "pred evaluate mmd.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumWeightSolutionToLinearEquations")
+  let A = x.instance.matrix
+  let b = x.instance.rhs
+  let n = A.len()
+  let m = if n > 0 { A.at(0).len() } else { 0 }
+  let cfg = x.optimal_config
+  let selected-cols = cfg.enumerate().filter(((_, v)) => v == 1).map(((j, _)) => j)
+  [
+    #problem-def("MinimumWeightSolutionToLinearEquations")[
+      Given an $n times m$ integer matrix $A$ and an integer vector $b in ZZ^n$, find a rational vector $y in QQ^m$ satisfying $A y = b$ that minimizes $||y||_0$ (the number of non-zero entries of $y$).
+    ][
+      Minimum Weight Solution to Linear Equations is a sparsity-seeking variant of solving linear systems. Each binary variable $x_j$ indicates whether the $j$-th component of $y$ may be non-zero; the evaluator forms the restricted submatrix $A'$ from the selected columns and checks whether $b$ lies in its column space via integer Gaussian elimination (using i128 arithmetic for exact rational consistency). If the restricted system $A' y' = b$ is consistent, the value is the number of selected columns; otherwise the configuration is infeasible.
+
+      *Example.* Let $A$ be the #(n)$times$#(m) matrix $mat(#A.at(0).map(str).join(", "); #A.at(1).map(str).join(", "))$ with $b = (#b.map(str).join(", "))$. The optimal config $(#cfg.map(str).join(", "))$ selects columns #selected-cols.map(str).join(", "), yielding value $= #x.optimal_value$.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o mwsle.json",
+        "pred solve mwsle.json",
+        "pred evaluate mwsle.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }

@@ -2,18 +2,26 @@
 //!
 //! Problems whose input is a graph (optionally weighted):
 //! - [`AcyclicPartition`]: Partition a digraph into bounded-weight groups with an acyclic quotient graph
+//! - [`BoundedDiameterSpanningTree`]: Spanning tree with bounded weight and diameter
+//! - [`DegreeConstrainedSpanningTree`]: Spanning tree with maximum vertex degree at most K
 //! - [`DirectedHamiltonianPath`]: Directed Hamiltonian path (decision problem)
 //! - [`MaximumIndependentSet`]: Maximum weight independent set
 //! - [`MaximalIS`]: Maximal independent set
 //! - [`MinimumVertexCover`]: Minimum weight vertex cover
+//! - [`MinimumCoveringByCliques`]: Minimum number of cliques covering all edges
+//! - [`MonochromaticTriangle`]: 2-color edges so that no triangle is monochromatic
+//! - [`MinimumIntersectionGraphBasis`]: Minimum universe size for intersection graph representation
 //! - [`MinimumDominatingSet`]: Minimum dominating set
+//! - [`MinimumGeometricConnectedDominatingSet`]: Minimum connected dominating set in a geometric point set
 //! - [`MinimumFeedbackVertexSet`]: Minimum weight feedback vertex set in a directed graph
 //! - [`MaximumClique`]: Maximum weight clique
+//! - [`MaximumAchromaticNumber`]: Maximum number of colors in a complete proper coloring
 //! - [`MaxCut`]: Maximum cut on weighted graphs
 //! - [`MinimumCutIntoBoundedSets`]: Minimum cut into bounded sets (Garey & Johnson ND17)
 //! - [`MinimumDummyActivitiesPert`]: Minimum dummy activities in activity-on-arc PERT networks
 //! - [`HamiltonianCircuit`]: Hamiltonian circuit (decision problem)
 //! - [`IsomorphicSpanningTree`]: Isomorphic spanning tree (satisfaction)
+//! - [`Kernel`]: Kernel of a directed graph (independent and absorbing vertex subset)
 //! - [`KClique`]: Clique decision problem with threshold k
 //! - [`KthBestSpanningTree`]: K distinct bounded spanning trees (satisfaction)
 //! - [`KColoring`]: K-vertex coloring
@@ -27,7 +35,9 @@
 //! - [`HamiltonianPathBetweenTwoVertices`]: Hamiltonian path between two specified vertices (decision problem)
 //! - [`LongestPath`]: Maximum-length simple s-t path
 //! - [`ShortestWeightConstrainedPath`]: Bicriteria simple s-t path with length and weight bounds
+//! - [`PartitionIntoCliques`]: Partition vertices into K groups each inducing a clique
 //! - [`PartitionIntoForests`]: Partition vertices into K classes each inducing an acyclic subgraph
+//! - [`PartitionIntoPerfectMatchings`]: Partition vertices into K groups each inducing a perfect matching
 //! - [`PartitionIntoPathsOfLength2`]: Partition vertices into triples with at least two edges each
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
 //! - [`SteinerTreeInGraphs`]: Minimum weight Steiner tree connecting terminal vertices
@@ -64,6 +74,8 @@ pub(crate) mod biclique_cover;
 pub(crate) mod biconnectivity_augmentation;
 pub(crate) mod bottleneck_traveling_salesman;
 pub(crate) mod bounded_component_spanning_forest;
+pub(crate) mod bounded_diameter_spanning_tree;
+pub(crate) mod degree_constrained_spanning_tree;
 pub(crate) mod directed_hamiltonian_path;
 pub(crate) mod directed_two_commodity_integral_flow;
 pub(crate) mod disjoint_connecting_paths;
@@ -77,32 +89,40 @@ pub(crate) mod integral_flow_with_multipliers;
 pub(crate) mod isomorphic_spanning_tree;
 pub(crate) mod kclique;
 pub(crate) mod kcoloring;
+pub(crate) mod kernel;
 pub(crate) mod kth_best_spanning_tree;
 pub(crate) mod length_bounded_disjoint_paths;
 pub(crate) mod longest_circuit;
 pub(crate) mod longest_path;
 pub(crate) mod max_cut;
 pub(crate) mod maximal_is;
+pub(crate) mod maximum_achromatic_number;
 pub(crate) mod maximum_clique;
 pub(crate) mod maximum_independent_set;
 pub(crate) mod maximum_matching;
 pub(crate) mod min_max_multicenter;
+pub(crate) mod minimum_covering_by_cliques;
 pub(crate) mod minimum_cut_into_bounded_sets;
 pub(crate) mod minimum_dominating_set;
 pub(crate) mod minimum_dummy_activities_pert;
 pub(crate) mod minimum_feedback_arc_set;
 pub(crate) mod minimum_feedback_vertex_set;
+pub(crate) mod minimum_geometric_connected_dominating_set;
+pub(crate) mod minimum_intersection_graph_basis;
 pub(crate) mod minimum_maximal_matching;
 pub(crate) mod minimum_multiway_cut;
 pub(crate) mod minimum_sum_multicenter;
 pub(crate) mod minimum_vertex_cover;
 pub(crate) mod mixed_chinese_postman;
+pub(crate) mod monochromatic_triangle;
 pub(crate) mod multiple_choice_branching;
 pub(crate) mod multiple_copy_file_allocation;
 pub(crate) mod optimal_linear_arrangement;
 pub(crate) mod partial_feedback_edge_set;
+pub(crate) mod partition_into_cliques;
 pub(crate) mod partition_into_forests;
 pub(crate) mod partition_into_paths_of_length_2;
+pub(crate) mod partition_into_perfect_matchings;
 pub(crate) mod partition_into_triangles;
 pub(crate) mod path_constrained_network_flow;
 pub(crate) mod rooted_tree_arrangement;
@@ -123,6 +143,8 @@ pub use biclique_cover::BicliqueCover;
 pub use biconnectivity_augmentation::BiconnectivityAugmentation;
 pub use bottleneck_traveling_salesman::BottleneckTravelingSalesman;
 pub use bounded_component_spanning_forest::BoundedComponentSpanningForest;
+pub use bounded_diameter_spanning_tree::BoundedDiameterSpanningTree;
+pub use degree_constrained_spanning_tree::DegreeConstrainedSpanningTree;
 pub use directed_hamiltonian_path::DirectedHamiltonianPath;
 pub use directed_two_commodity_integral_flow::DirectedTwoCommodityIntegralFlow;
 pub use disjoint_connecting_paths::DisjointConnectingPaths;
@@ -136,32 +158,40 @@ pub use integral_flow_with_multipliers::IntegralFlowWithMultipliers;
 pub use isomorphic_spanning_tree::IsomorphicSpanningTree;
 pub use kclique::KClique;
 pub use kcoloring::KColoring;
+pub use kernel::Kernel;
 pub use kth_best_spanning_tree::KthBestSpanningTree;
 pub use length_bounded_disjoint_paths::LengthBoundedDisjointPaths;
 pub use longest_circuit::LongestCircuit;
 pub use longest_path::LongestPath;
 pub use max_cut::MaxCut;
 pub use maximal_is::MaximalIS;
+pub use maximum_achromatic_number::MaximumAchromaticNumber;
 pub use maximum_clique::MaximumClique;
 pub use maximum_independent_set::MaximumIndependentSet;
 pub use maximum_matching::MaximumMatching;
 pub use min_max_multicenter::MinMaxMulticenter;
+pub use minimum_covering_by_cliques::MinimumCoveringByCliques;
 pub use minimum_cut_into_bounded_sets::MinimumCutIntoBoundedSets;
 pub use minimum_dominating_set::MinimumDominatingSet;
 pub use minimum_dummy_activities_pert::MinimumDummyActivitiesPert;
 pub use minimum_feedback_arc_set::MinimumFeedbackArcSet;
 pub use minimum_feedback_vertex_set::MinimumFeedbackVertexSet;
+pub use minimum_geometric_connected_dominating_set::MinimumGeometricConnectedDominatingSet;
+pub use minimum_intersection_graph_basis::MinimumIntersectionGraphBasis;
 pub use minimum_maximal_matching::MinimumMaximalMatching;
 pub use minimum_multiway_cut::MinimumMultiwayCut;
 pub use minimum_sum_multicenter::MinimumSumMulticenter;
 pub use minimum_vertex_cover::MinimumVertexCover;
 pub use mixed_chinese_postman::MixedChinesePostman;
+pub use monochromatic_triangle::MonochromaticTriangle;
 pub use multiple_choice_branching::MultipleChoiceBranching;
 pub use multiple_copy_file_allocation::MultipleCopyFileAllocation;
 pub use optimal_linear_arrangement::OptimalLinearArrangement;
 pub use partial_feedback_edge_set::PartialFeedbackEdgeSet;
+pub use partition_into_cliques::PartitionIntoCliques;
 pub use partition_into_forests::PartitionIntoForests;
 pub use partition_into_paths_of_length_2::PartitionIntoPathsOfLength2;
+pub use partition_into_perfect_matchings::PartitionIntoPerfectMatchings;
 pub use partition_into_triangles::PartitionIntoTriangles;
 pub use path_constrained_network_flow::PathConstrainedNetworkFlow;
 pub use rooted_tree_arrangement::RootedTreeArrangement;
@@ -180,6 +210,8 @@ pub use undirected_two_commodity_integral_flow::UndirectedTwoCommodityIntegralFl
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let mut specs = Vec::new();
     specs.extend(acyclic_partition::canonical_model_example_specs());
+    specs.extend(bounded_diameter_spanning_tree::canonical_model_example_specs());
+    specs.extend(degree_constrained_spanning_tree::canonical_model_example_specs());
     specs.extend(directed_hamiltonian_path::canonical_model_example_specs());
     specs.extend(maximum_independent_set::canonical_model_example_specs());
     specs.extend(minimum_vertex_cover::canonical_model_example_specs());
@@ -192,15 +224,21 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(integral_flow_with_multipliers::canonical_model_example_specs());
     specs.extend(isomorphic_spanning_tree::canonical_model_example_specs());
     specs.extend(kclique::canonical_model_example_specs());
+    specs.extend(kernel::canonical_model_example_specs());
     specs.extend(kcoloring::canonical_model_example_specs());
     specs.extend(kth_best_spanning_tree::canonical_model_example_specs());
     specs.extend(length_bounded_disjoint_paths::canonical_model_example_specs());
     specs.extend(longest_circuit::canonical_model_example_specs());
     specs.extend(longest_path::canonical_model_example_specs());
+    specs.extend(minimum_covering_by_cliques::canonical_model_example_specs());
+    specs.extend(monochromatic_triangle::canonical_model_example_specs());
+    specs.extend(minimum_intersection_graph_basis::canonical_model_example_specs());
     specs.extend(minimum_dominating_set::canonical_model_example_specs());
+    specs.extend(minimum_geometric_connected_dominating_set::canonical_model_example_specs());
     specs.extend(maximum_matching::canonical_model_example_specs());
     specs.extend(minimum_maximal_matching::canonical_model_example_specs());
     specs.extend(traveling_salesman::canonical_model_example_specs());
+    specs.extend(maximum_achromatic_number::canonical_model_example_specs());
     specs.extend(maximum_clique::canonical_model_example_specs());
     specs.extend(maximal_is::canonical_model_example_specs());
     specs.extend(minimum_cut_into_bounded_sets::canonical_model_example_specs());
@@ -219,7 +257,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(bottleneck_traveling_salesman::canonical_model_example_specs());
     specs.extend(bounded_component_spanning_forest::canonical_model_example_specs());
     specs.extend(partition_into_triangles::canonical_model_example_specs());
+    specs.extend(partition_into_cliques::canonical_model_example_specs());
     specs.extend(partition_into_forests::canonical_model_example_specs());
+    specs.extend(partition_into_perfect_matchings::canonical_model_example_specs());
     specs.extend(partition_into_paths_of_length_2::canonical_model_example_specs());
     specs.extend(path_constrained_network_flow::canonical_model_example_specs());
     specs.extend(rooted_tree_arrangement::canonical_model_example_specs());
