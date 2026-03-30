@@ -1,9 +1,14 @@
-//! Reduction from MinimumVertexCover to EnsembleComputation.
+//! Reduction from MinimumVertexCover (unit-weight) to EnsembleComputation.
 //!
 //! Given a graph G = (V, E), construct an EnsembleComputation instance where:
 //! - Universe A = V ∪ {a₀} (fresh element a₀ at index |V|)
 //! - Collection C = {{a₀, u, v} : {u,v} ∈ E}
-//! - Budget J = |V| + |E| (upper bound)
+//! - Budget = |V| + |E| (search space bound; the optimal value encodes K*)
+//!
+//! The minimum sequence length is K* + |E|, where K* is the minimum vertex
+//! cover size. This follows from the Garey & Johnson proof (PO9): each cover
+//! vertex contributes one {a₀} ∪ {v} operation, and each edge contributes
+//! one {u} ∪ z_k operation.
 //!
 //! Reference: Garey & Johnson, *Computers and Intractability*, Appendix Problem PO9.
 
@@ -12,6 +17,7 @@ use crate::models::misc::EnsembleComputation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::One;
 
 /// Result of reducing MinimumVertexCover to EnsembleComputation.
 #[derive(Debug, Clone)]
@@ -22,7 +28,7 @@ pub struct ReductionVCToEC {
 }
 
 impl ReductionResult for ReductionVCToEC {
-    type Source = MinimumVertexCover<SimpleGraph, i32>;
+    type Source = MinimumVertexCover<SimpleGraph, One>;
     type Target = EnsembleComputation;
 
     fn target_problem(&self) -> &Self::Target {
@@ -31,11 +37,13 @@ impl ReductionResult for ReductionVCToEC {
 
     /// Extract a vertex cover from an EnsembleComputation witness.
     ///
-    /// Every vertex that appears as a singleton operand (index < `num_vertices`)
-    /// in the sequence is included in the cover. This yields a valid cover because
-    /// every required subset {a₀, u, v} requires all three elements (a₀, u, v) to
-    /// enter the computation chain as singletons, so both endpoints of every edge
-    /// are included. The result is valid but not necessarily minimum.
+    /// The GJ proof shows that any minimum-length sequence can be normalized
+    /// so that only two forms of operations appear:
+    /// - z_i = {a₀} ∪ {v}  — vertex v is in the cover
+    /// - z_j = {u} ∪ z_k   — edge {u, v_r} is covered by v_r
+    ///
+    /// We collect all vertices that appear as singleton operands (index < |V|).
+    /// In a minimum-length witness, exactly the cover vertices appear this way.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         let budget = self.target.budget();
         let mut cover = vec![0usize; self.num_vertices];
@@ -62,7 +70,7 @@ impl ReductionResult for ReductionVCToEC {
         num_subsets = "num_edges",
     }
 )]
-impl ReduceTo<EnsembleComputation> for MinimumVertexCover<SimpleGraph, i32> {
+impl ReduceTo<EnsembleComputation> for MinimumVertexCover<SimpleGraph, One> {
     type Result = ReductionVCToEC;
 
     fn reduce_to(&self) -> Self::Result {
@@ -77,7 +85,8 @@ impl ReduceTo<EnsembleComputation> for MinimumVertexCover<SimpleGraph, i32> {
         // Collection C: for each edge {u, v}, add subset {a₀, u, v}
         let subsets: Vec<Vec<usize>> = edges.iter().map(|&(u, v)| vec![a0, u, v]).collect();
 
-        // Budget J = |V| + |E| (upper bound: K* ≤ |V| always)
+        // Budget bounds the search space; the optimal sequence length
+        // is K* + |E| where K* is the minimum vertex cover size.
         let budget = num_vertices + num_edges;
 
         let target = EnsembleComputation::new(universe_size, subsets, budget);
@@ -100,20 +109,21 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Minimum vertex cover K* = 1 (either {0} or {1})
             // Budget = 2 + 1 = 3, universe_size = 3, a₀ = 2
             // Subsets = {{0,1,2}}
-            let source = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]);
+            // Optimal sequence length = K* + |E| = 1 + 1 = 2
+            let source = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![One; 2]);
 
-            // Satisfying sequence for cover {0}:
+            // Optimal sequence for cover {0} (2 steps):
             // Step 0: {a₀=2} ∪ {0} → z₀ = {0,2}   operands: (2, 0)
             // Step 1: {1} ∪ z₀ → z₁ = {0,1,2} ✓    operands: (1, 3) where 3 = universe_size + 0
-            // Step 2: padding {a₀=2} ∪ {1}           operands: (2, 1)
-            //
-            // Extraction picks up all singleton vertex operands: vertex 0 (step 0),
-            // vertex 1 (steps 1 and 2). The extracted cover {0,1} is valid.
+            // Step 2: padding (unused)                operands: (2, 1)
             let target_config = vec![
                 2, 0, // step 0: {a₀} ∪ {0}
                 1, 3, // step 1: {1} ∪ z₀
                 2, 1, // step 2: padding
             ];
+            // Extraction picks up vertices 0 (step 0) and 1 (steps 1 and 2).
+            // Cover {0,1} is valid (though not minimum — the optimal witness
+            // is found by BruteForce, giving cover {0} or {1}).
             let source_config = vec![1, 1];
 
             crate::example_db::specs::rule_example_with_witness::<_, EnsembleComputation>(
