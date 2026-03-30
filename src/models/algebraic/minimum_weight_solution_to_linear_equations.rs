@@ -131,18 +131,19 @@ impl MinimumWeightSolutionToLinearEquations {
             aug.swap(pivot_row, swap_row);
 
             let pivot_val = aug[pivot_row][col];
+            let pivot_row_snapshot = aug[pivot_row].clone();
             // Eliminate all other rows.
-            for r in 0..n {
+            for (r, row) in aug.iter_mut().enumerate() {
                 if r == pivot_row {
                     continue;
                 }
-                let factor = aug[r][col];
+                let factor = row[col];
                 if factor == 0 {
                     continue;
                 }
                 // row[r] = pivot_val * row[r] - factor * row[pivot_row]
-                for c in 0..k + 1 {
-                    aug[r][c] = pivot_val * aug[r][c] - factor * aug[pivot_row][c];
+                for (cell, &pv) in row.iter_mut().zip(pivot_row_snapshot.iter()) {
+                    *cell = pivot_val * *cell - factor * pv;
                 }
             }
             pivot_row += 1;
