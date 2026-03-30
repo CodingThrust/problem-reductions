@@ -184,12 +184,12 @@ impl ReduceTo<ILP<i32>> for OpenShopScheduling {
         //      (b) s_{j,i} - s_{k,i} + M*x ≥ p_{k,i}
         for j in 0..n {
             for k in (j + 1)..n {
-                for i in 0..m {
+                for (i, (&pji_val, &pki_val)) in p[j].iter().zip(p[k].iter()).enumerate() {
                     let x = result.x_var(j, k, i);
                     let sj = result.s_var(j, i);
                     let sk = result.s_var(k, i);
-                    let pji = p[j][i] as f64;
-                    let pki = p[k][i] as f64;
+                    let pji = pji_val as f64;
+                    let pki = pki_val as f64;
 
                     // (a) s_{k,i} - s_{j,i} - M*x_{j,k,i} >= p_{j,i} - M
                     constraints.push(LinearConstraint::ge(
