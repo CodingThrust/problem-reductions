@@ -50,3 +50,58 @@ Each reduction entry contains:
   - _Solution extraction:_ mapping target solution back to source
 + *Overhead table* --- target size as a function of source size
 + *Worked example* --- concrete instance with full verification
+
+#pagebreak()
+
+= NP-Hardness Chain Extensions
+
+== SubsetSum $arrow.r$ Partition <sec:subsetsum-partition>
+
+#theorem[
+  Subset Sum reduces to Partition by adding at most one padding element. Given a Subset Sum instance $(S, T)$ with $Sigma = sum S$, the padding element $d = |Sigma - 2T|$ ensures that a balanced partition of $S union {d}$ exists if and only if a subset of $S$ sums to $T$. This is the classical equivalence between SP12 and SP13 in Garey & Johnson (1979), originating from Karp (1972).
+] <thm:subsetsum-partition>
+
+#proof[
+  _Construction._ Given a Subset Sum instance with elements $S = {s_1, dots, s_n}$ and target $T$:
+  + Compute $Sigma = sum_(i=1)^n s_i$.
+  + Compute $d = |Sigma - 2T|$.
+  + If $d = 0$: output $"Partition"(S)$.
+  + If $d > 0$: output $"Partition"(S union {d})$, appending $d$ as the $(n+1)$-th element.
+
+  _Correctness._ Let $Sigma'$ denote the sum of the Partition instance.
+
+  *Case $d = 0$ ($Sigma = 2T$):* $Sigma' = 2T$, half $= T$. A subset summing to $T$ exists $arrow.l.r.double$ a balanced partition exists. $checkmark$
+
+  *Case $Sigma > 2T$ ($d = Sigma - 2T > 0$):* $Sigma' = Sigma + d = 2(Sigma - T)$, half $= Sigma - T$.
+
+  ($arrow.r.double$) If $A subset.eq S$ sums to $T$, place $A union {d}$ on one side: sum $= T + (Sigma - 2T) = Sigma - T =$ half. The other side $S backslash A$ also sums to $Sigma - T$. $checkmark$
+
+  ($arrow.l.double$) Given a balanced partition, $d$ is on one side. The $S$-elements on that side sum to $(Sigma - T) - d = (Sigma - T) - (Sigma - 2T) = T$. $checkmark$
+
+  *Case $Sigma < 2T$ ($d = 2T - Sigma > 0$):* $Sigma' = Sigma + d = 2T$, half $= T$.
+
+  ($arrow.r.double$) If $A subset.eq S$ sums to $T$, place $A$ on one side (sum $= T$) and $(S backslash A) union {d}$ on the other (sum $= (Sigma - T) + (2T - Sigma) = T$). $checkmark$
+
+  ($arrow.l.double$) Given a balanced partition, the side without $d$ has $S$-elements summing to $T$. $checkmark$
+
+  *Infeasible case ($T > Sigma$):* $d = 2T - Sigma > Sigma$, so $d > Sigma' slash 2 = T$. One element exceeds half the total, making partition impossible. $checkmark$
+
+  _Solution extraction._
+  - If $d = 0$: the partition config directly gives the subset assignment.
+  - If $Sigma > 2T$: $S$-elements on the *same side* as $d$ form the subset summing to $T$.
+  - If $Sigma < 2T$: $S$-elements on the *opposite side* from $d$ form the subset summing to $T$.
+]
+
+*Overhead.*
+
+#table(
+  columns: (1fr, 1fr),
+  table.header([Target metric], [Expression]),
+  [`num_elements`], [$n + 1$ (worst case; $n$ when $Sigma = 2T$)],
+)
+
+*Example.* $S = {1, 5, 6, 8}$, $T = 11$, $Sigma = 20 < 22 = 2T$, so $d = 2$.
+
+Partition instance: $S' = {1, 5, 6, 8, 2}$, $Sigma' = 22$, half $= 11$.
+
+Balanced partition: ${5, 6}$ (sum 11) vs.~${1, 8, 2}$ (sum 11). Padding $d = 2$ is on the ${1, 8, 2}$ side. Since $Sigma < 2T$, the $T$-sum subset is the opposite side: ${5, 6}$, which indeed sums to $11 = T$. $checkmark$
