@@ -6,7 +6,7 @@ use crate::models::algebraic::QUBO;
 use crate::models::graph::{MaxCut, SpinGlass};
 use crate::models::misc::Factoring;
 use crate::rules::test_helpers::assert_optimization_round_trip_chain;
-use crate::rules::{MinimizeSteps, ReductionGraph};
+use crate::rules::{MinimizeSteps, MinimizeStepsThenOverhead, ReductionGraph};
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -73,14 +73,15 @@ fn test_jl_parity_maxcut_to_qubo_path() {
     let graph = ReductionGraph::new();
     let src_var = ReductionGraph::variant_to_map(&MaxCut::<SimpleGraph, i32>::variant());
     let dst_var = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+    // Use Petersen graph size to pick the path with smallest output
     let rpath = graph
         .find_cheapest_path(
             "MaxCut",
             &src_var,
             "QUBO",
             &dst_var,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
+            &ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 15)]),
+            &MinimizeStepsThenOverhead,
         )
         .expect("Should find path MaxCut -> QUBO");
 
