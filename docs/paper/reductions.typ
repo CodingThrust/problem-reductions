@@ -165,6 +165,7 @@
   "LongestCommonSubsequence": [Longest Common Subsequence],
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "ThreeDimensionalMatching": [Three-Dimensional Matching],
+  "ThreeMatroidIntersection": [Three-Matroid Intersection],
   "SubsetProduct": [Subset Product],
   "SubsetSum": [Subset Sum],
   "CosineProductIntegration": [Cosine Product Integration],
@@ -3011,6 +3012,38 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       "pred create --example ThreeDimensionalMatching -o three-dimensional-matching.json",
       "pred solve three-dimensional-matching.json",
       "pred evaluate three-dimensional-matching.json --config " + tdm.optimal_config.map(str).join(","),
+    )
+    ]
+  ]
+}
+
+#{
+  let tmi = load-model-example("ThreeMatroidIntersection")
+  let n = tmi.instance.ground_set_size
+  let parts = tmi.instance.partitions
+  let K = tmi.instance.bound
+  let sol = tmi.optimal_config
+  let selected = sol.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let fmt-set(items) = if items.len() == 0 {
+    $emptyset$
+  } else {
+    "${" + items.map(e => str(e)).join(", ") + "}$"
+  }
+  let fmt-group(g) = "${" + g.map(e => str(e)).join(", ") + "}$"
+  [
+    #problem-def("ThreeMatroidIntersection")[
+      Given three partition matroids $(E, cal(F)_1)$, $(E, cal(F)_2)$, $(E, cal(F)_3)$ on a common ground set $E$ with $|E| = n$, and a positive integer $K <= n$, does there exist a subset $E' subset.eq E$ with $|E'| = K$ that is independent in all three matroids? A partition matroid partitions $E$ into groups; a set $S$ is independent if $|S sect G| <= 1$ for every group $G$.
+    ][
+    Three-Matroid Intersection is problem SP11 in Garey & Johnson @garey1979 (section A3). While 2-matroid intersection is solvable in polynomial time (Edmonds, 1970) @edmonds1970, the jump to three matroids captures NP-hardness. NP-completeness is established by transformation from Three-Dimensional Matching, where each dimension induces a partition matroid. The restriction to partition matroids suffices for NP-completeness.
+
+    Doron-Arad, Kulik, and Shachnai (2024) @doron2024 showed that brute force essentially cannot be beaten: any algorithm requires $Omega(2^(n - 5 sqrt(n) log n))$ oracle queries. A marginal improvement to $2^(n - Omega(log^2 n))$ exists via Monotone Local Search @fomin2019. The direct brute-force algorithm runs in $O^*(2^n)$ time where $n = |E|$.
+
+    *Example.* Let $E = {0, 1, dots, #(n - 1)}$ with $K = #K$. The three partition matroids have groups: $cal(F)_1$: #parts.at(0).map(fmt-group).join(", "); $cal(F)_2$: #parts.at(1).map(fmt-group).join(", "); $cal(F)_3$: #parts.at(2).map(fmt-group).join(", "). The subset $E' = #fmt-set(selected)$ is a valid common independent set of size $#K$: each matroid has at most one selected element per group.
+
+    #pred-commands(
+      "pred create --example ThreeMatroidIntersection -o three-matroid-intersection.json",
+      "pred solve three-matroid-intersection.json",
+      "pred evaluate three-matroid-intersection.json --config " + tmi.optimal_config.map(str).join(","),
     )
     ]
   ]

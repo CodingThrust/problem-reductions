@@ -117,6 +117,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.r_weights.is_none()
         && args.s_weights.is_none()
         && args.partition.is_none()
+        && args.partitions.is_none()
         && args.bundles.is_none()
         && args.universe.is_none()
         && args.biedges.is_none()
@@ -3511,6 +3512,65 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 ser(
                     problemreductions::models::set::ThreeDimensionalMatching::new(
                         universe, triples,
+                    ),
+                )?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ThreeMatroidIntersection
+        "ThreeMatroidIntersection" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ThreeMatroidIntersection requires --universe, --partitions, and --bound\n\n\
+                     Usage: pred create ThreeMatroidIntersection --universe 6 --partitions \"0,1,2;3,4,5|0,3;1,4;2,5|0,4;1,5;2,3\" --bound 2"
+                )
+            })?;
+            let bound_val = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ThreeMatroidIntersection requires --bound\n\n\
+                     Usage: pred create ThreeMatroidIntersection --universe 6 --partitions \"0,1,2;3,4,5|0,3;1,4;2,5|0,4;1,5;2,3\" --bound 2"
+                )
+            })?;
+            let bound = usize::try_from(bound_val)
+                .map_err(|_| anyhow::anyhow!("--bound must be non-negative, got {}", bound_val))?;
+            let partitions_str = args.partitions.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ThreeMatroidIntersection requires --partitions\n\n\
+                     Usage: pred create ThreeMatroidIntersection --universe 6 --partitions \"0,1,2;3,4,5|0,3;1,4;2,5|0,4;1,5;2,3\" --bound 2"
+                )
+            })?;
+            let matroids: Vec<Vec<Vec<usize>>> = partitions_str
+                .split('|')
+                .map(|matroid_str| {
+                    matroid_str
+                        .split(';')
+                        .map(|group_str| {
+                            group_str
+                                .split(',')
+                                .map(|s| {
+                                    s.trim().parse::<usize>().map_err(|_| {
+                                        anyhow::anyhow!(
+                                            "Invalid element in partitions: '{}'",
+                                            s.trim()
+                                        )
+                                    })
+                                })
+                                .collect::<Result<Vec<_>>>()
+                        })
+                        .collect::<Result<Vec<_>>>()
+                })
+                .collect::<Result<Vec<_>>>()?;
+            if matroids.len() != 3 {
+                bail!(
+                    "Expected exactly 3 partition matroids separated by '|', got {}",
+                    matroids.len()
+                );
+            }
+            (
+                ser(
+                    problemreductions::models::set::ThreeMatroidIntersection::new(
+                        universe, matroids, bound,
                     ),
                 )?,
                 resolved_variant.clone(),
@@ -9605,6 +9665,7 @@ mod tests {
             r_weights: None,
             s_weights: None,
             partition: None,
+            partitions: None,
             bundles: None,
             universe: None,
             biedges: None,

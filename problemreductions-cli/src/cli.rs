@@ -274,6 +274,7 @@ Flags by problem type:
   ComparativeContainment          --universe, --r-sets, --s-sets [--r-weights] [--s-weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   3DM (ThreeDimensionalMatching)  --universe, --sets (triples w,x,y)
+  ThreeMatroidIntersection        --universe, --partitions, --bound
   SetBasis                        --universe, --sets, --k
   MinimumCardinalityKey           --num-attributes, --dependencies
   PrimeAttributeName              --universe, --deps, --query
@@ -557,6 +558,9 @@ pub struct CreateArgs {
     /// Partition groups for arc-index partitions (semicolon-separated, e.g., "0,1;2,3")
     #[arg(long)]
     pub partition: Option<String>,
+    /// Three partition matroids for ThreeMatroidIntersection (pipe-separated matroids, semicolon-separated groups, e.g., "0,1,2;3,4,5|0,3;1,4;2,5|0,4;1,5;2,3")
+    #[arg(long)]
+    pub partitions: Option<String>,
     /// Arc bundles for IntegralFlowBundles (semicolon-separated groups of arc indices, e.g., "0,1;2,5;3,4")
     #[arg(long)]
     pub bundles: Option<String>,

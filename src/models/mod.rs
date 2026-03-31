@@ -71,5 +71,5 @@ pub use set::{
     ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, IntegerKnapsack, MaximumSetPacking,
     MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering, PrimeAttributeName,
     RootedTreeStorageAssignment, SetBasis, SetSplitting, ThreeDimensionalMatching,
-    TwoDimensionalConsecutiveSets,
+    ThreeMatroidIntersection, TwoDimensionalConsecutiveSets,
 };

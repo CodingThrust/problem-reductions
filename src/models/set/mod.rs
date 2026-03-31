@@ -13,6 +13,7 @@
 //! - [`SetBasis`]: Minimum-cardinality basis generating all sets by union
 //! - [`SetSplitting`]: 2-color universe so every specified subset is non-monochromatic
 //! - [`ThreeDimensionalMatching`]: Perfect matching in a tripartite 3-uniform hypergraph
+//! - [`ThreeMatroidIntersection`]: Common independent set of size K in three partition matroids
 //! - [`TwoDimensionalConsecutiveSets`]: 2D consecutive arrangement of subset elements
 //! - [`MinimumCardinalityKey`]: Smallest attribute set that uniquely identifies tuples
 
@@ -29,6 +30,7 @@ pub(crate) mod rooted_tree_storage_assignment;
 pub(crate) mod set_basis;
 pub(crate) mod set_splitting;
 pub(crate) mod three_dimensional_matching;
+pub(crate) mod three_matroid_intersection;
 pub(crate) mod two_dimensional_consecutive_sets;
 
 pub use comparative_containment::ComparativeContainment;
@@ -44,6 +46,7 @@ pub use rooted_tree_storage_assignment::RootedTreeStorageAssignment;
 pub use set_basis::SetBasis;
 pub use set_splitting::SetSplitting;
 pub use three_dimensional_matching::ThreeDimensionalMatching;
+pub use three_matroid_intersection::ThreeMatroidIntersection;
 pub use two_dimensional_consecutive_sets::TwoDimensionalConsecutiveSets;
 
 #[cfg(feature = "example-db")]
@@ -62,6 +65,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(set_basis::canonical_model_example_specs());
     specs.extend(set_splitting::canonical_model_example_specs());
     specs.extend(three_dimensional_matching::canonical_model_example_specs());
+    specs.extend(three_matroid_intersection::canonical_model_example_specs());
     specs.extend(two_dimensional_consecutive_sets::canonical_model_example_specs());
     specs
 }
