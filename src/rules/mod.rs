@@ -223,6 +223,8 @@ pub(crate) mod openshopscheduling_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod optimallineararrangement_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod optimumcommunicationspanningtree_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod paintshop_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod partiallyorderedknapsack_ilp;
@@ -438,6 +440,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(naesatisfiability_ilp::canonical_rule_example_specs());
         specs.extend(numericalmatchingwithtargetsums_ilp::canonical_rule_example_specs());
         specs.extend(openshopscheduling_ilp::canonical_rule_example_specs());
+        specs.extend(optimumcommunicationspanningtree_ilp::canonical_rule_example_specs());
         specs.extend(optimallineararrangement_ilp::canonical_rule_example_specs());
         specs.extend(paintshop_ilp::canonical_rule_example_specs());
         specs.extend(partiallyorderedknapsack_ilp::canonical_rule_example_specs());

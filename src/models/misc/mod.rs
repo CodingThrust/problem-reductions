@@ -32,6 +32,7 @@
 //! - [`MinimumRegisterSufficiencyForLoops`]: Minimize registers for loop variable allocation (circular arc coloring)
 //! - [`MinimumWeightAndOrGraph`]: Find minimum-weight solution subgraph in a DAG with AND/OR gates
 //! - [`MinimumTardinessSequencing`]: Minimize tardy tasks in single-machine scheduling
+//! - [`OptimumCommunicationSpanningTree`]: Find spanning tree minimizing total weighted communication cost
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
 //! - [`CosineProductIntegration`]: Balanced sign assignment for integer frequencies
 //! - [`NonLivenessFreePetriNet`]: Determine whether a free-choice Petri net is not live
@@ -139,6 +140,7 @@ mod non_liveness_free_petri_net;
 mod numerical_3_dimensional_matching;
 mod numerical_matching_with_target_sums;
 mod open_shop_scheduling;
+pub(crate) mod optimum_communication_spanning_tree;
 pub(crate) mod paintshop;
 pub(crate) mod partially_ordered_knapsack;
 pub(crate) mod partition;
@@ -205,6 +207,7 @@ pub use non_liveness_free_petri_net::NonLivenessFreePetriNet;
 pub use numerical_3_dimensional_matching::Numerical3DimensionalMatching;
 pub use numerical_matching_with_target_sums::NumericalMatchingWithTargetSums;
 pub use open_shop_scheduling::OpenShopScheduling;
+pub use optimum_communication_spanning_tree::OptimumCommunicationSpanningTree;
 pub use paintshop::PaintShop;
 pub use partially_ordered_knapsack::PartiallyOrderedKnapsack;
 pub use partition::Partition;
@@ -299,5 +302,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(minimum_weight_and_or_graph::canonical_model_example_specs());
     specs.extend(minimum_fault_detection_test_set::canonical_model_example_specs());
     specs.extend(minimum_axiom_set::canonical_model_example_specs());
+    specs.extend(optimum_communication_spanning_tree::canonical_model_example_specs());
     specs
 }

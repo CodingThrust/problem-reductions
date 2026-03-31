@@ -253,6 +253,7 @@
   "TwoDimensionalConsecutiveSets": [2-Dimensional Consecutive Sets],
   "KthLargestMTuple": [$K$th Largest $m$-Tuple],
   "MaximumLikelihoodRanking": [Maximum Likelihood Ranking],
+  "OptimumCommunicationSpanningTree": [Optimum Communication Spanning Tree],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -8849,6 +8850,40 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 
+#{
+  let x = load-model-example("OptimumCommunicationSpanningTree")
+  let n = x.instance.num_vertices
+  let W = x.instance.edge_weights
+  let R = x.instance.requirements
+  let config = x.optimal_config
+  let opt-val = metric-value(x.optimal_value)
+  // Build edge list and selected edges
+  let edges = ()
+  let edge-idx = 0
+  for i in range(n) {
+    for j in range(i + 1, n) {
+      edges.push((i, j, config.at(edge-idx)))
+      edge-idx += 1
+    }
+  }
+  let tree-edges = edges.filter(e => e.at(2) == 1)
+  [
+    #problem-def("OptimumCommunicationSpanningTree")[
+      Given a complete graph $K_n$ with edge weights $w(e) >= 0$ and communication requirements $r(u, v) >= 0$ for each vertex pair, find a spanning tree $T$ minimizing the total communication cost $sum_(u < v) r(u, v) dot W_T (u, v)$, where $W_T (u, v)$ is the sum of edge weights on the unique path from $u$ to $v$ in $T$.
+    ][
+      The Optimum Communication Spanning Tree problem (ND7 in @garey1979) models communication network design where edge weights represent link costs and requirements represent traffic demands between vertex pairs. NP-hard even when all requirements are equal (reducing to the Minimum Routing Cost Spanning Tree). Polynomial when all edge weights are equal, solved by the Gomory-Hu tree. The best known exact approach enumerates all $n^(n-2)$ labeled spanning trees.
+
+      *Example.* Consider $K_#n$ with edge weight matrix $W$ and requirement matrix $R$. The optimal spanning tree uses edges ${#tree-edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}$ with total communication cost $#opt-val$.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o ocst.json",
+        "pred solve ocst.json --solver brute-force",
+        "pred evaluate ocst.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
 // Completeness check: warn about problem types in JSON but missing from paper
 #{
   let json-models = {
@@ -12479,6 +12514,48 @@ The following reductions to Integer Linear Programming are straightforward formu
       _Correctness._ ($arrow.r.double$) Any permutation $pi$ defines a consistent tournament: set $x_(i j) = 1$ iff $i$ appears before $j$ in $pi$. The transitivity constraints are satisfied because a linear order has no directed cycles. The ILP objective equals the disagreement cost of $pi$. ($arrow.l.double$) Any feasible binary solution defines a transitive tournament (an acyclic tournament), which corresponds to a unique linear order. The objective equals the disagreement cost of that order.
 
       _Solution extraction._ For each item $i$, count the number of items ranked before it: $"rank"(i) = sum_(j < i) x_(j i) + sum_(j > i) (1 - x_(i j))$. The resulting rank vector is the permutation.
+    ]
+  ]
+}
+
+#{
+  let ocst_ilp = load-example("OptimumCommunicationSpanningTree", "ILP")
+  let ocst_ilp_sol = ocst_ilp.solutions.at(0)
+  let ocst_n = ocst_ilp.source.instance.num_vertices
+  let ocst_nv = ocst_ilp.target.instance.num_vars
+  let ocst_nc = ocst_ilp.target.instance.constraints.len()
+  [
+    #reduction-rule("OptimumCommunicationSpanningTree", "ILP",
+      example: true,
+      example-caption: [$K_#ocst_n$, #ocst_nv variables, #ocst_nc constraints],
+      extra: [
+        #pred-commands(
+          "pred create --example OptimumCommunicationSpanningTree -o ocst.json",
+          "pred reduce ocst.json --to " + target-spec(ocst_ilp) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate ocst.json --config " + ocst_ilp_sol.source_config.map(str).join(","),
+        )
+        *Step 1 -- Source instance.* $K_#ocst_n$ with edge weight and requirement matrices.
+
+        *Step 2 -- Build the ILP.* Introduce edge selectors and multi-commodity flow variables. The ILP has #ocst_nv variables and #ocst_nc constraints.
+
+        *Step 3 -- Verify.* The ILP optimum extracts to edge selection $(#ocst_ilp_sol.source_config.map(str).join(", "))$, which matches the source optimum #sym.checkmark.
+      ],
+    )[
+      Binary edge selectors determine the spanning tree. Multi-commodity flow variables route one unit of flow for each vertex pair with positive requirement, and the objective minimizes the total weighted communication cost.
+    ][
+      _Construction._ Given $K_n$ with weights $w(e)$ and requirements $r(u, v)$, let $m = n(n-1)/2$. Introduce binary edge variables $x_e$ for each edge. For each pair $(s, t)$ with $r(s, t) > 0$, add directed flow variables $f^(s t)_(e, "fwd")$ and $f^(s t)_(e, "bwd")$ for each edge $e$.
+
+      Constraints:
+      - Tree size: $sum_e x_e = n - 1$
+      - Flow conservation: for each commodity $(s, t)$ and each vertex $v$, net inflow equals $-1$ at source $s$, $+1$ at sink $t$, and $0$ elsewhere.
+      - Capacity linking: $f^(s t)_(e, "dir") <= x_e$ for each commodity and direction.
+
+      Objective: $min sum_((s,t): r > 0) r(s,t) dot sum_e w(e) dot (f^(s t)_(e, "fwd") + f^(s t)_(e, "bwd")))$
+
+      _Correctness._ ($arrow.r.double$) Any spanning tree defines edge selectors and unique path flows. The objective equals the communication cost. ($arrow.l.double$) Any feasible ILP solution with $n - 1$ selected edges and valid flows corresponds to a connected spanning subgraph (tree), and the flow cost equals the path-weighted communication cost.
+
+      _Solution extraction._ Output the first $m$ variables $(x_0, dots, x_(m-1))$ as the edge selection.
     ]
   ]
 }
