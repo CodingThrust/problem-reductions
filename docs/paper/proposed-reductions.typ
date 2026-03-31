@@ -506,3 +506,17 @@ Dominating set $D = {1, 2}$: total distance $= d(0, {1,2}) + d(1, {1,2}) + d(2, 
 *Overhead.* To be determined.
 
 *Example.* To be determined.
+
+#pagebreak()
+
+= References
+
++ Garey, M. R. and Johnson, D. S. (1979). _Computers and Intractability: A Guide to the Theory of NP-Completeness._ W.H. Freeman and Company.
+
++ Garey, M. R., Johnson, D. S., and Stockmeyer, L. (1976). "Some simplified NP-complete graph problems." _Theoretical Computer Science_ 1(3), pp. 237--267.
+
++ Gavril, F. (1977). "Some NP-complete problems on graphs." _Proc. 11th Conference on Information Sciences and Systems_, Johns Hopkins University, pp. 91--95.
+
++ Karp, R. M. (1972). "Reducibility among combinatorial problems." In _Complexity of Computer Computations_, Plenum Press, pp. 85--103.
+
++ Yannakakis, M. (1978). "Node- and edge-deletion NP-complete problems." _Proc. 10th Annual ACM Symposium on Theory of Computing (STOC)_, pp. 253--264.
