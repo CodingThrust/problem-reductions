@@ -12,6 +12,7 @@
 //! - [`MinimumCoveringByCliques`]: Minimum number of cliques covering all edges
 //! - [`MonochromaticTriangle`]: 2-color edges so that no triangle is monochromatic
 //! - [`MinimumIntersectionGraphBasis`]: Minimum universe size for intersection graph representation
+//! - [`MinimumCapacitatedSpanningTree`]: Minimum weight spanning tree with subtree capacity constraints
 //! - [`MinimumDominatingSet`]: Minimum dominating set
 //! - [`MinimumMetricDimension`]: Minimum resolving set (metric dimension)
 //! - [`MinimumEdgeCostFlow`]: Minimum edge-cost integral flow
@@ -108,6 +109,7 @@ pub(crate) mod maximum_independent_set;
 pub(crate) mod maximum_leaf_spanning_tree;
 pub(crate) mod maximum_matching;
 pub(crate) mod min_max_multicenter;
+pub(crate) mod minimum_capacitated_spanning_tree;
 pub(crate) mod minimum_covering_by_cliques;
 pub(crate) mod minimum_cut_into_bounded_sets;
 pub(crate) mod minimum_dominating_set;
@@ -182,6 +184,7 @@ pub use maximum_independent_set::MaximumIndependentSet;
 pub use maximum_leaf_spanning_tree::MaximumLeafSpanningTree;
 pub use maximum_matching::MaximumMatching;
 pub use min_max_multicenter::MinMaxMulticenter;
+pub use minimum_capacitated_spanning_tree::MinimumCapacitatedSpanningTree;
 pub use minimum_covering_by_cliques::MinimumCoveringByCliques;
 pub use minimum_cut_into_bounded_sets::MinimumCutIntoBoundedSets;
 pub use minimum_dominating_set::MinimumDominatingSet;
@@ -290,6 +293,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(strong_connectivity_augmentation::canonical_model_example_specs());
     specs.extend(rural_postman::canonical_model_example_specs());
     specs.extend(integral_flow_homologous_arcs::canonical_model_example_specs());
+    specs.extend(minimum_capacitated_spanning_tree::canonical_model_example_specs());
     specs.extend(minimum_edge_cost_flow::canonical_model_example_specs());
     specs.extend(minimum_graph_bandwidth::canonical_model_example_specs());
     specs.extend(minimum_feedback_arc_set::canonical_model_example_specs());
