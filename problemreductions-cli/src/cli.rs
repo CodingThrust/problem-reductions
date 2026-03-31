@@ -288,6 +288,7 @@ Flags by problem type:
   SparseMatrixCompression         --matrix (0/1), --bound
   MaximumLikelihoodRanking        --matrix (i32 rows, semicolon-separated)
   MinimumMatrixCover              --matrix (i64 rows, semicolon-separated)
+  MinimumWeightDecoding           --matrix (JSON 2D bool), --rhs (comma-separated booleans)
   FeasibleBasisExtension          --matrix (JSON 2D i64), --rhs, --required-columns
   SteinerTree                     --graph, --edge-weights, --terminals
   MultipleCopyFileAllocation      --graph, --usage, --storage

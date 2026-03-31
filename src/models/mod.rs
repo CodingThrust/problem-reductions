@@ -12,7 +12,7 @@ pub mod set;
 pub use algebraic::{
     AlgebraicEquationsOverGF2, ClosestVectorProblem, ConsecutiveBlockMinimization,
     ConsecutiveOnesMatrixAugmentation, ConsecutiveOnesSubmatrix, EquilibriumPoint,
-    FeasibleBasisExtension, MinimumMatrixCover, MinimumMatrixDomination,
+    FeasibleBasisExtension, MinimumMatrixCover, MinimumMatrixDomination, MinimumWeightDecoding,
     MinimumWeightSolutionToLinearEquations, QuadraticAssignment, QuadraticCongruences,
     QuadraticDiophantineEquations, SimultaneousIncongruences, SparseMatrixCompression, BMF, ILP,
     QUBO,

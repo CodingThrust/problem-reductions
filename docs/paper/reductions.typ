@@ -182,6 +182,7 @@
   "SparseMatrixCompression": [Sparse Matrix Compression],
   "MinimumMatrixCover": [Minimum Matrix Cover],
   "MinimumMatrixDomination": [Minimum Matrix Domination],
+  "MinimumWeightDecoding": [Minimum Weight Decoding],
   "MinimumWeightSolutionToLinearEquations": [Minimum Weight Solution to Linear Equations],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
   "MinimumEdgeCostFlow": [Minimum Edge-Cost Flow],
@@ -8368,6 +8369,53 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred solve mmd.json",
         "pred evaluate mmd.json --config " + x.optimal_config.map(str).join(","),
       )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumWeightDecoding")
+  let H = x.instance.matrix
+  let s = x.instance.target
+  let n = H.len()
+  let m = if n > 0 { H.at(0).len() } else { 0 }
+  let cfg = x.optimal_config
+  let wt = x.optimal_value
+  [
+    #problem-def("MinimumWeightDecoding")[
+      Given an $n times m$ binary parity-check matrix $H$ and a binary syndrome vector $s in {0,1}^n$, find a binary vector $x in {0,1}^m$ minimizing the Hamming weight $|x| = sum_(j=0)^(m-1) x_j$ subject to $H x equiv s (mod space 2)$.
+    ][
+      Minimum Weight Decoding is a fundamental problem in coding theory. Given a linear code with parity-check matrix $H$, the task is to find the minimum-weight error pattern consistent with a received syndrome. The problem is equivalent to finding the closest codeword to a received word and is central to the hardness of decoding random linear codes.
+
+      The best known algorithms for general instances use information set decoding techniques, achieving $O(2^(0.0494 n))$ where $n$ is the block length.
+
+      *Example.* Let $H$ be the #(n)$times$#(m) binary matrix and $s = (#s.map(v => if v { "1" } else { "0" }).join(", "))$. The optimal config $(#cfg.map(str).join(", "))$ has Hamming weight $#wt$.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o mwd.json",
+        "pred solve mwd.json",
+        "pred evaluate mwd.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-example("MinimumWeightDecoding", "ILP")
+  let src = x.source
+  let tgt = x.target
+  [
+    #reduction-rule("MinimumWeightDecoding", "ILP",
+      example: true,
+      example-caption: [Minimum Weight Decoding to ILP ($#src.instance.matrix.len()$ rows, $#src.instance.matrix.at(0).len()$ columns)],
+    )[
+      The GF(2) constraint $H x equiv s (mod space 2)$ is linearized by introducing integer slack variables: for each row $i$, $sum_j H_(i j) x_j - 2 k_i = s_i$ where $k_i >= 0$ is an integer. Binary bounds $x_j <= 1$ are added, and the objective minimizes $sum x_j$.
+    ][
+      _Construction._ Given $H in {0,1}^(n times m)$ and $s in {0,1}^n$, create an ILP with $m + n$ variables: $x_0, dots, x_(m-1)$ (binary) and $k_0, dots, k_(n-1)$ (non-negative integer). Add $n$ equality constraints $sum_j H_(i j) x_j - 2 k_i = s_i$ and $m$ binary bounds $x_j <= 1$. The objective is $min sum_(j=0)^(m-1) x_j$.
+
+      _Correctness._ ($arrow.r.double$) If $x^*$ is feasible for the source, then $H x^* equiv s (mod space 2)$, so $sum_j H_(i j) x^*_j = s_i + 2 k_i$ for some $k_i >= 0$. Setting these $k_i$ values gives a feasible ILP solution with the same objective. ($arrow.l.double$) If $(x^*, k^*)$ is feasible for the ILP, then $sum_j H_(i j) x^*_j = s_i + 2 k^*_i$ implies $sum_j H_(i j) x^*_j equiv s_i (mod space 2)$ for all $i$, and $x^*_j in {0, 1}$ by the binary bounds.
+
+      _Solution extraction._ Take the first $m$ variables as the source configuration.
     ]
   ]
 }

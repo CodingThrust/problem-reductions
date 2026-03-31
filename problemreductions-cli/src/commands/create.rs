@@ -10,9 +10,9 @@ use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExamp
 use problemreductions::models::algebraic::{
     AlgebraicEquationsOverGF2, ClosestVectorProblem, ConsecutiveBlockMinimization,
     ConsecutiveOnesMatrixAugmentation, ConsecutiveOnesSubmatrix, FeasibleBasisExtension,
-    MinimumMatrixCover, MinimumMatrixDomination, MinimumWeightSolutionToLinearEquations,
-    QuadraticCongruences, QuadraticDiophantineEquations, SimultaneousIncongruences,
-    SparseMatrixCompression, BMF,
+    MinimumMatrixCover, MinimumMatrixDomination, MinimumWeightDecoding,
+    MinimumWeightSolutionToLinearEquations, QuadraticCongruences, QuadraticDiophantineEquations,
+    SimultaneousIncongruences, SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -858,6 +858,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MaximumLikelihoodRanking" => "--matrix \"0,4,3,5;1,0,4,3;2,1,0,4;0,2,1,0\"",
         "MinimumMatrixCover" => "--matrix \"0,3,1,0;3,0,0,2;1,0,0,4;0,2,4,0\"",
         "MinimumMatrixDomination" => "--matrix \"0,1,0;1,0,1;0,1,0\"",
+        "MinimumWeightDecoding" => {
+            "--matrix '[[true,false,true,true],[false,true,true,false],[true,true,false,true]]' --rhs 'true,true,false'"
+        }
         "MinimumWeightSolutionToLinearEquations" => {
             "--matrix '[[1,2,3,1],[2,1,1,3]]' --rhs '5,4'"
         }
@@ -1017,6 +1020,8 @@ fn help_flag_hint(
         }
         ("MinimumMatrixCover", "matrix") => "semicolon-separated i64 rows: \"0,3,1;3,0,2;1,2,0\"",
         ("MinimumMatrixDomination", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("MinimumWeightDecoding", "matrix") => "JSON 2D bool array: '[[true,false],[false,true]]'",
+        ("MinimumWeightDecoding", "target") => "comma-separated booleans: \"true,true,false\"",
         ("MinimumWeightSolutionToLinearEquations", "matrix") => {
             "JSON 2D integer array: '[[1,2,3],[4,5,6]]'"
         }
@@ -3724,6 +3729,43 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let matrix = parse_bool_matrix(args)?;
             (
                 ser(MinimumMatrixDomination::new(matrix))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumWeightDecoding
+        "MinimumWeightDecoding" => {
+            let usage = "Usage: pred create MinimumWeightDecoding --matrix '[[true,false,true],[false,true,true]]' --rhs 'true,true'";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightDecoding requires --matrix (JSON 2D bool array) and --rhs\n\n{usage}"
+                )
+            })?;
+            let matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str).map_err(|err| {
+                anyhow::anyhow!(
+                    "MinimumWeightDecoding requires --matrix as a JSON 2D bool array (e.g., '[[true,false],[false,true]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
+                )
+            })?;
+            let rhs_str = args.rhs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightDecoding requires --rhs (comma-separated booleans)\n\n{usage}"
+                )
+            })?;
+            let target: Vec<bool> = rhs_str
+                .split(',')
+                .map(|s| match s.trim() {
+                    "true" | "1" => Ok(true),
+                    "false" | "0" => Ok(false),
+                    other => Err(anyhow::anyhow!("invalid boolean value: {other}")),
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|err| {
+                    anyhow::anyhow!(
+                        "Failed to parse --rhs as comma-separated booleans: {err}\n\n{usage}"
+                    )
+                })?;
+            (
+                ser(MinimumWeightDecoding::new(matrix, target))?,
                 resolved_variant.clone(),
             )
         }

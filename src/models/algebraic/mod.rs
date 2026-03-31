@@ -14,6 +14,7 @@
 //! - [`QuadraticDiophantineEquations`]: Decide ax² + by = c in positive integers
 //! - [`SimultaneousIncongruences`]: Decide whether x ≢ aᵢ (mod bᵢ) for all i simultaneously
 //! - [`MinimumMatrixDomination`]: Minimum Matrix Domination (minimum dominating set of 1-entries)
+//! - [`MinimumWeightDecoding`]: Minimum Weight Decoding (minimize Hamming weight of Hx≡s mod 2)
 //! - [`MinimumWeightSolutionToLinearEquations`]: Minimum Weight Solution to Linear Equations (minimize Hamming weight of Ay=b solution)
 //! - [`SparseMatrixCompression`]: Sparse Matrix Compression by row overlay
 
@@ -28,6 +29,7 @@ pub(crate) mod feasible_basis_extension;
 pub(crate) mod ilp;
 pub(crate) mod minimum_matrix_cover;
 pub(crate) mod minimum_matrix_domination;
+pub(crate) mod minimum_weight_decoding;
 pub(crate) mod minimum_weight_solution_to_linear_equations;
 pub(crate) mod quadratic_assignment;
 pub(crate) mod quadratic_congruences;
@@ -47,6 +49,7 @@ pub use feasible_basis_extension::FeasibleBasisExtension;
 pub use ilp::{Comparison, LinearConstraint, ObjectiveSense, VariableDomain, ILP};
 pub use minimum_matrix_cover::MinimumMatrixCover;
 pub use minimum_matrix_domination::MinimumMatrixDomination;
+pub use minimum_weight_decoding::MinimumWeightDecoding;
 pub use minimum_weight_solution_to_linear_equations::MinimumWeightSolutionToLinearEquations;
 pub use quadratic_assignment::QuadraticAssignment;
 pub use quadratic_congruences::QuadraticCongruences;
@@ -69,6 +72,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(feasible_basis_extension::canonical_model_example_specs());
     specs.extend(minimum_matrix_cover::canonical_model_example_specs());
     specs.extend(minimum_matrix_domination::canonical_model_example_specs());
+    specs.extend(minimum_weight_decoding::canonical_model_example_specs());
     specs.extend(minimum_weight_solution_to_linear_equations::canonical_model_example_specs());
     specs.extend(quadratic_assignment::canonical_model_example_specs());
     specs.extend(quadratic_congruences::canonical_model_example_specs());

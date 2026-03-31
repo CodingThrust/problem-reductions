@@ -203,6 +203,8 @@ pub(crate) mod minimumsummulticenter_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumtardinesssequencing_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod minimumweightdecoding_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod minmaxmulticenter_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod mixedchinesepostman_ilp;
@@ -421,6 +423,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(minimumhittingset_ilp::canonical_rule_example_specs());
         specs.extend(minimummultiwaycut_ilp::canonical_rule_example_specs());
         specs.extend(minimumsetcovering_ilp::canonical_rule_example_specs());
+        specs.extend(minimumweightdecoding_ilp::canonical_rule_example_specs());
         specs.extend(minimumtardinesssequencing_ilp::canonical_rule_example_specs());
         specs.extend(minimumsummulticenter_ilp::canonical_rule_example_specs());
         specs.extend(minmaxmulticenter_ilp::canonical_rule_example_specs());
