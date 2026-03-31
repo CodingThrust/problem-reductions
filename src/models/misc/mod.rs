@@ -54,6 +54,7 @@
 //! - [`SequencingWithReleaseTimesAndDeadlines`]: Single-machine scheduling feasibility
 //! - [`SequencingWithinIntervals`]: Schedule tasks within time windows
 //! - [`ShortestCommonSupersequence`]: Find a common supersequence of bounded length
+//! - [`SquareTiling`]: Place colored square tiles on an N x N grid with matching edge colors
 //! - [`TimetableDesign`]: Schedule craftsmen on tasks across work periods
 //! - [`StringToStringCorrection`]: String-to-String Correction (derive target via deletions and swaps)
 //! - [`SubsetProduct`]: Find a subset whose product equals exactly a target value
@@ -160,6 +161,7 @@ mod sequencing_with_deadlines_and_set_up_times;
 mod sequencing_with_release_times_and_deadlines;
 mod sequencing_within_intervals;
 pub(crate) mod shortest_common_supersequence;
+mod square_tiling;
 mod stacker_crane;
 mod staff_scheduling;
 pub(crate) mod string_to_string_correction;
@@ -227,6 +229,7 @@ pub use sequencing_with_deadlines_and_set_up_times::SequencingWithDeadlinesAndSe
 pub use sequencing_with_release_times_and_deadlines::SequencingWithReleaseTimesAndDeadlines;
 pub use sequencing_within_intervals::SequencingWithinIntervals;
 pub use shortest_common_supersequence::ShortestCommonSupersequence;
+pub use square_tiling::SquareTiling;
 pub use stacker_crane::StackerCrane;
 pub use staff_scheduling::StaffScheduling;
 pub use string_to_string_correction::StringToStringCorrection;
@@ -303,5 +306,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(minimum_fault_detection_test_set::canonical_model_example_specs());
     specs.extend(minimum_axiom_set::canonical_model_example_specs());
     specs.extend(optimum_communication_spanning_tree::canonical_model_example_specs());
+    specs.extend(square_tiling::canonical_model_example_specs());
     specs
 }

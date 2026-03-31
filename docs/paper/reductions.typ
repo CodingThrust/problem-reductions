@@ -254,6 +254,7 @@
   "KthLargestMTuple": [$K$th Largest $m$-Tuple],
   "MaximumLikelihoodRanking": [Maximum Likelihood Ranking],
   "OptimumCommunicationSpanningTree": [Optimum Communication Spanning Tree],
+  "SquareTiling": [Square Tiling],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -8879,6 +8880,29 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred create --example " + problem-spec(x) + " -o ocst.json",
         "pred solve ocst.json --solver brute-force",
         "pred evaluate ocst.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SquareTiling")
+  let nc = x.instance.num_colors
+  let tiles = x.instance.tiles
+  let n = x.instance.grid_size
+  let config = x.optimal_config
+  [
+    #problem-def("SquareTiling")[
+      Given a set $C$ of colors, a collection $T subset.eq C^4$ of tile types (where $angle.l a, b, c, d angle.r$ denotes a tile whose top, right, bottom, and left sides are colored $a, b, c, d$ respectively), and a positive integer $N$, determine whether there exists an assignment of a tile $f(i,j) in T$ to each grid cell $(i,j)$, $0 <= i,j < N$, such that (1) if $f(i,j) = angle.l a,b,c,d angle.r$ and $f(i+1,j) = angle.l a',b',c',d' angle.r$ then $c = a'$ (bottom of upper tile matches top of lower tile), and (2) if $f(i,j) = angle.l a,b,c,d angle.r$ and $f(i,j+1) = angle.l a',b',c',d' angle.r$ then $b = d'$ (right of left tile matches left of right tile). Tiles may be reused but not rotated or reflected.
+    ][
+      Square Tiling (also known as Bounded Wang Tiling) is problem GP13 in Garey and Johnson @garey1979. It was shown NP-complete via transformation from Directed Hamiltonian Path. The infinite variant (tiling the entire plane) is famously undecidable (Berger, 1966). The best known exact approach enumerates all $|T|^(N^2)$ assignments.
+
+      *Example.* Consider $|C| = #nc$ colors, $|T| = #tiles.len()$ tiles, and grid size $N = #n$. The tiles are #tiles.enumerate().map(((i, t)) => [$t_#i = angle.l #t.at(0), #t.at(1), #t.at(2), #t.at(3) angle.r$]).join(", "). The witness assignment $(#config.map(str).join(", "))$ places $t_#config.at(0), t_#config.at(1)$ in row 0 and $t_#config.at(2), t_#config.at(3)$ in row 1, satisfying all edge-color constraints.
+
+      #pred-commands(
+        "pred create --example SquareTiling -o square_tiling.json",
+        "pred solve square_tiling.json",
+        "pred evaluate square_tiling.json --config " + config.map(str).join(","),
       )
     ]
   ]
