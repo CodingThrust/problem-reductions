@@ -245,6 +245,7 @@
   "TimetableDesign": [Timetable Design],
   "TwoDimensionalConsecutiveSets": [2-Dimensional Consecutive Sets],
   "KthLargestMTuple": [$K$th Largest $m$-Tuple],
+  "MaximumLikelihoodRanking": [Maximum Likelihood Ranking],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -8554,6 +8555,79 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 
+#{
+  let x = load-model-example("MaximumLikelihoodRanking")
+  let A = x.instance.matrix
+  let n = A.len()
+  let config = x.optimal_config
+  let opt-val = metric-value(x.optimal_value)
+  // Compute disagreement pairs for the optimal solution
+  let disagreement-pairs = ()
+  for a in range(n) {
+    for b in range(n) {
+      if a != b and config.at(a) > config.at(b) {
+        disagreement-pairs.push((a, b, A.at(a).at(b)))
+      }
+    }
+  }
+  let total-cost = disagreement-pairs.map(p => p.at(2)).sum()
+  [
+    #problem-def("MaximumLikelihoodRanking")[
+      Given an $n times n$ comparison matrix $A$ with $a_(i i) = 0$ for all $i$, find a permutation $pi$ of ${0, dots, n - 1}$ minimizing the _disagreement cost_ $sum_(i > j) a_(pi(i), pi(j))$, where $pi$ maps rank positions to items.
+    ][
+      The Maximum Likelihood Ranking problem arises in voting theory and tournament aggregation: given pairwise comparison counts between $n$ alternatives, find a linear ordering that best explains the observed data @garey1979. The problem is equivalent to finding a minimum-weight linear extension of a tournament. When $a_(i j) + a_(j i) = c$ for all $i != j$, the problem is also known as the _Kemeny ranking_ or _minimum feedback arc set in tournaments_. The best known exact algorithm uses dynamic programming over subsets (Held--Karp style), running in $O(n^2 dot 2^n)$ time.#footnote[No algorithm with a significantly better exponential base than $2^n$ is known for the general Maximum Likelihood Ranking problem.]
+
+      *Example.* Consider $n = #n$ items with comparison matrix $A$, where rows and columns index items $0, dots, #(n - 1)$. Ranking all items by identity ($pi(i) = i$) yields disagreement cost $#disagreement-pairs.map(p => str(p.at(2))).join(" + ") = #total-cost$, which is optimal.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o mlr.json",
+        "pred solve mlr.json --solver brute-force",
+        "pred evaluate mlr.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 0.7cm, {
+          import draw: *
+          let cell = 0.9
+          let gap = 0.12
+          for i in range(n) {
+            for j in range(n) {
+              let val = A.at(i).at(j)
+              let is-disagree = i != j and config.at(i) > config.at(j)
+              let f = if i == j { luma(230) } else if is-disagree { graph-colors.at(0).transparentize(40%) } else { white }
+              rect(
+                (j * cell, -i * cell),
+                (j * cell + cell - gap, -i * cell - cell + gap),
+                fill: f,
+                stroke: 0.3pt + luma(180),
+              )
+              content(
+                (j * cell + (cell - gap) / 2, -i * cell - (cell - gap) / 2),
+                text(8pt, str(val)),
+              )
+            }
+          }
+          // Column labels
+          for j in range(n) {
+            content(
+              (j * cell + (cell - gap) / 2, 0.35),
+              text(7pt)[$#j$],
+            )
+          }
+          // Row labels
+          for i in range(n) {
+            content(
+              (-0.35, -i * cell - (cell - gap) / 2),
+              text(7pt)[$#i$],
+            )
+          }
+        }),
+        caption: [Comparison matrix $A$ ($n = #n$). Highlighted cells are disagreement entries under the identity ranking.],
+      )
+    ]
+  ]
+}
+
 // Completeness check: warn about problem types in JSON but missing from paper
 #{
   let json-models = {
@@ -12143,6 +12217,50 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   _Solution extraction._ Output the first $m$ variables $(f_0, dots, f_(m-1))$ as the flow assignment.
 ]
+
+#{
+  let mlr_ilp = load-example("MaximumLikelihoodRanking", "ILP")
+  let mlr_ilp_sol = mlr_ilp.solutions.at(0)
+  let mlr_n = mlr_ilp.source.instance.matrix.len()
+  let mlr_nv = mlr_ilp.target.instance.num_vars
+  let mlr_nc = mlr_ilp.target.instance.constraints.len()
+  [
+    #reduction-rule("MaximumLikelihoodRanking", "ILP",
+      example: true,
+      example-caption: [$n = #mlr_n$ items, $#mlr_nv$ pairwise variables, $#mlr_nc$ transitivity constraints],
+      extra: [
+        #pred-commands(
+          "pred create --example MaximumLikelihoodRanking -o mlr.json",
+          "pred reduce mlr.json --to " + target-spec(mlr_ilp) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate mlr.json --config " + mlr_ilp_sol.source_config.map(str).join(","),
+        )
+        *Step 1 -- Source instance.* A ranking instance with $n = #mlr_n$ items and comparison matrix $A$.
+
+        *Step 2 -- Build the ILP.* Introduce $binom(#str(mlr_n), 2) = #mlr_nv$ binary variables $x_(i j)$ for each pair $i < j$. Add $#mlr_nc$ transitivity constraints from all $binom(#str(mlr_n), 3)$ triples. The ILP has #mlr_nv variables and #mlr_nc constraints.
+
+        *Step 3 -- Verify.* The ILP optimum extracts to ranking $(#mlr_ilp_sol.source_config.map(str).join(", "))$, which matches the source optimum #sym.checkmark.
+      ],
+    )[
+      Each pair of items $(i, j)$ with $i < j$ gets a binary variable $x_(i j)$ indicating whether $i$ is ranked before $j$. Transitivity constraints enforce a valid linear order, and the objective minimizes the total disagreement cost.
+    ][
+      _Construction._ Given $n$ items and comparison matrix $A$, introduce $n(n-1)/2$ binary variables $x_(i j)$ for $i < j$. For each triple ${a, b, c}$ with $a < b < c$, add two transitivity constraints:
+      $
+        x_(a b) + x_(b c) - x_(a c) &<= 1 \
+        -x_(a b) - x_(b c) + x_(a c) &<= 0
+      $
+      The objective is:
+      $
+        min sum_(i < j) (a_(j i) - a_(i j)) dot x_(i j)
+      $
+      This yields $n(n-1)/2$ variables and $n(n-1)(n-2)/3$ constraints.
+
+      _Correctness._ ($arrow.r.double$) Any permutation $pi$ defines a consistent tournament: set $x_(i j) = 1$ iff $i$ appears before $j$ in $pi$. The transitivity constraints are satisfied because a linear order has no directed cycles. The ILP objective equals the disagreement cost of $pi$. ($arrow.l.double$) Any feasible binary solution defines a transitive tournament (an acyclic tournament), which corresponds to a unique linear order. The objective equals the disagreement cost of that order.
+
+      _Solution extraction._ For each item $i$, count the number of items ranked before it: $"rank"(i) = sum_(j < i) x_(j i) + sum_(j > i) (1 - x_(i j))$. The resulting rank vector is the permutation.
+    ]
+  ]
+}
 
 == Unit Disk Mapping
 

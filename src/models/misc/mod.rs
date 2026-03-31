@@ -22,6 +22,7 @@
 //! - [`Numerical3DimensionalMatching`]: Partition W∪X∪Y into m triples each summing to B
 //! - [`OpenShopScheduling`]: Open Shop Scheduling (minimize makespan, free task order per job)
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
+//! - [`MaximumLikelihoodRanking`]: Find a ranking minimizing total pairwise disagreement
 //! - [`MinimumExternalMacroDataCompression`]: Minimize compression cost using external dictionary
 //! - [`MinimumInternalMacroDataCompression`]: Minimize self-referencing compression cost
 //! - [`MinimumTardinessSequencing`]: Minimize tardy tasks in single-machine scheduling
@@ -118,6 +119,7 @@ mod job_shop_scheduling;
 mod knapsack;
 mod kth_largest_m_tuple;
 mod longest_common_subsequence;
+pub(crate) mod maximum_likelihood_ranking;
 mod minimum_external_macro_data_compression;
 mod minimum_internal_macro_data_compression;
 mod minimum_tardiness_sequencing;
@@ -177,6 +179,7 @@ pub use job_shop_scheduling::JobShopScheduling;
 pub use knapsack::Knapsack;
 pub use kth_largest_m_tuple::KthLargestMTuple;
 pub use longest_common_subsequence::LongestCommonSubsequence;
+pub use maximum_likelihood_ranking::MaximumLikelihoodRanking;
 pub use minimum_external_macro_data_compression::MinimumExternalMacroDataCompression;
 pub use minimum_internal_macro_data_compression::MinimumInternalMacroDataCompression;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
@@ -271,5 +274,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(betweenness::canonical_model_example_specs());
     specs.extend(cyclic_ordering::canonical_model_example_specs());
     specs.extend(non_liveness_free_petri_net::canonical_model_example_specs());
+    specs.extend(maximum_likelihood_ranking::canonical_model_example_specs());
     specs
 }

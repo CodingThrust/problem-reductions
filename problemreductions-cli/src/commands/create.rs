@@ -29,7 +29,7 @@ use problemreductions::models::misc::{
     DynamicStorageAllocation, EnsembleComputation, ExpectedRetrievalCost,
     FeasibleRegisterAssignment, FlowShopScheduling, FrequencyTable, GroupingBySwapping, IntExpr,
     IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
-    LongestCommonSubsequence, MinimumExternalMacroDataCompression,
+    LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumExternalMacroDataCompression,
     MinimumInternalMacroDataCompression, MinimumTardinessSequencing, MultiprocessorScheduling,
     NonLivenessFreePetriNet, Numerical3DimensionalMatching, OpenShopScheduling, PaintShop,
     PartiallyOrderedKnapsack, PreemptiveScheduling, ProductionPlanning, QueryArg,
@@ -855,6 +855,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SparseMatrixCompression" => {
             "--matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound 2"
         }
+        "MaximumLikelihoodRanking" => "--matrix \"0,4,3,5;1,0,4,3;2,1,0,4;0,2,1,0\"",
         "MinimumMatrixCover" => "--matrix \"0,3,1,0;3,0,0,2;1,0,0,4;0,2,4,0\"",
         "MinimumMatrixDomination" => "--matrix \"0,1,0;1,0,1;0,1,0\"",
         "MinimumWeightSolutionToLinearEquations" => {
@@ -1011,6 +1012,9 @@ fn help_flag_hint(
         }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("SparseMatrixCompression", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("MaximumLikelihoodRanking", "matrix") => {
+            "semicolon-separated i32 rows: \"0,4,3,5;1,0,4,3;2,1,0,4;0,2,1,0\""
+        }
         ("MinimumMatrixCover", "matrix") => "semicolon-separated i64 rows: \"0,3,1;3,0,2;1,2,0\"",
         ("MinimumMatrixDomination", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("MinimumWeightSolutionToLinearEquations", "matrix") => {
@@ -3670,6 +3674,32 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             }
             (
                 ser(SparseMatrixCompression::new(matrix, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MaximumLikelihoodRanking
+        "MaximumLikelihoodRanking" => {
+            let usage = "Usage: pred create MaximumLikelihoodRanking --matrix \"0,4,3,5;1,0,4,3;2,1,0,4;0,2,1,0\"";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MaximumLikelihoodRanking requires --matrix (semicolon-separated i32 rows)\n\n{usage}"
+                )
+            })?;
+            let matrix_i64 = parse_i64_matrix(matrix_str).context("Invalid matrix")?;
+            let matrix: Vec<Vec<i32>> = matrix_i64
+                .into_iter()
+                .map(|row| {
+                    row.into_iter()
+                        .map(|v| {
+                            i32::try_from(v)
+                                .map_err(|_| anyhow::anyhow!("matrix value {v} out of i32 range"))
+                        })
+                        .collect::<Result<Vec<_>>>()
+                })
+                .collect::<Result<Vec<_>>>()?;
+            (
+                ser(MaximumLikelihoodRanking::new(matrix))?,
                 resolved_variant.clone(),
             )
         }

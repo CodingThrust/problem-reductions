@@ -165,6 +165,8 @@ pub(crate) mod maximumdomaticnumber_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumleafspanningtree_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod maximumlikelihoodranking_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximummatching_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumsetpacking_ilp;
@@ -393,6 +395,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(isomorphicspanningtree_ilp::canonical_rule_example_specs());
         specs.extend(kclique_ilp::canonical_rule_example_specs());
         specs.extend(knapsack_ilp::canonical_rule_example_specs());
+        specs.extend(maximumlikelihoodranking_ilp::canonical_rule_example_specs());
         specs.extend(lengthboundeddisjointpaths_ilp::canonical_rule_example_specs());
         specs.extend(longestcircuit_ilp::canonical_rule_example_specs());
         specs.extend(longestcommonsubsequence_ilp::canonical_rule_example_specs());

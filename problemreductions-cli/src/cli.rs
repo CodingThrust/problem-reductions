@@ -286,6 +286,7 @@ Flags by problem type:
   ConsecutiveOnesMatrixAugmentation --matrix (0/1), --bound
   ConsecutiveOnesSubmatrix        --matrix (0/1), --k
   SparseMatrixCompression         --matrix (0/1), --bound
+  MaximumLikelihoodRanking        --matrix (i32 rows, semicolon-separated)
   MinimumMatrixCover              --matrix (i64 rows, semicolon-separated)
   FeasibleBasisExtension          --matrix (JSON 2D i64), --rhs, --required-columns
   SteinerTree                     --graph, --edge-weights, --terminals
