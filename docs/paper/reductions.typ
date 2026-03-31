@@ -239,6 +239,7 @@
   "StaffScheduling": [Staff Scheduling],
   "SteinerTree": [Steiner Tree],
   "SteinerTreeInGraphs": [Steiner Tree in Graphs],
+  "MinimumAxiomSet": [Minimum Axiom Set],
   "MinimumExternalMacroDataCompression": [Minimum External Macro Data Compression],
   "MinimumInternalMacroDataCompression": [Minimum Internal Macro Data Compression],
   "MinimumWeightAndOrGraph": [Minimum Weight AND/OR Graph],
@@ -5742,6 +5743,37 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred create --example NonLivenessFreePetriNet -o petri.json",
         "pred solve petri.json --solver brute-force",
         "pred evaluate petri.json --config " + config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumAxiomSet")
+  let ns = x.instance.num_sentences
+  let ts = x.instance.true_sentences
+  let nt = ts.len()
+  let imps = x.instance.implications
+  let config = x.optimal_config
+  let selected = range(nt).filter(i => config.at(i) == 1)
+  let sel-labels = selected.map(i => str(ts.at(i)))
+  [
+    #problem-def("MinimumAxiomSet")[
+      Given a finite set of sentences $S = {s_0, dots, s_(n-1)}$, a subset $T subset.eq S$ of true sentences, and a set of implications ${(A_j, c_j)}$ where each $A_j subset.eq S$ and $c_j in S$, find a smallest subset $S_0 subset.eq T$ such that the deductive closure of $S_0$ under the implications equals $T$. That is, starting from $S_0$, repeatedly applying every rule "if all sentences in $A_j$ hold then $c_j$ holds" until no new sentences are added must yield exactly $T$.
+    ][
+      Minimum Axiom Set is problem LO6 in Garey and Johnson @garey1979. The problem models finding a minimal set of assumptions (axioms) from which all truths in a theory can be derived. It generalises set cover: when every implication has a single antecedent, the problem reduces to finding a minimum dominating set in the implication graph. No algorithm improving on brute-force ($O(2^(|T|))$) is known for the general case.#footnote[No algorithm improving on brute-force is known for the general Minimum Axiom Set problem.]
+
+      *Example.* Let $S = {s_0, dots, s_7}$ ($n = #ns$) with $T = S$ (all sentences true) and implications
+      #imps.map(imp => {
+        let ante = imp.at(0).map(str).join(", ")
+        let cons = str(imp.at(1))
+        [$({#ante} arrow.r #cons)$]
+      }).join(", "). Selecting axioms $S_0 = {#sel-labels.join(", ")}$ generates the full deductive closure $T$ in three rounds: first $\{0,1\} arrow.r \{2,3,4,5\}$, then $\{2,4\},\{3,5\} arrow.r \{6,7\}$, then $\{6,7\} arrow.r \{0,1\}$ (already present). The optimal value is $#x.optimal_value$.
+
+      #pred-commands(
+        "pred create --example MinimumAxiomSet -o axiom.json",
+        "pred solve axiom.json --solver brute-force",
+        "pred evaluate axiom.json --config " + config.map(str).join(","),
       )
     ]
   ]

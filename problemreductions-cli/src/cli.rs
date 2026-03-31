@@ -254,6 +254,7 @@ Flags by problem type:
   ProductionPlanning             --num-periods, --demands, --capacities, --setup-costs, --production-costs, --inventory-costs, --cost-bound
   SubsetProduct                    --sizes, --target
   SubsetSum                       --sizes, --target
+  MinimumAxiomSet                 --n, --true-sentences, --implications
   Numerical3DimensionalMatching    --w-sizes, --x-sizes, --y-sizes, --bound
   Betweenness                     --n, --sets (triples a,b,c)
   CyclicOrdering                  --n, --sets (triples a,b,c)
@@ -834,6 +835,12 @@ pub struct CreateArgs {
     /// Gate types for MinimumWeightAndOrGraph (comma-separated: AND, OR, or L for leaf, e.g., "AND,OR,OR,L,L,L,L")
     #[arg(long)]
     pub gate_types: Option<String>,
+    /// True sentence indices for MinimumAxiomSet (comma-separated, e.g., "0,1,2,3,4,5,6,7")
+    #[arg(long)]
+    pub true_sentences: Option<String>,
+    /// Implications for MinimumAxiomSet (semicolon-separated "antecedents>consequent", e.g., "0>2;0>3;1>4;2,4>6")
+    #[arg(long)]
+    pub implications: Option<String>,
 }
 
 #[derive(clap::Args)]

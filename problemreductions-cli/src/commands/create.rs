@@ -29,18 +29,18 @@ use problemreductions::models::misc::{
     CyclicOrdering, DynamicStorageAllocation, EnsembleComputation, ExpectedRetrievalCost,
     FeasibleRegisterAssignment, FlowShopScheduling, FrequencyTable, GroupingBySwapping, IntExpr,
     IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
-    LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumExternalMacroDataCompression,
-    MinimumInternalMacroDataCompression, MinimumTardinessSequencing, MinimumWeightAndOrGraph,
-    MultiprocessorScheduling, NonLivenessFreePetriNet, Numerical3DimensionalMatching,
-    OpenShopScheduling, PaintShop, PartiallyOrderedKnapsack, PreemptiveScheduling,
-    ProductionPlanning, QueryArg, RectilinearPictureCompression, RegisterSufficiency,
-    ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime,
-    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-    SequencingToMinimizeTardyTaskWeight, SequencingToMinimizeWeightedCompletionTime,
-    SequencingToMinimizeWeightedTardiness, SequencingWithDeadlinesAndSetUpTimes,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition,
-    TimetableDesign,
+    LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumAxiomSet,
+    MinimumExternalMacroDataCompression, MinimumInternalMacroDataCompression,
+    MinimumTardinessSequencing, MinimumWeightAndOrGraph, MultiprocessorScheduling,
+    NonLivenessFreePetriNet, Numerical3DimensionalMatching, OpenShopScheduling, PaintShop,
+    PartiallyOrderedKnapsack, PreemptiveScheduling, ProductionPlanning, QueryArg,
+    RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
+    SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
+    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+    SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection,
+    SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -224,6 +224,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.initial_marking.is_none()
         && args.output_arcs.is_none()
         && args.gate_types.is_none()
+        && args.true_sentences.is_none()
+        && args.implications.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -809,6 +811,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "IntegerKnapsack" => "--sizes 3,4,5,2,7 --values 4,5,7,3,9 --capacity 15",
         "SubsetProduct" => "--sizes 2,3,5,7,6,10 --target 210",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "MinimumAxiomSet" => {
+            "--n 8 --true-sentences 0,1,2,3,4,5,6,7 --implications \"0>2;0>3;1>4;1>5;2,4>6;3,5>7;6,7>0;6,7>1\""
+        }
         "IntegerExpressionMembership" => {
             "--expression '{\"Sum\":[{\"Sum\":[{\"Union\":[{\"Atom\":1},{\"Atom\":4}]},{\"Union\":[{\"Atom\":3},{\"Atom\":6}]}]},{\"Union\":[{\"Atom\":2},{\"Atom\":5}]}]}' --target 12"
         }
@@ -999,6 +1004,9 @@ fn help_flag_hint(
         | ("MinimumInternalMacroDataCompression", "string") => "symbol list: \"0,1,0,1\"",
         ("MinimumExternalMacroDataCompression", "pointer_cost")
         | ("MinimumInternalMacroDataCompression", "pointer_cost") => "positive integer: 2",
+        ("MinimumAxiomSet", "num_sentences") => "total number of sentences: 8",
+        ("MinimumAxiomSet", "true_sentences") => "comma-separated indices: 0,1,2,3,4,5,6,7",
+        ("MinimumAxiomSet", "implications") => "semicolon-separated rules: \"0>2;0>3;1>4;2,4>6\"",
         ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
         ("IntegralFlowHomologousArcs", "homologous_pairs") => {
@@ -2742,6 +2750,38 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let target = util::parse_decimal_biguint(target)?;
             (
                 ser(SubsetProduct::new(sizes, target))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumAxiomSet
+        "MinimumAxiomSet" => {
+            let usage = "Usage: pred create MinimumAxiomSet --n 8 --true-sentences 0,1,2,3,4,5,6,7 --implications \"0>2;0>3;1>4;1>5;2,4>6;3,5>7;6,7>0;6,7>1\"";
+            let num_sentences = args.n.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumAxiomSet requires --n, --true-sentences, and --implications\n\n{usage}"
+                )
+            })?;
+            let ts_str = args.true_sentences.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumAxiomSet requires --true-sentences\n\n{usage}")
+            })?;
+            let imp_str = args.implications.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumAxiomSet requires --implications\n\n{usage}")
+            })?;
+            let true_sentences: Vec<usize> = ts_str
+                .split(',')
+                .map(|s| s.trim().parse::<usize>())
+                .collect::<Result<_, _>>()
+                .context("--true-sentences must be comma-separated usize values")?;
+            let implications = parse_implications(imp_str).context(
+                "--implications must be semicolon-separated \"antecedents>consequent\" pairs",
+            )?;
+            (
+                ser(MinimumAxiomSet::new(
+                    num_sentences,
+                    true_sentences,
+                    implications,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -8247,6 +8287,34 @@ fn create_random(
     emit_problem_output(&output, out)
 }
 
+/// Parse implication rules from semicolon-separated "antecedents>consequent" strings.
+///
+/// Format: "0,1>2;3>4;5,6,7>0" where antecedents are comma-separated indices
+/// before the `>` and the consequent is the single index after.
+fn parse_implications(s: &str) -> Result<Vec<(Vec<usize>, usize)>> {
+    let mut implications = Vec::new();
+    for part in s.split(';') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        let (lhs, rhs) = part.split_once('>').ok_or_else(|| {
+            anyhow::anyhow!("Each implication must contain '>' separator: {part}")
+        })?;
+        let antecedents: Vec<usize> = lhs
+            .split(',')
+            .map(|x| x.trim().parse::<usize>())
+            .collect::<Result<_, _>>()
+            .context(format!("Invalid antecedent index in implication: {part}"))?;
+        let consequent: usize = rhs
+            .trim()
+            .parse()
+            .context(format!("Invalid consequent index in implication: {part}"))?;
+        implications.push((antecedents, consequent));
+    }
+    Ok(implications)
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -9531,6 +9599,8 @@ mod tests {
             initial_marking: None,
             output_arcs: None,
             gate_types: None,
+            true_sentences: None,
+            implications: None,
         }
     }
 

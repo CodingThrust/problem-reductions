@@ -51,7 +51,7 @@ pub use misc::{
     CosineProductIntegration, CyclicOrdering, DynamicStorageAllocation, EnsembleComputation,
     ExpectedRetrievalCost, Factoring, FeasibleRegisterAssignment, FlowShopScheduling,
     GroupingBySwapping, IntExpr, IntegerExpressionMembership, JobShopScheduling, Knapsack,
-    KthLargestMTuple, LongestCommonSubsequence, MaximumLikelihoodRanking,
+    KthLargestMTuple, LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumAxiomSet,
     MinimumExternalMacroDataCompression, MinimumInternalMacroDataCompression,
     MinimumTardinessSequencing, MinimumWeightAndOrGraph, MultiprocessorScheduling,
     NonLivenessFreePetriNet, Numerical3DimensionalMatching, NumericalMatchingWithTargetSums,
