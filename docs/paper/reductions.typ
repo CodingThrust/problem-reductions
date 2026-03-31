@@ -240,6 +240,7 @@
   "SteinerTreeInGraphs": [Steiner Tree in Graphs],
   "MinimumExternalMacroDataCompression": [Minimum External Macro Data Compression],
   "MinimumInternalMacroDataCompression": [Minimum Internal Macro Data Compression],
+  "MinimumWeightAndOrGraph": [Minimum Weight AND/OR Graph],
   "StringToStringCorrection": [String-to-String Correction],
   "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
@@ -6217,6 +6218,36 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
   _Solution extraction._ Walk through the active segments (via $ell_i$ and $p_(i,lambda,r)$) to reconstruct $C$, mapping source reference positions to compressed-string positions.
 ]
+
+#{
+  let x = load-model-example("MinimumWeightAndOrGraph")
+  let n = x.instance.num_vertices
+  let arcs = x.instance.arcs
+  let src = x.instance.source
+  let gates = x.instance.gate_types
+  let ws = x.instance.arc_weights
+  let cfg = x.optimal_config
+  let sel-arcs = range(arcs.len()).filter(i => cfg.at(i) == 1)
+  let total = sel-arcs.map(i => ws.at(i)).sum()
+  [
+    #problem-def("MinimumWeightAndOrGraph")[
+      Given a directed acyclic graph $G = (V, A)$ with $n = |V|$ vertices, a source vertex $s in V$, a gate-type function $g: V arrow {"AND", "OR", "leaf"}$, and arc weights $w: A arrow ZZ$, find a solution subgraph $S subset.eq A$ of minimum total weight $sum_(a in S) w(a)$. A solution subgraph is valid when: (1) the source is solved, (2) for each solved AND-gate vertex $v$, all outgoing arcs from $v$ are in $S$, (3) for each solved OR-gate vertex $v$, at least one outgoing arc from $v$ is in $S$, and (4) leaf vertices are trivially solved. A vertex $v != s$ is solved if there exists an arc $(u, v) in S$ with $u$ solved.
+    ][
+      AND/OR graphs generalize search trees and game trees and arise in AI planning, logic programming, and design-space exploration. Dynamic-programming algorithms on tree-structured AND/OR graphs run in linear time, but the general DAG case requires exponential enumeration.#footnote[No algorithm improving on brute-force enumeration of all $2^(|A|)$ arc subsets is known for general AND/OR DAGs.]
+
+      *Example.* Consider $n = #n$ vertices with source $v_#src$ (AND gate). Vertices $v_1, v_2$ are OR gates; $v_3, v_4, v_5, v_6$ are leaves. Arcs with weights: #{range(arcs.len()).map(i => {
+        let a = arcs.at(i)
+        $v_#(a.at(0)) arrow.r v_#(a.at(1)) (#(ws.at(i)))$
+      }).join(", ")}. Since $v_0$ is AND, both outgoing arcs must be selected (cost $#(ws.at(0)) + #(ws.at(1)) = #(ws.at(0) + ws.at(1))$). For OR gates, pick the cheapest outgoing arc: $v_1 arrow.r v_4$ (cost #(ws.at(3))) and $v_2 arrow.r v_6$ (cost #(ws.at(5))). Total weight: $#total$.
+
+      #pred-commands(
+        "pred create --example MinimumWeightAndOrGraph -o mwaog.json",
+        "pred solve mwaog.json --solver brute-force",
+        "pred evaluate mwaog.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
 
 #{
   let x = load-model-example("MinimumFeedbackArcSet")

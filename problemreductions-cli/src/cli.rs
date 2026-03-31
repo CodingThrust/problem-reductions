@@ -339,6 +339,7 @@ Flags by problem type:
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   MinimumDummyActivitiesPert      --arcs [--num-vertices]
   FeasibleRegisterAssignment      --arcs, --assignment, --k [--num-vertices]
+  MinimumWeightAndOrGraph         --arcs, --source, --gate-types, --weights [--num-vertices]
   RegisterSufficiency             --arcs, --bound [--num-vertices]
   CBQ                              --domain-size, --relations, --conjuncts-spec
   IntegerExpressionMembership     --expression (JSON), --target
@@ -830,6 +831,9 @@ pub struct CreateArgs {
     /// Output arcs (transition-to-place) for NonLivenessFreePetriNet (e.g., "0>1,1>2,2>3")
     #[arg(long)]
     pub output_arcs: Option<String>,
+    /// Gate types for MinimumWeightAndOrGraph (comma-separated: AND, OR, or L for leaf, e.g., "AND,OR,OR,L,L,L,L")
+    #[arg(long)]
+    pub gate_types: Option<String>,
 }
 
 #[derive(clap::Args)]

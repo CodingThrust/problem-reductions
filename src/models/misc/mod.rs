@@ -26,6 +26,7 @@
 //! - [`MaximumLikelihoodRanking`]: Find a ranking minimizing total pairwise disagreement
 //! - [`MinimumExternalMacroDataCompression`]: Minimize compression cost using external dictionary
 //! - [`MinimumInternalMacroDataCompression`]: Minimize self-referencing compression cost
+//! - [`MinimumWeightAndOrGraph`]: Find minimum-weight solution subgraph in a DAG with AND/OR gates
 //! - [`MinimumTardinessSequencing`]: Minimize tardy tasks in single-machine scheduling
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
 //! - [`CosineProductIntegration`]: Balanced sign assignment for integer frequencies
@@ -125,6 +126,7 @@ pub(crate) mod maximum_likelihood_ranking;
 mod minimum_external_macro_data_compression;
 mod minimum_internal_macro_data_compression;
 mod minimum_tardiness_sequencing;
+mod minimum_weight_and_or_graph;
 mod multiprocessor_scheduling;
 mod non_liveness_free_petri_net;
 mod numerical_3_dimensional_matching;
@@ -186,6 +188,7 @@ pub use maximum_likelihood_ranking::MaximumLikelihoodRanking;
 pub use minimum_external_macro_data_compression::MinimumExternalMacroDataCompression;
 pub use minimum_internal_macro_data_compression::MinimumInternalMacroDataCompression;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
+pub use minimum_weight_and_or_graph::MinimumWeightAndOrGraph;
 pub use multiprocessor_scheduling::MultiprocessorScheduling;
 pub use non_liveness_free_petri_net::NonLivenessFreePetriNet;
 pub use numerical_3_dimensional_matching::Numerical3DimensionalMatching;
@@ -279,5 +282,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(non_liveness_free_petri_net::canonical_model_example_specs());
     specs.extend(maximum_likelihood_ranking::canonical_model_example_specs());
     specs.extend(clustering::canonical_model_example_specs());
+    specs.extend(minimum_weight_and_or_graph::canonical_model_example_specs());
     specs
 }

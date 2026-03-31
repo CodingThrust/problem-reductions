@@ -30,16 +30,17 @@ use problemreductions::models::misc::{
     FeasibleRegisterAssignment, FlowShopScheduling, FrequencyTable, GroupingBySwapping, IntExpr,
     IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
     LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumExternalMacroDataCompression,
-    MinimumInternalMacroDataCompression, MinimumTardinessSequencing, MultiprocessorScheduling,
-    NonLivenessFreePetriNet, Numerical3DimensionalMatching, OpenShopScheduling, PaintShop,
-    PartiallyOrderedKnapsack, PreemptiveScheduling, ProductionPlanning, QueryArg,
-    RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
-    SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
-    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
-    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-    SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection,
-    SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
+    MinimumInternalMacroDataCompression, MinimumTardinessSequencing, MinimumWeightAndOrGraph,
+    MultiprocessorScheduling, NonLivenessFreePetriNet, Numerical3DimensionalMatching,
+    OpenShopScheduling, PaintShop, PartiallyOrderedKnapsack, PreemptiveScheduling,
+    ProductionPlanning, QueryArg, RectilinearPictureCompression, RegisterSufficiency,
+    ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime,
+    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+    SequencingToMinimizeTardyTaskWeight, SequencingToMinimizeWeightedCompletionTime,
+    SequencingToMinimizeWeightedTardiness, SequencingWithDeadlinesAndSetUpTimes,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition,
+    TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -222,6 +223,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.assignment.is_none()
         && args.initial_marking.is_none()
         && args.output_arcs.is_none()
+        && args.gate_types.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -771,6 +773,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MinimumDummyActivitiesPert" => "--arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6",
         "FeasibleRegisterAssignment" => {
             "--arcs \"0>1,0>2,1>3\" --assignment 0,1,0,0 --k 2 --num-vertices 4"
+        }
+        "MinimumWeightAndOrGraph" => {
+            "--arcs \"0>1,0>2,1>3,1>4,2>5,2>6\" --source 0 --gate-types \"AND,OR,OR,L,L,L,L\" --weights 1,2,3,1,4,2 --num-vertices 7"
         }
         "RegisterSufficiency" => {
             "--arcs \"2>0,2>1,3>1,4>2,4>3,5>0,6>4,6>5\" --bound 3 --num-vertices 7"
@@ -5586,6 +5591,62 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MinimumWeightAndOrGraph
+        "MinimumWeightAndOrGraph" => {
+            let usage = "Usage: pred create MinimumWeightAndOrGraph --arcs \"0>1,0>2,1>3,1>4,2>5,2>6\" --source 0 --gate-types \"AND,OR,OR,L,L,L,L\" --weights 1,2,3,1,4,2 [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightAndOrGraph requires --arcs, --source, --gate-types, and --weights\n\n\
+                     {usage}"
+                )
+            })?;
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightAndOrGraph requires --source\n\n\
+                     {usage}"
+                )
+            })?;
+            let gate_types_str = args.gate_types.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightAndOrGraph requires --gate-types (e.g., \"AND,OR,OR,L,L,L,L\")\n\n\
+                     {usage}"
+                )
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let n = graph.num_vertices();
+            let arcs = graph.arcs();
+            let arc_weights = parse_arc_weights(args, num_arcs)?;
+            let gate_types: Vec<Option<bool>> = gate_types_str
+                .split(',')
+                .map(|s| match s.trim() {
+                    "AND" | "and" => Ok(Some(true)),
+                    "OR" | "or" => Ok(Some(false)),
+                    "L" | "l" | "LEAF" | "leaf" => Ok(None),
+                    other => Err(anyhow::anyhow!(
+                        "Invalid gate type '{}': expected AND, OR, or L (leaf)\n\n{usage}",
+                        other
+                    )),
+                })
+                .collect::<Result<_>>()?;
+            if gate_types.len() != n {
+                bail!(
+                    "Gate types length {} does not match vertex count {}\n\n{usage}",
+                    gate_types.len(),
+                    n
+                );
+            }
+            (
+                ser(MinimumWeightAndOrGraph::new(
+                    n,
+                    arcs,
+                    source,
+                    gate_types,
+                    arc_weights,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MixedChinesePostman
         "MixedChinesePostman" => {
             let usage = "Usage: pred create MixedChinesePostman --graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 [--num-vertices N]";
@@ -9469,6 +9530,7 @@ mod tests {
             assignment: None,
             initial_marking: None,
             output_arcs: None,
+            gate_types: None,
         }
     }
 
