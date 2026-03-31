@@ -29,6 +29,7 @@
 //! - [`MinimumExternalMacroDataCompression`]: Minimize compression cost using external dictionary
 //! - [`MinimumFaultDetectionTestSet`]: Find minimum set of input-output paths covering all DAG vertices
 //! - [`MinimumInternalMacroDataCompression`]: Minimize self-referencing compression cost
+//! - [`MinimumRegisterSufficiencyForLoops`]: Minimize registers for loop variable allocation (circular arc coloring)
 //! - [`MinimumWeightAndOrGraph`]: Find minimum-weight solution subgraph in a DAG with AND/OR gates
 //! - [`MinimumTardinessSequencing`]: Minimize tardy tasks in single-machine scheduling
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
@@ -130,6 +131,7 @@ mod minimum_axiom_set;
 mod minimum_external_macro_data_compression;
 mod minimum_fault_detection_test_set;
 mod minimum_internal_macro_data_compression;
+mod minimum_register_sufficiency_for_loops;
 mod minimum_tardiness_sequencing;
 mod minimum_weight_and_or_graph;
 mod multiprocessor_scheduling;
@@ -195,6 +197,7 @@ pub use minimum_axiom_set::MinimumAxiomSet;
 pub use minimum_external_macro_data_compression::MinimumExternalMacroDataCompression;
 pub use minimum_fault_detection_test_set::MinimumFaultDetectionTestSet;
 pub use minimum_internal_macro_data_compression::MinimumInternalMacroDataCompression;
+pub use minimum_register_sufficiency_for_loops::MinimumRegisterSufficiencyForLoops;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use minimum_weight_and_or_graph::MinimumWeightAndOrGraph;
 pub use multiprocessor_scheduling::MultiprocessorScheduling;
@@ -283,6 +286,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(dynamic_storage_allocation::canonical_model_example_specs());
     specs.extend(minimum_external_macro_data_compression::canonical_model_example_specs());
     specs.extend(minimum_internal_macro_data_compression::canonical_model_example_specs());
+    specs.extend(minimum_register_sufficiency_for_loops::canonical_model_example_specs());
     specs.extend(register_sufficiency::canonical_model_example_specs());
     specs.extend(feasible_register_assignment::canonical_model_example_specs());
     specs.extend(kth_largest_m_tuple::canonical_model_example_specs());

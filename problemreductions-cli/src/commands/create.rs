@@ -31,17 +31,17 @@ use problemreductions::models::misc::{
     IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
     LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumAxiomSet,
     MinimumExternalMacroDataCompression, MinimumFaultDetectionTestSet,
-    MinimumInternalMacroDataCompression, MinimumTardinessSequencing, MinimumWeightAndOrGraph,
-    MultiprocessorScheduling, NonLivenessFreePetriNet, Numerical3DimensionalMatching,
-    OpenShopScheduling, PaintShop, PartiallyOrderedKnapsack, PreemptiveScheduling,
-    ProductionPlanning, QueryArg, RectilinearPictureCompression, RegisterSufficiency,
-    ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime,
-    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-    SequencingToMinimizeTardyTaskWeight, SequencingToMinimizeWeightedCompletionTime,
-    SequencingToMinimizeWeightedTardiness, SequencingWithDeadlinesAndSetUpTimes,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition,
-    TimetableDesign,
+    MinimumInternalMacroDataCompression, MinimumRegisterSufficiencyForLoops,
+    MinimumTardinessSequencing, MinimumWeightAndOrGraph, MultiprocessorScheduling,
+    NonLivenessFreePetriNet, Numerical3DimensionalMatching, OpenShopScheduling, PaintShop,
+    PartiallyOrderedKnapsack, PreemptiveScheduling, ProductionPlanning, QueryArg,
+    RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
+    SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
+    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+    SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection,
+    SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -229,6 +229,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.outputs.is_none()
         && args.true_sentences.is_none()
         && args.implications.is_none()
+        && args.loop_length.is_none()
+        && args.loop_variables.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -784,6 +786,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "MinimumWeightAndOrGraph" => {
             "--arcs \"0>1,0>2,1>3,1>4,2>5,2>6\" --source 0 --gate-types \"AND,OR,OR,L,L,L,L\" --weights 1,2,3,1,4,2 --num-vertices 7"
+        }
+        "MinimumRegisterSufficiencyForLoops" => {
+            "--loop-length 6 --loop-variables \"0,3;2,3;4,3\""
         }
         "RegisterSufficiency" => {
             "--arcs \"2>0,2>1,3>1,4>2,4>3,5>0,6>4,6>5\" --bound 3 --num-vertices 7"
@@ -5637,6 +5642,48 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MinimumRegisterSufficiencyForLoops
+        "MinimumRegisterSufficiencyForLoops" => {
+            let usage = "Usage: pred create MinimumRegisterSufficiencyForLoops --loop-length 6 --loop-variables \"0,3;2,3;4,3\"";
+            let loop_length = args.loop_length.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumRegisterSufficiencyForLoops requires --loop-length and --loop-variables\n\n\
+                     {usage}"
+                )
+            })?;
+            let vars_str = args.loop_variables.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumRegisterSufficiencyForLoops requires --loop-variables\n\n\
+                     {usage}"
+                )
+            })?;
+            let variables: Vec<(usize, usize)> = vars_str
+                .split(';')
+                .map(|pair| {
+                    let parts: Vec<&str> = pair.split(',').collect();
+                    if parts.len() != 2 {
+                        bail!("Each variable must be start,duration (got '{pair}')\n\n{usage}");
+                    }
+                    let start: usize = parts[0]
+                        .trim()
+                        .parse()
+                        .context(format!("Invalid start_time in '{pair}'\n\n{usage}"))?;
+                    let dur: usize = parts[1]
+                        .trim()
+                        .parse()
+                        .context(format!("Invalid duration in '{pair}'\n\n{usage}"))?;
+                    Ok((start, dur))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            (
+                ser(MinimumRegisterSufficiencyForLoops::new(
+                    loop_length,
+                    variables,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumFaultDetectionTestSet
         "MinimumFaultDetectionTestSet" => {
             let usage = "Usage: pred create MinimumFaultDetectionTestSet --arcs \"0>2,0>3,1>3,1>4,2>5,3>5,3>6,4>6\" --inputs 0,1 --outputs 5,6 [--num-vertices N]";
@@ -9653,6 +9700,8 @@ mod tests {
             gate_types: None,
             true_sentences: None,
             implications: None,
+            loop_length: None,
+            loop_variables: None,
             inputs: None,
             outputs: None,
         }

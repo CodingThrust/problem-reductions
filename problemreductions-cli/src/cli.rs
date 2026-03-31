@@ -342,6 +342,7 @@ Flags by problem type:
   FeasibleRegisterAssignment      --arcs, --assignment, --k [--num-vertices]
   MinimumFaultDetectionTestSet    --arcs, --inputs, --outputs [--num-vertices]
   MinimumWeightAndOrGraph         --arcs, --source, --gate-types, --weights [--num-vertices]
+  MinimumRegisterSufficiencyForLoops --loop-length, --loop-variables
   RegisterSufficiency             --arcs, --bound [--num-vertices]
   CBQ                              --domain-size, --relations, --conjuncts-spec
   IntegerExpressionMembership     --expression (JSON), --target
@@ -848,6 +849,12 @@ pub struct CreateArgs {
     /// Implications for MinimumAxiomSet (semicolon-separated "antecedents>consequent", e.g., "0>2;0>3;1>4;2,4>6")
     #[arg(long)]
     pub implications: Option<String>,
+    /// Loop length N for MinimumRegisterSufficiencyForLoops
+    #[arg(long)]
+    pub loop_length: Option<usize>,
+    /// Variables as semicolon-separated start,duration pairs for MinimumRegisterSufficiencyForLoops (e.g., "0,3;2,3;4,3")
+    #[arg(long)]
+    pub loop_variables: Option<String>,
 }
 
 #[derive(clap::Args)]

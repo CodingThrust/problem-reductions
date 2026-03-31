@@ -223,6 +223,7 @@
   "QuantifiedBooleanFormulas": [Quantified Boolean Formulas (QBF)],
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
   "FeasibleRegisterAssignment": [Feasible Register Assignment],
+  "MinimumRegisterSufficiencyForLoops": [Minimum Register Sufficiency for Loops],
   "RegisterSufficiency": [Register Sufficiency],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
   "RootedTreeStorageAssignment": [Rooted Tree Storage Assignment],
@@ -5075,6 +5076,30 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred create --example FeasibleRegisterAssignment -o feasible-register-assignment.json",
         "pred solve feasible-register-assignment.json --solver brute-force",
         "pred evaluate feasible-register-assignment.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumRegisterSufficiencyForLoops")
+  let N = x.instance.loop_length
+  let vars = x.instance.variables
+  let nv = vars.len()
+  let config = x.optimal_config
+  let num-regs = config.dedup().len()
+  [
+    #problem-def("MinimumRegisterSufficiencyForLoops")[
+      Given a loop of length $N$ (representing $N$ timesteps arranged in a circle) and a set of $n$ variables, each active during a contiguous circular arc of timesteps specified by $(s_i, l_i)$ covering timesteps ${s_i, s_i + 1, dots, s_i + l_i - 1} mod N$, assign a register $r_i in {0, dots, n-1}$ to each variable minimizing the number of distinct registers used, such that no two variables with overlapping arcs share the same register.
+    ][
+      Minimum Register Sufficiency for Loops is problem SS20 in Garey & Johnson @garey1979. It is equivalent to minimum coloring of circular arc graphs. NP-complete via reduction from Chromatic Number. No algorithm improving on brute-force $O(n^n)$ enumeration is known for arbitrary circular arc instances.
+
+      *Example.* Let $N = #N$ timesteps and $n = #nv$ variables with arcs: #vars.enumerate().map(((i, v)) => $x_#i: [#(v.at(0)), #(v.at(0)) + #(v.at(1)))$).join(", ") mod $#N$. All pairs of arcs overlap (each arc covers half the circle and any two arcs share at least one timestep), forming a complete conflict graph $K_#nv$. The assignment $(#config.map(str).join(", "))$ uses #num-regs distinct registers, which is optimal.
+
+      #pred-commands(
+        "pred create --example MinimumRegisterSufficiencyForLoops -o mrsfl.json",
+        "pred solve mrsfl.json --solver brute-force",
+        "pred evaluate mrsfl.json --config " + x.optimal_config.map(str).join(","),
       )
     ]
   ]
