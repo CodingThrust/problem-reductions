@@ -182,6 +182,7 @@
   "MinimumMatrixDomination": [Minimum Matrix Domination],
   "MinimumWeightSolutionToLinearEquations": [Minimum Weight Solution to Linear Equations],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "MinimumEdgeCostFlow": [Minimum Edge-Cost Flow],
   "IntegralFlowHomologousArcs": [Integral Flow with Homologous Arcs],
   "IntegralFlowWithMultipliers": [Integral Flow With Multipliers],
   "MinMaxMulticenter": [Min-Max Multicenter],
@@ -7787,6 +7788,54 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ) <fig:d2cif>
 ]
 
+#problem-def("MinimumEdgeCostFlow")[
+  Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, arc prices $p: A -> ZZ$, a source vertex $s$, a sink vertex $t$, and a flow requirement $R in ZZ^+$, find an integral flow $f: A -> ZZ_(>= 0)$ of value at least $R$ that minimizes the total edge cost $sum_(a in A: f(a) > 0) p(a)$ — the sum of prices of arcs carrying nonzero flow.
+][
+  Minimum Edge-Cost Flow is an NP-hard network design problem that arises in telecommunications and logistics, where there is a fixed cost (price) for activating each link, independent of the actual traffic volume. Unlike the classical minimum-cost flow problem (where cost is proportional to flow), the edge-cost variant introduces a combinatorial selection aspect: choosing which arcs to activate. The problem is closely related to fixed-charge network flow problems @garey1979.
+
+  The brute-force bound $(C + 1)^(|A|)$ arises from enumerating all possible integral flow vectors, where $C = max_(a in A) c(a)$.#footnote[No sub-exponential exact algorithm is known for Minimum Edge-Cost Flow.]
+
+  *Example.* Consider a directed graph with 5 vertices, source $s = 0$, sink $t = 4$, requirement $R = 3$, and 6 arcs with capacities $c(a) = 2$ for all arcs. The prices are $p(0,1) = 3$, $p(0,2) = 1$, $p(0,3) = 2$, and all arcs entering the sink have price 0. The optimal flow routes 1 unit via vertex 2 and 2 units via vertex 3, activating 4 arcs for a total edge cost of $1 + 2 + 0 + 0 = 3$.
+
+  #figure(
+    canvas(length: 1cm, {
+      import draw: *
+      let positions = (
+        (0, 0),    // 0 = s
+        (2, 1.5),  // 1
+        (2, 0),    // 2
+        (2, -1.5), // 3
+        (4, 0),    // 4 = t
+      )
+      let labels = ($s$, $1$, $2$, $3$, $t$)
+      let arcs = ((0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (3, 4))
+      let prices = (3, 1, 2, 0, 0, 0)
+      // Optimal arcs: (0,2), (0,3), (2,4), (3,4) — indices 1, 2, 4, 5
+      let opt-arcs = (1, 2, 4, 5)
+
+      // Draw arcs
+      for (idx, (u, v)) in arcs.enumerate() {
+        let from = positions.at(u)
+        let to = positions.at(v)
+        let is-opt = opt-arcs.contains(idx)
+        let color = if is-opt { blue } else { gray.darken(20%) }
+        let thickness = if is-opt { 1.2pt } else { 0.6pt }
+        line(from, to, stroke: (paint: color, thickness: thickness), mark: (end: "straight", scale: 0.5), name: "arc" + str(idx))
+        // Price label
+        content("arc" + str(idx) + ".mid", text(7pt, $#prices.at(idx)$), fill: white, frame: "rect", padding: 0.06, stroke: none)
+      }
+
+      // Draw vertices
+      for (k, pos) in positions.enumerate() {
+        let fill = if k == 0 or k == 4 { blue.lighten(70%) } else { white }
+        circle(pos, radius: 0.3, fill: fill, stroke: 0.6pt, name: str(k))
+        content(pos, text(8pt, labels.at(k)))
+      }
+    }),
+    caption: [Minimum Edge-Cost Flow: optimal flow (blue) routes via vertices 2 and 3, total edge cost 3. Arc labels show prices.],
+  ) <fig:mecf>
+]
+
 #{
   let x = load-model-example("IntegralFlowBundles")
   let source = x.instance.source
@@ -12001,6 +12050,26 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) Any rooted tree satisfying all subset-path conditions induces parent, depth, and path-endpoint variables with the same total extension cost. ($arrow.l.double$) Any feasible ILP solution defines a rooted tree in which every subset lies on one ancestor chain, and the encoded path lengths keep the total extension cost within the bound.
 
   _Solution extraction._ For each vertex $v$, output its unique parent $u$ with $p_(v,u) = 1$.
+]
+
+#reduction-rule("MinimumEdgeCostFlow", "ILP")[
+  Introduce integer flow variables and binary arc-activation indicators, link them so that an indicator is forced to 1 whenever the corresponding arc carries positive flow, and minimize the total price of activated arcs.
+][
+  _Construction._ Let $m = |A|$ and $n = |V|$. Use `ILP<i32>` with $2m$ variables: integer flow variables $f_a in {0, dots, c(a)}$ for $a in {0, dots, m - 1}$ and binary activation indicators $y_a in {0, 1}$ for $a in {m, dots, 2m - 1}$.
+
+  Constraints:
+  - _Linking:_ $f_a - c(a) dot y_a <= 0$ for each arc $a$ — forces $y_a = 1$ when $f_a > 0$ ($m$ constraints).
+  - _Binary bound:_ $y_a <= 1$ for each arc $a$ ($m$ constraints).
+  - _Flow conservation:_ $sum_(a "entering" v) f_a - sum_(a "leaving" v) f_a = 0$ for each non-terminal vertex $v in V backslash {s, t}$ ($n - 2$ constraints).
+  - _Flow requirement:_ $sum_(a "entering" t) f_a - sum_(a "leaving" t) f_a >= R$ (1 constraint).
+
+  Objective: $min sum_(a=0)^(m-1) p(a) dot y_a$.
+
+  Total: $2m + n - 1$ constraints, $2m$ variables.
+
+  _Correctness._ ($arrow.r.double$) Any feasible flow of value $>= R$ determines the flow variables directly, and the linking constraints force $y_a = 1$ for every arc with positive flow, so the ILP objective equals the edge cost. ($arrow.l.double$) Any feasible ILP solution has $f_a <= c(a) y_a <= c(a)$ and satisfies conservation and the flow requirement. The objective $sum p(a) y_a$ is at least the edge cost of the flow because $y_a >= 1$ whenever $f_a > 0$.
+
+  _Solution extraction._ Output the first $m$ variables $(f_0, dots, f_(m-1))$ as the flow assignment.
 ]
 
 == Unit Disk Mapping

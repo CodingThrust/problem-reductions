@@ -754,6 +754,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "DirectedTwoCommodityIntegralFlow" => {
             "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
         }
+        "MinimumEdgeCostFlow" => {
+            "--arcs \"0>1,0>2,0>3,1>4,2>4,3>4\" --edge-weights 3,1,2,0,0,0 --capacities 2,2,2,2,2,2 --source 0 --sink 4 --requirement 3"
+        }
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "DirectedHamiltonianPath" => {
             "--arcs \"0>1,0>3,1>3,1>4,2>0,2>4,3>2,3>5,4>5,5>1\" --num-vertices 6"
@@ -5315,6 +5318,58 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     MinimumGeometricConnectedDominatingSet::try_new(positions, radius)
                         .map_err(|e| anyhow::anyhow!(e))?,
                 )?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumEdgeCostFlow
+        "MinimumEdgeCostFlow" => {
+            let usage = "Usage: pred create MinimumEdgeCostFlow --arcs \"0>1,0>2,0>3,1>4,2>4,3>4\" --edge-weights 3,1,2,0,0,0 --capacities 2,2,2,2,2,2 --source 0 --sink 4 --requirement 3";
+            let arcs_str = args
+                .arcs
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("MinimumEdgeCostFlow requires --arcs\n\n{usage}"))?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let prices: Vec<i64> = if let Some(ref s) = args.edge_weights {
+                util::parse_comma_list(s)?
+            } else {
+                bail!("MinimumEdgeCostFlow requires --edge-weights (prices)\n\n{usage}");
+            };
+            anyhow::ensure!(
+                prices.len() == num_arcs,
+                "--edge-weights length ({}) must match number of arcs ({num_arcs})",
+                prices.len()
+            );
+            let capacities: Vec<i64> = if let Some(ref s) = args.capacities {
+                util::parse_comma_list(s)?
+            } else {
+                bail!("MinimumEdgeCostFlow requires --capacities\n\n{usage}");
+            };
+            anyhow::ensure!(
+                capacities.len() == num_arcs,
+                "--capacities length ({}) must match number of arcs ({num_arcs})",
+                capacities.len()
+            );
+            let n = graph.num_vertices();
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("MinimumEdgeCostFlow requires --source\n\n{usage}")
+            })?;
+            let sink = args
+                .sink
+                .ok_or_else(|| anyhow::anyhow!("MinimumEdgeCostFlow requires --sink\n\n{usage}"))?;
+            anyhow::ensure!(source < n, "--source ({source}) >= num_vertices ({n})");
+            anyhow::ensure!(sink < n, "--sink ({sink}) >= num_vertices ({n})");
+            anyhow::ensure!(source != sink, "--source and --sink must be distinct");
+            let requirement = args.requirement.unwrap_or(1) as i64;
+            (
+                ser(problemreductions::models::graph::MinimumEdgeCostFlow::new(
+                    graph,
+                    prices,
+                    capacities,
+                    source,
+                    sink,
+                    requirement,
+                ))?,
                 resolved_variant.clone(),
             )
         }

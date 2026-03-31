@@ -232,6 +232,7 @@ Flags by problem type:
   PartitionIntoTriangles          --graph
   GeneralizedHex                  --graph, --source, --sink
   IntegralFlowWithMultipliers     --arcs, --capacities, --source, --sink, --multipliers, --requirement
+  MinimumEdgeCostFlow             --arcs, --edge-weights (prices), --capacities, --source, --sink, --requirement
   MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound
   HamiltonianCircuit, HC          --graph
   LongestCircuit                  --graph, --edge-weights

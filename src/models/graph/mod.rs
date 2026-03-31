@@ -12,6 +12,7 @@
 //! - [`MonochromaticTriangle`]: 2-color edges so that no triangle is monochromatic
 //! - [`MinimumIntersectionGraphBasis`]: Minimum universe size for intersection graph representation
 //! - [`MinimumDominatingSet`]: Minimum dominating set
+//! - [`MinimumEdgeCostFlow`]: Minimum edge-cost integral flow
 //! - [`MinimumGeometricConnectedDominatingSet`]: Minimum connected dominating set in a geometric point set
 //! - [`MinimumFeedbackVertexSet`]: Minimum weight feedback vertex set in a directed graph
 //! - [`MaximumClique`]: Maximum weight clique
@@ -105,6 +106,7 @@ pub(crate) mod minimum_covering_by_cliques;
 pub(crate) mod minimum_cut_into_bounded_sets;
 pub(crate) mod minimum_dominating_set;
 pub(crate) mod minimum_dummy_activities_pert;
+pub(crate) mod minimum_edge_cost_flow;
 pub(crate) mod minimum_feedback_arc_set;
 pub(crate) mod minimum_feedback_vertex_set;
 pub(crate) mod minimum_geometric_connected_dominating_set;
@@ -174,6 +176,7 @@ pub use minimum_covering_by_cliques::MinimumCoveringByCliques;
 pub use minimum_cut_into_bounded_sets::MinimumCutIntoBoundedSets;
 pub use minimum_dominating_set::MinimumDominatingSet;
 pub use minimum_dummy_activities_pert::MinimumDummyActivitiesPert;
+pub use minimum_edge_cost_flow::MinimumEdgeCostFlow;
 pub use minimum_feedback_arc_set::MinimumFeedbackArcSet;
 pub use minimum_feedback_vertex_set::MinimumFeedbackVertexSet;
 pub use minimum_geometric_connected_dominating_set::MinimumGeometricConnectedDominatingSet;
@@ -272,6 +275,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(strong_connectivity_augmentation::canonical_model_example_specs());
     specs.extend(rural_postman::canonical_model_example_specs());
     specs.extend(integral_flow_homologous_arcs::canonical_model_example_specs());
+    specs.extend(minimum_edge_cost_flow::canonical_model_example_specs());
     specs.extend(minimum_feedback_arc_set::canonical_model_example_specs());
     specs.extend(optimal_linear_arrangement::canonical_model_example_specs());
     specs.extend(partial_feedback_edge_set::canonical_model_example_specs());
