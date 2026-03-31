@@ -248,7 +248,9 @@ fn test_find_dominated_rules_returns_known_set() {
             "KClique {graph: \"SimpleGraph\"}",
             "ILP {variable: \"bool\"}",
         ),
-        // K3-SAT → QUBO via SAT → CircuitSAT → SpinGlass chain
+        // K2-SAT → QUBO via SAT → NAESAT → MaxCut → SpinGlass chain
+        ("KSatisfiability {k: \"K2\"}", "QUBO {weight: \"f64\"}"),
+        // K3-SAT → QUBO via MVC → MIS → MaxSetPacking chain
         ("KSatisfiability {k: \"K3\"}", "QUBO {weight: \"f64\"}"),
         // Knapsack -> ILP -> QUBO is better than the direct penalty reduction
         ("Knapsack", "QUBO {weight: \"f64\"}"),

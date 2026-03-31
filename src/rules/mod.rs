@@ -55,6 +55,7 @@ pub(crate) mod minimumvertexcover_minimumfeedbackarcset;
 pub(crate) mod minimumvertexcover_minimumfeedbackvertexset;
 pub(crate) mod minimumvertexcover_minimumhittingset;
 pub(crate) mod minimumvertexcover_minimumsetcovering;
+pub(crate) mod naesatisfiability_maxcut;
 pub(crate) mod paintshop_qubo;
 pub(crate) mod partition_cosineproductintegration;
 pub(crate) mod partition_knapsack;
@@ -330,6 +331,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(partition_shortestweightconstrainedpath::canonical_rule_example_specs());
     specs.extend(partition_subsetsum::canonical_rule_example_specs());
     specs.extend(rootedtreearrangement_rootedtreestorageassignment::canonical_rule_example_specs());
+    specs.extend(naesatisfiability_maxcut::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_ensemblecomputation::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_maximumindependentset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackarcset::canonical_rule_example_specs());
