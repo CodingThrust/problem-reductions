@@ -21,6 +21,7 @@
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
 //! - [`MultiprocessorScheduling`]: Schedule tasks on processors to meet a deadline
 //! - [`Numerical3DimensionalMatching`]: Partition W∪X∪Y into m triples each summing to B
+//! - [`NumericalMatchingWithTargetSums`]: Partition X∪Y into m pairs with pair sums matching targets
 //! - [`OpenShopScheduling`]: Open Shop Scheduling (minimize makespan, free task order per job)
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
 //! - [`MaximumLikelihoodRanking`]: Find a ranking minimizing total pairwise disagreement
@@ -130,6 +131,7 @@ mod minimum_weight_and_or_graph;
 mod multiprocessor_scheduling;
 mod non_liveness_free_petri_net;
 mod numerical_3_dimensional_matching;
+mod numerical_matching_with_target_sums;
 mod open_shop_scheduling;
 pub(crate) mod paintshop;
 pub(crate) mod partially_ordered_knapsack;
@@ -192,6 +194,7 @@ pub use minimum_weight_and_or_graph::MinimumWeightAndOrGraph;
 pub use multiprocessor_scheduling::MultiprocessorScheduling;
 pub use non_liveness_free_petri_net::NonLivenessFreePetriNet;
 pub use numerical_3_dimensional_matching::Numerical3DimensionalMatching;
+pub use numerical_matching_with_target_sums::NumericalMatchingWithTargetSums;
 pub use open_shop_scheduling::OpenShopScheduling;
 pub use paintshop::PaintShop;
 pub use partially_ordered_knapsack::PartiallyOrderedKnapsack;
@@ -268,6 +271,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(subset_product::canonical_model_example_specs());
     specs.extend(subset_sum::canonical_model_example_specs());
     specs.extend(numerical_3_dimensional_matching::canonical_model_example_specs());
+    specs.extend(numerical_matching_with_target_sums::canonical_model_example_specs());
     specs.extend(three_partition::canonical_model_example_specs());
     specs.extend(cosine_product_integration::canonical_model_example_specs());
     specs.extend(dynamic_storage_allocation::canonical_model_example_specs());

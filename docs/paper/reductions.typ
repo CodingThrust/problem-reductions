@@ -172,6 +172,7 @@
   "ThreePartition": [3-Partition],
   "DynamicStorageAllocation": [Dynamic Storage Allocation],
   "Numerical3DimensionalMatching": [Numerical 3-Dimensional Matching],
+  "NumericalMatchingWithTargetSums": [Numerical Matching with Target Sums],
   "PartialFeedbackEdgeSet": [Partial Feedback Edge Set],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
@@ -5693,6 +5694,37 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     ]
   ]
 }
+#{
+  let x = load-model-example("NumericalMatchingWithTargetSums")
+  let m = x.instance.sizes_x.len()
+  let sx = x.instance.sizes_x
+  let sy = x.instance.sizes_y
+  let targets = x.instance.targets
+  let config = x.optimal_config
+  [
+    #problem-def("NumericalMatchingWithTargetSums")[
+      Given two disjoint sets $X$ and $Y$ each with $m$ elements, integer sizes $s(x_i)$ for $x_i in X$ and $s(y_j)$ for $y_j in Y$, and a multiset of $m$ target values $B_1, dots, B_m$, determine whether $X union Y$ can be partitioned into $m$ pairs, each containing one element from $X$ and one from $Y$, such that the multiset of pair sums ${s(x_i) + s(y_(pi(i)))}$ equals the target multiset.
+    ][
+      Numerical Matching with Target Sums is NP-complete in the strong sense (SP17 in Garey and Johnson @garey1979). It generalizes bipartite perfect matching by imposing sum constraints on each pair. Brute-force enumeration runs in $O^*(2^m)$ time by trying all $m!$ permutations.
+
+      *Example.* Let $m = #m$, $X = (#sx.map(str).join(", "))$, $Y = (#sy.map(str).join(", "))$, targets $= (#targets.map(str).join(", "))$. The matching $pi = (#config.map(str).join(", "))$ yields sums #range(m).map(i => [$#(sx.at(i)) + #(sy.at(config.at(i))) = #(sx.at(i) + sy.at(config.at(i)))$]).join(", "), which as a multiset equals the targets.
+
+      #pred-commands(
+        "pred create --example NumericalMatchingWithTargetSums -o nmts.json",
+        "pred solve nmts.json",
+        "pred evaluate nmts.json --config " + config.map(str).join(","),
+      )
+    ]
+  ]
+}
+#reduction-rule("NumericalMatchingWithTargetSums", "ILP",
+  example: true,
+  example-caption: [Numerical Matching with Target Sums to ILP via compatible-triple assignment variables.],
+)[
+  Introduce a binary variable $z_(i,j,k) in {0,1}$ for each _compatible triple_ $(i,j,k)$ where $s(x_i) + s(y_j) = B_k$. The constraints ensure a perfect matching: $sum_(j,k) z_(i,j,k) = 1$ for each $i$ (every $x_i$ matched once), $sum_(i,k) z_(i,j,k) = 1$ for each $j$ (every $y_j$ matched once), $sum_(i,j) z_(i,j,k) = 1$ for each $k$ (every target used once). The objective is trivial (minimize 0), since this is a feasibility problem.
+][
+  _Correctness._ By construction, variables are only created for triples satisfying $s(x_i) + s(y_j) = B_k$. The three families of equality constraints enforce that the assignment is a bijection on $X$, $Y$, and the target indices. Any feasible ILP solution therefore defines a permutation $pi$ with $s(x_i) + s(y_(pi(i)))$ matching a distinct target, and conversely any valid matching maps to a feasible binary assignment. The number of variables is at most $m^3$ (all triples compatible), and the number of constraints is $3m$.
+]
 #{
   let x = load-model-example("NonLivenessFreePetriNet")
   let np = x.instance.num_places
