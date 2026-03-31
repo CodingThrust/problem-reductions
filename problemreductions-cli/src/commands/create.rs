@@ -680,6 +680,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--num-vars 3 --clauses \"1,2;-1,3\" --quantifiers \"E,A,E\""
         }
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
+        "Maximum2Satisfiability" => "--num-vars 4 --clauses \"1,2;1,-2;-1,3;-1,-3;2,4;-3,-4;3,4\"",
         "NonTautology" => {
             "--num-vars 3 --clauses \"1,2,3;-1,-2,-3\""
         }
@@ -2253,6 +2254,20 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let (k, _variant) =
                 util::validate_k_param(&resolved_variant, args.k, Some(3), "KSatisfiability")?;
             util::ser_ksat(num_vars, clauses, k)?
+        }
+
+        "Maximum2Satisfiability" => {
+            let num_vars = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Maximum2Satisfiability requires --num-vars\n\n\
+                     Usage: pred create MAX2SAT --num-vars 4 --clauses \"1,2;1,-2;-1,3;-1,-3\""
+                )
+            })?;
+            let clauses = parse_clauses(args)?;
+            (
+                ser(Maximum2Satisfiability::new(num_vars, clauses))?,
+                resolved_variant.clone(),
+            )
         }
 
         "NonTautology" => {

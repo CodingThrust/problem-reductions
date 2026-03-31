@@ -47,8 +47,9 @@ pub mod prelude {
         SparseMatrixCompression, BMF, QUBO,
     };
     pub use crate::models::formula::{
-        CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, NonTautology,
-        OneInThreeSatisfiability, Planar3Satisfiability, QuantifiedBooleanFormulas, Satisfiability,
+        CNFClause, CircuitSAT, KSatisfiability, Maximum2Satisfiability, NAESatisfiability,
+        NonTautology, OneInThreeSatisfiability, Planar3Satisfiability, QuantifiedBooleanFormulas,
+        Satisfiability,
     };
     pub use crate::models::graph::{
         AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover,

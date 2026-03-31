@@ -17,9 +17,9 @@ pub use algebraic::{
     SimultaneousIncongruences, SparseMatrixCompression, BMF, ILP, QUBO,
 };
 pub use formula::{
-    CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, NonTautology,
-    OneInThreeSatisfiability, Planar3Satisfiability, QuantifiedBooleanFormulas, Quantifier,
-    Satisfiability,
+    CNFClause, CircuitSAT, KSatisfiability, Maximum2Satisfiability, NAESatisfiability,
+    NonTautology, OneInThreeSatisfiability, Planar3Satisfiability, QuantifiedBooleanFormulas,
+    Quantifier, Satisfiability,
 };
 pub use graph::{
     AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,

@@ -131,6 +131,7 @@
   "Satisfiability": [SAT],
   "NAESatisfiability": [NAE-SAT],
   "KSatisfiability": [$k$-SAT],
+  "Maximum2Satisfiability": [Maximum 2-Satisfiability],
   "NonTautology": [Non-Tautology],
   "OneInThreeSatisfiability": [1-in-3 SAT],
   "Planar3Satisfiability": [Planar 3-SAT],
@@ -4037,6 +4038,35 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       "pred create --example OneInThreeSatisfiability -o 1in3sat.json",
       "pred solve 1in3sat.json",
       "pred evaluate 1in3sat.json --config " + x.optimal_config.map(str).join(","),
+    )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("Maximum2Satisfiability")
+  let n = x.instance.num_vars
+  let m = x.instance.clauses.len()
+  let clauses = x.instance.clauses
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let assign = sol.config
+  let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
+  let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
+  let clause-sat(c) = c.literals.map(eval-lit).any(v => v == 1)
+  let sat-count = clauses.filter(clause-sat).len()
+  [
+    #problem-def("Maximum2Satisfiability")[
+      Given a set $U$ of $n$ Boolean variables and a collection $C = {C_1, dots, C_m}$ of $m$ clauses over $U$ with $|C_j| = 2$ for each $j$, find a truth assignment $bold(x) in {0,1}^n$ that maximizes the number of simultaneously satisfied clauses.
+    ][
+    Maximum 2-Satisfiability (MAX-2-SAT) is one of the fundamental NP-hard optimization problems. While the decision version of 2-SAT is solvable in linear time by implication-graph analysis, the optimization variant---maximizing the number of satisfied clauses---is NP-hard @garey1979. The best known exact algorithm by Williams @williams2005 runs in $O^*(2^(0.7905n))$ time by reducing to a maximum-weight triangle problem and applying fast matrix multiplication.
+
+    *Example.* Consider $m = #m$ clauses over $n = #n$ variables: $#clauses.map(fmt-clause).join($and$)$. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ satisfies #sat-count out of #m clauses.
+
+    #pred-commands(
+      "pred create --example Maximum2Satisfiability -o max2sat.json",
+      "pred solve max2sat.json",
+      "pred evaluate max2sat.json --config " + x.optimal_config.map(str).join(","),
     )
     ]
   ]
