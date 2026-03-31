@@ -155,7 +155,7 @@ impl ReductionResult for ReductionIMDCToILP {
 #[reduction(
     overhead = {
         num_vars = "string_len + string_len ^ 3",
-        num_constraints = "string_len + 1 + string_len",
+        num_constraints = "string_len + 1",
     }
 )]
 impl ReduceTo<ILP<bool>> for MinimumInternalMacroDataCompression {

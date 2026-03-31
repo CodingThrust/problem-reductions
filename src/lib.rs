@@ -43,7 +43,8 @@ pub mod variant;
 pub mod prelude {
     // Problem types
     pub use crate::models::algebraic::{
-        ConsecutiveOnesMatrixAugmentation, QuadraticAssignment, SparseMatrixCompression, BMF, QUBO,
+        ConsecutiveOnesMatrixAugmentation, QuadraticAssignment, QuadraticCongruences,
+        SparseMatrixCompression, BMF, QUBO,
     };
     pub use crate::models::formula::{
         CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, NonTautology,
@@ -75,11 +76,12 @@ pub mod prelude {
         ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables,
         CosineProductIntegration, EnsembleComputation, ExpectedRetrievalCost, Factoring,
         FlowShopScheduling, GroupingBySwapping, JobShopScheduling, Knapsack,
-        LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
-        Partition, ProductionPlanning, QueryArg, RectilinearPictureCompression,
-        ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
-        SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
-        SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
+        LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
+        OpenShopScheduling, PaintShop, Partition, PreemptiveScheduling, ProductionPlanning,
+        QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
+        SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+        SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+        SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
         SequencingWithinIntervals, ShortestCommonSupersequence, StackerCrane, StaffScheduling,
         StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, ThreePartition,
         TimetableDesign,

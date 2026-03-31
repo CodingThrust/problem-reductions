@@ -9,10 +9,9 @@ use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
     AlgebraicEquationsOverGF2, ClosestVectorProblem, ConsecutiveBlockMinimization,
-    ConsecutiveOnesMatrixAugmentation, ConsecutiveOnesSubmatrix, EquilibriumPoint,
-    FeasibleBasisExtension, MinimumMatrixDomination, MinimumWeightSolutionToLinearEquations,
-    QuadraticCongruences, QuadraticDiophantineEquations, SimultaneousIncongruences,
-    SparseMatrixCompression, BMF,
+    ConsecutiveOnesMatrixAugmentation, ConsecutiveOnesSubmatrix, FeasibleBasisExtension,
+    MinimumMatrixDomination, MinimumWeightSolutionToLinearEquations, QuadraticCongruences,
+    QuadraticDiophantineEquations, SimultaneousIncongruences, SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -31,15 +30,15 @@ use problemreductions::models::misc::{
     IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
     LongestCommonSubsequence, MinimumExternalMacroDataCompression,
     MinimumInternalMacroDataCompression, MinimumTardinessSequencing, MultiprocessorScheduling,
-    NonLivenessFreePetriNet, Numerical3DimensionalMatching, PaintShop, PartiallyOrderedKnapsack,
-    PreemptiveScheduling, ProductionPlanning, QueryArg, RectilinearPictureCompression,
-    RegisterSufficiency, ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime,
-    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-    SequencingToMinimizeTardyTaskWeight, SequencingToMinimizeWeightedCompletionTime,
-    SequencingToMinimizeWeightedTardiness, SequencingWithDeadlinesAndSetUpTimes,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition,
-    TimetableDesign,
+    NonLivenessFreePetriNet, Numerical3DimensionalMatching, OpenShopScheduling, PaintShop,
+    PartiallyOrderedKnapsack, PreemptiveScheduling, ProductionPlanning, QueryArg,
+    RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
+    SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
+    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+    SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection,
+    SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -893,6 +892,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
         ("FlowShopScheduling", "num_processors")
         | ("JobShopScheduling", "num_processors")
+        | ("OpenShopScheduling", "num_machines")
         | ("SchedulingWithIndividualDeadlines", "num_processors") => {
             return "num-processors/--m".to_string();
         }
@@ -2970,7 +2970,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             let sets: Vec<Vec<u64>> = sets_str
                 .split(';')
-                .map(|group| util::parse_comma_list(group))
+                .map(util::parse_comma_list)
                 .collect::<Result<_, _>>()?;
             (
                 ser(KthLargestMTuple::try_new(sets, k_val as u64, bound)
@@ -4825,6 +4825,46 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             }
             (
                 ser(JobShopScheduling::new(num_processors, jobs))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // OpenShopScheduling
+        "OpenShopScheduling" => {
+            let task_str = args.task_lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "OpenShopScheduling requires --task-lengths and --num-processors\n\n\
+                     Usage: pred create OpenShopScheduling --task-lengths \"1,2;2,1\" --num-processors 2"
+                )
+            })?;
+            let task_lengths: Vec<Vec<usize>> = task_str
+                .split(';')
+                .map(|row| util::parse_comma_list(row.trim()))
+                .collect::<Result<Vec<_>>>()?;
+            let num_machines = resolve_processor_count_flags(
+                "OpenShopScheduling",
+                "Usage: pred create OpenShopScheduling --task-lengths \"1,2;2,1\" --num-processors 2",
+                args.num_processors,
+                args.m,
+            )?
+            .or_else(|| task_lengths.first().map(Vec::len))
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Cannot infer num_processors from empty task list; use --num-processors"
+                )
+            })?;
+            for (j, row) in task_lengths.iter().enumerate() {
+                if row.len() != num_machines {
+                    bail!(
+                        "task_lengths row {} has {} entries, expected {} (num_machines)",
+                        j,
+                        row.len(),
+                        num_machines
+                    );
+                }
+            }
+            (
+                ser(OpenShopScheduling::new(num_machines, task_lengths))?,
                 resolved_variant.clone(),
             )
         }

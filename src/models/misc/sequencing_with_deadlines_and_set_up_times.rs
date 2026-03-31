@@ -22,7 +22,7 @@ inventory::submit! {
             FieldInfo { name: "lengths", type_name: "Vec<u64>", description: "Processing time for each task" },
             FieldInfo { name: "deadlines", type_name: "Vec<u64>", description: "Deadline d(t) for each task" },
             FieldInfo { name: "compilers", type_name: "Vec<usize>", description: "Compiler index k(t) for each task" },
-            FieldInfo { name: "setup_times", type_name: "Vec<u64>", description: "Setup time s(c) charged when switching away from compiler c" },
+            FieldInfo { name: "setup_times", type_name: "Vec<u64>", description: "Setup time s(c) charged when switching to compiler c" },
         ],
     }
 }
@@ -135,24 +135,6 @@ impl SequencingWithDeadlinesAndSetUpTimes {
         &self.setup_times
     }
 
-    /// Decode a direct permutation configuration.
-    ///
-    /// Returns `Some(schedule)` if the config is a valid permutation of `0..n`,
-    /// or `None` otherwise.
-    fn decode_permutation(config: &[usize], n: usize) -> Option<Vec<usize>> {
-        if config.len() != n {
-            return None;
-        }
-        let mut seen = vec![false; n];
-        for &task in config {
-            if task >= n || seen[task] {
-                return None;
-            }
-            seen[task] = true;
-        }
-        Some(config.to_vec())
-    }
-
     /// Check whether a schedule meets all deadlines.
     ///
     /// Returns `true` iff every task in the schedule completes by its deadline.
@@ -224,7 +206,7 @@ impl Problem for SequencingWithDeadlinesAndSetUpTimes {
 
     fn evaluate(&self, config: &[usize]) -> Or {
         let n = self.num_tasks();
-        let Some(schedule) = Self::decode_permutation(config, n) else {
+        let Some(schedule) = super::decode_permutation(config, n) else {
             return Or(false);
         };
         Or(self.all_deadlines_met(&schedule))

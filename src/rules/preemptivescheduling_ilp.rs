@@ -59,8 +59,8 @@ impl ReductionResult for ReductionPSToILP {
 
 #[reduction(
     overhead = {
-        num_vars = "num_tasks * num_tasks + 1",
-        num_constraints = "num_tasks + num_tasks * num_tasks + num_precedences * num_tasks + num_tasks * num_tasks",
+        num_vars = "num_tasks * d_max + 1",
+        num_constraints = "num_tasks + d_max + num_precedences * d_max + 2 * num_tasks * d_max",
     }
 )]
 impl ReduceTo<ILP<i32>> for PreemptiveScheduling {

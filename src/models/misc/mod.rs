@@ -77,6 +77,24 @@ pub(crate) fn decode_lehmer(config: &[usize], n: usize) -> Option<Vec<usize>> {
     Some(schedule)
 }
 
+/// Decode a direct permutation configuration.
+///
+/// Returns `Some(schedule)` if `config` is a valid permutation of `0..n`,
+/// or `None` otherwise.
+pub(crate) fn decode_permutation(config: &[usize], n: usize) -> Option<Vec<usize>> {
+    if config.len() != n {
+        return None;
+    }
+    let mut seen = vec![false; n];
+    for &task in config {
+        if task >= n || seen[task] {
+            return None;
+        }
+        seen[task] = true;
+    }
+    Some(config.to_vec())
+}
+
 /// Return the Lehmer-code dimension vector `[n, n-1, ..., 1]`.
 pub(crate) fn lehmer_dims(n: usize) -> Vec<usize> {
     (0..n).rev().map(|i| i + 1).collect()

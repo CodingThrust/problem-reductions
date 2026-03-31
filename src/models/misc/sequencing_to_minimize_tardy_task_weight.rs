@@ -103,24 +103,6 @@ impl SequencingToMinimizeTardyTaskWeight {
         &self.deadlines
     }
 
-    /// Decode a direct permutation configuration.
-    ///
-    /// Returns the schedule as `Some(Vec<usize>)` if the config is a valid
-    /// permutation of `0..n`, or `None` otherwise.
-    fn decode_permutation(config: &[usize], n: usize) -> Option<Vec<usize>> {
-        if config.len() != n {
-            return None;
-        }
-        let mut seen = vec![false; n];
-        for &task in config {
-            if task >= n || seen[task] {
-                return None;
-            }
-            seen[task] = true;
-        }
-        Some(config.to_vec())
-    }
-
     fn tardy_task_weight(&self, schedule: &[usize]) -> Min<u64> {
         let mut elapsed: u64 = 0;
         let mut total: u64 = 0;
@@ -176,7 +158,7 @@ impl Problem for SequencingToMinimizeTardyTaskWeight {
 
     fn evaluate(&self, config: &[usize]) -> Min<u64> {
         let n = self.num_tasks();
-        let Some(schedule) = Self::decode_permutation(config, n) else {
+        let Some(schedule) = super::decode_permutation(config, n) else {
             return Min(None);
         };
         self.tardy_task_weight(&schedule)

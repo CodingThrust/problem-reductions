@@ -45,7 +45,7 @@ impl ReductionResult for ReductionSWDSTToILP {
 
 #[reduction(overhead = {
     num_vars = "num_tasks * num_tasks + (num_tasks - 1) + num_tasks * (num_tasks - 1)",
-    num_constraints = "2 * num_tasks + 3 * (num_tasks - 1) + 3 * num_tasks * (num_tasks - 1) + num_tasks * num_tasks",
+    num_constraints = "2 * num_tasks + num_tasks^2 * (num_tasks - 1) + 3 * num_tasks * (num_tasks - 1) + num_tasks * num_tasks",
 })]
 impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {
     type Result = ReductionSWDSTToILP;
