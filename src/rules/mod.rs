@@ -185,6 +185,8 @@ pub(crate) mod minimuminternalmacrodatacompression_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimummaximalmatching_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod minimummetricdimension_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimummultiwaycut_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumsetcovering_ilp;
@@ -397,6 +399,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(maximumsetpacking_ilp::canonical_rule_example_specs());
         specs.extend(minimumcutintoboundedsets_ilp::canonical_rule_example_specs());
         specs.extend(minimumdominatingset_ilp::canonical_rule_example_specs());
+        specs.extend(minimummetricdimension_ilp::canonical_rule_example_specs());
         specs.extend(minimummaximalmatching_ilp::canonical_rule_example_specs());
         specs.extend(minimumedgecostflow_ilp::canonical_rule_example_specs());
         specs.extend(minimumexternalmacrodatacompression_ilp::canonical_rule_example_specs());

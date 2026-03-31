@@ -12,6 +12,7 @@
 //! - [`MonochromaticTriangle`]: 2-color edges so that no triangle is monochromatic
 //! - [`MinimumIntersectionGraphBasis`]: Minimum universe size for intersection graph representation
 //! - [`MinimumDominatingSet`]: Minimum dominating set
+//! - [`MinimumMetricDimension`]: Minimum resolving set (metric dimension)
 //! - [`MinimumEdgeCostFlow`]: Minimum edge-cost integral flow
 //! - [`MinimumGeometricConnectedDominatingSet`]: Minimum connected dominating set in a geometric point set
 //! - [`MinimumFeedbackVertexSet`]: Minimum weight feedback vertex set in a directed graph
@@ -114,6 +115,7 @@ pub(crate) mod minimum_feedback_vertex_set;
 pub(crate) mod minimum_geometric_connected_dominating_set;
 pub(crate) mod minimum_intersection_graph_basis;
 pub(crate) mod minimum_maximal_matching;
+pub(crate) mod minimum_metric_dimension;
 pub(crate) mod minimum_multiway_cut;
 pub(crate) mod minimum_sum_multicenter;
 pub(crate) mod minimum_vertex_cover;
@@ -185,6 +187,7 @@ pub use minimum_feedback_vertex_set::MinimumFeedbackVertexSet;
 pub use minimum_geometric_connected_dominating_set::MinimumGeometricConnectedDominatingSet;
 pub use minimum_intersection_graph_basis::MinimumIntersectionGraphBasis;
 pub use minimum_maximal_matching::MinimumMaximalMatching;
+pub use minimum_metric_dimension::MinimumMetricDimension;
 pub use minimum_multiway_cut::MinimumMultiwayCut;
 pub use minimum_sum_multicenter::MinimumSumMulticenter;
 pub use minimum_vertex_cover::MinimumVertexCover;
@@ -240,6 +243,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(monochromatic_triangle::canonical_model_example_specs());
     specs.extend(minimum_intersection_graph_basis::canonical_model_example_specs());
     specs.extend(minimum_dominating_set::canonical_model_example_specs());
+    specs.extend(minimum_metric_dimension::canonical_model_example_specs());
     specs.extend(minimum_geometric_connected_dominating_set::canonical_model_example_specs());
     specs.extend(maximum_matching::canonical_model_example_specs());
     specs.extend(minimum_maximal_matching::canonical_model_example_specs());
