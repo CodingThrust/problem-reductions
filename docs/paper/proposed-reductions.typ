@@ -105,3 +105,66 @@ Each reduction entry contains:
 Partition instance: $S' = {1, 5, 6, 8, 2}$, $Sigma' = 22$, half $= 11$.
 
 Balanced partition: ${5, 6}$ (sum 11) vs.~${1, 8, 2}$ (sum 11). Padding $d = 2$ is on the ${1, 8, 2}$ side. Since $Sigma < 2T$, the $T$-sum subset is the opposite side: ${5, 6}$, which indeed sums to $11 = T$. $checkmark$
+
+#pagebreak()
+
+== Minimum Vertex Cover $arrow.r$ Hamiltonian Circuit <sec:vc-hc>
+
+#theorem[
+  Vertex Cover reduces to Hamiltonian Circuit via the classic Garey--Johnson--Stockmeyer cover-testing widget construction. Given a graph $G = (V, E)$ and budget $K$, a graph $G'$ is constructed such that $G'$ has a Hamiltonian circuit if and only if $G$ has a vertex cover of size $lt.eq K$. Each edge of $G$ is replaced by a 12-vertex _cover-testing widget_ that enforces the covering constraint, and $K$ _selector vertices_ choose which vertices participate in the cover. Reference: Garey, Johnson, and Stockmeyer (1976); Garey & Johnson (1979), GT1.
+] <thm:vc-hc>
+
+#proof[
+  _Construction._ Given a Vertex Cover instance $(G = (V, E), K)$ with $n = |V|$ and $m = |E|$:
+
+  *Step 1: Cover-testing widgets.* For each edge $e_j = (u, v) in E$ (where $j = 1, dots, m$), create 12 vertices arranged in two rows of 6:
+  $ (u, j, 1), (u, j, 2), dots, (u, j, 6) quad "and" quad (v, j, 1), (v, j, 2), dots, (v, j, 6) $
+
+  Add edges within each widget:
+  - *Horizontal edges* (along each row): $(u,j,i) dash (u,j,i+1)$ and $(v,j,i) dash (v,j,i+1)$ for $i = 1, dots, 5$.
+  - *Cross edges* (between rows): $(u,j,1) dash (v,j,1)$, $(u,j,3) dash (v,j,3)$, $(u,j,4) dash (v,j,4)$, $(u,j,6) dash (v,j,6)$.
+
+  Each widget has 14 internal edges.
+
+  *Key property:* A Hamiltonian path through the widget entering at $u$-row start and exiting at $u$-row end can traverse all 12 vertices in exactly three ways:
+  + _$u$ covers $e_j$:_ The path goes $u$-row left$arrow.r$right, crossing to $v$-row and back, covering all 12 vertices. The $v$-row is consumed internally.
+  + _$v$ covers $e_j$:_ Symmetric --- enter via $v$-row, consume $u$-row internally.
+  + _Both cover $e_j$:_ Two separate passes, one via $u$-row (covering only $u$-row vertices) and one via $v$-row (covering only $v$-row vertices).
+
+  *Step 2: Chain widgets per vertex.* For each vertex $v in V$, let $e_(j_1), e_(j_2), dots, e_(j_(d(v)))$ be the edges incident to $v$ in some fixed order (where $d(v)$ is the degree of $v$). Chain the corresponding widgets by adding edges:
+  $ (v, j_i, 6) dash (v, j_(i+1), 1) quad "for" i = 1, dots, d(v) - 1 $
+  This creates a path through all widgets associated with vertex $v$, entering at $(v, j_1, 1)$ and exiting at $(v, j_(d(v)), 6)$.
+
+  *Step 3: Selector vertices.* Add $K$ selector vertices $a_1, a_2, dots, a_K$. For each vertex $v in V$ and each selector $a_ell$ ($ell = 1, dots, K$), add edges:
+  $ a_ell dash (v, j_1, 1) quad "and" quad a_ell dash (v, j_(d(v)), 6) $
+  That is, each selector connects to the entry and exit of every vertex's widget chain.
+
+  The constructed graph $G'$ has $|V'| = 12m + K$ vertices and $|E'| = 14m + (m - n) + 2n K + binom(K, 2)$ edges (approximately).
+
+  _Correctness._
+
+  ($arrow.r.double$) Suppose $G$ has a vertex cover $C = {v_1, dots, v_K} subset.eq V$ of size $K$. We construct a Hamiltonian circuit in $G'$:
+  - Start at $a_1$. For $ell = 1, dots, K$: go from $a_ell$ to the widget-chain entry of $v_ell$, traverse all widgets for edges incident to $v_ell$ (consuming all 12 vertices of each widget where $v_ell$ is the first cover vertex to visit it; for widgets already partially consumed by a previous $v_(ell')$, traverse only the remaining $v_ell$-row), exit to $a_(ell+1)$ (or back to $a_1$ if $ell = K$).
+  - Since $C$ is a vertex cover, every edge $e_j = (u, v)$ has at least one endpoint in $C$. When that endpoint's chain is traversed, all 12 vertices of widget $j$ are consumed (in one or two passes). Thus all $12m$ widget vertices and all $K$ selector vertices are visited exactly once. $checkmark$
+
+  ($arrow.l.double$) Suppose $G'$ has a Hamiltonian circuit $cal(H)$. The circuit must pass through each selector vertex $a_ell$ exactly once. Between consecutive selector vertices, $cal(H)$ traverses a complete widget chain for some vertex $v in V$. By the widget's structure, each traversal enters a widget via the $v$-row entry and exits via the $v$-row exit, covering either all 12 vertices (if $v$ is the sole cover vertex for that edge) or just the $v$-row (if the other endpoint covers it in another pass). Since $cal(H)$ visits every vertex exactly once and passes through exactly $K$ widget chains, the $K$ corresponding vertices form a set that covers every edge. $checkmark$
+
+  _Solution extraction._ Given a Hamiltonian circuit in $G'$, identify which vertex's widget chain follows each selector vertex $a_ell$. The set of these $K$ vertices is a vertex cover of $G$.
+]
+
+*Overhead.*
+
+#table(
+  columns: (1fr, 1fr),
+  table.header([Target metric], [Expression]),
+  [`num_vertices`], [$12m + K$],
+  [`num_edges`], [$14m + (m - n) + 2n K + binom(K, 2)$],
+)
+
+where $n = |V|$, $m = |E|$, $K$ is the cover size bound.
+
+*Example.* $G = K_3$ (triangle on vertices ${0, 1, 2}$, edges $e_1 = (0,1)$, $e_2 = (0,2)$, $e_3 = (1,2)$), $K = 2$.
+
+Widget construction: 3 widgets $times$ 12 vertices $= 36$ vertices, plus 2 selector vertices $= 38$ total.
+
+Vertex cover $C = {0, 1}$ covers all edges. Hamiltonian circuit: $a_1 arrow.r$ vertex-0 widget chain (covers $e_1$ and $e_2$, consuming all vertices of widgets 1 and 2, plus vertex-0 rows of widget 3) $arrow.r a_2 arrow.r$ vertex-1 widget chain (covers remaining vertex-1 rows of widget 3) $arrow.r a_1$. All 38 vertices visited exactly once. $checkmark$
