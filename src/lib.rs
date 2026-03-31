@@ -63,10 +63,10 @@ pub mod prelude {
     };
     pub use crate::models::graph::{
         KColoring, LongestCircuit, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
-        MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
-        MinimumDummyActivitiesPert, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
-        MinimumGeometricConnectedDominatingSet, MinimumMultiwayCut, MinimumSumMulticenter,
-        MinimumVertexCover, MonochromaticTriangle, MultipleChoiceBranching,
+        MaximumLeafSpanningTree, MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets,
+        MinimumDominatingSet, MinimumDummyActivitiesPert, MinimumFeedbackArcSet,
+        MinimumFeedbackVertexSet, MinimumGeometricConnectedDominatingSet, MinimumMultiwayCut,
+        MinimumSumMulticenter, MinimumVertexCover, MonochromaticTriangle, MultipleChoiceBranching,
         MultipleCopyFileAllocation, OptimalLinearArrangement, PartialFeedbackEdgeSet,
         PartitionIntoPathsOfLength2, PartitionIntoTriangles, PathConstrainedNetworkFlow,
         RootedTreeArrangement, RuralPostman, ShortestWeightConstrainedPath, SteinerTreeInGraphs,

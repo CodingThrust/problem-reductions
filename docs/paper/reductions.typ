@@ -82,6 +82,7 @@
   "CyclicOrdering": [Cyclic Ordering],
   "AcyclicPartition": [Acyclic Partition],
   "MaximumIndependentSet": [Maximum Independent Set],
+  "MaximumLeafSpanningTree": [Maximum Leaf Spanning Tree],
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
   "GeneralizedHex": [Generalized Hex],
@@ -4743,6 +4744,53 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     ]
   ]
 }
+
+#{
+  let x = load-model-example("MaximumLeafSpanningTree")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let tree-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let leaf-count = sol.metric
+  // compute degrees in the tree
+  let degrees = range(nv).map(v => tree-edges.map(i => edges.at(i)).filter(((u, w)) => u == v or w == v).len())
+  let leaves = range(nv).filter(v => degrees.at(v) == 1)
+  [
+    #problem-def("MaximumLeafSpanningTree")[
+      Given a connected undirected graph $G = (V, E)$, find a spanning tree $T$ of $G$ that maximizes the number of leaves (degree-1 vertices) in $T$.
+    ][
+      Maximum Leaf Spanning Tree is NP-hard @garey1979[ND2]. The problem has applications in network design and broadcasting, where maximizing the number of leaf nodes reduces the set of internal (relay) nodes. The best known exact algorithm runs in $O^*(1.8966^n)$ time, where $n = |V|$.#footnote[H. Fernau, J. Kneis, D. Kratsch, A. Langer, M. Liedloff, D. Raible, and P. Rossmanith, An exact algorithm for the Maximum Leaf Spanning Tree problem, _Theoretical Computer Science_, 412(45):6290--6302, 2011.]
+
+      *Example.* Consider $G$ with $n = #nv$ vertices and $m = #ne$ edges #edges.map(((u, v)) => [${#u, #v}$]).join(", "). The spanning tree using edges #tree-edges.map(i => [${#edges.at(i).at(0), #edges.at(i).at(1)}$]).join(", ") has #leaf-count leaves (vertices #leaves.map(v => [$#v$]).join(", ")), each with degree 1 in the tree.
+
+      #pred-commands(
+        "pred create --example MaximumLeafSpanningTree -o mlst.json",
+        "pred solve mlst.json",
+        "pred evaluate mlst.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#reduction-rule("MaximumLeafSpanningTree", "ILP")[
+  An MLST instance reduces to an integer linear program with $3m + n$ variables and $3n + 2m + 1$ constraints, using a single-commodity flow formulation to enforce spanning-tree connectivity and binary leaf indicators to encode the objective @garey1979.
+][
+  _Construction._ Given $G = (V, E)$ with $n = |V|$, $m = |E|$, root the flow at vertex $0$. Introduce binary edge selectors $y_e in {0, 1}$ for each $e in E$ ($m$ variables), binary leaf indicators $z_v in {0, 1}$ for each $v in V$ ($n$ variables), and directed flow variables $f_(u v), f_(v u) >= 0$ for each undirected edge ${u, v}$ ($2m$ variables).
+
+  _Constraints:_
+  + *Tree cardinality:* $sum_e y_e = n - 1$.
+  + *Flow conservation:* for the root, net outflow $= n - 1$; for each non-root vertex $v$, net inflow $= 1$.
+  + *Flow--edge linking:* $f_(u v) + f_(v u) <= (n - 1) y_e$ for each edge $e = {u, v}$.
+  + *Leaf detection:* $sum_(e in.rev v) y_e + (n - 2) z_v <= n - 1$ for each vertex $v$.
+  + *Binary bounds:* $y_e <= 1$, $z_v <= 1$.
+
+  The objective is $max sum_(v in V) z_v$.
+
+  _Correctness._ ($arrow.r.double$) A spanning tree $T$ of $G$ with $ell$ leaves induces a feasible ILP solution: route one unit of flow from the root to every other vertex along the unique tree path, set $y_e = 1$ for tree edges, and set $z_v = 1$ for degree-1 vertices; constraint (4) is tight when $deg_T(v) = 1$ and slack otherwise, achieving objective $ell$. ($arrow.l.double$) Any feasible ILP solution with $sum y_e = n - 1$ and connectivity enforced by the flow yields a spanning tree; constraint (4) forces $z_v = 0$ whenever $deg_T(v) > 1$, and maximization ensures $z_v = 1$ for all leaves.
+
+  _Solution extraction._ Return the edge-selector prefix $(y_0, dots, y_(m-1))$ as the source configuration.
+]
 
 #{
   let x = load-model-example("MonochromaticTriangle")

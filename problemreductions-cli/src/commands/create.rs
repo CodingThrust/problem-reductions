@@ -695,6 +695,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "HamiltonianCircuit" => "--graph 0-1,1-2,2-3,3-0",
+        "MaximumLeafSpanningTree" => "--graph 0-1,0-2,0-3,1-4,2-4,2-5,3-5,4-5,1-3",
         "EnsembleComputation" => "--universe 4 --sets \"0,1,2;0,1,3\"",
         "RootedTreeStorageAssignment" => "--universe 5 --sets \"0,2;1,3;0,4;2,4\" --bound 1",
         "MinMaxMulticenter" => {
@@ -1546,6 +1547,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(HamiltonianCircuit::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Maximum Leaf Spanning Tree (graph only, no weights)
+        "MaximumLeafSpanningTree" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MaximumLeafSpanningTree --graph 0-1,0-2,0-3,1-4,2-4,2-5,3-5,4-5,1-3"
+                )
+            })?;
+            (
+                ser(problemreductions::models::graph::MaximumLeafSpanningTree::new(graph))?,
                 resolved_variant.clone(),
             )
         }
@@ -7784,6 +7798,21 @@ fn create_random(
             (ser(HamiltonianCircuit::new(graph))?, variant)
         }
 
+        // Maximum Leaf Spanning Tree (graph only, no weights)
+        "MaximumLeafSpanningTree" => {
+            let num_vertices = num_vertices.max(2);
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (
+                ser(problemreductions::models::graph::MaximumLeafSpanningTree::new(graph))?,
+                variant,
+            )
+        }
+
         // HamiltonianPath (graph only, no weights)
         "HamiltonianPath" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
@@ -8028,7 +8057,7 @@ fn create_random(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
              MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, TravelingSalesman, \
-             BottleneckTravelingSalesman, SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, \
+             BottleneckTravelingSalesman, SteinerTreeInGraphs, HamiltonianCircuit, MaximumLeafSpanningTree, SteinerTree, \
              OptimalLinearArrangement, RootedTreeArrangement, HamiltonianPath, LongestCircuit, GeneralizedHex)"
         ),
     };

@@ -235,6 +235,7 @@ Flags by problem type:
   MinimumEdgeCostFlow             --arcs, --edge-weights (prices), --capacities, --source, --sink, --requirement
   MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound
   HamiltonianCircuit, HC          --graph
+  MaximumLeafSpanningTree         --graph
   LongestCircuit                  --graph, --edge-weights
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   UndirectedFlowLowerBounds       --graph, --capacities, --lower-bounds, --source, --sink, --requirement

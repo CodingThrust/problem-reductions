@@ -6,6 +6,7 @@
 //! - [`DegreeConstrainedSpanningTree`]: Spanning tree with maximum vertex degree at most K
 //! - [`DirectedHamiltonianPath`]: Directed Hamiltonian path (decision problem)
 //! - [`MaximumIndependentSet`]: Maximum weight independent set
+//! - [`MaximumLeafSpanningTree`]: Spanning tree maximizing number of leaves
 //! - [`MaximalIS`]: Maximal independent set
 //! - [`MinimumVertexCover`]: Minimum weight vertex cover
 //! - [`MinimumCoveringByCliques`]: Minimum number of cliques covering all edges
@@ -103,6 +104,7 @@ pub(crate) mod maximum_achromatic_number;
 pub(crate) mod maximum_clique;
 pub(crate) mod maximum_domatic_number;
 pub(crate) mod maximum_independent_set;
+pub(crate) mod maximum_leaf_spanning_tree;
 pub(crate) mod maximum_matching;
 pub(crate) mod min_max_multicenter;
 pub(crate) mod minimum_covering_by_cliques;
@@ -175,6 +177,7 @@ pub use maximum_achromatic_number::MaximumAchromaticNumber;
 pub use maximum_clique::MaximumClique;
 pub use maximum_domatic_number::MaximumDomaticNumber;
 pub use maximum_independent_set::MaximumIndependentSet;
+pub use maximum_leaf_spanning_tree::MaximumLeafSpanningTree;
 pub use maximum_matching::MaximumMatching;
 pub use min_max_multicenter::MinMaxMulticenter;
 pub use minimum_covering_by_cliques::MinimumCoveringByCliques;
@@ -223,6 +226,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(degree_constrained_spanning_tree::canonical_model_example_specs());
     specs.extend(directed_hamiltonian_path::canonical_model_example_specs());
     specs.extend(maximum_independent_set::canonical_model_example_specs());
+    specs.extend(maximum_leaf_spanning_tree::canonical_model_example_specs());
     specs.extend(minimum_vertex_cover::canonical_model_example_specs());
     specs.extend(max_cut::canonical_model_example_specs());
     specs.extend(generalized_hex::canonical_model_example_specs());
