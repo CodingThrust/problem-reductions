@@ -636,7 +636,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 }
 
 #{
-  let x = load-model-example("MaxCut")
+  let x = load-model-example("MaxCut", variant: (graph: "SimpleGraph", weight: "i32"))
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
   let edges = x.instance.graph.edges
