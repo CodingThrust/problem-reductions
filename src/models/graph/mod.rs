@@ -71,6 +71,7 @@
 //! - [`UndirectedTwoCommodityIntegralFlow`]: Two-commodity integral flow on undirected graphs
 //! - [`StrongConnectivityAugmentation`]: Strong connectivity augmentation with weighted candidate arcs
 //! - [`DisjointConnectingPaths`]: Vertex-disjoint paths connecting prescribed terminal pairs
+//! - [`MinimumGraphBandwidth`]: Minimum graph bandwidth (minimize maximum edge stretch)
 
 pub(crate) mod acyclic_partition;
 pub(crate) mod balanced_complete_bipartite_subgraph;
@@ -115,6 +116,7 @@ pub(crate) mod minimum_edge_cost_flow;
 pub(crate) mod minimum_feedback_arc_set;
 pub(crate) mod minimum_feedback_vertex_set;
 pub(crate) mod minimum_geometric_connected_dominating_set;
+pub(crate) mod minimum_graph_bandwidth;
 pub(crate) mod minimum_intersection_graph_basis;
 pub(crate) mod minimum_maximal_matching;
 pub(crate) mod minimum_metric_dimension;
@@ -188,6 +190,7 @@ pub use minimum_edge_cost_flow::MinimumEdgeCostFlow;
 pub use minimum_feedback_arc_set::MinimumFeedbackArcSet;
 pub use minimum_feedback_vertex_set::MinimumFeedbackVertexSet;
 pub use minimum_geometric_connected_dominating_set::MinimumGeometricConnectedDominatingSet;
+pub use minimum_graph_bandwidth::MinimumGraphBandwidth;
 pub use minimum_intersection_graph_basis::MinimumIntersectionGraphBasis;
 pub use minimum_maximal_matching::MinimumMaximalMatching;
 pub use minimum_metric_dimension::MinimumMetricDimension;
@@ -288,6 +291,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(rural_postman::canonical_model_example_specs());
     specs.extend(integral_flow_homologous_arcs::canonical_model_example_specs());
     specs.extend(minimum_edge_cost_flow::canonical_model_example_specs());
+    specs.extend(minimum_graph_bandwidth::canonical_model_example_specs());
     specs.extend(minimum_feedback_arc_set::canonical_model_example_specs());
     specs.extend(optimal_linear_arrangement::canonical_model_example_specs());
     specs.extend(partial_feedback_edge_set::canonical_model_example_specs());
