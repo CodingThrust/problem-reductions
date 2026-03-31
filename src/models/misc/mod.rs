@@ -4,6 +4,7 @@
 //! - [`AdditionalKey`]: Determine whether a relational schema has an additional candidate key
 //! - [`Betweenness`]: Find a linear ordering satisfying betweenness constraints on triples
 //! - [`BinPacking`]: Bin Packing (minimize bins)
+//! - [`Clustering`]: Partition elements into bounded-diameter clusters
 //! - [`CyclicOrdering`]: Find a permutation satisfying cyclic ordering constraints on triples
 //! - [`BoyceCoddNormalFormViolation`]: Boyce-Codd Normal Form Violation (BCNF)
 //! - [`ConsistencyOfDatabaseFrequencyTables`]: Pairwise frequency-table consistency
@@ -103,6 +104,7 @@ pub(crate) fn lehmer_dims(n: usize) -> Vec<usize> {
 mod bin_packing;
 mod boyce_codd_normal_form_violation;
 mod capacity_assignment;
+pub(crate) mod clustering;
 pub(crate) mod conjunctive_boolean_query;
 pub(crate) mod conjunctive_query_foldability;
 mod consistency_of_database_frequency_tables;
@@ -160,6 +162,7 @@ pub use betweenness::Betweenness;
 pub use bin_packing::BinPacking;
 pub use boyce_codd_normal_form_violation::BoyceCoddNormalFormViolation;
 pub use capacity_assignment::CapacityAssignment;
+pub use clustering::Clustering;
 pub use conjunctive_boolean_query::{ConjunctiveBooleanQuery, QueryArg, Relation as CbqRelation};
 pub use conjunctive_query_foldability::{ConjunctiveQueryFoldability, Term};
 pub use consistency_of_database_frequency_tables::{
@@ -275,5 +278,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(cyclic_ordering::canonical_model_example_specs());
     specs.extend(non_liveness_free_petri_net::canonical_model_example_specs());
     specs.extend(maximum_likelihood_ranking::canonical_model_example_specs());
+    specs.extend(clustering::canonical_model_example_specs());
     specs
 }

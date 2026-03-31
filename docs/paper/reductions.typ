@@ -150,6 +150,7 @@
   "BoundedComponentSpanningForest": [Bounded Component Spanning Forest],
   "BinPacking": [Bin Packing],
   "BoyceCoddNormalFormViolation": [Boyce-Codd Normal Form Violation],
+  "Clustering": [Clustering],
   "CapacityAssignment": [Capacity Assignment],
   "ConsistencyOfDatabaseFrequencyTables": [Consistency of Database Frequency Tables],
   "ClosestVectorProblem": [Closest Vector Problem],
@@ -5752,6 +5753,29 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred create --example CyclicOrdering -o cyclic_ordering.json",
         "pred solve cyclic_ordering.json",
         "pred evaluate cyclic_ordering.json --config " + config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("Clustering")
+  let n = x.instance.distances.len()
+  let K = x.instance.num_clusters
+  let B = x.instance.diameter_bound
+  let config = x.optimal_config
+  [
+    #problem-def("Clustering")[
+      Given a set of $n$ elements with a symmetric distance function $d: binom(A,2) -> NN$ (represented as a matrix with zero diagonal), a cluster count bound $K$, and a diameter bound $B$, determine whether there exists a partition of the elements into at most $K$ non-empty clusters such that for every cluster $C$, all pairwise distances within $C$ satisfy $d(i,j) <= B$.
+    ][
+      Clustering is a fundamental problem in unsupervised learning and data analysis. The variant considered here is the diameter-bounded formulation, which is NP-complete. No algorithm improving on brute-force ($K^n$ enumeration) is known for the general case.#footnote[No algorithm improving on brute-force is known for general diameter-bounded clustering.]
+
+      *Example.* Consider $n = #n$ elements with $K = #K$ clusters and diameter bound $B = #B$. The distance matrix has two tight groups ${0,1,2}$ and ${3,4,5}$ with intra-group distance 1 and inter-group distance 3. The witness assignment $(#config.map(str).join(", "))$ partitions elements into clusters ${0,1,2}$ and ${3,4,5}$; each cluster has maximum pairwise distance $1 <= #B$.
+
+      #pred-commands(
+        "pred create --example Clustering -o clustering.json",
+        "pred solve clustering.json",
+        "pred evaluate clustering.json --config " + config.map(str).join(","),
       )
     ]
   ]

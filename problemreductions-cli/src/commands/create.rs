@@ -25,8 +25,8 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::{
     AdditionalKey, Betweenness, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment,
-    CbqRelation, ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, CyclicOrdering,
-    DynamicStorageAllocation, EnsembleComputation, ExpectedRetrievalCost,
+    CbqRelation, Clustering, ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables,
+    CyclicOrdering, DynamicStorageAllocation, EnsembleComputation, ExpectedRetrievalCost,
     FeasibleRegisterAssignment, FlowShopScheduling, FrequencyTable, GroupingBySwapping, IntExpr,
     IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
     LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumExternalMacroDataCompression,
@@ -822,6 +822,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SimultaneousIncongruences" => "--pairs \"2,2;1,3;2,5;3,7\"",
         "BoyceCoddNormalFormViolation" => {
             "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
+        }
+        "Clustering" => {
+            "--distance-matrix \"0,1,1,3;1,0,1,3;1,1,0,3;3,3,3,0\" --k 2 --diameter-bound 1"
         }
         "SumOfSquaresPartition" => "--sizes 5,3,8,2,7,1 --num-groups 3",
         "ComparativeContainment" => {
@@ -6213,6 +6216,28 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     target,
                     bound,
                 ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Clustering
+        "Clustering" => {
+            let usage = "Usage: pred create Clustering --distance-matrix \"0,1,1,3;1,0,1,3;1,1,0,3;3,3,3,0\" --k 2 --diameter-bound 1";
+            let dist_str = args.distance_matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Clustering requires --distance-matrix, --k, and --diameter-bound\n\n{usage}"
+                )
+            })?;
+            let distance_matrix = parse_u64_matrix_rows(dist_str, "distance matrix")?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!("Clustering requires --k (number of clusters)\n\n{usage}")
+            })?;
+            let diameter_bound = args
+                .diameter_bound
+                .ok_or_else(|| anyhow::anyhow!("Clustering requires --diameter-bound\n\n{usage}"))?
+                as u64;
+            (
+                ser(Clustering::new(distance_matrix, k, diameter_bound))?,
                 resolved_variant.clone(),
             )
         }

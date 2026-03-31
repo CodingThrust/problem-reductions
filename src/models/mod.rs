@@ -46,7 +46,7 @@ pub use graph::{
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
-    AdditionalKey, Betweenness, BinPacking, CapacityAssignment, CbqRelation,
+    AdditionalKey, Betweenness, BinPacking, CapacityAssignment, CbqRelation, Clustering,
     ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables,
     CosineProductIntegration, CyclicOrdering, DynamicStorageAllocation, EnsembleComputation,
     ExpectedRetrievalCost, Factoring, FeasibleRegisterAssignment, FlowShopScheduling,
