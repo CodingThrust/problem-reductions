@@ -99,10 +99,6 @@ impl NAESatisfiability {
         self.evaluate(config).0
     }
 
-    fn config_to_assignment(config: &[usize]) -> Vec<bool> {
-        config.iter().map(|&v| v == 1).collect()
-    }
-
     fn literal_value(lit: i32, assignment: &[bool]) -> bool {
         let var = lit.unsigned_abs() as usize - 1;
         let value = assignment.get(var).copied().unwrap_or(false);
@@ -143,7 +139,7 @@ impl Problem for NAESatisfiability {
 
     fn evaluate(&self, config: &[usize]) -> crate::types::Or {
         crate::types::Or({
-            let assignment = Self::config_to_assignment(config);
+            let assignment = super::config_to_assignment(config);
             self.is_nae_satisfying(&assignment)
         })
     }

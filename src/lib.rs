@@ -43,26 +43,29 @@ pub mod variant;
 pub mod prelude {
     // Problem types
     pub use crate::models::algebraic::{
-        ConsecutiveOnesMatrixAugmentation, QuadraticAssignment, SparseMatrixCompression, BMF, QUBO,
+        ConsecutiveOnesMatrixAugmentation, QuadraticAssignment, QuadraticCongruences,
+        SparseMatrixCompression, BMF, QUBO,
     };
     pub use crate::models::formula::{
-        CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, QuantifiedBooleanFormulas,
-        Satisfiability,
+        CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, NonTautology,
+        OneInThreeSatisfiability, Planar3Satisfiability, QuantifiedBooleanFormulas, Satisfiability,
     };
     pub use crate::models::graph::{
         AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover,
         BiconnectivityAugmentation, BottleneckTravelingSalesman, BoundedComponentSpanningForest,
         DirectedTwoCommodityIntegralFlow, DisjointConnectingPaths, GeneralizedHex,
-        HamiltonianCircuit, HamiltonianPath, IntegralFlowBundles, IntegralFlowHomologousArcs,
-        IntegralFlowWithMultipliers, IsomorphicSpanningTree, KClique, KthBestSpanningTree,
-        LengthBoundedDisjointPaths, LongestPath, MixedChinesePostman, SpinGlass, SteinerTree,
-        StrongConnectivityAugmentation, SubgraphIsomorphism,
+        HamiltonianCircuit, HamiltonianPath, HamiltonianPathBetweenTwoVertices,
+        IntegralFlowBundles, IntegralFlowHomologousArcs, IntegralFlowWithMultipliers,
+        IsomorphicSpanningTree, KClique, KthBestSpanningTree, LengthBoundedDisjointPaths,
+        LongestPath, MixedChinesePostman, SpinGlass, SteinerTree, StrongConnectivityAugmentation,
+        SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, LongestCircuit, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
         MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
         MinimumDummyActivitiesPert, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
-        MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
+        MinimumGeometricConnectedDominatingSet, MinimumMultiwayCut, MinimumSumMulticenter,
+        MinimumVertexCover, MonochromaticTriangle, MultipleChoiceBranching,
         MultipleCopyFileAllocation, OptimalLinearArrangement, PartialFeedbackEdgeSet,
         PartitionIntoPathsOfLength2, PartitionIntoTriangles, PathConstrainedNetworkFlow,
         RootedTreeArrangement, RuralPostman, ShortestWeightConstrainedPath, SteinerTreeInGraphs,
@@ -73,11 +76,12 @@ pub mod prelude {
         ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables,
         CosineProductIntegration, EnsembleComputation, ExpectedRetrievalCost, Factoring,
         FlowShopScheduling, GroupingBySwapping, JobShopScheduling, Knapsack,
-        LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
-        Partition, ProductionPlanning, QueryArg, RectilinearPictureCompression,
-        ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
-        SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
-        SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
+        LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
+        OpenShopScheduling, PaintShop, Partition, PreemptiveScheduling, ProductionPlanning,
+        QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
+        SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+        SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+        SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
         SequencingWithinIntervals, ShortestCommonSupersequence, StackerCrane, StaffScheduling,
         StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, ThreePartition,
         TimetableDesign,
@@ -85,7 +89,7 @@ pub mod prelude {
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, IntegerKnapsack,
         MaximumSetPacking, MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering,
-        PrimeAttributeName, RootedTreeStorageAssignment, SetBasis,
+        PrimeAttributeName, RootedTreeStorageAssignment, SetBasis, SetSplitting,
     };
 
     // Core traits

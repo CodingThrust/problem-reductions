@@ -171,11 +171,6 @@ impl Satisfiability {
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
         self.evaluate(config).0
     }
-
-    /// Convert a usize config to boolean assignment.
-    fn config_to_assignment(config: &[usize]) -> Vec<bool> {
-        config.iter().map(|&v| v == 1).collect()
-    }
 }
 
 impl Problem for Satisfiability {
@@ -188,7 +183,7 @@ impl Problem for Satisfiability {
 
     fn evaluate(&self, config: &[usize]) -> crate::types::Or {
         crate::types::Or({
-            let assignment = Self::config_to_assignment(config);
+            let assignment = super::config_to_assignment(config);
             self.is_satisfying(&assignment)
         })
     }

@@ -207,7 +207,7 @@ fn test_all_problems_implement_trait_correctly() {
         "SequencingToMinimizeWeightedTardiness",
     );
     check_problem_trait(
-        &MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]),
+        &MinimumTardinessSequencing::<One>::new(3, vec![2, 3, 1], vec![(0, 2)]),
         "MinimumTardinessSequencing",
     );
     check_problem_trait(

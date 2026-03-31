@@ -218,6 +218,7 @@ Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
   MaxCut, MaxMatching, TSP, BottleneckTravelingSalesman --graph, --edge-weights
   LongestPath                     --graph, --edge-lengths, --source-vertex, --target-vertex
+  HamiltonianPathBetweenTwoVertices --graph, --source-vertex, --target-vertex
   ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --weight-bound
   MaximalIS                       --graph, --weights
   SAT, NAESAT                     --num-vars, --clauses
@@ -227,6 +228,7 @@ Flags by problem type:
   KColoring                       --graph, --k
   KClique                         --graph, --k
   MinimumMultiwayCut              --graph, --terminals, --edge-weights
+  MonochromaticTriangle           --graph
   PartitionIntoTriangles          --graph
   GeneralizedHex                  --graph, --source, --sink
   IntegralFlowWithMultipliers     --arcs, --capacities, --source, --sink, --multipliers, --requirement
@@ -247,10 +249,17 @@ Flags by problem type:
   BinPacking                      --sizes, --capacity
   CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --cost-budget, --delay-budget
   ProductionPlanning             --num-periods, --demands, --capacities, --setup-costs, --production-costs, --inventory-costs, --cost-bound
+  SubsetProduct                    --sizes, --target
   SubsetSum                       --sizes, --target
+  Numerical3DimensionalMatching    --w-sizes, --x-sizes, --y-sizes, --bound
+  Betweenness                     --n, --sets (triples a,b,c)
+  CyclicOrdering                  --n, --sets (triples a,b,c)
   ThreePartition                  --sizes, --bound
+  DynamicStorageAllocation        --release-times, --deadlines, --sizes, --capacity
   KthLargestMTuple                --sets, --k, --bound
+  QuadraticCongruences             --coeff-a, --coeff-b, --coeff-c
   QuadraticDiophantineEquations    --coeff-a, --coeff-b, --coeff-c
+  SimultaneousIncongruences        --pairs (semicolon-separated a,b pairs)
   SumOfSquaresPartition           --sizes, --num-groups
   ExpectedRetrievalCost           --probabilities, --num-sectors
   PaintShop                       --sequence
@@ -260,6 +269,7 @@ Flags by problem type:
   EnsembleComputation             --universe, --sets, --budget
   ComparativeContainment          --universe, --r-sets, --s-sets [--r-weights] [--s-weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
+  3DM (ThreeDimensionalMatching)  --universe, --sets (triples w,x,y)
   SetBasis                        --universe, --sets, --k
   MinimumCardinalityKey           --num-attributes, --dependencies
   PrimeAttributeName              --universe, --deps, --query
@@ -312,16 +322,21 @@ Flags by problem type:
   RectilinearPictureCompression   --matrix (0/1), --k
   SchedulingWithIndividualDeadlines --n, --num-processors/--m, --deadlines [--precedence-pairs]
   SequencingToMinimizeMaximumCumulativeCost --costs [--precedence-pairs]
+  SequencingToMinimizeTardyTaskWeight --sizes, --weights, --deadlines
   SequencingToMinimizeWeightedCompletionTime --lengths, --weights [--precedence-pairs]
   SequencingToMinimizeWeightedTardiness --sizes, --weights, --deadlines, --bound
+  SequencingWithDeadlinesAndSetUpTimes --sizes, --deadlines, --compilers, --setup-times
   MinimumExternalMacroDataCompression --string, --pointer-cost [--alphabet-size]
+  MinimumInternalMacroDataCompression --string, --pointer-cost [--alphabet-size]
   SCS                             --strings [--alphabet-size]
   StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   MinimumDummyActivitiesPert      --arcs [--num-vertices]
+  FeasibleRegisterAssignment      --arcs, --assignment, --k [--num-vertices]
   RegisterSufficiency             --arcs, --bound [--num-vertices]
   CBQ                              --domain-size, --relations, --conjuncts-spec
   IntegerExpressionMembership     --expression (JSON), --target
+  MinimumGeometricConnectedDominatingSet --positions (float x,y pairs), --radius
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -469,7 +484,7 @@ pub struct CreateArgs {
     /// Random seed for reproducibility
     #[arg(long)]
     pub seed: Option<u64>,
-    /// Target value (for Factoring and SubsetSum)
+    /// Target value (for Factoring, SubsetSum, and SubsetProduct)
     #[arg(long)]
     pub target: Option<String>,
     /// Bits for first factor (for Factoring); also accepted as a processor-count alias for scheduling create commands
@@ -589,6 +604,9 @@ pub struct CreateArgs {
     /// Upper bound on total path weight
     #[arg(long)]
     pub weight_bound: Option<i32>,
+    /// Upper bound on tree diameter (in edges) for BoundedDiameterSpanningTree
+    #[arg(long)]
+    pub diameter_bound: Option<usize>,
     /// Upper bound on total inter-partition arc cost
     #[arg(long)]
     pub cost_bound: Option<i32>,
@@ -755,6 +773,12 @@ pub struct CreateArgs {
     /// Number of sectors for ExpectedRetrievalCost
     #[arg(long)]
     pub num_sectors: Option<usize>,
+    /// Compiler index for each task in SequencingWithDeadlinesAndSetUpTimes (comma-separated, e.g., "0,1,0,1,0")
+    #[arg(long)]
+    pub compilers: Option<String>,
+    /// Setup times per compiler for SequencingWithDeadlinesAndSetUpTimes (comma-separated, e.g., "1,2")
+    #[arg(long)]
+    pub setup_times: Option<String>,
     /// Source string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,2,3")
     #[arg(long)]
     pub source_string: Option<String>,
@@ -767,15 +791,39 @@ pub struct CreateArgs {
     /// Expression tree for IntegerExpressionMembership (JSON, e.g., '{"Sum":[{"Atom":1},{"Atom":2}]}')
     #[arg(long)]
     pub expression: Option<String>,
-    /// Coefficient a for QuadraticDiophantineEquations (coefficient of x²)
+    /// Equations for AlgebraicEquationsOverGF2 (semicolon-separated polynomials, each a colon-separated list of monomials, each a comma-separated list of variable indices; empty monomial = constant 1; e.g., "0,1:2;1,2:0:;0:1:2:")
+    #[arg(long)]
+    pub equations: Option<String>,
+    /// Register assignment for FeasibleRegisterAssignment (comma-separated register indices, e.g., "0,1,0,0")
+    #[arg(long)]
+    pub assignment: Option<String>,
+    /// Coefficient/parameter a for QuadraticCongruences (residue target) or QuadraticDiophantineEquations (coefficient of x²)
     #[arg(long)]
     pub coeff_a: Option<u64>,
-    /// Coefficient b for QuadraticDiophantineEquations (coefficient of y)
+    /// Coefficient/parameter b for QuadraticCongruences (modulus) or QuadraticDiophantineEquations (coefficient of y)
     #[arg(long)]
     pub coeff_b: Option<u64>,
-    /// Constant c for QuadraticDiophantineEquations (right-hand side of ax² + by = c)
+    /// Constant c for QuadraticCongruences (search-space bound) or QuadraticDiophantineEquations (right-hand side of ax² + by = c)
     #[arg(long)]
     pub coeff_c: Option<u64>,
+    /// Incongruence pairs for SimultaneousIncongruences (semicolon-separated "a,b" pairs, e.g., "2,2;1,3;2,5;3,7")
+    #[arg(long)]
+    pub pairs: Option<String>,
+    /// W-set sizes for Numerical3DimensionalMatching (comma-separated, e.g., "4,5")
+    #[arg(long)]
+    pub w_sizes: Option<String>,
+    /// X-set sizes for Numerical3DimensionalMatching (comma-separated, e.g., "4,5")
+    #[arg(long)]
+    pub x_sizes: Option<String>,
+    /// Y-set sizes for Numerical3DimensionalMatching (comma-separated, e.g., "5,7")
+    #[arg(long)]
+    pub y_sizes: Option<String>,
+    /// Initial marking for NonLivenessFreePetriNet (comma-separated tokens per place, e.g., "1,0,0,0")
+    #[arg(long)]
+    pub initial_marking: Option<String>,
+    /// Output arcs (transition-to-place) for NonLivenessFreePetriNet (e.g., "0>1,1>2,2>3")
+    #[arg(long)]
+    pub output_arcs: Option<String>,
 }
 
 #[derive(clap::Args)]

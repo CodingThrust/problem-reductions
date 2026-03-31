@@ -113,6 +113,8 @@ pub(crate) mod consecutiveonessubmatrix_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod consistencyofdatabasefrequencytables_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod directedhamiltonianpath_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod directedtwocommodityintegralflow_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod disjointconnectingpaths_ilp;
@@ -173,6 +175,10 @@ pub(crate) mod minimumfeedbackvertexset_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumhittingset_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod minimuminternalmacrodatacompression_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod minimummaximalmatching_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimummultiwaycut_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumsetcovering_ilp;
@@ -191,6 +197,8 @@ pub(crate) mod multiprocessorscheduling_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod naesatisfiability_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod openshopscheduling_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod optimallineararrangement_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod paintshop_ilp;
@@ -204,6 +212,8 @@ pub(crate) mod partitionintotriangles_ilp;
 pub(crate) mod pathconstrainednetworkflow_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod precedenceconstrainedscheduling_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod preemptivescheduling_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod quadraticassignment_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -223,13 +233,19 @@ pub(crate) mod schedulingwithindividualdeadlines_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingtominimizemaximumcumulativecost_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod sequencingtominimizetardytaskweight_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingtominimizeweightedcompletiontime_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingtominimizeweightedtardiness_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod sequencingwithdeadlinesandsetuptimes_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingwithinintervals_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod sequencingwithreleasetimesanddeadlines_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod setsplitting_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod shortestcommonsupersequence_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -348,6 +364,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(consecutiveonesmatrixaugmentation_ilp::canonical_rule_example_specs());
         specs.extend(consecutiveonessubmatrix_ilp::canonical_rule_example_specs());
         specs.extend(consistencyofdatabasefrequencytables_ilp::canonical_rule_example_specs());
+        specs.extend(directedhamiltonianpath_ilp::canonical_rule_example_specs());
         specs.extend(directedtwocommodityintegralflow_ilp::canonical_rule_example_specs());
         specs.extend(disjointconnectingpaths_ilp::canonical_rule_example_specs());
         specs.extend(exactcoverby3sets_ilp::canonical_rule_example_specs());
@@ -372,7 +389,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(maximumsetpacking_ilp::canonical_rule_example_specs());
         specs.extend(minimumcutintoboundedsets_ilp::canonical_rule_example_specs());
         specs.extend(minimumdominatingset_ilp::canonical_rule_example_specs());
+        specs.extend(minimummaximalmatching_ilp::canonical_rule_example_specs());
         specs.extend(minimumexternalmacrodatacompression_ilp::canonical_rule_example_specs());
+        specs.extend(minimuminternalmacrodatacompression_ilp::canonical_rule_example_specs());
         specs.extend(minimumfeedbackarcset_ilp::canonical_rule_example_specs());
         specs.extend(minimumfeedbackvertexset_ilp::canonical_rule_example_specs());
         specs.extend(minimumhittingset_ilp::canonical_rule_example_specs());
@@ -385,6 +404,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(multiplecopyfileallocation_ilp::canonical_rule_example_specs());
         specs.extend(multiprocessorscheduling_ilp::canonical_rule_example_specs());
         specs.extend(naesatisfiability_ilp::canonical_rule_example_specs());
+        specs.extend(openshopscheduling_ilp::canonical_rule_example_specs());
         specs.extend(optimallineararrangement_ilp::canonical_rule_example_specs());
         specs.extend(paintshop_ilp::canonical_rule_example_specs());
         specs.extend(partiallyorderedknapsack_ilp::canonical_rule_example_specs());
@@ -392,6 +412,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(partitionintotriangles_ilp::canonical_rule_example_specs());
         specs.extend(pathconstrainednetworkflow_ilp::canonical_rule_example_specs());
         specs.extend(precedenceconstrainedscheduling_ilp::canonical_rule_example_specs());
+        specs.extend(preemptivescheduling_ilp::canonical_rule_example_specs());
         specs.extend(quadraticassignment_ilp::canonical_rule_example_specs());
         specs.extend(qubo_ilp::canonical_rule_example_specs());
         specs.extend(rectilinearpicturecompression_ilp::canonical_rule_example_specs());
@@ -402,12 +423,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             .extend(schedulingtominimizeweightedcompletiontime_ilp::canonical_rule_example_specs());
         specs.extend(schedulingwithindividualdeadlines_ilp::canonical_rule_example_specs());
         specs.extend(sequencingtominimizemaximumcumulativecost_ilp::canonical_rule_example_specs());
+        specs.extend(sequencingtominimizetardytaskweight_ilp::canonical_rule_example_specs());
+        specs.extend(sequencingwithdeadlinesandsetuptimes_ilp::canonical_rule_example_specs());
         specs
             .extend(sequencingtominimizeweightedcompletiontime_ilp::canonical_rule_example_specs());
         specs.extend(sequencingtominimizeweightedtardiness_ilp::canonical_rule_example_specs());
         specs.extend(sequencingwithinintervals_ilp::canonical_rule_example_specs());
         specs.extend(sequencingwithreleasetimesanddeadlines_ilp::canonical_rule_example_specs());
         specs.extend(shortestcommonsupersequence_ilp::canonical_rule_example_specs());
+        specs.extend(setsplitting_ilp::canonical_rule_example_specs());
         specs.extend(shortestweightconstrainedpath_ilp::canonical_rule_example_specs());
         specs.extend(sparsematrixcompression_ilp::canonical_rule_example_specs());
         specs.extend(stackercrane_ilp::canonical_rule_example_specs());
