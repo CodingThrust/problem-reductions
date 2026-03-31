@@ -212,7 +212,7 @@ impl Problem for Numerical3DimensionalMatching {
 }
 
 crate::declare_variants! {
-    default Numerical3DimensionalMatching => "3^num_groups",
+    default Numerical3DimensionalMatching => "num_groups^(2 * num_groups)",
 }
 
 #[cfg(feature = "example-db")]

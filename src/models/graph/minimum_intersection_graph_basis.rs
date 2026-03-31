@@ -136,7 +136,7 @@ where
         // Check edge constraints: for every edge (u, v), S[u] ∩ S[v] ≠ ∅
         let edges = self.graph.edges();
         for &(u, v) in &edges {
-            if subsets[u].intersection(&subsets[v]).next().is_none() {
+            if subsets[u].is_disjoint(&subsets[v]) {
                 return Min(None);
             }
         }
@@ -144,9 +144,7 @@ where
         // Check non-edge constraints: for every non-edge pair (u, v), S[u] ∩ S[v] = ∅
         for u in 0..n {
             for v in (u + 1)..n {
-                if !self.graph.has_edge(u, v)
-                    && subsets[u].intersection(&subsets[v]).next().is_some()
-                {
+                if !self.graph.has_edge(u, v) && !subsets[u].is_disjoint(&subsets[v]) {
                     return Min(None);
                 }
             }

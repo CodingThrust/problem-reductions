@@ -83,11 +83,8 @@ impl SubsetProduct {
         Self { sizes, target }
     }
 
-    /// Create a new SubsetProduct instance without validating sizes.
-    ///
-    /// This is intended for reductions that produce SubsetProduct instances
-    /// where positivity is guaranteed by construction.
-    #[allow(dead_code)]
+    /// Create a SubsetProduct without validating sizes (for testing edge cases).
+    #[cfg(test)]
     pub(crate) fn new_unchecked(sizes: Vec<BigUint>, target: BigUint) -> Self {
         Self { sizes, target }
     }
@@ -140,7 +137,7 @@ impl Problem for SubsetProduct {
 }
 
 crate::declare_variants! {
-    default SubsetProduct => "2^(num_elements / 2)",
+    default SubsetProduct => "2^num_elements",
 }
 
 mod decimal_biguint {

@@ -28,6 +28,11 @@ pub use planar_3_satisfiability::Planar3Satisfiability;
 pub use qbf::{QuantifiedBooleanFormulas, Quantifier};
 pub use sat::{CNFClause, Satisfiability};
 
+/// Convert a binary config (0/1 per variable) to a boolean assignment.
+pub(crate) fn config_to_assignment(config: &[usize]) -> Vec<bool> {
+    config.iter().map(|&v| v == 1).collect()
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let mut specs = Vec::new();

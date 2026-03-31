@@ -100,9 +100,15 @@ impl FeasibleRegisterAssignment {
             assignment.len(),
             num_vertices
         );
+        if num_vertices > 0 {
+            assert!(
+                num_registers > 0,
+                "num_registers must be positive when there are vertices"
+            );
+        }
         for (v, &r) in assignment.iter().enumerate() {
             assert!(
-                r < num_registers || num_registers == 0,
+                r < num_registers,
                 "Assignment[{}] = {} is out of bounds for {} registers",
                 v,
                 r,
@@ -229,7 +235,7 @@ impl Problem for FeasibleRegisterAssignment {
 }
 
 crate::declare_variants! {
-    default FeasibleRegisterAssignment => "num_vertices ^ 2 * 2 ^ num_vertices",
+    default FeasibleRegisterAssignment => "factorial(num_vertices)",
 }
 
 #[cfg(feature = "example-db")]

@@ -117,15 +117,6 @@ impl ThreeDimensionalMatching {
     pub fn get_triple(&self, index: usize) -> Option<&(usize, usize, usize)> {
         self.triples.get(index)
     }
-
-    /// Check if a configuration is a valid three-dimensional matching.
-    ///
-    /// A valid matching selects exactly q triples where all W-coordinates
-    /// are distinct, all X-coordinates are distinct, and all Y-coordinates
-    /// are distinct.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config).0
-    }
 }
 
 impl Problem for ThreeDimensionalMatching {

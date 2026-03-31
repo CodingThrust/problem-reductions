@@ -130,11 +130,6 @@ impl OneInThreeSatisfiability {
             true_count == 1
         })
     }
-
-    /// Convert a usize config to boolean assignment.
-    fn config_to_assignment(config: &[usize]) -> Vec<bool> {
-        config.iter().map(|&v| v == 1).collect()
-    }
 }
 
 impl Problem for OneInThreeSatisfiability {
@@ -147,7 +142,7 @@ impl Problem for OneInThreeSatisfiability {
 
     fn evaluate(&self, config: &[usize]) -> crate::types::Or {
         crate::types::Or({
-            let assignment = Self::config_to_assignment(config);
+            let assignment = super::config_to_assignment(config);
             self.is_one_in_three_satisfying(&assignment)
         })
     }

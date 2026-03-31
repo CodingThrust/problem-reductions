@@ -119,8 +119,8 @@ fn test_three_dimensional_matching_element_out_of_range() {
 #[test]
 fn test_three_dimensional_matching_is_valid_solution() {
     let problem = ThreeDimensionalMatching::new(2, vec![(0, 1, 0), (1, 0, 1)]);
-    assert!(problem.is_valid_solution(&[1, 1]));
-    assert!(!problem.is_valid_solution(&[1, 0]));
+    assert!(problem.evaluate(&[1, 1]).0);
+    assert!(!problem.evaluate(&[1, 0]).0);
 }
 
 #[test]

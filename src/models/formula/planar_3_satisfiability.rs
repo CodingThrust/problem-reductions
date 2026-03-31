@@ -126,11 +126,6 @@ impl Planar3Satisfiability {
     pub fn is_satisfying(&self, assignment: &[bool]) -> bool {
         self.clauses.iter().all(|c| c.is_satisfied(assignment))
     }
-
-    /// Convert a usize config to boolean assignment.
-    fn config_to_assignment(config: &[usize]) -> Vec<bool> {
-        config.iter().map(|&v| v == 1).collect()
-    }
 }
 
 impl Problem for Planar3Satisfiability {
@@ -143,7 +138,7 @@ impl Problem for Planar3Satisfiability {
 
     fn evaluate(&self, config: &[usize]) -> crate::types::Or {
         crate::types::Or({
-            let assignment = Self::config_to_assignment(config);
+            let assignment = super::config_to_assignment(config);
             self.is_satisfying(&assignment)
         })
     }

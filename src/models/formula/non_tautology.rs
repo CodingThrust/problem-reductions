@@ -123,11 +123,6 @@ impl NonTautology {
                 .all(|&lit| Self::literal_is_true(lit, assignment))
         })
     }
-
-    /// Convert a usize config to boolean assignment.
-    fn config_to_assignment(config: &[usize]) -> Vec<bool> {
-        config.iter().map(|&v| v == 1).collect()
-    }
 }
 
 impl Problem for NonTautology {
@@ -140,7 +135,7 @@ impl Problem for NonTautology {
 
     fn evaluate(&self, config: &[usize]) -> crate::types::Or {
         crate::types::Or({
-            let assignment = Self::config_to_assignment(config);
+            let assignment = super::config_to_assignment(config);
             self.is_falsifying(&assignment)
         })
     }
