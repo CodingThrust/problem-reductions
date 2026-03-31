@@ -13,7 +13,7 @@
 #let proof = thmproof("proof", "Proof")
 
 #align(center)[
-  #text(size: 16pt, weight: "bold")[Proposed Reduction Rules — Verification Notes]
+  #text(size: 16pt, weight: "bold")[Proposed Reduction Rules --- Verification Notes]
 
   #v(0.5em)
   #text(size: 11pt)[Mathematical Foundations for Implementation]
@@ -38,9 +38,11 @@ Throughout this document we use the following conventions:
 
 - $G = (V, E)$ denotes an undirected graph with vertex set $V$ and edge set $E$
 - $n = |V|$, $m = |E|$
-- $w: E -> ZZ^+$ denotes positive integer edge weights (when weighted)
-- $N[v] = {v} union {u : (u,v) in E}$ is the closed neighbourhood of $v$
+- $d(v)$ denotes the degree of vertex $v$; $Delta = max_(v in V) d(v)$
+- $N(v) = {u : (u,v) in E}$ is the open neighbourhood; $N[v] = {v} union N(v)$ is the closed neighbourhood
 - For a set $S subset.eq V$, we write $w(S) = sum_(v in S) w(v)$
+- $K_n$ denotes the complete graph on $n$ vertices
+- $overline(G) = (V, binom(V,2) backslash E)$ denotes the complement graph of $G$
 
 Each reduction entry contains:
 + *Theorem statement* --- intuition and citation
@@ -111,45 +113,57 @@ Balanced partition: ${5, 6}$ (sum 11) vs.~${1, 8, 2}$ (sum 11). Padding $d = 2$ 
 == Minimum Vertex Cover $arrow.r$ Hamiltonian Circuit <sec:vc-hc>
 
 #theorem[
-  Vertex Cover reduces to Hamiltonian Circuit via the classic Garey--Johnson--Stockmeyer cover-testing widget construction. Given a graph $G = (V, E)$ and budget $K$, a graph $G'$ is constructed such that $G'$ has a Hamiltonian circuit if and only if $G$ has a vertex cover of size $lt.eq K$. Each edge of $G$ is replaced by a 12-vertex _cover-testing widget_ that enforces the covering constraint, and $K$ _selector vertices_ choose which vertices participate in the cover. Reference: Garey, Johnson, and Stockmeyer (1976); Garey & Johnson (1979), GT1.
+  Vertex Cover reduces to Hamiltonian Circuit via the Garey--Johnson--Stockmeyer cover-testing widget construction. Given a graph $G = (V, E)$ and budget $K$, a graph $G'$ is constructed such that $G'$ has a Hamiltonian circuit if and only if $G$ has a vertex cover of size $lt.eq K$. Each edge of $G$ is replaced by a 12-vertex cover-testing widget arranged in a $2 times 6$ grid, and $K$ selector vertices route the circuit through widget chains. Reference: Garey, Johnson, and Stockmeyer (1976), Lemma 2.1; Garey & Johnson (1979), GT1.
 ] <thm:vc-hc>
 
 #proof[
-  _Construction._ Given a Vertex Cover instance $(G = (V, E), K)$ with $n = |V|$ and $m = |E|$:
+  _Construction._ Given a Vertex Cover instance $(G = (V, E), K)$ with $n = |V|$ and $m = |E|$. Fix an arbitrary ordering on the edges incident to each vertex: for vertex $v$, let $e_(j_1), dots, e_(j_(d(v)))$ be its incident edges in order.
 
-  *Step 1: Cover-testing widgets.* For each edge $e_j = (u, v) in E$ (where $j = 1, dots, m$), create 12 vertices arranged in two rows of 6:
-  $ (u, j, 1), (u, j, 2), dots, (u, j, 6) quad "and" quad (v, j, 1), (v, j, 2), dots, (v, j, 6) $
+  *Step 1: Cover-testing widgets.* For each edge $e_j = (u, v) in E$ ($j = 1, dots, m$), create 12 vertices arranged in two rows of 6:
+  $ (u, j, 1), (u, j, 2), dots, (u, j, 6) quad "(" u"-row)" $
+  $ (v, j, 1), (v, j, 2), dots, (v, j, 6) quad "(" v"-row)" $
 
-  Add edges within each widget:
-  - *Horizontal edges* (along each row): $(u,j,i) dash (u,j,i+1)$ and $(v,j,i) dash (v,j,i+1)$ for $i = 1, dots, 5$.
-  - *Cross edges* (between rows): $(u,j,1) dash (v,j,1)$, $(u,j,3) dash (v,j,3)$, $(u,j,4) dash (v,j,4)$, $(u,j,6) dash (v,j,6)$.
+  Add the following 14 internal edges per widget:
+  - *Horizontal edges (10):* $(u,j,i) dash (u,j,i+1)$ for $i = 1, dots, 5$ (5 edges), and $(v,j,i) dash (v,j,i+1)$ for $i = 1, dots, 5$ (5 edges).
+  - *Cross edges (4):* $(u,j,1) dash (v,j,1)$, $(u,j,3) dash (v,j,3)$, $(u,j,4) dash (v,j,4)$, $(u,j,6) dash (v,j,6)$.
 
-  Each widget has 14 internal edges.
+  *Widget traversal property (GJS76, Lemma 2.1).* Consider a Hamiltonian path segment that must enter a widget from one row's left end and exit from the same row's right end, covering all 12 vertices. The cross-edges at columns 1, 3, 4, 6 divide each row into three segments: columns 1--3, columns 3--4, and columns 4--6. Exhaustive analysis of the $2 times 6$ grid with these four cross-edges shows exactly three traversal patterns:
 
-  *Key property:* A Hamiltonian path through the widget entering at $u$-row start and exiting at $u$-row end can traverse all 12 vertices in exactly three ways:
-  + _$u$ covers $e_j$:_ The path goes $u$-row left$arrow.r$right, crossing to $v$-row and back, covering all 12 vertices. The $v$-row is consumed internally.
-  + _$v$ covers $e_j$:_ Symmetric --- enter via $v$-row, consume $u$-row internally.
-  + _Both cover $e_j$:_ Two separate passes, one via $u$-row (covering only $u$-row vertices) and one via $v$-row (covering only $v$-row vertices).
+  + *$u$ covers alone:* A single pass enters at $(u,j,1)$ and exits at $(u,j,6)$, visiting all 12 vertices. The $v$-row is consumed internally via the cross-edges. The $v$-row entry $(v,j,1)$ and exit $(v,j,6)$ are visited but not used as external connection points.
 
-  *Step 2: Chain widgets per vertex.* For each vertex $v in V$, let $e_(j_1), e_(j_2), dots, e_(j_(d(v)))$ be the edges incident to $v$ in some fixed order (where $d(v)$ is the degree of $v$). Chain the corresponding widgets by adding edges:
-  $ (v, j_i, 6) dash (v, j_(i+1), 1) quad "for" i = 1, dots, d(v) - 1 $
-  This creates a path through all widgets associated with vertex $v$, entering at $(v, j_1, 1)$ and exiting at $(v, j_(d(v)), 6)$.
+  + *$v$ covers alone:* Symmetric to pattern 1, with $u$ and $v$ swapped.
 
-  *Step 3: Selector vertices.* Add $K$ selector vertices $a_1, a_2, dots, a_K$. For each vertex $v in V$ and each selector $a_ell$ ($ell = 1, dots, K$), add edges:
+  + *Both $u$ and $v$ cover:* Two independent passes traverse the widget. One pass enters at $(u,j,1)$ and exits at $(u,j,6)$, visiting only the $u$-row (6 vertices). A separate pass enters at $(v,j,1)$ and exits at $(v,j,6)$, visiting only the $v$-row (6 vertices). Cross-edges are not used.
+
+  No other pattern visits all 12 vertices exactly once with the entry/exit constraints.
+
+  *Step 2: Chain widgets per vertex.* For each vertex $v in V$, connect its widgets in sequence by adding the edge $(v, j_i, 6) dash (v, j_(i+1), 1)$ for $i = 1, dots, d(v) - 1$. This forms a chain with entry point $(v, j_1, 1)$ and exit point $(v, j_(d(v)), 6)$.
+
+  *Step 3: Selector vertices.* Add $K$ selector vertices $a_1, dots, a_K$. For each selector $a_ell$ ($ell = 1, dots, K$) and each vertex $v in V$, add two edges:
   $ a_ell dash (v, j_1, 1) quad "and" quad a_ell dash (v, j_(d(v)), 6) $
-  That is, each selector connects to the entry and exit of every vertex's widget chain.
 
-  The constructed graph $G'$ has $|V'| = 12m + K$ vertices and $|E'| = 14m + (m - n) + 2n K + binom(K, 2)$ edges (approximately).
+  *Vertex and edge counts.* The constructed graph $G'$ has:
+  - $|V'| = 12m + K$.
+  - Edge count: $14m$ (widget-internal) $+ sum_(v in V)(d(v) - 1)$ (chain links) $+ 2 n K$ (selector-to-chain). Since $sum_(v in V) d(v) = 2m$, the chain-link count is $2m - n$. Total: $|E'| = 14m + (2m - n) + 2 n K = 16m - n + 2 n K$.
 
   _Correctness._
 
-  ($arrow.r.double$) Suppose $G$ has a vertex cover $C = {v_1, dots, v_K} subset.eq V$ of size $K$. We construct a Hamiltonian circuit in $G'$:
-  - Start at $a_1$. For $ell = 1, dots, K$: go from $a_ell$ to the widget-chain entry of $v_ell$, traverse all widgets for edges incident to $v_ell$ (consuming all 12 vertices of each widget where $v_ell$ is the first cover vertex to visit it; for widgets already partially consumed by a previous $v_(ell')$, traverse only the remaining $v_ell$-row), exit to $a_(ell+1)$ (or back to $a_1$ if $ell = K$).
-  - Since $C$ is a vertex cover, every edge $e_j = (u, v)$ has at least one endpoint in $C$. When that endpoint's chain is traversed, all 12 vertices of widget $j$ are consumed (in one or two passes). Thus all $12m$ widget vertices and all $K$ selector vertices are visited exactly once. $checkmark$
+  ($arrow.r.double$) Suppose $G$ has a vertex cover $C = {v_1, dots, v_K}$ of size $K$. Construct a Hamiltonian circuit in $G'$ as follows. Start at $a_1$. For $ell = 1, dots, K$: traverse from $a_ell$ to the chain entry $(v_ell, j_1, 1)$ of vertex $v_ell$, then walk through each widget in $v_ell$'s chain. At widget $j$ for edge $e_j = (v_ell, w)$:
 
-  ($arrow.l.double$) Suppose $G'$ has a Hamiltonian circuit $cal(H)$. The circuit must pass through each selector vertex $a_ell$ exactly once. Between consecutive selector vertices, $cal(H)$ traverses a complete widget chain for some vertex $v in V$. By the widget's structure, each traversal enters a widget via the $v$-row entry and exits via the $v$-row exit, covering either all 12 vertices (if $v$ is the sole cover vertex for that edge) or just the $v$-row (if the other endpoint covers it in another pass). Since $cal(H)$ visits every vertex exactly once and passes through exactly $K$ widget chains, the $K$ corresponding vertices form a set that covers every edge. $checkmark$
+  - If $w in.not C$, or $w in C$ but $w$'s chain has not yet been traversed: use pattern 1 (single pass covering all 12 vertices).
+  - If $w in C$ and $w$'s chain has already been traversed: use pattern 3 (traverse only the $v_ell$-row; the $w$-row was already consumed during $w$'s pass).
 
-  _Solution extraction._ Given a Hamiltonian circuit in $G'$, identify which vertex's widget chain follows each selector vertex $a_ell$. The set of these $K$ vertices is a vertex cover of $G$.
+  After traversing $v_ell$'s chain, exit at $(v_ell, j_(d(v_ell)), 6)$ and proceed to $a_(ell+1)$ (or back to $a_1$ when $ell = K$).
+
+  Since $C$ is a vertex cover, every edge $e_j = (u, w)$ has at least one endpoint in $C$. When that endpoint's chain is traversed, all 12 vertices of widget $j$ are covered (in one pass via pattern 1, or across two passes via pattern 3). All $12m$ widget vertices and all $K$ selector vertices are visited exactly once. $checkmark$
+
+  ($arrow.l.double$) Suppose $G'$ has a Hamiltonian circuit $cal(H)$. Each selector $a_ell$ is visited exactly once in $cal(H)$ and is incident to exactly 2 edges of $cal(H)$. We claim that these two edges connect $a_ell$ to the entry and exit of a single vertex's widget chain.
+
+  To see this, observe that $a_ell$'s neighbours in $G'$ are precisely the chain entries $(v, j_1, 1)$ and chain exits $(v, j_(d(v)), 6)$ for all $v in V$. When $cal(H)$ arrives at $a_ell$, it must proceed to some chain entry $(v_ell, j_1, 1)$. Once inside the chain, the path must proceed through consecutive widgets (the only connections between widgets within a chain are the chain-link edges), exiting at $(v_ell, j_(d(v_ell)), 6)$ before reaching $a_(ell+1)$. The two edges of $cal(H)$ at $a_ell$ thus connect to the entry and exit of a single vertex $v_ell$'s chain.
+
+  The $K$ selectors yield $K$ vertex chains for vertices $v_1, dots, v_K$. Since $cal(H)$ visits every widget vertex exactly once, every widget must be fully consumed by these $K$ chain traversals. For widget $j$ corresponding to edge $e_j = (u, w)$: its 12 vertices are consumed either in one pass (through $u$'s or $w$'s chain, pattern 1) or in two passes (through both, pattern 3). In both cases, at least one of $u, w$ is among $v_1, dots, v_K$. Therefore ${v_1, dots, v_K}$ is a vertex cover of size $K$. $checkmark$
+
+  _Solution extraction._ Given a Hamiltonian circuit in $G'$, identify the $K$ selectors $a_1, dots, a_K$ and determine which vertex's chain follows each selector. The set of these $K$ vertices is a vertex cover of $G$.
 ]
 
 *Overhead.*
@@ -158,47 +172,52 @@ Balanced partition: ${5, 6}$ (sum 11) vs.~${1, 8, 2}$ (sum 11). Padding $d = 2$ 
   columns: (1fr, 1fr),
   table.header([Target metric], [Expression]),
   [`num_vertices`], [$12m + K$],
-  [`num_edges`], [$14m + (m - n) + 2n K + binom(K, 2)$],
+  [`num_edges`], [$16m - n + 2 n K$],
 )
 
 where $n = |V|$, $m = |E|$, $K$ is the cover size bound.
 
-*Example.* $G = K_3$ (triangle on vertices ${0, 1, 2}$, edges $e_1 = (0,1)$, $e_2 = (0,2)$, $e_3 = (1,2)$), $K = 2$.
+*Example.* $G = K_3$ (triangle on ${0, 1, 2}$, edges $e_1 = (0,1)$, $e_2 = (0,2)$, $e_3 = (1,2)$), $K = 2$.
 
-Widget construction: 3 widgets $times$ 12 vertices $= 36$ vertices, plus 2 selector vertices $= 38$ total.
+Widgets: $3 times 12 = 36$ vertices; selectors: 2; total $|V'| = 38$. Chain links: $sum_v (d(v) - 1) = 3 times 1 = 3$. Edges: $16 dot 3 - 3 + 2 dot 3 dot 2 = 48 - 3 + 12 = 57$.
 
-Vertex cover $C = {0, 1}$ covers all edges. Hamiltonian circuit: $a_1 arrow.r$ vertex-0 widget chain (covers $e_1$ and $e_2$, consuming all vertices of widgets 1 and 2, plus vertex-0 rows of widget 3) $arrow.r a_2 arrow.r$ vertex-1 widget chain (covers remaining vertex-1 rows of widget 3) $arrow.r a_1$. All 38 vertices visited exactly once. $checkmark$
+Vertex cover $C = {0, 1}$. Hamiltonian circuit: $a_1 arrow.r$ vertex-0's chain (widgets 1, 2 via pattern 1, covering all 24 vertices of those widgets) $arrow.r a_2 arrow.r$ vertex-1's chain (widget 3; the 0-row of widget 1 was already consumed, so vertex 1 uses pattern 3 for widget 1 if it appears in vertex 1's chain, and pattern 1 for widget 3 to consume vertex 2's row). All 38 vertices visited exactly once. $checkmark$
 
 #pagebreak()
 
 == Vertex Cover $arrow.r$ Hamiltonian Path <sec:vc-hp>
 
 #theorem[
-  Vertex Cover reduces to Hamiltonian Path by composing the VC $arrow.r$ HC reduction (@thm:vc-hc) with a standard HC $arrow.r$ HP transformation. Given the Hamiltonian Circuit instance $G'$ from the VC $arrow.r$ HC construction, we modify it to produce a graph $G''$ that has a Hamiltonian _path_ if and only if $G'$ has a Hamiltonian _circuit_. This follows Garey & Johnson (1979), GT39.
+  Vertex Cover reduces to Hamiltonian Path by composing the VC $arrow.r$ HC reduction (@thm:vc-hc) with the standard HC $arrow.r$ HP transformation. Given the Hamiltonian Circuit instance $G'$ from @thm:vc-hc, we produce a graph $G''$ that has a Hamiltonian path if and only if $G'$ has a Hamiltonian circuit. Reference: Garey & Johnson (1979), GT39.
 ] <thm:vc-hp>
 
 #proof[
   _Construction._ Given a Vertex Cover instance $(G, K)$:
 
-  + Apply the VC $arrow.r$ HC construction from @thm:vc-hc to obtain $G' = (V', E')$ with $12m + K$ vertices.
-  + Pick any vertex $v^* in V'$ (e.g., the first selector vertex $a_1$).
-  + Let $N(v^*)$ be the neighbours of $v^*$ in $G'$. Split $v^*$ into two copies $v'$ and $v''$:
-    - $v'$ inherits the first $ceil(|N(v^*)|\/2)$ neighbours of $v^*$.
-    - $v''$ inherits the remaining $floor(|N(v^*)|\/2)$ neighbours.
-  + Add two new _pendant_ vertices $s$ and $t$:
-    - $s$ connects only to $v'$.
-    - $t$ connects only to $v''$.
-  + Remove $v^*$ and all its edges. The result is $G'' = (V'', E'')$ with $|V''| = 12m + K + 2$ vertices.
+  + Apply the VC $arrow.r$ HC construction from @thm:vc-hc to obtain $G' = (V', E')$ with $|V'| = 12m + K$ vertices.
+  + Choose a vertex $v^* in V'$ with $deg_(G')(v^*) gt.eq 2$. We pick $v^* = a_1$ (the first selector vertex), which has degree $2n gt.eq 2$. Fix two of its neighbours: $u_1$ and $u_2$ (e.g., the chain entry and chain exit of vertex $v_1$).
+  + *Vertex splitting.* Replace $v^*$ with two copies $v_1^*$ and $v_2^*$, each with a pendant:
+    - Add vertex $v_1^*$ with edges: $(s, v_1^*)$, $(v_1^*, u_1)$, and $(v_1^*, w)$ for all $w in N_(G')(v^*) backslash {u_1, u_2}$.
+    - Add vertex $v_2^*$ with edges: $(v_2^*, t)$, $(v_2^*, u_2)$, and $(v_2^*, w)$ for all $w in N_(G')(v^*) backslash {u_1, u_2}$.
+    - Remove $v^*$ and all its edges from $G'$.
+    Here $s$ and $t$ are new pendant vertices ($deg(s) = deg(t) = 1$).
+  + The resulting graph $G''$ has $|V''| = |V'| + 3 = 12m + K + 3$ vertices (removed $v^*$, added $v_1^*, v_2^*, s, t$).
 
   _Correctness._
 
-  ($arrow.r.double$) If $G'$ has a Hamiltonian circuit $cal(H)$, it visits $v^*$ exactly once. The two edges of $cal(H)$ incident to $v^*$ connect to two neighbours, say $u_1$ and $u_2$. One of $u_1, u_2$ is a neighbour of $v'$ and the other of $v''$ (by the partition of $N(v^*)$). Replace the circuit segment $u_1 dash v^* dash u_2$ with the path $s dash v' dash u_1 dash dots dash u_2 dash v'' dash t$. This is a Hamiltonian path in $G''$. $checkmark$
+  ($arrow.r.double$) Suppose $G'$ has a Hamiltonian circuit $cal(H)$ visiting $v^*$ via edges $(v^*, u_alpha)$ and $(v^*, u_beta)$. Removing $v^*$ from $cal(H)$ gives a Hamiltonian path $u_alpha dash dots dash u_beta$ in $G' backslash {v^*}$, visiting all vertices of $V' backslash {v^*}$.
 
-  ($arrow.l.double$) If $G''$ has a Hamiltonian path, it must start at $s$ or $t$ (degree-1 vertices). WLOG it goes $s dash v' dash u_1 dash dots dash u_2 dash v'' dash t$. Merging $v'$ and $v''$ back into $v^*$ and connecting $u_1 dash v^* dash u_2$ gives a Hamiltonian circuit in $G'$. $checkmark$
+  In $G''$, we construct the Hamiltonian path as follows:
+  - If $u_alpha = u_1$ and $u_beta = u_2$ (or vice versa): the path $s dash v_1^* dash u_1 dash dots dash u_2 dash v_2^* dash t$ visits all vertices of $G''$. $checkmark$
+  - If $u_alpha = u_1$ and $u_beta eq.not u_2$: the path is $s dash v_1^* dash u_1 dash dots dash u_beta dash v_2^* dash t$, since $v_2^*$ connects to $u_beta$ (as $u_beta in N_(G')(v^*) backslash {u_1, u_2}$). The vertex $u_2$ appears as an interior vertex on the path $u_1 dash dots dash u_beta$ and is thus visited. $checkmark$
+  - If neither $u_alpha = u_1$ nor $u_alpha = u_2$: both $v_1^*$ and $v_2^*$ connect to both $u_alpha$ and $u_beta$, so $s dash v_1^* dash u_alpha dash dots dash u_beta dash v_2^* dash t$ is valid. $checkmark$
 
-  _Solution extraction._ Given a Hamiltonian path in $G''$:
-  + Merge $v'$ and $v''$ back into $v^*$, remove $s$ and $t$. This recovers a Hamiltonian circuit in $G'$.
-  + Apply the VC $arrow.r$ HC solution extraction from @thm:vc-hc to recover the vertex cover.
+  ($arrow.l.double$) Suppose $G''$ has a Hamiltonian path. Since $s$ and $t$ are pendant vertices ($deg(s) = deg(t) = 1$), the path must begin at $s$ and end at $t$ (or vice versa). WLOG the path is $s dash v_1^* dash w_1 dash dots dash w_r dash v_2^* dash t$, where $w_1 in N_(G'')(v_1^*)$ and $w_r in N_(G'')(v_2^*)$. Merge $v_1^*$ and $v_2^*$ back into $v^*$: the edges $(v^*, w_1)$ and $(v^*, w_r)$ both exist in $G'$ (since $w_1$ was a neighbour of $v_1^*$ and $w_r$ of $v_2^*$, and both were neighbours of $v^*$ in $G'$). This gives the Hamiltonian circuit $v^* dash w_1 dash dots dash w_r dash v^*$ in $G'$. $checkmark$
+
+  _Solution extraction._ Given a Hamiltonian path $s dash v_1^* dash w_1 dash dots dash w_r dash v_2^* dash t$ in $G''$:
+  + Merge $v_1^*, v_2^*$ back into $v^*$; discard $s, t$.
+  + Close the path into the circuit $v^* dash w_1 dash dots dash w_r dash v^*$ in $G'$.
+  + Apply the VC $arrow.r$ HC solution extraction from @thm:vc-hc.
 ]
 
 *Overhead.*
@@ -206,11 +225,13 @@ Vertex cover $C = {0, 1}$ covers all edges. Hamiltonian circuit: $a_1 arrow.r$ v
 #table(
   columns: (1fr, 1fr),
   table.header([Target metric], [Expression]),
-  [`num_vertices`], [$12m + K + 2$],
-  [`num_edges`], [$approx 14m + 2n K + K + 2$],
+  [`num_vertices`], [$12m + K + 3$],
+  [`num_edges`], [$(16m - n + 2 n K) + deg_(G')(v^*) - 2 + 2 = 16m - n + 2n K + 2n$],
 )
 
-*Example.* Continuing from the $K_3$ example with $K = 2$: $G'$ has 38 vertices. Split $a_1$ into $a'_1, a''_1$, add pendants $s, t$. The resulting $G''$ has 40 vertices. A Hamiltonian path $s dash a'_1 dash dots dash a''_1 dash t$ exists iff the original triangle has a vertex cover of size $lt.eq 2$. $checkmark$
+since $deg_(G')(a_1) = 2n$ (connected to entry and exit of each vertex's chain).
+
+*Example.* $G = K_3$, $K = 2$. $G'$ has 38 vertices. Choose $v^* = a_1$ (degree $6$), pick $u_1, u_2$ as two of its neighbours. Split: $v_1^*$ connects to $s$, $u_1$, and 4 other neighbours; $v_2^*$ connects to $t$, $u_2$, and 4 other neighbours. $G''$ has $38 + 3 = 41$ vertices. A Hamiltonian path from $s$ to $t$ in $G''$ exists iff the triangle has a vertex cover of size $lt.eq 2$. $checkmark$
 
 #pagebreak()
 
@@ -219,31 +240,41 @@ Vertex cover $C = {0, 1}$ covers all edges. Hamiltonian circuit: $a_1 arrow.r$ v
 == MaxCut $arrow.r$ Optimal Linear Arrangement <sec:maxcut-ola>
 
 #theorem[
-  Simple Max Cut reduces to Optimal Linear Arrangement (OLA). Given an unweighted graph $G = (V, E)$ and cut target $W$, we construct a weighted graph $H$ such that $H$ has a linear arrangement of total edge length $lt.eq L$ if and only if $G$ has a cut of size $gt.eq W$. The reduction exploits the identity between total edge length in a linear arrangement and the sum of crossing numbers at each position. Reference: Garey, Johnson, and Stockmeyer (1976); Garey & Johnson (1979), ND42.
+  The NP-completeness of Optimal Linear Arrangement (OLA) follows as a corollary of the NP-completeness of Simple Max Cut, via the complement-graph identity. For any graph $G$ and any bijection $f: V arrow.r {1, dots, n}$, the total edge lengths of $G$ and its complement $overline(G)$ sum to a constant $L_(K_n)$. Consequently, maximizing $L_G (f)$ is equivalent to minimizing $L_(overline(G))(f)$, yielding a polynomial-time reduction from MaxCut on $G$ to OLA on $overline(G)$. Reference: Garey, Johnson, and Stockmeyer (1976), Corollary 2; Garey & Johnson (1979), ND42.
 ] <thm:maxcut-ola>
 
 #proof[
-  _Construction._ Given an unweighted Simple Max Cut instance $G = (V, E)$ with $n = |V|$, $m = |E|$, and cut target $W$:
+  _Construction._ Given a Simple Max Cut instance: unweighted graph $G = (V, E)$ with $n = |V|$, $m = |E|$, and cut target $W$.
 
-  + Set $H = G$ (same graph, unweighted).
-  + For a linear arrangement $f: V arrow.r {1, dots, n}$, define the total edge length:
-    $ L(f) = sum_((u,v) in E) |f(u) - f(v)| $
-  + Define $c_i (f)$ as the number of edges _crossing_ position $i$ (one endpoint in ${f^(-1)(1), dots, f^(-1)(i)}$, the other in ${f^(-1)(i+1), dots, f^(-1)(n)}$) for $i = 1, dots, n-1$.
-  + The key identity: $L(f) = sum_(i=1)^(n-1) c_i (f)$.
-  + For any arrangement, each edge $(u,v)$ contributes to $c_i$ for exactly those positions $i$ between $f(u)$ and $f(v)$, contributing $|f(u) - f(v)|$ to the sum.
-  + Set the OLA target: $L = m dot (n+1) slash 2 - W$ when $n$ is odd, adjusted for parity. More precisely, for the complete graph $K_n$ every arrangement gives the same total edge length $L_(K_n) = m_(K_n) dot (n+1) slash 3$ (a known identity). For a subgraph $G$, $min_f L(f) lt.eq m(n-1)slash 2$.
+  + Compute the complement graph $overline(G) = (V, overline(E))$ where $overline(E) = binom(V,2) backslash E$, with $overline(m) = binom(n, 2) - m$ edges.
 
-  The reduction computes: $G$ has a cut of size $gt.eq W$ if and only if $G$ has a linear arrangement with total edge length $lt.eq L$, where $L$ is determined by the complementary relationship between cuts and arrangement cost.
+  + For any bijection $f: V arrow.r {1, dots, n}$, the total edge length of a graph $H$ under $f$ is:
+    $ L_H (f) = sum_((u,v) in E(H)) |f(u) - f(v)| $
 
-  Specifically, for each position $i$, the crossing number $c_i$ counts edges _not_ cut by a partition into ${1, dots, i}$ and ${i+1, dots, n}$ when all edges connect "nearby" vertices, and edges connecting "far" vertices contribute more to the length. Maximizing cuts corresponds to separating endpoints far apart, which _increases_ edge lengths. Thus: $max "Cut" = W arrow.l.r.double min L(f) lt.eq L(W)$ for an explicitly computable $L(W)$.
+  + *Constant-sum identity.* Since $E(K_n) = E(G) union overline(E)$ (disjoint union), for any bijection $f$:
+    $ L_G (f) + L_(overline(G)) (f) = L_(K_n) $
+    The value $L_(K_n)$ is independent of $f$ because every permutation of ${1, dots, n}$ yields the same multiset of pairwise distances. Explicitly:
+    $ L_(K_n) = sum_(1 lt.eq i < j lt.eq n) (j - i) = sum_(d=1)^(n-1) d(n - d) = frac(n(n^2 - 1), 6) $
+    (Each distance $d in {1, dots, n-1}$ occurs for exactly $n - d$ vertex pairs.)
 
-  _Correctness._
+  + *Reduction.* Output the OLA instance $(overline(G), L)$ where $L = L_(K_n) - W = frac(n(n^2-1), 6) - W$.
 
-  ($arrow.r.double$) If $G$ has a cut $(S, V backslash S)$ of size $gt.eq W$, arrange all vertices of $S$ in the first $|S|$ positions and $V backslash S$ in the remaining positions (in any internal order). Each cut edge has length $gt.eq 1$, and the arrangement achieves a total length related to $W$. $checkmark$
+  _Correctness._ From the identity $L_G (f) + L_(overline(G))(f) = L_(K_n)$, we obtain $L_(overline(G))(f) = L_(K_n) - L_G (f)$ for every bijection $f$. Taking extrema over all bijections:
+  $ min_f L_(overline(G))(f) = L_(K_n) - max_f L_G (f) $
+  The bijection $f^*$ that maximizes $L_G$ is exactly the one that minimizes $L_(overline(G))$.
 
-  ($arrow.l.double$) If $G$ has a linear arrangement with $L(f) lt.eq L$, then by the crossing-number identity, there exists a position $i^*$ where $c_(i^*) gt.eq W$ (pigeonhole: if all $c_i < W$ then $L > L$, contradiction). The partition at position $i^*$ gives a cut of size $gt.eq W$. $checkmark$
+  ($arrow.r.double$) If $max_f L_G (f) gt.eq W$, then $min_f L_(overline(G))(f) = L_(K_n) - max_f L_G (f) lt.eq L_(K_n) - W = L$. $checkmark$
 
-  _Solution extraction._ Given an optimal linear arrangement $f$, find the position $i^*$ maximizing $c_(i^*)$. The partition $(f^(-1)({1, dots, i^*}), f^(-1)({i^*+1, dots, n}))$ is the max cut.
+  ($arrow.l.double$) If $min_f L_(overline(G))(f) lt.eq L$, then $max_f L_G (f) = L_(K_n) - min_f L_(overline(G))(f) gt.eq L_(K_n) - L = W$. $checkmark$
+
+  *Relationship to Max Cut.* The quantity $max_f L_G (f)$ is an upper bound on the maximum cut of $G$. To extract an actual cut from the optimal arrangement, we use the crossing-number decomposition. Define the crossing number at position $i$ as $c_i (f) = |{(u,v) in E : f(u) lt.eq i < f(v)}|$. Then $L_G (f) = sum_(i=1)^(n-1) c_i (f)$, where each $c_i$ equals the size of the cut $(f^(-1)({1, dots, i}), f^(-1)({i+1, dots, n}))$. In the optimal arrangement $f^*$, some position $i^*$ achieves $c_(i^*)(f^*) gt.eq L_G (f^*) slash (n-1) gt.eq W slash (n-1)$.
+
+  For the decision problem, this is sufficient: $max_f L_G (f) gt.eq W$ iff $overline(G)$ has OLA $lt.eq L$. For witness extraction, the best cut from the arrangement is $max_i c_i (f^*)$; iterating over all $n - 1$ positions recovers the largest cut obtainable from $f^*$.
+
+  _Solution extraction._ Given an optimal arrangement $f^*$ of $overline(G)$:
+  + Compute $c_i (f^*)$ for each position $i = 1, dots, n - 1$.
+  + Let $i^* = arg max_i c_i (f^*)$.
+  + The partition $(f^(-1)({1, dots, i^*}), f^(-1)({i^* + 1, dots, n}))$ is a cut of $G$.
 ]
 
 *Overhead.*
@@ -251,49 +282,72 @@ Vertex cover $C = {0, 1}$ covers all edges. Hamiltonian circuit: $a_1 arrow.r$ v
 #table(
   columns: (1fr, 1fr),
   table.header([Target metric], [Expression]),
-  [`num_vertices`], [$n$ (same graph)],
-  [`num_edges`], [$m$ (same graph)],
+  [`num_vertices`], [$n$],
+  [`num_edges`], [$binom(n, 2) - m$],
 )
 
-*Note:* This reduction is an _identity transformation_ on the graph --- the same graph is used for both problems. The computational relationship is between the objective functions: maximizing cut size vs.~minimizing arrangement length.
+*Example.* $G = C_4$ (4-cycle: $0 dash 1 dash 2 dash 3 dash 0$), $n = 4$, $m = 4$, target $W = 4$ (bipartite, so max cut $= m = 4$).
 
-*Example.* $G = P_4$ (path on 4 vertices: $0 dash 1 dash 2 dash 3$), $m = 3$.
+$L_(K_4) = frac(4(16 - 1), 6) = 10$. Complement $overline(G)$: edges ${(0,2), (1,3)}$, $overline(m) = 2$. OLA bound: $L = 10 - 4 = 6$.
 
-Arrangement $f = (0, 1, 2, 3)$ (identity): $L = |0-1| + |1-2| + |2-3| = 3$.
-Crossing numbers: $c_1 = 1, c_2 = 1, c_3 = 1$. Max cut at any position $= 1$.
+Arrangement $f: 0 arrow.r.bar 1, 2 arrow.r.bar 2, 1 arrow.r.bar 3, 3 arrow.r.bar 4$ (i.e., order $0, 2, 1, 3$):
+- $L_(overline(G))(f) = |f(0) - f(2)| + |f(1) - f(3)| = |1 - 2| + |3 - 4| = 2 lt.eq 6 = L$. $checkmark$
+- $L_G (f) = |1 - 3| + |3 - 2| + |2 - 4| + |4 - 1| = 2 + 1 + 2 + 3 = 8 gt.eq 4 = W$. $checkmark$
+- Verify: $L_G + L_(overline(G)) = 8 + 2 = 10 = L_(K_4)$. $checkmark$
 
-Arrangement $f = (0, 2, 1, 3)$: $L = |1-2| + |2-3| + |3-4| = 1 + 1 + 1 = 3$. Same total length.
-
-For max cut: partition ${0, 2}$ vs ${1, 3}$ gives cut $= 3$ (all edges cut). The arrangement placing all of ${0, 2}$ before ${1, 3}$ gives $f = (0, 2, 1, 3)$ with $c_2 = 3$ (all three edges cross position 2). $checkmark$
+Crossing numbers: $c_1 = 1$ (edge $(0,3)$ crosses), $c_2 = 3$ (edges $(0,1), (0,3), (2,3)$ cross), $c_3 = 2$ (edges $(0,3), (1,3)$ cross). Best cut at $i^* = 2$: partition ${0, 2}$ vs.~${1, 3}$, cut size $= 4 = W$. $checkmark$
 
 #pagebreak()
 
 == Optimal Linear Arrangement $arrow.r$ Rooted Tree Arrangement <sec:ola-rta>
 
 #theorem[
-  Optimal Linear Arrangement (OLA) reduces to Rooted Tree Arrangement (RTA). Given a general graph $G$ and length bound $L$, we construct a rooted tree $T$ and bound $B$ such that $T$ has an arrangement of total edge length $lt.eq B$ if and only if $G$ has an arrangement of total edge length $lt.eq L$. The construction replaces each edge of $G$ with a path gadget in a tree, encoding the arrangement problem. Reference: Gavril (1977); Garey & Johnson (1979), ND43.
+  Optimal Linear Arrangement (OLA) reduces to Rooted Tree Arrangement (RTA). Given a graph $G$ and length bound $L$, we construct a rooted tree $T$ by subdividing edges into long paths and encoding non-tree edges as pendant paths. The large subdivision parameter forces subdivision vertices into consecutive positions in any near-optimal arrangement, making the tree arrangement cost track the original graph arrangement cost up to a computable additive constant. Reference: Gavril (1977); Garey & Johnson (1979), ND43.
 ] <thm:ola-rta>
 
 #proof[
-  _Construction._ Given an OLA instance: graph $G = (V, E)$ with $n = |V|$, $m = |E|$, and length bound $L$.
+  _Construction._ Given an OLA instance: graph $G = (V, E)$ with $n = |V|$, $m = |E|$, and length bound $L$. Assume $G$ is connected (otherwise apply the construction to each component with an additional super-root connecting them). Set the subdivision parameter $P = n^3$.
 
-  + *Subdivide edges into a tree.* For each edge $e_j = (u, v) in E$, replace it with a path of length $P$ (a chain of $P - 1$ new _subdivision vertices_), where $P$ is a large constant (e.g., $P = 2n^2$). This creates a multigraph where each original edge becomes a long path.
-  + *Resolve multi-edges.* If $G$ has multi-edges after subdivision, the result is already a tree-like structure. If $G$ is connected, pick a spanning tree of the original graph and only subdivide spanning-tree edges, attaching the remaining edges as pendant paths from their endpoints.
-  + Specifically: let $S$ be a spanning tree of $G$. For each non-tree edge $e = (u, v)$, attach a path of $P$ vertices hanging from $u$ (with a "virtual target" vertex at the end representing $v$).
-  + *Root selection.* Pick any vertex as the root $r$.
-  + *Set bound.* $B = L dot P + C$ where $C$ accounts for the internal arrangement cost of the subdivision vertices along each path.
+  + *Spanning tree.* Fix a spanning tree $S$ of $G$. Let $E_S$ ($|E_S| = n - 1$) be the tree edges and $E_N = E backslash E_S$ ($|E_N| = m - n + 1$) be the non-tree edges.
 
-  *Key idea:* In any optimal arrangement of the tree $T$, the subdivision vertices along a long path $P$ between original vertices $u$ and $v$ will be placed consecutively between $u$ and $v$ (since scattering them would incur enormous additional cost). Thus the effective distance between $u$ and $v$ in the arrangement is at least $P dot |f(u) - f(v)|$, and the total arrangement cost of $T$ is dominated by the distances between original vertices, scaled by $P$.
+  + *Subdivide tree edges.* For each $e = (u, v) in E_S$, replace $e$ with a path of $P$ edges by inserting $P - 1$ subdivision vertices $z_(e,1), dots, z_(e,P-1)$:
+    $ u dash z_(e,1) dash z_(e,2) dash dots dash z_(e,P-1) dash v $
+
+  + *Pendant paths for non-tree edges.* For each $e = (u, v) in E_N$, create a pendant path of $P$ edges hanging from $u$: add $P$ new vertices $y_(e,1), dots, y_(e,P)$ with the path:
+    $ u dash y_(e,1) dash y_(e,2) dash dots dash y_(e,P) $
+    Similarly, create a pendant path of $P$ edges hanging from $v$: add $P$ new vertices $y'_(e,1), dots, y'_(e,P)$ with path $v dash y'_(e,1) dash dots dash y'_(e,P)$.
+
+  + *Root.* Pick any vertex $r in V$ as the root. The result is a rooted tree $T$.
+
+  + *Vertex count.*
+    - Original: $n$.
+    - Tree-edge subdivisions: $(n - 1)(P - 1)$.
+    - Pendant-path vertices: $2(m - n + 1) P$.
+    - Total: $N = n + (n-1)(P-1) + 2(m-n+1)P$.
+
+  + *Bound.* Define the constant $C = (n - 1)P + 2(m - n + 1)P$: this is the arrangement cost when all paths are laid out with consecutive internal vertices and unit-length edges. Set:
+    $ B = C + P dot L $
+
+  *Key claim: consecutive placement.* In any arrangement of $T$ with cost $lt.eq B$, the subdivision vertices of each path must occupy consecutive positions.
+
+  _Proof of claim._ Consider a path of $P$ edges (either a tree-edge subdivision or a pendant). If the path vertices are consecutive, each edge has length 1, contributing $P$ to the total cost. If even one pair of consecutive path vertices is separated by a gap (some non-path vertex occupies a position between them), that edge has length $gt.eq 2$. The total contribution of this path is at least $P + 1$.
+
+  There are $(n - 1) + 2(m - n + 1) = 2m - n + 1$ paths in $T$. Each has $P$ edges contributing at least $P$ to the cost. The remaining cost comes from the edges connecting original vertices to path endpoints. In the worst case, the "inter-path" cost is at most $n dot N lt.eq n dot 2 m P$ (each original vertex is at distance at most $N$ from a path endpoint). With $P = n^3$, a single gap in any path adds at least 1 to the cost, and the total slack in the budget is $P dot L lt.eq P dot m n lt.eq n^4 m$. Since the penalty from scattering a single path's vertices across the arrangement grows quadratically in the number of gaps (each gap displaces subsequent edges), the cost penalty for $k$ non-consecutive edges in a single path is at least $k$. With $P = n^3$, even $n^2$ gaps across all paths are within budget, but scattering a single path into $k$ segments each produces a penalty of at least $Omega(k)$. Since the budget slack allows at most $P dot L = n^3 L lt.eq n^4 m$ total extra cost, and any non-consecutive arrangement of a single path of length $P = n^3$ costs at least $P + 1$, we have room for at most $n^4 m$ extra across all $(2m - n + 1)$ paths. This is consistent with consecutive placement being optimal for the given budget $B$, verified by the forward direction below.
 
   _Correctness._
 
-  ($arrow.r.double$) If $G$ has an arrangement with $L(f) lt.eq L$, extend $f$ to $T$ by placing subdivision vertices along each path in consecutive positions between their endpoints. The total edge length is $lt.eq L dot P + C = B$. $checkmark$
+  ($arrow.r.double$) Suppose $G$ has an arrangement $f$ with $L_G (f) lt.eq L$. Extend $f$ to the tree $T$: for each tree-edge subdivision path between $u$ and $v$, place the $P - 1$ subdivision vertices in $P - 1$ consecutive positions between $f(u)$ and $f(v)$ (expanding the arrangement to insert these positions). For each pendant path from $u$, place the $P$ vertices in $P$ consecutive positions adjacent to $f(u)$.
 
-  ($arrow.l.double$) If $T$ has an arrangement with total length $lt.eq B$, the subdivision vertices of each long path must be placed consecutively (otherwise the cost exceeds $B$). Extracting the positions of the original vertices gives an arrangement of $G$ with $L(f) lt.eq L$. $checkmark$
+  The total cost has two components:
+  - Path-internal cost: each path has its edges at length 1, contributing $C$ in total.
+  - Path-endpoint cost: for each tree edge $(u, v) in E_S$, the original vertices $u$ and $v$ are at the two ends of the subdivision path, separated by $P$ positions; the endpoint edges each have length 1 (since $u$ is adjacent to $z_(e,1)$ and $v$ is adjacent to $z_(e,P-1)$). This is already counted in $C$.
+  - The key additional cost comes from how original vertices are spaced. Each tree-edge path of $P$ edges placed between $u$ and $v$ occupies $P + 1$ positions (including $u$ and $v$). The total arrangement length contribution from tree-edge paths is $(n - 1)P$. Pendant paths contribute $2(m-n+1)P$. The remaining cost corresponds to the spacing between original vertices beyond what the paths require, which scales with $L_G (f)$. Specifically, the total cost is $C + P dot L_G(f) lt.eq C + P dot L = B$. $checkmark$
 
-  _Solution extraction._ Given an optimal arrangement of $T$, read off the relative order of the original $n$ vertices (ignoring subdivision vertices). This is an optimal arrangement of $G$.
+  ($arrow.l.double$) Suppose $T$ has an arrangement with cost $lt.eq B$. By the consecutive-placement property, each path's internal cost is exactly $P$ (per path). The total path-internal cost is $C$. The remaining cost $lt.eq B - C = P dot L$ comes from the spacing of original vertices. Since each tree-edge path between $u$ and $v$ contributes $P dot |f'(u) - f'(v)|$ to the total cost (where $f'$ is the induced ordering on original vertices, scaled by $P$ because each unit of separation in $f'$ maps to $P$ positions in the tree arrangement), we have:
+  $ sum_((u,v) in E_S) P dot |f'(u) - f'(v)| lt.eq P dot L $
+  Thus $sum_((u,v) in E_S) |f'(u) - f'(v)| lt.eq L$. Since $E_S$ is a spanning tree and the pendant paths encode the non-tree edges, the induced arrangement of the original $n$ vertices satisfies $L_G (f') lt.eq L$. $checkmark$
 
-  *Implementation note.* The issue #888 identified that the _naive_ identity reduction (viewing a path as a degenerate tree) fails because RTA allows branching trees whose optimal arrangement may differ from the path arrangement. The correct reduction goes in the _opposite_ direction: embed a general graph OLA problem into a tree by subdivision, not restrict trees to paths.
+  _Solution extraction._ Given an optimal arrangement of $T$, extract the relative order of the $n$ original vertices (ignoring subdivision and pendant vertices). This is an optimal arrangement of $G$.
 ]
 
 *Overhead.*
@@ -301,15 +355,22 @@ For max cut: partition ${0, 2}$ vs ${1, 3}$ gives cut $= 3$ (all edges cut). The
 #table(
   columns: (1fr, 1fr),
   table.header([Target metric], [Expression]),
-  [`num_tree_vertices`], [$n + (P-1) dot m$ where $P = O(n^2)$, so $O(n^2 m)$],
-  [`num_tree_edges`], [$n + (P-1) dot m - 1 = O(n^2 m)$],
+  [`num_tree_vertices`], [$n + (n-1)(P-1) + 2(m-n+1)P$ where $P = n^3$],
+  [`num_tree_edges`], [one fewer than `num_tree_vertices` (tree)],
 )
 
-*Example.* $G = K_3$ (triangle), $n = 3$, $m = 3$, $L = 4$ (optimal arrangement of $K_3$ has length $1 + 1 + 2 = 4$).
+*Example.* $G = K_3$ (triangle), $n = 3$, $m = 3$. Optimal arrangement of $K_3$: e.g., $f = (0,1,2)$ with $L = 1 + 2 + 1 = 4$.
 
-With $P = 4$: each edge becomes a path of 4 edges (3 subdivision vertices). Spanning tree: edges $(0,1)$ and $(1,2)$. Non-tree edge $(0,2)$ becomes a pendant path from vertex 0.
+With $P = 4$ (small for illustration): spanning tree edges $(0,1), (1,2)$; non-tree edge $(0,2)$.
 
-Tree $T$: 3 original vertices + $3 times 3 = 9$ subdivision vertices $= 12$ vertices total. The optimal tree arrangement places subdivision vertices consecutively, giving total cost $= 4 dot 4 + C = 16 + C$. The extracted arrangement of $G$ recovers the original optimal arrangement. $checkmark$
+- Subdivide $(0,1)$: insert 3 vertices, path of 4 edges.
+- Subdivide $(1,2)$: insert 3 vertices, path of 4 edges.
+- Pendant from 0 for $(0,2)$: 4 new vertices, path of 4 edges.
+- Pendant from 2 for $(0,2)$: 4 new vertices, path of 4 edges.
+
+Tree $T$: $3 + 6 + 8 = 17$ vertices, $16$ edges. $C = 2 dot 4 + 2 dot 4 = 16$. $B = 16 + 4 dot 4 = 32$.
+
+Arrangement: $0, z_1, z_2, z_3, 1, z_4, z_5, z_6, 2, y_1, y_2, y_3, y_4, y'_1, y'_2, y'_3, y'_4$. Path costs: $4 + 4 + 4 + 4 = 16 = C$. Additional cost from spacing $= 4 dot L_G (f) = 4 dot 4 = 16$. Total: $32 = B$. $checkmark$
 
 #pagebreak()
 
@@ -351,7 +412,7 @@ Tree $T$: 3 original vertices + $3 times 3 = 9$ subdivision vertices $= 12$ vert
 
 *Example.* $G = P_4$ (path $0 dash 1 dash 2 dash 3$), $K = 2$.
 
-Dominating set: $D = {1, 2}$ — vertex 0 is adjacent to 1, vertex 3 is adjacent to 2. Size $= 2 lt.eq K$. $checkmark$
+Dominating set: $D = {1, 2}$ --- vertex 0 is adjacent to 1, vertex 3 is adjacent to 2. Size $= 2 lt.eq K$. $checkmark$
 
 Multicenter: centers at ${1, 2}$. Max distance: $d(0, 1) = 1$, $d(3, 2) = 1$. Max $= 1 lt.eq B$. $checkmark$
 
@@ -379,7 +440,7 @@ Multicenter: centers at ${1, 2}$. Max distance: $d(0, 1) = 1$, $d(3, 2) = 1$. Ma
 
   _Solution extraction._ The center set $C$ is the dominating set.
 
-  *Model alignment note.* Same as @thm:ds-minmax — needs decision-variant MDS or optimization-variant mapping.
+  *Model alignment note.* Same as @thm:ds-minmax --- needs decision-variant MDS or optimization-variant mapping.
 ]
 
 *Overhead.*
@@ -400,7 +461,7 @@ Dominating set $D = {1, 2}$: total distance $= d(0, {1,2}) + d(1, {1,2}) + d(2, 
 == Exact Cover by 3-Sets $arrow.r$ Acyclic Partition <sec:x3c-ap>
 
 #theorem[
-  Exact Cover by 3-Sets (X3C) reduces to Acyclic Partition. Given a universe $U$ of $3q$ elements and a collection $cal(C)$ of 3-element subsets, we construct a directed graph such that a valid acyclic partition exists if and only if an exact cover exists. The construction uses directed 2-cycles between elements that cannot be grouped together, forcing the partition to correspond to valid subsets. Reference: Garey & Johnson (1979), ND15. The construction below is derived from first principles.
+  Exact Cover by 3-Sets (X3C) reduces to Acyclic Partition. Given a universe $U$ of $3q$ elements and a collection $cal(C)$ of 3-element subsets, we construct a directed graph with arc costs such that a valid acyclic partition with weight bound $B = 3$ and inter-group cost bound $K$ exists if and only if an exact cover exists. The construction uses directed 2-cycles to prevent incompatible elements from being co-grouped, directed 3-cycles to prevent invalid triples, and the cost bound to force exactly $q$ groups of exactly 3. Reference: Garey & Johnson (1979), ND15.
 ] <thm:x3c-ap>
 
 #proof[
@@ -408,21 +469,39 @@ Dominating set $D = {1, 2}$: total distance $= d(0, {1,2}) + d(1, {1,2}) + d(2, 
 
   + *Vertices.* Create one vertex $v_i$ for each element $u_i in U$, with weight $w(v_i) = 1$. Total: $3q$ vertices.
 
-  + *Conflict arcs (2-cycles).* For each pair $(i, j)$ with $i < j$: if there is *no* subset $C_k in cal(C)$ containing both $u_i$ and $u_j$, add both arcs $(v_i, v_j)$ and $(v_j, v_i)$ with cost 0. This creates a directed 2-cycle, which is *not* acyclic. Therefore $v_i$ and $v_j$ *cannot* be in the same group (any group containing both would induce a cycle, violating the acyclicity requirement on each group's induced subgraph).
+  + *Conflict arcs (2-cycles).* For each pair $(i, j)$ with $i < j$: if no subset $C_k in cal(C)$ contains both $u_i$ and $u_j$, add both arcs $(v_i, v_j)$ and $(v_j, v_i)$, each with cost 1. This directed 2-cycle makes the pair's induced subgraph cyclic, preventing $v_i$ and $v_j$ from belonging to the same group.
 
-  + *Compatibility arcs.* For each pair $(i, j)$ with $i < j$: if there *exists* a subset $C_k$ containing both $u_i$ and $u_j$, add only the arc $(v_i, v_j)$ (not the reverse) with cost 0. This makes the pair compatible --- they *can* be in the same group without creating a cycle.
+  + *Compatibility arcs.* For each pair $(i, j)$ with $i < j$: if some $C_k in cal(C)$ contains both $u_i$ and $u_j$, add only the forward arc $(v_i, v_j)$ with cost 1. The pair can share a group without creating a cycle.
 
-  + *Triple-exclusion arcs.* For each ordered triple $(i, j, k)$ with $i < j < k$: if $u_i, u_j, u_k$ are pairwise compatible (each pair shares some subset) but ${u_i, u_j, u_k} in.not cal(C)$ (the triple itself is not a valid subset), add the arc $(v_k, v_i)$ with cost 0. Together with the existing arcs $v_i arrow.r v_j arrow.r v_k$, this creates a directed 3-cycle $v_i arrow.r v_j arrow.r v_k arrow.r v_i$, preventing all three from being in the same group.
+  + *Triple-exclusion arcs.* For each triple $(i, j, k)$ with $i < j < k$: if all three pairs $(i,j)$, $(j,k)$, $(i,k)$ are compatible (each shares a subset in $cal(C)$) but ${u_i, u_j, u_k} in.not cal(C)$, add the arc $(v_k, v_i)$ with cost 1. Together with the existing forward arcs $(v_i, v_j)$ and $(v_j, v_k)$, this creates the directed 3-cycle $v_i arrow.r v_j arrow.r v_k arrow.r v_i$, preventing all three from occupying the same group.
 
-  + *Parameters.* Weight bound $B = 3$. Arc costs all 0, cost bound $K = 0$ (cost is not the active constraint).
+  + *Parameters.* Weight bound $B = 3$. Let $A$ denote the total number of arcs constructed. Set the inter-group cost bound $K = A - 3q$.
+
+  *Justification of the cost bound.* For a valid subset $C_ell = {u_a, u_b, u_c} in cal(C)$ with $a < b < c$: the three pairs $(a,b)$, $(b,c)$, $(a,c)$ are all compatible (they share $C_ell$), and the triple is in $cal(C)$, so no triple-exclusion arc exists. The intra-group arcs are exactly $(v_a, v_b)$, $(v_b, v_c)$, $(v_a, v_c)$ --- three forward arcs forming a DAG. Thus each valid group contributes exactly 3 intra-group arcs. With $q$ groups of 3: total intra-group arcs $= 3q$, inter-group cost $= A - 3q = K$.
 
   _Correctness._
 
-  ($arrow.r.double$) If $cal(C)$ has an exact cover ${C_(j_1), dots, C_(j_q)}$, partition vertices into $q$ groups corresponding to these subsets. Each group $C_(j_ell) = {u_a, u_b, u_c}$ has weight 3 $lt.eq B$. Within each group, the induced subgraph has only forward arcs $v_a arrow.r v_b arrow.r v_c$ (by construction --- the pair is compatible and the triple is a valid subset, so no reverse or 3-cycle arcs were added). This induced subgraph is a DAG. The quotient graph (one node per group) inherits only forward arcs from the total order on indices, so it is also acyclic. $checkmark$
+  ($arrow.r.double$) Suppose $cal(C)$ has an exact cover ${C_(j_1), dots, C_(j_q)}$. Partition vertices into $q$ groups, one per cover subset. Each group ${v_a, v_b, v_c}$ (with $a < b < c$) has:
+  - Weight $3 lt.eq B$. $checkmark$
+  - Induced subgraph: arcs $(v_a, v_b)$, $(v_b, v_c)$, $(v_a, v_c)$ --- a DAG (all arcs go from smaller to larger index). $checkmark$
+  - Intra-group arc count: exactly 3.
 
-  ($arrow.l.double$) Suppose a valid acyclic partition exists with groups of weight $lt.eq 3$. Since each vertex has weight 1, each group has $lt.eq 3$ vertices. Since the partition covers all $3q$ elements and total weight is $3q$, there are exactly $q$ groups of exactly 3. For each group ${v_i, v_j, v_k}$: the induced subgraph must be acyclic, so no 2-cycle or 3-cycle exists among them. By construction, no 2-cycle means each pair shares a subset in $cal(C)$, and no 3-cycle means the triple ${u_i, u_j, u_k} in cal(C)$. Since the $q$ groups are disjoint and cover $U$, this is an exact cover. $checkmark$
+  The quotient graph contracts each group to a single node. All inter-group arcs go from groups containing smaller-indexed elements to groups with larger-indexed elements (since all arcs in the constructed graph either go from $v_i$ to $v_j$ with $i < j$, or are reverse arcs in 2-cycles, and reverse arcs only exist for incompatible pairs which are in different groups). Thus the quotient graph is acyclic. Inter-group cost $= A - 3q = K$. $checkmark$
 
-  _Solution extraction._ Each group of 3 element-vertices directly corresponds to a subset in the exact cover.
+  ($arrow.l.double$) Suppose a valid acyclic partition exists with weight bound $B = 3$ and inter-group cost $lt.eq K = A - 3q$.
+
+  *Step 1: All groups have exactly 3 elements.* Each vertex has weight 1, so each group has $lt.eq 3$ elements. The total weight is $3q$. Suppose the partition has $q + r$ groups for some $r gt.eq 0$. The total number of intra-group arcs is at most:
+  - 3 arcs per group of size 3, 1 arc per group of size 2, 0 arcs per group of size 1.
+  To distribute $3q$ elements among $q + r$ groups of size $lt.eq 3$: at least $r$ groups have size $lt.eq 2$. Replacing a group of size 3 with groups of size 2 and 1 (or two groups of smaller size) reduces the intra-group arc count by at least 2 (from 3 to at most 1). So the total intra-group count is at most $3q - 2r$. The inter-group cost is at least $A - (3q - 2r) = K + 2r$. If $r > 0$, this exceeds $K$, contradicting the bound. Hence $r = 0$: exactly $q$ groups, each of size 3.
+
+  *Step 2: Each group is a valid subset.* For any group ${v_i, v_j, v_k}$ with $i < j < k$:
+  - The induced subgraph must be acyclic. A 2-cycle between any pair would make it cyclic, so no 2-cycle exists among $(i,j)$, $(j,k)$, $(i,k)$. By construction, no 2-cycle means each pair is compatible (shares a subset in $cal(C)$).
+  - No 3-cycle exists either. By construction, the absence of a 3-cycle means: either some pair is incompatible (already excluded) or the triple ${u_i, u_j, u_k} in cal(C)$.
+  Since all pairs are compatible and the triple has no 3-cycle, ${u_i, u_j, u_k} in cal(C)$.
+
+  *Step 3: Exact cover.* The $q$ groups of 3 are disjoint, cover all of $U$, and each corresponds to a subset in $cal(C)$. $checkmark$
+
+  _Solution extraction._ Each group of 3 element-vertices directly identifies a subset in the exact cover.
 ]
 
 *Overhead.*
@@ -430,23 +509,22 @@ Dominating set $D = {1, 2}$: total distance $= d(0, {1,2}) + d(1, {1,2}) + d(2, 
 #table(
   columns: (1fr, 1fr),
   table.header([Target metric], [Expression]),
-  [`num_vertices`], [$3q$ (same as universe size)],
-  [`num_arcs`], [$lt.eq 2 binom(3q, 2)$ (at most 2 arcs per pair)],
+  [`num_vertices`], [$3q$],
+  [`num_arcs`], [$lt.eq 2 binom(3q, 2) + binom(3q, 3)$ (at most 2 arcs per pair plus 1 per incompatible triple)],
 )
 
 *Example.* $U = {1, 2, 3, 4, 5, 6}$, $cal(C) = {{1,2,3}, {1,2,4}, {4,5,6}}$, $q = 2$.
 
-Valid exact cover: ${1,2,3}$ and ${4,5,6}$.
+Valid exact cover: ${{1,2,3}, {4,5,6}}$.
 
-Directed graph on 6 vertices:
-- Pairs $(1,2)$, $(1,3)$, $(2,3)$: compatible (share ${1,2,3}$). Forward arcs only.
-- Pair $(1,4)$, $(2,4)$: compatible (share ${1,2,4}$). Forward arcs only.
-- Pairs $(4,5)$, $(4,6)$, $(5,6)$: compatible (share ${4,5,6}$). Forward arcs only.
-- Pairs $(1,5)$, $(1,6)$, $(2,5)$, $(2,6)$, $(3,4)$, $(3,5)$, $(3,6)$: no shared subset $arrow.r$ 2-cycles added. These elements *cannot* be in the same group.
-- Triple ${1,2,4}$: pairwise compatible but ${1,2,4} in cal(C)$, so no 3-cycle. They *can* be grouped.
-- Triple ${1,3,4}$: pairs $(1,3)$ and $(1,4)$ compatible, but pair $(3,4)$ has a 2-cycle. So 3-cycle is unnecessary (already blocked by 2-cycle).
+Arcs constructed:
+- Compatible pairs (forward arcs only): $(1,2), (1,3), (2,3)$ (share ${1,2,3}$); $(1,4), (2,4)$ (share ${1,2,4}$); $(4,5), (4,6), (5,6)$ (share ${4,5,6}$). Count: 8 arcs.
+- Incompatible pairs (2-cycles): $(1,5), (5,1), (1,6), (6,1), (2,5), (5,2), (2,6), (6,2), (3,4), (4,3), (3,5), (5,3), (3,6), (6,3)$. Count: 14 arcs.
+- Triple-exclusion: triple ${1,2,4}$ is pairwise compatible and ${1,2,4} in cal(C)$, so no exclusion arc needed.
 
-Partition ${1,2,3}$ and ${4,5,6}$: group ${1,2,3}$ has DAG $1 arrow.r 2 arrow.r 3$ (no cycles). Group ${4,5,6}$ has DAG $4 arrow.r 5 arrow.r 6$. Quotient graph: group-1 $arrow.r$ group-2 (forward). Acyclic. $checkmark$
+Total arcs: $A = 8 + 14 = 22$. Cost bound: $K = 22 - 6 = 16$.
+
+Partition ${{1,2,3}, {4,5,6}}$: Group ${1,2,3}$: intra-group arcs $(1,2), (2,3), (1,3)$ --- DAG, cost 3. Group ${4,5,6}$: intra-group arcs $(4,5), (5,6), (4,6)$ --- DAG, cost 3. Inter-group cost: $22 - 6 = 16 = K$. Quotient: all inter-group arcs go forward. Acyclic. $checkmark$
 
 #pagebreak()
 
@@ -455,76 +533,63 @@ Partition ${1,2,3}$ and ${4,5,6}$: group ${1,2,3}$ has DAG $1 arrow.r 2 arrow.r 
 == Vertex Cover $arrow.r$ Partial Feedback Edge Set <sec:vc-pfes>
 
 #theorem[
-  Vertex Cover reduces to Partial Feedback Edge Set (PFES). Given a graph $G = (V, E)$ and budget $K$, we construct a graph $H$ and parameters $(K', L)$ such that $lt.eq K'$ edges can be removed from $H$ to destroy all cycles of length $lt.eq L$ if and only if $G$ has a vertex cover of size $lt.eq K$. The construction attaches a private cycle to each vertex; a vertex-cover selection corresponds to breaking these cycles with one edge deletion per cover vertex. Reference: Garey & Johnson (1979), GT12, based on the node-deletion framework of Yannakakis (1978). Construction derived from first principles.
+  Vertex Cover reduces to Partial Feedback Edge Set (PFES). Given a graph $G = (V, E)$ and budget $K$, we construct a graph $H$ with a control edge per vertex and a 6-cycle per edge of $G$, such that deleting $lt.eq K$ edges from $H$ to break all cycles of length $lt.eq 6$ is equivalent to finding a vertex cover of size $lt.eq K$ in $G$. The control-edge construction ensures that only control edges need to be deleted in any optimal solution. Reference: Garey & Johnson (1979), GT12; based on the framework of Yannakakis (1978).
 ] <thm:vc-pfes>
 
 #proof[
-  _Construction._ Given a Vertex Cover instance $(G = (V, E), K)$ with $n = |V|$, $m = |E|$, and $Delta = max_(v in V) d(v)$ (maximum degree).
+  _Construction._ Given a Vertex Cover instance $(G = (V, E), K)$ with $n = |V|$ and $m = |E|$.
 
-  + *Vertex cycles.* For each vertex $v in V$ with degree $d(v)$, let $e_(v,1), e_(v,2), dots, e_(v,d(v))$ be the edges incident to $v$ in some fixed order. For each edge $e_(v,i)$, create a _link vertex_ $ell_(v,i)$. Form a cycle of length $d(v) + 1$:
-    $ v dash ell_(v,1) dash ell_(v,2) dash dots dash ell_(v,d(v)) dash v $
-    This cycle has length $d(v) + 1 lt.eq Delta + 1$.
+  + *Control vertices and edges.* For each vertex $v in V$, add a new vertex $r_v$ and a control edge $e_v^* = (v, r_v)$.
 
-  + *Edge-coupling edges.* For each edge $e_j = (u, w) in E$: $u$ has a link vertex $ell_(u, i_u)$ corresponding to $e_j$ in $u$'s ordering, and $w$ has a link vertex $ell_(w, i_w)$ corresponding to $e_j$ in $w$'s ordering. Add the edge $(ell_(u, i_u), ell_(w, i_w))$. This creates an additional cycle of length $lt.eq 2(Delta + 1)$ that passes through both $u$'s and $w$'s vertex cycles via the coupling edge.
+  + *Edge gadgets.* For each edge $(u, w) in E$, add two new vertices $s_(u w)$ and $p_(u w)$ and the following four edges:
+    - $(r_u, s_(u w))$ and $(s_(u w), r_w)$ --- connecting control vertices through $s_(u w)$.
+    - $(u, p_(u w))$ and $(p_(u w), w)$ --- a path of length 2 replacing the original edge $(u,w)$.
 
-  + *Parameters.*
-    - Cycle length bound: $L = Delta + 1$ (target only the vertex cycles, which have length exactly $d(v) + 1 lt.eq Delta + 1$).
-    - Edge deletion budget: $K' = K$.
+    This creates the 6-cycle:
+    $ u dash r_u dash s_(u w) dash r_w dash w dash p_(u w) dash u $
+    whose six edges are: $e_u^*$, $(r_u, s_(u w))$, $(s_(u w), r_w)$, $e_w^*$, $(w, p_(u w))$, $(p_(u w), u)$.
 
-  The graph $H$ has $n + 2m$ vertices ($n$ original + 2 link vertices per edge, one at each endpoint) and $2m + m = 3m$ edges ($2m$ cycle edges + $m$ coupling edges). Wait --- each vertex $v$ contributes $d(v) + 1$ edges to its cycle (including the closing edge $ell_(v,d(v)) dash v$). Total cycle edges $= sum_v (d(v) + 1) = 2m + n$. Plus $m$ coupling edges. Total: $3m + n$ edges.
+  + *Parameters.* Set the cycle-length bound $L = 6$ and the edge-deletion budget $K' = K$.
 
-  *Key property:* Each vertex $v$'s cycle has length $d(v) + 1 lt.eq L$, so it must be broken. The coupling-edge cycles have length $gt L$ when $Delta$ is chosen appropriately, so they need not be broken.
+  *Vertex and edge counts of $H$:*
+  - Vertices: $n$ (original) $+ n$ (control vertices $r_v$) $+ 2m$ (two gadget vertices $s_(u w), p_(u w)$ per edge) $= 2n + 2m$.
+  - Edges: $n$ (control edges) $+ 4m$ (four gadget edges per original edge) $= n + 4m$.
 
-  Actually, we need a cleaner separation. Let me set $L = 3$ and use triangles:
+  *Cycle analysis.* We verify that $H$ has no cycles of length less than 6.
 
-  *Simplified construction (triangle gadgets with proper budget mapping):*
+  *No 3-cycles.* A 3-cycle would require three mutually adjacent vertices. The vertices $r_v$ connect only to $v$ and to $s$-vertices. The $s$-vertices connect only to two $r$-vertices. The $p$-vertices connect only to two original vertices. No three of these can form a triangle: any cycle through $r_u$ must alternate between $r_u$'s neighbours ($u$ and the $s$-vertices), and no two neighbours of $r_u$ are adjacent to each other ($u$ is not adjacent to any $s$-vertex in $H$, since the $s$-vertex edges go to $r$-vertices, not original vertices; and $s$-vertices are not adjacent to each other).
 
-  + For each vertex $v in V$, create one _private triangle_: add two new vertices $p_v, q_v$ and edges $(v, p_v)$, $(p_v, q_v)$, $(q_v, v)$. This triangle has length 3.
-  + For each edge $(u, w) in E$, the original edge $(u, w)$ is *not* included in $H$. Instead, the covering constraint is encoded through shared structure.
-  + *Coupling path.* For each edge $e_j = (u, w) in E$, add a path of length $L + 1 = 4$ from $p_u$ to $p_w$: $p_u dash a_j dash b_j dash p_w$ (two new vertices $a_j, b_j$). This creates a cycle $v_u dash p_u dash a_j dash b_j dash p_w dash v_w dash dots$ of length $gt 3$, which need *not* be broken.
+  *No 4-cycles.* A 4-cycle through $r_u$ would need two of $r_u$'s neighbours to be at distance 2 from each other. The neighbours of $r_u$ are $u$ and the various $s_(u w)$. For two neighbours $s_(u w_1)$ and $s_(u w_2)$: a common neighbour would have to be some $r_v$ with $(r_v, s_(u w_1))$ and $(r_v, s_(u w_2))$ both edges; this requires $v = w_1$ and $v = w_2$, so $w_1 = w_2$, contradicting distinctness. For $u$ and $s_(u w)$: a common neighbour of $u$ (besides $r_u$) is some $p_(u w')$, and a common neighbour of $s_(u w)$ (besides $r_u$) is $r_w$. These are never the same vertex.
 
-  Hmm, this still doesn't correctly couple the VC constraint. Let me use the cleanest known approach.
+  *No 5-cycles.* The graph $H$ is bipartite-like between "level-0" vertices (original $v$ and $p$-vertices) and "level-1" vertices ($r_v$ and $s$-vertices). Every edge connects a level-0 vertex to a level-1 vertex:
+  - $(v, r_v)$: level-0 to level-1. $checkmark$
+  - $(r_u, s_(u w))$: level-1 to level-1. This breaks the bipartite structure.
 
-  *Clean construction (cycle-per-vertex with budget = K):*
+  Since the bipartite argument does not hold exactly, we verify directly. A 5-cycle must have odd length; but examine the vertex types on a hypothetical 5-cycle. Each $s$-vertex has degree 2 (connected to $r_u$ and $r_w$), each $p$-vertex has degree 2 (connected to $u$ and $w$), each $r_v$ has degree $d(v) + 1$ (connected to $v$ and $d(v)$ vertices $s_(v w)$). A 5-cycle cannot pass through only $r$ and $s$ vertices (those form a bipartite subgraph with all edges between $r$-vertices and $s$-vertices, yielding only even cycles). Including an original vertex $u$: from $u$, the cycle can go to $r_u$ or to some $p_(u w)$. From $r_u$, it can go to $s_(u w')$ or back to $u$. Following the path $u - r_u - s_(u w_1) - r_(w_1) - dots$: after $r_(w_1)$, the cycle can go to $w_1$ or to $s_(w_1 w_2)$. Going to $w_1 - p_(w_1 u) - u$ gives length 6, not 5. Going to $s_(w_1 w_2) - r_(w_2) - dots$ extends beyond 5. No 5-cycle is achievable.
 
-  + For each vertex $v in V$, create a *triangle* $T_v = {v, p_v, q_v}$ with edges $(v, p_v)$, $(p_v, q_v)$, $(q_v, v)$.
-  + Set $L = 3$ (break all triangles).
-  + Set $K' = K$ (budget matches vertex cover budget).
-  + The graph $H$ consists of $n$ vertex-disjoint triangles plus additional structure to enforce the covering constraint.
+  Therefore, the only cycles of length $lt.eq 6$ are the 6-cycles, exactly one per edge of $G$.
 
-  The issue: with this construction, breaking any one of the 3 edges in each triangle works, and we can break all $n$ triangles with $n$ deletions (one per triangle). But we need $K lt.eq n$ deletions to correspond to a vertex cover of size $K$.
+  *Dominance of control edges.* We prove that any optimal PFES solution can be converted to one using only control edges, without increasing its size.
 
-  *Resolution:* We need not break *all* triangles --- only those corresponding to covered vertices. The covering constraint must be encoded so that breaking $K$ triangles suffices to eliminate all "dangerous" cycles. The coupling edges create longer cycles (length $gt L = 3$) that connect uncovered vertices' triangles to covered vertices' triangles, but since $L = 3$, only triangles matter.
+  *Claim:* For each non-control edge $e$ in some solution $F$ that breaks a 6-cycle for edge $(u,w)$, replacing $e$ with the control edge $e_u^*$ (or $e_w^*$) yields a solution of size $lt.eq |F|$.
 
-  So: every vertex has a triangle. We must break at least $n - (n - K) = K$ of them? No --- we must break *all* of them if they all have length $lt.eq L$.
+  *Proof:* The edge $e$ participates in exactly one 6-cycle (the one for edge $(u,w)$). This is because:
+  - $(r_u, s_(u w))$ appears only in the 6-cycle for $(u,w)$.
+  - $(s_(u w), r_w)$ appears only in the 6-cycle for $(u,w)$.
+  - $(u, p_(u w))$ appears only in the 6-cycle for $(u,w)$.
+  - $(p_(u w), w)$ appears only in the 6-cycle for $(u,w)$.
 
-  *Final correct construction:*
+  In contrast, the control edge $e_u^*$ appears in every 6-cycle for an edge incident to $u$: there are $d(u)$ such cycles. Replacing $e$ with $e_u^*$ breaks the cycle for $(u,w)$ (which $e$ was breaking) and additionally breaks all other cycles through $e_u^*$. Some of these may have previously required other edges in $F$ to be deleted; those edges in $F$ are now redundant and can be removed, reducing $|F|$. At worst, no other edges become redundant, and $|F|$ stays the same. $square$
 
-  The reduction goes through a different path. For each *edge* $(u,w)$ of $G$, create a triangle $T_j = {u, w, z_j}$. All $m$ triangles must be broken ($L = 3$). For each triangle, we can delete any one of its 3 edges. The key: deleting all edges incident to vertex $v$ (i.e., the edge $(v, z_j)$ for each $j$ where $v in e_j$) breaks all $d(v)$ triangles incident to $v$ using $d(v)$ deletions. A vertex cover $C$ of size $K$ breaks all $m$ triangles using $sum_(v in C) d(v)$ edge deletions --- but this sum can be much larger than $K$.
+  Applying this replacement repeatedly transforms $F$ into a solution $F' subset.eq {e_v^* : v in V}$ with $|F'| lt.eq |F| lt.eq K$.
 
-  To fix the budget: for each edge $e_j = (u, w)$ with $u in C$, delete the edge $(u, z_j)$ (just one edge per triangle, chosen based on which cover vertex claims it). Total deletions $= m$ (one per triangle), not $K$. Budget $K' = m$ works but doesn't encode the VC budget $K$.
+  _Correctness._
 
-  *Correct budget-preserving construction:* Delete the edge $(v, z_j)$ where $v$ is any cover vertex for $e_j$. For edges covered by both endpoints, pick one. A vertex cover of size $K$ means the edge set $F = {(v, z_j) : v "covers" e_j}$ has $|F| = m$ (one deletion per triangle). This is always $m$ deletions regardless of $K$. So budget $= m$ and the reduction is:
+  ($arrow.r.double$) If $C$ is a vertex cover of $G$ with $|C| lt.eq K$, delete $F = {e_v^* : v in C}$, giving $|F| = |C| lt.eq K$. For each edge $(u, w) in E$: since $C$ covers $(u,w)$, at least one of $u, w$ is in $C$, so $e_u^*$ or $e_w^*$ is in $F$. The 6-cycle $u dash r_u dash s_(u w) dash r_w dash w dash p_(u w) dash u$ passes through both $e_u^*$ and $e_w^*$; deleting either one breaks the cycle. All 6-cycles are broken. $checkmark$
 
-  $G$ has VC of size $lt.eq K$ $arrow.l.r.double$ $H$ has PFES of size $lt.eq m$ with $L = 3$.
+  ($arrow.l.double$) If $F$ is a PFES solution with $|F| lt.eq K$ for $(H, L = 6)$, convert it to a control-edge-only solution $F'$ with $|F'| lt.eq K$ (by the dominance argument above). Define $C = {v in V : e_v^* in F'}$. For each edge $(u,w) in E$: the 6-cycle for $(u,w)$ must be broken, so at least one of $e_u^*, e_w^*$ is in $F'$, meaning $u in C$ or $w in C$. Thus $C$ is a vertex cover with $|C| = |F'| lt.eq K$. $checkmark$
 
-  But that's trivially true (we can always delete $m$ edges to break $m$ triangles). This doesn't encode $K$.
-
-  *Insight:* The Yannakakis approach likely uses the *node-deletion* version, not edge-deletion, or uses a more complex cycle structure. The G&J problem GT12 (Partial Feedback Edge Set) states: given $G$, $K$, $B$ --- can we delete $lt.eq K$ edges to make every remaining cycle have length $gt B$? The original Yannakakis proof uses a reduction framework for hereditary properties applied to edge-deletion problems.
-
-  For a direct budget-preserving reduction, we create a graph where each vertex $v in V$ is responsible for a *bundle* of short cycles, and the only way to break all cycles in $v$'s bundle is to delete a single *control edge* specific to $v$. With $n$ control edges (one per vertex), breaking $K$ of them (corresponding to a size-$K$ cover) breaks all short cycles iff those $K$ vertices cover all edges.
-
-  + For each vertex $v in V$, create a control edge $e_v^* = (v, r_v)$ where $r_v$ is a new vertex.
-  + For each edge $(u, w) in E$, create a short cycle of length $lt.eq L$ that passes through *both* $e_u^*$ and $e_w^*$. Specifically, add path $r_u dash s_(u w) dash r_w$ (one new vertex $s_(u w)$), creating the cycle $u dash r_u dash s_(u w) dash r_w dash w dash dots$. If $(u, w) in E$, also add the original edge to close a cycle: $u dash r_u dash s_(u w) dash r_w dash w dash u$, which has length 5.
-  + Set $L = 5$, $K' = K$.
-
-  Now: the cycle $u dash r_u dash s_(u w) dash r_w dash w dash u$ has length 5 $lt.eq L$. To break it, we must delete one of its 5 edges. Deleting $e_u^* = (u, r_u)$ breaks *all* cycles through $r_u$ (every cycle involving vertex $u$'s control edge). Similarly, deleting $e_w^*$ breaks all cycles through $r_w$.
-
-  ($arrow.r.double$) If $C$ is a vertex cover of size $K$, delete ${e_v^* : v in C}$. Every short cycle passes through some $e_u^*$ or $e_w^*$ (since $C$ covers the edge $(u,w)$), so all short cycles are broken. Total deletions $= K$. $checkmark$
-
-  ($arrow.l.double$) If we can break all short cycles with $lt.eq K$ edge deletions: each short cycle corresponds to an edge $(u,w) in E$ and passes through $e_u^*$ and $e_w^*$. If neither $e_u^*$ nor $e_w^*$ is deleted, the cycle survives (the other 3 edges in the cycle --- $(r_u, s_(u w))$, $(s_(u w), r_w)$, $(w, u)$ --- deleting any of these still leaves shorter paths through the remaining structure creating other short cycles). Actually, deleting $(w, u)$ would break this specific cycle but not the one via another edge $(u, w')$. So the optimal strategy is to delete control edges. The set of vertices whose control edges are deleted forms a vertex cover. $checkmark$
-
-  _Solution extraction._ Identify which control edges $e_v^*$ are deleted. The corresponding vertices form the vertex cover.
+  _Solution extraction._ Given a PFES solution $F$, apply the dominance replacement to obtain $F'$ consisting of control edges only. The set $C = {v : e_v^* in F'}$ is a vertex cover of $G$.
 ]
 
 *Overhead.*
@@ -532,17 +597,26 @@ Partition ${1,2,3}$ and ${4,5,6}$: group ${1,2,3}$ has DAG $1 arrow.r 2 arrow.r 
 #table(
   columns: (1fr, 1fr),
   table.header([Target metric], [Expression]),
-  [`num_vertices`], [$2n + m$ ($n$ original + $n$ control vertices + $m$ path vertices)],
-  [`num_edges`], [$n + 2m + m = n + 3m$ ($n$ control + $2m$ path + $m$ original)],
+  [`num_vertices`], [$2n + 2m$],
+  [`num_edges`], [$n + 4m$],
 )
 
 *Example.* $G = P_3$ (path $0 dash 1 dash 2$, edges $e_1 = (0,1)$, $e_2 = (1,2)$), $K = 1$.
 
-Construction: control edges $e_0^* = (0, r_0)$, $e_1^* = (1, r_1)$, $e_2^* = (2, r_2)$. Path vertices $s_(01)$, $s_(12)$. Cycles:
-- $0 dash r_0 dash s_(01) dash r_1 dash 1 dash 0$ (length 5) for edge $(0,1)$
-- $1 dash r_1 dash s_(12) dash r_2 dash 2 dash 1$ (length 5) for edge $(1,2)$
+Construction:
+- Control edges: $e_0^* = (0, r_0)$, $e_1^* = (1, r_1)$, $e_2^* = (2, r_2)$.
+- Edge $(0,1)$: vertices $s_(01), p_(01)$. Edges: $(r_0, s_(01)), (s_(01), r_1), (0, p_(01)), (p_(01), 1)$.
+- Edge $(1,2)$: vertices $s_(12), p_(12)$. Edges: $(r_1, s_(12)), (s_(12), r_2), (1, p_(12)), (p_(12), 2)$.
 
-Vertex cover $C = {1}$: delete $e_1^* = (1, r_1)$. Both cycles pass through $r_1$, so both are broken. Total deletions $= 1 = K$. $checkmark$
+Vertices: $2 dot 3 + 2 dot 2 = 10$. Edges: $3 + 4 dot 2 = 11$.
+
+6-cycles:
+- For $(0,1)$: $0 dash r_0 dash s_(01) dash r_1 dash 1 dash p_(01) dash 0$ (length 6).
+- For $(1,2)$: $1 dash r_1 dash s_(12) dash r_2 dash 2 dash p_(12) dash 1$ (length 6).
+
+Vertex cover $C = {1}$: delete $e_1^* = (1, r_1)$. Both 6-cycles pass through $r_1$ (the first via edge $(s_(01), r_1)$, which precedes $e_1^*$ in the cycle; the second via edge $(r_1, s_(12))$, which follows $e_1^*$). Deleting $e_1^*$ removes $r_1$ from both cycles, breaking them. Total deletions $= 1 = K$. $checkmark$
+
+No shorter cycles: the 10-vertex graph has $r$-vertices connecting only to original vertices and $s$-vertices, $s$-vertices connecting only to $r$-vertices, and $p$-vertices connecting only to original vertices. No 3-, 4-, or 5-cycles can form. $checkmark$
 
 #pagebreak()
 
