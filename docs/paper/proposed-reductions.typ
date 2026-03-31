@@ -394,3 +394,67 @@ Multicenter: centers at ${1, 2}$. Max distance: $d(0, 1) = 1$, $d(3, 2) = 1$. Ma
 *Example.* $G = P_4$, $K = 2$.
 
 Dominating set $D = {1, 2}$: total distance $= d(0, {1,2}) + d(1, {1,2}) + d(2, {1,2}) + d(3, {1,2}) = 1 + 0 + 0 + 1 = 2 = n - K$. $checkmark$
+
+#pagebreak()
+
+== Exact Cover by 3-Sets $arrow.r$ Acyclic Partition <sec:x3c-ap>
+
+#theorem[
+  Exact Cover by 3-Sets (X3C) reduces to Acyclic Partition. Given a universe $U$ of $3q$ elements and a collection $cal(C)$ of 3-element subsets, we construct a directed graph with vertex weights and arc costs such that an acyclic partition with bounded weight and cost exists if and only if $cal(C)$ contains an exact cover of $U$. Reference: Garey & Johnson (1979), ND15 (citing an unpublished manuscript). The construction below is derived from first principles.
+] <thm:x3c-ap>
+
+#proof[
+  _Construction._ Given an X3C instance: universe $U = {u_1, dots, u_(3q)}$, collection $cal(C) = {C_1, dots, C_s}$ where each $C_j subset.eq U$ with $|C_j| = 3$.
+
+  + *Vertices.* Create one vertex $v_i$ for each element $u_i in U$. Set $n = 3q$ vertices.
+  + *Vertex weights.* Set $w(v_i) = 1$ for all $i$.
+  + *Arcs.* Create a directed arc $(v_i, v_j)$ for each pair $i < j$ such that $u_i$ and $u_j$ appear _together_ in at least one subset $C_k in cal(C)$. That is, elements that co-occur in some subset are connected by an arc. Direction: lower index to higher index (ensures the full graph is a DAG).
+  + *Arc costs.* Set $c(v_i, v_j) = 0$ if $u_i$ and $u_j$ appear together in some $C_k$ (intra-subset arcs should be free to group together), and $c = M$ (a large constant, e.g., $M = 1$) for arcs between elements that only share subsets partially.
+
+  Actually, a cleaner construction:
+
+  + *Vertices.* Create $3q$ element vertices $v_1, dots, v_(3q)$ (one per universe element), each with weight $w = 1$.
+  + *Arcs.* Form a total order $v_1 arrow.r v_2 arrow.r dots arrow.r v_(3q)$ (a directed path). Arc costs: $c(v_i, v_(i+1)) = 1$ for all $i$.
+  + *Weight bound.* $B = 3$ (each group has at most 3 vertices).
+  + *Cost bound.* $K = 3q - 3$ (there are $3q - 1$ arcs in the path; an exact cover of $q$ groups uses $3q - q dot 2 = q$ intra-group arcs, so $3q - 1 - (q - 0)$ arcs are inter-group; but we need to account for which arcs are intra-group).
+
+  Wait --- this naive path construction doesn't encode _which_ 3-element subsets are valid groups. We need the grouping to correspond to subsets in $cal(C)$.
+
+  *Revised construction:*
+
+  + *Vertices.* For each element $u_i$, create vertex $v_i$ with weight $w(v_i) = 1$. Total: $3q$ vertices.
+  + *Arcs and costs.* For each pair $(i, j)$ with $i < j$: add arc $(v_i, v_j)$ with cost:
+    $ c(v_i, v_j) = cases(0 & "if" exists C_k in cal(C): {u_i, u_j} subset.eq C_k, 1 & "otherwise") $
+    This means grouping two elements that share a valid subset is free, but grouping elements not in a common subset incurs cost 1.
+  + *Weight bound.* $B = 3$ (groups of exactly 3).
+  + *Cost bound.* $K = 0$.
+  + The DAG structure is ensured by directing all arcs from lower to higher index.
+
+  _Correctness._
+
+  ($arrow.r.double$) If $cal(C)$ has an exact cover ${C_(j_1), dots, C_(j_q)}$, partition the vertices into $q$ groups corresponding to these subsets. Each group has 3 vertices (weight $= 3 lt.eq B$). Within each group, all pairs have cost 0 (they share subset $C_(j_ell)$). Between groups, arcs connect vertices in different cover subsets, but these are _inter-group_ arcs whose costs contribute to $K$. Wait --- $K = 0$ means _no_ inter-group cost is allowed.
+
+  The issue is that the _inter-group_ arcs still exist with cost 0 or 1. We need: all inter-group arcs have cost 0. But elements from different cover subsets may have arcs with cost 1 (they don't share a subset). However, $K$ counts only inter-group arcs, and cost-1 arcs between groups would violate $K = 0$.
+
+  *Final revised construction:* Set the cost bound $K$ to count only inter-group arcs that have cost $> 0$. Since elements from different cover sets may not share any subset, we set $K = binom(3q, 2) - 3 binom(q, 1) dot 3 = $ the number of inter-group pairs minus the ones that happen to share a subset.
+
+  This is getting circular. Let me use a cleaner encoding.
+
+  *Clean construction (from first principles):*
+
+  + *Vertices.* Create one vertex per element: $v_1, dots, v_(3q)$, weight 1 each. Additionally, create one vertex per subset: $w_1, dots, w_s$, weight 0 each (dummy vertices).
+  + *Arcs.* For each subset $C_j = {u_a, u_b, u_c}$: add arcs $v_a arrow.r w_j$, $v_b arrow.r w_j$, $v_c arrow.r w_j$, with cost 0. Add arcs $w_j arrow.r v_(3q + 1)$ (a single sink vertex) with cost 0.
+  + *Additional structure.* Actually, the acyclicity constraint on the quotient graph is the key. Let me use the simplest possible encoding:
+
+  Since the original Gavril construction is unavailable, we mark this reduction as _requiring further research_ and provide the problem statement and intended structure only.
+
+  _The correct construction from the unpublished manuscript cited by Garey & Johnson is not available in the public literature. The reduction from X3C to Acyclic Partition (ND15) remains an open item requiring access to the original reference._
+
+  _Solution extraction._ Read the partition groups; each group of 3 element-vertices corresponds to a subset in the exact cover.
+]
+
+*Status:* #text(fill: red)[*OPEN --- original construction unavailable.*] The Garey & Johnson entry ND15 cites "Garey and Johnson, unpublished result." The exact construction needs to be derived or the original manuscript located. The reduction intuitively encodes the covering constraint through the acyclicity requirement on the quotient graph, but the specific gadget construction remains unverified.
+
+*Overhead.* To be determined once the construction is finalized.
+
+*Example.* To be determined.
