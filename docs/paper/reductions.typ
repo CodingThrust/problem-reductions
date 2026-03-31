@@ -4072,6 +4072,41 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 
+#let max2sat_ilp = load-example("Maximum2Satisfiability", "ILP")
+#let max2sat_ilp_sol = max2sat_ilp.solutions.at(0)
+#reduction-rule("Maximum2Satisfiability", "ILP",
+  example: true,
+  example-caption: [$n = #max2sat_ilp.source.instance.num_vars$ variables, $m = #max2sat_ilp.source.instance.clauses.len()$ clauses],
+  extra: [
+    #pred-commands(
+      "pred create --example Maximum2Satisfiability -o max2sat.json",
+      "pred reduce max2sat.json --to " + target-spec(max2sat_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate max2sat.json --config " + max2sat_ilp_sol.source_config.map(str).join(","),
+    )
+    *Step 1 -- Source instance.* The canonical MAX-2-SAT instance has $n = #max2sat_ilp.source.instance.num_vars$ Boolean variables and $m = #max2sat_ilp.source.instance.clauses.len()$ clauses.
+
+    *Step 2 -- Build the binary ILP.* Introduce $n$ binary truth variables $y_0, dots, y_(n-1) in {0,1}$ and $m$ binary clause-indicator variables $z_0, dots, z_(m-1) in {0,1}$. The objective is $ max sum_(j=0)^(m-1) z_j $ subject to one constraint per clause $j$: $z_j <= l_1' + l_2'$ where $l_i' = y_i$ for a positive literal and $l_i' = 1 - y_i$ for a negated literal. The resulting ILP has $n + m = #(max2sat_ilp.source.instance.num_vars + max2sat_ilp.source.instance.clauses.len())$ variables and $m = #max2sat_ilp.source.instance.clauses.len()$ constraints.
+
+    *Step 3 -- Verify a solution.* The ILP optimum extracts the first $n$ variables as the truth assignment $bold(y)^* = (#max2sat_ilp_sol.source_config.map(str).join(", "))$, satisfying #max2sat_ilp_sol.source_config.len() source variables #sym.checkmark.
+  ],
+)[
+  A MAX-2-SAT instance maps directly to a binary ILP @garey1979: each Boolean variable becomes a binary decision variable, each clause gets a binary indicator variable, and a single linear inequality per clause links the indicator to its literals. The objective maximizes the sum of clause indicators, so the ILP optimum equals the maximum number of satisfiable clauses.
+][
+  _Construction._ Given $n$ Boolean variables and $m$ clauses, introduce binary variables $y_0, dots, y_(n-1) in {0,1}$ (truth assignment) and $z_0, dots, z_(m-1) in {0,1}$ (clause indicators). For each clause $C_j$ with literals $ell_1, ell_2$, define $ell_i' = y_i$ if positive and $ell_i' = 1 - y_i$ if negated. Add the constraint $z_j <= ell_1' + ell_2'$, ensuring $z_j = 1$ only when the clause is satisfied. The ILP is:
+  $
+    max quad & sum_(j=0)^(m-1) z_j \
+    "subject to" quad & z_j <= ell_1' + ell_2' quad forall j in {0, dots, m - 1} \
+    & y_i in {0, 1} quad forall i in {0, dots, n - 1} \
+    & z_j in {0, 1} quad forall j in {0, dots, m - 1}
+  $.
+  The target has $n + m$ variables and $m$ constraints.
+
+  _Correctness._ ($arrow.r.double$) Any truth assignment $bold(y)$ satisfying $k$ clauses yields a feasible ILP solution by setting $z_j = 1$ iff clause $j$ is satisfied, achieving objective $k$. ($arrow.l.double$) Any feasible ILP solution with $z_j = 1$ has clause $j$ satisfied by the constraint, so the truth assignment satisfies at least $sum z_j$ clauses. Thus optimal values coincide.
+
+  _Solution extraction._ Return the first $n$ components $(y_0, dots, y_(n-1))$ as the truth assignment.
+]
+
 #{
   let x = load-model-example("NonTautology")
   let n = x.instance.num_vars
