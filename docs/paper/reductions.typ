@@ -180,6 +180,7 @@
   "ConsecutiveOnesSubmatrix": [Consecutive Ones Submatrix],
   "FeasibleBasisExtension": [Feasible Basis Extension],
   "SparseMatrixCompression": [Sparse Matrix Compression],
+  "MinimumMatrixCover": [Minimum Matrix Cover],
   "MinimumMatrixDomination": [Minimum Matrix Domination],
   "MinimumWeightSolutionToLinearEquations": [Minimum Weight Solution to Linear Equations],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
@@ -8318,6 +8319,29 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }),
         caption: [Canonical Sparse Matrix Compression YES instance. Row-colored 1-entries on the left are shifted into the overlay vector on the right, producing $b = (4, 1, 2, 3, 1, 0)$.],
       ) <fig:sparse-matrix-compression>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumMatrixCover")
+  let A = x.instance.matrix
+  let n = A.len()
+  let cfg = x.optimal_config
+  let signs = cfg.map(v => if v == 0 { $-1$ } else { $+1$ })
+  [
+    #problem-def("MinimumMatrixCover")[
+      Given an $n times n$ nonnegative integer matrix $A$, find a function $f: \{1, dots, n\} -> \{-1, +1\}$ minimizing $sum_(i,j) a_(i j) dot f(i) dot f(j)$.
+    ][
+      Minimum Matrix Cover asks for a sign assignment to rows (equivalently columns) of a square matrix that minimizes the resulting quadratic form. Each binary variable $x_i in \{0, 1\}$ encodes a sign $f(i) = 2 x_i - 1$. Since $f(i)^2 = 1$, diagonal entries contribute a constant $sum_i a_(i i)$; the optimization depends only on off-diagonal structure. The brute-force complexity is $O(2^n)$ where $n$ is the matrix dimension.#footnote[No algorithm improving on brute-force enumeration of all $2^n$ sign assignments is known for the general case.]
+
+      *Example.* Let $A$ be the #(n)$times$#(n) symmetric matrix with zero diagonal shown below. The optimal config $(#cfg.map(str).join(", "))$ assigns signs $(#signs.join(", "))$, yielding value $= #x.optimal_value$.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o mmc.json",
+        "pred solve mmc.json",
+        "pred evaluate mmc.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }

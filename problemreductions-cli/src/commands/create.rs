@@ -10,8 +10,9 @@ use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExamp
 use problemreductions::models::algebraic::{
     AlgebraicEquationsOverGF2, ClosestVectorProblem, ConsecutiveBlockMinimization,
     ConsecutiveOnesMatrixAugmentation, ConsecutiveOnesSubmatrix, FeasibleBasisExtension,
-    MinimumMatrixDomination, MinimumWeightSolutionToLinearEquations, QuadraticCongruences,
-    QuadraticDiophantineEquations, SimultaneousIncongruences, SparseMatrixCompression, BMF,
+    MinimumMatrixCover, MinimumMatrixDomination, MinimumWeightSolutionToLinearEquations,
+    QuadraticCongruences, QuadraticDiophantineEquations, SimultaneousIncongruences,
+    SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -854,6 +855,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SparseMatrixCompression" => {
             "--matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound 2"
         }
+        "MinimumMatrixCover" => "--matrix \"0,3,1,0;3,0,0,2;1,0,0,4;0,2,4,0\"",
         "MinimumMatrixDomination" => "--matrix \"0,1,0;1,0,1;0,1,0\"",
         "MinimumWeightSolutionToLinearEquations" => {
             "--matrix '[[1,2,3,1],[2,1,1,3]]' --rhs '5,4'"
@@ -1009,6 +1011,7 @@ fn help_flag_hint(
         }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("SparseMatrixCompression", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("MinimumMatrixCover", "matrix") => "semicolon-separated i64 rows: \"0,3,1;3,0,2;1,2,0\"",
         ("MinimumMatrixDomination", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("MinimumWeightSolutionToLinearEquations", "matrix") => {
             "JSON 2D integer array: '[[1,2,3],[4,5,6]]'"
@@ -3667,6 +3670,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             }
             (
                 ser(SparseMatrixCompression::new(matrix, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumMatrixCover
+        "MinimumMatrixCover" => {
+            let usage = "Usage: pred create MinimumMatrixCover --matrix \"0,3,1,0;3,0,0,2;1,0,0,4;0,2,4,0\"";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumMatrixCover requires --matrix (semicolon-separated i64 rows)\n\n{usage}"
+                )
+            })?;
+            let matrix = parse_i64_matrix(matrix_str).context("Invalid matrix")?;
+            (
+                ser(MinimumMatrixCover::new(matrix))?,
                 resolved_variant.clone(),
             )
         }

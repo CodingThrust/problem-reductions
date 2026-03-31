@@ -12,9 +12,10 @@ pub mod set;
 pub use algebraic::{
     AlgebraicEquationsOverGF2, ClosestVectorProblem, ConsecutiveBlockMinimization,
     ConsecutiveOnesMatrixAugmentation, ConsecutiveOnesSubmatrix, EquilibriumPoint,
-    FeasibleBasisExtension, MinimumMatrixDomination, MinimumWeightSolutionToLinearEquations,
-    QuadraticAssignment, QuadraticCongruences, QuadraticDiophantineEquations,
-    SimultaneousIncongruences, SparseMatrixCompression, BMF, ILP, QUBO,
+    FeasibleBasisExtension, MinimumMatrixCover, MinimumMatrixDomination,
+    MinimumWeightSolutionToLinearEquations, QuadraticAssignment, QuadraticCongruences,
+    QuadraticDiophantineEquations, SimultaneousIncongruences, SparseMatrixCompression, BMF, ILP,
+    QUBO,
 };
 pub use formula::{
     CNFClause, CircuitSAT, KSatisfiability, Maximum2Satisfiability, NAESatisfiability,
