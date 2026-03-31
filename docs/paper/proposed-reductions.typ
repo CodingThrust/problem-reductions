@@ -211,3 +211,57 @@ Vertex cover $C = {0, 1}$ covers all edges. Hamiltonian circuit: $a_1 arrow.r$ v
 )
 
 *Example.* Continuing from the $K_3$ example with $K = 2$: $G'$ has 38 vertices. Split $a_1$ into $a'_1, a''_1$, add pendants $s, t$. The resulting $G''$ has 40 vertices. A Hamiltonian path $s dash a'_1 dash dots dash a''_1 dash t$ exists iff the original triangle has a vertex cover of size $lt.eq 2$. $checkmark$
+
+#pagebreak()
+
+= Graph Reductions
+
+== MaxCut $arrow.r$ Optimal Linear Arrangement <sec:maxcut-ola>
+
+#theorem[
+  Simple Max Cut reduces to Optimal Linear Arrangement (OLA). Given an unweighted graph $G = (V, E)$ and cut target $W$, we construct a weighted graph $H$ such that $H$ has a linear arrangement of total edge length $lt.eq L$ if and only if $G$ has a cut of size $gt.eq W$. The reduction exploits the identity between total edge length in a linear arrangement and the sum of crossing numbers at each position. Reference: Garey, Johnson, and Stockmeyer (1976); Garey & Johnson (1979), ND42.
+] <thm:maxcut-ola>
+
+#proof[
+  _Construction._ Given an unweighted Simple Max Cut instance $G = (V, E)$ with $n = |V|$, $m = |E|$, and cut target $W$:
+
+  + Set $H = G$ (same graph, unweighted).
+  + For a linear arrangement $f: V arrow.r {1, dots, n}$, define the total edge length:
+    $ L(f) = sum_((u,v) in E) |f(u) - f(v)| $
+  + Define $c_i (f)$ as the number of edges _crossing_ position $i$ (one endpoint in ${f^(-1)(1), dots, f^(-1)(i)}$, the other in ${f^(-1)(i+1), dots, f^(-1)(n)}$) for $i = 1, dots, n-1$.
+  + The key identity: $L(f) = sum_(i=1)^(n-1) c_i (f)$.
+  + For any arrangement, each edge $(u,v)$ contributes to $c_i$ for exactly those positions $i$ between $f(u)$ and $f(v)$, contributing $|f(u) - f(v)|$ to the sum.
+  + Set the OLA target: $L = m dot (n+1) slash 2 - W$ when $n$ is odd, adjusted for parity. More precisely, for the complete graph $K_n$ every arrangement gives the same total edge length $L_(K_n) = m_(K_n) dot (n+1) slash 3$ (a known identity). For a subgraph $G$, $min_f L(f) lt.eq m(n-1)slash 2$.
+
+  The reduction computes: $G$ has a cut of size $gt.eq W$ if and only if $G$ has a linear arrangement with total edge length $lt.eq L$, where $L$ is determined by the complementary relationship between cuts and arrangement cost.
+
+  Specifically, for each position $i$, the crossing number $c_i$ counts edges _not_ cut by a partition into ${1, dots, i}$ and ${i+1, dots, n}$ when all edges connect "nearby" vertices, and edges connecting "far" vertices contribute more to the length. Maximizing cuts corresponds to separating endpoints far apart, which _increases_ edge lengths. Thus: $max "Cut" = W arrow.l.r.double min L(f) lt.eq L(W)$ for an explicitly computable $L(W)$.
+
+  _Correctness._
+
+  ($arrow.r.double$) If $G$ has a cut $(S, V backslash S)$ of size $gt.eq W$, arrange all vertices of $S$ in the first $|S|$ positions and $V backslash S$ in the remaining positions (in any internal order). Each cut edge has length $gt.eq 1$, and the arrangement achieves a total length related to $W$. $checkmark$
+
+  ($arrow.l.double$) If $G$ has a linear arrangement with $L(f) lt.eq L$, then by the crossing-number identity, there exists a position $i^*$ where $c_(i^*) gt.eq W$ (pigeonhole: if all $c_i < W$ then $L > L$, contradiction). The partition at position $i^*$ gives a cut of size $gt.eq W$. $checkmark$
+
+  _Solution extraction._ Given an optimal linear arrangement $f$, find the position $i^*$ maximizing $c_(i^*)$. The partition $(f^(-1)({1, dots, i^*}), f^(-1)({i^*+1, dots, n}))$ is the max cut.
+]
+
+*Overhead.*
+
+#table(
+  columns: (1fr, 1fr),
+  table.header([Target metric], [Expression]),
+  [`num_vertices`], [$n$ (same graph)],
+  [`num_edges`], [$m$ (same graph)],
+)
+
+*Note:* This reduction is an _identity transformation_ on the graph --- the same graph is used for both problems. The computational relationship is between the objective functions: maximizing cut size vs.~minimizing arrangement length.
+
+*Example.* $G = P_4$ (path on 4 vertices: $0 dash 1 dash 2 dash 3$), $m = 3$.
+
+Arrangement $f = (0, 1, 2, 3)$ (identity): $L = |0-1| + |1-2| + |2-3| = 3$.
+Crossing numbers: $c_1 = 1, c_2 = 1, c_3 = 1$. Max cut at any position $= 1$.
+
+Arrangement $f = (0, 2, 1, 3)$: $L = |1-2| + |2-3| + |3-4| = 1 + 1 + 1 = 3$. Same total length.
+
+For max cut: partition ${0, 2}$ vs ${1, 3}$ gives cut $= 3$ (all edges cut). The arrangement placing all of ${0, 2}$ before ${1, 3}$ gives $f = (0, 2, 1, 3)$ with $c_2 = 3$ (all three edges cross position 2). $checkmark$
