@@ -97,7 +97,7 @@ fn test_threepartition_to_resourceconstrainedscheduling_single_triple() {
 }
 
 #[test]
-fn test_threepartition_to_resourceconstrainedscheduling_infeasible() {
+fn test_threepartition_to_resourceconstrainedscheduling_two_triples() {
     // sizes [4, 4, 7, 4, 4, 7], B=15, m=2
     // Only valid grouping of triples summing to 15: {4, 4, 7} and {4, 4, 7}
     // This is actually feasible. Let's pick something infeasible.

@@ -192,7 +192,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // 3 element jobs, 0 separators => 3 jobs, 6 tasks
             // All elements go to group 0: config = [0, 0, 0]
             let source = ThreePartition::new(vec![4, 5, 6], 15);
-            let reduction = ReduceTo::<JobShopScheduling>::reduce_to(&source);
+            let _reduction = ReduceTo::<JobShopScheduling>::reduce_to(&source);
 
             // For m=1, any ordering works. Use identity ordering on both machines.
             // Machine 0: 3 tasks => Lehmer [0, 0, 0]
