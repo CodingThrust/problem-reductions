@@ -7,7 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -57,7 +57,7 @@ inventory::submit! {
 /// let solution = solver.find_witness(&problem);
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FeasibleRegisterAssignment {
     /// Number of vertices.
     num_vertices: usize,
@@ -67,6 +67,38 @@ pub struct FeasibleRegisterAssignment {
     num_registers: usize,
     /// Register assignment f(v) for each vertex.
     assignment: Vec<usize>,
+    /// Precomputed: dependencies[v] = vertices that v depends on.
+    #[serde(skip)]
+    dependencies: Vec<Vec<usize>>,
+    /// Precomputed: dependents[u] = vertices that depend on u.
+    #[serde(skip)]
+    dependents: Vec<Vec<usize>>,
+}
+
+#[derive(Deserialize)]
+struct FeasibleRegisterAssignmentData {
+    num_vertices: usize,
+    arcs: Vec<(usize, usize)>,
+    num_registers: usize,
+    assignment: Vec<usize>,
+}
+
+impl<'de> Deserialize<'de> for FeasibleRegisterAssignment {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let data = FeasibleRegisterAssignmentData::deserialize(deserializer)?;
+        let (dependencies, dependents) = Self::build_adjacency(data.num_vertices, &data.arcs);
+        Ok(Self {
+            num_vertices: data.num_vertices,
+            arcs: data.arcs,
+            num_registers: data.num_registers,
+            assignment: data.assignment,
+            dependencies,
+            dependents,
+        })
+    }
 }
 
 impl FeasibleRegisterAssignment {
@@ -115,12 +147,29 @@ impl FeasibleRegisterAssignment {
                 num_registers
             );
         }
+        let (dependencies, dependents) = Self::build_adjacency(num_vertices, &arcs);
         Self {
             num_vertices,
             arcs,
             num_registers,
             assignment,
+            dependencies,
+            dependents,
         }
+    }
+
+    /// Build dependency and dependent adjacency lists from arcs.
+    fn build_adjacency(
+        num_vertices: usize,
+        arcs: &[(usize, usize)],
+    ) -> (Vec<Vec<usize>>, Vec<Vec<usize>>) {
+        let mut dependencies = vec![vec![]; num_vertices];
+        let mut dependents = vec![vec![]; num_vertices];
+        for &(v, u) in arcs {
+            dependencies[v].push(u);
+            dependents[u].push(v);
+        }
+        (dependencies, dependents)
     }
 
     /// Get the number of vertices.
@@ -172,14 +221,6 @@ impl FeasibleRegisterAssignment {
             order[position] = vertex;
         }
 
-        // Build dependency info
-        let mut dependencies: Vec<Vec<usize>> = vec![vec![]; n];
-        let mut dependents: Vec<Vec<usize>> = vec![vec![]; n];
-        for &(v, u) in &self.arcs {
-            dependencies[v].push(u);
-            dependents[u].push(v);
-        }
-
         // Check topological ordering and register conflicts
         let mut computed = vec![false; n];
 
@@ -187,7 +228,7 @@ impl FeasibleRegisterAssignment {
             let vertex = order[step];
 
             // Check dependencies: all dependencies must have been computed
-            for &dep in &dependencies[vertex] {
+            for &dep in &self.dependencies[vertex] {
                 if !computed[dep] {
                     return false;
                 }
@@ -195,15 +236,12 @@ impl FeasibleRegisterAssignment {
 
             // Check register conflict: the register assigned to this vertex
             // must not be currently occupied by a live value.
-            // A previously computed vertex w is "live" if:
-            //   - assignment[w] == assignment[vertex] (same register)
-            //   - w has at least one dependent (other than vertex) that hasn't
-            //     been computed yet. The current vertex is consuming w's value
-            //     at this step, so we exclude it from the liveness check.
             let reg = self.assignment[vertex];
             for &w in &order[..step] {
                 if self.assignment[w] == reg {
-                    let still_live = dependents[w].iter().any(|&d| d != vertex && !computed[d]);
+                    let still_live = self.dependents[w]
+                        .iter()
+                        .any(|&d| d != vertex && !computed[d]);
                     if still_live {
                         return false;
                     }

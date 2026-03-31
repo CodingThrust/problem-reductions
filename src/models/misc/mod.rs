@@ -54,6 +54,7 @@
 
 pub(crate) mod additional_key;
 mod betweenness;
+pub(crate) mod biguint_serde;
 mod cyclic_ordering;
 
 /// Decode a Lehmer code into a permutation of `0..n`.

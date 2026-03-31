@@ -49,6 +49,9 @@ pub struct NonLivenessFreePetriNet {
     place_to_transition: Vec<(usize, usize)>,
     transition_to_place: Vec<(usize, usize)>,
     initial_marking: Vec<usize>,
+    /// Precomputed globally dead transitions (not serialized).
+    #[serde(skip)]
+    globally_dead: Vec<bool>,
 }
 
 impl NonLivenessFreePetriNet {
@@ -149,13 +152,16 @@ impl NonLivenessFreePetriNet {
             &transition_to_place,
             &initial_marking,
         )?;
-        Ok(Self {
+        let mut net = Self {
             num_places,
             num_transitions,
             place_to_transition,
             transition_to_place,
             initial_marking,
-        })
+            globally_dead: Vec::new(),
+        };
+        net.globally_dead = net.compute_globally_dead_transitions();
+        Ok(net)
     }
 
     /// Create a new `NonLivenessFreePetriNet` instance.
@@ -220,18 +226,12 @@ impl NonLivenessFreePetriNet {
     fn enabled_transitions(&self, marking: &[usize]) -> Vec<bool> {
         let mut enabled = vec![true; self.num_transitions];
         // A transition t is enabled iff every input place has at least one token.
-        // First, mark all transitions that have at least one input place.
-        let mut has_input = vec![false; self.num_transitions];
+        // Transitions with no input places remain enabled (source transitions).
         for &(p, t) in &self.place_to_transition {
-            has_input[t] = true;
             if marking[p] == 0 {
                 enabled[t] = false;
             }
         }
-        // Transitions with no input places are always enabled (source transitions).
-        // They remain true in the enabled vector.
-        // But we need to handle the case where has_input is false: leave enabled as true.
-        let _ = has_input; // used implicitly above
         enabled
     }
 
@@ -401,12 +401,10 @@ impl Problem for NonLivenessFreePetriNet {
             return Or(false);
         }
 
-        let globally_dead = self.compute_globally_dead_transitions();
-
         // Config selects transitions claimed to be dead.
         // Return true iff at least one selected transition is indeed globally dead.
         for (t, &selected) in config.iter().enumerate() {
-            if selected == 1 && globally_dead[t] {
+            if selected == 1 && self.globally_dead[t] {
                 return Or(true);
             }
         }

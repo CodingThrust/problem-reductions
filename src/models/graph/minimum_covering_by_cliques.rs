@@ -94,24 +94,22 @@ impl<G: Graph> MinimumCoveringByCliques<G> {
             return false;
         }
 
-        // Collect vertices per group and check clique property.
+        // Group edges by their assigned clique in a single pass.
         let max_group = match config.iter().max() {
             Some(&m) => m,
             None => return true, // no edges → trivially valid
         };
 
-        for group in 0..=max_group {
-            let vertices: HashSet<usize> = config
-                .iter()
-                .enumerate()
-                .filter(|(_, &g)| g == group)
-                .flat_map(|(idx, _)| {
-                    let (u, v) = edges[idx];
-                    [u, v]
-                })
-                .collect();
+        let mut groups: Vec<HashSet<usize>> = vec![HashSet::new(); max_group + 1];
+        for (idx, &group) in config.iter().enumerate() {
+            let (u, v) = edges[idx];
+            groups[group].insert(u);
+            groups[group].insert(v);
+        }
 
-            let verts: Vec<usize> = vertices.into_iter().collect();
+        // Check that each group's vertices form a clique.
+        for vertices in &groups {
+            let verts: Vec<usize> = vertices.iter().copied().collect();
             for i in 0..verts.len() {
                 for j in (i + 1)..verts.len() {
                     if !self.graph.has_edge(verts[i], verts[j]) {
