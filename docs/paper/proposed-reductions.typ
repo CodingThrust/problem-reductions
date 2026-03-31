@@ -168,3 +168,46 @@ where $n = |V|$, $m = |E|$, $K$ is the cover size bound.
 Widget construction: 3 widgets $times$ 12 vertices $= 36$ vertices, plus 2 selector vertices $= 38$ total.
 
 Vertex cover $C = {0, 1}$ covers all edges. Hamiltonian circuit: $a_1 arrow.r$ vertex-0 widget chain (covers $e_1$ and $e_2$, consuming all vertices of widgets 1 and 2, plus vertex-0 rows of widget 3) $arrow.r a_2 arrow.r$ vertex-1 widget chain (covers remaining vertex-1 rows of widget 3) $arrow.r a_1$. All 38 vertices visited exactly once. $checkmark$
+
+#pagebreak()
+
+== Vertex Cover $arrow.r$ Hamiltonian Path <sec:vc-hp>
+
+#theorem[
+  Vertex Cover reduces to Hamiltonian Path by composing the VC $arrow.r$ HC reduction (@thm:vc-hc) with a standard HC $arrow.r$ HP transformation. Given the Hamiltonian Circuit instance $G'$ from the VC $arrow.r$ HC construction, we modify it to produce a graph $G''$ that has a Hamiltonian _path_ if and only if $G'$ has a Hamiltonian _circuit_. This follows Garey & Johnson (1979), GT39.
+] <thm:vc-hp>
+
+#proof[
+  _Construction._ Given a Vertex Cover instance $(G, K)$:
+
+  + Apply the VC $arrow.r$ HC construction from @thm:vc-hc to obtain $G' = (V', E')$ with $12m + K$ vertices.
+  + Pick any vertex $v^* in V'$ (e.g., the first selector vertex $a_1$).
+  + Let $N(v^*)$ be the neighbours of $v^*$ in $G'$. Split $v^*$ into two copies $v'$ and $v''$:
+    - $v'$ inherits the first $ceil(|N(v^*)|\/2)$ neighbours of $v^*$.
+    - $v''$ inherits the remaining $floor(|N(v^*)|\/2)$ neighbours.
+  + Add two new _pendant_ vertices $s$ and $t$:
+    - $s$ connects only to $v'$.
+    - $t$ connects only to $v''$.
+  + Remove $v^*$ and all its edges. The result is $G'' = (V'', E'')$ with $|V''| = 12m + K + 2$ vertices.
+
+  _Correctness._
+
+  ($arrow.r.double$) If $G'$ has a Hamiltonian circuit $cal(H)$, it visits $v^*$ exactly once. The two edges of $cal(H)$ incident to $v^*$ connect to two neighbours, say $u_1$ and $u_2$. One of $u_1, u_2$ is a neighbour of $v'$ and the other of $v''$ (by the partition of $N(v^*)$). Replace the circuit segment $u_1 dash v^* dash u_2$ with the path $s dash v' dash u_1 dash dots dash u_2 dash v'' dash t$. This is a Hamiltonian path in $G''$. $checkmark$
+
+  ($arrow.l.double$) If $G''$ has a Hamiltonian path, it must start at $s$ or $t$ (degree-1 vertices). WLOG it goes $s dash v' dash u_1 dash dots dash u_2 dash v'' dash t$. Merging $v'$ and $v''$ back into $v^*$ and connecting $u_1 dash v^* dash u_2$ gives a Hamiltonian circuit in $G'$. $checkmark$
+
+  _Solution extraction._ Given a Hamiltonian path in $G''$:
+  + Merge $v'$ and $v''$ back into $v^*$, remove $s$ and $t$. This recovers a Hamiltonian circuit in $G'$.
+  + Apply the VC $arrow.r$ HC solution extraction from @thm:vc-hc to recover the vertex cover.
+]
+
+*Overhead.*
+
+#table(
+  columns: (1fr, 1fr),
+  table.header([Target metric], [Expression]),
+  [`num_vertices`], [$12m + K + 2$],
+  [`num_edges`], [$approx 14m + 2n K + K + 2$],
+)
+
+*Example.* Continuing from the $K_3$ example with $K = 2$: $G'$ has 38 vertices. Split $a_1$ into $a'_1, a''_1$, add pendants $s, t$. The resulting $G''$ has 40 vertices. A Hamiltonian path $s dash a'_1 dash dots dash a''_1 dash t$ exists iff the original triangle has a vertex cover of size $lt.eq 2$. $checkmark$
