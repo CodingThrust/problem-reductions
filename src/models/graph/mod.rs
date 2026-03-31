@@ -17,6 +17,7 @@
 //! - [`MinimumFeedbackVertexSet`]: Minimum weight feedback vertex set in a directed graph
 //! - [`MaximumClique`]: Maximum weight clique
 //! - [`MaximumAchromaticNumber`]: Maximum number of colors in a complete proper coloring
+//! - [`MaximumDomaticNumber`]: Maximum partition into disjoint dominating sets
 //! - [`MaxCut`]: Maximum cut on weighted graphs
 //! - [`MinimumCutIntoBoundedSets`]: Minimum cut into bounded sets (Garey & Johnson ND17)
 //! - [`MinimumDummyActivitiesPert`]: Minimum dummy activities in activity-on-arc PERT networks
@@ -99,6 +100,7 @@ pub(crate) mod max_cut;
 pub(crate) mod maximal_is;
 pub(crate) mod maximum_achromatic_number;
 pub(crate) mod maximum_clique;
+pub(crate) mod maximum_domatic_number;
 pub(crate) mod maximum_independent_set;
 pub(crate) mod maximum_matching;
 pub(crate) mod min_max_multicenter;
@@ -169,6 +171,7 @@ pub use max_cut::MaxCut;
 pub use maximal_is::MaximalIS;
 pub use maximum_achromatic_number::MaximumAchromaticNumber;
 pub use maximum_clique::MaximumClique;
+pub use maximum_domatic_number::MaximumDomaticNumber;
 pub use maximum_independent_set::MaximumIndependentSet;
 pub use maximum_matching::MaximumMatching;
 pub use min_max_multicenter::MinMaxMulticenter;
@@ -242,6 +245,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(minimum_maximal_matching::canonical_model_example_specs());
     specs.extend(traveling_salesman::canonical_model_example_specs());
     specs.extend(maximum_achromatic_number::canonical_model_example_specs());
+    specs.extend(maximum_domatic_number::canonical_model_example_specs());
     specs.extend(maximum_clique::canonical_model_example_specs());
     specs.extend(maximal_is::canonical_model_example_specs());
     specs.extend(minimum_cut_into_bounded_sets::canonical_model_example_specs());

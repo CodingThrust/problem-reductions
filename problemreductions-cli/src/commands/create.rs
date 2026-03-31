@@ -707,6 +707,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--left 4 --right 4 --biedges 0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3 --k 3"
         }
         "MaximumAchromaticNumber" => "--graph 0-1,1-2,2-3,3-4,4-5,5-0",
+        "MaximumDomaticNumber" => "--graph 0-1,1-2,0-2",
         "MinimumCoveringByCliques" => "--graph 0-1,1-2,0-2,2-3",
         "MinimumIntersectionGraphBasis" => "--graph 0-1,1-2",
         "MinimumMaximalMatching" => "--graph 0-1,1-2,2-3,3-4,4-5",
@@ -1478,6 +1479,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(problemreductions::models::graph::MaximumAchromaticNumber::new(graph))?,
+                variant_map(&[("graph", "SimpleGraph")]),
+            )
+        }
+
+        // MaximumDomaticNumber (graph only, no weights)
+        "MaximumDomaticNumber" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MaximumDomaticNumber --graph 0-1,1-2,0-2"
+                )
+            })?;
+            (
+                ser(problemreductions::models::graph::MaximumDomaticNumber::new(
+                    graph,
+                ))?,
                 variant_map(&[("graph", "SimpleGraph")]),
             )
         }
@@ -7700,6 +7716,20 @@ fn create_random(
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (
                 ser(problemreductions::models::graph::MaximumAchromaticNumber::new(graph))?,
+                variant,
+            )
+        }
+
+        // MaximumDomaticNumber (graph only, no weights)
+        "MaximumDomaticNumber" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (
+                ser(problemreductions::models::graph::MaximumDomaticNumber::new(graph))?,
                 variant,
             )
         }
