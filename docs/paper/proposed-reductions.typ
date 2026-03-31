@@ -310,3 +310,87 @@ For max cut: partition ${0, 2}$ vs ${1, 3}$ gives cut $= 3$ (all edges cut). The
 With $P = 4$: each edge becomes a path of 4 edges (3 subdivision vertices). Spanning tree: edges $(0,1)$ and $(1,2)$. Non-tree edge $(0,2)$ becomes a pendant path from vertex 0.
 
 Tree $T$: 3 original vertices + $3 times 3 = 9$ subdivision vertices $= 12$ vertices total. The optimal tree arrangement places subdivision vertices consecutively, giving total cost $= 4 dot 4 + C = 16 + C$. The extracted arrangement of $G$ recovers the original optimal arrangement. $checkmark$
+
+#pagebreak()
+
+= Set and Domination Reductions
+
+== Dominating Set $arrow.r$ Min-Max Multicenter <sec:ds-minmax>
+
+#theorem[
+  The decision version of Minimum Dominating Set reduces to Min-Max $K$-Center (Multicenter). Given a graph $G$ and integer $K$, deciding whether $G$ has a dominating set of size $lt.eq K$ is equivalent to deciding whether $K$ centers can be placed so that every vertex is within distance 1 of some center. Reference: Garey & Johnson (1979), ND50.
+] <thm:ds-minmax>
+
+#proof[
+  _Construction._ Given a Dominating Set instance $(G = (V, E), K)$:
+
+  + Use the same graph $G$ as the metric space (shortest-path distances).
+  + Set the number of centers $= K$.
+  + Set the maximum distance bound $B = 1$.
+  + The Min-Max Multicenter instance asks: can we choose $K$ vertices $C subset.eq V$ such that $max_(v in V) min_(c in C) d(v, c) lt.eq 1$?
+
+  _Correctness._
+
+  ($arrow.r.double$) If $D subset.eq V$ is a dominating set of size $lt.eq K$, then for every vertex $v in V$, either $v in D$ (distance 0) or $v$ has a neighbour in $D$ (distance 1). Place centers at $D$; the maximum distance is $lt.eq 1$. $checkmark$
+
+  ($arrow.l.double$) If $C$ is a set of $K$ centers with maximum distance $lt.eq 1$, then every vertex $v$ has $d(v, C) lt.eq 1$, meaning $v in C$ or $v$ is adjacent to some $c in C$. Thus $C$ is a dominating set of size $K$. $checkmark$
+
+  _Solution extraction._ The center set $C$ is directly the dominating set.
+
+  *Model alignment note.* The codebase `MinimumDominatingSet` is an optimization problem (minimize $|D|$), not a decision problem (is $|D| lt.eq K$?). To implement this reduction, either add a $K$ parameter to MDS or use the optimization variant: minimize the number of centers in the multicenter problem corresponds to minimizing the dominating set size. The reduction then becomes: $"opt-MDS"(G) = "opt-MinMax-Multicenter"(G, B = 1)$.
+]
+
+*Overhead.*
+
+#table(
+  columns: (1fr, 1fr),
+  table.header([Target metric], [Expression]),
+  [`num_vertices`], [$n$ (same graph)],
+  [`num_edges`], [$m$ (same graph)],
+)
+
+*Example.* $G = P_4$ (path $0 dash 1 dash 2 dash 3$), $K = 2$.
+
+Dominating set: $D = {1, 2}$ — vertex 0 is adjacent to 1, vertex 3 is adjacent to 2. Size $= 2 lt.eq K$. $checkmark$
+
+Multicenter: centers at ${1, 2}$. Max distance: $d(0, 1) = 1$, $d(3, 2) = 1$. Max $= 1 lt.eq B$. $checkmark$
+
+#pagebreak()
+
+== Dominating Set $arrow.r$ Min-Sum Multicenter <sec:ds-minsum>
+
+#theorem[
+  The decision version of Minimum Dominating Set reduces to Min-Sum $K$-Center. With unit distances, a dominating set of size $lt.eq K$ corresponds to $K$ centers achieving total distance $lt.eq n - K$ (each non-center vertex contributes distance exactly 1). Reference: Garey & Johnson (1979), ND51.
+] <thm:ds-minsum>
+
+#proof[
+  _Construction._ Given a Dominating Set instance $(G = (V, E), K)$:
+
+  + Use the same graph $G$.
+  + Set the number of centers $= K$.
+  + Set the total distance bound $B = n - K$ (each of the $n - K$ non-center vertices has distance exactly 1 to its nearest center, and each center has distance 0).
+  + The Min-Sum Multicenter instance asks: can we choose $C subset.eq V$ with $|C| = K$ such that $sum_(v in V) min_(c in C) d(v, c) lt.eq n - K$?
+
+  _Correctness._
+
+  ($arrow.r.double$) If $D$ is a dominating set of size $K$, each non-center vertex $v in.not D$ has $d(v, D) = 1$ (by domination), and each $v in D$ has $d(v, D) = 0$. Total $= 0 dot K + 1 dot (n - K) = n - K lt.eq B$. $checkmark$
+
+  ($arrow.l.double$) If $C$ achieves total distance $lt.eq n - K$, then since each vertex contributes $gt.eq 0$ and the $K$ centers contribute 0 each, the remaining $n - K$ vertices each contribute $gt.eq 1$ (they are not centers, so distance $gt.eq 1$). Total $gt.eq n - K$. Combined with total $lt.eq n - K$, every non-center has distance exactly 1, so every non-center is adjacent to some center. Thus $C$ is a dominating set. $checkmark$
+
+  _Solution extraction._ The center set $C$ is the dominating set.
+
+  *Model alignment note.* Same as @thm:ds-minmax — needs decision-variant MDS or optimization-variant mapping.
+]
+
+*Overhead.*
+
+#table(
+  columns: (1fr, 1fr),
+  table.header([Target metric], [Expression]),
+  [`num_vertices`], [$n$ (same graph)],
+  [`num_edges`], [$m$ (same graph)],
+)
+
+*Example.* $G = P_4$, $K = 2$.
+
+Dominating set $D = {1, 2}$: total distance $= d(0, {1,2}) + d(1, {1,2}) + d(2, {1,2}) + d(3, {1,2}) = 1 + 0 + 0 + 1 = 2 = n - K$. $checkmark$
