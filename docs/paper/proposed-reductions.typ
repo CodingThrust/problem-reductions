@@ -458,3 +458,51 @@ Dominating set $D = {1, 2}$: total distance $= d(0, {1,2}) + d(1, {1,2}) + d(2, 
 *Overhead.* To be determined once the construction is finalized.
 
 *Example.* To be determined.
+
+#pagebreak()
+
+= Feedback Set Reductions
+
+== Vertex Cover $arrow.r$ Partial Feedback Edge Set <sec:vc-pfes>
+
+#theorem[
+  Vertex Cover reduces to Partial Feedback Edge Set (PFES). Given a graph $G$ and budget $K$, we construct a graph $H$ such that $K$ edges can be removed from $H$ to eliminate all short cycles if and only if $G$ has a vertex cover of size $lt.eq K$. The construction replaces each edge with a triangle gadget, so that "covering" a vertex corresponds to removing one edge per incident triangle. Reference: Garey & Johnson (1979), GT12, citing Yannakakis (1978).
+] <thm:vc-pfes>
+
+#proof[
+  _Construction._ Given a Vertex Cover instance $(G = (V, E), K)$ with $n = |V|$, $m = |E|$:
+
+  + *Triangle gadgets.* For each edge $e_j = (u, v) in E$, create a new vertex $z_j$. Add edges $(u, z_j)$ and $(v, z_j)$ to form a triangle ${u, v, z_j}$. Keep the original edge $(u, v)$.
+  + The resulting graph $H$ has $n + m$ vertices ($n$ original + $m$ gadget vertices) and $3m$ edges ($m$ original + $2m$ gadget edges).
+  + *Set parameters.* Edge deletion budget $= K$. Cycle length bound $L = 3$ (we want to destroy all triangles).
+
+  The PFES instance asks: can we remove $lt.eq K$ edges from $H$ so that no cycle of length $lt.eq 3$ remains?
+
+  _Correctness._
+
+  ($arrow.r.double$) If $C subset.eq V$ is a vertex cover of size $lt.eq K$, we delete edges as follows: for each vertex $v in C$ and each triangle ${u, v, z_j}$ where $v$ covers edge $(u, v)$, delete the edge $(v, z_j)$. Each vertex $v in C$ is involved in $d(v)$ triangles (one per incident edge), but we delete at most one edge per triangle. Since $C$ is a vertex cover, every triangle ${u, v, z_j}$ has at least one endpoint in $C$; we delete the gadget edge from the first cover vertex. This removes at most $m$ edges, but each edge $(u,v)$ contributes exactly one deletion. However, if both $u, v in C$, we only delete one of $(u, z_j)$ or $(v, z_j)$.
+
+  More precisely: for each edge $e_j = (u, v)$, exactly one deletion breaks the triangle. If $u in C$, delete $(u, z_j)$. The total number of deletions $= m$ (one per triangle). But $K$ might be $< m$.
+
+  *Revised construction.* The naive triangle approach doesn't directly reduce VC with budget $K$ to PFES with budget $K$ because we need $m$ deletions (one per triangle), not $K$.
+
+  Instead, use the following approach:
+
+  + For each vertex $v in V$, create a _star gadget_: a cycle of length $d(v) + 1$ through vertex $v$ and $d(v)$ new vertices $y_(v,1), dots, y_(v,d(v))$. Connect them as: $v dash y_(v,1) dash y_(v,2) dash dots dash y_(v,d(v)) dash v$.
+  + The cycle has length $d(v) + 1$. Set $L = max_v (d(v) + 1)$.
+  + Deleting vertex $v$ from the cover corresponds to removing the edge $(v, y_(v,1))$, breaking the cycle.
+
+  This still has issues with the budget mapping. The original Yannakakis reduction uses a more subtle construction.
+
+  Since the exact Yannakakis construction is not available from the public literature, we present the problem statement and note that the reduction requires access to the original paper.
+
+  _The exact gadget construction from Yannakakis (1978) for GT12 is not publicly available. The naive triangle approach fails because the budget $K$ for vertex cover does not directly map to the number of edge deletions needed. A correct reduction requires a more sophisticated encoding where each vertex-cover choice eliminates multiple short cycles simultaneously._
+
+  _Solution extraction._ To be determined from the original construction.
+]
+
+*Status:* #text(fill: red)[*OPEN --- Yannakakis (1978) construction unavailable.*] Issue #894 correctly identified that the naive approach fails. The actual gadget structure from the original paper is needed.
+
+*Overhead.* To be determined.
+
+*Example.* To be determined.
