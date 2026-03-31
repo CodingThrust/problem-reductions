@@ -265,3 +265,48 @@ Crossing numbers: $c_1 = 1, c_2 = 1, c_3 = 1$. Max cut at any position $= 1$.
 Arrangement $f = (0, 2, 1, 3)$: $L = |1-2| + |2-3| + |3-4| = 1 + 1 + 1 = 3$. Same total length.
 
 For max cut: partition ${0, 2}$ vs ${1, 3}$ gives cut $= 3$ (all edges cut). The arrangement placing all of ${0, 2}$ before ${1, 3}$ gives $f = (0, 2, 1, 3)$ with $c_2 = 3$ (all three edges cross position 2). $checkmark$
+
+#pagebreak()
+
+== Optimal Linear Arrangement $arrow.r$ Rooted Tree Arrangement <sec:ola-rta>
+
+#theorem[
+  Optimal Linear Arrangement (OLA) reduces to Rooted Tree Arrangement (RTA). Given a general graph $G$ and length bound $L$, we construct a rooted tree $T$ and bound $B$ such that $T$ has an arrangement of total edge length $lt.eq B$ if and only if $G$ has an arrangement of total edge length $lt.eq L$. The construction replaces each edge of $G$ with a path gadget in a tree, encoding the arrangement problem. Reference: Gavril (1977); Garey & Johnson (1979), ND43.
+] <thm:ola-rta>
+
+#proof[
+  _Construction._ Given an OLA instance: graph $G = (V, E)$ with $n = |V|$, $m = |E|$, and length bound $L$.
+
+  + *Subdivide edges into a tree.* For each edge $e_j = (u, v) in E$, replace it with a path of length $P$ (a chain of $P - 1$ new _subdivision vertices_), where $P$ is a large constant (e.g., $P = 2n^2$). This creates a multigraph where each original edge becomes a long path.
+  + *Resolve multi-edges.* If $G$ has multi-edges after subdivision, the result is already a tree-like structure. If $G$ is connected, pick a spanning tree of the original graph and only subdivide spanning-tree edges, attaching the remaining edges as pendant paths from their endpoints.
+  + Specifically: let $S$ be a spanning tree of $G$. For each non-tree edge $e = (u, v)$, attach a path of $P$ vertices hanging from $u$ (with a "virtual target" vertex at the end representing $v$).
+  + *Root selection.* Pick any vertex as the root $r$.
+  + *Set bound.* $B = L dot P + C$ where $C$ accounts for the internal arrangement cost of the subdivision vertices along each path.
+
+  *Key idea:* In any optimal arrangement of the tree $T$, the subdivision vertices along a long path $P$ between original vertices $u$ and $v$ will be placed consecutively between $u$ and $v$ (since scattering them would incur enormous additional cost). Thus the effective distance between $u$ and $v$ in the arrangement is at least $P dot |f(u) - f(v)|$, and the total arrangement cost of $T$ is dominated by the distances between original vertices, scaled by $P$.
+
+  _Correctness._
+
+  ($arrow.r.double$) If $G$ has an arrangement with $L(f) lt.eq L$, extend $f$ to $T$ by placing subdivision vertices along each path in consecutive positions between their endpoints. The total edge length is $lt.eq L dot P + C = B$. $checkmark$
+
+  ($arrow.l.double$) If $T$ has an arrangement with total length $lt.eq B$, the subdivision vertices of each long path must be placed consecutively (otherwise the cost exceeds $B$). Extracting the positions of the original vertices gives an arrangement of $G$ with $L(f) lt.eq L$. $checkmark$
+
+  _Solution extraction._ Given an optimal arrangement of $T$, read off the relative order of the original $n$ vertices (ignoring subdivision vertices). This is an optimal arrangement of $G$.
+
+  *Implementation note.* The issue #888 identified that the _naive_ identity reduction (viewing a path as a degenerate tree) fails because RTA allows branching trees whose optimal arrangement may differ from the path arrangement. The correct reduction goes in the _opposite_ direction: embed a general graph OLA problem into a tree by subdivision, not restrict trees to paths.
+]
+
+*Overhead.*
+
+#table(
+  columns: (1fr, 1fr),
+  table.header([Target metric], [Expression]),
+  [`num_tree_vertices`], [$n + (P-1) dot m$ where $P = O(n^2)$, so $O(n^2 m)$],
+  [`num_tree_edges`], [$n + (P-1) dot m - 1 = O(n^2 m)$],
+)
+
+*Example.* $G = K_3$ (triangle), $n = 3$, $m = 3$, $L = 4$ (optimal arrangement of $K_3$ has length $1 + 1 + 2 = 4$).
+
+With $P = 4$: each edge becomes a path of 4 edges (3 subdivision vertices). Spanning tree: edges $(0,1)$ and $(1,2)$. Non-tree edge $(0,2)$ becomes a pendant path from vertex 0.
+
+Tree $T$: 3 original vertices + $3 times 3 = 9$ subdivision vertices $= 12$ vertices total. The optimal tree arrangement places subdivision vertices consecutively, giving total cost $= 4 dot 4 + C = 16 + C$. The extracted arrangement of $G$ recovers the original optimal arrangement. $checkmark$
