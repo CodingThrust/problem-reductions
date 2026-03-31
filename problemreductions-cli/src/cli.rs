@@ -340,6 +340,7 @@ Flags by problem type:
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   MinimumDummyActivitiesPert      --arcs [--num-vertices]
   FeasibleRegisterAssignment      --arcs, --assignment, --k [--num-vertices]
+  MinimumFaultDetectionTestSet    --arcs, --inputs, --outputs [--num-vertices]
   MinimumWeightAndOrGraph         --arcs, --source, --gate-types, --weights [--num-vertices]
   RegisterSufficiency             --arcs, --bound [--num-vertices]
   CBQ                              --domain-size, --relations, --conjuncts-spec
@@ -835,6 +836,12 @@ pub struct CreateArgs {
     /// Gate types for MinimumWeightAndOrGraph (comma-separated: AND, OR, or L for leaf, e.g., "AND,OR,OR,L,L,L,L")
     #[arg(long)]
     pub gate_types: Option<String>,
+    /// Input vertex indices (comma-separated, e.g., "0,1")
+    #[arg(long)]
+    pub inputs: Option<String>,
+    /// Output vertex indices (comma-separated, e.g., "5,6")
+    #[arg(long)]
+    pub outputs: Option<String>,
     /// True sentence indices for MinimumAxiomSet (comma-separated, e.g., "0,1,2,3,4,5,6,7")
     #[arg(long)]
     pub true_sentences: Option<String>,

@@ -242,6 +242,7 @@
   "MinimumAxiomSet": [Minimum Axiom Set],
   "MinimumExternalMacroDataCompression": [Minimum External Macro Data Compression],
   "MinimumInternalMacroDataCompression": [Minimum Internal Macro Data Compression],
+  "MinimumFaultDetectionTestSet": [Minimum Fault Detection Test Set],
   "MinimumWeightAndOrGraph": [Minimum Weight AND/OR Graph],
   "StringToStringCorrection": [String-to-String Correction],
   "StrongConnectivityAugmentation": [Strong Connectivity Augmentation],
@@ -6308,6 +6309,34 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred create --example MinimumWeightAndOrGraph -o mwaog.json",
         "pred solve mwaog.json --solver brute-force",
         "pred evaluate mwaog.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumFaultDetectionTestSet")
+  let n = x.instance.num_vertices
+  let arcs = x.instance.arcs
+  let inputs = x.instance.inputs
+  let outputs = x.instance.outputs
+  let ni = inputs.len()
+  let no = outputs.len()
+  let cfg = x.optimal_config
+  let sel-pairs = range(cfg.len()).filter(i => cfg.at(i) == 1)
+  let count = sel-pairs.len()
+  [
+    #problem-def("MinimumFaultDetectionTestSet")[
+      Given a directed acyclic graph $G = (V, A)$ with $n = |V|$ vertices, designated input vertices $I subset.eq V$, and designated output vertices $O subset.eq V$, find the minimum number of input-output pairs $(i, o) in I times O$ such that the union of their coverage sets covers all vertices $V$. For a pair $(i, o)$, the coverage set is the set of vertices reachable from $i$ that can also reach $o$.
+    ][
+      Fault detection test sets arise in hardware testing: each input-output path through a circuit's DAG representation can detect faults at the vertices it traverses, and the goal is to find the fewest test paths that collectively exercise every component. The problem generalises Set Cover over a structured family of subsets induced by DAG reachability.#footnote[No algorithm improving on brute-force enumeration of all $2^(|I| dot |O|)$ input-output pair subsets is known for the general case.]
+
+      *Example.* Consider $n = #n$ vertices with inputs $I = {#inputs.map(str).join(", ")}$ and outputs $O = {#outputs.map(str).join(", ")}$. Arcs: #{arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")}. Selecting pair $(#(inputs.at(0)), #(outputs.at(0)))$ covers ${0, 2, 3, 5}$, and pair $(#(inputs.at(1)), #(outputs.at(1)))$ covers ${1, 3, 4, 6}$. Their union is all $#n$ vertices, giving an optimal count of $#count$.
+
+      #pred-commands(
+        "pred create --example MinimumFaultDetectionTestSet -o mfdts.json",
+        "pred solve mfdts.json --solver brute-force",
+        "pred evaluate mfdts.json --config " + x.optimal_config.map(str).join(","),
       )
     ]
   ]

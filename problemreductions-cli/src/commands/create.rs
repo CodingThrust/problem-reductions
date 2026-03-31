@@ -30,17 +30,18 @@ use problemreductions::models::misc::{
     FeasibleRegisterAssignment, FlowShopScheduling, FrequencyTable, GroupingBySwapping, IntExpr,
     IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
     LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumAxiomSet,
-    MinimumExternalMacroDataCompression, MinimumInternalMacroDataCompression,
-    MinimumTardinessSequencing, MinimumWeightAndOrGraph, MultiprocessorScheduling,
-    NonLivenessFreePetriNet, Numerical3DimensionalMatching, OpenShopScheduling, PaintShop,
-    PartiallyOrderedKnapsack, PreemptiveScheduling, ProductionPlanning, QueryArg,
-    RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
-    SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
-    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
-    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-    SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection,
-    SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
+    MinimumExternalMacroDataCompression, MinimumFaultDetectionTestSet,
+    MinimumInternalMacroDataCompression, MinimumTardinessSequencing, MinimumWeightAndOrGraph,
+    MultiprocessorScheduling, NonLivenessFreePetriNet, Numerical3DimensionalMatching,
+    OpenShopScheduling, PaintShop, PartiallyOrderedKnapsack, PreemptiveScheduling,
+    ProductionPlanning, QueryArg, RectilinearPictureCompression, RegisterSufficiency,
+    ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime,
+    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+    SequencingToMinimizeTardyTaskWeight, SequencingToMinimizeWeightedCompletionTime,
+    SequencingToMinimizeWeightedTardiness, SequencingWithDeadlinesAndSetUpTimes,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition,
+    TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -224,6 +225,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.initial_marking.is_none()
         && args.output_arcs.is_none()
         && args.gate_types.is_none()
+        && args.inputs.is_none()
+        && args.outputs.is_none()
         && args.true_sentences.is_none()
         && args.implications.is_none()
 }
@@ -775,6 +778,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MinimumDummyActivitiesPert" => "--arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6",
         "FeasibleRegisterAssignment" => {
             "--arcs \"0>1,0>2,1>3\" --assignment 0,1,0,0 --k 2 --num-vertices 4"
+        }
+        "MinimumFaultDetectionTestSet" => {
+            "--arcs \"0>2,0>3,1>3,1>4,2>5,3>5,3>6,4>6\" --inputs 0,1 --outputs 5,6 --num-vertices 7"
         }
         "MinimumWeightAndOrGraph" => {
             "--arcs \"0>1,0>2,1>3,1>4,2>5,2>6\" --source 0 --gate-types \"AND,OR,OR,L,L,L,L\" --weights 1,2,3,1,4,2 --num-vertices 7"
@@ -5631,6 +5637,52 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MinimumFaultDetectionTestSet
+        "MinimumFaultDetectionTestSet" => {
+            let usage = "Usage: pred create MinimumFaultDetectionTestSet --arcs \"0>2,0>3,1>3,1>4,2>5,3>5,3>6,4>6\" --inputs 0,1 --outputs 5,6 [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFaultDetectionTestSet requires --arcs, --inputs, and --outputs\n\n\
+                     {usage}"
+                )
+            })?;
+            let inputs_str = args.inputs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFaultDetectionTestSet requires --inputs\n\n\
+                     {usage}"
+                )
+            })?;
+            let outputs_str = args.outputs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFaultDetectionTestSet requires --outputs\n\n\
+                     {usage}"
+                )
+            })?;
+            let (graph, _num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let n = graph.num_vertices();
+            let arcs = graph.arcs();
+            let inputs: Vec<usize> = inputs_str
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .map_err(|e| anyhow::anyhow!("Invalid input vertex '{}': {}", s.trim(), e))
+                })
+                .collect::<Result<_>>()?;
+            let outputs: Vec<usize> = outputs_str
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .map_err(|e| anyhow::anyhow!("Invalid output vertex '{}': {}", s.trim(), e))
+                })
+                .collect::<Result<_>>()?;
+            (
+                ser(MinimumFaultDetectionTestSet::new(n, arcs, inputs, outputs))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumWeightAndOrGraph
         "MinimumWeightAndOrGraph" => {
             let usage = "Usage: pred create MinimumWeightAndOrGraph --arcs \"0>1,0>2,1>3,1>4,2>5,2>6\" --source 0 --gate-types \"AND,OR,OR,L,L,L,L\" --weights 1,2,3,1,4,2 [--num-vertices N]";
@@ -9601,6 +9653,8 @@ mod tests {
             gate_types: None,
             true_sentences: None,
             implications: None,
+            inputs: None,
+            outputs: None,
         }
     }
 
