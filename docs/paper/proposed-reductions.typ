@@ -296,7 +296,7 @@ Arrangement $f: 0 arrow.r.bar 1, 2 arrow.r.bar 2, 1 arrow.r.bar 3, 3 arrow.r.bar
 - $L_G (f) = |1 - 3| + |3 - 2| + |2 - 4| + |4 - 1| = 2 + 1 + 2 + 3 = 8 gt.eq 4 = W$. $checkmark$
 - Verify: $L_G + L_(overline(G)) = 8 + 2 = 10 = L_(K_4)$. $checkmark$
 
-Crossing numbers: $c_1 = 1$ (edge $(0,3)$ crosses), $c_2 = 3$ (edges $(0,1), (0,3), (2,3)$ cross), $c_3 = 2$ (edges $(0,3), (1,3)$ cross). Best cut at $i^* = 2$: partition ${0, 2}$ vs.~${1, 3}$, cut size $= 4 = W$. $checkmark$
+Crossing numbers (positions in arrangement $0, 2, 1, 3$): $c_1 = 2$ (edges $(0,1), (0,3)$ cross), $c_2 = 4$ (edges $(0,1), (0,3), (2,3), (2,1)$ cross), $c_3 = 2$ (edges $(1,3), (0,3)$ cross). Sum $= 2 + 4 + 2 = 8 = L_G$. $checkmark$ Best cut at $i^* = 2$: partition ${0, 2}$ vs.~${1, 3}$, cut size $= 4 = W$. $checkmark$
 
 #pagebreak()
 
