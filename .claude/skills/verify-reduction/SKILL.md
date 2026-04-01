@@ -267,6 +267,87 @@ CLAIM                                    TESTED BY
 
 If any claim has no test, add one. If it's untestable, document WHY.
 
+### Iteration 4: Export test vectors and validate Typst matching — MANDATORY
+
+After all checks pass and gap analysis is complete, the constructor script must export a test vectors JSON file for downstream consumption by `/add-reduction`:
+
+**File:** `docs/paper/verify-reductions/test_vectors_<source>_<target>.json`
+
+```json
+{
+  "source": "<Source>",
+  "target": "<Target>",
+  "issue": "<ISSUE_NUMBER>",
+  "yes_instance": {
+    "input": { "...problem-specific fields..." },
+    "output": { "...reduced instance fields..." },
+    "source_feasible": true,
+    "target_feasible": true,
+    "source_solution": ["...config..."],
+    "extracted_solution": ["...config..."]
+  },
+  "no_instance": {
+    "input": { "...problem-specific fields..." },
+    "output": { "...reduced instance fields..." },
+    "source_feasible": false,
+    "target_feasible": false
+  },
+  "overhead": {
+    "field_name": "expression using source getters"
+  },
+  "claims": [
+    {"tag": "claim_tag", "formula": "formula or description", "verified": true}
+  ]
+}
+```
+
+Add this export at the end of `main()` in the constructor script:
+
+```python
+import json
+
+test_vectors = {
+    "source": "<Source>",
+    "target": "<Target>",
+    "issue": <ISSUE>,
+    "yes_instance": { ... },   # from Section 6
+    "no_instance": { ... },    # from Section 7
+    "overhead": { ... },       # from Section 1/4
+    "claims": claims_list,     # accumulated claim() calls
+}
+
+with open("docs/paper/verify-reductions/test_vectors_<source>_<target>.json", "w") as f:
+    json.dump(test_vectors, f, indent=2)
+print(f"Test vectors exported to test_vectors_<source>_<target>.json")
+```
+
+**Typst ↔ JSON cross-check:**
+
+After exporting, load both the test vectors JSON and the Typst file. For each key numerical value in the JSON (input sizes, target values, output sizes), check that it appears as a substring in the Typst YES/NO example sections. This is a substring search on the raw Typst text — not a full parser:
+
+```python
+typst_text = open("<typst_file>").read()
+for val in [str(v) for v in yes_instance["input"].values() if isinstance(v, (int, list))]:
+    assert str(val) in typst_text, f"Typst missing YES value: {val}"
+for val in [str(v) for v in no_instance["input"].values() if isinstance(v, (int, list))]:
+    assert str(val) in typst_text, f"Typst missing NO value: {val}"
+```
+
+If any value is missing, the Typst proof and Python script are out of sync — fix before proceeding.
+
+**Structured claims (best-effort replacement for manual gap analysis):**
+
+Instead of the manual CLAIM/TESTED BY table, accumulate claims programmatically:
+
+```python
+claims_list = []
+
+def claim(tag, formula_or_desc, verified=True):
+    claims_list.append({"tag": tag, "formula": formula_or_desc, "verified": verified})
+```
+
+Call `claim()` throughout the constructor script wherever a Typst proof claim is verified. The self-review step (Step 6) checks that all claims have `verified: true` and that the claim count is reasonable (at least 5 claims for any non-trivial reduction).
+
 ## Step 5: Adversary Verification
 
 The adversary step provides independent verification by a second agent that implements the reduction from scratch, using only the Typst proof as specification. This catches bugs that the constructor's own tests cannot find (confirmation bias, shared implementation errors).
@@ -289,6 +370,16 @@ specification.
 
 Typst proof file: docs/paper/proposed-reductions.typ (section on <Source> → <Target>)
 Issue: #<ISSUE>
+
+## Reduction type
+
+Detect the reduction type from the Typst proof and tailor your testing focus:
+
+- **Identity reduction** (same graph/structure, different objective — keywords: "complement", "same graph", "negation"): Focus on exhaustive enumeration of all source instances for n ≤ 6. Test every possible configuration. Edge-case configs (all-zero, all-one, alternating) are highest priority.
+
+- **Algebraic reduction** (padding, case split, formula transformation — keywords: "padding", "case", "if Σ", "d ="): Focus on case boundary conditions. Test instances where the case selection changes (e.g., Σ = 2T exactly, Σ = 2T ± 1). Verify extraction logic for each case independently. Include at least one hypothesis strategy targeting boundary values.
+
+- **Gadget reduction** (widget/component construction — keywords: "widget", "component", "gadget", "cover-testing"): Focus on widget structure invariants. Verify each traversal/usage pattern independently. Test that interior vertices/elements have no external connections. Check structural properties (connectivity, edge counts, degree sequences) across all small instances.
 
 ## Your task
 
@@ -470,6 +561,14 @@ Before declaring verified, run through this checklist. Every item must be YES. I
 - [ ] The overhead formula in both scripts matches the Typst overhead table
 - [ ] The examples in both scripts match the Typst examples (same numbers, same instances)
 
+### Test vectors and auto-matching
+
+- [ ] `test_vectors_<source>_<target>.json` exported successfully
+- [ ] YES instance in JSON matches Typst feasible example (values present)
+- [ ] NO instance in JSON matches Typst infeasible example (values present)
+- [ ] All claims have `verified: true`
+- [ ] At least 5 claims for non-trivial reductions
+
 ### Lean (optional)
 
 If Lean lemmas were added:
@@ -528,7 +627,8 @@ Verdict: VERIFIED / OPEN (with reason)
 ```bash
 git add docs/paper/<typst-file>.typ \
        docs/paper/verify-reductions/verify_*.py \
-       docs/paper/verify-reductions/adversary_*.py
+       docs/paper/verify-reductions/adversary_*.py \
+       docs/paper/verify-reductions/test_vectors_*.json
 git add -f docs/paper/<typst-file>.pdf
 git commit -m "docs: /verify-reduction #<ISSUE> — <Source> → <Target> VERIFIED
 
@@ -578,6 +678,8 @@ A reduction is **VERIFIED** when ALL of these hold:
 - [ ] Gap analysis shows all Typst claims tested
 - [ ] Cross-comparison shows 0 disagreements and 0 feasibility mismatches
 - [ ] Cross-consistency between Typst, constructor, and adversary verified
+- [ ] Test vectors JSON exported with YES/NO instances, overhead, and claims
+- [ ] Typst ↔ JSON auto-matching passed (key values present in Typst text)
 
 If any gate fails, go back and fix it before declaring the reduction verified.
 
@@ -600,7 +702,16 @@ If any gate fails, go back and fix it before declaring the reduction verified.
 
 ## Integration
 
-- **After `add-rule`**: invoke `/verify-reduction` before creating PR
+### Pipeline: Issue → verify-reduction → add-reduction → review-pipeline
+
+`/verify-reduction` is a **pre-verification gate**. The Python `reduce()` function is the verified spec. `/add-reduction` translates it to Rust. `/review-pipeline`'s agentic test confirms the Rust matches.
+
+- **Before `/add-reduction`**: `/verify-reduction` produces Typst proof + Python scripts + test vectors JSON
+- **During `/add-reduction`**: reads Python `reduce()` as pseudocode, overhead from test vectors JSON, generates Rust tests from test vectors
+- **During `/review-pipeline`**: agentic test runs `pred reduce`/`pred solve` on test vector instances; compositional check via alternative paths if available
+
+### Standalone usage
+
 - **After `write-rule-in-paper`**: invoke to verify paper entry
 - **During `review-structural`**: check verification script exists and passes
 - **Before `issue-to-pr --execute`**: pre-validate the algorithm
