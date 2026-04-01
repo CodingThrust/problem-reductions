@@ -344,6 +344,7 @@ Flags by problem type:
   MinimumFaultDetectionTestSet    --arcs, --inputs, --outputs [--num-vertices]
   MinimumWeightAndOrGraph         --arcs, --source, --gate-types, --weights [--num-vertices]
   MinimumCodeGenerationOneRegister --arcs [--num-vertices]
+  MinimumCodeGenerationUnlimitedRegisters --left-arcs, --right-arcs [--num-vertices]
   MinimumRegisterSufficiencyForLoops --loop-length, --loop-variables
   RegisterSufficiency             --arcs, --bound [--num-vertices]
   CBQ                              --domain-size, --relations, --conjuncts-spec
@@ -646,6 +647,12 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Left operand arcs for MinimumCodeGenerationUnlimitedRegisters (e.g., 1>3,2>3,0>1)
+    #[arg(long)]
+    pub left_arcs: Option<String>,
+    /// Right operand arcs for MinimumCodeGenerationUnlimitedRegisters (e.g., 1>4,2>4,0>2)
+    #[arg(long)]
+    pub right_arcs: Option<String>,
     /// Arc-index equality constraints for IntegralFlowHomologousArcs (semicolon-separated, e.g., "2=5;4=3")
     #[arg(long)]
     pub homologous_pairs: Option<String>,

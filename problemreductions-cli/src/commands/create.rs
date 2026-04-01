@@ -30,19 +30,19 @@ use problemreductions::models::misc::{
     FeasibleRegisterAssignment, FlowShopScheduling, FrequencyTable, GroupingBySwapping, IntExpr,
     IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
     LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumAxiomSet,
-    MinimumCodeGenerationOneRegister, MinimumExternalMacroDataCompression,
-    MinimumFaultDetectionTestSet, MinimumInternalMacroDataCompression,
-    MinimumRegisterSufficiencyForLoops, MinimumTardinessSequencing, MinimumWeightAndOrGraph,
-    MultiprocessorScheduling, NonLivenessFreePetriNet, Numerical3DimensionalMatching,
-    OpenShopScheduling, PaintShop, PartiallyOrderedKnapsack, PreemptiveScheduling,
-    ProductionPlanning, QueryArg, RectilinearPictureCompression, RegisterSufficiency,
-    ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime,
-    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-    SequencingToMinimizeTardyTaskWeight, SequencingToMinimizeWeightedCompletionTime,
-    SequencingToMinimizeWeightedTardiness, SequencingWithDeadlinesAndSetUpTimes,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition,
-    TimetableDesign,
+    MinimumCodeGenerationOneRegister, MinimumCodeGenerationUnlimitedRegisters,
+    MinimumExternalMacroDataCompression, MinimumFaultDetectionTestSet,
+    MinimumInternalMacroDataCompression, MinimumRegisterSufficiencyForLoops,
+    MinimumTardinessSequencing, MinimumWeightAndOrGraph, MultiprocessorScheduling,
+    NonLivenessFreePetriNet, Numerical3DimensionalMatching, OpenShopScheduling, PaintShop,
+    PartiallyOrderedKnapsack, PreemptiveScheduling, ProductionPlanning, QueryArg,
+    RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
+    SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
+    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+    SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection,
+    SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -148,6 +148,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.costs.is_none()
         && args.arc_costs.is_none()
         && args.arcs.is_none()
+        && args.left_arcs.is_none()
+        && args.right_arcs.is_none()
         && args.homologous_pairs.is_none()
         && args.quantifiers.is_none()
         && args.usage.is_none()
@@ -5727,6 +5729,38 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MinimumCodeGenerationUnlimitedRegisters
+        "MinimumCodeGenerationUnlimitedRegisters" => {
+            let usage = "Usage: pred create MinimumCodeGenerationUnlimitedRegisters --left-arcs \"1>3,2>3,0>1\" --right-arcs \"1>4,2>4,0>2\" [--num-vertices N]";
+            let left_str = args.left_arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationUnlimitedRegisters requires --left-arcs\n\n\
+                     {usage}"
+                )
+            })?;
+            let right_str = args.right_arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationUnlimitedRegisters requires --right-arcs\n\n\
+                     {usage}"
+                )
+            })?;
+            let (left_graph, _) = parse_directed_graph(left_str, args.num_vertices)?;
+            let (right_graph, _) = parse_directed_graph(right_str, args.num_vertices)?;
+            let n = if let Some(nv) = args.num_vertices {
+                nv
+            } else {
+                left_graph.num_vertices().max(right_graph.num_vertices())
+            };
+            let left_arcs = left_graph.arcs();
+            let right_arcs = right_graph.arcs();
+            (
+                ser(MinimumCodeGenerationUnlimitedRegisters::new(
+                    n, left_arcs, right_arcs,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumRegisterSufficiencyForLoops
         "MinimumRegisterSufficiencyForLoops" => {
             let usage = "Usage: pred create MinimumRegisterSufficiencyForLoops --loop-length 6 --loop-variables \"0,3;2,3;4,3\"";
@@ -9718,6 +9752,8 @@ mod tests {
             string: None,
             arc_costs: None,
             arcs: None,
+            left_arcs: None,
+            right_arcs: None,
             values: None,
             precedences: None,
             distance_matrix: None,

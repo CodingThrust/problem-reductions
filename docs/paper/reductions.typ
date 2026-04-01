@@ -226,6 +226,7 @@
   "FeasibleRegisterAssignment": [Feasible Register Assignment],
   "MinimumRegisterSufficiencyForLoops": [Minimum Register Sufficiency for Loops],
   "MinimumCodeGenerationOneRegister": [Minimum Code Generation (One Register)],
+  "MinimumCodeGenerationUnlimitedRegisters": [Minimum Code Generation (Unlimited Registers)],
   "RegisterSufficiency": [Register Sufficiency],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
   "RootedTreeStorageAssignment": [Rooted Tree Storage Assignment],
@@ -5195,6 +5196,39 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred create --example MinimumCodeGenerationOneRegister -o mcgor.json",
         "pred solve mcgor.json --solver brute-force",
         "pred evaluate mcgor.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumCodeGenerationUnlimitedRegisters")
+  let n = x.instance.num_vertices
+  let left-arcs = x.instance.left_arcs
+  let right-arcs = x.instance.right_arcs
+  // Build out-degree to identify leaves vs internal
+  let out-deg = range(n).map(v =>
+    left-arcs.filter(e => e.at(0) == v).len() + right-arcs.filter(e => e.at(0) == v).len()
+  )
+  let internal = range(n).filter(v => out-deg.at(v) > 0)
+  let num-internal = internal.len()
+  let config = x.optimal_config
+  let order = range(num-internal).map(pos =>
+    range(num-internal).find(i => config.at(i) == pos)
+  ).map(i => internal.at(i))
+  [
+    #problem-def("MinimumCodeGenerationUnlimitedRegisters")[
+      Given a directed acyclic graph $G = (V, A)$ with maximum out-degree 2 representing an expression DAG, and a partition of arcs into left ($L$) and right ($R$) operand sets, find a program of minimum number of instructions for an unlimited-register machine using 2-address instructions (OP and LOAD/copy) that computes all root vertices. The OP instruction computes a vertex and overwrites the left operand's register; a LOAD instruction copies a register to preserve a value before destruction.
+    ][
+      Minimum Code Generation with Unlimited Registers is problem A11 PO5 in Garey & Johnson @garey1979. NP-complete via transformation from Feedback Vertex Set @ahoJohnsonUllman1977. Remains NP-complete even if the only vertices with in-degree greater than 1 are leaves. Polynomial for forests and when 3-address instructions are allowed. For general DAGs, brute-force enumeration runs in $O^*(2^n)$ time.
+      #footnote[No algorithm improving on brute-force is known for general expression DAGs with 2-address instructions.]
+
+      *Example.* Consider $n = #n$ vertices with left arcs $L$: #{left-arcs.map(a => $v_#(a.at(0)) arrow.r v_#(a.at(1))$).join(", ")} and right arcs $R$: #{right-arcs.map(a => $v_#(a.at(0)) arrow.r v_#(a.at(1))$).join(", ")}. Leaves (out-degree 0): $\{#(range(n).filter(v => out-deg.at(v) == 0).map(v => $v_#v$).join($, $))\}$. The evaluation order $(#order.map(v => $v_#v$).join(", "))$ yields an optimal program of #x.optimal_value instructions.
+
+      #pred-commands(
+        "pred create --example MinimumCodeGenerationUnlimitedRegisters -o mcgur.json",
+        "pred solve mcgur.json --solver brute-force",
+        "pred evaluate mcgur.json --config " + x.optimal_config.map(str).join(","),
       )
     ]
   ]
