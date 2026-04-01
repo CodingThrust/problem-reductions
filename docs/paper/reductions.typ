@@ -228,6 +228,7 @@
   "MinimumCodeGenerationOneRegister": [Minimum Code Generation (One Register)],
   "MinimumCodeGenerationParallelAssignments": [Minimum Code Generation (Parallel Assignments)],
   "MinimumDecisionTree": [Minimum Decision Tree],
+  "MinimumDisjunctiveNormalForm": [Minimum Disjunctive Normal Form],
   "MinimumCodeGenerationUnlimitedRegisters": [Minimum Code Generation (Unlimited Registers)],
   "RegisterSufficiency": [Register Sufficiency],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
@@ -5287,6 +5288,27 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       "pred create --example MinimumDecisionTree -o mdt.json",
       "pred solve mdt.json",
       "pred evaluate mdt.json --config " + sol.map(str).join(","),
+    )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumDisjunctiveNormalForm")
+  let n = x.instance.num_variables
+  let num_pi = x.instance.prime_implicants.len()
+  let num_mt = x.instance.minterms.len()
+  [
+    #problem-def("MinimumDisjunctiveNormalForm")[
+      Given $n$ Boolean variables and a Boolean function $f: {0,1}^n -> {0,1}$ specified by its truth table, find a disjunctive normal form (DNF) formula with the minimum number of terms (disjuncts) that is equivalent to $f$.
+    ][
+    Minimum Disjunctive Normal Form (LO9) is the classic two-level logic minimization problem @garey1979. NP-hard (Masek 1979, via reduction from Minimum Cover). The Quine--McCluskey algorithm enumerates all prime implicants, reducing the problem to minimum set cover. The worst-case number of prime implicants is $Theta(3^n slash sqrt(n))$ (Chandra and Markowsky 1978).
+
+    *Example.* A function on $n = #n$ variables with #num_mt minterms has #num_pi prime implicants. The minimum cover requires #x.optimal_value terms.
+
+    #pred-commands(
+      "pred create --example MinimumDisjunctiveNormalForm -o mdnf.json",
+      "pred solve mdnf.json",
     )
     ]
   ]

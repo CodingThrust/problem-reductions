@@ -53,7 +53,7 @@ pub use misc::{
     GroupingBySwapping, IntExpr, IntegerExpressionMembership, JobShopScheduling, Knapsack,
     KthLargestMTuple, LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumAxiomSet,
     MinimumCodeGenerationOneRegister, MinimumCodeGenerationParallelAssignments,
-    MinimumCodeGenerationUnlimitedRegisters, MinimumDecisionTree,
+    MinimumCodeGenerationUnlimitedRegisters, MinimumDecisionTree, MinimumDisjunctiveNormalForm,
     MinimumExternalMacroDataCompression, MinimumFaultDetectionTestSet,
     MinimumInternalMacroDataCompression, MinimumRegisterSufficiencyForLoops,
     MinimumTardinessSequencing, MinimumWeightAndOrGraph, MultiprocessorScheduling,
