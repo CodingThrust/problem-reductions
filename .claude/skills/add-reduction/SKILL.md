@@ -165,14 +165,35 @@ git diff --name-only | grep "reductions.typ"
 # If it does NOT appear, you skipped Step 5. Go back and do it.
 ```
 
-## Step 6: Regenerate Exports and Verify
+## Step 6: Regenerate Exports, CI Checks, and Dominated-Rules Gate
 
 ```bash
 cargo run --example export_graph
 cargo run --example export_schemas
 make regenerate-fixtures    # Slow — needs fixtures for paper example data
-make test clippy
 ```
+
+### CI-equivalent checks — MANDATORY
+
+These must pass before committing. CI will fail if you skip them.
+
+```bash
+# Clippy with -D warnings (CI uses this exact flag — local clippy without -D is insufficient)
+cargo clippy -- -D warnings 2>&1 | tail -5
+
+# Full test suite (catches dominated-rules test failures)
+cargo test 2>&1 | tail -5
+```
+
+### Dominated-rules gate — CHECK THIS
+
+Adding a new reduction can create paths that **dominate** existing direct reductions. The test `test_find_dominated_rules_returns_known_set` in `src/unit_tests/rules/analysis.rs` has a hardcoded set of known dominated pairs. If your new reduction creates a shorter path to a target that already has a direct reduction, this test will fail.
+
+```bash
+cargo test test_find_dominated_rules_returns_known_set 2>&1 | tail -10
+```
+
+If it fails with "Unexpected dominated rule: X -> Y (dominated by X -> ... -> Y)", add the new pair to the known set in `src/unit_tests/rules/analysis.rs`.
 
 ## Step 7: Clean Up Verification Artifacts
 
@@ -204,10 +225,16 @@ done
 # Gate 2: No verification artifacts remaining
 ls docs/paper/verify-reductions/*<source>*<target>* 2>/dev/null && echo "  ✗ ARTIFACTS NOT CLEANED" || echo "  ✓ Artifacts cleaned"
 
-# Gate 3: Tests pass
+# Gate 3: Clippy with -D warnings (CI uses this — local clippy alone is insufficient)
+cargo clippy -- -D warnings 2>&1 | tail -3
+
+# Gate 4: Full test suite (catches dominated-rules failures)
 cargo test 2>&1 | tail -3
 
-# Gate 4: Paper compiles
+# Gate 5: Dominated-rules test specifically
+cargo test test_find_dominated_rules_returns_known_set 2>&1 | tail -3
+
+# Gate 6: Paper compiles
 make paper 2>&1 | tail -3
 ```
 
@@ -237,3 +264,6 @@ gh pr create --title "feat: add <Source> → <Target> reduction (#<ISSUE>)" --bo
 | Missing paper `reduction-rule` entry | MANDATORY — Check 11 from #974 |
 | Leaving verification artifacts in repo | MANDATORY cleanup — Step 7 |
 | Not regenerating fixtures after example-db | `make regenerate-fixtures` required for paper |
+| Running `cargo clippy` without `-D warnings` | CI uses `-D warnings` — local clippy without it misses lint failures |
+| New reduction dominates existing direct reduction | Check `test_find_dominated_rules_returns_known_set` — add new pair to known set in `analysis.rs` |
+| Skipping full `cargo test` before commit | Dominated-rules test only runs in full suite, not filtered tests |
