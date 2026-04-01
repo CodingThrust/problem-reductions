@@ -227,8 +227,12 @@
   "MinimumRegisterSufficiencyForLoops": [Minimum Register Sufficiency for Loops],
   "MinimumCodeGenerationOneRegister": [Minimum Code Generation (One Register)],
   "MinimumCodeGenerationParallelAssignments": [Minimum Code Generation (Parallel Assignments)],
+  "MaximumDomaticNumber": [Maximum Domatic Number],
+  "MinimumCapacitatedSpanningTree": [Minimum Capacitated Spanning Tree],
   "MinimumDecisionTree": [Minimum Decision Tree],
   "MinimumDisjunctiveNormalForm": [Minimum Disjunctive Normal Form],
+  "MinimumGraphBandwidth": [Minimum Graph Bandwidth],
+  "MinimumMetricDimension": [Minimum Metric Dimension],
   "VertexCover": [Vertex Cover],
   "MinimumCodeGenerationUnlimitedRegisters": [Minimum Code Generation (Unlimited Registers)],
   "RegisterSufficiency": [Register Sufficiency],
@@ -12950,6 +12954,87 @@ The following table shows concrete variable overhead for example instances, take
   )
   (name: example-name(entry.source, entry.target), data: d)
 })
+
+// === Missing problem-defs and ILP reduction-rules ===
+
+#problem-def("MaximumDomaticNumber")[
+  Given an undirected graph $G = (V, E)$, find the maximum $k$ such that $V$ can be partitioned into $k$ disjoint dominating sets $V_1, dots, V_k$ where each $V_i$ dominates all of $V$.
+][
+  Maximum Domatic Number (GT3) @garey1979. NP-complete for any fixed $k >= 3$ (Garey, Johnson, Tarjan 1976). Polynomial for $k = 2$.
+
+  The best known exact algorithm runs in $O^*(2.695^n)$ (Riege, Rothe, Spakowski, Yamamoto 2007).
+]
+
+#reduction-rule("MaximumDomaticNumber", "ILP")[
+  Binary assignment variables $x_(v,i) in {0,1}$ for each vertex $v$ and set index $i in {1, dots, n}$, plus binary usage indicators $y_i$. Partition constraints, domination constraints, and linking constraints enforce a valid domatic partition. Maximize $sum_i y_i$.
+][
+  _Construction._ Introduce $n^2 + n$ binary variables. For each vertex $v$, $sum_i x_(v,i) = 1$ (partition). For each $v$ and $i$, $x_(v,i) + sum_(u in N(v)) x_(u,i) >= y_i$ (domination). For each $i$, $y_i <= sum_v x_(v,i)$ (linking). Maximize $sum_i y_i$.
+
+  _Correctness._ ($arrow.r.double$) Any valid domatic partition gives a feasible ILP assignment with the same number of non-empty sets. ($arrow.l.double$) Any feasible ILP solution encodes a valid domatic partition.
+
+  _Solution extraction._ For each vertex $v$, find $i$ with $x_(v,i) = 1$; set $"config"[v] = i$.
+]
+
+#problem-def("MinimumMetricDimension")[
+  Given an undirected graph $G = (V, E)$, find a minimum-size resolving set $V' subset.eq V$ such that for every pair of distinct vertices $u, v in V$, there exists $w in V'$ with $d(u, w) != d(v, w)$.
+][
+  Minimum Metric Dimension (GT61) @garey1979. NP-complete via reduction from 3-Dimensional Matching. Polynomial for trees.
+
+  The best known exact algorithm is brute-force $O^*(2^n)$.
+]
+
+#reduction-rule("MinimumMetricDimension", "ILP")[
+  Binary variables $z_v in {0,1}$ for each vertex. Precompute all-pairs shortest-path distances. For each pair $(u, v)$ with $u < v$, add constraint $sum_(w: d(u,w) != d(v,w)) z_w >= 1$. Minimize $sum_v z_v$.
+][
+  _Construction._ $n$ binary variables and $n(n-1)/2$ pair-distinguishing constraints from BFS distances.
+
+  _Correctness._ ($arrow.r.double$) A resolving set satisfies all pair constraints. ($arrow.l.double$) Any feasible solution is a resolving set since every pair is distinguished.
+
+  _Solution extraction._ $z_v = 1 arrow.r "config"[v] = 1$.
+]
+
+#problem-def("MinimumGraphBandwidth")[
+  Given an undirected graph $G = (V, E)$, find a one-to-one mapping $f: V -> {0, 1, dots, |V|-1}$ that minimizes $max_({u,v} in E) |f(u) - f(v)|$.
+][
+  Graph Bandwidth (GT40) @garey1979. NP-complete even for trees with maximum degree 3. The brute-force bound is $O^*(n!)$ over all permutations.
+]
+
+#reduction-rule("MinimumGraphBandwidth", "ILP")[
+  Assignment variables $x_(v,p) in {0,1}$ for vertex $v$ and position $p$, integer position variables, and bandwidth variable $B$. Bijection constraints enforce a valid permutation; edge-stretch constraints enforce $|"pos"(u) - "pos"(v)| <= B$. Minimize $B$.
+][
+  _Construction._ $n^2 + n + 1$ variables (assignment + position + bandwidth). Bijection: $sum_p x_(v,p) = 1$ and $sum_v x_(v,p) = 1$. Position linking and edge-stretch constraints bound the bandwidth.
+
+  _Correctness._ ($arrow.r.double$) Any valid permutation with bandwidth $B$ gives a feasible ILP with objective $B$. ($arrow.l.double$) Any feasible ILP solution encodes a valid permutation with bandwidth $<= B$.
+
+  _Solution extraction._ For each vertex $v$, find $p$ with $x_(v,p) = 1$; set $"config"[v] = p$.
+]
+
+#problem-def("MinimumCapacitatedSpanningTree")[
+  Given a weighted graph $G = (V, E)$ with root $v_0$, vertex requirements $r(v)$, and edge capacity $c$, find a spanning tree $T$ rooted at $v_0$ minimizing $sum_(e in T) w(e)$ subject to: for each edge $e$ in $T$, the sum of requirements in the subtree on the non-root side is at most $c$.
+][
+  Minimum Capacitated Spanning Tree (ND5) @garey1979. NP-hard in the strong sense, even with unit requirements and capacity 3.
+]
+
+#reduction-rule("MinimumCapacitatedSpanningTree", "ILP")[
+  Binary edge selectors $y_e$ plus directed requirement-flow variables. Flow conservation routes each vertex's requirement to the root; capacity constraints bound flow per edge.
+][
+  _Construction._ $3m$ variables: $m$ edge selectors + $2m$ directed flow. Tree cardinality, binary bounds, flow conservation (each non-root vertex generates $r(v)$ flow toward root), flow-edge linking, and per-edge capacity bounds ($<= c$). Minimize $sum_e w(e) dot y_e$.
+
+  _Correctness._ ($arrow.r.double$) A feasible capacitated spanning tree induces a valid flow. ($arrow.l.double$) A feasible ILP solution encodes a spanning tree satisfying capacity constraints.
+
+  _Solution extraction._ First $m$ variables (edge selectors) give the source configuration.
+]
+
+// MinimumMatrixCover → ILP (problem-def already exists above, just need reduction-rule)
+#reduction-rule("MinimumMatrixCover", "ILP")[
+  McCormick linearization of the quadratic form: $n$ sign variables $x_i$ plus $n(n-1)/2$ auxiliary variables $y_(i j)$ linearizing products $x_i x_j$. Three McCormick constraints per pair. Minimize the linearized objective.
+][
+  _Construction._ $n + n(n-1)/2$ binary variables and $3 dot n(n-1)/2$ constraints. For each pair $i < j$: $y_(i j) <= x_i$, $y_(i j) <= x_j$, $y_(i j) >= x_i + x_j - 1$. The objective encodes $sum_(i,j) a_(i j) dot f(i) dot f(j)$ via $f(i) = 2x_i - 1$.
+
+  _Correctness._ ($arrow.r.double$) Any sign assignment $f$ maps to $x_i = (f(i)+1)/2$ with matching quadratic form value. ($arrow.l.double$) McCormick ensures $y_(i j) = x_i x_j$ at optimality.
+
+  _Solution extraction._ First $n$ variables (sign variables) give the source configuration.
+]
 
 #pagebreak()
 #bibliography("references.bib", style: "ieee")

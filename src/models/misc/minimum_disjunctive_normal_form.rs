@@ -235,10 +235,13 @@ fn compute_prime_implicants(num_vars: usize, minterms: &[usize]) -> Vec<PrimeImp
         current = next_set.into_iter().collect();
     }
 
-    all_prime
+    let mut result: Vec<PrimeImplicant> = all_prime
         .into_iter()
         .map(|pattern| PrimeImplicant { pattern })
-        .collect()
+        .collect();
+    // Sort for deterministic output (HashSet iteration order is non-deterministic)
+    result.sort_by(|a, b| a.pattern.cmp(&b.pattern));
+    result
 }
 
 /// Try to merge two implicant patterns that differ in exactly one position.
