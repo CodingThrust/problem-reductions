@@ -26,6 +26,7 @@ These repo-local skills live under `.claude/skills/*/SKILL.md`.
 - [propose](skills/propose/SKILL.md) -- Interactive brainstorming to help domain experts propose a new model or rule. Asks one question at a time, uses mathematical language (no programming jargon), and files a GitHub issue.
 - [final-review](skills/final-review/SKILL.md) -- Interactive maintainer review for PRs in "Final review" column. Merges main, walks through agentic review bullets with human, then merge or hold.
 - [dev-setup](skills/dev-setup/SKILL.md) -- Interactive wizard to install and configure all development tools for new maintainers.
+- [verify-reduction](skills/verify-reduction/SKILL.md) -- End-to-end verification of a reduction rule: generates Typst proof (with YES+NO examples), Python verification script (7 mandatory sections, ≥5000 checks, exhaustive n≤5), and Lean lemmas (non-trivial required). Iterates until all checks pass. Creates worktree + PR.
 - [tutorial](skills/tutorial/SKILL.md) -- Interactive tutorial — walk through the pred CLI to explore, reduce, and solve NP-hard problems. No Rust internals.
 
 ## Codex Compatibility
