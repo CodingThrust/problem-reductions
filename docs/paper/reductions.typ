@@ -229,6 +229,7 @@
   "MinimumCodeGenerationParallelAssignments": [Minimum Code Generation (Parallel Assignments)],
   "MinimumDecisionTree": [Minimum Decision Tree],
   "MinimumDisjunctiveNormalForm": [Minimum Disjunctive Normal Form],
+  "VertexCover": [Vertex Cover],
   "MinimumCodeGenerationUnlimitedRegisters": [Minimum Code Generation (Unlimited Registers)],
   "RegisterSufficiency": [Register Sufficiency],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
@@ -638,6 +639,30 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     },
     caption: [The house graph with a minimum vertex cover $S = {#cover.map(i => $v_#i$).join(", ")}$ shown in blue ($w(S) = #wS$). Every edge is incident to at least one blue vertex.],
     ) <fig:house-vc>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("VertexCover")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let k = x.instance.k
+  let sol = x.optimal_config
+  let cover = sol.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  [
+    #problem-def("VertexCover")[
+      Given an undirected graph $G = (V, E)$ and a positive integer $k <= |V|$, determine whether there exists a vertex cover of size at most $k$: a subset $V' subset.eq V$ with $|V'| <= k$ such that for each edge ${u, v} in E$, at least one of $u, v$ belongs to $V'$.
+    ][
+    Vertex Cover is one of Karp's 21 NP-complete problems @karp1972 and the decision version of Minimum Vertex Cover @garey1979. The best known exact algorithm runs in $O^*(1.1996^n)$ time (Chen, Kanj, and Xia, 2010).
+
+    *Example.* Consider a graph on $n = #nv$ vertices and $|E| = #ne$ edges with threshold $k = #k$. The cover $V' = {#cover.map(i => $v_#i$).join(", ")}$ with $|V'| = #cover.len() <= k$ is a valid vertex cover.
+
+    #pred-commands(
+      "pred create --example VertexCover -o vc.json",
+      "pred solve vc.json",
+      "pred evaluate vc.json --config " + sol.map(str).join(","),
+    )
     ]
   ]
 }
