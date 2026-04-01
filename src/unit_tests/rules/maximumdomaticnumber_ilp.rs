@@ -41,8 +41,8 @@ fn test_maximumdomaticnumber_to_ilp_structure() {
     // n=3: n²+n = 12 variables
     assert_eq!(ilp.num_vars, 12);
 
-    // Constraints: n + n² + n = 3 + 9 + 3 = 15
-    assert_eq!(ilp.constraints.len(), 15);
+    // Constraints: n + n² + n² = 3 + 9 + 9 = 21
+    assert_eq!(ilp.constraints.len(), 21);
 
     // Objective should be maximize
     assert_eq!(ilp.sense, ObjectiveSense::Maximize);

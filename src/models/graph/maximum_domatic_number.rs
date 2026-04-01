@@ -86,9 +86,18 @@ impl<G: Graph> MaximumDomaticNumber<G> {
     fn evaluate_partition(&self, config: &[usize]) -> Option<usize> {
         let n = self.graph.num_vertices();
 
+        // Configuration must assign each vertex to exactly one set.
+        if config.len() != n {
+            return None;
+        }
+
         // Collect which vertices belong to each set
         let mut sets: Vec<Vec<usize>> = vec![vec![]; n];
         for (v, &set_idx) in config.iter().enumerate() {
+            // Each set index must be within bounds of the available sets.
+            if set_idx >= n {
+                return None;
+            }
             sets[set_idx].push(v);
         }
 

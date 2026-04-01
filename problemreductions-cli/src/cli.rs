@@ -227,6 +227,7 @@ Flags by problem type:
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
   KClique                         --graph, --k
+  VertexCover (VC)                --graph, --k
   MinimumMultiwayCut              --graph, --terminals, --edge-weights
   MonochromaticTriangle           --graph
   PartitionIntoTriangles          --graph
@@ -351,6 +352,9 @@ Flags by problem type:
   CBQ                              --domain-size, --relations, --conjuncts-spec
   IntegerExpressionMembership     --expression (JSON), --target
   MinimumGeometricConnectedDominatingSet --positions (float x,y pairs), --radius
+  MinimumDecisionTree             --test-matrix (JSON 2D bool), --num-objects, --num-tests
+  MinimumDisjunctiveNormalForm (MinDNF) --num-vars, --truth-table
+  SquareTiling (WangTiling)       --num-colors, --tiles, --grid-size
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -874,6 +878,24 @@ pub struct CreateArgs {
     /// Number of variables for MinimumCodeGenerationParallelAssignments
     #[arg(long)]
     pub num_variables: Option<usize>,
+    /// Truth table for MinimumDisjunctiveNormalForm (comma-separated 0/1, e.g., "0,1,1,1,1,1,1,0")
+    #[arg(long)]
+    pub truth_table: Option<String>,
+    /// Test matrix for MinimumDecisionTree (JSON 2D bool array, e.g., '[[true,true,false],[true,false,false]]')
+    #[arg(long)]
+    pub test_matrix: Option<String>,
+    /// Number of tests for MinimumDecisionTree
+    #[arg(long)]
+    pub num_tests: Option<usize>,
+    /// Tiles for SquareTiling (semicolon-separated top,right,bottom,left tuples, e.g., "0,1,2,0;0,0,2,1;2,1,0,0;2,0,0,1")
+    #[arg(long)]
+    pub tiles: Option<String>,
+    /// Grid size N for SquareTiling (N x N grid)
+    #[arg(long)]
+    pub grid_size: Option<usize>,
+    /// Number of colors for SquareTiling
+    #[arg(long)]
+    pub num_colors: Option<usize>,
 }
 
 #[derive(clap::Args)]

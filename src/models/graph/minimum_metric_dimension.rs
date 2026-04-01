@@ -31,7 +31,7 @@ inventory::submit! {
 ///
 /// Returns a vector where `dist[v]` is the shortest-path distance from
 /// `source` to `v`, or `usize::MAX` if `v` is unreachable.
-fn bfs_distances<G: Graph>(graph: &G, source: usize) -> Vec<usize> {
+pub fn bfs_distances<G: Graph>(graph: &G, source: usize) -> Vec<usize> {
     let n = graph.num_vertices();
     let mut dist = vec![usize::MAX; n];
     dist[source] = 0;

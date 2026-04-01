@@ -5,7 +5,7 @@
 //!   plus y_i for each set index i (binary: set i is used).
 //! - Partition constraints: for each v, Σ_i x_{v,i} = 1
 //! - Domination constraints: for each v and i, x_{v,i} + Σ_{u ∈ N(v)} x_{u,i} ≥ y_i
-//! - Linking constraints: y_i ≤ Σ_v x_{v,i} for each i
+//! - Linking constraints: x_{v,i} ≤ y_i for each v, i
 //! - Objective: maximize Σ y_i
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
@@ -54,7 +54,7 @@ impl ReductionResult for ReductionDomaticNumberToILP {
 #[reduction(
     overhead = {
         num_vars = "num_vertices * num_vertices + num_vertices",
-        num_constraints = "num_vertices + num_vertices * num_vertices + num_vertices",
+        num_constraints = "num_vertices + num_vertices * num_vertices + num_vertices * num_vertices",
     }
 )]
 impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
@@ -86,12 +86,16 @@ impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
             }
         }
 
-        // Linking constraints: y_i <= Σ_v x_{v,i} for each i
-        // Rewritten as: Σ_v x_{v,i} - y_i >= 0
-        for i in 0..n {
-            let mut terms: Vec<(usize, f64)> = (0..n).map(|v| (v * n + i, 1.0)).collect();
-            terms.push((n * n + i, -1.0));
-            constraints.push(LinearConstraint::ge(terms, 0.0));
+        // Linking constraints: x_{v,i} <= y_i for each v, i
+        // Forces y_i = 1 whenever any vertex is assigned to set i,
+        // ensuring extract_solution always yields a valid partition.
+        for v in 0..n {
+            for i in 0..n {
+                constraints.push(LinearConstraint::le(
+                    vec![(v * n + i, 1.0), (n * n + i, -1.0)],
+                    0.0,
+                ));
+            }
         }
 
         // Objective: maximize Σ y_i

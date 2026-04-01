@@ -306,6 +306,9 @@ mod tests {
             resolve_alias("biconnectivityaugmentation"),
             "BiconnectivityAugmentation"
         );
+        // VertexCover alias
+        assert_eq!(resolve_alias("VC"), "VertexCover");
+        assert_eq!(resolve_alias("VertexCover"), "VertexCover");
         // Pass-through for full names
         assert_eq!(
             resolve_alias("MaximumIndependentSet"),

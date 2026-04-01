@@ -8,29 +8,11 @@
 //! - Objective: Minimize Σ z_v
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::graph::minimum_metric_dimension::bfs_distances;
 use crate::models::graph::MinimumMetricDimension;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use std::collections::VecDeque;
-
-/// Compute BFS shortest-path distances from a single source vertex.
-fn bfs_distances<G: Graph>(graph: &G, source: usize) -> Vec<usize> {
-    let n = graph.num_vertices();
-    let mut dist = vec![usize::MAX; n];
-    dist[source] = 0;
-    let mut queue = VecDeque::new();
-    queue.push_back(source);
-    while let Some(u) = queue.pop_front() {
-        for v in graph.neighbors(u) {
-            if dist[v] == usize::MAX {
-                dist[v] = dist[u] + 1;
-                queue.push_back(v);
-            }
-        }
-    }
-    dist
-}
 
 /// Result of reducing MinimumMetricDimension to ILP.
 ///

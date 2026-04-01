@@ -22,6 +22,7 @@ use problemreductions::models::graph::{
     MinimumDummyActivitiesPert, MinimumGeometricConnectedDominatingSet, MinimumMaximalMatching,
     MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching, PathConstrainedNetworkFlow,
     RootedTreeArrangement, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    VertexCover,
 };
 use problemreductions::models::misc::{
     AdditionalKey, Betweenness, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment,
@@ -31,19 +32,19 @@ use problemreductions::models::misc::{
     IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
     LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumAxiomSet,
     MinimumCodeGenerationOneRegister, MinimumCodeGenerationParallelAssignments,
-    MinimumCodeGenerationUnlimitedRegisters, MinimumExternalMacroDataCompression,
-    MinimumFaultDetectionTestSet, MinimumInternalMacroDataCompression,
-    MinimumRegisterSufficiencyForLoops, MinimumTardinessSequencing, MinimumWeightAndOrGraph,
-    MultiprocessorScheduling, NonLivenessFreePetriNet, Numerical3DimensionalMatching,
-    OpenShopScheduling, PaintShop, PartiallyOrderedKnapsack, PreemptiveScheduling,
-    ProductionPlanning, QueryArg, RectilinearPictureCompression, RegisterSufficiency,
-    ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime,
-    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-    SequencingToMinimizeTardyTaskWeight, SequencingToMinimizeWeightedCompletionTime,
-    SequencingToMinimizeWeightedTardiness, SequencingWithDeadlinesAndSetUpTimes,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition,
-    TimetableDesign,
+    MinimumCodeGenerationUnlimitedRegisters, MinimumDecisionTree, MinimumDisjunctiveNormalForm,
+    MinimumExternalMacroDataCompression, MinimumFaultDetectionTestSet,
+    MinimumInternalMacroDataCompression, MinimumRegisterSufficiencyForLoops,
+    MinimumTardinessSequencing, MinimumWeightAndOrGraph, MultiprocessorScheduling,
+    NonLivenessFreePetriNet, Numerical3DimensionalMatching, OpenShopScheduling, PaintShop,
+    PartiallyOrderedKnapsack, PreemptiveScheduling, ProductionPlanning, QueryArg,
+    RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
+    SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
+    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+    SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, SquareTiling, StringToStringCorrection,
+    SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -238,6 +239,12 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.loop_variables.is_none()
         && args.assignments.is_none()
         && args.num_variables.is_none()
+        && args.truth_table.is_none()
+        && args.test_matrix.is_none()
+        && args.num_tests.is_none()
+        && args.tiles.is_none()
+        && args.grid_size.is_none()
+        && args.num_colors.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -632,6 +639,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
         "KClique" => "--graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3",
+        "VertexCover" => "--graph 0-1,1-2,0-2,2-3 --k 2",
         "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
         "IntegralFlowBundles" => {
             "--arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4"
@@ -911,6 +919,15 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "MinimumCodeGenerationParallelAssignments" => {
             "--num-variables 4 --assignments \"0:1,2;1:0;2:3;3:1,2\""
+        }
+        "MinimumDecisionTree" => {
+            "--test-matrix '[[true,true,false,false],[true,false,false,false],[false,true,false,true]]' --num-objects 4 --num-tests 3"
+        }
+        "MinimumDisjunctiveNormalForm" => {
+            "--num-vars 3 --truth-table 0,1,1,1,1,1,1,0"
+        }
+        "SquareTiling" => {
+            "--num-colors 3 --tiles \"0,1,2,0;0,0,2,1;2,1,0,0;2,0,0,1\" --grid-size 2"
         }
         _ => "",
     }
@@ -2305,6 +2322,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let k = parse_kclique_threshold(args.k, graph.num_vertices(), usage)?;
             (ser(KClique::new(graph, k))?, resolved_variant.clone())
+        }
+
+        "VertexCover" => {
+            let usage = "Usage: pred create VertexCover --graph 0-1,1-2,0-2,2-3 --k 2";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let k = args
+                .k
+                .ok_or_else(|| anyhow::anyhow!("VertexCover requires --k\n\n{usage}"))?;
+            if k == 0 {
+                bail!("VertexCover: --k must be positive");
+            }
+            if k > graph.num_vertices() {
+                bail!("VertexCover: k must be <= graph num_vertices");
+            }
+            (ser(VertexCover::new(graph, k))?, resolved_variant.clone())
         }
 
         // SAT
@@ -6627,6 +6659,92 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MinimumDecisionTree
+        "MinimumDecisionTree" => {
+            let usage = "Usage: pred create MinimumDecisionTree --test-matrix '[[true,true,false,false],[true,false,false,false],[false,true,false,true]]' --num-objects 4 --num-tests 3";
+            let matrix_str = args.test_matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumDecisionTree requires --test-matrix\n\n{usage}")
+            })?;
+            let test_matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str)
+                .context("Failed to parse --test-matrix as JSON 2D bool array")?;
+            let num_objects = args.num_objects.ok_or_else(|| {
+                anyhow::anyhow!("MinimumDecisionTree requires --num-objects\n\n{usage}")
+            })?;
+            let num_tests = args.num_tests.ok_or_else(|| {
+                anyhow::anyhow!("MinimumDecisionTree requires --num-tests\n\n{usage}")
+            })?;
+            (
+                ser(MinimumDecisionTree::new(
+                    test_matrix,
+                    num_objects,
+                    num_tests,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumDisjunctiveNormalForm
+        "MinimumDisjunctiveNormalForm" => {
+            let usage = "Usage: pred create MinDNF --num-vars 3 --truth-table 0,1,1,1,1,1,1,0";
+            let num_vars = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!("MinimumDisjunctiveNormalForm requires --num-vars\n\n{usage}")
+            })?;
+            let tt_str = args.truth_table.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumDisjunctiveNormalForm requires --truth-table\n\n{usage}")
+            })?;
+            let truth_table: Vec<bool> = tt_str
+                .split(',')
+                .map(|s| match s.trim() {
+                    "1" | "true" => Ok(true),
+                    "0" | "false" => Ok(false),
+                    other => bail!("Invalid truth table entry '{}': expected 0 or 1", other),
+                })
+                .collect::<Result<Vec<bool>>>()?;
+            (
+                ser(MinimumDisjunctiveNormalForm::new(num_vars, truth_table))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SquareTiling
+        "SquareTiling" => {
+            let usage = "Usage: pred create SquareTiling --num-colors 3 --tiles \"0,1,2,0;0,0,2,1;2,1,0,0;2,0,0,1\" --grid-size 2";
+            let num_colors = args
+                .num_colors
+                .ok_or_else(|| anyhow::anyhow!("SquareTiling requires --num-colors\n\n{usage}"))?;
+            let tiles_str = args
+                .tiles
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("SquareTiling requires --tiles\n\n{usage}"))?;
+            let tiles: Vec<(usize, usize, usize, usize)> = tiles_str
+                .split(';')
+                .map(|tile_s| {
+                    let parts: Vec<usize> = tile_s
+                        .split(',')
+                        .map(|v| {
+                            v.trim()
+                                .parse::<usize>()
+                                .context("invalid tile color index")
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+                    if parts.len() != 4 {
+                        bail!(
+                            "Each tile must have exactly 4 values (top,right,bottom,left), got {}",
+                            parts.len()
+                        );
+                    }
+                    Ok((parts[0], parts[1], parts[2], parts[3]))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let grid_size = args
+                .grid_size
+                .ok_or_else(|| anyhow::anyhow!("SquareTiling requires --grid-size\n\n{usage}"))?;
+            (
+                ser(SquareTiling::new(num_colors, tiles, grid_size))?,
+                resolved_variant.clone(),
+            )
+        }
+
         _ => bail!("{}", crate::problem_name::unknown_problem_error(canonical)),
     };
 
@@ -8195,6 +8313,29 @@ fn create_random(
             )
         }
 
+        "VertexCover" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let usage =
+                "Usage: pred create VertexCover --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] --k 3";
+            let k = args
+                .k
+                .ok_or_else(|| anyhow::anyhow!("VertexCover requires --k\n\n{usage}"))?;
+            if k == 0 {
+                bail!("VertexCover: --k must be positive");
+            }
+            if k > graph.num_vertices() {
+                bail!("VertexCover: k must be <= graph num_vertices");
+            }
+            (
+                ser(VertexCover::new(graph, k))?,
+                variant_map(&[("graph", "SimpleGraph")]),
+            )
+        }
+
         // MinimumCutIntoBoundedSets (graph + edge weights + s/t/B/K)
         "MinimumCutIntoBoundedSets" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
@@ -8556,7 +8697,7 @@ fn create_random(
         _ => bail!(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
-             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, TravelingSalesman, \
+             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, VertexCover, TravelingSalesman, \
              BottleneckTravelingSalesman, SteinerTreeInGraphs, HamiltonianCircuit, MaximumLeafSpanningTree, SteinerTree, \
              OptimalLinearArrangement, RootedTreeArrangement, HamiltonianPath, LongestCircuit, GeneralizedHex)"
         ),
@@ -9894,6 +10035,12 @@ mod tests {
             outputs: None,
             assignments: None,
             num_variables: None,
+            truth_table: None,
+            test_matrix: None,
+            num_tests: None,
+            tiles: None,
+            grid_size: None,
+            num_colors: None,
         }
     }
 
