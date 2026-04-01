@@ -9335,6 +9335,23 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Return the values of the circuit input variables $x_1, dots, x_n$.
 ]
 
+#reduction-rule("CircuitSAT", "Satisfiability")[
+  The Tseitin transformation converts a boolean circuit into an equisatisfiable CNF formula. Each gate $g$ with output $v$ is replaced by a small set of definitional clauses encoding $v arrow.l.r.double f(a,b)$, where $f$ is the gate function. The conjunction of all definitional clauses is satisfiable iff the original circuit is satisfiable.
+][
+  _Construction._ Assign SAT variable indices $1, dots, n$ to circuit variables. Walk each assignment's expression tree recursively, introducing a fresh variable for each gate:
+  - *AND($a, b$):* fresh $v$; clauses $(overline(v) or a)$, $(overline(v) or b)$, $(v or overline(a) or overline(b))$.
+  - *OR($a, b$):* fresh $v$; clauses $(v or overline(a))$, $(v or overline(b))$, $(overline(v) or a or b)$.
+  - *NOT($a$):* fresh $v$; clauses $(overline(v) or overline(a))$, $(v or a)$.
+  - *XOR($a, b$):* fresh $v$; four clauses enforcing $v arrow.l.r.double a xor b$.
+  - *Const(true/false):* fresh $v$; unit clause $[v]$ or $[overline(v)]$.
+
+  For each assignment with root variable $r$ and output $o$: add $(overline(o) or r)$ and $(o or overline(r))$.
+
+  Multi-input gates are folded as binary trees.
+
+  _Correctness._ ($arrow.r.double$) A satisfying circuit assignment, extended with correct gate outputs, satisfies all definitional clauses. ($arrow.l.double$) Any SAT solution restricted to circuit variables satisfies the circuit. _Solution extraction._ Return the first $n$ SAT variables corresponding to circuit variables.
+]
+
 #let cs_sg = load-example("CircuitSAT", "SpinGlass")
 #let cs_sg_sol = cs_sg.solutions.at(0)
 #reduction-rule("CircuitSAT", "SpinGlass",

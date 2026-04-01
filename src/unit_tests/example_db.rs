@@ -283,6 +283,30 @@ fn test_build_rule_db_has_unique_structural_keys() {
 }
 
 #[test]
+fn test_find_rule_example_circuitsat_to_satisfiability() {
+    let source = ProblemRef {
+        name: "CircuitSAT".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "Satisfiability".to_string(),
+        variant: BTreeMap::new(),
+    };
+
+    let example = find_rule_example(&source, &target).expect("CircuitSAT -> SAT example exists");
+    assert_eq!(example.source.problem, "CircuitSAT");
+    assert_eq!(example.target.problem, "Satisfiability");
+    assert!(
+        example.source.instance.get("circuit").is_some(),
+        "CircuitSAT source should have circuit field"
+    );
+    assert!(
+        example.target.instance.get("clauses").is_some(),
+        "Satisfiability target should have clauses field"
+    );
+}
+
+#[test]
 fn test_find_rule_example_rejects_composed_path_pairs() {
     let source = ProblemRef {
         name: "MaximumIndependentSet".to_string(),

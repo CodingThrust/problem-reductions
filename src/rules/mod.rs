@@ -9,6 +9,7 @@ pub use cost::{
 pub use registry::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
 
 pub(crate) mod circuit_spinglass;
+pub(crate) mod circuitsat_satisfiability;
 mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
 pub(crate) mod exactcoverby3sets_maximumsetpacking;
@@ -297,6 +298,7 @@ pub use traits::{
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     let mut specs = Vec::new();
     specs.extend(circuit_spinglass::canonical_rule_example_specs());
+    specs.extend(circuitsat_satisfiability::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_staffscheduling::canonical_rule_example_specs());
     specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
