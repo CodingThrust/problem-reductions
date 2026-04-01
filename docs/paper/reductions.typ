@@ -227,6 +227,7 @@
   "MinimumRegisterSufficiencyForLoops": [Minimum Register Sufficiency for Loops],
   "MinimumCodeGenerationOneRegister": [Minimum Code Generation (One Register)],
   "MinimumCodeGenerationParallelAssignments": [Minimum Code Generation (Parallel Assignments)],
+  "MinimumDecisionTree": [Minimum Decision Tree],
   "MinimumCodeGenerationUnlimitedRegisters": [Minimum Code Generation (Unlimited Registers)],
   "RegisterSufficiency": [Register Sufficiency],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
@@ -5264,6 +5265,29 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred solve mcgpa.json --solver brute-force",
         "pred evaluate mcgpa.json --config " + x.optimal_config.map(str).join(","),
       )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumDecisionTree")
+  let n = x.instance.num_objects
+  let m = x.instance.num_tests
+  let sol = x.optimal_config
+  let tepl = x.optimal_value
+  [
+    #problem-def("MinimumDecisionTree")[
+      Given a set $S$ of $n$ objects and $m$ binary tests $T_1, dots, T_m$ where each test maps $S$ to ${0,1}$ and every pair of objects is distinguished by at least one test, find a decision tree using tests from $T$ that identifies each object and minimizes the total external path length (sum of leaf depths).
+    ][
+    Minimum Decision Tree (MS15) models optimal test sequencing for object identification @garey1979. NP-hard even when each test has at most 3 positive objects (Hyafil and Rivest 1976, via reduction from Exact Cover by 3-Sets). The Sethi--Ullman algorithm solves the tree (forest) case in polynomial time. The brute-force bound is $O^*(m^n)$.
+
+    *Example.* Consider $n = #n$ objects and $m = #m$ tests. The optimal decision tree has total external path length #tepl, achieved by a balanced split at the root.
+
+    #pred-commands(
+      "pred create --example MinimumDecisionTree -o mdt.json",
+      "pred solve mdt.json",
+      "pred evaluate mdt.json --config " + sol.map(str).join(","),
+    )
     ]
   ]
 }
