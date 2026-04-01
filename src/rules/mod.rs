@@ -11,6 +11,7 @@ pub use registry::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
 pub(crate) mod circuit_spinglass;
 mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
+pub(crate) mod exactcoverby3sets_maximumsetpacking;
 pub(crate) mod exactcoverby3sets_staffscheduling;
 pub(crate) mod factoring_circuit;
 mod graph;
@@ -26,6 +27,7 @@ pub(crate) mod hamiltoniancircuit_strongconnectivityaugmentation;
 pub(crate) mod hamiltoniancircuit_travelingsalesman;
 pub(crate) mod hamiltonianpath_consecutiveonessubmatrix;
 pub(crate) mod hamiltonianpath_isomorphicspanningtree;
+pub(crate) mod ilp_i32_ilp_bool;
 pub(crate) mod kclique_balancedcompletebipartitesubgraph;
 pub(crate) mod kclique_conjunctivebooleanquery;
 pub(crate) mod kclique_subgraphisomorphism;
@@ -38,6 +40,7 @@ pub(crate) mod ksatisfiability_minimumvertexcover;
 pub(crate) mod ksatisfiability_qubo;
 pub(crate) mod ksatisfiability_subsetsum;
 pub(crate) mod longestcommonsubsequence_maximumindependentset;
+pub(crate) mod maxcut_minimumcutintoboundedsets;
 pub(crate) mod maximumclique_maximumindependentset;
 mod maximumindependentset_casts;
 mod maximumindependentset_gridgraph;
@@ -55,7 +58,9 @@ pub(crate) mod minimumvertexcover_minimumfeedbackarcset;
 pub(crate) mod minimumvertexcover_minimumfeedbackvertexset;
 pub(crate) mod minimumvertexcover_minimumhittingset;
 pub(crate) mod minimumvertexcover_minimumsetcovering;
+pub(crate) mod naesatisfiability_maxcut;
 pub(crate) mod paintshop_qubo;
+pub(crate) mod partition_binpacking;
 pub(crate) mod partition_cosineproductintegration;
 pub(crate) mod partition_knapsack;
 pub(crate) mod partition_multiprocessorscheduling;
@@ -77,6 +82,11 @@ pub(crate) mod subsetsum_capacityassignment;
 pub(crate) mod subsetsum_closestvectorproblem;
 #[cfg(test)]
 pub(crate) mod test_helpers;
+pub(crate) mod threepartition_flowshopscheduling;
+pub(crate) mod threepartition_jobshopscheduling;
+pub(crate) mod threepartition_resourceconstrainedscheduling;
+pub(crate) mod threepartition_sequencingtominimizeweightedtardiness;
+pub(crate) mod threepartition_sequencingwithreleasetimesanddeadlines;
 mod traits;
 pub(crate) mod travelingsalesman_qubo;
 
@@ -354,6 +364,19 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(partition_shortestweightconstrainedpath::canonical_rule_example_specs());
     specs.extend(partition_subsetsum::canonical_rule_example_specs());
     specs.extend(rootedtreearrangement_rootedtreestorageassignment::canonical_rule_example_specs());
+    specs.extend(naesatisfiability_maxcut::canonical_rule_example_specs());
+    specs.extend(exactcoverby3sets_maximumsetpacking::canonical_rule_example_specs());
+    specs.extend(maxcut_minimumcutintoboundedsets::canonical_rule_example_specs());
+    specs.extend(partition_binpacking::canonical_rule_example_specs());
+    specs.extend(threepartition_flowshopscheduling::canonical_rule_example_specs());
+    specs.extend(threepartition_jobshopscheduling::canonical_rule_example_specs());
+    specs.extend(threepartition_resourceconstrainedscheduling::canonical_rule_example_specs());
+    specs.extend(
+        threepartition_sequencingtominimizeweightedtardiness::canonical_rule_example_specs(),
+    );
+    specs.extend(
+        threepartition_sequencingwithreleasetimesanddeadlines::canonical_rule_example_specs(),
+    );
     specs.extend(minimumvertexcover_ensemblecomputation::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_maximumindependentset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackarcset::canonical_rule_example_specs());

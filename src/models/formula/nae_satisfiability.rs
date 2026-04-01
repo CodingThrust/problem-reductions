@@ -69,6 +69,16 @@ impl NAESatisfiability {
         self.clauses.iter().map(|c| c.len()).sum()
     }
 
+    /// Get the total number of literal pairs across all clauses.
+    ///
+    /// For each clause with k literals, this contributes C(k,2) = k*(k-1)/2 pairs.
+    pub fn num_literal_pairs(&self) -> usize {
+        self.clauses
+            .iter()
+            .map(|c| c.len() * (c.len() - 1) / 2)
+            .sum()
+    }
+
     /// Get the clauses.
     pub fn clauses(&self) -> &[CNFClause] {
         &self.clauses
