@@ -109,6 +109,41 @@ pred show <Source> --json
 pred show <Target> --json
 ```
 
+### Type compatibility gate — MANDATORY
+
+Before proceeding, check that the source and target Value types are compatible for a witness-preserving reduction (`ReduceTo<T>` / `ReductionResult`):
+
+```bash
+# Check Value types in the model source files
+grep "type Value = " src/models/*/<source_file>.rs
+grep "type Value = " src/models/*/<target_file>.rs
+```
+
+**Compatible pairs:**
+- `Or` → `Or` (feasibility → feasibility) — always OK
+- `Min<W>` → `Min<W>` or `Max<W>` → `Max<W>` (same optimization sense) — OK if witness extraction preserves optimality
+- `Or` → `Max`/`Min` — OK for decision-to-optimization embeddings
+
+**Incompatible pairs that require a K parameter:**
+- `Min<W>` or `Max<W>` → `Or` (optimization → decision) — the G&J-style reductions need a threshold K that doesn't exist on the source type. These cannot be implemented as `ReduceTo<T>`.
+
+If the types are incompatible, **STOP immediately** and comment on the issue:
+
+```bash
+gh issue comment "$ISSUE" --body "verify-reduction: **BLOCKED** — type mismatch.
+
+Source \`<Source>\` has \`Value = <SourceValue>\` (optimization) but target \`<Target>\` has \`Value = <TargetValue>\` (decision). The G&J reduction requires a threshold parameter K that doesn't exist on the source type. This reduction cannot be implemented as \`ReduceTo<T>\` in the current type system.
+
+Options:
+1. Add a decision-variant model with a K parameter
+2. Use \`ReduceToAggregate\` for value-only reduction (no witness extraction)
+3. Choose a different source/target pair with compatible types"
+```
+
+Do NOT create a worktree, write proofs, or run verification for incompatible reductions.
+
+### Continue if compatible
+
 Extract: construction algorithm, correctness argument, overhead formulas, worked example, reference.
 
 If the issue is incomplete, use WebSearch to find the original reference.

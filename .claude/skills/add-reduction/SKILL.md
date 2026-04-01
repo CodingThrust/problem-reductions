@@ -126,15 +126,58 @@ fn test_<source>_to_<target>_infeasible() {
 
 Add additional structural tests as needed (target size, edge count, etc.) guided by the `claims` field in the test vectors JSON.
 
-## Step 4: Add canonical example to example_db
+## Step 4: Add canonical example to example_db (Check 9 from #974)
 
-Same as `/add-rule` Step 4. The YES instance from the test vectors JSON is a good candidate for the canonical example.
+**This step is MANDATORY — many past PRs skipped it.** Add a builder function in `src/example_db/rule_builders.rs` that constructs a small canonical instance for this reduction.
 
-## Step 5: Document in paper
+Use the YES instance from the test vectors JSON as the canonical example. Follow existing patterns in `rule_builders.rs`:
 
-The Typst proof already exists from `/verify-reduction`. Integrate it into `docs/paper/reductions.typ` using the `reduction-rule` template. The proof text, worked examples, and overhead table are already written — adapt them to the paper's macros (`reduction-rule`, `problem-def`, etc.).
+```rust
+pub fn build_<source>_to_<target>_example() -> RuleExample {
+    // Construct the source instance from test vectors YES instance
+    let source = <SourceType>::new(/* fields from test_vectors.yes_instance.input */);
+    let reduction = ReduceTo::<TargetType>::reduce_to(&source);
+    RuleExample {
+        source: Box::new(source),
+        target: Box::new(reduction.target_problem().clone()),
+        reduction_result: Box::new(reduction),
+    }
+}
+```
 
-Follow `/add-rule` Step 5 for the exact format. The heavy writing is already done; this step is reformatting.
+Register the builder in `build_rule_examples()` in the same file.
+
+## Step 4b: Add example-db lookup test (Check 10 from #974)
+
+**Also MANDATORY.** Add a test in `src/unit_tests/example_db.rs` that verifies the canonical example can be loaded:
+
+```rust
+#[test]
+fn test_example_<source>_to_<target>() {
+    let examples = build_rule_examples();
+    let found = examples.iter().any(|e| /* matches source/target names */);
+    assert!(found, "Missing canonical example for <Source> → <Target>");
+}
+```
+
+Or add the rule to the existing exhaustive lookup test if one exists.
+
+## Step 5: Document in paper (Check 11 from #974)
+
+**Also MANDATORY.** The Typst proof already exists from `/verify-reduction`. Integrate it into `docs/paper/reductions.typ` using the `reduction-rule` template:
+
+```typst
+#reduction-rule("Source", "Target",
+  example: true,
+  example-caption: [Description],
+)[
+  Rule statement from Typst proof...
+][
+  Proof from Typst proof (Construction + Correctness + Extraction)...
+]
+```
+
+The proof text, worked examples, and overhead table are already written in the verification Typst file — adapt them to the paper's macros. Follow `/add-rule` Step 5 for the exact format.
 
 ## Step 6: Regenerate exports and verify
 
@@ -146,6 +189,21 @@ cargo run --example export_schemas
 make regenerate-fixtures
 make test clippy
 ```
+
+## Step 7: Clean up verification artifacts
+
+**MANDATORY.** After the Rust implementation is complete and all tests pass, remove the verification artifacts from `docs/paper/verify-reductions/`. These artifacts served their purpose as a pre-verification gate and must NOT be committed into the library.
+
+```bash
+git rm docs/paper/verify-reductions/verify_<source>_<target>.py
+git rm docs/paper/verify-reductions/adversary_<source>_<target>.py
+git rm docs/paper/verify-reductions/cross_compare_<source>_<target>.py
+git rm docs/paper/verify-reductions/test_vectors_<source>_<target>.json
+git rm docs/paper/verify-reductions/<source>_<target>.typ
+git rm docs/paper/verify-reductions/<source>_<target>.pdf
+```
+
+The Typst proof content lives on in the paper entry (`docs/paper/reductions.typ`). The Python scripts and test vectors were scaffolding — the Rust tests are the permanent verification.
 
 ## Solver Rules
 
@@ -173,3 +231,7 @@ All mistakes from `/add-rule` apply, plus:
 | Overhead expressions don't match test vectors JSON | Copy verbatim from the `overhead` field |
 | Skipping the infeasible (NO) test case | The NO instance is in the test vectors — always include it |
 | Not integrating the existing Typst proof into the paper | The proof is already written; reformat, don't rewrite |
+| Missing canonical example in `rule_builders.rs` (Check 9 from #974) | MANDATORY — add builder function using the YES test vector |
+| Missing example-db lookup test (Check 10 from #974) | MANDATORY — add test in `example_db.rs` |
+| Missing paper `reduction-rule` entry (Check 11 from #974) | MANDATORY — integrate Typst proof into `reductions.typ` |
+| Leaving verification artifacts in `docs/paper/verify-reductions/` | MANDATORY cleanup — `git rm` all Python scripts, JSON, Typst, PDF from verify-reductions |
