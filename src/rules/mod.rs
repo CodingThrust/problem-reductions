@@ -59,6 +59,7 @@ pub(crate) mod minimumvertexcover_minimumfeedbackvertexset;
 pub(crate) mod minimumvertexcover_minimumhittingset;
 pub(crate) mod minimumvertexcover_minimumsetcovering;
 pub(crate) mod naesatisfiability_maxcut;
+pub(crate) mod naesatisfiability_setsplitting;
 pub(crate) mod paintshop_qubo;
 pub(crate) mod partition_binpacking;
 pub(crate) mod partition_cosineproductintegration;
