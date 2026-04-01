@@ -212,50 +212,109 @@ git rm -f docs/paper/verify-reductions/*<source>*<target>*
 
 The Typst proof content lives on in the paper entry. The Python scripts were scaffolding — the Rust tests are the permanent verification.
 
-## Step 8: Pre-Commit Gate and Create PR
+## Step 8: Parent-Side Verification and Commit
 
-**Before committing, run this checklist. ALL must pass:**
+**Do NOT trust the subagent's self-report.** After the implementation subagent reports DONE, the parent (you) MUST run these checks independently:
+
+### 8a. File gate (parent runs this, not the subagent)
 
 ```bash
-# Gate 1: Required files modified
-echo "=== Pre-commit file gate ==="
-for f in \
-  "src/rules/<source>_<target>.rs" \
-  "src/unit_tests/rules/<source>_<target>.rs" \
-  "src/rules/mod.rs" \
-  "src/unit_tests/example_db.rs" \
-  "docs/paper/reductions.typ"; do
-  git diff --name-only HEAD | grep -q "$(basename $f)" && echo "  ✓ $f" || echo "  ✗ MISSING: $f"
+echo "=== Parent-side file gate ==="
+REQUIRED_PATTERNS=(
+  "<source>_<target>.rs"    # rule file
+  "mod.rs"                  # module registration
+  "example_db.rs"           # lookup test
+  "reductions.typ"          # paper entry
+)
+CHANGED=$(git diff --name-only HEAD)
+for pat in "${REQUIRED_PATTERNS[@]}"; do
+  echo "$CHANGED" | grep -q "$pat" && echo "  ✓ $pat" || echo "  ✗ MISSING: $pat — send subagent back"
 done
 
-# Gate 2: No verification artifacts remaining
+# Canonical example wired?
+grep -q "canonical_rule_example_specs" src/rules/<source>_<target>.rs && echo "  ✓ canonical_rule_example_specs in rule file" || echo "  ✗ MISSING canonical_rule_example_specs"
+grep -q "<source>_<target>::canonical_rule_example_specs" src/rules/mod.rs && echo "  ✓ wired in mod.rs" || echo "  ✗ MISSING mod.rs wiring"
+
+# Artifacts cleaned?
 ls docs/paper/verify-reductions/*<source>*<target>* 2>/dev/null && echo "  ✗ ARTIFACTS NOT CLEANED" || echo "  ✓ Artifacts cleaned"
+```
 
-# Gate 3: Clippy with -D warnings (CI uses this — local clippy alone is insufficient)
+**If ANY line shows ✗, send the subagent back to fix it.** Do NOT proceed.
+
+### 8b. CI-equivalent checks (parent runs)
+
+```bash
 cargo clippy -- -D warnings 2>&1 | tail -3
-
-# Gate 4: Full test suite (catches dominated-rules failures)
 cargo test 2>&1 | tail -3
-
-# Gate 5: Dominated-rules test specifically
-cargo test test_find_dominated_rules_returns_known_set 2>&1 | tail -3
-
-# Gate 6: Paper compiles
 make paper 2>&1 | tail -3
 ```
 
-**If ANY file shows ✗ MISSING, STOP and go back to the skipped step.** Do NOT commit with missing files.
+### 8c. Commit and push
+
+Only after ALL gates pass:
 
 ```bash
-git add src/rules/<source>_<target>.rs \
-       src/unit_tests/rules/<source>_<target>.rs \
-       src/rules/mod.rs \
-       src/unit_tests/example_db.rs \
-       src/unit_tests/rules/analysis.rs \
-       docs/paper/reductions.typ
+git add -A
 git commit -m "feat: add <Source> → <Target> reduction (#<ISSUE>)"
 git push -u origin "<branch>"
 gh pr create --title "feat: add <Source> → <Target> reduction (#<ISSUE>)" --body "..."
+```
+
+## Pre-Commit Hook
+
+Install this hook to mechanically block commits missing required files. The hook runs automatically — subagents cannot bypass it.
+
+**File:** `.claude/hooks/add-reduction-precommit.sh`
+
+```bash
+#!/bin/bash
+# Pre-commit hook for add-reduction: blocks commits missing required files.
+# Install: copy to .git/hooks/pre-commit or add to settings.json hooks.
+
+STAGED=$(git diff --cached --name-only)
+
+# Only run for reduction rule commits
+if ! echo "$STAGED" | grep -q "src/rules/.*\.rs$"; then
+  exit 0
+fi
+
+# Extract the reduction name from staged rule files
+RULE_FILE=$(echo "$STAGED" | grep "^src/rules/" | grep -v mod.rs | grep -v traits.rs | head -1)
+if [ -z "$RULE_FILE" ]; then
+  exit 0
+fi
+
+ERRORS=0
+
+# Check example_db.rs is staged
+if ! echo "$STAGED" | grep -q "example_db.rs"; then
+  echo "BLOCKED: src/unit_tests/example_db.rs not staged (Check 10 from #974)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check reductions.typ is staged
+if ! echo "$STAGED" | grep -q "reductions.typ"; then
+  echo "BLOCKED: docs/paper/reductions.typ not staged (Check 11 from #974)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check mod.rs is staged
+if ! echo "$STAGED" | grep -q "mod.rs"; then
+  echo "BLOCKED: src/rules/mod.rs not staged"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check no verification artifacts are staged
+if echo "$STAGED" | grep -q "verify-reductions/"; then
+  echo "BLOCKED: verification artifacts still staged — run git rm first"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if [ $ERRORS -gt 0 ]; then
+  echo ""
+  echo "Fix the above and re-commit. See /add-reduction skill for details."
+  exit 1
+fi
 ```
 
 ## Common Mistakes
