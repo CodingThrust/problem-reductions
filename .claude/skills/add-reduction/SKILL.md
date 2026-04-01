@@ -92,15 +92,29 @@ Reference: `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs`
 
 ## Step 4: Add Canonical Example to example_db
 
-**MANDATORY (Check 9 from #974).** Add a builder in `src/example_db/rule_builders.rs` using the YES test vector instance. Register in `build_rule_examples()`. Follow existing patterns in the file.
+**HARD GATE (Check 9 from #974).** You MUST modify `src/example_db/rule_builders.rs` — not the rule file, not anywhere else. Read the file first, follow existing patterns, add a builder function using the YES test vector instance, register in `build_rule_examples()`.
+
+**Verification — run this and confirm the file was modified:**
+```bash
+git diff --name-only | grep "rule_builders.rs"
+# MUST show: src/example_db/rule_builders.rs
+# If it does NOT appear, you skipped this step. Go back and do it.
+```
 
 ## Step 4b: Add Example-DB Lookup Test
 
-**MANDATORY (Check 10 from #974).** Verify the new example is discoverable in `src/unit_tests/example_db.rs`. Add the rule to the existing exhaustive lookup test, or add a standalone test.
+**HARD GATE (Check 10 from #974).** You MUST modify `src/unit_tests/example_db.rs`. Read the file first, add the new rule to the existing exhaustive lookup test or add a standalone test.
+
+**Verification:**
+```bash
+git diff --name-only | grep "example_db.rs"
+# MUST show: src/unit_tests/example_db.rs
+# If it does NOT appear, you skipped this step. Go back and do it.
+```
 
 ## Step 5: Write Paper Entry
 
-**MANDATORY (Check 11 from #974).** The Typst proof already exists from `/verify-reduction`. Integrate it into `docs/paper/reductions.typ` using the paper's macros.
+**HARD GATE (Check 11 from #974).** You MUST modify `docs/paper/reductions.typ`. The Typst proof already exists from `/verify-reduction` — reformat it into the paper's macros. Do NOT skip this step.
 
 ### 5a. Load example data
 
@@ -138,10 +152,17 @@ Step-by-step walkthrough with concrete numbers from JSON data. Must include:
 
 Add to `display-name` dictionary if the problem doesn't have an entry yet.
 
-### 5e. Build
+### 5e. Build and verify
 
 ```bash
 make paper  # Must compile without errors or new completeness warnings
+```
+
+**Verification — confirm the paper file was modified:**
+```bash
+git diff --name-only | grep "reductions.typ"
+# MUST show: docs/paper/reductions.typ
+# If it does NOT appear, you skipped Step 5. Go back and do it.
 ```
 
 ## Step 6: Regenerate Exports and Verify
@@ -163,7 +184,34 @@ git rm -f docs/paper/verify-reductions/*<source>*<target>*
 
 The Typst proof content lives on in the paper entry. The Python scripts were scaffolding — the Rust tests are the permanent verification.
 
-## Step 8: Commit and Create PR
+## Step 8: Pre-Commit Gate and Create PR
+
+**Before committing, run this checklist. ALL must pass:**
+
+```bash
+# Gate 1: Required files modified
+echo "=== Pre-commit file gate ==="
+for f in \
+  "src/rules/<source>_<target>.rs" \
+  "src/unit_tests/rules/<source>_<target>.rs" \
+  "src/rules/mod.rs" \
+  "src/example_db/rule_builders.rs" \
+  "src/unit_tests/example_db.rs" \
+  "docs/paper/reductions.typ"; do
+  git diff --name-only HEAD | grep -q "$(basename $f)" && echo "  ✓ $f" || echo "  ✗ MISSING: $f"
+done
+
+# Gate 2: No verification artifacts remaining
+ls docs/paper/verify-reductions/*<source>*<target>* 2>/dev/null && echo "  ✗ ARTIFACTS NOT CLEANED" || echo "  ✓ Artifacts cleaned"
+
+# Gate 3: Tests pass
+cargo test 2>&1 | tail -3
+
+# Gate 4: Paper compiles
+make paper 2>&1 | tail -3
+```
+
+**If ANY file shows ✗ MISSING, STOP and go back to the skipped step.** Do NOT commit with missing files.
 
 ```bash
 git add src/rules/<source>_<target>.rs \
@@ -172,10 +220,7 @@ git add src/rules/<source>_<target>.rs \
        src/example_db/rule_builders.rs \
        src/unit_tests/example_db.rs \
        docs/paper/reductions.typ
-git commit -m "feat: add <Source> → <Target> reduction (#<ISSUE>)
-
-Implemented via /verify-reduction → /add-reduction pipeline.
-Verification: N checks (constructor) + M checks (adversary), 0 failures."
+git commit -m "feat: add <Source> → <Target> reduction (#<ISSUE>)"
 git push -u origin "<branch>"
 gh pr create --title "feat: add <Source> → <Target> reduction (#<ISSUE>)" --body "..."
 ```
