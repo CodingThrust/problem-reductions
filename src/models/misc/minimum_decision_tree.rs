@@ -131,10 +131,8 @@ impl MinimumDecisionTree {
     fn simulate(&self, config: &[usize]) -> Option<usize> {
         let sentinel = self.leaf_sentinel();
         let max_slots = self.num_tree_slots();
-        let mut leaf_assignments: Vec<Option<usize>> = vec![None; max_slots + self.num_objects];
-        // Track (node_index, depth) where each object lands
-        let mut object_depths = vec![0usize; self.num_objects];
-        let mut object_placed = vec![false; self.num_objects];
+        let mut seen_leaves = std::collections::HashSet::new();
+        let mut total_depth = 0usize;
 
         for obj in 0..self.num_objects {
             let mut node = 0usize;
@@ -142,65 +140,28 @@ impl MinimumDecisionTree {
 
             loop {
                 if node >= max_slots || config[node] == sentinel {
-                    // This is a leaf — place object here
-                    // Use node index as leaf identifier
-                    let leaf_id = node;
-                    if leaf_id < leaf_assignments.len() {
-                        if let Some(existing) = leaf_assignments[leaf_id] {
-                            if existing != obj {
-                                // Two objects at same leaf — invalid
-                                return None;
-                            }
-                        }
-                        leaf_assignments[leaf_id] = Some(obj);
+                    // Two objects at same leaf — invalid
+                    if !seen_leaves.insert(node) {
+                        return None;
                     }
-                    object_depths[obj] = depth;
-                    object_placed[obj] = true;
+                    total_depth += depth;
                     break;
                 }
 
                 let test_idx = config[node];
-                if test_idx >= self.num_tests {
-                    return None; // Invalid test index (but not sentinel — shouldn't happen)
-                }
+                debug_assert!(test_idx < self.num_tests);
 
-                // Apply test: false (0) → left child, true (1) → right child
                 let result = self.test_matrix[test_idx][obj];
-                let left = 2 * node + 1;
-                let right = 2 * node + 2;
-                node = if result { right } else { left };
+                node = if result { 2 * node + 2 } else { 2 * node + 1 };
                 depth += 1;
 
-                // Safety: prevent infinite loops on malformed configs
                 if depth > self.num_objects {
                     return None;
                 }
             }
         }
 
-        // Check all objects were placed
-        if !object_placed.iter().all(|&p| p) {
-            return None;
-        }
-
-        // Check all objects reached unique leaves
-        let mut seen_leaves = std::collections::HashSet::new();
-        for obj in 0..self.num_objects {
-            // Re-traverse to get leaf node
-            let mut node = 0;
-            loop {
-                if node >= max_slots || config[node] == sentinel {
-                    if !seen_leaves.insert(node) {
-                        return None; // Duplicate leaf
-                    }
-                    break;
-                }
-                let result = self.test_matrix[config[node]][obj];
-                node = if result { 2 * node + 2 } else { 2 * node + 1 };
-            }
-        }
-
-        Some(object_depths.iter().sum())
+        Some(total_depth)
     }
 }
 

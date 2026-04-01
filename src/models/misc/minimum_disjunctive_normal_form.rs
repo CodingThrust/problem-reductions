@@ -190,70 +190,54 @@ crate::declare_variants! {
 ///
 /// Each implicant is represented as a Vec<Option<bool>> of length num_variables.
 fn compute_prime_implicants(num_vars: usize, minterms: &[usize]) -> Vec<PrimeImplicant> {
+    use std::collections::HashSet;
+
     if minterms.is_empty() {
         return vec![];
     }
 
-    // An implicant is a set of bit positions with values.
-    // Represent as (pattern, covered_minterms).
-    // Pattern: Vec<Option<bool>> where None = don't care.
+    type Pattern = Vec<Option<bool>>;
 
-    // Convert minterms to initial implicants (each minterm is a full pattern)
-    let mut current: Vec<(Vec<Option<bool>>, Vec<usize>)> = minterms
+    let mut current: Vec<Pattern> = minterms
         .iter()
         .map(|&mt| {
-            let pattern: Vec<Option<bool>> = (0..num_vars)
+            (0..num_vars)
                 .map(|i| Some(((mt >> (num_vars - 1 - i)) & 1) == 1))
-                .collect();
-            (pattern, vec![mt])
+                .collect()
         })
         .collect();
 
-    let mut all_prime: Vec<(Vec<Option<bool>>, Vec<usize>)> = Vec::new();
+    let mut all_prime: HashSet<Pattern> = HashSet::new();
 
     loop {
-        let mut next: Vec<(Vec<Option<bool>>, Vec<usize>)> = Vec::new();
+        let mut next_set: HashSet<Pattern> = HashSet::new();
         let mut used = vec![false; current.len()];
 
         for i in 0..current.len() {
             for j in (i + 1)..current.len() {
-                if let Some(merged) = try_merge(&current[i].0, &current[j].0) {
-                    // Merge covered minterms
-                    let mut covered = current[i].1.clone();
-                    for &mt in &current[j].1 {
-                        if !covered.contains(&mt) {
-                            covered.push(mt);
-                        }
-                    }
-                    covered.sort_unstable();
-
-                    // Check if this merged pattern already exists in next
-                    if !next.iter().any(|(p, _)| *p == merged) {
-                        next.push((merged, covered));
-                    }
-
+                if let Some(merged) = try_merge(&current[i], &current[j]) {
+                    next_set.insert(merged);
                     used[i] = true;
                     used[j] = true;
                 }
             }
         }
 
-        // Unused implicants are prime
         for (i, &was_used) in used.iter().enumerate() {
-            if !was_used && !all_prime.iter().any(|(p, _)| *p == current[i].0) {
-                all_prime.push(current[i].clone());
+            if !was_used {
+                all_prime.insert(current[i].clone());
             }
         }
 
-        if next.is_empty() {
+        if next_set.is_empty() {
             break;
         }
-        current = next;
+        current = next_set.into_iter().collect();
     }
 
     all_prime
         .into_iter()
-        .map(|(pattern, _)| PrimeImplicant { pattern })
+        .map(|pattern| PrimeImplicant { pattern })
         .collect()
 }
 

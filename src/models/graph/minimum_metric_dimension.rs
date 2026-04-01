@@ -74,16 +74,35 @@ fn bfs_distances<G: Graph>(graph: &G, source: usize) -> Vec<usize> {
 /// let value = problem.evaluate(&solution);
 /// assert!(value.is_valid());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumMetricDimension<G> {
     /// The underlying graph.
     graph: G,
+    /// Precomputed all-pairs shortest-path distances.
+    #[serde(skip)]
+    dist_matrix: Vec<Vec<usize>>,
+}
+
+impl<'de, G: Graph + Deserialize<'de>> Deserialize<'de> for MinimumMetricDimension<G> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Helper<G> {
+            graph: G,
+        }
+        let helper = Helper::<G>::deserialize(deserializer)?;
+        Ok(Self::new(helper.graph))
+    }
 }
 
 impl<G: Graph> MinimumMetricDimension<G> {
     /// Create a MinimumMetricDimension problem from a graph.
     pub fn new(graph: G) -> Self {
-        Self { graph }
+        let n = graph.num_vertices();
+        let dist_matrix = (0..n).map(|v| bfs_distances(&graph, v)).collect();
+        Self { graph, dist_matrix }
     }
 
     /// Get a reference to the underlying graph.
@@ -112,16 +131,13 @@ impl<G: Graph> MinimumMetricDimension<G> {
             return false;
         }
 
-        // Compute BFS distances from each selected vertex
-        let dist_from_selected: Vec<Vec<usize>> = selected
-            .iter()
-            .map(|&w| bfs_distances(&self.graph, w))
-            .collect();
-
         // Check that all pairs of distinct vertices have different distance vectors
+        // using precomputed all-pairs distances
         for u in 0..n {
             for v in (u + 1)..n {
-                let all_same = dist_from_selected.iter().all(|dists| dists[u] == dists[v]);
+                let all_same = selected
+                    .iter()
+                    .all(|&w| self.dist_matrix[w][u] == self.dist_matrix[w][v]);
                 if all_same {
                     return false;
                 }

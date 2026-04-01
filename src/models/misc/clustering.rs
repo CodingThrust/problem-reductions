@@ -111,7 +111,7 @@ impl Clustering {
     }
 
     /// Returns the distance matrix.
-    pub fn distances(&self) -> &Vec<Vec<u64>> {
+    pub fn distances(&self) -> &[Vec<u64>] {
         &self.distances
     }
 
@@ -129,6 +129,33 @@ impl Clustering {
     pub fn diameter_bound(&self) -> u64 {
         self.diameter_bound
     }
+
+    /// Check if a configuration is a valid clustering.
+    fn is_valid_partition(&self, config: &[usize]) -> bool {
+        let n = self.num_elements();
+        if config.len() != n {
+            return false;
+        }
+        if config.iter().any(|&c| c >= self.num_clusters) {
+            return false;
+        }
+        // Group elements by cluster in a single pass
+        let mut clusters: Vec<Vec<usize>> = vec![vec![]; self.num_clusters];
+        for (i, &c) in config.iter().enumerate() {
+            clusters[c].push(i);
+        }
+        // Check all intra-cluster pairwise distances ≤ B
+        for members in &clusters {
+            for a in 0..members.len() {
+                for b in (a + 1)..members.len() {
+                    if self.distances[members[a]][members[b]] > self.diameter_bound {
+                        return false;
+                    }
+                }
+            }
+        }
+        true
+    }
 }
 
 impl Problem for Clustering {
@@ -144,34 +171,7 @@ impl Problem for Clustering {
     }
 
     fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let n = self.num_elements();
-            if config.len() != n {
-                return crate::types::Or(false);
-            }
-            let k = self.num_clusters;
-            // Check all assignments are valid cluster indices
-            if config.iter().any(|&c| c >= k) {
-                return crate::types::Or(false);
-            }
-            // For each non-empty cluster, check all pairwise distances ≤ B
-            for c in 0..k {
-                let members: Vec<usize> = config
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, &cl)| cl == c)
-                    .map(|(i, _)| i)
-                    .collect();
-                for a in 0..members.len() {
-                    for b in (a + 1)..members.len() {
-                        if self.distances[members[a]][members[b]] > self.diameter_bound {
-                            return crate::types::Or(false);
-                        }
-                    }
-                }
-            }
-            true
-        })
+        crate::types::Or(self.is_valid_partition(config))
     }
 }
 

@@ -4,6 +4,7 @@
 //! exists a vertex cover of size at most k. This is the decision version of
 //! MinimumVertexCover — one of Karp's 21 NP-complete problems.
 
+use super::minimum_vertex_cover::is_vertex_cover_config;
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -92,15 +93,7 @@ impl<G: Graph> VertexCover<G> {
         if count > self.k {
             return false;
         }
-        // Check covering constraint
-        for (u, v) in self.graph.edges() {
-            let u_in = config.get(u).copied().unwrap_or(0) == 1;
-            let v_in = config.get(v).copied().unwrap_or(0) == 1;
-            if !u_in && !v_in {
-                return false;
-            }
-        }
-        true
+        is_vertex_cover_config(&self.graph, config)
     }
 }
 
