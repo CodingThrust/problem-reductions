@@ -364,6 +364,67 @@ docs/paper/
         └── Main.lean                     # Entry point
 ```
 
+## Prompting Workflow That Produced This Suite
+
+This verification suite was built through an iterative process over a single
+session. The workflow below documents how each layer was developed and how
+bugs were discovered and fixed. Future reduction implementations should follow
+the same pattern (codified in the `verify-reduction` skill).
+
+### Phase 1: Write mathematical proofs (Typst)
+
+1. **Scaffold** — create standalone `proposed-reductions.typ` with preamble, notation, theorem/proof environments
+2. **Write each reduction** — one commit per reduction, compile after each to catch Typst errors
+3. **Self-review** — re-read all proofs critically, identify hand-waving and gaps
+4. **Full rewrite** — after self-review found 5 major weaknesses (scratch work visible, logic errors, approximate formulas), rewrote the entire document cleanly
+
+**Key prompt pattern:** "Could this be enhanced further if it will be reviewed harshly?" triggered the critical self-review that found the MaxCut→OLA logic error and the VC→PFES scratch work.
+
+### Phase 2: Write Python verification scripts
+
+1. **Start monolithic** — one `verify_all.py` covering all reductions. This immediately caught the X3C→AP bug (5 failures out of 48,269 checks)
+2. **Split into per-reduction scripts** — 9 scripts for 9 reductions, 1:1 correspondence
+3. **Identify weak scripts** — audit check counts: scripts with <1000 checks were flagged
+4. **Enhance weak scripts** — `verify_vc_hp.py` went from 118 to 85,047 checks by testing ALL connected graphs and ALL v*/neighbor pairs
+5. **Fill gaps** — three gaps identified (VC→HC for m≥2, MaxCut→OLA crossing numbers, OLA→RTA backward direction) and filled with targeted additions
+6. **Bug fixes** — each bug caught by a script led to fixing the Typst proof (VC→HC edge count, C₄ crossing numbers)
+
+**Key prompt pattern:** "Are these checks enough?" with an honest audit table showing check counts and what's NOT tested forced the gap analysis.
+
+### Phase 3: Write Lean proofs
+
+1. **Start trivial** — arithmetic identities with `omega` (14m + (2m-n) + 2nK = 16m-n+2nK)
+2. **Honest assessment** — "these are just arithmetic, a reviewer would see through it"
+3. **Add Mathlib** — imported SimpleGraph, proved `G ⊔ Gᶜ = ⊤` via lattice theory
+4. **Define problem types** — `PfesVertex` inductive type with `DecidableEq`, `Fintype`
+5. **Accept limitations** — `sorry` for list-level SubsetSum equivalence, documented why
+
+**Key prompt pattern:** "Simple numerical ones are not enough, it has to be general enough" pushed from trivial arithmetic to structural graph-theory proofs using Mathlib.
+
+### Phase 4: Iterate until clean
+
+The feedback loop:
+```
+write proof → write script → script finds bug → fix proof → re-run script → pass
+```
+
+This loop executed 3 times in this session:
+1. X3C→AP: proof "complete" → script finds quotient cycles → marked OPEN
+2. VC→HC: formula "proved" in Lean → script finds overcount → added WLOG assumption
+3. MaxCut→OLA: example "verified" → script finds wrong crossing numbers → corrected
+
+### Reproduction of this workflow for new reductions
+
+The `verify-reduction` skill codifies this process. For each new reduction:
+
+1. Write the Typst proof entry (Construction / Correctness / Extraction / Overhead / Example)
+2. Run `verify-reduction` which:
+   - Creates a Python verification script from a template
+   - Runs it exhaustively on small instances
+   - Reports failures with diagnostics
+   - Prompts for Lean lemma additions
+   - Iterates until 0 unexpected failures
+
 ## Lessons Learned
 
 1. **Python verification catches bugs that proofs miss.** The X3C→AP construction
