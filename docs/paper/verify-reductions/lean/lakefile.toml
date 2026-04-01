@@ -2,6 +2,11 @@ name = "ReductionProofs"
 version = "0.1.0"
 defaultTargets = ["reductionproofs"]
 
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+version = "git#master"
+
 [[lean_lib]]
 name = "ReductionProofs"
 
