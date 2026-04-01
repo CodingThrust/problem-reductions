@@ -623,6 +623,51 @@ No shorter cycles: the 10-vertex graph has $r$-vertices connecting only to origi
 
 #pagebreak()
 
+= Satisfiability Reductions
+
+== Satisfiability $arrow.r$ Non-Tautology <sec:sat-nontautology>
+
+#theorem[
+  Satisfiability reduces to Non-Tautology via De Morgan duality. Given a CNF formula $phi$, its negation $not phi$ is a DNF formula $E$. The formula $phi$ is satisfiable if and only if $E = not phi$ is not a tautology: a satisfying assignment for $phi$ is exactly a falsifying assignment for $not phi$. Reference: Cook (1971); Garey & Johnson (1979), LO8.
+] <thm:sat-nontautology>
+
+#proof[
+  _Construction._ Given a Satisfiability instance: CNF formula $phi = C_1 and C_2 and dots and C_m$ over variables $U = {x_1, dots, x_n}$, where each clause $C_j = (ell_(j,1) or ell_(j,2) or dots or ell_(j,k_j))$.
+
+  + Apply De Morgan's laws to negate $phi$:
+    $ not phi = not C_1 or not C_2 or dots or not C_m $
+  + Negate each clause: $not C_j = not(ell_(j,1) or dots or ell_(j,k_j)) = (not ell_(j,1) and dots and not ell_(j,k_j))$.
+  + The result is a DNF formula $E = D_1 or D_2 or dots or D_m$ where each disjunct $D_j = (not ell_(j,1) and dots and not ell_(j,k_j))$ is the bitwise negation of clause $C_j$.
+  + Output the Non-Tautology instance $(U, E)$ with the same variable set and $m$ disjuncts.
+
+  _Correctness._
+
+  ($arrow.r.double$) If $phi$ is satisfiable with assignment $alpha$, then $phi(alpha) = top$, so $E(alpha) = (not phi)(alpha) = not top = bot$. Assignment $alpha$ falsifies $E$, so $E$ is not a tautology. $checkmark$
+
+  ($arrow.l.double$) If $E$ is not a tautology, there exists assignment $alpha$ with $E(alpha) = bot$. Then $(not phi)(alpha) = bot$, so $phi(alpha) = top$. Assignment $alpha$ satisfies $phi$. $checkmark$
+
+  _Solution extraction._ The falsifying assignment for $E$ is the satisfying assignment for $phi$. No transformation needed --- identity extraction.
+]
+
+*Overhead.*
+
+#table(
+  columns: (1fr, 1fr),
+  table.header([Target metric], [Expression]),
+  [`num_vars`], [$n$ (same variables)],
+  [`num_disjuncts`], [$m$ (one per clause)],
+)
+
+*Example.* $phi = (x_1 or not x_2) and (not x_1 or x_2 or x_3) and (x_2 or not x_3)$ over ${x_1, x_2, x_3}$.
+
+Negation: $E = (not x_1 and x_2) or (x_1 and not x_2 and not x_3) or (not x_2 and x_3)$.
+
+Assignment $alpha = (x_1 = top, x_2 = top, x_3 = bot)$:
+- $phi$: $(top or bot) and (bot or top or bot) and (top or top) = top and top and top = top$. Satisfies $phi$. $checkmark$
+- $E$: $(bot and top) or (top and bot and top) or (bot and bot) = bot or bot or bot = bot$. Falsifies $E$. $checkmark$
+
+#pagebreak()
+
 = References
 
 + Garey, M. R. and Johnson, D. S. (1979). _Computers and Intractability: A Guide to the Theory of NP-Completeness._ W.H. Freeman and Company.

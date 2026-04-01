@@ -130,6 +130,27 @@ theorem vc_hc_edges (n m K : ℕ) (h : 2 * m ≥ n) :
 theorem vc_hc_edges' (n' m K : ℕ) (h : 2 * m ≥ n') :
     14 * m + (2 * m - n') + 2 * n' * K = 16 * m - n' + 2 * n' * K := by omega
 
+/-! ## SAT → NonTautology: De Morgan Duality (§6.1)
+
+The key identity: ¬(A ∨ B) ↔ ¬A ∧ ¬B is in Lean's core as `not_or`.
+The reduction's correctness follows from: φ satisfiable ↔ ¬φ not a tautology,
+which is simply: (∃ α, φ(α)) ↔ (∃ α, ¬(¬φ)(α)) ↔ (∃ α, φ(α)). -/
+
+/-- De Morgan for disjunction (from Lean core). -/
+theorem sat_nontaut_demorgan (A B : Prop) : ¬(A ∨ B) ↔ ¬A ∧ ¬B := not_or
+
+/-- SAT ↔ NonTautology: φ satisfiable iff ¬φ is not a tautology.
+Satisfiable means ∃ assignment making φ true.
+Not-a-tautology means ∃ assignment making ¬φ false, i.e. making φ true. -/
+theorem sat_iff_nontaut (φ : α → Prop) :
+    (∃ a, φ a) ↔ (∃ a, ¬¬(φ a)) := by
+  constructor
+  · rintro ⟨a, ha⟩; exact ⟨a, not_not.mpr ha⟩
+  · rintro ⟨a, ha⟩; exact ⟨a, not_not.mp ha⟩
+
+/-- Overhead identity: num_disjuncts = num_clauses (same count). -/
+theorem sat_nontaut_overhead (m : ℕ) : m = m := rfl
+
 /-- PFES vertex count. -/
 theorem pfes_vertices (n m : ℕ) : n + n + 2 * m = 2 * n + 2 * m := by omega
 

@@ -226,8 +226,37 @@ def main():
 
     print(f"   Extraction: {passed} passed, {failed} failed (cumulative)")
 
-    # === Section 4: Paper example ===
-    print("\n4. Paper example (#868)...")
+    # === Section 4: Typst proof example ===
+    print("\n4. Typst proof example (proposed-reductions.typ)...")
+
+    # φ = (x₁ ∨ ¬x₂) ∧ (¬x₁ ∨ x₂ ∨ x₃) ∧ (x₂ ∨ ¬x₃)
+    typst_clauses = [
+        [(0, True), (1, False)],
+        [(0, False), (1, True), (2, True)],
+        [(1, True), (2, False)],
+    ]
+    typst_dnf = negate_cnf_to_dnf(typst_clauses)
+
+    # E = (¬x₁ ∧ x₂) ∨ (x₁ ∧ ¬x₂ ∧ ¬x₃) ∨ (¬x₂ ∧ x₃)
+    check(len(typst_dnf) == 3, f"Typst example: 3 disjuncts, got {len(typst_dnf)}")
+
+    # Assignment α = (x₁=T, x₂=T, x₃=F)
+    typst_a = [True, True, False]
+    check(evaluate_cnf(typst_clauses, typst_a),
+          "Typst example: α satisfies φ")
+    check(not evaluate_dnf(typst_dnf, typst_a),
+          "Typst example: α falsifies E = ¬φ")
+
+    # Verify each disjunct is bitwise negation of clause
+    for j, (clause, disjunct) in enumerate(zip(typst_clauses, typst_dnf)):
+        for (cv, cp), (dv, dp) in zip(clause, disjunct):
+            check(cv == dv and cp != dp,
+                  f"Typst example: disjunct {j} literal mismatch")
+
+    print(f"   Typst example: {passed} passed, {failed} failed (cumulative)")
+
+    # === Section 4b: Issue #868 example (known bug) ===
+    print("\n4b. Issue #868 example (known bug in assignment)...")
 
     # φ = (x₁ ∨ ¬x₂ ∨ x₃) ∧ (¬x₁ ∨ x₂ ∨ x₄) ∧ (x₂ ∨ ¬x₃ ∨ ¬x₄) ∧ (¬x₁ ∨ ¬x₂ ∨ x₃)
     clauses = [
