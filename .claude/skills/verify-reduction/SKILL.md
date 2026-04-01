@@ -1,13 +1,13 @@
 ---
 name: verify-reduction
-description: End-to-end verification of a reduction rule — generates Typst proof, Python verification script (≥5000 checks), and Lean lemmas, iterating until all checks pass. Creates worktree + PR.
+description: End-to-end verification of a reduction rule — generates Typst proof, constructor Python script (>=5000 checks), and adversary Python script (>=5000 independent checks), iterating until all checks pass. Creates worktree + PR.
 ---
 
 # Verify Reduction
 
-End-to-end skill that takes a reduction rule issue, produces a verified mathematical proof with computational and formal verification, iterating until all checks pass. Creates a worktree, works in isolation, and submits a PR — following `issue-to-pr` conventions.
+End-to-end skill that takes a reduction rule issue, produces a verified mathematical proof with computational verification from two independent implementations, iterating until all checks pass. Creates a worktree, works in isolation, and submits a PR — following `issue-to-pr` conventions.
 
-Outputs: Typst proof entry, Python verification script, Lean lemmas — all at PR #975 quality level.
+Outputs: Typst proof entry, constructor Python verification script, adversary Python verification script — all at PR #975 quality level.
 
 ## Invocation
 
@@ -18,9 +18,9 @@ Outputs: Typst proof entry, Python verification script, Lean lemmas — all at P
 
 ## Prerequisites
 
-- `sympy` and `networkx` installed (`pip install sympy networkx`)
+- `sympy`, `networkx`, and `hypothesis` installed (`pip install sympy networkx hypothesis`)
 - Both source and target models must exist in the codebase (`pred show <Name>`)
-- For Lean: `elan` installed with Lean 4 toolchain
+- Optional: `elan` with Lean 4 toolchain (for formal lemmas — not required)
 
 ## Process
 
@@ -33,16 +33,19 @@ digraph verify {
     "Study models" [shape=box];
     "Write Typst proof" [shape=box];
     "Compile PDF" [shape=box];
-    "Write Python script" [shape=box];
-    "Run script" [shape=box];
+    "Write constructor script" [shape=box];
+    "Run constructor" [shape=box];
     "All pass?" [shape=diamond];
     "Fix proof + script" [shape=box];
     "Enough checks?" [shape=diamond];
     "Enhance script" [shape=box];
-    "Add Lean lemmas" [shape=box];
-    "Lean builds?" [shape=diamond];
-    "Fix Lean" [shape=box];
-    "Self-review (HARSH)" [shape=box];
+    "Dispatch adversary" [shape=box];
+    "Run adversary" [shape=box];
+    "Adversary pass?" [shape=diamond];
+    "Cross-compare" [shape=box];
+    "Verdict table" [shape=diamond];
+    "Investigate discrepancy" [shape=box];
+    "Self-review" [shape=box];
     "Create PR" [shape=box];
     "Report" [shape=doublecircle];
 
@@ -51,20 +54,23 @@ digraph verify {
     "Read issue" -> "Study models";
     "Study models" -> "Write Typst proof";
     "Write Typst proof" -> "Compile PDF";
-    "Compile PDF" -> "Write Python script";
-    "Write Python script" -> "Run script";
-    "Run script" -> "All pass?";
+    "Compile PDF" -> "Write constructor script";
+    "Write constructor script" -> "Run constructor";
+    "Run constructor" -> "All pass?";
     "All pass?" -> "Enough checks?" [label="yes"];
     "All pass?" -> "Fix proof + script" [label="no"];
-    "Fix proof + script" -> "Run script";
-    "Enough checks?" -> "Add Lean lemmas" [label="yes"];
+    "Fix proof + script" -> "Run constructor";
+    "Enough checks?" -> "Dispatch adversary" [label="yes"];
     "Enough checks?" -> "Enhance script" [label="no"];
-    "Enhance script" -> "Run script";
-    "Add Lean lemmas" -> "Lean builds?";
-    "Lean builds?" -> "Self-review (HARSH)" [label="yes"];
-    "Lean builds?" -> "Fix Lean" [label="no"];
-    "Fix Lean" -> "Lean builds?";
-    "Self-review (HARSH)" -> "Create PR";
+    "Enhance script" -> "Run constructor";
+    "Dispatch adversary" -> "Run adversary";
+    "Run adversary" -> "Adversary pass?";
+    "Adversary pass?" -> "Cross-compare" [label="yes or no"];
+    "Cross-compare" -> "Verdict table";
+    "Verdict table" -> "Self-review" [label="verified"];
+    "Verdict table" -> "Investigate discrepancy" [label="discrepancy"];
+    "Investigate discrepancy" -> "Write constructor script";
+    "Self-review" -> "Create PR";
     "Create PR" -> "Report";
 }
 ```
@@ -147,7 +153,7 @@ Compile:
 python3 -c "import typst; typst.compile('<file>.typ', output='<file>.pdf', root='.')"
 ```
 
-## Step 3: Write Python Verification Script
+## Step 3: Write Constructor Python Verification Script
 
 Create `docs/paper/verify-reductions/verify_<source>_<target>.py`.
 
@@ -261,51 +267,164 @@ CLAIM                                    TESTED BY
 
 If any claim has no test, add one. If it's untestable, document WHY.
 
-## Step 5: Add Lean Lemmas
+## Step 5: Adversary Verification
 
-### HARD requirement: at least one NON-TRIVIAL lemma
+The adversary step provides independent verification by a second agent that implements the reduction from scratch, using only the Typst proof as specification. This catches bugs that the constructor's own tests cannot find (confirmation bias, shared implementation errors).
 
-`n + m = n + m := rfl` does NOT count. A "non-trivial" lemma must satisfy at least one of:
+### 5a. Dispatch adversary agent
 
-1. **Uses a Mathlib tactic beyond `rfl`/`omega`**: e.g., `simp`, `Finset.sum_union`, lattice operations
-2. **States a structural property**: e.g., "complementarity subsets partition the universe into pairs"
-3. **Formalizes the key invariant**: e.g., "NAE-satisfying ↔ 2-colorable hypergraph"
+Launch a subagent with the following prompt template. The adversary must not see the constructor's Python script — it reads only the Typst proof.
 
-If Mathlib genuinely lacks the infrastructure (no Hamiltonian paths, no DAG quotients), write the strongest lemma you CAN prove and document what WOULD be proved with better Mathlib support.
+**Adversary prompt:**
 
-### Examples of acceptable vs unacceptable Lean lemmas
+````
+You are an adversary verifier for a mathematical reduction proof.
 
-**Unacceptable (trivial arithmetic):**
-```lean
-theorem overhead (n m : ℕ) : n + m = n + m := rfl  -- proves nothing
-theorem universe (n : ℕ) : 2 * n = 2 * n := rfl    -- proves nothing
+Your goal: independently implement and test the reduction described in the Typst
+proof below, trying to find bugs. You have no access to the constructor's
+implementation. Write your own from scratch based solely on the mathematical
+specification.
+
+## Input
+
+Typst proof file: docs/paper/proposed-reductions.typ (section on <Source> → <Target>)
+Issue: #<ISSUE>
+
+## Your task
+
+1. Read the Typst proof carefully. Extract:
+   - The construction algorithm (how to build the target instance)
+   - The correctness argument (forward and backward directions)
+   - The solution extraction procedure
+   - The overhead formula
+   - The YES and NO examples
+
+2. Create `docs/paper/verify-reductions/adversary_<source>_<target>.py` with:
+   - Your own `reduce()` function implementing the construction from scratch
+   - Your own `extract_solution()` function implementing solution extraction
+   - Your own `is_feasible_source()` and `is_feasible_target()` validators
+   - Exhaustive testing for n ≤ 5 (forward + backward + extraction)
+   - Overhead formula verification
+   - Reproduction of both Typst examples (YES and NO)
+   - Property-based testing using `hypothesis` (at least 2 strategies)
+   - Minimum 5,000 total checks
+
+3. Use `hypothesis` for property-based testing. Example strategies:
+   ```python
+   from hypothesis import given, settings
+   from hypothesis import strategies as st
+
+   @given(st.lists(st.integers(0, 1), min_size=3, max_size=8))
+   @settings(max_examples=500)
+   def test_roundtrip(assignment):
+       # Build source from assignment, reduce, check equivalence
+       ...
+   ```
+
+4. Run the script. Report pass/fail counts and any bugs found.
+
+5. Do NOT read or import from `verify_<source>_<target>.py`. Your implementation
+   must be independent.
+
+## Output format
+
+Print at the end:
 ```
-
-**Acceptable (structural):**
-```lean
--- Uses Mathlib's lattice theory to prove a graph-structural fact
-theorem complement_partition (G : SimpleGraph V) : G ⊔ Gᶜ = ⊤ := sup_compl_eq_top
-
--- Formalizes the key definition used in the proof
-def IsNAESatisfying (assignment : Fin n → Bool) (clause : Finset (Fin n × Bool)) : Prop :=
-  ¬(∀ l ∈ clause, ...) ∧ ¬(∀ l ∈ clause, ...)
-
--- Proves the overhead formula requires actual computation
-theorem overhead_nontrivial (n m : ℕ) (h : m > 0) :
-    2 * n + (n + m) > 2 * n := by omega  -- at least uses a hypothesis
+ADVERSARY: <Source> → <Target>: N passed, M failed
+BUGS FOUND: <list or "none">
 ```
+````
 
-### Build and verify
+### 5b. Run adversary script
 
 ```bash
-cd docs/paper/verify-reductions/lean
-export PATH="$HOME/.elan/bin:$PATH"
-lake build
+python3 docs/paper/verify-reductions/adversary_<source>_<target>.py
 ```
+
+### 5c. Cross-comparison
+
+After both scripts have run, compare their `reduce()` outputs on a shared set of instances. Create and run this comparison inline:
+
+```python
+#!/usr/bin/env python3
+"""Cross-compare constructor and adversary implementations."""
+import sys
+sys.path.insert(0, "docs/paper/verify-reductions")
+
+from verify_<source>_<target> import reduce as constructor_reduce
+from adversary_<source>_<target> import reduce as adversary_reduce
+
+# Also import feasibility checkers from both sides
+from verify_<source>_<target> import is_feasible_source, is_feasible_target
+from adversary_<source>_<target> import (
+    is_feasible_source as adv_is_feasible_source,
+    is_feasible_target as adv_is_feasible_target,
+)
+
+def normalize(target_instance):
+    """Convert target instance to a canonical hashable form for comparison.
+    Adapt this to the specific target problem type."""
+    # For graph problems: sorted edge list + vertex count
+    # For formula problems: sorted clause list
+    # For set problems: frozenset of frozensets
+    return tuple(sorted(str(x) for x in target_instance))
+
+agree = disagree = 0
+feasibility_mismatch = 0
+
+# Generate shared test instances (adapt to source problem type)
+import itertools
+for n in range(3, 6):
+    for instance in generate_all_instances(n):  # problem-specific generator
+        c_target = constructor_reduce(instance)
+        a_target = adversary_reduce(instance)
+
+        # Compare structural equivalence
+        if normalize(c_target) == normalize(a_target):
+            agree += 1
+        else:
+            disagree += 1
+            print(f"  DISAGREE on instance {instance}")
+            print(f"    Constructor: {c_target}")
+            print(f"    Adversary:   {a_target}")
+
+        # Compare feasibility verdicts
+        c_feas = is_feasible_target(c_target)
+        a_feas = adv_is_feasible_target(a_target)
+        if c_feas != a_feas:
+            feasibility_mismatch += 1
+            print(f"  FEASIBILITY MISMATCH on {instance}: "
+                  f"constructor={c_feas}, adversary={a_feas}")
+
+print(f"\nCross-comparison: {agree} agree, {disagree} disagree, "
+      f"{feasibility_mismatch} feasibility mismatches")
+if disagree > 0 or feasibility_mismatch > 0:
+    print("ACTION REQUIRED: investigate discrepancies before proceeding")
+    sys.exit(1)
+```
+
+Adapt the `normalize()` function and instance generator to the specific source/target problem types.
+
+### 5d. Verdict criteria
+
+Use this table to determine the outcome. All three signals must be considered together:
+
+| Constructor | Adversary | Cross-comparison | Verdict | Action |
+|-------------|-----------|-----------------|---------|--------|
+| Pass | Pass | Agree | Verified | Proceed to Step 6 |
+| Pass | Pass | Disagree | Suspect | Both produce valid but structurally different targets. Investigate whether both are correct reductions (e.g., isomorphic gadgets) or one has a latent bug. Resolve before proceeding. |
+| Pass | Fail | Agree | Adversary bug | Review adversary script for implementation errors. If adversary misread the Typst spec, fix spec clarity and re-run adversary. |
+| Pass | Fail | Disagree | Suspect | Constructor may have a bug masked by its own tests. Investigate the disagreeing instances manually. |
+| Fail | Pass | Agree | Constructor bug | Fix constructor script, re-run from Step 4. |
+| Fail | Pass | Disagree | Suspect | Investigate both — the agreeing instances may be coincidental. |
+| Fail | Fail | Agree | Proof bug | The reduction itself is likely wrong. Re-examine the Typst proof. Return to Step 2. |
+| Fail | Fail | Disagree | Proof bug | Same as above — shared failures with structural disagreement indicate a fundamental problem. |
+
+When the verdict is "Suspect," the resolution is to manually inspect the disagreeing instances until the root cause is identified, then loop back to the appropriate step.
 
 ## Step 6: Self-Review
 
-Before declaring verified, run through this checklist. **Every item must be YES.** If any is NO, go back and fix it.
+Before declaring verified, run through this checklist. Every item must be YES. If any is NO, go back and fix it.
 
 ### Typst proof
 
@@ -320,7 +439,7 @@ Before declaring verified, run through this checklist. **Every item must be YES.
 - [ ] Zero instances of "Wait", "Hmm", "Actually", scratch work
 - [ ] Every symbol defined before first use
 
-### Python script
+### Constructor Python script
 
 - [ ] 0 failures
 - [ ] ≥ 5,000 total checks
@@ -333,18 +452,31 @@ Before declaring verified, run through this checklist. **Every item must be YES.
 - [ ] Section 7 (NO example) reproduces Typst infeasible example exactly
 - [ ] Gap analysis performed — every Typst claim has a corresponding test
 
-### Lean
+### Adversary Python script
+
+- [ ] 0 failures
+- [ ] ≥ 5,000 total checks
+- [ ] Implemented independently (no imports from constructor script)
+- [ ] Uses `hypothesis` property-based testing (at least 2 strategies)
+- [ ] Exhaustive testing for n ≤ 5
+- [ ] Reproduces both Typst examples
+
+### Cross-consistency
+
+- [ ] Cross-comparison script ran with 0 disagreements
+- [ ] Cross-comparison script ran with 0 feasibility mismatches
+- [ ] The constructor script's `reduce()` implements the Typst construction
+- [ ] The adversary script's `reduce()` implements the Typst construction independently
+- [ ] The overhead formula in both scripts matches the Typst overhead table
+- [ ] The examples in both scripts match the Typst examples (same numbers, same instances)
+
+### Lean (optional)
+
+If Lean lemmas were added:
 
 - [ ] Builds without errors (warnings OK)
 - [ ] At least one non-trivial lemma (not just `rfl` or `omega` on a tautology)
 - [ ] Every `sorry` has a comment explaining WHY
-
-### Cross-consistency
-
-- [ ] The Python script's `reduce()` function implements EXACTLY the Typst construction
-- [ ] The Python script's `extract_solution()` implements EXACTLY the Typst extraction
-- [ ] The overhead formula in Python matches the Typst overhead table
-- [ ] The examples in Python match the Typst examples (same numbers, same instances)
 
 ## Step 7: Report
 
@@ -359,14 +491,26 @@ Typst proof: <file> §X.Y
   - YES example: ✓ (N vars/vertices)
   - NO example: ✓ (N vars/vertices, reason: ...)
 
-Python: verify_<source>_<target>.py
+Constructor: verify_<source>_<target>.py
   - Checks: N passed, 0 failed
   - Sections: 1(sympy) 2(exhaustive) 3(extraction) 4(overhead) 5(structural) 6(YES) 7(NO)
   - Forward: exhaustive n ≤ K
   - Backward: exhaustive n ≤ K
   - Gap analysis: all claims covered
 
-Lean: ReductionProofs/Basic.lean (or <file>.lean)
+Adversary: adversary_<source>_<target>.py
+  - Checks: N passed, 0 failed
+  - Property-based: M hypothesis examples
+  - Forward: exhaustive n ≤ K
+  - Backward: exhaustive n ≤ K
+  - Bugs found: <list or "none">
+
+Cross-comparison:
+  - Instances compared: N
+  - Structural agreement: N/N
+  - Feasibility agreement: N/N
+
+Lean: <file>.lean (optional)
   - Non-trivial lemmas: N
   - Trivial lemmas: M
   - Sorry: J (with justification)
@@ -382,14 +526,16 @@ Verdict: VERIFIED / OPEN (with reason)
 ### 8a. Commit
 
 ```bash
-git add docs/paper/<typst-file>.typ docs/paper/verify-reductions/verify_*.py \
-       docs/paper/verify-reductions/lean/ReductionProofs/*.lean
+git add docs/paper/<typst-file>.typ \
+       docs/paper/verify-reductions/verify_*.py \
+       docs/paper/verify-reductions/adversary_*.py
 git add -f docs/paper/<typst-file>.pdf
 git commit -m "docs: /verify-reduction #<ISSUE> — <Source> → <Target> VERIFIED
 
 Typst: Construction + Correctness + Extraction + Overhead + YES/NO examples
-Python: N checks, 0 failures (exhaustive n ≤ K, 7 sections)
-Lean: M non-trivial lemmas
+Constructor: N checks, 0 failures (exhaustive n ≤ K, 7 sections)
+Adversary: M checks, 0 failures (independent impl + hypothesis)
+Cross-comparison: all instances agree
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
 ```
@@ -420,15 +566,18 @@ A reduction is **VERIFIED** when ALL of these hold:
 
 - [ ] Typst compiles, has all mandatory sections including YES and NO examples
 - [ ] Zero hand-waving language
-- [ ] Python has 0 failures AND ≥ 5,000 checks
-- [ ] All 7 Python sections present and non-empty
-- [ ] Exhaustive n ≤ 5 minimum
+- [ ] Constructor Python has 0 failures and ≥ 5,000 checks
+- [ ] All 7 constructor Python sections present and non-empty
+- [ ] Adversary Python has 0 failures and ≥ 5,000 checks
+- [ ] Adversary Python uses `hypothesis` property-based testing
+- [ ] Adversary implementation is independent (no shared code with constructor)
+- [ ] Exhaustive n ≤ 5 minimum (both scripts)
 - [ ] Solution extraction verified for all feasible instances
 - [ ] Overhead formula matches actual construction
-- [ ] Both Typst examples reproduced by script
+- [ ] Both Typst examples reproduced by both scripts
 - [ ] Gap analysis shows all Typst claims tested
-- [ ] At least 1 non-trivial Lean lemma
-- [ ] Cross-consistency between Typst and Python verified
+- [ ] Cross-comparison shows 0 disagreements and 0 feasibility mismatches
+- [ ] Cross-consistency between Typst, constructor, and adversary verified
 
 If any gate fails, go back and fix it before declaring the reduction verified.
 
@@ -436,15 +585,18 @@ If any gate fails, go back and fix it before declaring the reduction verified.
 
 | Mistake | Consequence |
 |---------|-------------|
-| Lean lemma is just `rfl` or `omega` on a tautology | Rejected — add structural lemma |
+| Adversary imports from constructor script | Rejected — must be independent |
+| No property-based testing in adversary | Rejected — add hypothesis strategies |
 | No symbolic checks (Section 1 empty) | Rejected — add sympy verification |
 | Only YES example, no NO example | Rejected — add infeasible instance |
 | n ≤ 3 or n ≤ 4 "because it's simple" | Rejected — minimum n ≤ 5 |
 | "Passed on first run" without gap analysis | Rejected — perform gap analysis |
 | Example has < 3 variables | Rejected — too degenerate |
-| Script has < 5,000 checks | Rejected — enhance exhaustive testing |
+| Either script has < 5,000 checks | Rejected — enhance exhaustive testing |
 | Extraction not tested | Rejected — add Section 3 |
 | Typst proof says "clearly" | Rejected — rewrite without hand-waving |
+| Cross-comparison skipped | Rejected — run comparison script |
+| Disagreements dismissed without investigation | Rejected — resolve every discrepancy |
 
 ## Integration
 
@@ -459,5 +611,5 @@ Target quality defined by PR #975:
 - 800,000+ total checks, 0 unexpected failures
 - 3 bugs caught through iteration loop
 - Every script has forward + backward + extraction + overhead + example
-- Non-trivial Lean: `G ⊔ Gᶜ = ⊤` via `sup_compl_eq_top`
+- Two independent implementations agreeing on all test instances
 - Failures marked OPEN honestly with diagnosis
