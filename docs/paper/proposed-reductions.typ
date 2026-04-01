@@ -142,9 +142,10 @@ Balanced partition: ${5, 6}$ (sum 11) vs.~${1, 8, 2}$ (sum 11). Padding $d = 2$ 
   *Step 3: Selector vertices.* Add $K$ selector vertices $a_1, dots, a_K$. For each selector $a_ell$ ($ell = 1, dots, K$) and each vertex $v in V$, add two edges:
   $ a_ell dash (v, j_1, 1) quad "and" quad a_ell dash (v, j_(d(v)), 6) $
 
-  *Vertex and edge counts.* The constructed graph $G'$ has:
+  *Vertex and edge counts.* Assume WLOG that $G$ has no isolated vertices (isolated vertices are irrelevant to vertex cover and can be removed). Then every vertex has $d(v) gt.eq 1$ and has a non-empty widget chain. The constructed graph $G'$ has:
   - $|V'| = 12m + K$.
-  - Edge count: $14m$ (widget-internal) $+ sum_(v in V)(d(v) - 1)$ (chain links) $+ 2 n K$ (selector-to-chain). Since $sum_(v in V) d(v) = 2m$, the chain-link count is $2m - n$. Total: $|E'| = 14m + (2m - n) + 2 n K = 16m - n + 2 n K$.
+  - Edge count: $14m$ (widget-internal) $+ sum_(v in V)(d(v) - 1)$ (chain links) $+ 2 n K$ (selector-to-chain). Since $sum_(v in V) d(v) = 2m$ and all vertices are non-isolated, the chain-link count is $2m - n$. Total: $|E'| = 14m + (2m - n) + 2 n K = 16m - n + 2 n K$.
+  - *Note:* If isolated vertices are present, replace $n$ with $n' = |{v in V : d(v) gt.eq 1}|$ in the chain-link and selector terms.
 
   _Correctness._
 
@@ -172,10 +173,10 @@ Balanced partition: ${5, 6}$ (sum 11) vs.~${1, 8, 2}$ (sum 11). Padding $d = 2$ 
   columns: (1fr, 1fr),
   table.header([Target metric], [Expression]),
   [`num_vertices`], [$12m + K$],
-  [`num_edges`], [$16m - n + 2 n K$],
+  [`num_edges`], [$16m - n + 2 n K$ (assuming no isolated vertices)],
 )
 
-where $n = |V|$, $m = |E|$, $K$ is the cover size bound.
+where $n = |V|$ (non-isolated), $m = |E|$, $K$ is the cover size bound.
 
 *Example.* $G = K_3$ (triangle on ${0, 1, 2}$, edges $e_1 = (0,1)$, $e_2 = (0,2)$, $e_3 = (1,2)$), $K = 2$.
 

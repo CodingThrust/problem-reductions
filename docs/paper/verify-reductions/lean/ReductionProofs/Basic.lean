@@ -122,9 +122,13 @@ theorem ss_padding_gt (S T : ℕ) (h : S > 2 * T) :
 theorem ss_padding_lt (S T : ℕ) (h : S < 2 * T) (hle : T ≤ S) :
     (S - T) + (2 * T - S) = T := by omega
 
-/-- VC→HC edge count identity. -/
+/-- VC→HC edge count identity (assuming no isolated vertices, so n' = n). -/
 theorem vc_hc_edges (n m K : ℕ) (h : 2 * m ≥ n) :
     14 * m + (2 * m - n) + 2 * n * K = 16 * m - n + 2 * n * K := by omega
+
+/-- VC→HC edge count with n' non-isolated vertices. -/
+theorem vc_hc_edges' (n' m K : ℕ) (h : 2 * m ≥ n') :
+    14 * m + (2 * m - n') + 2 * n' * K = 16 * m - n' + 2 * n' * K := by omega
 
 /-- PFES vertex count. -/
 theorem pfes_vertices (n m : ℕ) : n + n + 2 * m = 2 * n + 2 * m := by omega

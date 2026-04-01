@@ -163,9 +163,10 @@ def main():
             else:
                 passed += 1
 
-            # Verify edge count formula
+            # Verify edge count formula (using n' = non-isolated vertices)
             actual_e = G_prime.number_of_edges()
-            formula_e = 16 * m - n + 2 * n * K
+            n_prime = len(set(v for e in edges for v in e))
+            formula_e = 16 * m - n_prime + 2 * n_prime * K
             if actual_e != formula_e:
                 print(f"  FAIL edge count: n={n}, m={m}, K={K}: "
                       f"formula={formula_e}, actual={actual_e}")
@@ -211,7 +212,8 @@ def main():
                 for K in [1, n]:
                     G_prime, _, _, _ = build_vc_hc_graph(n, edges, K)
                     actual_e = G_prime.number_of_edges()
-                    formula_e = 16 * m - n + 2 * n * K
+                    n_prime = len(set(v for e in edges for v in e))
+                    formula_e = 16 * m - n_prime + 2 * n_prime * K
                     if actual_e != formula_e:
                         print(f"  FAIL edge formula: n={n}, m={m}, K={K}: "
                               f"formula={formula_e}, actual={actual_e}")
