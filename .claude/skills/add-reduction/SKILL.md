@@ -5,13 +5,11 @@ description: Add a new reduction rule using verified artifacts from /verify-redu
 
 # Add Reduction (from Verified Artifacts)
 
-Step-by-step guide for adding a new reduction rule (A → B) when `/verify-reduction` has already produced verified artifacts (Typst proof, Python scripts, test vectors JSON). This skill consumes those artifacts directly instead of re-deriving from the issue.
+Complete pipeline for adding a reduction rule when `/verify-reduction` has produced verified artifacts. Translates Python `reduce()` to Rust, writes tests from test vectors, adds example-db entry, writes paper entry, then cleans up verification artifacts.
 
-**When to use:** After `/verify-reduction` has produced a PR with verified artifacts for a reduction rule issue. Use `/add-rule` instead when no verification artifacts exist.
+**When to use:** After `/verify-reduction` PR exists. Use `/add-rule` when no verification artifacts exist.
 
-## Step 0: Locate Verified Artifacts
-
-Check for existing verification artifacts:
+## Step 0: Locate and Read Verified Artifacts
 
 ```bash
 ls docs/paper/verify-reductions/verify_<source>_<target>.py
@@ -21,217 +19,176 @@ ls docs/paper/verify-reductions/<source>_<target>.typ
 
 If any are missing, run `/verify-reduction` first.
 
-### Read the artifacts
+**Read these three artifacts:**
+1. **Python `reduce()` function** — the verified spec. Translate the algorithm to Rust, not the syntax.
+2. **Test vectors JSON** — YES/NO instances with exact values, overhead expressions, verified claims.
+3. **Typst proof** — Construction section for doc comments, proof for paper entry.
 
-1. **Python `reduce()` function** — this is the verified spec for the Rust `reduce_to()` implementation. Read it carefully; translate the algorithm, not the syntax.
-2. **Test vectors JSON** — contains YES/NO instances with exact input/output values, overhead expressions, and verified claims.
-3. **Typst proof** — the Construction section describes the algorithm in mathematical notation. Use for doc comments.
+## Step 1: Implement the Reduction
 
-```bash
-# Load test vectors
-TEST_VECTORS=$(cat docs/paper/verify-reductions/test_vectors_<source>_<target>.json)
-```
+Create `src/rules/<source>_<target>.rs`. Follow the pattern in `src/rules/satisfiability_naesatisfiability.rs`.
 
-Extract from test vectors JSON:
-- `overhead` → use directly in `#[reduction(overhead = { ... })]`
-- `yes_instance.input` / `yes_instance.output` → first closed-loop test case
-- `no_instance.input` / `no_instance.output` → infeasible test case
-- `claims` → verify each is preserved in the Rust implementation
-
-## Reference Implementations
-
-Same as `/add-rule`:
-- **Reduction rule:** `src/rules/minimumvertexcover_maximumindependentset.rs`
-- **Reduction tests:** `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs`
-- **Paper entry:** search `docs/paper/reductions.typ` for `MinimumVertexCover` `MaximumIndependentSet`
-- **Traits:** `src/rules/traits.rs` (`ReduceTo<T>`, `ReduceToAggregate<T>`, `ReductionResult`, `AggregateReductionResult`)
-
-## Step 1: Implement the reduction
-
-Create `src/rules/<source>_<target>.rs`.
-
-**Translation guide:** Map the Python `reduce()` function to Rust:
+**Translation guide from Python to Rust:**
 
 | Python | Rust |
 |--------|------|
 | `reduce(n, clauses)` → `(universe_size, subsets)` | `fn reduce_to(&self) -> Self::Result` |
 | `extract_assignment(n, config)` | `fn extract_solution(&self, target_sol: &[usize]) -> Vec<usize>` |
-| `literal_to_element(lit, n)` | Private helper method |
-| Python list of ints | `Vec<usize>`, `Vec<CNFClause>`, etc. (match problem type) |
+| Helper functions (e.g., `literal_to_element`) | Private functions in the same file |
+| Python list of ints | `Vec<usize>`, `Vec<CNFClause>`, etc. (match the target problem's API) |
 
-**Overhead from test vectors JSON:** The `overhead` field maps directly to the `#[reduction]` macro:
+**Required structure:**
 
 ```rust
+/// Result struct — holds target + any state needed for extraction.
+#[derive(Debug, Clone)]
+pub struct ReductionXToY { target: TargetType, /* mapping state */ }
+
+impl ReductionResult for ReductionXToY {
+    type Source = SourceType;
+    type Target = TargetType;
+    fn target_problem(&self) -> &Self::Target { &self.target }
+    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+        // Translate Python extract_assignment() logic
+    }
+}
+
 #[reduction(overhead = {
-    // Copy expressions verbatim from test_vectors JSON "overhead" field
+    // Copy verbatim from test_vectors JSON "overhead" field
     field_name = "expression",
 })]
-```
+impl ReduceTo<TargetType> for SourceType {
+    type Result = ReductionXToY;
+    fn reduce_to(&self) -> Self::Result {
+        // Translate Python reduce() logic
+    }
+}
 
-The rest of the implementation structure follows `/add-rule` Step 1 exactly: ReductionResult struct, trait impl, ReduceTo impl.
+#[cfg(test)]
+#[path = "../unit_tests/rules/<source>_<target>.rs"]
+mod tests;
+```
 
 ## Step 2: Register in mod.rs
 
-Same as `/add-rule` Step 2. Add `mod <source>_<target>;` to `src/rules/mod.rs`.
+Add to `src/rules/mod.rs`:
+```rust
+pub(crate) mod <source>_<target>;
+```
 
-## Step 3: Write unit tests from test vectors
+## Step 3: Write Unit Tests from Test Vectors
 
 Create `src/unit_tests/rules/<source>_<target>.rs`.
 
-**Generate tests directly from test vectors JSON:**
+**From test vectors JSON, generate at minimum:**
 
-The YES instance becomes the primary closed-loop test:
+1. **Closed-loop test** (`test_<source>_to_<target>_closed_loop`) — construct source from `yes_instance.input`, reduce, verify target matches `yes_instance.output`, solve target with `BruteForce`, extract solutions, verify each is valid for source.
 
-```rust
-#[test]
-fn test_<source>_to_<target>_closed_loop() {
-    // Construct source from test_vectors.yes_instance.input
-    let source = <SourceType>::try_new(/* fields from JSON */).unwrap();
+2. **Infeasible test** (`test_<source>_to_<target>_infeasible`) — construct source from `no_instance.input`, reduce, verify target is also infeasible (no witnesses).
 
-    // Reduce
-    let reduction = ReduceTo::<TargetType>::reduce_to(&source);
+3. **Structural test** — verify target dimensions match overhead formula, check well-formedness.
 
-    // Verify target matches test_vectors.yes_instance.output
-    let target = reduction.target_problem();
-    assert_eq!(target.<field>(), /* value from JSON output */);
+Reference: `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs`
 
-    // Solve and extract
-    let solver = BruteForce;
-    for witness in solver.find_all_witnesses(target).unwrap() {
-        let extracted = reduction.extract_solution(&witness);
-        // Verify extracted solution is valid for source
-        let val = source.evaluate(&extracted);
-        assert!(val.0); // Or check objective value
-    }
-}
+## Step 4: Add Canonical Example to example_db
+
+**MANDATORY (Check 9 from #974).** Add a builder in `src/example_db/rule_builders.rs` using the YES test vector instance. Register in `build_rule_examples()`. Follow existing patterns in the file.
+
+## Step 4b: Add Example-DB Lookup Test
+
+**MANDATORY (Check 10 from #974).** Verify the new example is discoverable in `src/unit_tests/example_db.rs`. Add the rule to the existing exhaustive lookup test, or add a standalone test.
+
+## Step 5: Write Paper Entry
+
+**MANDATORY (Check 11 from #974).** The Typst proof already exists from `/verify-reduction`. Integrate it into `docs/paper/reductions.typ` using the paper's macros.
+
+### 5a. Load example data
+
+```typst
+#let src_tgt = load-example("Source", "Target")
+#let src_tgt_sol = src_tgt.solutions.at(0)
 ```
 
-The NO instance becomes the infeasible test:
-
-```rust
-#[test]
-fn test_<source>_to_<target>_infeasible() {
-    // Construct source from test_vectors.no_instance.input
-    let source = <SourceType>::try_new(/* fields from JSON */).unwrap();
-
-    // Reduce
-    let reduction = ReduceTo::<TargetType>::reduce_to(&source);
-
-    // Verify target is also infeasible
-    let solver = BruteForce;
-    let witnesses = solver.find_all_witnesses(reduction.target_problem());
-    assert!(witnesses.is_none() || witnesses.unwrap().is_empty());
-}
-```
-
-Add additional structural tests as needed (target size, edge count, etc.) guided by the `claims` field in the test vectors JSON.
-
-## Step 4: Add canonical example to example_db (Check 9 from #974)
-
-**This step is MANDATORY — many past PRs skipped it.** Add a builder function in `src/example_db/rule_builders.rs` that constructs a small canonical instance for this reduction.
-
-Use the YES instance from the test vectors JSON as the canonical example. Follow existing patterns in `rule_builders.rs`:
-
-```rust
-pub fn build_<source>_to_<target>_example() -> RuleExample {
-    // Construct the source instance from test vectors YES instance
-    let source = <SourceType>::new(/* fields from test_vectors.yes_instance.input */);
-    let reduction = ReduceTo::<TargetType>::reduce_to(&source);
-    RuleExample {
-        source: Box::new(source),
-        target: Box::new(reduction.target_problem().clone()),
-        reduction_result: Box::new(reduction),
-    }
-}
-```
-
-Register the builder in `build_rule_examples()` in the same file.
-
-## Step 4b: Add example-db lookup test (Check 10 from #974)
-
-**Also MANDATORY.** Add a test in `src/unit_tests/example_db.rs` that verifies the canonical example can be loaded:
-
-```rust
-#[test]
-fn test_example_<source>_to_<target>() {
-    let examples = build_rule_examples();
-    let found = examples.iter().any(|e| /* matches source/target names */);
-    assert!(found, "Missing canonical example for <Source> → <Target>");
-}
-```
-
-Or add the rule to the existing exhaustive lookup test if one exists.
-
-## Step 5: Document in paper (Check 11 from #974)
-
-**Also MANDATORY.** The Typst proof already exists from `/verify-reduction`. Integrate it into `docs/paper/reductions.typ` using the `reduction-rule` template:
+### 5b. Write reduction-rule entry
 
 ```typst
 #reduction-rule("Source", "Target",
   example: true,
-  example-caption: [Description],
+  example-caption: [Description ($n = ...$, $|E| = ...$)],
 )[
-  Rule statement from Typst proof...
+  // Theorem body: complexity + construction summary + overhead hint
 ][
-  Proof from Typst proof (Construction + Correctness + Extraction)...
+  // Proof body: _Construction._ ... _Correctness._ ... _Solution extraction._ ...
+  // Adapt from the verified Typst proof — reformat, don't rewrite
 ]
 ```
 
-The proof text, worked examples, and overhead table are already written in the verification Typst file — adapt them to the paper's macros. Follow `/add-rule` Step 5 for the exact format.
+### 5c. Write worked example (extra block)
 
-## Step 6: Regenerate exports and verify
+Step-by-step walkthrough with concrete numbers from JSON data. Must include:
+- `pred-commands()` block at top (create/reduce/solve/evaluate)
+- Source instance display (graph visualization if applicable)
+- Construction walkthrough with intermediate values
+- Solution verified end-to-end
+- Witness multiplicity note
 
-Same as `/add-rule` Step 6:
+**Gold-standard reference:** Search for `reduction-rule("KColoring", "QUBO"` in `reductions.typ`.
+
+### 5d. Register display name (if new problem in paper)
+
+Add to `display-name` dictionary if the problem doesn't have an entry yet.
+
+### 5e. Build
+
+```bash
+make paper  # Must compile without errors or new completeness warnings
+```
+
+## Step 6: Regenerate Exports and Verify
 
 ```bash
 cargo run --example export_graph
 cargo run --example export_schemas
-make regenerate-fixtures
+make regenerate-fixtures    # Slow — needs fixtures for paper example data
 make test clippy
 ```
 
-## Step 7: Clean up verification artifacts
+## Step 7: Clean Up Verification Artifacts
 
-**MANDATORY.** After the Rust implementation is complete and all tests pass, remove the verification artifacts from `docs/paper/verify-reductions/`. These artifacts served their purpose as a pre-verification gate and must NOT be committed into the library.
+**MANDATORY.** Verification artifacts must NOT be committed into the library. Remove them after the Rust implementation is complete:
 
 ```bash
-git rm docs/paper/verify-reductions/verify_<source>_<target>.py
-git rm docs/paper/verify-reductions/adversary_<source>_<target>.py
-git rm docs/paper/verify-reductions/cross_compare_<source>_<target>.py
-git rm docs/paper/verify-reductions/test_vectors_<source>_<target>.json
-git rm docs/paper/verify-reductions/<source>_<target>.typ
-git rm docs/paper/verify-reductions/<source>_<target>.pdf
+git rm -f docs/paper/verify-reductions/*<source>*<target>*
 ```
 
-The Typst proof content lives on in the paper entry (`docs/paper/reductions.typ`). The Python scripts and test vectors were scaffolding — the Rust tests are the permanent verification.
+The Typst proof content lives on in the paper entry. The Python scripts were scaffolding — the Rust tests are the permanent verification.
 
-## Solver Rules
+## Step 8: Commit and Create PR
 
-Same as `/add-rule`. If the target problem needs ILP, implement alongside.
+```bash
+git add src/rules/<source>_<target>.rs \
+       src/unit_tests/rules/<source>_<target>.rs \
+       src/rules/mod.rs \
+       src/example_db/rule_builders.rs \
+       src/unit_tests/example_db.rs \
+       docs/paper/reductions.typ
+git commit -m "feat: add <Source> → <Target> reduction (#<ISSUE>)
 
-## CLI Impact
-
-Same as `/add-rule`. No CLI changes needed for witness-preserving reductions.
-
-## File Naming
-
-Same as `/add-rule`:
-- Rule file: `src/rules/<sourcelower>_<targetlower>.rs`
-- Test file: `src/unit_tests/rules/<sourcelower>_<targetlower>.rs`
-- Canonical example: builder function in `src/example_db/rule_builders.rs`
+Implemented via /verify-reduction → /add-reduction pipeline.
+Verification: N checks (constructor) + M checks (adversary), 0 failures."
+git push -u origin "<branch>"
+gh pr create --title "feat: add <Source> → <Target> reduction (#<ISSUE>)" --body "..."
+```
 
 ## Common Mistakes
 
-All mistakes from `/add-rule` apply, plus:
-
 | Mistake | Fix |
 |---------|-----|
-| Re-deriving algorithm from issue instead of reading Python `reduce()` | The Python function is the verified spec — translate it, don't reinvent |
-| Ignoring test vectors JSON | Use the YES/NO instances for Rust tests directly |
-| Overhead expressions don't match test vectors JSON | Copy verbatim from the `overhead` field |
-| Skipping the infeasible (NO) test case | The NO instance is in the test vectors — always include it |
-| Not integrating the existing Typst proof into the paper | The proof is already written; reformat, don't rewrite |
-| Missing canonical example in `rule_builders.rs` (Check 9 from #974) | MANDATORY — add builder function using the YES test vector |
-| Missing example-db lookup test (Check 10 from #974) | MANDATORY — add test in `example_db.rs` |
-| Missing paper `reduction-rule` entry (Check 11 from #974) | MANDATORY — integrate Typst proof into `reductions.typ` |
-| Leaving verification artifacts in `docs/paper/verify-reductions/` | MANDATORY cleanup — `git rm` all Python scripts, JSON, Typst, PDF from verify-reductions |
+| Re-deriving algorithm from issue instead of Python `reduce()` | Python function is the verified spec — translate it |
+| Overhead expressions don't match test vectors JSON | Copy verbatim from `overhead` field |
+| Skipping infeasible (NO) test case | NO instance is in test vectors — always include |
+| Missing canonical example in `rule_builders.rs` | MANDATORY — Check 9 from #974 |
+| Missing example-db lookup test | MANDATORY — Check 10 from #974 |
+| Missing paper `reduction-rule` entry | MANDATORY — Check 11 from #974 |
+| Leaving verification artifacts in repo | MANDATORY cleanup — Step 7 |
+| Not regenerating fixtures after example-db | `make regenerate-fixtures` required for paper |
