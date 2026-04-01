@@ -98,21 +98,19 @@ impl ReduceTo<ILP<bool>> for MinimumMatrixCover {
         let mut obj_coeffs = vec![0.0f64; num_vars];
 
         // y_{ij} coefficients: 4·(a_ij + a_ji) for each i<j
-        for i in 0..n {
+        for (i, row_i) in matrix.iter().enumerate() {
             for j in (i + 1)..n {
                 let y = y_index(n, i, j);
-                obj_coeffs[y] = 4.0 * (matrix[i][j] + matrix[j][i]) as f64;
+                obj_coeffs[y] = 4.0 * (row_i[j] + matrix[j][i]) as f64;
             }
         }
 
         // x_k coefficients: -2·Σ_{j≠k} (a_kj + a_jk)
-        for k in 0..n {
-            let mut sum = 0i64;
-            for j in 0..n {
-                if j != k {
-                    sum += matrix[k][j] + matrix[j][k];
-                }
-            }
+        for (k, row_k) in matrix.iter().enumerate() {
+            let sum: i64 = (0..n)
+                .filter(|&j| j != k)
+                .map(|j| row_k[j] + matrix[j][k])
+                .sum();
             obj_coeffs[k] = -2.0 * sum as f64;
         }
 

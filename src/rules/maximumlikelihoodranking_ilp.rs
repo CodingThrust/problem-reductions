@@ -81,9 +81,9 @@ impl ReduceTo<ILP<bool>> for MaximumLikelihoodRanking {
 
         // Build objective: minimize sum_{i<j} (a_{ji} - a_{ij}) * x_{ij}
         let mut objective: Vec<(usize, f64)> = Vec::new();
-        for i in 0..n {
+        for (i, row_i) in matrix.iter().enumerate() {
             for j in (i + 1)..n {
-                let coeff = (matrix[j][i] - matrix[i][j]) as f64;
+                let coeff = (matrix[j][i] - row_i[j]) as f64;
                 if coeff != 0.0 {
                     objective.push((pair_index(i, j, n), coeff));
                 }

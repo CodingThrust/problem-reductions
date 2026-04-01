@@ -94,12 +94,12 @@ impl Clustering {
                 "Diagonal entry distances[{i}][{i}] must be 0"
             );
         }
-        for i in 0..n {
+        for (i, row_i) in distances.iter().enumerate() {
             for j in (i + 1)..n {
                 assert_eq!(
-                    distances[i][j], distances[j][i],
+                    row_i[j], distances[j][i],
                     "Distance matrix must be symmetric: distances[{i}][{j}] = {} != distances[{j}][{i}] = {}",
-                    distances[i][j], distances[j][i]
+                    row_i[j], distances[j][i]
                 );
             }
         }
