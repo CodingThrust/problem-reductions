@@ -261,6 +261,8 @@ fn test_find_dominated_rules_returns_known_set() {
         ),
         // ExactCoverBy3Sets → MaxSetPacking → ILP is better than direct ExactCoverBy3Sets → ILP
         ("ExactCoverBy3Sets", "ILP {variable: \"bool\"}"),
+        // CircuitSAT → SAT → NAESAT → ILP is better than direct CircuitSAT → ILP
+        ("CircuitSAT", "ILP {variable: \"bool\"}"),
     ]
     .into_iter()
     .collect();
