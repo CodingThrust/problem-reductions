@@ -1,10 +1,13 @@
+---
+name: verify-reduction
+description: End-to-end verification of a reduction rule — generates Typst proof, Python verification script (≥5000 checks), and Lean lemmas, iterating until all checks pass. Creates worktree + PR.
+---
+
 # Verify Reduction
 
 End-to-end skill that takes a reduction rule issue, produces a verified mathematical proof with computational and formal verification, iterating until all checks pass. Creates a worktree, works in isolation, and submits a PR — following `issue-to-pr` conventions.
 
 Outputs: Typst proof entry, Python verification script, Lean lemmas — all at PR #975 quality level.
-
-**This skill is STRICT. Cutting corners produces reductions that get rejected during review.**
 
 ## Invocation
 
@@ -212,9 +215,9 @@ if __name__ == "__main__":
 | Gadget (widget, cycle construction) | 5,000 | n ≤ 5 | Construction + formula + structural |
 | Composition (A→B→C) | 10,000 | n ≤ 5 | Exhaustive per step |
 
-**There is no "trivial" category.** Every reduction gets at least 5,000 checks and n ≤ 5 exhaustive testing.
+Every reduction gets at least 5,000 checks and n ≤ 5 exhaustive testing regardless of perceived simplicity.
 
-## Step 4: Run and Iterate (THE CRITICAL LOOP)
+## Step 4: Run and Iterate
 
 ```bash
 python3 docs/paper/verify-reductions/verify_<source>_<target>.py
@@ -258,7 +261,7 @@ CLAIM                                    TESTED BY
 
 If any claim has no test, add one. If it's untestable, document WHY.
 
-## Step 5: Add Lean Lemmas — STRICT REQUIREMENTS
+## Step 5: Add Lean Lemmas
 
 ### HARD requirement: at least one NON-TRIVIAL lemma
 
@@ -300,7 +303,7 @@ export PATH="$HOME/.elan/bin:$PATH"
 lake build
 ```
 
-## Step 6: Self-Review — THE HARSHEST STEP
+## Step 6: Self-Review
 
 Before declaring verified, run through this checklist. **Every item must be YES.** If any is NO, go back and fix it.
 
@@ -411,7 +414,7 @@ python3 scripts/pipeline_worktree.py cleanup --worktree "$WORKTREE_DIR"
 gh issue comment "$ISSUE" --body "verify-reduction report: VERIFIED (PR #<N>)..."
 ```
 
-## Quality Gates — NON-NEGOTIABLE
+## Quality Gates
 
 A reduction is **VERIFIED** when ALL of these hold:
 
@@ -427,9 +430,9 @@ A reduction is **VERIFIED** when ALL of these hold:
 - [ ] At least 1 non-trivial Lean lemma
 - [ ] Cross-consistency between Typst and Python verified
 
-**If even ONE gate fails, the reduction is NOT verified. Go back and fix it.**
+If any gate fails, go back and fix it before declaring the reduction verified.
 
-## Common Mistakes — ZERO TOLERANCE
+## Common Mistakes
 
 | Mistake | Consequence |
 |---------|-------------|
