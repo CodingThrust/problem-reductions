@@ -59,9 +59,28 @@ Extract: construction algorithm, correctness argument, overhead formulas, worked
 
 Create standalone `docs/paper/verify-reductions/<source>_<target>.typ`.
 
-**Mandatory structure:** Construction (numbered steps, symbols defined before use) → Correctness (independent ⟹ and ⟸) → Solution extraction → Overhead table → YES example (≥3 variables, fully worked) → NO example (fully worked, explain WHY infeasible).
+**Mandatory structure:**
 
-**Hard rules:** Zero "clearly"/"obviously"/"straightforward". Zero scratch work. Two examples minimum with ≥3 variables.
+```typst
+== Source $arrow.r$ Target <sec:source-target>
+#theorem[...] <thm:source-target>
+#proof[
+  _Construction._ (numbered steps, every symbol defined before first use)
+  _Correctness._
+  ($arrow.r.double$) ... (genuinely independent, NOT "the converse is similar")
+  ($arrow.l.double$) ...
+  _Solution extraction._ ...
+]
+*Overhead.* (table with target metric → formula)
+*Feasible example.* (YES instance, ≥3 variables, fully worked with numbers)
+*Infeasible example.* (NO instance, fully worked — show WHY no solution exists)
+```
+
+**Hard rules:**
+- Zero instances of "clearly", "obviously", "it is easy to see", "straightforward"
+- Zero scratch work ("Wait", "Hmm", "Actually", "Let me try")
+- Two examples minimum, both with ≥3 variables/vertices
+- Every symbol defined before first use
 
 Compile: `python3 -c "import typst; typst.compile('<file>.typ', output='<file>.pdf', root='.')"`
 
@@ -69,47 +88,166 @@ Compile: `python3 -c "import typst; typst.compile('<file>.typ', output='<file>.p
 
 Create `docs/paper/verify-reductions/verify_<source>_<target>.py` with ALL 7 mandatory sections:
 
-1. **Symbolic checks** (sympy) — overhead formulas, key algebraic identities
-2. **Exhaustive forward + backward** — n ≤ 5 minimum, all instances or ≥300 sampled
-3. **Solution extraction** — extract source solution from every feasible target witness
-4. **Overhead formula** — compare actual target size against formula
-5. **Structural properties** — well-formedness, no degenerate cases, gadget structure
-6. **YES example** — reproduce exact Typst numbers
-7. **NO example** — reproduce exact Typst numbers, verify both sides infeasible
+| Section | What to verify | Notes |
+|---------|---------------|-------|
+| 1. Symbolic (sympy) | Overhead formulas symbolically for general n | "The overhead is trivial" is NOT an excuse to skip |
+| 2. Exhaustive forward+backward | Source feasible ⟺ target feasible | n ≤ 5 minimum. ALL instances or ≥300 sampled per (n,m) |
+| 3. Solution extraction | Extract source solution from every feasible target witness | Most commonly skipped section. DO NOT SKIP |
+| 4. Overhead formula | Build target, measure actual size, compare against formula | Catches off-by-one in construction |
+| 5. Structural properties | Target well-formed, no degenerate cases | Gadget reductions: girth, connectivity, widget structure |
+| 6. YES example | Reproduce exact Typst feasible example numbers | Every value must match |
+| 7. NO example | Reproduce exact Typst infeasible example, verify both sides infeasible | Must verify WHY infeasible |
 
-**Minimum:** 5,000 checks regardless of reduction type. 10,000 for identity/algebraic.
+### Minimum check counts — STRICTLY ENFORCED
+
+| Type | Minimum checks | Minimum n |
+|------|---------------|-----------|
+| Identity (same graph, different objective) | 10,000 | n ≤ 6 |
+| Algebraic (padding, complement, case split) | 10,000 | n ≤ 5 |
+| Gadget (widget, cycle construction) | 5,000 | n ≤ 5 |
+
+Every reduction gets at least 5,000 checks regardless of perceived simplicity.
 
 ## Step 4: Run and Iterate
 
-Run the script. Fix failures. Re-run until 0 failures.
+```bash
+python3 docs/paper/verify-reductions/verify_<source>_<target>.py
+```
 
-**Check count audit:** Print totals for each category. If any is below minimum, enhance and re-run.
+### Iteration 1: Fix failures
 
-**Gap analysis:** List every Typst claim and its corresponding test. Add tests for untested claims.
+Run the script. Fix any failures. Re-run until 0 failures.
 
-**Export test vectors** (`test_vectors_<source>_<target>.json`) with YES/NO instances, overhead expressions, and structured `claim()` tags. Cross-check that key values from the JSON appear in the Typst file text.
+### Iteration 2: Check count audit
+
+Print and fill this table honestly:
+
+```
+CHECK COUNT AUDIT:
+  Total checks:          ___ (minimum: 5,000)
+  Forward direction:     ___ instances (minimum: all n ≤ 5)
+  Backward direction:    ___ instances (minimum: all n ≤ 5)
+  Solution extraction:   ___ feasible instances tested
+  Overhead formula:      ___ instances compared
+  Symbolic (sympy):      ___ identities verified
+  YES example:           verified? [yes/no]
+  NO example:            verified? [yes/no]
+  Structural properties: ___ checks
+```
+
+If ANY line is below minimum, enhance the script and re-run. Do NOT proceed.
+
+### Iteration 3: Gap analysis
+
+List EVERY claim in the Typst proof and whether it's tested:
+
+```
+CLAIM                                    TESTED BY
+"Universe has 2n elements"               Section 4: overhead ✓
+"Complementarity forces consistency"     Section 3: extraction ✓
+"Forward: NAE-sat → valid splitting"     Section 2: exhaustive ✓
+...
+```
+
+If any claim has no test, add one. If untestable, document WHY.
+
+### Iteration 4: Export test vectors and validate Typst matching
+
+Export `docs/paper/verify-reductions/test_vectors_<source>_<target>.json` with:
+
+```json
+{
+  "source": "<Source>", "target": "<Target>", "issue": <N>,
+  "yes_instance": { "input": {...}, "output": {...}, "source_feasible": true, "target_feasible": true, "source_solution": [...], "extracted_solution": [...] },
+  "no_instance": { "input": {...}, "output": {...}, "source_feasible": false, "target_feasible": false },
+  "overhead": { "field": "expression" },
+  "claims": [ {"tag": "...", "formula": "...", "verified": true} ]
+}
+```
+
+**Typst ↔ JSON cross-check:** Verify key numerical values from the JSON appear in the Typst example sections (substring search). If any value is missing, the proof and script are out of sync — fix before proceeding.
 
 ## Step 5: Adversary Verification
 
-Dispatch a subagent that reads ONLY the Typst proof (not the constructor script) and independently implements + tests the reduction. Requirements: own `reduce()`, own `extract_solution()`, `hypothesis` PBT (≥2 strategies), ≥5,000 checks, reproduce both Typst examples.
+Dispatch a subagent that reads ONLY the Typst proof (not the constructor script) and independently implements + tests the reduction.
 
-**Typed adversary prompt:** Include reduction-type focus instructions:
-- **Identity:** exhaustive enumeration n ≤ 6, edge-case configs
-- **Algebraic:** case boundary conditions (e.g., Σ = 2T ± 1), per-case extraction
-- **Gadget:** widget structure invariants, traversal patterns, interior isolation
+**Adversary requirements:**
+- Own `reduce()` function from scratch
+- Own `extract_solution()` function
+- Own `is_feasible_source()` and `is_feasible_target()` validators
+- Exhaustive forward + backward for n ≤ 5
+- `hypothesis` property-based testing (≥2 strategies)
+- Reproduce both Typst examples (YES and NO)
+- ≥5,000 total checks
+- Must NOT import from the constructor script
 
-After adversary runs, **cross-compare** constructor and adversary `reduce()` outputs on shared instances. Use the verdict table:
+**Typed adversary focus** (include in prompt):
+- **Identity reductions:** exhaustive enumeration n ≤ 6, edge-case configs (all-zero, all-one, alternating)
+- **Algebraic reductions:** case boundary conditions (e.g., Σ = 2T exactly, Σ = 2T ± 1), per-case extraction
+- **Gadget reductions:** widget structure invariants, traversal patterns, interior vertex isolation
 
-| Constructor | Adversary | Cross-compare | Verdict |
-|-------------|-----------|---------------|---------|
-| Pass | Pass | Agree | **Verified** → proceed |
-| Pass | Pass | Disagree | **Suspect** → investigate structural differences |
-| Any fail | — | — | Fix and re-run from the failing step |
-| Both fail | — | — | **Proof bug** → return to Step 2 |
+### Cross-comparison
+
+After both scripts pass, compare `reduce()` outputs on shared instances. Both must produce structurally identical targets and agree on feasibility for all tested instances.
+
+### Verdict table
+
+| Constructor | Adversary | Cross-compare | Verdict | Action |
+|-------------|-----------|---------------|---------|--------|
+| Pass | Pass | Agree | **Verified** | Proceed to Step 6 |
+| Pass | Pass | Disagree | **Suspect** | Investigate — may be isomorphic or latent bug |
+| Pass | Fail | — | **Adversary bug** | Fix adversary or clarify Typst spec |
+| Fail | Pass | — | **Constructor bug** | Fix constructor, re-run from Step 4 |
+| Fail | Fail | — | **Proof bug** | Re-examine Typst proof, return to Step 2 |
 
 ## Step 6: Self-Review Checklist
 
-Every item must be YES: Typst compiles with all sections, zero hand-waving, constructor ≥5K checks with 0 failures across all 7 sections, adversary ≥5K checks with 0 failures + hypothesis, cross-comparison 0 disagreements, test vectors JSON exported with Typst auto-matching verified.
+Every item must be YES. If any is NO, go back and fix.
+
+### Typst proof
+- [ ] Compiles without errors
+- [ ] Construction with numbered steps, symbols defined before use
+- [ ] Correctness with independent ⟹ and ⟸ paragraphs
+- [ ] Solution extraction section present
+- [ ] Overhead table with formulas
+- [ ] YES example (≥3 variables, fully worked)
+- [ ] NO example (fully worked, explains WHY infeasible)
+- [ ] Zero hand-waving language
+- [ ] Zero scratch work
+
+### Constructor Python
+- [ ] 0 failures, ≥5,000 total checks
+- [ ] All 7 sections present and non-empty
+- [ ] Exhaustive n ≤ 5
+- [ ] Extraction tested for every feasible instance
+- [ ] Gap analysis: every Typst claim has a test
+
+### Adversary Python
+- [ ] 0 failures, ≥5,000 total checks
+- [ ] Independent implementation (no imports from constructor)
+- [ ] `hypothesis` PBT with ≥2 strategies
+- [ ] Reproduces both Typst examples
+
+### Cross-consistency
+- [ ] Cross-comparison: 0 disagreements, 0 feasibility mismatches
+- [ ] Test vectors JSON exported with Typst auto-matching verified
+- [ ] All claims have `verified: true`
+
+## Common Mistakes
+
+| Mistake | Consequence |
+|---------|-------------|
+| Adversary imports from constructor script | Rejected — must be independent |
+| No `hypothesis` PBT in adversary | Rejected |
+| Section 1 (symbolic) empty | Rejected — "overhead is trivial" is not an excuse |
+| Only YES example, no NO example | Rejected |
+| n ≤ 3 or n ≤ 4 "because it's simple" | Rejected — minimum n ≤ 5 |
+| No gap analysis | Rejected — perform before proceeding |
+| Example has < 3 variables | Rejected — too degenerate |
+| Either script has < 5,000 checks | Rejected — enhance testing |
+| Extraction (Section 3) not tested | Rejected — most commonly skipped |
+| Cross-comparison skipped | Rejected |
+| Disagreements dismissed without investigation | Rejected |
 
 ## Step 7: Commit, Create PR, Clean Up
 
@@ -122,3 +260,15 @@ gh pr create --title "docs: verify reduction #<ISSUE> — <Source> → <Target>"
 gh issue comment "$ISSUE" --body "verify-reduction report: VERIFIED (PR #<N>)..."
 cd "$REPO_ROOT" && python3 scripts/pipeline_worktree.py cleanup --worktree "$WORKTREE_DIR"
 ```
+
+## Integration
+
+### Pipeline: Issue → verify-reduction → add-reduction → review-pipeline
+
+`/verify-reduction` is a **pre-verification gate**. The Python `reduce()` is the verified spec. `/add-reduction` translates it to Rust. `/review-pipeline`'s agentic test confirms the Rust matches.
+
+### Standalone usage
+
+- After `write-rule-in-paper`: invoke to verify paper entry
+- During `review-structural`: check verification script exists and passes
+- Before `issue-to-pr --execute`: pre-validate the algorithm
