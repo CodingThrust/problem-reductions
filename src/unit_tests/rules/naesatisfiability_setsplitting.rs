@@ -78,8 +78,8 @@ fn test_reduction_structure() {
 
     // First 4 subsets are complementarity: {0,1}, {2,3}, {4,5}, {6,7}
     let subsets = target.subsets();
-    for i in 0..4 {
-        assert_eq!(subsets[i], vec![2 * i, 2 * i + 1]);
+    for (i, subset) in subsets.iter().enumerate().take(4) {
+        assert_eq!(*subset, vec![2 * i, 2 * i + 1]);
     }
 
     // Clause subsets follow the literal mapping
