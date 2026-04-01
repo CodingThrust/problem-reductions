@@ -460,8 +460,10 @@ Dominating set $D = {1, 2}$: total distance $= d(0, {1,2}) + d(1, {1,2}) + d(2, 
 
 == Exact Cover by 3-Sets $arrow.r$ Acyclic Partition <sec:x3c-ap>
 
+#text(fill: red)[*Status: OPEN.*] The construction below was found to be *incorrect* by computational verification (see `verify-reductions/verify_all.py`). The 2-cycle approach to block incompatible pairs inadvertently creates quotient-graph cycles between distinct groups, violating the acyclicity constraint. The original Garey & Johnson construction (ND15, citing an unpublished manuscript) is not available in the public literature. A correct reduction requires a fundamentally different encoding of the covering constraint.
+
 #theorem[
-  Exact Cover by 3-Sets (X3C) reduces to Acyclic Partition. Given a universe $U$ of $3q$ elements and a collection $cal(C)$ of 3-element subsets, we construct a directed graph with arc costs such that a valid acyclic partition with weight bound $B = 3$ and inter-group cost bound $K$ exists if and only if an exact cover exists. The construction uses directed 2-cycles to prevent incompatible elements from being co-grouped, directed 3-cycles to prevent invalid triples, and the cost bound to force exactly $q$ groups of exactly 3. Reference: Garey & Johnson (1979), ND15.
+  Exact Cover by 3-Sets (X3C) reduces to Acyclic Partition. Reference: Garey & Johnson (1979), ND15 (citing "Garey and Johnson, unpublished result"). The construction below is an *attempted* reduction that fails on computational verification. It is included for documentation of the approach and its failure mode.
 ] <thm:x3c-ap>
 
 #proof[
