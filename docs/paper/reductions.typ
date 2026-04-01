@@ -226,6 +226,7 @@
   "FeasibleRegisterAssignment": [Feasible Register Assignment],
   "MinimumRegisterSufficiencyForLoops": [Minimum Register Sufficiency for Loops],
   "MinimumCodeGenerationOneRegister": [Minimum Code Generation (One Register)],
+  "MinimumCodeGenerationParallelAssignments": [Minimum Code Generation (Parallel Assignments)],
   "MinimumCodeGenerationUnlimitedRegisters": [Minimum Code Generation (Unlimited Registers)],
   "RegisterSufficiency": [Register Sufficiency],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
@@ -5229,6 +5230,39 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred create --example MinimumCodeGenerationUnlimitedRegisters -o mcgur.json",
         "pred solve mcgur.json --solver brute-force",
         "pred evaluate mcgur.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumCodeGenerationParallelAssignments")
+  let nv = x.instance.num_variables
+  let assigns = x.instance.assignments
+  let m = assigns.len()
+  let config = x.optimal_config
+  // Build execution order: order[pos] = assignment index
+  let order = range(m).map(pos =>
+    range(m).find(i => config.at(i) == pos)
+  )
+  // Count backward deps for the optimal ordering
+  [
+    #problem-def("MinimumCodeGenerationParallelAssignments")[
+      Given a set $V$ of variables and a collection of simultaneous assignments $A_i: v_i arrow.l op(B_i)$ where $v_i in V$ is the target variable and $B_i subset.eq V$ is the set of variables read, find a permutation $pi$ of the assignments that minimizes the number of backward dependencies. A backward dependency occurs when $v_(pi(i)) in B_(pi(j))$ for some $j > i$, i.e., assignment $pi(i)$ overwrites a variable that a later assignment $pi(j)$ still needs to read.
+    ][
+      Minimum Code Generation for Parallel Assignments is problem A11 PO6 in Garey & Johnson @garey1979. NP-complete via transformation from Feedback Vertex Set @sethi1975. Remains NP-complete even when $|B_i| lt.eq 2$ for all assignments. For general instances, brute-force enumeration of all permutations runs in $O^*(2^m)$ time via dynamic programming over subsets.
+      #footnote[No algorithm improving on brute-force is known for general parallel assignment instances.]
+
+      *Example.* Consider $#nv$ variables and $#m$ assignments: #{assigns.enumerate().map(((i, a)) => {
+        let target = a.at(0)
+        let reads = a.at(1)
+        $A_#i: v_#target arrow.l op({#reads.map(r => $v_#r$).join($, $)})$
+      }).join(", ")}. The execution order $(#order.map(i => $A_#i$).join(", "))$ yields #x.optimal_value backward dependencies.
+
+      #pred-commands(
+        "pred create --example MinimumCodeGenerationParallelAssignments -o mcgpa.json",
+        "pred solve mcgpa.json --solver brute-force",
+        "pred evaluate mcgpa.json --config " + x.optimal_config.map(str).join(","),
       )
     ]
   ]

@@ -30,19 +30,20 @@ use problemreductions::models::misc::{
     FeasibleRegisterAssignment, FlowShopScheduling, FrequencyTable, GroupingBySwapping, IntExpr,
     IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
     LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumAxiomSet,
-    MinimumCodeGenerationOneRegister, MinimumCodeGenerationUnlimitedRegisters,
-    MinimumExternalMacroDataCompression, MinimumFaultDetectionTestSet,
-    MinimumInternalMacroDataCompression, MinimumRegisterSufficiencyForLoops,
-    MinimumTardinessSequencing, MinimumWeightAndOrGraph, MultiprocessorScheduling,
-    NonLivenessFreePetriNet, Numerical3DimensionalMatching, OpenShopScheduling, PaintShop,
-    PartiallyOrderedKnapsack, PreemptiveScheduling, ProductionPlanning, QueryArg,
-    RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
-    SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
-    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
-    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-    SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection,
-    SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
+    MinimumCodeGenerationOneRegister, MinimumCodeGenerationParallelAssignments,
+    MinimumCodeGenerationUnlimitedRegisters, MinimumExternalMacroDataCompression,
+    MinimumFaultDetectionTestSet, MinimumInternalMacroDataCompression,
+    MinimumRegisterSufficiencyForLoops, MinimumTardinessSequencing, MinimumWeightAndOrGraph,
+    MultiprocessorScheduling, NonLivenessFreePetriNet, Numerical3DimensionalMatching,
+    OpenShopScheduling, PaintShop, PartiallyOrderedKnapsack, PreemptiveScheduling,
+    ProductionPlanning, QueryArg, RectilinearPictureCompression, RegisterSufficiency,
+    ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime,
+    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+    SequencingToMinimizeTardyTaskWeight, SequencingToMinimizeWeightedCompletionTime,
+    SequencingToMinimizeWeightedTardiness, SequencingWithDeadlinesAndSetUpTimes,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition,
+    TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -235,6 +236,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.implications.is_none()
         && args.loop_length.is_none()
         && args.loop_variables.is_none()
+        && args.assignments.is_none()
+        && args.num_variables.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -906,6 +909,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "FeasibleBasisExtension" => {
             "--matrix '[[1,0,1,2,-1,0],[0,1,0,1,1,2],[0,0,1,1,0,1]]' --rhs '7,5,3' --required-columns '0,1'"
         }
+        "MinimumCodeGenerationParallelAssignments" => {
+            "--num-variables 4 --assignments \"0:1,2;1:0;2:3;3:1,2\""
+        }
         _ => "",
     }
 }
@@ -946,6 +952,12 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("ConsecutiveOnesMatrixAugmentation", "bound") => return "bound".to_string(),
         ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
         ("SparseMatrixCompression", "bound_k") => return "bound".to_string(),
+        ("MinimumCodeGenerationParallelAssignments", "num_variables") => {
+            return "num-variables".to_string();
+        }
+        ("MinimumCodeGenerationParallelAssignments", "assignments") => {
+            return "assignments".to_string();
+        }
         ("StackerCrane", "edges") => return "graph".to_string(),
         ("StackerCrane", "arc_lengths") => return "arc-costs".to_string(),
         ("StackerCrane", "edge_lengths") => return "edge-lengths".to_string(),
@@ -1060,6 +1072,9 @@ fn help_flag_hint(
         ("FeasibleBasisExtension", "matrix") => "JSON 2D integer array: '[[1,0,1],[0,1,0]]'",
         ("FeasibleBasisExtension", "rhs") => "comma-separated integers: \"7,5,3\"",
         ("FeasibleBasisExtension", "required_columns") => "comma-separated column indices: \"0,1\"",
+        ("MinimumCodeGenerationParallelAssignments", "assignments") => {
+            "semicolon-separated target:reads entries: \"0:1,2;1:0;2:3;3:1,2\""
+        }
         ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
             "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
         }
@@ -5761,6 +5776,57 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MinimumCodeGenerationParallelAssignments
+        "MinimumCodeGenerationParallelAssignments" => {
+            let usage = "Usage: pred create MinimumCodeGenerationParallelAssignments --num-variables 4 --assignments \"0:1,2;1:0;2:3;3:1,2\"";
+            let nv = args.num_variables.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationParallelAssignments requires --num-variables and --assignments\n\n\
+                     {usage}"
+                )
+            })?;
+            let assign_str = args.assignments.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationParallelAssignments requires --assignments\n\n\
+                     {usage}"
+                )
+            })?;
+            let assignments: Vec<(usize, Vec<usize>)> = assign_str
+                .split(';')
+                .map(|entry| {
+                    let parts: Vec<&str> = entry.split(':').collect();
+                    anyhow::ensure!(
+                        parts.len() == 2,
+                        "each assignment must be 'target:read1,read2,...'; got '{entry}'"
+                    );
+                    let target: usize = parts[0]
+                        .trim()
+                        .parse()
+                        .context("invalid target variable index")?;
+                    let reads: Vec<usize> = if parts[1].trim().is_empty() {
+                        Vec::new()
+                    } else {
+                        parts[1]
+                            .split(',')
+                            .map(|s| {
+                                s.trim()
+                                    .parse::<usize>()
+                                    .context("invalid read variable index")
+                            })
+                            .collect::<Result<Vec<_>>>()?
+                    };
+                    Ok((target, reads))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            (
+                ser(MinimumCodeGenerationParallelAssignments::new(
+                    nv,
+                    assignments,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumRegisterSufficiencyForLoops
         "MinimumRegisterSufficiencyForLoops" => {
             let usage = "Usage: pred create MinimumRegisterSufficiencyForLoops --loop-length 6 --loop-variables \"0,3;2,3;4,3\"";
@@ -9826,6 +9892,8 @@ mod tests {
             loop_variables: None,
             inputs: None,
             outputs: None,
+            assignments: None,
+            num_variables: None,
         }
     }
 

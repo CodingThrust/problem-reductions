@@ -29,6 +29,9 @@ pub fn resolve_alias(input: &str) -> String {
     if input.eq_ignore_ascii_case("MinimumCodeGenerationUnlimitedRegisters") {
         return "MinimumCodeGenerationUnlimitedRegisters".to_string();
     }
+    if input.eq_ignore_ascii_case("MinimumCodeGenerationParallelAssignments") {
+        return "MinimumCodeGenerationParallelAssignments".to_string();
+    }
     if input.eq_ignore_ascii_case("ThreeMatroidIntersection") {
         return "ThreeMatroidIntersection".to_string();
     }

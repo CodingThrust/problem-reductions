@@ -344,6 +344,7 @@ Flags by problem type:
   MinimumFaultDetectionTestSet    --arcs, --inputs, --outputs [--num-vertices]
   MinimumWeightAndOrGraph         --arcs, --source, --gate-types, --weights [--num-vertices]
   MinimumCodeGenerationOneRegister --arcs [--num-vertices]
+  MinimumCodeGenerationParallelAssignments --num-variables, --assignments
   MinimumCodeGenerationUnlimitedRegisters --left-arcs, --right-arcs [--num-vertices]
   MinimumRegisterSufficiencyForLoops --loop-length, --loop-variables
   RegisterSufficiency             --arcs, --bound [--num-vertices]
@@ -867,6 +868,12 @@ pub struct CreateArgs {
     /// Variables as semicolon-separated start,duration pairs for MinimumRegisterSufficiencyForLoops (e.g., "0,3;2,3;4,3")
     #[arg(long)]
     pub loop_variables: Option<String>,
+    /// Parallel assignments for MinimumCodeGenerationParallelAssignments (semicolon-separated "target:read1,read2" entries, e.g., "0:1,2;1:0;2:3;3:1,2")
+    #[arg(long)]
+    pub assignments: Option<String>,
+    /// Number of variables for MinimumCodeGenerationParallelAssignments
+    #[arg(long)]
+    pub num_variables: Option<usize>,
 }
 
 #[derive(clap::Args)]

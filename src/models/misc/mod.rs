@@ -27,6 +27,7 @@
 //! - [`MaximumLikelihoodRanking`]: Find a ranking minimizing total pairwise disagreement
 //! - [`MinimumAxiomSet`]: Find smallest axiom subset whose deductive closure covers all true sentences
 //! - [`MinimumCodeGenerationOneRegister`]: Minimize instruction count for a one-register machine
+//! - [`MinimumCodeGenerationParallelAssignments`]: Minimize backward dependencies when ordering parallel assignments
 //! - [`MinimumCodeGenerationUnlimitedRegisters`]: Minimize instruction count for an unlimited-register machine with 2-address instructions
 //! - [`MinimumExternalMacroDataCompression`]: Minimize compression cost using external dictionary
 //! - [`MinimumFaultDetectionTestSet`]: Find minimum set of input-output paths covering all DAG vertices
@@ -133,6 +134,7 @@ mod longest_common_subsequence;
 pub(crate) mod maximum_likelihood_ranking;
 mod minimum_axiom_set;
 mod minimum_code_generation_one_register;
+pub(crate) mod minimum_code_generation_parallel_assignments;
 mod minimum_code_generation_unlimited_registers;
 mod minimum_external_macro_data_compression;
 mod minimum_fault_detection_test_set;
@@ -203,6 +205,7 @@ pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use maximum_likelihood_ranking::MaximumLikelihoodRanking;
 pub use minimum_axiom_set::MinimumAxiomSet;
 pub use minimum_code_generation_one_register::MinimumCodeGenerationOneRegister;
+pub use minimum_code_generation_parallel_assignments::MinimumCodeGenerationParallelAssignments;
 pub use minimum_code_generation_unlimited_registers::MinimumCodeGenerationUnlimitedRegisters;
 pub use minimum_external_macro_data_compression::MinimumExternalMacroDataCompression;
 pub use minimum_fault_detection_test_set::MinimumFaultDetectionTestSet;
@@ -297,6 +300,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(cosine_product_integration::canonical_model_example_specs());
     specs.extend(dynamic_storage_allocation::canonical_model_example_specs());
     specs.extend(minimum_code_generation_one_register::canonical_model_example_specs());
+    specs.extend(minimum_code_generation_parallel_assignments::canonical_model_example_specs());
     specs.extend(minimum_code_generation_unlimited_registers::canonical_model_example_specs());
     specs.extend(minimum_external_macro_data_compression::canonical_model_example_specs());
     specs.extend(minimum_internal_macro_data_compression::canonical_model_example_specs());
