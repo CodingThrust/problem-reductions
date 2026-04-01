@@ -225,6 +225,7 @@
   "RectilinearPictureCompression": [Rectilinear Picture Compression],
   "FeasibleRegisterAssignment": [Feasible Register Assignment],
   "MinimumRegisterSufficiencyForLoops": [Minimum Register Sufficiency for Loops],
+  "MinimumCodeGenerationOneRegister": [Minimum Code Generation (One Register)],
   "RegisterSufficiency": [Register Sufficiency],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
   "RootedTreeStorageAssignment": [Rooted Tree Storage Assignment],
@@ -5162,6 +5163,38 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred create --example RegisterSufficiency -o register-sufficiency.json",
         "pred solve register-sufficiency.json --solver brute-force",
         "pred evaluate register-sufficiency.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumCodeGenerationOneRegister")
+  let n = x.instance.num_vertices
+  let edges = x.instance.edges
+  let num-leaves = x.instance.num_leaves
+  let num-internal = n - num-leaves
+  let config = x.optimal_config
+  // Build evaluation order: position -> internal vertex
+  // internal vertices are those with out-degree > 0
+  let out-deg = range(n).map(v => edges.filter(e => e.at(0) == v).len())
+  let internal = range(n).filter(v => out-deg.at(v) > 0)
+  let order = range(num-internal).map(pos =>
+    range(num-internal).find(i => config.at(i) == pos)
+  ).map(i => internal.at(i))
+  [
+    #problem-def("MinimumCodeGenerationOneRegister")[
+      Given a directed acyclic graph $G = (V, A)$ with maximum out-degree 2 representing an expression DAG, where leaf vertices (out-degree 0) are input values stored in memory, internal vertices are operations, and root vertices (in-degree 0) are the values to compute, find a program of minimum number of instructions for a one-register machine (supporting LOAD, STORE, and OP instructions) that computes all root vertices.
+    ][
+      Minimum Code Generation on a One-Register Machine is problem A11 PO4 in Garey & Johnson @garey1979. NP-complete via transformation from 3-Satisfiability @brunoSethi1976. Remains NP-complete even when the only vertices with in-degree greater than 1 have arcs only to leaves. For directed forests (expression trees), the Sethi--Ullman algorithm finds an optimal instruction sequence in $O(n)$ time @sethiUllman1970. For general DAGs, brute-force enumeration of all valid evaluation orderings runs in $O^*(2^n)$ time.
+      #footnote[No algorithm improving on brute-force is known for general expression DAGs.]
+
+      *Example.* Consider $n = #n$ vertices with arcs: #{edges.map(a => $v_#(a.at(0)) arrow.r v_#(a.at(1))$).join(", ")}. Leaves (out-degree 0): $\{#(range(n).filter(v => out-deg.at(v) == 0).map(v => $v_#v$).join($, $))\}$. The evaluation order $(#order.map(v => $v_#v$).join(", "))$ yields an optimal program of #x.optimal_value instructions.
+
+      #pred-commands(
+        "pred create --example MinimumCodeGenerationOneRegister -o mcgor.json",
+        "pred solve mcgor.json --solver brute-force",
+        "pred evaluate mcgor.json --config " + x.optimal_config.map(str).join(","),
       )
     ]
   ]

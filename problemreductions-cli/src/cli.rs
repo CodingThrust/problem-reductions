@@ -343,6 +343,7 @@ Flags by problem type:
   FeasibleRegisterAssignment      --arcs, --assignment, --k [--num-vertices]
   MinimumFaultDetectionTestSet    --arcs, --inputs, --outputs [--num-vertices]
   MinimumWeightAndOrGraph         --arcs, --source, --gate-types, --weights [--num-vertices]
+  MinimumCodeGenerationOneRegister --arcs [--num-vertices]
   MinimumRegisterSufficiencyForLoops --loop-length, --loop-variables
   RegisterSufficiency             --arcs, --bound [--num-vertices]
   CBQ                              --domain-size, --relations, --conjuncts-spec

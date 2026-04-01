@@ -30,18 +30,19 @@ use problemreductions::models::misc::{
     FeasibleRegisterAssignment, FlowShopScheduling, FrequencyTable, GroupingBySwapping, IntExpr,
     IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
     LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumAxiomSet,
-    MinimumExternalMacroDataCompression, MinimumFaultDetectionTestSet,
-    MinimumInternalMacroDataCompression, MinimumRegisterSufficiencyForLoops,
-    MinimumTardinessSequencing, MinimumWeightAndOrGraph, MultiprocessorScheduling,
-    NonLivenessFreePetriNet, Numerical3DimensionalMatching, OpenShopScheduling, PaintShop,
-    PartiallyOrderedKnapsack, PreemptiveScheduling, ProductionPlanning, QueryArg,
-    RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
-    SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
-    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
-    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-    SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection,
-    SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
+    MinimumCodeGenerationOneRegister, MinimumExternalMacroDataCompression,
+    MinimumFaultDetectionTestSet, MinimumInternalMacroDataCompression,
+    MinimumRegisterSufficiencyForLoops, MinimumTardinessSequencing, MinimumWeightAndOrGraph,
+    MultiprocessorScheduling, NonLivenessFreePetriNet, Numerical3DimensionalMatching,
+    OpenShopScheduling, PaintShop, PartiallyOrderedKnapsack, PreemptiveScheduling,
+    ProductionPlanning, QueryArg, RectilinearPictureCompression, RegisterSufficiency,
+    ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime,
+    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+    SequencingToMinimizeTardyTaskWeight, SequencingToMinimizeWeightedCompletionTime,
+    SequencingToMinimizeWeightedTardiness, SequencingWithDeadlinesAndSetUpTimes,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition,
+    TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -5698,6 +5699,30 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let arcs = graph.arcs();
             (
                 ser(RegisterSufficiency::new(n, arcs, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumCodeGenerationOneRegister
+        "MinimumCodeGenerationOneRegister" => {
+            let usage = "Usage: pred create MinimumCodeGenerationOneRegister --arcs \"0>1,0>2,1>3,1>4,2>3,2>5,3>5,3>6\" [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationOneRegister requires --arcs\n\n\
+                     {usage}"
+                )
+            })?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let n = graph.num_vertices();
+            let arcs = graph.arcs();
+            // Compute num_leaves: vertices with out-degree 0
+            let mut out_degree = vec![0usize; n];
+            for &(parent, _child) in &arcs {
+                out_degree[parent] += 1;
+            }
+            let num_leaves = out_degree.iter().filter(|&&d| d == 0).count();
+            (
+                ser(MinimumCodeGenerationOneRegister::new(n, arcs, num_leaves))?,
                 resolved_variant.clone(),
             )
         }
