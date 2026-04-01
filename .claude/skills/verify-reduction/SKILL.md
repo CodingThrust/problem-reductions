@@ -1,6 +1,8 @@
 # Verify Reduction
 
-End-to-end skill that takes a reduction rule issue, produces a verified mathematical proof with computational and formal verification, iterating until all checks pass. Outputs: Typst proof entry, Python verification script, Lean lemmas — all at PR #975 quality level.
+End-to-end skill that takes a reduction rule issue, produces a verified mathematical proof with computational and formal verification, iterating until all checks pass. Creates a worktree, works in isolation, and submits a PR — following `issue-to-pr` conventions.
+
+Outputs: Typst proof entry, Python verification script, Lean lemmas — all at PR #975 quality level.
 
 ## Invocation
 
@@ -20,6 +22,8 @@ End-to-end skill that takes a reduction rule issue, produces a verified mathemat
 ```dot
 digraph verify {
     rankdir=TB;
+    "Parse input" [shape=box];
+    "Create worktree" [shape=box];
     "Read issue" [shape=box];
     "Study models" [shape=box];
     "Write Typst proof" [shape=box];
@@ -34,8 +38,11 @@ digraph verify {
     "Lean builds?" [shape=diamond];
     "Fix Lean" [shape=box];
     "Self-review" [shape=box];
+    "Create PR" [shape=box];
     "Report" [shape=doublecircle];
 
+    "Parse input" -> "Create worktree";
+    "Create worktree" -> "Read issue";
     "Read issue" -> "Study models";
     "Study models" -> "Write Typst proof";
     "Write Typst proof" -> "Compile PDF";
@@ -52,17 +59,60 @@ digraph verify {
     "Lean builds?" -> "Self-review" [label="yes"];
     "Lean builds?" -> "Fix Lean" [label="no"];
     "Fix Lean" -> "Lean builds?";
-    "Self-review" -> "Report";
+    "Self-review" -> "Create PR";
+    "Create PR" -> "Report";
 }
 ```
 
 ---
 
+## Step 0: Parse Input and Create Worktree
+
+### 0a. Parse input
+
+Extract issue number or source/target names:
+- `868` → issue #868, fetch title to get Source → Target
+- `SubsetSum Partition` → search for matching open issue, or proceed without issue number
+
+```bash
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+ISSUE=<number>
+ISSUE_JSON=$(gh issue view "$ISSUE" --json title,body,number)
+```
+
+### 0b. Create worktree
+
+Follow `issue-to-pr` conventions for isolated work:
+
+```bash
+REPO_ROOT=$(pwd)
+
+# Create or reuse issue branch
+BRANCH_JSON=$(python3 scripts/pipeline_worktree.py prepare-issue-branch \
+  --issue "$ISSUE" \
+  --slug "verify-<source>-<target>" \
+  --base main \
+  --format json)
+BRANCH=$(printf '%s\n' "$BRANCH_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['branch'])")
+
+# Enter worktree
+WORKTREE_JSON=$(python3 scripts/pipeline_worktree.py enter \
+  --name "verify-$ISSUE" \
+  --format json)
+WORKTREE_DIR=$(printf '%s\n' "$WORKTREE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['worktree_dir'])")
+cd "$WORKTREE_DIR"
+git checkout "$BRANCH"
+```
+
+If already inside a worktree (CWD under `.worktrees/`), skip worktree creation and use the current branch.
+
+All subsequent steps work in the worktree. At the end, a PR is created and the worktree is cleaned up.
+
 ## Step 1: Read Issue and Study Models
 
 Read the GitHub issue body:
 ```bash
-gh issue view <NUMBER> --json title,body
+gh issue view "$ISSUE" --json title,body
 ```
 
 Study both models:
@@ -307,7 +357,89 @@ Iterations: N rounds to reach 0 failures
 Verdict: VERIFIED / OPEN (with reason)
 ```
 
-Commit all three artifacts (Typst, Python, Lean) together.
+## Step 8: Commit, Create PR, Clean Up
+
+### 8a. Commit all artifacts together
+
+```bash
+git add docs/paper/proposed-reductions.typ \
+       docs/paper/verify-reductions/verify_<source>_<target>.py \
+       docs/paper/verify-reductions/lean/ReductionProofs/Basic.lean
+git add -f docs/paper/proposed-reductions.pdf  # PDF is gitignored
+
+git commit -m "$(cat <<'COMMIT_EOF'
+docs: /verify-reduction #<ISSUE> — <Source> → <Target> VERIFIED
+
+Typst proof: §X.Y with Construction + Correctness + Extraction + Overhead + Example
+Python: N checks, 0 failures (exhaustive n ≤ K)
+Lean: M lemmas proved
+
+Bugs found: <list or "none">
+Iterations: N rounds
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+COMMIT_EOF
+)"
+```
+
+### 8b. Push and create PR
+
+```bash
+git push -u origin "$BRANCH"
+
+gh pr create \
+  --title "docs: verify reduction #<ISSUE> — <Source> → <Target>" \
+  --body "$(cat <<'PR_EOF'
+## Summary
+
+Mathematical verification of the <Source> → <Target> reduction (#<ISSUE>).
+
+**Typst proof:** `docs/paper/proposed-reductions.typ` §X.Y
+- Construction + Correctness (⟹/⟸) + Extraction + Overhead + Example
+
+**Python verification:** `docs/paper/verify-reductions/verify_<source>_<target>.py`
+- N checks, 0 failures
+- Forward + backward exhaustive n ≤ K
+
+**Lean lemmas:** `docs/paper/verify-reductions/lean/ReductionProofs/Basic.lean`
+- M lemmas proved, J sorry
+
+## Test plan
+- [ ] `python3 docs/paper/verify-reductions/verify_<source>_<target>.py` passes
+- [ ] `cd docs/paper/verify-reductions/lean && lake build` succeeds
+- [ ] PDF compiles without errors
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+PR_EOF
+)"
+```
+
+### 8c. Clean up worktree
+
+```bash
+cd "$REPO_ROOT"
+python3 scripts/pipeline_worktree.py cleanup --worktree "$WORKTREE_DIR"
+```
+
+### 8d. Comment on issue
+
+```bash
+gh issue comment "$ISSUE" --body "$(cat <<'COMMENT_EOF'
+## verify-reduction report
+
+**Verdict: VERIFIED**
+
+- Typst proof: §X.Y in `proposed-reductions.typ` (PR #<PR_NUMBER>)
+- Python: N checks, 0 failures
+- Lean: M lemmas proved
+- Bugs found: <list or "none">
+
+Script: `docs/paper/verify-reductions/verify_<source>_<target>.py`
+COMMENT_EOF
+)"
+```
+
+Print the PR URL when done.
 
 ## Quality Gates
 
