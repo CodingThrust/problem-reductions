@@ -10,6 +10,7 @@ These repo-local skills live under `.claude/skills/*/SKILL.md`.
 - [issue-to-pr](skills/issue-to-pr/SKILL.md) -- Convert a GitHub issue into a PR with an implementation plan. Default rule: one item per PR. Exception: a `[Model]` issue that explicitly claims direct ILP solvability should implement the model and its direct `<Model> -> ILP` rule together; `[Rule]` issues still require both models to exist on `main`.
 - [add-model](skills/add-model/SKILL.md) -- Add a new problem model. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
 - [add-rule](skills/add-rule/SKILL.md) -- Add a new reduction rule. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
+- [add-reduction](skills/add-reduction/SKILL.md) -- Add a new reduction rule from verified artifacts (Python reduce() + test vectors JSON from `/verify-reduction`). Use instead of `add-rule` when verification artifacts exist.
 - [review-structural](skills/review-structural/SKILL.md) -- Project-specific structural completeness check: model/rule checklists, build, semantic correctness, issue compliance. Read-only, no code changes. Called by `review-pipeline`.
 - [review-quality](skills/review-quality/SKILL.md) -- Generic code quality review: DRY, KISS, cohesion/coupling, test quality, HCI. Read-only, no code changes. Called by `review-pipeline`.
 - [fix-pr](skills/fix-pr/SKILL.md) -- Resolve PR review comments, fix CI failures, and address codecov coverage gaps. Uses `gh api` for codecov (not local `cargo-llvm-cov`).
@@ -26,7 +27,7 @@ These repo-local skills live under `.claude/skills/*/SKILL.md`.
 - [propose](skills/propose/SKILL.md) -- Interactive brainstorming to help domain experts propose a new model or rule. Asks one question at a time, uses mathematical language (no programming jargon), and files a GitHub issue.
 - [final-review](skills/final-review/SKILL.md) -- Interactive maintainer review for PRs in "Final review" column. Merges main, walks through agentic review bullets with human, then merge or hold.
 - [dev-setup](skills/dev-setup/SKILL.md) -- Interactive wizard to install and configure all development tools for new maintainers.
-- [verify-reduction](skills/verify-reduction/SKILL.md) -- End-to-end verification of a reduction rule: generates Typst proof (with YES+NO examples), Python verification script (7 mandatory sections, ≥5000 checks, exhaustive n≤5), and Lean lemmas (non-trivial required). Iterates until all checks pass. Creates worktree + PR.
+- [verify-reduction](skills/verify-reduction/SKILL.md) -- End-to-end verification of a reduction rule: generates Typst proof (with YES+NO examples), Python verification script (7 mandatory sections, ≥5000 checks, exhaustive n≤5), adversary Python script (≥5000 independent checks), and test vectors JSON for downstream consumption by `add-reduction`. Iterates until all checks pass. Creates worktree + PR.
 - [tutorial](skills/tutorial/SKILL.md) -- Interactive tutorial — walk through the pred CLI to explore, reduce, and solve NP-hard problems. No Rust internals.
 
 ## Codex Compatibility
