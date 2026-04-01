@@ -232,6 +232,95 @@ def verify_cut_extraction():
 
 
 # ============================================================
+# 5. Crossing-number extraction for all graphs on n<=5
+# ============================================================
+
+def verify_crossing_number_identity():
+    """For all graphs on n<=5 and ALL permutations:
+    - Compute c_i(f) for each position i = 1..n-1
+    - Verify sum(c_i) == L_G(f)
+    - Find i* = argmax c_i
+    - Verify the partition at i* is a valid cut
+    - Verify cut size at i* = c_{i*}
+    """
+    print("=== 5. Crossing-number identity for all graphs on n<=5 ===")
+
+    for nv in range(2, 6):
+        vertices = list(range(nv))
+        all_possible_edges = list(itertools.combinations(vertices, 2))
+
+        # Enumerate all graphs (subsets of edges)
+        edge_subsets = list(powerset(all_possible_edges))
+
+        for edges in edge_subsets:
+            if len(edges) == 0:
+                continue  # skip empty graph
+
+            for perm in itertools.permutations(vertices):
+                f = {v: i + 1 for i, v in enumerate(perm)}
+                lg = arrangement_cost(edges, f)
+                cs = crossing_numbers(edges, f, nv)
+
+                # Verify sum(c_i) == L_G(f)
+                check(sum(cs) == lg,
+                      f"n={nv}, |E|={len(edges)}, perm={perm}: "
+                      f"sum(c_i)={sum(cs)} != L_G={lg}")
+
+                # All c_i non-negative
+                check(all(c >= 0 for c in cs),
+                      f"n={nv}, perm={perm}: negative crossing number")
+
+                # Find i* = argmax c_i
+                i_star = max(range(len(cs)), key=lambda i: cs[i])
+                max_ci = cs[i_star]
+
+                # The partition at position i* is: left = vertices at
+                # positions 1..i*+1, right = rest
+                inv_f = {pos: v for v, pos in f.items()}
+                left = {inv_f[j] for j in range(1, i_star + 2)}
+
+                # Verify cut size at i* equals c_{i*}
+                cut_size = sum(1 for u, v in edges
+                               if (u in left) != (v in left))
+                check(cut_size == max_ci,
+                      f"n={nv}, perm={perm}: cut at i*={i_star}: "
+                      f"cut_size={cut_size} != c_i*={max_ci}")
+
+                # Verify max_ci >= L_G / (n-1) (pigeonhole bound)
+                check(max_ci >= lg / (nv - 1),
+                      f"n={nv}, perm={perm}: max c_i={max_ci} < "
+                      f"L_G/(n-1)={lg/(nv-1):.4f}")
+
+
+def verify_c4_crossing_numbers():
+    """Detailed C_4 crossing-number check."""
+    print("=== 6. C_4 crossing-number detail ===")
+
+    edges = [(0, 1), (1, 2), (2, 3), (0, 3)]
+    n = 4
+
+    # Arrangement f: 0->1, 2->2, 1->3, 3->4 (order 0,2,1,3)
+    f = {0: 1, 2: 2, 1: 3, 3: 4}
+    cs = crossing_numbers(edges, f, n)
+
+    print(f"  C_4 with arrangement (0,2,1,3): c = {cs}")
+    print(f"  sum(c_i) = {sum(cs)}, L_G = {arrangement_cost(edges, f)}")
+
+    # The crossing numbers should sum to L_G = 8
+    check(sum(cs) == 8,
+          f"C_4: sum(c_i)={sum(cs)} != 8")
+
+    # Report actual values (the paper's c_1=1, c_2=3, c_3=2 sums to 6, not 8,
+    # so they must be wrong; the actual values from our computation are correct)
+    # c_1: edges crossing position 1 (left={0}, right={2,1,3})
+    # c_2: edges crossing position 2 (left={0,2}, right={1,3})
+    # c_3: edges crossing position 3 (left={0,2,1}, right={3})
+    check(cs[0] == 2, f"C_4: c_1={cs[0]}, expected 2")
+    check(cs[1] == 4, f"C_4: c_2={cs[1]}, expected 4")
+    check(cs[2] == 2, f"C_4: c_3={cs[2]}, expected 2")
+
+
+# ============================================================
 # Main
 # ============================================================
 
@@ -246,8 +335,6 @@ def main():
     print(f"  Symbolic: {p1}/{total} passed")
 
     verify_complement_identity()
-    p2 = passed - p1
-    t2 = total - p1 - (total - passed - failed + p1)
     print(f"  Complement identity: {passed}/{total} cumulative")
 
     verify_c4_example()
@@ -255,6 +342,12 @@ def main():
 
     verify_cut_extraction()
     print(f"  Cut extraction: {passed}/{total} cumulative")
+
+    verify_crossing_number_identity()
+    print(f"  Crossing-number identity: {passed}/{total} cumulative")
+
+    verify_c4_crossing_numbers()
+    print(f"  C4 crossing-number detail: {passed}/{total} cumulative")
 
     print()
     print("=" * 50)
