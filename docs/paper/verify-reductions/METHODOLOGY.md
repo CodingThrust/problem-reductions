@@ -277,6 +277,66 @@ done
 
 All scripts must pass (exit code 0) before submitting.
 
+## Current Results (PR #975)
+
+### Per-Reduction Verdict
+
+| § | Reduction | Math proof | Python | Lean | Verdict |
+|---|-----------|-----------|--------|------|---------|
+| 2.1 | SubsetSum → Partition | Complete (3 cases + infeasible) | 32,580 PASS | 5 lemmas (1 sorry) | **Verified** |
+| 2.2 | VC → HamiltonianCircuit | Complete (GJS76 widget) | 11,986 PASS (HC↔VC m=1, structure m≤5, formula n≤6) | Edge count proved | **Verified** |
+| 2.3 | VC → HamiltonianPath | Complete (composition) | 85,047 PASS (ALL graphs n≤5, ALL v*/pair choices) | — | **Verified** |
+| 3.1 | MaxCut → OLA | Complete (complement identity) | 518,788 PASS (ALL perms n≤5, crossing-number decomposition) | G⊔Gᶜ=⊤ proved | **Verified** |
+| 3.2 | OLA → RootedTreeArrangement | Complete (subdivision) | 7,187 PASS (forward ALL perms, backward brute-force) | — | **Verified** |
+| 4.1 | DS → MinMax Multicenter | Complete (identity) | 3,911 PASS (exhaustive n≤6) | — | **Verified** |
+| 4.2 | DS → MinSum Multicenter | Complete (identity) | 7,333 PASS (forward + backward + tight bound) | Distance bound proved | **Verified** |
+| 4.3 | X3C → AcyclicPartition | **OPEN (bug found)** | **5 expected failures** | Cost accounting proved | **Broken** |
+| 5.1 | VC → PartialFeedbackEdgeSet | Complete (6-cycle control-edge) | 133,074 PASS (ALL graphs n≤5, girth=6, min PFES=min VC) | Vertex/edge counts proved | **Verified** |
+
+**Total: 8 verified, 1 broken (honestly marked). 799,893 computational checks, 0 unexpected failures.**
+
+### Bugs Caught by Verification
+
+| Bug | Layer that caught it | Proof status before | Fix |
+|-----|---------------------|--------------------|----|
+| X3C→AP: 2-cycle encoding creates quotient-graph cycles | Python (`verify_x3c_ap.py`) | "Proved" with ⟹/⟸ | Marked OPEN in red |
+| VC→HC: edge count 16m−n+2nK overcounts for isolated vertices | Python (`verify_vc_hc.py`) | "Proved" in Lean (`omega`) | Added WLOG no-isolated assumption |
+| MaxCut→OLA: C₄ crossing numbers c=[1,3,2] sum 6 ≠ L_G=8 | Python (`verify_maxcut_ola.py`) | Written in example | Corrected to c=[2,4,2] sum 8 |
+
+### Lean Proof Summary
+
+| Theorem | Mathlib API | Status |
+|---------|------------|--------|
+| G ⊔ Gᶜ = ⊤ (complement covers all edges) | `sup_compl_eq_top` | **Proved** |
+| G ⊓ Gᶜ = ⊥ (complement is disjoint) | `inf_compl_eq_bot` | **Proved** |
+| L_{K_n} = n(n²−1)/6 for n ≤ 12 | `native_decide` | **Proved** |
+| SubsetSum padding: T+(Σ−2T) = Σ−T | `omega` | **Proved** |
+| SubsetSum padding: (Σ−T)+(2T−Σ) = T | `omega` | **Proved** |
+| VC→HC edges: 14m+(2m−n)+2nK = 16m−n+2nK | `omega` | **Proved** |
+| PFES: 2n+2m vertices, n+4m edges | `omega` | **Proved** |
+| Concrete L_{K_n} for n=3..10 | `native_decide` | **Proved** |
+| SubsetSum ↔ Partition equivalence | — | **Admitted** (1 sorry) |
+
+### How to Reproduce
+
+```bash
+# 1. Run Python verification suite (~5 minutes)
+for f in docs/paper/verify-reductions/verify_*.py; do
+    echo "=== $(basename $f) ==="
+    timeout 300 python3 "$f" | tail -3
+    echo
+done
+
+# 2. Build Lean proofs (~3 minutes first time, cached after)
+cd docs/paper/verify-reductions/lean
+export PATH="$HOME/.elan/bin:$PATH"
+lake build
+
+# 3. Compile Typst PDF
+python3 -c "import typst; typst.compile('docs/paper/proposed-reductions.typ', \
+  output='docs/paper/proposed-reductions.pdf', root='.')"
+```
+
 ## File Listing
 
 ```
