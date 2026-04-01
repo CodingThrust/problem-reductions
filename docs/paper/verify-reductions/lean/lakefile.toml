@@ -1,0 +1,10 @@
+name = "ReductionProofs"
+version = "0.1.0"
+defaultTargets = ["reductionproofs"]
+
+[[lean_lib]]
+name = "ReductionProofs"
+
+[[lean_exe]]
+name = "reductionproofs"
+root = "Main"
