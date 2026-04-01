@@ -92,13 +92,20 @@ Reference: `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs`
 
 ## Step 4: Add Canonical Example to example_db
 
-**HARD GATE (Check 9 from #974).** You MUST modify `src/example_db/rule_builders.rs` — not the rule file, not anywhere else. Read the file first, follow existing patterns, add a builder function using the YES test vector instance, register in `build_rule_examples()`.
+**HARD GATE (Check 9 from #974).** Add a `canonical_rule_example_specs()` function in the reduction rule file, and wire it into `src/rules/mod.rs` where other specs are collected. Read `src/rules/mod.rs` first — search for `canonical_rule_example_specs` to see how existing rules register their examples.
 
-**Verification — run this and confirm the file was modified:**
+The builder function must:
+1. Construct the source instance from the YES test vector
+2. Reduce it to the target
+3. Return a `RuleExampleSpec` with build closure
+
+**Verification:**
 ```bash
-git diff --name-only | grep "rule_builders.rs"
-# MUST show: src/example_db/rule_builders.rs
-# If it does NOT appear, you skipped this step. Go back and do it.
+# The rule file must define canonical_rule_example_specs
+grep "canonical_rule_example_specs" src/rules/<source>_<target>.rs
+# mod.rs must wire it in
+grep "<source>_<target>::canonical_rule_example_specs" src/rules/mod.rs
+# Both must show results. If either is empty, go back and do it.
 ```
 
 ## Step 4b: Add Example-DB Lookup Test
@@ -216,7 +223,6 @@ for f in \
   "src/rules/<source>_<target>.rs" \
   "src/unit_tests/rules/<source>_<target>.rs" \
   "src/rules/mod.rs" \
-  "src/example_db/rule_builders.rs" \
   "src/unit_tests/example_db.rs" \
   "docs/paper/reductions.typ"; do
   git diff --name-only HEAD | grep -q "$(basename $f)" && echo "  ✓ $f" || echo "  ✗ MISSING: $f"
@@ -244,8 +250,8 @@ make paper 2>&1 | tail -3
 git add src/rules/<source>_<target>.rs \
        src/unit_tests/rules/<source>_<target>.rs \
        src/rules/mod.rs \
-       src/example_db/rule_builders.rs \
        src/unit_tests/example_db.rs \
+       src/unit_tests/rules/analysis.rs \
        docs/paper/reductions.typ
 git commit -m "feat: add <Source> → <Target> reduction (#<ISSUE>)"
 git push -u origin "<branch>"
@@ -259,8 +265,8 @@ gh pr create --title "feat: add <Source> → <Target> reduction (#<ISSUE>)" --bo
 | Re-deriving algorithm from issue instead of Python `reduce()` | Python function is the verified spec — translate it |
 | Overhead expressions don't match test vectors JSON | Copy verbatim from `overhead` field |
 | Skipping infeasible (NO) test case | NO instance is in test vectors — always include |
-| Missing canonical example in `rule_builders.rs` | MANDATORY — Check 9 from #974 |
-| Missing example-db lookup test | MANDATORY — Check 10 from #974 |
+| Missing `canonical_rule_example_specs()` in rule file + `mod.rs` wiring | MANDATORY — Check 9 from #974 |
+| Missing example-db lookup test in `example_db.rs` | MANDATORY — Check 10 from #974 |
 | Missing paper `reduction-rule` entry | MANDATORY — Check 11 from #974 |
 | Leaving verification artifacts in repo | MANDATORY cleanup — Step 7 |
 | Not regenerating fixtures after example-db | `make regenerate-fixtures` required for paper |
