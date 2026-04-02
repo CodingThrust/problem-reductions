@@ -94,18 +94,15 @@ where $M$ is the number of standard clauses over $l$ active variables, $N = 2M +
 The bit-lengths satisfy: $log_2(b) = O((n + m)^2 log(n + m))$ and $log_2(c) = O((n + m)^2 log(n + m))$.
 
 *Feasible example.*
-Consider a 3-SAT instance with $n = 2$ variables and $m = 1$ clause:
-$ phi = (u_1 or u_2 or u_2) $
-(padded to 3 literals). After preprocessing, $l = 2$ active variables.
+Consider a 3-SAT instance with $n = 3$ variables and $m = 1$ clause:
+$ phi = (u_1 or u_2 or u_3) $
 
-The satisfying assignment $u_1 = "true", u_2 = "false"$ (among others) makes the clause true. After the full Manders-Adleman construction, we obtain integers $a, b, c$ such that some $x$ with $1 <= x < c$ satisfies $x^2 equiv a pmod(b)$.
+The satisfying assignment $u_1 = "true", u_2 = "false", u_3 = "false"$ (among the $2^3 - 1 = 7$ satisfying assignments) makes the clause true. After the full Manders-Adleman construction, we obtain integers $a, b, c$ such that some $x$ with $1 <= x < c$ satisfies $x^2 equiv a pmod(b)$.
 
-Due to the complexity of the construction (involving enumeration of all standard clauses, CRT computation, and modular inversion), we verify this computationally: the constructor and adversary scripts independently implement the reduction algorithm and confirm that for every satisfiable 3-SAT instance tested, a valid $x$ exists, and for every unsatisfiable instance, no such $x$ exists.
+Due to the complexity of the construction (involving enumeration of all $binom(l, 3) dot 2^3$ standard clauses, CRT computation with $N + 1$ large primes, and modular inversion), the output integers have thousands of bits even for this small instance. We verify correctness algebraically: given the satisfying assignment, we construct the corresponding $alpha_j in {-1, +1}$ values, compute $x = sum alpha_j theta_j$, and confirm that $x^2 equiv a pmod(b)$. The constructor and adversary scripts independently implement this chain for hundreds of instances.
 
 *Infeasible example.*
-Consider a 3-SAT instance with $n = 2$ variables and $m = 4$ clauses comprising all sign patterns on 2 variables (with a third literal duplicated):
-$ phi = (u_1 or u_2 or u_2) and (u_1 or not u_2 or not u_2) and (not u_1 or u_2 or u_2) and (not u_1 or not u_2 or not u_2) $
+Consider a 3-SAT instance with $n = 3$ variables and $m = 8$ clauses comprising all $2^3 = 8$ sign patterns:
+$ phi = (u_1 or u_2 or u_3) and (u_1 or u_2 or not u_3) and dots.c and (not u_1 or not u_2 or not u_3) $
 
-This is unsatisfiable: $u_1 = T, u_2 = T$ falsifies clause 4; $u_1 = T, u_2 = F$ falsifies clause 3 (since $not u_1$ is false and $u_2$ is false); $u_1 = F, u_2 = T$ falsifies clause 2; $u_1 = F, u_2 = F$ falsifies clause 1. (More precisely, we can verify all 4 assignments fail.)
-
-After the reduction, the constructed QuadraticCongruences instance $(a, b, c)$ has no solution $x$ with $1 <= x < c$ and $x^2 equiv a pmod(b)$. This is confirmed computationally by exhaustive search over $x in {1, dots, c-1}$.
+This is unsatisfiable: each of the $2^3 = 8$ truth assignments falsifies exactly one clause. After the reduction, we verify that no choice of $alpha_j in {-1, +1}$ satisfies the knapsack congruence $sum d_j alpha_j equiv tau pmod(2 dot 8^(M+1))$, confirming that no solution $x$ exists. This exhaustive knapsack check is feasible because $N = 2M + l = 2 dot 8 + 3 = 19$, requiring $2^(20) approx 10^6$ checks.
