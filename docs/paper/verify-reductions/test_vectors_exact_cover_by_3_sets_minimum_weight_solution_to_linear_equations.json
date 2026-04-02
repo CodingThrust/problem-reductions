@@ -1,0 +1,196 @@
+{
+  "source": "ExactCoverBy3Sets",
+  "target": "MinimumWeightSolutionToLinearEquations",
+  "issue": 860,
+  "yes_instance": {
+    "input": {
+      "universe_size": 6,
+      "subsets": [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          3,
+          4,
+          5
+        ],
+        [
+          0,
+          3,
+          4
+        ]
+      ]
+    },
+    "output": {
+      "matrix": [
+        [
+          1,
+          0,
+          1
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          1,
+          0
+        ]
+      ],
+      "rhs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "bound": 2
+    },
+    "source_feasible": true,
+    "target_feasible": true,
+    "source_solution": [
+      1,
+      1,
+      0
+    ],
+    "extracted_solution": [
+      1,
+      1,
+      0
+    ]
+  },
+  "no_instance": {
+    "input": {
+      "universe_size": 6,
+      "subsets": [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          0,
+          3,
+          4
+        ],
+        [
+          0,
+          4,
+          5
+        ]
+      ]
+    },
+    "output": {
+      "matrix": [
+        [
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "rhs": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "bound": 2
+    },
+    "source_feasible": false,
+    "target_feasible": false
+  },
+  "overhead": {
+    "num_variables": "num_subsets",
+    "num_equations": "universe_size",
+    "bound": "universe_size / 3"
+  },
+  "claims": [
+    {
+      "tag": "variables_equal_subsets",
+      "formula": "num_variables = num_subsets",
+      "verified": true
+    },
+    {
+      "tag": "equations_equal_universe_size",
+      "formula": "num_equations = universe_size",
+      "verified": true
+    },
+    {
+      "tag": "bound_equals_q",
+      "formula": "bound = universe_size / 3",
+      "verified": true
+    },
+    {
+      "tag": "incidence_matrix_01",
+      "formula": "A[i][j] = 1 iff u_i in C_j",
+      "verified": true
+    },
+    {
+      "tag": "each_column_3_ones",
+      "formula": "each column has exactly 3 ones",
+      "verified": true
+    },
+    {
+      "tag": "forward_direction",
+      "formula": "exact cover => MWSLE feasible with weight q",
+      "verified": true
+    },
+    {
+      "tag": "backward_direction",
+      "formula": "MWSLE feasible with weight <= q => exact cover",
+      "verified": true
+    },
+    {
+      "tag": "solution_extraction",
+      "formula": "target config = source config (identity)",
+      "verified": true
+    }
+  ]
+}
