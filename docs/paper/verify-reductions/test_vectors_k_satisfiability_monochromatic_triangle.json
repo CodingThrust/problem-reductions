@@ -1,0 +1,499 @@
+{
+  "reduction": "KSatisfiability_K3_to_MonochromaticTriangle",
+  "source_problem": "KSatisfiability",
+  "source_variant": {
+    "k": "K3"
+  },
+  "target_problem": "MonochromaticTriangle",
+  "target_variant": {
+    "graph": "SimpleGraph"
+  },
+  "overhead": {
+    "num_vertices": "2 * num_vars + 3 * num_clauses",
+    "num_edges": "num_vars + 9 * num_clauses"
+  },
+  "test_vectors": [
+    {
+      "label": "yes_single_clause",
+      "source": {
+        "num_vars": 3,
+        "clauses": [
+          [
+            1,
+            2,
+            3
+          ]
+        ]
+      },
+      "target": {
+        "num_vertices": 9,
+        "edges": [
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            6
+          ],
+          [
+            0,
+            7
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            6
+          ],
+          [
+            1,
+            8
+          ],
+          [
+            2,
+            5
+          ],
+          [
+            2,
+            7
+          ],
+          [
+            2,
+            8
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            6,
+            8
+          ],
+          [
+            7,
+            8
+          ]
+        ]
+      },
+      "source_satisfiable": true,
+      "target_satisfiable": true,
+      "source_witness": [
+        false,
+        false,
+        true
+      ],
+      "target_witness": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        0
+      ],
+      "extracted_witness": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "label": "yes_two_clauses_negated",
+      "source": {
+        "num_vars": 4,
+        "clauses": [
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            -1,
+            3,
+            4
+          ]
+        ]
+      },
+      "target": {
+        "num_vertices": 14,
+        "edges": [
+          [
+            0,
+            4
+          ],
+          [
+            0,
+            8
+          ],
+          [
+            0,
+            9
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            1,
+            8
+          ],
+          [
+            1,
+            10
+          ],
+          [
+            2,
+            6
+          ],
+          [
+            2,
+            9
+          ],
+          [
+            2,
+            10
+          ],
+          [
+            2,
+            11
+          ],
+          [
+            2,
+            13
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            3,
+            12
+          ],
+          [
+            3,
+            13
+          ],
+          [
+            4,
+            11
+          ],
+          [
+            4,
+            12
+          ],
+          [
+            8,
+            9
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            9,
+            10
+          ],
+          [
+            11,
+            12
+          ],
+          [
+            11,
+            13
+          ],
+          [
+            12,
+            13
+          ]
+        ]
+      },
+      "source_satisfiable": true,
+      "target_satisfiable": true,
+      "source_witness": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "target_witness": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        0,
+        0,
+        1,
+        1
+      ],
+      "extracted_witness": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "label": "yes_all_negated",
+      "source": {
+        "num_vars": 3,
+        "clauses": [
+          [
+            -1,
+            -2,
+            -3
+          ]
+        ]
+      },
+      "target": {
+        "num_vertices": 9,
+        "edges": [
+          [
+            0,
+            3
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            2,
+            5
+          ],
+          [
+            3,
+            6
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            4,
+            6
+          ],
+          [
+            4,
+            8
+          ],
+          [
+            5,
+            7
+          ],
+          [
+            5,
+            8
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            6,
+            8
+          ],
+          [
+            7,
+            8
+          ]
+        ]
+      },
+      "source_satisfiable": true,
+      "target_satisfiable": true,
+      "source_witness": [
+        false,
+        false,
+        false
+      ],
+      "target_witness": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        0
+      ],
+      "extracted_witness": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "label": "yes_mixed",
+      "source": {
+        "num_vars": 4,
+        "clauses": [
+          [
+            1,
+            -2,
+            3
+          ],
+          [
+            2,
+            -3,
+            4
+          ]
+        ]
+      },
+      "target": {
+        "num_vertices": 14,
+        "edges": [
+          [
+            0,
+            4
+          ],
+          [
+            0,
+            8
+          ],
+          [
+            0,
+            9
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            1,
+            11
+          ],
+          [
+            1,
+            12
+          ],
+          [
+            2,
+            6
+          ],
+          [
+            2,
+            9
+          ],
+          [
+            2,
+            10
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            3,
+            12
+          ],
+          [
+            3,
+            13
+          ],
+          [
+            5,
+            8
+          ],
+          [
+            5,
+            10
+          ],
+          [
+            6,
+            11
+          ],
+          [
+            6,
+            13
+          ],
+          [
+            8,
+            9
+          ],
+          [
+            8,
+            10
+          ],
+          [
+            9,
+            10
+          ],
+          [
+            11,
+            12
+          ],
+          [
+            11,
+            13
+          ],
+          [
+            12,
+            13
+          ]
+        ]
+      },
+      "source_satisfiable": true,
+      "target_satisfiable": true,
+      "source_witness": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "target_witness": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1
+      ],
+      "extracted_witness": [
+        true,
+        true,
+        true,
+        true
+      ]
+    }
+  ]
+}

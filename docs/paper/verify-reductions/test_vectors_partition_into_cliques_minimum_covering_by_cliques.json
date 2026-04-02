@@ -1,0 +1,145 @@
+{
+  "source": "PartitionIntoCliques",
+  "target": "MinimumCoveringByCliques",
+  "issue": 889,
+  "yes_instance": {
+    "input": {
+      "num_vertices": 5,
+      "edges": [
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          4
+        ]
+      ],
+      "num_cliques": 2
+    },
+    "output": {
+      "num_vertices": 5,
+      "edges": [
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          4
+        ]
+      ]
+    },
+    "source_feasible": true,
+    "target_feasible": true,
+    "source_solution": [
+      0,
+      0,
+      0,
+      1,
+      1
+    ],
+    "extracted_solution": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  "no_instance": {
+    "input": {
+      "num_vertices": 4,
+      "edges": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          3
+        ]
+      ],
+      "num_cliques": 2
+    },
+    "output": {
+      "num_vertices": 4,
+      "edges": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          3
+        ]
+      ]
+    },
+    "source_feasible": false,
+    "target_feasible": false
+  },
+  "overhead": {
+    "num_vertices": "num_vertices",
+    "num_edges": "num_edges"
+  },
+  "claims": [
+    {
+      "tag": "identity_graph",
+      "formula": "G' = G",
+      "verified": true
+    },
+    {
+      "tag": "identity_bound",
+      "formula": "K' = K",
+      "verified": true
+    },
+    {
+      "tag": "forward_direction",
+      "formula": "partition into K cliques => covering by K cliques",
+      "verified": true
+    },
+    {
+      "tag": "reverse_not_guaranteed",
+      "formula": "covering by K cliques =/=> partition into K cliques",
+      "verified": true
+    },
+    {
+      "tag": "solution_extraction",
+      "formula": "partition[u] => edge_cover[e] for each edge e=(u,v)",
+      "verified": true
+    },
+    {
+      "tag": "vertex_count_preserved",
+      "formula": "num_vertices_target = num_vertices_source",
+      "verified": true
+    },
+    {
+      "tag": "edge_count_preserved",
+      "formula": "num_edges_target = num_edges_source",
+      "verified": true
+    }
+  ]
+}
