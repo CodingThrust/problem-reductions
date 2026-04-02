@@ -6,8 +6,8 @@
 #set heading(numbering: "1.1.")
 #set math.equation(numbering: "(1)")
 
-#import "@preview/ctheorems:1.1.2": *
-#show: thmrules
+#import "@preview/ctheorems:1.1.3": thmbox, thmplain, thmproof, thmrules
+#show: thmrules.with(qed-symbol: $square$)
 #let theorem = thmbox("theorem", "Theorem", stroke: 0.5pt)
 #let proof = thmproof("proof", "Proof")
 
