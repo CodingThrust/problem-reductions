@@ -1,0 +1,829 @@
+{
+  "vectors": [
+    {
+      "label": "yes_balanced_partition",
+      "source": {
+        "sizes": [
+          3,
+          1,
+          1,
+          2,
+          2,
+          1
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "k": 28,
+        "bound": 5
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        1,
+        1,
+        1,
+        0,
+        0,
+        0
+      ],
+      "qualifying_count": 37,
+      "c_strict": 27
+    },
+    {
+      "label": "no_odd_sum",
+      "source": {
+        "sizes": [
+          5,
+          3,
+          3
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            5
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            3
+          ]
+        ],
+        "k": 5,
+        "bound": 6
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "qualifying_count": 4,
+      "c_strict": 4
+    },
+    {
+      "label": "yes_uniform_even",
+      "source": {
+        "sizes": [
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "k": 6,
+        "bound": 2
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        1,
+        1,
+        0,
+        0
+      ],
+      "qualifying_count": 11,
+      "c_strict": 5
+    },
+    {
+      "label": "no_odd_sum_15",
+      "source": {
+        "sizes": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            0,
+            5
+          ]
+        ],
+        "k": 17,
+        "bound": 8
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "qualifying_count": 16,
+      "c_strict": 16
+    },
+    {
+      "label": "yes_sum_20",
+      "source": {
+        "sizes": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          5
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            0,
+            5
+          ],
+          [
+            0,
+            5
+          ]
+        ],
+        "k": 30,
+        "bound": 10
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        1,
+        1,
+        1,
+        1,
+        0,
+        0
+      ],
+      "qualifying_count": 35,
+      "c_strict": 29
+    },
+    {
+      "label": "no_single_element",
+      "source": {
+        "sizes": [
+          10
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            10
+          ]
+        ],
+        "k": 2,
+        "bound": 5
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "qualifying_count": 1,
+      "c_strict": 1
+    },
+    {
+      "label": "yes_two_ones",
+      "source": {
+        "sizes": [
+          1,
+          1
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "k": 2,
+        "bound": 1
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        1,
+        0
+      ],
+      "qualifying_count": 3,
+      "c_strict": 1
+    },
+    {
+      "label": "no_unbalanced",
+      "source": {
+        "sizes": [
+          1,
+          2
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ]
+        ],
+        "k": 3,
+        "bound": 2
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "qualifying_count": 2,
+      "c_strict": 2
+    },
+    {
+      "label": "yes_sum_14",
+      "source": {
+        "sizes": [
+          7,
+          3,
+          3,
+          1
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            7
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "k": 8,
+        "bound": 7
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "qualifying_count": 9,
+      "c_strict": 7
+    },
+    {
+      "label": "no_huge_element",
+      "source": {
+        "sizes": [
+          100,
+          1,
+          1,
+          1
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            100
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "k": 9,
+        "bound": 52
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "qualifying_count": 8,
+      "c_strict": 8
+    },
+    {
+      "label": "random_0",
+      "source": {
+        "sizes": [
+          9
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            9
+          ]
+        ],
+        "k": 2,
+        "bound": 5
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "qualifying_count": 1,
+      "c_strict": 1
+    },
+    {
+      "label": "random_1",
+      "source": {
+        "sizes": [
+          14,
+          9
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            14
+          ],
+          [
+            0,
+            9
+          ]
+        ],
+        "k": 3,
+        "bound": 12
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "qualifying_count": 2,
+      "c_strict": 2
+    },
+    {
+      "label": "random_2",
+      "source": {
+        "sizes": [
+          2,
+          13
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            13
+          ]
+        ],
+        "k": 3,
+        "bound": 8
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "qualifying_count": 2,
+      "c_strict": 2
+    },
+    {
+      "label": "random_3",
+      "source": {
+        "sizes": [
+          11,
+          2,
+          6,
+          5,
+          11,
+          18
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            11
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            6
+          ],
+          [
+            0,
+            5
+          ],
+          [
+            0,
+            11
+          ],
+          [
+            0,
+            18
+          ]
+        ],
+        "k": 33,
+        "bound": 27
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "qualifying_count": 32,
+      "c_strict": 32
+    },
+    {
+      "label": "random_4",
+      "source": {
+        "sizes": [
+          8,
+          6,
+          1,
+          14,
+          3,
+          20
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            8
+          ],
+          [
+            0,
+            6
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            14
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            20
+          ]
+        ],
+        "k": 32,
+        "bound": 26
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        1,
+        0,
+        1,
+        1,
+        1,
+        0
+      ],
+      "qualifying_count": 33,
+      "c_strict": 31
+    },
+    {
+      "label": "random_5",
+      "source": {
+        "sizes": [
+          3,
+          1,
+          11,
+          15,
+          4,
+          2,
+          3
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            11
+          ],
+          [
+            0,
+            15
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ]
+        ],
+        "k": 65,
+        "bound": 20
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "qualifying_count": 64,
+      "c_strict": 64
+    },
+    {
+      "label": "random_6",
+      "source": {
+        "sizes": [
+          5,
+          1,
+          10
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            5
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            10
+          ]
+        ],
+        "k": 5,
+        "bound": 8
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "qualifying_count": 4,
+      "c_strict": 4
+    },
+    {
+      "label": "random_7",
+      "source": {
+        "sizes": [
+          19,
+          16,
+          9,
+          16,
+          2,
+          10,
+          11
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            19
+          ],
+          [
+            0,
+            16
+          ],
+          [
+            0,
+            9
+          ],
+          [
+            0,
+            16
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            10
+          ],
+          [
+            0,
+            11
+          ]
+        ],
+        "k": 65,
+        "bound": 42
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "qualifying_count": 64,
+      "c_strict": 64
+    },
+    {
+      "label": "random_8",
+      "source": {
+        "sizes": [
+          7,
+          20,
+          17,
+          19,
+          11,
+          1,
+          13,
+          17
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            7
+          ],
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            17
+          ],
+          [
+            0,
+            19
+          ],
+          [
+            0,
+            11
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            13
+          ],
+          [
+            0,
+            17
+          ]
+        ],
+        "k": 129,
+        "bound": 53
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "qualifying_count": 128,
+      "c_strict": 128
+    },
+    {
+      "label": "random_9",
+      "source": {
+        "sizes": [
+          18,
+          20,
+          16,
+          17,
+          14,
+          12,
+          17
+        ]
+      },
+      "target": {
+        "sets": [
+          [
+            0,
+            18
+          ],
+          [
+            0,
+            20
+          ],
+          [
+            0,
+            16
+          ],
+          [
+            0,
+            17
+          ],
+          [
+            0,
+            14
+          ],
+          [
+            0,
+            12
+          ],
+          [
+            0,
+            17
+          ]
+        ],
+        "k": 65,
+        "bound": 57
+      },
+      "source_feasible": false,
+      "target_feasible": false,
+      "source_solution": null,
+      "qualifying_count": 64,
+      "c_strict": 64
+    }
+  ],
+  "total_checks": 17260
+}

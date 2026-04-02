@@ -1,0 +1,256 @@
+{
+  "source": "MinimumVertexCover",
+  "target": "PartialFeedbackEdgeSet",
+  "issue": 894,
+  "yes_instance": {
+    "input": {
+      "num_vertices": 4,
+      "edges": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          3
+        ]
+      ],
+      "vertex_cover_bound": 2
+    },
+    "output": {
+      "num_vertices": 14,
+      "edges": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          6,
+          7
+        ],
+        [
+          1,
+          8
+        ],
+        [
+          8,
+          2
+        ],
+        [
+          3,
+          9
+        ],
+        [
+          9,
+          0
+        ],
+        [
+          3,
+          10
+        ],
+        [
+          10,
+          4
+        ],
+        [
+          5,
+          11
+        ],
+        [
+          11,
+          2
+        ],
+        [
+          5,
+          12
+        ],
+        [
+          12,
+          6
+        ],
+        [
+          7,
+          13
+        ],
+        [
+          13,
+          4
+        ]
+      ],
+      "budget": 2,
+      "max_cycle_length": 6
+    },
+    "source_feasible": true,
+    "target_feasible": true,
+    "source_solution": [
+      0,
+      1,
+      1,
+      0
+    ],
+    "extracted_solution": [
+      1,
+      0,
+      1,
+      0
+    ]
+  },
+  "no_instance": {
+    "input": {
+      "num_vertices": 3,
+      "edges": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "vertex_cover_bound": 1
+    },
+    "output": {
+      "num_vertices": 12,
+      "edges": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          1,
+          6
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          3,
+          7
+        ],
+        [
+          7,
+          0
+        ],
+        [
+          3,
+          8
+        ],
+        [
+          8,
+          4
+        ],
+        [
+          5,
+          9
+        ],
+        [
+          9,
+          2
+        ],
+        [
+          1,
+          10
+        ],
+        [
+          10,
+          4
+        ],
+        [
+          5,
+          11
+        ],
+        [
+          11,
+          0
+        ]
+      ],
+      "budget": 1,
+      "max_cycle_length": 6
+    },
+    "source_feasible": false,
+    "target_feasible": false
+  },
+  "overhead": {
+    "num_vertices": "2 * num_vertices + num_edges * (L - 4)",
+    "num_edges": "num_vertices + num_edges * (L - 2)",
+    "budget": "k"
+  },
+  "claims": [
+    {
+      "tag": "hub_construction",
+      "formula": "Hub vertices (no original vertices in G')",
+      "verified": true
+    },
+    {
+      "tag": "gadget_L_cycle",
+      "formula": "Each edge => L-cycle through both hub edges",
+      "verified": true
+    },
+    {
+      "tag": "hub_edge_sharing",
+      "formula": "Hub edge shared across all gadgets incident to v",
+      "verified": true
+    },
+    {
+      "tag": "symmetric_split",
+      "formula": "p = q = (L-4)/2 for even L",
+      "verified": true
+    },
+    {
+      "tag": "forward_direction",
+      "formula": "VC size k => PFES size k",
+      "verified": true
+    },
+    {
+      "tag": "backward_direction",
+      "formula": "PFES size k => VC size k",
+      "verified": true
+    },
+    {
+      "tag": "no_spurious_cycles",
+      "formula": "All cycles <= L are gadget cycles (even L>=6)",
+      "verified": true
+    },
+    {
+      "tag": "overhead_vertices",
+      "formula": "2n + m(L-4)",
+      "verified": true
+    },
+    {
+      "tag": "overhead_edges",
+      "formula": "n + m(L-2)",
+      "verified": true
+    },
+    {
+      "tag": "budget_preserved",
+      "formula": "K' = k",
+      "verified": true
+    }
+  ]
+}

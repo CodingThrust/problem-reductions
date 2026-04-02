@@ -1,0 +1,798 @@
+[
+  {
+    "name": "P2",
+    "n": 2,
+    "edges": [
+      [
+        0,
+        1
+      ]
+    ],
+    "k": 1,
+    "min_vc": 1,
+    "vc_witness": [
+      0
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 13,
+    "target_num_edges": 18,
+    "expected_num_vertices": 13,
+    "expected_num_edges": 18,
+    "has_hc": true
+  },
+  {
+    "name": "P2",
+    "n": 2,
+    "edges": [
+      [
+        0,
+        1
+      ]
+    ],
+    "k": 2,
+    "min_vc": 1,
+    "vc_witness": [
+      0
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 14,
+    "target_num_edges": 22,
+    "expected_num_vertices": 14,
+    "expected_num_edges": 22,
+    "has_hc": true
+  },
+  {
+    "name": "P3",
+    "n": 3,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ]
+    ],
+    "k": 1,
+    "min_vc": 1,
+    "vc_witness": [
+      1
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 25,
+    "target_num_edges": 35,
+    "expected_num_vertices": 25,
+    "expected_num_edges": 35,
+    "has_hc": true
+  },
+  {
+    "name": "P3",
+    "n": 3,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ]
+    ],
+    "k": 2,
+    "min_vc": 1,
+    "vc_witness": [
+      1
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 26,
+    "target_num_edges": 41,
+    "expected_num_vertices": 26,
+    "expected_num_edges": 41,
+    "has_hc": true
+  },
+  {
+    "name": "C3",
+    "n": 3,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        2,
+        0
+      ]
+    ],
+    "k": 1,
+    "min_vc": 2,
+    "vc_witness": [
+      0,
+      1
+    ],
+    "has_vc_of_size_k": false,
+    "target_num_vertices": 37,
+    "target_num_edges": 51,
+    "expected_num_vertices": 37,
+    "expected_num_edges": 51
+  },
+  {
+    "name": "C3",
+    "n": 3,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        2,
+        0
+      ]
+    ],
+    "k": 2,
+    "min_vc": 2,
+    "vc_witness": [
+      0,
+      1
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 38,
+    "target_num_edges": 57,
+    "expected_num_vertices": 38,
+    "expected_num_edges": 57,
+    "has_hc": true
+  },
+  {
+    "name": "C3",
+    "n": 3,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        2,
+        0
+      ]
+    ],
+    "k": 3,
+    "min_vc": 2,
+    "vc_witness": [
+      0,
+      1
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 39,
+    "target_num_edges": 63,
+    "expected_num_vertices": 39,
+    "expected_num_edges": 63,
+    "has_hc": true
+  },
+  {
+    "name": "S2",
+    "n": 3,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ]
+    ],
+    "k": 1,
+    "min_vc": 1,
+    "vc_witness": [
+      0
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 25,
+    "target_num_edges": 35,
+    "expected_num_vertices": 25,
+    "expected_num_edges": 35,
+    "has_hc": true
+  },
+  {
+    "name": "S2",
+    "n": 3,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ]
+    ],
+    "k": 2,
+    "min_vc": 1,
+    "vc_witness": [
+      0
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 26,
+    "target_num_edges": 41,
+    "expected_num_vertices": 26,
+    "expected_num_edges": 41,
+    "has_hc": true
+  },
+  {
+    "name": "S3",
+    "n": 4,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        0,
+        3
+      ]
+    ],
+    "k": 1,
+    "min_vc": 1,
+    "vc_witness": [
+      0
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 37,
+    "target_num_edges": 52,
+    "expected_num_vertices": 37,
+    "expected_num_edges": 52,
+    "has_hc": true
+  },
+  {
+    "name": "S3",
+    "n": 4,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        0,
+        3
+      ]
+    ],
+    "k": 2,
+    "min_vc": 1,
+    "vc_witness": [
+      0
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 38,
+    "target_num_edges": 60,
+    "expected_num_vertices": 38,
+    "expected_num_edges": 60,
+    "has_hc": true
+  },
+  {
+    "name": "tri+pend",
+    "n": 4,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        2,
+        3
+      ]
+    ],
+    "k": 1,
+    "min_vc": 2,
+    "vc_witness": [
+      0,
+      2
+    ],
+    "has_vc_of_size_k": false,
+    "target_num_vertices": 49,
+    "target_num_edges": 68,
+    "expected_num_vertices": 49,
+    "expected_num_edges": 68
+  },
+  {
+    "name": "tri+pend",
+    "n": 4,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        2,
+        3
+      ]
+    ],
+    "k": 2,
+    "min_vc": 2,
+    "vc_witness": [
+      0,
+      2
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 50,
+    "target_num_edges": 76,
+    "expected_num_vertices": 50,
+    "expected_num_edges": 76
+  },
+  {
+    "name": "tri+pend",
+    "n": 4,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        2,
+        3
+      ]
+    ],
+    "k": 3,
+    "min_vc": 2,
+    "vc_witness": [
+      0,
+      2
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 51,
+    "target_num_edges": 84,
+    "expected_num_vertices": 51,
+    "expected_num_edges": 84
+  },
+  {
+    "name": "random_0",
+    "n": 3,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        1,
+        2
+      ]
+    ],
+    "k": 2,
+    "min_vc": 2,
+    "vc_witness": [
+      0,
+      1
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 38,
+    "target_num_edges": 57,
+    "expected_num_vertices": 38,
+    "expected_num_edges": 57,
+    "has_hc": true
+  },
+  {
+    "name": "random_1",
+    "n": 4,
+    "edges": [
+      [
+        0,
+        2
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        2,
+        3
+      ]
+    ],
+    "k": 2,
+    "min_vc": 2,
+    "vc_witness": [
+      0,
+      3
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 50,
+    "target_num_edges": 76,
+    "expected_num_vertices": 50,
+    "expected_num_edges": 76
+  },
+  {
+    "name": "random_2",
+    "n": 2,
+    "edges": [
+      [
+        0,
+        1
+      ]
+    ],
+    "k": 1,
+    "min_vc": 1,
+    "vc_witness": [
+      0
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 13,
+    "target_num_edges": 18,
+    "expected_num_vertices": 13,
+    "expected_num_edges": 18,
+    "has_hc": true
+  },
+  {
+    "name": "random_3",
+    "n": 4,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        2,
+        3
+      ]
+    ],
+    "k": 2,
+    "min_vc": 2,
+    "vc_witness": [
+      1,
+      3
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 62,
+    "target_num_edges": 92,
+    "expected_num_vertices": 62,
+    "expected_num_edges": 92
+  },
+  {
+    "name": "random_4",
+    "n": 2,
+    "edges": [
+      [
+        0,
+        1
+      ]
+    ],
+    "k": 1,
+    "min_vc": 1,
+    "vc_witness": [
+      0
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 13,
+    "target_num_edges": 18,
+    "expected_num_vertices": 13,
+    "expected_num_edges": 18,
+    "has_hc": true
+  },
+  {
+    "name": "random_5",
+    "n": 3,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        1,
+        2
+      ]
+    ],
+    "k": 2,
+    "min_vc": 2,
+    "vc_witness": [
+      0,
+      1
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 38,
+    "target_num_edges": 57,
+    "expected_num_vertices": 38,
+    "expected_num_edges": 57,
+    "has_hc": true
+  },
+  {
+    "name": "random_6",
+    "n": 4,
+    "edges": [
+      [
+        0,
+        2
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        1,
+        3
+      ]
+    ],
+    "k": 2,
+    "min_vc": 2,
+    "vc_witness": [
+      0,
+      1
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 38,
+    "target_num_edges": 60,
+    "expected_num_vertices": 38,
+    "expected_num_edges": 60,
+    "has_hc": true
+  },
+  {
+    "name": "random_7",
+    "n": 3,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ]
+    ],
+    "k": 1,
+    "min_vc": 1,
+    "vc_witness": [
+      0
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 25,
+    "target_num_edges": 35,
+    "expected_num_vertices": 25,
+    "expected_num_edges": 35,
+    "has_hc": true
+  },
+  {
+    "name": "random_8",
+    "n": 2,
+    "edges": [
+      [
+        0,
+        1
+      ]
+    ],
+    "k": 1,
+    "min_vc": 1,
+    "vc_witness": [
+      0
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 13,
+    "target_num_edges": 18,
+    "expected_num_vertices": 13,
+    "expected_num_edges": 18,
+    "has_hc": true
+  },
+  {
+    "name": "random_9",
+    "n": 3,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        1,
+        2
+      ]
+    ],
+    "k": 2,
+    "min_vc": 2,
+    "vc_witness": [
+      0,
+      1
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 38,
+    "target_num_edges": 57,
+    "expected_num_vertices": 38,
+    "expected_num_edges": 57,
+    "has_hc": true
+  },
+  {
+    "name": "random_10",
+    "n": 2,
+    "edges": [
+      [
+        0,
+        1
+      ]
+    ],
+    "k": 1,
+    "min_vc": 1,
+    "vc_witness": [
+      0
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 13,
+    "target_num_edges": 18,
+    "expected_num_vertices": 13,
+    "expected_num_edges": 18,
+    "has_hc": true
+  },
+  {
+    "name": "random_11",
+    "n": 4,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        2,
+        3
+      ]
+    ],
+    "k": 2,
+    "min_vc": 2,
+    "vc_witness": [
+      0,
+      2
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 50,
+    "target_num_edges": 76,
+    "expected_num_vertices": 50,
+    "expected_num_edges": 76
+  },
+  {
+    "name": "random_12",
+    "n": 3,
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ]
+    ],
+    "k": 1,
+    "min_vc": 1,
+    "vc_witness": [
+      0
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 25,
+    "target_num_edges": 35,
+    "expected_num_vertices": 25,
+    "expected_num_edges": 35,
+    "has_hc": true
+  },
+  {
+    "name": "random_13",
+    "n": 2,
+    "edges": [
+      [
+        0,
+        1
+      ]
+    ],
+    "k": 1,
+    "min_vc": 1,
+    "vc_witness": [
+      0
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 13,
+    "target_num_edges": 18,
+    "expected_num_vertices": 13,
+    "expected_num_edges": 18,
+    "has_hc": true
+  },
+  {
+    "name": "random_14",
+    "n": 4,
+    "edges": [
+      [
+        0,
+        2
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        1,
+        3
+      ]
+    ],
+    "k": 2,
+    "min_vc": 2,
+    "vc_witness": [
+      0,
+      1
+    ],
+    "has_vc_of_size_k": true,
+    "target_num_vertices": 38,
+    "target_num_edges": 60,
+    "expected_num_vertices": 38,
+    "expected_num_edges": 60,
+    "has_hc": true
+  }
+]
