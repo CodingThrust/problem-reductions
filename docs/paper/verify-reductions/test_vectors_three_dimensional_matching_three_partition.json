@@ -1,0 +1,748 @@
+{
+  "vectors": [
+    {
+      "label": "yes_q1_single_triple",
+      "source": {
+        "q": 1,
+        "triples": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 21,
+        "bound": 42949673924
+      },
+      "source_feasible": true,
+      "source_solution": [
+        1
+      ],
+      "overhead": {
+        "num_elements": 21,
+        "num_groups": 7,
+        "bound": 42949673924
+      }
+    },
+    {
+      "label": "yes_q2_four_triples",
+      "source": {
+        "q": 2,
+        "triples": [
+          [
+            0,
+            0,
+            1
+          ],
+          [
+            1,
+            1,
+            0
+          ],
+          [
+            0,
+            1,
+            1
+          ],
+          [
+            1,
+            0,
+            0
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 372,
+        "bound": 687194768324
+      },
+      "source_feasible": true,
+      "source_solution": [
+        1,
+        1,
+        0,
+        0
+      ],
+      "overhead": {
+        "num_elements": 372,
+        "num_groups": 124,
+        "bound": 687194768324
+      }
+    },
+    {
+      "label": "no_q2_y1_uncovered",
+      "source": {
+        "q": 2,
+        "triples": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            1,
+            0,
+            0
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 207,
+        "bound": 687194768324
+      },
+      "source_feasible": false,
+      "source_solution": null,
+      "overhead": {
+        "num_elements": 207,
+        "num_groups": 69,
+        "bound": 687194768324
+      }
+    },
+    {
+      "label": "yes_q2_minimal_matching",
+      "source": {
+        "q": 2,
+        "triples": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            1
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 90,
+        "bound": 687194768324
+      },
+      "source_feasible": true,
+      "source_solution": [
+        1,
+        1
+      ],
+      "overhead": {
+        "num_elements": 90,
+        "num_groups": 30,
+        "bound": 687194768324
+      }
+    },
+    {
+      "label": "yes_q2_two_matchings",
+      "source": {
+        "q": 2,
+        "triples": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ],
+          [
+            1,
+            1,
+            0
+          ],
+          [
+            1,
+            1,
+            1
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 372,
+        "bound": 687194768324
+      },
+      "source_feasible": true,
+      "source_solution": [
+        1,
+        0,
+        0,
+        1
+      ],
+      "overhead": {
+        "num_elements": 372,
+        "num_groups": 124,
+        "bound": 687194768324
+      }
+    },
+    {
+      "label": "no_q2_w1_uncovered",
+      "source": {
+        "q": 2,
+        "triples": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            1
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 90,
+        "bound": 687194768324
+      },
+      "source_feasible": false,
+      "source_solution": null,
+      "overhead": {
+        "num_elements": 90,
+        "num_groups": 30,
+        "bound": 687194768324
+      }
+    },
+    {
+      "label": "yes_q3_from_model",
+      "source": {
+        "q": 3,
+        "triples": [
+          [
+            0,
+            1,
+            2
+          ],
+          [
+            1,
+            0,
+            1
+          ],
+          [
+            2,
+            2,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            2,
+            2
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 585,
+        "bound": 3478923510724
+      },
+      "source_feasible": true,
+      "source_solution": [
+        1,
+        1,
+        1,
+        0,
+        0
+      ],
+      "overhead": {
+        "num_elements": 585,
+        "num_groups": 195,
+        "bound": 3478923510724
+      }
+    },
+    {
+      "label": "no_q2_no_perfect_matching",
+      "source": {
+        "q": 2,
+        "triples": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 372,
+        "bound": 687194768324
+      },
+      "source_feasible": false,
+      "source_solution": null,
+      "overhead": {
+        "num_elements": 372,
+        "num_groups": 124,
+        "bound": 687194768324
+      }
+    },
+    {
+      "label": "random_0",
+      "source": {
+        "q": 1,
+        "triples": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 21,
+        "bound": 42949673924
+      },
+      "source_feasible": true,
+      "source_solution": [
+        1
+      ],
+      "overhead": {
+        "num_elements": 21,
+        "num_groups": 7,
+        "bound": 42949673924
+      }
+    },
+    {
+      "label": "random_1",
+      "source": {
+        "q": 2,
+        "triples": [
+          [
+            0,
+            0,
+            1
+          ],
+          [
+            1,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            1
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 372,
+        "bound": 687194768324
+      },
+      "source_feasible": true,
+      "source_solution": [
+        1,
+        1,
+        0,
+        0
+      ],
+      "overhead": {
+        "num_elements": 372,
+        "num_groups": 124,
+        "bound": 687194768324
+      }
+    },
+    {
+      "label": "random_2",
+      "source": {
+        "q": 3,
+        "triples": [
+          [
+            1,
+            0,
+            1
+          ],
+          [
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            1,
+            2
+          ],
+          [
+            0,
+            1,
+            1
+          ],
+          [
+            1,
+            2,
+            2
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 585,
+        "bound": 3478923510724
+      },
+      "source_feasible": false,
+      "source_solution": null,
+      "overhead": {
+        "num_elements": 585,
+        "num_groups": 195,
+        "bound": 3478923510724
+      }
+    },
+    {
+      "label": "random_3",
+      "source": {
+        "q": 2,
+        "triples": [
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            1
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 207,
+        "bound": 687194768324
+      },
+      "source_feasible": false,
+      "source_solution": null,
+      "overhead": {
+        "num_elements": 207,
+        "num_groups": 69,
+        "bound": 687194768324
+      }
+    },
+    {
+      "label": "random_4",
+      "source": {
+        "q": 1,
+        "triples": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 21,
+        "bound": 42949673924
+      },
+      "source_feasible": true,
+      "source_solution": [
+        1
+      ],
+      "overhead": {
+        "num_elements": 21,
+        "num_groups": 7,
+        "bound": 42949673924
+      }
+    },
+    {
+      "label": "random_5",
+      "source": {
+        "q": 1,
+        "triples": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 21,
+        "bound": 42949673924
+      },
+      "source_feasible": true,
+      "source_solution": [
+        1
+      ],
+      "overhead": {
+        "num_elements": 21,
+        "num_groups": 7,
+        "bound": 42949673924
+      }
+    },
+    {
+      "label": "random_6",
+      "source": {
+        "q": 1,
+        "triples": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 21,
+        "bound": 42949673924
+      },
+      "source_feasible": true,
+      "source_solution": [
+        1
+      ],
+      "overhead": {
+        "num_elements": 21,
+        "num_groups": 7,
+        "bound": 42949673924
+      }
+    },
+    {
+      "label": "random_7",
+      "source": {
+        "q": 3,
+        "triples": [
+          [
+            0,
+            1,
+            1
+          ],
+          [
+            2,
+            2,
+            1
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            0
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 372,
+        "bound": 3478923510724
+      },
+      "source_feasible": false,
+      "source_solution": null,
+      "overhead": {
+        "num_elements": 372,
+        "num_groups": 124,
+        "bound": 3478923510724
+      }
+    },
+    {
+      "label": "random_8",
+      "source": {
+        "q": 2,
+        "triples": [
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            1,
+            1
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 846,
+        "bound": 687194768324
+      },
+      "source_feasible": true,
+      "source_solution": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "overhead": {
+        "num_elements": 846,
+        "num_groups": 282,
+        "bound": 687194768324
+      }
+    },
+    {
+      "label": "random_9",
+      "source": {
+        "q": 3,
+        "triples": [
+          [
+            0,
+            2,
+            0
+          ],
+          [
+            2,
+            0,
+            1
+          ],
+          [
+            2,
+            0,
+            2
+          ],
+          [
+            1,
+            2,
+            1
+          ],
+          [
+            2,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            1
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 846,
+        "bound": 3478923510724
+      },
+      "source_feasible": false,
+      "source_solution": null,
+      "overhead": {
+        "num_elements": 846,
+        "num_groups": 282,
+        "bound": 3478923510724
+      }
+    },
+    {
+      "label": "random_10",
+      "source": {
+        "q": 1,
+        "triples": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 21,
+        "bound": 42949673924
+      },
+      "source_feasible": true,
+      "source_solution": [
+        1
+      ],
+      "overhead": {
+        "num_elements": 21,
+        "num_groups": 7,
+        "bound": 42949673924
+      }
+    },
+    {
+      "label": "random_11",
+      "source": {
+        "q": 3,
+        "triples": [
+          [
+            1,
+            2,
+            1
+          ],
+          [
+            2,
+            1,
+            0
+          ],
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            1,
+            0,
+            2
+          ],
+          [
+            2,
+            2,
+            2
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ]
+      },
+      "target": {
+        "num_elements": 846,
+        "bound": 3478923510724
+      },
+      "source_feasible": false,
+      "source_solution": null,
+      "overhead": {
+        "num_elements": 846,
+        "num_groups": 282,
+        "bound": 3478923510724
+      }
+    }
+  ],
+  "total_checks": 16379
+}
