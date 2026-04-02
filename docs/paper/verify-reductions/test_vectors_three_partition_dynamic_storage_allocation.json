@@ -1,0 +1,1181 @@
+{
+  "vectors": [
+    {
+      "label": "yes_m1_minimal",
+      "source": {
+        "sizes": [
+          2,
+          2,
+          3
+        ],
+        "bound": 7
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            2
+          ],
+          [
+            0,
+            1,
+            2
+          ],
+          [
+            0,
+            1,
+            3
+          ]
+        ],
+        "memory_size": 7
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        2,
+        4
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "yes_m1_uniform",
+      "source": {
+        "sizes": [
+          3,
+          3,
+          3
+        ],
+        "bound": 9
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            3
+          ],
+          [
+            0,
+            1,
+            3
+          ],
+          [
+            0,
+            1,
+            3
+          ]
+        ],
+        "memory_size": 9
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        3,
+        6
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "yes_m1_distinct",
+      "source": {
+        "sizes": [
+          4,
+          5,
+          6
+        ],
+        "bound": 15
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            4
+          ],
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            0,
+            1,
+            6
+          ]
+        ],
+        "memory_size": 15
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        4,
+        9
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "yes_m2_canonical",
+      "source": {
+        "sizes": [
+          4,
+          5,
+          6,
+          4,
+          6,
+          5
+        ],
+        "bound": 15
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            4
+          ],
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            0,
+            1,
+            6
+          ],
+          [
+            1,
+            2,
+            4
+          ],
+          [
+            1,
+            2,
+            6
+          ],
+          [
+            1,
+            2,
+            5
+          ]
+        ],
+        "memory_size": 15
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1
+      ],
+      "target_solution": [
+        0,
+        4,
+        9,
+        0,
+        4,
+        10
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "label": "yes_m2_uniform",
+      "source": {
+        "sizes": [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3
+        ],
+        "bound": 9
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            3
+          ],
+          [
+            0,
+            1,
+            3
+          ],
+          [
+            0,
+            1,
+            3
+          ],
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            1,
+            2,
+            3
+          ],
+          [
+            1,
+            2,
+            3
+          ]
+        ],
+        "memory_size": 9
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1
+      ],
+      "target_solution": [
+        0,
+        3,
+        6,
+        0,
+        3,
+        6
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "label": "yes_m2_medium",
+      "source": {
+        "sizes": [
+          5,
+          6,
+          7,
+          5,
+          6,
+          7
+        ],
+        "bound": 18
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            0,
+            1,
+            6
+          ],
+          [
+            0,
+            1,
+            7
+          ],
+          [
+            1,
+            2,
+            5
+          ],
+          [
+            1,
+            2,
+            6
+          ],
+          [
+            1,
+            2,
+            7
+          ]
+        ],
+        "memory_size": 18
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1
+      ],
+      "target_solution": [
+        0,
+        5,
+        11,
+        0,
+        5,
+        11
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "label": "random_0",
+      "source": {
+        "sizes": [
+          4,
+          4,
+          7
+        ],
+        "bound": 15
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            4
+          ],
+          [
+            0,
+            1,
+            4
+          ],
+          [
+            0,
+            1,
+            7
+          ]
+        ],
+        "memory_size": 15
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        4,
+        8
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "random_1",
+      "source": {
+        "sizes": [
+          7,
+          5,
+          7
+        ],
+        "bound": 19
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            7
+          ],
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            0,
+            1,
+            7
+          ]
+        ],
+        "memory_size": 19
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        7,
+        12
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "random_2",
+      "source": {
+        "sizes": [
+          6,
+          6,
+          5
+        ],
+        "bound": 17
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            6
+          ],
+          [
+            0,
+            1,
+            6
+          ],
+          [
+            0,
+            1,
+            5
+          ]
+        ],
+        "memory_size": 17
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        6,
+        12
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "random_3",
+      "source": {
+        "sizes": [
+          9,
+          5,
+          9,
+          5,
+          5,
+          5
+        ],
+        "bound": 19
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            9
+          ],
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            1,
+            2,
+            9
+          ],
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            1,
+            2,
+            5
+          ],
+          [
+            1,
+            2,
+            5
+          ]
+        ],
+        "memory_size": 19
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        1
+      ],
+      "target_solution": [
+        0,
+        9,
+        0,
+        14,
+        9,
+        14
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "label": "random_4",
+      "source": {
+        "sizes": [
+          10,
+          7,
+          8,
+          7,
+          9,
+          9
+        ],
+        "bound": 25
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            10
+          ],
+          [
+            0,
+            1,
+            7
+          ],
+          [
+            0,
+            1,
+            8
+          ],
+          [
+            1,
+            2,
+            7
+          ],
+          [
+            1,
+            2,
+            9
+          ],
+          [
+            1,
+            2,
+            9
+          ]
+        ],
+        "memory_size": 25
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1
+      ],
+      "target_solution": [
+        0,
+        10,
+        17,
+        0,
+        7,
+        16
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "label": "random_5",
+      "source": {
+        "sizes": [
+          5,
+          9,
+          5
+        ],
+        "bound": 19
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            0,
+            1,
+            9
+          ],
+          [
+            0,
+            1,
+            5
+          ]
+        ],
+        "memory_size": 19
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        5,
+        14
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "random_6",
+      "source": {
+        "sizes": [
+          8,
+          7,
+          7
+        ],
+        "bound": 22
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            8
+          ],
+          [
+            0,
+            1,
+            7
+          ],
+          [
+            0,
+            1,
+            7
+          ]
+        ],
+        "memory_size": 22
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        8,
+        15
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "random_7",
+      "source": {
+        "sizes": [
+          7,
+          7,
+          6,
+          5,
+          5,
+          8
+        ],
+        "bound": 19
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            7
+          ],
+          [
+            0,
+            1,
+            7
+          ],
+          [
+            1,
+            2,
+            6
+          ],
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            1,
+            2,
+            5
+          ],
+          [
+            1,
+            2,
+            8
+          ]
+        ],
+        "memory_size": 19
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        1
+      ],
+      "target_solution": [
+        0,
+        7,
+        0,
+        14,
+        6,
+        11
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "label": "random_8",
+      "source": {
+        "sizes": [
+          6,
+          5,
+          7
+        ],
+        "bound": 18
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            6
+          ],
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            0,
+            1,
+            7
+          ]
+        ],
+        "memory_size": 18
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        6,
+        11
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "random_9",
+      "source": {
+        "sizes": [
+          8,
+          6,
+          7,
+          10,
+          6,
+          7
+        ],
+        "bound": 22
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            8
+          ],
+          [
+            1,
+            2,
+            6
+          ],
+          [
+            0,
+            1,
+            7
+          ],
+          [
+            1,
+            2,
+            10
+          ],
+          [
+            1,
+            2,
+            6
+          ],
+          [
+            0,
+            1,
+            7
+          ]
+        ],
+        "memory_size": 22
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "target_solution": [
+        0,
+        0,
+        8,
+        6,
+        16,
+        15
+      ],
+      "extracted_solution": [
+        0,
+        1,
+        0,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "label": "random_10",
+      "source": {
+        "sizes": [
+          4,
+          4,
+          7
+        ],
+        "bound": 15
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            4
+          ],
+          [
+            0,
+            1,
+            4
+          ],
+          [
+            0,
+            1,
+            7
+          ]
+        ],
+        "memory_size": 15
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        4,
+        8
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "random_11",
+      "source": {
+        "sizes": [
+          5,
+          5,
+          8,
+          5,
+          8,
+          5
+        ],
+        "bound": 18
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            0,
+            1,
+            8
+          ],
+          [
+            1,
+            2,
+            5
+          ],
+          [
+            1,
+            2,
+            8
+          ],
+          [
+            1,
+            2,
+            5
+          ]
+        ],
+        "memory_size": 18
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1
+      ],
+      "target_solution": [
+        0,
+        5,
+        10,
+        0,
+        5,
+        13
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "label": "random_12",
+      "source": {
+        "sizes": [
+          5,
+          5,
+          7
+        ],
+        "bound": 17
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            0,
+            1,
+            5
+          ],
+          [
+            0,
+            1,
+            7
+          ]
+        ],
+        "memory_size": 17
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        5,
+        10
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "random_13",
+      "source": {
+        "sizes": [
+          4,
+          4,
+          4
+        ],
+        "bound": 12
+      },
+      "target": {
+        "items": [
+          [
+            0,
+            1,
+            4
+          ],
+          [
+            0,
+            1,
+            4
+          ],
+          [
+            0,
+            1,
+            4
+          ]
+        ],
+        "memory_size": 12
+      },
+      "source_feasible": true,
+      "target_feasible": true,
+      "source_solution": [
+        0,
+        0,
+        0
+      ],
+      "target_solution": [
+        0,
+        4,
+        8
+      ],
+      "extracted_solution": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "total_checks": 10592
+}

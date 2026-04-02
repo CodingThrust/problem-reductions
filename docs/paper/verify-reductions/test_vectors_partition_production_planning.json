@@ -1,0 +1,188 @@
+{
+  "source": "Partition",
+  "target": "ProductionPlanning",
+  "issue": 488,
+  "yes_instance": {
+    "input": {
+      "sizes": [
+        3,
+        1,
+        1,
+        2,
+        2,
+        1
+      ]
+    },
+    "output": {
+      "num_periods": 7,
+      "demands": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5
+      ],
+      "capacities": [
+        3,
+        1,
+        1,
+        2,
+        2,
+        1,
+        0
+      ],
+      "setup_costs": [
+        3,
+        1,
+        1,
+        2,
+        2,
+        1,
+        0
+      ],
+      "production_costs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "inventory_costs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "cost_bound": 5
+    },
+    "source_feasible": true,
+    "target_feasible": true,
+    "target_witness": [
+      3,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0
+    ],
+    "source_solution": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ]
+  },
+  "no_instance": {
+    "input": {
+      "sizes": [
+        1,
+        1,
+        1,
+        5
+      ]
+    },
+    "output": {
+      "num_periods": 5,
+      "demands": [
+        0,
+        0,
+        0,
+        0,
+        4
+      ],
+      "capacities": [
+        1,
+        1,
+        1,
+        5,
+        0
+      ],
+      "setup_costs": [
+        1,
+        1,
+        1,
+        5,
+        0
+      ],
+      "production_costs": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "inventory_costs": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "cost_bound": 4
+    },
+    "source_feasible": false,
+    "target_feasible": false
+  },
+  "overhead": {
+    "num_periods": "num_elements + 1",
+    "max_capacity": "max(sizes)",
+    "cost_bound": "total_sum / 2"
+  },
+  "claims": [
+    {
+      "tag": "num_periods",
+      "formula": "n + 1",
+      "verified": true
+    },
+    {
+      "tag": "demands_structure",
+      "formula": "r_i=0 for i<n, r_n=Q",
+      "verified": true
+    },
+    {
+      "tag": "setup_equals_capacity",
+      "formula": "b_i = c_i = a_i",
+      "verified": true
+    },
+    {
+      "tag": "zero_prod_inv_costs",
+      "formula": "p_i = h_i = 0",
+      "verified": true
+    },
+    {
+      "tag": "cost_bound",
+      "formula": "B = Q = S/2",
+      "verified": true
+    },
+    {
+      "tag": "forward_direction",
+      "formula": "partition => feasible plan, cost=Q",
+      "verified": true
+    },
+    {
+      "tag": "backward_direction",
+      "formula": "feasible plan => partition subset",
+      "verified": true
+    },
+    {
+      "tag": "solution_extraction",
+      "formula": "active periods = partition subset",
+      "verified": true
+    },
+    {
+      "tag": "no_instance_infeasible",
+      "formula": "no subset of {1,1,1,5} sums to 4",
+      "verified": true
+    }
+  ]
+}

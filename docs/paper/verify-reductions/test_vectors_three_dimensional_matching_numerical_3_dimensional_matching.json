@@ -1,0 +1,107 @@
+{
+  "source": "ThreeDimensionalMatching",
+  "target": "Numerical3DimensionalMatching",
+  "issue": 390,
+  "status": "BLOCKED",
+  "reason": "No direct single-step polynomial reduction from 3DM to N3DM exists using additive numerical encoding. The fundamental obstacle: N3DM requires a constant per-group bound B, but 3DM's W-coordinate coverage constraint cannot be encoded in per-group additive sums. Proved via: (1) separability counterexample showing the indicator function of M = {(0,0,0),(0,1,1),(1,0,1),(1,1,0)} is not a constant level set of any additively separable function; (2) forward failure: coord-complement construction's dummy assignment breaks when matching selects non-final triples; (3) backward failure: W-coverage gap allows N3DM to be feasible when 3DM is infeasible. Standard NP-completeness proof goes through 4-Partition and 3-Partition.",
+  "yes_instance": {
+    "input": {
+      "universe_size": 3,
+      "triples": [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          1,
+          0,
+          1
+        ],
+        [
+          2,
+          2,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          2,
+          2
+        ]
+      ]
+    },
+    "source_feasible": true,
+    "source_solution": [
+      0,
+      1,
+      2
+    ],
+    "note": "Partial construction verifies active sums but full N3DM embedding fails"
+  },
+  "no_instance": {
+    "input": {
+      "universe_size": 2,
+      "triples": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          1
+        ]
+      ]
+    },
+    "source_feasible": false,
+    "note": "W=1 uncovered; coord-complement N3DM is falsely feasible"
+  },
+  "claims": [
+    {
+      "tag": "separability_impossible",
+      "formula": "indicator(M) not additively separable for general M",
+      "verified": true
+    },
+    {
+      "tag": "active_sum_correct",
+      "formula": "sizes_w[j]+sizes_x[x_j]+sizes_y[y_j]=B always",
+      "verified": true
+    },
+    {
+      "tag": "wrong_X_rejected",
+      "formula": "sum != B when x' != x_j",
+      "verified": true
+    },
+    {
+      "tag": "wrong_Y_rejected",
+      "formula": "sum != B when y' != y_j",
+      "verified": true
+    },
+    {
+      "tag": "W_coverage_NOT_enforced",
+      "formula": "W-coverage gap exists",
+      "verified": true
+    },
+    {
+      "tag": "forward_FAILS",
+      "formula": "3DM feasible does NOT imply N3DM feasible",
+      "verified": true
+    },
+    {
+      "tag": "backward_FAILS",
+      "formula": "N3DM feasible does NOT imply 3DM feasible",
+      "verified": true
+    },
+    {
+      "tag": "reduction_BLOCKED",
+      "formula": "No direct reduction found",
+      "verified": true
+    }
+  ]
+}
