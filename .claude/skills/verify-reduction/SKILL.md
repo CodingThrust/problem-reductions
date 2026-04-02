@@ -46,10 +46,17 @@ Check source/target `Value` types before any work:
 grep "type Value = " src/models/*/<source_file>.rs src/models/*/<target_file>.rs
 ```
 
-**Compatible:** `Or`→`Or`, `Min`→`Min`, `Max`→`Max`, `Or`→`Min`/`Max`.
-**Incompatible:** `Min`/`Max`→`Or` (needs threshold K that the source type lacks).
+**Compatible pairs for `ReduceTo` (witness-capable):**
+- `Or`→`Or`, `Min`→`Min`, `Max`→`Max` (same type)
+- `Or`→`Min`, `Or`→`Max` (feasibility embeds into optimization)
 
-If incompatible, STOP and comment on the issue explaining the type mismatch and options (add decision variant, use `ReduceToAggregate`, or choose different pair). Do NOT proceed.
+**Incompatible — STOP if any of these:**
+- `Min`→`Or` or `Max`→`Or` — optimization source has no threshold K; needs a decision-variant source model (e.g., `VertexCover(Or)` instead of `MinimumVertexCover(Min)`)
+- `Max`→`Min` or `Min`→`Max` — opposite optimization directions; needs `ReduceToAggregate` or a decision-variant wrapper
+- `Or`→`Sum` or `Min`→`Sum` — Sum is aggregate-only; needs `ReduceToAggregate`
+- Any pair involving `And` or `Sum` on the target side
+
+If incompatible, STOP and comment on the issue explaining the type mismatch and options (add decision variant, use `ReduceToAggregate`, or choose different pair). Do NOT proceed with the mathematical verification — the reduction may be correct classically but cannot be implemented as `ReduceTo` in this codebase without a type-compatible source/target pair.
 
 ### If compatible
 
@@ -237,6 +244,7 @@ Every item must be YES. If any is NO, go back and fix.
 
 | Mistake | Consequence |
 |---------|-------------|
+| Proceeding past type gate with incompatible types | Wasted work — math may be correct but `ReduceTo` impl is impossible. Common: `Min→Or` (MVC→HamCircuit), `Max→Min` (MaxCut→OLA) |
 | Adversary imports from constructor script | Rejected — must be independent |
 | No `hypothesis` PBT in adversary | Rejected |
 | Section 1 (symbolic) empty | Rejected — "overhead is trivial" is not an excuse |
