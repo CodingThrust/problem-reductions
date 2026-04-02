@@ -76,7 +76,7 @@ $ a'_l = 16 a_l + 1, quad b'_l = 16 b_l + 2, quad
 Target: $T_2 = 16 T_1 + 15$.
 
 Since each element's residue mod 16 is unique to its source set
-(1, 2, 4, 8), any 4-set summing to $T_2 equiv 15 pmod(16)$ must
+(1, 2, 4, 8), any 4-set summing to $T_2 equiv 15 (mod 16)$ must
 contain exactly one element from each original set.
 
 == Step 3: 4-Partition $arrow.r$ 3-Partition

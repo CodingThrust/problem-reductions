@@ -22,7 +22,7 @@
 = 3-Satisfiability to Quadratic Congruences <sec:k-satisfiability-quadratic-congruences>
 
 #theorem[
-  There is a polynomial-time reduction from 3-Satisfiability (3-SAT) to the Quadratic Congruences problem. Given a 3-SAT instance $phi$ with $n$ variables and $m$ clauses, the reduction constructs positive integers $a, b, c$ such that there exists a positive integer $x < c$ with $x^2 equiv a pmod(b)$ if and only if $phi$ is satisfiable. The bit-lengths of $a$, $b$, and $c$ are polynomial in $n + m$.
+  There is a polynomial-time reduction from 3-Satisfiability (3-SAT) to the Quadratic Congruences problem. Given a 3-SAT instance $phi$ with $n$ variables and $m$ clauses, the reduction constructs positive integers $a, b, c$ such that there exists a positive integer $x < c$ with $x^2 equiv a (mod b)$ if and only if $phi$ is satisfiable. The bit-lengths of $a$, $b$, and $c$ are polynomial in $n + m$.
 ] <thm:k-satisfiability-quadratic-congruences>
 
 #proof[
@@ -46,19 +46,19 @@
   $ tau = tau_phi + sum_(j=0)^N c_j + sum_(i=1)^l f_i^- $
 
   _Step 3: Knapsack congruence._ The formula $phi$ is satisfiable if and only if there exist $alpha_j in {-1, +1}$ ($j = 0, dots, N$) such that:
-  $ sum_(j=0)^N c_j alpha_j equiv tau quad pmod(8^(M+1)) $
+  $ sum_(j=0)^N c_j alpha_j equiv tau quad (mod 8^(M+1)) $
 
   Moreover, for any choice of $alpha_j in {-1, +1}$, $|sum c_j alpha_j - tau| < 8^(M+1)$, so the congruence is equivalent to exact equality $sum c_j alpha_j = tau$ when all $R_k = 0$.
 
   _Step 4: CRT lifting._ Choose $N + 1$ primes $p_0, p_1, dots, p_N$ each exceeding $(4(N+1) dot 8^(M+1))^(1/(N+1))$ (we may take $p_0 = 13$ and subsequent odd primes). For each $j$, use the CRT to find the smallest non-negative $theta_j$ satisfying:
-  $ theta_j &equiv c_j pmod(8^(M+1)) \
-    theta_j &equiv 0 pmod(product_(i eq.not j) p_i^(N+1)) \
-    theta_j &eq.not.triple 0 pmod(p_j) $
+  $ theta_j &equiv c_j (mod 8^(M+1)) \
+    theta_j &equiv 0 (mod product_(i eq.not j) p_i^(N+1)) \
+    theta_j &eq.not.triple 0 (mod p_j) $
 
   Set $H = sum_(j=0)^N theta_j$ and $K = product_(j=0)^N p_j^(N+1)$.
 
   _Step 5: Quadratic congruence output._ The satisfiability of $phi$ is equivalent to the system:
-  $ 0 <= x_1 <= H, quad x_1^2 equiv (2 dot 8^(M+1) + K)^(-1) (K tau^2 + 2 dot 8^(M+1) H^2) pmod(2 dot 8^(M+1) dot K) $
+  $ 0 <= x_1 <= H, quad x_1^2 equiv (2 dot 8^(M+1) + K)^(-1) (K tau^2 + 2 dot 8^(M+1) H^2) (mod 2 dot 8^(M+1) dot K) $
   where the inverse exists because $gcd(2 dot 8^(M+1) + K, 2 dot 8^(M+1) dot K) = 1$ (since $K$ is a product of odd primes $> 12$).
 
   Setting:
@@ -66,19 +66,19 @@
     b &= 2 dot 8^(M+1) dot K \
     c &= H + 1 $
 
-  we obtain $x^2 equiv a pmod(b)$ with $1 <= x < c$ if and only if $phi$ is satisfiable.
+  we obtain $x^2 equiv a (mod b)$ with $1 <= x < c$ if and only if $phi$ is satisfiable.
 
   _Correctness sketch._
 
-  ($arrow.r.double$) If $phi$ has a satisfying assignment, construct $alpha_j$ from the assignment (each Boolean variable maps to $+1$ or $-1$, clause slack variables also take values in ${-1, +1}$). Then $x = sum theta_j alpha_j$ satisfies the knapsack congruence. By Lemma 1 below, this $x$ satisfies $|x| <= H$ and $(H+x)(H-x) equiv 0 pmod(K)$. Combined with $x equiv tau pmod(8^(M+1))$, we get $x^2 equiv a pmod(b)$.
+  ($arrow.r.double$) If $phi$ has a satisfying assignment, construct $alpha_j$ from the assignment (each Boolean variable maps to $+1$ or $-1$, clause slack variables also take values in ${-1, +1}$). Then $x = sum theta_j alpha_j$ satisfies the knapsack congruence. By Lemma 1 below, this $x$ satisfies $|x| <= H$ and $(H+x)(H-x) equiv 0 (mod K)$. Combined with $x equiv tau (mod 8^(M+1))$, we get $x^2 equiv a (mod b)$.
 
-  ($arrow.l.double$) Given $x$ with $x^2 equiv a pmod(b)$ and $0 <= x <= H$, unwind: $x$ satisfies both the mod-$K$ and mod-$8^(M+1)$ conditions. By Lemma 1, $x = sum theta_j alpha_j$ for some $alpha_j in {-1, +1}$. Then $sum c_j alpha_j equiv tau pmod(8^(M+1))$, which (by the bounded magnitude argument) gives exact equality, and the $alpha_j$ values for the variable indices yield a satisfying assignment.
+  ($arrow.l.double$) Given $x$ with $x^2 equiv a (mod b)$ and $0 <= x <= H$, unwind: $x$ satisfies both the mod-$K$ and mod-$8^(M+1)$ conditions. By Lemma 1, $x = sum theta_j alpha_j$ for some $alpha_j in {-1, +1}$. Then $sum c_j alpha_j equiv tau (mod 8^(M+1))$, which (by the bounded magnitude argument) gives exact equality, and the $alpha_j$ values for the variable indices yield a satisfying assignment.
 
-  _Solution extraction._ Given $x$ satisfying $x^2 equiv a pmod(b)$ with $1 <= x < c$: for each $j = 0, dots, N$, set $alpha_j = 1$ if $p_j^(N+1) | (H - x)$ and $alpha_j = -1$ if $p_j^(N+1) | (H + x)$. Then for each original variable $u_i$, set $u_i = "true"$ if $alpha_(2M+i) = -1$ (meaning $r(x_i) = 1$) and $u_i = "false"$ if $alpha_(2M+i) = 1$.
+  _Solution extraction._ Given $x$ satisfying $x^2 equiv a (mod b)$ with $1 <= x < c$: for each $j = 0, dots, N$, set $alpha_j = 1$ if $p_j^(N+1) | (H - x)$ and $alpha_j = -1$ if $p_j^(N+1) | (H + x)$. Then for each original variable $u_i$, set $u_i = "true"$ if $alpha_(2M+i) = -1$ (meaning $r(x_i) = 1$) and $u_i = "false"$ if $alpha_(2M+i) = 1$.
 ]
 
 #lemma[
-  Let $K = product_(j=0)^N p_j^(N+1)$ and $H = sum_(j=0)^N theta_j$. The general solution of the system $0 <= |x| <= H$, $(H+x)(H-x) equiv 0 pmod(K)$ is given by $x = sum_(j=0)^N alpha_j theta_j$ with $alpha_j in {-1, +1}$.
+  Let $K = product_(j=0)^N p_j^(N+1)$ and $H = sum_(j=0)^N theta_j$. The general solution of the system $0 <= |x| <= H$, $(H+x)(H-x) equiv 0 (mod K)$ is given by $x = sum_(j=0)^N alpha_j theta_j$ with $alpha_j in {-1, +1}$.
 ]
 
 *Overhead.*
@@ -97,12 +97,12 @@ The bit-lengths satisfy: $log_2(b) = O((n + m)^2 log(n + m))$ and $log_2(c) = O(
 Consider a 3-SAT instance with $n = 3$ variables and $m = 1$ clause:
 $ phi = (u_1 or u_2 or u_3) $
 
-The satisfying assignment $u_1 = "true", u_2 = "false", u_3 = "false"$ (among the $2^3 - 1 = 7$ satisfying assignments) makes the clause true. After the full Manders-Adleman construction, we obtain integers $a, b, c$ such that some $x$ with $1 <= x < c$ satisfies $x^2 equiv a pmod(b)$.
+The satisfying assignment $u_1 = "true", u_2 = "false", u_3 = "false"$ (among the $2^3 - 1 = 7$ satisfying assignments) makes the clause true. After the full Manders-Adleman construction, we obtain integers $a, b, c$ such that some $x$ with $1 <= x < c$ satisfies $x^2 equiv a (mod b)$.
 
-Due to the complexity of the construction (involving enumeration of all $binom(l, 3) dot 2^3$ standard clauses, CRT computation with $N + 1$ large primes, and modular inversion), the output integers have thousands of bits even for this small instance. We verify correctness algebraically: given the satisfying assignment, we construct the corresponding $alpha_j in {-1, +1}$ values, compute $x = sum alpha_j theta_j$, and confirm that $x^2 equiv a pmod(b)$. The constructor and adversary scripts independently implement this chain for hundreds of instances.
+Due to the complexity of the construction (involving enumeration of all $binom(l, 3) dot 2^3$ standard clauses, CRT computation with $N + 1$ large primes, and modular inversion), the output integers have thousands of bits even for this small instance. We verify correctness algebraically: given the satisfying assignment, we construct the corresponding $alpha_j in {-1, +1}$ values, compute $x = sum alpha_j theta_j$, and confirm that $x^2 equiv a (mod b)$. The constructor and adversary scripts independently implement this chain for hundreds of instances.
 
 *Infeasible example.*
 Consider a 3-SAT instance with $n = 3$ variables and $m = 8$ clauses comprising all $2^3 = 8$ sign patterns:
 $ phi = (u_1 or u_2 or u_3) and (u_1 or u_2 or not u_3) and dots.c and (not u_1 or not u_2 or not u_3) $
 
-This is unsatisfiable: each of the $2^3 = 8$ truth assignments falsifies exactly one clause. After the reduction, we verify that no choice of $alpha_j in {-1, +1}$ satisfies the knapsack congruence $sum d_j alpha_j equiv tau pmod(2 dot 8^(M+1))$, confirming that no solution $x$ exists. This exhaustive knapsack check is feasible because $N = 2M + l = 2 dot 8 + 3 = 19$, requiring $2^(20) approx 10^6$ checks.
+This is unsatisfiable: each of the $2^3 = 8$ truth assignments falsifies exactly one clause. After the reduction, we verify that no choice of $alpha_j in {-1, +1}$ satisfies the knapsack congruence $sum d_j alpha_j equiv tau (mod 2 dot 8^(M+1))$, confirming that no solution $x$ exists. This exhaustive knapsack check is feasible because $N = 2M + l = 2 dot 8 + 3 = 19$, requiring $2^(20) approx 10^6$ checks.

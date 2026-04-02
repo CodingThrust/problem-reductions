@@ -123,7 +123,7 @@ In any P2 solution, exactly $N + 1 - c_i$ padding jobs occupy slot $i$, leaving 
 - Slot 4: $overline(x)_(1,3), overline(x)_(2,3), overline(x)_(3,3), overline(y)_3, D_(1,7)$
 - Slot 5: $D_(1,1), D_(1,2), D_(1,3), D_(1,4), D_(1,5), D_(1,6)$
 
-*Solution extraction:* $x_(i,0)$ at slot 0 $implies x_i = "true"$ for all $i$. Check: $("true" or "true" or "true") = "true"$. $checkmark$
+*Solution extraction:* $x_(i,0)$ at slot 0 $arrow.r.double x_i = "true"$ for all $i$. Check: $("true" or "true" or "true") = "true"$. $checkmark$
 
 == References
 

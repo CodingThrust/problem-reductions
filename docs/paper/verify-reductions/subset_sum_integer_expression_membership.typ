@@ -12,7 +12,7 @@ $sum_(a in A') a = B$.
 
 *Integer Expression Membership (AN18).* Given an integer expression $e$ over
 the operations $union$ (set union) and $+$ (Minkowski sum), where atoms are positive
-integers, and a positive integer $K$, determine whether $K in eval(e)$.
+integers, and a positive integer $K$, determine whether $K in op("eval")(e)$.
 
 The Minkowski sum of two sets is $F + G = {m + n : m in F, n in G}$.
 
@@ -46,11 +46,11 @@ $ sum_(i=1)^n d_i
   = sum_(s_i in A') (s_i + 1) + sum_(s_i in.not A') 1
   = sum_(s_i in A') s_i + |A'| + (n - |A'|)
   = B + n = K. $
-So $K in eval(e)$. #sym.checkmark
+So $K in op("eval")(e)$. #sym.checkmark
 
 === Backward ($"YES target" arrow.r "YES source"$)
 
-Suppose $K = B + n in eval(e)$. Then there exist choices $d_i in {1, s_i + 1}$
+Suppose $K = B + n in op("eval")(e)$. Then there exist choices $d_i in {1, s_i + 1}$
 for each $i$ with $sum d_i = B + n$. Let $A' = {s_i : d_i = s_i + 1}$ and
 $k = |A'|$. Then
 $ sum d_i = sum_(s_i in A') (s_i + 1) + (n - k) dot 1
@@ -62,11 +62,11 @@ Setting this equal to $B + n$ gives $sum_(s_i in A') s_i = B$. #sym.checkmark
 
 If no subset of $S$ sums to $B$, then for every choice $d_i in {1, s_i + 1}$,
 the sum $sum d_i eq.not B + n$ (by the backward argument in contrapositive).
-Hence $K in.not eval(e)$. #sym.checkmark
+Hence $K in.not op("eval")(e)$. #sym.checkmark
 
 == Solution Extraction
 
-Given that $K in eval(e)$ via union choices $(d_1, dots, d_n)$ (in DFS order,
+Given that $K in op("eval")(e)$ via union choices $(d_1, dots, d_n)$ (in DFS order,
 one per union node), extract a Subset Sum solution:
 $ x_i = cases(1 &"if" d_i = 1 " (right branch chosen, i.e., atom " s_i + 1 ")", 0 &"if" d_i = 0 " (left branch chosen, i.e., atom 1)".) $
 
@@ -96,7 +96,7 @@ $ e = (1 union 4) + (1 union 6) + (1 union 8), quad K = 8 + 3 = 11. $
 All sums $d_1 + d_2 + d_3$ with $d_i in {1, s_i + 1}$:
 ${3, 6, 8, 10, 11, 13, 15, 18}$.
 
-$K = 11 in eval(e)$ via $d = (4, 6, 1)$, i.e., config $= (1, 1, 0)$.
+$K = 11 in op("eval")(e)$ via $d = (4, 6, 1)$, i.e., config $= (1, 1, 0)$.
 
 *Extract:* $x = (1, 1, 0)$ $arrow.r$ select ${3, 5}$, sum $= 8 = B$. #sym.checkmark
 
@@ -110,4 +110,4 @@ $ e = (1 union 4) + (1 union 8) + (1 union 12), quad K = 5 + 3 = 8. $
 *Set represented by $e$:*
 ${3, 6, 10, 13, 14, 17, 21, 24}$.
 
-$K = 8 in.not eval(e)$. #sym.checkmark
+$K = 8 in.not op("eval")(e)$. #sym.checkmark
