@@ -6941,6 +6941,67 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Discard slack variables: return $bold(x)' [0..n]$.
 ]
 
+#{
+  let ss_part = load-example("SubsetSum", "Partition")
+  let ss_part_sol = ss_part.solutions.at(0)
+  let ss_part_n = ss_part.source.instance.sizes.len()
+  let ss_part_sizes = ss_part.target.instance.sizes.slice(0, ss_part_n)
+  let ss_part_padding = ss_part.target.instance.sizes.at(ss_part.target.instance.sizes.len() - 1)
+  let ss_part_sigma = ss_part_sizes.fold(0, (a, b) => a + b)
+  let ss_part_total = ss_part.target.instance.sizes.fold(0, (a, b) => a + b)
+  let ss_part_half = ss_part_total / 2
+  let ss_part_selected = ss_part_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => i)
+  let ss_part_selected_sizes = ss_part_selected.map(i => ss_part_sizes.at(i))
+  let ss_part_selected_sum = ss_part_selected_sizes.fold(0, (a, b) => a + b)
+  [
+    #reduction-rule("SubsetSum", "Partition",
+      example: true,
+      example-caption: [#ss_part_n elements, target sum $B = #ss_part.source.instance.target$],
+      extra: [
+        #pred-commands(
+          "pred create --example " + problem-spec(ss_part.source) + " -o subsetsum.json",
+          "pred reduce subsetsum.json --to " + target-spec(ss_part) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate subsetsum.json --config " + ss_part_sol.source_config.map(str).join(","),
+        )
+
+        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#ss_part_sizes.map(str).join(", "))$, target $B = #ss_part.source.instance.target$, and total size $Sigma = #ss_part_sigma$.
+
+        *Step 2 -- Add the padding element.* Because $Sigma = #ss_part_sigma < 2B = #ss_part_total$, the reduction appends one padding element of size $d = 2B - Sigma = #ss_part_padding$. The resulting Partition instance has sizes $(#ss_part.target.instance.sizes.map(str).join(", "))$ and total sum $#ss_part_total$, so each side of a balanced partition must sum to $#ss_part_half$.
+
+        *Step 3 -- Verify the canonical witness.* The stored source witness is $bold(x) = (#ss_part_sol.source_config.map(str).join(", "))$, which selects indices $\{#ss_part_selected.map(str).join(", ")\}$ with sizes $(#ss_part_selected_sizes.map(str).join(", "))$ and sum $#ss_part_selected_sum = B$. The stored target witness is $bold(y) = (#ss_part_sol.target_config.map(str).join(", "))$: it puts those same original elements on one side and the padding element on the opposite side, so both sides sum to $#ss_part_half$.
+
+        *Witness semantics.* For this example $Sigma < 2B$, so any balanced partition whose 1-side contains the padding element must be complemented when extracting a Subset Sum witness. The example DB stores the orientation with the padding on the 0-side, so the extracted source vector is the prefix of the Partition witness.
+      ],
+    )[
+      This $O(n)$ reduction#footnote[The linear-time bound follows from one pass to sum the source sizes and one pass to copy them into the Partition instance, with at most one extra appended element.] formalizes the standard padding equivalence between Subset Sum and Partition @karp1972 @garey1979. For a source instance with $n$ elements, the target Partition instance keeps the original sizes and appends at most one new size, so the overhead is at most one extra element.
+    ][
+      _Construction._ Given positive sizes $s_0, dots, s_(n-1)$ and target $B$, let
+      $ Sigma = sum_(i=0)^(n-1) s_i. $
+      If $Sigma = 2B$, output the Partition instance on the original multiset $(s_0, dots, s_(n-1))$. Otherwise define
+      $ d = |Sigma - 2B| $
+      and append one padding element of size $d$, obtaining the Partition multiset $(s_0, dots, s_(n-1), d)$.
+
+      _Correctness._ ($arrow.r.double$) Suppose $X subset.eq {0, dots, n-1}$ satisfies $sum_(i in X) s_i = B$.
+      If $Sigma = 2B$, then the original multiset already has a balanced partition because the selected side and its complement both sum to $B$.
+      If $Sigma > 2B$, then $d = Sigma - 2B$, so the side $X union {d}$ has sum $B + d = B + (Sigma - 2B) = Sigma - B$, matching the complement of $X$.
+      If $Sigma < 2B$, then $d = 2B - Sigma$, so the side $(overline(X)) union {d}$ has sum $(Sigma - B) + d = (Sigma - B) + (2B - Sigma) = B$, matching the side $X$.
+      Hence every satisfying Subset Sum witness yields a balanced partition.
+
+      ($arrow.l.double$) Conversely, let the constructed Partition instance be balanced.
+      If $Sigma = 2B$, either side of the partition already has sum $Sigma / 2 = B$, so its indicator vector restricted to the original elements is a Subset Sum witness.
+      If $Sigma > 2B$, the side containing the padding element has total sum $Sigma - B$; removing $d = Sigma - 2B$ leaves a subset of the original elements with sum $B$.
+      If $Sigma < 2B$, each side sums to $B$, and the side opposite the padding element is already a subset of the original elements with sum $B$.
+      Therefore any balanced Partition witness induces a satisfying Subset Sum witness. If the source Subset Sum instance is infeasible, no balanced Partition witness can exist.
+
+      _Solution extraction._ Let $bold(c)$ be a Partition witness on the constructed target and let $c_n$ denote the padding bit when padding exists.
+      If no padding was added ($Sigma = 2B$), return the prefix $(c_0, dots, c_(n-1))$.
+      If $Sigma > 2B$, the desired Subset Sum side is the one containing the padding element, so return $(c_0, dots, c_(n-1))$ when $c_n = 1$ and its bitwise complement when $c_n = 0$.
+      If $Sigma < 2B$, the desired Subset Sum side is opposite the padding element, so return the prefix when $c_n = 0$ and its bitwise complement when $c_n = 1$.
+    ]
+  ]
+}
+
 #let part_ks = load-example("Partition", "Knapsack")
 #let part_ks_sol = part_ks.solutions.at(0)
 #let part_ks_sizes = part_ks.source.instance.sizes
