@@ -13036,5 +13036,310 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ First $n$ variables (sign variables) give the source configuration.
 ]
 
+// === Non-ILP reduction rules (issue #974) ===
+
+#reduction-rule("ILP", "ILP")[
+  Integer variables with finite upper bounds are replaced by groups of binary variables using truncated binary encoding. Feasibility-Based Bound Tightening (FBBT) first infers per-variable upper bounds $U_i$ from the constraint system; each integer variable $x_i in {0, dots, U_i}$ is then encoded as $x_i = sum_(j=0)^(K_i - 1) w_(i j) y_(i j)$ where $y_(i j) in {0, 1}$ and the weights are powers of two with a truncated final weight ensuring $sum w_(i j) = U_i$.
+][
+  _Construction._ Given an ILP over $n$ non-negative integer variables with constraints $A x <= b$ (and/or $>=, =$) and objective $c^top x$:
+  (1) Run FBBT to infer upper bounds $U_1, dots, U_n$. If infeasible, return a trivially infeasible binary ILP. If unbounded, fall back to $U_i = 2^(31) - 1$.
+  (2) For each $x_i$, compute $K_i = ceil(log_2(U_i + 1))$ and weights $w_(i 0) = 1, w_(i 1) = 2, dots, w_(i, K_i - 2) = 2^(K_i - 2), w_(i, K_i - 1) = U_i - (2^(K_i - 1) - 1)$.
+  (3) Substitute $x_i = sum_j w_(i j) y_(i j)$ into every constraint and objective term, expanding each integer coefficient into a sum over binary coefficients.
+
+  _Correctness._ ($arrow.r.double$) Any integer assignment $x_i in {0, dots, U_i}$ has a unique truncated binary representation $y_(i j)$ with $sum w_(i j) y_(i j) = x_i$, preserving all constraints and the objective value. ($arrow.l.double$) Any binary assignment $y_(i j) in {0,1}$ yields $x_i = sum w_(i j) y_(i j) in {0, dots, U_i}$, so the decoded integer assignment satisfies the original constraints.
+
+  _Solution extraction._ For each source variable $x_i$, compute $x_i = sum_(j=0)^(K_i - 1) w_(i j) y_(i j)$ from the binary solution.
+]
+
+#reduction-rule("HamiltonianCircuit", "HamiltonianPath")[
+  To decide whether $G = (V, E)$ contains a Hamiltonian circuit, we split an arbitrary vertex $v_0$ into two copies and attach a private pendant to each copy, forcing any Hamiltonian path in the expanded graph to enter through one pendant, traverse the original circuit, and exit through the other.
+][
+  _Construction._ Let $G = (V, E)$ with $n = |V|$ and $m = |E|$. Fix vertex $v_0 = 0$. Introduce three new vertices: a duplicate $v'$ of $v_0$, a pendant $s$, and a pendant $t$. Form $G' = (V', E')$ where $V' = V union {v', s, t}$, and $E'$ contains (i) every original edge of $E$; (ii) an edge ${v', u}$ for each neighbor $u$ of $v_0$ in $G$; (iii) the pendant edge ${s, v_0}$; and (iv) the pendant edge ${t, v'}$. Thus $|V'| = n + 3$ and $|E'| = m + deg(v_0) + 2$.
+
+  _Correctness._ ($arrow.r.double$) Suppose $G$ has a Hamiltonian circuit $C = (v_0, u_1, u_2, dots, u_(n-1), v_0)$. The walk $s, v_0, u_1, u_2, dots, u_(n-1), v', t$ visits every vertex of $G'$ exactly once, so $G'$ has a Hamiltonian path. ($arrow.l.double$) Suppose $G'$ has a Hamiltonian path $P$. The pendants $s$ and $t$ have degree one, so $P$ must start at $s$ and end at $t$ (or vice versa), giving the form $s, v_0, pi_1, dots, pi_(n-1), v', t$. Because ${v', pi_(n-1)} in E'$, vertex $pi_(n-1)$ is a neighbor of $v_0$ in $G$. Hence $v_0, pi_1, dots, pi_(n-1), v_0$ is a Hamiltonian circuit in $G$.
+
+  _Solution extraction._ Orient the path so $s$ is the start and $t$ the end. Drop $s$ and the last two elements $v', t$; the remaining sequence is the Hamiltonian circuit witness.
+]
+
+#reduction-rule("KClique", "SubgraphIsomorphism")[
+  A $k$-clique in $G$ is precisely a subgraph of $G$ isomorphic to $K_k$. Constructing $K_k$ as the pattern and passing $G$ as the host reduces $k$-clique detection to a single subgraph-isomorphism query.
+][
+  _Construction._ Given a $k$-clique instance $(G, k)$ with $G = (V, E)$, $|V| = n$, $|E| = m$, build the subgraph-isomorphism instance $(H, P)$ where $H := G$ (host) and $P := K_k$ (pattern, with $k$ vertices and $binom(k, 2)$ edges).
+
+  _Correctness._ ($arrow.r.double$) If $G$ contains a $k$-clique $C = {v_1, dots, v_k}$, the injection $f(i) := v_i$ is a subgraph isomorphism from $K_k$ into $G$. ($arrow.l.double$) If $f: V(K_k) -> V(G)$ is a subgraph isomorphism, the image ${f(0), dots, f(k-1)}$ is a set of $k$ pairwise-adjacent vertices, i.e., a $k$-clique.
+
+  _Solution extraction._ The subgraph-isomorphism solution $c in {0, dots, n-1}^k$ gives the host vertex assigned to each pattern vertex. The $k$-clique indicator $x in {0,1}^n$ sets $x[c[i]] := 1$ for each $i$.
+]
+
+#reduction-rule("Partition", "MultiprocessorScheduling")[
+  Each element $a_i$ becomes a task of length $a_i$ on $m = 2$ processors with deadline $D = floor(S / 2)$. A balanced partition exists iff a feasible schedule exists.
+][
+  _Construction._ Let $A = (a_1, dots, a_n)$ with total sum $S = sum_(i=1)^n a_i$. Set task lengths $ell_i = a_i$, number of processors $m = 2$, and deadline $D = floor(S / 2)$.
+
+  _Correctness._ ($arrow.r.double$) If $A' subset.eq A$ has $sum_(i in A') a_i = S/2$, assign tasks in $A'$ to processor 0 and the rest to processor 1; both loads equal $S/2 = D$. ($arrow.l.double$) If a feasible schedule exists with both loads $<= D = floor(S/2)$, since both loads sum to $S$ and each is at most $floor(S/2)$, equality holds, giving a balanced partition.
+
+  _Solution extraction._ The processor assignment $p_i in {0, 1}$ is the partition assignment directly.
+]
+
+#reduction-rule("HamiltonianPath", "IsomorphicSpanningTree")[
+  A Hamiltonian path in $G$ is a spanning tree isomorphic to the path graph $P_n$. The reduction asks whether $G$ admits a spanning tree isomorphic to $P_n$.
+][
+  _Construction._ Given $G = (V, E)$ with $|V| = n$, the target instance is $(G, P_n)$ where $P_n$ is the path $0 - 1 - dots - (n-1)$ with $n - 1$ edges.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian path $v_0, dots, v_(n-1)$ defines a bijection $phi(i) = v_i$ mapping $P_n$ edges to $G$ edges, giving a spanning tree isomorphic to $P_n$. ($arrow.l.double$) A spanning tree isomorphic to $P_n$ via $phi$ yields the Hamiltonian path $phi(0), phi(1), dots, phi(n-1)$.
+
+  _Solution extraction._ The mapping $c[i]$ (graph vertex assigned to tree vertex $i$) is the Hamiltonian path vertex ordering directly.
+]
+
+#reduction-rule("HamiltonianCircuit", "BottleneckTravelingSalesman")[
+  Construct a complete weighted graph with weight 1 on edges of $G$ and weight 2 on non-edges. A Hamiltonian tour of bottleneck cost 1 exists iff $G$ has a Hamiltonian circuit.
+][
+  _Construction._ Let $G = (V, E)$ with $n = |V|$. Build $K_n$ with $w(u, v) = 1$ if ${u,v} in E$, else $w(u, v) = 2$.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit in $G$ uses only weight-1 edges, giving bottleneck cost 1. ($arrow.l.double$) A tour with bottleneck $<= 1$ uses only weight-1 edges, which are exactly edges of $G$, so it is a Hamiltonian circuit.
+
+  _Solution extraction._ Recover the vertex cycle order from the tour edge set.
+]
+
+#reduction-rule("KClique", "ConjunctiveBooleanQuery")[
+  Introduce $k$ existential variables over the vertex set and require the edge relation $R(y_i, y_j)$ for every pair $i < j$. The query is satisfiable iff $G$ contains a $k$-clique.
+][
+  _Construction._ Given $G = (V, E)$ with $|V| = n$ and parameter $k$, set domain $D = V$, define binary relation $R = {(u,v), (v,u) : {u,v} in E}$, and form the conjunction $phi = and.big_(0 <= i < j < k) R(y_i, y_j)$ with $binom(k, 2)$ conjuncts.
+
+  _Correctness._ ($arrow.r.double$) A $k$-clique ${v_0, dots, v_(k-1)}$ satisfies every conjunct since all pairs are adjacent. ($arrow.l.double$) A satisfying assignment gives $k$ vertices where every pair is in $R$, hence pairwise-adjacent.
+
+  _Solution extraction._ The satisfying tuple $(d_0, dots, d_(k-1))$ gives vertex indices; set $x[d_i] = 1$ for the clique indicator.
+]
+
+#reduction-rule("ExactCoverBy3Sets", "StaffScheduling")[
+  Each universe element becomes a time period requiring exactly one worker, each 3-element subset becomes a schedule active on those three periods, and the worker budget is $q = |X|/3$. A feasible assignment selects $q$ schedules covering every period exactly once.
+][
+  _Construction._ Let $(X, cal(C))$ with $|X| = 3q$. Set $m_p = 3q$ periods (one per element), requirement $r[i] = 1$ for all $i$, worker budget $W = q$. Each subset $S_j = {a, b, c}$ defines schedule $sigma_j$ with $sigma_j[i] = 1$ iff $i in S_j$.
+
+  _Correctness._ ($arrow.r.double$) An exact cover $I$ with $|I| = q$ assigns one worker per selected schedule, covering each period exactly once. ($arrow.l.double$) A feasible assignment with $sum_j w_j = q$ and each period covered exactly once gives pairwise-disjoint schedules covering all of $X$.
+
+  _Solution extraction._ Map $w in NN^m$ to $c in {0,1}^m$ by $c[j] = 1$ if $w[j] > 0$.
+]
+
+#reduction-rule("Satisfiability", "NAESatisfiability")[
+  Introduce a fresh sentinel variable $s$ and append it to every clause. The sentinel forces NAE-SAT to simulate ordinary disjunction.
+][
+  _Construction._ Given SAT instance $phi$ with variables $x_1, dots, x_n$ and clauses $C_1, dots, C_m$, introduce $s$ (index $n+1$). For each clause $C_j = (ell_1 or dots or ell_k)$, form NAE clause $C'_j = (ell_1, dots, ell_k, s)$.
+
+  _Correctness._ ($arrow.r.double$) Set $s = 0$. A satisfying assignment makes at least one $ell_i = 1$ per clause; with $s = 0$, the clause is neither all-true nor all-false. ($arrow.l.double$) If $beta$ NAE-satisfies $phi'$, let $v = beta(s)$. If $v = 0$, at least one literal per clause is true. If $v = 1$, flip all variables; by NAE symmetry the complement also works.
+
+  _Solution extraction._ If $beta(s) = 0$, return $(beta(x_1), dots, beta(x_n))$. If $beta(s) = 1$, return $(1 - beta(x_1), dots, 1 - beta(x_n))$.
+]
+
+#reduction-rule("KSatisfiability", "MinimumVertexCover")[
+  Each variable contributes a truth-setting edge; each clause contributes a satisfaction-testing triangle. The formula is satisfiable iff the graph has a vertex cover of size $n + 2m$.
+][
+  _Construction._ Given 3-CNF $phi$ with $n$ variables and $m$ clauses, construct $G = (V, E)$ with $|V| = 2n + 3m$. For each variable $x_i$: vertices $u_i$ (index $2i$) and $overline(u)_i$ (index $2i+1$) with edge $(u_i, overline(u)_i)$. For each clause $c_j$: triangle vertices $t^j_0, t^j_1, t^j_2$ at indices $2n + 3j, 2n+3j+1, 2n+3j+2$. Communication edges connect each $t^j_k$ to the literal vertex of its $k$-th literal.
+
+  _Correctness._ ($arrow.r.double$) A satisfying assignment selects literal vertices ($n$ total) and two triangle vertices per clause ($2m$ total), covering all edges. ($arrow.l.double$) A cover of size $n + 2m$ must include exactly one literal vertex per variable and two triangle vertices per clause; the uncovered triangle vertex's communication edge forces the corresponding literal to be true.
+
+  _Solution extraction._ For variable $x_i$, set $x_i = 1$ if the cover indicator at position $2i$ is 1.
+]
+
+#reduction-rule("Partition", "SequencingWithinIntervals")[
+  A unit-length enforcer task pinned at $[floor(S/2), floor(S/2)+1)$ splits the timeline into two blocks. A valid schedule exists iff the elements partition into two equal-sum subsets.
+][
+  _Construction._ Let $A = {a_1, dots, a_n}$ with $S = sum a_i$ and $h = floor(S/2)$. Create $n+1$ tasks: element tasks with $r_i = 0$, $d_i = S+1$, $p_i = a_i$; enforcer task with $r = h$, $d = h+1$, $p = 1$.
+
+  _Correctness._ ($arrow.r.double$) A balanced partition places one subset's tasks in $[0, h)$ and the other in $[h+1, S+1)$. ($arrow.l.double$) The enforcer at $[h, h+1)$ splits usable time into two blocks of size $h = S/2$; since element tasks fill both blocks exactly, the assignment gives a balanced partition.
+
+  _Solution extraction._ Task $t_i$ starting at time $s_i$: assign to subset 0 if $s_i <= h$, else subset 1.
+]
+
+#reduction-rule("MinimumVertexCover", "MinimumFeedbackArcSet")[
+  Each vertex $v$ splits into $v^"in"$ and $v^"out"$ joined by an internal arc weighted $w(v)$. Each edge becomes two crossing arcs weighted $M = 1 + sum_v w(v)$. The optimal FAS never includes crossing arcs; selecting internal arcs for cover vertices breaks every cycle.
+][
+  _Construction._ Given $(G, w)$ with $G = (V, E)$, $n = |V|$. Build directed graph $H$ on $2n$ nodes. Internal arcs $(v^"in", v^"out")$ with weight $w(v)$. For each ${u,v} in E$: crossing arcs $(u^"out", v^"in")$ and $(v^"out", u^"in")$ with weight $M = 1 + sum_(v in V) w(v)$.
+
+  _Correctness._ ($arrow.r.double$) A vertex cover $S$ gives FAS $F = {(v^"in", v^"out") : v in S}$; every cycle through a crossing arc has at least one internal arc in $F$. ($arrow.l.double$) Since $M$ exceeds total internal weight, no crossing arc is in the optimal FAS. For each edge ${u,v}$, the 4-cycle through both internal and crossing arcs forces at least one internal arc into $F$.
+
+  _Solution extraction._ Internal arcs at positions $0, dots, n-1$; the cover is $c[0 : n]$.
+]
+
+#reduction-rule("KSatisfiability", "KClique")[
+  Assign one vertex per literal position $(j, p)$; connect vertices from different clauses whose literals are not contradictory. A $k$-clique selects one consistent true literal per clause.
+][
+  _Construction._ Given 3-CNF $phi = C_1 and dots.c and C_m$ over $n$ variables, construct $G = (V, E)$ with $V = {(j, p) : 1 <= j <= m, 1 <= p <= 3}$, $|V| = 3m$. Edge between $(j_1, p_1)$ and $(j_2, p_2)$ iff $j_1 != j_2$ and $ell_(j_1, p_1) != not ell_(j_2, p_2)$. Set $k = m$.
+
+  _Correctness._ ($arrow.r.double$) A satisfying assignment picks one true literal per clause; these vertices form a clique since they span all clauses without contradiction. ($arrow.l.double$) A $k$-clique has exactly one vertex per clause group; the selected literals are pairwise non-contradictory, defining a satisfying assignment.
+
+  _Solution extraction._ For selected vertex $v$: clause $j = floor(v / 3)$, position $p = v mod 3$. If literal $ell_(j,p) = x_i$ set $x_i = 1$; if $ell_(j,p) = not x_i$ set $x_i = 0$.
+]
+
+#reduction-rule("HamiltonianCircuit", "BiconnectivityAugmentation")[
+  Start with the edgeless graph on $n$ vertices. Price original edges at cost 1 and non-edges at cost 2. A budget-$n$ augmentation is achievable iff $G$ has a Hamiltonian circuit (the only way to biconnect with $n$ weight-1 edges is a Hamiltonian cycle).
+][
+  _Construction._ Given $G = (V, E)$ with $n = |V|$, let $H = (V, emptyset)$. For every pair ${u, v}$: potential edge with weight 1 if ${u,v} in E$, else weight 2. Budget $B = n$.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit selects $n$ weight-1 edges forming a 2-connected cycle, cost $= n$. ($arrow.l.double$) Budget $n$ with $>= n$ edges required (degree $>= 2$) forces exactly $n$ weight-1 edges (all from $E$), which must form a Hamiltonian cycle.
+
+  _Solution extraction._ Walk the unique cycle from vertex 0 through selected edges to recover the circuit order.
+]
+
+#reduction-rule("HamiltonianCircuit", "StrongConnectivityAugmentation")[
+  Start with the empty digraph on $n$ vertices. Weight-1 candidate arcs correspond to edges of $G$; weight-2 arcs for non-edges. A budget-$n$ augmentation that achieves strong connectivity must select exactly $n$ weight-1 arcs forming a directed Hamiltonian cycle.
+][
+  _Construction._ Given $G = (V, E)$ with $n = |V|$. Build $D = (V, emptyset)$. For every ordered pair $(u, v)$ with $u != v$: candidate arc with weight 1 if ${u,v} in E$, else weight 2. Budget $B = n$.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit gives $n$ directed arcs of weight 1 forming a strongly-connected cycle. ($arrow.l.double$) Strong connectivity needs $>= n$ arcs; budget $n$ forces all weight 1, hence all from $E$, forming a single $n$-cycle.
+
+  _Solution extraction._ Follow unique successors from vertex 0 to recover the Hamiltonian permutation.
+]
+
+#reduction-rule("HamiltonianCircuit", "StackerCrane")[
+  Each vertex $v_i$ splits into $(v_i^"in", v_i^"out")$ with a mandatory directed arc of length 1. Undirected connector edges of length 1 encode original graph edges. A tour of cost $2n$ exists iff a Hamiltonian circuit exists.
+][
+  _Construction._ Given $G = (V, E)$ with $n = |V|$. Create $2n$ vertices: $v_i^"in" = 2i$, $v_i^"out" = 2i + 1$. Add $n$ mandatory arcs $(v_i^"in", v_i^"out")$ of length 1. For each ${v_i, v_j} in E$: connector edges $(v_i^"out", v_j^"in")$ and $(v_j^"out", v_i^"in")$ of length 1.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit gives a tour serving arcs in circuit order, each inter-arc hop using one connector edge, total cost $2n$. ($arrow.l.double$) Cost $2n$ with $n$ arcs of cost 1 leaves exactly $n$ connector hops of cost 1 each; single-hop connections correspond to edges of $G$.
+
+  _Solution extraction._ The arc service permutation directly encodes the Hamiltonian circuit vertex order.
+]
+
+#reduction-rule("HamiltonianCircuit", "RuralPostman")[
+  Each vertex splits into two copies connected by a required edge. Original graph edges become connector edges. A minimum-cost tour of cost $2n$ traversing all required edges exists iff $G$ has a Hamiltonian circuit.
+][
+  _Construction._ Given $G = (V, E)$ with $n = |V|$. Build $H$ with $2n$ vertices: $v_i^a = 2i$, $v_i^b = 2i+1$. Required edges ${v_i^a, v_i^b}$ of weight 1 ($n$ total). For each ${v_i, v_j} in E$: connector edges ${v_i^b, v_j^a}$ and ${v_j^b, v_i^a}$ of weight 1.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit $(v_(p_0), dots, v_(p_(n-1)))$ gives a tour traversing required edges and single connector edges, total $2n$. ($arrow.l.double$) Each required edge costs 1 ($n$ total); remaining budget $n$ for connectors forces single-hop connections corresponding to edges of $G$.
+
+  _Solution extraction._ Identify used connector edges and follow the successor map from vertex 0.
+]
+
+#reduction-rule("Partition", "ShortestWeightConstrainedPath")[
+  A layered digraph with include/exclude edges per element: include edge has length $a_i + 1$ and weight 1; exclude has length 1 and weight $a_i + 1$. A feasible path witnesses a balanced partition.
+][
+  _Construction._ Build layered graph $v_0, dots, v_n$ with $s = v_0$, $t = v_n$. For each element $a_i$: include edge with length $a_i + 1$, weight 1; exclude edge with length 1, weight $a_i + 1$. Weight bound $W = floor(S/2) + n$.
+
+  _Correctness._ ($arrow.r.double$) A balanced partition uses include edges for one subset and exclude for the other, achieving feasible weight and minimum length. ($arrow.l.double$) The weight constraint forces included elements to sum to at least $ceil(S/2)$; minimizing length forces equality at $floor(S/2)$.
+
+  _Solution extraction._ Element $i$ assigned to subset 0 if include edge selected, subset 1 if exclude edge selected.
+]
+
+#reduction-rule("MaximumIndependentSet", "IntegralFlowBundles")[
+  Each vertex $v_i$ maps to a flow unit through an intermediate node; edge-bundle constraints cap combined outflow of adjacent pairs at 1, so feasible flow of value $k$ exists iff an independent set of size $>= k$ exists.
+][
+  _Construction._ Directed graph on $n + 2$ nodes: source $s$, intermediates $w_0, dots, w_(n-1)$, sink $t$. Arcs $a_i^"in" = (s, w_i)$ (index $2i$) and $a_i^"out" = (w_i, t)$ (index $2i+1$). Edge bundles ${a_i^"out", a_j^"out"}$ with capacity 1 for each ${v_i, v_j} in E$. Vertex bundles ${a_i^"in", a_i^"out"}$ with capacity 2. Flow requirement $R = 1$.
+
+  _Correctness._ ($arrow.r.double$) An independent set $S$ gives flow $f_i = 1$ for $v_i in S$; edge bundles satisfied since $S$ is independent. ($arrow.l.double$) Feasible flow gives $f_i in {0,1}$; edge bundles force ${v_i : f_i = 1}$ to be independent.
+
+  _Solution extraction._ Vertex $v_i$ in independent set iff target solution at arc index $2i+1$ is positive.
+]
+
+#reduction-rule("HamiltonianCircuit", "QuadraticAssignment")[
+  Position-adjacency encoded in cost matrix $C$ (directed cycle on positions), graph-adjacency in distance matrix $D$ (1 for edges, $omega = n+1$ for non-edges). QAP optimum equals $n$ iff a Hamiltonian circuit exists.
+][
+  _Construction._ Let $G = (V, E)$ with $n = |V|$ and $omega = n + 1$. Cost matrix: $c[i][j] = 1$ if $j equiv i+1 space (mod n)$, else 0. Distance matrix: $d[k][l] = 0$ if $k = l$; 1 if ${k,l} in E$; $omega$ otherwise.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit $v_0, dots, v_(n-1)$ with $gamma(i) = v_i$ gives cost $n$ (each consecutive pair is an edge). ($arrow.l.double$) Cost $n$ forces $d[gamma(i), gamma((i+1) mod n)] = 1$ for all $i$, meaning all consecutive pairs are edges.
+
+  _Solution extraction._ The QAP permutation $gamma$ is the Hamiltonian circuit visit order directly.
+]
+
+#reduction-rule("HamiltonianPath", "ConsecutiveOnesSubmatrix")[
+  The vertex-edge incidence matrix has the consecutive-ones property on a selected subset of $n-1$ columns iff those columns correspond to a Hamiltonian path.
+][
+  _Construction._ Given $G = (V, E)$ with $|V| = n$, $|E| = m$, build $n times m$ Boolean matrix $A$ with $A_(i,j) = 1$ iff vertex $i$ is an endpoint of edge $j$. Set bound $K = n - 1$.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian path's $n-1$ edges, ordered by path position, give each row at most two consecutive ones. ($arrow.l.double$) $n-1$ columns with the C1P property form a subgraph where each vertex has degree $<= 2$; with $n-1$ edges spanning $n$ vertices, this is a Hamiltonian path.
+
+  _Solution extraction._ Selected columns identify edges; walk from a degree-1 vertex to recover the path ordering.
+]
+
+#reduction-rule("Partition", "BinPacking")[
+  Items with sizes $a_i$ packed into 2 bins of capacity $floor(S/2)$. A valid 2-bin packing exists iff a balanced partition exists.
+][
+  _Construction._ Set item sizes $s_i = a_i$, bin capacity $C = floor(S/2)$, number of bins $k = 2$.
+
+  _Correctness._ ($arrow.r.double$) A balanced partition with both subsets summing to $S/2$ gives a valid 2-bin packing. ($arrow.l.double$) Both bins summing to $S$ with capacity $floor(S/2)$ forces $S$ even and each bin holding exactly $S/2$.
+
+  _Solution extraction._ Normalize bin labels: element $i$ in subset 0 if $b_i = b_0$, else subset 1.
+]
+
+#reduction-rule("ExactCoverBy3Sets", "MaximumSetPacking")[
+  The identity map embeds exact cover as set packing: unit-weight 3-element subsets with a $3q$-element universe. A maximum packing of $q$ disjoint sets is an exact cover.
+][
+  _Construction._ Given $(X, cal(C))$ with $|X| = 3q$, the MaximumSetPacking instance is $(X, cal(C))$ with unit weights.
+
+  _Correctness._ ($arrow.r.double$) An exact cover selects $q$ pairwise-disjoint sets, which is a maximum packing (no packing can exceed $q$ sets of size 3 over $3q$ elements). ($arrow.l.double$) A maximum packing of $q$ disjoint size-3 sets covers all $3q$ elements, hence is an exact cover.
+
+  _Solution extraction._ The selection vector is unchanged.
+]
+
+#reduction-rule("NAESatisfiability", "MaxCut")[
+  Each variable $x_i$ becomes a literal pair $(v_i^+, v_i^-)$ joined by a heavy edge of weight $M = m+1$. Clause edges of weight 1 connect literal vertices within each clause. The optimal cut separates each literal pair and has at least one literal on each side per clause, encoding NAE-satisfiability.
+][
+  _Construction._ Given $n$ variables and $m$ clauses. For each variable $x_i$: vertices $v_i^+ = 2(i-1)$ and $v_i^- = 2(i-1)+1$ with variable edge of weight $M = m + 1$. For each clause $C_j$: unit-weight edges between all pairs of literal vertices in $C_j$.
+
+  _Correctness._ ($arrow.r.double$) A NAE-satisfying assignment places true literals on one side, false on the other; variable edges cross ($n dot M$ contribution), and each clause has literals on both sides. ($arrow.l.double$) Weight $M > m$ forces every literal pair to be separated; the remaining cut value requires each clause to have literals on both sides.
+
+  _Solution extraction._ Set $x_i = top$ if $v_i^+$ is in side 1, else $x_i = bot$.
+]
+
+#reduction-rule("ThreePartition", "ResourceConstrainedScheduling")[
+  Each element becomes a unit-length task requiring $a_i$ units of a shared resource with bound $B$. With 3 processors and deadline $m$, every slot receives exactly 3 tasks summing to $B$.
+][
+  _Construction._ Given $(S, B)$ with $|S| = 3m$ and $B/4 < a_i < B/2$. Create $3m$ unit-length tasks with resource requirement $r_i = a_i$, $p = 3$ processors, resource bound $B$, deadline $D = m$.
+
+  _Correctness._ ($arrow.r.double$) A valid 3-partition assigns each triple to a time slot; each slot uses exactly $B$ resource units. ($arrow.l.double$) $3m$ tasks in $m$ slots with $p = 3$: every slot has exactly 3 tasks. Resource bound $B$ with total $m B$: each slot sums to exactly $B$. Size constraints prevent fewer or more than 3 elements per slot.
+
+  _Solution extraction._ Task $t_i$ assigned to slot $k$ means element $a_i$ belongs to group $k$.
+]
+
+#reduction-rule("ThreePartition", "SequencingWithReleaseTimesAndDeadlines")[
+  $m-1$ filler tasks with tight release windows partition the timeline into $m$ slots of width $B$. Element tasks must fill these slots, and size constraints force exactly 3 elements per slot.
+][
+  _Construction._ Given $(S, B)$ with $|S| = 3m$. Create $3m$ element tasks with $p_i = a_i$, $r_i = 0$, $d_i = H$ where $H = m(B+1) - 1$. Add $m-1$ filler tasks with $p = 1$, $r_j = (j+1)B + j$, $d_j = (j+1)B + j + 1$.
+
+  _Correctness._ ($arrow.r.double$) A valid 3-partition fills each slot of width $B$ with exactly 3 elements; fillers are placed in their tight windows. ($arrow.l.double$) Fillers pinned to unit windows create $m$ slots of width $B$; total element work $m B$ fills all slots exactly; size constraints force 3 elements per slot.
+
+  _Solution extraction._ Decode the Lehmer code, simulate the schedule tracking start times; assign elements to groups by $floor("start" / (B+1))$.
+]
+
+#reduction-rule("ThreePartition", "SequencingToMinimizeWeightedTardiness")[
+  High-weight filler tasks with tight deadlines force zero-tardiness schedules to leave exactly $m$ slots of width $B$ for element tasks. Size constraints ensure 3 elements per slot.
+][
+  _Construction._ Given $(S, B)$ with $|S| = 3m$. Horizon $H = m B + (m-1)$, filler weight $W_f = m B + 1$. Element tasks: $p_i = a_i$, $w_i = 1$, $d_i = H$. Filler tasks ($m-1$): $p = 1$, $w = W_f$, $d_j = (j+1)B + (j+1)$. Tardiness bound $K = 0$.
+
+  _Correctness._ ($arrow.r.double$) A valid 3-partition schedules each triple in a slot between fillers, achieving zero tardiness. ($arrow.l.double$) Zero tardiness forces fillers to their tight deadlines, creating $m$ slots of width $B$; element tasks fill them exactly with 3 per slot.
+
+  _Solution extraction._ Decode Lehmer code; scan left to right incrementing group index at each filler.
+]
+
+#reduction-rule("ThreePartition", "FlowShopScheduling")[
+  On 3 machines, $m-1$ separator jobs with large machine-2 tasks force element jobs into $m$ windows of width $B$. Size constraints ensure 3 elements per window.
+][
+  _Construction._ Given $(S, B)$ with $|S| = 3m$ and $L = m B + 1$. Element jobs: task lengths $(a_i, a_i, a_i)$ on machines 1, 2, 3. Separator jobs ($m-1$): task lengths $(0, L, 0)$. Deadline $D$ computed from canonical schedule.
+
+  _Correctness._ ($arrow.r.double$) A valid 3-partition interleaves element groups with separators, meeting the deadline. ($arrow.l.double$) Separators on machine 2 create $m$ windows of capacity $B$; element tasks fill exactly; size constraints give 3 per window.
+
+  _Solution extraction._ Decode Lehmer code; walk job sequence incrementing group at each separator.
+]
+
+#reduction-rule("ThreePartition", "JobShopScheduling")[
+  On 2 machines, $m-1$ long separator jobs on machine 0 force element jobs into $m$ windows of width $B$. Size constraints ensure 3 elements per window.
+][
+  _Construction._ Given $(S, B)$ with $|S| = 3m$, $L = m B + 1$, $D = m B + (m-1)L$. Element jobs ($3m$): two tasks $(text("machine") 0, a_i)$ then $(text("machine") 1, a_i)$. Separator jobs ($m-1$): single task $(text("machine") 0, L)$.
+
+  _Correctness._ ($arrow.r.double$) A valid 3-partition interleaves element groups with separators on machine 0, achieving makespan $D$. ($arrow.l.double$) Separators of length $L > m B$ create impassable barriers; remaining budget $m B$ split into $m$ windows; size constraints force 3 elements per window.
+
+  _Solution extraction._ Decode machine 0 Lehmer code; walk permutation incrementing group at each separator.
+]
+
+#reduction-rule("MaxCut", "MinimumCutIntoBoundedSets")[
+  Invert edge weights relative to $w_"max"$ on a complete graph $K_N$ with $N = 2n'$. A minimum balanced bisection in the inverted graph corresponds to a maximum cut in the original.
+][
+  _Construction._ Given $G = (V, E, w)$ with $n = |V|$. Set $n' = n + (n mod 2)$, $N = 2n'$, $w_"max" = 1 + max_(e in E) w(e)$. Build $K_N$ with $tilde(w)(i,j) = w_"max" - w(i,j)$ for edges in $E$, else $w_"max"$. Designate $s = n'$, $t = n' + 1$, bound $b = n'$.
+
+  _Correctness._ ($arrow.r.double$) A max-cut extended to a balanced bisection gives a feasible target instance. ($arrow.l.double$) Minimizing $tilde(w)$-cut cost is equivalent to maximizing original weight crossing the cut, since $tilde(w) = w_"max" - w$.
+
+  _Solution extraction._ Return the first $n$ entries of the target assignment.
+]
+
 #pagebreak()
 #bibliography("references.bib", style: "ieee")
