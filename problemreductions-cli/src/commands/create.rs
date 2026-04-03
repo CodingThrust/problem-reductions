@@ -13,11 +13,11 @@ use problemreductions::models::algebraic::{
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
-    DisjointConnectingPaths, GeneralizedHex, GraphPartitioning, HamiltonianCircuit,
-    HamiltonianPath, IntegralFlowBundles, LengthBoundedDisjointPaths, LongestCircuit, LongestPath,
-    MinimumCutIntoBoundedSets, MinimumDummyActivitiesPert, MinimumMultiwayCut, MixedChinesePostman,
-    MultipleChoiceBranching, PathConstrainedNetworkFlow, RootedTreeArrangement, SteinerTree,
-    SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    DegreeConstrainedSpanningTree, DisjointConnectingPaths, GeneralizedHex, GraphPartitioning,
+    HamiltonianCircuit, HamiltonianPath, IntegralFlowBundles, LengthBoundedDisjointPaths,
+    LongestCircuit, LongestPath, MinimumCutIntoBoundedSets, MinimumDummyActivitiesPert,
+    MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching, PathConstrainedNetworkFlow,
+    RootedTreeArrangement, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
 };
 use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
@@ -74,6 +74,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.num_vars.is_none()
         && args.matrix.is_none()
         && args.k.is_none()
+        && args.max_degree.is_none()
         && args.target.is_none()
         && args.m.is_none()
         && args.n.is_none()
@@ -554,6 +555,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "BoundedComponentSpanningForest" => {
             "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6"
         }
+        "DegreeConstrainedSpanningTree" => "--graph 0-1,1-2,2-3 --max-degree 2",
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
         "LongestPath" => {
             "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,4-6,5-6,1-6 --edge-lengths 3,2,4,1,5,2,3,2,4,1 --source-vertex 0 --target-vertex 6"
@@ -1440,6 +1442,20 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 anyhow::anyhow!("{e}\n\nUsage: pred create HamiltonianPath --graph 0-1,1-2,2-3")
             })?;
             (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
+        }
+
+        // Degree-Constrained Spanning Tree
+        "DegreeConstrainedSpanningTree" => {
+            let usage =
+                "Usage: pred create DegreeConstrainedSpanningTree --graph 0-1,1-2,2-3 --max-degree 2";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let max_degree = args.max_degree.ok_or_else(|| {
+                anyhow::anyhow!("DegreeConstrainedSpanningTree requires --max-degree\n\n{usage}")
+            })?;
+            (
+                ser(DegreeConstrainedSpanningTree::new(graph, max_degree))?,
+                resolved_variant.clone(),
+            )
         }
 
         // LongestPath
@@ -6178,6 +6194,21 @@ fn create_random(
             (ser(HamiltonianPath::new(graph))?, variant)
         }
 
+        // DegreeConstrainedSpanningTree (graph only, no weights)
+        "DegreeConstrainedSpanningTree" => {
+            let usage = "Usage: pred create DegreeConstrainedSpanningTree --random --num-vertices 6 [--edge-prob 0.5] [--seed 42] --max-degree 2";
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let max_degree = args.max_degree.ok_or_else(|| {
+                anyhow::anyhow!("DegreeConstrainedSpanningTree requires --max-degree\n\n{usage}")
+            })?;
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (ser(DegreeConstrainedSpanningTree::new(graph, max_degree))?, variant)
+        }
+
         // LongestCircuit (graph + unit edge lengths + positive bound)
         "LongestCircuit" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
@@ -7311,6 +7342,7 @@ mod tests {
             num_vars: None,
             matrix: None,
             k: None,
+            max_degree: None,
             random: false,
             source_vertex: None,
             target_vertex: None,
@@ -7433,6 +7465,13 @@ mod tests {
     fn test_all_data_flags_empty_treats_max_cycle_length_as_input() {
         let mut args = empty_args();
         args.max_cycle_length = Some(4);
+        assert!(!all_data_flags_empty(&args));
+    }
+
+    #[test]
+    fn test_all_data_flags_empty_treats_max_degree_as_input() {
+        let mut args = empty_args();
+        args.max_degree = Some(2);
         assert!(!all_data_flags_empty(&args));
     }
 

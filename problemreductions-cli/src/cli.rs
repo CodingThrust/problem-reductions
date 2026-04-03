@@ -235,6 +235,7 @@ Flags by problem type:
   IntegralFlowWithMultipliers     --arcs, --capacities, --source, --sink, --multipliers, --requirement
   MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound, --cut-bound
   HamiltonianCircuit, HC          --graph
+  DegreeConstrainedSpanningTree   --graph, --max-degree
   LongestCircuit                  --graph, --edge-weights, --bound
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   UndirectedFlowLowerBounds       --graph, --capacities, --lower-bounds, --source, --sink, --requirement
@@ -432,6 +433,9 @@ pub struct CreateArgs {
     /// Shared integer parameter (use `pred create <PROBLEM>` for the problem-specific meaning)
     #[arg(long)]
     pub k: Option<usize>,
+    /// Maximum allowed degree in a selected spanning tree
+    #[arg(long)]
+    pub max_degree: Option<usize>,
     /// Generate a random instance (graph-based problems only)
     #[arg(long)]
     pub random: bool,

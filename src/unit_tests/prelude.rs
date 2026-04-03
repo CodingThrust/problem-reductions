@@ -12,3 +12,9 @@ fn test_prelude_exports_partition_into_cliques() {
     let problem = PartitionIntoCliques::new(SimpleGraph::new(2, vec![(0, 1)]), 1);
     assert_eq!(problem.num_cliques(), 1);
 }
+
+#[test]
+fn test_prelude_exports_degree_constrained_spanning_tree() {
+    let problem = DegreeConstrainedSpanningTree::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 2);
+    assert_eq!(problem.max_degree(), 2);
+}

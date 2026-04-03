@@ -51,6 +51,7 @@
 //! - [`IntegralFlowBundles`]: Integral flow feasibility with overlapping bundle capacities
 //! - [`IntegralFlowHomologousArcs`]: Integral flow with arc-pair equality constraints
 //! - [`IntegralFlowWithMultipliers`]: Integral flow with vertex multipliers on a directed graph
+//! - [`DegreeConstrainedSpanningTree`]: Spanning tree with maximum degree at most K
 //! - [`UndirectedFlowLowerBounds`]: Feasible s-t flow in an undirected graph with lower/upper bounds
 //! - [`UndirectedTwoCommodityIntegralFlow`]: Two-commodity integral flow on undirected graphs
 //! - [`StrongConnectivityAugmentation`]: Strong connectivity augmentation with weighted candidate arcs
@@ -62,6 +63,7 @@ pub(crate) mod biclique_cover;
 pub(crate) mod biconnectivity_augmentation;
 pub(crate) mod bottleneck_traveling_salesman;
 pub(crate) mod bounded_component_spanning_forest;
+pub(crate) mod degree_constrained_spanning_tree;
 pub(crate) mod directed_two_commodity_integral_flow;
 pub(crate) mod disjoint_connecting_paths;
 pub(crate) mod generalized_hex;
@@ -120,6 +122,7 @@ pub use biclique_cover::BicliqueCover;
 pub use biconnectivity_augmentation::BiconnectivityAugmentation;
 pub use bottleneck_traveling_salesman::BottleneckTravelingSalesman;
 pub use bounded_component_spanning_forest::BoundedComponentSpanningForest;
+pub use degree_constrained_spanning_tree::DegreeConstrainedSpanningTree;
 pub use directed_two_commodity_integral_flow::DirectedTwoCommodityIntegralFlow;
 pub use disjoint_connecting_paths::DisjointConnectingPaths;
 pub use generalized_hex::GeneralizedHex;
@@ -220,6 +223,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(steiner_tree::canonical_model_example_specs());
     specs.extend(steiner_tree_in_graphs::canonical_model_example_specs());
     specs.extend(directed_two_commodity_integral_flow::canonical_model_example_specs());
+    specs.extend(degree_constrained_spanning_tree::canonical_model_example_specs());
     specs.extend(disjoint_connecting_paths::canonical_model_example_specs());
     specs.extend(undirected_flow_lower_bounds::canonical_model_example_specs());
     specs.extend(undirected_two_commodity_integral_flow::canonical_model_example_specs());
