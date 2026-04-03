@@ -223,6 +223,7 @@ Flags by problem type:
   SAT, NAESAT                     --num-vars, --clauses
   NonTautology                    --num-vars, --disjuncts
   KSAT                            --num-vars, --clauses [--k]
+  SimultaneousIncongruences       --moduli, --residues, --bound
   QUBO                            --matrix
   MinimumWeightSolutionToLinearEquations --matrix, --rhs, --bound
   SpinGlass                       --graph, --couplings, --fields
@@ -430,6 +431,12 @@ pub struct CreateArgs {
     /// Number of variables (for SAT/KSAT)
     #[arg(long)]
     pub num_vars: Option<usize>,
+    /// Moduli for SimultaneousIncongruences (comma-separated, e.g., "2,3,5,7")
+    #[arg(long)]
+    pub moduli: Option<String>,
+    /// Forbidden residues for SimultaneousIncongruences (comma-separated, e.g., "0,1,2,3")
+    #[arg(long)]
+    pub residues: Option<String>,
     /// Matrix input. QUBO uses semicolon-separated numeric rows ("1,0.5;0.5,2");
     /// ConsecutiveBlockMinimization uses a JSON 2D bool array ('[[true,false],[false,true]]')
     #[arg(long)]
@@ -950,6 +957,45 @@ mod tests {
         assert!(help.contains("BiconnectivityAugmentation"));
         assert!(help.contains("--potential-edges"));
         assert!(help.contains("--budget"));
+    }
+
+    #[test]
+    fn test_create_parses_simultaneous_incongruences_flags() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "SimultaneousIncongruences",
+            "--moduli",
+            "2,3,5,7",
+            "--residues",
+            "0,1,2,3",
+            "--bound",
+            "210",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        assert_eq!(args.problem.as_deref(), Some("SimultaneousIncongruences"));
+        assert_eq!(args.moduli.as_deref(), Some("2,3,5,7"));
+        assert_eq!(args.residues.as_deref(), Some("0,1,2,3"));
+        assert_eq!(args.bound, Some(210));
+    }
+
+    #[test]
+    fn test_create_help_mentions_simultaneous_incongruences_flags() {
+        let cmd = Cli::command();
+        let create = cmd.find_subcommand("create").expect("create subcommand");
+        let help = create
+            .get_after_help()
+            .expect("create after_help")
+            .to_string();
+
+        assert!(help.contains("SimultaneousIncongruences"));
+        assert!(help.contains("--moduli"));
+        assert!(help.contains("--residues"));
+        assert!(help.contains("--bound"));
     }
 
     #[test]

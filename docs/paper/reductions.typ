@@ -118,6 +118,7 @@
   "Satisfiability": [SAT],
   "NAESatisfiability": [NAE-SAT],
   "KSatisfiability": [$k$-SAT],
+  "SimultaneousIncongruences": [Simultaneous Incongruences],
   "CircuitSAT": [CircuitSAT],
   "ConjunctiveQueryFoldability": [Conjunctive Query Foldability],
   "EnsembleComputation": [Ensemble Computation],
@@ -3526,6 +3527,31 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred create --example " + problem-spec(x) + " -o minimum-weight-solution-to-linear-equations.json",
         "pred solve minimum-weight-solution-to-linear-equations.json",
         "pred evaluate minimum-weight-solution-to-linear-equations.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SimultaneousIncongruences")
+  let moduli = x.instance.moduli
+  let residues = x.instance.residues
+  let N = x.instance.bound
+  let witness = x.optimal_config.at(0) + 1
+  let k = moduli.len()
+  let fmt-pair(i) = $x mod #moduli.at(i) != #residues.at(i)$
+  [
+    #problem-def("SimultaneousIncongruences")[
+      Given positive integers $m_1, dots, m_k$, residues $r_i in {0, dots, m_i - 1}$, and a bound $N in ZZ_(>= 0)$, determine whether there exists an integer $x$ with $1 <= x <= N$ such that $x mod m_i != r_i$ for every $i in {1, dots, k}$.
+    ][
+      Simultaneous Incongruences is the covering-system decision problem AN2 in Garey and Johnson @garey1979. Stockmeyer and Meyer showed that deciding whether a bounded interval contains an integer outside a finite union of arithmetic progressions is NP-complete @stockmeyer1973. The direct exact algorithm used by this crate simply scans the range $x in {1, dots, N}$ and checks all $k$ forbidden residue classes, giving $O(N k)$ time#footnote[No better exact worst-case bound is claimed here for the general problem representation used in the codebase.].
+
+      *Example.* Let $N = #N$ and let the forbidden classes be #range(k).map(i => fmt-pair(i)).join(", "). The stored witness is $x = #witness$; indeed #range(k).map(i => $#witness mod #moduli.at(i) = #calc.rem(witness, moduli.at(i)) != #residues.at(i)$).join(", "). Hence the instance is YES.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o simultaneous-incongruences.json",
+        "pred solve simultaneous-incongruences.json",
+        "pred evaluate simultaneous-incongruences.json --config " + x.optimal_config.map(str).join(","),
       )
     ]
   ]
@@ -7051,6 +7077,39 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ For each $i$: if $y_i$ is selected ($x_(2i) = 1$), set $x_i = 1$; if $z_i$ is selected ($x_(2i+1) = 1$), set $x_i = 0$.
 ]
 
+#let ksat_si = load-example("KSatisfiability", "SimultaneousIncongruences")
+#let ksat_si_sol = ksat_si.solutions.at(0)
+#reduction-rule("KSatisfiability", "SimultaneousIncongruences",
+  example: true,
+  example-caption: [2-variable 3-CNF encoded with primes 3 and 5],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_si.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_si) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_si_sol.source_config.map(str).join(","),
+    )
+    Source: $phi = (x_1 or x_2 or x_2) and (overline(x_1) or x_2 or x_2)$ with source config #ksat_si_sol.source_config \
+    Target: forbid #range(ksat_si.target.instance.moduli.len()).map(i => $x mod #ksat_si.target.instance.moduli.at(i) != #ksat_si.target.instance.residues.at(i)$).join(", "), bound $N = #ksat_si.target.instance.bound$ \
+    Target config: #ksat_si_sol.target_config (so $x = #(
+      ksat_si_sol.target_config.at(0) + 1
+    )$)
+  ],
+)[
+  This polynomial-time CRT encoding, attributed in Garey and Johnson to Stockmeyer and Meyer @stockmeyer1973, assigns a distinct odd prime $p_i$ to each Boolean variable $x_i$. Residues $1$ and $2$ represent $x_i = top$ and $x_i = bot$ respectively; every other residue modulo $p_i$ is forbidden. Each clause contributes one additional forbidden residue class modulo the product of its participating primes, namely the unique class that makes every literal in the clause false. The bound is the product of all variable primes, so the Chinese Remainder Theorem guarantees that every Boolean assignment corresponds to some $x in {1, dots, N}$.
+][
+  _Construction._ Let $phi = and.big_(j=1)^m C_j$ be a 3-CNF formula over variables $x_1, dots, x_n$. Choose distinct odd primes $p_1, dots, p_n$ (the implementation uses the first $n$ odd primes: $3, 5, 7, dots$). For each variable $x_i$:
+  - interpret $x mod p_i = 1$ as $x_i = top$,
+  - interpret $x mod p_i = 2$ as $x_i = bot$,
+  - add incongruences $x mod p_i != r$ for every $r in {0, 3, dots, p_i - 1}$.
+
+  For each clause $C_j = (ell_(j 1) or ell_(j 2) or ell_(j 3))$, compute the residue requirement that falsifies each literal: a positive literal $x_i$ is false exactly when $x mod p_i = 2$, while a negative literal $overline(x_i)$ is false exactly when $x mod p_i = 1$. By the Chinese Remainder Theorem there is a unique residue $b_j mod M_j$, where $M_j$ is the product of the clause's participating primes, that simultaneously realizes those false-literal residues. Add the clause incongruence $x mod M_j != b_j$. Finally set $N = product_(i=1)^n p_i$.
+
+  _Correctness._ ($arrow.r.double$) Given a satisfying assignment $alpha$, let $x$ be the CRT solution satisfying $x mod p_i = 1$ when $alpha(x_i) = top$ and $x mod p_i = 2$ when $alpha(x_i) = bot$. Then $x$ avoids every variable incongruence by construction. Since each clause has at least one true literal under $alpha$, $x$ cannot realize the all-false residue pattern for that clause, so it also avoids every clause incongruence. Thus $x$ is feasible for the Simultaneous Incongruences instance. ($arrow.l.double$) If some $x in {1, dots, N}$ avoids all incongruences, the variable constraints force $x mod p_i in {1,2}$ for every $i$, defining a Boolean assignment. If a clause were false under that assignment, then $x$ would match its unique forbidden CRT residue class modulo $M_j$, contradicting feasibility. Hence every clause is satisfied.
+
+  _Solution extraction._ Read back the Boolean assignment from the variable primes: set $x_i = top$ when $x mod p_i = 1$ and $x_i = bot$ when $x mod p_i = 2$.
+]
+
 #{
   let ss-cvp = load-example("SubsetSum", "ClosestVectorProblem")
   let ss-cvp-sol = ss-cvp.solutions.at(0)
@@ -7142,7 +7201,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       $ K = B + n. $
 
       _Correctness._ ($arrow.r.double$) If $X subset.eq {0, dots, n-1}$ is a satisfying Subset Sum witness with $sum_(i in X) s_i = B$, choose $s_i + 1$ from $C_i$ when $i in X$ and choose $1$ otherwise. The resulting total is
-      $ sum_(i in X) (s_i + 1) + sum_(i notin X) 1 = sum_(i in X) s_i + n = B + n = K, $
+      $ sum_(i in X) (s_i + 1) + sum_(i in.not X) 1 = sum_(i in X) s_i + n = B + n = K, $
       so the Integer Expression Membership instance is YES.
 
       ($arrow.l.double$) Conversely, suppose a target witness chooses one value from each $C_i$ and sums to $K = B + n$. Subtract the baseline value $1$ from every chosen term. Each position then contributes either $0$ or $s_i$, and the total residual is

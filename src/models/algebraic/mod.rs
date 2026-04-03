@@ -11,6 +11,7 @@
 //! - [`MinimumWeightSolutionToLinearEquations`]: Sparse binary solution to a linear system
 //! - [`QuadraticAssignment`]: Quadratic Assignment Problem
 //! - [`SparseMatrixCompression`]: Sparse Matrix Compression by row overlay
+//! - [`SimultaneousIncongruences`]: Find an integer avoiding a family of residue classes
 
 pub(crate) mod bmf;
 pub(crate) mod closest_vector_problem;
@@ -22,6 +23,7 @@ pub(crate) mod integer_expression_membership;
 pub(crate) mod minimum_weight_solution_to_linear_equations;
 pub(crate) mod quadratic_assignment;
 pub(crate) mod qubo;
+pub(crate) mod simultaneous_incongruences;
 pub(crate) mod sparse_matrix_compression;
 
 pub use bmf::BMF;
@@ -34,6 +36,7 @@ pub use integer_expression_membership::IntegerExpressionMembership;
 pub use minimum_weight_solution_to_linear_equations::MinimumWeightSolutionToLinearEquations;
 pub use quadratic_assignment::QuadraticAssignment;
 pub use qubo::QUBO;
+pub use simultaneous_incongruences::SimultaneousIncongruences;
 pub use sparse_matrix_compression::SparseMatrixCompression;
 
 #[cfg(feature = "example-db")]
@@ -49,6 +52,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(consecutive_ones_matrix_augmentation::canonical_model_example_specs());
     specs.extend(consecutive_ones_submatrix::canonical_model_example_specs());
     specs.extend(quadratic_assignment::canonical_model_example_specs());
+    specs.extend(simultaneous_incongruences::canonical_model_example_specs());
     specs.extend(sparse_matrix_compression::canonical_model_example_specs());
     specs
 }

@@ -12,7 +12,7 @@ pub mod set;
 pub use algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
     ConsecutiveOnesSubmatrix, IntegerExpressionMembership, MinimumWeightSolutionToLinearEquations,
-    QuadraticAssignment, SparseMatrixCompression, BMF, ILP, QUBO,
+    QuadraticAssignment, SimultaneousIncongruences, SparseMatrixCompression, BMF, ILP, QUBO,
 };
 pub use formula::{
     CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, NonTautology,

@@ -10,7 +10,7 @@ use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExamp
 use problemreductions::models::algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
     ConsecutiveOnesSubmatrix, IntegerExpressionMembership, MinimumWeightSolutionToLinearEquations,
-    SparseMatrixCompression, BMF,
+    SimultaneousIncongruences, SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -73,6 +73,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.clauses.is_none()
         && args.disjuncts.is_none()
         && args.num_vars.is_none()
+        && args.moduli.is_none()
+        && args.residues.is_none()
         && args.matrix.is_none()
         && args.rhs.is_none()
         && args.k.is_none()
@@ -608,6 +610,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--num-vars 3 --clauses \"1,2;-1,3\" --quantifiers \"E,A,E\""
         }
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
+        "SimultaneousIncongruences" => "--moduli 2,3,5,7 --residues 0,1,2,3 --bound 210",
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
         "IntegerExpressionMembership" => "--choices \"1,2;1,6;1,7;1,9\" --target 15",
         "MinimumWeightSolutionToLinearEquations" => {
@@ -853,6 +856,8 @@ fn help_flag_hint(
             "semicolon-separated 0/1 rows: \"1,0;0,1\""
         }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("SimultaneousIncongruences", "moduli") => "comma-separated integers: 2,3,5,7",
+        ("SimultaneousIncongruences", "residues") => "comma-separated integers: 0,1,2,3",
         ("MinimumWeightSolutionToLinearEquations", "matrix") => {
             "semicolon-separated integer rows: \"1,0,1;0,1,1\""
         }
@@ -868,6 +873,11 @@ fn help_flag_hint(
 
 fn parse_nonnegative_usize_bound(bound: i64, problem_name: &str, usage: &str) -> Result<usize> {
     usize::try_from(bound)
+        .map_err(|_| anyhow::anyhow!("{problem_name} requires nonnegative --bound\n\n{usage}"))
+}
+
+fn parse_nonnegative_u64_bound(bound: i64, problem_name: &str, usage: &str) -> Result<u64> {
+    u64::try_from(bound)
         .map_err(|_| anyhow::anyhow!("{problem_name} requires nonnegative --bound\n\n{usage}"))
 }
 
@@ -2191,6 +2201,43 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "QUBO" => {
             let matrix = parse_matrix(args)?;
             (ser(QUBO::from_matrix(matrix))?, resolved_variant.clone())
+        }
+
+        // SimultaneousIncongruences
+        "SimultaneousIncongruences" => {
+            let usage = "Usage: pred create SimultaneousIncongruences --moduli 2,3,5,7 --residues 0,1,2,3 --bound 210";
+            let moduli_str = args.moduli.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SimultaneousIncongruences requires --moduli, --residues, and --bound\n\n{usage}"
+                )
+            })?;
+            let residues_str = args.residues.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("SimultaneousIncongruences requires --residues\n\n{usage}")
+            })?;
+            let bound_raw = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("SimultaneousIncongruences requires --bound\n\n{usage}")
+            })?;
+            let moduli: Vec<u64> = util::parse_comma_list(moduli_str)?;
+            let residues: Vec<u64> = util::parse_comma_list(residues_str)?;
+            anyhow::ensure!(
+                moduli.len() == residues.len(),
+                "SimultaneousIncongruences requires the same number of moduli and residues\n\n{usage}"
+            );
+            for (index, (&modulus, &residue)) in moduli.iter().zip(&residues).enumerate() {
+                anyhow::ensure!(
+                    modulus > 0,
+                    "SimultaneousIncongruences modulus at index {index} must be positive\n\n{usage}"
+                );
+                anyhow::ensure!(
+                    residue < modulus,
+                    "SimultaneousIncongruences residue at index {index} must satisfy residue < modulus\n\n{usage}"
+                );
+            }
+            let bound = parse_nonnegative_u64_bound(bound_raw, "SimultaneousIncongruences", usage)?;
+            (
+                ser(SimultaneousIncongruences::new(moduli, residues, bound))?,
+                resolved_variant.clone(),
+            )
         }
 
         // IntegerExpressionMembership
@@ -6848,6 +6895,69 @@ mod tests {
     }
 
     #[test]
+    fn test_create_simultaneous_incongruences_outputs_problem_json() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "SimultaneousIncongruences",
+            "--moduli",
+            "2,3,5,7",
+            "--residues",
+            "0,1,2,3",
+            "--bound",
+            "210",
+        ])
+        .unwrap();
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let output_path =
+            std::env::temp_dir().join(format!("simultaneous-incongruences-create-{suffix}.json"));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&output_path).unwrap()).unwrap();
+        assert_eq!(json["type"], "SimultaneousIncongruences");
+        assert_eq!(json["data"]["moduli"], serde_json::json!([2, 3, 5, 7]));
+        assert_eq!(json["data"]["residues"], serde_json::json!([0, 1, 2, 3]));
+        assert_eq!(json["data"]["bound"], serde_json::json!(210));
+        std::fs::remove_file(output_path).unwrap();
+    }
+
+    #[test]
+    fn test_create_simultaneous_incongruences_requires_residues() {
+        let mut args = empty_args();
+        args.problem = Some("SimultaneousIncongruences".to_string());
+        args.moduli = Some("2,3,5,7".to_string());
+        args.bound = Some(210);
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("SimultaneousIncongruences requires --residues"));
+        assert!(err.contains("Usage: pred create SimultaneousIncongruences"));
+    }
+
+    #[test]
     fn test_create_path_constrained_network_flow_outputs_problem_json() {
         let cli = Cli::try_parse_from([
             "pred",
@@ -7511,6 +7621,8 @@ mod tests {
             clauses: None,
             disjuncts: None,
             num_vars: None,
+            moduli: None,
+            residues: None,
             matrix: None,
             rhs: None,
             k: None,
@@ -7645,6 +7757,20 @@ mod tests {
     fn test_all_data_flags_empty_treats_max_degree_as_input() {
         let mut args = empty_args();
         args.max_degree = Some(2);
+        assert!(!all_data_flags_empty(&args));
+    }
+
+    #[test]
+    fn test_all_data_flags_empty_treats_moduli_as_input() {
+        let mut args = empty_args();
+        args.moduli = Some("2,3,5,7".to_string());
+        assert!(!all_data_flags_empty(&args));
+    }
+
+    #[test]
+    fn test_all_data_flags_empty_treats_residues_as_input() {
+        let mut args = empty_args();
+        args.residues = Some("0,1,2,3".to_string());
         assert!(!all_data_flags_empty(&args));
     }
 
