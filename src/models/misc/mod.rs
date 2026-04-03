@@ -31,6 +31,7 @@
 //! - [`ShortestCommonSupersequence`]: Find a common supersequence of bounded length
 //! - [`TimetableDesign`]: Schedule craftsmen on tasks across work periods
 //! - [`StringToStringCorrection`]: String-to-String Correction (derive target via deletions and swaps)
+//! - [`SubsetProduct`]: Find a subset whose product hits a target exactly
 //! - [`SubsetSum`]: Find a subset summing to exactly a target value
 //! - [`SumOfSquaresPartition`]: Partition integers into K groups minimizing sum of squared group sums
 
@@ -66,6 +67,7 @@ pub(crate) mod shortest_common_supersequence;
 mod stacker_crane;
 mod staff_scheduling;
 pub(crate) mod string_to_string_correction;
+mod subset_product;
 mod subset_sum;
 pub(crate) mod sum_of_squares_partition;
 mod timetable_design;
@@ -104,6 +106,7 @@ pub use shortest_common_supersequence::ShortestCommonSupersequence;
 pub use stacker_crane::StackerCrane;
 pub use staff_scheduling::StaffScheduling;
 pub use string_to_string_correction::StringToStringCorrection;
+pub use subset_product::SubsetProduct;
 pub use subset_sum::SubsetSum;
 pub use sum_of_squares_partition::SumOfSquaresPartition;
 pub use timetable_design::TimetableDesign;
@@ -145,6 +148,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(flow_shop_scheduling::canonical_model_example_specs());
     specs.extend(bin_packing::canonical_model_example_specs());
     specs.extend(knapsack::canonical_model_example_specs());
+    specs.extend(subset_product::canonical_model_example_specs());
     specs.extend(subset_sum::canonical_model_example_specs());
     specs
 }

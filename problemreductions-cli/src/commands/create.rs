@@ -28,8 +28,8 @@ use problemreductions::models::misc::{
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
     SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection, SubsetSum,
-    SumOfSquaresPartition, TimetableDesign,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection,
+    SubsetProduct, SubsetSum, SumOfSquaresPartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -677,6 +677,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SequencingToMinimizeWeightedTardiness" => {
             "--sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
         }
+        "SubsetProduct" => "--values 2,3,5,7 --target 30",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "BoyceCoddNormalFormViolation" => {
             "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
@@ -2402,6 +2403,31 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     frequency_tables,
                     known_values,
                 ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SubsetProduct
+        "SubsetProduct" => {
+            let values_str = args.values.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubsetProduct requires --values and --target\n\n\
+                     Usage: pred create SubsetProduct --values 2,3,5,7 --target 30"
+                )
+            })?;
+            let target = args.target.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubsetProduct requires --target\n\n\
+                     Usage: pred create SubsetProduct --values 2,3,5,7 --target 30"
+                )
+            })?;
+            let values = util::parse_comma_list::<u64>(values_str)?;
+            let target = target
+                .trim()
+                .parse::<u64>()
+                .map_err(|e| anyhow::anyhow!("Invalid target '{}': {e}", target.trim()))?;
+            (
+                ser(SubsetProduct::new(values, target))?,
                 resolved_variant.clone(),
             )
         }
