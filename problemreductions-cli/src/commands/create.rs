@@ -9,7 +9,7 @@ use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
-    ConsecutiveOnesSubmatrix, SparseMatrixCompression, BMF,
+    ConsecutiveOnesSubmatrix, IntegerExpressionMembership, SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -93,6 +93,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.requirement_2.is_none()
         && args.requirement.is_none()
         && args.sizes.is_none()
+        && args.choices.is_none()
         && args.probabilities.is_none()
         && args.capacity.is_none()
         && args.sequence.is_none()
@@ -514,6 +515,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
             "comma-separated weighted edges: 0-2:3,1-3:5"
         }
         "Vec<Vec<usize>>" => "semicolon-separated sets: \"0,1;1,2;0,2\"",
+        "Vec<Vec<u64>>" => "semicolon-separated rows: \"1,2;1,6;1,7;1,9\"",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<i32>>" => "semicolon-separated terms: \"1,2;-1,3\"",
         "Vec<Vec<bool>>" => "JSON 2D bool array: '[[true,false],[false,true]]'",
@@ -604,6 +606,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
+        "IntegerExpressionMembership" => "--choices \"1,2;1,6;1,7;1,9\" --target 15",
         "QuadraticAssignment" => "--matrix \"0,5;5,0\" --distance-matrix \"0,1;1,0\"",
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
@@ -2178,6 +2181,31 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "QUBO" => {
             let matrix = parse_matrix(args)?;
             (ser(QUBO::from_matrix(matrix))?, resolved_variant.clone())
+        }
+
+        // IntegerExpressionMembership
+        "IntegerExpressionMembership" => {
+            let choices_str = args.choices.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "IntegerExpressionMembership requires --choices and --target\n\n\
+                     Usage: pred create IntegerExpressionMembership --choices \"1,2;1,6;1,7;1,9\" --target 15"
+                )
+            })?;
+            let target = args.target.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "IntegerExpressionMembership requires --target\n\n\
+                     Usage: pred create IntegerExpressionMembership --choices \"1,2;1,6;1,7;1,9\" --target 15"
+                )
+            })?;
+            let choices = parse_u64_matrix_rows(choices_str, "choices")?;
+            let target = target
+                .trim()
+                .parse::<u64>()
+                .map_err(|e| anyhow::anyhow!("Invalid target '{}': {e}", target.trim()))?;
+            (
+                ser(IntegerExpressionMembership::new(choices, target))?,
+                resolved_variant.clone(),
+            )
         }
 
         // SpinGlass
@@ -6731,6 +6759,51 @@ mod tests {
     }
 
     #[test]
+    fn test_create_integer_expression_membership_outputs_problem_json() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "IntegerExpressionMembership",
+            "--choices",
+            "1,2;1,6;1,7;1,9",
+            "--target",
+            "15",
+        ])
+        .unwrap();
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let output_path = std::env::temp_dir().join(format!(
+            "integer-expression-membership-create-{suffix}.json"
+        ));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&output_path).unwrap()).unwrap();
+        assert_eq!(json["type"], "IntegerExpressionMembership");
+        assert_eq!(
+            json["data"]["choices"],
+            serde_json::json!([[1, 2], [1, 6], [1, 7], [1, 9]])
+        );
+        assert_eq!(json["data"]["target"], serde_json::json!(15));
+        std::fs::remove_file(output_path).unwrap();
+    }
+
+    #[test]
     fn test_create_path_constrained_network_flow_outputs_problem_json() {
         let cli = Cli::try_parse_from([
             "pred",
@@ -7415,6 +7488,7 @@ mod tests {
             requirement_1: None,
             requirement_2: None,
             sizes: None,
+            choices: None,
             probabilities: None,
             capacity: None,
             sequence: None,
@@ -7533,6 +7607,13 @@ mod tests {
     fn test_all_data_flags_empty_treats_homologous_pairs_as_input() {
         let mut args = empty_args();
         args.homologous_pairs = Some("2=5;4=3".to_string());
+        assert!(!all_data_flags_empty(&args));
+    }
+
+    #[test]
+    fn test_all_data_flags_empty_treats_choices_as_input() {
+        let mut args = empty_args();
+        args.choices = Some("1,2;1,6".to_string());
         assert!(!all_data_flags_empty(&args));
     }
 

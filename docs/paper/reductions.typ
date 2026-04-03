@@ -135,6 +135,7 @@
   "CapacityAssignment": [Capacity Assignment],
   "ConsistencyOfDatabaseFrequencyTables": [Consistency of Database Frequency Tables],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "IntegerExpressionMembership": [Integer Expression Membership],
   "ConsecutiveSets": [Consecutive Sets],
   "DisjointConnectingPaths": [Disjoint Connecting Paths],
   "MinimumMultiwayCut": [Minimum Multiway Cut],
@@ -3469,6 +3470,32 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         }),
         caption: [2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", "). Target $bold(t) = #fmt-vec(target)$ (red) and closest lattice point $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ (blue). Distance $approx #dist-rounded$.],
       ) <fig:cvp-example>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("IntegerExpressionMembership")
+  let choices = x.instance.choices
+  let target = x.instance.target
+  let n = choices.len()
+  let config = x.optimal_config
+  let selected-values = range(n).map(i => choices.at(i).at(config.at(i)))
+  let selected-sum = selected-values.fold(0, (a, b) => a + b)
+  let fmt-choice-set(cs) = "{" + cs.map(str).join(", ") + "}"
+  [
+    #problem-def("IntegerExpressionMembership")[
+      Given finite choice sets $C_0, dots, C_(n-1) subset.eq ZZ^(>= 0)$ and a target $K in ZZ^(>= 0)$, determine whether there exist values $x_i in C_i$ for all $i in {0, dots, n-1}$ such that $sum_(i=0)^(n-1) x_i = K$.
+    ][
+      Integer Expression Membership appears in the algebraic reductions chapter of Garey and Johnson @garey1979, where expressions are built from singleton sets using unions and sums. The implementation in this crate uses the product-of-unions fragment needed for the Subset Sum reduction below: one chooses exactly one value from each position and checks whether the resulting total equals the target.
+
+      *Example.* Let the choice sets be $(#choices.map(fmt-choice-set).join(", "))$ and let $K = #target$. The stored config $(#config.map(str).join(", "))$ selects values $(#selected-values.map(str).join(", "))$, whose sum is $#selected-sum = #target$. Hence the instance is YES.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o integer-expression-membership.json",
+        "pred solve integer-expression-membership.json",
+        "pred evaluate integer-expression-membership.json --config " + x.optimal_config.map(str).join(","),
+      )
     ]
   ]
 }
@@ -7039,6 +7066,59 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       Hence every satisfying subset becomes a CVP solution at distance $sqrt(n / 4)$. ($arrow.l.double$) Conversely, binary bounds force every CVP candidate to lie in ${0,1}^n$. The first $n$ coordinates always contribute exactly $n/4$ to the squared distance, so a CVP minimizer attains distance $sqrt(n/4)$ if and only if the last coordinate contributes $0$, i.e. $sum_i s_i x_i = B$. When the Subset Sum instance is unsatisfiable, every binary vector has strictly larger distance.
 
       _Solution extraction._ Return the binary CVP vector unchanged.
+    ]
+  ]
+}
+
+#{
+  let ss_iem = load-example("SubsetSum", "IntegerExpressionMembership")
+  let ss_iem_sol = ss_iem.solutions.at(0)
+  let ss_iem_sizes = ss_iem.source.instance.sizes
+  let ss_iem_n = ss_iem_sizes.len()
+  let ss_iem_target = ss_iem.source.instance.target
+  let iem_choices = ss_iem.target.instance.choices
+  let iem_target = ss_iem.target.instance.target
+  let chosen-values = range(ss_iem_n).map(i => iem_choices.at(i).at(ss_iem_sol.target_config.at(i)))
+  let selected-indices = ss_iem_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => i)
+  let selected-sizes = selected-indices.map(i => ss_iem_sizes.at(i))
+  let fmt-choice-set(cs) = "{" + cs.map(str).join(", ") + "}"
+  [
+    #reduction-rule("SubsetSum", "IntegerExpressionMembership",
+      example: true,
+      example-caption: [#ss_iem_n elements, target sum $B = #ss_iem_target$],
+      extra: [
+        #pred-commands(
+          "pred create --example " + problem-spec(ss_iem.source) + " -o subsetsum.json",
+          "pred reduce subsetsum.json --to " + target-spec(ss_iem) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate subsetsum.json --config " + ss_iem_sol.source_config.map(str).join(","),
+        )
+
+        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#ss_iem_sizes.map(str).join(", "))$ and target $B = #ss_iem_target$.
+
+        *Step 2 -- Shift each subset decision.* For each size $s_i$, the reduction creates one choice set $C_i = {1, s_i + 1}$. In the example this yields $(#iem_choices.map(fmt-choice-set).join(", "))$ and the shifted target becomes $K = B + n = #iem_target$.
+
+        *Step 3 -- Verify the canonical witness.* The stored source witness is $bold(x) = (#ss_iem_sol.source_config.map(str).join(", "))$, selecting indices $\{#selected-indices.map(str).join(", ")\}$ with sizes $(#selected-sizes.map(str).join(", "))$. The stored target witness is $bold(y) = (#ss_iem_sol.target_config.map(str).join(", "))$, which chooses values $(#chosen-values.map(str).join(", "))$. Their sum is $#chosen-values.fold(0, (a, b) => a + b) = #iem_target$, so the Integer Expression Membership instance is YES exactly when the original subset sums to $B$.
+
+        *Witness semantics.* Because every target position is ordered as $(1, s_i + 1)$, the extracted Subset Sum bit is simply the target choice index itself: choose the second value iff the original item is included.
+      ],
+    )[
+      This $O(n)$ shift encoding turns each Subset Sum include/exclude decision into a binary local choice, instantiating the Integer Expression Membership fragment used in Garey and Johnson @garey1979. The target keeps one position per source element, so the only size overhead is a relabeling of the witness space.
+    ][
+      _Construction._ Given positive sizes $s_0, dots, s_(n-1)$ and target $B$, create one choice set per source element:
+      $ C_i = {1, s_i + 1} $
+      for $i in {0, dots, n-1}$. Set the Integer Expression Membership target to
+      $ K = B + n. $
+
+      _Correctness._ ($arrow.r.double$) If $X subset.eq {0, dots, n-1}$ is a satisfying Subset Sum witness with $sum_(i in X) s_i = B$, choose $s_i + 1$ from $C_i$ when $i in X$ and choose $1$ otherwise. The resulting total is
+      $ sum_(i in X) (s_i + 1) + sum_(i notin X) 1 = sum_(i in X) s_i + n = B + n = K, $
+      so the Integer Expression Membership instance is YES.
+
+      ($arrow.l.double$) Conversely, suppose a target witness chooses one value from each $C_i$ and sums to $K = B + n$. Subtract the baseline value $1$ from every chosen term. Each position then contributes either $0$ or $s_i$, and the total residual is
+      $ K - n = B. $
+      Therefore the positions that chose $s_i + 1$ form a subset of the original elements summing to $B$, so the Subset Sum instance is YES.
+
+      _Solution extraction._ Given a target config $bold(y)$, return the same binary vector: output $x_i = 1$ iff $y_i = 1$, meaning the second entry of $C_i = {1, s_i + 1}$ was selected.
     ]
   ]
 }

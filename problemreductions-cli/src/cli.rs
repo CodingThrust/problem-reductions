@@ -250,6 +250,7 @@ Flags by problem type:
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
   CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --cost-budget, --delay-budget
+  IntegerExpressionMembership     --choices, --target
   SubsetProduct                   --values, --target
   SubsetSum                       --sizes, --target
   SumOfSquaresPartition           --sizes, --num-groups, --bound
@@ -456,7 +457,7 @@ pub struct CreateArgs {
     /// Random seed for reproducibility
     #[arg(long)]
     pub seed: Option<u64>,
-    /// Target value (for Factoring, SubsetProduct, and SubsetSum)
+    /// Target value (for Factoring, IntegerExpressionMembership, SubsetProduct, and SubsetSum)
     #[arg(long)]
     pub target: Option<String>,
     /// Bits for first factor (for Factoring); also accepted as a processor-count alias for scheduling create commands
@@ -492,6 +493,9 @@ pub struct CreateArgs {
     /// Item sizes for BinPacking (comma-separated, e.g., "3,3,2,2")
     #[arg(long)]
     pub sizes: Option<String>,
+    /// Choice rows for IntegerExpressionMembership (semicolon-separated, e.g., "1,2;1,6;1,7;1,9")
+    #[arg(long)]
+    pub choices: Option<String>,
     /// Record access probabilities for ExpectedRetrievalCost (comma-separated, e.g., "0.2,0.15,0.15,0.2,0.1,0.2")
     #[arg(long)]
     pub probabilities: Option<String>,

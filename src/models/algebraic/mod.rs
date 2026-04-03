@@ -4,6 +4,7 @@
 //! - [`QUBO`]: Quadratic Unconstrained Binary Optimization
 //! - [`ILP`]: Integer Linear Programming
 //! - [`ClosestVectorProblem`]: Closest Vector Problem (minimize lattice distance)
+//! - [`IntegerExpressionMembership`]: Pick one integer from each choice set to hit a target sum
 //! - [`BMF`]: Boolean Matrix Factorization
 //! - [`ConsecutiveBlockMinimization`]: Consecutive Block Minimization
 //! - [`ConsecutiveOnesSubmatrix`]: Consecutive Ones Submatrix (column selection with C1P)
@@ -16,6 +17,7 @@ pub(crate) mod consecutive_block_minimization;
 pub(crate) mod consecutive_ones_matrix_augmentation;
 pub(crate) mod consecutive_ones_submatrix;
 pub(crate) mod ilp;
+pub(crate) mod integer_expression_membership;
 pub(crate) mod quadratic_assignment;
 pub(crate) mod qubo;
 pub(crate) mod sparse_matrix_compression;
@@ -26,6 +28,7 @@ pub use consecutive_block_minimization::ConsecutiveBlockMinimization;
 pub use consecutive_ones_matrix_augmentation::ConsecutiveOnesMatrixAugmentation;
 pub use consecutive_ones_submatrix::ConsecutiveOnesSubmatrix;
 pub use ilp::{Comparison, LinearConstraint, ObjectiveSense, VariableDomain, ILP};
+pub use integer_expression_membership::IntegerExpressionMembership;
 pub use quadratic_assignment::QuadraticAssignment;
 pub use qubo::QUBO;
 pub use sparse_matrix_compression::SparseMatrixCompression;
@@ -36,6 +39,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(qubo::canonical_model_example_specs());
     specs.extend(ilp::canonical_model_example_specs());
     specs.extend(closest_vector_problem::canonical_model_example_specs());
+    specs.extend(integer_expression_membership::canonical_model_example_specs());
     specs.extend(bmf::canonical_model_example_specs());
     specs.extend(consecutive_block_minimization::canonical_model_example_specs());
     specs.extend(consecutive_ones_matrix_augmentation::canonical_model_example_specs());
