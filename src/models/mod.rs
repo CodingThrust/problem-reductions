@@ -28,11 +28,11 @@ pub use graph::{
     MinimumDummyActivitiesPert, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
     MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MixedChinesePostman,
     MultipleChoiceBranching, MultipleCopyFileAllocation, OptimalLinearArrangement,
-    PartialFeedbackEdgeSet, PartitionIntoPathsOfLength2, PartitionIntoTriangles,
-    PathConstrainedNetworkFlow, RootedTreeArrangement, RuralPostman, ShortestWeightConstrainedPath,
-    SpinGlass, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
-    SubgraphIsomorphism, TravelingSalesman, UndirectedFlowLowerBounds,
-    UndirectedTwoCommodityIntegralFlow,
+    PartialFeedbackEdgeSet, PartitionIntoCliques, PartitionIntoPathsOfLength2,
+    PartitionIntoTriangles, PathConstrainedNetworkFlow, RootedTreeArrangement, RuralPostman,
+    ShortestWeightConstrainedPath, SpinGlass, SteinerTree, SteinerTreeInGraphs,
+    StrongConnectivityAugmentation, SubgraphIsomorphism, TravelingSalesman,
+    UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{

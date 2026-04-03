@@ -618,6 +618,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--left 4 --right 4 --biedges 0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3 --k 3"
         }
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
+        "PartitionIntoCliques" => "--graph 0-3,0-4,1-2,1-4 --k 3",
         "Factoring" => "--target 15 --m 4 --n 4",
         "CapacityAssignment" => {
             "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12"
@@ -4091,6 +4092,23 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             );
             (
                 ser(PartitionIntoTriangles::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // PartitionIntoCliques
+        "PartitionIntoCliques" => {
+            let usage = "Usage: pred create PartitionIntoCliques --graph 0-3,0-4,1-2,1-4 --k 3";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let num_cliques = args
+                .k
+                .ok_or_else(|| anyhow::anyhow!("PartitionIntoCliques requires --k\n\n{usage}"))?;
+            anyhow::ensure!(
+                num_cliques > 0,
+                "PartitionIntoCliques: --k must be positive"
+            );
+            (
+                ser(PartitionIntoCliques::new(graph, num_cliques))?,
                 resolved_variant.clone(),
             )
         }

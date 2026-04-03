@@ -167,6 +167,7 @@
   "MultipleChoiceBranching": [Multiple Choice Branching],
   "MultipleCopyFileAllocation": [Multiple Copy File Allocation],
   "ExpectedRetrievalCost": [Expected Retrieval Cost],
+  "PartitionIntoCliques": [Partition Into Cliques],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
   "PartitionIntoPathsOfLength2": [Partition into Paths of Length 2],
   "PartitionIntoTriangles": [Partition Into Triangles],
@@ -1583,6 +1584,36 @@ is feasible: each set induces a connected subgraph, the component weights are $2
     },
     caption: [A proper #{k}-coloring of the house graph. Colors: #color-groups.enumerate().map(((c, verts)) => $#verts.map(i => $c(v_#i)$).join($=$) = #(c + 1)$).join(", "). Zero conflicts.],
     ) <fig:house-coloring>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("PartitionIntoCliques")
+  let nv = graph-num-vertices(x.instance)
+  let k = x.instance.num_cliques
+  let edges = x.instance.graph.edges
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let clique-groups = range(k).map(c => sol.config.enumerate().filter(((i, v)) => v == c).map(((i, _)) => i)).filter(g => g.len() > 0)
+  [
+    #problem-def("PartitionIntoCliques")[
+      Given an undirected graph $G = (V, E)$ and an integer $K$, determine whether there exists a partition $V = V_1 union dots union V_t$ with $t <= K$ such that every set $V_i$ induces a clique in $G$.
+    ][
+    Partition Into Cliques is NP-complete by complementation with $k$-Coloring @garey1979. A partition of $G$ into at most $K$ cliques is exactly a proper $K$-coloring of the complement graph $overline(G)$. This equivalence yields an $O^*(2^n)$ exact algorithm by applying inclusion-exclusion style coloring algorithms to $overline(G)$ @bjorklund2009.
+
+    *Example.* Consider the graph $G$ with $n = #nv$ vertices, clique bound $K = #k$, and edges #edges.map(((u, v)) => [${#u, #v}$]).join(", "). The partition #clique-groups.enumerate().map(((i, group)) => [$V_#(i + 1) = {#group.map(v => $v_#v$).join(", ")}$]).join(", ") is valid: the non-singleton groups use edges ${0, 3}$ and ${1, 2}$, and any singleton is a clique.
+
+    #pred-commands(
+      "pred create --example " + problem-spec(x) + " -o partition-into-cliques.json",
+      "pred solve partition-into-cliques.json",
+      "pred evaluate partition-into-cliques.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure({
+      let hg = house-graph()
+      draw-node-colors(hg.vertices, edges, sol.config)
+    },
+    caption: [Partition Into Cliques instance on the complement of the house graph. Clique classes are #clique-groups.enumerate().map(((i, group)) => [$V_#(i + 1) = {#group.map(v => $v_#v$).join(", ")}$]).join(", ").],
+    ) <fig:partition-into-cliques>
     ]
   ]
 }
@@ -6794,6 +6825,39 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) If $bold(x)$ violates any one-hot constraint (some vertex has 0 or $>= 2$ colors), the penalty $P_1 > n$ exceeds the objective range, so $bold(x)$ is not a minimizer. ($arrow.l.double$) Among valid one-hot encodings, $f$ reduces to the edge conflict term, minimized when no two adjacent vertices share a color — exactly the $k$-coloring objective.
 
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$.
+]
+
+#let kc_pic = load-example("KColoring", "PartitionIntoCliques")
+#let kc_pic_sol = kc_pic.solutions.at(0)
+#let kc_pic_target_edges = kc_pic.target.instance.graph.edges
+#let kc_pic_groups = range(kc_pic.source.instance.num_colors).map(c => kc_pic_sol.source_config.enumerate().filter(((i, v)) => v == c).map(((i, _)) => i)).filter(g => g.len() > 0)
+#reduction-rule("KColoring", "PartitionIntoCliques",
+  example: true,
+  example-caption: [House graph: color classes in $G$ become clique classes in $overline(G)$.],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(kc_pic.source) + " -o kcoloring.json",
+      "pred reduce kcoloring.json --to " + target-spec(kc_pic) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate kcoloring.json --config " + kc_pic_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1.* Start from the proper coloring $(#kc_pic_sol.source_config.map(str).join(", "))$ of the house graph, so the color classes are #kc_pic_groups.enumerate().map(((i, group)) => [$C_#(i + 1) = {#group.map(v => $v_#v$).join(", ")}$]).join(", ").
+
+    *Step 2.* Build the complement graph $overline(G)$ by adding exactly the non-edges of $G$. For this example the complement edges are #kc_pic_target_edges.map(((u, v)) => [${#u, #v}$]).join(", ").
+
+    *Step 3.* Keep the same labels. Then $C_1 = {v_0, v_3}$ and $C_2 = {v_1, v_2}$ are cliques in $overline(G)$, and $C_3 = {v_4}$ is a singleton clique.
+  ],
+)[
+  A proper $k$-coloring partitions the vertices of $G$ into at most $k$ independent sets. In the complement graph $overline(G)$, those same vertex classes become cliques, so the same labeling solves Partition Into Cliques with the same bound.
+][
+  _Construction._ Given KColoring instance $(G = (V, E), k)$ with $n = |V|$ and $m = |E|$, construct the complement graph $overline(G) = (V, overline(E))$ where
+  $ overline(E) = { {u, v} : u < v, {u, v} in.not E }. $
+  Set the clique bound to the same value $k$. The target instance is $(overline(G), k)$, with $n$ vertices and $n(n - 1) / 2 - m$ edges.
+
+  _Correctness._ ($arrow.r.double$) If $c : V -> {0, dots, k - 1}$ is a proper coloring of $G$, then any two vertices $u, v$ with $c(u) = c(v)$ are non-adjacent in $G$. Hence ${u, v} in overline(E)$, so every color class induces a clique in $overline(G)$. ($arrow.l.double$) If a labeling partitions $overline(G)$ into at most $k$ cliques, then any two vertices sharing a label are adjacent in $overline(G)$ and therefore non-adjacent in $G$. Thus each label class is an independent set in $G$, which is exactly a proper $k$-coloring.
+
+  _Solution extraction._ Identity: return the same vertex labels.
 ]
 
 #reduction-rule("MaximumSetPacking", "QUBO")[

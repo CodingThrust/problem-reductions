@@ -228,6 +228,7 @@ Flags by problem type:
   KColoring                       --graph, --k
   KClique                         --graph, --k
   MinimumMultiwayCut              --graph, --terminals, --edge-weights
+  PartitionIntoCliques            --graph, --k
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
   GeneralizedHex                  --graph, --source, --sink
