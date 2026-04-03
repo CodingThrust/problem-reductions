@@ -106,6 +106,7 @@
   "MaximumSetPacking": [Maximum Set Packing],
   "MinimumHittingSet": [Minimum Hitting Set],
   "MinimumSetCovering": [Minimum Set Covering],
+  "SetSplitting": [Set Splitting],
   "ComparativeContainment": [Comparative Containment],
   "SetBasis": [Set Basis],
   "MinimumCardinalityKey": [Minimum Cardinality Key],
@@ -2695,6 +2696,61 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
       }),
       caption: [Minimum hitting set: the blue elements $#fmt-set(selected)$ intersect every set region $S_1, dots, S_#m$, so they hit the entire collection $cal(S)$.]
     ) <fig:min-hitting-set>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SetSplitting")
+  let subsets = x.instance.subsets
+  let m = subsets.len()
+  let U-size = x.instance.universe_size
+  let sol = x.optimal_config
+  let part1 = sol.enumerate().filter(((i, v)) => v == 0).map(((i, _)) => i)
+  let part2 = sol.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let fmt-set(s) = if s.len() == 0 {
+    $emptyset$
+  } else {
+    "${" + s.map(e => str(e + 1)).join(", ") + "}$"
+  }
+  let elems = (
+    (-2.0, 0.7),
+    (-0.9, 1.4),
+    (-1.2, -0.4),
+    (0.2, 0.1),
+    (1.2, 1.0),
+    (1.5, -0.9),
+  )
+  [
+    #problem-def("SetSplitting")[
+      Given a finite universe $S$ and a collection $cal(C) = {C_1, dots, C_m}$ of subsets of $S$, determine whether there exists a partition $S = S_1 union S_2$ with $S_1 inter S_2 = emptyset$ such that $C_j inter S_1 != emptyset$ and $C_j inter S_2 != emptyset$ for every $j$.
+    ][
+    Set Splitting is the hypergraph 2-colorability problem SP4 in Garey and Johnson @garey1979. Each universe element receives one of two colors, and the requirement is that every hyperedge contains both colors. This viewpoint makes the graph case transparent: when every subset has size at most $2$, the problem reduces to ordinary graph bipartiteness and becomes polynomial-time solvable. The direct exact baseline enumerates all $2^n$ 2-colorings of the $n = |S|$ universe elements and rejects those with a monochromatic subset#footnote[No exact worst-case algorithm improving on brute-force is claimed here for the general decision formulation registered in this catalog.].
+
+    *Example.* Let $S = {1, 2, dots, #U-size}$ and $cal(C) = {C_1, dots, C_#m}$ with #range(m).map(i => $C_#(i + 1) = #fmt-set(subsets.at(i))$).join(", "). The partition $S_1 = #fmt-set(part1)$ and $S_2 = #fmt-set(part2)$ splits every subset: $C_1 = #fmt-set(subsets.at(0))$, $C_2 = #fmt-set(subsets.at(1))$, $C_3 = #fmt-set(subsets.at(2))$, and $C_4 = #fmt-set(subsets.at(3))$ each contain elements from both sides. Hence the configuration $(#sol.map(str).join(", "))$ is a valid witness.
+
+    #pred-commands(
+      "pred create --example " + problem-spec(x) + " -o set-splitting.json",
+      "pred solve set-splitting.json",
+      "pred evaluate set-splitting.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure(
+      canvas(length: 1cm, {
+        sregion((elems.at(0), elems.at(1), elems.at(2)), pad: 0.45, label: [$C_1$], ..sregion-dimmed)
+        sregion((elems.at(2), elems.at(3), elems.at(4)), pad: 0.45, label: [$C_2$], ..sregion-dimmed)
+        sregion((elems.at(0), elems.at(4), elems.at(5)), pad: 0.48, label: [$C_3$], ..sregion-dimmed)
+        sregion((elems.at(1), elems.at(3), elems.at(5)), pad: 0.48, label: [$C_4$], ..sregion-dimmed)
+        for (k, pos) in elems.enumerate() {
+          selem(
+            pos,
+            label: [#(k + 1)],
+            fill: if part1.contains(k) { graph-colors.at(0) } else { graph-colors.at(1) },
+          )
+        }
+      }),
+      caption: [Set splitting: the blue elements form $S_1 = #fmt-set(part1)$, the orange elements form $S_2 = #fmt-set(part2)$, and every subset region $C_1, dots, C_#m$ contains both colors.]
+    ) <fig:set-splitting>
     ]
   ]
 }
@@ -8319,6 +8375,32 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ The two constraints per clause jointly enforce the not-all-equal condition.
 
   _Solution extraction._ Direct: $x_i = 1$ iff variable $i$ is true.
+]
+
+#let nae_ss = load-example("NAESatisfiability", "SetSplitting")
+#let nae_ss_sol = nae_ss.solutions.at(0)
+#reduction-rule("NAESatisfiability", "SetSplitting",
+  example: true,
+  example-caption: [2 clauses over 3 variables],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(nae_ss.source) + " -o naesat.json",
+      "pred reduce naesat.json --to " + target-spec(nae_ss) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate naesat.json --config " + nae_ss_sol.source_config.map(str).join(","),
+    )
+    Source: $n = #nae_ss.source.instance.num_vars$ variables, $m = #sat-num-clauses(nae_ss.source.instance)$ clauses \
+    Target: $2n = #nae_ss.target.instance.universe_size$ literal-elements and $n + m = #nae_ss.target.instance.subsets.len()$ subsets \
+    Canonical witness: source $(#nae_ss_sol.source_config.map(str).join(", "))$ maps to target $(#nae_ss_sol.target_config.map(str).join(", "))$ #sym.checkmark
+  ],
+)[
+  This $O(n + L)$ reduction @garey1979 replaces each signed literal by its own universe element. Each variable contributes a 2-element subset forcing $x_i$ and $not x_i$ to receive opposite colors, and each NAE clause becomes the subset of its literal-elements. A set splitting therefore encodes exactly the true/false pattern of the literals in every clause.
+][
+  _Construction._ For each variable $x_i$, create two universe elements $p_i$ and $n_i$, representing the positive and negative literal. Add the 2-element subset ${p_i, n_i}$ for every $i in {1, dots, n}$. For each clause $C_j$, add a subset $T_j$ that contains $p_i$ when $x_i$ appears positively in $C_j$ and $n_i$ when $not x_i$ appears. The target universe has $2n$ elements and the target collection has $n + m$ subsets.
+
+  _Correctness._ ($arrow.r.double$) Given an NAE-satisfying assignment, place $p_i$ in $S_2$ and $n_i$ in $S_1$ when $x_i = 1$, and swap them when $x_i = 0$. Then every pair ${p_i, n_i}$ is split. Moreover, each clause contains at least one true and one false literal, so the corresponding subset $T_j$ also contains both colors and is split. ($arrow.l.double$) Given a set splitting, each pair ${p_i, n_i}$ must be split because it has size $2$. Define $x_i = 1$ exactly when $p_i in S_2$ (equivalently $n_i in S_1$). Every clause subset $T_j$ is non-monochromatic, so the literals in $C_j$ are not all equal under this assignment; hence every clause is NAE-satisfied.
+
+  _Solution extraction._ Read the side of each positive-literal element: assign $x_i = 1$ iff $p_i in S_2$.
 ]
 
 #reduction-rule("KClique", "ILP")[

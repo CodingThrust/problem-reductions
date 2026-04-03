@@ -609,6 +609,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "HamiltonianCircuit" => "--graph 0-1,1-2,2-3,3-0",
         "EnsembleComputation" => "--universe 4 --sets \"0,1,2;0,1,3\" --budget 4",
+        "SetSplitting" => "--universe 6 --sets \"0,1,2;2,3,4;0,4,5;1,3,5\"",
         "RootedTreeStorageAssignment" => "--universe 5 --sets \"0,2;1,3;0,4;2,4\" --bound 1",
         "MinMaxMulticenter" => {
             "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 --bound 2"
@@ -2518,6 +2519,33 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let weights = parse_set_weights(args, num_sets)?;
             (
                 ser(MinimumSetCovering::with_weights(universe, sets, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SetSplitting
+        "SetSplitting" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SetSplitting requires --universe and --sets\n\n\
+                     Usage: pred create SetSplitting --universe 6 --sets \"0,1,2;2,3,4;0,4,5;1,3,5\""
+                )
+            })?;
+            let sets = parse_sets(args)?;
+            for (i, set) in sets.iter().enumerate() {
+                for &element in set {
+                    if element >= universe {
+                        bail!(
+                            "Subset {} contains element {} which is outside universe of size {}",
+                            i,
+                            element,
+                            universe
+                        );
+                    }
+                }
+            }
+            (
+                ser(SetSplitting::new(universe, sets))?,
                 resolved_variant.clone(),
             )
         }
@@ -7603,6 +7631,45 @@ mod tests {
             created["data"]["disjuncts"],
             serde_json::json!([[1, 2], [-1, -2]])
         );
+    }
+
+    #[test]
+    fn test_create_set_splitting_json() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "SetSplitting",
+            "--universe",
+            "4",
+            "--sets",
+            "0,1;1,2;2,3",
+        ])
+        .expect("parse create command");
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let output_path = temp_output_path("set_splitting");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).expect("create SetSplitting JSON");
+
+        let created: ProblemJsonOutput =
+            serde_json::from_str(&fs::read_to_string(&output_path).unwrap()).unwrap();
+        fs::remove_file(output_path).ok();
+
+        assert_eq!(created.problem_type, "SetSplitting");
+
+        let problem: SetSplitting = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.universe_size(), 4);
+        assert_eq!(problem.subsets(), &[vec![0, 1], vec![1, 2], vec![2, 3]],);
     }
 
     #[test]
