@@ -510,9 +510,9 @@
 #align(center)[
   #text(size: 16pt, weight: "bold")[Problem Reductions: Models and Transformations]
   #v(0.5em)
-  #text(size: 11pt)[Jin-Guo Liu#super[1] #h(1em) Xi-Wei Pan#super[1] #h(1em) Shi-Wen An]
+  #text(size: 11pt)[Jin-Guo Liu#super[1] #h(1em) Xi-Wei Pan#super[1] #h(1em) Shi-Wen An#super[2]]
   #v(0.3em)
-  #text(size: 9pt)[#super[1]Hong Kong University of Science and Technology (Guangzhou)]
+  #text(size: 9pt)[#super[1]Hong Kong University of Science and Technology (Guangzhou) #h(1em) #super[2]Institute of Science Tokyo]
   #v(0.3em)
   #text(size: 10pt, style: "italic")[github.com/CodingThrust/problem-reductions]
   #v(1em)
