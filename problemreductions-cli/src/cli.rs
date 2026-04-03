@@ -221,6 +221,7 @@ Flags by problem type:
   ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --length-bound, --weight-bound
   MaximalIS                       --graph, --weights
   SAT, NAESAT                     --num-vars, --clauses
+  NonTautology                    --num-vars, --disjuncts
   KSAT                            --num-vars, --clauses [--k]
   QUBO                            --matrix
   SpinGlass                       --graph, --couplings, --fields
@@ -417,6 +418,9 @@ pub struct CreateArgs {
     /// Clauses for SAT problems (semicolon-separated, e.g., "1,2;-1,3")
     #[arg(long)]
     pub clauses: Option<String>,
+    /// Disjuncts for DNF problems (semicolon-separated, e.g., "1,2;-1,3")
+    #[arg(long)]
+    pub disjuncts: Option<String>,
     /// Number of variables (for SAT/KSAT)
     #[arg(long)]
     pub num_vars: Option<usize>,

@@ -297,8 +297,7 @@ fn test_customized_solver_matches_exhaustive_search_for_small_partial_feedback_e
     for graph in all_simple_graphs(4) {
         for max_cycle_length in 3..=4 {
             for budget in 0..=graph.num_edges() {
-                let problem =
-                    PartialFeedbackEdgeSet::new(graph.clone(), budget, max_cycle_length);
+                let problem = PartialFeedbackEdgeSet::new(graph.clone(), budget, max_cycle_length);
                 let exact_feasible =
                     exact_partial_feedback_edge_set_feasible(&graph, budget, max_cycle_length);
                 let custom = CustomizedSolver::new().solve_dyn(&problem);
@@ -380,7 +379,9 @@ fn test_customized_solver_rooted_tree_arrangement_canonical_example() {
 fn test_customized_solver_matches_exhaustive_search_for_small_rooted_tree_arrangement_instances() {
     for graph in all_simple_graphs(4) {
         let exact_min_stretch = exact_rooted_tree_arrangement_min_stretch(&graph);
-        let max_bound = graph.num_edges().saturating_mul(graph.num_vertices().saturating_sub(1));
+        let max_bound = graph
+            .num_edges()
+            .saturating_mul(graph.num_vertices().saturating_sub(1));
 
         for bound in 0..=max_bound {
             let problem = RootedTreeArrangement::new(graph.clone(), bound);

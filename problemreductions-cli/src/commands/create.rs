@@ -70,6 +70,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.couplings.is_none()
         && args.fields.is_none()
         && args.clauses.is_none()
+        && args.disjuncts.is_none()
         && args.num_vars.is_none()
         && args.matrix.is_none()
         && args.k.is_none()
@@ -513,6 +514,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         }
         "Vec<Vec<usize>>" => "semicolon-separated sets: \"0,1;1,2;0,2\"",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
+        "Vec<Vec<i32>>" => "semicolon-separated terms: \"1,2;-1,3\"",
         "Vec<Vec<bool>>" => "JSON 2D bool array: '[[true,false],[false,true]]'",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "usize" => "integer",
@@ -594,6 +596,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "Satisfiability" => "--num-vars 3 --clauses \"1,2;-1,3\"",
         "NAESatisfiability" => "--num-vars 3 --clauses \"1,2,-3;-1,2,3\"",
+        "NonTautology" => "--num-vars 2 --disjuncts \"1,2;-1,-2\"",
         "QuantifiedBooleanFormulas" => {
             "--num-vars 3 --clauses \"1,2;-1,3\" --quantifiers \"E,A,E\""
         }
@@ -2054,6 +2057,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let clauses = parse_clauses(args)?;
             (
                 ser(NAESatisfiability::try_new(num_vars, clauses).map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+        "NonTautology" => {
+            let num_vars = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "NonTautology requires --num-vars\n\n\
+                     Usage: pred create NonTautology --num-vars 2 --disjuncts \"1,2;-1,-2\""
+                )
+            })?;
+            let disjuncts = parse_disjuncts(args)?;
+            (
+                ser(NonTautology::new(num_vars, disjuncts))?,
                 resolved_variant.clone(),
             )
         }
@@ -5106,6 +5122,27 @@ fn parse_clauses(args: &CreateArgs) -> Result<Vec<CNFClause>> {
         .collect()
 }
 
+/// Parse `--disjuncts` as semicolon-separated conjunctions of comma-separated literals.
+/// E.g., "1,2;-1,3"
+fn parse_disjuncts(args: &CreateArgs) -> Result<Vec<Vec<i32>>> {
+    let disjuncts_str = args
+        .disjuncts
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("NonTautology requires --disjuncts (e.g., \"1,2;-1,3\")"))?;
+
+    disjuncts_str
+        .split(';')
+        .map(|disjunct| {
+            disjunct
+                .trim()
+                .split(',')
+                .map(|s| s.trim().parse::<i32>())
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(anyhow::Error::from)
+        })
+        .collect()
+}
+
 /// Parse `--sets` as semicolon-separated sets of comma-separated usize.
 /// E.g., "0,1;1,2;0,2"
 fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
@@ -7240,6 +7277,7 @@ mod tests {
             couplings: None,
             fields: None,
             clauses: None,
+            disjuncts: None,
             num_vars: None,
             matrix: None,
             k: None,
@@ -7376,6 +7414,23 @@ mod tests {
     }
 
     #[test]
+    fn test_all_data_flags_empty_treats_disjuncts_as_input() {
+        let mut args = empty_args();
+        args.disjuncts = Some("1,2;-1,-2".to_string());
+        assert!(!all_data_flags_empty(&args));
+    }
+
+    #[test]
+    fn test_parse_disjuncts() {
+        let mut args = empty_args();
+        args.disjuncts = Some("1,2;-1,3".to_string());
+
+        let disjuncts = parse_disjuncts(&args).unwrap();
+
+        assert_eq!(disjuncts, vec![vec![1, 2], vec![-1, 3]]);
+    }
+
+    #[test]
     fn test_parse_potential_edges() {
         let mut args = empty_args();
         args.potential_edges = Some("0-2:3,1-3:5".to_string());
@@ -7439,6 +7494,46 @@ mod tests {
         assert_eq!(problem.terminal_pairs(), &[(0, 3), (2, 5)]);
 
         let _ = std::fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_non_tautology_json() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "NonTautology",
+            "--num-vars",
+            "2",
+            "--disjuncts",
+            "1,2;-1,-2",
+        ])
+        .expect("parse create command");
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let output_path = temp_output_path("non_tautology");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).expect("create NonTautology JSON");
+
+        let created: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output_path).unwrap()).unwrap();
+        fs::remove_file(output_path).ok();
+
+        assert_eq!(created["type"], "NonTautology");
+        assert_eq!(created["data"]["num_vars"], 2);
+        assert_eq!(
+            created["data"]["disjuncts"],
+            serde_json::json!([[1, 2], [-1, -2]])
+        );
     }
 
     #[test]

@@ -4,18 +4,21 @@
 //! - [`Satisfiability`]: Boolean satisfiability (SAT) with CNF clauses
 //! - [`NAESatisfiability`]: Not-All-Equal satisfiability with CNF clauses
 //! - [`KSatisfiability`]: K-SAT where each clause has exactly K literals
+//! - [`NonTautology`]: Does a DNF formula have a falsifying assignment?
 //! - [`CircuitSAT`]: Boolean circuit satisfiability
 //! - [`QuantifiedBooleanFormulas`]: Quantified Boolean Formulas (QBF) — PSPACE-complete
 
 pub(crate) mod circuit;
 pub(crate) mod ksat;
 pub(crate) mod nae_satisfiability;
+pub(crate) mod non_tautology;
 pub(crate) mod qbf;
 pub(crate) mod sat;
 
 pub use circuit::{Assignment, BooleanExpr, BooleanOp, Circuit, CircuitSAT};
 pub use ksat::KSatisfiability;
 pub use nae_satisfiability::NAESatisfiability;
+pub use non_tautology::NonTautology;
 pub use qbf::{QuantifiedBooleanFormulas, Quantifier};
 pub use sat::{CNFClause, Satisfiability};
 
@@ -25,6 +28,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(sat::canonical_model_example_specs());
     specs.extend(nae_satisfiability::canonical_model_example_specs());
     specs.extend(ksat::canonical_model_example_specs());
+    specs.extend(non_tautology::canonical_model_example_specs());
     specs.extend(circuit::canonical_model_example_specs());
     specs.extend(qbf::canonical_model_example_specs());
     specs

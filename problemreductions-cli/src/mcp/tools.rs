@@ -1,6 +1,6 @@
 use crate::util;
 use problemreductions::models::algebraic::QUBO;
-use problemreductions::models::formula::{CNFClause, Satisfiability};
+use problemreductions::models::formula::{CNFClause, NonTautology, Satisfiability};
 use problemreductions::models::graph::{
     KClique, LongestCircuit, MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching,
     MinimumDominatingSet, MinimumSumMulticenter, MinimumVertexCover, SpinGlass, TravelingSalesman,
@@ -70,7 +70,7 @@ pub struct CreateProblemParams {
     )]
     pub problem_type: String,
     #[schemars(
-        description = "Problem parameters as JSON object. Graph problems: {\"edges\": \"0-1,1-2\", \"weights\": \"1,2,3\"}. SAT: {\"num_vars\": 3, \"clauses\": \"1,2;-1,3\"}. QUBO: {\"matrix\": \"1,0.5;0.5,2\"}. KColoring: {\"edges\": \"0-1,1-2\", \"k\": 3}. KClique: {\"edges\": \"0-1,0-2,1-3,2-3,2-4,3-4\", \"k\": 3}. Factoring: {\"target\": 15, \"bits_m\": 4, \"bits_n\": 4}. Random graph: {\"random\": true, \"num_vertices\": 10, \"edge_prob\": 0.3}. Geometry graphs (use with MIS/KingsSubgraph etc.): {\"positions\": \"0,0;1,0;1,1\"}. UnitDiskGraph: {\"positions\": \"0.0,0.0;1.0,0.0\", \"radius\": 1.5}"
+        description = "Problem parameters as JSON object. Graph problems: {\"edges\": \"0-1,1-2\", \"weights\": \"1,2,3\"}. SAT: {\"num_vars\": 3, \"clauses\": \"1,2;-1,3\"}. NonTautology: {\"num_vars\": 2, \"disjuncts\": \"1,2;-1,-2\"}. QUBO: {\"matrix\": \"1,0.5;0.5,2\"}. KColoring: {\"edges\": \"0-1,1-2\", \"k\": 3}. KClique: {\"edges\": \"0-1,0-2,1-3,2-3,2-4,3-4\", \"k\": 3}. Factoring: {\"target\": 15, \"bits_m\": 4, \"bits_n\": 4}. Random graph: {\"random\": true, \"num_vertices\": 10, \"edge_prob\": 0.3}. Geometry graphs (use with MIS/KingsSubgraph etc.): {\"positions\": \"0,0;1,0;1,1\"}. UnitDiskGraph: {\"positions\": \"0.0,0.0;1.0,0.0\", \"radius\": 1.5}"
     )]
     pub params: serde_json::Value,
 }
@@ -450,6 +450,16 @@ impl McpServer {
                 let clauses = parse_clauses_from_params(params)?;
                 let variant = BTreeMap::new();
                 (ser(Satisfiability::new(num_vars, clauses))?, variant)
+            }
+            "NonTautology" => {
+                let num_vars = params
+                    .get("num_vars")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as usize)
+                    .ok_or_else(|| anyhow::anyhow!("NonTautology requires 'num_vars'"))?;
+                let disjuncts = parse_disjuncts_from_params(params)?;
+                let variant = BTreeMap::new();
+                (ser(NonTautology::new(num_vars, disjuncts))?, variant)
             }
             "KSatisfiability" => {
                 let num_vars = params
@@ -1432,6 +1442,28 @@ fn parse_clauses_from_params(params: &serde_json::Value) -> anyhow::Result<Vec<C
                 .map(|s| s.trim().parse::<i32>())
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             Ok(CNFClause::new(literals))
+        })
+        .collect()
+}
+
+/// Parse `disjuncts` field from JSON params as semicolon-separated conjunctions.
+fn parse_disjuncts_from_params(params: &serde_json::Value) -> anyhow::Result<Vec<Vec<i32>>> {
+    let disjuncts_str = params
+        .get("disjuncts")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            anyhow::anyhow!("NonTautology requires 'disjuncts' parameter (e.g., \"1,2;-1,3\")")
+        })?;
+
+    disjuncts_str
+        .split(';')
+        .map(|disjunct| {
+            disjunct
+                .trim()
+                .split(',')
+                .map(|s| s.trim().parse::<i32>())
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(anyhow::Error::from)
         })
         .collect()
 }

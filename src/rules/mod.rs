@@ -38,6 +38,7 @@ pub(crate) mod sat_coloring;
 pub(crate) mod sat_ksat;
 pub(crate) mod sat_maximumindependentset;
 pub(crate) mod sat_minimumdominatingset;
+pub(crate) mod satisfiability_nontautology;
 mod spinglass_casts;
 pub(crate) mod spinglass_maxcut;
 pub(crate) mod spinglass_qubo;
@@ -261,6 +262,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(sat_ksat::canonical_rule_example_specs());
     specs.extend(sat_maximumindependentset::canonical_rule_example_specs());
     specs.extend(sat_minimumdominatingset::canonical_rule_example_specs());
+    specs.extend(satisfiability_nontautology::canonical_rule_example_specs());
     specs.extend(spinglass_maxcut::canonical_rule_example_specs());
     specs.extend(spinglass_qubo::canonical_rule_example_specs());
     specs.extend(subsetsum_closestvectorproblem::canonical_rule_example_specs());

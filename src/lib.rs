@@ -46,8 +46,8 @@ pub mod prelude {
         ConsecutiveOnesMatrixAugmentation, QuadraticAssignment, SparseMatrixCompression, BMF, QUBO,
     };
     pub use crate::models::formula::{
-        CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, QuantifiedBooleanFormulas,
-        Satisfiability,
+        CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, NonTautology,
+        QuantifiedBooleanFormulas, Satisfiability,
     };
     pub use crate::models::graph::{
         AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover,
