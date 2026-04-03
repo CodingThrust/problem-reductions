@@ -136,6 +136,7 @@
   "ConsistencyOfDatabaseFrequencyTables": [Consistency of Database Frequency Tables],
   "ClosestVectorProblem": [Closest Vector Problem],
   "IntegerExpressionMembership": [Integer Expression Membership],
+  "MinimumWeightSolutionToLinearEquations": [Minimum-Weight Solution to Linear Equations],
   "ConsecutiveSets": [Consecutive Sets],
   "DisjointConnectingPaths": [Disjoint Connecting Paths],
   "MinimumMultiwayCut": [Minimum Multiway Cut],
@@ -3495,6 +3496,36 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred create --example " + problem-spec(x) + " -o integer-expression-membership.json",
         "pred solve integer-expression-membership.json",
         "pred evaluate integer-expression-membership.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumWeightSolutionToLinearEquations")
+  let A = x.instance.coefficients
+  let b = x.instance.rhs
+  let K = x.instance.bound
+  let m = A.len()
+  let n = A.at(0).len()
+  let config = x.optimal_config
+  let row-evals = A.map(row => row.zip(config).map(((a, x)) => a * x).sum())
+  let nonzero = config.filter(x => x != 0).len()
+  let fmt-row(row) = "(" + row.map(str).join(", ") + ")"
+  [
+    #problem-def("MinimumWeightSolutionToLinearEquations")[
+      Given an integer matrix $A in ZZ^(m times n)$, a right-hand side vector $b in ZZ^m$, and a non-negative integer $K$, determine whether there exists a binary vector $x in {0, 1}^n$ with $||x||_0 <= K$ such that $A x = b$.
+    ][
+      This feasibility problem asks for a sufficiently sparse binary solution to a linear system. It is a natural algebraic decision model for reductions from exact-cover style set systems: each column represents a combinatorial choice, each row enforces local consistency, and the $ell_0$ bound controls how many choices may be active.
+
+      The exact brute-force algorithm is the obvious one: enumerate all $2^n$ binary vectors and test both the sparsity bound and the $m$ equations, yielding $O^*(2^n)$ time. The model in this crate intentionally restricts variables to $0/1$, which is the binary special case needed by the X3C reduction below.
+
+      *Example.* Let $A$ have rows #A.map(fmt-row).join(", "), let $b = #fmt-row(b)$, and let $K = #K$. The binary vector $x = #fmt-row(config)$ has $#nonzero$ nonzero entries, so it respects the bound. Moreover, the row sums are #row-evals.map(str).join(", "), which exactly match $b$. Hence the instance is YES.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o minimum-weight-solution-to-linear-equations.json",
+        "pred solve minimum-weight-solution-to-linear-equations.json",
+        "pred evaluate minimum-weight-solution-to-linear-equations.json --config " + x.optimal_config.map(str).join(","),
       )
     ]
   ]
@@ -8439,6 +8470,39 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ The equality constraints force each element to appear in exactly one selected triple, which is the definition of an exact cover.
 
   _Solution extraction._ $cal(C) = {T_j : x_j = 1}$.
+]
+
+#let x3c_mws = load-example("ExactCoverBy3Sets", "MinimumWeightSolutionToLinearEquations")
+#let x3c_mws_sol = x3c_mws.solutions.at(0)
+#reduction-rule("ExactCoverBy3Sets", "MinimumWeightSolutionToLinearEquations",
+  example: true,
+  example-caption: [Canonical X3C incidence matrix ($|U| = #x3c_mws.source.instance.universe_size$, $n = #x3c_mws.source.instance.subsets.len()$)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(x3c_mws.source) + " -o x3c.json",
+      "pred reduce x3c.json --to " + target-spec(x3c_mws) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate x3c.json --config " + x3c_mws_sol.source_config.map(str).join(","),
+    )
+    Source: $|U| = #x3c_mws.source.instance.universe_size$, $q = #(int(x3c_mws.source.instance.universe_size / 3))$, and $n = #x3c_mws.source.instance.subsets.len()$ \
+    Target: incidence matrix with #x3c_mws.target.instance.coefficients.len() equations, #x3c_mws.target.instance.coefficients.at(0).len() binary variables, and sparsity bound $K = #x3c_mws.target.instance.bound$ \
+    Canonical witness: source $(#x3c_mws_sol.source_config.map(str).join(", "))$ maps directly to target $(#x3c_mws_sol.target_config.map(str).join(", "))$ #sym.checkmark
+  ],
+)[
+  This $O(|U| n)$ reduction replaces the family of 3-sets by its incidence matrix. Each source set $S_j$ becomes a binary target variable $x_j$, each universe element $i in U$ becomes one equation, the coefficient $A_(i,j)$ is $1$ exactly when $i in S_j$, the right-hand side is the all-ones vector, and the sparsity bound is $K = |U| / 3$.
+][
+  _Construction._ Let the X3C instance have universe $U = {0, dots, 3 q - 1}$ and sets $S_0, dots, S_(n-1)$. Construct an $|U| times n$ matrix $A$ with entries
+  $
+    A_(i,j) = cases(
+      1 "if" i in S_j,
+      0 "otherwise",
+    ).
+  $
+  Let $b in ZZ^|U|$ be the all-ones vector and let $K = q$. The target instance asks whether there exists $x in {0, 1}^n$ with $A x = b$ and $||x||_0 <= K$.
+
+  _Correctness._ ($arrow.r.double$) If $cal(C)' subset.eq {S_0, dots, S_(n-1)}$ is an exact cover, set $x_j = 1$ exactly when $S_j in cal(C)'$. Every element $i in U$ lies in exactly one selected set, so the $i$-th row sum is $1$ and therefore $A x = b$. Because an exact cover of a $3 q$-element universe uses exactly $q$ triples, the vector has $||x||_0 = q <= K$. ($arrow.l.double$) If $x in {0,1}^n$ satisfies $A x = b$ and $||x||_0 <= q$, then every row sum equals $1$, so every universe element lies in exactly one selected set. The selected sets therefore cover exactly $3 ||x||_0$ element-occurrences, but they also cover all $3 q$ universe elements. Hence $3 ||x||_0 = 3 q$, so $||x||_0 = q$, and the selected sets form an exact cover.
+
+  _Solution extraction._ Read the binary vector directly: choose $S_j$ in the source witness iff $x_j = 1$ in the target witness.
 ]
 
 #reduction-rule("NAESatisfiability", "ILP")[

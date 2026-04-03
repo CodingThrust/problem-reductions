@@ -8,6 +8,7 @@
 //! - [`BMF`]: Boolean Matrix Factorization
 //! - [`ConsecutiveBlockMinimization`]: Consecutive Block Minimization
 //! - [`ConsecutiveOnesSubmatrix`]: Consecutive Ones Submatrix (column selection with C1P)
+//! - [`MinimumWeightSolutionToLinearEquations`]: Sparse binary solution to a linear system
 //! - [`QuadraticAssignment`]: Quadratic Assignment Problem
 //! - [`SparseMatrixCompression`]: Sparse Matrix Compression by row overlay
 
@@ -18,6 +19,7 @@ pub(crate) mod consecutive_ones_matrix_augmentation;
 pub(crate) mod consecutive_ones_submatrix;
 pub(crate) mod ilp;
 pub(crate) mod integer_expression_membership;
+pub(crate) mod minimum_weight_solution_to_linear_equations;
 pub(crate) mod quadratic_assignment;
 pub(crate) mod qubo;
 pub(crate) mod sparse_matrix_compression;
@@ -29,6 +31,7 @@ pub use consecutive_ones_matrix_augmentation::ConsecutiveOnesMatrixAugmentation;
 pub use consecutive_ones_submatrix::ConsecutiveOnesSubmatrix;
 pub use ilp::{Comparison, LinearConstraint, ObjectiveSense, VariableDomain, ILP};
 pub use integer_expression_membership::IntegerExpressionMembership;
+pub use minimum_weight_solution_to_linear_equations::MinimumWeightSolutionToLinearEquations;
 pub use quadratic_assignment::QuadraticAssignment;
 pub use qubo::QUBO;
 pub use sparse_matrix_compression::SparseMatrixCompression;
@@ -40,6 +43,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(ilp::canonical_model_example_specs());
     specs.extend(closest_vector_problem::canonical_model_example_specs());
     specs.extend(integer_expression_membership::canonical_model_example_specs());
+    specs.extend(minimum_weight_solution_to_linear_equations::canonical_model_example_specs());
     specs.extend(bmf::canonical_model_example_specs());
     specs.extend(consecutive_block_minimization::canonical_model_example_specs());
     specs.extend(consecutive_ones_matrix_augmentation::canonical_model_example_specs());

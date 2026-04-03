@@ -224,6 +224,7 @@ Flags by problem type:
   NonTautology                    --num-vars, --disjuncts
   KSAT                            --num-vars, --clauses [--k]
   QUBO                            --matrix
+  MinimumWeightSolutionToLinearEquations --matrix, --rhs, --bound
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
   KClique                         --graph, --k
@@ -433,6 +434,9 @@ pub struct CreateArgs {
     /// ConsecutiveBlockMinimization uses a JSON 2D bool array ('[[true,false],[false,true]]')
     #[arg(long)]
     pub matrix: Option<String>,
+    /// Right-hand side vector for linear-equation systems (comma-separated, e.g., "1,0,1")
+    #[arg(long)]
+    pub rhs: Option<String>,
     /// Shared integer parameter (use `pred create <PROBLEM>` for the problem-specific meaning)
     #[arg(long)]
     pub k: Option<usize>,

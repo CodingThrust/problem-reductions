@@ -9,7 +9,8 @@ use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
     ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
-    ConsecutiveOnesSubmatrix, IntegerExpressionMembership, SparseMatrixCompression, BMF,
+    ConsecutiveOnesSubmatrix, IntegerExpressionMembership, MinimumWeightSolutionToLinearEquations,
+    SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -73,6 +74,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.disjuncts.is_none()
         && args.num_vars.is_none()
         && args.matrix.is_none()
+        && args.rhs.is_none()
         && args.k.is_none()
         && args.max_degree.is_none()
         && args.target.is_none()
@@ -518,6 +520,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<Vec<u64>>" => "semicolon-separated rows: \"1,2;1,6;1,7;1,9\"",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<i32>>" => "semicolon-separated terms: \"1,2;-1,3\"",
+        "Vec<Vec<i64>>" => "semicolon-separated rows: \"1,0;0,1\"",
         "Vec<Vec<bool>>" => "JSON 2D bool array: '[[true,false],[false,true]]'",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "usize" => "integer",
@@ -607,6 +610,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
         "IntegerExpressionMembership" => "--choices \"1,2;1,6;1,7;1,9\" --target 15",
+        "MinimumWeightSolutionToLinearEquations" => {
+            "--matrix \"1,0,1;0,1,1\" --rhs \"1,1\" --bound 1"
+        }
         "QuadraticAssignment" => "--matrix \"0,5;5,0\" --distance-matrix \"0,1;1,0\"",
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
@@ -847,6 +853,10 @@ fn help_flag_hint(
             "semicolon-separated 0/1 rows: \"1,0;0,1\""
         }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("MinimumWeightSolutionToLinearEquations", "matrix") => {
+            "semicolon-separated integer rows: \"1,0,1;0,1,1\""
+        }
+        ("MinimumWeightSolutionToLinearEquations", "rhs") => "comma-separated integers: 1,1",
         ("SparseMatrixCompression", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
             "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
@@ -2204,6 +2214,40 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 .map_err(|e| anyhow::anyhow!("Invalid target '{}': {e}", target.trim()))?;
             (
                 ser(IntegerExpressionMembership::new(choices, target))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumWeightSolutionToLinearEquations
+        "MinimumWeightSolutionToLinearEquations" => {
+            let usage = "Usage: pred create MinimumWeightSolutionToLinearEquations --matrix \"1,0,1;0,1,1\" --rhs \"1,1\" --bound 1";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightSolutionToLinearEquations requires --matrix, --rhs, and --bound\n\n{usage}"
+                )
+            })?;
+            let rhs_str = args.rhs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumWeightSolutionToLinearEquations requires --rhs\n\n{usage}")
+            })?;
+            let bound_raw = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightSolutionToLinearEquations requires --bound\n\n{usage}"
+                )
+            })?;
+            let coefficients =
+                parse_i64_matrix(matrix_str).context("Invalid coefficient matrix")?;
+            let rhs: Vec<i64> = util::parse_comma_list(rhs_str)?;
+            let bound = parse_nonnegative_usize_bound(
+                bound_raw,
+                "MinimumWeightSolutionToLinearEquations",
+                usage,
+            )?;
+            (
+                ser(MinimumWeightSolutionToLinearEquations::new(
+                    coefficients,
+                    rhs,
+                    bound,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -7468,6 +7512,7 @@ mod tests {
             disjuncts: None,
             num_vars: None,
             matrix: None,
+            rhs: None,
             k: None,
             max_degree: None,
             random: false,
@@ -8436,6 +8481,68 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("bound >= 1"));
+    }
+
+    #[test]
+    fn test_create_minimum_weight_solution_to_linear_equations_json() {
+        use crate::dispatch::ProblemJsonOutput;
+
+        let mut args = empty_args();
+        args.problem = Some("MinimumWeightSolutionToLinearEquations".to_string());
+        args.matrix = Some("1,0,1;0,1,1".to_string());
+        args.rhs = Some("1,1".to_string());
+        args.bound = Some(1);
+
+        let output_path =
+            std::env::temp_dir().join(format!("mwsle-create-{}.json", std::process::id()));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = std::fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            created.problem_type,
+            "MinimumWeightSolutionToLinearEquations"
+        );
+        assert!(created.variant.is_empty());
+        assert_eq!(
+            created.data,
+            serde_json::json!({
+                "coefficients": [
+                    [1, 0, 1],
+                    [0, 1, 1],
+                ],
+                "rhs": [1, 1],
+                "bound": 1,
+            })
+        );
+
+        let _ = std::fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_minimum_weight_solution_to_linear_equations_requires_rhs() {
+        let mut args = empty_args();
+        args.problem = Some("MinimumWeightSolutionToLinearEquations".to_string());
+        args.matrix = Some("1,0,1;0,1,1".to_string());
+        args.bound = Some(1);
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("MinimumWeightSolutionToLinearEquations requires --rhs"));
+        assert!(err.contains("Usage: pred create MinimumWeightSolutionToLinearEquations"));
     }
 
     #[test]

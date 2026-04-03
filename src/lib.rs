@@ -43,8 +43,9 @@ pub mod variant;
 pub mod prelude {
     // Problem types
     pub use crate::models::algebraic::{
-        ConsecutiveOnesMatrixAugmentation, IntegerExpressionMembership, QuadraticAssignment,
-        SparseMatrixCompression, BMF, QUBO,
+        ConsecutiveOnesMatrixAugmentation, IntegerExpressionMembership,
+        MinimumWeightSolutionToLinearEquations, QuadraticAssignment, SparseMatrixCompression, BMF,
+        QUBO,
     };
     pub use crate::models::formula::{
         CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, NonTautology,
