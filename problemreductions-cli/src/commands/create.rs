@@ -645,6 +645,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "DirectedTwoCommodityIntegralFlow" => {
             "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
         }
+        "Kernel" => "--arcs \"0>1,1>0,0>2,1>2\" --num-vertices 3",
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "MinimumDummyActivitiesPert" => "--arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6",
         "StrongConnectivityAugmentation" => {
@@ -4181,6 +4182,17 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 ser(MinimumFeedbackVertexSet::new(graph, weights))?,
                 resolved_variant.clone(),
             )
+        }
+
+        "Kernel" => {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Kernel requires --arcs\n\n\
+                     Usage: pred create Kernel --arcs \"0>1,1>0,0>2,1>2\" [--num-vertices N]"
+                )
+            })?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            (ser(Kernel::new(graph))?, resolved_variant.clone())
         }
 
         "ConjunctiveQueryFoldability" => {
@@ -7978,6 +7990,38 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("requires the input graph to be a DAG"));
+    }
+
+    #[test]
+    fn test_create_kernel_json() {
+        use crate::dispatch::ProblemJsonOutput;
+        use problemreductions::models::graph::Kernel;
+
+        let mut args = empty_args();
+        args.problem = Some("Kernel".to_string());
+        args.num_vertices = Some(3);
+        args.arcs = Some("0>1,1>0,0>2,1>2".to_string());
+
+        let output_path = temp_output_path("kernel");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "Kernel");
+        assert!(created.variant.is_empty());
+
+        let problem: Kernel = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.num_vertices(), 3);
+        assert_eq!(problem.num_arcs(), 4);
+
+        let _ = fs::remove_file(output_path);
     }
 
     #[test]
