@@ -25,6 +25,7 @@
 //! - [`StackerCrane`]: Route a crane through required arcs within a length bound
 //! - [`SequencingToMinimizeMaximumCumulativeCost`]: Keep every cumulative schedule cost prefix under a bound
 //! - [`SequencingToMinimizeWeightedCompletionTime`]: Minimize total weighted completion time
+//! - [`SequencingToMinimizeTardyTaskWeight`]: Minimize the total weight of tardy tasks
 //! - [`SequencingToMinimizeWeightedTardiness`]: Decide whether a schedule meets a weighted tardiness bound
 //! - [`SequencingWithReleaseTimesAndDeadlines`]: Single-machine scheduling feasibility
 //! - [`SequencingWithinIntervals`]: Schedule tasks within time windows
@@ -59,6 +60,7 @@ mod rectilinear_picture_compression;
 pub(crate) mod resource_constrained_scheduling;
 mod scheduling_with_individual_deadlines;
 mod sequencing_to_minimize_maximum_cumulative_cost;
+mod sequencing_to_minimize_tardy_task_weight;
 mod sequencing_to_minimize_weighted_completion_time;
 mod sequencing_to_minimize_weighted_tardiness;
 mod sequencing_with_release_times_and_deadlines;
@@ -98,6 +100,7 @@ pub use rectilinear_picture_compression::RectilinearPictureCompression;
 pub use resource_constrained_scheduling::ResourceConstrainedScheduling;
 pub use scheduling_with_individual_deadlines::SchedulingWithIndividualDeadlines;
 pub use sequencing_to_minimize_maximum_cumulative_cost::SequencingToMinimizeMaximumCumulativeCost;
+pub use sequencing_to_minimize_tardy_task_weight::SequencingToMinimizeTardyTaskWeight;
 pub use sequencing_to_minimize_weighted_completion_time::SequencingToMinimizeWeightedCompletionTime;
 pub use sequencing_to_minimize_weighted_tardiness::SequencingToMinimizeWeightedTardiness;
 pub use sequencing_with_release_times_and_deadlines::SequencingWithReleaseTimesAndDeadlines;
@@ -138,6 +141,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(partially_ordered_knapsack::canonical_model_example_specs());
     specs.extend(string_to_string_correction::canonical_model_example_specs());
     specs.extend(minimum_tardiness_sequencing::canonical_model_example_specs());
+    specs.extend(sequencing_to_minimize_tardy_task_weight::canonical_model_example_specs());
     specs.extend(sequencing_to_minimize_weighted_completion_time::canonical_model_example_specs());
     specs.extend(sequencing_to_minimize_weighted_tardiness::canonical_model_example_specs());
     specs.extend(additional_key::canonical_model_example_specs());

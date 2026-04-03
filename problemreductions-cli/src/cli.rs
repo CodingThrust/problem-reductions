@@ -313,6 +313,7 @@ Flags by problem type:
   RectilinearPictureCompression   --matrix (0/1), --k
   SchedulingWithIndividualDeadlines --n, --num-processors/--m, --deadlines [--precedence-pairs]
   SequencingToMinimizeMaximumCumulativeCost --costs, --bound [--precedence-pairs]
+  SequencingToMinimizeTardyTaskWeight --lengths, --weights, --deadlines
   SequencingToMinimizeWeightedCompletionTime --lengths, --weights [--precedence-pairs]
   SequencingToMinimizeWeightedTardiness --sizes, --weights, --deadlines, --bound
   SCS                             --strings, --bound [--alphabet-size]

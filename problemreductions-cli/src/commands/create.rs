@@ -27,10 +27,10 @@ use problemreductions::models::misc::{
     LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
     PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
     ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
-    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeWeightedCompletionTime,
-    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection,
-    SubsetProduct, SubsetSum, SumOfSquaresPartition, TimetableDesign,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
+    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
+    StringToStringCorrection, SubsetProduct, SubsetSum, SumOfSquaresPartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -688,6 +688,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "SequencingToMinimizeWeightedTardiness" => {
             "--sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+        }
+        "SequencingToMinimizeTardyTaskWeight" => {
+            "--lengths 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
         }
         "SubsetProduct" => "--values 2,3,5,7 --target 30",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
@@ -3620,6 +3623,52 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     weights,
                     deadlines,
                     bound as u64,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingToMinimizeTardyTaskWeight
+        "SequencingToMinimizeTardyTaskWeight" => {
+            let lengths_str = args.lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeTardyTaskWeight requires --lengths, --weights, and --deadlines\n\n\
+                     Usage: pred create SequencingToMinimizeTardyTaskWeight --lengths 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
+                )
+            })?;
+            let weights_str = args.weights.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeTardyTaskWeight requires --weights\n\n\
+                     Usage: pred create SequencingToMinimizeTardyTaskWeight --lengths 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
+                )
+            })?;
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeTardyTaskWeight requires --deadlines\n\n\
+                     Usage: pred create SequencingToMinimizeTardyTaskWeight --lengths 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
+                )
+            })?;
+
+            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
+            let weights: Vec<u64> = util::parse_comma_list(weights_str)?;
+            let deadlines: Vec<u64> = util::parse_comma_list(deadlines_str)?;
+
+            anyhow::ensure!(
+                lengths.len() == weights.len(),
+                "lengths length ({}) must equal weights length ({})",
+                lengths.len(),
+                weights.len()
+            );
+            anyhow::ensure!(
+                lengths.len() == deadlines.len(),
+                "lengths length ({}) must equal deadlines length ({})",
+                lengths.len(),
+                deadlines.len()
+            );
+
+            (
+                ser(SequencingToMinimizeTardyTaskWeight::new(
+                    lengths, weights, deadlines,
                 ))?,
                 resolved_variant.clone(),
             )
