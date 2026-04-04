@@ -13051,7 +13051,32 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For each source variable $x_i$, compute $x_i = sum_(j=0)^(K_i - 1) w_(i j) y_(i j)$ from the binary solution.
 ]
 
-#reduction-rule("HamiltonianCircuit", "HamiltonianPath")[
+#let hc_hp = load-example("HamiltonianCircuit", "HamiltonianPath")
+#let hc_hp_sol = hc_hp.solutions.at(0)
+#let hc_hp_n = graph-num-vertices(hc_hp.source.instance)
+#let hc_hp_source_edges = hc_hp.source.instance.graph.edges
+#let hc_hp_target_edges = hc_hp.target.instance.graph.edges
+#let hc_hp_target_n = graph-num-vertices(hc_hp.target.instance)
+#reduction-rule("HamiltonianCircuit", "HamiltonianPath",
+  example: true,
+  example-caption: [Cycle $C_#hc_hp_n$ ($n = #hc_hp_n$): split $v_0$ into two copies with pendants],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_hp.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_hp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_hp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical source fixture is the cycle $C_#hc_hp_n$ on vertices ${0, dots, #(hc_hp_n - 1)}$ with #hc_hp_source_edges.len() edges: #hc_hp_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#hc_hp_sol.source_config.map(str).join(", ")]$.\
+
+    *Step 2 -- Construction.* Fix $v_0 = 0$. Its neighbors in the source are ${1, 3}$ ($deg = 2$). Introduce $v' = #hc_hp_n$, $s = #(hc_hp_n + 1)$, $t = #(hc_hp_n + 2)$. The target graph $G'$ has $#hc_hp_target_n = #hc_hp_n + 3$ vertices and #hc_hp_target_edges.len() edges: #hc_hp_target_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The $#(hc_hp_target_edges.len() - hc_hp_source_edges.len())$ new edges are the duplicated adjacencies of $v'$ plus the two pendant edges.\
+
+    *Step 3 -- Verify a solution.* The stored target Hamiltonian-path permutation is $[#hc_hp_sol.target_config.map(str).join(", ")]$, visiting every vertex of $G'$ exactly once. The path starts at pendant $s = #hc_hp_sol.target_config.at(0)$ and ends at pendant $t = #hc_hp_sol.target_config.at(hc_hp_target_n - 1)$. Dropping $s$ at the front and the last two vertices $v', t$ at the back gives $[#hc_hp_sol.target_config.slice(1, hc_hp_target_n - 2).map(str).join(", ")]$, which is the source Hamiltonian circuit $[#hc_hp_sol.source_config.map(str).join(", ")]$.\
+
+    *Multiplicity:* The fixture stores one canonical witness. For $C_#hc_hp_n$ there are $#hc_hp_n times 2 = #(hc_hp_n * 2)$ directed Hamiltonian circuits (choice of start vertex and direction), each yielding a distinct target path.
+  ],
+)[
   To decide whether $G = (V, E)$ contains a Hamiltonian circuit, we split an arbitrary vertex $v_0$ into two copies and attach a private pendant to each copy, forcing any Hamiltonian path in the expanded graph to enter through one pendant, traverse the original circuit, and exit through the other.
 ][
   _Construction._ Let $G = (V, E)$ with $n = |V|$ and $m = |E|$. Fix vertex $v_0 = 0$. Introduce three new vertices: a duplicate $v'$ of $v_0$, a pendant $s$, and a pendant $t$. Form $G' = (V', E')$ where $V' = V union {v', s, t}$, and $E'$ contains (i) every original edge of $E$; (ii) an edge ${v', u}$ for each neighbor $u$ of $v_0$ in $G$; (iii) the pendant edge ${s, v_0}$; and (iv) the pendant edge ${t, v'}$. Thus $|V'| = n + 3$ and $|E'| = m + deg(v_0) + 2$.
