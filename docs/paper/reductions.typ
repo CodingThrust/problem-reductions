@@ -13422,7 +13422,38 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ If $beta(s) = 0$, return $(beta(x_1), dots, beta(x_n))$. If $beta(s) = 1$, return $(1 - beta(x_1), dots, 1 - beta(x_n))$.
 ]
 
-#reduction-rule("KSatisfiability", "MinimumVertexCover")[
+#let ksat_mvc = load-example("KSatisfiability", "MinimumVertexCover")
+#let ksat_mvc_sol = ksat_mvc.solutions.at(0)
+#reduction-rule("KSatisfiability", "MinimumVertexCover",
+  example: true,
+  example-caption: [3-SAT with $n = #ksat_mvc.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_mvc.source.instance)$ clauses],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_mvc.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_mvc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_mvc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The 3-SAT formula has $n = #ksat_mvc.source.instance.num_vars$ variables and $m = #sat-num-clauses(ksat_mvc.source.instance)$ clauses: #{ksat_mvc.source.instance.clauses.enumerate().map(((j, c)) => {
+      let lits = c.literals.map(l => if l > 0 { $x_#l$ } else { $overline(x)_#calc.abs(l)$ })
+      [$c_#j = (#lits.join($or$))$]
+    }).join(", ")}. A satisfying assignment is $(#ksat_mvc_sol.source_config.map(str).join(", "))$, i.e.\ #{range(ksat_mvc.source.instance.num_vars).map(i => {
+      let v = ksat_mvc_sol.source_config.at(i)
+      if v == 1 { $x_#(i+1) = 1$ } else { $x_#(i+1) = 0$ }
+    }).join(", ")}.
+
+    *Step 2 -- Truth-setting edges.* For each variable $x_i$, create vertices $u_i$ (index $2(i-1)$) and $overline(u)_i$ (index $2(i-1)+1$) connected by a truth-setting edge. This gives $2n = #(2 * ksat_mvc.source.instance.num_vars)$ literal vertices and $n = #ksat_mvc.source.instance.num_vars$ edges.
+
+    *Step 3 -- Clause triangles and communication edges.* For each clause $c_j$, create a triangle of 3 vertices at indices $2n + 3j, 2n + 3j + 1, 2n + 3j + 2$, connected by 3 internal edges. Each triangle vertex $t^j_k$ is also connected to its literal vertex by a communication edge (3 per clause). Total: $3m = #(3 * sat-num-clauses(ksat_mvc.source.instance))$ clause vertices, $3m = #(3 * sat-num-clauses(ksat_mvc.source.instance))$ triangle edges, $3m = #(3 * sat-num-clauses(ksat_mvc.source.instance))$ communication edges.
+
+    *Step 4 -- Target graph dimensions.* The resulting graph has $|V| = 2n + 3m = #ksat_mvc.target.instance.graph.num_vertices$ vertices and $|E| = n + 6m = #ksat_mvc.target.instance.graph.edges.len()$ edges, with unit weights.
+
+    *Step 5 -- Verify a solution.* The satisfying assignment $(#ksat_mvc_sol.source_config.map(str).join(", "))$ maps to a vertex cover of size $n + 2m = #(ksat_mvc.source.instance.num_vars + 2 * sat-num-clauses(ksat_mvc.source.instance))$. The target configuration is $(#ksat_mvc_sol.target_config.map(str).join(", "))$: the cover selects #ksat_mvc_sol.target_config.filter(x => x == 1).len() vertices. For each truth-setting edge, exactly one endpoint is in the cover #sym.checkmark. For each clause triangle, exactly two of three vertices are covered #sym.checkmark. Each communication edge has at least one endpoint in the cover #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. Other valid covers correspond to different satisfying assignments of the formula.
+  ],
+)[
   Each variable contributes a truth-setting edge; each clause contributes a satisfaction-testing triangle. The formula is satisfiable iff the graph has a vertex cover of size $n + 2m$.
 ][
   _Construction._ Given 3-CNF $phi$ with $n$ variables and $m$ clauses, construct $G = (V, E)$ with $|V| = 2n + 3m$. For each variable $x_i$: vertices $u_i$ (index $2i$) and $overline(u)_i$ (index $2i+1$) with edge $(u_i, overline(u)_i)$. For each clause $c_j$: triangle vertices $t^j_0, t^j_1, t^j_2$ at indices $2n + 3j, 2n+3j+1, 2n+3j+2$. Communication edges connect each $t^j_k$ to the literal vertex of its $k$-th literal.
@@ -13657,7 +13688,49 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Identify used connector edges and follow the successor map from vertex 0.
 ]
 
-#reduction-rule("MaximumIndependentSet", "IntegralFlowBundles")[
+#let mis_ifb = load-example("MaximumIndependentSet", "IntegralFlowBundles")
+#let mis_ifb_sol = mis_ifb.solutions.at(0)
+#reduction-rule("MaximumIndependentSet", "IntegralFlowBundles",
+  example: true,
+  example-caption: [Path graph $P_#mis_ifb.source.instance.graph.num_vertices$ ($n = #mis_ifb.source.instance.graph.num_vertices$, $|E| = #mis_ifb.source.instance.graph.edges.len()$)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mis_ifb.source) + " -o mis.json",
+      "pred reduce mis.json --to " + target-spec(mis_ifb) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate mis.json --config " + mis_ifb_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let graph = mis_ifb.source.instance.graph
+      let n = graph.num_vertices
+      let verts = range(n).map(k => (k * 1.5, 0))
+      let is-in-set = mis_ifb_sol.source_config.map(c => c > 0)
+      let blue = graph-colors.at(0)
+      align(center, canvas(length: 0.8cm, {
+        import draw: *
+        for (u, v) in graph.edges {
+          g-edge(verts.at(u), verts.at(v))
+        }
+        for (k, pos) in verts.enumerate() {
+          g-node(pos, name: str(k),
+            fill: if is-in-set.at(k) { blue } else { white },
+            label: [$v_#k$])
+        }
+      }))
+    }
+
+    *Step 1 -- Source instance.* The path graph $P_#mis_ifb.source.instance.graph.num_vertices$ has $n = #mis_ifb.source.instance.graph.num_vertices$ vertices and edges ${#mis_ifb.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$, with unit weights $(#mis_ifb.source.instance.weights.map(str).join(", "))$.
+
+    *Step 2 -- Build the flow network.* The reduction creates a directed graph with $#mis_ifb.target.instance.graph.num_vertices$ nodes: source $s = #mis_ifb.target.instance.source$, intermediates $w_0, dots, w_(#(mis_ifb.source.instance.graph.num_vertices - 1))$, and sink $t = #mis_ifb.target.instance.sink$. There are $#mis_ifb.target.instance.graph.arcs.len()$ arcs ($2n = #(2 * mis_ifb.source.instance.graph.num_vertices)$): for each vertex $v_i$, arc $a_i^"in" = (s, w_i)$ at index $2i$ and $a_i^"out" = (w_i, t)$ at index $2i+1$.
+
+    *Step 3 -- Create bundles.* There are $#mis_ifb.target.instance.bundles.len()$ bundles total. For each original edge ${v_i, v_j} in E$, an edge bundle ${a_i^"out", a_j^"out"}$ with capacity 1 enforces that at most one endpoint is selected (#mis_ifb.source.instance.graph.edges.len() edge bundles). For each vertex $v_i$, a vertex bundle ${a_i^"in", a_i^"out"}$ with capacity 2 links the in/out arcs (#mis_ifb.source.instance.graph.num_vertices vertex bundles). Bundle capacities: $(#mis_ifb.target.instance.bundle_capacities.map(str).join(", "))$. Flow requirement $R = #mis_ifb.target.instance.requirement$.
+
+    *Step 4 -- Verify a solution.* The canonical IS selects vertices ${#mis_ifb_sol.source_config.enumerate().filter(((i, x)) => x > 0).map(((i, x)) => $v_#i$).join(", ")}$ (config $(#mis_ifb_sol.source_config.map(str).join(", "))$). Each selected vertex $v_i$ contributes flow 1 on arcs $a_i^"in"$ and $a_i^"out"$, giving target config $(#mis_ifb_sol.target_config.map(str).join(", "))$. The total flow equals the IS size (#mis_ifb_sol.source_config.fold(0, (a, b) => a + b)). Every edge bundle is satisfied because no two adjacent vertices are both selected, and vertex bundles are satisfied with capacity 2 $>=$ individual flow of 1.
+
+    *Multiplicity:* The fixture stores one canonical witness. The path $P_#mis_ifb.source.instance.graph.num_vertices$ admits larger independent sets (e.g., ${v_0, v_2}$ or ${v_0, v_3}$), but the canonical witness suffices to demonstrate the reduction.
+  ],
+)[
   Each vertex $v_i$ maps to a flow unit through an intermediate node; edge-bundle constraints cap combined outflow of adjacent pairs at 1, so feasible flow of value $k$ exists iff an independent set of size $>= k$ exists.
 ][
   _Construction._ Directed graph on $n + 2$ nodes: source $s$, intermediates $w_0, dots, w_(n-1)$, sink $t$. Arcs $a_i^"in" = (s, w_i)$ (index $2i$) and $a_i^"out" = (w_i, t)$ (index $2i+1$). Edge bundles ${a_i^"out", a_j^"out"}$ with capacity 1 for each ${v_i, v_j} in E$. Vertex bundles ${a_i^"in", a_i^"out"}$ with capacity 2. Flow requirement $R = 1$.
