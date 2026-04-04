@@ -220,9 +220,11 @@ Flags by problem type:
   LongestPath                     --graph, --edge-lengths, --source-vertex, --target-vertex
   HamiltonianPathBetweenTwoVertices --graph, --source-vertex, --target-vertex
   ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --weight-bound
+  GraphPartitioning               --graph, --num-partitions
   MaximalIS                       --graph, --weights
   SAT, NAESAT                     --num-vars, --clauses
   KSAT                            --num-vars, --clauses [--k]
+  NonTautology                    --num-vars, --disjuncts
   QUBO                            --matrix
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
@@ -370,6 +372,7 @@ Examples:
   pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 --example-side target
   pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
+  pred create NonTautology --num-vars 3 --disjuncts \"1,2,3;-1,-2,-3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
   pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12
   pred create ProductionPlanning --num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-bound 80
@@ -474,6 +477,9 @@ pub struct CreateArgs {
     /// Clauses for SAT problems (semicolon-separated, e.g., "1,2;-1,3")
     #[arg(long)]
     pub clauses: Option<String>,
+    /// Disjuncts for NonTautology (semicolon-separated, e.g., "1,2;-1,3")
+    #[arg(long)]
+    pub disjuncts: Option<String>,
     /// Number of variables (for SAT/KSAT)
     #[arg(long)]
     pub num_vars: Option<usize>,
@@ -484,6 +490,9 @@ pub struct CreateArgs {
     /// Shared integer parameter (use `pred create <PROBLEM>` for the problem-specific meaning)
     #[arg(long)]
     pub k: Option<usize>,
+    /// Number of partitions for GraphPartitioning (currently must be 2)
+    #[arg(long)]
+    pub num_partitions: Option<usize>,
     /// Generate a random instance (graph-based problems only)
     #[arg(long)]
     pub random: bool,

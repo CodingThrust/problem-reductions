@@ -114,6 +114,13 @@ fn test_graphpartitioning_unbalanced_invalid() {
 }
 
 #[test]
+fn test_graphpartitioning_rejects_non_binary_configs() {
+    let problem = issue_example();
+
+    assert_eq!(problem.evaluate(&[0, 0, 1, 1, 1, 2]), Min(None));
+}
+
+#[test]
 fn test_graphpartitioning_size_getters() {
     let problem = issue_example();
     assert_eq!(problem.num_vertices(), 6);

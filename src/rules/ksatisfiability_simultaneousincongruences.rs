@@ -6,6 +6,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::models::algebraic::simultaneous_incongruences::MAX_LCM;
 use crate::models::algebraic::SimultaneousIncongruences;
 use crate::models::formula::{ksat::first_n_odd_primes, CNFClause, KSatisfiability};
 use crate::reduction;
@@ -128,6 +129,24 @@ fn clause_bad_residue(clause: &CNFClause, variable_primes: &[u64]) -> (u64, u64)
     crt_residue(&congruences)
 }
 
+fn ensure_prime_product_within_lcm_cap(variable_primes: &[u64]) {
+    let mut product = 1u128;
+    for &prime in variable_primes {
+        product = product.checked_mul(prime as u128).unwrap_or_else(|| {
+            panic!(
+                "3-SAT -> SimultaneousIncongruences requires the variable-prime product to fit within the target model's LCM cap ({MAX_LCM}); num_vars={} overflows while multiplying primes",
+                variable_primes.len()
+            )
+        });
+        if product > MAX_LCM {
+            panic!(
+                "3-SAT -> SimultaneousIncongruences requires the variable-prime product to fit within the target model's LCM cap ({MAX_LCM}); num_vars={} yields prime product {product}",
+                variable_primes.len()
+            );
+        }
+    }
+}
+
 #[reduction(overhead = {
     num_pairs = "simultaneous_incongruences_num_incongruences",
 })]
@@ -136,6 +155,7 @@ impl ReduceTo<SimultaneousIncongruences> for KSatisfiability<K3> {
 
     fn reduce_to(&self) -> Self::Result {
         let variable_primes = first_n_odd_primes(self.num_vars());
+        ensure_prime_product_within_lcm_cap(&variable_primes);
 
         let mut pairs = Vec::new();
 

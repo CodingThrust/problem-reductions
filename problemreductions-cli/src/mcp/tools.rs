@@ -406,20 +406,8 @@ impl McpServer {
                 if edge_lengths.iter().any(|&length| length <= 0) {
                     anyhow::bail!("LongestCircuit edge lengths must be positive (> 0)");
                 }
-                let bound = params
-                    .get("bound")
-                    .and_then(|v| v.as_i64())
-                    .ok_or_else(|| anyhow::anyhow!("LongestCircuit requires 'bound'"))?;
-                let bound = i32::try_from(bound)
-                    .map_err(|_| anyhow::anyhow!("LongestCircuit bound must fit in i32"))?;
-                if bound <= 0 {
-                    anyhow::bail!("LongestCircuit bound must be positive (> 0)");
-                }
                 let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                (
-                    ser(LongestCircuit::new(graph, edge_lengths, bound))?,
-                    variant,
-                )
+                (ser(LongestCircuit::new(graph, edge_lengths))?, variant)
             }
 
             "KColoring" => {
@@ -635,20 +623,8 @@ impl McpServer {
                 }
                 let graph = util::create_random_graph(num_vertices, edge_prob, seed);
                 let edge_lengths = vec![1i32; graph.num_edges()];
-                let bound = params
-                    .get("bound")
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(num_vertices.max(3) as i64);
-                let bound = i32::try_from(bound)
-                    .map_err(|_| anyhow::anyhow!("LongestCircuit bound must fit in i32"))?;
-                if bound <= 0 {
-                    anyhow::bail!("LongestCircuit bound must be positive (> 0)");
-                }
                 let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                (
-                    ser(LongestCircuit::new(graph, edge_lengths, bound))?,
-                    variant,
-                )
+                (ser(LongestCircuit::new(graph, edge_lengths))?, variant)
             }
             "SpinGlass" => {
                 let edge_prob = params
@@ -1596,4 +1572,30 @@ fn solve_bundle_inner(bundle: ReductionBundle, solver_name: &str) -> anyhow::Res
         },
     });
     Ok(serde_json::to_string_pretty(&json)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::McpServer;
+    use crate::dispatch::ProblemJsonOutput;
+    use problemreductions::models::formula::NonTautology;
+
+    #[test]
+    fn test_create_problem_inner_nontautology_uses_disjuncts() {
+        let server = McpServer::new();
+        let output = server
+            .create_problem_inner(
+                "NonTautology",
+                &serde_json::json!({
+                    "num_vars": 3,
+                    "disjuncts": "1,2,3;-1,-2,-3",
+                }),
+            )
+            .unwrap();
+
+        let created: ProblemJsonOutput = serde_json::from_str(&output).unwrap();
+        assert_eq!(created.problem_type, "NonTautology");
+        let problem: NonTautology = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.disjuncts(), &[vec![1, 2, 3], vec![-1, -2, -3]]);
+    }
 }

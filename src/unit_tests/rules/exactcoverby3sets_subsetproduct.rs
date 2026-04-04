@@ -38,3 +38,17 @@ fn test_exactcoverby3sets_to_subsetproduct_extract_solution_is_identity() {
 
     assert_eq!(reduction.extract_solution(&[1, 0, 1]), vec![1, 0, 1]);
 }
+
+#[test]
+fn test_exactcoverby3sets_to_subsetproduct_supports_large_universe() {
+    let source = ExactCoverBy3Sets::new(18, vec![[0, 1, 2], [15, 16, 17]]);
+    let reduction = ReduceTo::<SubsetProduct>::reduce_to(&source);
+    let target = reduction.target_problem();
+
+    let expected_sizes: Vec<BigUint> = vec![30u64, 190_747u64]
+        .into_iter()
+        .map(BigUint::from)
+        .collect();
+    assert_eq!(target.sizes(), &expected_sizes[..]);
+    assert!(target.target() > &BigUint::from(u64::MAX));
+}

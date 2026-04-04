@@ -5,12 +5,13 @@
 //! primes. Unique factorization then makes exact covers correspond exactly to
 //! subsets whose product matches the target.
 
+use crate::models::formula::ksat::first_n_odd_primes;
 use crate::models::misc::SubsetProduct;
 use crate::models::set::ExactCoverBy3Sets;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-
-const FIRST_PRIMES: [u64; 15] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
+use num_bigint::BigUint;
+use num_traits::One;
 
 #[derive(Debug, Clone)]
 pub struct ReductionX3CToSubsetProduct {
@@ -30,24 +31,26 @@ impl ReductionResult for ReductionX3CToSubsetProduct {
     }
 }
 
-fn checked_product<I>(values: I, what: &str) -> u64
+fn product_biguint<I>(values: I) -> BigUint
 where
     I: IntoIterator<Item = u64>,
 {
-    values.into_iter().fold(1u64, |product, value| {
-        product.checked_mul(value).unwrap_or_else(|| {
-            panic!("ExactCoverBy3Sets -> SubsetProduct requires {what} to fit in u64")
-        })
+    values.into_iter().fold(BigUint::one(), |product, value| {
+        product * BigUint::from(value)
     })
 }
 
-fn assigned_primes(universe_size: usize) -> &'static [u64] {
-    assert!(
-        universe_size <= FIRST_PRIMES.len(),
-        "ExactCoverBy3Sets -> SubsetProduct requires the target product to fit in u64; universe_size={universe_size} exceeds the supported limit {}",
-        FIRST_PRIMES.len()
-    );
-    &FIRST_PRIMES[..universe_size]
+fn assigned_primes(universe_size: usize) -> Vec<u64> {
+    match universe_size {
+        0 => Vec::new(),
+        1 => vec![2],
+        _ => {
+            let mut primes = Vec::with_capacity(universe_size);
+            primes.push(2);
+            primes.extend(first_n_odd_primes(universe_size - 1));
+            primes
+        }
+    }
 }
 
 #[reduction(overhead = {
@@ -61,9 +64,9 @@ impl ReduceTo<SubsetProduct> for ExactCoverBy3Sets {
         let values = self
             .sets()
             .iter()
-            .map(|set| checked_product(set.iter().map(|&element| primes[element]), "set value"))
+            .map(|set| product_biguint(set.iter().map(|&element| primes[element])))
             .collect();
-        let target = checked_product(primes.iter().copied(), "target product");
+        let target = product_biguint(primes.iter().copied());
 
         ReductionX3CToSubsetProduct {
             target: SubsetProduct::new(values, target),

@@ -80,3 +80,11 @@ fn test_ksatisfiability_to_simultaneous_incongruences_tautological_clause_is_red
 
     assert!(source.evaluate(&extracted));
 }
+
+#[test]
+#[should_panic(expected = "3-SAT -> SimultaneousIncongruences requires the variable-prime product")]
+fn test_ksatisfiability_to_simultaneous_incongruences_rejects_large_instances() {
+    let source = KSatisfiability::<K3>::new(7, vec![CNFClause::new(vec![1, 2, 3])]);
+
+    let _ = ReduceTo::<SimultaneousIncongruences>::reduce_to(&source);
+}

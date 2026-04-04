@@ -107,6 +107,9 @@ where
         if config.len() != n {
             return Min(None);
         }
+        if config.iter().any(|&part| part >= 2) {
+            return Min(None);
+        }
         // Balanced bisection requires even n
         if !n.is_multiple_of(2) {
             return Min(None);
