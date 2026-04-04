@@ -11657,6 +11657,39 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 // Scheduling
 
+#let tp_fss = load-example("ThreePartition", "FlowShopScheduling")
+#let tp_fss_sol = tp_fss.solutions.at(0)
+#reduction-rule("ThreePartition", "FlowShopScheduling",
+  example: true,
+  example-caption: [$3m = #tp_fss.source.instance.sizes.len()$ elements, $B = #tp_fss.source.instance.bound$, $m = #(tp_fss.source.instance.sizes.len() / 3)$ groups, deadline $D = #tp_fss.target.instance.deadline$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tp_fss.source) + " -o threepartition.json",
+      "pred reduce threepartition.json --to " + target-spec(tp_fss) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate threepartition.json --config " + tp_fss_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical 3-Partition instance has $3m = #tp_fss.source.instance.sizes.len()$ elements with sizes $(#tp_fss.source.instance.sizes.map(str).join(", "))$ and bound $B = #tp_fss.source.instance.bound$. A valid partition splits them into $m = #(tp_fss.source.instance.sizes.len() / 3)$ groups of 3 elements, each summing to $B$.
+
+    *Step 2 -- Construct element and separator jobs.* The reduction creates #tp_fss.source.instance.sizes.len() element jobs, one per element $a_i$, each with task lengths $(a_i, a_i, a_i)$ on the #tp_fss.target.instance.num_processors machines. It also creates $m - 1 = #(tp_fss.source.instance.sizes.len() / 3 - 1)$ separator jobs with task lengths $(0, L, 0)$ where $L = m B + 1 = #(tp_fss.source.instance.sizes.len() / 3) dot #tp_fss.source.instance.bound + 1 = #(tp_fss.source.instance.sizes.len() / 3 * tp_fss.source.instance.bound + 1)$. The target has $3m + (m-1) = #tp_fss.target.instance.task_lengths.len()$ jobs in total with deadline $D = #tp_fss.target.instance.deadline$.
+
+    *Step 3 -- Separator jobs create $m$ windows of width $B$.* The large machine-2 task of length $L = #(tp_fss.source.instance.sizes.len() / 3 * tp_fss.source.instance.bound + 1)$ on each separator job forces any feasible schedule to place separators between groups of element jobs on machine 2. This partitions the machine-2 timeline into $m = #(tp_fss.source.instance.sizes.len() / 3)$ windows, each of width $B = #tp_fss.source.instance.bound$. Since each element job has equal task lengths on all 3 machines, the same grouping structure is imposed across all machines.
+
+    *Step 4 -- Verify a solution.* The canonical witness assigns elements to groups $(#tp_fss_sol.source_config.map(str).join(", "))$, i.e.\ elements $\{0, 1, 2\}$ to group 0 and $\{3, 4, 5\}$ to group 1. Group 0 sums: $#tp_fss.source.instance.sizes.at(0) + #tp_fss.source.instance.sizes.at(1) + #tp_fss.source.instance.sizes.at(2) = #(tp_fss.source.instance.sizes.at(0) + tp_fss.source.instance.sizes.at(1) + tp_fss.source.instance.sizes.at(2)) = B$ #sym.checkmark. Group 1 sums: $#tp_fss.source.instance.sizes.at(3) + #tp_fss.source.instance.sizes.at(4) + #tp_fss.source.instance.sizes.at(5) = #(tp_fss.source.instance.sizes.at(3) + tp_fss.source.instance.sizes.at(4) + tp_fss.source.instance.sizes.at(5)) = B$ #sym.checkmark. The target Lehmer code is $(#tp_fss_sol.target_config.map(str).join(", "))$, encoding the job order where elements of group 0 come first, then the separator, then elements of group 1. The resulting makespan $<= D = #tp_fss.target.instance.deadline$ #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. Other valid partitions may exist (e.g., swapping elements of equal size between groups), but one witness suffices to demonstrate the reduction.
+  ],
+)[
+  On 3 machines, $m-1$ separator jobs with large machine-2 tasks force element jobs into $m$ windows of width $B$. Size constraints ensure 3 elements per window.
+][
+  _Construction._ Given $(S, B)$ with $|S| = 3m$ and $L = m B + 1$. Element jobs: task lengths $(a_i, a_i, a_i)$ on machines 1, 2, 3. Separator jobs ($m-1$): task lengths $(0, L, 0)$. Deadline $D$ computed from canonical schedule.
+
+  _Correctness._ ($arrow.r.double$) A valid 3-partition interleaves element groups with separators, meeting the deadline. ($arrow.l.double$) Separators on machine 2 create $m$ windows of capacity $B$; element tasks fill exactly; size constraints give 3 per window.
+
+  _Solution extraction._ Decode Lehmer code; walk job sequence incrementing group at each separator.
+]
+
 #reduction-rule("FlowShopScheduling", "ILP")[
   Order the jobs with pairwise precedence bits and completion-time variables on every machine; the deadline becomes a makespan bound.
 ][
