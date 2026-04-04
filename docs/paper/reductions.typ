@@ -13091,7 +13091,28 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The mapping $c[i]$ (graph vertex assigned to tree vertex $i$) is the Hamiltonian path vertex ordering directly.
 ]
 
-#reduction-rule("HamiltonianCircuit", "BottleneckTravelingSalesman")[
+#let hc_btsp = load-example("HamiltonianCircuit", "BottleneckTravelingSalesman")
+#let hc_btsp_sol = hc_btsp.solutions.at(0)
+#reduction-rule("HamiltonianCircuit", "BottleneckTravelingSalesman",
+  example: true,
+  example-caption: [$n = #graph-num-vertices(hc_btsp.source.instance)$ vertices, $|E| = #graph-num-edges(hc_btsp.source.instance)$ edges: HC $arrow.r$ BTSP],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_btsp.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_btsp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_btsp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical HC instance is a graph with $n = #graph-num-vertices(hc_btsp.source.instance)$ vertices and $|E| = #graph-num-edges(hc_btsp.source.instance)$ edges.
+
+    *Step 2 -- Construction.* Build the complete graph $K_#graph-num-vertices(hc_btsp.target.instance)$ with #graph-num-edges(hc_btsp.target.instance) edges. Each original edge gets weight 1 and each non-edge gets weight 2. The target edge weights are $(#hc_btsp.target.instance.edge_weights.map(str).join(", "))$, where the #hc_btsp.target.instance.edge_weights.filter(w => w == 1).len() entries equal to 1 correspond to the $|E| = #graph-num-edges(hc_btsp.source.instance)$ source edges and the #hc_btsp.target.instance.edge_weights.filter(w => w == 2).len() entries equal to 2 correspond to the non-edges.
+
+    *Step 3 -- Verify a solution.* The source tour visits vertices in order $(#hc_btsp_sol.source_config.map(str).join(", "))$. In the target, the selected edges are those with indicator 1 in $(#hc_btsp_sol.target_config.map(str).join(", "))$, all of which have weight 1, giving bottleneck cost $= 1$ #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. The $#graph-num-vertices(hc_btsp.source.instance)$-cycle has $#graph-num-vertices(hc_btsp.source.instance)$ rotations $times$ 2 reflections $= #(2 * graph-num-vertices(hc_btsp.source.instance))$ Hamiltonian circuits in total.
+  ],
+)[
   Construct a complete weighted graph with weight 1 on edges of $G$ and weight 2 on non-edges. A Hamiltonian tour of bottleneck cost 1 exists iff $G$ has a Hamiltonian circuit.
 ][
   _Construction._ Let $G = (V, E)$ with $n = |V|$. Build $K_n$ with $w(u, v) = 1$ if ${u,v} in E$, else $w(u, v) = 2$.
@@ -13191,7 +13212,32 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Follow unique successors from vertex 0 to recover the Hamiltonian permutation.
 ]
 
-#reduction-rule("HamiltonianCircuit", "StackerCrane")[
+#let hc_sc = load-example("HamiltonianCircuit", "StackerCrane")
+#let hc_sc_sol = hc_sc.solutions.at(0)
+#let hc_sc_n = graph-num-vertices(hc_sc.source.instance)
+#let hc_sc_source_edges = hc_sc.source.instance.graph.edges
+#let hc_sc_target_arcs = hc_sc.target.instance.arcs
+#let hc_sc_target_edges = hc_sc.target.instance.edges
+#reduction-rule("HamiltonianCircuit", "StackerCrane",
+  example: true,
+  example-caption: [Cycle $C_#hc_sc_n$ ($n = #hc_sc_n$): vertex splitting to Stacker Crane],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_sc.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_sc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_sc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical source fixture is the cycle $C_#hc_sc_n$ on vertices ${0, dots, #(hc_sc_n - 1)}$ with #hc_sc_source_edges.len() edges: #hc_sc_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#hc_sc_sol.source_config.map(str).join(", ")]$.\
+
+    *Step 2 -- Construction.* Each vertex $v_i$ splits into $v_i^"in" = 2i$ and $v_i^"out" = 2i + 1$, giving $2 dot #hc_sc_n = #hc_sc.target.instance.num_vertices$ vertices. The reduction creates #hc_sc_target_arcs.len() mandatory arcs: #hc_sc_target_arcs.map(a => $(#a.at(0) arrow #a.at(1))$).join(", "), each of length 1. For each source edge, two undirected connector edges of length 1 are added, giving $2 dot #hc_sc_source_edges.len() = #hc_sc_target_edges.len()$ connector edges: #hc_sc_target_edges.map(e => ${#e.at(0), #e.at(1)}$).join(", ").\
+
+    *Step 3 -- Verify a solution.* The stored target configuration $[#hc_sc_sol.target_config.map(str).join(", ")]$ is a permutation of arcs. Following this order: arc #hc_sc_sol.target_config.at(0) serves $(#hc_sc_target_arcs.at(hc_sc_sol.target_config.at(0)).at(0) arrow #hc_sc_target_arcs.at(hc_sc_sol.target_config.at(0)).at(1))$, then a connector edge leads to the next arc, and so on. The tour traverses $#hc_sc_target_arcs.len()$ arcs (cost $#hc_sc_target_arcs.len()$) and $#hc_sc_target_arcs.len()$ connector edges (cost $#hc_sc_target_arcs.len()$), for total cost $2 dot #hc_sc_n = #(hc_sc_n * 2)$. Recovering the source witness: arc $i$ corresponds to vertex $i$, so the permutation $[#hc_sc_sol.source_config.map(str).join(", ")]$ is the Hamiltonian circuit #sym.checkmark\
+
+    *Multiplicity:* The fixture stores one canonical witness. For $C_#hc_sc_n$ there are $#hc_sc_n times 2 = #(hc_sc_n * 2)$ directed Hamiltonian circuits (choice of start vertex and direction), each yielding a distinct arc-service permutation.
+  ],
+)[
   Each vertex $v_i$ splits into $(v_i^"in", v_i^"out")$ with a mandatory directed arc of length 1. Undirected connector edges of length 1 encode original graph edges. A tour of cost $2n$ exists iff a Hamiltonian circuit exists.
 ][
   _Construction._ Given $G = (V, E)$ with $n = |V|$. Create $2n$ vertices: $v_i^"in" = 2i$, $v_i^"out" = 2i + 1$. Add $n$ mandatory arcs $(v_i^"in", v_i^"out")$ of length 1. For each ${v_i, v_j} in E$: connector edges $(v_i^"out", v_j^"in")$ and $(v_j^"out", v_i^"in")$ of length 1.
