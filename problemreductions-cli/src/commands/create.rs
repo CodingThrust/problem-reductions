@@ -26,7 +26,7 @@ use problemreductions::models::misc::{
     ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
     ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping, KnownValue,
     LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
-    OpenShopScheduling, PaintShop, PartiallyOrderedKnapsack, QueryArg,
+    OpenShopScheduling, PaintShop, PartiallyOrderedKnapsack, ProductionPlanning, QueryArg,
     RectilinearPictureCompression, ResourceConstrainedScheduling,
     SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
     SequencingToMinimizeTardyTaskWeight, SequencingToMinimizeWeightedCompletionTime,
@@ -60,6 +60,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.edge_weights.is_none()
         && args.edge_lengths.is_none()
         && args.capacities.is_none()
+        && args.demands.is_none()
         && args.bundle_capacities.is_none()
         && args.cost_matrix.is_none()
         && args.delay_matrix.is_none()
@@ -137,6 +138,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.strings.is_none()
         && args.string.is_none()
         && args.costs.is_none()
+        && args.setup_costs.is_none()
+        && args.production_costs.is_none()
+        && args.inventory_costs.is_none()
         && args.arc_costs.is_none()
         && args.arcs.is_none()
         && args.homologous_pairs.is_none()
@@ -641,6 +645,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "Factoring" => "--target 15 --m 4 --n 4",
         "CapacityAssignment" => {
             "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12"
+        }
+        "ProductionPlanning" => {
+            "--demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --bound 80"
         }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
         "OpenShopScheduling" => {
@@ -2467,6 +2474,89 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     resolved_variant.clone(),
                 )
             }
+        }
+
+        "ProductionPlanning" => {
+            let usage = "Usage: pred create ProductionPlanning --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --bound 80";
+            let demands_str = args.demands.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("ProductionPlanning requires --demands\n\n{usage}")
+            })?;
+            let capacities_str = args.capacities.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("ProductionPlanning requires --capacities\n\n{usage}")
+            })?;
+            let setup_costs_str = args.setup_costs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("ProductionPlanning requires --setup-costs\n\n{usage}")
+            })?;
+            let production_costs_str = args.production_costs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("ProductionPlanning requires --production-costs\n\n{usage}")
+            })?;
+            let inventory_costs_str = args.inventory_costs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("ProductionPlanning requires --inventory-costs\n\n{usage}")
+            })?;
+            let bound = args
+                .bound
+                .ok_or_else(|| anyhow::anyhow!("ProductionPlanning requires --bound\n\n{usage}"))?;
+            let bound = u64::try_from(bound).map_err(|_| {
+                anyhow::anyhow!("ProductionPlanning requires nonnegative --bound\n\n{usage}")
+            })?;
+
+            let demands: Vec<u64> = util::parse_comma_list(demands_str)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities: Vec<u64> = util::parse_comma_list(capacities_str)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let setup_costs: Vec<u64> = util::parse_comma_list(setup_costs_str)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let production_costs: Vec<u64> = util::parse_comma_list(production_costs_str)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let inventory_costs: Vec<u64> = util::parse_comma_list(inventory_costs_str)
+                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+
+            let num_periods = demands.len();
+            if num_periods == 0 {
+                bail!("ProductionPlanning requires at least one period\n\n{usage}");
+            }
+            for (field_name, len) in [
+                ("capacities", capacities.len()),
+                ("setup-costs", setup_costs.len()),
+                ("production-costs", production_costs.len()),
+                ("inventory-costs", inventory_costs.len()),
+            ] {
+                if len != num_periods {
+                    bail!(
+                        "ProductionPlanning requires {} values for --{} but got {}\n\n{}",
+                        num_periods,
+                        field_name,
+                        len,
+                        usage
+                    );
+                }
+            }
+            for (period, &capacity) in capacities.iter().enumerate() {
+                let fits = usize::try_from(capacity)
+                    .ok()
+                    .and_then(|value| value.checked_add(1))
+                    .is_some();
+                if !fits {
+                    bail!(
+                        "capacity {} at period {} is too large for this platform\n\n{}",
+                        capacity,
+                        period,
+                        usage
+                    );
+                }
+            }
+
+            (
+                ser(ProductionPlanning::new(
+                    demands,
+                    capacities,
+                    setup_costs,
+                    production_costs,
+                    inventory_costs,
+                    bound,
+                ))?,
+                resolved_variant.clone(),
+            )
         }
 
         // AdditionalKey
@@ -7724,6 +7814,7 @@ mod tests {
             edge_weights: None,
             edge_lengths: None,
             capacities: None,
+            demands: None,
             bundle_capacities: None,
             cost_matrix: None,
             delay_matrix: None,
@@ -7799,6 +7890,9 @@ mod tests {
             pattern: None,
             strings: None,
             string: None,
+            setup_costs: None,
+            production_costs: None,
+            inventory_costs: None,
             arc_costs: None,
             arcs: None,
             values: None,

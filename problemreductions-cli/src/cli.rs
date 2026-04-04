@@ -253,6 +253,7 @@ Flags by problem type:
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
   CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --cost-budget, --delay-budget
+  ProductionPlanning             --demands, --capacities, --setup-costs, --production-costs, --inventory-costs, --bound
   IntegerExpressionMembership     --choices, --target
   SubsetProduct                   --values, --target
   SubsetSum                       --sizes, --target
@@ -390,6 +391,9 @@ pub struct CreateArgs {
     /// Capacities (edge capacities for flow problems, capacity levels for CapacityAssignment)
     #[arg(long)]
     pub capacities: Option<String>,
+    /// Per-period demands for ProductionPlanning (comma-separated, e.g., "5,3,7,2,8,5")
+    #[arg(long)]
+    pub demands: Option<String>,
     /// Bundle capacities for IntegralFlowBundles (e.g., 1,1,1)
     #[arg(long)]
     pub bundle_capacities: Option<String>,
@@ -619,6 +623,15 @@ pub struct CreateArgs {
     /// Task costs for SequencingToMinimizeMaximumCumulativeCost (comma-separated, e.g., "2,-1,3,-2,1,-3")
     #[arg(long, allow_hyphen_values = true)]
     pub costs: Option<String>,
+    /// Per-period set-up costs for ProductionPlanning (comma-separated, e.g., "10,10,10,10,10,10")
+    #[arg(long)]
+    pub setup_costs: Option<String>,
+    /// Per-period unit production costs for ProductionPlanning (comma-separated, e.g., "1,1,1,1,1,1")
+    #[arg(long)]
+    pub production_costs: Option<String>,
+    /// Per-period inventory holding costs for ProductionPlanning (comma-separated, e.g., "1,1,1,1,1,1")
+    #[arg(long)]
+    pub inventory_costs: Option<String>,
     /// Arc costs for directed graph problems with per-arc costs (comma-separated, e.g., "1,1,2,3")
     #[arg(long)]
     pub arc_costs: Option<String>,

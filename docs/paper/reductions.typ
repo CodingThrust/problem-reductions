@@ -151,6 +151,7 @@
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "SubsetSum": [Subset Sum],
   "Partition": [Partition],
+  "ProductionPlanning": [Production Planning],
   "PartialFeedbackEdgeSet": [Partial Feedback Edge Set],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
@@ -5541,6 +5542,57 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #{
+  let x = load-model-example("ProductionPlanning")
+  let n = x.instance.demands.len()
+  let plan = x.optimal_config
+  let inventory = {
+    let running = 0
+    let result = ()
+    for i in range(n) {
+      running += plan.at(i) - x.instance.demands.at(i)
+      result.push(running)
+    }
+    result
+  }
+  let prod_cost = range(n).fold(0, (acc, i) => acc + x.instance.production_costs.at(i) * plan.at(i))
+  let inv_cost = range(n).fold(0, (acc, i) => acc + x.instance.inventory_costs.at(i) * inventory.at(i))
+  let setup_cost = range(n).fold(0, (acc, i) => acc + if plan.at(i) > 0 { x.instance.setup_costs.at(i) } else { 0 })
+  let total_cost = prod_cost + inv_cost + setup_cost
+  [
+    #problem-def("ProductionPlanning")[
+      Given a number $n in ZZ^+$ of periods and, for each period $i in {1, dots, n}$, a demand $r_i in ZZ_(>= 0)$, a production capacity $c_i in ZZ_(>= 0)$, a set-up cost $b_i in ZZ_(>= 0)$, a unit production cost $p_i in ZZ_(>= 0)$, an inventory holding cost $h_i in ZZ_(>= 0)$, and an overall bound $B in ZZ_(>= 0)$, determine whether there exist production amounts $x_i in ZZ_(>= 0)$ such that $x_i <= c_i$ for all $i$, the cumulative inventories $I_i = sum_(j=1)^i (x_j - r_j)$ satisfy $I_i >= 0$ for all $i$, and
+      $ sum_(i=1)^n (p_i x_i + h_i I_i) + sum_(x_i > 0) b_i <= B. $
+    ][
+      Production Planning is the lot-sizing feasibility problem SS21 in Garey & Johnson @garey1979. The book notes pseudo-polynomial dynamic programming when the numeric parameters are small, while the direct witness encoding used in this repository has the brute-force baseline $O^*(product_i (c_i + 1))$. The model captures the central lot-sizing trade-off: producing early can save future set-ups but increases holding cost, whereas postponing production risks infeasible inventory deficits.
+
+      *Example.* The canonical instance has $n = #n$ periods, demands $(#x.instance.demands.map(str).join(", "))$, capacities $(#x.instance.capacities.map(str).join(", "))$, set-up costs $(#x.instance.setup_costs.map(str).join(", "))$, production costs $(#x.instance.production_costs.map(str).join(", "))$, inventory costs $(#x.instance.inventory_costs.map(str).join(", "))$, and bound $B = #x.instance.bound$. The witness $bold(x) = (#plan.map(str).join(", "))$ yields inventories $(#inventory.map(str).join(", "))$, so every prefix remains nonnegative and the terminal inventory is zero. Its production cost is $#prod_cost$, holding cost is $#inv_cost$, and set-up cost is $#setup_cost$, for total cost $#total_cost <= #x.instance.bound$; hence the instance is feasible.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o production-planning.json",
+        "pred solve production-planning.json --solver brute-force",
+        "pred evaluate production-planning.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        table(
+          columns: n + 1,
+          inset: 4pt,
+          align: center,
+          table.header([], ..range(n).map(i => [$#(i + 1)$])),
+          [$r_i$], ..x.instance.demands.map(v => [#v]),
+          [$c_i$], ..x.instance.capacities.map(v => [#v]),
+          [$b_i$], ..x.instance.setup_costs.map(v => [#v]),
+          [$x_i$], ..plan.map(v => [#v]),
+          [$I_i$], ..inventory.map(v => [#v]),
+        )
+      },
+      caption: [Canonical Production Planning instance. The witness produces in periods 1, 3, and 5, carries inventory across zero-production periods, and finishes with total cost $#total_cost$ within the bound $B = #x.instance.bound$.],
+      ) <fig:production-planning>
+    ]
+  ]
+}
+
+#{
   let x = load-model-example("PrecedenceConstrainedScheduling")
   let n = x.instance.num_tasks
   let m = x.instance.num_processors
@@ -7356,6 +7408,72 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Solution extraction._ Return the same binary selection vector on the original elements: item $i$ is selected in the knapsack witness if and only if element $i$ belongs to the extracted partition subset.
 ]
+
+#{
+  let part_pp = load-example("Partition", "ProductionPlanning")
+  let part_pp_sol = part_pp.solutions.at(0)
+  let sizes = part_pp.source.instance.sizes
+  let n = sizes.len()
+  let total = sizes.fold(0, (a, b) => a + b)
+  let terminal_demand = part_pp.target.instance.demands.at(n)
+  let bound = part_pp.target.instance.bound
+  let selected = part_pp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => i)
+  let selected_sizes = selected.map(i => sizes.at(i))
+  let inventory = {
+    let running = 0
+    let result = ()
+    for i in range(n + 1) {
+      running += part_pp_sol.target_config.at(i) - part_pp.target.instance.demands.at(i)
+      result.push(running)
+    }
+    result
+  }
+  [
+    #reduction-rule("Partition", "ProductionPlanning",
+      example: true,
+      example-caption: [#n elements, total sum $S = #total$],
+      extra: [
+        #pred-commands(
+          "pred create --example " + problem-spec(part_pp.source) + " -o partition.json",
+          "pred reduce partition.json --to " + target-spec(part_pp) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate partition.json --config " + part_pp_sol.source_config.map(str).join(","),
+        )
+
+        *Step 1 -- Source instance.* The canonical Partition multiset is $(#sizes.map(str).join(", "))$ with total sum $S = #total$, so a balanced side must sum to $S/2 = #bound$.
+
+        *Step 2 -- Build the Production Planning instance.* Create one item period per element plus one terminal period. The item periods have zero demand, capacities $(#part_pp.target.instance.capacities.slice(0, n).map(str).join(", "))$, matching set-up costs $(#part_pp.target.instance.setup_costs.slice(0, n).map(str).join(", "))$, and zero running costs. The terminal period has demand $#terminal_demand$ and zero capacity, and the global bound is $B = #bound$.
+
+        *Step 3 -- Verify the canonical witness.* The stored target witness is $bold(x) = (#part_pp_sol.target_config.map(str).join(", "))$, which produces only in periods $\{#selected.map(i => str(i + 1)).join(", ")\}$ with quantities $(#selected_sizes.map(str).join(", "))$. Its inventory trajectory is $(#inventory.map(str).join(", "))$, so the terminal demand is met exactly. The set-up cost equals $#selected_sizes.map(str).join(" + ") = #bound$, matching the target bound.
+
+        *Step 4 -- Extract a partition witness.* Mark every item period with positive production. This yields the Partition vector $bold(y) = (#part_pp_sol.source_config.map(str).join(", "))$, selecting sizes $(#selected_sizes.map(str).join(", "))$ with sum $#bound$.
+      ],
+    )[
+      This linear-time reduction follows the lot-sizing NP-completeness construction cited in Garey & Johnson @garey1979. It adds one terminal demand period and uses set-up costs to force each item period either to produce nothing or its full capacity, so the only size overhead is `num_periods = num_elements + 1`.
+    ][
+      _Construction._ Given a Partition instance with sizes $a_0, dots, a_(n-1)$ and total sum $S = sum_i a_i$, create a Production Planning instance with $n + 1$ periods. For each item period $i < n$, set
+      $ r_i = 0, quad c_i = a_i, quad b_i = a_i, quad p_i = 0, quad h_i = 0. $
+      For the terminal period $n$, set
+      $ r_n = ceil(S / 2), quad c_n = 0, quad b_n = 0, quad p_n = 0, quad h_n = 0. $
+      Finally set the cost bound to
+      $ B = floor(S / 2). $
+
+      _Correctness._ ($arrow.r.double$) If the Partition instance has a balanced subset $X subset.eq {0, dots, n-1}$ with $sum_(i in X) a_i = S / 2$, then necessarily $S$ is even. Define the production plan by setting $x_i = a_i$ for $i in X$, $x_i = 0$ for $i notin X$, and $x_n = 0$. Every item-period inventory is the cumulative selected sum, so inventories stay nonnegative; the terminal demand consumes exactly $S / 2$ units, leaving final inventory zero. Because all running costs vanish, the total cost is the sum of set-up costs on the active periods:
+      $ sum_(x_i > 0) b_i = sum_(i in X) a_i = S / 2 = B, $
+      so the target instance is feasible.
+
+      ($arrow.l.double$) Conversely, suppose the constructed Production Planning instance is feasible with production vector $bold(x)$. The terminal demand requires
+      $ sum_(i=0)^(n-1) x_i >= ceil(S / 2). $
+      Since $x_i <= a_i$ for each item period and all running costs are zero, feasibility also gives
+      $ sum_(i=0)^(n-1) x_i <= sum_(x_i > 0) a_i = sum_(x_i > 0) b_i <= B = floor(S / 2). $
+      Hence feasibility is impossible when $S$ is odd. When $S$ is even, the inequalities force
+      $ sum_i x_i = sum_(x_i > 0) a_i = S / 2. $
+      The equality $sum_i x_i = sum_(x_i > 0) a_i$ can hold only if every active period produces at full capacity, i.e. $x_i in {0, a_i}$ for all $i < n$. Therefore the active item periods define a subset summing to $S / 2$, yielding a valid Partition witness.
+
+      _Solution extraction._ Output a binary vector on the original $n$ elements by writing 1 exactly for item periods with positive production and 0 otherwise; ignore the terminal period.
+    ]
+  ]
+}
 
 #let ks_qubo = load-example("Knapsack", "QUBO")
 #let ks_qubo_sol = ks_qubo.solutions.at(0)
