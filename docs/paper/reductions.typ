@@ -13249,11 +13249,18 @@ The following table shows concrete variable overhead for example instances, take
       "pred evaluate naesat.json --config " + nae_ss_sol.source_config.map(str).join(","),
     )
 
-    *Step 1 -- Source instance.* NAE-SAT with $n = #nae_ss.source.instance.num_vars$ variables and $m = #sat-num-clauses(nae_ss.source.instance)$ clauses.
+    #{
+      let colors = nae_ss_sol.target_config
+      [
+        *Step 1 -- Source instance.* The fixture has clauses $C_1 = (x_1 or overline(x_2) or x_3)$ and $C_2 = (overline(x_1) or x_2 or overline(x_3))$. The canonical NAE assignment is $(#nae_ss_sol.source_config.map(str).join(", "))$, so the two clauses evaluate to $(1, 0, 1)$ and $(0, 1, 0)$ respectively.
 
-    *Step 2 -- Construct Set Splitting instance.* Universe $|U| = #nae_ss.target.instance.universe_size = 2n$. Total subsets: #nae_ss.target.instance.subsets.len() ($n$ complementarity + $m$ clause subsets).
+        *Step 2 -- Build the universe and complementarity subsets.* The reduction creates $U = {0, dots, #(nae_ss.target.instance.universe_size - 1)}$ with positive literals on $\{0, 1, 2\}$ and negative literals on $\{3, 4, 5\}$. The first three target subsets are $R_1 = {#nae_ss.target.instance.subsets.at(0).map(str).join(", ")}$, $R_2 = {#nae_ss.target.instance.subsets.at(1).map(str).join(", ")}$, and $R_3 = {#nae_ss.target.instance.subsets.at(2).map(str).join(", ")}$.
 
-    *Step 3 -- Verify a solution.* Source NAE-assignment $(#nae_ss_sol.source_config.map(str).join(", "))$. Target 2-coloring $(#nae_ss_sol.target_config.map(str).join(", "))$: complementarity subsets are non-monochromatic, clause subsets are non-monochromatic #sym.checkmark.
+        *Step 3 -- Encode the clauses as set-splitting constraints.* Clause $C_1$ becomes $T_1 = {#nae_ss.target.instance.subsets.at(3).map(str).join(", ")}$, and clause $C_2$ becomes $T_2 = {#nae_ss.target.instance.subsets.at(4).map(str).join(", ")}$. Under the target coloring $(#colors.map(str).join(", "))$, $T_1$ receives colors $(#colors.at(0), #colors.at(4), #colors.at(2))$ and $T_2$ receives $(#colors.at(3), #colors.at(1), #colors.at(5))$, so both subsets are non-monochromatic.
+
+        *Step 4 -- Verify the witness pair.* Every complementarity pair has opposite colors: $(0, 3)$ gives $(#colors.at(0), #colors.at(3))$, $(1, 4)$ gives $(#colors.at(1), #colors.at(4))$, and $(2, 5)$ gives $(#colors.at(2), #colors.at(5))$. Reading the positive-literal colors $(#colors.at(0), #colors.at(1), #colors.at(2))$ recovers the source assignment $(#nae_ss_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+      ]
+    }
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
@@ -13281,11 +13288,18 @@ The following table shows concrete variable overhead for example instances, take
       "pred evaluate x3c.json --config " + x3c_sp_sol.source_config.map(str).join(","),
     )
 
-    *Step 1 -- Source instance.* X3C with $|U| = #x3c_sp.source.instance.universe_size$ and $|cal(C)| = #x3c_sp.source.instance.subsets.len()$ subsets.
+    #{
+      let sizes = x3c_sp.target.instance.sizes
+      [
+        *Step 1 -- Source instance.* The fixture has $U = {0, dots, #(x3c_sp.source.instance.universe_size - 1)}$ and three 3-sets: $C_0 = {#x3c_sp.source.instance.subsets.at(0).map(str).join(", ")}$, $C_1 = {#x3c_sp.source.instance.subsets.at(1).map(str).join(", ")}$, and $C_2 = {#x3c_sp.source.instance.subsets.at(2).map(str).join(", ")}$. The witness $(#x3c_sp_sol.source_config.map(str).join(", "))$ selects $C_0$ and $C_1$.
 
-    *Step 2 -- Assign primes and compute products.* Target Subset Product sizes: $(#x3c_sp.target.instance.sizes.join(", "))$, target product $B = #x3c_sp.target.instance.target$.
+        *Step 2 -- Recover the prime assignment from the concrete products.* The target numbers are $s_0 = #sizes.at(0) = 2 dot 3 dot 5$, $s_1 = #sizes.at(1) = 7 dot 11 dot 13$, and $s_2 = #sizes.at(2) = 2 dot 7 dot 11$. Thus the six universe elements are concretely labeled by the primes $(2, 3, 5, 7, 11, 13)$.
 
-    *Step 3 -- Verify a solution.* Source config $(#x3c_sp_sol.source_config.map(str).join(", "))$: selected subsets form an exact cover. Target config $(#x3c_sp_sol.target_config.map(str).join(", "))$: selected products multiply to $B$ #sym.checkmark.
+        *Step 3 -- Form the Subset Product instance.* The target product is $B = #x3c_sp.target.instance.target = 2 dot 3 dot 5 dot 7 dot 11 dot 13$. Selecting the first two source subsets therefore means selecting target numbers $(#sizes.at(0), #sizes.at(1))$.
+
+        *Step 4 -- Verify the witness pair.* The selected sets $C_0$ and $C_1$ are disjoint and cover all six elements exactly once, and on the target side $#sizes.at(0) dot #sizes.at(1) = #x3c_sp.target.instance.target$ while $#sizes.at(2)$ is omitted. Because the configuration is unchanged, the target witness $(#x3c_sp_sol.target_config.map(str).join(", "))$ extracts back to the same exact cover #sym.checkmark.
+      ]
+    }
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
@@ -13313,11 +13327,18 @@ The following table shows concrete variable overhead for example instances, take
       "pred evaluate subsetsum.json --config " + ss_iem_sol.source_config.map(str).join(","),
     )
 
-    *Step 1 -- Source instance.* Subset Sum with sizes $(#ss_iem.source.instance.sizes.join(", "))$ and target $B = #ss_iem.source.instance.target$.
+    #{
+      let sizes = ss_iem.source.instance.sizes
+      [
+        *Step 1 -- Source instance.* The Subset Sum fixture has sizes $(#sizes.join(", "))$ and target $B = #ss_iem.source.instance.target$. The canonical source configuration $(#ss_iem_sol.source_config.map(str).join(", "))$ selects the second and third items, so the source sum is $5 + 6 = #ss_iem.source.instance.target$.
 
-    *Step 2 -- Construct expression.* Each element $s_i$ becomes a union node $(1 union (s_i + 1))$, chained via Minkowski sum. Target $K = B + n = #ss_iem.target.instance.target$.
+        *Step 2 -- Build the choice sets inside the expression.* Each source item contributes one union node $(1 union (s_i + 1))$, so the concrete choices are $(1 union 2)$, $(1 union 6)$, $(1 union 7)$, and $(1 union 9)$. With $n = #ss_iem_sol.target_config.len()$ union nodes, the target is shifted to $K = B + n = #ss_iem.target.instance.target$.
 
-    *Step 3 -- Verify a solution.* Source config $(#ss_iem_sol.source_config.map(str).join(", "))$: selected elements sum to $B$. Target config $(#ss_iem_sol.target_config.map(str).join(", "))$ encodes the same selection (right branch = include) #sym.checkmark.
+        *Step 3 -- Follow the canonical branch choices.* The target configuration $(#ss_iem_sol.target_config.map(str).join(", "))$ means left, right, right, left, so the chosen branch values are $1$, $6$, $7$, and $1$.
+
+        *Step 4 -- Verify the equality.* The target-side sum is $1 + 6 + 7 + 1 = #ss_iem.target.instance.target$, exactly matching $K$. The right branches occur in the same two positions as the chosen source elements, so extracting the target witness returns the original Subset Sum solution #sym.checkmark.
+      ]
+    }
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
@@ -13345,11 +13366,20 @@ The following table shows concrete variable overhead for example instances, take
       "pred evaluate x3c.json --config " + x3c_mwle_sol.source_config.map(str).join(","),
     )
 
-    *Step 1 -- Source instance.* X3C with $|U| = #x3c_mwle.source.instance.universe_size$ and $|cal(C)| = #x3c_mwle.source.instance.subsets.len()$ subsets, $q = #(x3c_mwle.source.instance.universe_size / 3)$.
+    #{
+      let rows = x3c_mwle.target.instance.matrix
+      let y = x3c_mwle_sol.target_config
+      let q = x3c_mwle.source.instance.universe_size / 3
+      [
+        *Step 1 -- Source instance.* The X3C fixture has subsets $C_0 = {#x3c_mwle.source.instance.subsets.at(0).map(str).join(", ")}$, $C_1 = {#x3c_mwle.source.instance.subsets.at(1).map(str).join(", ")}$, and $C_2 = {#x3c_mwle.source.instance.subsets.at(2).map(str).join(", ")}$ over a universe of size $#x3c_mwle.source.instance.universe_size$, so $q = #q$.
 
-    *Step 2 -- Construct linear system.* Incidence matrix $A$ has #x3c_mwle.target.instance.matrix.len() rows and #x3c_mwle.target.instance.matrix.at(0).len() columns. Right-hand side $b = (#x3c_mwle.target.instance.rhs.map(str).join(", "))$, weight bound $K = q = #(x3c_mwle.source.instance.universe_size / 3)$.
+        *Step 2 -- Build the incidence matrix.* The three columns correspond to $C_0$, $C_1$, and $C_2$. The six rows are $r_0 = (#rows.at(0).map(str).join(", "))$, $r_1 = (#rows.at(1).map(str).join(", "))$, $r_2 = (#rows.at(2).map(str).join(", "))$, $r_3 = (#rows.at(3).map(str).join(", "))$, $r_4 = (#rows.at(4).map(str).join(", "))$, and $r_5 = (#rows.at(5).map(str).join(", "))$, with right-hand side $b = (#x3c_mwle.target.instance.rhs.map(str).join(", "))$.
 
-    *Step 3 -- Verify a solution.* Source config $(#x3c_mwle_sol.source_config.map(str).join(", "))$: selected subsets form an exact cover. Target config $(#x3c_mwle_sol.target_config.map(str).join(", "))$: weight $= #x3c_mwle_sol.target_config.filter(x => x != 0).len() <= K$ #sym.checkmark.
+        *Step 3 -- Check the linear equations on the witness.* With $y = (#y.map(str).join(", "))$, the row products are $r_0 dot y = 1$, $r_1 dot y = 1$, $r_2 dot y = 1$, $r_3 dot y = 1$, $r_4 dot y = 1$, and $r_5 dot y = 1$. Hence $A y = b$ for the stored target witness.
+
+        *Step 4 -- Check weight and extraction.* The vector $y$ has #y.filter(x => x != 0).len() nonzero entries, exactly the required $q = #q$. Those two nonzero positions select $C_0$ and $C_1$, so the target witness encodes the same exact cover as the source configuration $(#x3c_mwle_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+      ]
+    }
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
@@ -13377,11 +13407,19 @@ The following table shows concrete variable overhead for example instances, take
       "pred evaluate ksat.json --config " + ksat_si_sol.source_config.map(str).join(","),
     )
 
-    *Step 1 -- Source instance.* 3-SAT with $n = #ksat_si.source.instance.num_vars$ variables and $m = #sat-num-clauses(ksat_si.source.instance)$ clauses.
+    #{
+      let pairs = ksat_si.target.instance.pairs
+      let x = ksat_si_sol.target_config.at(0)
+      [
+        *Step 1 -- Source instance.* The two clauses are $C_1 = (x_1 or x_2 or x_2)$ and $C_2 = (overline(x_1) or x_2 or x_2)$. The canonical satisfying assignment is $(#ksat_si_sol.source_config.map(str).join(", "))$.
 
-    *Step 2 -- Construct incongruences.* Each variable gets a prime $>= 5$. Total: #ksat_si.target.instance.pairs.len() forbidden $(a, b)$ pairs.
+        *Step 2 -- Assign primes and variable residue constraints.* With two variables, the reduction uses primes $3$ and $5$. The variable-generated forbidden pairs are $(#pairs.at(0).at(0), #pairs.at(0).at(1))$, $(#pairs.at(1).at(0), #pairs.at(1).at(1))$, $(#pairs.at(2).at(0), #pairs.at(2).at(1))$, and $(#pairs.at(3).at(0), #pairs.at(3).at(1))$, leaving only residues $1$ and $2$ modulo $3$ and modulo $5$.
 
-    *Step 3 -- Verify a solution.* Source config $(#ksat_si_sol.source_config.map(str).join(", "))$ satisfies all clauses. Target: integer $x = #ksat_si_sol.target_config.at(0)$ avoids all #ksat_si.target.instance.pairs.len() forbidden residue classes #sym.checkmark.
+        *Step 3 -- Encode the clauses by CRT.* Clause $C_1$ is false only when $(x_1, x_2) = (0, 0)$, i.e.\ residues $(2 mod 3, 2 mod 5)$, which yields the forbidden pair $(#pairs.at(4).at(0), #pairs.at(4).at(1))$. Clause $C_2$ is false only when $(x_1, x_2) = (1, 0)$, i.e.\ residues $(1 mod 3, 2 mod 5)$, which yields $(#pairs.at(5).at(0), #pairs.at(5).at(1))$.
+
+        *Step 4 -- Verify the target witness.* The stored integer is $x = #x$. It satisfies $x equiv 1 mod 3$ and $x equiv 1 mod 5$, so it decodes to the source assignment $(1, 1)$. It also avoids all six forbidden classes: $1 not equiv 0 mod 3$, $1 not equiv 0, 3, 4 mod 5$, and $1 not equiv 2, 7 mod 15$ #sym.checkmark.
+      ]
+    }
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
@@ -13409,11 +13447,33 @@ The following table shows concrete variable overhead for example instances, take
       "pred evaluate partition.json --config " + part_stw_sol.source_config.map(str).join(","),
     )
 
-    *Step 1 -- Source instance.* Partition with sizes $(#part_stw.source.instance.sizes.map(str).join(", "))$, total $= #part_stw.source.instance.sizes.sum()$, half $= #(part_stw.source.instance.sizes.sum() / 2)$.
+    #{
+      let lengths = part_stw.target.instance.lengths
+      let weights = part_stw.target.instance.weights
+      let deadline = part_stw.target.instance.deadlines.at(0)
+      let on-time-sum = part_stw_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => part_stw.source.instance.sizes.at(i)).sum()
+      let tardy-sum = part_stw_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => part_stw.source.instance.sizes.at(i)).sum()
+      [
+        *Step 1 -- Source instance.* The Partition fixture has sizes $(#part_stw.source.instance.sizes.map(str).join(", "))$ with total $#part_stw.source.instance.sizes.sum()$, so the target deadline is $T = #deadline$. The canonical source vector $(#part_stw_sol.source_config.map(str).join(", "))$ splits the multiset into sums $#on-time-sum$ and $#tardy-sum$.
 
-    *Step 2 -- Construct scheduling instance.* #part_stw.target.instance.lengths.len() tasks, common deadline $= #part_stw.target.instance.deadlines.at(0)$, weights $= (#part_stw.target.instance.weights.map(str).join(", "))$.
+        *Step 2 -- Build the task table.* #table(
+          columns: (auto, auto, auto, auto),
+          inset: 4pt,
+          align: left,
+          table.header([*task*], [*$l_j$*], [*$w_j$*], [*$d_j$*]),
+          [$t_0$], [#lengths.at(0)], [#weights.at(0)], [#deadline],
+          [$t_1$], [#lengths.at(1)], [#weights.at(1)], [#deadline],
+          [$t_2$], [#lengths.at(2)], [#weights.at(2)], [#deadline],
+          [$t_3$], [#lengths.at(3)], [#weights.at(3)], [#deadline],
+          [$t_4$], [#lengths.at(4)], [#weights.at(4)], [#deadline],
+          [$t_5$], [#lengths.at(5)], [#weights.at(5)], [#deadline],
+        )
 
-    *Step 3 -- Verify a solution.* Source partition $(#part_stw_sol.source_config.map(str).join(", "))$: side-0 sum $= #{part_stw_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => part_stw.source.instance.sizes.at(i)).sum()}$, side-1 sum $= #{part_stw_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => part_stw.source.instance.sizes.at(i)).sum()}$ -- balanced #sym.checkmark.
+        *Step 3 -- Follow the canonical schedule.* The target permutation $(#part_stw_sol.target_config.map(str).join(", "))$ schedules tasks in the order $t_1, t_2, t_4, t_5, t_0, t_3$. The completion times are $1, 2, 4, 5, 8, 10$, so $t_1, t_2, t_4, t_5$ are on time and $t_0, t_3$ are tardy.
+
+        *Step 4 -- Compute tardy weight and recover the partition.* Because weights equal lengths here, the tardy weight is $w_0 + w_3 = 3 + 2 = #deadline$, and the on-time tasks have total size $#on-time-sum$ while the tardy tasks have total size #tardy-sum. Extracting the schedule therefore returns the balanced partition $(#part_stw_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+      ]
+    }
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
@@ -13441,11 +13501,30 @@ The following table shows concrete variable overhead for example instances, take
       "pred evaluate partition.json --config " + part_oss_sol.source_config.map(str).join(","),
     )
 
-    *Step 1 -- Source instance.* Partition with sizes $(#part_oss.source.instance.sizes.map(str).join(", "))$, total $S = #part_oss.source.instance.sizes.sum()$, $Q = S\/2 = #(part_oss.source.instance.sizes.sum() / 2)$.
+    #{
+      let q = part_oss.source.instance.sizes.sum() / 2
+      let p = part_oss.target.instance.processing_times
+      let left-sum = part_oss_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => part_oss.source.instance.sizes.at(i)).sum()
+      let right-sum = part_oss_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => part_oss.source.instance.sizes.at(i)).sum()
+      [
+        *Step 1 -- Source instance.* The Partition fixture has sizes $(#part_oss.source.instance.sizes.map(str).join(", "))$, total $#part_oss.source.instance.sizes.sum()$, and half-sum $Q = #q$. The canonical source vector $(#part_oss_sol.source_config.map(str).join(", "))$ gives subset sums $#left-sum$ and $#right-sum$.
 
-    *Step 2 -- Construct open-shop instance.* #part_oss.target.instance.processing_times.len() jobs on $m = #part_oss.target.instance.num_machines$ machines. The special job has processing time $Q = #(part_oss.source.instance.sizes.sum() / 2)$ per machine. Deadline $D = 3Q = #(3 * part_oss.source.instance.sizes.sum() / 2)$.
+        *Step 2 -- Build the open-shop job table.* #table(
+          columns: (auto, auto, auto, auto),
+          inset: 4pt,
+          align: left,
+          table.header([*job*], [*$p_{j,1}$*], [*$p_{j,2}$*], [*$p_{j,3}$*]),
+          [$J_0$], [#p.at(0).at(0)], [#p.at(0).at(1)], [#p.at(0).at(2)],
+          [$J_1$], [#p.at(1).at(0)], [#p.at(1).at(1)], [#p.at(1).at(2)],
+          [$J_2$], [#p.at(2).at(0)], [#p.at(2).at(1)], [#p.at(2).at(2)],
+          [$J_3$], [#p.at(3).at(0)], [#p.at(3).at(1)], [#p.at(3).at(2)],
+        ) The first three jobs come from the partition elements, and the special job $J_3$ has processing time $Q = #q$ on every machine.
 
-    *Step 3 -- Verify a solution.* Source partition $(#part_oss_sol.source_config.map(str).join(", "))$: side-0 sum $= #{part_oss_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => part_oss.source.instance.sizes.at(i)).sum()}$, side-1 sum $= #{part_oss_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => part_oss.source.instance.sizes.at(i)).sum()}$ -- balanced #sym.checkmark.
+        *Step 3 -- Decode the canonical machine orders.* The target configuration $(#part_oss_sol.target_config.map(str).join(", "))$ splits into $M_1 = (0, 1, 2, 3)$, $M_2 = (0, 1, 2, 3)$, and $M_3 = (2, 3, 0, 1)$. On machine $M_3$, job $J_2$ occupies $[0, 3)$ and the special job $J_3$ starts exactly at time $Q = 3$, so the prefix before the special job contains precisely job $J_2$.
+
+        *Step 4 -- Verify extraction and makespan.* Because only $J_2$ finishes on $M_3$ by time $Q$, the extracted source vector is $(#part_oss_sol.source_config.map(str).join(", "))$, i.e.\ subset sum #right-sum versus #left-sum. Evaluating the stored machine orders gives a concrete makespan of $12$, so the `load-example()` fixture shows both the machine assignment and the middle-machine split used for extraction #sym.checkmark.
+      ]
+    }
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
@@ -13550,11 +13629,22 @@ The following table shows concrete variable overhead for example instances, take
       "pred evaluate x3c.json --config " + x3c_gf2_sol.source_config.map(str).join(","),
     )
 
-    *Step 1 -- Source instance.* X3C with $|U| = #x3c_gf2.source.instance.universe_size$ elements and $|cal(C)| = #x3c_gf2.source.instance.subsets.len()$ subsets.
+    #{
+      let x = x3c_gf2_sol.target_config
+      [
+        *Step 1 -- Source instance.* The X3C fixture uses subsets $C_0 = {#x3c_gf2.source.instance.subsets.at(0).map(str).join(", ")}$, $C_1 = {#x3c_gf2.source.instance.subsets.at(1).map(str).join(", ")}$, and $C_2 = {#x3c_gf2.source.instance.subsets.at(2).map(str).join(", ")}$ over a universe of size $#x3c_gf2.source.instance.universe_size$.
 
-    *Step 2 -- Construct polynomial system.* #x3c_gf2.target.instance.num_variables variables, #x3c_gf2.target.instance.equations.len() polynomial equations over GF(2).
+        *Step 2 -- Build the GF(2) system.* The target has $#x3c_gf2.target.instance.num_variables$ variables and #x3c_gf2.target.instance.equations.len() equations. Grouping the JSON equations by element gives:
+        for element 0, $x_0 + x_2 + 1 = 0$ and $x_0 x_2 = 0$;
+        for elements 1 and 2, $x_0 + 1 = 0$;
+        for elements 3 and 4, $x_1 + x_2 + 1 = 0$ and $x_1 x_2 = 0$;
+        for element 5, $x_1 + 1 = 0$.
 
-    *Step 3 -- Verify a solution.* Source config $(#x3c_gf2_sol.source_config.map(str).join(", "))$: selected subsets form an exact cover. Target config $(#x3c_gf2_sol.target_config.map(str).join(", "))$: all equations satisfied over GF(2) #sym.checkmark.
+        *Step 3 -- Evaluate the canonical target witness.* The target assignment is $x = (#x.map(str).join(", ")) = (1, 1, 0)$. Substituting gives $1 + 0 + 1 = 0$ mod 2, $1 dot 0 = 0$, and $1 + 1 = 0$ mod 2, which are exactly the three polynomial patterns appearing in the fixture.
+
+        *Step 4 -- Verify the witness pair.* The two 1-entries in $x$ select $C_0$ and $C_1$, while $x_2 = 0$ omits $C_2$. Thus the target witness encodes the same exact cover as the source configuration $(#x3c_gf2_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+      ]
+    }
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
@@ -13582,11 +13672,31 @@ The following table shows concrete variable overhead for example instances, take
       "pred evaluate partition.json --config " + part_pp_sol.source_config.map(str).join(","),
     )
 
-    *Step 1 -- Source instance.* Partition with sizes $(#part_pp.source.instance.sizes.map(str).join(", "))$, total $S = #part_pp.source.instance.sizes.sum()$, $Q = S\/2 = #(part_pp.source.instance.sizes.sum() / 2)$.
+    #{
+      let left-sum = part_pp_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => part_pp.source.instance.sizes.at(i)).sum()
+      let right-sum = part_pp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => part_pp.source.instance.sizes.at(i)).sum()
+      let prod = part_pp_sol.target_config
+      [
+        *Step 1 -- Source instance.* The Partition fixture has sizes $(#part_pp.source.instance.sizes.map(str).join(", "))$ with total $#part_pp.source.instance.sizes.sum()$, so $Q = #(part_pp.source.instance.sizes.sum() / 2)$. The canonical source vector $(#part_pp_sol.source_config.map(str).join(", "))$ splits the instance into sums $#left-sum$ and $#right-sum$.
 
-    *Step 2 -- Construct production planning instance.* #part_pp.target.instance.num_periods periods. Element periods have capacities $(#part_pp.target.instance.capacities.map(str).join(", "))$ and setup costs $(#part_pp.target.instance.setup_costs.map(str).join(", "))$. Demand $= (#part_pp.target.instance.demands.map(str).join(", "))$, cost bound $B = #part_pp.target.instance.cost_bound$.
+        *Step 2 -- Build the period table.* #table(
+          columns: (auto, auto, auto, auto, auto),
+          inset: 4pt,
+          align: left,
+          table.header([*period*], [*$c_t$*], [*$b_t$*], [*$r_t$*], [*$x_t$*]),
+          [$P_0$], [#part_pp.target.instance.capacities.at(0)], [#part_pp.target.instance.setup_costs.at(0)], [#part_pp.target.instance.demands.at(0)], [#prod.at(0)],
+          [$P_1$], [#part_pp.target.instance.capacities.at(1)], [#part_pp.target.instance.setup_costs.at(1)], [#part_pp.target.instance.demands.at(1)], [#prod.at(1)],
+          [$P_2$], [#part_pp.target.instance.capacities.at(2)], [#part_pp.target.instance.setup_costs.at(2)], [#part_pp.target.instance.demands.at(2)], [#prod.at(2)],
+          [$P_3$], [#part_pp.target.instance.capacities.at(3)], [#part_pp.target.instance.setup_costs.at(3)], [#part_pp.target.instance.demands.at(3)], [#prod.at(3)],
+          [$P_4$], [#part_pp.target.instance.capacities.at(4)], [#part_pp.target.instance.setup_costs.at(4)], [#part_pp.target.instance.demands.at(4)], [#prod.at(4)],
+          [$P_5$], [#part_pp.target.instance.capacities.at(5)], [#part_pp.target.instance.setup_costs.at(5)], [#part_pp.target.instance.demands.at(5)], [#prod.at(5)],
+        ) The first five periods encode the partition elements, and the last period carries the demand of $10$ units.
 
-    *Step 3 -- Verify a solution.* Source partition $(#part_pp_sol.source_config.map(str).join(", "))$: side-0 sum $= #{part_pp_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => part_pp.source.instance.sizes.at(i)).sum()}$, side-1 sum $= #{part_pp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => part_pp.source.instance.sizes.at(i)).sum()}$ -- balanced #sym.checkmark. Target production amounts $(#part_pp_sol.target_config.map(str).join(", "))$ meet demand at cost $<= B$ #sym.checkmark.
+        *Step 3 -- Track cumulative production and inventory.* The stored plan $(#prod.map(str).join(", "))$ gives cumulative production $0, 0, 0, 4, 10, 10$ against cumulative demand $0, 0, 0, 0, 0, 10$. Hence the inventory levels are $0, 0, 0, 4, 10, 0$, so every prefix remains feasible.
+
+        *Step 4 -- Check the cost and recover the partition.* Only periods $P_3$ and $P_4$ are active, so the total cost is just the setup cost $4 + 6 = #part_pp.target.instance.cost_bound$; production and inventory costs are all zero in the fixture. The active periods therefore recover the source vector $(#part_pp_sol.source_config.map(str).join(", "))$, selecting the subset of size #right-sum #sym.checkmark.
+      ]
+    }
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
