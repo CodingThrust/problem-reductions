@@ -13172,22 +13172,35 @@ The following table shows concrete variable overhead for example instances, take
       "pred evaluate ksat.json --config " + ksat_ker_sol.source_config.map(str).join(","),
     )
 
-    *Step 1 -- Source instance.* 3-SAT with $n = #ksat_ker.source.instance.num_vars$ variables and $m = #sat-num-clauses(ksat_ker.source.instance)$ clauses.
+    #{
+      let n = ksat_ker.source.instance.num_vars
+      let m = sat-num-clauses(ksat_ker.source.instance)
+      let selected = ksat_ker_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let literal-selected = selected.filter(v => v < 2 * n)
+      let clause-selected = selected.filter(v => v >= 2 * n)
+      let second-clause-base = 2 * n + 3
+      let last-literal-vertex = literal-selected.at(literal-selected.len() - 1)
+      [
+        *Step 1 -- Source instance.* 3-SAT with $n = #n$ variables and $m = #m$ clauses. The canonical satisfying assignment is $(#ksat_ker_sol.source_config.map(str).join(", "))$.
 
-    *Step 2 -- Construct digraph.* Variable gadgets: $2n = #(2 * ksat_ker.source.instance.num_vars)$ vertices (digons). Clause gadgets: $3m = #(3 * sat-num-clauses(ksat_ker.source.instance))$ vertices (directed 3-cycles). Total: $#ksat_ker.target.instance.graph.num_vertices$ vertices, $#ksat_ker.target.instance.graph.arcs.len()$ arcs.
+        *Step 2 -- Construct the digraph.* Variable gadgets contribute $2n = #(2 * n)$ literal vertices and $2n = #(2 * n)$ digon arcs. Clause gadgets contribute $3m = #(3 * m)$ clause vertices, $3m = #(3 * m)$ cycle arcs, and $3m = #(3 * m)$ literal arcs. Total: $#ksat_ker.target.instance.graph.num_vertices$ vertices and $#ksat_ker.target.instance.graph.arcs.len()$ arcs $= 2n + 6m$.
 
-    *Step 3 -- Verify a solution.* Source config $(#ksat_ker_sol.source_config.map(str).join(", "))$ satisfies all clauses. Target kernel selects #{ksat_ker_sol.target_config.filter(x => x == 1).len()} vertices: indices $= {#ksat_ker_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ #sym.checkmark.
+        *Step 3 -- Verify the canonical witness.* The target kernel selects literal vertices ${#literal-selected.map(str).join(", ")}$ and clause vertices ${#clause-selected.map(str).join(", ")}$. Here ${#literal-selected.map(str).join(", ")}$ encode $(x_1, x_2, x_3) = (#ksat_ker_sol.source_config.map(str).join(", "))$, and the extra clause vertex $#(second-clause-base + 1)$ is needed in the second clause gadget: vertex $#second-clause-base$ is absorbed by arc $(#second-clause-base, #(second-clause-base + 1))$, while vertex $#(second-clause-base + 2)$ is absorbed by its literal arc to vertex $#last-literal-vertex$ #sym.checkmark.
+      ]
+    }
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
 )[
-  This $O(n + m)$ reduction @garey1979 constructs a directed graph with $2n + 3m$ vertices and $2n + 12m$ arcs. Variable gadgets are digons (directed 2-cycles) forcing exactly one literal per variable into any kernel. Clause gadgets are directed 3-cycles whose vertices also point to the corresponding literal vertices, ensuring every clause is satisfied.
+  This $O(n + m)$ reduction @garey1979 constructs a directed graph with $2n + 3m$ vertices and $2n + 6m$ arcs. Each variable contributes a digon on its positive and negative literal vertices, and each 3-clause contributes a directed 3-cycle whose three clause vertices point to the corresponding literal vertices. The implemented kernels may contain clause vertices as well as literal vertices.
 ][
-  _Construction._ Let $phi$ have variables $u_1, dots, u_n$ and clauses $C_1, dots, C_m$ (each with 3 literals). (1) For each variable $u_i$, create vertices $x_i, overline(x)_i$ with arcs $(x_i, overline(x)_i)$ and $(overline(x)_i, x_i)$ (a digon). (2) For each clause $C_j$, create vertices $c_(j,1), c_(j,2), c_(j,3)$ with a directed 3-cycle. (3) For each clause $C_j$ and each literal vertex $v$ of $C_j$, add arcs from each $c_(j,t)$ to $v$ ($t = 1,2,3$). Total: $2n + 3m$ vertices, $2n + 12m$ arcs.
+  _Construction._ Let $phi = C_1 and dots and C_m$ be a 3-SAT instance on variables $x_1, dots, x_n$. For each variable $x_i$, create two literal vertices $p_i$ and $n_i$ with arcs $(p_i, n_i)$ and $(n_i, p_i)$. For each clause $C_j = (ell_(j,0) or ell_(j,1) or ell_(j,2))$, create clause vertices $c_(j,0), c_(j,1), c_(j,2)$ with cycle arcs $(c_(j,0), c_(j,1))$, $(c_(j,1), c_(j,2))$, and $(c_(j,2), c_(j,0))$. Add one literal arc $(c_(j,t), v(ell_(j,t)))$ from each clause vertex to the literal vertex representing its own literal. Thus each clause contributes 3 cycle arcs and 3 literal arcs, for a total of $2n + 6m$ arcs.
 
-  _Correctness._ ($arrow.r.double$) A satisfying assignment $alpha$ yields a kernel $S$ containing $x_i$ if $alpha(u_i)$ is true, $overline(x)_i$ otherwise. Independence holds since $S$ picks one from each digon. Every literal vertex not in $S$ is absorbed by its digon partner. Every clause vertex is absorbed because at least one literal of its clause is in $S$. ($arrow.l.double$) In any kernel $S$, no clause vertex belongs to $S$ (otherwise a clause vertex's successors would not be absorbed). Thus $S$ contains only literal vertices, exactly one per digon. At least one literal vertex of each clause is in $S$ (to absorb clause vertices), so the derived assignment satisfies every clause.
+  _Correctness._ ($arrow.r.double$) Let $alpha$ be a satisfying assignment. Put into $K$ exactly one literal vertex from each digon: $p_i$ if $alpha(x_i) = "true"$ and $n_i$ otherwise. For each clause $C_j$, additionally put $c_(j,t)$ into $K$ exactly when $ell_(j,t)$ is false and $ell_(j,(t+1) mod 3)$ is true. This never creates an arc inside $K$: each selected clause vertex points to a false literal vertex, and two adjacent clause vertices cannot both satisfy the selection rule. Every unselected literal vertex is absorbed by its digon partner. For an unselected clause vertex $c_(j,t)$, either $ell_(j,t)$ is true, so its literal arc hits the selected literal vertex, or $ell_(j,t)$ is false. In the latter case $c_(j,t)$ was not selected, so $ell_(j,(t+1) mod 3)$ is also false; because the clause is satisfied, $ell_(j,(t+2) mod 3)$ is true, hence $c_(j,(t+1) mod 3)$ was selected and absorbs $c_(j,t)$ along the cycle.
 
-  _Solution extraction._ Set $alpha(u_i) = "true"$ if $x_i in S$, $alpha(u_i) = "false"$ if $overline(x)_i in S$.
+  ($arrow.l.double$) Let $K$ be a kernel of the constructed digraph. In each variable digon, at most one literal vertex can lie in $K$ by independence, and at least one must lie in $K$ to absorb the other endpoint; so each digon contributes exactly one selected literal vertex. Set $alpha(x_i) = "true"$ iff $p_i in K$. Now fix a clause gadget with cycle $(c_(j,0), c_(j,1), c_(j,2))$. If none of its three literal vertices were selected, then the only possible absorbers for $c_(j,0), c_(j,1), c_(j,2)$ would be the cycle successors. Independence allows at most one clause vertex in $K$, but one selected vertex on a directed 3-cycle cannot absorb the other two, contradiction. Therefore every clause has at least one selected literal vertex, so $alpha$ satisfies every clause.
+
+  _Solution extraction._ Read only the positive literal vertices: $alpha(x_i) = 1$ iff the even-indexed vertex for $x_i$ is in the kernel. Any selected clause vertices are ignored during extraction.
 ]
 
 // 5. HamiltonianPath → DegreeConstrainedSpanningTree (#911)
@@ -13451,7 +13464,7 @@ The following table shows concrete variable overhead for example instances, take
 #let nae_mc_sol = nae_mc.solutions.at(0)
 #reduction-rule("NAESatisfiability", "MaxCut",
   example: true,
-  example-caption: [$n = #nae_mc.source.instance.num_vars$ variables, $m = #sat-num-clauses(nae_mc.source.instance)$ clauses, $M = #(2 * sat-num-clauses(nae_mc.source.instance) + 1)$],
+  example-caption: [$n = #nae_mc.source.instance.num_vars$ variables, $m = #sat-num-clauses(nae_mc.source.instance)$ clauses, $M = #(sat-num-clauses(nae_mc.source.instance) + 1)$],
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(nae_mc.source) + " -o naesat.json",
@@ -13460,22 +13473,35 @@ The following table shows concrete variable overhead for example instances, take
       "pred evaluate naesat.json --config " + nae_mc_sol.source_config.map(str).join(","),
     )
 
-    *Step 1 -- Source instance.* NAE-SAT with $n = #nae_mc.source.instance.num_vars$ variables and $m = #sat-num-clauses(nae_mc.source.instance)$ clauses. Forcing weight $M = 2m + 1 = #(2 * sat-num-clauses(nae_mc.source.instance) + 1)$.
+    #{
+      let n = nae_mc.source.instance.num_vars
+      let m = sat-num-clauses(nae_mc.source.instance)
+      let big-m = m + 1
+      let clause-edge-count = graph-num-edges(nae_mc.target.instance) - n
+      let cut-value = n * big-m + 2 * m
+      [
+        *Step 1 -- Source instance.* NAE-SAT with $n = #n$ variables and $m = #m$ clauses. The implementation uses forcing weight $M = m + 1 = #big-m$.
 
-    *Step 2 -- Construct weighted graph.* Variable gadgets: $#nae_mc.source.instance.num_vars$ heavy edges (weight $M$). Clause triangles: $#sat-num-clauses(nae_mc.source.instance)$ triangles of unit-weight edges. Total: $#graph-num-vertices(nae_mc.target.instance)$ vertices, $#graph-num-edges(nae_mc.target.instance)$ edges.
+        *Step 2 -- Construct the weighted graph.* Variable gadgets contribute #n heavy edges of weight $M$. Because the canonical fixture has 3 literals per clause, each clause contributes one unit-weight triangle, so the target has #clause-edge-count unit-weight clause edges and $#graph-num-edges(nae_mc.target.instance)$ edges total on $#graph-num-vertices(nae_mc.target.instance)$ vertices.
 
-    *Step 3 -- Verify a solution.* Source NAE-assignment $(#nae_mc_sol.source_config.map(str).join(", "))$. Target cut partition $(#nae_mc_sol.target_config.map(str).join(", "))$: all variable edges are cut, each clause triangle has a 1-2 split contributing 2 edges #sym.checkmark.
+        *Step 3 -- Verify the canonical witness.* Source assignment $(#nae_mc_sol.source_config.map(str).join(", "))$ induces target cut $(#nae_mc_sol.target_config.map(str).join(", "))$. All #n heavy edges are cut, and each of the #m clause triangles has a 1-2 split contributing 2, so the total cut weight is $#cut-value$ #sym.checkmark.
+      ]
+    }
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
 )[
-  This $O(n + m)$ reduction @gareyJohnsonStockmeyer1976 creates for each variable $x_i$ two vertices $v_i, v_i'$ connected by a heavy edge of weight $M = 2m + 1$. For each clause, a unit-weight triangle is added on the three literal vertices. The NAE-SAT instance is satisfiable iff the maximum cut has weight $>= n M + 2m$.
+  This implemented reduction sets $M = m + 1$, creates two literal vertices per variable, and adds one unit-weight edge for every literal pair inside a clause. When every clause has 3 literals, each clause gadget is a triangle, so the construction is the usual NAE-SAT-to-Max-Cut graph on $2n$ vertices with $n + 3m$ edges.
 ][
-  _Construction._ Given NAE-3SAT with $n$ variables and $m$ clauses. Set $M = 2m + 1$. (1) For each variable $x_i$, create vertices $v_i$ (positive) and $v_i'$ (negative) with edge weight $M$. (2) For each clause $C_j = (ell_a, ell_b, ell_c)$, add weight-1 edges $(ell_a, ell_b), (ell_b, ell_c), (ell_a, ell_c)$. Total: $2n$ vertices, at most $n + 3m$ edges. Threshold $W = n M + 2m$.
+  _Construction._ Let $phi$ have $n$ variables and $m$ clauses, and set $M = m + 1$. For each variable $x_i$, create a positive literal vertex $p_i = 2i$ and a negative literal vertex $n_i = 2i + 1$, joined by one weight-$M$ edge. For each clause $C_j$, add a unit-weight edge between every pair of literal vertices appearing in $C_j$. In particular, if every clause has three literals, each clause becomes a unit-weight triangle.
 
-  _Correctness._ ($arrow.r.double$) A NAE-satisfying $tau$ defines $S = {v_i : tau(x_i) = "true"} union {v_i' : tau(x_i) = "false"}$. All $n$ variable edges are cut (weight $n M$). Each NAE-satisfied clause has a 1-2 split on its triangle, contributing exactly 2 cut edges. Total: $n M + 2m$. ($arrow.l.double$) Since $M > 2m$, all variable edges must be cut to reach $n M + 2m$. With all variable edges cut, $v_i$ and $v_i'$ are on opposite sides, defining a consistent assignment. The remaining $2m$ must come from clause triangles (at most 2 each), so every triangle is 1-2 split, meaning no clause is all-equal.
+  _Correctness._ Assume from here on that each clause has exactly three literals, matching the canonical fixture. Then every clause gadget is a triangle.
 
-  _Solution extraction._ Set $x_i = "true"$ if $v_i in S$, else $x_i = "false"$.
+  ($arrow.r.double$) Let $alpha$ be a NAE-satisfying assignment. Put $p_i$ and $n_i$ on opposite sides of the cut according to $alpha$, so every variable edge is cut and contributes $M$. In each clause triangle, at least one literal is true and at least one is false, so the three vertices split $1$-$2$ across the cut and contribute exactly 2. Therefore the cut weight is $n M + 2m = n (m + 1) + 2m$.
+
+  ($arrow.l.double$) Suppose a cut has weight at least $n (m + 1) + 2m$. The $m$ clause triangles contribute at most $2m$ in total, so the variable edges must contribute at least $n (m + 1)$. Since each variable edge contributes at most $M = m + 1$, all $n$ variable edges are cut. Thus $p_i$ and $n_i$ lie on opposite sides for every variable, and the cut defines a consistent Boolean assignment by reading the side of $p_i$. The remaining $2m$ weight must come from the clause triangles, so each triangle contributes exactly 2 and therefore has vertices on both sides of the cut. Hence every clause contains both a true and a false literal, and the extracted assignment NAE-satisfies $phi$. Because a satisfying instance attains $n (m + 1) + 2m$, every optimal cut of the target has this form.
+
+  _Solution extraction._ Read the positive literal vertices: $x_i = 1$ iff vertex $2i$ lies on side 1 of the cut.
 ]
 
 // 14. HamiltonianPath → IsomorphicSpanningTree (#912)
@@ -13620,22 +13646,45 @@ The following table shows concrete variable overhead for example instances, take
       "pred evaluate graphpart.json --config " + gp_mc_sol.source_config.map(str).join(","),
     )
 
-    *Step 1 -- Source instance.* Graph $G$ with $n = #graph-num-vertices(gp_mc.source.instance)$ vertices and $|E| = #graph-num-edges(gp_mc.source.instance)$ edges. Penalty $P = |E| + 1 = #(graph-num-edges(gp_mc.source.instance) + 1)$.
+    #{
+      let n = graph-num-vertices(gp_mc.source.instance)
+      let m = graph-num-edges(gp_mc.source.instance)
+      let penalty = m + 1
+      let side-a = gp_mc_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
+      let side-b = gp_mc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let source-cut = gp_mc.source.instance.graph.edges.filter(e => gp_mc_sol.source_config.at(e.at(0)) != gp_mc_sol.source_config.at(e.at(1))).len()
+      let target-weight = gp_mc.target.instance.graph.edges.enumerate().filter(((i, e)) => gp_mc_sol.target_config.at(e.at(0)) != gp_mc_sol.target_config.at(e.at(1))).map(((i, e)) => gp_mc.target.instance.edge_weights.at(i)).sum()
+      let unbalanced-pairs = (n / 2 - 1) * (n / 2 + 1)
+      let unbalanced-upper = penalty * unbalanced-pairs
+      [
+        *Step 1 -- Source instance.* Graph $G$ has $n = #n$ vertices and $|E| = #m$ edges, so the code uses penalty $P = |E| + 1 = #penalty$.
 
-    *Step 2 -- Build weighted $K_n$.* Target has $#graph-num-vertices(gp_mc.target.instance)$ vertices and $#graph-num-edges(gp_mc.target.instance)$ edges ($n(n-1)\/2$). Original edges get weight $P - 1 = #graph-num-edges(gp_mc.source.instance)$, non-edges get weight $P = #(graph-num-edges(gp_mc.source.instance) + 1)$.
+        *Step 2 -- Build the weighted complete graph.* The target has $#graph-num-vertices(gp_mc.target.instance)$ vertices and $#graph-num-edges(gp_mc.target.instance)$ edges. Original edges receive weight $P - 1 = #(penalty - 1)$, while non-edges receive weight $P = #penalty$.
 
-    *Step 3 -- Verify a solution.* Source partition $(#gp_mc_sol.source_config.map(str).join(", "))$: side $A = {#gp_mc_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => str(i)).join(", ")}$, side $B = {#gp_mc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$. Target partition is identical #sym.checkmark.
+        *Step 3 -- Verify the canonical witness.* The balanced partition $(#gp_mc_sol.source_config.map(str).join(", "))$ gives sides $A = {#side-a.map(str).join(", ")}$ and $B = {#side-b.map(str).join(", ")}$ with $#(side-a.len() * side-b.len())$ crossing pairs. It cuts #source-cut source edges, so the identical Max-Cut partition has weight $#target-weight = #penalty dot #(side-a.len() * side-b.len()) - #source-cut$. Any unbalanced $2$-$4$ split has at most #unbalanced-pairs crossing pairs and therefore weight at most $#unbalanced-upper < #target-weight$, so the optimum is forced to be balanced #sym.checkmark.
+      ]
+    }
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
 )[
-  This $O(n^2)$ reduction @garey1979 builds a weighted complete graph on the same $n$ vertices. Edges present in $G$ receive weight $P - 1$ and non-edges receive weight $P$, where $P = |E| + 1$. The heavy non-edge weights force any maximum balanced cut to minimize crossing edges from $E$. Variables correspond one-to-one.
+  This $O(n^2)$ reduction @garey1979 builds a weighted complete graph on the same vertices, with weight $P - 1$ on original edges and weight $P$ on non-edges, where $P = |E| + 1$. For any partition $(A, B)$, the target cut weight is $P |A| |B| - |E(A, B)|$, so the factor $P$ first forces balance and then the $- |E(A, B)|$ term minimizes the number of source edges crossing the bisection.
 ][
-  _Construction._ Given Graph Partitioning instance $G = (V, E)$, let $P = |E| + 1$. Build $K_n$ with edge weights $w(u,v) = P - 1$ if ${u,v} in E$ and $w(u,v) = P$ if ${u,v} in.not E$. The Max-Cut instance has $n$ vertices and $n(n-1)\/2$ edges.
+  _Construction._ Let $G = (V, E)$ be a Graph Partitioning instance with $|V| = n$ even, and let $P = |E| + 1$. Build the complete graph $K_n$ on the same vertex set. For each pair $u != v$, set
+  $w(u,v) = P - 1$ if ${u,v} in E$ and $w(u,v) = P$ otherwise.
+  The target Max-Cut instance therefore has $n$ vertices and $n(n-1)\/2$ weighted edges.
 
-  _Correctness._ ($arrow.r.double$) A balanced partition $(A, B)$ with $|A| = |B| = n\/2$ cutting $c$ edges of $G$ yields a cut in $K_n$ crossing $n^2\/4$ pairs total ($|A| dot |B|$). Of those, $c$ are edges of $G$ (weight $P - 1$ each) and $n^2\/4 - c$ are non-edges (weight $P$ each). The total cut weight is $c(P-1) + (n^2\/4 - c) P = n^2 P\/4 - c$. Since $P$ and $n$ are fixed, maximizing the cut weight is equivalent to minimizing $c$, the number of crossing edges of $G$. ($arrow.l.double$) The maximum-weight balanced cut in $K_n$ therefore corresponds to the minimum bisection of $G$.
+  _Correctness._ For any partition $(A, B)$ of $V$, let $c(A, B) = |E(A, B)|$ be the number of source edges crossing from $A$ to $B$. Among the $|A| |B|$ crossing pairs, exactly $c(A, B)$ are edges of $G$ and the remaining $|A| |B| - c(A, B)$ are non-edges. Hence the target cut weight is
+  $
+    c(A, B) (P - 1) + (|A| |B| - c(A, B)) P
+    = P |A| |B| - c(A, B).
+  $
 
-  _Solution extraction._ The Max-Cut partition assignment is directly the Graph Partitioning assignment: $x_v = 0$ for side $A$, $x_v = 1$ for side $B$.
+  ($arrow.r.double$) If $(A, B)$ is a balanced partition of $G$ with $|A| = |B| = n\/2$ and cut size $c(A, B)$, then the same partition in the target graph has weight $P n^2 \/ 4 - c(A, B)$.
+
+  ($arrow.l.double$) Any unbalanced partition of an even-sized vertex set satisfies $|A| |B| <= n^2 \/ 4 - 1$, so its target weight is at most $P (n^2 \/ 4 - 1)$. On the other hand, any balanced partition has weight at least $P n^2 \/ 4 - |E| > P (n^2 \/ 4 - 1)$ because $P = |E| + 1$. Therefore no optimal Max-Cut can be unbalanced: every optimum must satisfy $|A| = |B| = n\/2$. Once balance is forced, the term $P |A| |B| = P n^2 \/ 4$ is constant, so maximizing target weight is exactly the same as minimizing $c(A, B)$. Thus optimal Max-Cut solutions are precisely minimum bisections of $G$.
+
+  _Solution extraction._ The Max-Cut partition vector is already a valid Graph Partitioning witness, so extraction is the identity map.
 ]
 
 #pagebreak()
