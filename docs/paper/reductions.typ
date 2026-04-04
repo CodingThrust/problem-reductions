@@ -13217,7 +13217,38 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For selected vertex $v$: clause $j = floor(v / 3)$, position $p = v mod 3$. If literal $ell_(j,p) = x_i$ set $x_i = 1$; if $ell_(j,p) = not x_i$ set $x_i = 0$.
 ]
 
-#reduction-rule("HamiltonianCircuit", "BiconnectivityAugmentation")[
+#let hc_bicon = load-example("HamiltonianCircuit", "BiconnectivityAugmentation")
+#let hc_bicon_sol = hc_bicon.solutions.at(0)
+#reduction-rule("HamiltonianCircuit", "BiconnectivityAugmentation",
+  example: true,
+  example-caption: [4-cycle graph ($n = #graph-num-vertices(hc_bicon.source.instance)$, $|E| = #graph-num-edges(hc_bicon.source.instance)$): HC $arrow.r$ biconnectivity augmentation],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_bicon.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_bicon) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_bicon_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The source graph $G$ has $n = #graph-num-vertices(hc_bicon.source.instance)$ vertices and $|E| = #graph-num-edges(hc_bicon.source.instance)$ edges: $E = {#hc_bicon.source.instance.graph.edges.map(e => "(" + e.map(str).join(", ") + ")").join(", ")}$. This is a 4-cycle, which admits a Hamiltonian circuit.
+
+    *Step 2 -- Construction.* Start with the edgeless graph $H = (V, emptyset)$ on $n = #graph-num-vertices(hc_bicon.target.instance)$ vertices. For each pair ${u, v}$, create a potential edge with weight 1 if ${u,v} in E$ and weight 2 otherwise. This yields #hc_bicon.target.instance.potential_weights.len() potential edges: #hc_bicon.target.instance.potential_weights.map(pw => "{" + str(pw.at(0)) + ", " + str(pw.at(1)) + "} (w=" + str(pw.at(2)) + ")").join(", "). The budget is $B = #hc_bicon.target.instance.budget = n$.
+
+    *Step 3 -- Verify a solution.* The canonical Hamiltonian circuit visits vertices in order $(#hc_bicon_sol.source_config.map(str).join(", "))$. The target configuration $bold(x) = (#hc_bicon_sol.target_config.map(str).join(", "))$ selects potential edges #{
+      let selected = hc_bicon_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => {
+        let pw = hc_bicon.target.instance.potential_weights.at(i)
+        "{" + str(pw.at(0)) + ", " + str(pw.at(1)) + "}"
+      })
+      selected.join(", ")
+    } — exactly the $n = #graph-num-vertices(hc_bicon.source.instance)$ cycle edges, each of weight 1, for a total cost of #hc_bicon_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => hc_bicon.target.instance.potential_weights.at(i).at(2)).sum() $= n = B$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. The 4-cycle has $#{
+      let n = graph-num-vertices(hc_bicon.source.instance)
+      let fac = range(1, n).fold(1, (acc, x) => acc * x)
+      str(int(fac / 2))
+    }$ distinct Hamiltonian circuits ($(n-1)! slash 2$ directed cycles up to reversal).
+  ],
+)[
   Start with the edgeless graph on $n$ vertices. Price original edges at cost 1 and non-edges at cost 2. A budget-$n$ augmentation is achievable iff $G$ has a Hamiltonian circuit (the only way to biconnect with $n$ weight-1 edges is a Hamiltonian cycle).
 ][
   _Construction._ Given $G = (V, E)$ with $n = |V|$, let $H = (V, emptyset)$. For every pair ${u, v}$: potential edge with weight 1 if ${u,v} in E$, else weight 2. Budget $B = n$.
