@@ -86,6 +86,7 @@
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
   "GeneralizedHex": [Generalized Hex],
+  "GraphPartitioning": [Graph Partitioning],
   "HamiltonianCircuit": [Hamiltonian Circuit],
   "BiconnectivityAugmentation": [Biconnectivity Augmentation],
   "HamiltonianPath": [Hamiltonian Path],
@@ -707,6 +708,13 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ]
   ]
 }
+#problem-def("GraphPartitioning")[
+  Given an undirected graph $G = (V, E)$ with $|V| = n$ (even), find a partition of $V$ into two disjoint sets $A$ and $B$ with $|A| = |B| = n\/2$ minimizing the number of crossing edges $|{(u,v) in E : u in A, v in B}|$.
+][
+Graph Partitioning (Minimum Bisection, Garey & Johnson ND14) is the special case of Minimum Cut Into Bounded Sets with unit weights, $B = n\/2$, and no designated $s, t$ vertices. The problem is NP-hard even on 3-regular graphs @garey1976.
+
+The best known exact algorithm is brute-force enumeration over all balanced partitions in $O^*(2^n)$ time#footnote[No algorithm improving on brute-force enumeration is known for general Graph Partitioning.].
+]
 #problem-def("MinimumCutIntoBoundedSets")[
   Given an undirected graph $G = (V, E)$ with edge weights $w: E -> ZZ^+$, designated vertices $s, t in V$, and a positive integer $B <= |V|$, find a partition of $V$ into disjoint sets $V_1$ and $V_2$ such that $s in V_1$, $t in V_2$, $|V_1| <= B$, $|V_2| <= B$, that minimizes the total cut weight
   $ sum_({u,v} in E: u in V_1, v in V_2) w({u,v}). $
@@ -13034,6 +13042,214 @@ The following table shows concrete variable overhead for example instances, take
   _Correctness._ ($arrow.r.double$) Any sign assignment $f$ maps to $x_i = (f(i)+1)/2$ with matching quadratic form value. ($arrow.l.double$) McCormick ensures $y_(i j) = x_i x_j$ at optimality.
 
   _Solution extraction._ First $n$ variables (sign variables) give the source configuration.
+]
+
+// ── Batch of 18 reduction rules from derivation document ──
+
+// 1. SubsetSum → Partition (#973)
+#reduction-rule("SubsetSum", "Partition")[
+  Given a Subset Sum instance $(S, T)$ with $Sigma = sum s_i$, compute padding $d = |Sigma - 2T|$. If $d = 0$, output Partition$(S)$; otherwise output Partition$(S union {d})$. The reduction adds at most one element. A subset of $S$ sums to $T$ if and only if the padded multiset admits a balanced partition.
+][
+  _Construction._ Let $(S, T)$ be a Subset Sum instance with $n$ elements and $Sigma = sum_(i=1)^n s_i$. Compute $d = |Sigma - 2T|$. If $d = 0$, output Partition instance $S$. If $d > 0$, output $S union {d}$ (one extra element). Let $Sigma'$ denote the total of the Partition instance and $H = Sigma' \/ 2$.
+
+  _Correctness._ There are three cases.
+
+  *Case 1* ($Sigma = 2T$, $d = 0$): $H = T$. ($arrow.r.double$) A subset summing to $T = H$ is one half of a balanced partition. ($arrow.l.double$) A balanced partition yields a subset summing to $H = T$.
+
+  *Case 2* ($Sigma > 2T$, $d = Sigma - 2T$): $Sigma' = 2(Sigma - T)$, $H = Sigma - T$. ($arrow.r.double$) If $A' subset.eq S$ sums to $T$, then $A' union {d}$ sums to $T + (Sigma - 2T) = H$. ($arrow.l.double$) In any balanced partition, the side containing $d$ has $S$-elements summing to $H - d = T$.
+
+  *Case 3* ($Sigma < 2T$, $d = 2T - Sigma$): $Sigma' = 2T$, $H = T$. ($arrow.r.double$) A subset summing to $T = H$ gives one side directly. ($arrow.l.double$) The side opposite $d$ has $S$-elements summing to $H = T$.
+
+  If $T > Sigma$, then $d > Sigma' \/ 2$, so a single element exceeds the half-sum and the Partition instance is infeasible.
+
+  _Solution extraction._ Given a Partition solution $c in {0,1}^m$: if $d = 0$, return $c[0..n]$. If $Sigma > 2T$, the $S$-elements on the same side as the padding form the subset summing to $T$. If $Sigma < 2T$, the $S$-elements on the opposite side from the padding form the subset summing to $T$.
+]
+
+// 2. Satisfiability → NonTautology (#868)
+#reduction-rule("Satisfiability", "NonTautology")[
+  Negate the CNF formula via De Morgan's laws to obtain a DNF formula $E = not phi$. The formula $phi$ is satisfiable if and only if $E$ is not a tautology. Variables, their count, and polarity are preserved; each clause becomes a disjunct of negated literals.
+][
+  _Construction._ Let $phi = C_1 and dots and C_m$ be a CNF formula over $n$ variables. For each clause $C_j = (l_1 or dots or l_k)$, form the disjunct $D_j = (overline(l_1) and dots and overline(l_k))$ where $overline(l)$ is the complement of literal $l$. The Non-Tautology instance is the DNF formula $E = D_1 or dots or D_m$.
+
+  _Correctness._ ($arrow.r.double$) If $alpha models phi$, then $alpha$ makes every clause true, so $alpha models not E$ (since $E = not phi$), and $E$ has a falsifying assignment. ($arrow.l.double$) If $beta$ falsifies $E$, then $beta tack.r.not not phi$, so $beta models phi$ and $phi$ is satisfiable.
+
+  _Solution extraction._ The falsifying assignment for $E$ is directly the satisfying assignment for $phi$ -- no transformation needed since the variables are identical.
+]
+
+// 3. KColoring → PartitionIntoCliques (#844)
+#reduction-rule("KColoring", "PartitionIntoCliques")[
+  Compute the complement graph $overline(G)$ and set the clique bound $K' = K$. A proper $K$-coloring of $G$ exists if and only if $overline(G)$ can be partitioned into at most $K'$ cliques, because color classes (independent sets in $G$) correspond to cliques in $overline(G)$.
+][
+  _Construction._ Given $K$-Coloring instance $(G = (V, E), K)$, compute $overline(G) = (V, overline(E))$ where $overline(E) = {{u, v} : u != v, {u,v} in.not E}$. Set $K' = K$. Output Partition Into Cliques instance $(overline(G), K')$.
+
+  _Correctness._ ($arrow.r.double$) If $c : V -> {0, dots, K-1}$ is a proper coloring, define $V_i = {v : c(v) = i}$. For $u, v in V_i$, $c(u) = c(v)$ implies ${u,v} in.not E$, so ${u,v} in overline(E)$, making $V_i$ a clique in $overline(G)$. The $K$ color classes partition $V$ into at most $K' = K$ cliques. ($arrow.l.double$) If $V_0, dots, V_(k-1)$ is a partition of $overline(G)$ into $k <= K'$ cliques, then each $V_i$ is an independent set in $G$. Assigning color $i$ to all vertices in $V_i$ gives a proper $k$-coloring of $G$.
+
+  _Solution extraction._ Given a partition $V_0, dots, V_(k-1)$ into cliques, assign color $i$ to every vertex in $V_i$.
+]
+
+// 4. KSatisfiability → Kernel (#882)
+#reduction-rule("KSatisfiability", "Kernel")[
+  Given a 3-SAT instance with $n$ variables and $m$ clauses, construct a directed graph with $2n + 3m$ vertices and $2n + 12m$ arcs. Variable gadgets are digons (directed 2-cycles) forcing exactly one literal per variable into any kernel. Clause gadgets are directed 3-cycles whose vertices also point to the corresponding literal vertices, ensuring every clause is satisfied.
+][
+  _Construction._ Let $phi$ have variables $u_1, dots, u_n$ and clauses $C_1, dots, C_m$ (each with 3 literals). (1) For each variable $u_i$, create vertices $x_i, overline(x)_i$ with arcs $(x_i, overline(x)_i)$ and $(overline(x)_i, x_i)$ (a digon). (2) For each clause $C_j$, create vertices $c_(j,1), c_(j,2), c_(j,3)$ with a directed 3-cycle. (3) For each clause $C_j$ and each literal vertex $v$ of $C_j$, add arcs from each $c_(j,t)$ to $v$ ($t = 1,2,3$). Total: $2n + 3m$ vertices, $2n + 12m$ arcs.
+
+  _Correctness._ ($arrow.r.double$) A satisfying assignment $alpha$ yields a kernel $S$ containing $x_i$ if $alpha(u_i)$ is true, $overline(x)_i$ otherwise. Independence holds since $S$ picks one from each digon. Every literal vertex not in $S$ is absorbed by its digon partner. Every clause vertex is absorbed because at least one literal of its clause is in $S$. ($arrow.l.double$) In any kernel $S$, no clause vertex belongs to $S$ (otherwise a clause vertex's successors would not be absorbed). Thus $S$ contains only literal vertices, exactly one per digon. At least one literal vertex of each clause is in $S$ (to absorb clause vertices), so the derived assignment satisfies every clause.
+
+  _Solution extraction._ Set $alpha(u_i) = "true"$ if $x_i in S$, $alpha(u_i) = "false"$ if $overline(x)_i in S$.
+]
+
+// 5. HamiltonianPath → DegreeConstrainedSpanningTree (#911)
+#reduction-rule("HamiltonianPath", "DegreeConstrainedSpanningTree")[
+  Pass the graph through unchanged and set the degree bound $K = 2$. A Hamiltonian path is a spanning tree with maximum degree 2 (a path), and conversely any degree-2 spanning tree is a Hamiltonian path. The reduction is size-preserving.
+][
+  _Construction._ Given Hamiltonian Path instance $G = (V, E)$, output Degree-Constrained Spanning Tree instance $(G, K = 2)$.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian path $v_0, v_1, dots, v_(n-1)$ uses $n - 1$ edges spanning all vertices. Interior vertices have degree 2, endpoints have degree 1, so max degree $<= 2 = K$. ($arrow.l.double$) A spanning tree with max degree $<= 2$ has no branching (a branch point requires degree $>= 3$). A connected acyclic graph without branching is a simple path. Since the tree spans all $n$ vertices, it is a Hamiltonian path.
+
+  _Solution extraction._ Collect the selected edges, find an endpoint (degree 1 vertex), walk the path to produce the vertex permutation.
+]
+
+// 6. NAESatisfiability → SetSplitting (#382)
+#reduction-rule("NAESatisfiability", "SetSplitting")[
+  Each variable $x_(i+1)$ contributes two universe elements ($2i$ for positive, $2i+1$ for negative literal). Complementarity subsets ${2i, 2i+1}$ force opposite colors, and each clause becomes a subset of the corresponding literal elements. A NAE-satisfying assignment exists if and only if the Set Splitting instance admits a valid 2-coloring.
+][
+  _Construction._ Given NAE-SAT with $n$ variables and $m$ clauses, define universe $U = {0, 1, dots, 2n - 1}$. For each variable $x_(i+1)$, create complementarity subset $R_i = {2i, 2i+1}$. For each clause $C_j$, create subset $T_j$ containing element $2(k-1)$ for positive literal $x_k$ and $2(k-1)+1$ for negative literal $overline(x)_k$. Total: $|U| = 2n$, $n + m$ subsets.
+
+  _Correctness._ ($arrow.r.double$) A NAE-satisfying assignment $alpha$ induces 2-coloring $chi(2i) = alpha(x_(i+1))$, $chi(2i+1) = 1 - alpha(x_(i+1))$. Complementarity subsets are non-monochromatic by construction. Clause subsets are non-monochromatic because NAE ensures both true and false literals. ($arrow.l.double$) A valid 2-coloring with $chi(2i) != chi(2i+1)$ (forced by $R_i$) defines $alpha(x_(i+1)) = chi(2i)$. Non-monochromaticity of clause subsets ensures both true and false literals in each clause.
+
+  _Solution extraction._ Set $alpha(x_(i+1)) = chi(2i)$ for $i = 0, dots, n-1$.
+]
+
+// 7. ExactCoverBy3Sets → SubsetProduct (#388)
+#reduction-rule("ExactCoverBy3Sets", "SubsetProduct")[
+  Assign the first $3q$ primes $p_0 < dots < p_(3q-1)$ to universe elements. Each 3-element subset $C_j = {a, b, c}$ maps to the integer $s_j = p_a dot p_b dot p_c$. The target product is $B = product_(i=0)^(3q-1) p_i$. By unique factorization, a sub-product equals $B$ if and only if the selected subsets form an exact cover.
+][
+  _Construction._ Let $(X, cal(C))$ be an X3C instance with $|X| = 3q$ and $cal(C) = {C_1, dots, C_n}$. Assign primes $p_0 = 2, p_1 = 3, dots, p_(3q-1)$. For each $C_j = {a, b, c}$, set $s_j = p_a dot p_b dot p_c$. Set target $B = product_(i=0)^(3q-1) p_i$.
+
+  _Correctness._ ($arrow.r.double$) An exact cover ${C_(j_1), dots, C_(j_q)}$ partitions $X$, so $product s_(j_ell) = product_(i=0)^(3q-1) p_i = B$. ($arrow.l.double$) If $product_(j : x_j = 1) s_j = B$, unique factorization forces each prime to appear exactly once, so the selected subsets are pairwise disjoint and cover all elements.
+
+  _Solution extraction._ The X3C configuration equals the Subset Product configuration: select subset $j$ iff $x_j = 1$.
+]
+
+// 8. SubsetSum → IntegerExpressionMembership (#569)
+#reduction-rule("SubsetSum", "IntegerExpressionMembership")[
+  For each element $s_i$, build a union node $(1 union (s_i + 1))$, then chain all unions via Minkowski sum. Set target $K = B + n$. Selecting $s_i + 1$ (right branch) encodes including element $i$ in the subset. The expression tree has $4n - 1$ nodes.
+][
+  _Construction._ Given Subset Sum instance $(S = {s_1, dots, s_n}, B)$, for each $s_i$ construct choice expression $c_i = (1 union (s_i + 1))$. Build the overall expression $e = c_1 + c_2 + dots + c_n$ (Minkowski sum chain). Set target $K = B + n$.
+
+  _Correctness._ ($arrow.r.double$) If $A' subset.eq S$ sums to $B$, choose $d_i = s_i + 1$ for $s_i in A'$ and $d_i = 1$ otherwise. Then $sum d_i = B + |A'| + (n - |A'|) = B + n = K$. ($arrow.l.double$) If $sum d_i = K$ with $d_i in {1, s_i + 1}$, let $A' = {s_i : d_i = s_i + 1}$. Then $sum d_i = sum_(s_i in A') s_i + n$, so $sum_(s_i in A') s_i = B$.
+
+  _Solution extraction._ The Subset Sum configuration is the Integer Expression Membership configuration: $x_i = 1$ (right branch) means element $i$ is selected.
+]
+
+// 9. ExactCoverBy3Sets → MinimumWeightSolutionToLinearEquations (#860)
+#reduction-rule("ExactCoverBy3Sets", "MinimumWeightSolutionToLinearEquations")[
+  Build the $3q times n$ incidence matrix $A$ where $A_(i,j) = 1$ iff element $u_i in C_j$. Set right-hand side $b = (1, dots, 1)^top$ and weight bound $K = q = |X|\/3$. An exact cover corresponds to a binary solution of weight exactly $q$.
+][
+  _Construction._ Let $(X, cal(C))$ be an X3C instance with $|X| = 3q$ and $cal(C) = {C_1, dots, C_n}$. Define $n$ variables $y_1, dots, y_n$. Build matrix $A in {0,1}^(3q times n)$ with $A_(i,j) = 1$ iff $u_i in C_j$. Each column has exactly 3 ones. Set $b = bold(1) in ZZ^(3q)$ and $K = q$.
+
+  _Correctness._ ($arrow.r.double$) An exact cover selects $q$ sets, each covering 3 elements with no overlap, giving $A y = b$ with $y in {0,1}^n$ and weight $q = K$. ($arrow.l.double$) If $y$ has at most $K = q$ nonzero entries and $A y = b$, summing all equations gives $3 sum_j y_j = 3q$, so $sum y_j = q$. With $|"support"| <= q$ and each column contributing 3 incidences, every row is hit by exactly one selected column, forcing each nonzero $y_j = 1$. The selected sets form an exact cover.
+
+  _Solution extraction._ Select subset $j$ iff $y_j != 0$.
+]
+
+// 10. KSatisfiability → SimultaneousIncongruences (#554)
+#reduction-rule("KSatisfiability", "SimultaneousIncongruences")[
+  Each variable $x_i$ gets a distinct prime $p_i >= 5$, encoding TRUE as residue 1 and FALSE as residue 2 modulo $p_i$. All other residues are forbidden. Each clause is encoded via CRT as a single forbidden residue class modulo the product of its variables' primes. A satisfying assignment exists iff some integer avoids all forbidden classes.
+][
+  _Construction._ Given 3-SAT with $n$ variables and $m$ clauses, assign primes $p_1, dots, p_n >= 5$. For each variable $x_i$, forbid residues ${0, 3, 4, dots, p_i - 1}$ modulo $p_i$, leaving only ${1, 2}$. For each clause $C_j$ over variables $x_(i_1), x_(i_2), x_(i_3)$, compute the falsifying residue $r_k in {1, 2}$ for each literal and use CRT to find $R_j$ with $R_j equiv r_k mod p_(i_k)$ for $k = 1,2,3$. Forbid $R_j$ modulo $M_j = p_(i_1) p_(i_2) p_(i_3)$.
+
+  _Correctness._ ($arrow.r.double$) A satisfying assignment $tau$ defines residues $r_i in {1,2}$ per variable. By CRT, some integer $x$ has these residues. It avoids all variable-forbidden classes and all clause-forbidden classes (since at least one literal is true, the residue triple differs from the falsifying triple). ($arrow.l.double$) Any feasible $x$ has $x mod p_i in {1,2}$ for all $i$. Define $tau(x_i) = "TRUE"$ if residue 1, FALSE if 2. If a clause were false, $x$ would match its forbidden CRT class -- contradiction.
+
+  _Solution extraction._ Set $tau(x_i) = "TRUE"$ if $x mod p_i = 1$, FALSE if $x mod p_i = 2$.
+]
+
+// 11. Partition → SequencingToMinimizeTardyTaskWeight (#471)
+#reduction-rule("Partition", "SequencingToMinimizeTardyTaskWeight")[
+  Each element $a_i$ becomes a task with length $l(t_i) = a_i$, weight $w(t_i) = a_i$, and common deadline $T = B\/2$. The tardiness bound is $K = T$. Tasks scheduled before $T$ are on-time; those after are tardy. A balanced partition exists iff total tardy weight can be at most $K$.
+][
+  _Construction._ Given Partition instance $A = {a_1, dots, a_n}$ with total $B$. If $B$ is odd, output a trivially infeasible instance (all deadlines 0, $K = 0$). If $B$ is even, set $T = B\/2$. For each $a_i$, create task $t_i$ with $l(t_i) = w(t_i) = a_i$ and deadline $d(t_i) = T$. Set bound $K = T$.
+
+  _Correctness._ ($arrow.r.double$) A balanced partition $A', A''$ with sums $T$ each: schedule $A'$ first (on-time, total time $T$), then $A''$ (tardy, weight $T = K$). ($arrow.l.double$) If tardy weight $<= K = T$, then on-time tasks fit before $T$ and sum to $<= T$, while tardy tasks have weight $B - sum_("on-time") <= T$, forcing on-time sum $= T$. This yields a balanced partition.
+
+  _Solution extraction._ On-time tasks (completing by $T$) form one partition half ($x_i = 0$), tardy tasks the other ($x_i = 1$).
+]
+
+// 12. Partition → OpenShopScheduling (#481)
+#reduction-rule("Partition", "OpenShopScheduling")[
+  Create $k + 1$ jobs on 3 machines: $k$ element jobs with $p_(j,i) = a_j$ on all machines, plus one special job with $p = Q = S\/2$. The target makespan is $3Q$. A balanced partition exists iff the open shop can achieve makespan $<= 3Q$, because the special job tiles $[0, 3Q)$ into three $Q$-length blocks and element jobs must fill the remaining idle slots exactly.
+][
+  _Construction._ Given Partition instance $A = {a_1, dots, a_k}$ with total $S$ and $Q = S\/2$. Set $m = 3$ machines. For each $a_j$, create element job $J_j$ with $p_(j,1) = p_(j,2) = p_(j,3) = a_j$. Create special job $J_(k+1)$ with $p_(k+1,i) = Q$ on all machines. Deadline $D = 3Q$.
+
+  _Correctness._ ($arrow.r.double$) With a balanced partition $I_1, I_2$, schedule the special job consecutively on machines 1, 2, 3 during $[0,Q), [Q,2Q), [2Q,3Q)$. Use a rotated assignment for $I_1$ and $I_2$ jobs to fill the remaining idle blocks, each of length $Q$. ($arrow.l.double$) With makespan $<= 3Q$, the special job alone needs $3Q$ elapsed time, so it tiles $[0,3Q)$ exactly. On each machine, element jobs fill two idle blocks of length $Q$ each. The jobs in one block sum to $Q$, giving a balanced partition.
+
+  _Solution extraction._ Identify the special job's position on machine 1. Element jobs in one idle block form a subset summing to $Q$.
+]
+
+// 13. NAESatisfiability → MaxCut (#166)
+#reduction-rule("NAESatisfiability", "MaxCut")[
+  For each variable $x_i$, create two vertices $v_i, v_i'$ connected by a heavy edge of weight $M = 2m + 1$. For each clause, add a unit-weight triangle on the three literal vertices. The NAE-SAT instance is satisfiable iff the maximum cut has weight $>= n M + 2m$. This is the classical Garey--Johnson--Stockmeyer construction.
+][
+  _Construction._ Given NAE-3SAT with $n$ variables and $m$ clauses. Set $M = 2m + 1$. (1) For each variable $x_i$, create vertices $v_i$ (positive) and $v_i'$ (negative) with edge weight $M$. (2) For each clause $C_j = (ell_a, ell_b, ell_c)$, add weight-1 edges $(ell_a, ell_b), (ell_b, ell_c), (ell_a, ell_c)$. Total: $2n$ vertices, at most $n + 3m$ edges. Threshold $W = n M + 2m$.
+
+  _Correctness._ ($arrow.r.double$) A NAE-satisfying $tau$ defines $S = {v_i : tau(x_i) = "true"} union {v_i' : tau(x_i) = "false"}$. All $n$ variable edges are cut (weight $n M$). Each NAE-satisfied clause has a 1-2 split on its triangle, contributing exactly 2 cut edges. Total: $n M + 2m$. ($arrow.l.double$) Since $M > 2m$, all variable edges must be cut to reach $n M + 2m$. With all variable edges cut, $v_i$ and $v_i'$ are on opposite sides, defining a consistent assignment. The remaining $2m$ must come from clause triangles (at most 2 each), so every triangle is 1-2 split, meaning no clause is all-equal.
+
+  _Solution extraction._ Set $x_i = "true"$ if $v_i in S$, else $x_i = "false"$.
+]
+
+// 14. HamiltonianPath → IsomorphicSpanningTree (#912)
+#reduction-rule("HamiltonianPath", "IsomorphicSpanningTree")[
+  Pass the graph through unchanged and set the target tree $T = P_n$ (the path on $n$ vertices). A Hamiltonian path in $G$ is exactly a spanning tree isomorphic to $P_n$: both are connected, acyclic, span all vertices, and have maximum degree 2. The reduction is size-preserving.
+][
+  _Construction._ Given $G = (V, E)$ with $|V| = n$, set the host graph to $G$ and the target tree to $T = P_n = ({t_0, dots, t_(n-1)}, {{t_i, t_(i+1)} : 0 <= i <= n-2})$.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian path $v_(pi(0)), dots, v_(pi(n-1))$ gives edges ${v_(pi(i)), v_(pi(i+1))}$ forming a spanning subgraph isomorphic to $P_n$ via $phi(t_i) = v_(pi(i))$. ($arrow.l.double$) A spanning tree of $G$ isomorphic to $P_n$ is a path on all $n$ vertices (since $P_n$ has max degree 2 and is connected). The isomorphism $phi$ gives the Hamiltonian path $phi(t_0), dots, phi(t_(n-1))$.
+
+  _Solution extraction._ The isomorphism $phi$ directly yields the Hamiltonian path as the sequence $phi(t_0), phi(t_1), dots, phi(t_(n-1))$.
+]
+
+// 15. ExactCoverBy3Sets → AlgebraicEquationsOverGF2 (#859)
+#reduction-rule("ExactCoverBy3Sets", "AlgebraicEquationsOverGF2")[
+  One binary variable $x_j$ per subset. For each universe element $u_i$, a linear equation $sum_(j in S_i) x_j + 1 = 0$ (mod 2) enforces odd coverage, and pairwise products $x_j x_k = 0$ (mod 2) forbid double coverage. Together these force exactly-once covering.
+][
+  _Construction._ Let $(X, cal(C))$ be an X3C instance with $|X| = 3q$ and $cal(C) = {C_1, dots, C_n}$. Define $n$ variables over GF(2). For each element $u_i$, let $S_i = {j : u_i in C_j}$. Add linear constraint $sum_(j in S_i) x_j + 1 = 0$ (mod 2) and pairwise constraints $x_j dot x_k = 0$ (mod 2) for all $j < k in S_i$. Total: at most $3q + sum_i binom(|S_i|, 2)$ equations.
+
+  _Correctness._ ($arrow.r.double$) An exact cover sets $x_j = 1$ for exactly $q$ selected sets. Each element has exactly one covering set, so $sum_(j in S_i) x_j = 1 equiv 1$ (mod 2), satisfying the linear constraint. All pairwise products vanish since at most one $x_j = 1$ per $S_i$. ($arrow.l.double$) The linear constraint forces an odd number of selected sets per element. The pairwise constraints forbid selecting two sets covering the same element. Together: exactly one set per element. Since each set has 3 elements and all $3q$ are covered, exactly $q$ sets are selected.
+
+  _Solution extraction._ The X3C configuration equals the GF(2) configuration: select subset $j$ iff $x_j = 1$.
+]
+
+// 16. Partition → ProductionPlanning (#488)
+#reduction-rule("Partition", "ProductionPlanning")[
+  Each element $a_i$ becomes a production period with capacity $c_i = a_i$ and setup cost $b_i = a_i$ (zero production and inventory costs). One demand period requires $Q = S\/2$ units with no production capacity. The cost bound is $B = Q$. Activating a subset summing to $Q$ exactly meets demand at cost $Q = B$.
+][
+  _Construction._ Given Partition instance $A = {a_1, dots, a_n}$ with total $S$ and $Q = S\/2$. If $S$ is odd, output a trivially infeasible instance. Otherwise create $n + 1$ periods: for each $a_i$, period $i$ has $r_i = 0, c_i = a_i, b_i = a_i, p_i = h_i = 0$; demand period $n+1$ has $r_(n+1) = Q, c_(n+1) = 0, b_(n+1) = p_(n+1) = h_(n+1) = 0$. Cost bound $B = Q$.
+
+  _Correctness._ ($arrow.r.double$) A balanced partition $A'$ with sum $Q$ activates those periods: total production $= Q$ meets demand, inventory levels stay non-negative, and total cost $= sum_(i in A') a_i = Q = B$. ($arrow.l.double$) Any feasible plan has setup cost $sum_(i in J) a_i <= Q$ (where $J$ is the set of active periods) and must produce at least $Q$ units. Since $x_i <= c_i = a_i$, total production $<= sum_(i in J) a_i$. These force $sum_(i in J) a_i = Q$, yielding a balanced partition.
+
+  _Solution extraction._ Active element periods ($x_i > 0$) form one partition half.
+]
+
+// 17. HamiltonianPathBetweenTwoVertices → LongestPath (#359)
+#reduction-rule("HamiltonianPathBetweenTwoVertices", "LongestPath")[
+  Pass the graph through with unit edge lengths, same source $s$ and target $t$, and bound $K = n - 1$. A Hamiltonian $s$-$t$ path uses exactly $n - 1$ edges, which is the maximum possible for a simple path on $n$ vertices. The reduction is size-preserving.
+][
+  _Construction._ Given $(G = (V, E), s, t)$ with $n = |V|$, set $G' = G$, $ell(e) = 1$ for all $e in E$, $s' = s$, $t' = t$, and $K = n - 1$.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian $s$-$t$ path has $n - 1$ edges of length 1 each, giving total length $n - 1 = K$. ($arrow.l.double$) A simple $s'$-$t'$ path of length $>= K = n - 1$ has $>= n - 1$ edges. Since a simple path on $n$ vertices can have at most $n - 1$ edges, it has exactly $n - 1$ edges and visits all vertices -- it is a Hamiltonian $s$-$t$ path.
+
+  _Solution extraction._ From the edge-selection vector, trace the path from $s$ following selected edges to reconstruct the vertex permutation.
+]
+
+// 18. GraphPartitioning → MaxCut (from main codebase)
+#reduction-rule("GraphPartitioning", "MaxCut")[
+  Build a weighted complete graph on the same $n$ vertices. Edges present in $G$ receive weight $P - 1$ and non-edges receive weight $P$, where $P = |E| + 1$. The heavy non-edge weights force any maximum balanced cut to avoid splitting non-adjacent pairs, effectively minimizing crossing edges from $E$. Variables correspond one-to-one.
+][
+  _Construction._ Given Graph Partitioning instance $G = (V, E)$, let $P = |E| + 1$. Build $K_n$ with edge weights $w(u,v) = P - 1$ if ${u,v} in E$ and $w(u,v) = P$ if ${u,v} in.not E$. The Max-Cut instance has $n$ vertices and $n(n-1)\/2$ edges.
+
+  _Correctness._ ($arrow.r.double$) A balanced partition $(A, B)$ with $|A| = |B| = n\/2$ cutting $c$ edges of $G$ yields a cut of weight $(P-1) dot c + P dot (n\/2 dot n\/2 - c - "non-edges within halves") = dots$ For any balanced partition, increasing the number of non-edges crossing the cut increases the total weight (since non-edges have higher weight $P > P - 1$), so the maximum cut places as many non-edges as possible across the cut, equivalently minimizing edges of $G$ across the cut. ($arrow.l.double$) The maximum-weight balanced cut in $K_n$ corresponds to the minimum bisection of $G$.
+
+  _Solution extraction._ The Max-Cut partition assignment is directly the Graph Partitioning assignment: $x_v = 0$ for side $A$, $x_v = 1$ for side $B$.
 ]
 
 #pagebreak()
