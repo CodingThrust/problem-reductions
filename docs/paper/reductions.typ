@@ -13773,7 +13773,37 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Normalize bin labels: element $i$ in subset 0 if $b_i = b_0$, else subset 1.
 ]
 
-#reduction-rule("ExactCoverBy3Sets", "MaximumSetPacking")[
+#let x3c_msp = load-example("ExactCoverBy3Sets", "MaximumSetPacking")
+#let x3c_msp_sol = x3c_msp.solutions.at(0)
+#reduction-rule("ExactCoverBy3Sets", "MaximumSetPacking",
+  example: true,
+  example-caption: [#x3c_msp.source.instance.subsets.len() subsets over $3q = #x3c_msp.source.instance.universe_size$ elements],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(x3c_msp.source) + " -o x3c.json",
+      "pred reduce x3c.json --to " + target-spec(x3c_msp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate x3c.json --config " + x3c_msp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The X3C instance has universe $X = {0, dots, #(x3c_msp.source.instance.universe_size - 1)}$ with $q = #(x3c_msp.source.instance.universe_size / 3)$ and $#x3c_msp.source.instance.subsets.len()$ candidate triples:
+    #for (i, s) in x3c_msp.source.instance.subsets.enumerate() [
+      $S_#i = {#s.map(str).join(", ")}$#if i < x3c_msp.source.instance.subsets.len() - 1 [, ] else [.]
+    ]
+
+    *Step 2 -- Construct the target.* The identity map copies each triple as a unit-weight set: $#x3c_msp.target.instance.sets.len()$ sets with weights $(#x3c_msp.target.instance.weights.map(str).join(", "))$. The target asks for a maximum packing of pairwise-disjoint sets.
+
+    *Step 3 -- Verify the canonical witness.* Source config $(#x3c_msp_sol.source_config.map(str).join(", "))$ selects subsets ${#x3c_msp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$:
+    #let selected = x3c_msp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+    #for idx in selected [
+      - $S_#idx = {#x3c_msp.source.instance.subsets.at(idx).map(str).join(", ")}$
+    ]
+    These $#selected.len()$ triples are pairwise disjoint and cover all $#x3c_msp.source.instance.universe_size = 3 dot #(x3c_msp.source.instance.universe_size / 3)$ elements #sym.checkmark \\
+    Target config is identical: $(#x3c_msp_sol.target_config.map(str).join(", "))$ — packing value $= #selected.len() = q$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. For this instance there are no other exact covers since every pair of triples that covers all 6 elements is unique.
+  ],
+)[
   The identity map embeds exact cover as set packing: unit-weight 3-element subsets with a $3q$-element universe. A maximum packing of $q$ disjoint sets is an exact cover.
 ][
   _Construction._ Given $(X, cal(C))$ with $|X| = 3q$, the MaximumSetPacking instance is $(X, cal(C))$ with unit weights.
