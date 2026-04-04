@@ -13451,15 +13451,6 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Map $w in NN^m$ to $c in {0,1}^m$ by $c[j] = 1$ if $w[j] > 0$.
 ]
 
-#reduction-rule("Satisfiability", "NAESatisfiability")[
-  Introduce a fresh sentinel variable $s$ and append it to every clause. The sentinel forces NAE-SAT to simulate ordinary disjunction.
-][
-  _Construction._ Given SAT instance $phi$ with variables $x_1, dots, x_n$ and clauses $C_1, dots, C_m$, introduce $s$ (index $n+1$). For each clause $C_j = (ell_1 or dots or ell_k)$, form NAE clause $C'_j = (ell_1, dots, ell_k, s)$.
-
-  _Correctness._ ($arrow.r.double$) Set $s = 0$. A satisfying assignment makes at least one $ell_i = 1$ per clause; with $s = 0$, the clause is neither all-true nor all-false. ($arrow.l.double$) If $beta$ NAE-satisfies $phi'$, let $v = beta(s)$. If $v = 0$, at least one literal per clause is true. If $v = 1$, flip all variables; by NAE symmetry the complement also works.
-
-  _Solution extraction._ If $beta(s) = 0$, return $(beta(x_1), dots, beta(x_n))$. If $beta(s) = 1$, return $(1 - beta(x_1), dots, 1 - beta(x_n))$.
-]
 
 #let ksat_mvc = load-example("KSatisfiability", "MinimumVertexCover")
 #let ksat_mvc_sol = ksat_mvc.solutions.at(0)
