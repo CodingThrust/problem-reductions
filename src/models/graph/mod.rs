@@ -87,6 +87,7 @@ pub(crate) mod directed_hamiltonian_path;
 pub(crate) mod directed_two_commodity_integral_flow;
 pub(crate) mod disjoint_connecting_paths;
 pub(crate) mod generalized_hex;
+pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_circuit;
 pub(crate) mod hamiltonian_path;
 pub(crate) mod hamiltonian_path_between_two_vertices;
@@ -163,6 +164,7 @@ pub use directed_hamiltonian_path::DirectedHamiltonianPath;
 pub use directed_two_commodity_integral_flow::DirectedTwoCommodityIntegralFlow;
 pub use disjoint_connecting_paths::DisjointConnectingPaths;
 pub use generalized_hex::GeneralizedHex;
+pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_circuit::HamiltonianCircuit;
 pub use hamiltonian_path::HamiltonianPath;
 pub use hamiltonian_path_between_two_vertices::HamiltonianPathBetweenTwoVertices;
@@ -305,5 +307,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(partial_feedback_edge_set::canonical_model_example_specs());
     specs.extend(mixed_chinese_postman::canonical_model_example_specs());
     specs.extend(subgraph_isomorphism::canonical_model_example_specs());
+    specs.extend(graph_partitioning::canonical_model_example_specs());
     specs
 }

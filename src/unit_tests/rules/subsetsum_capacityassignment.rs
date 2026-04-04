@@ -100,12 +100,14 @@ fn test_subsetsum_to_capacityassignment_monotonicity() {
     let target = reduction.target_problem();
 
     for (link, cost_row) in target.cost().iter().enumerate() {
+        let cost_row: &[u64] = cost_row;
         assert!(
             cost_row.windows(2).all(|w| w[0] <= w[1]),
             "cost row {link} must be non-decreasing"
         );
     }
     for (link, delay_row) in target.delay().iter().enumerate() {
+        let delay_row: &[u64] = delay_row;
         assert!(
             delay_row.windows(2).all(|w| w[0] >= w[1]),
             "delay row {link} must be non-increasing"

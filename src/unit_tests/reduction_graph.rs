@@ -5,7 +5,7 @@ use crate::prelude::*;
 use crate::rules::{MinimizeSteps, ReductionGraph, ReductionMode, TraversalFlow};
 use crate::topology::{KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
 use crate::types::ProblemSize;
-use crate::variant::K3;
+use crate::variant::{K3, KN};
 use std::collections::BTreeMap;
 
 // ---- Discovery and registration ----
@@ -206,6 +206,13 @@ fn test_direct_reduction_exists() {
         .has_direct_reduction::<MaximumIndependentSet<SimpleGraph, i32>, MaximumSetPacking<i32>>());
     assert!(graph.has_direct_reduction::<SpinGlass<SimpleGraph, f64>, QUBO<f64>>());
     assert!(graph.has_direct_reduction::<SpinGlass<SimpleGraph, f64>, MaxCut<SimpleGraph, i32>>());
+}
+
+#[test]
+fn test_kcoloring_to_partitionintocliques_smoke() {
+    let source = KColoring::<KN, _>::with_k(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 2);
+    let reduction = ReduceTo::<PartitionIntoCliques<SimpleGraph>>::reduce_to(&source);
+    assert_eq!(reduction.target_problem().num_cliques(), 2);
 }
 
 #[test]

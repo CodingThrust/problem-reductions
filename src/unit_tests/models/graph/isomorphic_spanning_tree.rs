@@ -1,6 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::topology::SimpleGraph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
 #[test]
@@ -8,13 +8,19 @@ fn test_isomorphicspanningtree_basic() {
     // Triangle graph, path tree
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = IsomorphicSpanningTree::new(graph, tree);
+    let problem: IsomorphicSpanningTree<SimpleGraph> =
+        IsomorphicSpanningTree::new(graph.clone(), tree.clone());
 
     assert_eq!(problem.dims(), vec![3, 3, 3]);
+    assert_eq!(problem.graph(), &graph);
+    assert_eq!(problem.tree(), &tree);
     assert_eq!(problem.num_vertices(), 3);
-    assert_eq!(problem.num_graph_edges(), 3);
-    assert_eq!(problem.num_tree_edges(), 2);
-    assert_eq!(IsomorphicSpanningTree::NAME, "IsomorphicSpanningTree");
+    assert_eq!(problem.num_edges(), 3);
+    assert_eq!(problem.tree_edges(), tree.edges());
+    assert_eq!(
+        <IsomorphicSpanningTree<SimpleGraph> as Problem>::NAME,
+        "IsomorphicSpanningTree"
+    );
 }
 
 #[test]
@@ -111,11 +117,11 @@ fn test_isomorphicspanningtree_serialization() {
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     let json = serde_json::to_string(&problem).unwrap();
-    let deserialized: IsomorphicSpanningTree = serde_json::from_str(&json).unwrap();
+    let deserialized: IsomorphicSpanningTree<SimpleGraph> = serde_json::from_str(&json).unwrap();
 
     assert_eq!(deserialized.num_vertices(), 3);
-    assert_eq!(deserialized.num_graph_edges(), 3);
-    assert_eq!(deserialized.num_tree_edges(), 2);
+    assert_eq!(deserialized.num_edges(), 3);
+    assert_eq!(deserialized.tree_edges(), vec![(0, 1), (1, 2)]);
     // Verify same evaluation
     assert!(deserialized.evaluate(&[0, 1, 2]));
 }
@@ -170,7 +176,10 @@ fn test_isomorphicspanningtree_paper_example() {
 
 #[test]
 fn test_isomorphicspanningtree_variant() {
-    assert!(IsomorphicSpanningTree::variant().is_empty());
+    assert_eq!(
+        <IsomorphicSpanningTree<SimpleGraph> as Problem>::variant(),
+        vec![("graph", "SimpleGraph")]
+    );
 }
 
 #[test]
@@ -187,5 +196,13 @@ fn test_isomorphicspanningtree_not_a_tree() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     // Not a tree: 3 edges for 3 vertices (has a cycle)
     let tree = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    IsomorphicSpanningTree::new(graph, tree);
+}
+
+#[test]
+#[should_panic(expected = "tree must be connected")]
+fn test_isomorphicspanningtree_disconnected_tree() {
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]);
+    let tree = SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2)]);
     IsomorphicSpanningTree::new(graph, tree);
 }

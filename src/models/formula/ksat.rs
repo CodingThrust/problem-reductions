@@ -12,6 +12,42 @@ use serde::{Deserialize, Serialize};
 
 use super::CNFClause;
 
+pub(crate) fn first_n_odd_primes(count: usize) -> Vec<u64> {
+    let mut primes = Vec::with_capacity(count);
+    let mut candidate = 3u64;
+
+    while primes.len() < count {
+        if is_prime(candidate) {
+            primes.push(candidate);
+        }
+        candidate += 2;
+    }
+
+    primes
+}
+
+fn is_prime(candidate: u64) -> bool {
+    if candidate < 2 {
+        return false;
+    }
+    if candidate == 2 {
+        return true;
+    }
+    if candidate.is_multiple_of(2) {
+        return false;
+    }
+
+    let mut divisor = 3u64;
+    while divisor * divisor <= candidate {
+        if candidate.is_multiple_of(divisor) {
+            return false;
+        }
+        divisor += 2;
+    }
+
+    true
+}
+
 inventory::submit! {
     ProblemSchemaEntry {
         name: "KSatisfiability",
@@ -145,6 +181,23 @@ impl<K: KValue> KSatisfiability<K> {
     /// Get the total number of literals across all clauses.
     pub fn num_literals(&self) -> usize {
         self.clauses().iter().map(|c| c.len()).sum()
+    }
+
+    pub fn simultaneous_incongruences_num_incongruences(&self) -> usize {
+        first_n_odd_primes(self.num_vars)
+            .into_iter()
+            .map(|prime| usize::try_from(prime - 2).expect("prime fits in usize"))
+            .sum::<usize>()
+            + self.num_clauses()
+    }
+
+    pub fn simultaneous_incongruences_bound(&self) -> usize {
+        first_n_odd_primes(self.num_vars)
+            .into_iter()
+            .try_fold(1usize, |product, prime| {
+                product.checked_mul(usize::try_from(prime).expect("prime fits in usize"))
+            })
+            .expect("simultaneous incongruences bound must fit in usize")
     }
 
     /// Count satisfied clauses for an assignment.

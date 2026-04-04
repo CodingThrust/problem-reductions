@@ -6,5 +6,9 @@ mod examples;
 mod integration;
 #[path = "suites/jl_parity.rs"]
 mod jl_parity;
+#[path = "suites/ksatisfiability_simultaneous_incongruences.rs"]
+mod ksatisfiability_simultaneous_incongruences;
 #[path = "suites/reductions.rs"]
 mod reductions;
+#[path = "suites/simultaneous_incongruences.rs"]
+mod simultaneous_incongruences;

@@ -7,6 +7,7 @@ fn test_exact_cover_by_3_sets_creation() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
     assert_eq!(problem.universe_size(), 6);
     assert_eq!(problem.num_subsets(), 3);
+    assert_eq!(problem.num_sets(), 3);
     assert_eq!(problem.num_variables(), 3);
     assert_eq!(problem.dims(), vec![2, 2, 2]);
 }
@@ -94,6 +95,8 @@ fn test_exact_cover_by_3_sets_serialization() {
     let deserialized: ExactCoverBy3Sets = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.universe_size(), problem.universe_size());
     assert_eq!(deserialized.num_subsets(), problem.num_subsets());
+    assert_eq!(deserialized.num_sets(), problem.num_sets());
+    assert_eq!(deserialized.sets(), problem.sets());
     assert_eq!(deserialized.subsets(), problem.subsets());
 }
 

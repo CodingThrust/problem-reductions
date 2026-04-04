@@ -676,7 +676,7 @@ fn test_find_rule_example_hamiltonianpath_to_isomorphicspanningtree() {
     };
     let target = ProblemRef {
         name: "IsomorphicSpanningTree".to_string(),
-        variant: BTreeMap::new(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
     };
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianPath");
