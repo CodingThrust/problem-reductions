@@ -8606,6 +8606,44 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Read the side of each positive-literal element: assign $x_i = 1$ iff $p_i in S_2$.
 ]
 
+#let nae_mc = load-example("NAESatisfiability", "MaxCut")
+#let nae_mc_sol = nae_mc.solutions.at(0)
+#let nae_mc_target_edges = nae_mc.target.instance.graph.edges.map(e => (e.at(0), e.at(1)))
+#let nae_mc_weights = nae_mc.target.instance.edge_weights
+#let nae_mc_m = sat-num-clauses(nae_mc.source.instance)
+#let nae_mc_penalty = 2 * nae_mc_m + 1
+#let nae_mc_shared_weight = nae_mc_target_edges.enumerate()
+  .filter(((i, e)) => e.at(0) == 0 and e.at(1) == 2)
+  .map(((i, e)) => nae_mc_weights.at(i))
+  .at(0)
+#let nae_mc_cut_value = nae_mc_target_edges.enumerate().filter(((i, e)) =>
+  nae_mc_sol.target_config.at(e.at(0)) != nae_mc_sol.target_config.at(e.at(1))
+).map(((i, e)) => nae_mc_weights.at(i)).sum(default: 0)
+#reduction-rule("NAESatisfiability", "MaxCut",
+  example: true,
+  example-caption: [2 NAE-3SAT clauses to weighted Max-Cut],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(nae_mc.source) + " -o naesat.json",
+      "pred reduce naesat.json --to " + target-spec(nae_mc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate naesat.json --config " + nae_mc_sol.source_config.map(str).join(","),
+    )
+    Source: $n = #nae_mc.source.instance.num_vars$, $m = #nae_mc_m$ \
+    Target: $#graph-num-vertices(nae_mc.target.instance)$ vertices, $#graph-num-edges(nae_mc.target.instance)$ weighted edges, $M = 2m + 1 = #nae_mc_penalty$ \
+    The repeated literal pair $(v_0, v_2)$ accumulates to weight $#nae_mc_shared_weight$ \
+    Canonical witness source $(#nae_mc_sol.source_config.map(str).join(", "))$ maps to target $(#nae_mc_sol.target_config.map(str).join(", "))$ and attains cut $#nae_mc_cut_value$ #sym.checkmark
+  ],
+)[
+  @garey1976 This polynomial-time reduction encodes each variable by a heavy edge whose endpoints represent the positive and negative literals, then replaces every 3-literal NAE clause by a unit-weight triangle on the corresponding literal vertices. The heavy edges force opposite sides for $x_i$ and $not x_i$ in every optimum; once that is fixed, each clause triangle contributes exactly $2$ iff its literals are not all equal. The target therefore has $2n$ vertices and at most $n + 3m$ weighted edges after merging parallel clause edges.
+][
+  _Construction._ Given an NAE-3SAT instance with variables $x_1, dots, x_n$ and clauses $C_1, dots, C_m$, set $M = 2m + 1$. For each variable $x_i$, create two vertices $v_i$ and $v_i'$ and add edge $(v_i, v_i')$ with weight $M$. Map a positive literal $x_i$ to $v_i$ and a negative literal $not x_i$ to $v_i'$. For each clause $C_j = (l_a, l_b, l_c)$, add the three unit-weight edges between the literal vertices of $l_a$, $l_b$, and $l_c$. When the same unordered pair of literal vertices appears in several clauses, keep one Max-Cut edge whose weight is the sum of those occurrences.
+
+  _Correctness._ ($arrow.r.double$) Let $alpha$ be an NAE-satisfying assignment. Put $v_i$ on side $1$ and $v_i'$ on side $0$ when $alpha(x_i) = 1$, and swap them when $alpha(x_i) = 0$. Every heavy variable edge is cut, contributing $n M$. In each clause, the three literal vertices are not monochromatic, so the triangle is split $1$-$2$ and contributes exactly $2$. Hence the cut value is $n M + 2m$. ($arrow.l.double$) Let $S$ be a maximum cut. If some heavy edge $(v_i, v_i')$ were not cut, moving one endpoint across the cut would gain $M$. This can decrease the contribution of each clause containing $x_i$ or $not x_i$ by at most $1$, so the total clause loss is at most $2m < M$. Therefore every maximum cut must cut every heavy variable edge. Reading $x_i = 1$ exactly when $v_i$ lies on side $1$ yields a well-defined assignment. Under that assignment, a clause triangle contributes $2$ exactly when its three literals are not all equal and $0$ otherwise. Since the heavy contribution $n M$ is fixed across all maximum cuts, maximizing the cut is equivalent to maximizing the number of NAE-satisfied clauses; in particular, value $n M + 2m$ occurs iff all clauses are NAE-satisfied.
+
+  _Solution extraction._ Return $x_i = 1$ iff the positive-literal vertex $v_i$ lies on the selected side of the Max-Cut witness.
+]
+
 #reduction-rule("KClique", "ILP")[
   A $k$-clique requires at least $k$ selected vertices with no non-edge between any pair.
 ][

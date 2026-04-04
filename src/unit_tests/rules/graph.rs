@@ -1,5 +1,7 @@
 use super::*;
 use crate::models::algebraic::{ILP, QUBO};
+use crate::models::formula::NAESatisfiability;
+use crate::models::graph::MaxCut;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::misc::Knapsack;
 use crate::models::set::MaximumSetPacking;
@@ -871,6 +873,13 @@ fn test_ksat_reductions() {
     // SAT <-> 3-SAT (bidirectional)
     assert!(graph.has_direct_reduction::<Satisfiability, KSatisfiability<K3>>());
     assert!(graph.has_direct_reduction::<KSatisfiability<K3>, Satisfiability>());
+}
+
+#[test]
+fn test_nae_sat_to_maxcut_reduction_registered() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction::<NAESatisfiability, MaxCut<SimpleGraph, i32>>());
 }
 
 #[test]

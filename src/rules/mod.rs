@@ -38,6 +38,7 @@ pub(crate) mod minimummultiwaycut_qubo;
 pub(crate) mod minimumvertexcover_maximumindependentset;
 pub(crate) mod minimumvertexcover_minimumfeedbackvertexset;
 pub(crate) mod minimumvertexcover_minimumsetcovering;
+pub(crate) mod naesatisfiability_maxcut;
 pub(crate) mod naesatisfiability_setsplitting;
 pub(crate) mod partition_knapsack;
 pub(crate) mod partition_openshopscheduling;
@@ -277,6 +278,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(minimumvertexcover_maximumindependentset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackvertexset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumsetcovering::canonical_rule_example_specs());
+    specs.extend(naesatisfiability_maxcut::canonical_rule_example_specs());
     specs.extend(naesatisfiability_setsplitting::canonical_rule_example_specs());
     specs.extend(sat_circuitsat::canonical_rule_example_specs());
     specs.extend(sat_coloring::canonical_rule_example_specs());
