@@ -13168,7 +13168,52 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Orient the path so $s$ is the start and $t$ the end. Drop $s$ and the last two elements $v', t$; the remaining sequence is the Hamiltonian circuit witness.
 ]
 
-#reduction-rule("KClique", "SubgraphIsomorphism")[
+#let kc_si = load-example("KClique", "SubgraphIsomorphism")
+#let kc_si_sol = kc_si.solutions.at(0)
+#reduction-rule("KClique", "SubgraphIsomorphism",
+  example: true,
+  example-caption: [5-vertex graph with $k = #kc_si.source.instance.k$: clique detection via subgraph isomorphism],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(kc_si.source) + " -o kclique.json",
+      "pred reduce kclique.json --to " + target-spec(kc_si) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate kclique.json --config " + kc_si_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let n = kc_si.source.instance.graph.num_vertices
+      let k = kc_si.source.instance.k
+      let clique-verts = kc_si_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let fills = kc_si_sol.source_config.map(c => if c == 1 { graph-colors.at(0) } else { white })
+      // Simple circular layout for the source graph
+      let angle-step = 360deg / n
+      let radius = 2.0
+      let positions = range(n).map(i => {
+        let a = 90deg - i * angle-step
+        (calc.cos(a) * radius, calc.sin(a) * radius)
+      })
+      align(center, canvas(length: 0.8cm, {
+        for (u, v) in kc_si.source.instance.graph.edges {
+          g-edge(positions.at(u), positions.at(v))
+        }
+        for (i, pos) in positions.enumerate() {
+          g-node(pos, name: str(i), fill: fills.at(i), label: str(i))
+        }
+      }))
+    }
+
+    *Step 1 -- Source instance.* The canonical KClique instance has $n = #kc_si.source.instance.graph.num_vertices$ vertices, $|E| = #kc_si.source.instance.graph.edges.len()$ edges, and clique size $k = #kc_si.source.instance.k$. The task is to decide whether $G$ contains $k$ pairwise-adjacent vertices.
+
+    *Step 2 -- Construct the pattern graph.* The reduction sets the host graph $H := G$ (unchanged) and builds the pattern graph $P := K_k$, the complete graph on $k = #kc_si.source.instance.k$ vertices with $binom(k, 2) = #kc_si.target.instance.pattern_graph.edges.len()$ edges. The target instance has $#kc_si.target.instance.host_graph.num_vertices$ host vertices and $#kc_si.target.instance.pattern_graph.num_vertices$ pattern vertices.
+
+    *Step 3 -- Variable semantics.* The source uses $n = #kc_si.source.instance.graph.num_vertices$ binary indicator variables ($x_v = 1$ iff vertex $v$ is in the clique). The target uses $k = #kc_si.source.instance.k$ variables, each ranging over ${0, dots, n - 1}$, specifying which host vertex each pattern vertex maps to.
+
+    *Step 4 -- Verify a solution.* The canonical witness has source config $bold(x) = (#kc_si_sol.source_config.map(str).join(", "))$, selecting vertices ${#kc_si_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$. The target config is $(#kc_si_sol.target_config.map(str).join(", "))$, mapping pattern vertex $i$ to host vertex $c_i$. The image vertices ${#kc_si_sol.target_config.map(str).join(", ")}$ are pairwise adjacent in $G$ (they form a triangle), confirming the isomorphism #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. The $k!$ permutations of the clique vertices each give a valid subgraph isomorphism, so the target side has $#kc_si.source.instance.k ! = #calc.fact(kc_si.source.instance.k)$ witnesses for this single source clique.
+  ],
+)[
   A $k$-clique in $G$ is precisely a subgraph of $G$ isomorphic to $K_k$. Constructing $K_k$ as the pattern and passing $G$ as the host reduces $k$-clique detection to a single subgraph-isomorphism query.
 ][
   _Construction._ Given a $k$-clique instance $(G, k)$ with $G = (V, E)$, $|V| = n$, $|E| = m$, build the subgraph-isomorphism instance $(H, P)$ where $H := G$ (host) and $P := K_k$ (pattern, with $k$ vertices and $binom(k, 2)$ edges).
@@ -13218,7 +13263,28 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The processor assignment $p_i in {0, 1}$ is the partition assignment directly.
 ]
 
-#reduction-rule("HamiltonianPath", "IsomorphicSpanningTree")[
+#let hp_ist = load-example("HamiltonianPath", "IsomorphicSpanningTree")
+#let hp_ist_sol = hp_ist.solutions.at(0)
+#reduction-rule("HamiltonianPath", "IsomorphicSpanningTree",
+  example: true,
+  example-caption: [$n = #graph-num-vertices(hp_ist.source.instance)$ vertices, $|E| = #graph-num-edges(hp_ist.source.instance)$ edges: HP $arrow.r$ IST],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hp_ist.source) + " -o hp.json",
+      "pred reduce hp.json --to " + target-spec(hp_ist) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hp.json --config " + hp_ist_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Hamiltonian Path instance has $n = #graph-num-vertices(hp_ist.source.instance)$ vertices and $|E| = #graph-num-edges(hp_ist.source.instance)$ edges. The source configuration is a permutation giving the vertex visit order.
+
+    *Step 2 -- Construction.* The reduction keeps the host graph $G$ unchanged and constructs the path graph $P_n$ with $n = #hp_ist.target.instance.tree.num_vertices$ vertices and $#hp_ist.target.instance.tree.edges.len()$ edges ($0 - 1 - dots - #(hp_ist.target.instance.tree.num_vertices - 1)$). The target IST instance is the pair $(G, P_n)$. No auxiliary variables are introduced: the target has the same $n = #graph-num-vertices(hp_ist.source.instance)$ configuration coordinates as the source.
+
+    *Step 3 -- Verify a solution.* The canonical source witness is the path ordering $(#hp_ist_sol.source_config.map(str).join(", "))$, meaning the path visits vertices in that order. The target witness is the tree-vertex mapping $(#hp_ist_sol.target_config.map(str).join(", "))$, where entry $i$ gives the graph vertex assigned to tree vertex $i$. Since $P_n$ has edges $\{i, i+1\}$, the mapping must send each such edge to a graph edge $\{c[i], c[i+1]\}$, and the image must span all $n$ vertices. Here the mapping is the identity, confirming a valid spanning tree isomorphic to $P_n$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. The path graph $P_n$ admits two orientations (forward and reverse), so the source problem generically has at least two witnesses per Hamiltonian path; one suffices to demonstrate the reduction.
+  ],
+)[
   A Hamiltonian path in $G$ is a spanning tree isomorphic to the path graph $P_n$. The reduction asks whether $G$ admits a spanning tree isomorphic to $P_n$.
 ][
   _Construction._ Given $G = (V, E)$ with $|V| = n$, the target instance is $(G, P_n)$ where $P_n$ is the path $0 - 1 - dots - (n-1)$ with $n - 1$ edges.
@@ -13259,7 +13325,46 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Recover the vertex cycle order from the tour edge set.
 ]
 
-#reduction-rule("KClique", "ConjunctiveBooleanQuery")[
+#let kc_cbq = load-example("KClique", "ConjunctiveBooleanQuery")
+#let kc_cbq_sol = kc_cbq.solutions.at(0)
+#reduction-rule("KClique", "ConjunctiveBooleanQuery",
+  example: true,
+  example-caption: [5-vertex graph ($n = #kc_cbq.source.instance.graph.num_vertices$, $|E| = #kc_cbq.source.instance.graph.edges.len()$, $k = #kc_cbq.source.instance.k$)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(kc_cbq.source) + " -o kclique.json",
+      "pred reduce kclique.json --to " + target-spec(kc_cbq) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate kclique.json --config " + kc_cbq_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let verts = ((0, 1.5), (1.5, 2.5), (3, 1.5), (1.5, 0), (4.5, 0))
+      let edges = kc_cbq.source.instance.graph.edges
+      let clique-verts = kc_cbq_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      align(center, canvas(length: 0.8cm, {
+        for (u, v) in edges {
+          let in-clique = clique-verts.contains(u) and clique-verts.contains(v)
+          g-edge(verts.at(u), verts.at(v), stroke: if in-clique { 2pt + blue } else { 1pt + gray })
+        }
+        for (k, pos) in verts.enumerate() {
+          let in-clique = clique-verts.contains(k)
+          g-node(pos, name: str(k), fill: if in-clique { graph-colors.at(1) } else { white }, label: str(k))
+        }
+      }))
+    }
+
+    *Step 1 -- Source instance.* The graph $G$ has $n = #kc_cbq.source.instance.graph.num_vertices$ vertices and $|E| = #kc_cbq.source.instance.graph.edges.len()$ edges, with $k = #kc_cbq.source.instance.k$. Vertices ${0, 1, 2}$ form a triangle (the unique 3-clique).
+
+    *Step 2 -- Build the edge relation.* Define the domain $D = {0, dots, #(kc_cbq.source.instance.graph.num_vertices - 1)}$ with $|D| = #kc_cbq.target.instance.domain_size$. The single binary relation $R$ contains both orientations of every edge: $|R| = 2 |E| = #kc_cbq.target.instance.relations.at(0).tuples.len()$ tuples of arity #kc_cbq.target.instance.relations.at(0).arity.
+
+    *Step 3 -- Form the conjunctive query.* Introduce $k = #kc_cbq.target.instance.num_variables$ existential variables $y_0, y_1, y_2$ over $D$. The conjunction has $binom(k, 2) = #kc_cbq.target.instance.conjuncts.len()$ conjuncts: $R(y_0, y_1) and R(y_0, y_2) and R(y_1, y_2)$.
+
+    *Step 4 -- Verify a solution.* The satisfying assignment $(y_0, y_1, y_2) = (#kc_cbq_sol.target_config.map(str).join(", "))$ maps to vertices ${#kc_cbq_sol.target_config.map(str).join(", ")}$. Check each conjunct: $(#kc_cbq_sol.target_config.at(0), #kc_cbq_sol.target_config.at(1)) in R$ #sym.checkmark, $(#kc_cbq_sol.target_config.at(0), #kc_cbq_sol.target_config.at(2)) in R$ #sym.checkmark, $(#kc_cbq_sol.target_config.at(1), #kc_cbq_sol.target_config.at(2)) in R$ #sym.checkmark --- all pairs are adjacent, confirming the 3-clique. The source indicator is $(#kc_cbq_sol.source_config.map(str).join(", "))$, marking exactly vertices ${0, 1, 2}$.
+
+    *Multiplicity:* The fixture stores one canonical witness. The triangle ${0, 1, 2}$ is the unique 3-clique in this graph, but the CBQ query has $3! = 6$ satisfying tuples (one per permutation of the three vertices); the canonical witness selects the sorted order $(0, 1, 2)$.
+  ],
+)[
   Introduce $k$ existential variables over the vertex set and require the edge relation $R(y_i, y_j)$ for every pair $i < j$. The query is satisfiable iff $G$ contains a $k$-clique.
 ][
   _Construction._ Given $G = (V, E)$ with $|V| = n$ and parameter $k$, set domain $D = V$, define binary relation $R = {(u,v), (v,u) : {u,v} in E}$, and form the conjunction $phi = and.big_(0 <= i < j < k) R(y_i, y_j)$ with $binom(k, 2)$ conjuncts.
@@ -13269,7 +13374,35 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The satisfying tuple $(d_0, dots, d_(k-1))$ gives vertex indices; set $x[d_i] = 1$ for the clique indicator.
 ]
 
-#reduction-rule("ExactCoverBy3Sets", "StaffScheduling")[
+#let x3c_ss = load-example("ExactCoverBy3Sets", "StaffScheduling")
+#let x3c_ss_sol = x3c_ss.solutions.at(0)
+#reduction-rule("ExactCoverBy3Sets", "StaffScheduling",
+  example: true,
+  example-caption: [$|X| = #x3c_ss.source.instance.universe_size$, $|cal(C)| = #x3c_ss.source.instance.subsets.len()$ subsets],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(x3c_ss.source) + " -o x3c.json",
+      "pred reduce x3c.json --to " + target-spec(x3c_ss) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate x3c.json --config " + x3c_ss_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The X3C instance has universe $X = {0, dots, #(x3c_ss.source.instance.universe_size - 1)}$ ($|X| = #x3c_ss.source.instance.universe_size = 3q$, so $q = #(x3c_ss.source.instance.universe_size / 3)$) and $|cal(C)| = #x3c_ss.source.instance.subsets.len()$ subsets: #x3c_ss.source.instance.subsets.enumerate().map(((j, s)) => $S_#j = {#s.map(str).join(", ")}$).join(", ").
+
+    *Step 2 -- Construct StaffScheduling instance.* The reduction creates $#x3c_ss.target.instance.requirements.len()$ periods (one per universe element), each with requirement $r[i] = 1$. Each subset $S_j$ becomes a schedule $sigma_j$ with $sigma_j [i] = 1$ iff $i in S_j$, giving shifts_per_schedule $= #x3c_ss.target.instance.shifts_per_schedule$. The worker budget is $W = q = #x3c_ss.target.instance.num_workers$.
+
+    *Step 3 -- Verify a solution.* The canonical cover selects subsets via $(#x3c_ss_sol.source_config.map(str).join(", "))$: #{
+      let selected = x3c_ss_sol.source_config.enumerate().filter(((j, x)) => x == 1).map(((j, x)) => {
+        let s = x3c_ss.source.instance.subsets.at(j)
+        $S_#j = {#s.map(str).join(", ")}$
+      })
+      selected.join(", ")
+    }. These $#x3c_ss_sol.source_config.filter(x => x == 1).len()$ subsets are pairwise disjoint and cover all $#x3c_ss.source.instance.universe_size$ elements #sym.checkmark \
+    The target config $(#x3c_ss_sol.target_config.map(str).join(", "))$ assigns $w[j]$ workers to schedule $j$: total workers $= #x3c_ss_sol.target_config.sum() = q$ #sym.checkmark. Each period is covered by exactly one worker #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. The instance admits a second exact cover ${S_2, S_3}$, but the fixture records only the first found.
+  ],
+)[
   Each universe element becomes a time period requiring exactly one worker, each 3-element subset becomes a schedule active on those three periods, and the worker budget is $q = |X|/3$. A feasible assignment selects $q$ schedules covering every period exactly once.
 ][
   _Construction._ Let $(X, cal(C))$ with $|X| = 3q$. Set $m_p = 3q$ periods (one per element), requirement $r[i] = 1$ for all $i$, worker budget $W = q$. Each subset $S_j = {a, b, c}$ defines schedule $sigma_j$ with $sigma_j[i] = 1$ iff $i in S_j$.
@@ -13341,7 +13474,36 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Internal arcs at positions $0, dots, n-1$; the cover is $c[0 : n]$.
 ]
 
-#reduction-rule("KSatisfiability", "KClique")[
+#let ksat_kc = load-example("KSatisfiability", "KClique")
+#let ksat_kc_sol = ksat_kc.solutions.at(0)
+#reduction-rule("KSatisfiability", "KClique",
+  example: true,
+  example-caption: [3-SAT with $m = #ksat_kc.source.instance.clauses.len()$ clauses, $n = #ksat_kc.source.instance.num_vars$ variables $arrow.r$ $k$-clique on $#ksat_kc.target.instance.graph.num_vertices$ vertices],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_kc.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_kc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_kc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The 3-CNF formula $phi$ has $m = #ksat_kc.source.instance.clauses.len()$ clauses over $n = #ksat_kc.source.instance.num_vars$ variables:
+    $ phi = (#ksat_kc.source.instance.clauses.enumerate().map(((j, c)) => {
+      let lits = c.literals.map(l => {
+        if l > 0 { $x_#l$ } else { $overline(x_#(-l))$ }
+      })
+      lits.join($or$)
+    }).join($) and ($)) $
+
+    *Step 2 -- Construct the conflict graph.* Create one vertex per literal position: vertex $3j + p$ represents position $p$ ($0$-indexed) in clause $j$, giving $|V| = 3 dot #ksat_kc.source.instance.clauses.len() = #ksat_kc.target.instance.graph.num_vertices$ vertices. Connect $(j_1, p_1)$ and $(j_2, p_2)$ whenever $j_1 != j_2$ and the two literals are not contradictory. The resulting graph has $|E| = #ksat_kc.target.instance.graph.edges.len()$ edges: $E = {#ksat_kc.target.instance.graph.edges.map(e => "(" + e.map(str).join(", ") + ")").join(", ")}$. Set $k = m = #ksat_kc.target.instance.k$.
+
+    *Step 3 -- Verify a solution.* The satisfying assignment $(x_1, x_2, x_3) = (#ksat_kc_sol.source_config.map(str).join(", "))$ makes literal $x_3$ true in clause 0 (position 2, vertex 2) and literal $overline(x_1)$ true in clause 1 (position 0, vertex 3). The target configuration $bold(x) = (#ksat_kc_sol.target_config.map(str).join(", "))$ selects vertices #{
+      ksat_kc_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(" and ")
+    }, which form a clique (edge $(2, 3) in E$ #sym.checkmark) of size $k = #ksat_kc.target.instance.k$ spanning both clause groups #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. The formula has multiple satisfying assignments; each induces at least one $k$-clique by choosing one true literal per clause.
+  ],
+)[
   Assign one vertex per literal position $(j, p)$; connect vertices from different clauses whose literals are not contradictory. A $k$-clique selects one consistent true literal per clause.
 ][
   _Construction._ Given 3-CNF $phi = C_1 and dots.c and C_m$ over $n$ variables, construct $G = (V, E)$ with $V = {(j, p) : 1 <= j <= m, 1 <= p <= 3}$, $|V| = 3m$. Edge between $(j_1, p_1)$ and $(j_2, p_2)$ iff $j_1 != j_2$ and $ell_(j_1, p_1) != not ell_(j_2, p_2)$. Set $k = m$.
@@ -13536,7 +13698,31 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The QAP permutation $gamma$ is the Hamiltonian circuit visit order directly.
 ]
 
-#reduction-rule("HamiltonianPath", "ConsecutiveOnesSubmatrix")[
+#let hp_cos = load-example("HamiltonianPath", "ConsecutiveOnesSubmatrix")
+#let hp_cos_sol = hp_cos.solutions.at(0)
+#reduction-rule("HamiltonianPath", "ConsecutiveOnesSubmatrix",
+  example: true,
+  example-caption: [Path graph $P_#hp_cos.source.instance.graph.num_vertices$ ($n = #hp_cos.source.instance.graph.num_vertices$, $|E| = #hp_cos.source.instance.graph.edges.len()$)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hp_cos.source) + " -o hp.json",
+      "pred reduce hp.json --to " + target-spec(hp_cos) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hp.json --config " + hp_cos_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The graph $G$ has $n = #hp_cos.source.instance.graph.num_vertices$ vertices and $m = #hp_cos.source.instance.graph.edges.len()$ edges: ${#hp_cos.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$.
+
+    *Step 2 -- Build the incidence matrix.* Construct the $n times m = #hp_cos.target.instance.matrix.len() times #hp_cos.target.instance.matrix.at(0).len()$ vertex-edge incidence matrix $A$ where $A_(i,j) = 1$ iff vertex $i$ is an endpoint of edge $j$. Set bound $K = n - 1 = #hp_cos.target.instance.bound$. The matrix is:
+    $ A = mat(
+      #hp_cos.target.instance.matrix.map(row => row.map(v => if v { "1" } else { "0" }).join(", ")).join(";\n      ")
+    ) $
+
+    *Step 3 -- Verify a solution.* The canonical Hamiltonian path visits vertices in order $(#hp_cos_sol.source_config.map(str).join(", "))$. The target configuration $(#hp_cos_sol.target_config.map(str).join(", "))$ selects #hp_cos_sol.target_config.filter(x => x == 1).len() columns (all $K = #hp_cos.target.instance.bound$ edges). Ordering the selected columns by path position, each row has at most two consecutive ones #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. The path $P_#hp_cos.source.instance.graph.num_vertices$ has exactly 2 Hamiltonian paths (forward and reverse); the canonical one is $(#hp_cos_sol.source_config.map(str).join(", "))$.
+  ],
+)[
   The vertex-edge incidence matrix has the consecutive-ones property on a selected subset of $n-1$ columns iff those columns correspond to a Hamiltonian path.
 ][
   _Construction._ Given $G = (V, E)$ with $|V| = n$, $|E| = m$, build $n times m$ Boolean matrix $A$ with $A_(i,j) = 1$ iff vertex $i$ is an endpoint of edge $j$. Set bound $K = n - 1$.
@@ -13597,7 +13783,43 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The selection vector is unchanged.
 ]
 
-#reduction-rule("NAESatisfiability", "MaxCut")[
+#let nae_mc = load-example("NAESatisfiability", "MaxCut")
+#let nae_mc_sol = nae_mc.solutions.at(0)
+#reduction-rule("NAESatisfiability", "MaxCut",
+  example: true,
+  example-caption: [$n = #nae_mc.source.instance.num_vars$ variables, $m = #nae_mc.source.instance.clauses.len()$ clauses],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(nae_mc.source) + " -o naesat.json",
+      "pred reduce naesat.json --to " + target-spec(nae_mc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate naesat.json --config " + nae_mc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical NAE-SAT instance has $n = #nae_mc.source.instance.num_vars$ variables and $m = #nae_mc.source.instance.clauses.len()$ clauses:
+    #for (j, clause) in nae_mc.source.instance.clauses.enumerate() [
+      - $C_#(j+1) = (#clause.literals.map(l => { if l > 0 { $x_#l$ } else { $overline(x)_#(-l)$ } }).join($, $))$
+    ]
+
+    *Step 2 -- Construct the MaxCut graph.* Each variable $x_i$ yields a literal pair $(v_i^+, v_i^-)$ connected by a heavy variable edge of weight $M = m + 1 = #(nae_mc.source.instance.clauses.len() + 1)$. This gives $2n = #nae_mc.target.instance.graph.num_vertices$ vertices and $n = #nae_mc.source.instance.num_vars$ variable edges. For each clause, unit-weight edges connect all pairs of literal vertices: $binom(3, 2) = 3$ edges per clause, yielding $#(nae_mc.source.instance.clauses.len()) dot 3 = #(nae_mc.source.instance.clauses.len() * 3)$ clause edges. Total: $#nae_mc.target.instance.graph.edges.len()$ edges with weights $(#nae_mc.target.instance.edge_weights.map(str).join(", "))$.
+
+    *Step 3 -- Verify the canonical witness.* Source assignment $(#nae_mc_sol.source_config.map(str).join(", "))$: $x_1 = top, x_2 = bot, x_3 = top$. Target partition $(#nae_mc_sol.target_config.map(str).join(", "))$: vertices $v_1^+ = 1, v_1^- = 0, v_2^+ = 0, v_2^- = 1, v_3^+ = 1, v_3^- = 0$.
+
+    All $n = #nae_mc.source.instance.num_vars$ variable edges are cut (literal pairs separated), contributing $#nae_mc.source.instance.num_vars dot #(nae_mc.source.instance.clauses.len() + 1) = #(nae_mc.source.instance.num_vars * (nae_mc.source.instance.clauses.len() + 1))$.
+    #let clause_cut_counts = nae_mc.source.instance.clauses.map(clause => {
+      let verts = clause.literals.map(l => { if l > 0 { 2 * (l - 1) } else { 2 * (-l - 1) + 1 } })
+      let sides = verts.map(v => nae_mc_sol.target_config.at(v))
+      let cuts = if sides.at(0) != sides.at(1) { 1 } else { 0 } + if sides.at(0) != sides.at(2) { 1 } else { 0 } + if sides.at(1) != sides.at(2) { 1 } else { 0 }
+      cuts
+    })
+    #for (j, clause) in nae_mc.source.instance.clauses.enumerate() [
+      - $C_#(j+1)$: #clause_cut_counts.at(j) of 3 clause edges cut (literals on both sides) #sym.checkmark
+    ]
+    Total cut value: $#(nae_mc.source.instance.num_vars * (nae_mc.source.instance.clauses.len() + 1)) + #clause_cut_counts.sum() = #(nae_mc.source.instance.num_vars * (nae_mc.source.instance.clauses.len() + 1) + clause_cut_counts.sum())$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. The complementary assignment (flipping all variables) also NAE-satisfies the formula and yields an equally valid cut.
+  ],
+)[
   Each variable $x_i$ becomes a literal pair $(v_i^+, v_i^-)$ joined by a heavy edge of weight $M = m+1$. Clause edges of weight 1 connect literal vertices within each clause. The optimal cut separates each literal pair and has at least one literal on each side per clause, encoding NAE-satisfiability.
 ][
   _Construction._ Given $n$ variables and $m$ clauses. For each variable $x_i$: vertices $v_i^+ = 2(i-1)$ and $v_i^- = 2(i-1)+1$ with variable edge of weight $M = m + 1$. For each clause $C_j$: unit-weight edges between all pairs of literal vertices in $C_j$.
@@ -13717,16 +13939,6 @@ The following table shows concrete variable overhead for example instances, take
   _Correctness._ ($arrow.r.double$) A valid 3-partition schedules each triple in a slot between fillers, achieving zero tardiness. ($arrow.l.double$) Zero tardiness forces fillers to their tight deadlines, creating $m$ slots of width $B$; element tasks fill them exactly with 3 per slot.
 
   _Solution extraction._ Decode Lehmer code; scan left to right incrementing group index at each filler.
-]
-
-#reduction-rule("ThreePartition", "FlowShopScheduling")[
-  On 3 machines, $m-1$ separator jobs with large machine-2 tasks force element jobs into $m$ windows of width $B$. Size constraints ensure 3 elements per window.
-][
-  _Construction._ Given $(S, B)$ with $|S| = 3m$ and $L = m B + 1$. Element jobs: task lengths $(a_i, a_i, a_i)$ on machines 1, 2, 3. Separator jobs ($m-1$): task lengths $(0, L, 0)$. Deadline $D$ computed from canonical schedule.
-
-  _Correctness._ ($arrow.r.double$) A valid 3-partition interleaves element groups with separators, meeting the deadline. ($arrow.l.double$) Separators on machine 2 create $m$ windows of capacity $B$; element tasks fill exactly; size constraints give 3 per window.
-
-  _Solution extraction._ Decode Lehmer code; walk job sequence incrementing group at each separator.
 ]
 
 #let tp_jss = load-example("ThreePartition", "JobShopScheduling")
