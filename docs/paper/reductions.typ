@@ -13359,7 +13359,28 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Vertex $v_i$ in independent set iff target solution at arc index $2i+1$ is positive.
 ]
 
-#reduction-rule("HamiltonianCircuit", "QuadraticAssignment")[
+#let hc_qa = load-example("HamiltonianCircuit", "QuadraticAssignment")
+#let hc_qa_sol = hc_qa.solutions.at(0)
+#reduction-rule("HamiltonianCircuit", "QuadraticAssignment",
+  example: true,
+  example-caption: [Cycle graph $C_#hc_qa.source.instance.graph.num_vertices$ ($n = #hc_qa.source.instance.graph.num_vertices$, $|E| = #hc_qa.source.instance.graph.edges.len()$)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_qa.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_qa) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_qa_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The graph $G$ has $n = #hc_qa.source.instance.graph.num_vertices$ vertices and edges ${#hc_qa.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$, forming a cycle $C_#hc_qa.source.instance.graph.num_vertices$. The penalty weight is $omega = n + 1 = #(hc_qa.source.instance.graph.num_vertices + 1)$.
+
+    *Step 2 -- Construction.* The cost matrix $C$ encodes a directed cycle on positions: $c[i][(i+1) mod #hc_qa.source.instance.graph.num_vertices] = 1$, all other entries 0. The distance matrix $D$ encodes graph adjacency: $d[k][l] = 1$ if ${k,l} in E$, $d[k][l] = #(hc_qa.source.instance.graph.num_vertices + 1)$ for non-edges, $d[k][k] = 0$. Both matrices are $#hc_qa.source.instance.graph.num_vertices times #hc_qa.source.instance.graph.num_vertices$, so the QAP has $n = #hc_qa.target.instance.cost_matrix.len()$ facilities and $n = #hc_qa.target.instance.distance_matrix.len()$ locations.
+
+    *Step 3 -- Verify a solution.* The canonical Hamiltonian circuit visits vertices in order $gamma = (#hc_qa_sol.source_config.map(str).join(", "))$. The QAP permutation is the same: $(#hc_qa_sol.target_config.map(str).join(", "))$. The QAP cost is $sum_(i=0)^(n-1) c[i][(i+1) mod n] dot d[gamma(i)][gamma((i+1) mod n)]$. Since $gamma$ maps each position $i$ to vertex $i$, each consecutive pair $(gamma(i), gamma(i+1 mod n))$ is an edge in $G$, contributing $1 dot 1 = 1$. Total cost $= #hc_qa.source.instance.graph.num_vertices = n$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. The cycle $C_#hc_qa.source.instance.graph.num_vertices$ has $#hc_qa.source.instance.graph.num_vertices$ rotations and 2 reflections, giving $2n = #(2 * hc_qa.source.instance.graph.num_vertices)$ distinct Hamiltonian circuits; the canonical one is the identity permutation.
+  ],
+)[
   Position-adjacency encoded in cost matrix $C$ (directed cycle on positions), graph-adjacency in distance matrix $D$ (1 for edges, $omega = n+1$ for non-edges). QAP optimum equals $n$ iff a Hamiltonian circuit exists.
 ][
   _Construction._ Let $G = (V, E)$ with $n = |V|$ and $omega = n + 1$. Cost matrix: $c[i][j] = 1$ if $j equiv i+1 space (mod n)$, else 0. Distance matrix: $d[k][l] = 0$ if $k = l$; 1 if ${k,l} in E$; $omega$ otherwise.
