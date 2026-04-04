@@ -13594,7 +13594,30 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Task $t_i$ assigned to slot $k$ means element $a_i$ belongs to group $k$.
 ]
 
-#reduction-rule("ThreePartition", "SequencingWithReleaseTimesAndDeadlines")[
+#let tp_srd = load-example("ThreePartition", "SequencingWithReleaseTimesAndDeadlines")
+#let tp_srd_sol = tp_srd.solutions.at(0)
+#reduction-rule("ThreePartition", "SequencingWithReleaseTimesAndDeadlines",
+  example: true,
+  example-caption: [3-Partition with $3m = #tp_srd.source.instance.sizes.len()$ elements and $B = #tp_srd.source.instance.bound$ mapped to #tp_srd.target.instance.lengths.len() sequencing tasks],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tp_srd.source) + " -o tp.json",
+      "pred reduce tp.json --to " + target-spec(tp_srd) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate tp.json --config " + tp_srd_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical 3-Partition instance has $3m = #tp_srd.source.instance.sizes.len()$ elements with sizes $(#tp_srd.source.instance.sizes.map(str).join(", "))$ and bound $B = #tp_srd.source.instance.bound$. Since $m = #(tp_srd.source.instance.sizes.len() / 3)$, we must partition the elements into $#(tp_srd.source.instance.sizes.len() / 3)$ groups, each summing to $B$.
+
+    *Step 2 -- Construct element tasks.* Each element $a_i$ becomes a task with processing time $p_i = a_i$, release time $r_i = 0$, and deadline $d_i = H$ where $H = m(B+1) - 1 = #(tp_srd.source.instance.sizes.len() / 3) dot (#tp_srd.source.instance.bound + 1) - 1 = #(tp_srd.source.instance.sizes.len() / 3 * (tp_srd.source.instance.bound + 1) - 1)$. This gives #tp_srd.source.instance.sizes.len() element tasks with lengths $(#tp_srd.target.instance.lengths.slice(0, tp_srd.source.instance.sizes.len()).map(str).join(", "))$.
+
+    *Step 3 -- Construct filler tasks.* Add $m - 1 = #(tp_srd.source.instance.sizes.len() / 3 - 1)$ filler task(s). Filler $j$ has length $1$, release time $r_j = (j+1)B + j = #tp_srd.target.instance.release_times.at(tp_srd.source.instance.sizes.len())$, and deadline $d_j = r_j + 1 = #tp_srd.target.instance.deadlines.at(tp_srd.source.instance.sizes.len())$. This tight window pins each filler to a single time unit, splitting the timeline into $m$ slots of width $B = #tp_srd.source.instance.bound$.
+
+    *Step 4 -- Verify a solution.* The source witness assigns elements to groups: $[#tp_srd_sol.source_config.map(str).join(", ")]$. Group 0 contains elements with sizes $(#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => str(s.at(i))).join(", ")})$, summing to $#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => s.at(i)).sum() } = B$ #sym.checkmark. Group 1 contains sizes $(#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(s.at(i))).join(", ")})$, summing to $#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => s.at(i)).sum() } = B$ #sym.checkmark. The target Lehmer code is $[#tp_srd_sol.target_config.map(str).join(", ")]$: element tasks fill slot $[0, B)$, the filler occupies its tight window $[B, B+1)$, and remaining elements fill slot $[B+1, 2B+1)$.
+
+    *Multiplicity:* The fixture stores one canonical witness. A second valid partition (swapping groups) exists, but both map to distinct Lehmer codes.
+  ],
+)[
   $m-1$ filler tasks with tight release windows partition the timeline into $m$ slots of width $B$. Element tasks must fill these slots, and size constraints force exactly 3 elements per slot.
 ][
   _Construction._ Given $(S, B)$ with $|S| = 3m$. Create $3m$ element tasks with $p_i = a_i$, $r_i = 0$, $d_i = H$ where $H = m(B+1) - 1$. Add $m-1$ filler tasks with $p = 1$, $r_j = (j+1)B + j$, $d_j = (j+1)B + j + 1$.
