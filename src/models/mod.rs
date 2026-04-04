@@ -10,9 +10,10 @@ pub mod set;
 
 // Re-export commonly used types
 pub use algebraic::{
-    ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
-    ConsecutiveOnesSubmatrix, IntegerExpressionMembership, MinimumWeightSolutionToLinearEquations,
-    QuadraticAssignment, SimultaneousIncongruences, SparseMatrixCompression, BMF, ILP, QUBO,
+    AlgebraicEquationsOverGF2, ClosestVectorProblem, ConsecutiveBlockMinimization,
+    ConsecutiveOnesMatrixAugmentation, ConsecutiveOnesSubmatrix, IntegerExpressionMembership,
+    MinimumWeightSolutionToLinearEquations, QuadraticAssignment, SimultaneousIncongruences,
+    SparseMatrixCompression, BMF, ILP, QUBO,
 };
 pub use formula::{
     CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, NonTautology,

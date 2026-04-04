@@ -224,6 +224,7 @@ Flags by problem type:
   NonTautology                    --num-vars, --disjuncts
   KSAT                            --num-vars, --clauses [--k]
   SimultaneousIncongruences       --moduli, --residues, --bound
+  AlgebraicEquationsOverGF2       --num-vars, --equations (JSON 3D index array)
   QUBO                            --matrix
   MinimumWeightSolutionToLinearEquations --matrix, --rhs, --bound
   SpinGlass                       --graph, --couplings, --fields
@@ -431,9 +432,12 @@ pub struct CreateArgs {
     /// Disjuncts for DNF problems (semicolon-separated, e.g., "1,2;-1,3")
     #[arg(long)]
     pub disjuncts: Option<String>,
-    /// Number of variables (for SAT/KSAT)
+    /// Number of variables (for SAT/KSAT/AlgebraicEquationsOverGF2)
     #[arg(long)]
     pub num_vars: Option<usize>,
+    /// Polynomial equations as a JSON 3D array. Example: '[[[0,1],[2],[]],[[1],[]]]'
+    #[arg(long)]
+    pub equations: Option<String>,
     /// Moduli for SimultaneousIncongruences (comma-separated, e.g., "2,3,5,7")
     #[arg(long)]
     pub moduli: Option<String>,

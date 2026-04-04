@@ -136,6 +136,7 @@
   "CapacityAssignment": [Capacity Assignment],
   "ConsistencyOfDatabaseFrequencyTables": [Consistency of Database Frequency Tables],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "AlgebraicEquationsOverGF2": [Algebraic Equations over GF(2)],
   "IntegerExpressionMembership": [Integer Expression Membership],
   "MinimumWeightSolutionToLinearEquations": [Minimum-Weight Solution to Linear Equations],
   "ConsecutiveSets": [Consecutive Sets],
@@ -3527,6 +3528,28 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
         "pred create --example " + problem-spec(x) + " -o minimum-weight-solution-to-linear-equations.json",
         "pred solve minimum-weight-solution-to-linear-equations.json",
         "pred evaluate minimum-weight-solution-to-linear-equations.json --config " + x.optimal_config.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("AlgebraicEquationsOverGF2")
+  let config = x.optimal_config
+  [
+    #problem-def("AlgebraicEquationsOverGF2")[
+      Given a finite system of polynomial equations over $GF(2)$ in variables $x_1, dots, x_n$, determine whether there exists a binary vector $x in {0,1}^n$ satisfying every equation.
+    ][
+      Each equation is represented as an XOR-sum of monomials, where each monomial is the product of a subset of variables and the empty product denotes the constant $1$. This makes the model expressive enough for both parity constraints and quadratic exclusion constraints, which is exactly the combination needed in the X3C reduction below.
+
+      The obvious exact algorithm enumerates all $2^n$ binary assignments and evaluates every polynomial over $GF(2)$, yielding $O^*(2^n)$ time.
+
+      *Example.* The canonical instance consists of the equations $x_1 + 1 = 0$, $x_2 = 0$, and $x_3 + 1 = 0$. The assignment $(#config.at(0), #config.at(1), #config.at(2))$ satisfies all three equations, so the instance is YES.
+
+      #pred-commands(
+        "pred create --example " + problem-spec(x) + " -o algebraic-equations-over-gf2.json",
+        "pred solve algebraic-equations-over-gf2.json",
+        "pred evaluate algebraic-equations-over-gf2.json --config " + x.optimal_config.map(str).join(","),
       )
     ]
   ]
@@ -8562,6 +8585,36 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) If $cal(C)' subset.eq {S_0, dots, S_(n-1)}$ is an exact cover, set $x_j = 1$ exactly when $S_j in cal(C)'$. Every element $i in U$ lies in exactly one selected set, so the $i$-th row sum is $1$ and therefore $A x = b$. Because an exact cover of a $3 q$-element universe uses exactly $q$ triples, the vector has $||x||_0 = q <= K$. ($arrow.l.double$) If $x in {0,1}^n$ satisfies $A x = b$ and $||x||_0 <= q$, then every row sum equals $1$, so every universe element lies in exactly one selected set. The selected sets therefore cover exactly $3 ||x||_0$ element-occurrences, but they also cover all $3 q$ universe elements. Hence $3 ||x||_0 = 3 q$, so $||x||_0 = q$, and the selected sets form an exact cover.
 
   _Solution extraction._ Read the binary vector directly: choose $S_j$ in the source witness iff $x_j = 1$ in the target witness.
+]
+
+#let x3c_gf2 = load-example("ExactCoverBy3Sets", "AlgebraicEquationsOverGF2")
+#let x3c_gf2_sol = x3c_gf2.solutions.at(0)
+#reduction-rule("ExactCoverBy3Sets", "AlgebraicEquationsOverGF2",
+  example: true,
+  example-caption: [Canonical X3C to GF(2) system ($|U| = #x3c_gf2.source.instance.universe_size$, $n = #x3c_gf2.source.instance.subsets.len()$)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(x3c_gf2.source) + " -o x3c.json",
+      "pred reduce x3c.json --to " + target-spec(x3c_gf2) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate x3c.json --config " + x3c_gf2_sol.source_config.map(str).join(","),
+    )
+    Source: $|U| = #x3c_gf2.source.instance.universe_size$, $q = #(int(x3c_gf2.source.instance.universe_size / 3))$, and $n = #x3c_gf2.source.instance.subsets.len()$ \
+    Target: #x3c_gf2.target.instance.equations.len() equations over #x3c_gf2.target.instance.num_vars variables \
+    Canonical witness is preserved exactly: $(#x3c_gf2_sol.source_config.map(str).join(", ")) -> (#x3c_gf2_sol.target_config.map(str).join(", "))$ #sym.checkmark
+  ],
+)[
+  This reduction introduces one binary variable $x_j$ for each source set $C_j$. For every universe element $u_i$, it adds one parity equation forcing an odd number of selected incident sets and one quadratic equation for every incident pair, forbidding two selected sets from covering the same element simultaneously.
+][
+  _Construction._ Let $U = {u_0, dots, u_(3q-1)}$ and let the 3-sets be $C_0, dots, C_(n-1)$. Introduce binary variables $x_0, dots, x_(n-1)$, where $x_j = 1$ means that $C_j$ is selected. For each element $u_i$, let $S_i = {j : u_i in C_j}$. Add the $GF(2)$ equation
+  $
+    sum_(j in S_i) x_j + 1 = 0,
+  $
+  and for every distinct pair $j, k in S_i$ add the quadratic equation $x_j x_k = 0$.
+
+  _Correctness._ ($arrow.r.double$) If $cal(C)'$ is an exact cover, set $x_j = 1$ exactly when $C_j in cal(C)'$. Every element $u_i$ lies in exactly one selected set, so the linear equation for $u_i$ evaluates to $1 + 1 = 0$ in $GF(2)$, and every quadratic equation $x_j x_k = 0$ holds because no two selected sets overlap on $u_i$. ($arrow.l.double$) Conversely, suppose the target system is satisfied. For each $u_i$, the linear equation implies that an odd number of variables in $S_i$ is set to $1$, while the quadratic equations force at most one of them to be $1$. Therefore exactly one set containing $u_i$ is selected. Hence every universe element is covered exactly once, so the selected 3-sets form an exact cover.
+
+  _Solution extraction._ Read the binary vector directly: choose $C_j$ in the source witness iff $x_j = 1$ in the target witness.
 ]
 
 #reduction-rule("NAESatisfiability", "ILP")[

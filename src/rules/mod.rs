@@ -9,6 +9,7 @@ pub use registry::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
 pub(crate) mod circuit_spinglass;
 mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
+pub(crate) mod exactcoverby3sets_algebraicequationsovergf2;
 pub(crate) mod exactcoverby3sets_minimumweightsolutiontolinearequations;
 pub(crate) mod exactcoverby3sets_subsetproduct;
 pub(crate) mod factoring_circuit;
@@ -252,6 +253,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(circuit_spinglass::canonical_rule_example_specs());
     specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
+    specs.extend(exactcoverby3sets_algebraicequationsovergf2::canonical_rule_example_specs());
     specs.extend(
         exactcoverby3sets_minimumweightsolutiontolinearequations::canonical_rule_example_specs(),
     );

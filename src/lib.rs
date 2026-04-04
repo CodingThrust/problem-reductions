@@ -43,7 +43,7 @@ pub mod variant;
 pub mod prelude {
     // Problem types
     pub use crate::models::algebraic::{
-        ConsecutiveOnesMatrixAugmentation, IntegerExpressionMembership,
+        AlgebraicEquationsOverGF2, ConsecutiveOnesMatrixAugmentation, IntegerExpressionMembership,
         MinimumWeightSolutionToLinearEquations, QuadraticAssignment, SimultaneousIncongruences,
         SparseMatrixCompression, BMF, QUBO,
     };

@@ -8,9 +8,10 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
-    ClosestVectorProblem, ConsecutiveBlockMinimization, ConsecutiveOnesMatrixAugmentation,
-    ConsecutiveOnesSubmatrix, IntegerExpressionMembership, MinimumWeightSolutionToLinearEquations,
-    SimultaneousIncongruences, SparseMatrixCompression, BMF,
+    AlgebraicEquationsOverGF2, ClosestVectorProblem, ConsecutiveBlockMinimization,
+    ConsecutiveOnesMatrixAugmentation, ConsecutiveOnesSubmatrix, IntegerExpressionMembership,
+    MinimumWeightSolutionToLinearEquations, SimultaneousIncongruences, SparseMatrixCompression,
+    BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
@@ -74,6 +75,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.clauses.is_none()
         && args.disjuncts.is_none()
         && args.num_vars.is_none()
+        && args.equations.is_none()
         && args.moduli.is_none()
         && args.residues.is_none()
         && args.matrix.is_none()
@@ -612,6 +614,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
         "SimultaneousIncongruences" => "--moduli 2,3,5,7 --residues 0,1,2,3 --bound 210",
+        "AlgebraicEquationsOverGF2" => "--num-vars 3 --equations '[[[0,1],[2],[]],[[1],[]]]'",
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
         "IntegerExpressionMembership" => "--choices \"1,2;1,6;1,7;1,9\" --target 15",
         "MinimumWeightSolutionToLinearEquations" => {
@@ -865,6 +868,7 @@ fn help_flag_hint(
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
         ("SimultaneousIncongruences", "moduli") => "comma-separated integers: 2,3,5,7",
         ("SimultaneousIncongruences", "residues") => "comma-separated integers: 0,1,2,3",
+        ("AlgebraicEquationsOverGF2", "equations") => "JSON equations: '[[[0,1],[2],[]],[[1],[]]]'",
         ("MinimumWeightSolutionToLinearEquations", "matrix") => {
             "semicolon-separated integer rows: \"1,0,1;0,1,1\""
         }
@@ -2243,6 +2247,29 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bound = parse_nonnegative_u64_bound(bound_raw, "SimultaneousIncongruences", usage)?;
             (
                 ser(SimultaneousIncongruences::new(moduli, residues, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // AlgebraicEquationsOverGF2
+        "AlgebraicEquationsOverGF2" => {
+            let usage = "Usage: pred create AlgebraicEquationsOverGF2 --num-vars 3 --equations '[[[0,1],[2],[]],[[1],[]]]'";
+            let num_vars = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "AlgebraicEquationsOverGF2 requires --num-vars and --equations\n\n{usage}"
+                )
+            })?;
+            let equations_str = args.equations.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("AlgebraicEquationsOverGF2 requires --equations\n\n{usage}")
+            })?;
+            let equations: Vec<Vec<Vec<usize>>> =
+                serde_json::from_str(equations_str).map_err(|err| {
+                    anyhow::anyhow!(
+                        "AlgebraicEquationsOverGF2 requires --equations as a JSON 3D array of variable indices (e.g., '[[[0,1],[2],[]],[[1],[]]]')\n\n{usage}\n\nFailed to parse --equations: {err}"
+                    )
+                })?;
+            (
+                ser(AlgebraicEquationsOverGF2::new(num_vars, equations))?,
                 resolved_variant.clone(),
             )
         }
@@ -7712,6 +7739,7 @@ mod tests {
             clauses: None,
             disjuncts: None,
             num_vars: None,
+            equations: None,
             moduli: None,
             residues: None,
             matrix: None,
@@ -8760,6 +8788,62 @@ mod tests {
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("MinimumWeightSolutionToLinearEquations requires --rhs"));
         assert!(err.contains("Usage: pred create MinimumWeightSolutionToLinearEquations"));
+    }
+
+    #[test]
+    fn test_create_algebraic_equations_over_gf2_json() {
+        use crate::dispatch::ProblemJsonOutput;
+
+        let mut args = empty_args();
+        args.problem = Some("AlgebraicEquationsOverGF2".to_string());
+        args.num_vars = Some(3);
+        args.equations = Some("[[[0,1],[2],[]],[[1],[]]]".to_string());
+
+        let output_path =
+            std::env::temp_dir().join(format!("aegf2-create-{}.json", std::process::id()));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = std::fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "AlgebraicEquationsOverGF2");
+        assert!(created.variant.is_empty());
+        assert_eq!(
+            created.data,
+            serde_json::json!({
+                "num_vars": 3,
+                "equations": [
+                    [[0, 1], [2], []],
+                    [[1], []],
+                ],
+            })
+        );
+
+        let _ = std::fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_algebraic_equations_over_gf2_requires_equations() {
+        let mut args = empty_args();
+        args.problem = Some("AlgebraicEquationsOverGF2".to_string());
+        args.num_vars = Some(3);
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("AlgebraicEquationsOverGF2 requires --equations"));
+        assert!(err.contains("Usage: pred create AlgebraicEquationsOverGF2"));
     }
 
     #[test]
