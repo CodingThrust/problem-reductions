@@ -13071,7 +13071,37 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The subgraph-isomorphism solution $c in {0, dots, n-1}^k$ gives the host vertex assigned to each pattern vertex. The $k$-clique indicator $x in {0,1}^n$ sets $x[c[i]] := 1$ for each $i$.
 ]
 
-#reduction-rule("Partition", "MultiprocessorScheduling")[
+#let part_mps = load-example("Partition", "MultiprocessorScheduling")
+#let part_mps_sol = part_mps.solutions.at(0)
+#let part_mps_sizes = part_mps.source.instance.sizes
+#let part_mps_n = part_mps_sizes.len()
+#let part_mps_total = part_mps_sizes.fold(0, (a, b) => a + b)
+#let part_mps_deadline = part_mps.target.instance.deadline
+#let part_mps_nproc = part_mps.target.instance.num_processors
+#let part_mps_proc0 = part_mps_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
+#let part_mps_proc1 = part_mps_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_mps_load0 = part_mps_proc0.map(i => part_mps_sizes.at(i)).fold(0, (a, b) => a + b)
+#let part_mps_load1 = part_mps_proc1.map(i => part_mps_sizes.at(i)).fold(0, (a, b) => a + b)
+#reduction-rule("Partition", "MultiprocessorScheduling",
+  example: true,
+  example-caption: [#part_mps_n elements, total sum $S = #part_mps_total$, deadline $D = #part_mps_deadline$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_mps.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_mps) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_mps_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_mps_sizes.map(str).join(", "))$ with total sum $S = #part_mps_total$. A balanced partition requires each subset to sum to $S / 2 = #part_mps_deadline$.
+
+    *Step 2 -- Construction.* The reduction creates #part_mps_n tasks with lengths $(#part_mps.target.instance.lengths.map(str).join(", "))$, sets the number of processors to $m = #part_mps_nproc$, and the deadline to $D = floor(S / 2) = #part_mps_deadline$. No auxiliary variables are introduced: the target has the same #part_mps_n binary coordinates as the source.
+
+    *Step 3 -- Verify a solution.* The canonical witness is $bold(x) = (#part_mps_sol.source_config.map(str).join(", "))$, which is the same binary vector on both sides. Processor 0 receives tasks at indices $\{#part_mps_proc0.map(str).join(", ")\}$ with sizes $(#part_mps_proc0.map(i => str(part_mps_sizes.at(i))).join(", "))$, giving load $#part_mps_load0 <= #part_mps_deadline = D$. Processor 1 receives tasks at indices $\{#part_mps_proc1.map(str).join(", ")\}$ with sizes $(#part_mps_proc1.map(i => str(part_mps_sizes.at(i))).join(", "))$, giving load $#part_mps_load1 <= #part_mps_deadline = D$. Total: $#part_mps_load0 + #part_mps_load1 = #part_mps_total = S$ #sym.checkmark
+
+    *Multiplicity:* The example DB stores one canonical witness. This instance admits other balanced partitions (e.g., swapping the two subsets), but one witness suffices to demonstrate the reduction.
+  ],
+)[
   Each element $a_i$ becomes a task of length $a_i$ on $m = 2$ processors with deadline $D = floor(S / 2)$. A balanced partition exists iff a feasible schedule exists.
 ][
   _Construction._ Let $A = (a_1, dots, a_n)$ with total sum $S = sum_(i=1)^n a_i$. Set task lengths $ell_i = a_i$, number of processors $m = 2$, and deadline $D = floor(S / 2)$.
