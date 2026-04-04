@@ -13258,7 +13258,33 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Walk the unique cycle from vertex 0 through selected edges to recover the circuit order.
 ]
 
-#reduction-rule("HamiltonianCircuit", "StrongConnectivityAugmentation")[
+#let hc_sca = load-example("HamiltonianCircuit", "StrongConnectivityAugmentation")
+#let hc_sca_sol = hc_sca.solutions.at(0)
+#let hc_sca_n = graph-num-vertices(hc_sca.source.instance)
+#let hc_sca_candidate_arcs = hc_sca.target.instance.candidate_arcs
+#let hc_sca_selected = hc_sca_candidate_arcs.enumerate().filter(((i, _)) => hc_sca_sol.target_config.at(i) == 1).map(((i, a)) => a)
+#let hc_sca_w1 = hc_sca_candidate_arcs.filter(a => a.at(2) == 1)
+#let hc_sca_w2 = hc_sca_candidate_arcs.filter(a => a.at(2) == 2)
+#reduction-rule("HamiltonianCircuit", "StrongConnectivityAugmentation",
+  example: true,
+  example-caption: [4-cycle ($n = #hc_sca_n$): HC to budget-#hc_sca_n SCA],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_sca.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_sca) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_sca_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The source graph is the cycle on $#hc_sca_n$ vertices with edges #hc_sca.source.instance.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The canonical Hamiltonian-circuit witness is the vertex permutation $[#hc_sca_sol.source_config.map(str).join(", ")]$.
+
+    *Step 2 -- Construction.* Start with the empty digraph $D = (V, emptyset)$ on $#hc_sca_n$ vertices. Generate all $#hc_sca_candidate_arcs.len()$ ordered pairs as candidate arcs: #hc_sca_w1.len() weight-1 arcs #hc_sca_w1.map(a => $(#a.at(0) arrow #a.at(1))$).join(", ") corresponding to source edges (both orientations), and #hc_sca_w2.len() weight-2 arcs #hc_sca_w2.map(a => $(#a.at(0) arrow #a.at(1))$).join(", ") for non-edges. Budget $B = #hc_sca.target.instance.bound$.
+
+    *Step 3 -- Verify a solution.* The target configuration $[#hc_sca_sol.target_config.map(str).join(", ")]$ selects arcs #hc_sca_selected.map(a => $(#a.at(0) arrow #a.at(1))$).join(", "), all weight 1. Total cost $= #hc_sca_selected.len() times 1 = #hc_sca_n = B$ #sym.checkmark. These $#hc_sca_n$ arcs form a single directed cycle visiting every vertex, so the augmented digraph is strongly connected. Extracting the circuit: follow successors from vertex 0 to recover $[#hc_sca_sol.source_config.map(str).join(", ")]$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. For the 4-cycle there are $#hc_sca_n times 2 = #{hc_sca_n * 2}$ Hamiltonian-circuit permutations (choice of start vertex and direction), each yielding a distinct set of directed arcs.
+  ],
+)[
   Start with the empty digraph on $n$ vertices. Weight-1 candidate arcs correspond to edges of $G$; weight-2 arcs for non-edges. A budget-$n$ augmentation that achieves strong connectivity must select exactly $n$ weight-1 arcs forming a directed Hamiltonian cycle.
 ][
   _Construction._ Given $G = (V, E)$ with $n = |V|$. Build $D = (V, emptyset)$. For every ordered pair $(u, v)$ with $u != v$: candidate arc with weight 1 if ${u,v} in E$, else weight 2. Budget $B = n$.
