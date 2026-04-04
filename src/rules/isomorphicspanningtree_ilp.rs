@@ -7,7 +7,7 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::IsomorphicSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::Graph;
+use crate::topology::{Graph, SimpleGraph};
 
 #[derive(Debug, Clone)]
 pub struct ReductionISTToILP {
@@ -16,7 +16,7 @@ pub struct ReductionISTToILP {
 }
 
 impl ReductionResult for ReductionISTToILP {
-    type Source = IsomorphicSpanningTree;
+    type Source = IsomorphicSpanningTree<SimpleGraph>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -39,10 +39,10 @@ impl ReductionResult for ReductionISTToILP {
 #[reduction(
     overhead = {
         num_vars = "num_vertices * num_vertices",
-        num_constraints = "2 * num_vertices + 2 * num_tree_edges * num_vertices * num_vertices",
+        num_constraints = "2 * num_vertices + 2 * (num_vertices - 1) * num_vertices * num_vertices",
     }
 )]
-impl ReduceTo<ILP<bool>> for IsomorphicSpanningTree {
+impl ReduceTo<ILP<bool>> for IsomorphicSpanningTree<SimpleGraph> {
     type Result = ReductionISTToILP;
 
     fn reduce_to(&self) -> Self::Result {
