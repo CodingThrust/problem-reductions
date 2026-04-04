@@ -9743,6 +9743,55 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Return the same binary selection vector: element $i$ is in the partition subset if and only if it is selected in the Subset Sum witness.
 ]
 
+#let part_swcp = load-example("Partition", "ShortestWeightConstrainedPath")
+#let part_swcp_sol = part_swcp.solutions.at(0)
+#let part_swcp_sizes = part_swcp.source.instance.sizes
+#let part_swcp_n = part_swcp_sizes.len()
+#let part_swcp_total = part_swcp_sizes.fold(0, (a, b) => a + b)
+#let part_swcp_half = calc.floor(part_swcp_total / 2)
+#let part_swcp_wb = part_swcp.target.instance.weight_bound
+#let part_swcp_nv = part_swcp.target.instance.graph.num_vertices
+#let part_swcp_ne = part_swcp.target.instance.graph.edges.len()
+#let part_swcp_subset0 = part_swcp_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
+#let part_swcp_subset1 = part_swcp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_swcp_sum0 = part_swcp_subset0.map(i => part_swcp_sizes.at(i)).fold(0, (a, b) => a + b)
+#let part_swcp_sum1 = part_swcp_subset1.map(i => part_swcp_sizes.at(i)).fold(0, (a, b) => a + b)
+#let part_swcp_path_length = part_swcp_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => part_swcp.target.instance.edge_lengths.at(i)).fold(0, (a, b) => a + b)
+#let part_swcp_path_weight = part_swcp_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => part_swcp.target.instance.edge_weights.at(i)).fold(0, (a, b) => a + b)
+#reduction-rule("Partition", "ShortestWeightConstrainedPath",
+  example: true,
+  example-caption: [#part_swcp_n elements, total sum $S = #part_swcp_total$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_swcp.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_swcp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_swcp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_swcp_sizes.map(str).join(", "))$ with total sum $S = #part_swcp_total$, so a balanced witness must hit exactly $floor(S\/2) = #part_swcp_half$.
+
+    *Step 2 -- Build the layered digraph.* The reduction creates a chain of $n + 1 = #part_swcp_nv$ vertices $v_0, dots, v_#part_swcp_n$ with $s = v_0$ and $t = v_#part_swcp_n$. For each element $a_i$, two parallel edges connect $v_i$ to $v_(i+1)$: an _include_ edge (index $2i$) with length $a_i + 1$ and weight $1$, and an _exclude_ edge (index $2i + 1$) with length $1$ and weight $a_i + 1$. This produces $#part_swcp_ne$ edges total. The weight bound is $W = floor(S\/2) + n = #part_swcp_half + #part_swcp_n = #part_swcp_wb$.
+
+    Edge lengths: $(#part_swcp.target.instance.edge_lengths.map(str).join(", "))$. \
+    Edge weights: $(#part_swcp.target.instance.edge_weights.map(str).join(", "))$.
+
+    *Step 3 -- Verify the canonical witness.* The source config $bold(x) = (#part_swcp_sol.source_config.map(str).join(", "))$ assigns elements at indices $\{#part_swcp_subset1.map(str).join(", ")\}$ to subset 1 (exclude edges) and $\{#part_swcp_subset0.map(str).join(", ")\}$ to subset 0 (include edges). Subset 0 sums to $#part_swcp_sum0$ and subset 1 sums to $#part_swcp_sum1$, confirming a balanced partition.
+
+    The target config is $(#part_swcp_sol.target_config.map(str).join(", "))$, selecting one edge per layer. The path length is $#part_swcp_path_length$ and path weight is $#part_swcp_path_weight <= #part_swcp_wb = W$ #sym.checkmark, so the weight constraint is satisfied.
+
+    *Multiplicity:* The fixture stores one canonical witness. This instance has multiple balanced partitions, but one witness suffices to demonstrate the reduction.
+  ],
+)[
+  A layered digraph with include/exclude edges per element: include edge has length $a_i + 1$ and weight 1; exclude has length 1 and weight $a_i + 1$. A feasible path witnesses a balanced partition.
+][
+  _Construction._ Build layered graph $v_0, dots, v_n$ with $s = v_0$, $t = v_n$. For each element $a_i$: include edge with length $a_i + 1$, weight 1; exclude edge with length 1, weight $a_i + 1$. Weight bound $W = floor(S/2) + n$.
+
+  _Correctness._ ($arrow.r.double$) A balanced partition uses include edges for one subset and exclude for the other, achieving feasible weight and minimum length. ($arrow.l.double$) The weight constraint forces included elements to sum to at least $ceil(S/2)$; minimizing length forces equality at $floor(S/2)$.
+
+  _Solution extraction._ Element $i$ assigned to subset 0 if include edge selected, subset 1 if exclude edge selected.
+]
+
 #let ks_qubo = load-example("Knapsack", "QUBO")
 #let ks_qubo_sol = ks_qubo.solutions.at(0)
 #let ks_qubo_num_items = ks_qubo.source.instance.weights.len()
@@ -13555,7 +13604,41 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Decode the Lehmer code, simulate the schedule tracking start times; assign elements to groups by $floor("start" / (B+1))$.
 ]
 
-#reduction-rule("ThreePartition", "SequencingToMinimizeWeightedTardiness")[
+#let tp_smwt = load-example("ThreePartition", "SequencingToMinimizeWeightedTardiness")
+#let tp_smwt_sol = tp_smwt.solutions.at(0)
+#reduction-rule("ThreePartition", "SequencingToMinimizeWeightedTardiness",
+  example: true,
+  example-caption: [$m = #(tp_smwt.source.instance.sizes.len() / 3)$ groups, $B = #tp_smwt.source.instance.bound$, $3m = #tp_smwt.source.instance.sizes.len()$ elements],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tp_smwt.source) + " -o threepartition.json",
+      "pred reduce threepartition.json --to " + target-spec(tp_smwt) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate threepartition.json --config " + tp_smwt_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let sizes = tp_smwt.source.instance.sizes
+      let B = tp_smwt.source.instance.bound
+      let m = sizes.len() / 3
+      let n = sizes.len()
+      let H = m * B + (m - 1)
+      let Wf = m * B + 1
+      let tgt = tp_smwt.target.instance
+
+      [*Step 1 -- Source instance.* The canonical ThreePartition instance has $3m = #n$ elements with sizes $(#sizes.map(str).join(", "))$ and bound $B = #B$. The total sum is $#sizes.fold(0, (a, b) => a + b) = m B = #m times #B$. Each element satisfies $B\/4 < a_i < B\/2$, i.e.\ $#(calc.floor(B / 4) + 1) <= a_i <= #(calc.ceil(B / 2) - 1)$.]
+
+      [*Step 2 -- Construct target tasks.* The horizon is $H = m B + (m - 1) = #H$, and the filler weight is $W_f = m B + 1 = #Wf$. The reduction creates #tgt.lengths.len() tasks:
+      - *#n element tasks* with lengths $(#tgt.lengths.slice(0, n).map(str).join(", "))$, weights $(#tgt.weights.slice(0, n).map(str).join(", "))$, and deadlines $(#tgt.deadlines.slice(0, n).map(str).join(", "))$ (all equal to $H$).
+      - *#(m - 1) filler task#if m - 1 != 1 [s]* with length $#tgt.lengths.at(n)$, weight $W_f = #tgt.weights.at(n)$, and deadline $#tgt.deadlines.at(n)$ (tight: $(1) dot B + 1 = #tgt.deadlines.at(n)$).
+      The tardiness bound is $K = #tgt.bound$.]
+
+      [*Step 3 -- Verify a solution.* The source assignment $(#tp_smwt_sol.source_config.map(str).join(", "))$ places elements ${0, 1, 2}$ (sizes $#sizes.at(0), #sizes.at(1), #sizes.at(2)$, sum $= #(sizes.at(0) + sizes.at(1) + sizes.at(2))$) in group 0 and elements ${3, 4, 5}$ (sizes $#sizes.at(3), #sizes.at(4), #sizes.at(5)$, sum $= #(sizes.at(3) + sizes.at(4) + sizes.at(5))$) in group 1. Both groups sum to $B = #B$ #sym.checkmark. The target Lehmer code is $(#tp_smwt_sol.target_config.map(str).join(", "))$, which decodes to the schedule: tasks $0, 1, 2$ (slot 0, total length $#B$), then filler (length 1, completes at $#(B + 1) <= #tgt.deadlines.at(n)$ #sym.checkmark), then tasks $3, 4, 5$ (slot 1, completes at $#H$). All element deadlines are $#H$ #sym.checkmark, and the filler meets its tight deadline. Zero tardiness achieved #sym.checkmark.]
+
+      [*Multiplicity:* The fixture stores one canonical witness. This instance admits other valid orderings within each slot (e.g.\ permuting elements 0, 1, 2 within slot 0), but the group assignment is unique up to slot relabeling.]
+    }
+  ],
+)[
   High-weight filler tasks with tight deadlines force zero-tardiness schedules to leave exactly $m$ slots of width $B$ for element tasks. Size constraints ensure 3 elements per slot.
 ][
   _Construction._ Given $(S, B)$ with $|S| = 3m$. Horizon $H = m B + (m-1)$, filler weight $W_f = m B + 1$. Element tasks: $p_i = a_i$, $w_i = 1$, $d_i = H$. Filler tasks ($m-1$): $p = 1$, $w = W_f$, $d_j = (j+1)B + (j+1)$. Tardiness bound $K = 0$.
