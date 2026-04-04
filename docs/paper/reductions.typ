@@ -10133,6 +10133,45 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Return the values of the circuit input variables $x_1, dots, x_n$.
 ]
 
+#let sat_nae = load-example("Satisfiability", "NAESatisfiability")
+#let sat_nae_sol = sat_nae.solutions.at(0)
+#reduction-rule("Satisfiability", "NAESatisfiability",
+  example: true,
+  example-caption: [$n = #sat_nae.source.instance.num_vars$ variables, $m = #sat_nae.source.instance.clauses.len()$ clauses],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(sat_nae.source) + " -o sat.json",
+      "pred reduce sat.json --to " + target-spec(sat_nae) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate sat.json --config " + sat_nae_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
+      let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($, $) paren.r$
+      let src = sat_nae.source.instance
+      let tgt = sat_nae.target.instance
+      [
+        *Step 1 -- Source instance.* The SAT formula has $n = #src.num_vars$ variables and $m = #src.clauses.len()$ clauses: $phi = #src.clauses.map(fmt-clause).join($and.big$)$.
+
+        *Step 2 -- Construct target NAE-SAT.* Introduce sentinel variable $s = x_#(src.num_vars + 1)$ (index #(src.num_vars + 1)). Append $s$ to every clause, yielding #tgt.num_vars variables and #tgt.clauses.len() NAE clauses: $phi' = #tgt.clauses.map(fmt-clause).join($and.big$)$. The overhead is $+1$ variable and $+#src.clauses.len()$ total literals (one sentinel literal per clause).
+
+        *Step 3 -- Verify a solution.* The canonical source assignment is $(#sat_nae_sol.source_config.map(str).join(", "))$, i.e.\ $x_1 = #sat_nae_sol.source_config.at(0)$, $x_2 = #sat_nae_sol.source_config.at(1)$, $x_3 = #sat_nae_sol.source_config.at(2)$. In the target, the sentinel is set to $s = #sat_nae_sol.target_config.at(src.num_vars)$, giving the full target config $(#sat_nae_sol.target_config.map(str).join(", "))$. Each NAE clause contains at least one true and one false literal: the sentinel $s = 0$ provides the false literal, and the original satisfying assignment provides the true literal #sym.checkmark
+
+        *Multiplicity:* The fixture stores one canonical witness. By NAE symmetry, the complement $(#sat_nae_sol.target_config.map(v => str(1 - v)).join(", "))$ (with $s = 1$) is also NAE-satisfying.
+      ]
+    }
+  ],
+)[
+  Introduce a fresh sentinel variable $s$ and append it to every clause. The sentinel forces NAE-SAT to simulate ordinary disjunction.
+][
+  _Construction._ Given SAT instance $phi$ with variables $x_1, dots, x_n$ and clauses $C_1, dots, C_m$, introduce $s$ (index $n+1$). For each clause $C_j = (ell_1 or dots or ell_k)$, form NAE clause $C'_j = (ell_1, dots, ell_k, s)$.
+
+  _Correctness._ ($arrow.r.double$) Set $s = 0$. A satisfying assignment makes at least one $ell_i = 1$ per clause; with $s = 0$, the clause is neither all-true nor all-false. ($arrow.l.double$) If $beta$ NAE-satisfies $phi'$, let $v = beta(s)$. If $v = 0$, at least one literal per clause is true. If $v = 1$, flip all variables; by NAE symmetry the complement also works.
+
+  _Solution extraction._ If $beta(s) = 0$, return $(beta(x_1), dots, beta(x_n))$. If $beta(s) = 1$, return $(1 - beta(x_1), dots, 1 - beta(x_n))$.
+]
+
 #let cs_sg = load-example("CircuitSAT", "SpinGlass")
 #let cs_sg_sol = cs_sg.solutions.at(0)
 #reduction-rule("CircuitSAT", "SpinGlass",
