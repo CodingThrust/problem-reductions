@@ -24,13 +24,14 @@ use problemreductions::models::misc::{
     AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
     ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
     ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping, KnownValue,
-    LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling, PaintShop,
-    PartiallyOrderedKnapsack, QueryArg, RectilinearPictureCompression,
-    ResourceConstrainedScheduling, SchedulingWithIndividualDeadlines,
-    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
-    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-    SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals, ShortestCommonSupersequence,
-    StringToStringCorrection, SubsetProduct, SubsetSum, SumOfSquaresPartition, TimetableDesign,
+    LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
+    OpenShopScheduling, PaintShop, PartiallyOrderedKnapsack, QueryArg,
+    RectilinearPictureCompression, ResourceConstrainedScheduling,
+    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
+    SequencingToMinimizeTardyTaskWeight, SequencingToMinimizeWeightedCompletionTime,
+    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection,
+    SubsetProduct, SubsetSum, SumOfSquaresPartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -639,6 +640,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12"
         }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
+        "OpenShopScheduling" => {
+            "--task-lengths \"3,1,2;2,3,1;1,2,3;2,2,1\" --num-processors 3"
+        }
         "MinimumMultiwayCut" => "--graph 0-1,1-2,2-3 --terminals 0,2 --edge-weights 1,1,1",
         "ExpectedRetrievalCost" => EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS,
         "SequencingWithinIntervals" => "--release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1",
@@ -3812,6 +3816,44 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     task_lengths,
                     deadline,
                 ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // OpenShopScheduling
+        "OpenShopScheduling" => {
+            let usage = "Usage: pred create OpenShopScheduling --task-lengths \"3,1,2;2,3,1;1,2,3;2,2,1\" --num-processors 3";
+            let task_str = args.task_lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("OpenShopScheduling requires --task-lengths\n\n{usage}")
+            })?;
+            let processing_times: Vec<Vec<u64>> = task_str
+                .split(';')
+                .map(|row| util::parse_comma_list(row.trim()))
+                .collect::<Result<Vec<_>>>()?;
+            let num_processors = resolve_processor_count_flags(
+                "OpenShopScheduling",
+                usage,
+                args.num_processors,
+                args.m,
+            )?
+            .or_else(|| processing_times.first().map(Vec::len))
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Cannot infer num_processors from empty task list; use --num-processors"
+                )
+            })?;
+            for (job, row) in processing_times.iter().enumerate() {
+                if row.len() != num_processors {
+                    bail!(
+                        "processing_times row {} has {} entries, expected {} (num_processors)",
+                        job,
+                        row.len(),
+                        num_processors
+                    );
+                }
+            }
+            (
+                ser(OpenShopScheduling::new(num_processors, processing_times))?,
                 resolved_variant.clone(),
             )
         }

@@ -15,6 +15,7 @@
 //! - [`MultiprocessorScheduling`]: Schedule tasks on processors to meet a deadline
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
 //! - [`MinimumTardinessSequencing`]: Minimize tardy tasks in single-machine scheduling
+//! - [`OpenShopScheduling`]: Minimize makespan in open-shop scheduling
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
 //! - [`Partition`]: Partition a multiset into two equal-sum subsets
 //! - [`PartiallyOrderedKnapsack`]: Knapsack with precedence constraints
@@ -52,6 +53,7 @@ mod knapsack;
 mod longest_common_subsequence;
 mod minimum_tardiness_sequencing;
 mod multiprocessor_scheduling;
+mod open_shop_scheduling;
 pub(crate) mod paintshop;
 pub(crate) mod partially_ordered_knapsack;
 pub(crate) mod partition;
@@ -92,6 +94,7 @@ pub use knapsack::Knapsack;
 pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use multiprocessor_scheduling::MultiprocessorScheduling;
+pub use open_shop_scheduling::OpenShopScheduling;
 pub use paintshop::PaintShop;
 pub use partially_ordered_knapsack::PartiallyOrderedKnapsack;
 pub use partition::Partition;
@@ -128,6 +131,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(grouping_by_swapping::canonical_model_example_specs());
     specs.extend(longest_common_subsequence::canonical_model_example_specs());
     specs.extend(multiprocessor_scheduling::canonical_model_example_specs());
+    specs.extend(open_shop_scheduling::canonical_model_example_specs());
     specs.extend(paintshop::canonical_model_example_specs());
     specs.extend(partition::canonical_model_example_specs());
     specs.extend(rectilinear_picture_compression::canonical_model_example_specs());
