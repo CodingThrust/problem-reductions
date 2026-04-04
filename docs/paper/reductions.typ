@@ -14150,7 +14150,30 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Decode machine 0 Lehmer code; walk permutation incrementing group at each separator.
 ]
 
-#reduction-rule("MaxCut", "MinimumCutIntoBoundedSets")[
+#let mc_mcbs = load-example("MaxCut", "MinimumCutIntoBoundedSets")
+#let mc_mcbs_sol = mc_mcbs.solutions.at(0)
+#reduction-rule("MaxCut", "MinimumCutIntoBoundedSets",
+  example: true,
+  example-caption: [Triangle graph ($n = #mc_mcbs.source.instance.graph.num_vertices$, $|E| = #mc_mcbs.source.instance.graph.edges.len()$, unit weights) mapped to $K_#mc_mcbs.target.instance.graph.num_vertices$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mc_mcbs.source) + " -o maxcut.json",
+      "pred reduce maxcut.json --to " + target-spec(mc_mcbs) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate maxcut.json --config " + mc_mcbs_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The source MaxCut instance is a triangle $G = (V, E)$ with $n = #mc_mcbs.source.instance.graph.num_vertices$ vertices, $|E| = #mc_mcbs.source.instance.graph.edges.len()$ edges, and unit weights $w = (#mc_mcbs.source.instance.edge_weights.map(str).join(", "))$. A maximum cut partitions vertices into two sides to maximize crossing-edge weight; here the optimum is $2$ (any single vertex versus the other two).
+
+    *Step 2 -- Pad to even vertex count.* Since $n = 3$ is odd, set $n' = n + 1 = 4$. The target complete graph has $N = 2 n' = #mc_mcbs.target.instance.graph.num_vertices$ vertices, giving $#mc_mcbs.target.instance.graph.num_vertices dot (#mc_mcbs.target.instance.graph.num_vertices - 1) slash 2 = #mc_mcbs.target.instance.graph.edges.len()$ edges.
+
+    *Step 3 -- Invert weights on $K_#mc_mcbs.target.instance.graph.num_vertices$.* Compute $w_"max" = 1 + max w(e) = 2$. For each original edge $(i, j) in E$, the inverted weight is $tilde(w)(i,j) = w_"max" - w(i,j) = 2 - 1 = 1$. All other edges (including those to padding vertices) receive weight $w_"max" = 2$. Designate source $s = #mc_mcbs.target.instance.source$, sink $t = #mc_mcbs.target.instance.sink$, size bound $b = #mc_mcbs.target.instance.size_bound$. The target edge weights are $(#mc_mcbs.target.instance.edge_weights.map(str).join(", "))$.
+
+    *Step 4 -- Verify a solution.* The canonical source witness is $(#mc_mcbs_sol.source_config.map(str).join(", "))$: vertices $0, 1$ on side $0$ and vertex $2$ on side $1$, cutting $2$ of $3$ edges (max cut value $= 2$). The target witness is $(#mc_mcbs_sol.target_config.map(str).join(", "))$. Check: (1) the first $n = #mc_mcbs.source.instance.graph.num_vertices$ entries match the source partition #sym.checkmark; (2) source vertex $s = #mc_mcbs.target.instance.source$ and sink vertex $t = #mc_mcbs.target.instance.sink$ are on opposite sides #sym.checkmark; (3) each side has exactly $b = #mc_mcbs.target.instance.size_bound$ vertices (balanced bisection) #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. The triangle has $3$ maximum cuts of value $2$ (isolate any one vertex); padding vertices can be assigned to balance both sides, yielding multiple valid target configurations.
+  ],
+)[
   Invert edge weights relative to $w_"max"$ on a complete graph $K_N$ with $N = 2n'$. A minimum balanced bisection in the inverted graph corresponds to a maximum cut in the original.
 ][
   _Construction._ Given $G = (V, E, w)$ with $n = |V|$. Set $n' = n + (n mod 2)$, $N = 2n'$, $w_"max" = 1 + max_(e in E) w(e)$. Build $K_N$ with $tilde(w)(i,j) = w_"max" - w(i,j)$ for edges in $E$, else $w_"max"$. Designate $s = n'$, $t = n' + 1$, bound $b = n'$.
