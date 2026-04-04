@@ -21,6 +21,15 @@ Before using this skill, ensure:
 - If the canonical example changed, fixtures are regenerated (`make regenerate-fixtures`)
 - The reduction graph and schemas are up to date (`cargo run --example export_graph && cargo run --example export_schemas`)
 
+## Source Material
+
+For mathematical content (theorems, proofs, examples), consult these sources in priority order:
+1. **GitHub issue** for the rule (`gh issue view <number>`): contains the verified reduction algorithm, correctness proof, size overhead, and worked examples written during issue creation
+2. **Derivation documents** (if available): e.g., `~/Downloads/reduction_derivations_*.typ` — these contain batch-verified proofs with explicit theorem/proof blocks
+3. **The implementation** (`src/rules/<source>_<target>.rs`): the code is the ground truth for the construction
+
+Do NOT invent proofs — always cross-check against the issue and derivation sources. The issue body typically has: Reduction Algorithm, Correctness (forward/backward), Size Overhead, Example, and References sections that map directly to the paper entry structure.
+
 ## Step 1: Load Example Data
 
 ```typst

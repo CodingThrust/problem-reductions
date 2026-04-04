@@ -4,9 +4,10 @@
 //! contains a spanning tree isomorphic to T. This is a classical NP-complete
 //! problem (Garey & Johnson, ND8) that generalizes Hamiltonian Path.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
+use crate::variant::VariantParam;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -14,11 +15,13 @@ inventory::submit! {
         name: "IsomorphicSpanningTree",
         display_name: "Isomorphic Spanning Tree",
         aliases: &[],
-        dimensions: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+        ],
         module_path: module_path!(),
         description: "Does graph G contain a spanning tree isomorphic to tree T?",
         fields: &[
-            FieldInfo { name: "graph", type_name: "SimpleGraph", description: "The host graph G" },
+            FieldInfo { name: "graph", type_name: "G", description: "The host graph G" },
             FieldInfo { name: "tree", type_name: "SimpleGraph", description: "The target tree T (must be a tree with |V(T)| = |V(G)|)" },
         ],
     }
@@ -29,6 +32,9 @@ inventory::submit! {
 /// Given an undirected graph G = (V, E) and a tree T = (V_T, E_T) with
 /// |V| = |V_T|, determine if there exists a bijection π: V_T → V such that
 /// for every edge {u, v} in E_T, {π(u), π(v)} is an edge in E.
+///
+/// The configuration encodes an isomorphism as a permutation of the vertices of
+/// `graph`: `config[i]` is the graph vertex that tree vertex `i` maps to.
 ///
 /// # Example
 ///
@@ -48,34 +54,37 @@ inventory::submit! {
 /// assert!(sol.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IsomorphicSpanningTree {
-    graph: SimpleGraph,
+#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+pub struct IsomorphicSpanningTree<G> {
+    graph: G,
     tree: SimpleGraph,
 }
 
-impl IsomorphicSpanningTree {
+impl<G: Graph> IsomorphicSpanningTree<G> {
     /// Create a new IsomorphicSpanningTree problem.
     ///
     /// # Panics
     ///
     /// Panics if |V(G)| != |V(T)| or if T is not a tree (not connected or
     /// wrong number of edges).
-    pub fn new(graph: SimpleGraph, tree: SimpleGraph) -> Self {
+    pub fn new(graph: G, tree: SimpleGraph) -> Self {
         let n = graph.num_vertices();
         assert_eq!(
             n,
             tree.num_vertices(),
             "graph and tree must have the same number of vertices"
         );
-        if n > 0 {
-            assert_eq!(tree.num_edges(), n - 1, "tree must have exactly n-1 edges");
-            assert!(Self::is_connected(&tree), "tree must be connected");
-        }
+        assert_eq!(
+            tree.num_edges(),
+            n.saturating_sub(1),
+            "tree must have exactly n-1 edges"
+        );
+        assert!(is_connected(&tree), "tree must be connected");
         Self { graph, tree }
     }
 
     /// Get a reference to the host graph.
-    pub fn graph(&self) -> &SimpleGraph {
+    pub fn graph(&self) -> &G {
         &self.graph
     }
 
@@ -90,79 +99,86 @@ impl IsomorphicSpanningTree {
     }
 
     /// Get the number of edges in the host graph.
-    pub fn num_graph_edges(&self) -> usize {
+    pub fn num_edges(&self) -> usize {
         self.graph.num_edges()
     }
 
-    /// Get the number of edges in the target tree.
-    pub fn num_tree_edges(&self) -> usize {
-        self.tree.num_edges()
-    }
-
-    /// Check if a graph is connected using BFS.
-    fn is_connected(graph: &SimpleGraph) -> bool {
-        let n = graph.num_vertices();
-        if n == 0 {
-            return true;
-        }
-        let mut visited = vec![false; n];
-        let mut queue = std::collections::VecDeque::new();
-        visited[0] = true;
-        queue.push_back(0);
-        let mut count = 1;
-        while let Some(v) = queue.pop_front() {
-            for u in graph.neighbors(v) {
-                if !visited[u] {
-                    visited[u] = true;
-                    count += 1;
-                    queue.push_back(u);
-                }
-            }
-        }
-        count == n
+    /// Get the edges of the target tree.
+    pub fn tree_edges(&self) -> Vec<(usize, usize)> {
+        self.tree.edges()
     }
 }
 
-impl Problem for IsomorphicSpanningTree {
+impl<G> Problem for IsomorphicSpanningTree<G>
+where
+    G: Graph + VariantParam,
+{
     const NAME: &'static str = "IsomorphicSpanningTree";
     type Value = crate::types::Or;
 
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        crate::variant_params![G]
+    }
+
     fn dims(&self) -> Vec<usize> {
-        let n = self.graph.num_vertices();
-        vec![n; n]
+        vec![self.graph.num_vertices(); self.graph.num_vertices()]
     }
 
     fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let n = self.graph.num_vertices();
-            if config.len() != n {
-                return crate::types::Or(false);
-            }
+        crate::types::Or(is_valid_isomorphic_spanning_tree(
+            &self.graph,
+            &self.tree,
+            config,
+        ))
+    }
+}
 
-            // Check that config is a valid permutation: all values in 0..n, all distinct
-            let mut seen = vec![false; n];
-            for &v in config {
-                if v >= n || seen[v] {
-                    return crate::types::Or(false);
-                }
-                seen[v] = true;
-            }
-
-            // Check that every tree edge maps to a graph edge under the permutation
-            // config[i] = π(i): tree vertex i maps to graph vertex config[i]
-            for (u, v) in self.tree.edges() {
-                if !self.graph.has_edge(config[u], config[v]) {
-                    return crate::types::Or(false);
-                }
-            }
-
-            true
-        })
+fn is_valid_isomorphic_spanning_tree<G: Graph>(
+    graph: &G,
+    tree: &SimpleGraph,
+    config: &[usize],
+) -> bool {
+    let n = graph.num_vertices();
+    if config.len() != n {
+        return false;
     }
 
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        crate::variant_params![]
+    let mut seen = vec![false; n];
+    for &v in config {
+        if v >= n || seen[v] {
+            return false;
+        }
+        seen[v] = true;
     }
+
+    tree.edges()
+        .into_iter()
+        .all(|(u, v)| graph.has_edge(config[u], config[v]))
+}
+
+fn is_connected(graph: &SimpleGraph) -> bool {
+    let n = graph.num_vertices();
+    if n == 0 {
+        return true;
+    }
+
+    let mut visited = vec![false; n];
+    let mut queue = std::collections::VecDeque::new();
+    visited[0] = true;
+    queue.push_back(0);
+    let mut count = 1;
+
+    while let Some(v) = queue.pop_front() {
+        for u in graph.neighbors(v) {
+            if !visited[u] {
+                visited[u] = true;
+                count += 1;
+                queue.push_back(u);
+            }
+        }
+    }
+
+    count == n
 }
 
 #[cfg(feature = "example-db")]
@@ -179,7 +195,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default IsomorphicSpanningTree => "factorial(num_vertices)",
+    default IsomorphicSpanningTree<SimpleGraph> => "num_vertices^num_vertices",
 }
 
 #[cfg(test)]

@@ -16,9 +16,9 @@ use problemreductions::models::algebraic::{
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
-    DirectedHamiltonianPath, DisjointConnectingPaths, GeneralizedHex, HamiltonianCircuit,
-    HamiltonianPath, HamiltonianPathBetweenTwoVertices, IntegralFlowBundles, Kernel,
-    LengthBoundedDisjointPaths, LongestCircuit, LongestPath, MinimumCutIntoBoundedSets,
+    DirectedHamiltonianPath, DisjointConnectingPaths, GeneralizedHex, GraphPartitioning,
+    HamiltonianCircuit, HamiltonianPath, HamiltonianPathBetweenTwoVertices, IntegralFlowBundles,
+    Kernel, LengthBoundedDisjointPaths, LongestCircuit, LongestPath, MinimumCutIntoBoundedSets,
     MinimumDummyActivitiesPert, MinimumGeometricConnectedDominatingSet, MinimumMaximalMatching,
     MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching, PathConstrainedNetworkFlow,
     RootedTreeArrangement, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
@@ -90,9 +90,11 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.couplings.is_none()
         && args.fields.is_none()
         && args.clauses.is_none()
+        && args.disjuncts.is_none()
         && args.num_vars.is_none()
         && args.matrix.is_none()
         && args.k.is_none()
+        && args.num_partitions.is_none()
         && args.target.is_none()
         && args.m.is_none()
         && args.n.is_none()
@@ -657,6 +659,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "HamiltonianPathBetweenTwoVertices" => {
             "--graph 0-1,0-3,1-2,1-4,2-5,3-4,4-5,2-3 --source-vertex 0 --target-vertex 5"
         }
+        "GraphPartitioning" => "--graph 0-1,1-2,2-3,3-0 --num-partitions 2",
         "LongestPath" => {
             "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,4-6,5-6,1-6 --edge-lengths 3,2,4,1,5,2,3,2,4,1 --source-vertex 0 --target-vertex 6"
         }
@@ -707,7 +710,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
         "Maximum2Satisfiability" => "--num-vars 4 --clauses \"1,2;1,-2;-1,3;-1,-3;2,4;-3,-4;3,4\"",
         "NonTautology" => {
-            "--num-vars 3 --clauses \"1,2,3;-1,-2,-3\""
+            "--num-vars 3 --disjuncts \"1,2,3;-1,-2,-3\""
         }
         "OneInThreeSatisfiability" => {
             "--num-vars 4 --clauses \"1,2,3;-1,3,4;2,-3,-4\""
@@ -1092,6 +1095,7 @@ fn help_flag_hint(
         ("MinimumCodeGenerationParallelAssignments", "assignments") => {
             "semicolon-separated target:reads entries: \"0:1,2;1:0;2:3;3:1,2\""
         }
+        ("NonTautology", "disjuncts") => "semicolon-separated disjuncts: \"1,2,3;-1,-2,-3\"",
         ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
             "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
         }
@@ -1211,6 +1215,12 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 let hint = help_flag_hint(canonical, &field.name, &field.type_name, graph_type);
                 eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             }
+        }
+        if canonical == "GraphPartitioning" {
+            eprintln!(
+                "  --{:<16} Number of partitions in the balanced partitioning model (must be 2) (integer)",
+                "num-partitions"
+            );
         }
     } else {
         bail!("{}", crate::problem_name::unknown_problem_error(canonical));
@@ -1758,6 +1768,23 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     source_vertex,
                     target_vertex,
                 ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        "GraphPartitioning" => {
+            let usage = "pred create GraphPartitioning --graph 0-1,1-2,2-3,3-0 --num-partitions 2";
+            let (graph, _) =
+                parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
+            let num_partitions = args.num_partitions.ok_or_else(|| {
+                anyhow::anyhow!("GraphPartitioning requires --num-partitions\n\nUsage: {usage}")
+            })?;
+            anyhow::ensure!(
+                num_partitions == 2,
+                "GraphPartitioning currently models balanced bipartition only, so --num-partitions must be 2 (got {num_partitions})"
+            );
+            (
+                ser(GraphPartitioning::new(graph))?,
                 resolved_variant.clone(),
             )
         }
@@ -2397,13 +2424,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let num_vars = args.num_vars.ok_or_else(|| {
                 anyhow::anyhow!(
                     "NonTautology requires --num-vars\n\n\
-                     Usage: pred create NonTautology --num-vars 3 --clauses \"1,2,3;-1,-2,-3\""
+                     Usage: pred create NonTautology --num-vars 3 --disjuncts \"1,2,3;-1,-2,-3\""
                 )
             })?;
-            let clauses = parse_clauses(args)?;
-            let disjuncts: Vec<Vec<i32>> = clauses.into_iter().map(|c| c.literals).collect();
             (
-                ser(NonTautology::new(num_vars, disjuncts))?,
+                ser(NonTautology::new(num_vars, parse_disjuncts(args)?))?,
                 resolved_variant.clone(),
             )
         }
@@ -7360,6 +7385,28 @@ fn parse_clauses(args: &CreateArgs) -> Result<Vec<CNFClause>> {
         .collect()
 }
 
+fn parse_disjuncts(args: &CreateArgs) -> Result<Vec<Vec<i32>>> {
+    let disjuncts_str = args
+        .disjuncts
+        .as_deref()
+        .or(args.clauses.as_deref())
+        .ok_or_else(|| {
+            anyhow::anyhow!("NonTautology requires --disjuncts (e.g., \"1,2,3;-1,-2,-3\")")
+        })?;
+
+    disjuncts_str
+        .split(';')
+        .map(|disjunct| {
+            disjunct
+                .trim()
+                .split(',')
+                .map(|s| s.trim().parse::<i32>())
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(anyhow::Error::from)
+        })
+        .collect()
+}
+
 /// Parse `--sets` as semicolon-separated sets of comma-separated usize.
 /// E.g., "0,1;1,2;0,2"
 fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
@@ -9901,9 +9948,11 @@ mod tests {
             couplings: None,
             fields: None,
             clauses: None,
+            disjuncts: None,
             num_vars: None,
             matrix: None,
             k: None,
+            num_partitions: None,
             random: false,
             source_vertex: None,
             target_vertex: None,
@@ -10841,6 +10890,85 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("bound >= 1"));
+    }
+
+    #[test]
+    fn test_create_graph_partitioning_with_num_partitions() {
+        use crate::dispatch::ProblemJsonOutput;
+        use problemreductions::models::graph::GraphPartitioning;
+        use problemreductions::topology::SimpleGraph;
+
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "GraphPartitioning",
+            "--graph",
+            "0-1,1-2,2-3,3-0",
+            "--num-partitions",
+            "2",
+        ])
+        .unwrap();
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let output_path = temp_output_path("graph-partitioning-create");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "GraphPartitioning");
+        let problem: GraphPartitioning<SimpleGraph> = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.num_vertices(), 4);
+
+        let _ = fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_nontautology_with_disjuncts_flag() {
+        use crate::dispatch::ProblemJsonOutput;
+        use problemreductions::models::formula::NonTautology;
+
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "NonTautology",
+            "--num-vars",
+            "3",
+            "--disjuncts",
+            "1,2,3;-1,-2,-3",
+        ])
+        .unwrap();
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let output_path = temp_output_path("non-tautology-create");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "NonTautology");
+        let problem: NonTautology = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.disjuncts(), &[vec![1, 2, 3], vec![-1, -2, -3]]);
+
+        let _ = fs::remove_file(output_path);
     }
 
     #[test]

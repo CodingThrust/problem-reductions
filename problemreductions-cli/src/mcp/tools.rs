@@ -1,6 +1,6 @@
 use crate::util;
 use problemreductions::models::algebraic::QUBO;
-use problemreductions::models::formula::{CNFClause, Satisfiability};
+use problemreductions::models::formula::{CNFClause, NonTautology, Satisfiability};
 use problemreductions::models::graph::{
     KClique, LongestCircuit, MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching,
     MinimumDominatingSet, MinimumSumMulticenter, MinimumVertexCover, SpinGlass, TravelingSalesman,
@@ -70,7 +70,7 @@ pub struct CreateProblemParams {
     )]
     pub problem_type: String,
     #[schemars(
-        description = "Problem parameters as JSON object. Graph problems: {\"edges\": \"0-1,1-2\", \"weights\": \"1,2,3\"}. SAT: {\"num_vars\": 3, \"clauses\": \"1,2;-1,3\"}. QUBO: {\"matrix\": \"1,0.5;0.5,2\"}. KColoring: {\"edges\": \"0-1,1-2\", \"k\": 3}. KClique: {\"edges\": \"0-1,0-2,1-3,2-3,2-4,3-4\", \"k\": 3}. Factoring: {\"target\": 15, \"bits_m\": 4, \"bits_n\": 4}. Random graph: {\"random\": true, \"num_vertices\": 10, \"edge_prob\": 0.3}. Geometry graphs (use with MIS/KingsSubgraph etc.): {\"positions\": \"0,0;1,0;1,1\"}. UnitDiskGraph: {\"positions\": \"0.0,0.0;1.0,0.0\", \"radius\": 1.5}"
+        description = "Problem parameters as JSON object. Graph problems: {\"edges\": \"0-1,1-2\", \"weights\": \"1,2,3\"}. SAT: {\"num_vars\": 3, \"clauses\": \"1,2;-1,3\"}. NonTautology: {\"num_vars\": 2, \"disjuncts\": \"1,2;-1,-2\"}. QUBO: {\"matrix\": \"1,0.5;0.5,2\"}. KColoring: {\"edges\": \"0-1,1-2\", \"k\": 3}. KClique: {\"edges\": \"0-1,0-2,1-3,2-3,2-4,3-4\", \"k\": 3}. Factoring: {\"target\": 15, \"bits_m\": 4, \"bits_n\": 4}. Random graph: {\"random\": true, \"num_vertices\": 10, \"edge_prob\": 0.3}. Geometry graphs (use with MIS/KingsSubgraph etc.): {\"positions\": \"0,0;1,0;1,1\"}. UnitDiskGraph: {\"positions\": \"0.0,0.0;1.0,0.0\", \"radius\": 1.5}"
     )]
     pub params: serde_json::Value,
 }
@@ -406,20 +406,8 @@ impl McpServer {
                 if edge_lengths.iter().any(|&length| length <= 0) {
                     anyhow::bail!("LongestCircuit edge lengths must be positive (> 0)");
                 }
-                let bound = params
-                    .get("bound")
-                    .and_then(|v| v.as_i64())
-                    .ok_or_else(|| anyhow::anyhow!("LongestCircuit requires 'bound'"))?;
-                let bound = i32::try_from(bound)
-                    .map_err(|_| anyhow::anyhow!("LongestCircuit bound must fit in i32"))?;
-                if bound <= 0 {
-                    anyhow::bail!("LongestCircuit bound must be positive (> 0)");
-                }
                 let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                (
-                    ser(LongestCircuit::new(graph, edge_lengths, bound))?,
-                    variant,
-                )
+                (ser(LongestCircuit::new(graph, edge_lengths))?, variant)
             }
 
             "KColoring" => {
@@ -450,6 +438,16 @@ impl McpServer {
                 let clauses = parse_clauses_from_params(params)?;
                 let variant = BTreeMap::new();
                 (ser(Satisfiability::new(num_vars, clauses))?, variant)
+            }
+            "NonTautology" => {
+                let num_vars = params
+                    .get("num_vars")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as usize)
+                    .ok_or_else(|| anyhow::anyhow!("NonTautology requires 'num_vars'"))?;
+                let disjuncts = parse_disjuncts_from_params(params)?;
+                let variant = BTreeMap::new();
+                (ser(NonTautology::new(num_vars, disjuncts))?, variant)
             }
             "KSatisfiability" => {
                 let num_vars = params
@@ -625,20 +623,8 @@ impl McpServer {
                 }
                 let graph = util::create_random_graph(num_vertices, edge_prob, seed);
                 let edge_lengths = vec![1i32; graph.num_edges()];
-                let bound = params
-                    .get("bound")
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(num_vertices.max(3) as i64);
-                let bound = i32::try_from(bound)
-                    .map_err(|_| anyhow::anyhow!("LongestCircuit bound must fit in i32"))?;
-                if bound <= 0 {
-                    anyhow::bail!("LongestCircuit bound must be positive (> 0)");
-                }
                 let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                (
-                    ser(LongestCircuit::new(graph, edge_lengths, bound))?,
-                    variant,
-                )
+                (ser(LongestCircuit::new(graph, edge_lengths))?, variant)
             }
             "SpinGlass" => {
                 let edge_prob = params
@@ -1436,6 +1422,28 @@ fn parse_clauses_from_params(params: &serde_json::Value) -> anyhow::Result<Vec<C
         .collect()
 }
 
+/// Parse `disjuncts` field from JSON params as semicolon-separated conjunctions.
+fn parse_disjuncts_from_params(params: &serde_json::Value) -> anyhow::Result<Vec<Vec<i32>>> {
+    let disjuncts_str = params
+        .get("disjuncts")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            anyhow::anyhow!("NonTautology requires 'disjuncts' parameter (e.g., \"1,2;-1,3\")")
+        })?;
+
+    disjuncts_str
+        .split(';')
+        .map(|disjunct| {
+            disjunct
+                .trim()
+                .split(',')
+                .map(|s| s.trim().parse::<i32>())
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(anyhow::Error::from)
+        })
+        .collect()
+}
+
 /// Parse `matrix` field from JSON params as semicolon-separated rows.
 fn parse_matrix_from_params(params: &serde_json::Value) -> anyhow::Result<Vec<Vec<f64>>> {
     let matrix_str = params
@@ -1564,4 +1572,30 @@ fn solve_bundle_inner(bundle: ReductionBundle, solver_name: &str) -> anyhow::Res
         },
     });
     Ok(serde_json::to_string_pretty(&json)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::McpServer;
+    use crate::dispatch::ProblemJsonOutput;
+    use problemreductions::models::formula::NonTautology;
+
+    #[test]
+    fn test_create_problem_inner_nontautology_uses_disjuncts() {
+        let server = McpServer::new();
+        let output = server
+            .create_problem_inner(
+                "NonTautology",
+                &serde_json::json!({
+                    "num_vars": 3,
+                    "disjuncts": "1,2,3;-1,-2,-3",
+                }),
+            )
+            .unwrap();
+
+        let created: ProblemJsonOutput = serde_json::from_str(&output).unwrap();
+        assert_eq!(created.problem_type, "NonTautology");
+        let problem: NonTautology = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.disjuncts(), &[vec![1, 2, 3], vec![-1, -2, -3]]);
+    }
 }
