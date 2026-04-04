@@ -54,7 +54,8 @@ impl ReduceTo<AlgebraicEquationsOverGF2> for ExactCoverBy3Sets {
         }
 
         ReductionX3CToAlgebraicEquationsOverGF2 {
-            target: AlgebraicEquationsOverGF2::new(self.num_sets(), equations),
+            target: AlgebraicEquationsOverGF2::new(self.num_sets(), equations)
+                .expect("reduction produces valid equations"),
         }
     }
 }

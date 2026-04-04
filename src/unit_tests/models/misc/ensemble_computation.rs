@@ -1,6 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
+use crate::types::Min;
 
 fn issue_problem() -> EnsembleComputation {
     EnsembleComputation::new(4, vec![vec![0, 1, 2], vec![0, 1, 3]], 4)
@@ -26,35 +27,36 @@ fn test_ensemble_computation_creation() {
 fn test_ensemble_computation_issue_witness() {
     let problem = issue_problem();
 
-    assert!(problem.evaluate(&[0, 1, 4, 2, 4, 3, 0, 1]));
+    // 3 steps used: z1={0,1}, z2={0,1,2}, z3={0,1,3}
+    assert_eq!(problem.evaluate(&[0, 1, 4, 2, 4, 3, 0, 1]), Min(Some(3)));
 }
 
 #[test]
 fn test_ensemble_computation_rejects_future_reference() {
     let problem = issue_problem();
 
-    assert!(!problem.evaluate(&[4, 1, 0, 1, 0, 1, 0, 1]));
+    assert_eq!(problem.evaluate(&[4, 1, 0, 1, 0, 1, 0, 1]), Min(None));
 }
 
 #[test]
 fn test_ensemble_computation_rejects_overlapping_operands() {
     let problem = issue_problem();
 
-    assert!(!problem.evaluate(&[0, 0, 4, 2, 4, 3, 0, 1]));
+    assert_eq!(problem.evaluate(&[0, 0, 4, 2, 4, 3, 0, 1]), Min(None));
 }
 
 #[test]
 fn test_ensemble_computation_rejects_missing_required_subset() {
     let problem = issue_problem();
 
-    assert!(!problem.evaluate(&[0, 1, 0, 1, 0, 1, 0, 1]));
+    assert_eq!(problem.evaluate(&[0, 1, 0, 1, 0, 1, 0, 1]), Min(None));
 }
 
 #[test]
 fn test_ensemble_computation_rejects_wrong_config_length() {
     let problem = issue_problem();
 
-    assert!(!problem.evaluate(&[0, 1, 4, 2]));
+    assert_eq!(problem.evaluate(&[0, 1, 4, 2]), Min(None));
 }
 
 #[test]
@@ -78,7 +80,7 @@ fn test_ensemble_computation_serialization_round_trip() {
     assert_eq!(round_trip.universe_size(), 4);
     assert_eq!(round_trip.num_subsets(), 2);
     assert_eq!(round_trip.budget(), 4);
-    assert!(round_trip.evaluate(&[0, 1, 4, 2, 4, 3, 0, 1]));
+    assert_eq!(round_trip.evaluate(&[0, 1, 4, 2, 4, 3, 0, 1]), Min(Some(3)));
 }
 
 #[test]
@@ -100,5 +102,19 @@ fn test_ensemble_computation_deserialization_rejects_zero_budget() {
 fn test_ensemble_computation_paper_example() {
     let problem = issue_problem();
 
-    assert!(problem.evaluate(&[0, 1, 4, 2, 4, 3, 0, 1]));
+    // Witness uses 3 steps to build both subsets
+    assert_eq!(problem.evaluate(&[0, 1, 4, 2, 4, 3, 0, 1]), Min(Some(3)));
+}
+
+#[test]
+fn test_ensemble_computation_optimal_value() {
+    // {0,1} and {0,1,2}: need at least 2 operations
+    // Step 1: {0} ∪ {1} → {0,1}
+    // Step 2: z1 ∪ {2} → {0,1,2}
+    let problem = EnsembleComputation::new(3, vec![vec![0, 1], vec![0, 1, 2]], 2);
+    let solver = BruteForce::new();
+
+    use crate::solvers::Solver;
+    let optimal = solver.solve(&problem);
+    assert_eq!(optimal, Min(Some(2)));
 }

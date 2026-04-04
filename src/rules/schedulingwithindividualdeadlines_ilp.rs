@@ -106,23 +106,12 @@ impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "schedulingwithindividualdeadlines_to_ilp",
         build: || {
             // 3 tasks, 2 processors, deadlines [2, 2, 3], precedence (0, 2)
-            // Schedule: task 0 at slot 0, task 1 at slot 0, task 2 at slot 1
-            // max_deadline = 3
-            // x_{0,0}=1, x_{0,1}=0, x_{0,2}=0, x_{1,0}=1, x_{1,1}=0, x_{1,2}=0, x_{2,0}=0, x_{2,1}=1, x_{2,2}=0
             let source = SchedulingWithIndividualDeadlines::new(3, 2, vec![2, 2, 3], vec![(0, 2)]);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config: vec![0, 0, 1],
-                    target_config: vec![1, 0, 0, 1, 0, 0, 0, 1, 0],
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

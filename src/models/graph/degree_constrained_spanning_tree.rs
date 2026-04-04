@@ -1,7 +1,7 @@
 //! Degree-Constrained Spanning Tree problem implementation.
 //!
-//! Given an undirected graph, determine whether it contains a spanning tree
-//! whose maximum vertex degree is at most a prescribed bound.
+//! Given a graph G = (V, E) and a positive integer K, determine whether G has
+//! a spanning tree in which every vertex has degree at most K.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
@@ -19,61 +19,90 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
         module_path: module_path!(),
-        description: "Does graph G contain a spanning tree with maximum degree at most K?",
+        description: "Does G have a spanning tree with maximum vertex degree at most K?",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "max_degree", type_name: "usize", description: "Upper bound K on the degree of every vertex in the spanning tree" },
+            FieldInfo { name: "max_degree", type_name: "usize", description: "max_degree: maximum allowed vertex degree K (>= 1)" },
         ],
     }
 }
 
-/// Degree-Constrained Spanning Tree.
+/// Degree-Constrained Spanning Tree problem.
 ///
-/// Given an undirected graph `G = (V, E)` and an integer bound `K`, determine
-/// whether there exists a spanning tree `T` of `G` such that every vertex has
-/// degree at most `K` in `T`.
+/// Given an undirected graph G = (V, E) and a positive integer K, determine
+/// whether G contains a spanning tree T such that every vertex in T has degree
+/// at most K.
 ///
-/// # Representation
+/// Each configuration entry corresponds to an edge (in the order returned by
+/// `graph.edges()`), with value 0 (not selected) or 1 (selected).
 ///
-/// A configuration is a binary vector of length `|E|`. Entry `config[e]` is 1
-/// exactly when the corresponding edge of `G` is selected into the candidate
-/// spanning tree.
+/// # Type Parameters
+///
+/// * `G` - Graph type (e.g., SimpleGraph)
+///
+/// # Example
+///
+/// ```
+/// use problemreductions::models::graph::DegreeConstrainedSpanningTree;
+/// use problemreductions::topology::SimpleGraph;
+/// use problemreductions::{Problem, Solver, BruteForce};
+///
+/// let graph = SimpleGraph::new(4, vec![(0,1),(1,2),(2,3),(0,3)]);
+/// let problem = DegreeConstrainedSpanningTree::new(graph, 2);
+///
+/// let solver = BruteForce::new();
+/// let solution = solver.find_witness(&problem);
+/// assert!(solution.is_some());
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct DegreeConstrainedSpanningTree<G> {
+    /// The underlying graph.
     graph: G,
+    /// Maximum allowed vertex degree in the spanning tree.
     max_degree: usize,
+    /// Ordered edge list (mirrors `graph.edges()` order).
+    edge_list: Vec<(usize, usize)>,
 }
 
 impl<G: Graph> DegreeConstrainedSpanningTree<G> {
-    /// Create a new DegreeConstrainedSpanningTree instance.
+    /// Create a new Degree-Constrained Spanning Tree instance.
+    ///
+    /// # Panics
+    /// Panics if `max_degree` is zero.
     pub fn new(graph: G, max_degree: usize) -> Self {
-        Self { graph, max_degree }
+        assert!(max_degree >= 1, "max_degree must be at least 1");
+        let edge_list = graph.edges();
+        Self {
+            graph,
+            max_degree,
+            edge_list,
+        }
     }
 
-    /// Get the underlying graph.
+    /// Get a reference to the underlying graph.
     pub fn graph(&self) -> &G {
         &self.graph
     }
 
-    /// Get the number of vertices.
-    pub fn num_vertices(&self) -> usize {
-        self.graph.num_vertices()
-    }
-
-    /// Get the number of edges.
-    pub fn num_edges(&self) -> usize {
-        self.graph.num_edges()
-    }
-
-    /// Get the maximum allowed degree.
+    /// Get the max_degree parameter K.
     pub fn max_degree(&self) -> usize {
         self.max_degree
     }
 
-    /// Check whether a configuration is a valid degree-constrained spanning tree.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        is_degree_constrained_spanning_tree(&self.graph, self.max_degree, config)
+    /// Get the number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.graph.num_vertices()
+    }
+
+    /// Get the number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.graph.num_edges()
+    }
+
+    /// Get the ordered edge list.
+    pub fn edge_list(&self) -> &[(usize, usize)] {
+        &self.edge_list
     }
 }
 
@@ -89,83 +118,90 @@ where
     }
 
     fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
+        vec![2; self.edge_list.len()]
     }
 
     fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(is_degree_constrained_spanning_tree(
-            &self.graph,
-            self.max_degree,
-            config,
-        ))
+        crate::types::Or({
+            let n = self.graph.num_vertices();
+            if config.len() != self.edge_list.len() {
+                return crate::types::Or(false);
+            }
+
+            // Collect selected edges
+            let selected: Vec<(usize, usize)> = config
+                .iter()
+                .enumerate()
+                .filter(|(_, &v)| v == 1)
+                .map(|(i, _)| self.edge_list[i])
+                .collect();
+
+            // A spanning tree on n vertices must have exactly n-1 edges
+            if n == 0 {
+                return crate::types::Or(selected.is_empty());
+            }
+            if selected.len() != n - 1 {
+                return crate::types::Or(false);
+            }
+
+            // Check connectivity using BFS on selected edges
+            let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
+            let mut degree = vec![0usize; n];
+            for &(u, v) in &selected {
+                adj[u].push(v);
+                adj[v].push(u);
+                degree[u] += 1;
+                degree[v] += 1;
+            }
+
+            // Check max degree constraint
+            if degree.iter().any(|&d| d > self.max_degree) {
+                return crate::types::Or(false);
+            }
+
+            // BFS to check connectivity
+            let mut visited = vec![false; n];
+            let mut queue = VecDeque::new();
+            visited[0] = true;
+            queue.push_back(0);
+            let mut count = 1;
+            while let Some(v) = queue.pop_front() {
+                for &u in &adj[v] {
+                    if !visited[u] {
+                        visited[u] = true;
+                        count += 1;
+                        queue.push_back(u);
+                    }
+                }
+            }
+
+            count == n
+        })
     }
 }
 
-pub(crate) fn is_degree_constrained_spanning_tree<G: Graph>(
-    graph: &G,
-    max_degree: usize,
-    config: &[usize],
-) -> bool {
-    let edges = graph.edges();
-    if config.len() != edges.len() || config.iter().any(|&value| value > 1) {
-        return false;
-    }
-
-    let num_vertices = graph.num_vertices();
-    let selected_count = config.iter().filter(|&&value| value == 1).count();
-    if selected_count != num_vertices.saturating_sub(1) {
-        return false;
-    }
-
-    if num_vertices <= 1 {
-        return true;
-    }
-
-    let mut adjacency = vec![Vec::new(); num_vertices];
-    let mut degree = vec![0usize; num_vertices];
-
-    for ((u, v), &selected) in edges.iter().copied().zip(config.iter()) {
-        if selected == 0 {
-            continue;
-        }
-        degree[u] += 1;
-        degree[v] += 1;
-        if degree[u] > max_degree || degree[v] > max_degree {
-            return false;
-        }
-        adjacency[u].push(v);
-        adjacency[v].push(u);
-    }
-
-    let mut visited = vec![false; num_vertices];
-    let mut queue = VecDeque::new();
-    visited[0] = true;
-    queue.push_back(0);
-
-    while let Some(vertex) = queue.pop_front() {
-        for &neighbor in &adjacency[vertex] {
-            if !visited[neighbor] {
-                visited[neighbor] = true;
-                queue.push_back(neighbor);
-            }
-        }
-    }
-
-    visited.into_iter().all(|seen| seen)
+crate::declare_variants! {
+    default DegreeConstrainedSpanningTree<SimpleGraph> => "2^num_vertices",
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    // 5 vertices, 7 edges: (0,1),(0,2),(0,3),(1,2),(1,4),(2,3),(3,4), K=2
+    // Spanning tree with max degree 2: edges (0,2),(0,3),(1,2),(1,4)
+    //   indices: 1,2,3,4 → config [0,1,1,1,1,0,0]
+    //   Degrees: 0→{2,3}=2, 1→{2,4}=2, 2→{0,1}=2, 3→{0}=1, 4→{1}=1
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "degree_constrained_spanning_tree_simplegraph",
-        instance: Box::new(DegreeConstrainedSpanningTree::new(SimpleGraph::path(4), 2)),
-        optimal_config: vec![1, 1, 1],
+        instance: Box::new(DegreeConstrainedSpanningTree::new(
+            SimpleGraph::new(
+                5,
+                vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 4), (2, 3), (3, 4)],
+            ),
+            2,
+        )),
+        optimal_config: vec![0, 1, 1, 1, 1, 0, 0],
         optimal_value: serde_json::json!(true),
     }]
-}
-
-crate::declare_variants! {
-    default DegreeConstrainedSpanningTree<SimpleGraph> => "2^num_edges",
 }
 
 #[cfg(test)]

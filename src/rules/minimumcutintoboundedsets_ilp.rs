@@ -34,7 +34,7 @@ impl ReductionResult for ReductionMinCutBSToILP {
 #[reduction(
     overhead = {
         num_vars = "num_vertices + num_edges",
-        num_constraints = "2 + 2 * num_edges + 1",
+        num_constraints = "2 + 2 + 2 * num_edges",
     }
 )]
 impl ReduceTo<ILP<bool>> for MinimumCutIntoBoundedSets<SimpleGraph, i32> {
@@ -79,16 +79,15 @@ impl ReduceTo<ILP<bool>> for MinimumCutIntoBoundedSets<SimpleGraph, i32> {
             ));
         }
 
-        // Cut bound: Σ w_e y_e ≤ K
-        let cut_terms: Vec<(usize, f64)> = self
+        // Objective: minimize cut weight Σ w_e y_e
+        let objective: Vec<(usize, f64)> = self
             .edge_weights()
             .iter()
             .enumerate()
             .map(|(e_idx, &w)| (n + e_idx, w as f64))
             .collect();
-        constraints.push(LinearConstraint::le(cut_terms, *self.cut_bound() as f64));
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
         ReductionMinCutBSToILP {
             target,
             num_vertices: n,
@@ -98,7 +97,6 @@ impl ReduceTo<ILP<bool>> for MinimumCutIntoBoundedSets<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumcutintoboundedsets_to_ilp",
         build: || {
@@ -108,15 +106,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 0,
                 3,
                 3,
-                2,
             );
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config: vec![0, 0, 1, 1],
-                    target_config: vec![0, 0, 1, 1, 0, 1, 0],
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

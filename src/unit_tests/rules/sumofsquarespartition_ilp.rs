@@ -1,54 +1,54 @@
 use super::*;
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::traits::Problem;
-use crate::types::Or;
+use crate::types::Min;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // 3 elements, 2 groups
-    let problem = SumOfSquaresPartition::new(vec![1, 2, 3], 2, 20);
+    let problem = SumOfSquaresPartition::new(vec![1, 2, 3], 2);
     let reduction: ReductionSSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // n=3, K=2: num_vars = 3*2 + 3^2*2 = 6 + 18 = 24
     assert_eq!(ilp.num_vars, 24, "Should have 24 variables (3*2 + 9*2)");
-    // num_constraints = 3 assignment + 3*9*2 McCormick + 1 bound = 3 + 54 + 1 = 58
-    assert_eq!(ilp.constraints.len(), 58, "Should have 58 constraints");
-    assert_eq!(
-        ilp.sense,
-        ObjectiveSense::Minimize,
-        "Should minimize (feasibility)"
+    // num_constraints = 3 assignment + 3*9*2 McCormick = 3 + 54 = 57
+    assert_eq!(ilp.constraints.len(), 57, "Should have 57 constraints");
+    assert_eq!(ilp.sense, ObjectiveSense::Minimize, "Should minimize");
+    // Objective should have non-empty coefficients
+    assert!(
+        !ilp.objective.is_empty(),
+        "Objective should have coefficients"
     );
 }
 
 #[test]
 fn test_sumofsquarespartition_to_ilp_bf_vs_ilp() {
-    // 4 elements [1,2,3,4], 2 groups, bound=50
-    let problem = SumOfSquaresPartition::new(vec![1, 2, 3, 4], 2, 50);
+    // 4 elements [1,2,3,4], 2 groups
+    let problem = SumOfSquaresPartition::new(vec![1, 2, 3, 4], 2);
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf
-        .find_witness(&problem)
-        .expect("BF should find a solution");
-    assert_eq!(problem.evaluate(&bf_witness), Or(true));
+    let bf_value = bf.solve(&problem);
+    // Optimal: {1,4}=5, {2,3}=5 -> 25+25=50
+    assert_eq!(bf_value, Min(Some(50)));
 
     let reduction: ReductionSSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution);
+    let ilp_value = problem.evaluate(&extracted);
     assert_eq!(
-        problem.evaluate(&extracted),
-        Or(true),
-        "Extracted ILP solution should be valid"
+        ilp_value, bf_value,
+        "ILP solution should match brute-force optimal"
     );
 }
 
 #[test]
 fn test_solution_extraction() {
     // 4 elements, 2 groups
-    let problem = SumOfSquaresPartition::new(vec![1, 2, 3, 4], 2, 50);
+    let problem = SumOfSquaresPartition::new(vec![1, 2, 3, 4], 2);
     let reduction: ReductionSSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
 
     // element 0→g0, element 1→g1, element 2→g1, element 3→g0
@@ -65,8 +65,8 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_sumofsquarespartition_to_ilp_trivial() {
-    // 2 elements, 2 groups, generous bound
-    let problem = SumOfSquaresPartition::new(vec![1, 2], 2, 10);
+    // 2 elements, 2 groups, optimization
+    let problem = SumOfSquaresPartition::new(vec![1, 2], 2);
     let reduction: ReductionSSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -76,5 +76,7 @@ fn test_sumofsquarespartition_to_ilp_trivial() {
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), Or(true), "Should be feasible");
+    let value = problem.evaluate(&extracted);
+    // Optimal: {1},{2} -> 1+4=5
+    assert_eq!(value, Min(Some(5)));
 }

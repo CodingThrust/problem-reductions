@@ -1,20 +1,19 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::models::graph::MinimumCutIntoBoundedSets;
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
+use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::rules::ReduceTo;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
 fn small_instance() -> MinimumCutIntoBoundedSets<SimpleGraph, i32> {
-    // Path graph 0-1-2-3, unit weights, s=0, t=3, B=3, K=2
+    // Path graph 0-1-2-3, unit weights, s=0, t=3, B=3
     MinimumCutIntoBoundedSets::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![1, 1, 1],
         0,
         3,
         3,
-        2,
     )
 }
 
@@ -22,7 +21,7 @@ fn small_instance() -> MinimumCutIntoBoundedSets<SimpleGraph, i32> {
 fn test_minimumcutintoboundedsets_to_ilp_closed_loop() {
     let source = small_instance();
     let reduction: ReductionMinCutBSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
-    assert_satisfaction_round_trip_from_satisfaction_target(
+    assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,
         "MinCutBS -> ILP round trip",
@@ -45,7 +44,7 @@ fn test_extract_solution() {
     let target_sol = vec![0, 0, 1, 1, 0, 1, 0];
     let extracted = reduction.extract_solution(&target_sol);
     assert_eq!(extracted, vec![0, 0, 1, 1]);
-    assert!(source.evaluate(&extracted).0);
+    assert!(source.evaluate(&extracted).0.is_some());
 }
 
 #[test]
@@ -59,12 +58,18 @@ fn test_larger_instance() {
         0,
         5,
         4,
-        3,
     );
     let reduction: ReductionMinCutBSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
-    assert_satisfaction_round_trip_from_satisfaction_target(
+    assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,
         "MinCutBS larger instance",
     );
+}
+
+#[test]
+fn test_minimumcutintoboundedsets_to_ilp_bf_vs_ilp() {
+    let source = small_instance();
+    let reduction: ReductionMinCutBSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }

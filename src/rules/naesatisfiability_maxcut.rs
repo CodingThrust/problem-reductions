@@ -1,24 +1,26 @@
-//! Reduction from NAE-Satisfiability to MaxCut.
+//! Reduction from NAESatisfiability to MaxCut.
 //!
-//! For an NAE-3SAT instance with `n` variables and `m` clauses, create:
-//! - a heavy edge `(v_i, v_i')` of weight `M = 2m + 1` for every variable
-//! - a unit-weight triangle on the three literal vertices of every clause
+//! Classical reduction from Not-All-Equal SAT to Maximum Cut (Karp 1972,
+//! Garey & Johnson ND16). For each variable x_i, create two vertices
+//! (positive literal 2i, negative literal 2i+1) connected by a heavy
+//! "variable edge" of weight M = m+1 where m is the number of clauses.
+//! For each clause, add weight-1 edges between all pairs of literal vertices
+//! in that clause. An optimal max-cut of value n*M + sum(k_j - 1) exists
+//! if and only if the NAE-SAT formula is satisfiable.
 //!
-//! The heavy variable edges force `v_i` and `v_i'` onto opposite sides in any
-//! optimum. Once that is fixed, each clause triangle contributes `2` iff its
-//! three literals are not all equal.
+//! Reference: Garey & Johnson, *Computers and Intractability*, ND16, p.210
 
 use crate::models::formula::NAESatisfiability;
 use crate::models::graph::MaxCut;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use std::collections::BTreeMap;
 
+/// Result of reducing NAESatisfiability to MaxCut.
 #[derive(Debug, Clone)]
 pub struct ReductionNAESATToMaxCut {
     target: MaxCut<SimpleGraph, i32>,
-    num_source_variables: usize,
+    source_num_vars: usize,
 }
 
 impl ReductionResult for ReductionNAESATToMaxCut {
@@ -29,144 +31,107 @@ impl ReductionResult for ReductionNAESATToMaxCut {
         &self.target
     }
 
+    /// Extract a NAE-SAT assignment from a MaxCut partition.
+    ///
+    /// Variable x_i is assigned based on vertex 2*i: if it is in set 0
+    /// (config[2*i] == 0), set x_i = false (config value 0); if in set 1,
+    /// set x_i = true (config value 1).
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let required_vertices = 2 * self.num_source_variables;
-        assert!(
-            target_solution.len() >= required_vertices,
-            "MaxCut solution has {} vertices but source requires {}",
-            target_solution.len(),
-            required_vertices,
-        );
-
-        (0..self.num_source_variables)
-            .map(|var_index| target_solution[2 * var_index])
+        (0..self.source_num_vars)
+            .map(|i| target_solution[2 * i])
             .collect()
     }
 }
 
-fn variable_gadget_weight(num_clauses: usize) -> i32 {
-    i32::try_from(num_clauses)
-        .ok()
-        .and_then(|m| m.checked_mul(2))
-        .and_then(|twice_m| twice_m.checked_add(1))
-        .expect("NAESatisfiability -> MaxCut penalty exceeds i32 range")
-}
-
-fn literal_vertex(literal: i32, num_vars: usize) -> usize {
-    let var = literal.unsigned_abs() as usize;
-    assert!(
-        (1..=num_vars).contains(&var),
-        "NAESatisfiability -> MaxCut literal {literal} is out of range for {num_vars} variables",
-    );
-
-    let var_index = var - 1;
-    if literal > 0 {
-        2 * var_index
+/// Map a literal to its vertex index.
+///
+/// Positive literal l (l > 0): vertex 2*(l-1)
+/// Negative literal l (l < 0): vertex 2*((-l)-1) + 1
+fn literal_vertex(lit: i32) -> usize {
+    let var_idx = lit.unsigned_abs() as usize - 1;
+    if lit > 0 {
+        2 * var_idx
     } else {
-        2 * var_index + 1
+        2 * var_idx + 1
     }
-}
-
-fn clause_literal_vertices(
-    clause: &crate::models::formula::CNFClause,
-    num_vars: usize,
-) -> [usize; 3] {
-    match clause.literals.as_slice() {
-        [a, b, c] => [
-            literal_vertex(*a, num_vars),
-            literal_vertex(*b, num_vars),
-            literal_vertex(*c, num_vars),
-        ],
-        _ => panic!("NAESatisfiability -> MaxCut requires every clause to have exactly 3 literals"),
-    }
-}
-
-fn accumulate_edge_weight(
-    edge_weights: &mut BTreeMap<(usize, usize), i32>,
-    u: usize,
-    v: usize,
-    delta: i32,
-) {
-    if u == v {
-        // Repeated literals induce self-loops in the multigraph view, but they
-        // never contribute to a cut, so we drop them when collapsing to
-        // `SimpleGraph`.
-        return;
-    }
-
-    let edge = if u < v { (u, v) } else { (v, u) };
-    let weight = edge_weights.entry(edge).or_insert(0);
-    *weight = weight
-        .checked_add(delta)
-        .expect("NAESatisfiability -> MaxCut edge weight overflow");
 }
 
 #[reduction(
     overhead = {
         num_vertices = "2 * num_vars",
-        num_edges = "num_vars + 3 * num_clauses",
+        num_edges = "num_vars + num_literal_pairs",
     }
 )]
 impl ReduceTo<MaxCut<SimpleGraph, i32>> for NAESatisfiability {
     type Result = ReductionNAESATToMaxCut;
 
     fn reduce_to(&self) -> Self::Result {
-        let num_vars = self.num_vars();
-        let penalty = variable_gadget_weight(self.num_clauses());
-        let mut edge_weights = BTreeMap::new();
+        let n = self.num_vars();
+        let m = self.num_clauses();
+        let total_vertices = 2 * n;
+        let big_m = (m + 1) as i32;
 
-        for var_index in 0..num_vars {
-            accumulate_edge_weight(&mut edge_weights, 2 * var_index, 2 * var_index + 1, penalty);
+        let mut edges: Vec<(usize, usize)> = Vec::new();
+        let mut weights: Vec<i32> = Vec::new();
+
+        // Step 1: Variable edges — connect (2*i, 2*i+1) with weight M = m+1
+        for i in 0..n {
+            edges.push((2 * i, 2 * i + 1));
+            weights.push(big_m);
         }
 
+        // Step 2: Clause edges — for each clause, add weight-1 edges between
+        // all pairs of literal vertices
         for clause in self.clauses() {
-            let [a, b, c] = clause_literal_vertices(clause, num_vars);
-            accumulate_edge_weight(&mut edge_weights, a, b, 1);
-            accumulate_edge_weight(&mut edge_weights, b, c, 1);
-            accumulate_edge_weight(&mut edge_weights, a, c, 1);
+            let lits = &clause.literals;
+            for a in 0..lits.len() {
+                for b in (a + 1)..lits.len() {
+                    edges.push((literal_vertex(lits[a]), literal_vertex(lits[b])));
+                    weights.push(1);
+                }
+            }
         }
 
-        let (edges, weights): (Vec<_>, Vec<_>) = edge_weights.into_iter().unzip();
-        let target = MaxCut::new(SimpleGraph::new(2 * num_vars, edges), weights);
+        let graph = SimpleGraph::new(total_vertices, edges);
+        let target = MaxCut::new(graph, weights);
 
         ReductionNAESATToMaxCut {
             target,
-            num_source_variables: num_vars,
+            source_num_vars: n,
         }
     }
-}
-
-#[cfg(any(test, feature = "example-db"))]
-const ISSUE_EXAMPLE_SOURCE_CONFIG: [usize; 3] = [1, 0, 1];
-
-#[cfg(any(test, feature = "example-db"))]
-const ISSUE_EXAMPLE_TARGET_CONFIG: [usize; 6] = [1, 0, 0, 1, 1, 0];
-
-#[cfg(any(test, feature = "example-db"))]
-fn issue_example() -> NAESatisfiability {
-    use crate::models::formula::CNFClause;
-
-    NAESatisfiability::new(
-        3,
-        vec![
-            CNFClause::new(vec![1, 2, 3]),
-            CNFClause::new(vec![1, 2, -3]),
-        ],
-    )
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
+    use crate::models::formula::CNFClause;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "naesatisfiability_to_maxcut",
         build: || {
+            // 3 variables, 2 clauses:
+            //   C1 = (x1, x2, ~x3)
+            //   C2 = (~x1, x3, x2)
+            // NAE-satisfying: x1=T, x2=F, x3=T
+            let source = NAESatisfiability::new(
+                3,
+                vec![
+                    CNFClause::new(vec![1, 2, -3]),
+                    CNFClause::new(vec![-1, 3, 2]),
+                ],
+            );
             crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i32>>(
-                issue_example(),
+                source,
                 SolutionPair {
-                    source_config: ISSUE_EXAMPLE_SOURCE_CONFIG.to_vec(),
-                    target_config: ISSUE_EXAMPLE_TARGET_CONFIG.to_vec(),
+                    // x1=T(1), x2=F(0), x3=T(1)
+                    source_config: vec![1, 0, 1],
+                    // Vertices: x1(0)=1, ~x1(1)=0, x2(2)=0, ~x2(3)=1, x3(4)=1, ~x3(5)=0
+                    // All variable edges cross (weight M=3 each) -> 3*3=9
+                    // C1=(x1,x2,~x3): vertices 0,2,5 -> sides {1},{0,0} -> edges (0,2) crosses, (0,5) crosses, (2,5) doesn't -> +2
+                    // C2=(~x1,x3,x2): vertices 1,4,2 -> sides {0},{1,0} -> edges (1,4) crosses, (1,2) doesn't, (4,2) crosses -> +2
+                    // Total = 9 + 2 + 2 = 13
+                    target_config: vec![1, 0, 0, 1, 1, 0],
                 },
             )
         },

@@ -88,7 +88,6 @@ impl ReduceTo<ILP<i32>> for IntegralFlowWithMultipliers {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
     use crate::topology::DirectedGraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {
@@ -103,13 +102,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![2, 2, 2, 2],
                 2,
             );
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
-                source,
-                SolutionPair {
-                    source_config: vec![1, 1, 1, 1],
-                    target_config: vec![1, 1, 1, 1],
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
         },
     }]
 }

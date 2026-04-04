@@ -53,18 +53,11 @@ impl ReduceTo<ILP<bool>> for MinimumHittingSet {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "minimumhittingset_to_ilp",
         build: || {
             let source = MinimumHittingSet::new(4, vec![vec![0, 1], vec![2, 3], vec![1, 2]]);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config: vec![0, 1, 0, 1],
-                    target_config: vec![0, 1, 0, 1],
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

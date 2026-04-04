@@ -18,8 +18,8 @@ fn test_ksatisfiability_to_simultaneous_incongruences_closed_loop() {
     let reduction = ReduceTo::<SimultaneousIncongruences>::reduce_to(&source);
     let target = reduction.target_problem();
 
-    assert_eq!(target.bound(), 105);
-    assert_eq!(target.num_incongruences(), 11);
+    assert_eq!(target.lcm_moduli(), 105);
+    assert_eq!(target.num_pairs(), 11);
 
     let solver = BruteForce::new();
     let target_solution = solver

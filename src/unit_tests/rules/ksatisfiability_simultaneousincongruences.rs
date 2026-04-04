@@ -16,8 +16,8 @@ fn test_ksatisfiability_to_simultaneous_incongruences_closed_loop() {
     let reduction = ReduceTo::<SimultaneousIncongruences>::reduce_to(&source);
     let target = reduction.target_problem();
 
-    assert_eq!(target.bound(), 15);
-    assert_eq!(target.num_incongruences(), 6);
+    assert_eq!(target.lcm_moduli(), 15);
+    assert_eq!(target.num_pairs(), 6);
 
     let solver = BruteForce::new();
     let target_solution = solver
@@ -40,15 +40,10 @@ fn test_ksatisfiability_to_simultaneous_incongruences_structure() {
     let reduction = ReduceTo::<SimultaneousIncongruences>::reduce_to(&source);
     let target = reduction.target_problem();
 
-    let pairs = target
-        .moduli()
-        .iter()
-        .copied()
-        .zip(target.residues().iter().copied())
-        .collect::<Vec<_>>();
+    let pairs: Vec<(u64, u64)> = target.pairs().to_vec();
     assert_eq!(
         pairs,
-        vec![(3, 0), (5, 0), (5, 3), (5, 4), (15, 2), (15, 7)]
+        vec![(3, 3), (5, 5), (3, 5), (4, 5), (2, 15), (7, 15)]
     );
 }
 

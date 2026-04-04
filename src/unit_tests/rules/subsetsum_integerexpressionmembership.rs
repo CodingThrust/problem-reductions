@@ -1,6 +1,6 @@
 #[cfg(feature = "example-db")]
 use super::canonical_rule_example_specs;
-use crate::models::algebraic::IntegerExpressionMembership;
+use crate::models::misc::IntegerExpressionMembership;
 use crate::models::misc::SubsetSum;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::traits::ReductionResult;
@@ -27,12 +27,10 @@ fn test_subsetsum_to_integerexpressionmembership_closed_loop() {
     let reduction = ReduceTo::<IntegerExpressionMembership>::reduce_to(&source);
     let target = reduction.target_problem();
 
-    assert_eq!(
-        target.choices(),
-        &[vec![1, 2], vec![1, 6], vec![1, 7], vec![1, 9]]
-    );
+    // 4 items -> 4 union nodes
+    assert_eq!(target.num_union_nodes(), 4);
+    // Shifted target: 11 + 4 = 15
     assert_eq!(target.target(), 15);
-    assert_eq!(target.num_positions(), source.num_elements());
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -75,12 +73,8 @@ fn test_subsetsum_to_integerexpressionmembership_canonical_example_spec() {
 
     assert_eq!(example.source.problem, "SubsetSum");
     assert_eq!(example.target.problem, "IntegerExpressionMembership");
-    assert_eq!(
-        example.target.instance["choices"],
-        serde_json::json!([[1, 2], [1, 6], [1, 7], [1, 9]])
-    );
     assert_eq!(example.target.instance["target"], serde_json::json!(15));
-    assert_eq!(example.solutions.len(), 1);
+    assert!(!example.solutions.is_empty());
     assert_eq!(
         example.solutions[0].source_config,
         issue_example_source_config()

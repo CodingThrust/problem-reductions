@@ -47,8 +47,10 @@ impl ReduceTo<ProductionPlanning> for Partition {
         let production_costs = vec![0; self.num_elements() + 1];
         let inventory_costs = vec![0; self.num_elements() + 1];
 
+        let num_periods = self.num_elements() + 1;
         ReductionPartitionToProductionPlanning {
             target: ProductionPlanning::new(
+                num_periods,
                 demands,
                 capacities,
                 setup_costs,

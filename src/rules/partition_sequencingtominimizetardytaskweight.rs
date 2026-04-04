@@ -19,16 +19,9 @@ impl ReductionPartitionToSequencingToMinimizeTardyTaskWeight {
             "target solution length must equal target num_tasks"
         );
 
-        let mut available: Vec<usize> = (0..n).collect();
-        let mut schedule = Vec::with_capacity(n);
-        for &digit in target_solution {
-            assert!(
-                digit < available.len(),
-                "target solution must be a valid Lehmer-coded schedule"
-            );
-            schedule.push(available.remove(digit));
-        }
-        schedule
+        // The target model uses direct permutation encoding (dims = [n; n]).
+        // Each position is a task index; the solver returns a valid permutation.
+        target_solution.to_vec()
     }
 }
 
@@ -90,7 +83,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 Partition::new(vec![3, 1, 1, 2, 2, 1]),
                 SolutionPair {
                     source_config: vec![1, 0, 0, 1, 0, 0],
-                    target_config: vec![1, 1, 2, 2, 0, 0],
+                    target_config: vec![1, 2, 4, 5, 0, 3],
                 },
             )
         },

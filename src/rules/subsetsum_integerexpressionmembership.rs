@@ -1,5 +1,5 @@
-use crate::models::algebraic::IntegerExpressionMembership;
 use crate::models::misc::SubsetSum;
+use crate::models::misc::{IntExpr, IntegerExpressionMembership};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use num_traits::ToPrimitive;
@@ -18,41 +18,60 @@ impl ReductionResult for ReductionSubsetSumToIntegerExpressionMembership {
     }
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution
-            .iter()
-            .map(|&choice_index| usize::from(choice_index == 1))
-            .collect()
+        // Union choice 0 = left = Atom(1) = exclude, choice 1 = right = Atom(s_i+1) = include.
+        // This maps directly to SubsetSum's 0/1 include/exclude encoding.
+        target_solution.to_vec()
     }
 }
 
+/// Build a left-associative chain of `Sum` nodes over the given union nodes.
+///
+/// For n items with sizes s_0, ..., s_{n-1}, each item becomes
+/// `Union(Atom(1), Atom(s_i + 1))`. The chain is built as:
+/// `Sum(Sum(...Sum(Union_0, Union_1), Union_2), ..., Union_{n-1})`.
+///
+/// DFS order visits Union_0 first, then Union_1, etc., so config[i]
+/// corresponds to item i.
+fn build_expression(sizes: &[u64]) -> IntExpr {
+    assert!(
+        !sizes.is_empty(),
+        "SubsetSum must have at least one element"
+    );
+
+    let make_union = |s: u64| -> IntExpr {
+        IntExpr::Union(Box::new(IntExpr::Atom(1)), Box::new(IntExpr::Atom(s + 1)))
+    };
+
+    let mut expr = make_union(sizes[0]);
+    for &s in &sizes[1..] {
+        expr = IntExpr::Sum(Box::new(expr), Box::new(make_union(s)));
+    }
+    expr
+}
+
 #[reduction(overhead = {
-    num_positions = "num_elements",
+    num_union_nodes = "num_elements",
 })]
 impl ReduceTo<IntegerExpressionMembership> for SubsetSum {
     type Result = ReductionSubsetSumToIntegerExpressionMembership;
 
     fn reduce_to(&self) -> Self::Result {
-        let choices = self
+        let sizes: Vec<u64> = self
             .sizes()
             .iter()
-            .map(|size| {
-                let size = size.to_u64().unwrap();
-                vec![
-                    1,
-                    size.checked_add(1).expect(
-                        "SubsetSum -> IntegerExpressionMembership requires shifted values to fit in u64",
-                    ),
-                ]
-            })
+            .map(|size| size.to_u64().unwrap())
             .collect();
+
         let shift = u64::try_from(self.num_elements())
             .expect("SubsetSum -> IntegerExpressionMembership requires num_elements to fit in u64");
         let target = self.target().to_u64().unwrap().checked_add(shift).expect(
             "SubsetSum -> IntegerExpressionMembership requires shifted target to fit in u64",
         );
 
+        let expr = build_expression(&sizes);
+
         ReductionSubsetSumToIntegerExpressionMembership {
-            target: IntegerExpressionMembership::new(choices, target),
+            target: IntegerExpressionMembership::new(expr, target),
         }
     }
 }

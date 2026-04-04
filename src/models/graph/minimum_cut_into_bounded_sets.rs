@@ -1,13 +1,13 @@
 //! MinimumCutIntoBoundedSets problem implementation.
 //!
-//! A graph partitioning problem that asks whether vertices can be partitioned
-//! into two bounded-size sets (containing designated source and sink vertices)
-//! with total cut weight at most K. From Garey & Johnson, A2 ND17.
+//! A graph partitioning problem that finds a partition of vertices into two
+//! bounded-size sets (containing designated source and sink vertices) that
+//! minimizes total cut weight. From Garey & Johnson, A2 ND17.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::types::WeightElement;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -21,14 +21,13 @@ inventory::submit! {
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
         module_path: module_path!(),
-        description: "Partition vertices into two bounded-size sets with cut weight at most K",
+        description: "Find a minimum-weight cut partitioning vertices into two bounded-size sets",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The undirected graph G = (V, E)" },
             FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights w: E -> Z+" },
             FieldInfo { name: "source", type_name: "usize", description: "Source vertex s (must be in V1)" },
             FieldInfo { name: "sink", type_name: "usize", description: "Sink vertex t (must be in V2)" },
             FieldInfo { name: "size_bound", type_name: "usize", description: "Maximum size B for each partition set" },
-            FieldInfo { name: "cut_bound", type_name: "W::Sum", description: "Maximum total cut weight K" },
         ],
     }
 }
@@ -36,11 +35,11 @@ inventory::submit! {
 /// Minimum Cut Into Bounded Sets (Garey & Johnson ND17).
 ///
 /// Given a weighted graph G = (V, E), source vertex s, sink vertex t,
-/// size bound B, and cut bound K, determine whether there exists a partition
-/// of V into disjoint sets V1 and V2 such that:
+/// and size bound B, find a partition of V into disjoint sets V1 and V2
+/// such that:
 /// - s is in V1, t is in V2
 /// - |V1| <= B, |V2| <= B
-/// - The total weight of edges crossing the partition is at most K
+/// - The total weight of edges crossing the partition is minimized
 ///
 /// # Type Parameters
 ///
@@ -56,10 +55,11 @@ inventory::submit! {
 ///
 /// // Simple 4-vertex path graph with unit weights, s=0, t=3
 /// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-/// let problem = MinimumCutIntoBoundedSets::new(graph, vec![1, 1, 1], 0, 3, 3, 2);
+/// let problem = MinimumCutIntoBoundedSets::new(graph, vec![1, 1, 1], 0, 3, 3);
 ///
-/// // Partition {0,1} vs {2,3}: cut edge (1,2) with weight 1 <= 2
-/// assert!(problem.evaluate(&[0, 0, 1, 1]));
+/// // Partition {0,1} vs {2,3}: cut edge (1,2) with weight 1
+/// let val = problem.evaluate(&[0, 0, 1, 1]);
+/// assert_eq!(val, problemreductions::types::Min(Some(1)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumCutIntoBoundedSets<G, W: WeightElement> {
@@ -73,8 +73,6 @@ pub struct MinimumCutIntoBoundedSets<G, W: WeightElement> {
     sink: usize,
     /// Maximum size B for each partition set.
     size_bound: usize,
-    /// Maximum total cut weight K.
-    cut_bound: W::Sum,
 }
 
 impl<G: Graph, W: WeightElement> MinimumCutIntoBoundedSets<G, W> {
@@ -86,7 +84,6 @@ impl<G: Graph, W: WeightElement> MinimumCutIntoBoundedSets<G, W> {
     /// * `source` - Source vertex s (must be in V1)
     /// * `sink` - Sink vertex t (must be in V2)
     /// * `size_bound` - Maximum size B for each partition set
-    /// * `cut_bound` - Maximum total cut weight K
     ///
     /// # Panics
     /// Panics if edge_weights length doesn't match num_edges, if source == sink,
@@ -97,7 +94,6 @@ impl<G: Graph, W: WeightElement> MinimumCutIntoBoundedSets<G, W> {
         source: usize,
         sink: usize,
         size_bound: usize,
-        cut_bound: W::Sum,
     ) -> Self {
         assert_eq!(
             edge_weights.len(),
@@ -113,7 +109,6 @@ impl<G: Graph, W: WeightElement> MinimumCutIntoBoundedSets<G, W> {
             source,
             sink,
             size_bound,
-            cut_bound,
         }
     }
 
@@ -142,11 +137,6 @@ impl<G: Graph, W: WeightElement> MinimumCutIntoBoundedSets<G, W> {
         self.size_bound
     }
 
-    /// Get the cut bound K.
-    pub fn cut_bound(&self) -> &W::Sum {
-        &self.cut_bound
-    }
-
     /// Get the number of vertices in the underlying graph.
     pub fn num_vertices(&self) -> usize {
         self.graph.num_vertices()
@@ -164,7 +154,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumCutIntoBoundedSets";
-    type Value = crate::types::Or;
+    type Value = Min<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -174,39 +164,33 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let n = self.graph.num_vertices();
-            if config.len() != n {
-                return crate::types::Or(false);
-            }
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
+        let n = self.graph.num_vertices();
+        if config.len() != n {
+            return Min(None);
+        }
 
-            // Check source is in V1 (config=0) and sink is in V2 (config=1)
-            if config[self.source] != 0 {
-                return crate::types::Or(false);
-            }
-            if config[self.sink] != 1 {
-                return crate::types::Or(false);
-            }
+        // Check source is in V1 (config=0) and sink is in V2 (config=1)
+        if config[self.source] != 0 || config[self.sink] != 1 {
+            return Min(None);
+        }
 
-            // Check size bounds
-            let count_v1 = config.iter().filter(|&&x| x == 0).count();
-            let count_v2 = config.iter().filter(|&&x| x == 1).count();
-            if count_v1 > self.size_bound || count_v2 > self.size_bound {
-                return crate::types::Or(false);
-            }
+        // Check size bounds
+        let count_v1 = config.iter().filter(|&&x| x == 0).count();
+        let count_v2 = config.iter().filter(|&&x| x == 1).count();
+        if count_v1 > self.size_bound || count_v2 > self.size_bound {
+            return Min(None);
+        }
 
-            // Compute cut weight
-            let mut cut_weight = W::Sum::zero();
-            for ((u, v), weight) in self.graph.edges().iter().zip(self.edge_weights.iter()) {
-                if config[*u] != config[*v] {
-                    cut_weight += weight.to_sum();
-                }
+        // Compute cut weight
+        let mut cut_weight = W::Sum::zero();
+        for ((u, v), weight) in self.graph.edges().iter().zip(self.edge_weights.iter()) {
+            if config[*u] != config[*v] {
+                cut_weight += weight.to_sum();
             }
+        }
 
-            // Check cut weight <= K
-            cut_weight <= self.cut_bound
-        })
+        Min(Some(cut_weight))
     }
 }
 
@@ -236,11 +220,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             0,
             7,
             5,
-            6,
         )),
         // V1={0,1,2,3}, V2={4,5,6,7}: cut edges (2,4)=2,(3,5)=1,(3,6)=3 => 6
         optimal_config: vec![0, 0, 0, 0, 1, 1, 1, 1],
-        optimal_value: serde_json::json!(true),
+        optimal_value: serde_json::json!(6),
     }]
 }
 

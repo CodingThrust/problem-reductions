@@ -2,6 +2,7 @@ use crate::models::misc::SubsetProduct;
 use crate::models::set::ExactCoverBy3Sets;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::{ReduceTo, ReductionResult};
+use num_bigint::BigUint;
 
 #[test]
 fn test_exactcoverby3sets_to_subsetproduct_closed_loop() {
@@ -21,8 +22,12 @@ fn test_exactcoverby3sets_to_subsetproduct_structure() {
     let reduction = ReduceTo::<SubsetProduct>::reduce_to(&source);
     let target = reduction.target_problem();
 
-    assert_eq!(target.values(), &[30, 1001, 154]);
-    assert_eq!(target.target(), 30030);
+    let expected_sizes: Vec<BigUint> = vec![30u64, 1001, 154]
+        .into_iter()
+        .map(BigUint::from)
+        .collect();
+    assert_eq!(target.sizes(), &expected_sizes[..]);
+    assert_eq!(target.target(), &BigUint::from(30030u64));
     assert_eq!(target.num_elements(), 3);
 }
 
@@ -32,22 +37,4 @@ fn test_exactcoverby3sets_to_subsetproduct_extract_solution_is_identity() {
     let reduction = ReduceTo::<SubsetProduct>::reduce_to(&source);
 
     assert_eq!(reduction.extract_solution(&[1, 0, 1]), vec![1, 0, 1]);
-}
-
-#[test]
-#[should_panic(expected = "u64")]
-fn test_exactcoverby3sets_to_subsetproduct_panics_when_target_overflows_u64() {
-    let source = ExactCoverBy3Sets::new(
-        18,
-        vec![
-            [0, 1, 2],
-            [3, 4, 5],
-            [6, 7, 8],
-            [9, 10, 11],
-            [12, 13, 14],
-            [15, 16, 17],
-        ],
-    );
-
-    let _ = ReduceTo::<SubsetProduct>::reduce_to(&source);
 }

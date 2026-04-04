@@ -13,7 +13,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 #[derive(Debug, Clone)]
 pub struct ReductionSCSToILP {
     target: ILP<bool>,
-    bound: usize,
+    max_length: usize,
     alphabet_size: usize,
 }
 
@@ -26,9 +26,10 @@ impl ReductionResult for ReductionSCSToILP {
     }
 
     /// At each position p, output the unique symbol a with x_{p,a} = 1.
+    /// Uses alphabet_size + 1 symbols (last = padding).
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let b = self.bound;
-        let k = self.alphabet_size;
+        let b = self.max_length;
+        let k = self.alphabet_size + 1; // includes padding symbol
         (0..b)
             .map(|p| {
                 (0..k)
@@ -41,17 +42,19 @@ impl ReductionResult for ReductionSCSToILP {
 
 #[reduction(
     overhead = {
-        num_vars = "bound * alphabet_size + total_length * bound",
-        num_constraints = "bound + total_length + total_length * bound + total_length",
+        num_vars = "max_length * (alphabet_size + 1) + total_length * max_length",
+        num_constraints = "max_length + total_length + total_length * max_length + total_length + max_length",
     }
 )]
 impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
     type Result = ReductionSCSToILP;
 
     fn reduce_to(&self) -> Self::Result {
-        let b = self.bound();
-        let k = self.alphabet_size();
+        let b = self.max_length();
+        let alpha = self.alphabet_size();
+        let k = alpha + 1; // alphabet + padding symbol
         let strings = self.strings();
+        let pad = alpha; // padding symbol index
 
         // Variable layout:
         //   x_{p,a}: position p carries symbol a, index p*k + a  for p in 0..b, a in 0..k
@@ -116,11 +119,22 @@ impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        // 5. Contiguous padding: if position p is padding, then p+1 must also be padding.
+        //    x_{p,pad} <= x_{p+1,pad}  for p in 0..b-1
+        for p in 0..b.saturating_sub(1) {
+            constraints.push(LinearConstraint::le(
+                vec![(p * k + pad, 1.0), ((p + 1) * k + pad, -1.0)],
+                0.0,
+            ));
+        }
+
+        // Objective: minimize non-padding positions = maximize padding positions
+        let objective: Vec<(usize, f64)> = (0..b).map(|p| (p * k + pad, 1.0)).collect();
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
         ReductionSCSToILP {
             target,
-            bound: b,
-            alphabet_size: k,
+            max_length: b,
+            alphabet_size: alpha,
         }
     }
 }
@@ -131,8 +145,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "shortestcommonsupersequence_to_ilp",
         build: || {
-            // Alphabet {0,1}, strings [0,1] and [1,0], bound 3
-            let source = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3);
+            // Alphabet {0,1}, strings [0,1] and [1,0]
+            let source = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
             let reduction: ReductionSCSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
             let target_config = {
                 let ilp_solver = crate::solvers::ILPSolver::new();

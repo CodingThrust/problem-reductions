@@ -167,27 +167,14 @@ impl Problem for FlowShopScheduling {
     }
 
     fn dims(&self) -> Vec<usize> {
-        let n = self.num_jobs();
-        (0..n).rev().map(|i| i + 1).collect()
+        super::lehmer_dims(self.num_jobs())
     }
 
     fn evaluate(&self, config: &[usize]) -> crate::types::Or {
         crate::types::Or({
-            let n = self.num_jobs();
-            if config.len() != n {
+            let Some(job_order) = super::decode_lehmer(config, self.num_jobs()) else {
                 return crate::types::Or(false);
-            }
-
-            // Decode Lehmer code into a permutation.
-            // config[i] must be < n - i (the domain size for position i).
-            let mut available: Vec<usize> = (0..n).collect();
-            let mut job_order = Vec::with_capacity(n);
-            for &c in config.iter() {
-                if c >= available.len() {
-                    return crate::types::Or(false);
-                }
-                job_order.push(available.remove(c));
-            }
+            };
 
             let makespan = self.compute_makespan(&job_order);
             makespan <= self.deadline

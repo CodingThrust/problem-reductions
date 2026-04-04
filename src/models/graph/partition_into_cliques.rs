@@ -1,8 +1,8 @@
 //! Partition Into Cliques problem implementation.
 //!
-//! Given an undirected graph G = (V, E) and an integer K, determine whether V
-//! can be partitioned into at most K groups such that each group induces a
-//! clique in G.
+//! Given a graph G = (V, E) and a positive integer K <= |V|, determine whether
+//! the vertex set can be partitioned into k <= K groups such that the subgraph
+//! induced by each group is a complete subgraph (clique).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
@@ -13,35 +13,65 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "PartitionIntoCliques",
-        display_name: "Partition Into Cliques",
+        display_name: "Partition into Cliques",
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
         module_path: module_path!(),
-        description: "Partition vertices into at most k cliques",
+        description: "Partition vertices into K groups each inducing a clique",
         fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The undirected graph G=(V,E)" },
-            FieldInfo { name: "num_cliques", type_name: "usize", description: "Upper bound K on the number of cliques in the partition" },
+            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
+            FieldInfo { name: "num_cliques", type_name: "usize", description: "num_cliques: maximum number of clique groups K (>= 1)" },
         ],
     }
 }
 
 /// The Partition Into Cliques problem.
 ///
-/// Given an undirected graph G = (V, E) and an integer K, determine whether the
-/// vertices of G can be assigned to at most K groups so that each group induces
-/// a clique.
+/// Given a graph G = (V, E) and a positive integer K <= |V|, determine whether
+/// the vertices can be partitioned into k <= K groups V_1, ..., V_k such that
+/// the subgraph induced by each V_i is a complete subgraph (clique).
+///
+/// # Type Parameters
+///
+/// * `G` - Graph type (e.g., SimpleGraph)
+///
+/// # Example
+///
+/// ```
+/// use problemreductions::models::graph::PartitionIntoCliques;
+/// use problemreductions::topology::SimpleGraph;
+/// use problemreductions::{Problem, Solver, BruteForce};
+///
+/// // Two triangles: 0-1-2-0 and 3-4-5-3
+/// let graph = SimpleGraph::new(6, vec![(0,1),(0,2),(1,2),(3,4),(3,5),(4,5)]);
+/// let problem = PartitionIntoCliques::new(graph, 3);
+///
+/// let solver = BruteForce::new();
+/// let solution = solver.find_witness(&problem);
+/// assert!(solution.is_some());
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
 pub struct PartitionIntoCliques<G> {
+    /// The underlying graph.
     graph: G,
+    /// Maximum number of clique groups.
     num_cliques: usize,
 }
 
 impl<G: Graph> PartitionIntoCliques<G> {
     /// Create a new Partition Into Cliques instance.
+    ///
+    /// # Panics
+    /// Panics if `num_cliques` is zero or greater than `graph.num_vertices()`.
     pub fn new(graph: G, num_cliques: usize) -> Self {
+        assert!(num_cliques >= 1, "num_cliques must be at least 1");
+        assert!(
+            num_cliques <= graph.num_vertices(),
+            "num_cliques must be at most num_vertices"
+        );
         Self { graph, num_cliques }
     }
 
@@ -50,19 +80,19 @@ impl<G: Graph> PartitionIntoCliques<G> {
         &self.graph
     }
 
-    /// Get the number of vertices in the graph.
+    /// Get the maximum number of clique groups.
+    pub fn num_cliques(&self) -> usize {
+        self.num_cliques
+    }
+
+    /// Get the number of vertices in the underlying graph.
     pub fn num_vertices(&self) -> usize {
         self.graph.num_vertices()
     }
 
-    /// Get the number of edges in the graph.
+    /// Get the number of edges in the underlying graph.
     pub fn num_edges(&self) -> usize {
         self.graph.num_edges()
-    }
-
-    /// Get the clique bound K.
-    pub fn num_cliques(&self) -> usize {
-        self.num_cliques
     }
 }
 
@@ -82,26 +112,43 @@ where
     }
 
     fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        let n = self.graph.num_vertices();
+        crate::types::Or(is_valid_clique_partition(
+            &self.graph,
+            self.num_cliques,
+            config,
+        ))
+    }
+}
 
-        if config.len() != n {
-            return crate::types::Or(false);
-        }
+/// Check whether `config` is a valid K-clique partition of `graph`.
+fn is_valid_clique_partition<G: Graph>(graph: &G, num_cliques: usize, config: &[usize]) -> bool {
+    let n = graph.num_vertices();
 
-        if config.iter().any(|&group| group >= self.num_cliques) {
-            return crate::types::Or(false);
-        }
+    // Basic validity checks
+    if config.len() != n {
+        return false;
+    }
+    if config.iter().any(|&c| c >= num_cliques) {
+        return false;
+    }
 
-        for u in 0..n {
-            for v in (u + 1)..n {
-                if config[u] == config[v] && !self.graph.has_edge(u, v) {
-                    return crate::types::Or(false);
+    // For each group, collect the vertices and check all pairs are adjacent.
+    for group in 0..num_cliques {
+        let members: Vec<usize> = (0..n).filter(|&v| config[v] == group).collect();
+        for i in 0..members.len() {
+            for j in (i + 1)..members.len() {
+                if !graph.has_edge(members[i], members[j]) {
+                    return false;
                 }
             }
         }
-
-        crate::types::Or(true)
     }
+
+    true
+}
+
+crate::declare_variants! {
+    default PartitionIntoCliques<SimpleGraph> => "2^num_vertices",
 }
 
 #[cfg(feature = "example-db")]
@@ -109,16 +156,25 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "partition_into_cliques_simplegraph",
         instance: Box::new(PartitionIntoCliques::new(
-            SimpleGraph::new(5, vec![(0, 3), (0, 4), (1, 2), (1, 4)]),
+            SimpleGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (0, 2),
+                    (1, 2),
+                    (3, 4),
+                    (3, 5),
+                    (4, 5),
+                    (0, 3),
+                    (1, 4),
+                    (2, 5),
+                ],
+            ),
             3,
         )),
-        optimal_config: vec![0, 1, 1, 0, 2],
+        optimal_config: vec![0, 0, 0, 1, 1, 1],
         optimal_value: serde_json::json!(true),
     }]
-}
-
-crate::declare_variants! {
-    default PartitionIntoCliques<SimpleGraph> => "2^num_vertices",
 }
 
 #[cfg(test)]

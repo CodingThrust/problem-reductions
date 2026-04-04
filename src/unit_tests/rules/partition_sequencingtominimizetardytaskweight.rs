@@ -38,7 +38,7 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_extract_solution()
     let reduction = ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source);
 
     assert_eq!(
-        reduction.extract_solution(&[1, 1, 2, 2, 0, 0]),
+        reduction.extract_solution(&[1, 2, 4, 5, 0, 3]),
         vec![1, 0, 0, 1, 0, 0]
     );
 }
@@ -84,7 +84,7 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_canonical_example_
     );
     assert_eq!(example.solutions.len(), 1);
     assert_eq!(example.solutions[0].source_config, vec![1, 0, 0, 1, 0, 0]);
-    assert_eq!(example.solutions[0].target_config, vec![1, 1, 2, 2, 0, 0]);
+    assert_eq!(example.solutions[0].target_config, vec![1, 2, 4, 5, 0, 3]);
 
     let source: Partition = serde_json::from_value(example.source.instance.clone())
         .expect("source example deserializes");

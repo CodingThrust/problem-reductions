@@ -101,8 +101,6 @@ impl ReduceTo<ILP<bool>> for QUBO<f64> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "qubo_to_ilp",
         build: || {
@@ -115,13 +113,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             matrix[1][2] = 2.0;
             matrix[2][3] = -1.0;
             let source = QUBO::from_matrix(matrix);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config: vec![1, 1, 1, 1],
-                    target_config: vec![1, 1, 1, 1, 1, 1, 1],
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

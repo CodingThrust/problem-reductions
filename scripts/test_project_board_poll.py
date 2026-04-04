@@ -35,7 +35,7 @@ def with_linked_prs(item: dict, *pr_numbers: int) -> dict:
 
 
 class ProjectBoardPollTests(unittest.TestCase):
-    def test_ready_queue_retries_same_item_until_ack(self) -> None:
+    def test_ready_selection_ignores_ack_until_board_changes(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             state_file = Path(tmpdir) / "ready-state.json"
             snapshot = {
@@ -53,7 +53,7 @@ class ProjectBoardPollTests(unittest.TestCase):
 
             ack_item(state_file, "PVTI_1")
             item_id, number = process_snapshot("ready", snapshot, state_file)
-            self.assertEqual((item_id, number), ("PVTI_2", 102))
+            self.assertEqual((item_id, number), ("PVTI_1", 101))
 
     def test_ready_queue_detects_new_item_after_queue_drops_to_zero(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

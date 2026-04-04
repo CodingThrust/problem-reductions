@@ -1,8 +1,7 @@
 //! Capacity Assignment problem implementation.
 //!
-//! Capacity Assignment asks whether each communication link can be assigned
-//! one capacity level so that total cost and total delay both stay within
-//! their respective budgets.
+//! Capacity Assignment asks for the minimum-cost assignment of capacity levels
+//! to communication links, subject to a delay budget constraint.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
@@ -15,28 +14,27 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),
-        description: "Assign capacities to links while respecting cost and delay budgets",
+        description: "Minimize total cost of capacity assignment subject to a delay budget",
         fields: &[
             FieldInfo { name: "capacities", type_name: "Vec<u64>", description: "Ordered capacity levels M" },
             FieldInfo { name: "cost", type_name: "Vec<Vec<u64>>", description: "Cost matrix g(c, m) for each link and capacity" },
             FieldInfo { name: "delay", type_name: "Vec<Vec<u64>>", description: "Delay matrix d(c, m) for each link and capacity" },
-            FieldInfo { name: "cost_budget", type_name: "u64", description: "Budget K on total cost" },
             FieldInfo { name: "delay_budget", type_name: "u64", description: "Budget J on total delay penalty" },
         ],
     }
 }
 
-/// Capacity Assignment feasibility problem.
+/// Capacity Assignment optimization problem.
 ///
 /// Each variable chooses one capacity index for one communication link.
 /// Costs are monotone non-decreasing and delays are monotone non-increasing
-/// with respect to the ordered capacity list.
+/// with respect to the ordered capacity list. The objective is to minimize
+/// total cost subject to a delay budget constraint.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapacityAssignment {
     capacities: Vec<u64>,
     cost: Vec<Vec<u64>>,
     delay: Vec<Vec<u64>>,
-    cost_budget: u64,
     delay_budget: u64,
 }
 
@@ -46,7 +44,6 @@ impl CapacityAssignment {
         capacities: Vec<u64>,
         cost: Vec<Vec<u64>>,
         delay: Vec<Vec<u64>>,
-        cost_budget: u64,
         delay_budget: u64,
     ) -> Self {
         assert!(!capacities.is_empty(), "capacities must be non-empty");
@@ -92,7 +89,6 @@ impl CapacityAssignment {
             capacities,
             cost,
             delay,
-            cost_budget,
             delay_budget,
         }
     }
@@ -120,11 +116,6 @@ impl CapacityAssignment {
     /// Delay matrix indexed by link, then capacity.
     pub fn delay(&self) -> &[Vec<u64>] {
         &self.delay
-    }
-
-    /// Total cost budget.
-    pub fn cost_budget(&self) -> u64 {
-        self.cost_budget
     }
 
     /// Total delay budget.
@@ -155,19 +146,21 @@ impl CapacityAssignment {
 
 impl Problem for CapacityAssignment {
     const NAME: &'static str = "CapacityAssignment";
-    type Value = crate::types::Or;
+    type Value = crate::types::Min<u128>;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.num_capacities(); self.num_links()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let Some((total_cost, total_delay)) = self.total_cost_and_delay(config) else {
-                return crate::types::Or(false);
-            };
-            total_cost <= self.cost_budget as u128 && total_delay <= self.delay_budget as u128
-        })
+    fn evaluate(&self, config: &[usize]) -> crate::types::Min<u128> {
+        let Some((total_cost, total_delay)) = self.total_cost_and_delay(config) else {
+            return crate::types::Min(None);
+        };
+        if total_delay <= self.delay_budget as u128 {
+            crate::types::Min(Some(total_cost))
+        } else {
+            crate::types::Min(None)
+        }
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -187,11 +180,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![1, 2, 3],
             vec![vec![1, 3, 6], vec![2, 4, 7], vec![1, 2, 5]],
             vec![vec![8, 4, 1], vec![7, 3, 1], vec![6, 3, 1]],
-            10,
             12,
         )),
         optimal_config: vec![1, 1, 1],
-        optimal_value: serde_json::json!(true),
+        optimal_value: serde_json::json!(9),
     }]
 }
 

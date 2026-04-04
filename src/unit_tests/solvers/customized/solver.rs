@@ -50,13 +50,18 @@ fn test_customized_solver_matches_bruteforce_for_minimum_cardinality_key() {
     let problem = crate::models::set::MinimumCardinalityKey::new(
         4,
         vec![(vec![0], vec![1]), (vec![1, 2], vec![3])],
-        2,
     );
     let brute = crate::solvers::BruteForce::new().find_witness(&problem);
     let custom = CustomizedSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
-    if let Some(w) = &custom {
-        assert!(problem.evaluate(w).0, "witness must satisfy the problem");
+    if let (Some(bw), Some(cw)) = (&brute, &custom) {
+        let brute_val = problem.evaluate(bw);
+        let custom_val = problem.evaluate(cw);
+        assert!(custom_val.0.is_some(), "witness must satisfy the problem");
+        assert_eq!(
+            custom_val, brute_val,
+            "customized solver must return optimal (minimum cardinality) key"
+        );
     }
 }
 
@@ -118,12 +123,11 @@ fn test_customized_solver_finds_minimum_cardinality_key_witness() {
             (vec![1, 3], vec![4]),
             (vec![2, 4], vec![5]),
         ],
-        2,
     );
     let witness = CustomizedSolver::new()
         .solve_dyn(&problem)
         .expect("expected witness");
-    assert!(problem.evaluate(&witness).0);
+    assert!(problem.evaluate(&witness).0.is_some());
 }
 
 #[test]
@@ -197,13 +201,46 @@ fn test_customized_solver_no_witness_when_no_solution_exists() {
 }
 
 #[test]
-fn test_customized_solver_minimum_cardinality_key_no_solution() {
-    // bound=1 but no single attribute determines all
-    let problem = crate::models::set::MinimumCardinalityKey::new(3, vec![(vec![0, 1], vec![2])], 1);
-    // BruteForce should also return None
+fn test_customized_solver_minimum_cardinality_key_finds_minimum() {
+    // All 3 attributes needed as a key (no single-attribute key exists)
+    let problem = crate::models::set::MinimumCardinalityKey::new(3, vec![(vec![0, 1], vec![2])]);
+    // Both solvers should find a solution (the minimum cardinality key)
     let brute = crate::solvers::BruteForce::new().find_witness(&problem);
     let custom = CustomizedSolver::new().solve_dyn(&problem);
-    assert_eq!(custom.is_some(), brute.is_some());
+    assert!(brute.is_some());
+    assert!(custom.is_some());
+    // Verify optimality: customized solver returns same value as brute force
+    let brute_val = problem.evaluate(brute.as_ref().unwrap());
+    let custom_val = problem.evaluate(custom.as_ref().unwrap());
+    assert_eq!(
+        custom_val, brute_val,
+        "customized solver must find optimal key"
+    );
+}
+
+#[test]
+fn test_customized_solver_minimum_cardinality_key_optimality() {
+    // 6 attributes with FDs creating keys of different sizes.
+    // {0,1} is a key (size 2), but there are also larger keys.
+    let problem = crate::models::set::MinimumCardinalityKey::new(
+        6,
+        vec![
+            (vec![0, 1], vec![2]),
+            (vec![0, 2], vec![3]),
+            (vec![1, 3], vec![4]),
+            (vec![2, 4], vec![5]),
+        ],
+    );
+    let brute = crate::solvers::BruteForce::new().find_witness(&problem);
+    let custom = CustomizedSolver::new().solve_dyn(&problem);
+    assert!(brute.is_some());
+    assert!(custom.is_some());
+    let brute_val = problem.evaluate(brute.as_ref().unwrap());
+    let custom_val = problem.evaluate(custom.as_ref().unwrap());
+    assert_eq!(
+        custom_val, brute_val,
+        "customized solver must return minimum-cardinality key, not just any minimal key"
+    );
 }
 
 // --- PartialFeedbackEdgeSet tests ---

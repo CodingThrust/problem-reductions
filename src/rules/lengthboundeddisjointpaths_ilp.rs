@@ -69,8 +69,8 @@ impl ReductionResult for ReductionLBDPToILP {
 
 #[reduction(
     overhead = {
-        num_vars = "num_paths_required * 2 * num_edges",
-        num_constraints = "num_paths_required * num_vertices + num_paths_required * num_edges + num_paths_required + num_edges + num_vertices",
+        num_vars = "max_paths * 2 * num_edges + max_paths",
+        num_constraints = "max_paths * num_vertices + max_paths * num_edges + max_paths + num_edges + num_vertices + max_paths",
     }
 )]
 impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
@@ -88,14 +88,16 @@ impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
 
         let m = edges.len();
         let n = self.num_vertices();
-        let j = self.num_paths_required();
+        let j = self.max_paths();
         let max_len = self.max_length();
         let s = self.source();
         let t = self.sink();
 
-        // Only flow variables, no MTZ ordering needed
+        // Variable layout: flow variables + activation variables a_k
         let flow_vars_per_k = 2 * m;
-        let num_vars = j * flow_vars_per_k;
+        let num_flow = j * flow_vars_per_k;
+        let a_var = |k: usize| num_flow + k;
+        let num_vars = num_flow + j;
 
         let flow_var = |k: usize, e: usize, dir: usize| k * flow_vars_per_k + 2 * e + dir;
 
@@ -109,7 +111,7 @@ impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
         let mut constraints = Vec::new();
 
         for k in 0..j {
-            // Flow conservation
+            // Flow conservation: outflow - inflow = a_k at source, -a_k at sink, 0 elsewhere
             for vertex in 0..n {
                 let mut terms = Vec::new();
                 for &e in &vertex_edges[vertex] {
@@ -122,14 +124,17 @@ impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
                         terms.push((flow_var(k, e, 0), -1.0)); // incoming
                     }
                 }
-                let demand = if vertex == s {
-                    1.0
+                if vertex == s {
+                    // outflow - inflow = a_k  =>  outflow - inflow - a_k = 0
+                    terms.push((a_var(k), -1.0));
+                    constraints.push(LinearConstraint::eq(terms, 0.0));
                 } else if vertex == t {
-                    -1.0
+                    // outflow - inflow = -a_k  =>  outflow - inflow + a_k = 0
+                    terms.push((a_var(k), 1.0));
+                    constraints.push(LinearConstraint::eq(terms, 0.0));
                 } else {
-                    0.0
-                };
-                constraints.push(LinearConstraint::eq(terms, demand));
+                    constraints.push(LinearConstraint::eq(terms, 0.0));
+                }
             }
 
             // Anti-parallel
@@ -140,13 +145,14 @@ impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
                 ));
             }
 
-            // Length bound: total flow for commodity k <= max_length
+            // Length bound: total flow for commodity k <= max_length * a_k
             let mut len_terms = Vec::new();
             for e in 0..m {
                 len_terms.push((flow_var(k, e, 0), 1.0));
                 len_terms.push((flow_var(k, e, 1), 1.0));
             }
-            constraints.push(LinearConstraint::le(len_terms, max_len as f64));
+            len_terms.push((a_var(k), -(max_len as f64)));
+            constraints.push(LinearConstraint::le(len_terms, 0.0));
         }
 
         // Edge disjointness: each edge used by at most one commodity
@@ -178,7 +184,9 @@ impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
             constraints.push(LinearConstraint::le(terms, 1.0));
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        // Objective: maximize number of active path slots
+        let objective: Vec<(usize, f64)> = (0..j).map(|k| (a_var(k), 1.0)).collect();
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
         ReductionLBDPToILP {
             target,
@@ -191,32 +199,17 @@ impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-    use crate::rules::ReduceTo as _;
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "lengthboundeddisjointpaths_to_ilp",
         build: || {
-            // 4-vertex diamond: s=0, t=3, J=2, K=2
+            // 4-vertex diamond: s=0, t=3, K=2
             let source = LengthBoundedDisjointPaths::new(
                 SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3), (2, 3)]),
                 0,
                 3,
                 2,
-                2,
             );
-            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
-            let ilp_solution = crate::solvers::ILPSolver::new()
-                .solve(reduction.target_problem())
-                .expect("canonical example must be solvable");
-            let source_config = reduction.extract_solution(&ilp_solution);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config,
-                    target_config: ilp_solution,
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

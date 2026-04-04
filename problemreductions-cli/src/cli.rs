@@ -218,28 +218,26 @@ Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
   MaxCut, MaxMatching, TSP, BottleneckTravelingSalesman --graph, --edge-weights
   LongestPath                     --graph, --edge-lengths, --source-vertex, --target-vertex
-  ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --length-bound, --weight-bound
+  HamiltonianPathBetweenTwoVertices --graph, --source-vertex, --target-vertex
+  ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --weight-bound
   MaximalIS                       --graph, --weights
   SAT, NAESAT                     --num-vars, --clauses
-  NonTautology                    --num-vars, --disjuncts
   KSAT                            --num-vars, --clauses [--k]
-  SimultaneousIncongruences       --moduli, --residues, --bound
-  AlgebraicEquationsOverGF2       --num-vars, --equations (JSON 3D index array)
   QUBO                            --matrix
-  MinimumWeightSolutionToLinearEquations --matrix, --rhs, --bound
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
   KClique                         --graph, --k
+  VertexCover (VC)                --graph, --k
   MinimumMultiwayCut              --graph, --terminals, --edge-weights
-  PartitionIntoCliques            --graph, --k
+  MonochromaticTriangle           --graph
   PartitionIntoTriangles          --graph
-  GraphPartitioning               --graph
   GeneralizedHex                  --graph, --source, --sink
   IntegralFlowWithMultipliers     --arcs, --capacities, --source, --sink, --multipliers, --requirement
-  MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound, --cut-bound
+  MinimumEdgeCostFlow             --arcs, --edge-weights (prices), --capacities, --source, --sink, --requirement
+  MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound
   HamiltonianCircuit, HC          --graph
-  DegreeConstrainedSpanningTree   --graph, --max-degree
-  LongestCircuit                  --graph, --edge-weights, --bound
+  MaximumLeafSpanningTree         --graph
+  LongestCircuit                  --graph, --edge-weights
   BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   UndirectedFlowLowerBounds       --graph, --capacities, --lower-bounds, --source, --sink, --requirement
   IntegralFlowBundles             --arcs, --bundles, --bundle-capacities, --source, --sink, --requirement [--num-vertices]
@@ -248,27 +246,38 @@ Flags by problem type:
   IntegralFlowHomologousArcs      --arcs, --capacities, --source, --sink, --requirement, --homologous-pairs
   IsomorphicSpanningTree          --graph, --tree
   KthBestSpanningTree             --graph, --edge-weights, --k, --bound
-  LengthBoundedDisjointPaths      --graph, --source, --sink, --num-paths-required, --bound
+  LengthBoundedDisjointPaths      --graph, --source, --sink, --bound
   PathConstrainedNetworkFlow      --arcs, --capacities, --source, --sink, --paths, --requirement
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
+  Clustering                      --distance-matrix, --k, --diameter-bound
   CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --cost-budget, --delay-budget
-  ProductionPlanning             --demands, --capacities, --setup-costs, --production-costs, --inventory-costs, --bound
-  IntegerExpressionMembership     --choices, --target
-  SubsetProduct                   --values, --target
+  ProductionPlanning             --num-periods, --demands, --capacities, --setup-costs, --production-costs, --inventory-costs, --cost-bound
+  SubsetProduct                    --sizes, --target
   SubsetSum                       --sizes, --target
-  SumOfSquaresPartition           --sizes, --num-groups, --bound
-  ExpectedRetrievalCost           --probabilities, --num-sectors, --latency-bound
+  MinimumAxiomSet                 --n, --true-sentences, --implications
+  Numerical3DimensionalMatching    --w-sizes, --x-sizes, --y-sizes, --bound
+  Betweenness                     --n, --sets (triples a,b,c)
+  CyclicOrdering                  --n, --sets (triples a,b,c)
+  ThreePartition                  --sizes, --bound
+  DynamicStorageAllocation        --release-times, --deadlines, --sizes, --capacity
+  KthLargestMTuple                --sets, --k, --bound
+  QuadraticCongruences             --coeff-a, --coeff-b, --coeff-c
+  QuadraticDiophantineEquations    --coeff-a, --coeff-b, --coeff-c
+  SimultaneousIncongruences        --pairs (semicolon-separated a,b pairs)
+  SumOfSquaresPartition           --sizes, --num-groups
+  ExpectedRetrievalCost           --probabilities, --num-sectors
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumHittingSet               --universe, --sets
   MinimumSetCovering              --universe, --sets [--weights]
-  SetSplitting                    --universe, --sets
   EnsembleComputation             --universe, --sets, --budget
   ComparativeContainment          --universe, --r-sets, --s-sets [--r-weights] [--s-weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
+  3DM (ThreeDimensionalMatching)  --universe, --sets (triples w,x,y)
+  ThreeMatroidIntersection        --universe, --partitions, --bound
   SetBasis                        --universe, --sets, --k
-  MinimumCardinalityKey           --num-attributes, --dependencies, --k
+  MinimumCardinalityKey           --num-attributes, --dependencies
   PrimeAttributeName              --universe, --deps, --query
   RootedTreeStorageAssignment     --universe, --sets, --bound
   TwoDimensionalConsecutiveSets   --alphabet-size, --sets
@@ -281,49 +290,71 @@ Flags by problem type:
   ConsecutiveOnesMatrixAugmentation --matrix (0/1), --bound
   ConsecutiveOnesSubmatrix        --matrix (0/1), --k
   SparseMatrixCompression         --matrix (0/1), --bound
+  MaximumLikelihoodRanking        --matrix (i32 rows, semicolon-separated)
+  MinimumMatrixCover              --matrix (i64 rows, semicolon-separated)
+  MinimumWeightDecoding           --matrix (JSON 2D bool), --rhs (comma-separated booleans)
+  FeasibleBasisExtension          --matrix (JSON 2D i64), --rhs, --required-columns
   SteinerTree                     --graph, --edge-weights, --terminals
-  MultipleCopyFileAllocation      --graph, --usage, --storage, --bound
+  MultipleCopyFileAllocation      --graph, --usage, --storage
   AcyclicPartition                --arcs [--weights] [--arc-costs] --weight-bound --cost-bound [--num-vertices]
   CVP                             --basis, --target-vec [--bounds]
   MultiprocessorScheduling        --lengths, --num-processors, --deadline
-  OpenShopScheduling              --task-lengths [--num-processors]
+  SchedulingToMinimizeWeightedCompletionTime  --lengths, --weights, --num-processors
   SequencingWithinIntervals       --release-times, --deadlines, --lengths
-  OptimalLinearArrangement        --graph, --bound
+  OptimalLinearArrangement        --graph
   RootedTreeArrangement           --graph, --bound
-  MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k, --bound
-  MixedChinesePostman (MCPP)      --graph, --arcs, --edge-weights, --arc-costs, --bound [--num-vertices]
-  RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
-  StackerCrane                    --arcs, --graph, --arc-costs, --edge-lengths, --bound [--num-vertices]
+  MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k
+  MixedChinesePostman (MCPP)      --graph, --arcs, --edge-weights, --arc-costs [--num-vertices]
+  RuralPostman (RPP)              --graph, --edge-weights, --required-edges
+  StackerCrane                    --arcs, --graph, --arc-costs, --edge-lengths [--num-vertices]
   MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
   AdditionalKey                   --num-attributes, --dependencies, --relation-attrs [--known-keys]
   ConsistencyOfDatabaseFrequencyTables --num-objects, --attribute-domains, --frequency-tables [--known-values]
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
   GroupingBySwapping             --string, --bound [--alphabet-size]
-  LCS                             --strings, --bound [--alphabet-size]
+  LCS                             --strings [--alphabet-size]
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
   QBF                             --num-vars, --clauses, --quantifiers
   SteinerTreeInGraphs             --graph, --edge-weights, --terminals
   PartitionIntoPathsOfLength2     --graph
   ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
+  IntegerKnapsack                 --sizes, --values, --capacity
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   QAP                             --matrix (cost), --distance-matrix
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
+  JobShopScheduling               --job-tasks [--num-processors]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   StaffScheduling                 --schedules, --requirements, --num-workers, --k
   TimetableDesign                 --num-periods, --num-craftsmen, --num-tasks, --craftsman-avail, --task-avail, --requirements
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
   RectilinearPictureCompression   --matrix (0/1), --k
   SchedulingWithIndividualDeadlines --n, --num-processors/--m, --deadlines [--precedence-pairs]
-  SequencingToMinimizeMaximumCumulativeCost --costs, --bound [--precedence-pairs]
-  SequencingToMinimizeTardyTaskWeight --lengths, --weights, --deadlines
+  SequencingToMinimizeMaximumCumulativeCost --costs [--precedence-pairs]
+  SequencingToMinimizeTardyTaskWeight --sizes, --weights, --deadlines
   SequencingToMinimizeWeightedCompletionTime --lengths, --weights [--precedence-pairs]
   SequencingToMinimizeWeightedTardiness --sizes, --weights, --deadlines, --bound
-  SCS                             --strings, --bound [--alphabet-size]
+  SequencingWithDeadlinesAndSetUpTimes --sizes, --deadlines, --compilers, --setup-times
+  MinimumExternalMacroDataCompression --string, --pointer-cost [--alphabet-size]
+  MinimumInternalMacroDataCompression --string, --pointer-cost [--alphabet-size]
+  SCS                             --strings [--alphabet-size]
   StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   MinimumDummyActivitiesPert      --arcs [--num-vertices]
+  FeasibleRegisterAssignment      --arcs, --assignment, --k [--num-vertices]
+  MinimumFaultDetectionTestSet    --arcs, --inputs, --outputs [--num-vertices]
+  MinimumWeightAndOrGraph         --arcs, --source, --gate-types, --weights [--num-vertices]
+  MinimumCodeGenerationOneRegister --arcs [--num-vertices]
+  MinimumCodeGenerationParallelAssignments --num-variables, --assignments
+  MinimumCodeGenerationUnlimitedRegisters --left-arcs, --right-arcs [--num-vertices]
+  MinimumRegisterSufficiencyForLoops --loop-length, --loop-variables
+  RegisterSufficiency             --arcs, --bound [--num-vertices]
   CBQ                              --domain-size, --relations, --conjuncts-spec
+  IntegerExpressionMembership     --expression (JSON), --target
+  MinimumGeometricConnectedDominatingSet --positions (float x,y pairs), --radius
+  MinimumDecisionTree             --test-matrix (JSON 2D bool), --num-objects, --num-tests
+  MinimumDisjunctiveNormalForm (MinDNF) --num-vars, --truth-table
+  SquareTiling (WangTiling)       --num-colors, --tiles, --grid-size
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -341,6 +372,7 @@ Examples:
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
   pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12
+  pred create ProductionPlanning --num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-bound 80
   pred create GeneralizedHex --graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5
   pred create IntegralFlowWithMultipliers --arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2
   pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
@@ -350,7 +382,7 @@ Examples:
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
   pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10
-  pred create OpenShopScheduling --task-lengths \"3,1,2;2,3,1;1,2,3;2,2,1\" --num-processors 3
+  pred create SchedulingToMinimizeWeightedCompletionTime --lengths 1,2,3,4,5 --weights 6,4,3,2,1 --num-processors 2
   pred create UndirectedFlowLowerBounds --graph 0-1,0-2,1-3,2-3,1-4,3-5,4-5 --capacities 2,2,2,2,1,3,2 --lower-bounds 1,1,0,0,1,0,1 --source 0 --sink 5 --requirement 3
   pred create ConsistencyOfDatabaseFrequencyTables --num-objects 6 --attribute-domains \"2,3,2\" --frequency-tables \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\" --known-values \"0,0,0;3,0,1;1,2,1\"
   pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5
@@ -360,7 +392,7 @@ Examples:
   pred create IntegralFlowHomologousArcs --arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\"
   pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
   pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3
-  pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2
+  pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\"
   pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3
   pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\"")]
 pub struct CreateArgs {
@@ -391,9 +423,18 @@ pub struct CreateArgs {
     /// Capacities (edge capacities for flow problems, capacity levels for CapacityAssignment)
     #[arg(long)]
     pub capacities: Option<String>,
-    /// Per-period demands for ProductionPlanning (comma-separated, e.g., "5,3,7,2,8,5")
+    /// Demands for ProductionPlanning (comma-separated, e.g., "5,3,7,2,8,5")
     #[arg(long)]
     pub demands: Option<String>,
+    /// Setup costs for ProductionPlanning (comma-separated, e.g., "10,10,10,10,10,10")
+    #[arg(long)]
+    pub setup_costs: Option<String>,
+    /// Per-unit production costs for ProductionPlanning (comma-separated, e.g., "1,1,1,1,1,1")
+    #[arg(long)]
+    pub production_costs: Option<String>,
+    /// Per-unit inventory costs for ProductionPlanning (comma-separated, e.g., "1,1,1,1,1,1")
+    #[arg(long)]
+    pub inventory_costs: Option<String>,
     /// Bundle capacities for IntegralFlowBundles (e.g., 1,1,1)
     #[arg(long)]
     pub bundle_capacities: Option<String>,
@@ -433,34 +474,16 @@ pub struct CreateArgs {
     /// Clauses for SAT problems (semicolon-separated, e.g., "1,2;-1,3")
     #[arg(long)]
     pub clauses: Option<String>,
-    /// Disjuncts for DNF problems (semicolon-separated, e.g., "1,2;-1,3")
-    #[arg(long)]
-    pub disjuncts: Option<String>,
-    /// Number of variables (for SAT/KSAT/AlgebraicEquationsOverGF2)
+    /// Number of variables (for SAT/KSAT)
     #[arg(long)]
     pub num_vars: Option<usize>,
-    /// Polynomial equations as a JSON 3D array. Example: '[[[0,1],[2],[]],[[1],[]]]'
-    #[arg(long)]
-    pub equations: Option<String>,
-    /// Moduli for SimultaneousIncongruences (comma-separated, e.g., "2,3,5,7")
-    #[arg(long)]
-    pub moduli: Option<String>,
-    /// Forbidden residues for SimultaneousIncongruences (comma-separated, e.g., "0,1,2,3")
-    #[arg(long)]
-    pub residues: Option<String>,
     /// Matrix input. QUBO uses semicolon-separated numeric rows ("1,0.5;0.5,2");
     /// ConsecutiveBlockMinimization uses a JSON 2D bool array ('[[true,false],[false,true]]')
     #[arg(long)]
     pub matrix: Option<String>,
-    /// Right-hand side vector for linear-equation systems (comma-separated, e.g., "1,0,1")
-    #[arg(long)]
-    pub rhs: Option<String>,
     /// Shared integer parameter (use `pred create <PROBLEM>` for the problem-specific meaning)
     #[arg(long)]
     pub k: Option<usize>,
-    /// Maximum allowed degree in a selected spanning tree
-    #[arg(long)]
-    pub max_degree: Option<usize>,
     /// Generate a random instance (graph-based problems only)
     #[arg(long)]
     pub random: bool,
@@ -479,7 +502,7 @@ pub struct CreateArgs {
     /// Random seed for reproducibility
     #[arg(long)]
     pub seed: Option<u64>,
-    /// Target value (for Factoring, IntegerExpressionMembership, SubsetProduct, and SubsetSum)
+    /// Target value (for Factoring, SubsetSum, and SubsetProduct)
     #[arg(long)]
     pub target: Option<String>,
     /// Bits for first factor (for Factoring); also accepted as a processor-count alias for scheduling create commands
@@ -515,9 +538,6 @@ pub struct CreateArgs {
     /// Item sizes for BinPacking (comma-separated, e.g., "3,3,2,2")
     #[arg(long)]
     pub sizes: Option<String>,
-    /// Choice rows for IntegerExpressionMembership (semicolon-separated, e.g., "1,2;1,6;1,7;1,9")
-    #[arg(long)]
-    pub choices: Option<String>,
     /// Record access probabilities for ExpectedRetrievalCost (comma-separated, e.g., "0.2,0.15,0.15,0.2,0.1,0.2")
     #[arg(long)]
     pub probabilities: Option<String>,
@@ -527,7 +547,7 @@ pub struct CreateArgs {
     /// Car paint sequence for PaintShop (comma-separated, each label appears exactly twice, e.g., "a,b,a,c,c,b")
     #[arg(long)]
     pub sequence: Option<String>,
-    /// Sets for set-system problems such as SetPacking, MinimumHittingSet, SetCovering, and SetSplitting (semicolon-separated, e.g., "0,1;1,2;0,2")
+    /// Sets for set-system problems such as SetPacking, MinimumHittingSet, and SetCovering (semicolon-separated, e.g., "0,1;1,2;0,2")
     #[arg(long)]
     pub sets: Option<String>,
     /// R-family sets for ComparativeContainment (semicolon-separated, e.g., "0,1;1,2")
@@ -545,10 +565,13 @@ pub struct CreateArgs {
     /// Partition groups for arc-index partitions (semicolon-separated, e.g., "0,1;2,3")
     #[arg(long)]
     pub partition: Option<String>,
+    /// Three partition matroids for ThreeMatroidIntersection (pipe-separated matroids, semicolon-separated groups, e.g., "0,1,2;3,4,5|0,3;1,4;2,5|0,4;1,5;2,3")
+    #[arg(long)]
+    pub partitions: Option<String>,
     /// Arc bundles for IntegralFlowBundles (semicolon-separated groups of arc indices, e.g., "0,1;2,5;3,4")
     #[arg(long)]
     pub bundles: Option<String>,
-    /// Universe size for set-system problems such as MinimumHittingSet, MinimumSetCovering, SetSplitting, and ComparativeContainment
+    /// Universe size for set-system problems such as MinimumHittingSet, MinimumSetCovering, and ComparativeContainment
     #[arg(long)]
     pub universe: Option<usize>,
     /// Bipartite graph edges for BicliqueCover / BalancedCompleteBipartiteSubgraph (e.g., "0-0,0-1,1-2" for left-right pairs)
@@ -590,7 +613,7 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Bound parameter (lower bound for LongestCircuit; upper or length bound for BoundedComponentSpanningForest, GroupingBySwapping, LengthBoundedDisjointPaths, LongestCommonSubsequence, MultipleCopyFileAllocation, MultipleChoiceBranching, OptimalLinearArrangement, RootedTreeArrangement, RuralPostman, ShortestCommonSupersequence, or StringToStringCorrection)
+    /// Bound parameter (upper or length bound for BoundedComponentSpanningForest, GroupingBySwapping, LengthBoundedDisjointPaths, MultipleChoiceBranching, RootedTreeArrangement, or StringToStringCorrection)
     #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Upper bound on expected retrieval latency for ExpectedRetrievalCost
@@ -602,12 +625,12 @@ pub struct CreateArgs {
     /// Upper bound on total path weight
     #[arg(long)]
     pub weight_bound: Option<i32>,
+    /// Upper bound on tree diameter (in edges) for BoundedDiameterSpanningTree
+    #[arg(long)]
+    pub diameter_bound: Option<usize>,
     /// Upper bound on total inter-partition arc cost
     #[arg(long)]
     pub cost_bound: Option<i32>,
-    /// Budget on total cost for CapacityAssignment
-    #[arg(long)]
-    pub cost_budget: Option<u64>,
     /// Budget on total delay penalty for CapacityAssignment
     #[arg(long)]
     pub delay_budget: Option<u64>,
@@ -623,21 +646,18 @@ pub struct CreateArgs {
     /// Task costs for SequencingToMinimizeMaximumCumulativeCost (comma-separated, e.g., "2,-1,3,-2,1,-3")
     #[arg(long, allow_hyphen_values = true)]
     pub costs: Option<String>,
-    /// Per-period set-up costs for ProductionPlanning (comma-separated, e.g., "10,10,10,10,10,10")
-    #[arg(long)]
-    pub setup_costs: Option<String>,
-    /// Per-period unit production costs for ProductionPlanning (comma-separated, e.g., "1,1,1,1,1,1")
-    #[arg(long)]
-    pub production_costs: Option<String>,
-    /// Per-period inventory holding costs for ProductionPlanning (comma-separated, e.g., "1,1,1,1,1,1")
-    #[arg(long)]
-    pub inventory_costs: Option<String>,
     /// Arc costs for directed graph problems with per-arc costs (comma-separated, e.g., "1,1,2,3")
     #[arg(long)]
     pub arc_costs: Option<String>,
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Left operand arcs for MinimumCodeGenerationUnlimitedRegisters (e.g., 1>3,2>3,0>1)
+    #[arg(long)]
+    pub left_arcs: Option<String>,
+    /// Right operand arcs for MinimumCodeGenerationUnlimitedRegisters (e.g., 1>4,2>4,0>2)
+    #[arg(long)]
+    pub right_arcs: Option<String>,
     /// Arc-index equality constraints for IntegralFlowHomologousArcs (semicolon-separated, e.g., "2=5;4=3")
     #[arg(long)]
     pub homologous_pairs: Option<String>,
@@ -692,10 +712,13 @@ pub struct CreateArgs {
     /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
     #[arg(long)]
     pub task_lengths: Option<String>,
+    /// Job tasks for JobShopScheduling (semicolon-separated jobs, comma-separated processor:length tasks, e.g., "0:3,1:4;1:2,0:3,1:2")
+    #[arg(long)]
+    pub job_tasks: Option<String>,
     /// Deadline for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
     #[arg(long)]
     pub deadline: Option<u64>,
-    /// Number of processors/machines for FlowShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines
+    /// Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime, or SchedulingWithIndividualDeadlines
     #[arg(long)]
     pub num_processors: Option<usize>,
     /// Binary schedule patterns for StaffScheduling (semicolon-separated rows, e.g., "1,1,0;0,1,1")
@@ -765,18 +788,114 @@ pub struct CreateArgs {
     /// Query attribute index for PrimeAttributeName
     #[arg(long)]
     pub query: Option<usize>,
+    /// Right-hand side vector for FeasibleBasisExtension (comma-separated, e.g., "7,5,3")
+    #[arg(long)]
+    pub rhs: Option<String>,
+    /// Required column indices for FeasibleBasisExtension (comma-separated, e.g., "0,1")
+    #[arg(long)]
+    pub required_columns: Option<String>,
     /// Number of groups for SumOfSquaresPartition
     #[arg(long)]
     pub num_groups: Option<usize>,
     /// Number of sectors for ExpectedRetrievalCost
     #[arg(long)]
     pub num_sectors: Option<usize>,
+    /// Compiler index for each task in SequencingWithDeadlinesAndSetUpTimes (comma-separated, e.g., "0,1,0,1,0")
+    #[arg(long)]
+    pub compilers: Option<String>,
+    /// Setup times per compiler for SequencingWithDeadlinesAndSetUpTimes (comma-separated, e.g., "1,2")
+    #[arg(long)]
+    pub setup_times: Option<String>,
     /// Source string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,2,3")
     #[arg(long)]
     pub source_string: Option<String>,
     /// Target string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,3,2")
     #[arg(long)]
     pub target_string: Option<String>,
+    /// Pointer cost for MinimumExternalMacroDataCompression (positive integer)
+    #[arg(long)]
+    pub pointer_cost: Option<usize>,
+    /// Expression tree for IntegerExpressionMembership (JSON, e.g., '{"Sum":[{"Atom":1},{"Atom":2}]}')
+    #[arg(long)]
+    pub expression: Option<String>,
+    /// Equations for AlgebraicEquationsOverGF2 (semicolon-separated polynomials, each a colon-separated list of monomials, each a comma-separated list of variable indices; empty monomial = constant 1; e.g., "0,1:2;1,2:0:;0:1:2:")
+    #[arg(long)]
+    pub equations: Option<String>,
+    /// Register assignment for FeasibleRegisterAssignment (comma-separated register indices, e.g., "0,1,0,0")
+    #[arg(long)]
+    pub assignment: Option<String>,
+    /// Coefficient/parameter a for QuadraticCongruences (residue target) or QuadraticDiophantineEquations (coefficient of x²)
+    #[arg(long)]
+    pub coeff_a: Option<u64>,
+    /// Coefficient/parameter b for QuadraticCongruences (modulus) or QuadraticDiophantineEquations (coefficient of y)
+    #[arg(long)]
+    pub coeff_b: Option<u64>,
+    /// Constant c for QuadraticCongruences (search-space bound) or QuadraticDiophantineEquations (right-hand side of ax² + by = c)
+    #[arg(long)]
+    pub coeff_c: Option<u64>,
+    /// Incongruence pairs for SimultaneousIncongruences (semicolon-separated "a,b" pairs, e.g., "2,2;1,3;2,5;3,7")
+    #[arg(long)]
+    pub pairs: Option<String>,
+    /// W-set sizes for Numerical3DimensionalMatching (comma-separated, e.g., "4,5")
+    #[arg(long)]
+    pub w_sizes: Option<String>,
+    /// X-set sizes for Numerical3DimensionalMatching (comma-separated, e.g., "4,5")
+    #[arg(long)]
+    pub x_sizes: Option<String>,
+    /// Y-set sizes for Numerical3DimensionalMatching (comma-separated, e.g., "5,7")
+    #[arg(long)]
+    pub y_sizes: Option<String>,
+    /// Initial marking for NonLivenessFreePetriNet (comma-separated tokens per place, e.g., "1,0,0,0")
+    #[arg(long)]
+    pub initial_marking: Option<String>,
+    /// Output arcs (transition-to-place) for NonLivenessFreePetriNet (e.g., "0>1,1>2,2>3")
+    #[arg(long)]
+    pub output_arcs: Option<String>,
+    /// Gate types for MinimumWeightAndOrGraph (comma-separated: AND, OR, or L for leaf, e.g., "AND,OR,OR,L,L,L,L")
+    #[arg(long)]
+    pub gate_types: Option<String>,
+    /// Input vertex indices (comma-separated, e.g., "0,1")
+    #[arg(long)]
+    pub inputs: Option<String>,
+    /// Output vertex indices (comma-separated, e.g., "5,6")
+    #[arg(long)]
+    pub outputs: Option<String>,
+    /// True sentence indices for MinimumAxiomSet (comma-separated, e.g., "0,1,2,3,4,5,6,7")
+    #[arg(long)]
+    pub true_sentences: Option<String>,
+    /// Implications for MinimumAxiomSet (semicolon-separated "antecedents>consequent", e.g., "0>2;0>3;1>4;2,4>6")
+    #[arg(long)]
+    pub implications: Option<String>,
+    /// Loop length N for MinimumRegisterSufficiencyForLoops
+    #[arg(long)]
+    pub loop_length: Option<usize>,
+    /// Variables as semicolon-separated start,duration pairs for MinimumRegisterSufficiencyForLoops (e.g., "0,3;2,3;4,3")
+    #[arg(long)]
+    pub loop_variables: Option<String>,
+    /// Parallel assignments for MinimumCodeGenerationParallelAssignments (semicolon-separated "target:read1,read2" entries, e.g., "0:1,2;1:0;2:3;3:1,2")
+    #[arg(long)]
+    pub assignments: Option<String>,
+    /// Number of variables for MinimumCodeGenerationParallelAssignments
+    #[arg(long)]
+    pub num_variables: Option<usize>,
+    /// Truth table for MinimumDisjunctiveNormalForm (comma-separated 0/1, e.g., "0,1,1,1,1,1,1,0")
+    #[arg(long)]
+    pub truth_table: Option<String>,
+    /// Test matrix for MinimumDecisionTree (JSON 2D bool array, e.g., '[[true,true,false],[true,false,false]]')
+    #[arg(long)]
+    pub test_matrix: Option<String>,
+    /// Number of tests for MinimumDecisionTree
+    #[arg(long)]
+    pub num_tests: Option<usize>,
+    /// Tiles for SquareTiling (semicolon-separated top,right,bottom,left tuples, e.g., "0,1,2,0;0,0,2,1;2,1,0,0;2,0,0,1")
+    #[arg(long)]
+    pub tiles: Option<String>,
+    /// Grid size N for SquareTiling (N x N grid)
+    #[arg(long)]
+    pub grid_size: Option<usize>,
+    /// Number of colors for SquareTiling
+    #[arg(long)]
+    pub num_colors: Option<usize>,
 }
 
 #[derive(clap::Args)]
@@ -812,10 +931,9 @@ Customized solver: exact witness recovery for select problems via structure-expl
 backends. Currently supports MinimumCardinalityKey, AdditionalKey, PrimeAttributeName,
 BoyceCoddNormalFormViolation, PartialFeedbackEdgeSet, and RootedTreeArrangement.
 
-ILP backend (default: HiGHS). To use a different backend:
-  cargo install problemreductions-cli --features coin-cbc
-  cargo install problemreductions-cli --features scip
-  cargo install problemreductions-cli --no-default-features --features clarabel")]
+ILP backend (default: HiGHS). To use CPLEX instead:
+  cargo install problemreductions-cli --features cplex
+(Requires CPLEX to be installed on your system.)")]
 pub struct SolveArgs {
     /// Problem JSON file (from `pred create`) or reduction bundle (from `pred reduce`). Use - for stdin.
     pub input: PathBuf,
@@ -932,7 +1050,7 @@ mod tests {
         ));
         assert!(
             help.contains(
-                "Number of processors/machines for FlowShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, or SchedulingWithIndividualDeadlines"
+                "Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime, or SchedulingWithIndividualDeadlines"
             ),
             "create help should describe --num-processors for both scheduling models"
         );
@@ -977,45 +1095,6 @@ mod tests {
         assert!(help.contains("BiconnectivityAugmentation"));
         assert!(help.contains("--potential-edges"));
         assert!(help.contains("--budget"));
-    }
-
-    #[test]
-    fn test_create_parses_simultaneous_incongruences_flags() {
-        let cli = Cli::parse_from([
-            "pred",
-            "create",
-            "SimultaneousIncongruences",
-            "--moduli",
-            "2,3,5,7",
-            "--residues",
-            "0,1,2,3",
-            "--bound",
-            "210",
-        ]);
-
-        let Commands::Create(args) = cli.command else {
-            panic!("expected create command");
-        };
-
-        assert_eq!(args.problem.as_deref(), Some("SimultaneousIncongruences"));
-        assert_eq!(args.moduli.as_deref(), Some("2,3,5,7"));
-        assert_eq!(args.residues.as_deref(), Some("0,1,2,3"));
-        assert_eq!(args.bound, Some(210));
-    }
-
-    #[test]
-    fn test_create_help_mentions_simultaneous_incongruences_flags() {
-        let cmd = Cli::command();
-        let create = cmd.find_subcommand("create").expect("create subcommand");
-        let help = create
-            .get_after_help()
-            .expect("create after_help")
-            .to_string();
-
-        assert!(help.contains("SimultaneousIncongruences"));
-        assert!(help.contains("--moduli"));
-        assert!(help.contains("--residues"));
-        assert!(help.contains("--bound"));
     }
 
     #[test]

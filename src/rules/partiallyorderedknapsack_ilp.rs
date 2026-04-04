@@ -68,19 +68,12 @@ impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "partiallyorderedknapsack_to_ilp",
         build: || {
             let source =
                 PartiallyOrderedKnapsack::new(vec![2, 3, 1], vec![3, 4, 2], vec![(0, 1)], 4);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config: vec![1, 0, 1],
-                    target_config: vec![1, 0, 1],
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

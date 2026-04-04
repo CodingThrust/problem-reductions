@@ -113,7 +113,6 @@ impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "consecutiveblockminimization_to_ilp",
         build: || {
@@ -122,62 +121,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![vec![true, false, true], vec![false, true, true]],
                 2,
             );
-            // Permutation [2,0,1] => columns reordered as [2,0,1]
-            // Row 0: A[0,2]=1, A[0,0]=1, A[0,1]=0 => [1,1,0] => 1 block
-            // Row 1: A[1,2]=1, A[1,0]=0, A[1,1]=1 => [1,0,1] => 2 blocks
-            // Total = 3 > 2, try [0,2,1]:
-            // Row 0: A[0,0]=1, A[0,2]=1, A[0,1]=0 => [1,1,0] => 1 block
-            // Row 1: A[1,0]=0, A[1,2]=1, A[1,1]=1 => [0,1,1] => 1 block
-            // Total = 2 <= 2. Good.
-            let source_config = vec![0, 2, 1];
-            let reduction: ReductionCBMToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
-            // Encode x_{c,p}: column c at position p
-            // c=0 at p=0: x_{0*3+0}=1, c=2 at p=1: x_{2*3+1}=1, c=1 at p=2: x_{1*3+2}=1
-            let n = 3;
-            let mut target_config = vec![0; reduction.target.num_vars];
-            // x_{0,0} = 1
-            target_config[0 * n + 0] = 1;
-            // x_{2,1} = 1
-            target_config[2 * n + 1] = 1;
-            // x_{1,2} = 1
-            target_config[1 * n + 2] = 1;
-            // a values
-            let a_offset = n * n;
-            let m = 2;
-            let matrix = vec![vec![true, false, true], vec![false, true, true]];
-            let perm = [0, 2, 1];
-            for r in 0..m {
-                for p in 0..n {
-                    if matrix[r][perm[p]] {
-                        target_config[a_offset + r * n + p] = 1;
-                    }
-                }
-            }
-            // b values
-            let b_offset = n * n + m * n;
-            for r in 0..m {
-                for p in 0..n {
-                    let a_cur = if matrix[r][perm[p]] { 1 } else { 0 };
-                    let a_prev = if p > 0 && matrix[r][perm[p - 1]] {
-                        1
-                    } else {
-                        0
-                    };
-                    if p == 0 {
-                        target_config[b_offset + r * n + p] = a_cur;
-                    } else if a_cur > a_prev {
-                        target_config[b_offset + r * n + p] = 1;
-                    }
-                }
-            }
-
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config,
-                    target_config,
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

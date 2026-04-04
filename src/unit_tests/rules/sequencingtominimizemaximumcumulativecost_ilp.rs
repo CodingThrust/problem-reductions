@@ -1,59 +1,60 @@
 use super::*;
 use crate::models::algebraic::ILP;
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::ReduceTo;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
-use crate::types::Or;
 
 #[test]
 fn test_sequencingtominimizemaximumcumulativecost_to_ilp_closed_loop() {
-    let problem =
-        SequencingToMinimizeMaximumCumulativeCost::new(vec![2, -1, 3, -2], vec![(0, 2)], 4);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = SequencingToMinimizeMaximumCumulativeCost::new(vec![2, -1, 3, -2], vec![(0, 2)]);
+    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&problem);
 
-    assert_satisfaction_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "SequencingToMinimizeMaximumCumulativeCost->ILP closed loop",
+    // Brute-force the source to get the optimal value
+    let bf = BruteForce::new();
+    let bf_solution = bf.find_witness(&problem).expect("brute-force optimum");
+    let bf_value = problem.evaluate(&bf_solution);
+
+    // Solve the ILP target with the ILP solver
+    let ilp_solution = ILPSolver::new()
+        .solve(reduction.target_problem())
+        .expect("ILP should be solvable");
+    let extracted = reduction.extract_solution(&ilp_solution);
+    let ilp_value = problem.evaluate(&extracted);
+
+    assert!(
+        ilp_value.0.is_some(),
+        "Extracted solution should be feasible"
+    );
+    assert_eq!(
+        ilp_value, bf_value,
+        "ILP-extracted solution should match brute-force optimum"
     );
 }
 
 #[test]
 fn test_sequencingtominimizemaximumcumulativecost_to_ilp_bf_vs_ilp() {
-    let problem =
-        SequencingToMinimizeMaximumCumulativeCost::new(vec![2, -1, 3, -2], vec![(0, 2)], 4);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = SequencingToMinimizeMaximumCumulativeCost::new(vec![2, -1, 3, -2], vec![(0, 2)]);
+    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&problem);
 
     let bf_witness = BruteForce::new()
         .find_witness(&problem)
         .expect("should be feasible");
-    assert_eq!(problem.evaluate(&bf_witness), Or(true));
+    assert!(problem.evaluate(&bf_witness).0.is_some());
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
-}
-
-#[test]
-fn test_sequencingtominimizemaximumcumulativecost_to_ilp_infeasible() {
-    // Costs all positive, bound 0, impossible if any task has positive cost
-    let problem = SequencingToMinimizeMaximumCumulativeCost::new(vec![1, 2, 3], vec![], 0);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
-    assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
-        "infeasible STMMCC should produce infeasible ILP"
-    );
+    assert!(problem.evaluate(&extracted).0.is_some());
 }
 
 #[test]
 fn test_sequencingtominimizemaximumcumulativecost_to_ilp_no_precedences() {
-    let problem = SequencingToMinimizeMaximumCumulativeCost::new(vec![3, -2, 1], vec![], 3);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = SequencingToMinimizeMaximumCumulativeCost::new(vec![3, -2, 1], vec![]);
+    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert!(problem.evaluate(&extracted).0.is_some());
 }

@@ -20,3 +20,13 @@ fn test_disjointconnectingpaths_to_ilp_closed_loop() {
         "DisjointConnectingPaths->ILP closed loop",
     );
 }
+
+#[test]
+fn test_disjointconnectingpaths_to_ilp_bf_vs_ilp() {
+    let source = DisjointConnectingPaths::new(
+        SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]),
+        vec![(0, 2), (3, 5)],
+    );
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
+}

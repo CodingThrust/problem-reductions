@@ -128,8 +128,6 @@ impl ReduceTo<ILP<bool>> for PartitionIntoPathsOfLength2<SimpleGraph> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "partitionintopathsoflength2_to_ilp",
         build: || {
@@ -138,24 +136,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 6,
                 vec![(0, 1), (1, 2), (3, 4), (4, 5)],
             ));
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    // vertex 0,1,2 → group 0; vertex 3,4,5 → group 1
-                    source_config: vec![0, 0, 0, 1, 1, 1],
-                    // x vars: x_{0,0}=1,x_{0,1}=0, x_{1,0}=1,x_{1,1}=0, x_{2,0}=1,x_{2,1}=0,
-                    //          x_{3,0}=0,x_{3,1}=1, x_{4,0}=0,x_{4,1}=1, x_{5,0}=0,x_{5,1}=1
-                    // y vars (4 edges * 2 groups):
-                    // e0=(0,1): y_{0,0}=1,y_{0,1}=0
-                    // e1=(1,2): y_{1,0}=1,y_{1,1}=0
-                    // e2=(3,4): y_{2,0}=0,y_{2,1}=1
-                    // e3=(4,5): y_{3,0}=0,y_{3,1}=1
-                    target_config: vec![
-                        1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, // x vars
-                        1, 0, 1, 0, 0, 1, 0, 1, // y vars
-                    ],
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

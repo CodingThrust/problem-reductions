@@ -96,3 +96,10 @@ fn test_no_hamiltonian_cycle_infeasible() {
         "Path graph should have no Hamiltonian cycle"
     );
 }
+
+#[test]
+fn test_bottlenecktravelingsalesman_to_ilp_bf_vs_ilp() {
+    let problem = k4_btsp();
+    let reduction: ReductionBTSPToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

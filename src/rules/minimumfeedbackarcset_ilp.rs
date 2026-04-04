@@ -109,7 +109,6 @@ impl ReduceTo<ILP<i32>> for MinimumFeedbackArcSet<i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
     use crate::topology::DirectedGraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {
@@ -121,13 +120,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // ILP solution: y_0=0, y_1=0, y_2=1, o_0=0, o_1=1, o_2=2
             let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
             let source = MinimumFeedbackArcSet::new(graph, vec![1i32; 3]);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
-                source,
-                SolutionPair {
-                    source_config: vec![0, 0, 1],
-                    target_config: vec![0, 0, 1, 0, 1, 2],
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
         },
     }]
 }

@@ -175,18 +175,12 @@ impl ReduceTo<ILP<i32>> for LongestPath<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "longestpath_to_ilp",
         build: || {
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
-                LongestPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![2, 3], 0, 2),
-                SolutionPair {
-                    source_config: vec![1, 1],
-                    target_config: vec![1, 0, 1, 0, 0, 1, 2],
-                },
-            )
+            let source =
+                LongestPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![2, 3], 0, 2);
+            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
         },
     }]
 }

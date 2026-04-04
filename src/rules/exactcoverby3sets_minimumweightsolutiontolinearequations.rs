@@ -47,7 +47,6 @@ impl ReduceTo<MinimumWeightSolutionToLinearEquations> for ExactCoverBy3Sets {
             target: MinimumWeightSolutionToLinearEquations::new(
                 coefficients,
                 vec![1; self.universe_size()],
-                self.universe_size() / 3,
             ),
         }
     }

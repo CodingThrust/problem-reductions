@@ -271,3 +271,10 @@ fn test_single_edge() {
     assert!(problem.evaluate(&extracted));
     assert_ne!(extracted[0], extracted[1]);
 }
+
+#[test]
+fn test_coloring_to_ilp_bf_vs_ilp() {
+    let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}

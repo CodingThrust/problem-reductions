@@ -21,7 +21,7 @@ fn test_exactcoverby3sets_to_algebraicequationsovergf2_structure() {
     let reduction = ReduceTo::<AlgebraicEquationsOverGF2>::reduce_to(&source);
     let target = reduction.target_problem();
 
-    assert_eq!(target.num_vars(), 3);
+    assert_eq!(target.num_variables(), 3);
     assert_eq!(target.num_equations(), 9);
     assert_eq!(
         target.equations(),

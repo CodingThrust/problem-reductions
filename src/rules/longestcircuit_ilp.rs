@@ -5,7 +5,7 @@
 //! - Binary s_v for vertex on circuit
 //! - Degree: sum_{e : v in e} y_e = 2 s_v
 //! - At least 3 edges selected
-//! - Length bound: sum l_e y_e >= K
+//! - Maximize: sum l_e y_e
 //! - Multi-commodity flow connectivity
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
@@ -42,8 +42,8 @@ impl ReductionResult for ReductionLongestCircuitToILP {
 
 #[reduction(
     overhead = {
-        num_vars = "3 * num_edges + num_vertices + 2 * num_edges * num_vertices",
-        num_constraints = "num_vertices + 2 + num_vertices^2 + 2 * num_edges * num_vertices",
+        num_vars = "num_edges + num_vertices + 2 * num_edges * (num_vertices - 1)",
+        num_constraints = "1 + num_vertices^2 + 2 * num_edges * (num_vertices - 1)",
     }
 )]
 impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i32> {
@@ -54,7 +54,6 @@ impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i32> {
         let m = self.num_edges();
         let edges = self.graph().edges();
         let lengths = self.edge_lengths();
-        let bound = *self.bound();
 
         let y_idx = |e: usize| -> usize { e };
         let s_idx = |v: usize| -> usize { m + v };
@@ -85,14 +84,6 @@ impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i32> {
         // At least 3 edges selected
         let all_edge_terms: Vec<(usize, f64)> = (0..m).map(|e| (y_idx(e), 1.0)).collect();
         constraints.push(LinearConstraint::ge(all_edge_terms, 3.0));
-
-        // Length bound: sum l_e y_e >= K
-        let length_terms: Vec<(usize, f64)> = lengths
-            .iter()
-            .enumerate()
-            .map(|(e, &l)| (y_idx(e), l as f64))
-            .collect();
-        constraints.push(LinearConstraint::ge(length_terms, bound as f64));
 
         // Multi-commodity flow for connectivity
         // Root = vertex 0. For each non-root vertex t (commodity index = t-1):
@@ -141,8 +132,13 @@ impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i32> {
             }
         }
 
-        // Feasibility: no objective
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        // Objective: maximize total edge length
+        let objective: Vec<(usize, f64)> = lengths
+            .iter()
+            .enumerate()
+            .map(|(e, &l)| (y_idx(e), l as f64))
+            .collect();
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
         ReductionLongestCircuitToILP {
             target,
@@ -153,28 +149,15 @@ impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "longestcircuit_to_ilp",
         build: || {
-            // Triangle with unit lengths, bound 3
+            // Triangle with unit lengths
             let source = LongestCircuit::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
                 vec![1, 1, 1],
-                3,
             );
-            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
-            let ilp_solution = crate::solvers::ILPSolver::new()
-                .solve(reduction.target_problem())
-                .expect("canonical example must be solvable");
-            let source_config = reduction.extract_solution(&ilp_solution);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config,
-                    target_config: ilp_solution,
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

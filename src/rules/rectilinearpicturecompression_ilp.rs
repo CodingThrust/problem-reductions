@@ -66,19 +66,12 @@ impl ReduceTo<ILP<bool>> for RectilinearPictureCompression {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "rectilinearpicturecompression_to_ilp",
         build: || {
             let source =
                 RectilinearPictureCompression::new(vec![vec![true, true], vec![true, true]], 1);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config: vec![1],
-                    target_config: vec![1],
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

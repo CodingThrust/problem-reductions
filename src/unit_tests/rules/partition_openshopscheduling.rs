@@ -35,11 +35,19 @@ fn test_partition_to_open_shop_scheduling_structure() {
 fn test_partition_to_open_shop_scheduling_extract_solution() {
     let source = Partition::new(vec![1, 2, 3]);
     let reduction = ReduceTo::<OpenShopScheduling>::reduce_to(&source);
+    let target = reduction.target_problem();
 
-    assert_eq!(
-        reduction.extract_solution(&[0, 0, 0, 0, 2, 2, 0, 0, 3, 0, 0, 0]),
-        vec![0, 0, 1]
-    );
+    // Use the solver to get a valid optimal target config
+    let target_solution = BruteForce::new()
+        .find_witness(target)
+        .expect("target should have an optimal solution");
+    let extracted = reduction.extract_solution(&target_solution);
+
+    // The extracted solution should be a valid partition decision
+    assert_eq!(extracted.len(), 3);
+    assert!(extracted.iter().all(|&v| v <= 1));
+    // Since total=6 is even, a satisfying partition exists
+    assert!(source.evaluate(&extracted));
 }
 
 #[test]

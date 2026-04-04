@@ -20,8 +20,20 @@ pub fn resolve_alias(input: &str) -> String {
     if input.eq_ignore_ascii_case("GroupingBySwapping") {
         return "GroupingBySwapping".to_string();
     }
-    if input.eq_ignore_ascii_case("SimultaneousIncongruences") {
-        return "SimultaneousIncongruences".to_string();
+    if input.eq_ignore_ascii_case("MinimumWeightAndOrGraph") {
+        return "MinimumWeightAndOrGraph".to_string();
+    }
+    if input.eq_ignore_ascii_case("MinimumFaultDetectionTestSet") {
+        return "MinimumFaultDetectionTestSet".to_string();
+    }
+    if input.eq_ignore_ascii_case("MinimumCodeGenerationUnlimitedRegisters") {
+        return "MinimumCodeGenerationUnlimitedRegisters".to_string();
+    }
+    if input.eq_ignore_ascii_case("MinimumCodeGenerationParallelAssignments") {
+        return "MinimumCodeGenerationParallelAssignments".to_string();
+    }
+    if input.eq_ignore_ascii_case("ThreeMatroidIntersection") {
+        return "ThreeMatroidIntersection".to_string();
     }
     if let Some(pt) = problemreductions::registry::find_problem_type_by_alias(input) {
         return pt.canonical_name.to_string();
@@ -284,6 +296,8 @@ mod tests {
         assert_eq!(resolve_alias("MVC"), "MinimumVertexCover");
         assert_eq!(resolve_alias("SAT"), "Satisfiability");
         assert_eq!(resolve_alias("X3C"), "ExactCoverBy3Sets");
+        assert_eq!(resolve_alias("3Partition"), "ThreePartition");
+        assert_eq!(resolve_alias("3-partition"), "ThreePartition");
         // 3SAT is no longer a registered alias (removed to avoid confusion with KSatisfiability/KN)
         assert_eq!(resolve_alias("3SAT"), "3SAT"); // pass-through
         assert_eq!(resolve_alias("QUBO"), "QUBO");
@@ -292,6 +306,9 @@ mod tests {
             resolve_alias("biconnectivityaugmentation"),
             "BiconnectivityAugmentation"
         );
+        // VertexCover alias
+        assert_eq!(resolve_alias("VC"), "VertexCover");
+        assert_eq!(resolve_alias("VertexCover"), "VertexCover");
         // Pass-through for full names
         assert_eq!(
             resolve_alias("MaximumIndependentSet"),

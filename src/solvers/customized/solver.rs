@@ -66,48 +66,50 @@ impl CustomizedSolver {
     }
 }
 
-/// Solve MinimumCardinalityKey: find a minimal key with cardinality <= bound.
+/// Solve MinimumCardinalityKey: find a minimal key with smallest cardinality.
+///
+/// Uses iterative deepening by cardinality to guarantee the first solution
+/// found has the minimum number of attributes.
 fn solve_minimum_cardinality_key(problem: &MinimumCardinalityKey) -> Option<Vec<usize>> {
     let n = problem.num_attributes();
     let deps = problem.dependencies().to_vec();
-    let bound = problem.bound() as usize;
 
     let essential = find_essential_attributes(n, &deps);
-
-    // If essential attributes alone exceed the bound, no solution
-    if essential.len() > bound {
-        return None;
-    }
+    let essential_count = essential.len();
 
     // Build branch order: non-essential attributes
     let essential_set: HashSet<usize> = essential.iter().copied().collect();
     let branch_order: Vec<usize> = (0..n).filter(|i| !essential_set.contains(i)).collect();
 
-    let result = fd_subset_search::search_fd_subset(
-        n,
-        &essential,
-        &branch_order,
-        |selected, _depth| {
-            let count = selected.iter().filter(|&&v| v).count();
-            if count > bound {
-                return BranchDecision::Prune;
-            }
-            BranchDecision::Continue
-        },
-        |selected| {
-            let count = selected.iter().filter(|&&v| v).count();
-            count <= bound && is_minimal_key(selected, &deps)
-        },
-    );
+    // Iterative deepening: try smallest cardinality first
+    for max_total in essential_count..=n {
+        let result = fd_subset_search::search_fd_subset(
+            n,
+            &essential,
+            &branch_order,
+            |selected, _depth| {
+                let count = selected.iter().filter(|&&v| v).count();
+                if count > max_total {
+                    BranchDecision::Prune
+                } else {
+                    BranchDecision::Continue
+                }
+            },
+            |selected| {
+                selected.iter().filter(|&&v| v).count() == max_total
+                    && is_minimal_key(selected, &deps)
+            },
+        );
 
-    // Convert selected indices to config format (binary vector)
-    result.map(|indices| {
-        let mut config = vec![0; n];
-        for i in indices {
-            config[i] = 1;
+        if let Some(indices) = result {
+            let mut config = vec![0; n];
+            for i in indices {
+                config[i] = 1;
+            }
+            return Some(config);
         }
-        config
-    })
+    }
+    None
 }
 
 /// Solve AdditionalKey: find a candidate key not in the known set.

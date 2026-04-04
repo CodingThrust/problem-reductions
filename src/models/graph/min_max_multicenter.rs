@@ -1,13 +1,12 @@
 //! Min-Max Multicenter (vertex p-center) problem implementation.
 //!
-//! The vertex p-center problem asks whether K centers can be placed on vertices
-//! of a graph such that the maximum weighted distance from any vertex to its
-//! nearest center is at most a given bound B.
+//! The vertex p-center problem asks for K centers on vertices of a graph that
+//! minimize the maximum weighted distance from any vertex to its nearest center.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::types::WeightElement;
+use crate::types::{Min, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -21,13 +20,12 @@ inventory::submit! {
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
         module_path: module_path!(),
-        description: "Determine if K centers can be placed so max weighted distance is at most B (vertex p-center)",
+        description: "Find K centers minimizing the maximum weighted distance from any vertex to its nearest center (vertex p-center)",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
             FieldInfo { name: "vertex_weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
             FieldInfo { name: "edge_lengths", type_name: "Vec<W>", description: "Edge lengths l: E -> R" },
             FieldInfo { name: "k", type_name: "usize", description: "Number of centers to place" },
-            FieldInfo { name: "bound", type_name: "W::Sum", description: "Upper bound B on maximum weighted distance" },
         ],
     }
 }
@@ -35,9 +33,8 @@ inventory::submit! {
 /// The Min-Max Multicenter (vertex p-center) problem.
 ///
 /// Given a graph G = (V, E) with vertex weights w(v) and edge lengths l(e),
-/// a number K of centers to place, and a bound B, determine whether there
-/// exists a subset P of K vertices (centers) such that
-/// max_{v in V} w(v) * d(v, P) <= B,
+/// and a number K of centers to place, find a subset P of K vertices (centers)
+/// that minimizes max_{v in V} w(v) * d(v, P),
 /// where d(v, P) is the shortest-path distance from v to the nearest center.
 ///
 /// # Type Parameters
@@ -52,9 +49,9 @@ inventory::submit! {
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
-/// // Hexagonal-like graph: 6 vertices, 7 edges, unit weights/lengths, K=2, B=1
+/// // Hexagonal-like graph: 6 vertices, 7 edges, unit weights/lengths, K=2
 /// let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 5), (1, 4)]);
-/// let problem = MinMaxMulticenter::new(graph, vec![1i32; 6], vec![1i32; 7], 2, 1);
+/// let problem = MinMaxMulticenter::new(graph, vec![1i32; 6], vec![1i32; 7], 2);
 ///
 /// let solver = BruteForce::new();
 /// let solution = solver.find_witness(&problem);
@@ -70,8 +67,6 @@ pub struct MinMaxMulticenter<G, W: WeightElement> {
     edge_lengths: Vec<W>,
     /// Number of centers to place.
     k: usize,
-    /// Upper bound B on the maximum weighted distance.
-    bound: W::Sum,
 }
 
 impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
@@ -80,15 +75,9 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
     /// # Panics
     /// - If `vertex_weights.len() != graph.num_vertices()`
     /// - If `edge_lengths.len() != graph.num_edges()`
-    /// - If any vertex weight, edge length, or `bound` is negative
+    /// - If any vertex weight or edge length is negative
     /// - If `k == 0` or `k > graph.num_vertices()`
-    pub fn new(
-        graph: G,
-        vertex_weights: Vec<W>,
-        edge_lengths: Vec<W>,
-        k: usize,
-        bound: W::Sum,
-    ) -> Self {
+    pub fn new(graph: G, vertex_weights: Vec<W>, edge_lengths: Vec<W>, k: usize) -> Self {
         assert_eq!(
             vertex_weights.len(),
             graph.num_vertices(),
@@ -112,7 +101,6 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
                 .all(|length| length.to_sum() >= zero.clone()),
             "edge_lengths must be non-negative"
         );
-        assert!(bound >= zero, "bound must be non-negative");
         assert!(k > 0, "k must be positive");
         assert!(k <= graph.num_vertices(), "k must not exceed num_vertices");
         Self {
@@ -120,7 +108,6 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
             vertex_weights,
             edge_lengths,
             k,
-            bound,
         }
     }
 
@@ -142,11 +129,6 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
     /// Get the number of centers K.
     pub fn k(&self) -> usize {
         self.k
-    }
-
-    /// Get the bound B.
-    pub fn bound(&self) -> &W::Sum {
-        &self.bound
     }
 
     /// Get the number of vertices in the underlying graph.
@@ -246,7 +228,7 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinMaxMulticenter";
-    type Value = crate::types::Or;
+    type Value = Min<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
@@ -256,39 +238,36 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.graph.num_vertices()
-                || config.iter().any(|&selected| selected > 1)
-            {
-                return crate::types::Or(false);
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
+        if config.len() != self.graph.num_vertices() || config.iter().any(|&selected| selected > 1)
+        {
+            return Min(None);
+        }
+
+        // Check exactly K centers are selected
+        let num_selected = config.iter().filter(|&&selected| selected == 1).count();
+        if num_selected != self.k {
+            return Min(None);
+        }
+
+        // Compute shortest distances to nearest center
+        let distances = match self.shortest_distances(config) {
+            Some(d) => d,
+            None => {
+                return Min(None);
             }
+        };
 
-            // Check exactly K centers are selected
-            let num_selected = config.iter().filter(|&&selected| selected == 1).count();
-            if num_selected != self.k {
-                return crate::types::Or(false);
+        // Compute max weighted distance: max_{v} w(v) * d(v)
+        let mut max_wd = W::Sum::zero();
+        for (v, dist) in distances.iter().enumerate() {
+            let wd = self.vertex_weights[v].to_sum() * dist.clone();
+            if wd > max_wd {
+                max_wd = wd;
             }
+        }
 
-            // Compute shortest distances to nearest center
-            let distances = match self.shortest_distances(config) {
-                Some(d) => d,
-                None => {
-                    return crate::types::Or(false);
-                }
-            };
-
-            // Compute max weighted distance: max_{v} w(v) * d(v)
-            let mut max_wd = W::Sum::zero();
-            for (v, dist) in distances.iter().enumerate() {
-                let wd = self.vertex_weights[v].to_sum() * dist.clone();
-                if wd > max_wd {
-                    max_wd = wd;
-                }
-            }
-
-            max_wd <= self.bound
-        })
+        Min(Some(max_wd))
     }
 }
 
@@ -308,10 +287,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![1i32; 6],
             vec![1i32; 7],
             2,
-            1,
         )),
         optimal_config: vec![0, 1, 0, 0, 1, 0],
-        optimal_value: serde_json::json!(true),
+        optimal_value: serde_json::json!(1),
     }]
 }
 

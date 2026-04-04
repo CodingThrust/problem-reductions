@@ -40,7 +40,7 @@ impl ReductionResult for ReductionSCToILP {
 #[reduction(
     overhead = {
         num_vars = "num_arcs * num_arcs + num_arcs * num_arcs * num_arcs",
-        num_constraints = "num_arcs + num_arcs + 3 * num_arcs * num_arcs * num_arcs + 1",
+        num_constraints = "num_arcs + num_arcs + 3 * num_arcs * num_arcs * num_arcs",
     }
 )]
 impl ReduceTo<ILP<bool>> for StackerCrane {
@@ -120,10 +120,9 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
             }
         }
 
-        // Bound constraint:
-        // sum_i l_i + sum_p sum_i sum_j D[head_i, tail_j] * z_{i,j,p} <= B
-        let mut bound_terms = Vec::new();
-        let arc_length_sum: f64 = self.arc_lengths().iter().map(|&l| l as f64).sum();
+        // Objective: minimize total walk length = sum_i l_i + sum_p sum_i sum_j D[head_i, tail_j] * z_{i,j,p}
+        // The constant sum_i l_i is ignored by the ILP solver (additive constant doesn't affect optimum).
+        let mut objective = Vec::new();
         for p in 0..m {
             for i in 0..m {
                 for j in 0..m {
@@ -131,17 +130,13 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
                     let tail_j = self.arcs()[j].0;
                     let dist = distances[head_i][tail_j];
                     if dist < i64::MAX {
-                        bound_terms.push((z_idx(i, j, p), dist as f64));
+                        objective.push((z_idx(i, j, p), dist as f64));
                     }
                 }
             }
         }
-        // We can't add a constant to the LHS in LinearConstraint, so move it to RHS
-        // sum D*z <= B - sum l_i
-        let rhs = self.bound() as f64 - arc_length_sum;
-        constraints.push(LinearConstraint::le(bound_terms, rhs));
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
         ReductionSCToILP {
             target,
@@ -205,33 +200,13 @@ fn all_pairs_shortest_paths(
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-    use crate::rules::ReduceTo as _;
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "stackercrane_to_ilp",
         build: || {
             // Simple: 3 vertices, 2 arcs, 1 edge
-            let source = StackerCrane::new(
-                3,
-                vec![(0, 1), (2, 0)],
-                vec![(1, 2)],
-                vec![1, 1],
-                vec![1],
-                4,
-            );
-            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
-            let ilp_solution = crate::solvers::ILPSolver::new()
-                .solve(reduction.target_problem())
-                .expect("canonical example must be solvable");
-            let source_config = reduction.extract_solution(&ilp_solution);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                source,
-                SolutionPair {
-                    source_config,
-                    target_config: ilp_solution,
-                },
-            )
+            let source =
+                StackerCrane::new(3, vec![(0, 1), (2, 0)], vec![(1, 2)], vec![1, 1], vec![1]);
+            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]
 }

@@ -1,12 +1,13 @@
 //! Optimal Linear Arrangement problem implementation.
 //!
-//! The Optimal Linear Arrangement problem asks whether there exists a one-to-one
-//! function f: V -> {0, 1, ..., |V|-1} such that the total edge length
-//! sum_{{u,v} in E} |f(u) - f(v)| is at most K.
+//! The Optimal Linear Arrangement problem asks for a one-to-one function
+//! f: V -> {0, 1, ..., |V|-1} that minimizes the total edge length
+//! sum_{{u,v} in E} |f(u) - f(v)|.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
+use crate::types::Min;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -18,28 +19,26 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
         module_path: module_path!(),
-        description: "Find a vertex ordering on a line with total edge length at most K",
+        description: "Find a vertex ordering on a line minimizing total edge length",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The undirected graph G=(V,E)" },
-            FieldInfo { name: "bound", type_name: "usize", description: "Upper bound K on total edge length" },
         ],
     }
 }
 
 /// The Optimal Linear Arrangement problem.
 ///
-/// Given an undirected graph G = (V, E) and a non-negative integer K,
-/// determine whether there exists a one-to-one function f: V -> {0, 1, ..., |V|-1}
-/// such that sum_{{u,v} in E} |f(u) - f(v)| <= K.
+/// Given an undirected graph G = (V, E), find a bijection f: V -> {0, 1, ..., |V|-1}
+/// that minimizes the total edge length sum_{{u,v} in E} |f(u) - f(v)|.
 ///
-/// This is the decision (satisfaction) version of the problem, following the
-/// Garey & Johnson formulation (GT42).
+/// This is the optimization (minimization) version of the problem.
 ///
 /// # Representation
 ///
 /// Each vertex is assigned a variable representing its position in the arrangement.
 /// Variable i takes a value in {0, 1, ..., n-1}, and a valid configuration must be
-/// a permutation (all positions are distinct) with total edge length at most K.
+/// a permutation (all positions are distinct). The objective is to minimize total
+/// edge length.
 ///
 /// # Type Parameters
 ///
@@ -52,9 +51,9 @@ inventory::submit! {
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
-/// // Path graph: 0-1-2-3 with bound 3
+/// // Path graph: 0-1-2-3
 /// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-/// let problem = OptimalLinearArrangement::new(graph, 3);
+/// let problem = OptimalLinearArrangement::new(graph);
 ///
 /// let solver = BruteForce::new();
 /// let solution = solver.find_witness(&problem);
@@ -65,8 +64,6 @@ inventory::submit! {
 pub struct OptimalLinearArrangement<G> {
     /// The underlying graph.
     graph: G,
-    /// Upper bound K on total edge length.
-    bound: usize,
 }
 
 impl<G: Graph> OptimalLinearArrangement<G> {
@@ -74,19 +71,13 @@ impl<G: Graph> OptimalLinearArrangement<G> {
     ///
     /// # Arguments
     /// * `graph` - The undirected graph G = (V, E)
-    /// * `bound` - The upper bound K on total edge length
-    pub fn new(graph: G, bound: usize) -> Self {
-        Self { graph, bound }
+    pub fn new(graph: G) -> Self {
+        Self { graph }
     }
 
     /// Get a reference to the underlying graph.
     pub fn graph(&self) -> &G {
         &self.graph
-    }
-
-    /// Get the bound K.
-    pub fn bound(&self) -> usize {
-        self.bound
     }
 
     /// Get the number of vertices in the underlying graph.
@@ -99,12 +90,9 @@ impl<G: Graph> OptimalLinearArrangement<G> {
         self.graph.num_edges()
     }
 
-    /// Check if a configuration is a valid permutation with total edge length at most K.
+    /// Check if a configuration is a valid permutation.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        match self.total_edge_length(config) {
-            Some(length) => length <= self.bound,
-            None => false,
-        }
+        self.total_edge_length(config).is_some()
     }
 
     /// Check if a configuration forms a valid permutation of {0, ..., n-1}.
@@ -145,7 +133,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "OptimalLinearArrangement";
-    type Value = crate::types::Or;
+    type Value = Min<usize>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -156,8 +144,11 @@ where
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_valid_solution(config))
+    fn evaluate(&self, config: &[usize]) -> Min<usize> {
+        match self.total_edge_length(config) {
+            Some(cost) => Min(Some(cost)),
+            None => Min(None),
+        }
     }
 }
 
@@ -168,19 +159,16 @@ crate::declare_variants! {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::SimpleGraph;
-    // 6 vertices, 7 edges (path + two long chords), bound K=11
-    // Identity permutation [0,1,2,3,4,5] gives cost 1+1+1+1+1+3+3 = 11
+    // 6 vertices, 7 edges (path + two long chords)
+    // Optimal arrangement [0,1,2,3,4,5] gives cost 1+1+1+1+1+3+3 = 11
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "optimal_linear_arrangement",
-        instance: Box::new(OptimalLinearArrangement::new(
-            SimpleGraph::new(
-                6,
-                vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 3), (2, 5)],
-            ),
-            11,
-        )),
+        instance: Box::new(OptimalLinearArrangement::new(SimpleGraph::new(
+            6,
+            vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 3), (2, 5)],
+        ))),
         optimal_config: vec![0, 1, 2, 3, 4, 5],
-        optimal_value: serde_json::json!(true),
+        optimal_value: serde_json::json!(11),
     }]
 }
 

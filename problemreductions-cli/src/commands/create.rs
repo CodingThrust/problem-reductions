@@ -9,30 +9,42 @@ use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
     AlgebraicEquationsOverGF2, ClosestVectorProblem, ConsecutiveBlockMinimization,
-    ConsecutiveOnesMatrixAugmentation, ConsecutiveOnesSubmatrix, IntegerExpressionMembership,
-    MinimumWeightSolutionToLinearEquations, SimultaneousIncongruences, SparseMatrixCompression,
-    BMF,
+    ConsecutiveOnesMatrixAugmentation, ConsecutiveOnesSubmatrix, FeasibleBasisExtension,
+    MinimumMatrixCover, MinimumMatrixDomination, MinimumWeightDecoding,
+    MinimumWeightSolutionToLinearEquations, QuadraticCongruences, QuadraticDiophantineEquations,
+    SimultaneousIncongruences, SparseMatrixCompression, BMF,
 };
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
-    DegreeConstrainedSpanningTree, DisjointConnectingPaths, GeneralizedHex, GraphPartitioning,
-    HamiltonianCircuit, HamiltonianPath, IntegralFlowBundles, LengthBoundedDisjointPaths,
-    LongestCircuit, LongestPath, MinimumCutIntoBoundedSets, MinimumDummyActivitiesPert,
+    DirectedHamiltonianPath, DisjointConnectingPaths, GeneralizedHex, HamiltonianCircuit,
+    HamiltonianPath, HamiltonianPathBetweenTwoVertices, IntegralFlowBundles, Kernel,
+    LengthBoundedDisjointPaths, LongestCircuit, LongestPath, MinimumCutIntoBoundedSets,
+    MinimumDummyActivitiesPert, MinimumGeometricConnectedDominatingSet, MinimumMaximalMatching,
     MinimumMultiwayCut, MixedChinesePostman, MultipleChoiceBranching, PathConstrainedNetworkFlow,
     RootedTreeArrangement, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
+    VertexCover,
 };
 use problemreductions::models::misc::{
-    AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
-    ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables, EnsembleComputation,
-    ExpectedRetrievalCost, FlowShopScheduling, FrequencyTable, GroupingBySwapping, KnownValue,
-    LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
-    OpenShopScheduling, PaintShop, PartiallyOrderedKnapsack, ProductionPlanning, QueryArg,
-    RectilinearPictureCompression, ResourceConstrainedScheduling,
-    SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-    SequencingToMinimizeTardyTaskWeight, SequencingToMinimizeWeightedCompletionTime,
-    SequencingToMinimizeWeightedTardiness, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, StringToStringCorrection,
-    SubsetProduct, SubsetSum, SumOfSquaresPartition, TimetableDesign,
+    AdditionalKey, Betweenness, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment,
+    CbqRelation, Clustering, ConjunctiveBooleanQuery, ConsistencyOfDatabaseFrequencyTables,
+    CyclicOrdering, DynamicStorageAllocation, EnsembleComputation, ExpectedRetrievalCost,
+    FeasibleRegisterAssignment, FlowShopScheduling, FrequencyTable, GroupingBySwapping, IntExpr,
+    IntegerExpressionMembership, JobShopScheduling, KnownValue, KthLargestMTuple,
+    LongestCommonSubsequence, MaximumLikelihoodRanking, MinimumAxiomSet,
+    MinimumCodeGenerationOneRegister, MinimumCodeGenerationParallelAssignments,
+    MinimumCodeGenerationUnlimitedRegisters, MinimumDecisionTree, MinimumDisjunctiveNormalForm,
+    MinimumExternalMacroDataCompression, MinimumFaultDetectionTestSet,
+    MinimumInternalMacroDataCompression, MinimumRegisterSufficiencyForLoops,
+    MinimumTardinessSequencing, MinimumWeightAndOrGraph, MultiprocessorScheduling,
+    NonLivenessFreePetriNet, Numerical3DimensionalMatching, OpenShopScheduling, PaintShop,
+    PartiallyOrderedKnapsack, PreemptiveScheduling, ProductionPlanning, QueryArg,
+    RectilinearPictureCompression, RegisterSufficiency, ResourceConstrainedScheduling,
+    SchedulingToMinimizeWeightedCompletionTime, SchedulingWithIndividualDeadlines,
+    SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
+    SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
+    SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
+    SequencingWithinIntervals, ShortestCommonSupersequence, SquareTiling, StringToStringCorrection,
+    SubsetProduct, SubsetSum, SumOfSquaresPartition, ThreePartition, TimetableDesign,
 };
 use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
@@ -41,17 +53,18 @@ use problemreductions::topology::{
     BipartiteGraph, DirectedGraph, Graph, KingsSubgraph, MixedGraph, SimpleGraph,
     TriangularSubgraph, UnitDiskGraph,
 };
+use problemreductions::types::One;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
 const MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS: &str =
-    "--graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8";
+    "--graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1";
 const MULTIPLE_COPY_FILE_ALLOCATION_USAGE: &str =
-    "Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1 --bound 8";
+    "Usage: pred create MultipleCopyFileAllocation --graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1";
 const EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS: &str =
-    "--probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3 --latency-bound 1.01";
+    "--probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3";
 const EXPECTED_RETRIEVAL_COST_USAGE: &str =
-    "Usage: pred create ExpectedRetrievalCost --probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3 --latency-bound 1.01";
+    "Usage: pred create ExpectedRetrievalCost --probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3";
 
 /// Check if all data flags are None (no problem-specific input provided).
 fn all_data_flags_empty(args: &CreateArgs) -> bool {
@@ -61,6 +74,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.edge_lengths.is_none()
         && args.capacities.is_none()
         && args.demands.is_none()
+        && args.setup_costs.is_none()
+        && args.production_costs.is_none()
+        && args.inventory_costs.is_none()
         && args.bundle_capacities.is_none()
         && args.cost_matrix.is_none()
         && args.delay_matrix.is_none()
@@ -74,15 +90,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.couplings.is_none()
         && args.fields.is_none()
         && args.clauses.is_none()
-        && args.disjuncts.is_none()
         && args.num_vars.is_none()
-        && args.equations.is_none()
-        && args.moduli.is_none()
-        && args.residues.is_none()
         && args.matrix.is_none()
-        && args.rhs.is_none()
         && args.k.is_none()
-        && args.max_degree.is_none()
         && args.target.is_none()
         && args.m.is_none()
         && args.n.is_none()
@@ -101,7 +111,6 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.requirement_2.is_none()
         && args.requirement.is_none()
         && args.sizes.is_none()
-        && args.choices.is_none()
         && args.probabilities.is_none()
         && args.capacity.is_none()
         && args.sequence.is_none()
@@ -111,6 +120,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.r_weights.is_none()
         && args.s_weights.is_none()
         && args.partition.is_none()
+        && args.partitions.is_none()
         && args.bundles.is_none()
         && args.universe.is_none()
         && args.biedges.is_none()
@@ -131,18 +141,17 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.latency_bound.is_none()
         && args.length_bound.is_none()
         && args.weight_bound.is_none()
+        && args.diameter_bound.is_none()
         && args.cost_bound.is_none()
-        && args.cost_budget.is_none()
         && args.delay_budget.is_none()
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.string.is_none()
         && args.costs.is_none()
-        && args.setup_costs.is_none()
-        && args.production_costs.is_none()
-        && args.inventory_costs.is_none()
         && args.arc_costs.is_none()
         && args.arcs.is_none()
+        && args.left_arcs.is_none()
+        && args.right_arcs.is_none()
         && args.homologous_pairs.is_none()
         && args.quantifiers.is_none()
         && args.usage.is_none()
@@ -164,6 +173,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.resource_bounds.is_none()
         && args.resource_requirements.is_none()
         && args.task_lengths.is_none()
+        && args.job_tasks.is_none()
         && args.deadline.is_none()
         && args.num_processors.is_none()
         && args.schedules.is_none()
@@ -181,6 +191,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.num_attributes.is_none()
         && args.source_string.is_none()
         && args.target_string.is_none()
+        && args.pointer_cost.is_none()
         && args.capacities.is_none()
         && args.source_1.is_none()
         && args.sink_1.is_none()
@@ -201,8 +212,39 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.domain_size.is_none()
         && args.relations.is_none()
         && args.conjuncts_spec.is_none()
+        && args.expression.is_none()
         && args.deps.is_none()
         && args.query.is_none()
+        && args.equations.is_none()
+        && args.coeff_a.is_none()
+        && args.coeff_b.is_none()
+        && args.rhs.is_none()
+        && args.coeff_c.is_none()
+        && args.pairs.is_none()
+        && args.required_columns.is_none()
+        && args.compilers.is_none()
+        && args.setup_times.is_none()
+        && args.w_sizes.is_none()
+        && args.x_sizes.is_none()
+        && args.y_sizes.is_none()
+        && args.assignment.is_none()
+        && args.initial_marking.is_none()
+        && args.output_arcs.is_none()
+        && args.gate_types.is_none()
+        && args.inputs.is_none()
+        && args.outputs.is_none()
+        && args.true_sentences.is_none()
+        && args.implications.is_none()
+        && args.loop_length.is_none()
+        && args.loop_variables.is_none()
+        && args.assignments.is_none()
+        && args.num_variables.is_none()
+        && args.truth_table.is_none()
+        && args.test_matrix.is_none()
+        && args.num_tests.is_none()
+        && args.tiles.is_none()
+        && args.grid_size.is_none()
+        && args.num_colors.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -463,6 +505,51 @@ fn parse_precedence_pairs(raw: Option<&str>) -> Result<Vec<(usize, usize)>> {
         .unwrap_or_else(|| Ok(vec![]))
 }
 
+fn parse_job_shop_jobs(raw: &str) -> Result<Vec<Vec<(usize, u64)>>> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return Ok(vec![]);
+    }
+
+    raw.split(';')
+        .enumerate()
+        .map(|(job_index, job_str)| {
+            let job_str = job_str.trim();
+            anyhow::ensure!(
+                !job_str.is_empty(),
+                "Invalid --job-tasks value: empty job at position {}",
+                job_index
+            );
+
+            job_str
+                .split(',')
+                .map(|task_str| {
+                    let task_str = task_str.trim();
+                    let (processor, length) = task_str.split_once(':').ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Invalid --job-tasks operation '{}': expected 'processor:length'",
+                            task_str
+                        )
+                    })?;
+                    let processor = processor.trim().parse::<usize>().map_err(|_| {
+                        anyhow::anyhow!(
+                            "Invalid --job-tasks operation '{}': processor must be a nonnegative integer",
+                            task_str
+                        )
+                    })?;
+                    let length = length.trim().parse::<u64>().map_err(|_| {
+                        anyhow::anyhow!(
+                            "Invalid --job-tasks operation '{}': length must be a nonnegative integer",
+                            task_str
+                        )
+                    })?;
+                    Ok((processor, length))
+                })
+                .collect()
+        })
+        .collect()
+}
+
 fn validate_precedence_pairs(precedences: &[(usize, usize)], num_tasks: usize) -> Result<()> {
     for &(pred, succ) in precedences {
         anyhow::ensure!(
@@ -526,10 +613,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
             "comma-separated weighted edges: 0-2:3,1-3:5"
         }
         "Vec<Vec<usize>>" => "semicolon-separated sets: \"0,1;1,2;0,2\"",
-        "Vec<Vec<u64>>" => "semicolon-separated rows: \"1,2;1,6;1,7;1,9\"",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
-        "Vec<Vec<i32>>" => "semicolon-separated terms: \"1,2;-1,3\"",
-        "Vec<Vec<i64>>" => "semicolon-separated rows: \"1,0;0,1\"",
         "Vec<Vec<bool>>" => "JSON 2D bool array: '[[true,false],[false,true]]'",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "usize" => "integer",
@@ -555,7 +639,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
         "KClique" => "--graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3",
-        "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
+        "VertexCover" => "--graph 0-1,1-2,0-2,2-3 --k 2",
         "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
         "IntegralFlowBundles" => {
             "--arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4"
@@ -564,13 +648,15 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2"
         }
         "MinimumCutIntoBoundedSets" => {
-            "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 3 --size-bound 3 --cut-bound 1"
+            "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 3 --size-bound 3"
         }
         "BoundedComponentSpanningForest" => {
             "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6"
         }
-        "DegreeConstrainedSpanningTree" => "--graph 0-1,1-2,2-3 --max-degree 2",
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
+        "HamiltonianPathBetweenTwoVertices" => {
+            "--graph 0-1,0-3,1-2,1-4,2-5,3-4,4-5,2-3 --source-vertex 0 --target-vertex 5"
+        }
         "LongestPath" => {
             "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,4-6,5-6,1-6 --edge-lengths 3,2,4,1,5,2,3,2,4,1 --source-vertex 0 --target-vertex 6"
         }
@@ -587,21 +673,24 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\""
         }
         "LengthBoundedDisjointPaths" => {
-            "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3"
+            "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --bound 4"
         }
         "PathConstrainedNetworkFlow" => {
             "--arcs \"0>1,0>2,1>3,1>4,2>4,3>5,4>5,4>6,5>7,6>7\" --capacities 2,1,1,1,1,1,1,1,2,1 --source 0 --sink 7 --paths \"0,2,5,8;0,3,6,8;0,3,7,9;1,4,6,8;1,4,7,9\" --requirement 3"
         }
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
+        "BoundedDiameterSpanningTree" => {
+            "--graph 0-1,0-2,0-3,1-2,1-4,2-3,3-4 --edge-weights 1,2,1,1,2,1,1 --weight-bound 5 --diameter-bound 3"
+        }
         "KthBestSpanningTree" => "--graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3",
         "LongestCircuit" => {
-            "--graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2 --bound 17"
+            "--graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2"
         }
         "BottleneckTravelingSalesman" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
         "ShortestWeightConstrainedPath" => {
-            "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8"
+            "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --weight-bound 8"
         }
         "SteinerTreeInGraphs" => "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --terminals 0,3",
         "BiconnectivityAugmentation" => {
@@ -612,27 +701,30 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "Satisfiability" => "--num-vars 3 --clauses \"1,2;-1,3\"",
         "NAESatisfiability" => "--num-vars 3 --clauses \"1,2,-3;-1,2,3\"",
-        "NonTautology" => "--num-vars 2 --disjuncts \"1,2;-1,-2\"",
         "QuantifiedBooleanFormulas" => {
             "--num-vars 3 --clauses \"1,2;-1,3\" --quantifiers \"E,A,E\""
         }
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
-        "SimultaneousIncongruences" => "--moduli 2,3,5,7 --residues 0,1,2,3 --bound 210",
-        "AlgebraicEquationsOverGF2" => "--num-vars 3 --equations '[[[0,1],[2],[]],[[1],[]]]'",
-        "QUBO" => "--matrix \"1,0.5;0.5,2\"",
-        "IntegerExpressionMembership" => "--choices \"1,2;1,6;1,7;1,9\" --target 15",
-        "MinimumWeightSolutionToLinearEquations" => {
-            "--matrix \"1,0,1;0,1,1\" --rhs \"1,1\" --bound 1"
+        "Maximum2Satisfiability" => "--num-vars 4 --clauses \"1,2;1,-2;-1,3;-1,-3;2,4;-3,-4;3,4\"",
+        "NonTautology" => {
+            "--num-vars 3 --clauses \"1,2,3;-1,-2,-3\""
         }
+        "OneInThreeSatisfiability" => {
+            "--num-vars 4 --clauses \"1,2,3;-1,3,4;2,-3,-4\""
+        }
+        "Planar3Satisfiability" => {
+            "--num-vars 4 --clauses \"1,2,3;-1,2,4;1,-3,4;-2,3,-4\""
+        }
+        "QUBO" => "--matrix \"1,0.5;0.5,2\"",
         "QuadraticAssignment" => "--matrix \"0,5;5,0\" --distance-matrix \"0,1;1,0\"",
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "HamiltonianCircuit" => "--graph 0-1,1-2,2-3,3-0",
-        "EnsembleComputation" => "--universe 4 --sets \"0,1,2;0,1,3\" --budget 4",
-        "SetSplitting" => "--universe 6 --sets \"0,1,2;2,3,4;0,4,5;1,3,5\"",
+        "MaximumLeafSpanningTree" => "--graph 0-1,0-2,0-3,1-4,2-4,2-5,3-5,4-5,1-3",
+        "EnsembleComputation" => "--universe 4 --sets \"0,1,2;0,1,3\"",
         "RootedTreeStorageAssignment" => "--universe 5 --sets \"0,2;1,3;0,4;2,4\" --bound 1",
         "MinMaxMulticenter" => {
-            "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2 --bound 2"
+            "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
         }
         "MinimumSumMulticenter" => {
             "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
@@ -640,18 +732,33 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "BalancedCompleteBipartiteSubgraph" => {
             "--left 4 --right 4 --biedges 0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3 --k 3"
         }
+        "MaximumAchromaticNumber" => "--graph 0-1,1-2,2-3,3-4,4-5,5-0",
+        "MaximumDomaticNumber" => "--graph 0-1,1-2,0-2",
+        "MinimumCoveringByCliques" => "--graph 0-1,1-2,0-2,2-3",
+        "MinimumIntersectionGraphBasis" => "--graph 0-1,1-2",
+        "MinimumMaximalMatching" => "--graph 0-1,1-2,2-3,3-4,4-5",
+        "DegreeConstrainedSpanningTree" => "--graph 0-1,0-2,0-3,1-2,1-4,2-3,3-4 --k 2",
+        "MonochromaticTriangle" => "--graph 0-1,0-2,0-3,1-2,1-3,2-3",
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
-        "PartitionIntoCliques" => "--graph 0-3,0-4,1-2,1-4 --k 3",
+        "PartitionIntoCliques" => "--graph 0-1,0-2,1-2,3-4,3-5,4-5 --k 3",
+        "PartitionIntoForests" => "--graph 0-1,1-2,2-0,3-4,4-5,5-3 --k 2",
+        "PartitionIntoPerfectMatchings" => "--graph 0-1,2-3,0-2,1-3 --k 2",
         "Factoring" => "--target 15 --m 4 --n 4",
         "CapacityAssignment" => {
-            "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12"
+            "--capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12"
         }
         "ProductionPlanning" => {
-            "--demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --bound 80"
+            "--num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-bound 80"
         }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
-        "OpenShopScheduling" => {
-            "--task-lengths \"3,1,2;2,3,1;1,2,3;2,2,1\" --num-processors 3"
+        "PreemptiveScheduling" => {
+            "--sizes 2,1,3,2,1 --num-processors 2 --precedence-pairs \"0>2,1>3\""
+        }
+        "SchedulingToMinimizeWeightedCompletionTime" => {
+            "--lengths 1,2,3,4,5 --weights 6,4,3,2,1 --num-processors 2"
+        }
+        "JobShopScheduling" => {
+            "--job-tasks \"0:3,1:4;1:2,0:3,1:2;0:4,1:3;1:5,0:2;0:2,1:3,0:1\" --num-processors 2"
         }
         "MinimumMultiwayCut" => "--graph 0-1,1-2,2-3 --terminals 0,2 --edge-weights 1,1,1",
         "ExpectedRetrievalCost" => EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS,
@@ -669,25 +776,49 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "AcyclicPartition" => {
             "--arcs \"0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5\" --weights 2,3,2,1,3,1 --arc-costs 1,1,1,1,1,1,1,1 --weight-bound 5 --cost-bound 5"
         }
-        "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
+        "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3",
         "RootedTreeArrangement" => "--graph 0-1,0-2,1-2,2-3,3-4 --bound 7",
         "DirectedTwoCommodityIntegralFlow" => {
             "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
         }
-        "Kernel" => "--arcs \"0>1,1>0,0>2,1>2\" --num-vertices 3",
+        "MinimumEdgeCostFlow" => {
+            "--arcs \"0>1,0>2,0>3,1>4,2>4,3>4\" --edge-weights 3,1,2,0,0,0 --capacities 2,2,2,2,2,2 --source 0 --sink 4 --requirement 3"
+        }
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
+        "DirectedHamiltonianPath" => {
+            "--arcs \"0>1,0>3,1>3,1>4,2>0,2>4,3>2,3>5,4>5,5>1\" --num-vertices 6"
+        }
+        "Kernel" => "--arcs \"0>1,0>2,1>3,2>3,3>4,4>0,4>1\"",
+        "MinimumGeometricConnectedDominatingSet" => {
+            "--positions \"0,0;3,0;6,0;9,0;0,3;3,3;6,3;9,3\" --radius 3.5"
+        }
         "MinimumDummyActivitiesPert" => "--arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6",
+        "FeasibleRegisterAssignment" => {
+            "--arcs \"0>1,0>2,1>3\" --assignment 0,1,0,0 --k 2 --num-vertices 4"
+        }
+        "MinimumFaultDetectionTestSet" => {
+            "--arcs \"0>2,0>3,1>3,1>4,2>5,3>5,3>6,4>6\" --inputs 0,1 --outputs 5,6 --num-vertices 7"
+        }
+        "MinimumWeightAndOrGraph" => {
+            "--arcs \"0>1,0>2,1>3,1>4,2>5,2>6\" --source 0 --gate-types \"AND,OR,OR,L,L,L,L\" --weights 1,2,3,1,4,2 --num-vertices 7"
+        }
+        "MinimumRegisterSufficiencyForLoops" => {
+            "--loop-length 6 --loop-variables \"0,3;2,3;4,3\""
+        }
+        "RegisterSufficiency" => {
+            "--arcs \"2>0,2>1,3>1,4>2,4>3,5>0,6>4,6>5\" --bound 3 --num-vertices 7"
+        }
         "StrongConnectivityAugmentation" => {
             "--arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1"
         }
         "MixedChinesePostman" => {
-            "--graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 --bound 24"
+            "--graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4"
         }
         "RuralPostman" => {
-            "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
+            "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2"
         }
         "StackerCrane" => {
-            "--arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --bound 20 --num-vertices 6"
+            "--arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --num-vertices 6"
         }
         "MultipleChoiceBranching" => {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
@@ -703,25 +834,49 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SequencingToMinimizeWeightedTardiness" => {
             "--sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
         }
-        "SequencingToMinimizeTardyTaskWeight" => {
-            "--lengths 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
-        }
-        "SubsetProduct" => "--values 2,3,5,7 --target 30",
+        "IntegerKnapsack" => "--sizes 3,4,5,2,7 --values 4,5,7,3,9 --capacity 15",
+        "SubsetProduct" => "--sizes 2,3,5,7,6,10 --target 210",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "MinimumAxiomSet" => {
+            "--n 8 --true-sentences 0,1,2,3,4,5,6,7 --implications \"0>2;0>3;1>4;1>5;2,4>6;3,5>7;6,7>0;6,7>1\""
+        }
+        "IntegerExpressionMembership" => {
+            "--expression '{\"Sum\":[{\"Sum\":[{\"Union\":[{\"Atom\":1},{\"Atom\":4}]},{\"Union\":[{\"Atom\":3},{\"Atom\":6}]}]},{\"Union\":[{\"Atom\":2},{\"Atom\":5}]}]}' --target 12"
+        }
+        "NonLivenessFreePetriNet" => {
+            "--n 4 --m 3 --arcs \"0>0,1>1,2>2\" --output-arcs \"0>1,1>2,2>3\" --initial-marking 1,0,0,0"
+        }
+        "Betweenness" => "--n 5 --sets \"0,1,2;2,3,4;0,2,4;1,3,4\"",
+        "CyclicOrdering" => "--n 5 --sets \"0,1,2;2,3,0;1,3,4\"",
+        "Numerical3DimensionalMatching" => "--w-sizes 4,5 --x-sizes 4,5 --y-sizes 5,7 --bound 15",
+        "ThreePartition" => "--sizes 4,5,6,4,6,5 --bound 15",
+        "DynamicStorageAllocation" => "--release-times 0,0,1,2,3 --deadlines 3,2,4,5,5 --sizes 2,3,1,3,2 --capacity 6",
+        "KthLargestMTuple" => "--sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12",
+        "AlgebraicEquationsOverGF2" => "--num-vars 3 --equations \"0,1:2;1,2:0:;0:1:2:\"",
+        "QuadraticCongruences" => "--coeff-a 4 --coeff-b 15 --coeff-c 10",
+        "QuadraticDiophantineEquations" => "--coeff-a 3 --coeff-b 5 --coeff-c 53",
+        "SimultaneousIncongruences" => "--pairs \"2,2;1,3;2,5;3,7\"",
         "BoyceCoddNormalFormViolation" => {
             "--n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
         }
-        "SumOfSquaresPartition" => "--sizes 5,3,8,2,7,1 --num-groups 3 --bound 240",
+        "Clustering" => {
+            "--distance-matrix \"0,1,1,3;1,0,1,3;1,1,0,3;3,3,3,0\" --k 2 --diameter-bound 1"
+        }
+        "SumOfSquaresPartition" => "--sizes 5,3,8,2,7,1 --num-groups 3",
         "ComparativeContainment" => {
             "--universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
         }
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
+        "SetSplitting" => "--universe 6 --sets \"0,1,2;2,3,4;0,4,5;1,3,5\"",
         "LongestCommonSubsequence" => {
-            "--strings \"010110;100101;001011\" --bound 3 --alphabet-size 2"
+            "--strings \"010110;100101;001011\" --alphabet-size 2"
         }
         "GroupingBySwapping" => "--string \"0,1,2,0,1,2\" --bound 5",
+        "MinimumExternalMacroDataCompression" | "MinimumInternalMacroDataCompression" => {
+            "--string \"0,1,0,1\" --pointer-cost 2 --alphabet-size 2"
+        }
         "MinimumCardinalityKey" => {
-            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --bound 2"
+            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\""
         }
         "PrimeAttributeName" => {
             "--universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
@@ -729,7 +884,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "TwoDimensionalConsecutiveSets" => {
             "--alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
         }
-        "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
+        "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\"",
         "ConsecutiveBlockMinimization" => {
             "--matrix '[[true,false,true],[false,true,true]]' --bound 2"
         }
@@ -739,15 +894,40 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SparseMatrixCompression" => {
             "--matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound 2"
         }
+        "MaximumLikelihoodRanking" => "--matrix \"0,4,3,5;1,0,4,3;2,1,0,4;0,2,1,0\"",
+        "MinimumMatrixCover" => "--matrix \"0,3,1,0;3,0,0,2;1,0,0,4;0,2,4,0\"",
+        "MinimumMatrixDomination" => "--matrix \"0,1,0;1,0,1;0,1,0\"",
+        "MinimumWeightDecoding" => {
+            "--matrix '[[true,false,true,true],[false,true,true,false],[true,true,false,true]]' --rhs 'true,true,false'"
+        }
+        "MinimumWeightSolutionToLinearEquations" => {
+            "--matrix '[[1,2,3,1],[2,1,1,3]]' --rhs '5,4'"
+        }
         "ConjunctiveBooleanQuery" => {
             "--domain-size 6 --relations \"2:0,3|1,3|2,4;3:0,1,5|1,2,5\" --conjuncts-spec \"0:v0,c3;0:v1,c3;1:v0,v1,c5\""
         }
         "ConjunctiveQueryFoldability" => "(use --example ConjunctiveQueryFoldability)",
+        "EquilibriumPoint" => "(use --example EquilibriumPoint)",
         "SequencingToMinimizeMaximumCumulativeCost" => {
-            "--costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+            "--costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\""
         }
         "StringToStringCorrection" => {
             "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
+        }
+        "FeasibleBasisExtension" => {
+            "--matrix '[[1,0,1,2,-1,0],[0,1,0,1,1,2],[0,0,1,1,0,1]]' --rhs '7,5,3' --required-columns '0,1'"
+        }
+        "MinimumCodeGenerationParallelAssignments" => {
+            "--num-variables 4 --assignments \"0:1,2;1:0;2:3;3:1,2\""
+        }
+        "MinimumDecisionTree" => {
+            "--test-matrix '[[true,true,false,false],[true,false,false,false],[false,true,false,true]]' --num-objects 4 --num-tests 3"
+        }
+        "MinimumDisjunctiveNormalForm" => {
+            "--num-vars 3 --truth-table 0,1,1,1,1,1,1,0"
+        }
+        "SquareTiling" => {
+            "--num-colors 3 --tiles \"0,1,2,0;0,0,2,1;2,1,0,0;2,0,0,1\" --grid-size 2"
         }
         _ => "",
     }
@@ -757,6 +937,7 @@ fn uses_edge_weights_flag(canonical: &str) -> bool {
     matches!(
         canonical,
         "BottleneckTravelingSalesman"
+            | "BoundedDiameterSpanningTree"
             | "KthBestSpanningTree"
             | "LongestCircuit"
             | "MaxCut"
@@ -773,9 +954,12 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
         ("FlowShopScheduling", "num_processors")
+        | ("JobShopScheduling", "num_processors")
+        | ("OpenShopScheduling", "num_machines")
         | ("SchedulingWithIndividualDeadlines", "num_processors") => {
             return "num-processors/--m".to_string();
         }
+        ("JobShopScheduling", "jobs") => return "job-tasks".to_string(),
         ("LengthBoundedDisjointPaths", "max_length") => return "bound".to_string(),
         ("RectilinearPictureCompression", "bound") => return "bound".to_string(),
         ("PrimeAttributeName", "num_attributes") => return "universe".to_string(),
@@ -785,6 +969,12 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("ConsecutiveOnesMatrixAugmentation", "bound") => return "bound".to_string(),
         ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
         ("SparseMatrixCompression", "bound_k") => return "bound".to_string(),
+        ("MinimumCodeGenerationParallelAssignments", "num_variables") => {
+            return "num-variables".to_string();
+        }
+        ("MinimumCodeGenerationParallelAssignments", "assignments") => {
+            return "assignments".to_string();
+        }
         ("StackerCrane", "edges") => return "graph".to_string(),
         ("StackerCrane", "arc_lengths") => return "arc-costs".to_string(),
         ("StackerCrane", "edge_lengths") => return "edge-lengths".to_string(),
@@ -842,6 +1032,10 @@ fn help_flag_hint(
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_weight") => "integer",
         ("SequencingWithinIntervals", "release_times") => "comma-separated integers: 0,0,5",
+        ("DynamicStorageAllocation", "release_times") => "comma-separated arrival times: 0,0,1,2,3",
+        ("DynamicStorageAllocation", "deadlines") => "comma-separated departure times: 3,2,4,5,5",
+        ("DynamicStorageAllocation", "sizes") => "comma-separated item sizes: 2,3,1,3,2",
+        ("DynamicStorageAllocation", "capacity") => "memory size D: 6",
         ("DisjointConnectingPaths", "terminal_pairs") => "comma-separated pairs: 0-3,2-5",
         ("PrimeAttributeName", "dependencies") => {
             "semicolon-separated dependencies: \"0,1>2,3;2,3>0,1\""
@@ -850,6 +1044,13 @@ fn help_flag_hint(
             "raw strings: \"ABAC;BACA\" or symbol lists: \"0,1,0;1,0,1\""
         }
         ("GroupingBySwapping", "string") => "symbol list: \"0,1,2,0,1,2\"",
+        ("MinimumExternalMacroDataCompression", "string")
+        | ("MinimumInternalMacroDataCompression", "string") => "symbol list: \"0,1,0,1\"",
+        ("MinimumExternalMacroDataCompression", "pointer_cost")
+        | ("MinimumInternalMacroDataCompression", "pointer_cost") => "positive integer: 2",
+        ("MinimumAxiomSet", "num_sentences") => "total number of sentences: 8",
+        ("MinimumAxiomSet", "true_sentences") => "comma-separated indices: 0,1,2,3,4,5,6,7",
+        ("MinimumAxiomSet", "implications") => "semicolon-separated rules: \"0>2;0>3;1>4;2,4>6\"",
         ("ShortestCommonSupersequence", "strings") => "symbol lists: \"0,1,2;1,2,0\"",
         ("MultipleChoiceBranching", "partition") => "semicolon-separated groups: \"0,1;2,3\"",
         ("IntegralFlowHomologousArcs", "homologous_pairs") => {
@@ -873,14 +1074,24 @@ fn help_flag_hint(
             "semicolon-separated 0/1 rows: \"1,0;0,1\""
         }
         ("ConsecutiveOnesSubmatrix", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
-        ("SimultaneousIncongruences", "moduli") => "comma-separated integers: 2,3,5,7",
-        ("SimultaneousIncongruences", "residues") => "comma-separated integers: 0,1,2,3",
-        ("AlgebraicEquationsOverGF2", "equations") => "JSON equations: '[[[0,1],[2],[]],[[1],[]]]'",
-        ("MinimumWeightSolutionToLinearEquations", "matrix") => {
-            "semicolon-separated integer rows: \"1,0,1;0,1,1\""
-        }
-        ("MinimumWeightSolutionToLinearEquations", "rhs") => "comma-separated integers: 1,1",
         ("SparseMatrixCompression", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("MaximumLikelihoodRanking", "matrix") => {
+            "semicolon-separated i32 rows: \"0,4,3,5;1,0,4,3;2,1,0,4;0,2,1,0\""
+        }
+        ("MinimumMatrixCover", "matrix") => "semicolon-separated i64 rows: \"0,3,1;3,0,2;1,2,0\"",
+        ("MinimumMatrixDomination", "matrix") => "semicolon-separated 0/1 rows: \"1,0;0,1\"",
+        ("MinimumWeightDecoding", "matrix") => "JSON 2D bool array: '[[true,false],[false,true]]'",
+        ("MinimumWeightDecoding", "target") => "comma-separated booleans: \"true,true,false\"",
+        ("MinimumWeightSolutionToLinearEquations", "matrix") => {
+            "JSON 2D integer array: '[[1,2,3],[4,5,6]]'"
+        }
+        ("MinimumWeightSolutionToLinearEquations", "rhs") => "comma-separated integers: \"5,4\"",
+        ("FeasibleBasisExtension", "matrix") => "JSON 2D integer array: '[[1,0,1],[0,1,0]]'",
+        ("FeasibleBasisExtension", "rhs") => "comma-separated integers: \"7,5,3\"",
+        ("FeasibleBasisExtension", "required_columns") => "comma-separated column indices: \"0,1\"",
+        ("MinimumCodeGenerationParallelAssignments", "assignments") => {
+            "semicolon-separated target:reads entries: \"0:1,2;1:0;2:3;3:1,2\""
+        }
         ("TimetableDesign", "craftsman_avail") | ("TimetableDesign", "task_avail") => {
             "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
         }
@@ -891,11 +1102,6 @@ fn help_flag_hint(
 
 fn parse_nonnegative_usize_bound(bound: i64, problem_name: &str, usage: &str) -> Result<usize> {
     usize::try_from(bound)
-        .map_err(|_| anyhow::anyhow!("{problem_name} requires nonnegative --bound\n\n{usage}"))
-}
-
-fn parse_nonnegative_u64_bound(bound: i64, problem_name: &str, usage: &str) -> Result<u64> {
-    u64::try_from(bound)
         .map_err(|_| anyhow::anyhow!("{problem_name} requires nonnegative --bound\n\n{usage}"))
 }
 
@@ -1068,7 +1274,6 @@ fn validate_length_bounded_disjoint_paths_args(
     num_vertices: usize,
     source: usize,
     sink: usize,
-    num_paths_required: usize,
     bound: i64,
     usage: Option<&str>,
 ) -> Result<usize> {
@@ -1090,34 +1295,10 @@ fn validate_length_bounded_disjoint_paths_args(
             usage,
         ));
     }
-    if num_paths_required == 0 {
-        return Err(lbdp_validation_error(
-            "--num-paths-required must be positive",
-            usage,
-        ));
-    }
     if max_length == 0 {
         return Err(lbdp_validation_error("--bound must be positive", usage));
     }
     Ok(max_length)
-}
-
-fn validate_longest_circuit_bound(bound: i64, usage: Option<&str>) -> Result<i32> {
-    let bound = i32::try_from(bound).map_err(|_| {
-        let msg = format!("LongestCircuit --bound must fit in i32 (got {bound})");
-        match usage {
-            Some(u) => anyhow::anyhow!("{msg}\n\n{u}"),
-            None => anyhow::anyhow!("{msg}"),
-        }
-    })?;
-    if bound <= 0 {
-        let msg = "LongestCircuit --bound must be positive (> 0)";
-        return Err(match usage {
-            Some(u) => anyhow::anyhow!("{msg}\n\n{u}"),
-            None => anyhow::anyhow!("{msg}"),
-        });
-    }
-    Ok(bound)
 }
 
 /// Resolve the graph type from the variant map (e.g., "KingsSubgraph", "UnitDiskGraph", or "SimpleGraph").
@@ -1209,19 +1390,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let terminals = parse_terminals(args, graph.num_vertices())?;
             let data = ser(SteinerTree::new(graph, edge_weights, terminals))?;
             (data, resolved_variant.clone())
-        }
-
-        // Graph partitioning (graph only, no weights)
-        "GraphPartitioning" => {
-            let (graph, _) = parse_graph(args).map_err(|e| {
-                anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create GraphPartitioning --graph 0-1,1-2,2-3,0-2,1-3,0-3"
-                )
-            })?;
-            (
-                ser(GraphPartitioning::new(graph))?,
-                resolved_variant.clone(),
-            )
         }
 
         // Generalized Hex (graph + source + sink)
@@ -1353,7 +1521,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "MinimumCutIntoBoundedSets" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create MinimumCutIntoBoundedSets --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 2 --size-bound 2 --cut-bound 1"
+                    "{e}\n\nUsage: pred create MinimumCutIntoBoundedSets --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 2 --size-bound 2"
                 )
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
@@ -1366,9 +1534,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let size_bound = args
                 .size_bound
                 .context("--size-bound is required for MinimumCutIntoBoundedSets")?;
-            let cut_bound = args
-                .cut_bound
-                .context("--cut-bound is required for MinimumCutIntoBoundedSets")?;
             (
                 ser(MinimumCutIntoBoundedSets::new(
                     graph,
@@ -1376,9 +1541,75 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     source,
                     sink,
                     size_bound,
-                    cut_bound,
                 ))?,
                 resolved_variant.clone(),
+            )
+        }
+
+        // MaximumAchromaticNumber (graph only, no weights)
+        "MaximumAchromaticNumber" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MaximumAchromaticNumber --graph 0-1,1-2,2-3,3-4,4-5,5-0"
+                )
+            })?;
+            (
+                ser(problemreductions::models::graph::MaximumAchromaticNumber::new(graph))?,
+                variant_map(&[("graph", "SimpleGraph")]),
+            )
+        }
+
+        // MaximumDomaticNumber (graph only, no weights)
+        "MaximumDomaticNumber" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MaximumDomaticNumber --graph 0-1,1-2,0-2"
+                )
+            })?;
+            (
+                ser(problemreductions::models::graph::MaximumDomaticNumber::new(
+                    graph,
+                ))?,
+                variant_map(&[("graph", "SimpleGraph")]),
+            )
+        }
+
+        // MinimumCoveringByCliques (graph only, no weights)
+        "MinimumCoveringByCliques" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MinimumCoveringByCliques --graph 0-1,1-2,0-2,2-3"
+                )
+            })?;
+            (
+                ser(problemreductions::models::graph::MinimumCoveringByCliques::new(graph))?,
+                variant_map(&[("graph", "SimpleGraph")]),
+            )
+        }
+
+        // MinimumIntersectionGraphBasis (graph only, no weights)
+        "MinimumIntersectionGraphBasis" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MinimumIntersectionGraphBasis --graph 0-1,1-2"
+                )
+            })?;
+            (
+                ser(problemreductions::models::graph::MinimumIntersectionGraphBasis::new(graph))?,
+                variant_map(&[("graph", "SimpleGraph")]),
+            )
+        }
+
+        // MinimumMaximalMatching (graph only, no weights)
+        "MinimumMaximalMatching" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MinimumMaximalMatching --graph 0-1,1-2,2-3,3-4,4-5"
+                )
+            })?;
+            (
+                ser(MinimumMaximalMatching::new(graph))?,
+                variant_map(&[("graph", "SimpleGraph")]),
             )
         }
 
@@ -1391,6 +1622,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(HamiltonianCircuit::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Maximum Leaf Spanning Tree (graph only, no weights)
+        "MaximumLeafSpanningTree" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MaximumLeafSpanningTree --graph 0-1,0-2,0-3,1-4,2-4,2-5,3-5,4-5,1-3"
+                )
+            })?;
+            (
+                ser(problemreductions::models::graph::MaximumLeafSpanningTree::new(graph))?,
                 resolved_variant.clone(),
             )
         }
@@ -1487,16 +1731,33 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
         }
 
-        // Degree-Constrained Spanning Tree
-        "DegreeConstrainedSpanningTree" => {
-            let usage =
-                "Usage: pred create DegreeConstrainedSpanningTree --graph 0-1,1-2,2-3 --max-degree 2";
-            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let max_degree = args.max_degree.ok_or_else(|| {
-                anyhow::anyhow!("DegreeConstrainedSpanningTree requires --max-degree\n\n{usage}")
+        // Hamiltonian path between two specified vertices
+        "HamiltonianPathBetweenTwoVertices" => {
+            let usage = "pred create HamiltonianPathBetweenTwoVertices --graph 0-1,0-3,1-2,1-4,2-5,3-4,4-5,2-3 --source-vertex 0 --target-vertex 5";
+            let (graph, _) =
+                parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
+            let source_vertex = args.source_vertex.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "HamiltonianPathBetweenTwoVertices requires --source-vertex\n\nUsage: {usage}"
+                )
             })?;
+            let target_vertex = args.target_vertex.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "HamiltonianPathBetweenTwoVertices requires --target-vertex\n\nUsage: {usage}"
+                )
+            })?;
+            ensure_vertex_in_bounds(source_vertex, graph.num_vertices(), "source_vertex")?;
+            ensure_vertex_in_bounds(target_vertex, graph.num_vertices(), "target_vertex")?;
+            anyhow::ensure!(
+                source_vertex != target_vertex,
+                "source_vertex and target_vertex must be distinct"
+            );
             (
-                ser(DegreeConstrainedSpanningTree::new(graph, max_degree))?,
+                ser(HamiltonianPathBetweenTwoVertices::new(
+                    graph,
+                    source_vertex,
+                    target_vertex,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -1536,7 +1797,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // ShortestWeightConstrainedPath
         "ShortestWeightConstrainedPath" => {
-            let usage = "pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --length-bound 10 --weight-bound 8";
+            let usage = "pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --weight-bound 8";
             let (graph, _) =
                 parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
             if args.weights.is_some() {
@@ -1570,11 +1831,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     "ShortestWeightConstrainedPath requires --target-vertex\n\nUsage: {usage}"
                 )
             })?;
-            let length_bound = args.length_bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "ShortestWeightConstrainedPath requires --length-bound\n\nUsage: {usage}"
-                )
-            })?;
             let weight_bound = args.weight_bound.ok_or_else(|| {
                 anyhow::anyhow!(
                     "ShortestWeightConstrainedPath requires --weight-bound\n\nUsage: {usage}"
@@ -1582,7 +1838,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             ensure_vertex_in_bounds(source_vertex, graph.num_vertices(), "source_vertex")?;
             ensure_vertex_in_bounds(target_vertex, graph.num_vertices(), "target_vertex")?;
-            ensure_positive_i32(length_bound, "length_bound")?;
             ensure_positive_i32(weight_bound, "weight_bound")?;
             (
                 ser(ShortestWeightConstrainedPath::new(
@@ -1591,14 +1846,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     edge_weights,
                     source_vertex,
                     target_vertex,
-                    length_bound,
                     weight_bound,
                 ))?,
                 resolved_variant.clone(),
             )
         }
 
-        // MultipleCopyFileAllocation (graph + usage + storage + bound)
+        // MultipleCopyFileAllocation (graph + usage + storage)
         "MultipleCopyFileAllocation" => {
             let (graph, num_vertices) = parse_graph(args)
                 .map_err(|e| anyhow::anyhow!("{e}\n\n{MULTIPLE_COPY_FILE_ALLOCATION_USAGE}"))?;
@@ -1616,20 +1870,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 "MultipleCopyFileAllocation",
                 MULTIPLE_COPY_FILE_ALLOCATION_USAGE,
             )?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "MultipleCopyFileAllocation requires --bound\n\n{MULTIPLE_COPY_FILE_ALLOCATION_USAGE}"
-                )
-            })?;
             (
-                ser(MultipleCopyFileAllocation::new(
-                    graph, usage, storage, bound,
-                ))?,
+                ser(MultipleCopyFileAllocation::new(graph, usage, storage))?,
                 resolved_variant.clone(),
             )
         }
 
-        // ExpectedRetrievalCost (probabilities + sectors + latency bound)
+        // ExpectedRetrievalCost (probabilities + sectors)
         "ExpectedRetrievalCost" => {
             let probabilities_str = args.probabilities.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
@@ -1662,22 +1909,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 "ExpectedRetrievalCost requires at least two sectors\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
             );
 
-            let latency_bound = args.latency_bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "ExpectedRetrievalCost requires --latency-bound\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
-                )
-            })?;
-            anyhow::ensure!(
-                latency_bound.is_finite() && latency_bound >= 0.0,
-                "ExpectedRetrievalCost requires a finite non-negative --latency-bound\n\n{EXPECTED_RETRIEVAL_COST_USAGE}"
-            );
-
             (
-                ser(ExpectedRetrievalCost::new(
-                    probabilities,
-                    num_sectors,
-                    latency_bound,
-                ))?,
+                ser(ExpectedRetrievalCost::new(probabilities, num_sectors))?,
                 resolved_variant.clone(),
             )
         }
@@ -1818,20 +2051,15 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        // LengthBoundedDisjointPaths (graph + source + sink + path count + bound)
+        // LengthBoundedDisjointPaths (graph + source + sink + bound)
         "LengthBoundedDisjointPaths" => {
-            let usage = "Usage: pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3";
+            let usage = "Usage: pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --bound 3";
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let source = args.source.ok_or_else(|| {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --source\n\n{usage}")
             })?;
             let sink = args.sink.ok_or_else(|| {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --sink\n\n{usage}")
-            })?;
-            let num_paths_required = args.num_paths_required.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "LengthBoundedDisjointPaths requires --num-paths-required\n\n{usage}"
-                )
             })?;
             let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --bound\n\n{usage}")
@@ -1840,18 +2068,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 graph.num_vertices(),
                 source,
                 sink,
-                num_paths_required,
                 bound,
                 Some(usage),
             )?;
 
             (
                 ser(LengthBoundedDisjointPaths::new(
-                    graph,
-                    source,
-                    sink,
-                    num_paths_required,
-                    max_length,
+                    graph, source, sink, max_length,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -1892,6 +2115,36 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let tree = SimpleGraph::new(tree_num_vertices, tree_edges);
             (
                 ser(problemreductions::models::graph::IsomorphicSpanningTree::new(graph, tree))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Bounded Diameter Spanning Tree (graph + edge weights + weight bound + diameter bound)
+        "BoundedDiameterSpanningTree" => {
+            reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
+            let usage = "Usage: pred create BoundedDiameterSpanningTree --graph 0-1,0-2,0-3,1-2,1-4,2-3,3-4 --edge-weights 1,2,1,1,2,1,1 --weight-bound 5 --diameter-bound 3";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            ensure_positive_i32_values(&edge_weights, "edge weights")?;
+            let weight_bound = args.weight_bound.ok_or_else(|| {
+                anyhow::anyhow!("BoundedDiameterSpanningTree requires --weight-bound\n\n{usage}")
+            })?;
+            ensure_positive_i32(weight_bound, "weight_bound")?;
+            let diameter_bound = args.diameter_bound.ok_or_else(|| {
+                anyhow::anyhow!("BoundedDiameterSpanningTree requires --diameter-bound\n\n{usage}")
+            })?;
+            if diameter_bound == 0 {
+                bail!("BoundedDiameterSpanningTree requires --diameter-bound >= 1\n\n{usage}");
+            }
+            (
+                ser(
+                    problemreductions::models::graph::BoundedDiameterSpanningTree::new(
+                        graph,
+                        edge_weights,
+                        weight_bound,
+                        diameter_bound,
+                    ),
+                )?,
                 resolved_variant.clone(),
             )
         }
@@ -1966,30 +2219,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                    "{e}\n\nUsage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2"
                 )
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
             let required_edges_str = args.required_edges.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "RuralPostman requires --required-edges\n\n\
-                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2"
                 )
             })?;
             let required_edges: Vec<usize> = util::parse_comma_list(required_edges_str)?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "RuralPostman requires --bound\n\n\
-                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
-                )
-            })? as i32;
             (
-                ser(RuralPostman::new(
-                    graph,
-                    edge_weights,
-                    required_edges,
-                    bound,
-                ))?,
+                ser(RuralPostman::new(graph, edge_weights, required_edges))?,
                 resolved_variant.clone(),
             )
         }
@@ -1997,26 +2239,22 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // LongestCircuit
         "LongestCircuit" => {
             reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
-            let usage = "pred create LongestCircuit --graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2 --bound 17";
+            let usage = "pred create LongestCircuit --graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2";
             let (graph, _) =
                 parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
             let edge_lengths = parse_edge_weights(args, graph.num_edges())?;
             if edge_lengths.iter().any(|&length| length <= 0) {
                 bail!("LongestCircuit --edge-weights must be positive (> 0)");
             }
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("LongestCircuit requires --bound\n\nUsage: {usage}")
-            })?;
-            let bound = validate_longest_circuit_bound(bound, Some(usage))?;
             (
-                ser(LongestCircuit::new(graph, edge_lengths, bound))?,
+                ser(LongestCircuit::new(graph, edge_lengths))?,
                 resolved_variant.clone(),
             )
         }
 
         // StackerCrane
         "StackerCrane" => {
-            let usage = "Usage: pred create StackerCrane --arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --bound 20 --num-vertices 6";
+            let usage = "Usage: pred create StackerCrane --arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --num-vertices 6";
             let arcs_str = args
                 .arcs
                 .as_deref()
@@ -2038,13 +2276,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 edges_graph.num_edges(),
                 "edge length",
             )?;
-            let bound_raw = args
-                .bound
-                .ok_or_else(|| anyhow::anyhow!("StackerCrane requires --bound\n\n{usage}"))?;
-            let bound = parse_nonnegative_usize_bound(bound_raw, "StackerCrane", usage)?;
-            let bound = i32::try_from(bound).map_err(|_| {
-                anyhow::anyhow!("StackerCrane --bound must fit in i32 (got {bound_raw})\n\n{usage}")
-            })?;
             (
                 ser(StackerCrane::try_new(
                     num_vertices,
@@ -2052,7 +2283,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     edges_graph.edges(),
                     arc_lengths,
                     edge_lengths,
-                    bound,
                 )
                 .map_err(|e| anyhow::anyhow!(e))?)?,
                 resolved_variant.clone(),
@@ -2094,6 +2324,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (ser(KClique::new(graph, k))?, resolved_variant.clone())
         }
 
+        "VertexCover" => {
+            let usage = "Usage: pred create VertexCover --graph 0-1,1-2,0-2,2-3 --k 2";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let k = args
+                .k
+                .ok_or_else(|| anyhow::anyhow!("VertexCover requires --k\n\n{usage}"))?;
+            if k == 0 {
+                bail!("VertexCover: --k must be positive");
+            }
+            if k > graph.num_vertices() {
+                bail!("VertexCover: k must be <= graph num_vertices");
+            }
+            (ser(VertexCover::new(graph, k))?, resolved_variant.clone())
+        }
+
         // SAT
         "Satisfiability" => {
             let num_vars = args.num_vars.ok_or_else(|| {
@@ -2121,19 +2366,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 resolved_variant.clone(),
             )
         }
-        "NonTautology" => {
-            let num_vars = args.num_vars.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "NonTautology requires --num-vars\n\n\
-                     Usage: pred create NonTautology --num-vars 2 --disjuncts \"1,2;-1,-2\""
-                )
-            })?;
-            let disjuncts = parse_disjuncts(args)?;
-            (
-                ser(NonTautology::new(num_vars, disjuncts))?,
-                resolved_variant.clone(),
-            )
-        }
         "KSatisfiability" => {
             let num_vars = args.num_vars.ok_or_else(|| {
                 anyhow::anyhow!(
@@ -2145,6 +2377,63 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let (k, _variant) =
                 util::validate_k_param(&resolved_variant, args.k, Some(3), "KSatisfiability")?;
             util::ser_ksat(num_vars, clauses, k)?
+        }
+
+        "Maximum2Satisfiability" => {
+            let num_vars = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Maximum2Satisfiability requires --num-vars\n\n\
+                     Usage: pred create MAX2SAT --num-vars 4 --clauses \"1,2;1,-2;-1,3;-1,-3\""
+                )
+            })?;
+            let clauses = parse_clauses(args)?;
+            (
+                ser(Maximum2Satisfiability::new(num_vars, clauses))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        "NonTautology" => {
+            let num_vars = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "NonTautology requires --num-vars\n\n\
+                     Usage: pred create NonTautology --num-vars 3 --clauses \"1,2,3;-1,-2,-3\""
+                )
+            })?;
+            let clauses = parse_clauses(args)?;
+            let disjuncts: Vec<Vec<i32>> = clauses.into_iter().map(|c| c.literals).collect();
+            (
+                ser(NonTautology::new(num_vars, disjuncts))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        "OneInThreeSatisfiability" => {
+            let num_vars = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "OneInThreeSatisfiability requires --num-vars\n\n\
+                     Usage: pred create OneInThreeSatisfiability --num-vars 4 --clauses \"1,2,3;-1,3,4;2,-3,-4\""
+                )
+            })?;
+            let clauses = parse_clauses(args)?;
+            (
+                ser(OneInThreeSatisfiability::new(num_vars, clauses))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        "Planar3Satisfiability" => {
+            let num_vars = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Planar3Satisfiability requires --num-vars\n\n\
+                     Usage: pred create Planar3Satisfiability --num-vars 4 --clauses \"1,2,3;-1,2,4;1,-3,4;-2,3,-4\""
+                )
+            })?;
+            let clauses = parse_clauses(args)?;
+            (
+                ser(Planar3Satisfiability::new(num_vars, clauses))?,
+                resolved_variant.clone(),
+            )
         }
 
         // QBF
@@ -2219,125 +2508,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "QUBO" => {
             let matrix = parse_matrix(args)?;
             (ser(QUBO::from_matrix(matrix))?, resolved_variant.clone())
-        }
-
-        // SimultaneousIncongruences
-        "SimultaneousIncongruences" => {
-            let usage = "Usage: pred create SimultaneousIncongruences --moduli 2,3,5,7 --residues 0,1,2,3 --bound 210";
-            let moduli_str = args.moduli.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SimultaneousIncongruences requires --moduli, --residues, and --bound\n\n{usage}"
-                )
-            })?;
-            let residues_str = args.residues.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("SimultaneousIncongruences requires --residues\n\n{usage}")
-            })?;
-            let bound_raw = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("SimultaneousIncongruences requires --bound\n\n{usage}")
-            })?;
-            let moduli: Vec<u64> = util::parse_comma_list(moduli_str)?;
-            let residues: Vec<u64> = util::parse_comma_list(residues_str)?;
-            anyhow::ensure!(
-                moduli.len() == residues.len(),
-                "SimultaneousIncongruences requires the same number of moduli and residues\n\n{usage}"
-            );
-            for (index, (&modulus, &residue)) in moduli.iter().zip(&residues).enumerate() {
-                anyhow::ensure!(
-                    modulus > 0,
-                    "SimultaneousIncongruences modulus at index {index} must be positive\n\n{usage}"
-                );
-                anyhow::ensure!(
-                    residue < modulus,
-                    "SimultaneousIncongruences residue at index {index} must satisfy residue < modulus\n\n{usage}"
-                );
-            }
-            let bound = parse_nonnegative_u64_bound(bound_raw, "SimultaneousIncongruences", usage)?;
-            (
-                ser(SimultaneousIncongruences::new(moduli, residues, bound))?,
-                resolved_variant.clone(),
-            )
-        }
-
-        // AlgebraicEquationsOverGF2
-        "AlgebraicEquationsOverGF2" => {
-            let usage = "Usage: pred create AlgebraicEquationsOverGF2 --num-vars 3 --equations '[[[0,1],[2],[]],[[1],[]]]'";
-            let num_vars = args.num_vars.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "AlgebraicEquationsOverGF2 requires --num-vars and --equations\n\n{usage}"
-                )
-            })?;
-            let equations_str = args.equations.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("AlgebraicEquationsOverGF2 requires --equations\n\n{usage}")
-            })?;
-            let equations: Vec<Vec<Vec<usize>>> =
-                serde_json::from_str(equations_str).map_err(|err| {
-                    anyhow::anyhow!(
-                        "AlgebraicEquationsOverGF2 requires --equations as a JSON 3D array of variable indices (e.g., '[[[0,1],[2],[]],[[1],[]]]')\n\n{usage}\n\nFailed to parse --equations: {err}"
-                    )
-                })?;
-            (
-                ser(AlgebraicEquationsOverGF2::new(num_vars, equations))?,
-                resolved_variant.clone(),
-            )
-        }
-
-        // IntegerExpressionMembership
-        "IntegerExpressionMembership" => {
-            let choices_str = args.choices.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "IntegerExpressionMembership requires --choices and --target\n\n\
-                     Usage: pred create IntegerExpressionMembership --choices \"1,2;1,6;1,7;1,9\" --target 15"
-                )
-            })?;
-            let target = args.target.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "IntegerExpressionMembership requires --target\n\n\
-                     Usage: pred create IntegerExpressionMembership --choices \"1,2;1,6;1,7;1,9\" --target 15"
-                )
-            })?;
-            let choices = parse_u64_matrix_rows(choices_str, "choices")?;
-            let target = target
-                .trim()
-                .parse::<u64>()
-                .map_err(|e| anyhow::anyhow!("Invalid target '{}': {e}", target.trim()))?;
-            (
-                ser(IntegerExpressionMembership::new(choices, target))?,
-                resolved_variant.clone(),
-            )
-        }
-
-        // MinimumWeightSolutionToLinearEquations
-        "MinimumWeightSolutionToLinearEquations" => {
-            let usage = "Usage: pred create MinimumWeightSolutionToLinearEquations --matrix \"1,0,1;0,1,1\" --rhs \"1,1\" --bound 1";
-            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "MinimumWeightSolutionToLinearEquations requires --matrix, --rhs, and --bound\n\n{usage}"
-                )
-            })?;
-            let rhs_str = args.rhs.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("MinimumWeightSolutionToLinearEquations requires --rhs\n\n{usage}")
-            })?;
-            let bound_raw = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "MinimumWeightSolutionToLinearEquations requires --bound\n\n{usage}"
-                )
-            })?;
-            let coefficients =
-                parse_i64_matrix(matrix_str).context("Invalid coefficient matrix")?;
-            let rhs: Vec<i64> = util::parse_comma_list(rhs_str)?;
-            let bound = parse_nonnegative_usize_bound(
-                bound_raw,
-                "MinimumWeightSolutionToLinearEquations",
-                usage,
-            )?;
-            (
-                ser(MinimumWeightSolutionToLinearEquations::new(
-                    coefficients,
-                    rhs,
-                    bound,
-                ))?,
-                resolved_variant.clone(),
-            )
         }
 
         // SpinGlass
@@ -2476,89 +2646,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             }
         }
 
-        "ProductionPlanning" => {
-            let usage = "Usage: pred create ProductionPlanning --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --bound 80";
-            let demands_str = args.demands.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("ProductionPlanning requires --demands\n\n{usage}")
-            })?;
-            let capacities_str = args.capacities.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("ProductionPlanning requires --capacities\n\n{usage}")
-            })?;
-            let setup_costs_str = args.setup_costs.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("ProductionPlanning requires --setup-costs\n\n{usage}")
-            })?;
-            let production_costs_str = args.production_costs.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("ProductionPlanning requires --production-costs\n\n{usage}")
-            })?;
-            let inventory_costs_str = args.inventory_costs.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("ProductionPlanning requires --inventory-costs\n\n{usage}")
-            })?;
-            let bound = args
-                .bound
-                .ok_or_else(|| anyhow::anyhow!("ProductionPlanning requires --bound\n\n{usage}"))?;
-            let bound = u64::try_from(bound).map_err(|_| {
-                anyhow::anyhow!("ProductionPlanning requires nonnegative --bound\n\n{usage}")
-            })?;
-
-            let demands: Vec<u64> = util::parse_comma_list(demands_str)
-                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let capacities: Vec<u64> = util::parse_comma_list(capacities_str)
-                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let setup_costs: Vec<u64> = util::parse_comma_list(setup_costs_str)
-                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let production_costs: Vec<u64> = util::parse_comma_list(production_costs_str)
-                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let inventory_costs: Vec<u64> = util::parse_comma_list(inventory_costs_str)
-                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-
-            let num_periods = demands.len();
-            if num_periods == 0 {
-                bail!("ProductionPlanning requires at least one period\n\n{usage}");
-            }
-            for (field_name, len) in [
-                ("capacities", capacities.len()),
-                ("setup-costs", setup_costs.len()),
-                ("production-costs", production_costs.len()),
-                ("inventory-costs", inventory_costs.len()),
-            ] {
-                if len != num_periods {
-                    bail!(
-                        "ProductionPlanning requires {} values for --{} but got {}\n\n{}",
-                        num_periods,
-                        field_name,
-                        len,
-                        usage
-                    );
-                }
-            }
-            for (period, &capacity) in capacities.iter().enumerate() {
-                let fits = usize::try_from(capacity)
-                    .ok()
-                    .and_then(|value| value.checked_add(1))
-                    .is_some();
-                if !fits {
-                    bail!(
-                        "capacity {} at period {} is too large for this platform\n\n{}",
-                        capacity,
-                        period,
-                        usage
-                    );
-                }
-            }
-
-            (
-                ser(ProductionPlanning::new(
-                    demands,
-                    capacities,
-                    setup_costs,
-                    production_costs,
-                    inventory_costs,
-                    bound,
-                ))?,
-                resolved_variant.clone(),
-            )
-        }
-
         // AdditionalKey
         "AdditionalKey" => {
             let usage = "Usage: pred create AdditionalKey --num-attributes 6 --dependencies \"0,1:2,3;2,3:4,5\" --relation-attrs \"0,1,2,3,4,5\" --known-keys \"0,1;2,3\"";
@@ -2650,27 +2737,37 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        // SubsetProduct
-        "SubsetProduct" => {
+        // IntegerKnapsack
+        "IntegerKnapsack" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "IntegerKnapsack requires --sizes, --values, and --capacity\n\n\
+                     Usage: pred create IntegerKnapsack --sizes 3,4,5,2,7 --values 4,5,7,3,9 --capacity 15"
+                )
+            })?;
             let values_str = args.values.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SubsetProduct requires --values and --target\n\n\
-                     Usage: pred create SubsetProduct --values 2,3,5,7 --target 30"
-                )
+                anyhow::anyhow!("IntegerKnapsack requires --values (e.g., 4,5,7,3,9)")
             })?;
-            let target = args.target.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SubsetProduct requires --target\n\n\
-                     Usage: pred create SubsetProduct --values 2,3,5,7 --target 30"
-                )
-            })?;
-            let values = util::parse_comma_list::<u64>(values_str)?;
-            let target = target
-                .trim()
-                .parse::<u64>()
-                .map_err(|e| anyhow::anyhow!("Invalid target '{}': {e}", target.trim()))?;
+            let cap_str = args
+                .capacity
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("IntegerKnapsack requires --capacity (e.g., 15)"))?;
+            let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
+            let values: Vec<i64> = util::parse_comma_list(values_str)?;
+            let capacity: i64 = cap_str.parse()?;
+            anyhow::ensure!(
+                sizes.len() == values.len(),
+                "sizes and values must have the same length, got {} and {}",
+                sizes.len(),
+                values.len()
+            );
+            anyhow::ensure!(sizes.iter().all(|&s| s > 0), "all sizes must be positive");
+            anyhow::ensure!(values.iter().all(|&v| v > 0), "all values must be positive");
+            anyhow::ensure!(capacity >= 0, "capacity must be nonnegative");
             (
-                ser(SubsetProduct::new(values, target))?,
+                ser(problemreductions::models::set::IntegerKnapsack::new(
+                    sizes, values, capacity,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -2697,29 +2794,510 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // SubsetProduct
+        "SubsetProduct" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubsetProduct requires --sizes and --target\n\n\
+                     Usage: pred create SubsetProduct --sizes 2,3,5,7,6,10 --target 210"
+                )
+            })?;
+            let target = args.target.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubsetProduct requires --target\n\n\
+                     Usage: pred create SubsetProduct --sizes 2,3,5,7,6,10 --target 210"
+                )
+            })?;
+            let sizes = util::parse_biguint_list(sizes_str)?;
+            let target = util::parse_decimal_biguint(target)?;
+            (
+                ser(SubsetProduct::new(sizes, target))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumAxiomSet
+        "MinimumAxiomSet" => {
+            let usage = "Usage: pred create MinimumAxiomSet --n 8 --true-sentences 0,1,2,3,4,5,6,7 --implications \"0>2;0>3;1>4;1>5;2,4>6;3,5>7;6,7>0;6,7>1\"";
+            let num_sentences = args.n.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumAxiomSet requires --n, --true-sentences, and --implications\n\n{usage}"
+                )
+            })?;
+            let ts_str = args.true_sentences.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumAxiomSet requires --true-sentences\n\n{usage}")
+            })?;
+            let imp_str = args.implications.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumAxiomSet requires --implications\n\n{usage}")
+            })?;
+            let true_sentences: Vec<usize> = ts_str
+                .split(',')
+                .map(|s| s.trim().parse::<usize>())
+                .collect::<Result<_, _>>()
+                .context("--true-sentences must be comma-separated usize values")?;
+            let implications = parse_implications(imp_str).context(
+                "--implications must be semicolon-separated \"antecedents>consequent\" pairs",
+            )?;
+            (
+                ser(MinimumAxiomSet::new(
+                    num_sentences,
+                    true_sentences,
+                    implications,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // IntegerExpressionMembership
+        "IntegerExpressionMembership" => {
+            let usage = "Usage: pred create IntegerExpressionMembership --expression '{\"Sum\":[{\"Atom\":1},{\"Atom\":2}]}' --target 3";
+            let expr_str = args.expression.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "IntegerExpressionMembership requires --expression and --target\n\n{usage}"
+                )
+            })?;
+            let target = args.target.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("IntegerExpressionMembership requires --target\n\n{usage}")
+            })?;
+            let target: u64 = target
+                .parse()
+                .context("IntegerExpressionMembership --target must be a positive integer")?;
+            if target == 0 {
+                anyhow::bail!("IntegerExpressionMembership --target must be > 0");
+            }
+            let expr: IntExpr = serde_json::from_str(expr_str)
+                .context("IntegerExpressionMembership --expression must be valid JSON representing an IntExpr tree")?;
+            if !expr.all_atoms_positive() {
+                anyhow::bail!("IntegerExpressionMembership --expression must contain only positive integers (all Atom values > 0)");
+            }
+            (
+                ser(IntegerExpressionMembership::new(expr, target))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Numerical3DimensionalMatching
+        "Numerical3DimensionalMatching" => {
+            let w_sizes_str = args.w_sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Numerical3DimensionalMatching requires --w-sizes, --x-sizes, --y-sizes, and --bound\n\n\
+                     Usage: pred create Numerical3DimensionalMatching --w-sizes 4,5 --x-sizes 4,5 --y-sizes 5,7 --bound 15"
+                )
+            })?;
+            let x_sizes_str = args.x_sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Numerical3DimensionalMatching requires --x-sizes\n\n\
+                     Usage: pred create Numerical3DimensionalMatching --w-sizes 4,5 --x-sizes 4,5 --y-sizes 5,7 --bound 15"
+                )
+            })?;
+            let y_sizes_str = args.y_sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Numerical3DimensionalMatching requires --y-sizes\n\n\
+                     Usage: pred create Numerical3DimensionalMatching --w-sizes 4,5 --x-sizes 4,5 --y-sizes 5,7 --bound 15"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Numerical3DimensionalMatching requires --bound\n\n\
+                     Usage: pred create Numerical3DimensionalMatching --w-sizes 4,5 --x-sizes 4,5 --y-sizes 5,7 --bound 15"
+                )
+            })?;
+            let bound = u64::try_from(bound).map_err(|_| {
+                anyhow::anyhow!(
+                    "Numerical3DimensionalMatching requires a positive integer --bound\n\n\
+                     Usage: pred create Numerical3DimensionalMatching --w-sizes 4,5 --x-sizes 4,5 --y-sizes 5,7 --bound 15"
+                )
+            })?;
+            let sizes_w: Vec<u64> = util::parse_comma_list(w_sizes_str)?;
+            let sizes_x: Vec<u64> = util::parse_comma_list(x_sizes_str)?;
+            let sizes_y: Vec<u64> = util::parse_comma_list(y_sizes_str)?;
+            (
+                ser(
+                    Numerical3DimensionalMatching::try_new(sizes_w, sizes_x, sizes_y, bound)
+                        .map_err(anyhow::Error::msg)?,
+                )?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // NonLivenessFreePetriNet
+        "NonLivenessFreePetriNet" => {
+            let usage = "Usage: pred create NonLivenessFreePetriNet --n 4 --m 3 --arcs \"0>0,1>1,2>2\" --output-arcs \"0>1,1>2,2>3\" --initial-marking 1,0,0,0";
+            let num_places = args.n.ok_or_else(|| {
+                anyhow::anyhow!("NonLivenessFreePetriNet requires --n (num_places)\n\n{usage}")
+            })?;
+            let num_transitions = args.m.ok_or_else(|| {
+                anyhow::anyhow!("NonLivenessFreePetriNet requires --m (num_transitions)\n\n{usage}")
+            })?;
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "NonLivenessFreePetriNet requires --arcs (place>transition arcs)\n\n{usage}"
+                )
+            })?;
+            let output_arcs_str = args.output_arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "NonLivenessFreePetriNet requires --output-arcs (transition>place arcs)\n\n{usage}"
+                )
+            })?;
+            let marking_str = args.initial_marking.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("NonLivenessFreePetriNet requires --initial-marking\n\n{usage}")
+            })?;
+
+            let place_to_transition: Vec<(usize, usize)> = arcs_str
+                .split(',')
+                .filter(|s| !s.trim().is_empty())
+                .map(|s| {
+                    let parts: Vec<&str> = s.trim().split('>').collect();
+                    if parts.len() != 2 {
+                        bail!("Invalid arc '{s}', expected 'place>transition'");
+                    }
+                    let p: usize = parts[0]
+                        .parse()
+                        .with_context(|| format!("Invalid place index in arc '{s}'"))?;
+                    let t: usize = parts[1]
+                        .parse()
+                        .with_context(|| format!("Invalid transition index in arc '{s}'"))?;
+                    Ok((p, t))
+                })
+                .collect::<Result<_>>()?;
+
+            let transition_to_place: Vec<(usize, usize)> = output_arcs_str
+                .split(',')
+                .filter(|s| !s.trim().is_empty())
+                .map(|s| {
+                    let parts: Vec<&str> = s.trim().split('>').collect();
+                    if parts.len() != 2 {
+                        bail!("Invalid output arc '{s}', expected 'transition>place'");
+                    }
+                    let t: usize = parts[0]
+                        .parse()
+                        .with_context(|| format!("Invalid transition index in output arc '{s}'"))?;
+                    let p: usize = parts[1]
+                        .parse()
+                        .with_context(|| format!("Invalid place index in output arc '{s}'"))?;
+                    Ok((t, p))
+                })
+                .collect::<Result<_>>()?;
+
+            let initial_marking: Vec<usize> = marking_str
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .with_context(|| format!("Invalid marking value: {s}"))
+                })
+                .collect::<Result<_>>()?;
+
+            (
+                ser(NonLivenessFreePetriNet::try_new(
+                    num_places,
+                    num_transitions,
+                    place_to_transition,
+                    transition_to_place,
+                    initial_marking,
+                )
+                .map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Betweenness
+        "Betweenness" => {
+            let n = args.n.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Betweenness requires --n and --sets\n\n\
+                     Usage: pred create Betweenness --n 5 --sets \"0,1,2;2,3,4;0,2,4;1,3,4\""
+                )
+            })?;
+            let sets = parse_sets(args)?;
+            for (i, set) in sets.iter().enumerate() {
+                if set.len() != 3 {
+                    bail!(
+                        "Triple {} has {} elements, expected 3 (a,b,c)",
+                        i,
+                        set.len()
+                    );
+                }
+            }
+            let triples: Vec<(usize, usize, usize)> =
+                sets.iter().map(|s| (s[0], s[1], s[2])).collect();
+            (
+                ser(Betweenness::try_new(n, triples).map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // CyclicOrdering
+        "CyclicOrdering" => {
+            let n = args.n.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "CyclicOrdering requires --n and --sets\n\n\
+                     Usage: pred create CyclicOrdering --n 5 --sets \"0,1,2;2,3,0;1,3,4\""
+                )
+            })?;
+            let sets = parse_sets(args)?;
+            for (i, set) in sets.iter().enumerate() {
+                if set.len() != 3 {
+                    bail!(
+                        "Triple {} has {} elements, expected 3 (a,b,c)",
+                        i,
+                        set.len()
+                    );
+                }
+            }
+            let triples: Vec<(usize, usize, usize)> =
+                sets.iter().map(|s| (s[0], s[1], s[2])).collect();
+            (
+                ser(CyclicOrdering::try_new(n, triples).map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ThreePartition
+        "ThreePartition" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ThreePartition requires --sizes and --bound\n\n\
+                     Usage: pred create ThreePartition --sizes 4,5,6,4,6,5 --bound 15"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ThreePartition requires --bound\n\n\
+                     Usage: pred create ThreePartition --sizes 4,5,6,4,6,5 --bound 15"
+                )
+            })?;
+            let bound = u64::try_from(bound).map_err(|_| {
+                anyhow::anyhow!(
+                    "ThreePartition requires a positive integer --bound\n\n\
+                     Usage: pred create ThreePartition --sizes 4,5,6,4,6,5 --bound 15"
+                )
+            })?;
+            let sizes: Vec<u64> = util::parse_comma_list(sizes_str)?;
+            (
+                ser(ThreePartition::try_new(sizes, bound).map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // DynamicStorageAllocation
+        "DynamicStorageAllocation" => {
+            let usage = "Usage: pred create DynamicStorageAllocation --release-times 0,0,1,2,3 --deadlines 3,2,4,5,5 --sizes 2,3,1,3,2 --capacity 6";
+            let rt_str = args.release_times.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("DynamicStorageAllocation requires --release-times\n\n{usage}")
+            })?;
+            let dl_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("DynamicStorageAllocation requires --deadlines\n\n{usage}")
+            })?;
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("DynamicStorageAllocation requires --sizes\n\n{usage}")
+            })?;
+            let cap_str = args.capacity.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("DynamicStorageAllocation requires --capacity\n\n{usage}")
+            })?;
+            let release_times: Vec<usize> = util::parse_comma_list(rt_str)?;
+            let deadlines: Vec<usize> = util::parse_comma_list(dl_str)?;
+            let sizes: Vec<usize> = util::parse_comma_list(sizes_str)?;
+            let memory_size: usize = cap_str.parse()?;
+            if release_times.len() != deadlines.len() || release_times.len() != sizes.len() {
+                bail!("--release-times, --deadlines, and --sizes must have the same length\n\n{usage}");
+            }
+            let items: Vec<(usize, usize, usize)> = release_times
+                .into_iter()
+                .zip(deadlines)
+                .zip(sizes)
+                .map(|((r, d), s)| (r, d, s))
+                .collect();
+            (
+                ser(DynamicStorageAllocation::try_new(items, memory_size)
+                    .map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // KthLargestMTuple
+        "KthLargestMTuple" => {
+            let sets_str = args.sets.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "KthLargestMTuple requires --sets, --k, and --bound\n\n\
+                     Usage: pred create KthLargestMTuple --sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12"
+                )
+            })?;
+            let k_val = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "KthLargestMTuple requires --k\n\n\
+                     Usage: pred create KthLargestMTuple --sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "KthLargestMTuple requires --bound\n\n\
+                     Usage: pred create KthLargestMTuple --sets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12"
+                )
+            })?;
+            let bound = u64::try_from(bound).map_err(|_| {
+                anyhow::anyhow!("KthLargestMTuple requires a positive integer --bound")
+            })?;
+            let sets: Vec<Vec<u64>> = sets_str
+                .split(';')
+                .map(util::parse_comma_list)
+                .collect::<Result<_, _>>()?;
+            (
+                ser(KthLargestMTuple::try_new(sets, k_val as u64, bound)
+                    .map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // AlgebraicEquationsOverGF2
+        "AlgebraicEquationsOverGF2" => {
+            let n = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "AlgebraicEquationsOverGF2 requires --num-vars and --equations\n\n\
+                     Usage: pred create AlgebraicEquationsOverGF2 --num-vars 3 --equations \"0,1:2;1,2:0:;0:1:2:\"\n\n\
+                     Format: semicolons separate equations, colons separate monomials within an equation,\n\
+                     commas separate variable indices within a monomial, empty monomial = constant 1"
+                )
+            })?;
+            let eq_str = args.equations.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "AlgebraicEquationsOverGF2 requires --equations\n\n\
+                     Usage: pred create AlgebraicEquationsOverGF2 --num-vars 3 --equations \"0,1:2;1,2:0:;0:1:2:\""
+                )
+            })?;
+            // Parse equations: "0,1:2;1,2:0:;0:1:2:"
+            // ';' separates equations, ':' separates monomials, ',' separates variables
+            let equations: Vec<Vec<Vec<usize>>> = eq_str
+                .split(';')
+                .map(|eq_s| {
+                    eq_s.split(':')
+                        .map(|mono_s| {
+                            let mono_s = mono_s.trim();
+                            if mono_s.is_empty() {
+                                Ok(vec![]) // constant 1
+                            } else {
+                                mono_s
+                                    .split(',')
+                                    .map(|v| {
+                                        v.trim().parse::<usize>().map_err(|e| {
+                                            anyhow::anyhow!("Invalid variable index '{v}': {e}")
+                                        })
+                                    })
+                                    .collect::<Result<Vec<usize>>>()
+                            }
+                        })
+                        .collect::<Result<Vec<Vec<usize>>>>()
+                })
+                .collect::<Result<Vec<Vec<Vec<usize>>>>>()?;
+            (
+                ser(AlgebraicEquationsOverGF2::new(n, equations).map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // QuadraticCongruences
+        "QuadraticCongruences" => {
+            let a = args.coeff_a.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticCongruences requires --coeff-a, --coeff-b, and --coeff-c\n\n\
+                     Usage: pred create QuadraticCongruences --coeff-a 4 --coeff-b 15 --coeff-c 10"
+                )
+            })?;
+            let b = args.coeff_b.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticCongruences requires --coeff-b\n\n\
+                     Usage: pred create QuadraticCongruences --coeff-a 4 --coeff-b 15 --coeff-c 10"
+                )
+            })?;
+            let c = args.coeff_c.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticCongruences requires --coeff-c\n\n\
+                     Usage: pred create QuadraticCongruences --coeff-a 4 --coeff-b 15 --coeff-c 10"
+                )
+            })?;
+            (
+                ser(QuadraticCongruences::try_new(a, b, c).map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // QuadraticDiophantineEquations
+        "QuadraticDiophantineEquations" => {
+            let a = args.coeff_a.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticDiophantineEquations requires --coeff-a, --coeff-b, and --coeff-c\n\n\
+                     Usage: pred create QuadraticDiophantineEquations --coeff-a 3 --coeff-b 5 --coeff-c 53"
+                )
+            })?;
+            let b = args.coeff_b.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticDiophantineEquations requires --coeff-b\n\n\
+                     Usage: pred create QuadraticDiophantineEquations --coeff-a 3 --coeff-b 5 --coeff-c 53"
+                )
+            })?;
+            let c = args.coeff_c.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticDiophantineEquations requires --coeff-c\n\n\
+                     Usage: pred create QuadraticDiophantineEquations --coeff-a 3 --coeff-b 5 --coeff-c 53"
+                )
+            })?;
+            (
+                ser(QuadraticDiophantineEquations::try_new(a, b, c).map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SimultaneousIncongruences
+        "SimultaneousIncongruences" => {
+            let pairs_str = args.pairs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SimultaneousIncongruences requires --pairs\n\n\
+                     Usage: pred create SimultaneousIncongruences --pairs \"2,2;1,3;2,5;3,7\""
+                )
+            })?;
+            let pairs: Vec<(u64, u64)> = pairs_str
+                .split(';')
+                .map(|s| {
+                    let parts: Vec<&str> = s.split(',').collect();
+                    if parts.len() != 2 {
+                        return Err(anyhow::anyhow!(
+                            "Each pair must be in \"a,b\" format, got: {s}"
+                        ));
+                    }
+                    let a: u64 = parts[0]
+                        .trim()
+                        .parse()
+                        .with_context(|| format!("Invalid integer in pair: {s}"))?;
+                    let b: u64 = parts[1]
+                        .trim()
+                        .parse()
+                        .with_context(|| format!("Invalid integer in pair: {s}"))?;
+                    Ok((a, b))
+                })
+                .collect::<Result<_>>()?;
+            (
+                ser(SimultaneousIncongruences::new(pairs).map_err(anyhow::Error::msg)?)?,
+                resolved_variant.clone(),
+            )
+        }
+
         // SumOfSquaresPartition
         "SumOfSquaresPartition" => {
             let sizes_str = args.sizes.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "SumOfSquaresPartition requires --sizes, --num-groups, and --bound\n\n\
-                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3 --bound 240"
+                    "SumOfSquaresPartition requires --sizes and --num-groups\n\n\
+                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3"
                 )
             })?;
             let num_groups = args.num_groups.ok_or_else(|| {
                 anyhow::anyhow!(
                     "SumOfSquaresPartition requires --num-groups\n\n\
-                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3 --bound 240"
-                )
-            })?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SumOfSquaresPartition requires --bound\n\n\
-                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3 --bound 240"
+                     Usage: pred create SumOfSquaresPartition --sizes 5,3,8,2,7,1 --num-groups 3"
                 )
             })?;
             let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
             (
-                ser(SumOfSquaresPartition::try_new(sizes, num_groups, bound)
+                ser(SumOfSquaresPartition::try_new(sizes, num_groups)
                     .map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
@@ -2744,6 +3322,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let weights = parse_set_weights(args, num_sets)?;
             (
                 ser(MaximumSetPacking::with_weights(sets, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SetSplitting
+        "SetSplitting" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SetSplitting requires --universe and --sets\n\n\
+                     Usage: pred create SetSplitting --universe 6 --sets \"0,1,2;2,3,4;0,4,5;1,3,5\""
+                )
+            })?;
+            let subsets = parse_sets(args)?;
+            (
+                ser(SetSplitting::try_new(universe, subsets).map_err(anyhow::Error::msg)?)?,
                 resolved_variant.clone(),
             )
         }
@@ -2792,56 +3385,26 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        // SetSplitting
-        "SetSplitting" => {
-            let universe = args.universe.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SetSplitting requires --universe and --sets\n\n\
-                     Usage: pred create SetSplitting --universe 6 --sets \"0,1,2;2,3,4;0,4,5;1,3,5\""
-                )
-            })?;
-            let sets = parse_sets(args)?;
-            for (i, set) in sets.iter().enumerate() {
-                for &element in set {
-                    if element >= universe {
-                        bail!(
-                            "Subset {} contains element {} which is outside universe of size {}",
-                            i,
-                            element,
-                            universe
-                        );
-                    }
-                }
-            }
-            (
-                ser(SetSplitting::new(universe, sets))?,
-                resolved_variant.clone(),
-            )
-        }
-
         // EnsembleComputation
         "EnsembleComputation" => {
             let usage =
-                "Usage: pred create EnsembleComputation --universe 4 --sets \"0,1,2;0,1,3\" --budget 4";
+                "Usage: pred create EnsembleComputation --universe 4 --sets \"0,1,2;0,1,3\" [--budget 4]";
             let universe_size = args.universe.ok_or_else(|| {
                 anyhow::anyhow!("EnsembleComputation requires --universe\n\n{usage}")
             })?;
             let subsets = parse_sets(args)?;
-            let budget = args
-                .budget
-                .as_deref()
-                .ok_or_else(|| anyhow::anyhow!("EnsembleComputation requires --budget\n\n{usage}"))?
-                .parse::<usize>()
-                .map_err(|e| {
+            let instance = if let Some(budget_str) = args.budget.as_deref() {
+                let budget = budget_str.parse::<usize>().map_err(|e| {
                     anyhow::anyhow!(
                         "Invalid --budget value for EnsembleComputation: {e}\n\n{usage}"
                     )
                 })?;
-            (
-                ser(EnsembleComputation::try_new(universe_size, subsets, budget)
-                    .map_err(anyhow::Error::msg)?)?,
-                resolved_variant.clone(),
-            )
+                EnsembleComputation::try_new(universe_size, subsets, budget)
+                    .map_err(anyhow::Error::msg)?
+            } else {
+                EnsembleComputation::with_default_budget(universe_size, subsets)
+            };
+            (ser(instance)?, resolved_variant.clone())
         }
 
         // ComparativeContainment
@@ -2962,6 +3525,108 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // ThreeDimensionalMatching
+        "ThreeDimensionalMatching" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ThreeDimensionalMatching requires --universe and --sets\n\n\
+                     Usage: pred create 3DM --universe 3 --sets \"0,1,2;1,0,1;2,2,0\""
+                )
+            })?;
+            let sets = parse_sets(args)?;
+            // Validate each set has exactly 3 elements representing (w, x, y) coordinates
+            for (i, set) in sets.iter().enumerate() {
+                if set.len() != 3 {
+                    bail!(
+                        "Triple {} has {} elements, expected 3 (w,x,y)",
+                        i,
+                        set.len()
+                    );
+                }
+                for (coord_idx, &elem) in set.iter().enumerate() {
+                    let coord_name = ["w", "x", "y"][coord_idx];
+                    if elem >= universe {
+                        bail!(
+                            "Triple {} has {}-coordinate {} which is outside 0..{}",
+                            i,
+                            coord_name,
+                            elem,
+                            universe
+                        );
+                    }
+                }
+            }
+            let triples: Vec<(usize, usize, usize)> =
+                sets.into_iter().map(|s| (s[0], s[1], s[2])).collect();
+            (
+                ser(
+                    problemreductions::models::set::ThreeDimensionalMatching::new(
+                        universe, triples,
+                    ),
+                )?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ThreeMatroidIntersection
+        "ThreeMatroidIntersection" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ThreeMatroidIntersection requires --universe, --partitions, and --bound\n\n\
+                     Usage: pred create ThreeMatroidIntersection --universe 6 --partitions \"0,1,2;3,4,5|0,3;1,4;2,5|0,4;1,5;2,3\" --bound 2"
+                )
+            })?;
+            let bound_val = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ThreeMatroidIntersection requires --bound\n\n\
+                     Usage: pred create ThreeMatroidIntersection --universe 6 --partitions \"0,1,2;3,4,5|0,3;1,4;2,5|0,4;1,5;2,3\" --bound 2"
+                )
+            })?;
+            let bound = usize::try_from(bound_val)
+                .map_err(|_| anyhow::anyhow!("--bound must be non-negative, got {}", bound_val))?;
+            let partitions_str = args.partitions.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ThreeMatroidIntersection requires --partitions\n\n\
+                     Usage: pred create ThreeMatroidIntersection --universe 6 --partitions \"0,1,2;3,4,5|0,3;1,4;2,5|0,4;1,5;2,3\" --bound 2"
+                )
+            })?;
+            let matroids: Vec<Vec<Vec<usize>>> = partitions_str
+                .split('|')
+                .map(|matroid_str| {
+                    matroid_str
+                        .split(';')
+                        .map(|group_str| {
+                            group_str
+                                .split(',')
+                                .map(|s| {
+                                    s.trim().parse::<usize>().map_err(|_| {
+                                        anyhow::anyhow!(
+                                            "Invalid element in partitions: '{}'",
+                                            s.trim()
+                                        )
+                                    })
+                                })
+                                .collect::<Result<Vec<_>>>()
+                        })
+                        .collect::<Result<Vec<_>>>()
+                })
+                .collect::<Result<Vec<_>>>()?;
+            if matroids.len() != 3 {
+                bail!(
+                    "Expected exactly 3 partition matroids separated by '|', got {}",
+                    matroids.len()
+                );
+            }
+            (
+                ser(
+                    problemreductions::models::set::ThreeMatroidIntersection::new(
+                        universe, matroids, bound,
+                    ),
+                )?,
+                resolved_variant.clone(),
+            )
+        }
+
         // SetBasis
         "SetBasis" => {
             let universe = args.universe.ok_or_else(|| {
@@ -3001,12 +3666,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "MinimumCardinalityKey" => {
             let num_attributes = args.num_attributes.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "MinimumCardinalityKey requires --num-attributes, --dependencies, and --bound\n\n\
-                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --bound 2"
+                    "MinimumCardinalityKey requires --num-attributes and --dependencies\n\n\
+                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\""
                 )
-            })?;
-            let k = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("MinimumCardinalityKey requires --bound (bound on key cardinality)")
             })?;
             let deps_str = args.dependencies.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
@@ -3018,7 +3680,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 ser(problemreductions::models::set::MinimumCardinalityKey::new(
                     num_attributes,
                     dependencies,
-                    k,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -3191,22 +3852,180 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MaximumLikelihoodRanking
+        "MaximumLikelihoodRanking" => {
+            let usage = "Usage: pred create MaximumLikelihoodRanking --matrix \"0,4,3,5;1,0,4,3;2,1,0,4;0,2,1,0\"";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MaximumLikelihoodRanking requires --matrix (semicolon-separated i32 rows)\n\n{usage}"
+                )
+            })?;
+            let matrix_i64 = parse_i64_matrix(matrix_str).context("Invalid matrix")?;
+            let matrix: Vec<Vec<i32>> = matrix_i64
+                .into_iter()
+                .map(|row| {
+                    row.into_iter()
+                        .map(|v| {
+                            i32::try_from(v)
+                                .map_err(|_| anyhow::anyhow!("matrix value {v} out of i32 range"))
+                        })
+                        .collect::<Result<Vec<_>>>()
+                })
+                .collect::<Result<Vec<_>>>()?;
+            (
+                ser(MaximumLikelihoodRanking::new(matrix))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumMatrixCover
+        "MinimumMatrixCover" => {
+            let usage = "Usage: pred create MinimumMatrixCover --matrix \"0,3,1,0;3,0,0,2;1,0,0,4;0,2,4,0\"";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumMatrixCover requires --matrix (semicolon-separated i64 rows)\n\n{usage}"
+                )
+            })?;
+            let matrix = parse_i64_matrix(matrix_str).context("Invalid matrix")?;
+            (
+                ser(MinimumMatrixCover::new(matrix))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumMatrixDomination
+        "MinimumMatrixDomination" => {
+            let matrix = parse_bool_matrix(args)?;
+            (
+                ser(MinimumMatrixDomination::new(matrix))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumWeightDecoding
+        "MinimumWeightDecoding" => {
+            let usage = "Usage: pred create MinimumWeightDecoding --matrix '[[true,false,true],[false,true,true]]' --rhs 'true,true'";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightDecoding requires --matrix (JSON 2D bool array) and --rhs\n\n{usage}"
+                )
+            })?;
+            let matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str).map_err(|err| {
+                anyhow::anyhow!(
+                    "MinimumWeightDecoding requires --matrix as a JSON 2D bool array (e.g., '[[true,false],[false,true]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
+                )
+            })?;
+            let rhs_str = args.rhs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightDecoding requires --rhs (comma-separated booleans)\n\n{usage}"
+                )
+            })?;
+            let target: Vec<bool> = rhs_str
+                .split(',')
+                .map(|s| match s.trim() {
+                    "true" | "1" => Ok(true),
+                    "false" | "0" => Ok(false),
+                    other => Err(anyhow::anyhow!("invalid boolean value: {other}")),
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|err| {
+                    anyhow::anyhow!(
+                        "Failed to parse --rhs as comma-separated booleans: {err}\n\n{usage}"
+                    )
+                })?;
+            (
+                ser(MinimumWeightDecoding::new(matrix, target))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumWeightSolutionToLinearEquations
+        "MinimumWeightSolutionToLinearEquations" => {
+            let usage = "Usage: pred create MinimumWeightSolutionToLinearEquations --matrix '[[1,2,3,1],[2,1,1,3]]' --rhs '5,4'";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightSolutionToLinearEquations requires --matrix (JSON 2D i64 array) and --rhs\n\n{usage}"
+                )
+            })?;
+            let matrix: Vec<Vec<i64>> = serde_json::from_str(matrix_str).map_err(|err| {
+                anyhow::anyhow!(
+                    "MinimumWeightSolutionToLinearEquations requires --matrix as a JSON 2D integer array (e.g., '[[1,2,3],[4,5,6]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
+                )
+            })?;
+            let rhs_str = args.rhs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightSolutionToLinearEquations requires --rhs (comma-separated integers)\n\n{usage}"
+                )
+            })?;
+            let rhs: Vec<i64> = rhs_str
+                .split(',')
+                .map(|s| s.trim().parse::<i64>())
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|err| {
+                    anyhow::anyhow!(
+                        "Failed to parse --rhs as comma-separated integers: {err}\n\n{usage}"
+                    )
+                })?;
+            (
+                ser(MinimumWeightSolutionToLinearEquations::new(matrix, rhs))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // FeasibleBasisExtension
+        "FeasibleBasisExtension" => {
+            let usage = "Usage: pred create FeasibleBasisExtension --matrix '[[1,0,1],[0,1,0]]' --rhs '7,5' --required-columns '0'";
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FeasibleBasisExtension requires --matrix (JSON 2D i64 array), --rhs, and --required-columns\n\n{usage}"
+                )
+            })?;
+            let matrix: Vec<Vec<i64>> = serde_json::from_str(matrix_str).map_err(|err| {
+                anyhow::anyhow!(
+                    "FeasibleBasisExtension requires --matrix as a JSON 2D integer array (e.g., '[[1,0,1],[0,1,0]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
+                )
+            })?;
+            let rhs_str = args.rhs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FeasibleBasisExtension requires --rhs (comma-separated integers)\n\n{usage}"
+                )
+            })?;
+            let rhs: Vec<i64> = rhs_str
+                .split(',')
+                .map(|s| s.trim().parse::<i64>())
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|err| {
+                    anyhow::anyhow!(
+                        "Failed to parse --rhs as comma-separated integers: {err}\n\n{usage}"
+                    )
+                })?;
+            let required_str = args.required_columns.as_deref().unwrap_or("");
+            let required_columns: Vec<usize> = if required_str.is_empty() {
+                vec![]
+            } else {
+                required_str
+                    .split(',')
+                    .map(|s| s.trim().parse::<usize>())
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|err| {
+                        anyhow::anyhow!(
+                            "Failed to parse --required-columns as comma-separated indices: {err}\n\n{usage}"
+                        )
+                    })?
+            };
+            (
+                ser(FeasibleBasisExtension::new(matrix, rhs, required_columns))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // LongestCommonSubsequence
         "LongestCommonSubsequence" => {
             let usage =
-                "Usage: pred create LCS --strings \"010110;100101;001011\" --bound 3 [--alphabet-size 2]";
+                "Usage: pred create LCS --strings \"010110;100101;001011\" [--alphabet-size 2]";
             let strings_str = args.strings.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("LongestCommonSubsequence requires --strings\n\n{usage}")
             })?;
-            let bound_i64 = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("LongestCommonSubsequence requires --bound\n\n{usage}")
-            })?;
-            anyhow::ensure!(
-                bound_i64 >= 0,
-                "LongestCommonSubsequence requires a nonnegative --bound, got {}",
-                bound_i64
-            );
-            let bound = bound_i64 as usize;
 
             let segments: Vec<&str> = strings_str.split(';').map(str::trim).collect();
             let comma_mode = segments.iter().any(|segment| segment.contains(','));
@@ -3267,11 +4086,15 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 inferred_alphabet_size
             );
             anyhow::ensure!(
-                alphabet_size > 0 || (bound == 0 && strings.iter().all(|string| string.is_empty())),
-                "LongestCommonSubsequence requires a positive alphabet. Provide --alphabet-size when all strings are empty and --bound > 0.\n\n{usage}"
+                strings.iter().any(|string| !string.is_empty()),
+                "LongestCommonSubsequence requires at least one non-empty string.\n\n{usage}"
+            );
+            anyhow::ensure!(
+                alphabet_size > 0,
+                "LongestCommonSubsequence requires a positive alphabet. Provide --alphabet-size when all strings are empty.\n\n{usage}"
             );
             (
-                ser(LongestCommonSubsequence::new(alphabet_size, strings, bound))?,
+                ser(LongestCommonSubsequence::new(alphabet_size, strings))?,
                 resolved_variant.clone(),
             )
         }
@@ -3322,6 +4145,108 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             );
             (
                 ser(GroupingBySwapping::new(alphabet_size, string, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumExternalMacroDataCompression
+        "MinimumExternalMacroDataCompression" => {
+            let usage = "Usage: pred create MinimumExternalMacroDataCompression --string \"0,1,0,1\" --pointer-cost 2 [--alphabet-size 2]";
+            let string_str = args.string.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumExternalMacroDataCompression requires --string\n\n{usage}")
+            })?;
+            let pointer_cost = args.pointer_cost.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumExternalMacroDataCompression requires --pointer-cost\n\n{usage}"
+                )
+            })?;
+            anyhow::ensure!(
+                pointer_cost > 0,
+                "--pointer-cost must be a positive integer\n\n{usage}"
+            );
+
+            let string: Vec<usize> = if string_str.trim().is_empty() {
+                Vec::new()
+            } else {
+                string_str
+                    .split(',')
+                    .map(|value| {
+                        value
+                            .trim()
+                            .parse::<usize>()
+                            .context("invalid symbol index")
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            };
+            let inferred = string.iter().copied().max().map_or(0, |value| value + 1);
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            anyhow::ensure!(
+                alphabet_size >= inferred,
+                "--alphabet-size {} is smaller than max symbol + 1 ({}) in the input string",
+                alphabet_size,
+                inferred
+            );
+            anyhow::ensure!(
+                alphabet_size > 0 || string.is_empty(),
+                "MinimumExternalMacroDataCompression requires a positive alphabet for non-empty strings.\n\n{usage}"
+            );
+            (
+                ser(MinimumExternalMacroDataCompression::new(
+                    alphabet_size,
+                    string,
+                    pointer_cost,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumInternalMacroDataCompression
+        "MinimumInternalMacroDataCompression" => {
+            let usage = "Usage: pred create MinimumInternalMacroDataCompression --string \"0,1,0,1\" --pointer-cost 2 [--alphabet-size 2]";
+            let string_str = args.string.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumInternalMacroDataCompression requires --string\n\n{usage}")
+            })?;
+            let pointer_cost = args.pointer_cost.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumInternalMacroDataCompression requires --pointer-cost\n\n{usage}"
+                )
+            })?;
+            anyhow::ensure!(
+                pointer_cost > 0,
+                "--pointer-cost must be a positive integer\n\n{usage}"
+            );
+
+            let string: Vec<usize> = if string_str.trim().is_empty() {
+                Vec::new()
+            } else {
+                string_str
+                    .split(',')
+                    .map(|value| {
+                        value
+                            .trim()
+                            .parse::<usize>()
+                            .context("invalid symbol index")
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            };
+            let inferred = string.iter().copied().max().map_or(0, |value| value + 1);
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            anyhow::ensure!(
+                alphabet_size >= inferred,
+                "--alphabet-size {} is smaller than max symbol + 1 ({}) in the input string",
+                alphabet_size,
+                inferred
+            );
+            anyhow::ensure!(
+                alphabet_size > 0 || string.is_empty(),
+                "MinimumInternalMacroDataCompression requires a positive alphabet for non-empty strings.\n\n{usage}"
+            );
+            (
+                ser(MinimumInternalMacroDataCompression::new(
+                    alphabet_size,
+                    string,
+                    pointer_cost,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -3428,11 +4353,163 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        "ProductionPlanning" => {
+            let usage = "Usage: pred create ProductionPlanning --num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-bound 80";
+            let num_periods = args.num_periods.ok_or_else(|| {
+                anyhow::anyhow!("ProductionPlanning requires --num-periods\n\n{usage}")
+            })?;
+            let demands = parse_named_u64_list(
+                args.demands.as_deref(),
+                "ProductionPlanning",
+                "--demands",
+                usage,
+            )?;
+            let capacities = parse_named_u64_list(
+                args.capacities.as_deref(),
+                "ProductionPlanning",
+                "--capacities",
+                usage,
+            )?;
+            let setup_costs = parse_named_u64_list(
+                args.setup_costs.as_deref(),
+                "ProductionPlanning",
+                "--setup-costs",
+                usage,
+            )?;
+            let production_costs = parse_named_u64_list(
+                args.production_costs.as_deref(),
+                "ProductionPlanning",
+                "--production-costs",
+                usage,
+            )?;
+            let inventory_costs = parse_named_u64_list(
+                args.inventory_costs.as_deref(),
+                "ProductionPlanning",
+                "--inventory-costs",
+                usage,
+            )?;
+            let cost_bound = args.cost_bound.ok_or_else(|| {
+                anyhow::anyhow!("ProductionPlanning requires --cost-bound\n\n{usage}")
+            })? as u64;
+
+            for (flag, len) in [
+                ("--demands", demands.len()),
+                ("--capacities", capacities.len()),
+                ("--setup-costs", setup_costs.len()),
+                ("--production-costs", production_costs.len()),
+                ("--inventory-costs", inventory_costs.len()),
+            ] {
+                ensure_named_len(len, num_periods, flag, usage)?;
+            }
+
+            (
+                ser(ProductionPlanning::new(
+                    num_periods,
+                    demands,
+                    capacities,
+                    setup_costs,
+                    production_costs,
+                    inventory_costs,
+                    cost_bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // PreemptiveScheduling
+        "PreemptiveScheduling" => {
+            let usage = "Usage: pred create PreemptiveScheduling --sizes 2,1,3,2,1 --num-processors 2 [--precedence-pairs \"0>2,1>3\"]";
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PreemptiveScheduling requires --sizes and --num-processors\n\n{usage}"
+                )
+            })?;
+            let num_processors = args.num_processors.ok_or_else(|| {
+                anyhow::anyhow!("PreemptiveScheduling requires --num-processors\n\n{usage}")
+            })?;
+            anyhow::ensure!(
+                num_processors > 0,
+                "PreemptiveScheduling requires --num-processors > 0\n\n{usage}"
+            );
+            let lengths: Vec<usize> = util::parse_comma_list(sizes_str)?;
+            anyhow::ensure!(
+                lengths.iter().all(|&l| l > 0),
+                "PreemptiveScheduling: all task lengths must be positive\n\n{usage}"
+            );
+            let num_tasks = lengths.len();
+            let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
+                Some(s) if !s.is_empty() => s
+                    .split(',')
+                    .map(|pair| {
+                        let parts: Vec<&str> = pair.trim().split('>').collect();
+                        anyhow::ensure!(
+                            parts.len() == 2,
+                            "Invalid precedence format '{}', expected 'u>v'",
+                            pair.trim()
+                        );
+                        Ok((
+                            parts[0].trim().parse::<usize>()?,
+                            parts[1].trim().parse::<usize>()?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                _ => vec![],
+            };
+            for &(pred, succ) in &precedences {
+                anyhow::ensure!(
+                    pred < num_tasks && succ < num_tasks,
+                    "precedence index out of range: ({}, {}) but num_tasks = {}",
+                    pred,
+                    succ,
+                    num_tasks
+                );
+            }
+            (
+                ser(PreemptiveScheduling::new(
+                    lengths,
+                    num_processors,
+                    precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SchedulingToMinimizeWeightedCompletionTime
+        "SchedulingToMinimizeWeightedCompletionTime" => {
+            let usage = "Usage: pred create SchedulingToMinimizeWeightedCompletionTime --lengths 1,2,3,4,5 --weights 6,4,3,2,1 --num-processors 2";
+            let lengths_str = args.lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingToMinimizeWeightedCompletionTime requires --lengths, --weights, and --num-processors\n\n{usage}"
+                )
+            })?;
+            let weights_str = args.weights.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SchedulingToMinimizeWeightedCompletionTime requires --weights\n\n{usage}"
+                )
+            })?;
+            let num_processors = args.num_processors.ok_or_else(|| {
+                anyhow::anyhow!("SchedulingToMinimizeWeightedCompletionTime requires --num-processors\n\n{usage}")
+            })?;
+            if num_processors == 0 {
+                bail!("SchedulingToMinimizeWeightedCompletionTime requires --num-processors > 0\n\n{usage}");
+            }
+            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
+            let weights: Vec<u64> = util::parse_comma_list(weights_str)?;
+            (
+                ser(SchedulingToMinimizeWeightedCompletionTime::new(
+                    lengths,
+                    weights,
+                    num_processors,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         "CapacityAssignment" => {
-            let usage = "Usage: pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12";
+            let usage = "Usage: pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12";
             let capacities_str = args.capacities.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "CapacityAssignment requires --capacities, --cost-matrix, --delay-matrix, --cost-budget, and --delay-budget\n\n{usage}"
+                    "CapacityAssignment requires --capacities, --cost-matrix, --delay-matrix, and --delay-budget\n\n{usage}"
                 )
             })?;
             let cost_matrix_str = args.cost_matrix.as_deref().ok_or_else(|| {
@@ -3440,9 +4517,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             let delay_matrix_str = args.delay_matrix.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("CapacityAssignment requires --delay-matrix\n\n{usage}")
-            })?;
-            let cost_budget = args.cost_budget.ok_or_else(|| {
-                anyhow::anyhow!("CapacityAssignment requires --cost-budget\n\n{usage}")
             })?;
             let delay_budget = args.delay_budget.ok_or_else(|| {
                 anyhow::anyhow!("CapacityAssignment requires --delay-budget\n\n{usage}")
@@ -3505,7 +4579,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     capacities,
                     cost,
                     delay,
-                    cost_budget,
                     delay_budget,
                 ))?,
                 resolved_variant.clone(),
@@ -3531,33 +4604,55 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "MinimumTardinessSequencing" => {
             let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "MinimumTardinessSequencing requires --deadlines and --n\n\n\
-                     Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 [--precedence-pairs \"0>3,1>3,1>4,2>4\"]"
-                )
-            })?;
-            let num_tasks = args.n.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "MinimumTardinessSequencing requires --n (number of tasks)\n\n\
-                     Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3"
+                    "MinimumTardinessSequencing requires --deadlines\n\n\
+                     Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 [--precedence-pairs \"0>3,1>3,1>4,2>4\"] [--sizes 3,2,2,1,2]"
                 )
             })?;
             let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
             let precedences = parse_precedence_pairs(args.precedence_pairs.as_deref())?;
-            anyhow::ensure!(
-                deadlines.len() == num_tasks,
-                "deadlines length ({}) must equal num_tasks ({})",
-                deadlines.len(),
-                num_tasks
-            );
-            validate_precedence_pairs(&precedences, num_tasks)?;
-            (
-                ser(MinimumTardinessSequencing::new(
-                    num_tasks,
-                    deadlines,
-                    precedences,
-                ))?,
-                resolved_variant.clone(),
-            )
+
+            if let Some(sizes_str) = args.sizes.as_deref() {
+                // Arbitrary-length variant (W = i32)
+                let lengths: Vec<i32> = util::parse_comma_list(sizes_str)?;
+                anyhow::ensure!(
+                    lengths.len() == deadlines.len(),
+                    "sizes length ({}) must equal deadlines length ({})",
+                    lengths.len(),
+                    deadlines.len()
+                );
+                validate_precedence_pairs(&precedences, lengths.len())?;
+                (
+                    ser(MinimumTardinessSequencing::<i32>::with_lengths(
+                        lengths,
+                        deadlines,
+                        precedences,
+                    ))?,
+                    resolved_variant.clone(),
+                )
+            } else {
+                // Unit-length variant (W = One)
+                let num_tasks = args.n.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "MinimumTardinessSequencing requires --n (number of tasks) or --sizes\n\n\
+                         Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3"
+                    )
+                })?;
+                anyhow::ensure!(
+                    deadlines.len() == num_tasks,
+                    "deadlines length ({}) must equal num_tasks ({})",
+                    deadlines.len(),
+                    num_tasks
+                );
+                validate_precedence_pairs(&precedences, num_tasks)?;
+                (
+                    ser(MinimumTardinessSequencing::<One>::new(
+                        num_tasks,
+                        deadlines,
+                        precedences,
+                    ))?,
+                    resolved_variant.clone(),
+                )
+            }
         }
 
         // SchedulingWithIndividualDeadlines
@@ -3624,6 +4719,121 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     num_processors,
                     deadlines,
                     precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingToMinimizeTardyTaskWeight
+        "SequencingToMinimizeTardyTaskWeight" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeTardyTaskWeight requires --sizes, --weights, and --deadlines\n\n\
+                     Usage: pred create SequencingToMinimizeTardyTaskWeight --sizes 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
+                )
+            })?;
+            let weights_str = args.weights.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeTardyTaskWeight requires --weights\n\n\
+                     Usage: pred create SequencingToMinimizeTardyTaskWeight --sizes 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
+                )
+            })?;
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeTardyTaskWeight requires --deadlines\n\n\
+                     Usage: pred create SequencingToMinimizeTardyTaskWeight --sizes 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
+                )
+            })?;
+            let lengths: Vec<u64> = util::parse_comma_list(sizes_str)?;
+            let weights: Vec<u64> = util::parse_comma_list(weights_str)?;
+            let deadlines: Vec<u64> = util::parse_comma_list(deadlines_str)?;
+            anyhow::ensure!(
+                lengths.len() == weights.len(),
+                "sizes length ({}) must equal weights length ({})",
+                lengths.len(),
+                weights.len()
+            );
+            anyhow::ensure!(
+                lengths.len() == deadlines.len(),
+                "sizes length ({}) must equal deadlines length ({})",
+                lengths.len(),
+                deadlines.len()
+            );
+            anyhow::ensure!(
+                lengths.iter().all(|&l| l > 0),
+                "task lengths must be positive"
+            );
+            anyhow::ensure!(
+                weights.iter().all(|&w| w > 0),
+                "task weights must be positive"
+            );
+            (
+                ser(SequencingToMinimizeTardyTaskWeight::new(
+                    lengths, weights, deadlines,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingWithDeadlinesAndSetUpTimes
+        "SequencingWithDeadlinesAndSetUpTimes" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingWithDeadlinesAndSetUpTimes requires --sizes, --deadlines, --compilers, and --setup-times\n\n\
+                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --sizes 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
+                )
+            })?;
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingWithDeadlinesAndSetUpTimes requires --deadlines\n\n\
+                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --sizes 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
+                )
+            })?;
+            let compilers_str = args.compilers.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingWithDeadlinesAndSetUpTimes requires --compilers\n\n\
+                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --sizes 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
+                )
+            })?;
+            let setup_times_str = args.setup_times.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingWithDeadlinesAndSetUpTimes requires --setup-times\n\n\
+                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --sizes 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
+                )
+            })?;
+            let lengths: Vec<u64> = util::parse_comma_list(sizes_str)?;
+            let deadlines: Vec<u64> = util::parse_comma_list(deadlines_str)?;
+            let compilers: Vec<usize> = util::parse_comma_list(compilers_str)?;
+            let setup_times: Vec<u64> = util::parse_comma_list(setup_times_str)?;
+            anyhow::ensure!(
+                lengths.len() == deadlines.len(),
+                "lengths length ({}) must equal deadlines length ({})",
+                lengths.len(),
+                deadlines.len()
+            );
+            anyhow::ensure!(
+                lengths.len() == compilers.len(),
+                "lengths length ({}) must equal compilers length ({})",
+                lengths.len(),
+                compilers.len()
+            );
+            anyhow::ensure!(
+                lengths.iter().all(|&l| l > 0),
+                "task lengths must be positive"
+            );
+            let num_compilers = setup_times.len();
+            for &c in &compilers {
+                anyhow::ensure!(
+                    c < num_compilers,
+                    "compiler index {c} is out of range for setup_times of length {num_compilers}"
+                );
+            }
+            (
+                ser(SequencingWithDeadlinesAndSetUpTimes::new(
+                    lengths,
+                    deadlines,
+                    compilers,
+                    setup_times,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -3749,64 +4959,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        // SequencingToMinimizeTardyTaskWeight
-        "SequencingToMinimizeTardyTaskWeight" => {
-            let lengths_str = args.lengths.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SequencingToMinimizeTardyTaskWeight requires --lengths, --weights, and --deadlines\n\n\
-                     Usage: pred create SequencingToMinimizeTardyTaskWeight --lengths 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
-                )
-            })?;
-            let weights_str = args.weights.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SequencingToMinimizeTardyTaskWeight requires --weights\n\n\
-                     Usage: pred create SequencingToMinimizeTardyTaskWeight --lengths 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
-                )
-            })?;
-            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SequencingToMinimizeTardyTaskWeight requires --deadlines\n\n\
-                     Usage: pred create SequencingToMinimizeTardyTaskWeight --lengths 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
-                )
-            })?;
-
-            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
-            let weights: Vec<u64> = util::parse_comma_list(weights_str)?;
-            let deadlines: Vec<u64> = util::parse_comma_list(deadlines_str)?;
-
-            anyhow::ensure!(
-                lengths.len() == weights.len(),
-                "lengths length ({}) must equal weights length ({})",
-                lengths.len(),
-                weights.len()
-            );
-            anyhow::ensure!(
-                lengths.len() == deadlines.len(),
-                "lengths length ({}) must equal deadlines length ({})",
-                lengths.len(),
-                deadlines.len()
-            );
-
-            (
-                ser(SequencingToMinimizeTardyTaskWeight::new(
-                    lengths, weights, deadlines,
-                ))?,
-                resolved_variant.clone(),
-            )
-        }
-
         // SequencingToMinimizeMaximumCumulativeCost
         "SequencingToMinimizeMaximumCumulativeCost" => {
             let costs_str = args.costs.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeMaximumCumulativeCost requires --costs\n\n\
-                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
-                )
-            })?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "SequencingToMinimizeMaximumCumulativeCost requires --bound\n\n\
-                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\" --bound 4"
+                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\""
                 )
             })?;
             let costs: Vec<i64> = util::parse_comma_list(costs_str)?;
@@ -3816,7 +4974,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 ser(SequencingToMinimizeMaximumCumulativeCost::new(
                     costs,
                     precedences,
-                    bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -3853,19 +5010,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        // OptimalLinearArrangement — graph + bound
+        // OptimalLinearArrangement — graph only (optimization)
         "OptimalLinearArrangement" => {
-            let usage = "Usage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3 --bound 5";
+            let usage = "Usage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3";
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let bound_raw = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "OptimalLinearArrangement requires --bound (upper bound K on total edge length)\n\n{usage}"
-                )
-            })?;
-            let bound =
-                parse_nonnegative_usize_bound(bound_raw, "OptimalLinearArrangement", usage)?;
             (
-                ser(OptimalLinearArrangement::new(graph, bound))?,
+                ser(OptimalLinearArrangement::new(graph))?,
                 resolved_variant.clone(),
             )
         }
@@ -3937,40 +5087,91 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        // OpenShopScheduling
-        "OpenShopScheduling" => {
-            let usage = "Usage: pred create OpenShopScheduling --task-lengths \"3,1,2;2,3,1;1,2,3;2,2,1\" --num-processors 3";
-            let task_str = args.task_lengths.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("OpenShopScheduling requires --task-lengths\n\n{usage}")
+        // JobShopScheduling
+        "JobShopScheduling" => {
+            let usage = "Usage: pred create JobShopScheduling --job-tasks \"0:3,1:4;1:2,0:3,1:2;0:4,1:3\" --num-processors 2";
+            let job_tasks = args.job_tasks.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("JobShopScheduling requires --job-tasks\n\n{usage}")
             })?;
-            let processing_times: Vec<Vec<u64>> = task_str
-                .split(';')
-                .map(|row| util::parse_comma_list(row.trim()))
-                .collect::<Result<Vec<_>>>()?;
+            let jobs = parse_job_shop_jobs(job_tasks)?;
+            let inferred_processors = jobs
+                .iter()
+                .flat_map(|job| job.iter().map(|(processor, _)| *processor))
+                .max()
+                .map(|processor| processor + 1);
             let num_processors = resolve_processor_count_flags(
-                "OpenShopScheduling",
+                "JobShopScheduling",
                 usage,
                 args.num_processors,
                 args.m,
             )?
-            .or_else(|| processing_times.first().map(Vec::len))
+            .or(inferred_processors)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Cannot infer num_processors from empty job list; use --num-processors"
+                )
+            })?;
+            anyhow::ensure!(
+                num_processors > 0,
+                "JobShopScheduling requires --num-processors > 0\n\n{usage}"
+            );
+            for (job_index, job) in jobs.iter().enumerate() {
+                for (task_index, &(processor, _)) in job.iter().enumerate() {
+                    anyhow::ensure!(
+                        processor < num_processors,
+                        "job {job_index} task {task_index} uses processor {processor}, but num_processors = {num_processors}"
+                    );
+                }
+                for (task_index, pair) in job.windows(2).enumerate() {
+                    anyhow::ensure!(
+                        pair[0].0 != pair[1].0,
+                        "job {job_index} tasks {task_index} and {} must use different processors\n\n{usage}",
+                        task_index + 1
+                    );
+                }
+            }
+            (
+                ser(JobShopScheduling::new(num_processors, jobs))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // OpenShopScheduling
+        "OpenShopScheduling" => {
+            let task_str = args.task_lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "OpenShopScheduling requires --task-lengths and --num-processors\n\n\
+                     Usage: pred create OpenShopScheduling --task-lengths \"1,2;2,1\" --num-processors 2"
+                )
+            })?;
+            let task_lengths: Vec<Vec<usize>> = task_str
+                .split(';')
+                .map(|row| util::parse_comma_list(row.trim()))
+                .collect::<Result<Vec<_>>>()?;
+            let num_machines = resolve_processor_count_flags(
+                "OpenShopScheduling",
+                "Usage: pred create OpenShopScheduling --task-lengths \"1,2;2,1\" --num-processors 2",
+                args.num_processors,
+                args.m,
+            )?
+            .or_else(|| task_lengths.first().map(Vec::len))
             .ok_or_else(|| {
                 anyhow::anyhow!(
                     "Cannot infer num_processors from empty task list; use --num-processors"
                 )
             })?;
-            for (job, row) in processing_times.iter().enumerate() {
-                if row.len() != num_processors {
+            for (j, row) in task_lengths.iter().enumerate() {
+                if row.len() != num_machines {
                     bail!(
-                        "processing_times row {} has {} entries, expected {} (num_processors)",
-                        job,
+                        "task_lengths row {} has {} entries, expected {} (num_machines)",
+                        j,
                         row.len(),
-                        num_processors
+                        num_machines
                     );
                 }
             }
             (
-                ser(OpenShopScheduling::new(num_processors, processing_times))?,
+                ser(OpenShopScheduling::new(num_machines, task_lengths))?,
                 resolved_variant.clone(),
             )
         }
@@ -4240,6 +5441,57 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // DegreeConstrainedSpanningTree
+        "DegreeConstrainedSpanningTree" => {
+            let usage = "Usage: pred create DegreeConstrainedSpanningTree --graph 0-1,0-2,0-3,1-2,1-4,2-3,3-4 --k 2";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let max_degree = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "DegreeConstrainedSpanningTree requires --k (maximum vertex degree)\n\n{usage}"
+                )
+            })?;
+            anyhow::ensure!(
+                max_degree >= 1,
+                "DegreeConstrainedSpanningTree requires --k >= 1, got {}",
+                max_degree
+            );
+            (
+                ser(
+                    problemreductions::models::graph::DegreeConstrainedSpanningTree::new(
+                        graph, max_degree,
+                    ),
+                )?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // DirectedHamiltonianPath
+        "DirectedHamiltonianPath" => {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "DirectedHamiltonianPath requires --arcs\n\n\
+                     Usage: pred create DirectedHamiltonianPath --arcs \"0>1,1>2,2>3\" [--num-vertices N]"
+                )
+            })?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            (
+                ser(DirectedHamiltonianPath::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Kernel
+        "Kernel" => {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Kernel requires --arcs\n\n\
+                     Usage: pred create Kernel --arcs \"0>1,1>2,2>0\" [--num-vertices N]"
+                )
+            })?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            (ser(Kernel::new(graph))?, resolved_variant.clone())
+        }
+
         // AcyclicPartition
         "AcyclicPartition" => {
             let usage = "Usage: pred create AcyclicPartition/i32 --arcs \"0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5\" --weights 2,3,2,1,3,1 --arc-costs 1,1,1,1,1,1,1,1 --weight-bound 5 --cost-bound 5";
@@ -4282,25 +5534,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // MinMaxMulticenter (vertex p-center)
         "MinMaxMulticenter" => {
-            let usage = "Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 [--weights 1,1,1,1] [--edge-weights 1,1,1] --k 2 --bound 2";
+            let usage = "Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 [--weights 1,1,1,1] [--edge-weights 1,1,1] --k 2";
             let (graph, n) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let vertex_weights = parse_vertex_weights(args, n)?;
             let edge_lengths = parse_edge_weights(args, graph.num_edges())?;
             let k = args.k.ok_or_else(|| {
                 anyhow::anyhow!(
                     "MinMaxMulticenter requires --k (number of centers)\n\n\
-                     Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --k 2 --bound 2"
-                )
-            })?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "MinMaxMulticenter requires --bound (distance bound B)\n\n\
-                     Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --k 2 --bound 2"
-                )
-            })?;
-            let bound = i32::try_from(bound).map_err(|_| {
-                anyhow::anyhow!(
-                    "MinMaxMulticenter --bound must fit in i32 (got {bound})\n\n{usage}"
+                     Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --k 2"
                 )
             })?;
             if vertex_weights.iter().any(|&weight| weight < 0) {
@@ -4309,16 +5550,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             if edge_lengths.iter().any(|&length| length < 0) {
                 bail!("MinMaxMulticenter --edge-weights must be non-negative");
             }
-            if bound < 0 {
-                bail!("MinMaxMulticenter --bound must be non-negative");
-            }
             (
                 ser(MinMaxMulticenter::new(
                     graph,
                     vertex_weights,
                     edge_lengths,
                     k,
-                    bound,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -4350,6 +5587,82 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MinimumGeometricConnectedDominatingSet
+        "MinimumGeometricConnectedDominatingSet" => {
+            let usage = "Usage: pred create MinimumGeometricConnectedDominatingSet --positions \"0,0;3,0;6,0\" --radius 3.5";
+            let positions = parse_float_positions(args).map_err(|_| {
+                anyhow::anyhow!(
+                    "MinimumGeometricConnectedDominatingSet requires --positions\n\n\
+                     {usage}"
+                )
+            })?;
+            let radius = args.radius.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumGeometricConnectedDominatingSet requires --radius\n\n\
+                     {usage}"
+                )
+            })?;
+            (
+                ser(
+                    MinimumGeometricConnectedDominatingSet::try_new(positions, radius)
+                        .map_err(|e| anyhow::anyhow!(e))?,
+                )?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumEdgeCostFlow
+        "MinimumEdgeCostFlow" => {
+            let usage = "Usage: pred create MinimumEdgeCostFlow --arcs \"0>1,0>2,0>3,1>4,2>4,3>4\" --edge-weights 3,1,2,0,0,0 --capacities 2,2,2,2,2,2 --source 0 --sink 4 --requirement 3";
+            let arcs_str = args
+                .arcs
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("MinimumEdgeCostFlow requires --arcs\n\n{usage}"))?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let prices: Vec<i64> = if let Some(ref s) = args.edge_weights {
+                util::parse_comma_list(s)?
+            } else {
+                bail!("MinimumEdgeCostFlow requires --edge-weights (prices)\n\n{usage}");
+            };
+            anyhow::ensure!(
+                prices.len() == num_arcs,
+                "--edge-weights length ({}) must match number of arcs ({num_arcs})",
+                prices.len()
+            );
+            let capacities: Vec<i64> = if let Some(ref s) = args.capacities {
+                util::parse_comma_list(s)?
+            } else {
+                bail!("MinimumEdgeCostFlow requires --capacities\n\n{usage}");
+            };
+            anyhow::ensure!(
+                capacities.len() == num_arcs,
+                "--capacities length ({}) must match number of arcs ({num_arcs})",
+                capacities.len()
+            );
+            let n = graph.num_vertices();
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!("MinimumEdgeCostFlow requires --source\n\n{usage}")
+            })?;
+            let sink = args
+                .sink
+                .ok_or_else(|| anyhow::anyhow!("MinimumEdgeCostFlow requires --sink\n\n{usage}"))?;
+            anyhow::ensure!(source < n, "--source ({source}) >= num_vertices ({n})");
+            anyhow::ensure!(sink < n, "--sink ({sink}) >= num_vertices ({n})");
+            anyhow::ensure!(source != sink, "--source and --sink must be distinct");
+            let requirement = args.requirement.unwrap_or(1) as i64;
+            (
+                ser(problemreductions::models::graph::MinimumEdgeCostFlow::new(
+                    graph,
+                    prices,
+                    capacities,
+                    source,
+                    sink,
+                    requirement,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumDummyActivitiesPert
         "MinimumDummyActivitiesPert" => {
             let usage = "Usage: pred create MinimumDummyActivitiesPert --arcs \"0>2,0>3,1>3,1>4,2>5\" [--num-vertices N]";
@@ -4366,20 +5679,336 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // FeasibleRegisterAssignment
+        "FeasibleRegisterAssignment" => {
+            let usage = "Usage: pred create FeasibleRegisterAssignment --arcs \"0>1,0>2,1>3\" --assignment 0,1,0,0 --k 2 [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FeasibleRegisterAssignment requires --arcs, --assignment, and --k\n\n\
+                     {usage}"
+                )
+            })?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FeasibleRegisterAssignment requires --k (number of registers)\n\n\
+                     {usage}"
+                )
+            })?;
+            let assignment_str = args.assignment.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FeasibleRegisterAssignment requires --assignment\n\n\
+                     {usage}"
+                )
+            })?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let n = graph.num_vertices();
+            let arcs = graph.arcs();
+            let assignment: Vec<usize> = assignment_str
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .with_context(|| format!("Invalid assignment value: {s}"))
+                })
+                .collect::<Result<_>>()?;
+            if assignment.len() != n {
+                bail!(
+                    "Assignment length {} does not match vertex count {}\n\n{usage}",
+                    assignment.len(),
+                    n
+                );
+            }
+            (
+                ser(FeasibleRegisterAssignment::new(n, arcs, k, assignment))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // RegisterSufficiency
+        "RegisterSufficiency" => {
+            let usage = "Usage: pred create RegisterSufficiency --arcs \"2>0,2>1,3>1,4>2,4>3,5>0,6>4,6>5\" --bound 3 [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RegisterSufficiency requires --arcs and --bound\n\n\
+                     {usage}"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RegisterSufficiency requires --bound\n\n\
+                     {usage}"
+                )
+            })?;
+            if bound < 0 {
+                bail!("RegisterSufficiency --bound must be non-negative\n\n{usage}");
+            }
+            let bound = bound as usize;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let n = graph.num_vertices();
+            let arcs = graph.arcs();
+            (
+                ser(RegisterSufficiency::new(n, arcs, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumCodeGenerationOneRegister
+        "MinimumCodeGenerationOneRegister" => {
+            let usage = "Usage: pred create MinimumCodeGenerationOneRegister --arcs \"0>1,0>2,1>3,1>4,2>3,2>5,3>5,3>6\" [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationOneRegister requires --arcs\n\n\
+                     {usage}"
+                )
+            })?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let n = graph.num_vertices();
+            let arcs = graph.arcs();
+            // Compute num_leaves: vertices with out-degree 0
+            let mut out_degree = vec![0usize; n];
+            for &(parent, _child) in &arcs {
+                out_degree[parent] += 1;
+            }
+            let num_leaves = out_degree.iter().filter(|&&d| d == 0).count();
+            (
+                ser(MinimumCodeGenerationOneRegister::new(n, arcs, num_leaves))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumCodeGenerationUnlimitedRegisters
+        "MinimumCodeGenerationUnlimitedRegisters" => {
+            let usage = "Usage: pred create MinimumCodeGenerationUnlimitedRegisters --left-arcs \"1>3,2>3,0>1\" --right-arcs \"1>4,2>4,0>2\" [--num-vertices N]";
+            let left_str = args.left_arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationUnlimitedRegisters requires --left-arcs\n\n\
+                     {usage}"
+                )
+            })?;
+            let right_str = args.right_arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationUnlimitedRegisters requires --right-arcs\n\n\
+                     {usage}"
+                )
+            })?;
+            let (left_graph, _) = parse_directed_graph(left_str, args.num_vertices)?;
+            let (right_graph, _) = parse_directed_graph(right_str, args.num_vertices)?;
+            let n = if let Some(nv) = args.num_vertices {
+                nv
+            } else {
+                left_graph.num_vertices().max(right_graph.num_vertices())
+            };
+            let left_arcs = left_graph.arcs();
+            let right_arcs = right_graph.arcs();
+            (
+                ser(MinimumCodeGenerationUnlimitedRegisters::new(
+                    n, left_arcs, right_arcs,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumCodeGenerationParallelAssignments
+        "MinimumCodeGenerationParallelAssignments" => {
+            let usage = "Usage: pred create MinimumCodeGenerationParallelAssignments --num-variables 4 --assignments \"0:1,2;1:0;2:3;3:1,2\"";
+            let nv = args.num_variables.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationParallelAssignments requires --num-variables and --assignments\n\n\
+                     {usage}"
+                )
+            })?;
+            let assign_str = args.assignments.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCodeGenerationParallelAssignments requires --assignments\n\n\
+                     {usage}"
+                )
+            })?;
+            let assignments: Vec<(usize, Vec<usize>)> = assign_str
+                .split(';')
+                .map(|entry| {
+                    let parts: Vec<&str> = entry.split(':').collect();
+                    anyhow::ensure!(
+                        parts.len() == 2,
+                        "each assignment must be 'target:read1,read2,...'; got '{entry}'"
+                    );
+                    let target: usize = parts[0]
+                        .trim()
+                        .parse()
+                        .context("invalid target variable index")?;
+                    let reads: Vec<usize> = if parts[1].trim().is_empty() {
+                        Vec::new()
+                    } else {
+                        parts[1]
+                            .split(',')
+                            .map(|s| {
+                                s.trim()
+                                    .parse::<usize>()
+                                    .context("invalid read variable index")
+                            })
+                            .collect::<Result<Vec<_>>>()?
+                    };
+                    Ok((target, reads))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            (
+                ser(MinimumCodeGenerationParallelAssignments::new(
+                    nv,
+                    assignments,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumRegisterSufficiencyForLoops
+        "MinimumRegisterSufficiencyForLoops" => {
+            let usage = "Usage: pred create MinimumRegisterSufficiencyForLoops --loop-length 6 --loop-variables \"0,3;2,3;4,3\"";
+            let loop_length = args.loop_length.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumRegisterSufficiencyForLoops requires --loop-length and --loop-variables\n\n\
+                     {usage}"
+                )
+            })?;
+            let vars_str = args.loop_variables.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumRegisterSufficiencyForLoops requires --loop-variables\n\n\
+                     {usage}"
+                )
+            })?;
+            let variables: Vec<(usize, usize)> = vars_str
+                .split(';')
+                .map(|pair| {
+                    let parts: Vec<&str> = pair.split(',').collect();
+                    if parts.len() != 2 {
+                        bail!("Each variable must be start,duration (got '{pair}')\n\n{usage}");
+                    }
+                    let start: usize = parts[0]
+                        .trim()
+                        .parse()
+                        .context(format!("Invalid start_time in '{pair}'\n\n{usage}"))?;
+                    let dur: usize = parts[1]
+                        .trim()
+                        .parse()
+                        .context(format!("Invalid duration in '{pair}'\n\n{usage}"))?;
+                    Ok((start, dur))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            (
+                ser(MinimumRegisterSufficiencyForLoops::new(
+                    loop_length,
+                    variables,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumFaultDetectionTestSet
+        "MinimumFaultDetectionTestSet" => {
+            let usage = "Usage: pred create MinimumFaultDetectionTestSet --arcs \"0>2,0>3,1>3,1>4,2>5,3>5,3>6,4>6\" --inputs 0,1 --outputs 5,6 [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFaultDetectionTestSet requires --arcs, --inputs, and --outputs\n\n\
+                     {usage}"
+                )
+            })?;
+            let inputs_str = args.inputs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFaultDetectionTestSet requires --inputs\n\n\
+                     {usage}"
+                )
+            })?;
+            let outputs_str = args.outputs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFaultDetectionTestSet requires --outputs\n\n\
+                     {usage}"
+                )
+            })?;
+            let (graph, _num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let n = graph.num_vertices();
+            let arcs = graph.arcs();
+            let inputs: Vec<usize> = inputs_str
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .map_err(|e| anyhow::anyhow!("Invalid input vertex '{}': {}", s.trim(), e))
+                })
+                .collect::<Result<_>>()?;
+            let outputs: Vec<usize> = outputs_str
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .map_err(|e| anyhow::anyhow!("Invalid output vertex '{}': {}", s.trim(), e))
+                })
+                .collect::<Result<_>>()?;
+            (
+                ser(MinimumFaultDetectionTestSet::new(n, arcs, inputs, outputs))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumWeightAndOrGraph
+        "MinimumWeightAndOrGraph" => {
+            let usage = "Usage: pred create MinimumWeightAndOrGraph --arcs \"0>1,0>2,1>3,1>4,2>5,2>6\" --source 0 --gate-types \"AND,OR,OR,L,L,L,L\" --weights 1,2,3,1,4,2 [--num-vertices N]";
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightAndOrGraph requires --arcs, --source, --gate-types, and --weights\n\n\
+                     {usage}"
+                )
+            })?;
+            let source = args.source.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightAndOrGraph requires --source\n\n\
+                     {usage}"
+                )
+            })?;
+            let gate_types_str = args.gate_types.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumWeightAndOrGraph requires --gate-types (e.g., \"AND,OR,OR,L,L,L,L\")\n\n\
+                     {usage}"
+                )
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let n = graph.num_vertices();
+            let arcs = graph.arcs();
+            let arc_weights = parse_arc_weights(args, num_arcs)?;
+            let gate_types: Vec<Option<bool>> = gate_types_str
+                .split(',')
+                .map(|s| match s.trim() {
+                    "AND" | "and" => Ok(Some(true)),
+                    "OR" | "or" => Ok(Some(false)),
+                    "L" | "l" | "LEAF" | "leaf" => Ok(None),
+                    other => Err(anyhow::anyhow!(
+                        "Invalid gate type '{}': expected AND, OR, or L (leaf)\n\n{usage}",
+                        other
+                    )),
+                })
+                .collect::<Result<_>>()?;
+            if gate_types.len() != n {
+                bail!(
+                    "Gate types length {} does not match vertex count {}\n\n{usage}",
+                    gate_types.len(),
+                    n
+                );
+            }
+            (
+                ser(MinimumWeightAndOrGraph::new(
+                    n,
+                    arcs,
+                    source,
+                    gate_types,
+                    arc_weights,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MixedChinesePostman
         "MixedChinesePostman" => {
-            let usage = "Usage: pred create MixedChinesePostman --graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 --bound 24 [--num-vertices N]";
+            let usage = "Usage: pred create MixedChinesePostman --graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 [--num-vertices N]";
             let graph = parse_mixed_graph(args, usage)?;
             let arc_costs = parse_arc_costs(args, graph.num_arcs())?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("MixedChinesePostman requires --bound\n\n{usage}")
-            })?;
-            let bound = i32::try_from(bound).map_err(|_| {
-                anyhow::anyhow!(
-                    "MixedChinesePostman --bound must fit in i32 (got {bound})\n\n{usage}"
-                )
-            })?;
             if arc_costs.iter().any(|&cost| cost < 0) {
                 bail!("MixedChinesePostman --arc-costs must be non-negative\n\n{usage}");
             }
@@ -4396,12 +6025,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 );
             }
             (
-                ser(MixedChinesePostman::new(
-                    graph,
-                    arc_costs,
-                    edge_weights,
-                    bound,
-                ))?,
+                ser(MixedChinesePostman::new(graph, arc_costs, edge_weights))?,
                 resolved_variant.clone(),
             )
         }
@@ -4476,6 +6100,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MonochromaticTriangle
+        "MonochromaticTriangle" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MonochromaticTriangle --graph 0-1,0-2,0-3,1-2,1-3,2-3"
+                )
+            })?;
+            (
+                ser(MonochromaticTriangle::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // PartitionIntoTriangles
         "PartitionIntoTriangles" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
@@ -4496,32 +6133,105 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // PartitionIntoCliques
         "PartitionIntoCliques" => {
-            let usage = "Usage: pred create PartitionIntoCliques --graph 0-3,0-4,1-2,1-4 --k 3";
-            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let num_cliques = args
-                .k
-                .ok_or_else(|| anyhow::anyhow!("PartitionIntoCliques requires --k\n\n{usage}"))?;
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create PartitionIntoCliques --graph 0-1,0-2,1-2,3-4,3-5,4-5 --k 3"
+                )
+            })?;
+            let num_cliques = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PartitionIntoCliques requires --k (maximum number of clique groups)\n\n\
+                     Usage: pred create PartitionIntoCliques --graph 0-1,0-2,1-2,3-4,3-5,4-5 --k 3"
+                )
+            })?;
             anyhow::ensure!(
-                num_cliques > 0,
-                "PartitionIntoCliques: --k must be positive"
+                num_cliques >= 1,
+                "PartitionIntoCliques requires --k >= 1, got {}",
+                num_cliques
+            );
+            anyhow::ensure!(
+                num_cliques <= graph.num_vertices(),
+                "PartitionIntoCliques requires --k <= num_vertices ({}), got {}",
+                graph.num_vertices(),
+                num_cliques
             );
             (
-                ser(PartitionIntoCliques::new(graph, num_cliques))?,
+                ser(problemreductions::models::graph::PartitionIntoCliques::new(
+                    graph,
+                    num_cliques,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // PartitionIntoPerfectMatchings
+        "PartitionIntoPerfectMatchings" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create PartitionIntoPerfectMatchings --graph 0-1,2-3,0-2,1-3 --k 2"
+                )
+            })?;
+            let num_matchings = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PartitionIntoPerfectMatchings requires --k (maximum number of matching groups)\n\n\
+                     Usage: pred create PartitionIntoPerfectMatchings --graph 0-1,2-3,0-2,1-3 --k 2"
+                )
+            })?;
+            anyhow::ensure!(
+                num_matchings >= 1,
+                "PartitionIntoPerfectMatchings requires --k >= 1, got {}",
+                num_matchings
+            );
+            anyhow::ensure!(
+                num_matchings <= graph.num_vertices(),
+                "PartitionIntoPerfectMatchings requires --k <= num_vertices ({}), got {}",
+                graph.num_vertices(),
+                num_matchings
+            );
+            (
+                ser(
+                    problemreductions::models::graph::PartitionIntoPerfectMatchings::new(
+                        graph,
+                        num_matchings,
+                    ),
+                )?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // PartitionIntoForests
+        "PartitionIntoForests" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create PartitionIntoForests --graph 0-1,1-2,2-0,3-4,4-5,5-3 --k 2"
+                )
+            })?;
+            let num_forests = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PartitionIntoForests requires --k (number of forest classes)\n\n\
+                     Usage: pred create PartitionIntoForests --graph 0-1,1-2,2-0,3-4,4-5,5-3 --k 2"
+                )
+            })?;
+            anyhow::ensure!(
+                num_forests >= 1,
+                "PartitionIntoForests requires --k >= 1, got {}",
+                num_forests
+            );
+            (
+                ser(problemreductions::models::graph::PartitionIntoForests::new(
+                    graph,
+                    num_forests,
+                ))?,
                 resolved_variant.clone(),
             )
         }
 
         // ShortestCommonSupersequence
         "ShortestCommonSupersequence" => {
-            let usage = "Usage: pred create SCS --strings \"0,1,2;1,2,0\" --bound 4";
+            let usage = "Usage: pred create SCS --strings \"0,1,2;1,2,0\"";
             let strings_str = args.strings.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("ShortestCommonSupersequence requires --strings\n\n{usage}")
             })?;
-            let bound_raw = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("ShortestCommonSupersequence requires --bound\n\n{usage}")
-            })?;
-            let bound =
-                parse_nonnegative_usize_bound(bound_raw, "ShortestCommonSupersequence", usage)?;
             let strings: Vec<Vec<usize>> = strings_str
                 .split(';')
                 .map(|s| {
@@ -4555,11 +6265,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 );
             }
             (
-                ser(ShortestCommonSupersequence::new(
-                    alphabet_size,
-                    strings,
-                    bound,
-                ))?,
+                ser(ShortestCommonSupersequence::new(alphabet_size, strings))?,
                 resolved_variant.clone(),
             )
         }
@@ -4581,21 +6287,18 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        "Kernel" => {
-            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Kernel requires --arcs\n\n\
-                     Usage: pred create Kernel --arcs \"0>1,1>0,0>2,1>2\" [--num-vertices N]"
-                )
-            })?;
-            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
-            (ser(Kernel::new(graph))?, resolved_variant.clone())
-        }
-
         "ConjunctiveQueryFoldability" => {
             bail!(
                 "ConjunctiveQueryFoldability has complex nested input.\n\n\
                  Use: pred create --example ConjunctiveQueryFoldability\n\
+                 Or provide a JSON file directly."
+            )
+        }
+
+        "EquilibriumPoint" => {
+            bail!(
+                "EquilibriumPoint has complex nested input (polynomial factor lists).\n\n\
+                 Use: pred create --example EquilibriumPoint\n\
                  Or provide a JSON file directly."
             )
         }
@@ -4930,6 +6633,114 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     target,
                     bound,
                 ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Clustering
+        "Clustering" => {
+            let usage = "Usage: pred create Clustering --distance-matrix \"0,1,1,3;1,0,1,3;1,1,0,3;3,3,3,0\" --k 2 --diameter-bound 1";
+            let dist_str = args.distance_matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Clustering requires --distance-matrix, --k, and --diameter-bound\n\n{usage}"
+                )
+            })?;
+            let distance_matrix = parse_u64_matrix_rows(dist_str, "distance matrix")?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!("Clustering requires --k (number of clusters)\n\n{usage}")
+            })?;
+            let diameter_bound = args
+                .diameter_bound
+                .ok_or_else(|| anyhow::anyhow!("Clustering requires --diameter-bound\n\n{usage}"))?
+                as u64;
+            (
+                ser(Clustering::new(distance_matrix, k, diameter_bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumDecisionTree
+        "MinimumDecisionTree" => {
+            let usage = "Usage: pred create MinimumDecisionTree --test-matrix '[[true,true,false,false],[true,false,false,false],[false,true,false,true]]' --num-objects 4 --num-tests 3";
+            let matrix_str = args.test_matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumDecisionTree requires --test-matrix\n\n{usage}")
+            })?;
+            let test_matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str)
+                .context("Failed to parse --test-matrix as JSON 2D bool array")?;
+            let num_objects = args.num_objects.ok_or_else(|| {
+                anyhow::anyhow!("MinimumDecisionTree requires --num-objects\n\n{usage}")
+            })?;
+            let num_tests = args.num_tests.ok_or_else(|| {
+                anyhow::anyhow!("MinimumDecisionTree requires --num-tests\n\n{usage}")
+            })?;
+            (
+                ser(MinimumDecisionTree::new(
+                    test_matrix,
+                    num_objects,
+                    num_tests,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumDisjunctiveNormalForm
+        "MinimumDisjunctiveNormalForm" => {
+            let usage = "Usage: pred create MinDNF --num-vars 3 --truth-table 0,1,1,1,1,1,1,0";
+            let num_vars = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!("MinimumDisjunctiveNormalForm requires --num-vars\n\n{usage}")
+            })?;
+            let tt_str = args.truth_table.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("MinimumDisjunctiveNormalForm requires --truth-table\n\n{usage}")
+            })?;
+            let truth_table: Vec<bool> = tt_str
+                .split(',')
+                .map(|s| match s.trim() {
+                    "1" | "true" => Ok(true),
+                    "0" | "false" => Ok(false),
+                    other => bail!("Invalid truth table entry '{}': expected 0 or 1", other),
+                })
+                .collect::<Result<Vec<bool>>>()?;
+            (
+                ser(MinimumDisjunctiveNormalForm::new(num_vars, truth_table))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SquareTiling
+        "SquareTiling" => {
+            let usage = "Usage: pred create SquareTiling --num-colors 3 --tiles \"0,1,2,0;0,0,2,1;2,1,0,0;2,0,0,1\" --grid-size 2";
+            let num_colors = args
+                .num_colors
+                .ok_or_else(|| anyhow::anyhow!("SquareTiling requires --num-colors\n\n{usage}"))?;
+            let tiles_str = args
+                .tiles
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("SquareTiling requires --tiles\n\n{usage}"))?;
+            let tiles: Vec<(usize, usize, usize, usize)> = tiles_str
+                .split(';')
+                .map(|tile_s| {
+                    let parts: Vec<usize> = tile_s
+                        .split(',')
+                        .map(|v| {
+                            v.trim()
+                                .parse::<usize>()
+                                .context("invalid tile color index")
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+                    if parts.len() != 4 {
+                        bail!(
+                            "Each tile must have exactly 4 values (top,right,bottom,left), got {}",
+                            parts.len()
+                        );
+                    }
+                    Ok((parts[0], parts[1], parts[2], parts[3]))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let grid_size = args
+                .grid_size
+                .ok_or_else(|| anyhow::anyhow!("SquareTiling requires --grid-size\n\n{usage}"))?;
+            (
+                ser(SquareTiling::new(num_colors, tiles, grid_size))?,
                 resolved_variant.clone(),
             )
         }
@@ -5549,27 +7360,6 @@ fn parse_clauses(args: &CreateArgs) -> Result<Vec<CNFClause>> {
         .collect()
 }
 
-/// Parse `--disjuncts` as semicolon-separated conjunctions of comma-separated literals.
-/// E.g., "1,2;-1,3"
-fn parse_disjuncts(args: &CreateArgs) -> Result<Vec<Vec<i32>>> {
-    let disjuncts_str = args
-        .disjuncts
-        .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("NonTautology requires --disjuncts (e.g., \"1,2;-1,3\")"))?;
-
-    disjuncts_str
-        .split(';')
-        .map(|disjunct| {
-            disjunct
-                .trim()
-                .split(',')
-                .map(|s| s.trim().parse::<i32>())
-                .collect::<std::result::Result<Vec<_>, _>>()
-                .map_err(anyhow::Error::from)
-        })
-        .collect()
-}
-
 /// Parse `--sets` as semicolon-separated sets of comma-separated usize.
 /// E.g., "0,1;1,2;0,2"
 fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
@@ -5938,6 +7728,24 @@ fn parse_requirements(args: &CreateArgs, usage: &str) -> Result<Vec<u64>> {
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("StaffScheduling requires --requirements\n\n{usage}"))?;
     util::parse_comma_list(requirements_str)
+}
+
+fn parse_named_u64_list(
+    raw: Option<&str>,
+    problem: &str,
+    flag: &str,
+    usage: &str,
+) -> Result<Vec<u64>> {
+    let raw = raw.ok_or_else(|| anyhow::anyhow!("{problem} requires {flag}\n\n{usage}"))?;
+    util::parse_comma_list(raw).map_err(|err| anyhow::anyhow!("{err}\n\n{usage}"))
+}
+
+fn ensure_named_len(len: usize, expected: usize, flag: &str, usage: &str) -> Result<()> {
+    anyhow::ensure!(
+        len == expected,
+        "{flag} must contain exactly {expected} entries\n\n{usage}"
+    );
+    Ok(())
 }
 
 fn validate_staff_scheduling_args(
@@ -6505,6 +8313,29 @@ fn create_random(
             )
         }
 
+        "VertexCover" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let usage =
+                "Usage: pred create VertexCover --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] --k 3";
+            let k = args
+                .k
+                .ok_or_else(|| anyhow::anyhow!("VertexCover requires --k\n\n{usage}"))?;
+            if k == 0 {
+                bail!("VertexCover: --k must be positive");
+            }
+            if k > graph.num_vertices() {
+                bail!("VertexCover: k must be <= graph num_vertices");
+            }
+            (
+                ser(VertexCover::new(graph, k))?,
+                variant_map(&[("graph", "SimpleGraph")]),
+            )
+        }
+
         // MinimumCutIntoBoundedSets (graph + edge weights + s/t/B/K)
         "MinimumCutIntoBoundedSets" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
@@ -6517,7 +8348,6 @@ fn create_random(
             let source = 0;
             let sink = num_vertices.saturating_sub(1);
             let size_bound = num_vertices; // no effective size constraint
-            let cut_bound = num_edges as i32; // generous bound
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
             (
                 ser(MinimumCutIntoBoundedSets::new(
@@ -6526,31 +8356,76 @@ fn create_random(
                     source,
                     sink,
                     size_bound,
-                    cut_bound,
                 ))?,
                 variant,
             )
         }
 
-        // GraphPartitioning (graph only, no weights; requires even vertex count)
-        "GraphPartitioning" => {
-            let num_vertices = if num_vertices % 2 != 0 {
-                eprintln!(
-                    "Warning: GraphPartitioning requires even vertex count; rounding {} up to {}",
-                    num_vertices,
-                    num_vertices + 1
-                );
-                num_vertices + 1
-            } else {
-                num_vertices
-            };
+        // MaximumAchromaticNumber (graph only, no weights)
+        "MaximumAchromaticNumber" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let variant = variant_map(&[("graph", "SimpleGraph")]);
-            (ser(GraphPartitioning::new(graph))?, variant)
+            (
+                ser(problemreductions::models::graph::MaximumAchromaticNumber::new(graph))?,
+                variant,
+            )
+        }
+
+        // MaximumDomaticNumber (graph only, no weights)
+        "MaximumDomaticNumber" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (
+                ser(problemreductions::models::graph::MaximumDomaticNumber::new(graph))?,
+                variant,
+            )
+        }
+
+        // MinimumCoveringByCliques (graph only, no weights)
+        "MinimumCoveringByCliques" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (
+                ser(problemreductions::models::graph::MinimumCoveringByCliques::new(graph))?,
+                variant,
+            )
+        }
+
+        // MinimumIntersectionGraphBasis (graph only, no weights)
+        "MinimumIntersectionGraphBasis" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (
+                ser(problemreductions::models::graph::MinimumIntersectionGraphBasis::new(graph))?,
+                variant,
+            )
+        }
+
+        // MinimumMaximalMatching (graph only, no weights)
+        "MinimumMaximalMatching" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (ser(MinimumMaximalMatching::new(graph))?, variant)
         }
 
         // Hamiltonian Circuit (graph only, no weights)
@@ -6564,6 +8439,21 @@ fn create_random(
             (ser(HamiltonianCircuit::new(graph))?, variant)
         }
 
+        // Maximum Leaf Spanning Tree (graph only, no weights)
+        "MaximumLeafSpanningTree" => {
+            let num_vertices = num_vertices.max(2);
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (
+                ser(problemreductions::models::graph::MaximumLeafSpanningTree::new(graph))?,
+                variant,
+            )
+        }
+
         // HamiltonianPath (graph only, no weights)
         "HamiltonianPath" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
@@ -6575,22 +8465,36 @@ fn create_random(
             (ser(HamiltonianPath::new(graph))?, variant)
         }
 
-        // DegreeConstrainedSpanningTree (graph only, no weights)
-        "DegreeConstrainedSpanningTree" => {
-            let usage = "Usage: pred create DegreeConstrainedSpanningTree --random --num-vertices 6 [--edge-prob 0.5] [--seed 42] --max-degree 2";
+        // HamiltonianPathBetweenTwoVertices (graph + source/target)
+        "HamiltonianPathBetweenTwoVertices" => {
+            let num_vertices = num_vertices.max(2);
             let edge_prob = args.edge_prob.unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let max_degree = args.max_degree.ok_or_else(|| {
-                anyhow::anyhow!("DegreeConstrainedSpanningTree requires --max-degree\n\n{usage}")
-            })?;
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let source_vertex = args.source_vertex.unwrap_or(0);
+            let target_vertex = args
+                .target_vertex
+                .unwrap_or_else(|| num_vertices.saturating_sub(1));
+            ensure_vertex_in_bounds(source_vertex, graph.num_vertices(), "source_vertex")?;
+            ensure_vertex_in_bounds(target_vertex, graph.num_vertices(), "target_vertex")?;
+            anyhow::ensure!(
+                source_vertex != target_vertex,
+                "source_vertex and target_vertex must be distinct"
+            );
             let variant = variant_map(&[("graph", "SimpleGraph")]);
-            (ser(DegreeConstrainedSpanningTree::new(graph, max_degree))?, variant)
+            (
+                ser(HamiltonianPathBetweenTwoVertices::new(
+                    graph,
+                    source_vertex,
+                    target_vertex,
+                ))?,
+                variant,
+            )
         }
 
-        // LongestCircuit (graph + unit edge lengths + positive bound)
+        // LongestCircuit (graph + unit edge lengths)
         "LongestCircuit" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
@@ -6598,13 +8502,8 @@ fn create_random(
             }
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let edge_lengths = vec![1i32; graph.num_edges()];
-            let usage = "Usage: pred create LongestCircuit --random --num-vertices 6 [--edge-prob 0.5] [--seed 42] --bound 4";
-            let bound = validate_longest_circuit_bound(
-                args.bound.unwrap_or(num_vertices.max(3) as i64),
-                Some(usage),
-            )?;
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-            (ser(LongestCircuit::new(graph, edge_lengths, bound))?, variant)
+            (ser(LongestCircuit::new(graph, edge_lengths))?, variant)
         }
 
         // GeneralizedHex (graph only, with source/sink defaults)
@@ -6645,13 +8544,11 @@ fn create_random(
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let source = args.source.unwrap_or(0);
             let sink = args.sink.unwrap_or(num_vertices - 1);
-            let num_paths_required = args.num_paths_required.unwrap_or(1);
             let bound = args.bound.unwrap_or((num_vertices - 1) as i64);
             let max_length = validate_length_bounded_disjoint_paths_args(
                 num_vertices,
                 source,
                 sink,
-                num_paths_required,
                 bound,
                 None,
             )?;
@@ -6661,7 +8558,6 @@ fn create_random(
                     graph,
                     source,
                     sink,
-                    num_paths_required,
                     max_length,
                 ))?,
                 variant,
@@ -6769,23 +8665,15 @@ fn create_random(
             util::ser_kcoloring(graph, k)?
         }
 
-        // OptimalLinearArrangement — graph + bound
+        // OptimalLinearArrangement — graph only (optimization)
         "OptimalLinearArrangement" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
-            // Default bound: (n-1) * num_edges ensures satisfiability (max edge stretch is n-1)
-            let n = graph.num_vertices();
-            let usage = "Usage: pred create OptimalLinearArrangement --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] [--bound 10]";
-            let bound = args
-                .bound
-                .map(|b| parse_nonnegative_usize_bound(b, "OptimalLinearArrangement", usage))
-                .transpose()?
-                .unwrap_or((n.saturating_sub(1)) * graph.num_edges());
             let variant = variant_map(&[("graph", "SimpleGraph")]);
-            (ser(OptimalLinearArrangement::new(graph, bound))?, variant)
+            (ser(OptimalLinearArrangement::new(graph))?, variant)
         }
 
         // RootedTreeArrangement — graph + bound
@@ -6809,8 +8697,8 @@ fn create_random(
         _ => bail!(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
-             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, TravelingSalesman, \
-             BottleneckTravelingSalesman, SteinerTreeInGraphs, HamiltonianCircuit, SteinerTree, \
+             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, VertexCover, TravelingSalesman, \
+             BottleneckTravelingSalesman, SteinerTreeInGraphs, HamiltonianCircuit, MaximumLeafSpanningTree, SteinerTree, \
              OptimalLinearArrangement, RootedTreeArrangement, HamiltonianPath, LongestCircuit, GeneralizedHex)"
         ),
     };
@@ -6822,6 +8710,34 @@ fn create_random(
     };
 
     emit_problem_output(&output, out)
+}
+
+/// Parse implication rules from semicolon-separated "antecedents>consequent" strings.
+///
+/// Format: "0,1>2;3>4;5,6,7>0" where antecedents are comma-separated indices
+/// before the `>` and the consequent is the single index after.
+fn parse_implications(s: &str) -> Result<Vec<(Vec<usize>, usize)>> {
+    let mut implications = Vec::new();
+    for part in s.split(';') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        let (lhs, rhs) = part.split_once('>').ok_or_else(|| {
+            anyhow::anyhow!("Each implication must contain '>' separator: {part}")
+        })?;
+        let antecedents: Vec<usize> = lhs
+            .split(',')
+            .map(|x| x.trim().parse::<usize>())
+            .collect::<Result<_, _>>()
+            .context(format!("Invalid antecedent index in implication: {part}"))?;
+        let consequent: usize = rhs
+            .trim()
+            .parse()
+            .context(format!("Invalid consequent index in implication: {part}"))?;
+        implications.push((antecedents, consequent));
+    }
+    Ok(implications)
 }
 
 #[cfg(test)]
@@ -6859,13 +8775,8 @@ mod tests {
     #[test]
     fn test_problem_help_preserves_generic_field_kebab_case() {
         assert_eq!(
-            problem_help_flag_name(
-                "LengthBoundedDisjointPaths",
-                "num_paths_required",
-                "usize",
-                false,
-            ),
-            "num-paths-required"
+            problem_help_flag_name("LengthBoundedDisjointPaths", "max_paths", "usize", false,),
+            "max-paths"
         );
     }
 
@@ -7058,114 +8969,6 @@ mod tests {
     }
 
     #[test]
-    fn test_create_integer_expression_membership_outputs_problem_json() {
-        let cli = Cli::try_parse_from([
-            "pred",
-            "create",
-            "IntegerExpressionMembership",
-            "--choices",
-            "1,2;1,6;1,7;1,9",
-            "--target",
-            "15",
-        ])
-        .unwrap();
-
-        let args = match cli.command {
-            Commands::Create(args) => args,
-            _ => panic!("expected create command"),
-        };
-
-        let suffix = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let output_path = std::env::temp_dir().join(format!(
-            "integer-expression-membership-create-{suffix}.json"
-        ));
-        let out = OutputConfig {
-            output: Some(output_path.clone()),
-            quiet: true,
-            json: false,
-            auto_json: false,
-        };
-
-        create(&args, &out).unwrap();
-
-        let json: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(&output_path).unwrap()).unwrap();
-        assert_eq!(json["type"], "IntegerExpressionMembership");
-        assert_eq!(
-            json["data"]["choices"],
-            serde_json::json!([[1, 2], [1, 6], [1, 7], [1, 9]])
-        );
-        assert_eq!(json["data"]["target"], serde_json::json!(15));
-        std::fs::remove_file(output_path).unwrap();
-    }
-
-    #[test]
-    fn test_create_simultaneous_incongruences_outputs_problem_json() {
-        let cli = Cli::try_parse_from([
-            "pred",
-            "create",
-            "SimultaneousIncongruences",
-            "--moduli",
-            "2,3,5,7",
-            "--residues",
-            "0,1,2,3",
-            "--bound",
-            "210",
-        ])
-        .unwrap();
-
-        let args = match cli.command {
-            Commands::Create(args) => args,
-            _ => panic!("expected create command"),
-        };
-
-        let suffix = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let output_path =
-            std::env::temp_dir().join(format!("simultaneous-incongruences-create-{suffix}.json"));
-        let out = OutputConfig {
-            output: Some(output_path.clone()),
-            quiet: true,
-            json: false,
-            auto_json: false,
-        };
-
-        create(&args, &out).unwrap();
-
-        let json: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(&output_path).unwrap()).unwrap();
-        assert_eq!(json["type"], "SimultaneousIncongruences");
-        assert_eq!(json["data"]["moduli"], serde_json::json!([2, 3, 5, 7]));
-        assert_eq!(json["data"]["residues"], serde_json::json!([0, 1, 2, 3]));
-        assert_eq!(json["data"]["bound"], serde_json::json!(210));
-        std::fs::remove_file(output_path).unwrap();
-    }
-
-    #[test]
-    fn test_create_simultaneous_incongruences_requires_residues() {
-        let mut args = empty_args();
-        args.problem = Some("SimultaneousIncongruences".to_string());
-        args.moduli = Some("2,3,5,7".to_string());
-        args.bound = Some(210);
-
-        let out = OutputConfig {
-            output: None,
-            quiet: true,
-            json: false,
-            auto_json: false,
-        };
-
-        let err = create(&args, &out).unwrap_err().to_string();
-        assert!(err.contains("SimultaneousIncongruences requires --residues"));
-        assert!(err.contains("Usage: pred create SimultaneousIncongruences"));
-    }
-
-    #[test]
     fn test_create_path_constrained_network_flow_outputs_problem_json() {
         let cli = Cli::try_parse_from([
             "pred",
@@ -7305,6 +9108,104 @@ mod tests {
         let example = example_for("PathConstrainedNetworkFlow", None);
         assert!(example.contains("--paths"));
         assert!(example.contains("--requirement"));
+    }
+
+    #[test]
+    fn test_example_for_three_partition_mentions_sizes_and_bound() {
+        let example = example_for("ThreePartition", None);
+        assert!(example.contains("--sizes"));
+        assert!(example.contains("--bound"));
+    }
+
+    #[test]
+    fn test_create_three_partition_outputs_problem_json() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "ThreePartition",
+            "--sizes",
+            "4,5,6,4,6,5",
+            "--bound",
+            "15",
+        ])
+        .expect("parse create command");
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let output_path = temp_output_path("three_partition_create");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).expect("create ThreePartition JSON");
+
+        let created: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output_path).unwrap()).unwrap();
+        fs::remove_file(output_path).ok();
+
+        assert_eq!(created["type"], "ThreePartition");
+        assert_eq!(
+            created["data"]["sizes"],
+            serde_json::json!([4, 5, 6, 4, 6, 5])
+        );
+        assert_eq!(created["data"]["bound"], 15);
+    }
+
+    #[test]
+    fn test_create_three_partition_requires_bound() {
+        let cli =
+            Cli::try_parse_from(["pred", "create", "ThreePartition", "--sizes", "4,5,6,4,6,5"])
+                .expect("parse create command");
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("ThreePartition requires --bound"));
+    }
+
+    #[test]
+    fn test_create_three_partition_rejects_invalid_instance() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "ThreePartition",
+            "--sizes",
+            "4,5,6,4,6,5",
+            "--bound",
+            "14",
+        ])
+        .expect("parse create command");
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("must equal m * bound"));
     }
 
     #[test]
@@ -7511,8 +9412,6 @@ mod tests {
             "1,3,6;2,4,7;1,2,5",
             "--delay-matrix",
             "8,4,1;7,3,1;6,3,1",
-            "--cost-budget",
-            "10",
             "--delay-budget",
             "12",
         ])
@@ -7535,8 +9434,183 @@ mod tests {
         fs::remove_file(&output).unwrap();
         assert_eq!(json["type"], "CapacityAssignment");
         assert_eq!(json["data"]["capacities"], serde_json::json!([1, 2, 3]));
-        assert_eq!(json["data"]["cost_budget"], 10);
         assert_eq!(json["data"]["delay_budget"], 12);
+    }
+
+    #[test]
+    fn test_create_production_planning_serializes_problem_json() {
+        let output = temp_output_path("production_planning_create");
+        let cli = Cli::try_parse_from([
+            "pred",
+            "-o",
+            output.to_str().unwrap(),
+            "create",
+            "ProductionPlanning",
+            "--num-periods",
+            "6",
+            "--demands",
+            "5,3,7,2,8,5",
+            "--capacities",
+            "12,12,12,12,12,12",
+            "--setup-costs",
+            "10,10,10,10,10,10",
+            "--production-costs",
+            "1,1,1,1,1,1",
+            "--inventory-costs",
+            "1,1,1,1,1,1",
+            "--cost-bound",
+            "80",
+        ])
+        .expect("parse create command");
+        let out = OutputConfig {
+            output: cli.output.clone(),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output).unwrap()).unwrap();
+        fs::remove_file(&output).unwrap();
+        assert_eq!(json["type"], "ProductionPlanning");
+        assert_eq!(json["data"]["num_periods"], 6);
+        assert_eq!(
+            json["data"]["demands"],
+            serde_json::json!([5, 3, 7, 2, 8, 5])
+        );
+        assert_eq!(
+            json["data"]["capacities"],
+            serde_json::json!([12, 12, 12, 12, 12, 12])
+        );
+        assert_eq!(
+            json["data"]["setup_costs"],
+            serde_json::json!([10, 10, 10, 10, 10, 10])
+        );
+        assert_eq!(
+            json["data"]["production_costs"],
+            serde_json::json!([1, 1, 1, 1, 1, 1])
+        );
+        assert_eq!(
+            json["data"]["inventory_costs"],
+            serde_json::json!([1, 1, 1, 1, 1, 1])
+        );
+        assert_eq!(json["data"]["cost_bound"], 80);
+    }
+
+    #[test]
+    fn test_create_production_planning_requires_all_period_vectors() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "ProductionPlanning",
+            "--num-periods",
+            "6",
+            "--demands",
+            "5,3,7,2,8,5",
+            "--capacities",
+            "12,12,12,12,12,12",
+            "--setup-costs",
+            "10,10,10,10,10,10",
+            "--inventory-costs",
+            "1,1,1,1,1,1",
+            "--cost-bound",
+            "80",
+        ])
+        .expect("parse create command");
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("ProductionPlanning requires --production-costs"));
+    }
+
+    #[test]
+    fn test_create_production_planning_rejects_mismatched_period_lengths() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "ProductionPlanning",
+            "--num-periods",
+            "6",
+            "--demands",
+            "5,3,7,2,8",
+            "--capacities",
+            "12,12,12,12,12,12",
+            "--setup-costs",
+            "10,10,10,10,10,10",
+            "--production-costs",
+            "1,1,1,1,1,1",
+            "--inventory-costs",
+            "1,1,1,1,1,1",
+            "--cost-bound",
+            "80",
+        ])
+        .expect("parse create command");
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        let err = create(&args, &out).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("--demands must contain exactly 6 entries"));
+    }
+
+    #[test]
+    fn test_create_example_production_planning_uses_canonical_example() {
+        let output = temp_output_path("production_planning_example_create");
+        let cli = Cli::try_parse_from([
+            "pred",
+            "-o",
+            output.to_str().unwrap(),
+            "create",
+            "--example",
+            "ProductionPlanning",
+        ])
+        .expect("parse create command");
+        let out = OutputConfig {
+            output: cli.output.clone(),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => unreachable!(),
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output).unwrap()).unwrap();
+        fs::remove_file(&output).unwrap();
+        assert_eq!(json["type"], "ProductionPlanning");
+        assert_eq!(json["data"]["num_periods"], 4);
+        assert_eq!(json["data"]["demands"], serde_json::json!([2, 1, 3, 2]));
+        assert_eq!(json["data"]["cost_bound"], 16);
     }
 
     #[test]
@@ -7646,8 +9720,6 @@ mod tests {
             "1,3,2;2,4,7;1,2,5",
             "--delay-matrix",
             "8,4,1;7,3,1;6,3,1",
-            "--cost-budget",
-            "10",
             "--delay-budget",
             "12",
         ])
@@ -7680,8 +9752,6 @@ mod tests {
             "1,3;2,4,7;1,2,5",
             "--delay-matrix",
             "8,4,1;7,3,1;6,3,1",
-            "--cost-budget",
-            "10",
             "--delay-budget",
             "12",
         ])
@@ -7815,6 +9885,9 @@ mod tests {
             edge_lengths: None,
             capacities: None,
             demands: None,
+            setup_costs: None,
+            production_costs: None,
+            inventory_costs: None,
             bundle_capacities: None,
             cost_matrix: None,
             delay_matrix: None,
@@ -7828,15 +9901,9 @@ mod tests {
             couplings: None,
             fields: None,
             clauses: None,
-            disjuncts: None,
             num_vars: None,
-            equations: None,
-            moduli: None,
-            residues: None,
             matrix: None,
-            rhs: None,
             k: None,
-            max_degree: None,
             random: false,
             source_vertex: None,
             target_vertex: None,
@@ -7855,7 +9922,6 @@ mod tests {
             requirement_1: None,
             requirement_2: None,
             sizes: None,
-            choices: None,
             probabilities: None,
             capacity: None,
             sequence: None,
@@ -7865,6 +9931,7 @@ mod tests {
             r_weights: None,
             s_weights: None,
             partition: None,
+            partitions: None,
             bundles: None,
             universe: None,
             biedges: None,
@@ -7884,17 +9951,16 @@ mod tests {
             latency_bound: None,
             length_bound: None,
             weight_bound: None,
+            diameter_bound: None,
             cost_bound: None,
-            cost_budget: None,
             delay_budget: None,
             pattern: None,
             strings: None,
             string: None,
-            setup_costs: None,
-            production_costs: None,
-            inventory_costs: None,
             arc_costs: None,
             arcs: None,
+            left_arcs: None,
+            right_arcs: None,
             values: None,
             precedences: None,
             distance_matrix: None,
@@ -7905,6 +9971,7 @@ mod tests {
             deadlines: None,
             precedence_pairs: None,
             task_lengths: None,
+            job_tasks: None,
             resource_bounds: None,
             resource_requirements: None,
             deadline: None,
@@ -7942,6 +10009,38 @@ mod tests {
             storage: None,
             quantifiers: None,
             homologous_pairs: None,
+            pointer_cost: None,
+            expression: None,
+            coeff_a: None,
+            coeff_b: None,
+            rhs: None,
+            coeff_c: None,
+            pairs: None,
+            required_columns: None,
+            compilers: None,
+            setup_times: None,
+            w_sizes: None,
+            x_sizes: None,
+            y_sizes: None,
+            equations: None,
+            assignment: None,
+            initial_marking: None,
+            output_arcs: None,
+            gate_types: None,
+            true_sentences: None,
+            implications: None,
+            loop_length: None,
+            loop_variables: None,
+            inputs: None,
+            outputs: None,
+            assignments: None,
+            num_variables: None,
+            truth_table: None,
+            test_matrix: None,
+            num_tests: None,
+            tiles: None,
+            grid_size: None,
+            num_colors: None,
         }
     }
 
@@ -7967,27 +10066,6 @@ mod tests {
     }
 
     #[test]
-    fn test_all_data_flags_empty_treats_max_degree_as_input() {
-        let mut args = empty_args();
-        args.max_degree = Some(2);
-        assert!(!all_data_flags_empty(&args));
-    }
-
-    #[test]
-    fn test_all_data_flags_empty_treats_moduli_as_input() {
-        let mut args = empty_args();
-        args.moduli = Some("2,3,5,7".to_string());
-        assert!(!all_data_flags_empty(&args));
-    }
-
-    #[test]
-    fn test_all_data_flags_empty_treats_residues_as_input() {
-        let mut args = empty_args();
-        args.residues = Some("0,1,2,3".to_string());
-        assert!(!all_data_flags_empty(&args));
-    }
-
-    #[test]
     fn test_all_data_flags_empty_treats_homologous_pairs_as_input() {
         let mut args = empty_args();
         args.homologous_pairs = Some("2=5;4=3".to_string());
@@ -7995,27 +10073,10 @@ mod tests {
     }
 
     #[test]
-    fn test_all_data_flags_empty_treats_choices_as_input() {
+    fn test_all_data_flags_empty_treats_job_tasks_as_input() {
         let mut args = empty_args();
-        args.choices = Some("1,2;1,6".to_string());
+        args.job_tasks = Some("0:1,1:1;1:1,0:1".to_string());
         assert!(!all_data_flags_empty(&args));
-    }
-
-    #[test]
-    fn test_all_data_flags_empty_treats_disjuncts_as_input() {
-        let mut args = empty_args();
-        args.disjuncts = Some("1,2;-1,-2".to_string());
-        assert!(!all_data_flags_empty(&args));
-    }
-
-    #[test]
-    fn test_parse_disjuncts() {
-        let mut args = empty_args();
-        args.disjuncts = Some("1,2;-1,3".to_string());
-
-        let disjuncts = parse_disjuncts(&args).unwrap();
-
-        assert_eq!(disjuncts, vec![vec![1, 2], vec![-1, 3]]);
     }
 
     #[test]
@@ -8082,85 +10143,6 @@ mod tests {
         assert_eq!(problem.terminal_pairs(), &[(0, 3), (2, 5)]);
 
         let _ = std::fs::remove_file(output_path);
-    }
-
-    #[test]
-    fn test_create_non_tautology_json() {
-        let cli = Cli::try_parse_from([
-            "pred",
-            "create",
-            "NonTautology",
-            "--num-vars",
-            "2",
-            "--disjuncts",
-            "1,2;-1,-2",
-        ])
-        .expect("parse create command");
-
-        let args = match cli.command {
-            Commands::Create(args) => args,
-            _ => panic!("expected create command"),
-        };
-
-        let output_path = temp_output_path("non_tautology");
-        let out = OutputConfig {
-            output: Some(output_path.clone()),
-            quiet: true,
-            json: false,
-            auto_json: false,
-        };
-
-        create(&args, &out).expect("create NonTautology JSON");
-
-        let created: serde_json::Value =
-            serde_json::from_str(&fs::read_to_string(&output_path).unwrap()).unwrap();
-        fs::remove_file(output_path).ok();
-
-        assert_eq!(created["type"], "NonTautology");
-        assert_eq!(created["data"]["num_vars"], 2);
-        assert_eq!(
-            created["data"]["disjuncts"],
-            serde_json::json!([[1, 2], [-1, -2]])
-        );
-    }
-
-    #[test]
-    fn test_create_set_splitting_json() {
-        let cli = Cli::try_parse_from([
-            "pred",
-            "create",
-            "SetSplitting",
-            "--universe",
-            "4",
-            "--sets",
-            "0,1;1,2;2,3",
-        ])
-        .expect("parse create command");
-
-        let args = match cli.command {
-            Commands::Create(args) => args,
-            _ => panic!("expected create command"),
-        };
-
-        let output_path = temp_output_path("set_splitting");
-        let out = OutputConfig {
-            output: Some(output_path.clone()),
-            quiet: true,
-            json: false,
-            auto_json: false,
-        };
-
-        create(&args, &out).expect("create SetSplitting JSON");
-
-        let created: ProblemJsonOutput =
-            serde_json::from_str(&fs::read_to_string(&output_path).unwrap()).unwrap();
-        fs::remove_file(output_path).ok();
-
-        assert_eq!(created.problem_type, "SetSplitting");
-
-        let problem: SetSplitting = serde_json::from_value(created.data).unwrap();
-        assert_eq!(problem.universe_size(), 4);
-        assert_eq!(problem.subsets(), &[vec![0, 1], vec![1, 2], vec![2, 3]],);
     }
 
     #[test]
@@ -8385,7 +10367,6 @@ mod tests {
         args.problem = Some("ExpectedRetrievalCost".to_string());
         args.probabilities = Some("0.2,0.15,0.15,0.2,0.1,0.2".to_string());
         args.num_sectors = Some(3);
-        args.latency_bound = Some(1.01);
 
         let output_path = std::env::temp_dir().join(format!(
             "expected-retrieval-cost-{}.json",
@@ -8407,18 +10388,58 @@ mod tests {
         let problem: ExpectedRetrievalCost = serde_json::from_value(created.data).unwrap();
         assert_eq!(problem.num_records(), 6);
         assert_eq!(problem.num_sectors(), 3);
-        assert!(problem.evaluate(&[0, 1, 2, 1, 0, 2]));
+        use problemreductions::types::Min;
+        assert!(matches!(
+            problem.evaluate(&[0, 1, 2, 1, 0, 2]),
+            Min(Some(_))
+        ));
 
         let _ = std::fs::remove_file(output_path);
     }
 
     #[test]
-    fn test_create_expected_retrieval_cost_requires_latency_bound() {
+    fn test_create_job_shop_scheduling_json() {
+        use crate::dispatch::ProblemJsonOutput;
+        use problemreductions::models::misc::JobShopScheduling;
+        use problemreductions::traits::Problem;
+        use problemreductions::types::Min;
+
         let mut args = empty_args();
-        args.problem = Some("ExpectedRetrievalCost".to_string());
-        args.probabilities = Some("0.2,0.15,0.15,0.2,0.1,0.2".to_string());
-        args.num_sectors = Some(3);
-        args.latency_bound = None;
+        args.problem = Some("JobShopScheduling".to_string());
+        args.job_tasks = Some("0:3,1:4;1:2,0:3,1:2;0:4,1:3;1:5,0:2;0:2,1:3,0:1".to_string());
+
+        let output_path =
+            std::env::temp_dir().join(format!("job-shop-scheduling-{}.json", std::process::id()));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json = std::fs::read_to_string(&output_path).unwrap();
+        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
+        assert_eq!(created.problem_type, "JobShopScheduling");
+        assert!(created.variant.is_empty());
+
+        let problem: JobShopScheduling = serde_json::from_value(created.data).unwrap();
+        assert_eq!(problem.num_processors(), 2);
+        assert_eq!(problem.num_jobs(), 5);
+        assert_eq!(
+            problem.evaluate(&[0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0]),
+            Min(Some(19))
+        );
+
+        let _ = std::fs::remove_file(output_path);
+    }
+
+    #[test]
+    fn test_create_job_shop_scheduling_requires_job_tasks() {
+        let mut args = empty_args();
+        args.problem = Some("JobShopScheduling".to_string());
+        args.num_processors = Some(2);
 
         let out = OutputConfig {
             output: None,
@@ -8428,7 +10449,41 @@ mod tests {
         };
 
         let err = create(&args, &out).unwrap_err().to_string();
-        assert!(err.contains("ExpectedRetrievalCost requires --latency-bound"));
+        assert!(err.contains("JobShopScheduling requires --job-tasks"));
+    }
+
+    #[test]
+    fn test_create_job_shop_scheduling_rejects_malformed_operation() {
+        let mut args = empty_args();
+        args.problem = Some("JobShopScheduling".to_string());
+        args.job_tasks = Some("0-3,1:4".to_string());
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("expected 'processor:length'"));
+    }
+
+    #[test]
+    fn test_create_job_shop_scheduling_rejects_consecutive_same_processor() {
+        let mut args = empty_args();
+        args.problem = Some("JobShopScheduling".to_string());
+        args.job_tasks = Some("0:1,0:1".to_string());
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        let err = create(&args, &out).unwrap_err().to_string();
+        assert!(err.contains("must use different processors"));
     }
 
     #[test]
@@ -8472,7 +10527,6 @@ mod tests {
         args.graph = Some("0-1,1-2,2-3,3-5,4-5,0-3,1-5".to_string());
         args.arc_costs = Some("3,4,2,5,3".to_string());
         args.edge_lengths = Some("2,1,3,2,1,4,3".to_string());
-        args.bound = Some(20);
 
         let output_path = std::env::temp_dir().join("pred_test_create_stacker_crane.json");
         let out = OutputConfig {
@@ -8488,7 +10542,6 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(&content).unwrap();
         assert_eq!(json["type"], "StackerCrane");
         assert_eq!(json["data"]["num_vertices"], 6);
-        assert_eq!(json["data"]["bound"], 20);
         assert_eq!(json["data"]["arcs"][0], serde_json::json!([0, 4]));
         assert_eq!(json["data"]["edge_lengths"][6], 3);
 
@@ -8587,38 +10640,6 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("requires the input graph to be a DAG"));
-    }
-
-    #[test]
-    fn test_create_kernel_json() {
-        use crate::dispatch::ProblemJsonOutput;
-        use problemreductions::models::graph::Kernel;
-
-        let mut args = empty_args();
-        args.problem = Some("Kernel".to_string());
-        args.num_vertices = Some(3);
-        args.arcs = Some("0>1,1>0,0>2,1>2".to_string());
-
-        let output_path = temp_output_path("kernel");
-        let out = OutputConfig {
-            output: Some(output_path.clone()),
-            quiet: true,
-            json: false,
-            auto_json: false,
-        };
-
-        create(&args, &out).unwrap();
-
-        let json = fs::read_to_string(&output_path).unwrap();
-        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
-        assert_eq!(created.problem_type, "Kernel");
-        assert!(created.variant.is_empty());
-
-        let problem: Kernel = serde_json::from_value(created.data).unwrap();
-        assert_eq!(problem.num_vertices(), 3);
-        assert_eq!(problem.num_arcs(), 4);
-
-        let _ = fs::remove_file(output_path);
     }
 
     #[test]
@@ -8820,124 +10841,6 @@ mod tests {
 
         let err = create(&args, &out).unwrap_err().to_string();
         assert!(err.contains("bound >= 1"));
-    }
-
-    #[test]
-    fn test_create_minimum_weight_solution_to_linear_equations_json() {
-        use crate::dispatch::ProblemJsonOutput;
-
-        let mut args = empty_args();
-        args.problem = Some("MinimumWeightSolutionToLinearEquations".to_string());
-        args.matrix = Some("1,0,1;0,1,1".to_string());
-        args.rhs = Some("1,1".to_string());
-        args.bound = Some(1);
-
-        let output_path =
-            std::env::temp_dir().join(format!("mwsle-create-{}.json", std::process::id()));
-        let out = OutputConfig {
-            output: Some(output_path.clone()),
-            quiet: true,
-            json: false,
-            auto_json: false,
-        };
-
-        create(&args, &out).unwrap();
-
-        let json = std::fs::read_to_string(&output_path).unwrap();
-        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
-        assert_eq!(
-            created.problem_type,
-            "MinimumWeightSolutionToLinearEquations"
-        );
-        assert!(created.variant.is_empty());
-        assert_eq!(
-            created.data,
-            serde_json::json!({
-                "coefficients": [
-                    [1, 0, 1],
-                    [0, 1, 1],
-                ],
-                "rhs": [1, 1],
-                "bound": 1,
-            })
-        );
-
-        let _ = std::fs::remove_file(output_path);
-    }
-
-    #[test]
-    fn test_create_minimum_weight_solution_to_linear_equations_requires_rhs() {
-        let mut args = empty_args();
-        args.problem = Some("MinimumWeightSolutionToLinearEquations".to_string());
-        args.matrix = Some("1,0,1;0,1,1".to_string());
-        args.bound = Some(1);
-
-        let out = OutputConfig {
-            output: None,
-            quiet: true,
-            json: false,
-            auto_json: false,
-        };
-
-        let err = create(&args, &out).unwrap_err().to_string();
-        assert!(err.contains("MinimumWeightSolutionToLinearEquations requires --rhs"));
-        assert!(err.contains("Usage: pred create MinimumWeightSolutionToLinearEquations"));
-    }
-
-    #[test]
-    fn test_create_algebraic_equations_over_gf2_json() {
-        use crate::dispatch::ProblemJsonOutput;
-
-        let mut args = empty_args();
-        args.problem = Some("AlgebraicEquationsOverGF2".to_string());
-        args.num_vars = Some(3);
-        args.equations = Some("[[[0,1],[2],[]],[[1],[]]]".to_string());
-
-        let output_path =
-            std::env::temp_dir().join(format!("aegf2-create-{}.json", std::process::id()));
-        let out = OutputConfig {
-            output: Some(output_path.clone()),
-            quiet: true,
-            json: false,
-            auto_json: false,
-        };
-
-        create(&args, &out).unwrap();
-
-        let json = std::fs::read_to_string(&output_path).unwrap();
-        let created: ProblemJsonOutput = serde_json::from_str(&json).unwrap();
-        assert_eq!(created.problem_type, "AlgebraicEquationsOverGF2");
-        assert!(created.variant.is_empty());
-        assert_eq!(
-            created.data,
-            serde_json::json!({
-                "num_vars": 3,
-                "equations": [
-                    [[0, 1], [2], []],
-                    [[1], []],
-                ],
-            })
-        );
-
-        let _ = std::fs::remove_file(output_path);
-    }
-
-    #[test]
-    fn test_create_algebraic_equations_over_gf2_requires_equations() {
-        let mut args = empty_args();
-        args.problem = Some("AlgebraicEquationsOverGF2".to_string());
-        args.num_vars = Some(3);
-
-        let out = OutputConfig {
-            output: None,
-            quiet: true,
-            json: false,
-            auto_json: false,
-        };
-
-        let err = create(&args, &out).unwrap_err().to_string();
-        assert!(err.contains("AlgebraicEquationsOverGF2 requires --equations"));
-        assert!(err.contains("Usage: pred create AlgebraicEquationsOverGF2"));
     }
 
     #[test]

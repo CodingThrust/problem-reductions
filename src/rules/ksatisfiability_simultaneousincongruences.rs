@@ -27,7 +27,7 @@ impl ReductionResult for Reduction3SATToSimultaneousIncongruences {
     }
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let x = target_solution.first().copied().unwrap_or(0) as u64 + 1;
+        let x = target_solution.first().copied().unwrap_or(0) as u64;
         self.variable_primes
             .iter()
             .map(|&prime| if x % prime == 1 { 1 } else { 0 })
@@ -129,38 +129,41 @@ fn clause_bad_residue(clause: &CNFClause, variable_primes: &[u64]) -> (u64, u64)
 }
 
 #[reduction(overhead = {
-    num_incongruences = "simultaneous_incongruences_num_incongruences",
-    bound = "simultaneous_incongruences_bound",
+    num_pairs = "simultaneous_incongruences_num_incongruences",
 })]
 impl ReduceTo<SimultaneousIncongruences> for KSatisfiability<K3> {
     type Result = Reduction3SATToSimultaneousIncongruences;
 
     fn reduce_to(&self) -> Self::Result {
         let variable_primes = first_n_odd_primes(self.num_vars());
-        let bound = variable_primes.iter().fold(1u64, |product, &prime| {
-            product.checked_mul(prime).expect("bound overflow")
-        });
 
-        let mut moduli = Vec::new();
-        let mut residues = Vec::new();
+        let mut pairs = Vec::new();
 
         for &prime in &variable_primes {
-            moduli.push(prime);
-            residues.push(0);
+            // Use (prime, prime) to forbid x ≡ 0 (mod prime), since the
+            // model requires a ≥ 1. Note: prime % prime = 0, so this is
+            // equivalent to forbidding residue 0.
+            pairs.push((prime, prime));
             for residue in 3..prime {
-                moduli.push(prime);
-                residues.push(residue);
+                pairs.push((residue, prime));
             }
         }
 
         for clause in self.clauses() {
             let (bad_residue, clause_modulus) = clause_bad_residue(clause, &variable_primes);
-            moduli.push(clause_modulus);
-            residues.push(bad_residue);
+            // The model requires a >= 1. Use modulus instead of 0 since
+            // modulus % modulus = 0, achieving the same incongruence.
+            let a = if bad_residue == 0 {
+                clause_modulus
+            } else {
+                bad_residue
+            };
+            pairs.push((a, clause_modulus));
         }
 
         Reduction3SATToSimultaneousIncongruences {
-            target: SimultaneousIncongruences::new(moduli, residues, bound),
+            target: SimultaneousIncongruences::new(pairs)
+                .expect("reduction produces valid incongruences"),
             variable_primes,
         }
     }
@@ -184,7 +187,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 source,
                 SolutionPair {
                     source_config: vec![1, 1],
-                    target_config: vec![0],
+                    target_config: vec![1],
                 },
             )
         },

@@ -18,6 +18,10 @@ fn dummy_overhead_eval_fn(_: &dyn std::any::Any) -> ProblemSize {
     ProblemSize::new(vec![])
 }
 
+fn dummy_source_size_fn(_: &dyn std::any::Any) -> ProblemSize {
+    ProblemSize::new(vec![])
+}
+
 #[test]
 fn test_reduction_overhead_evaluate() {
     let overhead = ReductionOverhead::new(vec![
@@ -51,6 +55,7 @@ fn test_reduction_entry_overhead() {
         reduce_aggregate_fn: None,
         capabilities: EdgeCapabilities::witness_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
+        source_size_fn: dummy_source_size_fn,
     };
 
     let overhead = entry.overhead();
@@ -72,6 +77,7 @@ fn test_reduction_entry_debug() {
         reduce_aggregate_fn: None,
         capabilities: EdgeCapabilities::witness_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
+        source_size_fn: dummy_source_size_fn,
     };
 
     let debug_str = format!("{:?}", entry);
@@ -92,6 +98,7 @@ fn test_is_base_reduction_unweighted() {
         reduce_aggregate_fn: None,
         capabilities: EdgeCapabilities::witness_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
+        source_size_fn: dummy_source_size_fn,
     };
     assert!(entry.is_base_reduction());
 }
@@ -109,6 +116,7 @@ fn test_is_base_reduction_source_weighted() {
         reduce_aggregate_fn: None,
         capabilities: EdgeCapabilities::witness_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
+        source_size_fn: dummy_source_size_fn,
     };
     assert!(!entry.is_base_reduction());
 }
@@ -126,6 +134,7 @@ fn test_is_base_reduction_target_weighted() {
         reduce_aggregate_fn: None,
         capabilities: EdgeCapabilities::witness_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
+        source_size_fn: dummy_source_size_fn,
     };
     assert!(!entry.is_base_reduction());
 }
@@ -143,6 +152,7 @@ fn test_is_base_reduction_both_weighted() {
         reduce_aggregate_fn: None,
         capabilities: EdgeCapabilities::witness_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
+        source_size_fn: dummy_source_size_fn,
     };
     assert!(!entry.is_base_reduction());
 }
@@ -161,6 +171,7 @@ fn test_is_base_reduction_no_weight_key() {
         reduce_aggregate_fn: None,
         capabilities: EdgeCapabilities::witness_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
+        source_size_fn: dummy_source_size_fn,
     };
     assert!(entry.is_base_reduction());
 }
@@ -178,6 +189,7 @@ fn test_reduction_entry_can_store_aggregate_executor() {
         reduce_aggregate_fn: Some(dummy_reduce_aggregate_fn),
         capabilities: EdgeCapabilities::aggregate_only(),
         overhead_eval_fn: dummy_overhead_eval_fn,
+        source_size_fn: dummy_source_size_fn,
     };
 
     assert!(entry.reduce_fn.is_none());

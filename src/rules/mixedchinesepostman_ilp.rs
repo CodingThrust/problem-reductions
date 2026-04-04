@@ -35,7 +35,7 @@ impl ReductionResult for ReductionMCPToILP {
 #[reduction(
     overhead = {
         num_vars = "num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1",
-        num_constraints = "num_vertices + 2 * (num_arcs + 2 * num_edges) + 2 * (num_arcs + 2 * num_edges) + num_vertices + 1 + num_vertices + 4 * num_vertices + 2 * (num_arcs + 2 * num_edges) + 2 * num_vertices + 1",
+        num_constraints = "num_vertices + 2 * (num_arcs + 2 * num_edges) + 2 * (num_arcs + 2 * num_edges) + num_vertices + 1 + num_vertices + 4 * num_vertices + 2 * (num_arcs + 2 * num_edges) + 2 * num_vertices",
     }
 )]
 impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
@@ -331,35 +331,29 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
             constraints.push(LinearConstraint::eq(terms, 0.0));
         }
 
-        // Length bound: sum_j l_j * (r_j + g_j) <= B
-        {
-            let mut terms = Vec::new();
-            let mut constant = 0.0_f64;
-
-            for j in 0..l {
-                let len_j = avail_lengths[j];
-                // g_j term
-                terms.push((g_idx(j), len_j));
-                // r_j contribution
-                if j < m {
-                    constant += len_j; // r_j = 1
+        // Objective: minimize total walk length = sum_j l_j * (r_j + g_j)
+        // Expand r_j: for original arcs r_j = 1 (constant), for edge k fwd r_j = 1 - d_k,
+        // for edge k rev r_j = d_k.
+        // constant part moves out of the objective (ILP ignores additive constants).
+        let mut objective = Vec::new();
+        for j in 0..l {
+            let len_j = avail_lengths[j];
+            // g_j term
+            objective.push((g_idx(j), len_j));
+            // d_k terms from r_j
+            if j >= m {
+                let k = (j - m) / 2;
+                if (j - m).is_multiple_of(2) {
+                    // r_j = 1 - d_k => cost contribution -len_j * d_k (constant +len_j ignored)
+                    objective.push((d_idx(k), -len_j));
                 } else {
-                    let k = (j - m) / 2;
-                    if (j - m).is_multiple_of(2) {
-                        // r_j = 1 - d_k
-                        constant += len_j;
-                        terms.push((d_idx(k), -len_j));
-                    } else {
-                        // r_j = d_k
-                        terms.push((d_idx(k), len_j));
-                    }
+                    // r_j = d_k => cost contribution +len_j * d_k
+                    objective.push((d_idx(k), len_j));
                 }
             }
-            // sum ... <= B - constant
-            constraints.push(LinearConstraint::le(terms, *self.bound() as f64 - constant));
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
         ReductionMCPToILP {
             target,
@@ -370,32 +364,18 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-    use crate::rules::ReduceTo as _;
     use crate::topology::MixedGraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "mixedchinesepostman_to_ilp",
         build: || {
-            // Simple instance: 3 vertices, 1 arc, 1 edge
+            // Simple instance: 3 vertices, 1 arc, 2 edges
             let source = MixedChinesePostman::new(
                 MixedGraph::new(3, vec![(0, 1)], vec![(1, 2), (2, 0)]),
                 vec![1],
                 vec![1, 1],
-                4,
             );
-            let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
-            let ilp_solution = crate::solvers::ILPSolver::new()
-                .solve(reduction.target_problem())
-                .expect("canonical example must be solvable");
-            let source_config = reduction.extract_solution(&ilp_solution);
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
-                source,
-                SolutionPair {
-                    source_config,
-                    target_config: ilp_solution,
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
         },
     }]
 }

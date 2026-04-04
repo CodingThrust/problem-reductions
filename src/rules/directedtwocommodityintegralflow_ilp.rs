@@ -147,7 +147,6 @@ impl ReduceTo<ILP<i32>> for DirectedTwoCommodityIntegralFlow {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
     use crate::topology::DirectedGraph;
 
     vec![crate::example_db::specs::RuleExampleSpec {
@@ -178,16 +177,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 1,
                 1,
             );
-            // first 8 = f1, next 8 = f2
-            // f1: arc(0,2)=1, arc(2,4)=1, rest=0 → [1,0,0,0,1,0,0,0]
-            // f2: arc(1,3)=1, arc(3,5)=1, rest=0 → [0,0,0,1,0,0,0,1]
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
-                source,
-                SolutionPair {
-                    source_config: vec![1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
-                    target_config: vec![1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
         },
     }]
 }

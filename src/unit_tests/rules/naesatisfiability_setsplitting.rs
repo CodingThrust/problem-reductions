@@ -41,8 +41,8 @@ fn test_naesatisfiability_to_setsplitting_structure() {
             vec![0, 3],
             vec![1, 4],
             vec![2, 5],
-            vec![0, 2, 4],
-            vec![1, 3, 5],
+            vec![0, 4, 2],
+            vec![3, 1, 5],
         ],
     );
 }

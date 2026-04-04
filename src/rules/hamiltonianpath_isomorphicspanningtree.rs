@@ -1,19 +1,21 @@
-//! Reduction from HamiltonianPath to IsomorphicSpanningTree.
+//! Reduction from HamiltonianPath to IsomorphicSpanningTree<SimpleGraph>.
 //!
-//! A Hamiltonian path is exactly a spanning copy of the path graph `P_n`.
+//! A Hamiltonian path in G exists iff G has a spanning tree isomorphic to the
+//! path graph P_n. The reduction keeps G unchanged as the host graph and
+//! constructs T = P_n (the path on n vertices: edges {0,1},{1,2},...,{n-2,n-1}).
 
 use crate::models::graph::{HamiltonianPath, IsomorphicSpanningTree};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
 
-/// Result of reducing HamiltonianPath to IsomorphicSpanningTree.
+/// Result of reducing HamiltonianPath to IsomorphicSpanningTree<SimpleGraph>.
 #[derive(Debug, Clone)]
-pub struct ReductionHamiltonianPathToIsomorphicSpanningTree {
+pub struct ReductionHPToIST {
     target: IsomorphicSpanningTree<SimpleGraph>,
 }
 
-impl ReductionResult for ReductionHamiltonianPathToIsomorphicSpanningTree {
+impl ReductionResult for ReductionHPToIST {
     type Source = HamiltonianPath<SimpleGraph>;
     type Target = IsomorphicSpanningTree<SimpleGraph>;
 
@@ -21,6 +23,11 @@ impl ReductionResult for ReductionHamiltonianPathToIsomorphicSpanningTree {
         &self.target
     }
 
+    /// Solution extraction: identity mapping.
+    ///
+    /// The IST config maps tree vertex i to graph vertex config[i]. Since the
+    /// tree is P_n (path 0-1-2-...-n-1), this mapping directly gives the
+    /// vertex ordering of the Hamiltonian path.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
     }
@@ -29,17 +36,24 @@ impl ReductionResult for ReductionHamiltonianPathToIsomorphicSpanningTree {
 #[reduction(
     overhead = {
         num_vertices = "num_vertices",
-        num_edges = "num_edges",
+        num_graph_edges = "num_edges",
+        num_tree_edges = "num_vertices - 1",
     }
 )]
 impl ReduceTo<IsomorphicSpanningTree<SimpleGraph>> for HamiltonianPath<SimpleGraph> {
-    type Result = ReductionHamiltonianPathToIsomorphicSpanningTree;
+    type Result = ReductionHPToIST;
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_vertices();
-        let tree = SimpleGraph::new(n, (0..n.saturating_sub(1)).map(|i| (i, i + 1)).collect());
-        let target = IsomorphicSpanningTree::new(self.graph().clone(), tree);
-        ReductionHamiltonianPathToIsomorphicSpanningTree { target }
+
+        // Host graph: keep G unchanged
+        let graph = self.graph().clone();
+
+        let tree = SimpleGraph::path(n);
+
+        ReductionHPToIST {
+            target: IsomorphicSpanningTree::new(graph, tree),
+        }
     }
 }
 
@@ -47,34 +61,19 @@ impl ReduceTo<IsomorphicSpanningTree<SimpleGraph>> for HamiltonianPath<SimpleGra
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
 
-    fn source_example() -> HamiltonianPath<SimpleGraph> {
-        HamiltonianPath::new(SimpleGraph::new(
-            6,
-            vec![
-                (0, 1),
-                (0, 2),
-                (1, 3),
-                (2, 3),
-                (3, 4),
-                (3, 5),
-                (4, 2),
-                (5, 1),
-            ],
-        ))
-    }
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "hamiltonianpath_to_isomorphicspanningtree",
         build: || {
-            let source_config = vec![0, 2, 4, 3, 1, 5];
+            // Path graph 0-1-2-3-4 has a trivial Hamiltonian path
+            let source = HamiltonianPath::new(SimpleGraph::path(5));
             crate::example_db::specs::rule_example_with_witness::<
                 _,
                 IsomorphicSpanningTree<SimpleGraph>,
             >(
-                source_example(),
+                source,
                 SolutionPair {
-                    source_config: source_config.clone(),
-                    target_config: source_config,
+                    source_config: vec![0, 1, 2, 3, 4],
+                    target_config: vec![0, 1, 2, 3, 4],
                 },
             )
         },

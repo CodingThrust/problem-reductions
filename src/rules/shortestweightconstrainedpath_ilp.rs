@@ -2,8 +2,9 @@
 //!
 //! Uses directed-arc variables for each orientation of each undirected edge,
 //! together with integer order variables for MTZ-style subtour elimination.
-//! Flow-balance constraints force a single directed s-t path, and two bound
-//! constraints enforce the length and weight limits.
+//! Flow-balance constraints force a single directed s-t path, the weight
+//! bound constraint enforces the weight limit, and the objective minimizes
+//! total path length.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::ShortestWeightConstrainedPath;
@@ -61,7 +62,7 @@ impl ReductionResult for ReductionSWCPToILP {
 
 #[reduction(overhead = {
     num_vars = "2 * num_edges + num_vertices",
-    num_constraints = "5 * num_edges + 4 * num_vertices + 3",
+    num_constraints = "5 * num_edges + 4 * num_vertices + 2",
 })]
 impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
     type Result = ReductionSWCPToILP;
@@ -173,23 +174,6 @@ impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
         // --- Fix source order to 0 ---
         constraints.push(LinearConstraint::eq(vec![(order_var(source), 1.0)], 0.0));
 
-        // --- Length bound: Σ len_e * (a_{e,0} + a_{e,1}) <= length_bound ---
-        let length_terms: Vec<(usize, f64)> = edges
-            .iter()
-            .enumerate()
-            .flat_map(|(edge_idx, _)| {
-                let coeff = self.edge_lengths()[edge_idx].to_sum() as f64;
-                [
-                    (ReductionSWCPToILP::arc_var(edge_idx, 0), coeff),
-                    (ReductionSWCPToILP::arc_var(edge_idx, 1), coeff),
-                ]
-            })
-            .collect();
-        constraints.push(LinearConstraint::le(
-            length_terms,
-            *self.length_bound() as f64,
-        ));
-
         // --- Weight bound: Σ wt_e * (a_{e,0} + a_{e,1}) <= weight_bound ---
         let weight_terms: Vec<(usize, f64)> = edges
             .iter()
@@ -207,8 +191,18 @@ impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
             *self.weight_bound() as f64,
         ));
 
-        // Feasibility problem: use a dummy zero objective with Minimize.
-        let objective: Vec<(usize, f64)> = vec![];
+        // --- Objective: minimize total path length ---
+        let objective: Vec<(usize, f64)> = edges
+            .iter()
+            .enumerate()
+            .flat_map(|(edge_idx, _)| {
+                let coeff = self.edge_lengths()[edge_idx].to_sum() as f64;
+                [
+                    (ReductionSWCPToILP::arc_var(edge_idx, 0), coeff),
+                    (ReductionSWCPToILP::arc_var(edge_idx, 1), coeff),
+                ]
+            })
+            .collect();
         let target_ilp = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
         ReductionSWCPToILP {
@@ -220,33 +214,22 @@ impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    use crate::export::SolutionPair;
-
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "shortestweightconstrainedpath_to_ilp",
         build: || {
             // 3-vertex path: 0 -- 1 -- 2, s=0, t=2
             // edge_lengths = [2, 3], edge_weights = [1, 2]
-            // length_bound = 6, weight_bound = 4
-            // The only s-t path uses both edges: length=5 <= 6, weight=3 <= 4 => feasible
+            // weight_bound = 4
+            // The only s-t path uses both edges: length=5, weight=3 <= 4 => feasible
             let source = ShortestWeightConstrainedPath::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![2, 3],
                 vec![1, 2],
                 0,
                 2,
-                6,
                 4,
             );
-            // ILP vars: a_{0,fwd}, a_{0,rev}, a_{1,fwd}, a_{1,rev}, o_0, o_1, o_2
-            // Path 0->1->2: a_{0,fwd}=1, a_{1,fwd}=1, orders: 0, 1, 2
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
-                source,
-                SolutionPair {
-                    source_config: vec![1, 1],
-                    target_config: vec![1, 0, 1, 0, 0, 1, 2],
-                },
-            )
+            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
         },
     }]
 }

@@ -129,13 +129,12 @@ mod all_problems_solvable {
             vec![5, 1, 2, 3, 2, 3, 1, 1],
             0,
             5,
-            10,
             8,
         );
         let solver = BruteForce::new();
         let solution = solver.find_witness(&problem);
         assert!(solution.is_some());
-        assert!(problem.evaluate(&solution.unwrap()));
+        assert!(problem.evaluate(&solution.unwrap()).0.is_some());
     }
 
     #[test]

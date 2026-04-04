@@ -243,19 +243,28 @@ fn test_find_dominated_rules_returns_known_set() {
     let allowed: std::collections::HashSet<(&str, &str)> = [
         // Composite through CircuitSAT → ILP is better
         ("Factoring", "ILP {variable: \"i32\"}"),
-        // K3-SAT → QUBO via SAT → CircuitSAT → SpinGlass chain
-        ("KSatisfiability {k: \"K3\"}", "QUBO {weight: \"f64\"}"),
-        // GraphPartitioning -> MaxCut -> SpinGlass -> QUBO is better
+        // KClique → BCBS → ILP is better than direct KClique → ILP
         (
-            "GraphPartitioning {graph: \"SimpleGraph\"}",
-            "QUBO {weight: \"f64\"}",
+            "KClique {graph: \"SimpleGraph\"}",
+            "ILP {variable: \"bool\"}",
         ),
+        // K2-SAT → QUBO via SAT → NAESAT → MaxCut → SpinGlass chain
+        ("KSatisfiability {k: \"K2\"}", "QUBO {weight: \"f64\"}"),
+        // K3-SAT → QUBO via MVC → MIS → MaxSetPacking chain
+        ("KSatisfiability {k: \"K3\"}", "QUBO {weight: \"f64\"}"),
         // Knapsack -> ILP -> QUBO is better than the direct penalty reduction
         ("Knapsack", "QUBO {weight: \"f64\"}"),
         // MaxMatching → MaxSetPacking → ILP is better than direct MaxMatching → ILP
         (
             "MaximumMatching {graph: \"SimpleGraph\", weight: \"i32\"}",
             "ILP {variable: \"bool\"}",
+        ),
+        // ExactCoverBy3Sets → MaxSetPacking → ILP is better than direct ExactCoverBy3Sets → ILP
+        ("ExactCoverBy3Sets", "ILP {variable: \"bool\"}"),
+        // GraphPartitioning → MaxCut → SpinGlass → QUBO is better than direct GraphPartitioning → QUBO
+        (
+            "GraphPartitioning {graph: \"SimpleGraph\"}",
+            "QUBO {weight: \"f64\"}",
         ),
     ]
     .into_iter()

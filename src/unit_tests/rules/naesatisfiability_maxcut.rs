@@ -1,85 +1,164 @@
 use super::*;
-use crate::models::formula::{CNFClause, NAESatisfiability};
+use crate::models::formula::CNFClause;
+use crate::models::formula::NAESatisfiability;
+use crate::models::graph::MaxCut;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
-use crate::rules::{ReduceTo, ReductionResult};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::Max;
 
 #[test]
 fn test_naesatisfiability_to_maxcut_closed_loop() {
-    let source = super::issue_example();
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
+    // 3 variables, 2 clauses:
+    //   C1 = (x1, x2, x3)
+    //   C2 = (~x1, ~x2, x3)
+    let naesat = NAESatisfiability::new(
+        3,
+        vec![
+            CNFClause::new(vec![1, 2, 3]),
+            CNFClause::new(vec![-1, -2, 3]),
+        ],
+    );
+    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&naesat);
+    let target = reduction.target_problem();
+
+    // 2*3 = 6 vertices
+    assert_eq!(target.num_vertices(), 6);
+    // 3 variable edges + 3 + 3 = 9 clause edges
+    assert_eq!(target.num_edges(), 9);
 
     assert_satisfaction_round_trip_from_optimization_target(
-        &source,
+        &naesat,
         &reduction,
-        "NAE-SAT -> MaxCut",
+        "NAESAT -> MaxCut closed loop",
     );
 }
 
 #[test]
-fn test_naesatisfiability_to_maxcut_target_structure() {
-    let source = super::issue_example();
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
+fn test_naesatisfiability_to_maxcut_single_clause() {
+    // Single clause: (x1, x2, x3) — NAE-satisfying iff not all same
+    let naesat = NAESatisfiability::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
+    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&naesat);
     let target = reduction.target_problem();
 
+    // 6 vertices, 3 variable + 3 clause = 6 edges
+    assert_eq!(target.num_vertices(), 6);
+    assert_eq!(target.num_edges(), 6);
+
+    assert_satisfaction_round_trip_from_optimization_target(
+        &naesat,
+        &reduction,
+        "NAESAT single clause -> MaxCut",
+    );
+}
+
+#[test]
+fn test_naesatisfiability_to_maxcut_two_literal_clause() {
+    // Clause with 2 literals: (x1, ~x2) — always NAE-satisfying unless x1=T, x2=F or x1=F, x2=T... actually (x1, ~x2) is NAE-unsatisfied when both literals are same: x1=T,~x2=T (x2=F) or x1=F,~x2=F (x2=T).
+    // NAE-satisfied when x1 != ~x2, i.e., x1 == x2.
+    let naesat = NAESatisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
+    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&naesat);
+    let target = reduction.target_problem();
+
+    // 4 vertices, 2 variable + 1 clause = 3 edges
+    assert_eq!(target.num_vertices(), 4);
+    assert_eq!(target.num_edges(), 3);
+
+    assert_satisfaction_round_trip_from_optimization_target(
+        &naesat,
+        &reduction,
+        "NAESAT 2-literal clause -> MaxCut",
+    );
+}
+
+#[test]
+fn test_naesatisfiability_to_maxcut_four_literal_clause() {
+    // Clause with 4 literals: (x1, x2, ~x3, x4)
+    let naesat = NAESatisfiability::new(4, vec![CNFClause::new(vec![1, 2, -3, 4])]);
+    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&naesat);
+    let target = reduction.target_problem();
+
+    // 8 vertices, 4 variable + C(4,2)=6 clause = 10 edges
+    assert_eq!(target.num_vertices(), 8);
+    assert_eq!(target.num_edges(), 10);
+
+    assert_satisfaction_round_trip_from_optimization_target(
+        &naesat,
+        &reduction,
+        "NAESAT 4-literal clause -> MaxCut",
+    );
+}
+
+#[test]
+fn test_naesatisfiability_to_maxcut_extract_solution() {
+    // Verify specific extraction: x1=T, x2=F, x3=T
+    let naesat = NAESatisfiability::new(
+        3,
+        vec![
+            CNFClause::new(vec![1, 2, -3]),
+            CNFClause::new(vec![-1, 3, 2]),
+        ],
+    );
+    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&naesat);
+
+    // Vertices: x1(0), ~x1(1), x2(2), ~x2(3), x3(4), ~x3(5)
+    // x1=T -> vertex 0 in set 1, vertex 1 in set 0
+    // x2=F -> vertex 2 in set 0, vertex 3 in set 1
+    // x3=T -> vertex 4 in set 1, vertex 5 in set 0
+    let target_config = vec![1, 0, 0, 1, 1, 0];
+    let extracted = reduction.extract_solution(&target_config);
+    assert_eq!(extracted, vec![1, 0, 1]); // x1=T, x2=F, x3=T
+
+    // Verify this is a valid NAE-SAT solution
+    assert!(naesat.evaluate(&extracted).0);
+}
+
+#[test]
+fn test_naesatisfiability_to_maxcut_mixed_clause_sizes() {
+    // Mix of 2-literal and 3-literal clauses
+    let naesat = NAESatisfiability::new(
+        3,
+        vec![
+            CNFClause::new(vec![1, -2]),   // 2 literals -> C(2,2)=1 pair
+            CNFClause::new(vec![1, 2, 3]), // 3 literals -> C(3,2)=3 pairs
+            CNFClause::new(vec![-1, -3]),  // 2 literals -> 1 pair
+        ],
+    );
+    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&naesat);
+    let target = reduction.target_problem();
+
+    // 6 vertices, 3 variable + (1 + 3 + 1) = 8 edges
     assert_eq!(target.num_vertices(), 6);
     assert_eq!(target.num_edges(), 8);
 
-    assert_eq!(target.edge_weight(0, 1), Some(&5));
-    assert_eq!(target.edge_weight(2, 3), Some(&5));
-    assert_eq!(target.edge_weight(4, 5), Some(&5));
-    assert_eq!(target.edge_weight(0, 2), Some(&2));
-    assert_eq!(target.edge_weight(2, 4), Some(&1));
-    assert_eq!(target.edge_weight(0, 4), Some(&1));
-    assert_eq!(target.edge_weight(2, 5), Some(&1));
-    assert_eq!(target.edge_weight(0, 5), Some(&1));
-
-    assert_eq!(
-        target.evaluate(&super::ISSUE_EXAMPLE_TARGET_CONFIG),
-        Max(Some(19))
+    assert_satisfaction_round_trip_from_optimization_target(
+        &naesat,
+        &reduction,
+        "NAESAT mixed clause sizes -> MaxCut",
     );
 }
 
 #[test]
-fn test_naesatisfiability_to_maxcut_extract_solution_reads_positive_literal_vertices() {
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&super::issue_example());
-
-    assert_eq!(
-        reduction.extract_solution(&super::ISSUE_EXAMPLE_TARGET_CONFIG),
-        super::ISSUE_EXAMPLE_SOURCE_CONFIG,
+fn test_naesatisfiability_to_maxcut_optimal_cut_value() {
+    // Verify the optimal cut value matches theoretical prediction
+    // n*M + sum(k_j - 1) for satisfiable instances
+    let naesat = NAESatisfiability::new(
+        3,
+        vec![
+            CNFClause::new(vec![1, 2, 3]),
+            CNFClause::new(vec![-1, -2, 3]),
+        ],
     );
-}
+    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&naesat);
+    let target = reduction.target_problem();
 
-#[test]
-#[should_panic(expected = "requires every clause to have exactly 3 literals")]
-fn test_naesatisfiability_to_maxcut_rejects_non_3sat_instances() {
-    let source = NAESatisfiability::new(2, vec![CNFClause::new(vec![1, 2])]);
+    let solver = BruteForce::new();
+    let witness = solver.find_witness(target);
+    assert!(witness.is_some());
 
-    let _ = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
-}
-
-#[test]
-fn test_naesatisfiability_to_maxcut_penalty_overflow_panics() {
-    let result =
-        std::panic::catch_unwind(|| super::variable_gadget_weight((i32::MAX as usize) / 2 + 1));
-
-    assert!(result.is_err());
-}
-
-#[cfg(feature = "example-db")]
-#[test]
-fn test_naesatisfiability_to_maxcut_canonical_example_spec() {
-    let specs = crate::rules::naesatisfiability_maxcut::canonical_rule_example_specs();
-    assert_eq!(specs.len(), 1);
-
-    let example = (specs[0].build)();
-    assert_eq!(example.source.problem, "NAESatisfiability");
-    assert_eq!(example.target.problem, "MaxCut");
-    assert_eq!(example.solutions.len(), 1);
-
-    let pair = &example.solutions[0];
-    assert_eq!(pair.source_config, super::ISSUE_EXAMPLE_SOURCE_CONFIG);
-    assert_eq!(pair.target_config, super::ISSUE_EXAMPLE_TARGET_CONFIG);
+    let config = witness.unwrap();
+    let cut_value = target.cut_size(&config);
+    // n=3, m=2, M=3, k1=3, k2=3
+    // Expected: 3*3 + (3-1) + (3-1) = 9 + 2 + 2 = 13
+    assert_eq!(cut_value, 13);
 }

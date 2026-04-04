@@ -69,6 +69,16 @@ impl NAESatisfiability {
         self.clauses.iter().map(|c| c.len()).sum()
     }
 
+    /// Get the total number of literal pairs across all clauses.
+    ///
+    /// For each clause with k literals, this contributes C(k,2) = k*(k-1)/2 pairs.
+    pub fn num_literal_pairs(&self) -> usize {
+        self.clauses
+            .iter()
+            .map(|c| c.len() * (c.len() - 1) / 2)
+            .sum()
+    }
+
     /// Get the clauses.
     pub fn clauses(&self) -> &[CNFClause] {
         &self.clauses
@@ -97,10 +107,6 @@ impl NAESatisfiability {
     /// Check if a solution (config) is valid.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
         self.evaluate(config).0
-    }
-
-    fn config_to_assignment(config: &[usize]) -> Vec<bool> {
-        config.iter().map(|&v| v == 1).collect()
     }
 
     fn literal_value(lit: i32, assignment: &[bool]) -> bool {
@@ -143,7 +149,7 @@ impl Problem for NAESatisfiability {
 
     fn evaluate(&self, config: &[usize]) -> crate::types::Or {
         crate::types::Or({
-            let assignment = Self::config_to_assignment(config);
+            let assignment = super::config_to_assignment(config);
             self.is_nae_satisfying(&assignment)
         })
     }

@@ -113,26 +113,14 @@ impl Problem for SequencingWithReleaseTimesAndDeadlines {
     }
 
     fn dims(&self) -> Vec<usize> {
-        let n = self.num_tasks();
-        (0..n).rev().map(|i| i + 1).collect()
+        super::lehmer_dims(self.num_tasks())
     }
 
     fn evaluate(&self, config: &[usize]) -> crate::types::Or {
         crate::types::Or({
-            let n = self.num_tasks();
-            if config.len() != n {
+            let Some(schedule) = super::decode_lehmer(config, self.num_tasks()) else {
                 return crate::types::Or(false);
-            }
-
-            // Decode Lehmer code into a permutation of task indices.
-            let mut available: Vec<usize> = (0..n).collect();
-            let mut schedule = Vec::with_capacity(n);
-            for &c in config.iter() {
-                if c >= available.len() {
-                    return crate::types::Or(false);
-                }
-                schedule.push(available.remove(c));
-            }
+            };
 
             // Schedule tasks left-to-right: each task starts at max(release_time, current_time).
             let mut current_time: u64 = 0;

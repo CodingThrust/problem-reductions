@@ -1,12 +1,13 @@
 //! Longest Common Subsequence (LCS) problem implementation.
 //!
-//! Given a finite alphabet, a set of strings over that alphabet, and a bound
-//! `K`, determine whether there exists a common subsequence of length exactly
-//! `K`. This fixed-length witness model is equivalent to the standard
-//! "length at least `K`" decision formulation.
+//! Given a finite alphabet and a set of strings over that alphabet, find a
+//! longest common subsequence. The configuration is a fixed-length vector of
+//! `max_length` positions, where each entry is either a valid symbol or the
+//! padding symbol (`alphabet_size`). Padding must be contiguous at the end.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
+use crate::types::Max;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -16,47 +17,50 @@ inventory::submit! {
         aliases: &["LCS"],
         dimensions: &[],
         module_path: module_path!(),
-        description: "Find a common subsequence of bounded length for a set of strings",
+        description: "Find a longest common subsequence for a set of strings",
         fields: &[
             FieldInfo { name: "alphabet_size", type_name: "usize", description: "Size of the alphabet" },
             FieldInfo { name: "strings", type_name: "Vec<Vec<usize>>", description: "Input strings over the alphabet {0, ..., alphabet_size-1}" },
-            FieldInfo { name: "bound", type_name: "usize", description: "Required length of the common subsequence witness" },
+            FieldInfo { name: "max_length", type_name: "usize", description: "Maximum possible subsequence length (min of string lengths)" },
         ],
     }
 }
 
 /// The Longest Common Subsequence problem.
 ///
-/// Given an alphabet of size `k`, a set of strings over `{0, ..., k-1}`, and a
-/// bound `K`, determine whether there exists a string `w` of length exactly `K`
-/// such that `w` is a subsequence of every input string. This is equivalent to
-/// the standard decision version with `|w| >= K`, because any longer witness has
-/// a length-`K` prefix that is also a common subsequence.
+/// Given an alphabet of size `k` and a set of strings over `{0, ..., k-1}`,
+/// find a longest string `w` that is a subsequence of every input string.
 ///
 /// # Representation
 ///
-/// The configuration is a vector of length `bound`, where each entry is a
-/// symbol in `{0, ..., alphabet_size-1}`. The instance is satisfiable iff that
-/// candidate witness is a subsequence of every input string.
+/// The configuration is a vector of length `max_length`, where each entry is a
+/// symbol in `{0, ..., alphabet_size}`. The value `alphabet_size` is the
+/// padding symbol. Padding must be contiguous at the end of the vector. The
+/// effective subsequence consists of all non-padding symbols (the prefix before
+/// padding starts). The objective is to maximize the effective length.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LongestCommonSubsequence {
     alphabet_size: usize,
     strings: Vec<Vec<usize>>,
-    bound: usize,
+    max_length: usize,
 }
 
 impl LongestCommonSubsequence {
     /// Create a new LongestCommonSubsequence instance.
     ///
+    /// The `max_length` is computed automatically as the minimum of all string
+    /// lengths (the maximum possible common subsequence length).
+    ///
     /// # Panics
     ///
-    /// Panics if `alphabet_size == 0` while the witness length is positive or
-    /// any input string is non-empty, or if an input symbol is outside the
-    /// declared alphabet.
-    pub fn new(alphabet_size: usize, strings: Vec<Vec<usize>>, bound: usize) -> Self {
+    /// Panics if `alphabet_size == 0` and any input string is non-empty, or if
+    /// an input symbol is outside the declared alphabet, or if all strings are
+    /// empty (max_length would be 0, requiring at least one non-empty string).
+    pub fn new(alphabet_size: usize, strings: Vec<Vec<usize>>) -> Self {
+        let max_length = strings.iter().map(|s| s.len()).min().unwrap_or(0);
         assert!(
-            alphabet_size > 0 || (bound == 0 && strings.iter().all(|s| s.is_empty())),
-            "alphabet_size must be > 0 when bound > 0 or any input string is non-empty"
+            alphabet_size > 0 || strings.iter().all(|s| s.is_empty()),
+            "alphabet_size must be > 0 when any input string is non-empty"
         );
         assert!(
             strings
@@ -68,7 +72,7 @@ impl LongestCommonSubsequence {
         Self {
             alphabet_size,
             strings,
-            bound,
+            max_length,
         }
     }
 
@@ -82,9 +86,9 @@ impl LongestCommonSubsequence {
         &self.strings
     }
 
-    /// Returns the witness-length bound.
-    pub fn bound(&self) -> usize {
-        self.bound
+    /// Returns the `max_length` field.
+    pub fn max_length(&self) -> usize {
+        self.max_length
     }
 
     /// Returns the number of input strings.
@@ -110,9 +114,28 @@ impl LongestCommonSubsequence {
             .sum()
     }
 
-    /// Returns the number of adjacent witness-position transitions.
+    /// Returns the number of adjacent position transitions.
     pub fn num_transitions(&self) -> usize {
-        self.bound.saturating_sub(1)
+        self.max_length.saturating_sub(1)
+    }
+
+    /// Returns the cross-frequency product: the sum over each alphabet symbol
+    /// of the product of that symbol's frequency across all input strings.
+    ///
+    /// Formally: Σ_{c ∈ 0..alphabet_size} Π_{i=1..k} count(c, strings\[i\])
+    /// where count(c, s) is the number of occurrences of symbol c in string s.
+    ///
+    /// This equals the exact number of match-node vertices in the LCS → MaxIS
+    /// reduction graph.
+    pub fn cross_frequency_product(&self) -> usize {
+        (0..self.alphabet_size)
+            .map(|c| {
+                self.strings
+                    .iter()
+                    .map(|s| s.iter().filter(|&&sym| sym == c).count())
+                    .product::<usize>()
+            })
+            .sum()
     }
 }
 
@@ -134,31 +157,53 @@ fn is_subsequence(candidate: &[usize], target: &[usize]) -> bool {
 
 impl Problem for LongestCommonSubsequence {
     const NAME: &'static str = "LongestCommonSubsequence";
-    type Value = crate::types::Or;
+    type Value = Max<usize>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
     fn dims(&self) -> Vec<usize> {
-        vec![self.alphabet_size; self.bound]
+        vec![self.alphabet_size + 1; self.max_length]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.bound {
-                return crate::types::Or(false);
-            }
-            if config.iter().any(|&symbol| symbol >= self.alphabet_size) {
-                return crate::types::Or(false);
-            }
-            self.strings.iter().all(|s| is_subsequence(config, s))
-        })
+    fn evaluate(&self, config: &[usize]) -> Max<usize> {
+        if config.len() != self.max_length {
+            return Max(None);
+        }
+
+        let padding = self.alphabet_size;
+
+        // Find effective length = index of first padding symbol (or max_length if no padding).
+        let effective_length = config
+            .iter()
+            .position(|&s| s == padding)
+            .unwrap_or(self.max_length);
+
+        // Verify all positions after the first padding are also padding (no interleaved padding).
+        if config[effective_length..].iter().any(|&s| s != padding) {
+            return Max(None);
+        }
+
+        // Extract the non-padding prefix as the candidate subsequence.
+        let prefix = &config[..effective_length];
+
+        // Check all symbols in prefix are valid (0..alphabet_size).
+        if prefix.iter().any(|&s| s >= self.alphabet_size) {
+            return Max(None);
+        }
+
+        // Check the prefix is a subsequence of every input string.
+        if !self.strings.iter().all(|s| is_subsequence(prefix, s)) {
+            return Max(None);
+        }
+
+        Max(Some(effective_length))
     }
 }
 
 crate::declare_variants! {
-    default LongestCommonSubsequence => "alphabet_size ^ bound",
+    default LongestCommonSubsequence => "(alphabet_size + 1) ^ max_length",
 }
 
 #[cfg(feature = "example-db")]
@@ -175,10 +220,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 vec![0, 1, 0, 1, 0, 1],
                 vec![1, 0, 1, 0, 1, 0],
             ],
-            3,
         )),
-        optimal_config: vec![0, 1, 0],
-        optimal_value: serde_json::json!(true),
+        optimal_config: vec![0, 0, 1, 0, 2, 2],
+        optimal_value: serde_json::json!(4),
     }]
 }
 

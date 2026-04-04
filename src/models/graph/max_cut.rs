@@ -6,7 +6,7 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::types::{Max, WeightElement};
+use crate::types::{Max, One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -14,10 +14,10 @@ inventory::submit! {
     ProblemSchemaEntry {
         name: "MaxCut",
         display_name: "Max Cut",
-        aliases: &[],
+        aliases: &["GraphPartitioning", "MaximumBipartiteSubgraph"],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i32", &["i32", "One"]),
         ],
         module_path: module_path!(),
         description: "Find maximum weight cut in a graph",
@@ -210,19 +210,34 @@ where
 
 crate::declare_variants! {
     default MaxCut<SimpleGraph, i32> => "2^(2.372 * num_vertices / 3)",
+    MaxCut<SimpleGraph, One> => "2^(0.7907 * num_vertices)",
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    vec![crate::example_db::specs::ModelExampleSpec {
-        id: "max_cut_simplegraph_i32",
-        instance: Box::new(MaxCut::<_, i32>::unweighted(SimpleGraph::new(
-            5,
-            vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
-        ))),
-        optimal_config: vec![1, 0, 0, 1, 0],
-        optimal_value: serde_json::json!(5),
-    }]
+    vec![
+        crate::example_db::specs::ModelExampleSpec {
+            id: "max_cut_simplegraph_i32",
+            instance: Box::new(MaxCut::<_, i32>::unweighted(SimpleGraph::new(
+                5,
+                vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
+            ))),
+            optimal_config: vec![1, 0, 0, 1, 0],
+            optimal_value: serde_json::json!(5),
+        },
+        crate::example_db::specs::ModelExampleSpec {
+            id: "max_cut_simplegraph_one",
+            instance: Box::new(MaxCut::new(
+                SimpleGraph::new(
+                    5,
+                    vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 4), (2, 3), (3, 4)],
+                ),
+                vec![One; 7],
+            )),
+            optimal_config: vec![0, 1, 0, 1, 0],
+            optimal_value: serde_json::json!(6),
+        },
+    ]
 }
 
 #[cfg(test)]

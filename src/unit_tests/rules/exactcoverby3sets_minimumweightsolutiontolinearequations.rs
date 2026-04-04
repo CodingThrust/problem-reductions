@@ -22,7 +22,7 @@ fn test_exactcoverby3sets_to_minimumweightsolutiontolinearequations_structure() 
     let target = reduction.target_problem();
 
     assert_eq!(
-        target.coefficients(),
+        target.matrix(),
         &[
             vec![1, 0, 1],
             vec![1, 0, 0],
@@ -33,7 +33,6 @@ fn test_exactcoverby3sets_to_minimumweightsolutiontolinearequations_structure() 
         ]
     );
     assert_eq!(target.rhs(), &[1, 1, 1, 1, 1, 1]);
-    assert_eq!(target.bound(), 2);
     assert_eq!(target.num_variables(), 3);
     assert_eq!(target.num_equations(), 6);
 }

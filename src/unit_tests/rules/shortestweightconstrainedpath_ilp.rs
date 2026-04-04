@@ -1,9 +1,9 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::Or;
+use crate::types::Min;
 
 /// 3-vertex path: 0 -- 1 -- 2, s=0, t=2.
 fn simple_path_problem() -> ShortestWeightConstrainedPath<SimpleGraph, i32> {
@@ -13,7 +13,6 @@ fn simple_path_problem() -> ShortestWeightConstrainedPath<SimpleGraph, i32> {
         vec![1, 2],
         0,
         2,
-        6, // length_bound
         4, // weight_bound
     )
 }
@@ -26,11 +25,11 @@ fn test_reduction_creates_valid_ilp() {
 
     // 2 edges => 4 arc vars + 3 order vars = 7
     assert_eq!(ilp.num_vars, 7);
-    // 5*2 + 4*3 + 3 = 10 + 12 + 3 = 25
-    assert_eq!(ilp.constraints.len(), 25);
-    // Feasibility: dummy minimize objective
+    // 5*2 + 4*3 + 2 = 10 + 12 + 2 = 24
+    assert_eq!(ilp.constraints.len(), 24);
+    // Optimization: minimize total length
     assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty());
+    assert!(!ilp.objective.is_empty());
 }
 
 #[test]
@@ -42,16 +41,11 @@ fn test_shortestweightconstrainedpath_to_ilp_bf_vs_ilp() {
         vec![3, 1, 2, 4, 1], // weights
         0,
         4,
-        8,  // length_bound
         10, // weight_bound
     );
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem);
-    let bf_value = bf_witness
-        .as_ref()
-        .map(|w| problem.evaluate(w))
-        .unwrap_or(Or(false));
+    let bf_value = bf.solve(&problem);
 
     let reduction: ReductionSWCPToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp_solver = ILPSolver::new();
@@ -61,12 +55,12 @@ fn test_shortestweightconstrainedpath_to_ilp_bf_vs_ilp() {
         Some(ilp_solution) => {
             let extracted = reduction.extract_solution(&ilp_solution);
             let ilp_value = problem.evaluate(&extracted);
-            assert!(ilp_value.0, "ILP solution should be feasible");
-            assert!(bf_value.0, "BF should also find feasible solution");
+            // Both should agree on the optimal length
+            assert_eq!(ilp_value, bf_value);
         }
         None => {
             // ILP found no feasible solution; brute force should agree
-            assert!(!bf_value.0, "both should agree on infeasibility");
+            assert_eq!(bf_value, Min(None));
         }
     }
 }
@@ -82,19 +76,19 @@ fn test_solution_extraction() {
     let extracted = reduction.extract_solution(&target_solution);
 
     assert_eq!(extracted, vec![1, 1]);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    // length = 2 + 3 = 5
+    assert_eq!(problem.evaluate(&extracted), Min(Some(5)));
 }
 
 #[test]
 fn test_shortestweightconstrainedpath_to_ilp_trivial() {
-    // s == t: trivially feasible (empty path, zero cost)
+    // s == t: trivially feasible (empty path, zero length)
     let problem = ShortestWeightConstrainedPath::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
         vec![2, 3],
         vec![1, 2],
         1,
         1,
-        5, // length_bound
         4, // weight_bound
     );
     let reduction: ReductionSWCPToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
@@ -105,5 +99,5 @@ fn test_shortestweightconstrainedpath_to_ilp_trivial() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     assert_eq!(extracted, vec![0, 0]);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted), Min(Some(0)));
 }
