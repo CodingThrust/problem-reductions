@@ -13096,7 +13096,37 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The subgraph-isomorphism solution $c in {0, dots, n-1}^k$ gives the host vertex assigned to each pattern vertex. The $k$-clique indicator $x in {0,1}^n$ sets $x[c[i]] := 1$ for each $i$.
 ]
 
-#reduction-rule("Partition", "MultiprocessorScheduling")[
+#let part_mps = load-example("Partition", "MultiprocessorScheduling")
+#let part_mps_sol = part_mps.solutions.at(0)
+#let part_mps_sizes = part_mps.source.instance.sizes
+#let part_mps_n = part_mps_sizes.len()
+#let part_mps_total = part_mps_sizes.fold(0, (a, b) => a + b)
+#let part_mps_deadline = part_mps.target.instance.deadline
+#let part_mps_nproc = part_mps.target.instance.num_processors
+#let part_mps_proc0 = part_mps_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
+#let part_mps_proc1 = part_mps_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_mps_load0 = part_mps_proc0.map(i => part_mps_sizes.at(i)).fold(0, (a, b) => a + b)
+#let part_mps_load1 = part_mps_proc1.map(i => part_mps_sizes.at(i)).fold(0, (a, b) => a + b)
+#reduction-rule("Partition", "MultiprocessorScheduling",
+  example: true,
+  example-caption: [#part_mps_n elements, total sum $S = #part_mps_total$, deadline $D = #part_mps_deadline$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_mps.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_mps) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_mps_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_mps_sizes.map(str).join(", "))$ with total sum $S = #part_mps_total$. A balanced partition requires each subset to sum to $S / 2 = #part_mps_deadline$.
+
+    *Step 2 -- Construction.* The reduction creates #part_mps_n tasks with lengths $(#part_mps.target.instance.lengths.map(str).join(", "))$, sets the number of processors to $m = #part_mps_nproc$, and the deadline to $D = floor(S / 2) = #part_mps_deadline$. No auxiliary variables are introduced: the target has the same #part_mps_n binary coordinates as the source.
+
+    *Step 3 -- Verify a solution.* The canonical witness is $bold(x) = (#part_mps_sol.source_config.map(str).join(", "))$, which is the same binary vector on both sides. Processor 0 receives tasks at indices $\{#part_mps_proc0.map(str).join(", ")\}$ with sizes $(#part_mps_proc0.map(i => str(part_mps_sizes.at(i))).join(", "))$, giving load $#part_mps_load0 <= #part_mps_deadline = D$. Processor 1 receives tasks at indices $\{#part_mps_proc1.map(str).join(", ")\}$ with sizes $(#part_mps_proc1.map(i => str(part_mps_sizes.at(i))).join(", "))$, giving load $#part_mps_load1 <= #part_mps_deadline = D$. Total: $#part_mps_load0 + #part_mps_load1 = #part_mps_total = S$ #sym.checkmark
+
+    *Multiplicity:* The example DB stores one canonical witness. This instance admits other balanced partitions (e.g., swapping the two subsets), but one witness suffices to demonstrate the reduction.
+  ],
+)[
   Each element $a_i$ becomes a task of length $a_i$ on $m = 2$ processors with deadline $D = floor(S / 2)$. A balanced partition exists iff a feasible schedule exists.
 ][
   _Construction._ Let $A = (a_1, dots, a_n)$ with total sum $S = sum_(i=1)^n a_i$. Set task lengths $ell_i = a_i$, number of processors $m = 2$, and deadline $D = floor(S / 2)$.
@@ -13187,7 +13217,29 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For variable $x_i$, set $x_i = 1$ if the cover indicator at position $2i$ is 1.
 ]
 
-#reduction-rule("Partition", "SequencingWithinIntervals")[
+#let part_swi = load-example("Partition", "SequencingWithinIntervals")
+#let part_swi_sol = part_swi.solutions.at(0)
+#reduction-rule("Partition", "SequencingWithinIntervals",
+  example: true,
+  example-caption: [$n = #part_swi.source.instance.sizes.len()$ elements, $S = #part_swi.source.instance.sizes.sum()$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_swi.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_swi) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_swi_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The Partition instance has $n = #part_swi.source.instance.sizes.len()$ elements with sizes $(#part_swi.source.instance.sizes.map(str).join(", "))$ and total sum $S = #part_swi.source.instance.sizes.sum()$. The half-sum is $h = floor(S\/2) = #calc.floor(part_swi.source.instance.sizes.sum() / 2)$.
+
+    *Step 2 -- Construct tasks.* The reduction creates $n + 1 = #part_swi.target.instance.lengths.len()$ tasks. Each element $a_i$ becomes a task with release time $r_i = 0$, deadline $d_i = S + 1 = #part_swi.target.instance.deadlines.at(0)$, and length $p_i = a_i$. An enforcer task is pinned at the midpoint: $r = #part_swi.target.instance.release_times.at(part_swi.source.instance.sizes.len())$, $d = #part_swi.target.instance.deadlines.at(part_swi.source.instance.sizes.len())$, $p = 1$. This enforcer occupies $[h, h+1)$, splitting the timeline into two blocks of size $h = #calc.floor(part_swi.source.instance.sizes.sum() / 2)$ each.
+
+    *Step 3 -- Verify a solution.* The canonical partition assigns elements to subsets via $(#part_swi_sol.source_config.map(str).join(", "))$: subset 0 = $\{#part_swi_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => str(part_swi.source.instance.sizes.at(i))).join(", ")\}$ (sum #part_swi_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => part_swi.source.instance.sizes.at(i)).sum()), subset 1 = $\{#part_swi_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(part_swi.source.instance.sizes.at(i))).join(", ")\}$ (sum #part_swi_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => part_swi.source.instance.sizes.at(i)).sum()). Both subsets sum to $S\/2 = #calc.floor(part_swi.source.instance.sizes.sum() / 2)$ #sym.checkmark \
+    The target schedule has start-time offsets $(#part_swi_sol.target_config.map(str).join(", "))$: subset-0 tasks fill $[0, h)$ and subset-1 tasks fill $[h+1, S+1)$, with the enforcer at $[h, h+1)$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. Other valid partitions (e.g.\ swapping the two subsets) exist but are symmetric.
+  ],
+)[
   A unit-length enforcer task pinned at $[floor(S/2), floor(S/2)+1)$ splits the timeline into two blocks. A valid schedule exists iff the elements partition into two equal-sum subsets.
 ][
   _Construction._ Let $A = {a_1, dots, a_n}$ with $S = sum a_i$ and $h = floor(S/2)$. Create $n+1$ tasks: element tasks with $r_i = 0$, $d_i = S+1$, $p_i = a_i$; enforcer task with $r = h$, $d = h+1$, $p = 1$.
@@ -13329,7 +13381,29 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The arc service permutation directly encodes the Hamiltonian circuit vertex order.
 ]
 
-#reduction-rule("HamiltonianCircuit", "RuralPostman")[
+#let hc_rp = load-example("HamiltonianCircuit", "RuralPostman")
+#let hc_rp_sol = hc_rp.solutions.at(0)
+#let hc_rp_n = graph-num-vertices(hc_rp.source.instance)
+#reduction-rule("HamiltonianCircuit", "RuralPostman",
+  example: true,
+  example-caption: [Cycle $C_#hc_rp_n$ ($n = #hc_rp_n$): vertex splitting to Rural Postman],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_rp.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_rp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_rp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical HC instance is a cycle $C_#hc_rp_n$ with $n = #hc_rp_n$ vertices and $|E| = #graph-num-edges(hc_rp.source.instance)$ edges. The stored witness is the permutation $(#hc_rp_sol.source_config.map(str).join(", "))$.
+
+    *Step 2 -- Construction.* Each vertex splits into $(v_i^a, v_i^b)$, producing $2n = #graph-num-vertices(hc_rp.target.instance)$ vertices. The target graph has #graph-num-edges(hc_rp.target.instance) edges: #hc_rp.target.instance.required_edges.len() required edges (one per source vertex) and #(graph-num-edges(hc_rp.target.instance) - hc_rp.target.instance.required_edges.len()) connector edges (two per source edge). All edge lengths are 1.
+
+    *Step 3 -- Verify a solution.* The target solution assigns edge multiplicities $(#hc_rp_sol.target_config.map(str).join(", "))$. The tour traverses all #hc_rp.target.instance.required_edges.len() required edges plus #hc_rp_n connector edges, for total cost $= #(2 * hc_rp_n) = 2n$ #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. The $#hc_rp_n$-cycle has $#hc_rp_n$ rotations $times$ 2 reflections $= #(2 * hc_rp_n)$ directed Hamiltonian circuits.
+  ],
+)[
   Each vertex splits into two copies connected by a required edge. Original graph edges become connector edges. A minimum-cost tour of cost $2n$ traversing all required edges exists iff $G$ has a Hamiltonian circuit.
 ][
   _Construction._ Given $G = (V, E)$ with $n = |V|$. Build $H$ with $2n$ vertices: $v_i^a = 2i$, $v_i^b = 2i+1$. Required edges ${v_i^a, v_i^b}$ of weight 1 ($n$ total). For each ${v_i, v_j} in E$: connector edges ${v_i^b, v_j^a}$ and ${v_j^b, v_i^a}$ of weight 1.
@@ -13400,7 +13474,38 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Selected columns identify edges; walk from a degree-1 vertex to recover the path ordering.
 ]
 
-#reduction-rule("Partition", "BinPacking")[
+#let part_bp = load-example("Partition", "BinPacking")
+#let part_bp_sol = part_bp.solutions.at(0)
+#let part_bp_sizes = part_bp.source.instance.sizes
+#let part_bp_n = part_bp_sizes.len()
+#let part_bp_total = part_bp_sizes.fold(0, (a, b) => a + b)
+#let part_bp_capacity = part_bp.target.instance.capacity
+#let part_bp_bin0 = part_bp_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
+#let part_bp_bin1 = part_bp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_bp_bin0_sizes = part_bp_bin0.map(i => part_bp_sizes.at(i))
+#let part_bp_bin1_sizes = part_bp_bin1.map(i => part_bp_sizes.at(i))
+#let part_bp_bin0_sum = part_bp_bin0_sizes.fold(0, (a, b) => a + b)
+#let part_bp_bin1_sum = part_bp_bin1_sizes.fold(0, (a, b) => a + b)
+#reduction-rule("Partition", "BinPacking",
+  example: true,
+  example-caption: [#part_bp_n elements, total sum $S = #part_bp_total$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_bp.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_bp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_bp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_bp_sizes.map(str).join(", "))$ with total sum $S = #part_bp_total$, so a balanced partition requires each half to sum to $S / 2 = #part_bp_capacity$.
+
+    *Step 2 -- Build the bin-packing instance.* The reduction copies each size into the item-size list and sets the bin capacity to $C = floor(S / 2) = #part_bp_capacity$ with $k = 2$ bins. The target instance has sizes $(#part_bp.target.instance.sizes.map(str).join(", "))$ and capacity $#part_bp_capacity$. No auxiliary variables are introduced, so the target has the same $#part_bp_n$ assignment coordinates as the source.
+
+    *Step 3 -- Verify the canonical witness.* The witness assigns each element to bin 0 or bin 1 via the binary vector $bold(b) = (#part_bp_sol.source_config.map(str).join(", "))$, which equals the target config $(#part_bp_sol.target_config.map(str).join(", "))$. Bin 0 receives elements $\{#part_bp_bin0.map(str).join(", ")\}$ with sizes $(#part_bp_bin0_sizes.map(str).join(", "))$ summing to $#part_bp_bin0_sum <= #part_bp_capacity$ #sym.checkmark. Bin 1 receives elements $\{#part_bp_bin1.map(str).join(", ")\}$ with sizes $(#part_bp_bin1_sizes.map(str).join(", "))$ summing to $#part_bp_bin1_sum <= #part_bp_capacity$ #sym.checkmark. Both bins fit within the capacity, and the total $#part_bp_bin0_sum + #part_bp_bin1_sum = #part_bp_total$ accounts for all items.
+
+    *Multiplicity:* The fixture stores one canonical witness. This instance may admit other balanced partitions, but one witness suffices to demonstrate the reduction.
+  ],
+)[
   Items with sizes $a_i$ packed into 2 bins of capacity $floor(S/2)$. A valid 2-bin packing exists iff a balanced partition exists.
 ][
   _Construction._ Set item sizes $s_i = a_i$, bin capacity $C = floor(S/2)$, number of bins $k = 2$.
@@ -13470,7 +13575,28 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Decode Lehmer code; walk job sequence incrementing group at each separator.
 ]
 
-#reduction-rule("ThreePartition", "JobShopScheduling")[
+#let tp_jss = load-example("ThreePartition", "JobShopScheduling")
+#let tp_jss_sol = tp_jss.solutions.at(0)
+#reduction-rule("ThreePartition", "JobShopScheduling",
+  example: true,
+  example-caption: [$3m = #tp_jss.source.instance.sizes.len()$ elements, $B = #tp_jss.source.instance.bound$, #tp_jss.target.instance.num_processors machines],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tp_jss.source) + " -o threepartition.json",
+      "pred reduce threepartition.json --to " + target-spec(tp_jss) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate threepartition.json --config " + tp_jss_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical 3-Partition instance has $3m = #tp_jss.source.instance.sizes.len()$ elements with sizes $S = (#tp_jss.source.instance.sizes.map(str).join(", "))$ and bound $B = #tp_jss.source.instance.bound$. Since $m = #{ let n = tp_jss.source.instance.sizes.len(); str(calc.div-euclid(n, 3)) }$, there are $m - 1 = #{ let n = tp_jss.source.instance.sizes.len(); str(calc.div-euclid(n, 3) - 1) }$ separators, separator length $L = m B + 1 = #{ let n = tp_jss.source.instance.sizes.len(); let m = calc.div-euclid(n, 3); str(m * tp_jss.source.instance.bound + 1) }$, and deadline $D = m B + (m-1) L = #{ let n = tp_jss.source.instance.sizes.len(); let m = calc.div-euclid(n, 3); let B = tp_jss.source.instance.bound; let L = m * B + 1; str(m * B + (m - 1) * L) }$.
+
+    *Step 2 -- Construct jobs.* Each element $a_i$ becomes an element job with two tasks: $(text("machine") 0, a_i)$ then $(text("machine") 1, a_i)$. This gives #tp_jss.target.instance.jobs.len() jobs on #tp_jss.target.instance.num_processors processors. The target JSS instance has jobs: #{ let jobs = tp_jss.target.instance.jobs; let descs = jobs.map(j => { let tasks = j.map(t => "(" + str(t.at(0)) + "," + str(t.at(1)) + ")"); "[" + tasks.join(", ") + "]" }); descs.join("; ") }.
+
+    *Step 3 -- Verify a solution.* The source config $(#tp_jss_sol.source_config.map(str).join(", "))$ assigns all #tp_jss.source.instance.sizes.len() elements to group 0. With $m = 1$ and no separators, any ordering of the #tp_jss.source.instance.sizes.len() element tasks on each machine is valid. The target Lehmer code $(#tp_jss_sol.target_config.map(str).join(", "))$ encodes identity orderings on both machines. The resulting makespan is $sum a_i = #{ tp_jss.source.instance.sizes.sum() } = B = #tp_jss.source.instance.bound <= D$ #sym.checkmark, and all #tp_jss.source.instance.sizes.len() elements land in a single processor slot containing exactly 3 elements #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. With $m = 1$ there is only one valid group assignment (all elements in group 0); the $3! times 3!$ task orderings on the two machines yield multiple target configs, but only one source partition.
+  ],
+)[
   On 2 machines, $m-1$ long separator jobs on machine 0 force element jobs into $m$ windows of width $B$. Size constraints ensure 3 elements per window.
 ][
   _Construction._ Given $(S, B)$ with $|S| = 3m$, $L = m B + 1$, $D = m B + (m-1)L$. Element jobs ($3m$): two tasks $(text("machine") 0, a_i)$ then $(text("machine") 1, a_i)$. Separator jobs ($m-1$): single task $(text("machine") 0, L)$.
