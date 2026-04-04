@@ -13462,16 +13462,6 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Identify used connector edges and follow the successor map from vertex 0.
 ]
 
-#reduction-rule("Partition", "ShortestWeightConstrainedPath")[
-  A layered digraph with include/exclude edges per element: include edge has length $a_i + 1$ and weight 1; exclude has length 1 and weight $a_i + 1$. A feasible path witnesses a balanced partition.
-][
-  _Construction._ Build layered graph $v_0, dots, v_n$ with $s = v_0$, $t = v_n$. For each element $a_i$: include edge with length $a_i + 1$, weight 1; exclude edge with length 1, weight $a_i + 1$. Weight bound $W = floor(S/2) + n$.
-
-  _Correctness._ ($arrow.r.double$) A balanced partition uses include edges for one subset and exclude for the other, achieving feasible weight and minimum length. ($arrow.l.double$) The weight constraint forces included elements to sum to at least $ceil(S/2)$; minimizing length forces equality at $floor(S/2)$.
-
-  _Solution extraction._ Element $i$ assigned to subset 0 if include edge selected, subset 1 if exclude edge selected.
-]
-
 #reduction-rule("MaximumIndependentSet", "IntegralFlowBundles")[
   Each vertex $v_i$ maps to a flow unit through an intermediate node; edge-bundle constraints cap combined outflow of adjacent pairs at 1, so feasible flow of value $k$ exists iff an independent set of size $>= k$ exists.
 ][
@@ -13584,7 +13574,32 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Set $x_i = top$ if $v_i^+$ is in side 1, else $x_i = bot$.
 ]
 
-#reduction-rule("ThreePartition", "ResourceConstrainedScheduling")[
+#let tp_rcs = load-example("ThreePartition", "ResourceConstrainedScheduling")
+#let tp_rcs_sol = tp_rcs.solutions.at(0)
+#reduction-rule("ThreePartition", "ResourceConstrainedScheduling",
+  example: true,
+  example-caption: [#tp_rcs.source.instance.sizes.len() elements, $B = #tp_rcs.source.instance.bound$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tp_rcs.source) + " -o threepartition.json",
+      "pred reduce threepartition.json --to " + target-spec(tp_rcs) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate threepartition.json --config " + tp_rcs_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Three-Partition instance has $3m = #tp_rcs.source.instance.sizes.len()$ elements with sizes $(#tp_rcs.source.instance.sizes.map(str).join(", "))$ and bound $B = #tp_rcs.source.instance.bound$, so $m = #(tp_rcs.source.instance.sizes.len() / 3)$ groups are required.
+
+    *Step 2 -- Build the Resource-Constrained Scheduling instance.* Each element $a_i$ becomes a unit-length task with resource requirement $r_i = a_i$. The reduction sets $p = #tp_rcs.target.instance.num_processors$ processors, a single resource with bound $#tp_rcs.target.instance.resource_bounds.at(0)$, and deadline $D = #tp_rcs.target.instance.deadline$. The target has #tp_rcs.target.instance.resource_requirements.len() tasks with resource requirements $(#tp_rcs.target.instance.resource_requirements.map(r => str(r.at(0))).join(", "))$.
+
+    *Step 3 -- Verify the canonical witness.* The source config $(#tp_rcs_sol.source_config.map(str).join(", "))$ assigns elements to groups:
+    #for g in range(tp_rcs.target.instance.deadline) [
+      - Slot #g: elements ${#tp_rcs_sol.source_config.enumerate().filter(((i, x)) => x == g).map(((i, x)) => str(i)).join(", ")}$ with sizes $#tp_rcs_sol.source_config.enumerate().filter(((i, x)) => x == g).map(((i, x)) => str(tp_rcs.source.instance.sizes.at(i))).join(" + ") = #tp_rcs.source.instance.bound = B$ #sym.checkmark
+    ]
+    Each slot has exactly 3 tasks and each slot's resource usage sums to $B$. The target config is $(#tp_rcs_sol.target_config.map(str).join(", "))$, matching the source config since task $t_i$ is assigned to the same slot as element $a_i$.
+
+    *Multiplicity:* The fixture stores one canonical witness. Other valid 3-partitions (if any) would yield equally valid schedules.
+  ],
+)[
   Each element becomes a unit-length task requiring $a_i$ units of a shared resource with bound $B$. With 3 processors and deadline $m$, every slot receives exactly 3 tasks summing to $B$.
 ][
   _Construction._ Given $(S, B)$ with $|S| = 3m$ and $B/4 < a_i < B/2$. Create $3m$ unit-length tasks with resource requirement $r_i = a_i$, $p = 3$ processors, resource bound $B$, deadline $D = m$.
