@@ -13331,7 +13331,43 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Task $t_i$ starting at time $s_i$: assign to subset 0 if $s_i <= h$, else subset 1.
 ]
 
-#reduction-rule("MinimumVertexCover", "MinimumFeedbackArcSet")[
+#let mvc_mfas = load-example("MinimumVertexCover", "MinimumFeedbackArcSet")
+#let mvc_mfas_sol = mvc_mfas.solutions.at(0)
+#let mvc_mfas_cover = mvc_mfas_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let mvc_mfas_fas = mvc_mfas_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#reduction-rule("MinimumVertexCover", "MinimumFeedbackArcSet",
+  example: true,
+  example-caption: [Triangle graph ($n = #graph-num-vertices(mvc_mfas.source.instance)$, $|E| = #graph-num-edges(mvc_mfas.source.instance)$): VC $arrow.r$ FAS via vertex splitting],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mvc_mfas.source) + " -o mvc.json",
+      "pred reduce mvc.json --to " + target-spec(mvc_mfas) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate mvc.json --config " + mvc_mfas_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The source graph $G$ has $n = #graph-num-vertices(mvc_mfas.source.instance)$ vertices and $|E| = #graph-num-edges(mvc_mfas.source.instance)$ edges: $E = {#mvc_mfas.source.instance.graph.edges.map(e => "(" + e.map(str).join(", ") + ")").join(", ")}$ with weights $bold(w) = (#mvc_mfas.source.instance.weights.map(str).join(", "))$.
+
+    *Step 2 -- Construction.* Each vertex $v$ splits into $v^"in"$ and $v^"out"$, yielding $2n = #mvc_mfas.target.instance.graph.num_vertices$ nodes in the target digraph $H$. Internal arcs $(v^"in", v^"out")$ carry weight $w(v)$: #{
+      let arcs = mvc_mfas.target.instance.graph.arcs
+      let ws = mvc_mfas.target.instance.weights
+      let n = mvc_mfas.source.instance.graph.num_vertices
+      arcs.enumerate().filter(((i, a)) => i < n).map(((i, a)) => "(" + str(a.at(0)) + ", " + str(a.at(1)) + ") w=" + str(ws.at(i))).join(", ")
+    }. Each undirected edge produces two crossing arcs with weight $M = 1 + sum w(v) = #mvc_mfas.target.instance.weights.slice(mvc_mfas.source.instance.graph.num_vertices).at(0)$: #{
+      let arcs = mvc_mfas.target.instance.graph.arcs
+      let ws = mvc_mfas.target.instance.weights
+      let n = mvc_mfas.source.instance.graph.num_vertices
+      arcs.enumerate().filter(((i, a)) => i >= n).map(((i, a)) => "(" + str(a.at(0)) + ", " + str(a.at(1)) + ") w=" + str(ws.at(i))).join(", ")
+    }. Total: #mvc_mfas.target.instance.graph.arcs.len() arcs ($#mvc_mfas.source.instance.graph.num_vertices$ internal + $#(mvc_mfas.target.instance.graph.arcs.len() - mvc_mfas.source.instance.graph.num_vertices)$ crossing).
+
+    *Step 3 -- Verify a solution.* The source cover is $C = {#mvc_mfas_cover.map(str).join(", ")}$ (size #mvc_mfas_cover.len()). The target FAS selects arcs at indices ${#mvc_mfas_fas.map(str).join(", ")}$, which are the internal arcs #{
+      let arcs = mvc_mfas.target.instance.graph.arcs
+      mvc_mfas_fas.map(i => "(" + str(arcs.at(i).at(0)) + ", " + str(arcs.at(i).at(1)) + ")").join(", ")
+    } -- exactly the internal arcs of cover vertices $v^"in" arrow.r v^"out"$ for $v in C$. No crossing arc (weight $M = #mvc_mfas.target.instance.weights.slice(mvc_mfas.source.instance.graph.num_vertices).at(0)$) is selected, confirming the optimal FAS uses only internal arcs #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. By symmetry of the triangle, any two-vertex cover is optimal.
+  ],
+)[
   Each vertex $v$ splits into $v^"in"$ and $v^"out"$ joined by an internal arc weighted $w(v)$. Each edge becomes two crossing arcs weighted $M = 1 + sum_v w(v)$. The optimal FAS never includes crossing arcs; selecting internal arcs for cover vertices breaks every cycle.
 ][
   _Construction._ Given $(G, w)$ with $G = (V, E)$, $n = |V|$. Build directed graph $H$ on $2n$ nodes. Internal arcs $(v^"in", v^"out")$ with weight $w(v)$. For each ${u,v} in E$: crossing arcs $(u^"out", v^"in")$ and $(v^"out", u^"in")$ with weight $M = 1 + sum_(v in V) w(v)$.
@@ -13717,16 +13753,6 @@ The following table shows concrete variable overhead for example instances, take
   _Correctness._ ($arrow.r.double$) A valid 3-partition schedules each triple in a slot between fillers, achieving zero tardiness. ($arrow.l.double$) Zero tardiness forces fillers to their tight deadlines, creating $m$ slots of width $B$; element tasks fill them exactly with 3 per slot.
 
   _Solution extraction._ Decode Lehmer code; scan left to right incrementing group index at each filler.
-]
-
-#reduction-rule("ThreePartition", "FlowShopScheduling")[
-  On 3 machines, $m-1$ separator jobs with large machine-2 tasks force element jobs into $m$ windows of width $B$. Size constraints ensure 3 elements per window.
-][
-  _Construction._ Given $(S, B)$ with $|S| = 3m$ and $L = m B + 1$. Element jobs: task lengths $(a_i, a_i, a_i)$ on machines 1, 2, 3. Separator jobs ($m-1$): task lengths $(0, L, 0)$. Deadline $D$ computed from canonical schedule.
-
-  _Correctness._ ($arrow.r.double$) A valid 3-partition interleaves element groups with separators, meeting the deadline. ($arrow.l.double$) Separators on machine 2 create $m$ windows of capacity $B$; element tasks fill exactly; size constraints give 3 per window.
-
-  _Solution extraction._ Decode Lehmer code; walk job sequence incrementing group at each separator.
 ]
 
 #let tp_jss = load-example("ThreePartition", "JobShopScheduling")
