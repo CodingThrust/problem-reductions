@@ -888,9 +888,8 @@ fn test_nae_sat_to_partition_into_perfect_matchings_reduction_registered() {
 
     let graph = ReductionGraph::new();
 
-    assert!(
-        graph.has_direct_reduction::<NAESatisfiability, PartitionIntoPerfectMatchings<SimpleGraph>>()
-    );
+    assert!(graph
+        .has_direct_reduction::<NAESatisfiability, PartitionIntoPerfectMatchings<SimpleGraph>>());
 }
 
 #[test]

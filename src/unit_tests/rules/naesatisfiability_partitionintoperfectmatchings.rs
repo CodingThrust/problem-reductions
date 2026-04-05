@@ -55,7 +55,9 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_unsat_small_instance(
     let source = NAESatisfiability::new(1, vec![CNFClause::new(vec![1, 1])]);
     let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source);
 
-    assert!(BruteForce::new().find_witness(reduction.target_problem()).is_none());
+    assert!(BruteForce::new()
+        .find_witness(reduction.target_problem())
+        .is_none());
 }
 
 #[test]
@@ -243,7 +245,10 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_constructed_witness_r
 
     assert!(source.evaluate(&source_solution));
     assert!(reduction.target_problem().evaluate(&target_solution));
-    assert_eq!(reduction.extract_solution(&target_solution), source_solution);
+    assert_eq!(
+        reduction.extract_solution(&target_solution),
+        source_solution
+    );
 }
 
 #[test]
@@ -258,7 +263,10 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_two_literal_clause_no
     assert_eq!(target.num_edges(), 27);
     assert_eq!(target.num_matchings(), 2);
     assert!(target.evaluate(&target_solution));
-    assert_eq!(reduction.extract_solution(&target_solution), source_solution);
+    assert_eq!(
+        reduction.extract_solution(&target_solution),
+        source_solution
+    );
 }
 
 #[test]
