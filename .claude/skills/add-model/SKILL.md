@@ -175,18 +175,15 @@ The CLI now loads, serializes, and brute-force solves problems through the core 
 
 ## Step 4.5: Add CLI creation support
 
-Update `problemreductions-cli/src/commands/create.rs` so `pred create <ProblemName>` works:
+CLI creation is **schema-driven** — `pred create <ProblemName>` automatically maps `ProblemSchemaEntry` fields to CLI flags via `snake_case → kebab-case` convention. No match arm in `create.rs` is needed.
 
-1. **Add a match arm** in the `create()` function's main `match canonical.as_str()` block. Parse CLI flags and construct the problem:
-   - Graph-based problems with vertex weights: add to the `"MaximumIndependentSet" | ... | "MaximalIS"` arm
-   - Problems with unique fields: add a new arm that parses the required flags and calls the constructor
-   - See existing arms for patterns (e.g., `"BinPacking"` for simple fields, `"MaximumSetPacking"` for set-based)
+1. **Ensure CLI flags exist** in `problemreductions-cli/src/cli.rs` (`CreateArgs` struct) for each field in your `ProblemSchemaEntry`. The flag name must match the field name via `snake_case → kebab-case` (e.g., field `edge_weights` → flag `--edge-weights`). If a flag already exists with the right name, you're done.
 
-2. **Add CLI flags** in `problemreductions-cli/src/cli.rs` (`CreateArgs` struct) if the problem needs flags not already present. Update `all_data_flags_empty()` accordingly.
+2. **Add new CLI flags** only if the problem needs flags not already present. Add them to `CreateArgs` and update `all_data_flags_empty()` accordingly. Also add entries to the `flag_map()` method on `CreateArgs`.
 
-3. **Update help text** in `CreateArgs`'s `after_help` — add the new problem to the "Flags by problem type" table in `problemreductions-cli/src/cli.rs` (search for `Flags by problem type`).
+3. **Add type parser support** if the field uses a type not yet handled by `parse_field_value()` in `create.rs`. Check the existing type dispatch table — most standard types (`Vec<i32>`, `Vec<usize>`, `Vec<(usize, usize)>`, graph types, etc.) are already covered. Only add a new parser for genuinely new types.
 
-4. **Schema alignment**: The `ProblemSchemaEntry` fields should list **constructor parameters** (what the user provides), not internal derived fields. For example, if `m` and `n` are derived from a matrix, only list `matrix` and `k` in the schema.
+4. **Schema alignment**: The `ProblemSchemaEntry` fields should list **constructor parameters** (what the user provides), not internal derived fields. For example, if `m` and `n` are derived from a matrix, only list `matrix` and `k` in the schema. Field names must match the struct field names exactly (used for JSON serialization and CLI flag mapping).
 
 ## Step 4.6: Add canonical model example to example_db
 
@@ -315,8 +312,8 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 | Wrong `declare_variants!` syntax | Entries no longer use `opt` / `sat`; one entry per problem may be marked `default` |
 | Forgetting CLI alias | Must add lowercase entry in `problem_name.rs` `resolve_alias()` |
 | Inventing short aliases | Only use well-established literature abbreviations (MIS, SAT, TSP); do NOT invent new ones |
-| Forgetting CLI create | Must add creation handler in `commands/create.rs` and flags in `cli.rs` |
-| Missing from CLI help table | Must add entry to "Flags by problem type" table in `cli.rs` `after_help` |
+| Forgetting CLI flags | Schema-driven create needs matching CLI flags in `CreateArgs` for each `ProblemSchemaEntry` field (snake_case → kebab-case). Also add to `flag_map()`. |
+| Missing type parser | If the problem uses a new field type, add a handler in `parse_field_value()` in `create.rs` |
 | Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |
 | Missing canonical model example | Add a builder in `src/example_db/model_builders.rs` and keep it aligned with paper/example workflows |
 | Paper example not tested | Must include `test_<name>_paper_example` that verifies the exact instance, solution, and solution count shown in the paper |

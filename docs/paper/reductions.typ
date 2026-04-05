@@ -13044,6 +13044,770 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ First $n$ variables (sign variables) give the source configuration.
 ]
 
+// === Non-ILP reduction rules (issue #974) ===
+
+#reduction-rule("ILP", "ILP")[
+  Integer variables with finite upper bounds are replaced by groups of binary variables using truncated binary encoding. Feasibility-Based Bound Tightening (FBBT) first infers per-variable upper bounds $U_i$ from the constraint system; each integer variable $x_i in {0, dots, U_i}$ is then encoded as $x_i = sum_(j=0)^(K_i - 1) w_(i j) y_(i j)$ where $y_(i j) in {0, 1}$ and the weights are powers of two with a truncated final weight ensuring $sum w_(i j) = U_i$.
+][
+  _Construction._ Given an ILP over $n$ non-negative integer variables with constraints $A x <= b$ (and/or $>=, =$) and objective $c^top x$:
+  (1) Run FBBT to infer upper bounds $U_1, dots, U_n$. If infeasible, return a trivially infeasible binary ILP. If unbounded, fall back to $U_i = 2^(31) - 1$.
+  (2) For each $x_i$, compute $K_i = ceil(log_2(U_i + 1))$ and weights $w_(i 0) = 1, w_(i 1) = 2, dots, w_(i, K_i - 2) = 2^(K_i - 2), w_(i, K_i - 1) = U_i - (2^(K_i - 1) - 1)$.
+  (3) Substitute $x_i = sum_j w_(i j) y_(i j)$ into every constraint and objective term, expanding each integer coefficient into a sum over binary coefficients.
+
+  _Correctness._ ($arrow.r.double$) Any integer assignment $x_i in {0, dots, U_i}$ has a unique truncated binary representation $y_(i j)$ with $sum w_(i j) y_(i j) = x_i$, preserving all constraints and the objective value. ($arrow.l.double$) Any binary assignment $y_(i j) in {0,1}$ yields $x_i = sum w_(i j) y_(i j) in {0, dots, U_i}$, so the decoded integer assignment satisfies the original constraints.
+
+  _Solution extraction._ For each source variable $x_i$, compute $x_i = sum_(j=0)^(K_i - 1) w_(i j) y_(i j)$ from the binary solution.
+]
+
+#let hc_hp = load-example("HamiltonianCircuit", "HamiltonianPath")
+#let hc_hp_sol = hc_hp.solutions.at(0)
+#let hc_hp_n = graph-num-vertices(hc_hp.source.instance)
+#let hc_hp_source_edges = hc_hp.source.instance.graph.edges
+#let hc_hp_target_edges = hc_hp.target.instance.graph.edges
+#let hc_hp_target_n = graph-num-vertices(hc_hp.target.instance)
+#reduction-rule("HamiltonianCircuit", "HamiltonianPath",
+  example: true,
+  example-caption: [Cycle $C_#hc_hp_n$ ($n = #hc_hp_n$): split $v_0$ into two copies with pendants],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_hp.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_hp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_hp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical source fixture is the cycle $C_#hc_hp_n$ on vertices ${0, dots, #(hc_hp_n - 1)}$ with #hc_hp_source_edges.len() edges: #hc_hp_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#hc_hp_sol.source_config.map(str).join(", ")]$.\
+
+    *Step 2 -- Construction.* Fix $v_0 = 0$. Its neighbors in the source are ${1, 3}$ ($deg = 2$). Introduce $v' = #hc_hp_n$, $s = #(hc_hp_n + 1)$, $t = #(hc_hp_n + 2)$. The target graph $G'$ has $#hc_hp_target_n = #hc_hp_n + 3$ vertices and #hc_hp_target_edges.len() edges: #hc_hp_target_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The $#(hc_hp_target_edges.len() - hc_hp_source_edges.len())$ new edges are the duplicated adjacencies of $v'$ plus the two pendant edges.\
+
+    *Step 3 -- Verify a solution.* The stored target Hamiltonian-path permutation is $[#hc_hp_sol.target_config.map(str).join(", ")]$, visiting every vertex of $G'$ exactly once. The path starts at pendant $s = #hc_hp_sol.target_config.at(0)$ and ends at pendant $t = #hc_hp_sol.target_config.at(hc_hp_target_n - 1)$. Dropping $s$ at the front and the last two vertices $v', t$ at the back gives $[#hc_hp_sol.target_config.slice(1, hc_hp_target_n - 2).map(str).join(", ")]$, which is the source Hamiltonian circuit $[#hc_hp_sol.source_config.map(str).join(", ")]$.\
+
+    *Multiplicity:* The fixture stores one canonical witness. For $C_#hc_hp_n$ there are $#hc_hp_n times 2 = #(hc_hp_n * 2)$ directed Hamiltonian circuits (choice of start vertex and direction), each yielding a distinct target path.
+  ],
+)[
+  To decide whether $G = (V, E)$ contains a Hamiltonian circuit, we split an arbitrary vertex $v_0$ into two copies and attach a private pendant to each copy, forcing any Hamiltonian path in the expanded graph to enter through one pendant, traverse the original circuit, and exit through the other.
+][
+  _Construction._ Let $G = (V, E)$ with $n = |V|$ and $m = |E|$. Fix vertex $v_0 = 0$. Introduce three new vertices: a duplicate $v'$ of $v_0$, a pendant $s$, and a pendant $t$. Form $G' = (V', E')$ where $V' = V union {v', s, t}$, and $E'$ contains (i) every original edge of $E$; (ii) an edge ${v', u}$ for each neighbor $u$ of $v_0$ in $G$; (iii) the pendant edge ${s, v_0}$; and (iv) the pendant edge ${t, v'}$. Thus $|V'| = n + 3$ and $|E'| = m + deg(v_0) + 2$.
+
+  _Correctness._ ($arrow.r.double$) Suppose $G$ has a Hamiltonian circuit $C = (v_0, u_1, u_2, dots, u_(n-1), v_0)$. The walk $s, v_0, u_1, u_2, dots, u_(n-1), v', t$ visits every vertex of $G'$ exactly once, so $G'$ has a Hamiltonian path. ($arrow.l.double$) Suppose $G'$ has a Hamiltonian path $P$. The pendants $s$ and $t$ have degree one, so $P$ must start at $s$ and end at $t$ (or vice versa), giving the form $s, v_0, pi_1, dots, pi_(n-1), v', t$. Because ${v', pi_(n-1)} in E'$, vertex $pi_(n-1)$ is a neighbor of $v_0$ in $G$. Hence $v_0, pi_1, dots, pi_(n-1), v_0$ is a Hamiltonian circuit in $G$.
+
+  _Solution extraction._ Orient the path so $s$ is the start and $t$ the end. Drop $s$ and the last two elements $v', t$; the remaining sequence is the Hamiltonian circuit witness.
+]
+
+#let kc_si = load-example("KClique", "SubgraphIsomorphism")
+#let kc_si_sol = kc_si.solutions.at(0)
+#reduction-rule("KClique", "SubgraphIsomorphism",
+  example: true,
+  example-caption: [5-vertex graph with $k = #kc_si.source.instance.k$: clique detection via subgraph isomorphism],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(kc_si.source) + " -o kclique.json",
+      "pred reduce kclique.json --to " + target-spec(kc_si) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate kclique.json --config " + kc_si_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let n = kc_si.source.instance.graph.num_vertices
+      let k = kc_si.source.instance.k
+      let clique-verts = kc_si_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let fills = kc_si_sol.source_config.map(c => if c == 1 { graph-colors.at(0) } else { white })
+      // Simple circular layout for the source graph
+      let angle-step = 360deg / n
+      let radius = 2.0
+      let positions = range(n).map(i => {
+        let a = 90deg - i * angle-step
+        (calc.cos(a) * radius, calc.sin(a) * radius)
+      })
+      align(center, canvas(length: 0.8cm, {
+        for (u, v) in kc_si.source.instance.graph.edges {
+          g-edge(positions.at(u), positions.at(v))
+        }
+        for (i, pos) in positions.enumerate() {
+          g-node(pos, name: str(i), fill: fills.at(i), label: str(i))
+        }
+      }))
+    }
+
+    *Step 1 -- Source instance.* The canonical KClique instance has $n = #kc_si.source.instance.graph.num_vertices$ vertices, $|E| = #kc_si.source.instance.graph.edges.len()$ edges, and clique size $k = #kc_si.source.instance.k$. The task is to decide whether $G$ contains $k$ pairwise-adjacent vertices.
+
+    *Step 2 -- Construct the pattern graph.* The reduction sets the host graph $H := G$ (unchanged) and builds the pattern graph $P := K_k$, the complete graph on $k = #kc_si.source.instance.k$ vertices with $binom(k, 2) = #kc_si.target.instance.pattern_graph.edges.len()$ edges. The target instance has $#kc_si.target.instance.host_graph.num_vertices$ host vertices and $#kc_si.target.instance.pattern_graph.num_vertices$ pattern vertices.
+
+    *Step 3 -- Variable semantics.* The source uses $n = #kc_si.source.instance.graph.num_vertices$ binary indicator variables ($x_v = 1$ iff vertex $v$ is in the clique). The target uses $k = #kc_si.source.instance.k$ variables, each ranging over ${0, dots, n - 1}$, specifying which host vertex each pattern vertex maps to.
+
+    *Step 4 -- Verify a solution.* The canonical witness has source config $bold(x) = (#kc_si_sol.source_config.map(str).join(", "))$, selecting vertices ${#kc_si_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$. The target config is $(#kc_si_sol.target_config.map(str).join(", "))$, mapping pattern vertex $i$ to host vertex $c_i$. The image vertices ${#kc_si_sol.target_config.map(str).join(", ")}$ are pairwise adjacent in $G$ (they form a triangle), confirming the isomorphism #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. The $k!$ permutations of the clique vertices each give a valid subgraph isomorphism, so the target side has $#kc_si.source.instance.k ! = #calc.fact(kc_si.source.instance.k)$ witnesses for this single source clique.
+  ],
+)[
+  A $k$-clique in $G$ is precisely a subgraph of $G$ isomorphic to $K_k$. Constructing $K_k$ as the pattern and passing $G$ as the host reduces $k$-clique detection to a single subgraph-isomorphism query.
+][
+  _Construction._ Given a $k$-clique instance $(G, k)$ with $G = (V, E)$, $|V| = n$, $|E| = m$, build the subgraph-isomorphism instance $(H, P)$ where $H := G$ (host) and $P := K_k$ (pattern, with $k$ vertices and $binom(k, 2)$ edges).
+
+  _Correctness._ ($arrow.r.double$) If $G$ contains a $k$-clique $C = {v_1, dots, v_k}$, the injection $f(i) := v_i$ is a subgraph isomorphism from $K_k$ into $G$. ($arrow.l.double$) If $f: V(K_k) -> V(G)$ is a subgraph isomorphism, the image ${f(0), dots, f(k-1)}$ is a set of $k$ pairwise-adjacent vertices, i.e., a $k$-clique.
+
+  _Solution extraction._ The subgraph-isomorphism solution $c in {0, dots, n-1}^k$ gives the host vertex assigned to each pattern vertex. The $k$-clique indicator $x in {0,1}^n$ sets $x[c[i]] := 1$ for each $i$.
+]
+
+#let part_mps = load-example("Partition", "MultiprocessorScheduling")
+#let part_mps_sol = part_mps.solutions.at(0)
+#let part_mps_sizes = part_mps.source.instance.sizes
+#let part_mps_n = part_mps_sizes.len()
+#let part_mps_total = part_mps_sizes.fold(0, (a, b) => a + b)
+#let part_mps_deadline = part_mps.target.instance.deadline
+#let part_mps_nproc = part_mps.target.instance.num_processors
+#let part_mps_proc0 = part_mps_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
+#let part_mps_proc1 = part_mps_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_mps_load0 = part_mps_proc0.map(i => part_mps_sizes.at(i)).fold(0, (a, b) => a + b)
+#let part_mps_load1 = part_mps_proc1.map(i => part_mps_sizes.at(i)).fold(0, (a, b) => a + b)
+#reduction-rule("Partition", "MultiprocessorScheduling",
+  example: true,
+  example-caption: [#part_mps_n elements, total sum $S = #part_mps_total$, deadline $D = #part_mps_deadline$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_mps.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_mps) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_mps_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_mps_sizes.map(str).join(", "))$ with total sum $S = #part_mps_total$. A balanced partition requires each subset to sum to $S / 2 = #part_mps_deadline$.
+
+    *Step 2 -- Construction.* The reduction creates #part_mps_n tasks with lengths $(#part_mps.target.instance.lengths.map(str).join(", "))$, sets the number of processors to $m = #part_mps_nproc$, and the deadline to $D = floor(S / 2) = #part_mps_deadline$. No auxiliary variables are introduced: the target has the same #part_mps_n binary coordinates as the source.
+
+    *Step 3 -- Verify a solution.* The canonical witness is $bold(x) = (#part_mps_sol.source_config.map(str).join(", "))$, which is the same binary vector on both sides. Processor 0 receives tasks at indices $\{#part_mps_proc0.map(str).join(", ")\}$ with sizes $(#part_mps_proc0.map(i => str(part_mps_sizes.at(i))).join(", "))$, giving load $#part_mps_load0 <= #part_mps_deadline = D$. Processor 1 receives tasks at indices $\{#part_mps_proc1.map(str).join(", ")\}$ with sizes $(#part_mps_proc1.map(i => str(part_mps_sizes.at(i))).join(", "))$, giving load $#part_mps_load1 <= #part_mps_deadline = D$. Total: $#part_mps_load0 + #part_mps_load1 = #part_mps_total = S$ #sym.checkmark
+
+    *Multiplicity:* The example DB stores one canonical witness. This instance admits other balanced partitions (e.g., swapping the two subsets), but one witness suffices to demonstrate the reduction.
+  ],
+)[
+  Each element $a_i$ becomes a task of length $a_i$ on $m = 2$ processors with deadline $D = floor(S / 2)$. A balanced partition exists iff a feasible schedule exists.
+][
+  _Construction._ Let $A = (a_1, dots, a_n)$ with total sum $S = sum_(i=1)^n a_i$. Set task lengths $ell_i = a_i$, number of processors $m = 2$, and deadline $D = floor(S / 2)$.
+
+  _Correctness._ ($arrow.r.double$) If $A' subset.eq A$ has $sum_(i in A') a_i = S/2$, assign tasks in $A'$ to processor 0 and the rest to processor 1; both loads equal $S/2 = D$. ($arrow.l.double$) If a feasible schedule exists with both loads $<= D = floor(S/2)$, since both loads sum to $S$ and each is at most $floor(S/2)$, equality holds, giving a balanced partition.
+
+  _Solution extraction._ The processor assignment $p_i in {0, 1}$ is the partition assignment directly.
+]
+
+#let hc_btsp = load-example("HamiltonianCircuit", "BottleneckTravelingSalesman")
+#let hc_btsp_sol = hc_btsp.solutions.at(0)
+#reduction-rule("HamiltonianCircuit", "BottleneckTravelingSalesman",
+  example: true,
+  example-caption: [$n = #graph-num-vertices(hc_btsp.source.instance)$ vertices, $|E| = #graph-num-edges(hc_btsp.source.instance)$ edges: HC $arrow.r$ BTSP],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_btsp.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_btsp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_btsp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical HC instance is a graph with $n = #graph-num-vertices(hc_btsp.source.instance)$ vertices and $|E| = #graph-num-edges(hc_btsp.source.instance)$ edges.
+
+    *Step 2 -- Construction.* Build the complete graph $K_#graph-num-vertices(hc_btsp.target.instance)$ with #graph-num-edges(hc_btsp.target.instance) edges. Each original edge gets weight 1 and each non-edge gets weight 2. The target edge weights are $(#hc_btsp.target.instance.edge_weights.map(str).join(", "))$, where the #hc_btsp.target.instance.edge_weights.filter(w => w == 1).len() entries equal to 1 correspond to the $|E| = #graph-num-edges(hc_btsp.source.instance)$ source edges and the #hc_btsp.target.instance.edge_weights.filter(w => w == 2).len() entries equal to 2 correspond to the non-edges.
+
+    *Step 3 -- Verify a solution.* The source tour visits vertices in order $(#hc_btsp_sol.source_config.map(str).join(", "))$. In the target, the selected edges are those with indicator 1 in $(#hc_btsp_sol.target_config.map(str).join(", "))$, all of which have weight 1, giving bottleneck cost $= 1$ #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. The $#graph-num-vertices(hc_btsp.source.instance)$-cycle has $#graph-num-vertices(hc_btsp.source.instance)$ rotations $times$ 2 reflections $= #(2 * graph-num-vertices(hc_btsp.source.instance))$ Hamiltonian circuits in total.
+  ],
+)[
+  Construct a complete weighted graph with weight 1 on edges of $G$ and weight 2 on non-edges. A Hamiltonian tour of bottleneck cost 1 exists iff $G$ has a Hamiltonian circuit.
+][
+  _Construction._ Let $G = (V, E)$ with $n = |V|$. Build $K_n$ with $w(u, v) = 1$ if ${u,v} in E$, else $w(u, v) = 2$.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit in $G$ uses only weight-1 edges, giving bottleneck cost 1. ($arrow.l.double$) A tour with bottleneck $<= 1$ uses only weight-1 edges, which are exactly edges of $G$, so it is a Hamiltonian circuit.
+
+  _Solution extraction._ Recover the vertex cycle order from the tour edge set.
+]
+
+#let kc_cbq = load-example("KClique", "ConjunctiveBooleanQuery")
+#let kc_cbq_sol = kc_cbq.solutions.at(0)
+#reduction-rule("KClique", "ConjunctiveBooleanQuery",
+  example: true,
+  example-caption: [5-vertex graph ($n = #kc_cbq.source.instance.graph.num_vertices$, $|E| = #kc_cbq.source.instance.graph.edges.len()$, $k = #kc_cbq.source.instance.k$)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(kc_cbq.source) + " -o kclique.json",
+      "pred reduce kclique.json --to " + target-spec(kc_cbq) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate kclique.json --config " + kc_cbq_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let verts = ((0, 1.5), (1.5, 2.5), (3, 1.5), (1.5, 0), (4.5, 0))
+      let edges = kc_cbq.source.instance.graph.edges
+      let clique-verts = kc_cbq_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      align(center, canvas(length: 0.8cm, {
+        for (u, v) in edges {
+          let in-clique = clique-verts.contains(u) and clique-verts.contains(v)
+          g-edge(verts.at(u), verts.at(v), stroke: if in-clique { 2pt + blue } else { 1pt + gray })
+        }
+        for (k, pos) in verts.enumerate() {
+          let in-clique = clique-verts.contains(k)
+          g-node(pos, name: str(k), fill: if in-clique { graph-colors.at(1) } else { white }, label: str(k))
+        }
+      }))
+    }
+
+    *Step 1 -- Source instance.* The graph $G$ has $n = #kc_cbq.source.instance.graph.num_vertices$ vertices and $|E| = #kc_cbq.source.instance.graph.edges.len()$ edges, with $k = #kc_cbq.source.instance.k$. Vertices ${0, 1, 2}$ form a triangle (the unique 3-clique).
+
+    *Step 2 -- Build the edge relation.* Define the domain $D = {0, dots, #(kc_cbq.source.instance.graph.num_vertices - 1)}$ with $|D| = #kc_cbq.target.instance.domain_size$. The single binary relation $R$ contains both orientations of every edge: $|R| = 2 |E| = #kc_cbq.target.instance.relations.at(0).tuples.len()$ tuples of arity #kc_cbq.target.instance.relations.at(0).arity.
+
+    *Step 3 -- Form the conjunctive query.* Introduce $k = #kc_cbq.target.instance.num_variables$ existential variables $y_0, y_1, y_2$ over $D$. The conjunction has $binom(k, 2) = #kc_cbq.target.instance.conjuncts.len()$ conjuncts: $R(y_0, y_1) and R(y_0, y_2) and R(y_1, y_2)$.
+
+    *Step 4 -- Verify a solution.* The satisfying assignment $(y_0, y_1, y_2) = (#kc_cbq_sol.target_config.map(str).join(", "))$ maps to vertices ${#kc_cbq_sol.target_config.map(str).join(", ")}$. Check each conjunct: $(#kc_cbq_sol.target_config.at(0), #kc_cbq_sol.target_config.at(1)) in R$ #sym.checkmark, $(#kc_cbq_sol.target_config.at(0), #kc_cbq_sol.target_config.at(2)) in R$ #sym.checkmark, $(#kc_cbq_sol.target_config.at(1), #kc_cbq_sol.target_config.at(2)) in R$ #sym.checkmark --- all pairs are adjacent, confirming the 3-clique. The source indicator is $(#kc_cbq_sol.source_config.map(str).join(", "))$, marking exactly vertices ${0, 1, 2}$.
+
+    *Multiplicity:* The fixture stores one canonical witness. The triangle ${0, 1, 2}$ is the unique 3-clique in this graph, but the CBQ query has $3! = 6$ satisfying tuples (one per permutation of the three vertices); the canonical witness selects the sorted order $(0, 1, 2)$.
+  ],
+)[
+  Introduce $k$ existential variables over the vertex set and require the edge relation $R(y_i, y_j)$ for every pair $i < j$. The query is satisfiable iff $G$ contains a $k$-clique.
+][
+  _Construction._ Given $G = (V, E)$ with $|V| = n$ and parameter $k$, set domain $D = V$, define binary relation $R = {(u,v), (v,u) : {u,v} in E}$, and form the conjunction $phi = and.big_(0 <= i < j < k) R(y_i, y_j)$ with $binom(k, 2)$ conjuncts.
+
+  _Correctness._ ($arrow.r.double$) A $k$-clique ${v_0, dots, v_(k-1)}$ satisfies every conjunct since all pairs are adjacent. ($arrow.l.double$) A satisfying assignment gives $k$ vertices where every pair is in $R$, hence pairwise-adjacent.
+
+  _Solution extraction._ The satisfying tuple $(d_0, dots, d_(k-1))$ gives vertex indices; set $x[d_i] = 1$ for the clique indicator.
+]
+
+#let x3c_ss = load-example("ExactCoverBy3Sets", "StaffScheduling")
+#let x3c_ss_sol = x3c_ss.solutions.at(0)
+#reduction-rule("ExactCoverBy3Sets", "StaffScheduling",
+  example: true,
+  example-caption: [$|X| = #x3c_ss.source.instance.universe_size$, $|cal(C)| = #x3c_ss.source.instance.subsets.len()$ subsets],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(x3c_ss.source) + " -o x3c.json",
+      "pred reduce x3c.json --to " + target-spec(x3c_ss) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate x3c.json --config " + x3c_ss_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The X3C instance has universe $X = {0, dots, #(x3c_ss.source.instance.universe_size - 1)}$ ($|X| = #x3c_ss.source.instance.universe_size = 3q$, so $q = #(x3c_ss.source.instance.universe_size / 3)$) and $|cal(C)| = #x3c_ss.source.instance.subsets.len()$ subsets: #x3c_ss.source.instance.subsets.enumerate().map(((j, s)) => $S_#j = {#s.map(str).join(", ")}$).join(", ").
+
+    *Step 2 -- Construct StaffScheduling instance.* The reduction creates $#x3c_ss.target.instance.requirements.len()$ periods (one per universe element), each with requirement $r[i] = 1$. Each subset $S_j$ becomes a schedule $sigma_j$ with $sigma_j [i] = 1$ iff $i in S_j$, giving shifts_per_schedule $= #x3c_ss.target.instance.shifts_per_schedule$. The worker budget is $W = q = #x3c_ss.target.instance.num_workers$.
+
+    *Step 3 -- Verify a solution.* The canonical cover selects subsets via $(#x3c_ss_sol.source_config.map(str).join(", "))$: #{
+      let selected = x3c_ss_sol.source_config.enumerate().filter(((j, x)) => x == 1).map(((j, x)) => {
+        let s = x3c_ss.source.instance.subsets.at(j)
+        $S_#j = {#s.map(str).join(", ")}$
+      })
+      selected.join(", ")
+    }. These $#x3c_ss_sol.source_config.filter(x => x == 1).len()$ subsets are pairwise disjoint and cover all $#x3c_ss.source.instance.universe_size$ elements #sym.checkmark \
+    The target config $(#x3c_ss_sol.target_config.map(str).join(", "))$ assigns $w[j]$ workers to schedule $j$: total workers $= #x3c_ss_sol.target_config.sum() = q$ #sym.checkmark. Each period is covered by exactly one worker #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. The instance admits a second exact cover ${S_2, S_3}$, but the fixture records only the first found.
+  ],
+)[
+  Each universe element becomes a time period requiring exactly one worker, each 3-element subset becomes a schedule active on those three periods, and the worker budget is $q = |X|/3$. A feasible assignment selects $q$ schedules covering every period exactly once.
+][
+  _Construction._ Let $(X, cal(C))$ with $|X| = 3q$. Set $m_p = 3q$ periods (one per element), requirement $r[i] = 1$ for all $i$, worker budget $W = q$. Each subset $S_j = {a, b, c}$ defines schedule $sigma_j$ with $sigma_j[i] = 1$ iff $i in S_j$.
+
+  _Correctness._ ($arrow.r.double$) An exact cover $I$ with $|I| = q$ assigns one worker per selected schedule, covering each period exactly once. ($arrow.l.double$) A feasible assignment with $sum_j w_j = q$ and each period covered exactly once gives pairwise-disjoint schedules covering all of $X$.
+
+  _Solution extraction._ Map $w in NN^m$ to $c in {0,1}^m$ by $c[j] = 1$ if $w[j] > 0$.
+]
+
+
+#let ksat_mvc = load-example("KSatisfiability", "MinimumVertexCover")
+#let ksat_mvc_sol = ksat_mvc.solutions.at(0)
+#reduction-rule("KSatisfiability", "MinimumVertexCover",
+  example: true,
+  example-caption: [3-SAT with $n = #ksat_mvc.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_mvc.source.instance)$ clauses],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_mvc.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_mvc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_mvc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The 3-SAT formula has $n = #ksat_mvc.source.instance.num_vars$ variables and $m = #sat-num-clauses(ksat_mvc.source.instance)$ clauses: #{ksat_mvc.source.instance.clauses.enumerate().map(((j, c)) => {
+      let lits = c.literals.map(l => if l > 0 { $x_#l$ } else { $overline(x)_#calc.abs(l)$ })
+      [$c_#j = (#lits.join($or$))$]
+    }).join(", ")}. A satisfying assignment is $(#ksat_mvc_sol.source_config.map(str).join(", "))$, i.e.\ #{range(ksat_mvc.source.instance.num_vars).map(i => {
+      let v = ksat_mvc_sol.source_config.at(i)
+      if v == 1 { $x_#(i+1) = 1$ } else { $x_#(i+1) = 0$ }
+    }).join(", ")}.
+
+    *Step 2 -- Truth-setting edges.* For each variable $x_i$, create vertices $u_i$ (index $2(i-1)$) and $overline(u)_i$ (index $2(i-1)+1$) connected by a truth-setting edge. This gives $2n = #(2 * ksat_mvc.source.instance.num_vars)$ literal vertices and $n = #ksat_mvc.source.instance.num_vars$ edges.
+
+    *Step 3 -- Clause triangles and communication edges.* For each clause $c_j$, create a triangle of 3 vertices at indices $2n + 3j, 2n + 3j + 1, 2n + 3j + 2$, connected by 3 internal edges. Each triangle vertex $t^j_k$ is also connected to its literal vertex by a communication edge (3 per clause). Total: $3m = #(3 * sat-num-clauses(ksat_mvc.source.instance))$ clause vertices, $3m = #(3 * sat-num-clauses(ksat_mvc.source.instance))$ triangle edges, $3m = #(3 * sat-num-clauses(ksat_mvc.source.instance))$ communication edges.
+
+    *Step 4 -- Target graph dimensions.* The resulting graph has $|V| = 2n + 3m = #ksat_mvc.target.instance.graph.num_vertices$ vertices and $|E| = n + 6m = #ksat_mvc.target.instance.graph.edges.len()$ edges, with unit weights.
+
+    *Step 5 -- Verify a solution.* The satisfying assignment $(#ksat_mvc_sol.source_config.map(str).join(", "))$ maps to a vertex cover of size $n + 2m = #(ksat_mvc.source.instance.num_vars + 2 * sat-num-clauses(ksat_mvc.source.instance))$. The target configuration is $(#ksat_mvc_sol.target_config.map(str).join(", "))$: the cover selects #ksat_mvc_sol.target_config.filter(x => x == 1).len() vertices. For each truth-setting edge, exactly one endpoint is in the cover #sym.checkmark. For each clause triangle, exactly two of three vertices are covered #sym.checkmark. Each communication edge has at least one endpoint in the cover #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. Other valid covers correspond to different satisfying assignments of the formula.
+  ],
+)[
+  Each variable contributes a truth-setting edge; each clause contributes a satisfaction-testing triangle. The formula is satisfiable iff the graph has a vertex cover of size $n + 2m$.
+][
+  _Construction._ Given 3-CNF $phi$ with $n$ variables and $m$ clauses, construct $G = (V, E)$ with $|V| = 2n + 3m$. For each variable $x_i$: vertices $u_i$ (index $2i$) and $overline(u)_i$ (index $2i+1$) with edge $(u_i, overline(u)_i)$. For each clause $c_j$: triangle vertices $t^j_0, t^j_1, t^j_2$ at indices $2n + 3j, 2n+3j+1, 2n+3j+2$. Communication edges connect each $t^j_k$ to the literal vertex of its $k$-th literal.
+
+  _Correctness._ ($arrow.r.double$) A satisfying assignment selects literal vertices ($n$ total) and two triangle vertices per clause ($2m$ total), covering all edges. ($arrow.l.double$) A cover of size $n + 2m$ must include exactly one literal vertex per variable and two triangle vertices per clause; the uncovered triangle vertex's communication edge forces the corresponding literal to be true.
+
+  _Solution extraction._ For variable $x_i$, set $x_i = 1$ if the cover indicator at position $2i$ is 1.
+]
+
+#let part_swi = load-example("Partition", "SequencingWithinIntervals")
+#let part_swi_sol = part_swi.solutions.at(0)
+#reduction-rule("Partition", "SequencingWithinIntervals",
+  example: true,
+  example-caption: [$n = #part_swi.source.instance.sizes.len()$ elements, $S = #part_swi.source.instance.sizes.sum()$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_swi.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_swi) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_swi_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The Partition instance has $n = #part_swi.source.instance.sizes.len()$ elements with sizes $(#part_swi.source.instance.sizes.map(str).join(", "))$ and total sum $S = #part_swi.source.instance.sizes.sum()$. The half-sum is $h = floor(S\/2) = #calc.floor(part_swi.source.instance.sizes.sum() / 2)$.
+
+    *Step 2 -- Construct tasks.* The reduction creates $n + 1 = #part_swi.target.instance.lengths.len()$ tasks. Each element $a_i$ becomes a task with release time $r_i = 0$, deadline $d_i = S + 1 = #part_swi.target.instance.deadlines.at(0)$, and length $p_i = a_i$. An enforcer task is pinned at the midpoint: $r = #part_swi.target.instance.release_times.at(part_swi.source.instance.sizes.len())$, $d = #part_swi.target.instance.deadlines.at(part_swi.source.instance.sizes.len())$, $p = 1$. This enforcer occupies $[h, h+1)$, splitting the timeline into two blocks of size $h = #calc.floor(part_swi.source.instance.sizes.sum() / 2)$ each.
+
+    *Step 3 -- Verify a solution.* The canonical partition assigns elements to subsets via $(#part_swi_sol.source_config.map(str).join(", "))$: subset 0 = $\{#part_swi_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => str(part_swi.source.instance.sizes.at(i))).join(", ")\}$ (sum #part_swi_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => part_swi.source.instance.sizes.at(i)).sum()), subset 1 = $\{#part_swi_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(part_swi.source.instance.sizes.at(i))).join(", ")\}$ (sum #part_swi_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => part_swi.source.instance.sizes.at(i)).sum()). Both subsets sum to $S\/2 = #calc.floor(part_swi.source.instance.sizes.sum() / 2)$ #sym.checkmark \
+    The target schedule has start-time offsets $(#part_swi_sol.target_config.map(str).join(", "))$: subset-0 tasks fill $[0, h)$ and subset-1 tasks fill $[h+1, S+1)$, with the enforcer at $[h, h+1)$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. Other valid partitions (e.g.\ swapping the two subsets) exist but are symmetric.
+  ],
+)[
+  A unit-length enforcer task pinned at $[floor(S/2), floor(S/2)+1)$ splits the timeline into two blocks. A valid schedule exists iff the elements partition into two equal-sum subsets.
+][
+  _Construction._ Let $A = {a_1, dots, a_n}$ with $S = sum a_i$ and $h = floor(S/2)$. Create $n+1$ tasks: element tasks with $r_i = 0$, $d_i = S+1$, $p_i = a_i$; enforcer task with $r = h$, $d = h+1$, $p = 1$.
+
+  _Correctness._ ($arrow.r.double$) A balanced partition places one subset's tasks in $[0, h)$ and the other in $[h+1, S+1)$. ($arrow.l.double$) The enforcer at $[h, h+1)$ splits usable time into two blocks of size $h = S/2$; since element tasks fill both blocks exactly, the assignment gives a balanced partition.
+
+  _Solution extraction._ Task $t_i$ starting at time $s_i$: assign to subset 0 if $s_i <= h$, else subset 1.
+]
+
+#let mvc_mfas = load-example("MinimumVertexCover", "MinimumFeedbackArcSet")
+#let mvc_mfas_sol = mvc_mfas.solutions.at(0)
+#let mvc_mfas_cover = mvc_mfas_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let mvc_mfas_fas = mvc_mfas_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#reduction-rule("MinimumVertexCover", "MinimumFeedbackArcSet",
+  example: true,
+  example-caption: [Triangle graph ($n = #graph-num-vertices(mvc_mfas.source.instance)$, $|E| = #graph-num-edges(mvc_mfas.source.instance)$): VC $arrow.r$ FAS via vertex splitting],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mvc_mfas.source) + " -o mvc.json",
+      "pred reduce mvc.json --to " + target-spec(mvc_mfas) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate mvc.json --config " + mvc_mfas_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The source graph $G$ has $n = #graph-num-vertices(mvc_mfas.source.instance)$ vertices and $|E| = #graph-num-edges(mvc_mfas.source.instance)$ edges: $E = {#mvc_mfas.source.instance.graph.edges.map(e => "(" + e.map(str).join(", ") + ")").join(", ")}$ with weights $bold(w) = (#mvc_mfas.source.instance.weights.map(str).join(", "))$.
+
+    *Step 2 -- Construction.* Each vertex $v$ splits into $v^"in"$ and $v^"out"$, yielding $2n = #mvc_mfas.target.instance.graph.num_vertices$ nodes in the target digraph $H$. Internal arcs $(v^"in", v^"out")$ carry weight $w(v)$: #{
+      let arcs = mvc_mfas.target.instance.graph.arcs
+      let ws = mvc_mfas.target.instance.weights
+      let n = mvc_mfas.source.instance.graph.num_vertices
+      arcs.enumerate().filter(((i, a)) => i < n).map(((i, a)) => "(" + str(a.at(0)) + ", " + str(a.at(1)) + ") w=" + str(ws.at(i))).join(", ")
+    }. Each undirected edge produces two crossing arcs with weight $M = 1 + sum w(v) = #mvc_mfas.target.instance.weights.slice(mvc_mfas.source.instance.graph.num_vertices).at(0)$: #{
+      let arcs = mvc_mfas.target.instance.graph.arcs
+      let ws = mvc_mfas.target.instance.weights
+      let n = mvc_mfas.source.instance.graph.num_vertices
+      arcs.enumerate().filter(((i, a)) => i >= n).map(((i, a)) => "(" + str(a.at(0)) + ", " + str(a.at(1)) + ") w=" + str(ws.at(i))).join(", ")
+    }. Total: #mvc_mfas.target.instance.graph.arcs.len() arcs ($#mvc_mfas.source.instance.graph.num_vertices$ internal + $#(mvc_mfas.target.instance.graph.arcs.len() - mvc_mfas.source.instance.graph.num_vertices)$ crossing).
+
+    *Step 3 -- Verify a solution.* The source cover is $C = {#mvc_mfas_cover.map(str).join(", ")}$ (size #mvc_mfas_cover.len()). The target FAS selects arcs at indices ${#mvc_mfas_fas.map(str).join(", ")}$, which are the internal arcs #{
+      let arcs = mvc_mfas.target.instance.graph.arcs
+      mvc_mfas_fas.map(i => "(" + str(arcs.at(i).at(0)) + ", " + str(arcs.at(i).at(1)) + ")").join(", ")
+    } -- exactly the internal arcs of cover vertices $v^"in" arrow.r v^"out"$ for $v in C$. No crossing arc (weight $M = #mvc_mfas.target.instance.weights.slice(mvc_mfas.source.instance.graph.num_vertices).at(0)$) is selected, confirming the optimal FAS uses only internal arcs #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. By symmetry of the triangle, any two-vertex cover is optimal.
+  ],
+)[
+  Each vertex $v$ splits into $v^"in"$ and $v^"out"$ joined by an internal arc weighted $w(v)$. Each edge becomes two crossing arcs weighted $M = 1 + sum_v w(v)$. The optimal FAS never includes crossing arcs; selecting internal arcs for cover vertices breaks every cycle.
+][
+  _Construction._ Given $(G, w)$ with $G = (V, E)$, $n = |V|$. Build directed graph $H$ on $2n$ nodes. Internal arcs $(v^"in", v^"out")$ with weight $w(v)$. For each ${u,v} in E$: crossing arcs $(u^"out", v^"in")$ and $(v^"out", u^"in")$ with weight $M = 1 + sum_(v in V) w(v)$.
+
+  _Correctness._ ($arrow.r.double$) A vertex cover $S$ gives FAS $F = {(v^"in", v^"out") : v in S}$; every cycle through a crossing arc has at least one internal arc in $F$. ($arrow.l.double$) Since $M$ exceeds total internal weight, no crossing arc is in the optimal FAS. For each edge ${u,v}$, the 4-cycle through both internal and crossing arcs forces at least one internal arc into $F$.
+
+  _Solution extraction._ Internal arcs at positions $0, dots, n-1$; the cover is $c[0 : n]$.
+]
+
+#let ksat_kc = load-example("KSatisfiability", "KClique")
+#let ksat_kc_sol = ksat_kc.solutions.at(0)
+#reduction-rule("KSatisfiability", "KClique",
+  example: true,
+  example-caption: [3-SAT with $m = #ksat_kc.source.instance.clauses.len()$ clauses, $n = #ksat_kc.source.instance.num_vars$ variables $arrow.r$ $k$-clique on $#ksat_kc.target.instance.graph.num_vertices$ vertices],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_kc.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_kc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_kc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The 3-CNF formula $phi$ has $m = #ksat_kc.source.instance.clauses.len()$ clauses over $n = #ksat_kc.source.instance.num_vars$ variables:
+    $ phi = (#ksat_kc.source.instance.clauses.enumerate().map(((j, c)) => {
+      let lits = c.literals.map(l => {
+        if l > 0 { $x_#l$ } else { $overline(x_#(-l))$ }
+      })
+      lits.join($or$)
+    }).join($) and ($)) $
+
+    *Step 2 -- Construct the conflict graph.* Create one vertex per literal position: vertex $3j + p$ represents position $p$ ($0$-indexed) in clause $j$, giving $|V| = 3 dot #ksat_kc.source.instance.clauses.len() = #ksat_kc.target.instance.graph.num_vertices$ vertices. Connect $(j_1, p_1)$ and $(j_2, p_2)$ whenever $j_1 != j_2$ and the two literals are not contradictory. The resulting graph has $|E| = #ksat_kc.target.instance.graph.edges.len()$ edges: $E = {#ksat_kc.target.instance.graph.edges.map(e => "(" + e.map(str).join(", ") + ")").join(", ")}$. Set $k = m = #ksat_kc.target.instance.k$.
+
+    *Step 3 -- Verify a solution.* The satisfying assignment $(x_1, x_2, x_3) = (#ksat_kc_sol.source_config.map(str).join(", "))$ makes literal $x_3$ true in clause 0 (position 2, vertex 2) and literal $overline(x_1)$ true in clause 1 (position 0, vertex 3). The target configuration $bold(x) = (#ksat_kc_sol.target_config.map(str).join(", "))$ selects vertices #{
+      ksat_kc_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(" and ")
+    }, which form a clique (edge $(2, 3) in E$ #sym.checkmark) of size $k = #ksat_kc.target.instance.k$ spanning both clause groups #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. The formula has multiple satisfying assignments; each induces at least one $k$-clique by choosing one true literal per clause.
+  ],
+)[
+  Assign one vertex per literal position $(j, p)$; connect vertices from different clauses whose literals are not contradictory. A $k$-clique selects one consistent true literal per clause.
+][
+  _Construction._ Given 3-CNF $phi = C_1 and dots.c and C_m$ over $n$ variables, construct $G = (V, E)$ with $V = {(j, p) : 1 <= j <= m, 1 <= p <= 3}$, $|V| = 3m$. Edge between $(j_1, p_1)$ and $(j_2, p_2)$ iff $j_1 != j_2$ and $ell_(j_1, p_1) != not ell_(j_2, p_2)$. Set $k = m$.
+
+  _Correctness._ ($arrow.r.double$) A satisfying assignment picks one true literal per clause; these vertices form a clique since they span all clauses without contradiction. ($arrow.l.double$) A $k$-clique has exactly one vertex per clause group; the selected literals are pairwise non-contradictory, defining a satisfying assignment.
+
+  _Solution extraction._ For selected vertex $v$: clause $j = floor(v / 3)$, position $p = v mod 3$. If literal $ell_(j,p) = x_i$ set $x_i = 1$; if $ell_(j,p) = not x_i$ set $x_i = 0$.
+]
+
+#let hc_bicon = load-example("HamiltonianCircuit", "BiconnectivityAugmentation")
+#let hc_bicon_sol = hc_bicon.solutions.at(0)
+#reduction-rule("HamiltonianCircuit", "BiconnectivityAugmentation",
+  example: true,
+  example-caption: [4-cycle graph ($n = #graph-num-vertices(hc_bicon.source.instance)$, $|E| = #graph-num-edges(hc_bicon.source.instance)$): HC $arrow.r$ biconnectivity augmentation],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_bicon.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_bicon) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_bicon_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The source graph $G$ has $n = #graph-num-vertices(hc_bicon.source.instance)$ vertices and $|E| = #graph-num-edges(hc_bicon.source.instance)$ edges: $E = {#hc_bicon.source.instance.graph.edges.map(e => "(" + e.map(str).join(", ") + ")").join(", ")}$. This is a 4-cycle, which admits a Hamiltonian circuit.
+
+    *Step 2 -- Construction.* Start with the edgeless graph $H = (V, emptyset)$ on $n = #graph-num-vertices(hc_bicon.target.instance)$ vertices. For each pair ${u, v}$, create a potential edge with weight 1 if ${u,v} in E$ and weight 2 otherwise. This yields #hc_bicon.target.instance.potential_weights.len() potential edges: #hc_bicon.target.instance.potential_weights.map(pw => "{" + str(pw.at(0)) + ", " + str(pw.at(1)) + "} (w=" + str(pw.at(2)) + ")").join(", "). The budget is $B = #hc_bicon.target.instance.budget = n$.
+
+    *Step 3 -- Verify a solution.* The canonical Hamiltonian circuit visits vertices in order $(#hc_bicon_sol.source_config.map(str).join(", "))$. The target configuration $bold(x) = (#hc_bicon_sol.target_config.map(str).join(", "))$ selects potential edges #{
+      let selected = hc_bicon_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => {
+        let pw = hc_bicon.target.instance.potential_weights.at(i)
+        "{" + str(pw.at(0)) + ", " + str(pw.at(1)) + "}"
+      })
+      selected.join(", ")
+    } — exactly the $n = #graph-num-vertices(hc_bicon.source.instance)$ cycle edges, each of weight 1, for a total cost of #hc_bicon_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => hc_bicon.target.instance.potential_weights.at(i).at(2)).sum() $= n = B$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. The 4-cycle has $#{
+      let n = graph-num-vertices(hc_bicon.source.instance)
+      let fac = range(1, n).fold(1, (acc, x) => acc * x)
+      str(int(fac / 2))
+    }$ distinct Hamiltonian circuits ($(n-1)! slash 2$ directed cycles up to reversal).
+  ],
+)[
+  Start with the edgeless graph on $n$ vertices. Price original edges at cost 1 and non-edges at cost 2. A budget-$n$ augmentation is achievable iff $G$ has a Hamiltonian circuit (the only way to biconnect with $n$ weight-1 edges is a Hamiltonian cycle).
+][
+  _Construction._ Given $G = (V, E)$ with $n = |V|$, let $H = (V, emptyset)$. For every pair ${u, v}$: potential edge with weight 1 if ${u,v} in E$, else weight 2. Budget $B = n$.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit selects $n$ weight-1 edges forming a 2-connected cycle, cost $= n$. ($arrow.l.double$) Budget $n$ with $>= n$ edges required (degree $>= 2$) forces exactly $n$ weight-1 edges (all from $E$), which must form a Hamiltonian cycle.
+
+  _Solution extraction._ Walk the unique cycle from vertex 0 through selected edges to recover the circuit order.
+]
+
+#let hc_sca = load-example("HamiltonianCircuit", "StrongConnectivityAugmentation")
+#let hc_sca_sol = hc_sca.solutions.at(0)
+#let hc_sca_n = graph-num-vertices(hc_sca.source.instance)
+#let hc_sca_candidate_arcs = hc_sca.target.instance.candidate_arcs
+#let hc_sca_selected = hc_sca_candidate_arcs.enumerate().filter(((i, _)) => hc_sca_sol.target_config.at(i) == 1).map(((i, a)) => a)
+#let hc_sca_w1 = hc_sca_candidate_arcs.filter(a => a.at(2) == 1)
+#let hc_sca_w2 = hc_sca_candidate_arcs.filter(a => a.at(2) == 2)
+#reduction-rule("HamiltonianCircuit", "StrongConnectivityAugmentation",
+  example: true,
+  example-caption: [4-cycle ($n = #hc_sca_n$): HC to budget-#hc_sca_n SCA],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_sca.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_sca) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_sca_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The source graph is the cycle on $#hc_sca_n$ vertices with edges #hc_sca.source.instance.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The canonical Hamiltonian-circuit witness is the vertex permutation $[#hc_sca_sol.source_config.map(str).join(", ")]$.
+
+    *Step 2 -- Construction.* Start with the empty digraph $D = (V, emptyset)$ on $#hc_sca_n$ vertices. Generate all $#hc_sca_candidate_arcs.len()$ ordered pairs as candidate arcs: #hc_sca_w1.len() weight-1 arcs #hc_sca_w1.map(a => $(#a.at(0) arrow #a.at(1))$).join(", ") corresponding to source edges (both orientations), and #hc_sca_w2.len() weight-2 arcs #hc_sca_w2.map(a => $(#a.at(0) arrow #a.at(1))$).join(", ") for non-edges. Budget $B = #hc_sca.target.instance.bound$.
+
+    *Step 3 -- Verify a solution.* The target configuration $[#hc_sca_sol.target_config.map(str).join(", ")]$ selects arcs #hc_sca_selected.map(a => $(#a.at(0) arrow #a.at(1))$).join(", "), all weight 1. Total cost $= #hc_sca_selected.len() times 1 = #hc_sca_n = B$ #sym.checkmark. These $#hc_sca_n$ arcs form a single directed cycle visiting every vertex, so the augmented digraph is strongly connected. Extracting the circuit: follow successors from vertex 0 to recover $[#hc_sca_sol.source_config.map(str).join(", ")]$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. For the 4-cycle there are $#hc_sca_n times 2 = #{hc_sca_n * 2}$ Hamiltonian-circuit permutations (choice of start vertex and direction), each yielding a distinct set of directed arcs.
+  ],
+)[
+  Start with the empty digraph on $n$ vertices. Weight-1 candidate arcs correspond to edges of $G$; weight-2 arcs for non-edges. A budget-$n$ augmentation that achieves strong connectivity must select exactly $n$ weight-1 arcs forming a directed Hamiltonian cycle.
+][
+  _Construction._ Given $G = (V, E)$ with $n = |V|$. Build $D = (V, emptyset)$. For every ordered pair $(u, v)$ with $u != v$: candidate arc with weight 1 if ${u,v} in E$, else weight 2. Budget $B = n$.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit gives $n$ directed arcs of weight 1 forming a strongly-connected cycle. ($arrow.l.double$) Strong connectivity needs $>= n$ arcs; budget $n$ forces all weight 1, hence all from $E$, forming a single $n$-cycle.
+
+  _Solution extraction._ Follow unique successors from vertex 0 to recover the Hamiltonian permutation.
+]
+
+#let hc_sc = load-example("HamiltonianCircuit", "StackerCrane")
+#let hc_sc_sol = hc_sc.solutions.at(0)
+#let hc_sc_n = graph-num-vertices(hc_sc.source.instance)
+#let hc_sc_source_edges = hc_sc.source.instance.graph.edges
+#let hc_sc_target_arcs = hc_sc.target.instance.arcs
+#let hc_sc_target_edges = hc_sc.target.instance.edges
+#reduction-rule("HamiltonianCircuit", "StackerCrane",
+  example: true,
+  example-caption: [Cycle $C_#hc_sc_n$ ($n = #hc_sc_n$): vertex splitting to Stacker Crane],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_sc.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_sc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_sc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical source fixture is the cycle $C_#hc_sc_n$ on vertices ${0, dots, #(hc_sc_n - 1)}$ with #hc_sc_source_edges.len() edges: #hc_sc_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#hc_sc_sol.source_config.map(str).join(", ")]$.\
+
+    *Step 2 -- Construction.* Each vertex $v_i$ splits into $v_i^"in" = 2i$ and $v_i^"out" = 2i + 1$, giving $2 dot #hc_sc_n = #hc_sc.target.instance.num_vertices$ vertices. The reduction creates #hc_sc_target_arcs.len() mandatory arcs: #hc_sc_target_arcs.map(a => $(#a.at(0) arrow #a.at(1))$).join(", "), each of length 1. For each source edge, two undirected connector edges of length 1 are added, giving $2 dot #hc_sc_source_edges.len() = #hc_sc_target_edges.len()$ connector edges: #hc_sc_target_edges.map(e => ${#e.at(0), #e.at(1)}$).join(", ").\
+
+    *Step 3 -- Verify a solution.* The stored target configuration $[#hc_sc_sol.target_config.map(str).join(", ")]$ is a permutation of arcs. Following this order: arc #hc_sc_sol.target_config.at(0) serves $(#hc_sc_target_arcs.at(hc_sc_sol.target_config.at(0)).at(0) arrow #hc_sc_target_arcs.at(hc_sc_sol.target_config.at(0)).at(1))$, then a connector edge leads to the next arc, and so on. The tour traverses $#hc_sc_target_arcs.len()$ arcs (cost $#hc_sc_target_arcs.len()$) and $#hc_sc_target_arcs.len()$ connector edges (cost $#hc_sc_target_arcs.len()$), for total cost $2 dot #hc_sc_n = #(hc_sc_n * 2)$. Recovering the source witness: arc $i$ corresponds to vertex $i$, so the permutation $[#hc_sc_sol.source_config.map(str).join(", ")]$ is the Hamiltonian circuit #sym.checkmark\
+
+    *Multiplicity:* The fixture stores one canonical witness. For $C_#hc_sc_n$ there are $#hc_sc_n times 2 = #(hc_sc_n * 2)$ directed Hamiltonian circuits (choice of start vertex and direction), each yielding a distinct arc-service permutation.
+  ],
+)[
+  Each vertex $v_i$ splits into $(v_i^"in", v_i^"out")$ with a mandatory directed arc of length 1. Undirected connector edges of length 1 encode original graph edges. A tour of cost $2n$ exists iff a Hamiltonian circuit exists.
+][
+  _Construction._ Given $G = (V, E)$ with $n = |V|$. Create $2n$ vertices: $v_i^"in" = 2i$, $v_i^"out" = 2i + 1$. Add $n$ mandatory arcs $(v_i^"in", v_i^"out")$ of length 1. For each ${v_i, v_j} in E$: connector edges $(v_i^"out", v_j^"in")$ and $(v_j^"out", v_i^"in")$ of length 1.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit gives a tour serving arcs in circuit order, each inter-arc hop using one connector edge, total cost $2n$. ($arrow.l.double$) Cost $2n$ with $n$ arcs of cost 1 leaves exactly $n$ connector hops of cost 1 each; single-hop connections correspond to edges of $G$.
+
+  _Solution extraction._ The arc service permutation directly encodes the Hamiltonian circuit vertex order.
+]
+
+#let hc_rp = load-example("HamiltonianCircuit", "RuralPostman")
+#let hc_rp_sol = hc_rp.solutions.at(0)
+#let hc_rp_n = graph-num-vertices(hc_rp.source.instance)
+#reduction-rule("HamiltonianCircuit", "RuralPostman",
+  example: true,
+  example-caption: [Cycle $C_#hc_rp_n$ ($n = #hc_rp_n$): vertex splitting to Rural Postman],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_rp.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_rp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_rp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical HC instance is a cycle $C_#hc_rp_n$ with $n = #hc_rp_n$ vertices and $|E| = #graph-num-edges(hc_rp.source.instance)$ edges. The stored witness is the permutation $(#hc_rp_sol.source_config.map(str).join(", "))$.
+
+    *Step 2 -- Construction.* Each vertex splits into $(v_i^a, v_i^b)$, producing $2n = #graph-num-vertices(hc_rp.target.instance)$ vertices. The target graph has #graph-num-edges(hc_rp.target.instance) edges: #hc_rp.target.instance.required_edges.len() required edges (one per source vertex) and #(graph-num-edges(hc_rp.target.instance) - hc_rp.target.instance.required_edges.len()) connector edges (two per source edge). All edge lengths are 1.
+
+    *Step 3 -- Verify a solution.* The target solution assigns edge multiplicities $(#hc_rp_sol.target_config.map(str).join(", "))$. The tour traverses all #hc_rp.target.instance.required_edges.len() required edges plus #hc_rp_n connector edges, for total cost $= #(2 * hc_rp_n) = 2n$ #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. The $#hc_rp_n$-cycle has $#hc_rp_n$ rotations $times$ 2 reflections $= #(2 * hc_rp_n)$ directed Hamiltonian circuits.
+  ],
+)[
+  Each vertex splits into two copies connected by a required edge. Original graph edges become connector edges. A minimum-cost tour of cost $2n$ traversing all required edges exists iff $G$ has a Hamiltonian circuit.
+][
+  _Construction._ Given $G = (V, E)$ with $n = |V|$. Build $H$ with $2n$ vertices: $v_i^a = 2i$, $v_i^b = 2i+1$. Required edges ${v_i^a, v_i^b}$ of weight 1 ($n$ total). For each ${v_i, v_j} in E$: connector edges ${v_i^b, v_j^a}$ and ${v_j^b, v_i^a}$ of weight 1.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit $(v_(p_0), dots, v_(p_(n-1)))$ gives a tour traversing required edges and single connector edges, total $2n$. ($arrow.l.double$) Each required edge costs 1 ($n$ total); remaining budget $n$ for connectors forces single-hop connections corresponding to edges of $G$.
+
+  _Solution extraction._ Identify used connector edges and follow the successor map from vertex 0.
+]
+
+#let mis_ifb = load-example("MaximumIndependentSet", "IntegralFlowBundles")
+#let mis_ifb_sol = mis_ifb.solutions.at(0)
+#reduction-rule("MaximumIndependentSet", "IntegralFlowBundles",
+  example: true,
+  example-caption: [Path graph $P_#mis_ifb.source.instance.graph.num_vertices$ ($n = #mis_ifb.source.instance.graph.num_vertices$, $|E| = #mis_ifb.source.instance.graph.edges.len()$)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mis_ifb.source) + " -o mis.json",
+      "pred reduce mis.json --to " + target-spec(mis_ifb) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate mis.json --config " + mis_ifb_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let graph = mis_ifb.source.instance.graph
+      let n = graph.num_vertices
+      let verts = range(n).map(k => (k * 1.5, 0))
+      let is-in-set = mis_ifb_sol.source_config.map(c => c > 0)
+      let blue = graph-colors.at(0)
+      align(center, canvas(length: 0.8cm, {
+        import draw: *
+        for (u, v) in graph.edges {
+          g-edge(verts.at(u), verts.at(v))
+        }
+        for (k, pos) in verts.enumerate() {
+          g-node(pos, name: str(k),
+            fill: if is-in-set.at(k) { blue } else { white },
+            label: [$v_#k$])
+        }
+      }))
+    }
+
+    *Step 1 -- Source instance.* The path graph $P_#mis_ifb.source.instance.graph.num_vertices$ has $n = #mis_ifb.source.instance.graph.num_vertices$ vertices and edges ${#mis_ifb.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$, with unit weights $(#mis_ifb.source.instance.weights.map(str).join(", "))$.
+
+    *Step 2 -- Build the flow network.* The reduction creates a directed graph with $#mis_ifb.target.instance.graph.num_vertices$ nodes: source $s = #mis_ifb.target.instance.source$, intermediates $w_0, dots, w_(#(mis_ifb.source.instance.graph.num_vertices - 1))$, and sink $t = #mis_ifb.target.instance.sink$. There are $#mis_ifb.target.instance.graph.arcs.len()$ arcs ($2n = #(2 * mis_ifb.source.instance.graph.num_vertices)$): for each vertex $v_i$, arc $a_i^"in" = (s, w_i)$ at index $2i$ and $a_i^"out" = (w_i, t)$ at index $2i+1$.
+
+    *Step 3 -- Create bundles.* There are $#mis_ifb.target.instance.bundles.len()$ bundles total. For each original edge ${v_i, v_j} in E$, an edge bundle ${a_i^"out", a_j^"out"}$ with capacity 1 enforces that at most one endpoint is selected (#mis_ifb.source.instance.graph.edges.len() edge bundles). For each vertex $v_i$, a vertex bundle ${a_i^"in", a_i^"out"}$ with capacity 2 links the in/out arcs (#mis_ifb.source.instance.graph.num_vertices vertex bundles). Bundle capacities: $(#mis_ifb.target.instance.bundle_capacities.map(str).join(", "))$. Flow requirement $R = #mis_ifb.target.instance.requirement$.
+
+    *Step 4 -- Verify a solution.* The canonical IS selects vertices ${#mis_ifb_sol.source_config.enumerate().filter(((i, x)) => x > 0).map(((i, x)) => $v_#i$).join(", ")}$ (config $(#mis_ifb_sol.source_config.map(str).join(", "))$). Each selected vertex $v_i$ contributes flow 1 on arcs $a_i^"in"$ and $a_i^"out"$, giving target config $(#mis_ifb_sol.target_config.map(str).join(", "))$. The total flow equals the IS size (#mis_ifb_sol.source_config.fold(0, (a, b) => a + b)). Every edge bundle is satisfied because no two adjacent vertices are both selected, and vertex bundles are satisfied with capacity 2 $>=$ individual flow of 1.
+
+    *Multiplicity:* The fixture stores one canonical witness. The path $P_#mis_ifb.source.instance.graph.num_vertices$ admits larger independent sets (e.g., ${v_0, v_2}$ or ${v_0, v_3}$), but the canonical witness suffices to demonstrate the reduction.
+  ],
+)[
+  Each vertex $v_i$ maps to a flow unit through an intermediate node; edge-bundle constraints cap combined outflow of adjacent pairs at 1, so feasible flow of value $k$ exists iff an independent set of size $>= k$ exists.
+][
+  _Construction._ Directed graph on $n + 2$ nodes: source $s$, intermediates $w_0, dots, w_(n-1)$, sink $t$. Arcs $a_i^"in" = (s, w_i)$ (index $2i$) and $a_i^"out" = (w_i, t)$ (index $2i+1$). Edge bundles ${a_i^"out", a_j^"out"}$ with capacity 1 for each ${v_i, v_j} in E$. Vertex bundles ${a_i^"in", a_i^"out"}$ with capacity 2. Flow requirement $R = 1$.
+
+  _Correctness._ ($arrow.r.double$) An independent set $S$ gives flow $f_i = 1$ for $v_i in S$; edge bundles satisfied since $S$ is independent. ($arrow.l.double$) Feasible flow gives $f_i in {0,1}$; edge bundles force ${v_i : f_i = 1}$ to be independent.
+
+  _Solution extraction._ Vertex $v_i$ in independent set iff target solution at arc index $2i+1$ is positive.
+]
+
+#let hc_qa = load-example("HamiltonianCircuit", "QuadraticAssignment")
+#let hc_qa_sol = hc_qa.solutions.at(0)
+#reduction-rule("HamiltonianCircuit", "QuadraticAssignment",
+  example: true,
+  example-caption: [Cycle graph $C_#hc_qa.source.instance.graph.num_vertices$ ($n = #hc_qa.source.instance.graph.num_vertices$, $|E| = #hc_qa.source.instance.graph.edges.len()$)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_qa.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_qa) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_qa_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The graph $G$ has $n = #hc_qa.source.instance.graph.num_vertices$ vertices and edges ${#hc_qa.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$, forming a cycle $C_#hc_qa.source.instance.graph.num_vertices$. The penalty weight is $omega = n + 1 = #(hc_qa.source.instance.graph.num_vertices + 1)$.
+
+    *Step 2 -- Construction.* The cost matrix $C$ encodes a directed cycle on positions: $c[i][(i+1) mod #hc_qa.source.instance.graph.num_vertices] = 1$, all other entries 0. The distance matrix $D$ encodes graph adjacency: $d[k][l] = 1$ if ${k,l} in E$, $d[k][l] = #(hc_qa.source.instance.graph.num_vertices + 1)$ for non-edges, $d[k][k] = 0$. Both matrices are $#hc_qa.source.instance.graph.num_vertices times #hc_qa.source.instance.graph.num_vertices$, so the QAP has $n = #hc_qa.target.instance.cost_matrix.len()$ facilities and $n = #hc_qa.target.instance.distance_matrix.len()$ locations.
+
+    *Step 3 -- Verify a solution.* The canonical Hamiltonian circuit visits vertices in order $gamma = (#hc_qa_sol.source_config.map(str).join(", "))$. The QAP permutation is the same: $(#hc_qa_sol.target_config.map(str).join(", "))$. The QAP cost is $sum_(i=0)^(n-1) c[i][(i+1) mod n] dot d[gamma(i)][gamma((i+1) mod n)]$. Since $gamma$ maps each position $i$ to vertex $i$, each consecutive pair $(gamma(i), gamma(i+1 mod n))$ is an edge in $G$, contributing $1 dot 1 = 1$. Total cost $= #hc_qa.source.instance.graph.num_vertices = n$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. The cycle $C_#hc_qa.source.instance.graph.num_vertices$ has $#hc_qa.source.instance.graph.num_vertices$ rotations and 2 reflections, giving $2n = #(2 * hc_qa.source.instance.graph.num_vertices)$ distinct Hamiltonian circuits; the canonical one is the identity permutation.
+  ],
+)[
+  Position-adjacency encoded in cost matrix $C$ (directed cycle on positions), graph-adjacency in distance matrix $D$ (1 for edges, $omega = n+1$ for non-edges). QAP optimum equals $n$ iff a Hamiltonian circuit exists.
+][
+  _Construction._ Let $G = (V, E)$ with $n = |V|$ and $omega = n + 1$. Cost matrix: $c[i][j] = 1$ if $j equiv i+1 space (mod n)$, else 0. Distance matrix: $d[k][l] = 0$ if $k = l$; 1 if ${k,l} in E$; $omega$ otherwise.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian circuit $v_0, dots, v_(n-1)$ with $gamma(i) = v_i$ gives cost $n$ (each consecutive pair is an edge). ($arrow.l.double$) Cost $n$ forces $d[gamma(i), gamma((i+1) mod n)] = 1$ for all $i$, meaning all consecutive pairs are edges.
+
+  _Solution extraction._ The QAP permutation $gamma$ is the Hamiltonian circuit visit order directly.
+]
+
+#let hp_cos = load-example("HamiltonianPath", "ConsecutiveOnesSubmatrix")
+#let hp_cos_sol = hp_cos.solutions.at(0)
+#reduction-rule("HamiltonianPath", "ConsecutiveOnesSubmatrix",
+  example: true,
+  example-caption: [Path graph $P_#hp_cos.source.instance.graph.num_vertices$ ($n = #hp_cos.source.instance.graph.num_vertices$, $|E| = #hp_cos.source.instance.graph.edges.len()$)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hp_cos.source) + " -o hp.json",
+      "pred reduce hp.json --to " + target-spec(hp_cos) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hp.json --config " + hp_cos_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The graph $G$ has $n = #hp_cos.source.instance.graph.num_vertices$ vertices and $m = #hp_cos.source.instance.graph.edges.len()$ edges: ${#hp_cos.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$.
+
+    *Step 2 -- Build the incidence matrix.* Construct the $n times m = #hp_cos.target.instance.matrix.len() times #hp_cos.target.instance.matrix.at(0).len()$ vertex-edge incidence matrix $A$ where $A_(i,j) = 1$ iff vertex $i$ is an endpoint of edge $j$. Set bound $K = n - 1 = #hp_cos.target.instance.bound$. The matrix is:
+    $ A = mat(
+      #hp_cos.target.instance.matrix.map(row => row.map(v => if v { "1" } else { "0" }).join(", ")).join(";\n      ")
+    ) $
+
+    *Step 3 -- Verify a solution.* The canonical Hamiltonian path visits vertices in order $(#hp_cos_sol.source_config.map(str).join(", "))$. The target configuration $(#hp_cos_sol.target_config.map(str).join(", "))$ selects #hp_cos_sol.target_config.filter(x => x == 1).len() columns (all $K = #hp_cos.target.instance.bound$ edges). Ordering the selected columns by path position, each row has at most two consecutive ones #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. The path $P_#hp_cos.source.instance.graph.num_vertices$ has exactly 2 Hamiltonian paths (forward and reverse); the canonical one is $(#hp_cos_sol.source_config.map(str).join(", "))$.
+  ],
+)[
+  The vertex-edge incidence matrix has the consecutive-ones property on a selected subset of $n-1$ columns iff those columns correspond to a Hamiltonian path.
+][
+  _Construction._ Given $G = (V, E)$ with $|V| = n$, $|E| = m$, build $n times m$ Boolean matrix $A$ with $A_(i,j) = 1$ iff vertex $i$ is an endpoint of edge $j$. Set bound $K = n - 1$.
+
+  _Correctness._ ($arrow.r.double$) A Hamiltonian path's $n-1$ edges, ordered by path position, give each row at most two consecutive ones. ($arrow.l.double$) $n-1$ columns with the C1P property form a subgraph where each vertex has degree $<= 2$; with $n-1$ edges spanning $n$ vertices, this is a Hamiltonian path.
+
+  _Solution extraction._ Selected columns identify edges; walk from a degree-1 vertex to recover the path ordering.
+]
+
+#let part_bp = load-example("Partition", "BinPacking")
+#let part_bp_sol = part_bp.solutions.at(0)
+#let part_bp_sizes = part_bp.source.instance.sizes
+#let part_bp_n = part_bp_sizes.len()
+#let part_bp_total = part_bp_sizes.fold(0, (a, b) => a + b)
+#let part_bp_capacity = part_bp.target.instance.capacity
+#let part_bp_bin0 = part_bp_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
+#let part_bp_bin1 = part_bp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_bp_bin0_sizes = part_bp_bin0.map(i => part_bp_sizes.at(i))
+#let part_bp_bin1_sizes = part_bp_bin1.map(i => part_bp_sizes.at(i))
+#let part_bp_bin0_sum = part_bp_bin0_sizes.fold(0, (a, b) => a + b)
+#let part_bp_bin1_sum = part_bp_bin1_sizes.fold(0, (a, b) => a + b)
+#reduction-rule("Partition", "BinPacking",
+  example: true,
+  example-caption: [#part_bp_n elements, total sum $S = #part_bp_total$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_bp.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_bp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_bp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_bp_sizes.map(str).join(", "))$ with total sum $S = #part_bp_total$, so a balanced partition requires each half to sum to $S / 2 = #part_bp_capacity$.
+
+    *Step 2 -- Build the bin-packing instance.* The reduction copies each size into the item-size list and sets the bin capacity to $C = floor(S / 2) = #part_bp_capacity$ with $k = 2$ bins. The target instance has sizes $(#part_bp.target.instance.sizes.map(str).join(", "))$ and capacity $#part_bp_capacity$. No auxiliary variables are introduced, so the target has the same $#part_bp_n$ assignment coordinates as the source.
+
+    *Step 3 -- Verify the canonical witness.* The witness assigns each element to bin 0 or bin 1 via the binary vector $bold(b) = (#part_bp_sol.source_config.map(str).join(", "))$, which equals the target config $(#part_bp_sol.target_config.map(str).join(", "))$. Bin 0 receives elements $\{#part_bp_bin0.map(str).join(", ")\}$ with sizes $(#part_bp_bin0_sizes.map(str).join(", "))$ summing to $#part_bp_bin0_sum <= #part_bp_capacity$ #sym.checkmark. Bin 1 receives elements $\{#part_bp_bin1.map(str).join(", ")\}$ with sizes $(#part_bp_bin1_sizes.map(str).join(", "))$ summing to $#part_bp_bin1_sum <= #part_bp_capacity$ #sym.checkmark. Both bins fit within the capacity, and the total $#part_bp_bin0_sum + #part_bp_bin1_sum = #part_bp_total$ accounts for all items.
+
+    *Multiplicity:* The fixture stores one canonical witness. This instance may admit other balanced partitions, but one witness suffices to demonstrate the reduction.
+  ],
+)[
+  Items with sizes $a_i$ packed into 2 bins of capacity $floor(S/2)$. A valid 2-bin packing exists iff a balanced partition exists.
+][
+  _Construction._ Set item sizes $s_i = a_i$, bin capacity $C = floor(S/2)$, number of bins $k = 2$.
+
+  _Correctness._ ($arrow.r.double$) A balanced partition with both subsets summing to $S/2$ gives a valid 2-bin packing. ($arrow.l.double$) Both bins summing to $S$ with capacity $floor(S/2)$ forces $S$ even and each bin holding exactly $S/2$.
+
+  _Solution extraction._ Normalize bin labels: element $i$ in subset 0 if $b_i = b_0$, else subset 1.
+]
+
+#let x3c_msp = load-example("ExactCoverBy3Sets", "MaximumSetPacking")
+#let x3c_msp_sol = x3c_msp.solutions.at(0)
+#reduction-rule("ExactCoverBy3Sets", "MaximumSetPacking",
+  example: true,
+  example-caption: [#x3c_msp.source.instance.subsets.len() subsets over $3q = #x3c_msp.source.instance.universe_size$ elements],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(x3c_msp.source) + " -o x3c.json",
+      "pred reduce x3c.json --to " + target-spec(x3c_msp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate x3c.json --config " + x3c_msp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The X3C instance has universe $X = {0, dots, #(x3c_msp.source.instance.universe_size - 1)}$ with $q = #(x3c_msp.source.instance.universe_size / 3)$ and $#x3c_msp.source.instance.subsets.len()$ candidate triples:
+    #for (i, s) in x3c_msp.source.instance.subsets.enumerate() [
+      $S_#i = {#s.map(str).join(", ")}$#if i < x3c_msp.source.instance.subsets.len() - 1 [, ] else [.]
+    ]
+
+    *Step 2 -- Construct the target.* The identity map copies each triple as a unit-weight set: $#x3c_msp.target.instance.sets.len()$ sets with weights $(#x3c_msp.target.instance.weights.map(str).join(", "))$. The target asks for a maximum packing of pairwise-disjoint sets.
+
+    *Step 3 -- Verify the canonical witness.* Source config $(#x3c_msp_sol.source_config.map(str).join(", "))$ selects subsets ${#x3c_msp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$:
+    #let selected = x3c_msp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+    #for idx in selected [
+      - $S_#idx = {#x3c_msp.source.instance.subsets.at(idx).map(str).join(", ")}$
+    ]
+    These $#selected.len()$ triples are pairwise disjoint and cover all $#x3c_msp.source.instance.universe_size = 3 dot #(x3c_msp.source.instance.universe_size / 3)$ elements #sym.checkmark \\
+    Target config is identical: $(#x3c_msp_sol.target_config.map(str).join(", "))$ — packing value $= #selected.len() = q$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. For this instance there are no other exact covers since every pair of triples that covers all 6 elements is unique.
+  ],
+)[
+  The identity map embeds exact cover as set packing: unit-weight 3-element subsets with a $3q$-element universe. A maximum packing of $q$ disjoint sets is an exact cover.
+][
+  _Construction._ Given $(X, cal(C))$ with $|X| = 3q$, the MaximumSetPacking instance is $(X, cal(C))$ with unit weights.
+
+  _Correctness._ ($arrow.r.double$) An exact cover selects $q$ pairwise-disjoint sets, which is a maximum packing (no packing can exceed $q$ sets of size 3 over $3q$ elements). ($arrow.l.double$) A maximum packing of $q$ disjoint size-3 sets covers all $3q$ elements, hence is an exact cover.
+
+  _Solution extraction._ The selection vector is unchanged.
+]
+
 // ── Batch of 18 reduction rules from derivation document ──
 
 // 1. SubsetSum → Partition (#973)
@@ -13581,6 +14345,182 @@ The following table shows concrete variable overhead for example instances, take
   ($arrow.l.double$) Suppose a cut has weight at least $n (m + 1) + 2m$. The $m$ clause triangles contribute at most $2m$ in total, so the variable edges must contribute at least $n (m + 1)$. Since each variable edge contributes at most $M = m + 1$, all $n$ variable edges are cut. Thus $p_i$ and $n_i$ lie on opposite sides for every variable, and the cut defines a consistent Boolean assignment by reading the side of $p_i$. The remaining $2m$ weight must come from the clause triangles, so each triangle contributes exactly 2 and therefore has vertices on both sides of the cut. Hence every clause contains both a true and a false literal, and the extracted assignment NAE-satisfies $phi$. Because a satisfying instance attains $n (m + 1) + 2m$, every optimal cut of the target has this form.
 
   _Solution extraction._ Read the positive literal vertices: $x_i = 1$ iff vertex $2i$ lies on side 1 of the cut.
+]
+
+#let tp_rcs = load-example("ThreePartition", "ResourceConstrainedScheduling")
+#let tp_rcs_sol = tp_rcs.solutions.at(0)
+#reduction-rule("ThreePartition", "ResourceConstrainedScheduling",
+  example: true,
+  example-caption: [#tp_rcs.source.instance.sizes.len() elements, $B = #tp_rcs.source.instance.bound$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tp_rcs.source) + " -o threepartition.json",
+      "pred reduce threepartition.json --to " + target-spec(tp_rcs) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate threepartition.json --config " + tp_rcs_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Three-Partition instance has $3m = #tp_rcs.source.instance.sizes.len()$ elements with sizes $(#tp_rcs.source.instance.sizes.map(str).join(", "))$ and bound $B = #tp_rcs.source.instance.bound$, so $m = #(tp_rcs.source.instance.sizes.len() / 3)$ groups are required.
+
+    *Step 2 -- Build the Resource-Constrained Scheduling instance.* Each element $a_i$ becomes a unit-length task with resource requirement $r_i = a_i$. The reduction sets $p = #tp_rcs.target.instance.num_processors$ processors, a single resource with bound $#tp_rcs.target.instance.resource_bounds.at(0)$, and deadline $D = #tp_rcs.target.instance.deadline$. The target has #tp_rcs.target.instance.resource_requirements.len() tasks with resource requirements $(#tp_rcs.target.instance.resource_requirements.map(r => str(r.at(0))).join(", "))$.
+
+    *Step 3 -- Verify the canonical witness.* The source config $(#tp_rcs_sol.source_config.map(str).join(", "))$ assigns elements to groups:
+    #for g in range(tp_rcs.target.instance.deadline) [
+      - Slot #g: elements ${#tp_rcs_sol.source_config.enumerate().filter(((i, x)) => x == g).map(((i, x)) => str(i)).join(", ")}$ with sizes $#tp_rcs_sol.source_config.enumerate().filter(((i, x)) => x == g).map(((i, x)) => str(tp_rcs.source.instance.sizes.at(i))).join(" + ") = #tp_rcs.source.instance.bound = B$ #sym.checkmark
+    ]
+    Each slot has exactly 3 tasks and each slot's resource usage sums to $B$. The target config is $(#tp_rcs_sol.target_config.map(str).join(", "))$, matching the source config since task $t_i$ is assigned to the same slot as element $a_i$.
+
+    *Multiplicity:* The fixture stores one canonical witness. Other valid 3-partitions (if any) would yield equally valid schedules.
+  ],
+)[
+  Each element becomes a unit-length task requiring $a_i$ units of a shared resource with bound $B$. With 3 processors and deadline $m$, every slot receives exactly 3 tasks summing to $B$.
+][
+  _Construction._ Given $(S, B)$ with $|S| = 3m$ and $B/4 < a_i < B/2$. Create $3m$ unit-length tasks with resource requirement $r_i = a_i$, $p = 3$ processors, resource bound $B$, deadline $D = m$.
+
+  _Correctness._ ($arrow.r.double$) A valid 3-partition assigns each triple to a time slot; each slot uses exactly $B$ resource units. ($arrow.l.double$) $3m$ tasks in $m$ slots with $p = 3$: every slot has exactly 3 tasks. Resource bound $B$ with total $m B$: each slot sums to exactly $B$. Size constraints prevent fewer or more than 3 elements per slot.
+
+  _Solution extraction._ Task $t_i$ assigned to slot $k$ means element $a_i$ belongs to group $k$.
+]
+
+#let tp_srd = load-example("ThreePartition", "SequencingWithReleaseTimesAndDeadlines")
+#let tp_srd_sol = tp_srd.solutions.at(0)
+#reduction-rule("ThreePartition", "SequencingWithReleaseTimesAndDeadlines",
+  example: true,
+  example-caption: [3-Partition with $3m = #tp_srd.source.instance.sizes.len()$ elements and $B = #tp_srd.source.instance.bound$ mapped to #tp_srd.target.instance.lengths.len() sequencing tasks],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tp_srd.source) + " -o tp.json",
+      "pred reduce tp.json --to " + target-spec(tp_srd) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate tp.json --config " + tp_srd_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical 3-Partition instance has $3m = #tp_srd.source.instance.sizes.len()$ elements with sizes $(#tp_srd.source.instance.sizes.map(str).join(", "))$ and bound $B = #tp_srd.source.instance.bound$. Since $m = #(tp_srd.source.instance.sizes.len() / 3)$, we must partition the elements into $#(tp_srd.source.instance.sizes.len() / 3)$ groups, each summing to $B$.
+
+    *Step 2 -- Construct element tasks.* Each element $a_i$ becomes a task with processing time $p_i = a_i$, release time $r_i = 0$, and deadline $d_i = H$ where $H = m(B+1) - 1 = #(tp_srd.source.instance.sizes.len() / 3) dot (#tp_srd.source.instance.bound + 1) - 1 = #(tp_srd.source.instance.sizes.len() / 3 * (tp_srd.source.instance.bound + 1) - 1)$. This gives #tp_srd.source.instance.sizes.len() element tasks with lengths $(#tp_srd.target.instance.lengths.slice(0, tp_srd.source.instance.sizes.len()).map(str).join(", "))$.
+
+    *Step 3 -- Construct filler tasks.* Add $m - 1 = #(tp_srd.source.instance.sizes.len() / 3 - 1)$ filler task(s). Filler $j$ has length $1$, release time $r_j = (j+1)B + j = #tp_srd.target.instance.release_times.at(tp_srd.source.instance.sizes.len())$, and deadline $d_j = r_j + 1 = #tp_srd.target.instance.deadlines.at(tp_srd.source.instance.sizes.len())$. This tight window pins each filler to a single time unit, splitting the timeline into $m$ slots of width $B = #tp_srd.source.instance.bound$.
+
+    *Step 4 -- Verify a solution.* The source witness assigns elements to groups: $[#tp_srd_sol.source_config.map(str).join(", ")]$. Group 0 contains elements with sizes $(#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => str(s.at(i))).join(", ")})$, summing to $#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => s.at(i)).sum() } = B$ #sym.checkmark. Group 1 contains sizes $(#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(s.at(i))).join(", ")})$, summing to $#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => s.at(i)).sum() } = B$ #sym.checkmark. The target Lehmer code is $[#tp_srd_sol.target_config.map(str).join(", ")]$: element tasks fill slot $[0, B)$, the filler occupies its tight window $[B, B+1)$, and remaining elements fill slot $[B+1, 2B+1)$.
+
+    *Multiplicity:* The fixture stores one canonical witness. A second valid partition (swapping groups) exists, but both map to distinct Lehmer codes.
+  ],
+)[
+  $m-1$ filler tasks with tight release windows partition the timeline into $m$ slots of width $B$. Element tasks must fill these slots, and size constraints force exactly 3 elements per slot.
+][
+  _Construction._ Given $(S, B)$ with $|S| = 3m$. Create $3m$ element tasks with $p_i = a_i$, $r_i = 0$, $d_i = H$ where $H = m(B+1) - 1$. Add $m-1$ filler tasks with $p = 1$, $r_j = (j+1)B + j$, $d_j = (j+1)B + j + 1$.
+
+  _Correctness._ ($arrow.r.double$) A valid 3-partition fills each slot of width $B$ with exactly 3 elements; fillers are placed in their tight windows. ($arrow.l.double$) Fillers pinned to unit windows create $m$ slots of width $B$; total element work $m B$ fills all slots exactly; size constraints force 3 elements per slot.
+
+  _Solution extraction._ Decode the Lehmer code, simulate the schedule tracking start times; assign elements to groups by $floor("start" / (B+1))$.
+]
+
+#let tp_smwt = load-example("ThreePartition", "SequencingToMinimizeWeightedTardiness")
+#let tp_smwt_sol = tp_smwt.solutions.at(0)
+#reduction-rule("ThreePartition", "SequencingToMinimizeWeightedTardiness",
+  example: true,
+  example-caption: [$m = #(tp_smwt.source.instance.sizes.len() / 3)$ groups, $B = #tp_smwt.source.instance.bound$, $3m = #tp_smwt.source.instance.sizes.len()$ elements],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tp_smwt.source) + " -o threepartition.json",
+      "pred reduce threepartition.json --to " + target-spec(tp_smwt) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate threepartition.json --config " + tp_smwt_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let sizes = tp_smwt.source.instance.sizes
+      let B = tp_smwt.source.instance.bound
+      let m = sizes.len() / 3
+      let n = sizes.len()
+      let H = m * B + (m - 1)
+      let Wf = m * B + 1
+      let tgt = tp_smwt.target.instance
+
+      [*Step 1 -- Source instance.* The canonical ThreePartition instance has $3m = #n$ elements with sizes $(#sizes.map(str).join(", "))$ and bound $B = #B$. The total sum is $#sizes.fold(0, (a, b) => a + b) = m B = #m times #B$. Each element satisfies $B\/4 < a_i < B\/2$, i.e.\ $#(calc.floor(B / 4) + 1) <= a_i <= #(calc.ceil(B / 2) - 1)$.]
+
+      [*Step 2 -- Construct target tasks.* The horizon is $H = m B + (m - 1) = #H$, and the filler weight is $W_f = m B + 1 = #Wf$. The reduction creates #tgt.lengths.len() tasks:
+      - *#n element tasks* with lengths $(#tgt.lengths.slice(0, n).map(str).join(", "))$, weights $(#tgt.weights.slice(0, n).map(str).join(", "))$, and deadlines $(#tgt.deadlines.slice(0, n).map(str).join(", "))$ (all equal to $H$).
+      - *#(m - 1) filler task#if m - 1 != 1 [s]* with length $#tgt.lengths.at(n)$, weight $W_f = #tgt.weights.at(n)$, and deadline $#tgt.deadlines.at(n)$ (tight: $(1) dot B + 1 = #tgt.deadlines.at(n)$).
+      The tardiness bound is $K = #tgt.bound$.]
+
+      [*Step 3 -- Verify a solution.* The source assignment $(#tp_smwt_sol.source_config.map(str).join(", "))$ places elements ${0, 1, 2}$ (sizes $#sizes.at(0), #sizes.at(1), #sizes.at(2)$, sum $= #(sizes.at(0) + sizes.at(1) + sizes.at(2))$) in group 0 and elements ${3, 4, 5}$ (sizes $#sizes.at(3), #sizes.at(4), #sizes.at(5)$, sum $= #(sizes.at(3) + sizes.at(4) + sizes.at(5))$) in group 1. Both groups sum to $B = #B$ #sym.checkmark. The target Lehmer code is $(#tp_smwt_sol.target_config.map(str).join(", "))$, which decodes to the schedule: tasks $0, 1, 2$ (slot 0, total length $#B$), then filler (length 1, completes at $#(B + 1) <= #tgt.deadlines.at(n)$ #sym.checkmark), then tasks $3, 4, 5$ (slot 1, completes at $#H$). All element deadlines are $#H$ #sym.checkmark, and the filler meets its tight deadline. Zero tardiness achieved #sym.checkmark.]
+
+      [*Multiplicity:* The fixture stores one canonical witness. This instance admits other valid orderings within each slot (e.g.\ permuting elements 0, 1, 2 within slot 0), but the group assignment is unique up to slot relabeling.]
+    }
+  ],
+)[
+  High-weight filler tasks with tight deadlines force zero-tardiness schedules to leave exactly $m$ slots of width $B$ for element tasks. Size constraints ensure 3 elements per slot.
+][
+  _Construction._ Given $(S, B)$ with $|S| = 3m$. Horizon $H = m B + (m-1)$, filler weight $W_f = m B + 1$. Element tasks: $p_i = a_i$, $w_i = 1$, $d_i = H$. Filler tasks ($m-1$): $p = 1$, $w = W_f$, $d_j = (j+1)B + (j+1)$. Tardiness bound $K = 0$.
+
+  _Correctness._ ($arrow.r.double$) A valid 3-partition schedules each triple in a slot between fillers, achieving zero tardiness. ($arrow.l.double$) Zero tardiness forces fillers to their tight deadlines, creating $m$ slots of width $B$; element tasks fill them exactly with 3 per slot.
+
+  _Solution extraction._ Decode Lehmer code; scan left to right incrementing group index at each filler.
+]
+
+#let tp_jss = load-example("ThreePartition", "JobShopScheduling")
+#let tp_jss_sol = tp_jss.solutions.at(0)
+#reduction-rule("ThreePartition", "JobShopScheduling",
+  example: true,
+  example-caption: [$3m = #tp_jss.source.instance.sizes.len()$ elements, $B = #tp_jss.source.instance.bound$, #tp_jss.target.instance.num_processors machines],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tp_jss.source) + " -o threepartition.json",
+      "pred reduce threepartition.json --to " + target-spec(tp_jss) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate threepartition.json --config " + tp_jss_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical 3-Partition instance has $3m = #tp_jss.source.instance.sizes.len()$ elements with sizes $S = (#tp_jss.source.instance.sizes.map(str).join(", "))$ and bound $B = #tp_jss.source.instance.bound$. Since $m = #{ let n = tp_jss.source.instance.sizes.len(); str(calc.div-euclid(n, 3)) }$, there are $m - 1 = #{ let n = tp_jss.source.instance.sizes.len(); str(calc.div-euclid(n, 3) - 1) }$ separators, separator length $L = m B + 1 = #{ let n = tp_jss.source.instance.sizes.len(); let m = calc.div-euclid(n, 3); str(m * tp_jss.source.instance.bound + 1) }$, and deadline $D = m B + (m-1) L = #{ let n = tp_jss.source.instance.sizes.len(); let m = calc.div-euclid(n, 3); let B = tp_jss.source.instance.bound; let L = m * B + 1; str(m * B + (m - 1) * L) }$.
+
+    *Step 2 -- Construct jobs.* Each element $a_i$ becomes an element job with two tasks: $(text("machine") 0, a_i)$ then $(text("machine") 1, a_i)$. This gives #tp_jss.target.instance.jobs.len() jobs on #tp_jss.target.instance.num_processors processors. The target JSS instance has jobs: #{ let jobs = tp_jss.target.instance.jobs; let descs = jobs.map(j => { let tasks = j.map(t => "(" + str(t.at(0)) + "," + str(t.at(1)) + ")"); "[" + tasks.join(", ") + "]" }); descs.join("; ") }.
+
+    *Step 3 -- Verify a solution.* The source config $(#tp_jss_sol.source_config.map(str).join(", "))$ assigns all #tp_jss.source.instance.sizes.len() elements to group 0. With $m = 1$ and no separators, any ordering of the #tp_jss.source.instance.sizes.len() element tasks on each machine is valid. The target Lehmer code $(#tp_jss_sol.target_config.map(str).join(", "))$ encodes identity orderings on both machines. The resulting makespan is $sum a_i = #{ tp_jss.source.instance.sizes.sum() } = B = #tp_jss.source.instance.bound <= D$ #sym.checkmark, and all #tp_jss.source.instance.sizes.len() elements land in a single processor slot containing exactly 3 elements #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. With $m = 1$ there is only one valid group assignment (all elements in group 0); the $3! times 3!$ task orderings on the two machines yield multiple target configs, but only one source partition.
+  ],
+)[
+  On 2 machines, $m-1$ long separator jobs on machine 0 force element jobs into $m$ windows of width $B$. Size constraints ensure 3 elements per window.
+][
+  _Construction._ Given $(S, B)$ with $|S| = 3m$, $L = m B + 1$, $D = m B + (m-1)L$. Element jobs ($3m$): two tasks $(text("machine") 0, a_i)$ then $(text("machine") 1, a_i)$. Separator jobs ($m-1$): single task $(text("machine") 0, L)$.
+
+  _Correctness._ ($arrow.r.double$) A valid 3-partition interleaves element groups with separators on machine 0, achieving makespan $D$. ($arrow.l.double$) Separators of length $L > m B$ create impassable barriers; remaining budget $m B$ split into $m$ windows; size constraints force 3 elements per window.
+
+  _Solution extraction._ Decode machine 0 Lehmer code; walk permutation incrementing group at each separator.
+]
+
+#let mc_mcbs = load-example("MaxCut", "MinimumCutIntoBoundedSets")
+#let mc_mcbs_sol = mc_mcbs.solutions.at(0)
+#reduction-rule("MaxCut", "MinimumCutIntoBoundedSets",
+  example: true,
+  example-caption: [Triangle graph ($n = #mc_mcbs.source.instance.graph.num_vertices$, $|E| = #mc_mcbs.source.instance.graph.edges.len()$, unit weights) mapped to $K_#mc_mcbs.target.instance.graph.num_vertices$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mc_mcbs.source) + " -o maxcut.json",
+      "pred reduce maxcut.json --to " + target-spec(mc_mcbs) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate maxcut.json --config " + mc_mcbs_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The source MaxCut instance is a triangle $G = (V, E)$ with $n = #mc_mcbs.source.instance.graph.num_vertices$ vertices, $|E| = #mc_mcbs.source.instance.graph.edges.len()$ edges, and unit weights $w = (#mc_mcbs.source.instance.edge_weights.map(str).join(", "))$. A maximum cut partitions vertices into two sides to maximize crossing-edge weight; here the optimum is $2$ (any single vertex versus the other two).
+
+    *Step 2 -- Pad to even vertex count.* Since $n = 3$ is odd, set $n' = n + 1 = 4$. The target complete graph has $N = 2 n' = #mc_mcbs.target.instance.graph.num_vertices$ vertices, giving $#mc_mcbs.target.instance.graph.num_vertices dot (#mc_mcbs.target.instance.graph.num_vertices - 1) slash 2 = #mc_mcbs.target.instance.graph.edges.len()$ edges.
+
+    *Step 3 -- Invert weights on $K_#mc_mcbs.target.instance.graph.num_vertices$.* Compute $w_"max" = 1 + max w(e) = 2$. For each original edge $(i, j) in E$, the inverted weight is $tilde(w)(i,j) = w_"max" - w(i,j) = 2 - 1 = 1$. All other edges (including those to padding vertices) receive weight $w_"max" = 2$. Designate source $s = #mc_mcbs.target.instance.source$, sink $t = #mc_mcbs.target.instance.sink$, size bound $b = #mc_mcbs.target.instance.size_bound$. The target edge weights are $(#mc_mcbs.target.instance.edge_weights.map(str).join(", "))$.
+
+    *Step 4 -- Verify a solution.* The canonical source witness is $(#mc_mcbs_sol.source_config.map(str).join(", "))$: vertices $0, 1$ on side $0$ and vertex $2$ on side $1$, cutting $2$ of $3$ edges (max cut value $= 2$). The target witness is $(#mc_mcbs_sol.target_config.map(str).join(", "))$. Check: (1) the first $n = #mc_mcbs.source.instance.graph.num_vertices$ entries match the source partition #sym.checkmark; (2) source vertex $s = #mc_mcbs.target.instance.source$ and sink vertex $t = #mc_mcbs.target.instance.sink$ are on opposite sides #sym.checkmark; (3) each side has exactly $b = #mc_mcbs.target.instance.size_bound$ vertices (balanced bisection) #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. The triangle has $3$ maximum cuts of value $2$ (isolate any one vertex); padding vertices can be assigned to balance both sides, yielding multiple valid target configurations.
+  ],
+)[
+  Invert edge weights relative to $w_"max"$ on a complete graph $K_N$ with $N = 2n'$. A minimum balanced bisection in the inverted graph corresponds to a maximum cut in the original.
+][
+  _Construction._ Given $G = (V, E, w)$ with $n = |V|$. Set $n' = n + (n mod 2)$, $N = 2n'$, $w_"max" = 1 + max_(e in E) w(e)$. Build $K_N$ with $tilde(w)(i,j) = w_"max" - w(i,j)$ for edges in $E$, else $w_"max"$. Designate $s = n'$, $t = n' + 1$, bound $b = n'$.
+
+  _Correctness._ ($arrow.r.double$) A max-cut extended to a balanced bisection gives a feasible target instance. ($arrow.l.double$) Minimizing $tilde(w)$-cut cost is equivalent to maximizing original weight crossing the cut, since $tilde(w) = w_"max" - w$.
+
+  _Solution extraction._ Return the first $n$ entries of the target assignment.
 ]
 
 // 14. HamiltonianPath → IsomorphicSpanningTree (#912)
