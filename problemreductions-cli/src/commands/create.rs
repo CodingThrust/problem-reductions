@@ -625,6 +625,193 @@ impl CreateContext {
             .get(name)
             .and_then(serde_json::Value::as_f64)
     }
+
+    fn remember(&mut self, name: &str, concrete_type: &str, value: &serde_json::Value) {
+        self.parsed_fields.insert(name.to_string(), value.clone());
+
+        match normalize_type_name(concrete_type).as_str() {
+            "SimpleGraph" => {
+                self.num_vertices = value
+                    .get("num_vertices")
+                    .and_then(serde_json::Value::as_u64)
+                    .and_then(|raw| usize::try_from(raw).ok());
+                self.num_edges = value
+                    .get("edges")
+                    .and_then(serde_json::Value::as_array)
+                    .map(Vec::len);
+            }
+            "DirectedGraph" => {
+                self.num_vertices = value
+                    .get("num_vertices")
+                    .and_then(serde_json::Value::as_u64)
+                    .and_then(|raw| usize::try_from(raw).ok());
+                self.num_arcs = value
+                    .get("arcs")
+                    .and_then(serde_json::Value::as_array)
+                    .map(Vec::len);
+            }
+            "KingsSubgraph" | "TriangularSubgraph" => {
+                self.num_vertices = value
+                    .get("positions")
+                    .and_then(serde_json::Value::as_array)
+                    .map(Vec::len);
+            }
+            "UnitDiskGraph" => {
+                self.num_vertices = value
+                    .get("positions")
+                    .and_then(serde_json::Value::as_array)
+                    .map(Vec::len);
+                self.num_edges = value
+                    .get("edges")
+                    .and_then(serde_json::Value::as_array)
+                    .map(Vec::len);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn create_schema_driven(
+    args: &CreateArgs,
+    canonical: &str,
+    resolved_variant: &BTreeMap<String, String>,
+) -> Result<Option<(serde_json::Value, BTreeMap<String, String>)>> {
+    let Some(schema) = collect_schemas().into_iter().find(|schema| schema.name == canonical) else {
+        return Ok(None);
+    };
+    let Some(variant_entry) =
+        problemreductions::registry::find_variant_entry(canonical, resolved_variant)
+    else {
+        return Ok(None);
+    };
+
+    let graph_type = resolved_graph_type(resolved_variant);
+    let is_geometry = matches!(
+        graph_type,
+        "KingsSubgraph" | "TriangularSubgraph" | "UnitDiskGraph"
+    );
+    let flag_map = args.flag_map();
+    let mut context = CreateContext::default();
+    let mut json_map = serde_json::Map::new();
+
+    for field in &schema.fields {
+        let concrete_type = resolve_schema_field_type(&field.type_name, resolved_variant);
+        let flag_keys =
+            schema_field_flag_keys(canonical, &field.name, &field.type_name, is_geometry);
+        let value = if let Some(raw_value) = get_schema_flag_value(&flag_map, &flag_keys) {
+            match parse_field_value(&concrete_type, &field.name, &raw_value, &context) {
+                Ok(value) => value,
+                Err(error) if is_unsupported_schema_parser(&error) => return Ok(None),
+                Err(error) => return Err(error),
+            }
+        } else if let Some(derived) =
+            derive_schema_field_value(canonical, &field.name, &concrete_type, &context)?
+        {
+            derived
+        } else {
+            return Ok(None);
+        };
+
+        context.remember(&field.name, &concrete_type, &value);
+        json_map.insert(field.name.clone(), value);
+    }
+
+    let data = serde_json::Value::Object(json_map);
+    if (variant_entry.factory)(data.clone()).is_err() {
+        return Ok(None);
+    }
+
+    Ok(Some((data, resolved_variant.clone())))
+}
+
+fn schema_field_flag_keys(
+    canonical: &str,
+    field_name: &str,
+    field_type: &str,
+    is_geometry: bool,
+) -> Vec<String> {
+    let mut keys = vec![field_name.replace('_', "-")];
+    let display_key = problem_help_flag_name(canonical, field_name, field_type, is_geometry);
+    let display_key = display_key
+        .split('/')
+        .next()
+        .unwrap_or(&display_key)
+        .trim_start_matches("--")
+        .to_string();
+    if !keys.contains(&display_key) {
+        keys.push(display_key);
+    }
+    keys
+}
+
+fn get_schema_flag_value(
+    flag_map: &std::collections::HashMap<&'static str, Option<String>>,
+    keys: &[String],
+) -> Option<String> {
+    keys.iter()
+        .find_map(|key| flag_map.get(key.as_str()).cloned().flatten())
+}
+
+fn resolve_schema_field_type(
+    type_name: &str,
+    resolved_variant: &BTreeMap<String, String>,
+) -> String {
+    let normalized = normalize_type_name(type_name);
+    let graph_type = resolved_variant
+        .get("graph")
+        .map(String::as_str)
+        .unwrap_or("SimpleGraph");
+    let weight_type = resolved_variant
+        .get("weight")
+        .map(String::as_str)
+        .unwrap_or("One");
+
+    match normalized.as_str() {
+        "G" => graph_type.to_string(),
+        "W" => weight_type.to_string(),
+        "W::Sum" => weight_sum_type(weight_type).to_string(),
+        "Vec<W>" => format!("Vec<{weight_type}>"),
+        "Vec<Vec<W>>" => format!("Vec<Vec<{weight_type}>>"),
+        "Vec<(usize,usize,W)>" => format!("Vec<(usize,usize,{weight_type})>"),
+        "Vec<Vec<T>>" => format!("Vec<Vec<{weight_type}>>"),
+        other => other.to_string(),
+    }
+}
+
+fn weight_sum_type(weight_type: &str) -> &'static str {
+    match weight_type {
+        "One" | "i32" => "i32",
+        "f64" => "f64",
+        _ => "i32",
+    }
+}
+
+fn derive_schema_field_value(
+    canonical: &str,
+    field_name: &str,
+    concrete_type: &str,
+    context: &CreateContext,
+) -> Result<Option<serde_json::Value>> {
+    if canonical == "LengthBoundedDisjointPaths"
+        && field_name == "max_paths"
+        && normalize_type_name(concrete_type) == "usize"
+    {
+        let graph_value = context.parsed_fields.get("graph").cloned();
+        let source = context.usize_field("source");
+        let sink = context.usize_field("sink");
+        if let (Some(graph_value), Some(source), Some(sink)) = (graph_value, source, sink) {
+            let graph: SimpleGraph =
+                serde_json::from_value(graph_value).context("Failed to deserialize graph")?;
+            let max_paths = graph.neighbors(source).len().min(graph.neighbors(sink).len());
+            return Ok(Some(serde_json::json!(max_paths)));
+        }
+    }
+
+    Ok(None)
+}
+
+fn is_unsupported_schema_parser(error: &anyhow::Error) -> bool {
+    error.to_string().contains("Unsupported schema parser")
 }
 
 fn parse_field_value(
@@ -9345,6 +9532,105 @@ mod tests {
             value,
             serde_json::json!(["Exists", "ForAll", "Exists"])
         );
+    }
+
+    #[test]
+    fn test_create_schema_driven_builds_job_shop_scheduling() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "JobShopScheduling",
+            "--jobs",
+            "0:3,1:4;1:2,0:3,1:2",
+            "--num-processors",
+            "2",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        let (data, variant) = create_schema_driven(&args, "JobShopScheduling", &BTreeMap::new())
+            .expect("schema-driven create should parse")
+            .expect("schema-driven path should support JobShopScheduling");
+
+        let entry = problemreductions::registry::find_variant_entry("JobShopScheduling", &variant)
+            .expect("variant entry");
+        (entry.factory)(data.clone()).expect("factory should deserialize generated JSON");
+        assert_eq!(data["num_processors"], 2);
+        assert_eq!(data["jobs"][0], serde_json::json!([[0, 3], [1, 4]]));
+    }
+
+    #[test]
+    fn test_create_schema_driven_builds_quantified_boolean_formulas() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "QuantifiedBooleanFormulas",
+            "--num-vars",
+            "3",
+            "--quantifiers",
+            "E,A,E",
+            "--clauses",
+            "1,2;-1,3",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        let (data, variant) =
+            create_schema_driven(&args, "QuantifiedBooleanFormulas", &BTreeMap::new())
+                .expect("schema-driven create should parse")
+                .expect("schema-driven path should support QBF");
+
+        let entry = problemreductions::registry::find_variant_entry(
+            "QuantifiedBooleanFormulas",
+            &variant,
+        )
+        .expect("variant entry");
+        (entry.factory)(data.clone()).expect("factory should deserialize generated JSON");
+        assert_eq!(data["quantifiers"], serde_json::json!(["Exists", "ForAll", "Exists"]));
+    }
+
+    #[test]
+    fn test_create_schema_driven_builds_undirected_flow_lower_bounds() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "UndirectedFlowLowerBounds",
+            "--graph",
+            "0-1,0-2,1-3,2-3",
+            "--capacities",
+            "2,2,2,2",
+            "--lower-bounds",
+            "1,0,0,1",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--requirement",
+            "2",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        let (data, variant) =
+            create_schema_driven(&args, "UndirectedFlowLowerBounds", &BTreeMap::new())
+                .expect("schema-driven create should parse")
+                .expect("schema-driven path should support UndirectedFlowLowerBounds");
+
+        let entry = problemreductions::registry::find_variant_entry(
+            "UndirectedFlowLowerBounds",
+            &variant,
+        )
+        .expect("variant entry");
+        (entry.factory)(data.clone()).expect("factory should deserialize generated JSON");
+        assert_eq!(data["graph"]["num_vertices"], 4);
+        assert_eq!(data["capacities"], serde_json::json!([2, 2, 2, 2]));
+        assert_eq!(data["lower_bounds"], serde_json::json!([1, 0, 0, 1]));
     }
 
     #[test]
