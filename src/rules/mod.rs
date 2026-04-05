@@ -92,6 +92,7 @@ pub(crate) mod sat_maximumindependentset;
 pub(crate) mod sat_minimumdominatingset;
 pub(crate) mod satisfiability_naesatisfiability;
 pub(crate) mod satisfiability_nontautology;
+pub(crate) mod setsplitting_betweenness;
 mod spinglass_casts;
 pub(crate) mod spinglass_maxcut;
 pub(crate) mod spinglass_qubo;
@@ -424,6 +425,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(minimumvertexcover_minimumhittingset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumsetcovering::canonical_rule_example_specs());
     specs.extend(naesatisfiability_setsplitting::canonical_rule_example_specs());
+    specs.extend(setsplitting_betweenness::canonical_rule_example_specs());
     specs.extend(satisfiability_naesatisfiability::canonical_rule_example_specs());
     specs.extend(sat_circuitsat::canonical_rule_example_specs());
     specs.extend(sat_coloring::canonical_rule_example_specs());

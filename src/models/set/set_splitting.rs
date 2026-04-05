@@ -57,6 +57,35 @@ pub struct SetSplitting {
     subsets: Vec<Vec<usize>>,
 }
 
+fn normalize_subsets(universe_size: usize, subsets: &[Vec<usize>]) -> (usize, Vec<Vec<usize>>) {
+    let mut next_element = universe_size;
+    let total_excess: usize = subsets
+        .iter()
+        .map(|subset| subset.len().saturating_sub(3))
+        .sum();
+    let mut normalized = Vec::with_capacity(subsets.len() + 2 * total_excess);
+
+    for subset in subsets {
+        let mut remainder = subset.clone();
+        while remainder.len() > 3 {
+            let positive_aux = next_element;
+            let negative_aux = next_element + 1;
+            next_element += 2;
+
+            normalized.push(vec![remainder[0], remainder[1], positive_aux]);
+            normalized.push(vec![positive_aux, negative_aux]);
+
+            let mut next_remainder = Vec::with_capacity(remainder.len() - 1);
+            next_remainder.push(negative_aux);
+            next_remainder.extend_from_slice(&remainder[2..]);
+            remainder = next_remainder;
+        }
+        normalized.push(remainder);
+    }
+
+    (next_element, normalized)
+}
+
 impl SetSplitting {
     /// Create a new Set Splitting problem.
     ///
@@ -106,6 +135,33 @@ impl SetSplitting {
     /// Get the subsets.
     pub fn subsets(&self) -> &[Vec<usize>] {
         &self.subsets
+    }
+
+    pub(crate) fn normalized_instance(&self) -> (usize, Vec<Vec<usize>>) {
+        normalize_subsets(self.universe_size, &self.subsets)
+    }
+
+    /// Universe size after decomposing all subsets to size 2 or 3.
+    pub fn normalized_universe_size(&self) -> usize {
+        self.normalized_instance().0
+    }
+
+    /// Number of size-2 subsets after decomposition.
+    pub fn normalized_num_size2_subsets(&self) -> usize {
+        self.normalized_instance()
+            .1
+            .iter()
+            .filter(|subset| subset.len() == 2)
+            .count()
+    }
+
+    /// Number of size-3 subsets after decomposition.
+    pub fn normalized_num_size3_subsets(&self) -> usize {
+        self.normalized_instance()
+            .1
+            .iter()
+            .filter(|subset| subset.len() == 3)
+            .count()
     }
 
     /// Check if a coloring (config) splits all subsets.

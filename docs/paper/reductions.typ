@@ -11006,6 +11006,54 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $S_2 = {u_i : x_i = 1}$, $S_1 = U without S_2$.
 ]
 
+#let ss_bt = load-example("SetSplitting", "Betweenness")
+#let ss_bt_sol = ss_bt.solutions.at(0)
+#reduction-rule("SetSplitting", "Betweenness",
+  example: true,
+  example-caption: [$|U| = #ss_bt.source.instance.universe_size$, $#ss_bt.source.instance.subsets.len()$ subsets, no normalization auxiliaries needed],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ss_bt.source) + " -o set-splitting.json",
+      "pred reduce set-splitting.json --to " + target-spec(ss_bt) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate set-splitting.json --config " + ss_bt_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let source = ss_bt.source.instance
+      let target = ss_bt.target.instance
+      let source_config = ss_bt_sol.source_config
+      let target_config = ss_bt_sol.target_config
+      let pole = source.universe_size
+      [
+        *Step 1 -- Source instance.* The canonical Set Splitting fixture has universe $U = {0, 1, 2, 3, 4}$ and subsets $S_1 = {#source.subsets.at(0).map(str).join(", ")}$, $S_2 = {#source.subsets.at(1).map(str).join(", ")}$, $S_3 = {#source.subsets.at(2).map(str).join(", ")}$, and $S_4 = {#source.subsets.at(3).map(str).join(", ")}$. The stored splitting is $(#source_config.map(str).join(", "))$, so colors 0 and 1 both appear in every subset.
+
+        *Step 2 -- Add the pole and clause auxiliaries.* Because every subset already has size 3, normalization adds no universe elements. The target therefore uses pole $p = a_#pole$ together with one auxiliary element for each subset, namely $d_1 = 6$, $d_2 = 7$, $d_3 = 8$, and $d_4 = 9$, for a total of $#target.num_elements$ elements.
+
+        *Step 3 -- Form the betweenness triples.* The four subsets become the triple pairs $(#target.triples.at(0).map(str).join(", "))$, $(#target.triples.at(1).map(str).join(", "))$; $(#target.triples.at(2).map(str).join(", "))$, $(#target.triples.at(3).map(str).join(", "))$; $(#target.triples.at(4).map(str).join(", "))$, $(#target.triples.at(5).map(str).join(", "))$; and $(#target.triples.at(6).map(str).join(", "))$, $(#target.triples.at(7).map(str).join(", "))$. Each pair uses one auxiliary $d_j$ to force the corresponding 3-set to place at least one element on each side of the pole.
+
+        *Step 4 -- Verify the ordering and extraction.* The stored Betweenness witness is $f = (#target_config.map(str).join(", "))$, so the pole $p = 5$ sits at position $f(p) = #target_config.at(pole)$. Original elements $1, 3, 4$ lie to the left of the pole, while $0, 2$ lie to the right, so extraction returns $(#source_config.map(str).join(", "))$ exactly. For example, $(0, 6, 1)$ holds because $f(1) = #target_config.at(1) < f(6) = #target_config.at(6) < f(0) = #target_config.at(0)$, and $(6, 5, 2)$ holds because $f(6) = #target_config.at(6) < f(5) = #target_config.at(5) < f(2) = #target_config.at(2)$ #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness.
+      ]
+    }
+  ],
+)[
+  This $O(n + sum_(S in cal(C)) |S|)$ reduction @garey1979[MS1] first normalizes each large subset to size 2 or 3 with complementarity pairs, then builds a Betweenness instance with one pole element $p$, one element $a_u$ per normalized universe element, and one auxiliary betweenness element for each size-3 subset. If the normalized Set Splitting instance has universe size $n'$ with $s_2$ size-2 subsets and $s_3$ size-3 subsets, the target has $n' + 1 + s_3$ elements and $s_2 + 2 s_3$ triples.
+][
+  _Construction._ Given Set Splitting instance $(U, cal(C))$, first normalize every subset to size 2 or 3. For a subset $S = {s_1, dots, s_k}$ with $k >= 4$, introduce fresh elements $y^+, y^-$, replace $S$ by the size-3 subset ${s_1, s_2, y^+}$ and the complementarity subset ${y^+, y^-}$, and continue recursively on ${y^-, s_3, dots, s_k}$. Repeating this step yields an equivalent normalized instance $(U', cal(C)')$ in which every subset has size 2 or 3.
+
+  Create one Betweenness element $a_u$ for each $u in U'$ and one distinguished pole $p$. For every size-2 subset ${u, v} in cal(C)'$, add triple $(a_u, p, a_v)$. For every size-3 subset ${u, v, w} in cal(C)'$, introduce a fresh auxiliary element $d_(u,v,w)$ and add triples $(a_u, d_(u,v,w), a_v)$ and $(d_(u,v,w), p, a_w)$.
+
+  _Correctness._ The normalization identity preserves splittability: a coloring splits ${s_1, dots, s_k}$ if and only if it can be extended to fresh elements $y^+, y^-$ so that ${s_1, s_2, y^+}$, ${y^+, y^-}$, and ${y^-, s_3, dots, s_k}$ are all non-monochromatic. Thus it suffices to reason about normalized subsets.
+
+  ($arrow.r.double$) Let $chi: U' -> {0, 1}$ split every subset of $cal(C)'$. Place all $a_u$ with $chi(u) = 0$ to the left of $p$ and all $a_u$ with $chi(u) = 1$ to the right. For a size-2 subset ${u, v}$, non-monochromaticity gives $chi(u) != chi(v)$, so $p$ lies between $a_u$ and $a_v$, satisfying $(a_u, p, a_v)$. For a size-3 subset ${u, v, w}$, not all three colors are equal. If $u$ and $v$ lie on the same side of $p$, then $w$ lies on the opposite side; place $d_(u,v,w)$ between $a_u$ and $a_v$ on their shared side. If $u$ and $v$ lie on opposite sides of $p$, place $d_(u,v,w)$ between them on the side opposite $a_w$. In both cases $(a_u, d_(u,v,w), a_v)$ and $(d_(u,v,w), p, a_w)$ hold.
+
+  ($arrow.l.double$) Suppose an ordering satisfies all Betweenness triples. Define $chi(u) = 0$ iff $a_u$ lies left of $p$, and $chi(u) = 1$ otherwise. For a size-2 subset ${u, v}$, the triple $(a_u, p, a_v)$ forces $a_u$ and $a_v$ onto opposite sides of $p$, so the subset is non-monochromatic. For a size-3 subset ${u, v, w}$, the triple $(a_u, d_(u,v,w), a_v)$ puts $d_(u,v,w)$ between $a_u$ and $a_v$. If $a_u, a_v, a_w$ were all on the same side of $p$, then $d_(u,v,w)$ would also lie on that side, making $(d_(u,v,w), p, a_w)$ impossible because $p$ cannot lie between two elements on the same side. Hence every size-3 subset is non-monochromatic. By normalization equivalence, the original Set Splitting instance is splittable.
+
+  _Solution extraction._ For each original universe element $i in {0, dots, |U| - 1}$, return color 0 when $f(a_i) < f(p)$ and color 1 otherwise.
+]
+
 #reduction-rule("KClique", "ILP")[
   A $k$-clique requires at least $k$ selected vertices with no non-edge between any pair.
 ][
