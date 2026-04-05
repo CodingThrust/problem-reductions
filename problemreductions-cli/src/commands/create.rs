@@ -608,6 +608,7 @@ struct CreateContext {
 }
 
 impl CreateContext {
+    #[cfg(test)]
     fn with_field(mut self, name: &str, value: serde_json::Value) -> Self {
         self.parsed_fields.insert(name.to_string(), value);
         self
@@ -676,6 +677,10 @@ fn create_schema_driven(
     canonical: &str,
     resolved_variant: &BTreeMap<String, String>,
 ) -> Result<Option<(serde_json::Value, BTreeMap<String, String>)>> {
+    if !schema_driven_supported_problem(canonical) {
+        return Ok(None);
+    }
+
     let Some(schema) = collect_schemas().into_iter().find(|schema| schema.name == canonical) else {
         return Ok(None);
     };
@@ -722,6 +727,13 @@ fn create_schema_driven(
     }
 
     Ok(Some((data, resolved_variant.clone())))
+}
+
+fn schema_driven_supported_problem(canonical: &str) -> bool {
+    matches!(
+        canonical,
+        "JobShopScheduling" | "QuantifiedBooleanFormulas" | "UndirectedFlowLowerBounds"
+    )
 }
 
 fn schema_field_flag_keys(
@@ -1997,6 +2009,15 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         };
         print_problem_help(canonical, gt)?;
         std::process::exit(2);
+    }
+
+    if let Some((data, variant)) = create_schema_driven(args, canonical, &resolved_variant)? {
+        let output = ProblemJsonOutput {
+            problem_type: canonical.to_string(),
+            variant,
+            data,
+        };
+        return emit_problem_output(&output, out);
     }
 
     let (data, variant) = match canonical {
@@ -9631,6 +9652,47 @@ mod tests {
         assert_eq!(data["graph"]["num_vertices"], 4);
         assert_eq!(data["capacities"], serde_json::json!([2, 2, 2, 2]));
         assert_eq!(data["lower_bounds"], serde_json::json!([1, 0, 0, 1]));
+    }
+
+    #[test]
+    fn test_create_falls_back_when_schema_path_is_unsupported() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "ConjunctiveBooleanQuery",
+            "--domain-size",
+            "6",
+            "--relations",
+            "2:0,3|1,3;3:0,1,5|1,2,5",
+            "--conjuncts-spec",
+            "0:v0,c3;0:v1,c3;1:v0,v1,c5",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        assert!(
+            create_schema_driven(&args, "ConjunctiveBooleanQuery", &BTreeMap::new())
+                .expect("schema-driven path should not hard fail")
+                .is_none(),
+            "unsupported CBQ schema fields should fall back to the legacy path"
+        );
+
+        let out = OutputConfig {
+            output: Some(temp_output_path("schema_fallback_cbq")),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        create(&args, &out).expect("legacy fallback should still construct the problem");
+
+        let created: ProblemJsonOutput =
+            serde_json::from_str(&fs::read_to_string(out.output.as_ref().unwrap()).unwrap())
+                .unwrap();
+        fs::remove_file(out.output.as_ref().unwrap()).ok();
+
+        assert_eq!(created.problem_type, "ConjunctiveBooleanQuery");
     }
 
     #[test]
