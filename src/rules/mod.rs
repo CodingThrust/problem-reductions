@@ -51,6 +51,7 @@ pub(crate) mod ksatisfiability_quadraticcongruences;
 pub(crate) mod ksatisfiability_qubo;
 pub(crate) mod ksatisfiability_simultaneousincongruences;
 pub(crate) mod ksatisfiability_subsetsum;
+pub(crate) mod ksatisfiability_timetabledesign;
 pub(crate) mod longestcommonsubsequence_maximumindependentset;
 pub(crate) mod maxcut_minimumcutintoboundedsets;
 pub(crate) mod maximumclique_maximumindependentset;
@@ -386,6 +387,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(ksatisfiability_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_simultaneousincongruences::canonical_rule_example_specs());
     specs.extend(ksatisfiability_subsetsum::canonical_rule_example_specs());
+    specs.extend(ksatisfiability_timetabledesign::canonical_rule_example_specs());
     specs.extend(maximumclique_maximumindependentset::canonical_rule_example_specs());
     specs.extend(maximumindependentset_integralflowbundles::canonical_rule_example_specs());
     specs.extend(maximumindependentset_maximumclique::canonical_rule_example_specs());

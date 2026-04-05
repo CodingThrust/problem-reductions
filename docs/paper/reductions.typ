@@ -13710,6 +13710,52 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ In the binary schedule encoding, inspect the row for each starter job $x_(i,0)$. Set $x_i = 1$ iff that row has its single $1$ in column $0$; otherwise set $x_i = 0$.
 ]
 
+#let ksat_td = load-example("KSatisfiability", "TimetableDesign")
+#let ksat_td_sol = ksat_td.solutions.at(0)
+#let ksat_td_req = ksat_td.target.instance.requirements.flatten().filter(r => r > 0).len()
+#let ksat_td_blocker_c = ksat_td.target.instance.craftsman_avail.filter(row => row.filter(v => v == true).len() == 1).len()
+#let ksat_td_blocker_t = ksat_td.target.instance.task_avail.filter(row => row.filter(v => v == true).len() == 1).len()
+#reduction-rule("KSatisfiability", "TimetableDesign",
+  example: true,
+  example-caption: [Two-clause satisfiable formula reduced to a timetable gadget instance],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_td.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_td) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_td_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical formula has $n = #ksat_td.source.instance.num_vars$ variables and $m = #ksat_td.source.instance.clauses.len()$ clauses:
+    $ phi = (#ksat_td.source.instance.clauses.map(c => {
+      c.literals.map(l => if l > 0 { $x_#l$ } else { $overline(x)_#calc.abs(l)$ }).join($or$)
+    }).join($) and ($)) $
+    The stored satisfying assignment is $(x_1, x_2) = (#ksat_td_sol.source_config.map(str).join(", "))$.
+
+    *Step 2 -- Normalize and assign periods.* The source has $L = #ksat_td.source.instance.clauses.map(c => c.literals.len()).sum()$ literal occurrences. Because $x_2$ appears four times, the bounded-occurrence preprocessing replaces it by a cycle of occurrence variables, so the normalized instance uses $#(ksat_td.target.instance.num_periods / 4)$ transformed variables and therefore $4q = #ksat_td.target.instance.num_periods$ timetable periods/colors.
+
+    *Step 3 -- Compile the gadget graph.* The list-edge-coloring gadget becomes a timetable with $#ksat_td.target.instance.num_craftsmen$ craftsmen, $#ksat_td.target.instance.num_tasks$ tasks, and #ksat_td_req binary requirements. Among these rows, #ksat_td_blocker_c craftsmen and #ksat_td_blocker_t tasks are one-period blockers used only to forbid colors on internal gadget vertices.
+
+    *Step 4 -- Verify a solution.* The target witness has #ksat_td_sol.target_config.filter(x => x == 1).len() scheduled pairs, exactly matching the #ksat_td_req nonzero requirements. Hence each required craftsman-task pair is scheduled once, every blocker occupies its designated period, and `pred evaluate` accepts the timetable. Reading back the distinguished variable-gadget periods recovers $(#ksat_td_sol.source_config.map(str).join(", "))$, which satisfies both clauses #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. Different satisfying assignments, or different satisfying choices for the clause-edge colors, can induce distinct feasible timetables for the same formula.
+  ],
+)[
+  This polynomial-time implementation#footnote[The repository encodes the reduction via an explicit bounded-occurrence list-edge-coloring gadget chain rather than reproducing the original three-period presentation of @evenItaiShamir1976 verbatim. The implementation is still a many-one reduction to the general Timetable Design model.] realizes the NP-hardness of Timetable Design @evenItaiShamir1976 by normalizing the formula and compiling a constrained edge-coloring instance into a timetable. It uses $4L$ periods in the worst case, where $L$ is the source literal count, and creates $O(L^2)$ craftsmen and tasks with binary requirements.
+][
+  _Construction._ Given a 3-CNF formula $phi$, first eliminate pure literals and fix their truth values. For every remaining variable with more than three literal occurrences, apply Tovey's cloning trick: replace each occurrence by a fresh variable and add a cycle of 2-clauses $(y_i or overline(y)_(i+1))$ so that all clones must agree. Let the transformed variables be $y_1, dots, y_q$; by construction each $y_i$ appears at most twice positively and at most twice negatively.
+
+  Reserve four colors for each transformed variable: $N_(i,2), N_(i,1), P_(i,2), P_(i,1)$. Build a bipartite core graph with one central vertex. For every $y_i$, add the six 2-list edges used by the implementation, with allowed color pairs $(P_(i,1), N_(i,2))$, $(P_(i,2), P_(i,1))$, $(P_(i,1), P_(i,2))$, $(P_(i,2), N_(i,1))$, $(N_(i,2), P_(i,2))$, and $(N_(i,1), P_(i,1))$. This variable gadget has exactly two proper colorings, which represent $y_i = 1$ and $y_i = 0$. For every transformed clause, add one clause edge from the center to a fresh clause vertex whose allowed colors are exactly the colors assigned to that clause's literal occurrences.
+
+  Next compile the list-edge-coloring instance to an ordinary edge-coloring instance with blocked colors on vertices. Every 2-list edge is replaced by a three-edge path whose two internal vertices block all colors except the two allowed ones. A 1-list or 3-list clause edge stays direct, and the clause endpoint blocks every disallowed color. Finally encode colors as timetable periods, left-side vertices as craftsmen, right-side vertices as tasks, and every graph edge as one unit requirement between its endpoints. Whenever color $h$ is blocked at a vertex $u$, add a one-period blocker craftsman or task that is available only in period $h$ and is forced to match $u$ once. This dummy assignment consumes the unique slot of $u$ in period $h$, so no adjacent core edge can use that color.
+
+  _Correctness._ ($arrow.r.double$) A satisfying assignment extends to the cloned variables and chooses one of the two color patterns in each variable gadget. Because every clause has a satisfied literal, its clause edge can take the corresponding literal color. The path gadgets propagate the chosen colors on every 2-list edge, and the blocker pairs occupy exactly the forbidden periods. Translating each edge color into its period yields a feasible timetable satisfying availability, exclusivity, and exact requirements. ($arrow.l.double$) In any feasible timetable, each required pair is scheduled in exactly one period, so every core edge receives a unique color. The blocker pairs forbid exactly the blocked colors, and every expanded path forces its represented edge to use one of the two colors in its list. Hence each variable gadget collapses to one of the two mirror patterns, defining a Boolean value for each transformed variable. A clause edge can then be colored only by one of its literal colors, so some literal in every clause matches the extracted variable pattern. Projecting clone values back to the original variables and reinstating the fixed pure-literal assignments yields a satisfying assignment of $phi$.
+
+  _Variable mapping._ Pure literals removed during preprocessing are stored as fixed source assignments. Every remaining source variable is represented either by one transformed variable or by a cycle of clone variables introduced by the bounded-occurrence step; the added 2-clauses appear as ordinary clause gadgets and force all clones of one source variable to agree. Periods are indexed by the four colors attached to each transformed variable.
+
+  _Solution extraction._ The implementation reads the period of the distinguished `vb` edge in each variable gadget. Color $N_(i,2)$ is interpreted as truth value $1$, and color $P_(i,2)$ as truth value $0$. The recovered transformed assignment is then projected back to the original variables, with the fixed pure-literal values reinserted.
+]
+
 #let hc_bicon = load-example("HamiltonianCircuit", "BiconnectivityAugmentation")
 #let hc_bicon_sol = hc_bicon.solutions.at(0)
 #reduction-rule("HamiltonianCircuit", "BiconnectivityAugmentation",
