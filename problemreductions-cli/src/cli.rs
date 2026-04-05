@@ -843,13 +843,13 @@ pub struct CreateArgs {
     pub assignment: Option<String>,
     /// Coefficient/parameter a for QuadraticCongruences (residue target) or QuadraticDiophantineEquations (coefficient of x²)
     #[arg(long)]
-    pub coeff_a: Option<u64>,
+    pub coeff_a: Option<String>,
     /// Coefficient/parameter b for QuadraticCongruences (modulus) or QuadraticDiophantineEquations (coefficient of y)
     #[arg(long)]
-    pub coeff_b: Option<u64>,
+    pub coeff_b: Option<String>,
     /// Constant c for QuadraticCongruences (search-space bound) or QuadraticDiophantineEquations (right-hand side of ax² + by = c)
     #[arg(long)]
-    pub coeff_c: Option<u64>,
+    pub coeff_c: Option<String>,
     /// Incongruence pairs for SimultaneousIncongruences (semicolon-separated "a,b" pairs, e.g., "2,2;1,3;2,5;3,7")
     #[arg(long)]
     pub pairs: Option<String>,
@@ -1095,9 +1095,9 @@ impl CreateArgs {
         insert!("expression", self.expression.as_deref());
         insert!("equations", self.equations.as_deref());
         insert!("assignment", self.assignment.as_deref());
-        insert!("coeff-a", self.coeff_a);
-        insert!("coeff-b", self.coeff_b);
-        insert!("coeff-c", self.coeff_c);
+        insert!("coeff-a", self.coeff_a.as_deref());
+        insert!("coeff-b", self.coeff_b.as_deref());
+        insert!("coeff-c", self.coeff_c.as_deref());
         insert!("pairs", self.pairs.as_deref());
         insert!("w-sizes", self.w_sizes.as_deref());
         insert!("x-sizes", self.x_sizes.as_deref());

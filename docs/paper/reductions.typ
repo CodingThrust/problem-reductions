@@ -3718,11 +3718,11 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
 #{
   let x = load-model-example("QuadraticCongruences")
-  let a = x.instance.a
-  let b = x.instance.b
-  let c = x.instance.c
+  let a = int(x.instance.a)
+  let b = int(x.instance.b)
+  let c = int(x.instance.c)
   let config = x.optimal_config
-  let xval = config.at(0) + 1
+  let xval = range(config.len()).map(i => config.at(i) * calc.pow(2, i)).sum()
   // Collect all x in {1..c-1} and check x² mod b == a
   let rows = range(1, c).map(xi => {
     let sq = xi * xi
@@ -9547,6 +9547,55 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Discard auxiliary variables: return $bold(x)[0..n]$.
 ]
 
+#let ksat_qc = load-example("KSatisfiability", "QuadraticCongruences")
+#let ksat_qc_sol = ksat_qc.solutions.at(0)
+#reduction-rule("KSatisfiability", "QuadraticCongruences",
+  example: true,
+  example-caption: [3-SAT with $n = #ksat_qc.source.instance.num_vars$ variables and $m = #sat-num-clauses(ksat_qc.source.instance)$ clause mapped to a quadratic congruence with a $#ksat_qc.target.instance.b.len()$-digit modulus],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_qc.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_qc) + " -o bundle.json",
+      "pred evaluate ksat.json --config " + ksat_qc_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let a = ksat_qc.target.instance.a
+      let b = ksat_qc.target.instance.b
+      let c = ksat_qc.target.instance.c
+      let witness-bits = ksat_qc_sol.target_config.len()
+      [
+        *Step 1 -- Source instance.* The canonical formula is the single clause $(x_1 or x_2 or x_3)$, witnessed by the satisfying assignment $(#ksat_qc_sol.source_config.map(str).join(", "))$.
+
+        *Step 2 -- Enumerate standard clauses.* With $l = 3$ active variables, the construction lists all $M = 8$ signed 3-clauses on ${x_1, x_2, x_3}$. This yields $N = 2M + l = 19$ lifted coefficients in the doubled knapsack encoding.
+
+        *Step 3 -- Lift by CRT.* Using $N+1 = 20$ odd primes starting at 13, the reduction builds the CRT gadgets $theta_0, dots, theta_N$ and outputs $(a, b, c)$. In the canonical fixture these numbers have $#a.len()$, $#b.len()$, and $#c.len()$ decimal digits respectively, so the paper reports their sizes rather than expanding them inline.
+
+        *Step 4 -- Verify the stored witness.* The example DB keeps the target witness in binary using $#witness-bits$ bits. Evaluating that witness satisfies $x^2 equiv a mod b$ with $1 <= x < c$, and extraction recovers the original source assignment $(#ksat_qc_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+      ]
+    }
+
+    *Multiplicity:* The fixture stores one canonical satisfying witness.
+  ],
+)[
+  Manders and Adleman's number-theoretic reduction encodes a 3-SAT assignment as a pattern of signs $alpha_j in {-1, +1}$ in a bounded knapsack-style congruence, then uses carefully chosen prime powers and the Chinese Remainder Theorem to realize those signs as divisibility conditions on $H - x$ and $H + x$. Squaring removes the sign ambiguity and yields one quadratic congruence $x^2 equiv a mod b$ together with an explicit bound $x < c$. The bound is essential: without it, the composite-modulus quadratic residuosity problem becomes much easier once the factorization of $b$ is known.
+][
+  _Construction._ Given a 3-CNF formula $phi$ with $n$ variables, first deduplicate clauses and restrict to the active variables. Enumerate all signed 3-clauses over those variables as $sigma_1, dots, sigma_M$. Define the base-8 clause weight $8^j$ for $sigma_j$, form $tau_phi = -sum_(sigma_j in phi) 8^j$, and for each variable compute the positive and negative occurrence sums $f_i^+$ and $f_i^-$. In doubled form, set $N = 2M + l$ and coefficients
+  $ d_0 = 2, quad d_(2k-1) = -8^k, quad d_(2k) = -2 dot 8^k, quad d_(2M+i) = f_i^+ - f_i^- $
+  together with
+  $ tau_2 = 2 tau_phi + sum_(j=0)^N d_j + 2 sum_(i=1)^l f_i^- $
+  modulo $2 dot 8^(M+1)$.
+
+  Choose distinct odd primes $p_0, dots, p_N >= 13$ and let $K = product_(j=0)^N p_j^(N+1)$. For each $j$, construct $theta_j$ so that
+  $ theta_j equiv d_j mod 2 dot 8^(M+1), quad theta_j equiv 0 mod product_(i != j) p_i^(N+1) $
+  and $p_j$ does not divide $theta_j$. Set $H = sum_j theta_j$, $b = 2 dot 8^(M+1) dot K$, and
+  $ a = (2 dot 8^(M+1) + K)^(-1) (K tau_2^2 + 2 dot 8^(M+1) H^2) mod b, quad c = H + 1. $
+
+  _Correctness._ ($arrow.r.double$) A satisfying assignment determines signs $alpha_j in {-1, +1}$ for the lifted knapsack system so that $x = sum_j alpha_j theta_j$ obeys both $x equiv tau_2 mod 2 dot 8^(M+1)$ and $(H+x)(H-x) equiv 0 mod K$. These together imply $x^2 equiv a mod b$ with $0 <= x <= H < c$. ($arrow.l.double$) Any witness $x < c$ with $x^2 equiv a mod b$ yields, for each $j$, a unique sign from whether $p_j^(N+1)$ divides $H-x$ or $H+x$. Those signs recover an exact knapsack solution and hence a satisfying assignment of the original 3-SAT instance.
+
+  _Solution extraction._ Recover each sign $alpha_j$ from the divisibility of $H - x$ and $H + x$ by $p_j^(N+1)$. For variable coordinates $j = 2M+i$, interpret $alpha_j = -1$ as $x_i = 1$ and $alpha_j = +1$ as $x_i = 0$.
+]
+
 #let ksat_ss = load-example("KSatisfiability", "SubsetSum")
 #let ksat_ss_sol = ksat_ss.solutions.at(0)
 #reduction-rule("KSatisfiability", "SubsetSum",
@@ -14296,7 +14345,7 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Select subset $j$ iff $y_j != 0$.
 ]
 
-// 10. KSatisfiability → SimultaneousIncongruences (#554)
+// 11. KSatisfiability → SimultaneousIncongruences (#554)
 #let ksat_si = load-example("KSatisfiability", "SimultaneousIncongruences")
 #let ksat_si_sol = ksat_si.solutions.at(0)
 #reduction-rule("KSatisfiability", "SimultaneousIncongruences",
@@ -14336,7 +14385,7 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Set $tau(x_i) = "TRUE"$ if $x mod p_i = 1$, FALSE if $x mod p_i = 2$.
 ]
 
-// 11. Partition → SequencingToMinimizeTardyTaskWeight (#471)
+// 12. Partition → SequencingToMinimizeTardyTaskWeight (#471)
 #let part_stw = load-example("Partition", "SequencingToMinimizeTardyTaskWeight")
 #let part_stw_sol = part_stw.solutions.at(0)
 #reduction-rule("Partition", "SequencingToMinimizeTardyTaskWeight",
