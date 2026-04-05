@@ -6,6 +6,7 @@ use crate::problem_name::{
 };
 use crate::util;
 use anyhow::{bail, Context, Result};
+use num_bigint::BigUint;
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{
     AlgebraicEquationsOverGF2, ClosestVectorProblem, ConsecutiveBlockMinimization,
@@ -596,6 +597,439 @@ fn create_from_example(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     };
 
     emit_problem_output(&output, out)
+}
+
+#[derive(Debug, Clone, Default)]
+struct CreateContext {
+    num_vertices: Option<usize>,
+    num_edges: Option<usize>,
+    num_arcs: Option<usize>,
+    parsed_fields: BTreeMap<String, serde_json::Value>,
+}
+
+impl CreateContext {
+    fn with_field(mut self, name: &str, value: serde_json::Value) -> Self {
+        self.parsed_fields.insert(name.to_string(), value);
+        self
+    }
+
+    fn usize_field(&self, name: &str) -> Option<usize> {
+        self.parsed_fields
+            .get(name)
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|value| usize::try_from(value).ok())
+    }
+
+    fn f64_field(&self, name: &str) -> Option<f64> {
+        self.parsed_fields
+            .get(name)
+            .and_then(serde_json::Value::as_f64)
+    }
+}
+
+fn parse_field_value(
+    concrete_type: &str,
+    field_name: &str,
+    raw: &str,
+    context: &CreateContext,
+) -> Result<serde_json::Value> {
+    let normalized_type = normalize_type_name(concrete_type);
+    let value = match normalized_type.as_str() {
+        "SimpleGraph" => parse_simple_graph_value(raw, context)?,
+        "DirectedGraph" => parse_directed_graph_value(raw, context)?,
+        "KingsSubgraph" => parse_grid_subgraph_value(raw, true)?,
+        "TriangularSubgraph" => parse_grid_subgraph_value(raw, false)?,
+        "UnitDiskGraph" => parse_unit_disk_graph_value(raw, context)?,
+        "Vec<i32>" => parse_numeric_list_value::<i32>(raw)?,
+        "Vec<f64>" => parse_numeric_list_value::<f64>(raw)?,
+        "Vec<u64>" => parse_numeric_list_value::<u64>(raw)?,
+        "Vec<i64>" => parse_numeric_list_value::<i64>(raw)?,
+        "Vec<usize>" => parse_numeric_list_value::<usize>(raw)?,
+        "Vec<bool>" => parse_bool_list_value(raw)?,
+        "Vec<Vec<usize>>" => parse_nested_numeric_list_value::<usize>(raw)?,
+        "Vec<Vec<u64>>" => parse_nested_numeric_list_value::<u64>(raw)?,
+        "Vec<Vec<i32>>" => parse_nested_numeric_list_value::<i32>(raw)?,
+        "Vec<Vec<i64>>" => parse_nested_numeric_list_value::<i64>(raw)?,
+        "Vec<Vec<f64>>" => parse_nested_numeric_list_value::<f64>(raw)?,
+        "Vec<Vec<bool>>" => serde_json::to_value(parse_bool_rows(raw)?)?,
+        "Vec<Vec<Vec<usize>>>" => parse_3d_numeric_list_value::<usize>(raw)?,
+        "Vec<Vec<Vec<i64>>>" => parse_3d_numeric_list_value::<i64>(raw)?,
+        "Vec<[usize;3]>" => parse_triple_array_list_value(raw)?,
+        "Vec<CNFClause>" => serde_json::to_value(parse_clauses_raw(raw)?)?,
+        "Vec<(usize,usize)>" => parse_pair_list_value(raw)?,
+        "Vec<(u64,u64)>" => parse_semicolon_tuple_list_value::<u64, 2>(raw)?,
+        "Vec<(usize,f64)>" => parse_indexed_numeric_pairs_value::<f64>(raw)?,
+        "Vec<(usize,usize,usize)>" => parse_semicolon_tuple_list_value::<usize, 3>(raw)?,
+        "Vec<(usize,usize,usize,usize)>" => parse_semicolon_tuple_list_value::<usize, 4>(raw)?,
+        "Vec<(usize,usize,i32)>" => parse_weighted_edge_list_value::<i32>(raw)?,
+        "Vec<(usize,usize,i64)>" => parse_weighted_edge_list_value::<i64>(raw)?,
+        "Vec<(usize,usize,u64)>" => parse_weighted_edge_list_value::<u64>(raw)?,
+        "Vec<(usize,usize,f64)>" => parse_weighted_edge_list_value::<f64>(raw)?,
+        "Vec<(Vec<usize>,Vec<usize>)>" => serde_json::to_value(parse_dependencies(raw)?)?,
+        "Vec<(Vec<usize>,usize)>" => serde_json::to_value(parse_implications(raw)?)?,
+        "Vec<(usize,Vec<usize>)>" => parse_indexed_usize_lists_value(raw)?,
+        "Vec<Vec<(usize,u64)>>" => serde_json::to_value(parse_job_shop_jobs(raw)?)?,
+        "Vec<(f64,f64)>" => serde_json::to_value(util::parse_positions::<f64>(raw, "0.0,0.0")?)?,
+        "Vec<String>" => parse_string_list_value(raw)?,
+        "Vec<BigUint>" => parse_biguint_list_value(raw)?,
+        "BigUint" => parse_biguint_value(raw)?,
+        "Vec<Option<bool>>" => parse_optional_bool_list_value(raw)?,
+        "Vec<Quantifier>" => serde_json::to_value(parse_quantifiers_raw(raw, context)?)?,
+        "IntExpr" => parse_json_passthrough_value(raw)?,
+        "bool" => serde_json::to_value(parse_bool_token(raw.trim())?)?,
+        "One" => serde_json::json!(1),
+        "usize" => parse_scalar_value::<usize>(raw)?,
+        "u64" => parse_scalar_value::<u64>(raw)?,
+        "i32" => parse_scalar_value::<i32>(raw)?,
+        "i64" => parse_scalar_value::<i64>(raw)?,
+        "f64" => parse_scalar_value::<f64>(raw)?,
+        other => bail!(
+            "Unsupported schema parser for field '{field_name}' with type '{other}'"
+        ),
+    };
+
+    Ok(value)
+}
+
+fn normalize_type_name(type_name: &str) -> String {
+    type_name.chars().filter(|ch| !ch.is_whitespace()).collect()
+}
+
+fn parse_scalar_value<T>(raw: &str) -> Result<serde_json::Value>
+where
+    T: std::str::FromStr + Serialize,
+    T::Err: std::fmt::Display,
+{
+    Ok(serde_json::to_value(raw.trim().parse::<T>().map_err(
+        |err| anyhow::anyhow!("Invalid value '{}': {err}", raw.trim()),
+    )?)?)
+}
+
+fn parse_numeric_list_value<T>(raw: &str) -> Result<serde_json::Value>
+where
+    T: std::str::FromStr + Serialize,
+    T::Err: std::fmt::Display,
+{
+    Ok(serde_json::to_value(util::parse_comma_list::<T>(raw)?)?)
+}
+
+fn parse_bool_list_value(raw: &str) -> Result<serde_json::Value> {
+    let values: Vec<bool> = raw
+        .split(',')
+        .map(|entry| parse_bool_token(entry.trim()))
+        .collect::<Result<_>>()?;
+    Ok(serde_json::to_value(values)?)
+}
+
+fn parse_nested_numeric_list_value<T>(raw: &str) -> Result<serde_json::Value>
+where
+    T: std::str::FromStr + Serialize,
+    T::Err: std::fmt::Display,
+{
+    let rows: Vec<Vec<T>> = raw
+        .split(';')
+        .map(|row| util::parse_comma_list::<T>(row.trim()))
+        .collect::<Result<_>>()?;
+    Ok(serde_json::to_value(rows)?)
+}
+
+fn parse_3d_numeric_list_value<T>(raw: &str) -> Result<serde_json::Value>
+where
+    T: std::str::FromStr + Serialize,
+    T::Err: std::fmt::Display,
+{
+    let matrices: Vec<Vec<Vec<T>>> = raw
+        .split('|')
+        .map(|matrix| {
+            matrix
+                .split(';')
+                .map(|row| util::parse_comma_list::<T>(row.trim()))
+                .collect::<Result<Vec<_>>>()
+        })
+        .collect::<Result<_>>()?;
+    Ok(serde_json::to_value(matrices)?)
+}
+
+fn parse_triple_array_list_value(raw: &str) -> Result<serde_json::Value> {
+    let triples: Vec<[usize; 3]> = raw
+        .split(';')
+        .map(|entry| {
+            let values: Vec<usize> = util::parse_comma_list(entry.trim())?;
+            anyhow::ensure!(
+                values.len() == 3,
+                "Expected triple with exactly 3 entries, got {}",
+                values.len()
+            );
+            Ok([values[0], values[1], values[2]])
+        })
+        .collect::<Result<_>>()?;
+    Ok(serde_json::to_value(triples)?)
+}
+
+fn parse_clauses_raw(raw: &str) -> Result<Vec<CNFClause>> {
+    raw.split(';')
+        .map(|clause| {
+            let literals: Vec<i32> = clause
+                .trim()
+                .split(',')
+                .map(|value| value.trim().parse::<i32>())
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            Ok(CNFClause::new(literals))
+        })
+        .collect()
+}
+
+fn parse_pair_list_value(raw: &str) -> Result<serde_json::Value> {
+    let pairs: Vec<(usize, usize)> = raw
+        .split(',')
+        .map(|entry| {
+            let entry = entry.trim();
+            let parts: Vec<&str> = if entry.contains('>') {
+                entry.split('>').collect()
+            } else {
+                entry.split('-').collect()
+            };
+            anyhow::ensure!(
+                parts.len() == 2,
+                "Invalid pair '{entry}': expected u-v or u>v"
+            );
+            Ok((
+                parts[0].trim().parse::<usize>()?,
+                parts[1].trim().parse::<usize>()?,
+            ))
+        })
+        .collect::<Result<_>>()?;
+    Ok(serde_json::to_value(pairs)?)
+}
+
+fn parse_semicolon_tuple_list_value<T, const N: usize>(raw: &str) -> Result<serde_json::Value>
+where
+    T: std::str::FromStr + Serialize,
+    T::Err: std::fmt::Display,
+{
+    let tuples: Vec<Vec<T>> = raw
+        .split(';')
+        .filter(|entry| !entry.trim().is_empty())
+        .map(|entry| {
+            let values: Vec<T> = util::parse_comma_list(entry.trim())?;
+            anyhow::ensure!(
+                values.len() == N,
+                "Expected tuple with {N} entries, got {}",
+                values.len()
+            );
+            Ok(values)
+        })
+        .collect::<Result<_>>()?;
+    Ok(serde_json::to_value(tuples)?)
+}
+
+fn parse_weighted_edge_list_value<T>(raw: &str) -> Result<serde_json::Value>
+where
+    T: std::str::FromStr + Serialize,
+    T::Err: std::fmt::Display,
+{
+    let edges: Vec<(usize, usize, T)> = raw
+        .split(',')
+        .filter(|entry| !entry.trim().is_empty())
+        .map(|entry| {
+            let entry = entry.trim();
+            let (edge_part, weight_part) = entry
+                .split_once(':')
+                .ok_or_else(|| anyhow::anyhow!("Invalid weighted edge '{entry}': expected u-v:w"))?;
+            let (u_str, v_str) = if let Some((u, v)) = edge_part.split_once('-') {
+                (u, v)
+            } else if let Some((u, v)) = edge_part.split_once('>') {
+                (u, v)
+            } else {
+                bail!("Invalid weighted edge '{entry}': expected u-v:w or u>v:w");
+            };
+            Ok((
+                u_str.trim().parse::<usize>()?,
+                v_str.trim().parse::<usize>()?,
+                weight_part.trim().parse::<T>().map_err(|err| {
+                    anyhow::anyhow!("Invalid edge weight '{}': {err}", weight_part.trim())
+                })?,
+            ))
+        })
+        .collect::<Result<_>>()?;
+    Ok(serde_json::to_value(edges)?)
+}
+
+fn parse_indexed_numeric_pairs_value<T>(raw: &str) -> Result<serde_json::Value>
+where
+    T: std::str::FromStr + Serialize,
+    T::Err: std::fmt::Display,
+{
+    let pairs: Vec<(usize, T)> = raw
+        .split(',')
+        .filter(|entry| !entry.trim().is_empty())
+        .map(|entry| {
+            let entry = entry.trim();
+            let (index, value) = entry
+                .split_once(':')
+                .ok_or_else(|| anyhow::anyhow!("Invalid pair '{entry}': expected index:value"))?;
+            Ok((
+                index.trim().parse::<usize>()?,
+                value
+                    .trim()
+                    .parse::<T>()
+                    .map_err(|err| anyhow::anyhow!("Invalid value '{}': {err}", value.trim()))?,
+            ))
+        })
+        .collect::<Result<_>>()?;
+    Ok(serde_json::to_value(pairs)?)
+}
+
+fn parse_indexed_usize_lists_value(raw: &str) -> Result<serde_json::Value> {
+    let entries: Vec<(usize, Vec<usize>)> = raw
+        .split(';')
+        .filter(|entry| !entry.trim().is_empty())
+        .map(|entry| {
+            let entry = entry.trim();
+            let (index, values) = entry
+                .split_once(':')
+                .ok_or_else(|| anyhow::anyhow!("Invalid entry '{entry}': expected index:values"))?;
+            Ok((
+                index.trim().parse::<usize>()?,
+                if values.trim().is_empty() {
+                    Vec::new()
+                } else {
+                    util::parse_comma_list(values.trim())?
+                },
+            ))
+        })
+        .collect::<Result<_>>()?;
+    Ok(serde_json::to_value(entries)?)
+}
+
+fn parse_string_list_value(raw: &str) -> Result<serde_json::Value> {
+    let values: Vec<String> = raw
+        .split(';')
+        .filter(|entry| !entry.trim().is_empty())
+        .map(|entry| entry.trim().to_string())
+        .collect();
+    Ok(serde_json::to_value(values)?)
+}
+
+fn parse_biguint_list_value(raw: &str) -> Result<serde_json::Value> {
+    let values: Vec<String> = util::parse_biguint_list(raw)?
+        .into_iter()
+        .map(|value| value.to_string())
+        .collect();
+    Ok(serde_json::to_value(values)?)
+}
+
+fn parse_biguint_value(raw: &str) -> Result<serde_json::Value> {
+    let value: BigUint = util::parse_decimal_biguint(raw)?;
+    Ok(serde_json::Value::String(value.to_string()))
+}
+
+fn parse_optional_bool_list_value(raw: &str) -> Result<serde_json::Value> {
+    let values: Vec<Option<bool>> = raw
+        .split(',')
+        .map(|entry| {
+            let entry = entry.trim();
+            match entry {
+                "?" => Ok(None),
+                _ => Ok(Some(parse_bool_token(entry)?)),
+            }
+        })
+        .collect::<Result<_>>()?;
+    Ok(serde_json::to_value(values)?)
+}
+
+fn parse_quantifiers_raw(raw: &str, context: &CreateContext) -> Result<Vec<Quantifier>> {
+    let quantifiers: Vec<Quantifier> = raw
+        .split(',')
+        .map(|entry| match entry.trim().to_lowercase().as_str() {
+            "e" | "exists" => Ok(Quantifier::Exists),
+            "a" | "forall" => Ok(Quantifier::ForAll),
+            other => Err(anyhow::anyhow!(
+                "Invalid quantifier '{}': expected E/Exists or A/ForAll",
+                other
+            )),
+        })
+        .collect::<Result<_>>()?;
+
+    if let Some(num_vars) = context.usize_field("num_vars") {
+        anyhow::ensure!(
+            quantifiers.len() == num_vars,
+            "Expected {num_vars} quantifiers but got {}",
+            quantifiers.len()
+        );
+    }
+
+    Ok(quantifiers)
+}
+
+fn parse_json_passthrough_value(raw: &str) -> Result<serde_json::Value> {
+    serde_json::from_str(raw).context("Invalid JSON input")
+}
+
+fn parse_bool_token(raw: &str) -> Result<bool> {
+    match raw.trim() {
+        "1" | "true" | "TRUE" | "True" => Ok(true),
+        "0" | "false" | "FALSE" | "False" => Ok(false),
+        other => bail!("Invalid boolean entry '{other}': expected 0/1 or true/false"),
+    }
+}
+
+fn parse_simple_graph_value(raw: &str, context: &CreateContext) -> Result<serde_json::Value> {
+    let raw = raw.trim();
+    let num_vertices = context.usize_field("num_vertices").or(context.num_vertices);
+    let graph = if raw.is_empty() {
+        let num_vertices = num_vertices.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Empty graph string. To create a graph with isolated vertices, provide num_vertices first."
+            )
+        })?;
+        SimpleGraph::empty(num_vertices)
+    } else {
+        let edges = util::parse_edge_pairs(raw)?;
+        let inferred_num_vertices = edges
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|max_vertex| max_vertex + 1)
+            .unwrap_or(0);
+        let num_vertices = match num_vertices {
+            Some(explicit) => {
+                anyhow::ensure!(
+                    explicit >= inferred_num_vertices,
+                    "num_vertices ({explicit}) is too small for the graph: need at least {inferred_num_vertices}"
+                );
+                explicit
+            }
+            None => inferred_num_vertices,
+        };
+        SimpleGraph::new(num_vertices, edges)
+    };
+    Ok(serde_json::to_value(graph)?)
+}
+
+fn parse_directed_graph_value(raw: &str, context: &CreateContext) -> Result<serde_json::Value> {
+    let (graph, _) = parse_directed_graph(
+        raw,
+        context.usize_field("num_vertices").or(context.num_vertices),
+    )?;
+    Ok(serde_json::to_value(graph)?)
+}
+
+fn parse_grid_subgraph_value(raw: &str, kings: bool) -> Result<serde_json::Value> {
+    let positions = util::parse_positions::<i32>(raw, "0,0")?;
+    if kings {
+        Ok(serde_json::to_value(KingsSubgraph::new(positions))?)
+    } else {
+        Ok(serde_json::to_value(TriangularSubgraph::new(positions))?)
+    }
+}
+
+fn parse_unit_disk_graph_value(raw: &str, context: &CreateContext) -> Result<serde_json::Value> {
+    let positions = util::parse_positions::<f64>(raw, "0.0,0.0")?;
+    let radius = context
+        .f64_field("radius")
+        .ok_or_else(|| anyhow::anyhow!("UnitDiskGraph parsing requires a prior radius field"))?;
+    Ok(serde_json::to_value(UnitDiskGraph::new(positions, radius))?)
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -8841,6 +9275,75 @@ mod tests {
         assert_eq!(
             help_flag_name("FlowShopScheduling", "num_processors"),
             "num-processors/--m"
+        );
+    }
+
+    #[test]
+    fn test_parse_field_value_parses_simple_graph_to_json() {
+        let value = parse_field_value(
+            "SimpleGraph",
+            "graph",
+            "0-1,1-2",
+            &CreateContext::default(),
+        )
+        .expect("parse graph");
+
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "num_vertices": 3,
+                "edges": [[0, 1], [1, 2]],
+            })
+        );
+    }
+
+    #[test]
+    fn test_parse_field_value_parses_dependency_pairs() {
+        let value = parse_field_value(
+            "Vec<(Vec<usize>, Vec<usize>)>",
+            "dependencies",
+            "0,1>2,3;2>4",
+            &CreateContext::default(),
+        )
+        .expect("parse dependencies");
+
+        assert_eq!(
+            value,
+            serde_json::json!([
+                [[0, 1], [2, 3]],
+                [[2], [4]],
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_field_value_parses_job_shop_jobs() {
+        let value = parse_field_value(
+            "Vec<Vec<(usize, u64)>>",
+            "jobs",
+            "0:3,1:4;1:2,0:3,1:2",
+            &CreateContext::default(),
+        )
+        .expect("parse jobs");
+
+        assert_eq!(
+            value,
+            serde_json::json!([
+                [[0, 3], [1, 4]],
+                [[1, 2], [0, 3], [1, 2]],
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_field_value_parses_quantifiers_using_context_num_vars() {
+        let context = CreateContext::default().with_field("num_vars", serde_json::json!(3));
+        let value = parse_field_value("Vec<Quantifier>", "quantifiers", "E,A,E", &context)
+            .expect("parse quantifiers");
+
+        assert_eq!(
+            value,
+            serde_json::json!(["Exists", "ForAll", "Exists"])
         );
     }
 
