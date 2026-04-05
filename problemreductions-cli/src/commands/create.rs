@@ -484,19 +484,19 @@ fn parse_precedence_pairs(raw: Option<&str>) -> Result<Vec<(usize, usize)>> {
                     let pair = pair.trim();
                     let (pred, succ) = pair.split_once('>').ok_or_else(|| {
                         anyhow::anyhow!(
-                            "Invalid --precedence-pairs value '{}': expected 'u>v'",
+                            "Invalid --precedences value '{}': expected 'u>v'",
                             pair
                         )
                     })?;
                     let pred = pred.trim().parse::<usize>().map_err(|_| {
                         anyhow::anyhow!(
-                            "Invalid --precedence-pairs value '{}': expected 'u>v' with nonnegative integer indices",
+                            "Invalid --precedences value '{}': expected 'u>v' with nonnegative integer indices",
                             pair
                         )
                     })?;
                     let succ = succ.trim().parse::<usize>().map_err(|_| {
                         anyhow::anyhow!(
-                            "Invalid --precedence-pairs value '{}': expected 'u>v' with nonnegative integer indices",
+                            "Invalid --precedences value '{}': expected 'u>v' with nonnegative integer indices",
                             pair
                         )
                     })?;
@@ -519,7 +519,7 @@ fn parse_job_shop_jobs(raw: &str) -> Result<Vec<Vec<(usize, u64)>>> {
             let job_str = job_str.trim();
             anyhow::ensure!(
                 !job_str.is_empty(),
-                "Invalid --job-tasks value: empty job at position {}",
+                "Invalid --jobs value: empty job at position {}",
                 job_index
             );
 
@@ -529,19 +529,19 @@ fn parse_job_shop_jobs(raw: &str) -> Result<Vec<Vec<(usize, u64)>>> {
                     let task_str = task_str.trim();
                     let (processor, length) = task_str.split_once(':').ok_or_else(|| {
                         anyhow::anyhow!(
-                            "Invalid --job-tasks operation '{}': expected 'processor:length'",
+                            "Invalid --jobs operation '{}': expected 'processor:length'",
                             task_str
                         )
                     })?;
                     let processor = processor.trim().parse::<usize>().map_err(|_| {
                         anyhow::anyhow!(
-                            "Invalid --job-tasks operation '{}': processor must be a nonnegative integer",
+                            "Invalid --jobs operation '{}': processor must be a nonnegative integer",
                             task_str
                         )
                     })?;
                     let length = length.trim().parse::<u64>().map_err(|_| {
                         anyhow::anyhow!(
-                            "Invalid --job-tasks operation '{}': length must be a nonnegative integer",
+                            "Invalid --jobs operation '{}': length must be a nonnegative integer",
                             task_str
                         )
                     })?;
@@ -653,7 +653,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 3 --size-bound 3"
         }
         "BoundedComponentSpanningForest" => {
-            "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6"
+            "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --max-weight 6"
         }
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
         "HamiltonianPathBetweenTwoVertices" => {
@@ -676,7 +676,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\""
         }
         "LengthBoundedDisjointPaths" => {
-            "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --bound 4"
+            "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --max-length 4"
         }
         "PathConstrainedNetworkFlow" => {
             "--arcs \"0>1,0>2,1>3,1>4,2>4,3>5,4>5,4>6,5>7,6>7\" --capacities 2,1,1,1,1,1,1,1,2,1 --source 0 --sink 7 --paths \"0,2,5,8;0,3,6,8;0,3,7,9;1,4,6,8;1,4,7,9\" --requirement 3"
@@ -697,7 +697,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "SteinerTreeInGraphs" => "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --terminals 0,3",
         "BiconnectivityAugmentation" => {
-            "--graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5"
+            "--graph 0-1,1-2,2-3 --potential-weights 0-2:3,0-3:4,1-3:2 --budget 5"
         }
         "PartialFeedbackEdgeSet" => {
             "--graph 0-1,1-2,2-0,2-3,3-4,4-2,3-5,5-4,0-3 --budget 3 --max-cycle-length 4"
@@ -724,8 +724,10 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "HamiltonianCircuit" => "--graph 0-1,1-2,2-3,3-0",
         "MaximumLeafSpanningTree" => "--graph 0-1,0-2,0-3,1-4,2-4,2-5,3-5,4-5,1-3",
-        "EnsembleComputation" => "--universe 4 --sets \"0,1,2;0,1,3\"",
-        "RootedTreeStorageAssignment" => "--universe 5 --sets \"0,2;1,3;0,4;2,4\" --bound 1",
+        "EnsembleComputation" => "--universe-size 4 --subsets \"0,1,2;0,1,3\"",
+        "RootedTreeStorageAssignment" => {
+            "--universe-size 5 --subsets \"0,2;1,3;0,4;2,4\" --bound 1"
+        }
         "MinMaxMulticenter" => {
             "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
         }
@@ -755,13 +757,13 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
         "PreemptiveScheduling" => {
-            "--sizes 2,1,3,2,1 --num-processors 2 --precedence-pairs \"0>2,1>3\""
+            "--lengths 2,1,3,2,1 --num-processors 2 --precedences \"0>2,1>3\""
         }
         "SchedulingToMinimizeWeightedCompletionTime" => {
             "--lengths 1,2,3,4,5 --weights 6,4,3,2,1 --num-processors 2"
         }
         "JobShopScheduling" => {
-            "--job-tasks \"0:3,1:4;1:2,0:3,1:2;0:4,1:3;1:5,0:2;0:2,1:3,0:1\" --num-processors 2"
+            "--jobs \"0:3,1:4;1:2,0:3,1:2;0:4,1:3;1:5,0:2;0:2,1:3,0:1\" --num-processors 2"
         }
         "MinimumMultiwayCut" => "--graph 0-1,1-2,2-3 --terminals 0,2 --edge-weights 1,1,1",
         "ExpectedRetrievalCost" => EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS,
@@ -777,7 +779,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS
         }
         "AcyclicPartition" => {
-            "--arcs \"0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5\" --weights 2,3,2,1,3,1 --arc-costs 1,1,1,1,1,1,1,1 --weight-bound 5 --cost-bound 5"
+            "--arcs \"0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5\" --weights 2,3,2,1,3,1 --arc-weights 1,1,1,1,1,1,1,1 --weight-bound 5 --cost-bound 5"
         }
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3",
         "RootedTreeArrangement" => "--graph 0-1,0-2,1-2,2-3,3-4 --bound 7",
@@ -815,16 +817,16 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1"
         }
         "MixedChinesePostman" => {
-            "--graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4"
+            "--graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-weights 2,3,1,4"
         }
         "RuralPostman" => {
             "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2"
         }
         "StackerCrane" => {
-            "--arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --num-vertices 6"
+            "--arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-lengths 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --num-vertices 6"
         }
         "MultipleChoiceBranching" => {
-            "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
+            "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --threshold 10"
         }
         "AdditionalKey" => "--num-attributes 6 --dependencies \"0,1:2,3;2,3:4,5;4,5:0,1\" --relation-attrs 0,1,2,3,4,5 --known-keys \"0,1;2,3;4,5\"",
         "ConsistencyOfDatabaseFrequencyTables" => {
@@ -835,7 +837,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --bound 2"
         }
         "SequencingToMinimizeWeightedTardiness" => {
-            "--sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+            "--lengths 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
         }
         "IntegerKnapsack" => "--sizes 3,4,5,2,7 --values 4,5,7,3,9 --capacity 15",
         "SubsetProduct" => "--sizes 2,3,5,7,6,10 --target 210",
@@ -867,10 +869,10 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "SumOfSquaresPartition" => "--sizes 5,3,8,2,7,1 --num-groups 3",
         "ComparativeContainment" => {
-            "--universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
+            "--universe-size 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
         }
-        "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
-        "SetSplitting" => "--universe 6 --sets \"0,1,2;2,3,4;0,4,5;1,3,5\"",
+        "SetBasis" => "--universe-size 4 --subsets \"0,1;1,2;0,2;0,1,2\" --k 3",
+        "SetSplitting" => "--universe-size 6 --subsets \"0,1,2;2,3,4;0,4,5;1,3,5\"",
         "LongestCommonSubsequence" => {
             "--strings \"010110;100101;001011\" --alphabet-size 2"
         }
@@ -882,21 +884,17 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\""
         }
         "PrimeAttributeName" => {
-            "--universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
+            "--universe 6 --dependencies \"0,1>2,3,4,5;2,3>0,1,4,5\" --query-attribute 3"
         }
         "TwoDimensionalConsecutiveSets" => {
-            "--alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
+            "--alphabet-size 6 --subsets \"0,1,2;3,4,5;1,3;2,4;0,5\""
         }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\"",
-        "ConsecutiveBlockMinimization" => {
-            "--matrix '[[true,false,true],[false,true,true]]' --bound 2"
-        }
+        "ConsecutiveBlockMinimization" => "--matrix '[[true,false,true],[false,true,true]]' --bound-k 2",
         "ConsecutiveOnesMatrixAugmentation" => {
             "--matrix \"1,0,0,1,1;1,1,0,0,0;0,1,1,0,1;0,0,1,1,0\" --bound 2"
         }
-        "SparseMatrixCompression" => {
-            "--matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound 2"
-        }
+        "SparseMatrixCompression" => "--matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound-k 2",
         "MaximumLikelihoodRanking" => "--matrix \"0,4,3,5;1,0,4,3;2,1,0,4;0,2,1,0\"",
         "MinimumMatrixCover" => "--matrix \"0,3,1,0;3,0,0,2;1,0,0,4;0,2,4,0\"",
         "MinimumMatrixDomination" => "--matrix \"0,1,0;1,0,1;0,1,0\"",
@@ -955,23 +953,23 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     // Problem-specific overrides first
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
-        ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        ("BoundedComponentSpanningForest", "max_weight") => return "max-weight".to_string(),
         ("FlowShopScheduling", "num_processors")
         | ("JobShopScheduling", "num_processors")
         | ("OpenShopScheduling", "num_machines")
         | ("SchedulingWithIndividualDeadlines", "num_processors") => {
             return "num-processors/--m".to_string();
         }
-        ("JobShopScheduling", "jobs") => return "job-tasks".to_string(),
-        ("LengthBoundedDisjointPaths", "max_length") => return "bound".to_string(),
+        ("JobShopScheduling", "jobs") => return "jobs".to_string(),
+        ("LengthBoundedDisjointPaths", "max_length") => return "max-length".to_string(),
         ("RectilinearPictureCompression", "bound") => return "bound".to_string(),
         ("PrimeAttributeName", "num_attributes") => return "universe".to_string(),
-        ("PrimeAttributeName", "dependencies") => return "deps".to_string(),
-        ("PrimeAttributeName", "query_attribute") => return "query".to_string(),
-        ("MixedChinesePostman", "arc_weights") => return "arc-costs".to_string(),
+        ("PrimeAttributeName", "dependencies") => return "dependencies".to_string(),
+        ("PrimeAttributeName", "query_attribute") => return "query-attribute".to_string(),
+        ("MixedChinesePostman", "arc_weights") => return "arc-weights".to_string(),
         ("ConsecutiveOnesMatrixAugmentation", "bound") => return "bound".to_string(),
         ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
-        ("SparseMatrixCompression", "bound_k") => return "bound".to_string(),
+        ("SparseMatrixCompression", "bound_k") => return "bound-k".to_string(),
         ("MinimumCodeGenerationParallelAssignments", "num_variables") => {
             return "num-variables".to_string();
         }
@@ -979,7 +977,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
             return "assignments".to_string();
         }
         ("StackerCrane", "edges") => return "graph".to_string(),
-        ("StackerCrane", "arc_lengths") => return "arc-costs".to_string(),
+        ("StackerCrane", "arc_lengths") => return "arc-lengths".to_string(),
         ("StackerCrane", "edge_lengths") => return "edge-lengths".to_string(),
         ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
         ("TimetableDesign", "num_tasks") => return "num-tasks".to_string(),
@@ -991,18 +989,18 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     }
     // General field-name overrides (previously in cli_flag_name)
     match field_name {
-        "universe_size" => "universe".to_string(),
-        "collection" | "subsets" => "sets".to_string(),
+        "universe_size" => "universe-size".to_string(),
+        "collection" | "subsets" => "subsets".to_string(),
         "left_size" => "left".to_string(),
         "right_size" => "right".to_string(),
         "edges" => "biedges".to_string(),
         "vertex_weights" => "weights".to_string(),
-        "potential_weights" => "potential-edges".to_string(),
+        "potential_weights" => "potential-weights".to_string(),
         "edge_lengths" => "edge-weights".to_string(),
-        "num_tasks" => "n".to_string(),
-        "precedences" => "precedence-pairs".to_string(),
-        "threshold" => "bound".to_string(),
-        "lengths" => "sizes".to_string(),
+        "num_tasks" => "num-tasks".to_string(),
+        "precedences" => "precedences".to_string(),
+        "threshold" => "threshold".to_string(),
+        "lengths" => "lengths".to_string(),
         _ => field_name.replace('_', "-"),
     }
 }
@@ -1257,7 +1255,7 @@ fn problem_help_flag_name(
         return "graph".to_string();
     }
     if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
-        return "bound".to_string();
+        return "max-length".to_string();
     }
     if canonical == "GeneralizedHex" && field_name == "target" {
         return "sink".to_string();
@@ -1289,7 +1287,7 @@ fn validate_length_bounded_disjoint_paths_args(
 ) -> Result<usize> {
     let max_length = usize::try_from(bound).map_err(|_| {
         lbdp_validation_error(
-            "--bound must be a nonnegative integer for LengthBoundedDisjointPaths",
+            "--max-length must be a nonnegative integer for LengthBoundedDisjointPaths",
             usage,
         )
     })?;
@@ -1306,7 +1304,7 @@ fn validate_length_bounded_disjoint_paths_args(
         ));
     }
     if max_length == 0 {
-        return Err(lbdp_validation_error("--bound must be positive", usage));
+        return Err(lbdp_validation_error("--max-length must be positive", usage));
     }
     Ok(max_length)
 }
@@ -1653,7 +1651,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "BiconnectivityAugmentation" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5"
+                    "{e}\n\nUsage: pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-weights 0-2:3,0-3:4,1-3:2 --budget 5"
                 )
             })?;
             let potential_edges = parse_potential_edges(args)?;
@@ -1696,7 +1694,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // Bounded Component Spanning Forest
         "BoundedComponentSpanningForest" => {
-            let usage = "Usage: pred create BoundedComponentSpanningForest --graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6";
+            let usage = "Usage: pred create BoundedComponentSpanningForest --graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --max-weight 6";
             let (graph, n) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             args.weights.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("BoundedComponentSpanningForest requires --weights\n\n{usage}")
@@ -1712,14 +1710,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 bail!("BoundedComponentSpanningForest requires --k >= 1\n\n{usage}");
             }
             let bound_raw = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("BoundedComponentSpanningForest requires --bound\n\n{usage}")
+                anyhow::anyhow!("BoundedComponentSpanningForest requires --max-weight\n\n{usage}")
             })?;
             if bound_raw <= 0 {
-                bail!("BoundedComponentSpanningForest requires positive --bound\n\n{usage}");
+                bail!("BoundedComponentSpanningForest requires positive --max-weight\n\n{usage}");
             }
             let max_weight = i32::try_from(bound_raw).map_err(|_| {
                 anyhow::anyhow!(
-                    "BoundedComponentSpanningForest requires --bound within i32 range\n\n{usage}"
+                    "BoundedComponentSpanningForest requires --max-weight within i32 range\n\n{usage}"
                 )
             })?;
             (
@@ -2080,7 +2078,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // LengthBoundedDisjointPaths (graph + source + sink + bound)
         "LengthBoundedDisjointPaths" => {
-            let usage = "Usage: pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --bound 3";
+            let usage = "Usage: pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --max-length 3";
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let source = args.source.ok_or_else(|| {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --source\n\n{usage}")
@@ -2089,7 +2087,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --sink\n\n{usage}")
             })?;
             let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("LengthBoundedDisjointPaths requires --bound\n\n{usage}")
+                anyhow::anyhow!("LengthBoundedDisjointPaths requires --max-length\n\n{usage}")
             })?;
             let max_length = validate_length_bounded_disjoint_paths_args(
                 graph.num_vertices(),
@@ -2281,7 +2279,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // StackerCrane
         "StackerCrane" => {
-            let usage = "Usage: pred create StackerCrane --arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-costs 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --num-vertices 6";
+            let usage = "Usage: pred create StackerCrane --arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-lengths 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --num-vertices 6";
             let arcs_str = args
                 .arcs
                 .as_deref()
@@ -2318,7 +2316,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // MultipleChoiceBranching
         "MultipleChoiceBranching" => {
-            let usage = "Usage: pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10";
+            let usage = "Usage: pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --threshold 10";
             let arcs_str = args.arcs.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("MultipleChoiceBranching requires --arcs\n\n{usage}")
             })?;
@@ -3793,14 +3791,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // ConsecutiveBlockMinimization
         "ConsecutiveBlockMinimization" => {
-            let usage = "Usage: pred create ConsecutiveBlockMinimization --matrix '[[true,false,true],[false,true,true]]' --bound 2";
+            let usage = "Usage: pred create ConsecutiveBlockMinimization --matrix '[[true,false,true],[false,true,true]]' --bound-k 2";
             let matrix_str = args.matrix.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "ConsecutiveBlockMinimization requires --matrix as a JSON 2D bool array and --bound\n\n{usage}"
+                    "ConsecutiveBlockMinimization requires --matrix as a JSON 2D bool array and --bound-k\n\n{usage}"
                 )
             })?;
             let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("ConsecutiveBlockMinimization requires --bound\n\n{usage}")
+                anyhow::anyhow!("ConsecutiveBlockMinimization requires --bound-k\n\n{usage}")
             })?;
             let matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str).map_err(|err| {
                 anyhow::anyhow!(
@@ -3863,9 +3861,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // SparseMatrixCompression
         "SparseMatrixCompression" => {
             let matrix = parse_bool_matrix(args)?;
-            let usage = "Usage: pred create SparseMatrixCompression --matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound 2";
+            let usage = "Usage: pred create SparseMatrixCompression --matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound-k 2";
             let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("SparseMatrixCompression requires --matrix and --bound\n\n{usage}")
+                anyhow::anyhow!("SparseMatrixCompression requires --matrix and --bound-k\n\n{usage}")
             })?;
             let bound = parse_nonnegative_usize_bound(bound, "SparseMatrixCompression", usage)?;
             if bound == 0 {
@@ -4443,10 +4441,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // PreemptiveScheduling
         "PreemptiveScheduling" => {
-            let usage = "Usage: pred create PreemptiveScheduling --sizes 2,1,3,2,1 --num-processors 2 [--precedence-pairs \"0>2,1>3\"]";
-            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+            let usage = "Usage: pred create PreemptiveScheduling --lengths 2,1,3,2,1 --num-processors 2 [--precedences \"0>2,1>3\"]";
+            let lengths_str = args.lengths.as_deref().or(args.sizes.as_deref()).ok_or_else(|| {
                 anyhow::anyhow!(
-                    "PreemptiveScheduling requires --sizes and --num-processors\n\n{usage}"
+                    "PreemptiveScheduling requires --lengths and --num-processors\n\n{usage}"
                 )
             })?;
             let num_processors = args.num_processors.ok_or_else(|| {
@@ -4456,13 +4454,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 num_processors > 0,
                 "PreemptiveScheduling requires --num-processors > 0\n\n{usage}"
             );
-            let lengths: Vec<usize> = util::parse_comma_list(sizes_str)?;
+            let lengths: Vec<usize> = util::parse_comma_list(lengths_str)?;
             anyhow::ensure!(
                 lengths.iter().all(|&l| l > 0),
                 "PreemptiveScheduling: all task lengths must be positive\n\n{usage}"
             );
             let num_tasks = lengths.len();
-            let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
+            let precedences: Vec<(usize, usize)> =
+                match args.precedences.as_deref().or(args.precedence_pairs.as_deref()) {
                 Some(s) if !s.is_empty() => s
                     .split(',')
                     .map(|pair| {
@@ -4630,18 +4629,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "MinimumTardinessSequencing requires --deadlines\n\n\
-                     Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 [--precedence-pairs \"0>3,1>3,1>4,2>4\"] [--sizes 3,2,2,1,2]"
+                     Usage: pred create MinimumTardinessSequencing --num-tasks 5 --deadlines 5,5,5,3,3 [--precedences \"0>3,1>3,1>4,2>4\"] [--lengths 3,2,2,1,2]"
                 )
             })?;
             let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
-            let precedences = parse_precedence_pairs(args.precedence_pairs.as_deref())?;
+            let precedences =
+                parse_precedence_pairs(args.precedences.as_deref().or(args.precedence_pairs.as_deref()))?;
 
-            if let Some(sizes_str) = args.sizes.as_deref() {
+            if let Some(lengths_str) = args.lengths.as_deref().or(args.sizes.as_deref()) {
                 // Arbitrary-length variant (W = i32)
-                let lengths: Vec<i32> = util::parse_comma_list(sizes_str)?;
+                let lengths: Vec<i32> = util::parse_comma_list(lengths_str)?;
                 anyhow::ensure!(
                     lengths.len() == deadlines.len(),
-                    "sizes length ({}) must equal deadlines length ({})",
+                    "lengths length ({}) must equal deadlines length ({})",
                     lengths.len(),
                     deadlines.len()
                 );
@@ -4656,10 +4656,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             } else {
                 // Unit-length variant (W = One)
-                let num_tasks = args.n.ok_or_else(|| {
+                let num_tasks = args.num_tasks.or(args.n).ok_or_else(|| {
                     anyhow::anyhow!(
-                        "MinimumTardinessSequencing requires --n (number of tasks) or --sizes\n\n\
-                         Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3"
+                        "MinimumTardinessSequencing requires --num-tasks (number of tasks) or --lengths\n\n\
+                         Usage: pred create MinimumTardinessSequencing --num-tasks 5 --deadlines 5,5,5,3,3"
                     )
                 })?;
                 anyhow::ensure!(
@@ -4682,15 +4682,15 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // SchedulingWithIndividualDeadlines
         "SchedulingWithIndividualDeadlines" => {
-            let usage = "Usage: pred create SchedulingWithIndividualDeadlines --n 7 --deadlines 2,1,2,2,3,3,2 [--num-processors 3 | --m 3] [--precedence-pairs \"0>3,1>3,1>4,2>4,2>5\"]";
+            let usage = "Usage: pred create SchedulingWithIndividualDeadlines --num-tasks 7 --deadlines 2,1,2,2,3,3,2 [--num-processors 3 | --m 3] [--precedences \"0>3,1>3,1>4,2>4,2>5\"]";
             let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "SchedulingWithIndividualDeadlines requires --deadlines, --n, and a processor count (--num-processors or --m)\n\n{usage}"
+                    "SchedulingWithIndividualDeadlines requires --deadlines, --num-tasks, and a processor count (--num-processors or --m)\n\n{usage}"
                 )
             })?;
-            let num_tasks = args.n.ok_or_else(|| {
+            let num_tasks = args.num_tasks.or(args.n).ok_or_else(|| {
                 anyhow::anyhow!(
-                    "SchedulingWithIndividualDeadlines requires --n (number of tasks)\n\n{usage}"
+                    "SchedulingWithIndividualDeadlines requires --num-tasks (number of tasks)\n\n{usage}"
                 )
             })?;
             let num_processors = resolve_processor_count_flags(
@@ -4705,7 +4705,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
-            let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
+            let precedences: Vec<(usize, usize)> =
+                match args.precedences.as_deref().or(args.precedence_pairs.as_deref()) {
                 Some(s) if !s.is_empty() => s
                     .split(',')
                     .map(|pair| {
@@ -4751,36 +4752,36 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // SequencingToMinimizeTardyTaskWeight
         "SequencingToMinimizeTardyTaskWeight" => {
-            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+            let lengths_str = args.lengths.as_deref().or(args.sizes.as_deref()).ok_or_else(|| {
                 anyhow::anyhow!(
-                    "SequencingToMinimizeTardyTaskWeight requires --sizes, --weights, and --deadlines\n\n\
-                     Usage: pred create SequencingToMinimizeTardyTaskWeight --sizes 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
+                    "SequencingToMinimizeTardyTaskWeight requires --lengths, --weights, and --deadlines\n\n\
+                     Usage: pred create SequencingToMinimizeTardyTaskWeight --lengths 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
                 )
             })?;
             let weights_str = args.weights.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeTardyTaskWeight requires --weights\n\n\
-                     Usage: pred create SequencingToMinimizeTardyTaskWeight --sizes 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
+                     Usage: pred create SequencingToMinimizeTardyTaskWeight --lengths 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
                 )
             })?;
             let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeTardyTaskWeight requires --deadlines\n\n\
-                     Usage: pred create SequencingToMinimizeTardyTaskWeight --sizes 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
+                     Usage: pred create SequencingToMinimizeTardyTaskWeight --lengths 3,2,4,1,2 --weights 5,3,7,2,4 --deadlines 6,4,10,2,8"
                 )
             })?;
-            let lengths: Vec<u64> = util::parse_comma_list(sizes_str)?;
+            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
             let weights: Vec<u64> = util::parse_comma_list(weights_str)?;
             let deadlines: Vec<u64> = util::parse_comma_list(deadlines_str)?;
             anyhow::ensure!(
                 lengths.len() == weights.len(),
-                "sizes length ({}) must equal weights length ({})",
+                "lengths length ({}) must equal weights length ({})",
                 lengths.len(),
                 weights.len()
             );
             anyhow::ensure!(
                 lengths.len() == deadlines.len(),
-                "sizes length ({}) must equal deadlines length ({})",
+                "lengths length ({}) must equal deadlines length ({})",
                 lengths.len(),
                 deadlines.len()
             );
@@ -4802,31 +4803,31 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // SequencingWithDeadlinesAndSetUpTimes
         "SequencingWithDeadlinesAndSetUpTimes" => {
-            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+            let lengths_str = args.lengths.as_deref().or(args.sizes.as_deref()).ok_or_else(|| {
                 anyhow::anyhow!(
-                    "SequencingWithDeadlinesAndSetUpTimes requires --sizes, --deadlines, --compilers, and --setup-times\n\n\
-                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --sizes 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
+                    "SequencingWithDeadlinesAndSetUpTimes requires --lengths, --deadlines, --compilers, and --setup-times\n\n\
+                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --lengths 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
                 )
             })?;
             let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingWithDeadlinesAndSetUpTimes requires --deadlines\n\n\
-                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --sizes 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
+                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --lengths 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
                 )
             })?;
             let compilers_str = args.compilers.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingWithDeadlinesAndSetUpTimes requires --compilers\n\n\
-                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --sizes 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
+                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --lengths 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
                 )
             })?;
             let setup_times_str = args.setup_times.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingWithDeadlinesAndSetUpTimes requires --setup-times\n\n\
-                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --sizes 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
+                     Usage: pred create SequencingWithDeadlinesAndSetUpTimes --lengths 2,3,1,2,2 --deadlines 4,11,3,16,7 --compilers 0,1,0,1,0 --setup-times 1,2"
                 )
             })?;
-            let lengths: Vec<u64> = util::parse_comma_list(sizes_str)?;
+            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
             let deadlines: Vec<u64> = util::parse_comma_list(deadlines_str)?;
             let compilers: Vec<usize> = util::parse_comma_list(compilers_str)?;
             let setup_times: Vec<u64> = util::parse_comma_list(setup_times_str)?;
@@ -4869,7 +4870,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let lengths_str = args.lengths.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeWeightedCompletionTime requires --lengths and --weights\n\n\
-                     Usage: pred create SequencingToMinimizeWeightedCompletionTime --lengths 2,1,3,1,2 --weights 3,5,1,4,2 [--precedence-pairs \"0>2,1>4\"]"
+                     Usage: pred create SequencingToMinimizeWeightedCompletionTime --lengths 2,1,3,1,2 --weights 3,5,1,4,2 [--precedences \"0>2,1>4\"]"
                 )
             })?;
             let weights_str = args.weights.as_deref().ok_or_else(|| {
@@ -4891,7 +4892,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 "task lengths must be positive"
             );
             let num_tasks = lengths.len();
-            let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
+            let precedences: Vec<(usize, usize)> =
+                match args.precedences.as_deref().or(args.precedence_pairs.as_deref()) {
                 Some(s) if !s.is_empty() => s
                     .split(',')
                     .map(|pair| {
@@ -4930,45 +4932,45 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // SequencingToMinimizeWeightedTardiness
         "SequencingToMinimizeWeightedTardiness" => {
-            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+            let lengths_str = args.lengths.as_deref().or(args.sizes.as_deref()).ok_or_else(|| {
                 anyhow::anyhow!(
-                    "SequencingToMinimizeWeightedTardiness requires --sizes, --weights, --deadlines, and --bound\n\n\
-                     Usage: pred create SequencingToMinimizeWeightedTardiness --sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+                    "SequencingToMinimizeWeightedTardiness requires --lengths, --weights, --deadlines, and --bound\n\n\
+                     Usage: pred create SequencingToMinimizeWeightedTardiness --lengths 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
                 )
             })?;
             let weights_str = args.weights.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeWeightedTardiness requires --weights (comma-separated tardiness weights)\n\n\
-                     Usage: pred create SequencingToMinimizeWeightedTardiness --sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+                     Usage: pred create SequencingToMinimizeWeightedTardiness --lengths 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
                 )
             })?;
             let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeWeightedTardiness requires --deadlines (comma-separated job deadlines)\n\n\
-                     Usage: pred create SequencingToMinimizeWeightedTardiness --sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+                     Usage: pred create SequencingToMinimizeWeightedTardiness --lengths 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
                 )
             })?;
             let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeWeightedTardiness requires --bound\n\n\
-                     Usage: pred create SequencingToMinimizeWeightedTardiness --sizes 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
+                     Usage: pred create SequencingToMinimizeWeightedTardiness --lengths 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
                 )
             })?;
             anyhow::ensure!(bound >= 0, "--bound must be non-negative");
 
-            let lengths: Vec<u64> = util::parse_comma_list(sizes_str)?;
+            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
             let weights: Vec<u64> = util::parse_comma_list(weights_str)?;
             let deadlines: Vec<u64> = util::parse_comma_list(deadlines_str)?;
 
             anyhow::ensure!(
                 lengths.len() == weights.len(),
-                "sizes length ({}) must equal weights length ({})",
+                "lengths length ({}) must equal weights length ({})",
                 lengths.len(),
                 weights.len()
             );
             anyhow::ensure!(
                 lengths.len() == deadlines.len(),
-                "sizes length ({}) must equal deadlines length ({})",
+                "lengths length ({}) must equal deadlines length ({})",
                 lengths.len(),
                 deadlines.len()
             );
@@ -4989,11 +4991,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let costs_str = args.costs.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeMaximumCumulativeCost requires --costs\n\n\
-                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedence-pairs \"0>2,1>2,1>3,2>4,3>5,4>5\""
+                     Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedences \"0>2,1>2,1>3,2>4,3>5,4>5\""
                 )
             })?;
             let costs: Vec<i64> = util::parse_comma_list(costs_str)?;
-            let precedences = parse_precedence_pairs(args.precedence_pairs.as_deref())?;
+            let precedences =
+                parse_precedence_pairs(args.precedences.as_deref().or(args.precedence_pairs.as_deref()))?;
             validate_precedence_pairs(&precedences, costs.len())?;
             (
                 ser(SequencingToMinimizeMaximumCumulativeCost::new(
@@ -5114,9 +5117,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // JobShopScheduling
         "JobShopScheduling" => {
-            let usage = "Usage: pred create JobShopScheduling --job-tasks \"0:3,1:4;1:2,0:3,1:2;0:4,1:3\" --num-processors 2";
+            let usage = "Usage: pred create JobShopScheduling --jobs \"0:3,1:4;1:2,0:3,1:2;0:4,1:3\" --num-processors 2";
             let job_tasks = args.job_tasks.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("JobShopScheduling requires --job-tasks\n\n{usage}")
+                anyhow::anyhow!("JobShopScheduling requires --jobs\n\n{usage}")
             })?;
             let jobs = parse_job_shop_jobs(job_tasks)?;
             let inferred_processors = jobs
@@ -5519,7 +5522,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // AcyclicPartition
         "AcyclicPartition" => {
-            let usage = "Usage: pred create AcyclicPartition/i32 --arcs \"0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5\" --weights 2,3,2,1,3,1 --arc-costs 1,1,1,1,1,1,1,1 --weight-bound 5 --cost-bound 5";
+            let usage = "Usage: pred create AcyclicPartition/i32 --arcs \"0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5\" --weights 2,3,2,1,3,1 --arc-weights 1,1,1,1,1,1,1,1 --weight-bound 5 --cost-bound 5";
             let arcs_str = args
                 .arcs
                 .as_deref()
@@ -5537,7 +5540,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 bail!("AcyclicPartition --weights must be positive (Z+)");
             }
             if arc_costs.iter().any(|&cost| cost <= 0) {
-                bail!("AcyclicPartition --arc-costs must be positive (Z+)");
+                bail!("AcyclicPartition --arc-weights must be positive (Z+)");
             }
             if weight_bound <= 0 {
                 bail!("AcyclicPartition --weight-bound must be positive (Z+)");
@@ -6030,12 +6033,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // MixedChinesePostman
         "MixedChinesePostman" => {
-            let usage = "Usage: pred create MixedChinesePostman --graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-costs 2,3,1,4 [--num-vertices N]";
+            let usage = "Usage: pred create MixedChinesePostman --graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-weights 2,3,1,4 [--num-vertices N]";
             let graph = parse_mixed_graph(args, usage)?;
             let arc_costs = parse_arc_costs(args, graph.num_arcs())?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
             if arc_costs.iter().any(|&cost| cost < 0) {
-                bail!("MixedChinesePostman --arc-costs must be non-negative\n\n{usage}");
+                bail!("MixedChinesePostman --arc-weights must be non-negative\n\n{usage}");
             }
             if edge_weights.iter().any(|&weight| weight < 0) {
                 bail!("MixedChinesePostman --edge-weights must be non-negative\n\n{usage}");
@@ -6046,7 +6049,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             {
                 bail!(
                     "Non-unit lengths are not supported for MixedChinesePostman/One.\n\n\
-                     Use the weighted variant instead:\n  pred create MixedChinesePostman/i32 --graph ... --arcs ... --edge-weights ... --arc-costs ..."
+                     Use the weighted variant instead:\n  pred create MixedChinesePostman/i32 --graph ... --arcs ... --edge-weights ... --arc-weights ..."
                 );
             }
             (
@@ -6528,20 +6531,20 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "PrimeAttributeName" => {
             let universe = args.universe.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "PrimeAttributeName requires --universe, --deps, and --query\n\n\
-                     Usage: pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
+                    "PrimeAttributeName requires --universe, --dependencies, and --query-attribute\n\n\
+                     Usage: pred create PrimeAttributeName --universe 6 --dependencies \"0,1>2,3,4,5;2,3>0,1,4,5\" --query-attribute 3"
                 )
             })?;
-            let deps_str = args.deps.as_deref().ok_or_else(|| {
+            let deps_str = args.dependencies.as_deref().or(args.deps.as_deref()).ok_or_else(|| {
                 anyhow::anyhow!(
-                    "PrimeAttributeName requires --deps\n\n\
-                     Usage: pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
+                    "PrimeAttributeName requires --dependencies\n\n\
+                     Usage: pred create PrimeAttributeName --universe 6 --dependencies \"0,1>2,3,4,5;2,3>0,1,4,5\" --query-attribute 3"
                 )
             })?;
             let query = args.query.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "PrimeAttributeName requires --query\n\n\
-                     Usage: pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3"
+                    "PrimeAttributeName requires --query-attribute\n\n\
+                     Usage: pred create PrimeAttributeName --universe 6 --dependencies \"0,1>2,3,4,5;2,3>0,1,4,5\" --query-attribute 3"
                 )
             })?;
             let dependencies = parse_deps(deps_str)?;
@@ -7407,10 +7410,10 @@ fn parse_disjuncts(args: &CreateArgs) -> Result<Vec<Vec<i32>>> {
         .collect()
 }
 
-/// Parse `--sets` as semicolon-separated sets of comma-separated usize.
+/// Parse `--subsets` as semicolon-separated sets of comma-separated usize.
 /// E.g., "0,1;1,2;0,2"
 fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
-    parse_named_sets(args.sets.as_deref(), "--sets")
+    parse_named_sets(args.sets.as_deref(), "--subsets")
 }
 
 fn parse_named_sets(sets_str: Option<&str>, flag: &str) -> Result<Vec<Vec<usize>>> {
@@ -7635,7 +7638,7 @@ fn parse_bundles(args: &CreateArgs, num_arcs: usize, usage: &str) -> Result<Vec<
 fn parse_multiple_choice_branching_threshold(args: &CreateArgs, usage: &str) -> Result<i32> {
     let raw_bound = args
         .bound
-        .ok_or_else(|| anyhow::anyhow!("MultipleChoiceBranching requires --bound\n\n{usage}"))?;
+        .ok_or_else(|| anyhow::anyhow!("MultipleChoiceBranching requires --threshold\n\n{usage}"))?;
     anyhow::ensure!(
         raw_bound >= 0,
         "MultipleChoiceBranching threshold must be non-negative, got {raw_bound}"
@@ -8036,7 +8039,9 @@ fn parse_i64_matrix(s: &str) -> Result<Vec<Vec<i64>>> {
 
 fn parse_potential_edges(args: &CreateArgs) -> Result<Vec<(usize, usize, i32)>> {
     let edges_str = args.potential_edges.as_deref().ok_or_else(|| {
-        anyhow::anyhow!("BiconnectivityAugmentation requires --potential-edges (e.g., 0-2:3,1-3:5)")
+        anyhow::anyhow!(
+            "BiconnectivityAugmentation requires --potential-weights (e.g., 0-2:3,1-3:5)"
+        )
     })?;
 
     edges_str
@@ -8219,7 +8224,7 @@ fn parse_arc_weights(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
     }
 }
 
-/// Parse `--arc-costs` as per-arc costs (i32), defaulting to all 1s.
+/// Parse `--arc-weights` / `--arc-lengths` as per-arc costs (i32), defaulting to all 1s.
 fn parse_arc_costs(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
     match &args.arc_costs {
         Some(costs) => {
@@ -8815,7 +8820,7 @@ mod tests {
     fn test_problem_help_uses_bound_for_length_bounded_disjoint_paths() {
         assert_eq!(
             problem_help_flag_name("LengthBoundedDisjointPaths", "max_length", "usize", false),
-            "bound"
+            "max-length"
         );
     }
 
@@ -8855,7 +8860,7 @@ mod tests {
             "pred",
             "create",
             "SchedulingWithIndividualDeadlines",
-            "--n",
+            "--num-tasks",
             "3",
             "--deadlines",
             "1,1,2",
@@ -8889,6 +8894,47 @@ mod tests {
     }
 
     #[test]
+    fn test_create_prime_attribute_name_accepts_canonical_flags() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "PrimeAttributeName",
+            "--universe",
+            "6",
+            "--dependencies",
+            "0,1>2,3,4,5;2,3>0,1,4,5",
+            "--query-attribute",
+            "3",
+        ])
+        .expect("parse create command");
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create subcommand");
+        };
+
+        let output_path = temp_output_path("prime_attribute_name");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).expect("create PrimeAttributeName JSON");
+
+        let created: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&output_path).unwrap()).unwrap();
+        fs::remove_file(output_path).ok();
+
+        assert_eq!(created["type"], "PrimeAttributeName");
+        assert_eq!(created["data"]["query_attribute"], 3);
+        assert_eq!(
+            created["data"]["dependencies"][0],
+            serde_json::json!([[0, 1], [2, 3, 4, 5]])
+        );
+    }
+
+    #[test]
     fn test_problem_help_uses_prime_attribute_name_cli_overrides() {
         assert_eq!(
             problem_help_flag_name("PrimeAttributeName", "num_attributes", "usize", false),
@@ -8901,11 +8947,11 @@ mod tests {
                 "Vec<(Vec<usize>, Vec<usize>)>",
                 false,
             ),
-            "deps"
+            "dependencies"
         );
         assert_eq!(
             problem_help_flag_name("PrimeAttributeName", "query_attribute", "usize", false),
-            "query"
+            "query-attribute"
         );
     }
 
@@ -10498,7 +10544,7 @@ mod tests {
         };
 
         let err = create(&args, &out).unwrap_err().to_string();
-        assert!(err.contains("JobShopScheduling requires --job-tasks"));
+        assert!(err.contains("JobShopScheduling requires --jobs"));
     }
 
     #[test]

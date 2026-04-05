@@ -153,12 +153,12 @@ fn test_create_stacker_crane_schema_help_uses_documented_flags() {
     assert!(stderr.contains("StackerCrane"), "stderr: {stderr}");
     assert!(stderr.contains("--arcs"), "stderr: {stderr}");
     assert!(stderr.contains("--graph"), "stderr: {stderr}");
-    assert!(stderr.contains("--arc-costs"), "stderr: {stderr}");
+    assert!(stderr.contains("--arc-lengths"), "stderr: {stderr}");
     assert!(stderr.contains("--edge-lengths"), "stderr: {stderr}");
     assert!(stderr.contains("--num-vertices"), "stderr: {stderr}");
     assert!(!stderr.contains("--bound"), "stderr: {stderr}");
     assert!(!stderr.contains("--biedges"), "stderr: {stderr}");
-    assert!(!stderr.contains("--arc-lengths"), "stderr: {stderr}");
+    assert!(!stderr.contains("--arc-weights"), "stderr: {stderr}");
     assert!(!stderr.contains("--edge-weights"), "stderr: {stderr}");
 }
 
@@ -1855,10 +1855,10 @@ fn test_create_comparative_containment_no_flags_shows_help() {
         "should exit non-zero when showing help without data flags"
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("--universe"), "stderr: {stderr}");
+    assert!(stderr.contains("--universe-size"), "stderr: {stderr}");
     assert!(stderr.contains("--r-sets"), "stderr: {stderr}");
     assert!(stderr.contains("--s-sets"), "stderr: {stderr}");
-    assert!(!stderr.contains("--universe-size"), "stderr: {stderr}");
+    assert!(!stderr.contains("--universe "), "stderr: {stderr}");
 }
 
 #[test]
@@ -1936,7 +1936,7 @@ fn test_create_help_lists_minimum_hitting_set_flags() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stdout.contains("MinimumHittingSet") && stdout.contains("--universe, --sets"),
+        stdout.contains("MinimumHittingSet") && stdout.contains("--universe-size, --subsets"),
         "stdout: {stdout}"
     );
 }
@@ -2030,7 +2030,7 @@ fn test_create_sequencing_to_minimize_weighted_tardiness_rejects_mismatched_leng
         .args([
             "create",
             "SequencingToMinimizeWeightedTardiness",
-            "--sizes",
+            "--lengths",
             "3,4,2",
             "--weights",
             "2,3",
@@ -2044,7 +2044,7 @@ fn test_create_sequencing_to_minimize_weighted_tardiness_rejects_mismatched_leng
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("sizes length (3) must equal weights length (2)"),
+        stderr.contains("lengths length (3) must equal weights length (2)"),
         "stderr: {stderr}"
     );
 }
@@ -3316,14 +3316,14 @@ fn test_create_bounded_component_spanning_forest_rejects_negative_bound() {
             "1,1,1,1",
             "--k",
             "2",
-            "--bound",
+            "--max-weight",
             "-1",
         ])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("positive --bound"), "stderr: {stderr}");
+    assert!(stderr.contains("positive --max-weight"), "stderr: {stderr}");
 }
 
 #[test]
@@ -3364,16 +3364,12 @@ fn test_create_bounded_component_spanning_forest_no_flags_shows_actual_cli_flags
         "expected '--k' in help output, got: {stderr}"
     );
     assert!(
-        stderr.contains("--bound"),
-        "expected '--bound' in help output, got: {stderr}"
+        stderr.contains("--max-weight"),
+        "expected '--max-weight' in help output, got: {stderr}"
     );
     assert!(
         !stderr.contains("--max-components"),
         "help should not advertise nonexistent '--max-components' flag: {stderr}"
-    );
-    assert!(
-        !stderr.contains("--max-weight"),
-        "help should not advertise nonexistent '--max-weight' flag: {stderr}"
     );
 }
 
@@ -3989,7 +3985,7 @@ fn test_create_sequencing_to_minimize_weighted_tardiness_no_flags_shows_help() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("--sizes"));
+    assert!(stderr.contains("--lengths"));
     assert!(stderr.contains("--weights"));
     assert!(stderr.contains("--deadlines"));
     assert!(stderr.contains("--bound"));
@@ -3997,7 +3993,7 @@ fn test_create_sequencing_to_minimize_weighted_tardiness_no_flags_shows_help() {
 }
 
 #[test]
-fn test_create_multiple_choice_branching_help_uses_bound_flag() {
+fn test_create_multiple_choice_branching_help_uses_threshold_flag() {
     let output = pred()
         .args(["create", "MultipleChoiceBranching/i32"])
         .output()
@@ -4005,12 +4001,12 @@ fn test_create_multiple_choice_branching_help_uses_bound_flag() {
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        stderr.contains("--bound"),
-        "expected '--bound' in help output, got: {stderr}"
+        stderr.contains("--threshold"),
+        "expected '--threshold' in help output, got: {stderr}"
     );
     assert!(
-        !stderr.contains("--threshold"),
-        "help output should not advertise '--threshold', got: {stderr}"
+        !stderr.contains("--bound"),
+        "help output should not advertise '--bound', got: {stderr}"
     );
     assert!(
         stderr.contains("semicolon-separated groups"),
@@ -4024,20 +4020,16 @@ fn test_create_set_basis_no_flags_uses_actual_cli_flag_names() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--universe"),
-        "expected '--universe' in help output, got: {stderr}"
+        stderr.contains("--universe-size"),
+        "expected '--universe-size' in help output, got: {stderr}"
     );
     assert!(
-        stderr.contains("--sets"),
-        "expected '--sets' in help output, got: {stderr}"
+        stderr.contains("--subsets"),
+        "expected '--subsets' in help output, got: {stderr}"
     );
     assert!(
         stderr.contains("--k"),
         "expected '--k' in help output, got: {stderr}"
-    );
-    assert!(
-        !stderr.contains("--universe-size"),
-        "help should not advertise schema field names: {stderr}"
     );
     assert!(
         !stderr.contains("--collection"),
@@ -4144,7 +4136,7 @@ fn test_create_help_uses_generic_matrix_and_k_descriptions() {
 }
 
 #[test]
-fn test_create_length_bounded_disjoint_paths_help_uses_bound_flag() {
+fn test_create_length_bounded_disjoint_paths_help_uses_max_length_flag() {
     let output = pred()
         .args(["create", "LengthBoundedDisjointPaths"])
         .output()
@@ -4152,12 +4144,12 @@ fn test_create_length_bounded_disjoint_paths_help_uses_bound_flag() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--bound"),
-        "expected '--bound' in help output, got: {stderr}"
+        stderr.contains("--max-length"),
+        "expected '--max-length' in help output, got: {stderr}"
     );
     assert!(
-        !stderr.contains("--max-length"),
-        "help should advertise the actual CLI flag name, got: {stderr}"
+        !stderr.contains("--bound"),
+        "help should advertise the canonical CLI flag name, got: {stderr}"
     );
 }
 
@@ -4196,24 +4188,24 @@ fn test_create_prime_attribute_name_no_flags_uses_actual_cli_flag_names() {
         "expected '--universe' in help output, got: {stderr}"
     );
     assert!(
-        stderr.contains("--deps"),
-        "expected '--deps' in help output, got: {stderr}"
+        stderr.contains("--dependencies"),
+        "expected '--dependencies' in help output, got: {stderr}"
     );
     assert!(
-        stderr.contains("--query"),
-        "expected '--query' in help output, got: {stderr}"
+        stderr.contains("--query-attribute"),
+        "expected '--query-attribute' in help output, got: {stderr}"
     );
     assert!(
         !stderr.contains("--num-attributes"),
         "help should not advertise schema field names: {stderr}"
     );
     assert!(
-        !stderr.contains("--dependencies"),
-        "help should not advertise schema field names: {stderr}"
+        !stderr.contains("--deps"),
+        "help should not advertise the legacy flag name: {stderr}"
     );
     assert!(
-        !stderr.contains("--query-attribute"),
-        "help should not advertise schema field names: {stderr}"
+        !stderr.contains("--query\n"),
+        "help should not advertise the legacy flag name: {stderr}"
     );
 }
 
@@ -4567,7 +4559,7 @@ fn test_create_length_bounded_disjoint_paths_rejects_negative_bound_value() {
             "0",
             "--sink",
             "1",
-            "--bound",
+            "--max-length",
             "-1",
         ])
         .output()
@@ -4575,7 +4567,7 @@ fn test_create_length_bounded_disjoint_paths_rejects_negative_bound_value() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--bound must be a nonnegative integer for LengthBoundedDisjointPaths"),
+        stderr.contains("--max-length must be a nonnegative integer for LengthBoundedDisjointPaths"),
         "expected user-facing negative-bound error, got: {stderr}"
     );
 }
@@ -4591,14 +4583,14 @@ fn test_create_random_length_bounded_disjoint_paths_rejects_negative_bound_value
             "3",
             "--seed",
             "7",
-            "--bound=-1",
+            "--max-length=-1",
         ])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--bound must be a nonnegative integer for LengthBoundedDisjointPaths"),
+        stderr.contains("--max-length must be a nonnegative integer for LengthBoundedDisjointPaths"),
         "expected shared negative-bound validation, got: {stderr}"
     );
 }
@@ -7023,7 +7015,7 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_invalid_precedence
             "SequencingToMinimizeMaximumCumulativeCost",
             "--costs",
             "1,-1,2",
-            "--precedence-pairs",
+            "--precedences",
             "a>b",
             "--bound",
             "2",
@@ -7033,7 +7025,7 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_invalid_precedence
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--precedence-pairs"),
+        stderr.contains("--precedences"),
         "expected flag-specific precedence parse error, got: {stderr}"
     );
 }
@@ -8227,20 +8219,20 @@ fn test_create_ensemble_computation_no_flags_uses_cli_flag_names() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--universe"),
-        "expected --universe in help, got: {stderr}"
+        stderr.contains("--universe-size"),
+        "expected --universe-size in help, got: {stderr}"
     );
     assert!(
-        stderr.contains("--sets"),
-        "expected --sets in help, got: {stderr}"
+        stderr.contains("--subsets"),
+        "expected --subsets in help, got: {stderr}"
     );
     assert!(
         stderr.contains("--budget"),
         "expected --budget in help, got: {stderr}"
     );
     assert!(
-        !stderr.contains("--universe-size"),
-        "help should use actual CLI flags, got: {stderr}"
+        !stderr.contains("--universe "),
+        "help should use canonical CLI flags, got: {stderr}"
     );
 }
 

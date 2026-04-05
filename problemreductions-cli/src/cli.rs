@@ -240,7 +240,7 @@ Flags by problem type:
   HamiltonianCircuit, HC          --graph
   MaximumLeafSpanningTree         --graph
   LongestCircuit                  --graph, --edge-weights
-  BoundedComponentSpanningForest  --graph, --weights, --k, --bound
+  BoundedComponentSpanningForest  --graph, --weights, --k, --max-weight
   UndirectedFlowLowerBounds       --graph, --capacities, --lower-bounds, --source, --sink, --requirement
   IntegralFlowBundles             --arcs, --bundles, --bundle-capacities, --source, --sink, --requirement [--num-vertices]
   UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
@@ -248,7 +248,7 @@ Flags by problem type:
   IntegralFlowHomologousArcs      --arcs, --capacities, --source, --sink, --requirement, --homologous-pairs
   IsomorphicSpanningTree          --graph, --tree
   KthBestSpanningTree             --graph, --edge-weights, --k, --bound
-  LengthBoundedDisjointPaths      --graph, --source, --sink, --bound
+  LengthBoundedDisjointPaths      --graph, --source, --sink, --max-length
   PathConstrainedNetworkFlow      --arcs, --capacities, --source, --sink, --paths, --requirement
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
@@ -270,22 +270,22 @@ Flags by problem type:
   SumOfSquaresPartition           --sizes, --num-groups
   ExpectedRetrievalCost           --probabilities, --num-sectors
   PaintShop                       --sequence
-  MaximumSetPacking               --sets [--weights]
-  MinimumHittingSet               --universe, --sets
-  MinimumSetCovering              --universe, --sets [--weights]
-  EnsembleComputation             --universe, --sets, --budget
-  ComparativeContainment          --universe, --r-sets, --s-sets [--r-weights] [--s-weights]
-  X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
-  3DM (ThreeDimensionalMatching)  --universe, --sets (triples w,x,y)
-  ThreeMatroidIntersection        --universe, --partitions, --bound
-  SetBasis                        --universe, --sets, --k
+  MaximumSetPacking               --subsets [--weights]
+  MinimumHittingSet               --universe-size, --subsets
+  MinimumSetCovering              --universe-size, --subsets [--weights]
+  EnsembleComputation             --universe-size, --subsets, --budget
+  ComparativeContainment          --universe-size, --r-sets, --s-sets [--r-weights] [--s-weights]
+  X3C (ExactCoverBy3Sets)         --universe-size, --subsets (3 elements each)
+  3DM (ThreeDimensionalMatching)  --universe-size, --subsets (triples w,x,y)
+  ThreeMatroidIntersection        --universe-size, --partitions, --bound
+  SetBasis                        --universe-size, --subsets, --k
   MinimumCardinalityKey           --num-attributes, --dependencies
-  PrimeAttributeName              --universe, --deps, --query
-  RootedTreeStorageAssignment     --universe, --sets, --bound
-  TwoDimensionalConsecutiveSets   --alphabet-size, --sets
+  PrimeAttributeName              --universe, --dependencies, --query-attribute
+  RootedTreeStorageAssignment     --universe-size, --subsets, --bound
+  TwoDimensionalConsecutiveSets   --alphabet-size, --subsets
   BicliqueCover                   --left, --right, --biedges, --k
   BalancedCompleteBipartiteSubgraph --left, --right, --biedges, --k
-  BiconnectivityAugmentation      --graph, --potential-edges, --budget [--num-vertices]
+  BiconnectivityAugmentation      --graph, --potential-weights, --budget [--num-vertices]
   PartialFeedbackEdgeSet          --graph, --budget, --max-cycle-length [--num-vertices]
   BMF                             --matrix (0/1), --rank
   ConsecutiveBlockMinimization    --matrix (JSON 2D bool), --bound-k
@@ -298,7 +298,7 @@ Flags by problem type:
   FeasibleBasisExtension          --matrix (JSON 2D i64), --rhs, --required-columns
   SteinerTree                     --graph, --edge-weights, --terminals
   MultipleCopyFileAllocation      --graph, --usage, --storage
-  AcyclicPartition                --arcs [--weights] [--arc-costs] --weight-bound --cost-bound [--num-vertices]
+  AcyclicPartition                --arcs [--weights] [--arc-weights] --weight-bound --cost-bound [--num-vertices]
   CVP                             --basis, --target-vec [--bounds]
   MultiprocessorScheduling        --lengths, --num-processors, --deadline
   SchedulingToMinimizeWeightedCompletionTime  --lengths, --weights, --num-processors
@@ -306,10 +306,10 @@ Flags by problem type:
   OptimalLinearArrangement        --graph
   RootedTreeArrangement           --graph, --bound
   MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k
-  MixedChinesePostman (MCPP)      --graph, --arcs, --edge-weights, --arc-costs [--num-vertices]
+  MixedChinesePostman (MCPP)      --graph, --arcs, --edge-weights, --arc-weights [--num-vertices]
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges
-  StackerCrane                    --arcs, --graph, --arc-costs, --edge-lengths [--num-vertices]
-  MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
+  StackerCrane                    --arcs, --graph, --arc-lengths, --edge-lengths [--num-vertices]
+  MultipleChoiceBranching         --arcs [--weights] --partition --threshold [--num-vertices]
   AdditionalKey                   --num-attributes, --dependencies, --relation-attrs [--known-keys]
   ConsistencyOfDatabaseFrequencyTables --num-objects, --attribute-domains, --frequency-tables [--known-values]
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
@@ -325,18 +325,18 @@ Flags by problem type:
   PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   QAP                             --matrix (cost), --distance-matrix
   StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
-  JobShopScheduling               --job-tasks [--num-processors]
+  JobShopScheduling               --jobs [--num-processors]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   StaffScheduling                 --schedules, --requirements, --num-workers, --k
   TimetableDesign                 --num-periods, --num-craftsmen, --num-tasks, --craftsman-avail, --task-avail, --requirements
-  MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
+  MinimumTardinessSequencing      --num-tasks, --deadlines [--precedences]
   RectilinearPictureCompression   --matrix (0/1), --k
-  SchedulingWithIndividualDeadlines --n, --num-processors/--m, --deadlines [--precedence-pairs]
-  SequencingToMinimizeMaximumCumulativeCost --costs [--precedence-pairs]
-  SequencingToMinimizeTardyTaskWeight --sizes, --weights, --deadlines
-  SequencingToMinimizeWeightedCompletionTime --lengths, --weights [--precedence-pairs]
-  SequencingToMinimizeWeightedTardiness --sizes, --weights, --deadlines, --bound
-  SequencingWithDeadlinesAndSetUpTimes --sizes, --deadlines, --compilers, --setup-times
+  SchedulingWithIndividualDeadlines --num-tasks, --num-processors/--m, --deadlines [--precedences]
+  SequencingToMinimizeMaximumCumulativeCost --costs [--precedences]
+  SequencingToMinimizeTardyTaskWeight --lengths, --weights, --deadlines
+  SequencingToMinimizeWeightedCompletionTime --lengths, --weights [--precedences]
+  SequencingToMinimizeWeightedTardiness --lengths, --weights, --deadlines, --bound
+  SequencingWithDeadlinesAndSetUpTimes --lengths, --deadlines, --compilers, --setup-times
   MinimumExternalMacroDataCompression --string, --pointer-cost [--alphabet-size]
   MinimumInternalMacroDataCompression --string, --pointer-cost [--alphabet-size]
   SCS                             --strings [--alphabet-size]
@@ -388,16 +388,16 @@ Examples:
   pred create SchedulingToMinimizeWeightedCompletionTime --lengths 1,2,3,4,5 --weights 6,4,3,2,1 --num-processors 2
   pred create UndirectedFlowLowerBounds --graph 0-1,0-2,1-3,2-3,1-4,3-5,4-5 --capacities 2,2,2,2,1,3,2 --lower-bounds 1,1,0,0,1,0,1 --source 0 --sink 5 --requirement 3
   pred create ConsistencyOfDatabaseFrequencyTables --num-objects 6 --attribute-domains \"2,3,2\" --frequency-tables \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\" --known-values \"0,0,0;3,0,1;1,2,1\"
-  pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-edges 0-2:3,0-3:4,1-3:2 --budget 5
+  pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-weights 0-2:3,0-3:4,1-3:2 --budget 5
   pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1
   pred create MinimumDummyActivitiesPert --arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6
   pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
   pred create IntegralFlowHomologousArcs --arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\"
-  pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
-  pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3
+  pred create X3C --universe-size 9 --subsets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
+  pred create SetBasis --universe-size 4 --subsets \"0,1;1,2;0,2;0,1,2\" --k 3
   pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\"
-  pred create PrimeAttributeName --universe 6 --deps \"0,1>2,3,4,5;2,3>0,1,4,5\" --query 3
-  pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\"")]
+  pred create PrimeAttributeName --universe 6 --dependencies \"0,1>2,3,4,5;2,3>0,1,4,5\" --query-attribute 3
+  pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --subsets \"0,1,2;3,4,5;1,3;2,4;0,5\"")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT). Omit when using --example.
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -556,8 +556,8 @@ pub struct CreateArgs {
     /// Car paint sequence for PaintShop (comma-separated, each label appears exactly twice, e.g., "a,b,a,c,c,b")
     #[arg(long)]
     pub sequence: Option<String>,
-    /// Sets for set-system problems such as SetPacking, MinimumHittingSet, and SetCovering (semicolon-separated, e.g., "0,1;1,2;0,2")
-    #[arg(long)]
+    /// Subsets for set-system problems such as SetPacking, MinimumHittingSet, and SetCovering (semicolon-separated, e.g., "0,1;1,2;0,2")
+    #[arg(long = "subsets", alias = "sets")]
     pub sets: Option<String>,
     /// R-family sets for ComparativeContainment (semicolon-separated, e.g., "0,1;1,2")
     #[arg(long)]
@@ -581,7 +581,7 @@ pub struct CreateArgs {
     #[arg(long)]
     pub bundles: Option<String>,
     /// Universe size for set-system problems such as MinimumHittingSet, MinimumSetCovering, and ComparativeContainment
-    #[arg(long)]
+    #[arg(long = "universe-size", alias = "universe")]
     pub universe: Option<usize>,
     /// Bipartite graph edges for BicliqueCover / BalancedCompleteBipartiteSubgraph (e.g., "0-0,0-1,1-2" for left-right pairs)
     #[arg(long)]
@@ -623,7 +623,14 @@ pub struct CreateArgs {
     #[arg(long)]
     pub required_edges: Option<String>,
     /// Bound parameter (upper or length bound for BoundedComponentSpanningForest, GroupingBySwapping, LengthBoundedDisjointPaths, MultipleChoiceBranching, RootedTreeArrangement, or StringToStringCorrection)
-    #[arg(long, allow_hyphen_values = true)]
+    #[arg(
+        long,
+        alias = "max-length",
+        alias = "max-weight",
+        alias = "bound-k",
+        alias = "threshold",
+        allow_hyphen_values = true
+    )]
     pub bound: Option<i64>,
     /// Upper bound on expected retrieval latency for ExpectedRetrievalCost
     #[arg(long)]
@@ -655,8 +662,8 @@ pub struct CreateArgs {
     /// Task costs for SequencingToMinimizeMaximumCumulativeCost (comma-separated, e.g., "2,-1,3,-2,1,-3")
     #[arg(long, allow_hyphen_values = true)]
     pub costs: Option<String>,
-    /// Arc costs for directed graph problems with per-arc costs (comma-separated, e.g., "1,1,2,3")
-    #[arg(long)]
+    /// Arc weights/lengths for directed graph problems with per-arc costs (comma-separated, e.g., "1,1,2,3")
+    #[arg(long = "arc-weights", alias = "arc-costs", alias = "arc-lengths")]
     pub arc_costs: Option<String>,
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
@@ -689,7 +696,7 @@ pub struct CreateArgs {
     #[arg(long)]
     pub distance_matrix: Option<String>,
     /// Weighted potential augmentation edges (e.g., 0-2:3,1-3:5)
-    #[arg(long)]
+    #[arg(long = "potential-weights", alias = "potential-edges")]
     pub potential_edges: Option<String>,
     /// Total budget for selected potential edges
     #[arg(long)]
@@ -722,7 +729,7 @@ pub struct CreateArgs {
     #[arg(long)]
     pub task_lengths: Option<String>,
     /// Job tasks for JobShopScheduling (semicolon-separated jobs, comma-separated processor:length tasks, e.g., "0:3,1:4;1:2,0:3,1:2")
-    #[arg(long)]
+    #[arg(long = "jobs", alias = "job-tasks")]
     pub job_tasks: Option<String>,
     /// Deadline for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
     #[arg(long)]
@@ -795,7 +802,7 @@ pub struct CreateArgs {
     #[arg(long)]
     pub deps: Option<String>,
     /// Query attribute index for PrimeAttributeName
-    #[arg(long)]
+    #[arg(long = "query-attribute", alias = "query")]
     pub query: Option<usize>,
     /// Right-hand side vector for FeasibleBasisExtension (comma-separated, e.g., "7,5,3")
     #[arg(long)]
@@ -1064,7 +1071,7 @@ mod tests {
             "create help should describe --num-processors for both scheduling models"
         );
         assert!(help.contains(
-            "SchedulingWithIndividualDeadlines --n, --num-processors/--m, --deadlines [--precedence-pairs]"
+            "SchedulingWithIndividualDeadlines --num-tasks, --num-processors/--m, --deadlines [--precedences]"
         ));
     }
 
@@ -1076,7 +1083,7 @@ mod tests {
             "BiconnectivityAugmentation",
             "--graph",
             "0-1,1-2",
-            "--potential-edges",
+            "--potential-weights",
             "0-2:3,1-3:5",
             "--budget",
             "7",
@@ -1093,6 +1100,27 @@ mod tests {
     }
 
     #[test]
+    fn test_create_parses_biconnectivity_augmentation_legacy_flag_alias() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "BiconnectivityAugmentation",
+            "--graph",
+            "0-1,1-2",
+            "--potential-edges",
+            "0-2:3,1-3:5",
+            "--budget",
+            "7",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        assert_eq!(args.potential_edges.as_deref(), Some("0-2:3,1-3:5"));
+    }
+
+    #[test]
     fn test_create_help_mentions_biconnectivity_augmentation_flags() {
         let cmd = Cli::command();
         let create = cmd.find_subcommand("create").expect("create subcommand");
@@ -1102,8 +1130,56 @@ mod tests {
             .to_string();
 
         assert!(help.contains("BiconnectivityAugmentation"));
-        assert!(help.contains("--potential-edges"));
+        assert!(help.contains("--potential-weights"));
         assert!(help.contains("--budget"));
+    }
+
+    #[test]
+    fn test_create_parses_job_shop_scheduling_jobs_flag() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "JobShopScheduling",
+            "--jobs",
+            "0:3,1:4;1:2,0:3,1:2",
+            "--num-processors",
+            "2",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        assert_eq!(args.problem.as_deref(), Some("JobShopScheduling"));
+        assert_eq!(args.job_tasks.as_deref(), Some("0:3,1:4;1:2,0:3,1:2"));
+        assert_eq!(args.num_processors, Some(2));
+    }
+
+    #[test]
+    fn test_create_parses_prime_attribute_name_canonical_flags() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "PrimeAttributeName",
+            "--universe",
+            "6",
+            "--dependencies",
+            "0,1>2,3,4,5;2,3>0,1,4,5",
+            "--query-attribute",
+            "3",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        assert_eq!(args.problem.as_deref(), Some("PrimeAttributeName"));
+        assert_eq!(args.universe, Some(6));
+        assert_eq!(
+            args.dependencies.as_deref(),
+            Some("0,1>2,3,4,5;2,3>0,1,4,5")
+        );
+        assert_eq!(args.query, Some(3));
     }
 
     #[test]
@@ -1156,7 +1232,7 @@ mod tests {
         assert!(help.contains("StackerCrane"));
         assert!(help.contains("--arcs"));
         assert!(help.contains("--graph"));
-        assert!(help.contains("--arc-costs"));
+        assert!(help.contains("--arc-lengths"));
         assert!(help.contains("--edge-lengths"));
         assert!(help.contains("--bound"));
         assert!(help.contains("--num-vertices"));
