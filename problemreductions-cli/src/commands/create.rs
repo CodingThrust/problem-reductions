@@ -681,7 +681,10 @@ fn create_schema_driven(
         return Ok(None);
     }
 
-    let Some(schema) = collect_schemas().into_iter().find(|schema| schema.name == canonical) else {
+    let Some(schema) = collect_schemas()
+        .into_iter()
+        .find(|schema| schema.name == canonical)
+    else {
         return Ok(None);
     };
     let Some(variant_entry) =
@@ -814,7 +817,10 @@ fn derive_schema_field_value(
         if let (Some(graph_value), Some(source), Some(sink)) = (graph_value, source, sink) {
             let graph: SimpleGraph =
                 serde_json::from_value(graph_value).context("Failed to deserialize graph")?;
-            let max_paths = graph.neighbors(source).len().min(graph.neighbors(sink).len());
+            let max_paths = graph
+                .neighbors(source)
+                .len()
+                .min(graph.neighbors(sink).len());
             return Ok(Some(serde_json::json!(max_paths)));
         }
     }
@@ -882,9 +888,7 @@ fn parse_field_value(
         "i32" => parse_scalar_value::<i32>(raw)?,
         "i64" => parse_scalar_value::<i64>(raw)?,
         "f64" => parse_scalar_value::<f64>(raw)?,
-        other => bail!(
-            "Unsupported schema parser for field '{field_name}' with type '{other}'"
-        ),
+        other => bail!("Unsupported schema parser for field '{field_name}' with type '{other}'"),
     };
 
     Ok(value)
@@ -1032,9 +1036,9 @@ where
         .filter(|entry| !entry.trim().is_empty())
         .map(|entry| {
             let entry = entry.trim();
-            let (edge_part, weight_part) = entry
-                .split_once(':')
-                .ok_or_else(|| anyhow::anyhow!("Invalid weighted edge '{entry}': expected u-v:w"))?;
+            let (edge_part, weight_part) = entry.split_once(':').ok_or_else(|| {
+                anyhow::anyhow!("Invalid weighted edge '{entry}': expected u-v:w")
+            })?;
             let (u_str, v_str) = if let Some((u, v)) = edge_part.split_once('-') {
                 (u, v)
             } else if let Some((u, v)) = edge_part.split_once('>') {
@@ -1059,23 +1063,22 @@ where
     T: std::str::FromStr + Serialize,
     T::Err: std::fmt::Display,
 {
-    let pairs: Vec<(usize, T)> = raw
-        .split(',')
-        .filter(|entry| !entry.trim().is_empty())
-        .map(|entry| {
-            let entry = entry.trim();
-            let (index, value) = entry
-                .split_once(':')
-                .ok_or_else(|| anyhow::anyhow!("Invalid pair '{entry}': expected index:value"))?;
-            Ok((
-                index.trim().parse::<usize>()?,
-                value
-                    .trim()
-                    .parse::<T>()
-                    .map_err(|err| anyhow::anyhow!("Invalid value '{}': {err}", value.trim()))?,
-            ))
-        })
-        .collect::<Result<_>>()?;
+    let pairs: Vec<(usize, T)> =
+        raw.split(',')
+            .filter(|entry| !entry.trim().is_empty())
+            .map(|entry| {
+                let entry = entry.trim();
+                let (index, value) = entry.split_once(':').ok_or_else(|| {
+                    anyhow::anyhow!("Invalid pair '{entry}': expected index:value")
+                })?;
+                Ok((
+                    index.trim().parse::<usize>()?,
+                    value.trim().parse::<T>().map_err(|err| {
+                        anyhow::anyhow!("Invalid value '{}': {err}", value.trim())
+                    })?,
+                ))
+            })
+            .collect::<Result<_>>()?;
     Ok(serde_json::to_value(pairs)?)
 }
 
@@ -1582,6 +1585,13 @@ fn uses_edge_weights_flag(canonical: &str) -> bool {
     )
 }
 
+fn uses_edge_weights_flag_for_edge_lengths(canonical: &str) -> bool {
+    matches!(
+        canonical,
+        "LongestCircuit" | "MinMaxMulticenter" | "MinimumSumMulticenter"
+    )
+}
+
 fn help_flag_name(canonical: &str, field_name: &str) -> String {
     // Problem-specific overrides first
     match (canonical, field_name) {
@@ -1595,6 +1605,8 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         }
         ("JobShopScheduling", "jobs") => return "jobs".to_string(),
         ("LengthBoundedDisjointPaths", "max_length") => return "max-length".to_string(),
+        ("ConsecutiveBlockMinimization", "bound") => return "bound-k".to_string(),
+        ("GroupingBySwapping", "budget") => return "bound".to_string(),
         ("RectilinearPictureCompression", "bound") => return "bound".to_string(),
         ("PrimeAttributeName", "num_attributes") => return "universe".to_string(),
         ("PrimeAttributeName", "dependencies") => return "dependencies".to_string(),
@@ -1620,6 +1632,9 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     if field_name == "weights" && uses_edge_weights_flag(canonical) {
         return "edge-weights".to_string();
     }
+    if field_name == "edge_lengths" && uses_edge_weights_flag_for_edge_lengths(canonical) {
+        return "edge-weights".to_string();
+    }
     // General field-name overrides (previously in cli_flag_name)
     match field_name {
         "universe_size" => "universe-size".to_string(),
@@ -1629,7 +1644,6 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
         "edges" => "biedges".to_string(),
         "vertex_weights" => "weights".to_string(),
         "potential_weights" => "potential-weights".to_string(),
-        "edge_lengths" => "edge-weights".to_string(),
         "num_tasks" => "num-tasks".to_string(),
         "precedences" => "precedences".to_string(),
         "threshold" => "threshold".to_string(),
@@ -1703,6 +1717,9 @@ fn help_flag_hint(
         ("IntegralFlowBundles", "bundle_capacities") => "comma-separated capacities: 1,1,1",
         ("PathConstrainedNetworkFlow", "paths") => {
             "semicolon-separated arc-index paths: \"0,2,5,8;1,4,7,9\""
+        }
+        ("ConsecutiveBlockMinimization", "matrix") => {
+            "JSON 2D bool array: '[[true,false,true],[false,true,true]]'"
         }
         ("ConsecutiveOnesMatrixAugmentation", "matrix") => {
             "semicolon-separated 0/1 rows: \"1,0;0,1\""
@@ -1795,7 +1812,11 @@ fn validate_sequencing_within_intervals_inputs(
     Ok(())
 }
 
-fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
+fn print_problem_help(canonical: &str, resolved_variant: &BTreeMap<String, String>) -> Result<()> {
+    let graph_type = resolved_variant
+        .get("graph")
+        .map(String::as_str)
+        .filter(|graph_type| *graph_type != "SimpleGraph");
     let is_geometry = matches!(
         graph_type,
         Some("KingsSubgraph" | "TriangularSubgraph" | "UnitDiskGraph")
@@ -1857,8 +1878,11 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
         bail!("{}", crate::problem_name::unknown_problem_error(canonical));
     }
 
-    let example = example_for(canonical, graph_type);
-    if !example.is_empty() {
+    let example = schema_help_example_for(canonical, resolved_variant).or_else(|| {
+        let fallback = example_for(canonical, graph_type);
+        (!fallback.is_empty()).then(|| fallback.to_string())
+    });
+    if let Some(example) = example {
         eprintln!("\nExample:");
         eprintln!(
             "  pred create {} {}",
@@ -1870,6 +1894,276 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
         );
     }
     Ok(())
+}
+
+fn schema_help_example_for(
+    canonical: &str,
+    resolved_variant: &BTreeMap<String, String>,
+) -> Option<String> {
+    let schema = collect_schemas()
+        .into_iter()
+        .find(|schema| schema.name == canonical)?;
+    let example = problemreductions::example_db::find_model_example(&ProblemRef {
+        name: canonical.to_string(),
+        variant: resolved_variant.clone(),
+    })
+    .ok()?;
+    let instance = example.instance.as_object()?;
+    let graph_type = resolved_variant
+        .get("graph")
+        .map(String::as_str)
+        .filter(|graph_type| *graph_type != "SimpleGraph");
+    let is_geometry = matches!(
+        graph_type,
+        Some("KingsSubgraph" | "TriangularSubgraph" | "UnitDiskGraph")
+    );
+
+    let mut args = Vec::new();
+    for field in &schema.fields {
+        let value = instance.get(&field.name)?;
+        let concrete_type = resolve_schema_field_type(&field.type_name, resolved_variant);
+        let flag_name =
+            schema_example_flag_name(canonical, &field.name, &field.type_name, is_geometry);
+        let rendered =
+            format_schema_help_example_value(canonical, &field.name, &concrete_type, value)?;
+        args.push(format!("--{flag_name} {}", quote_cli_arg(&rendered)));
+    }
+    Some(args.join(" "))
+}
+
+fn schema_example_flag_name(
+    canonical: &str,
+    field_name: &str,
+    field_type: &str,
+    is_geometry: bool,
+) -> String {
+    problem_help_flag_name(canonical, field_name, field_type, is_geometry)
+        .split('/')
+        .next()
+        .unwrap_or(field_name)
+        .trim_start_matches("--")
+        .to_string()
+}
+
+fn quote_cli_arg(raw: &str) -> String {
+    if raw.is_empty()
+        || raw.chars().any(|ch| {
+            ch.is_whitespace()
+                || matches!(
+                    ch,
+                    ';' | '>' | '|' | '[' | ']' | '{' | '}' | '(' | ')' | '"' | '\''
+                )
+        })
+    {
+        format!("\"{}\"", raw.replace('\\', "\\\\").replace('"', "\\\""))
+    } else {
+        raw.to_string()
+    }
+}
+
+fn format_schema_help_example_value(
+    canonical: &str,
+    field_name: &str,
+    concrete_type: &str,
+    value: &serde_json::Value,
+) -> Option<String> {
+    match (canonical, field_name) {
+        ("ConsecutiveBlockMinimization", "matrix")
+        | ("FeasibleBasisExtension", "matrix")
+        | ("MinimumWeightDecoding", "matrix")
+        | ("MinimumWeightSolutionToLinearEquations", "matrix") => {
+            return serde_json::to_string(value).ok();
+        }
+        _ => {}
+    }
+    match normalize_type_name(concrete_type).as_str() {
+        "SimpleGraph" => format_simple_graph_example(value),
+        "DirectedGraph" => format_directed_graph_example(value),
+        "Vec<CNFClause>" => format_cnf_clause_list_example(value),
+        "Vec<Quantifier>" => format_quantifier_list_example(value),
+        "Vec<Vec<(usize,u64)>>" => format_job_shop_example(value),
+        "Vec<(Vec<usize>,Vec<usize>)>" => format_dependency_example(value),
+        "Vec<usize>" | "Vec<u64>" | "Vec<i32>" | "Vec<i64>" | "Vec<f64>" | "Vec<BigUint>" => {
+            format_scalar_array_example(value)
+        }
+        "Vec<bool>" => format_bool_array_example(value),
+        "Vec<Vec<usize>>" | "Vec<Vec<u64>>" | "Vec<Vec<i32>>" | "Vec<Vec<i64>>"
+        | "Vec<Vec<f64>>" => format_nested_numeric_rows(value),
+        "Vec<Vec<bool>>" => format_bool_matrix_example(value),
+        "Vec<String>" => Some(
+            value
+                .as_array()?
+                .iter()
+                .map(|entry| entry.as_str().map(str::to_string))
+                .collect::<Option<Vec<_>>>()?
+                .join(";"),
+        ),
+        "usize" | "u64" | "i32" | "i64" | "f64" | "BigUint" => format_scalar_example(value),
+        _ => None,
+    }
+}
+
+fn format_scalar_example(value: &serde_json::Value) -> Option<String> {
+    match value {
+        serde_json::Value::Number(number) => Some(number.to_string()),
+        serde_json::Value::String(string) => Some(string.clone()),
+        serde_json::Value::Bool(boolean) => Some(boolean.to_string()),
+        _ => None,
+    }
+}
+
+fn format_scalar_array_example(value: &serde_json::Value) -> Option<String> {
+    Some(
+        value
+            .as_array()?
+            .iter()
+            .map(format_scalar_example)
+            .collect::<Option<Vec<_>>>()?
+            .join(","),
+    )
+}
+
+fn format_bool_array_example(value: &serde_json::Value) -> Option<String> {
+    Some(
+        value
+            .as_array()?
+            .iter()
+            .map(|entry| {
+                entry
+                    .as_bool()
+                    .map(|boolean| if boolean { "1" } else { "0" }.to_string())
+            })
+            .collect::<Option<Vec<_>>>()?
+            .join(","),
+    )
+}
+
+fn format_nested_numeric_rows(value: &serde_json::Value) -> Option<String> {
+    Some(
+        value
+            .as_array()?
+            .iter()
+            .map(|row| format_scalar_array_example(row))
+            .collect::<Option<Vec<_>>>()?
+            .join(";"),
+    )
+}
+
+fn format_cnf_clause_list_example(value: &serde_json::Value) -> Option<String> {
+    Some(
+        value
+            .as_array()?
+            .iter()
+            .map(|clause| format_scalar_array_example(clause.get("literals")?))
+            .collect::<Option<Vec<_>>>()?
+            .join(";"),
+    )
+}
+
+fn format_bool_matrix_example(value: &serde_json::Value) -> Option<String> {
+    Some(
+        value
+            .as_array()?
+            .iter()
+            .map(format_bool_array_example)
+            .collect::<Option<Vec<_>>>()?
+            .join(";"),
+    )
+}
+
+fn format_simple_graph_example(value: &serde_json::Value) -> Option<String> {
+    Some(
+        value
+            .get("edges")?
+            .as_array()?
+            .iter()
+            .map(|edge| {
+                let pair = edge.as_array()?;
+                Some(format!(
+                    "{}-{}",
+                    pair.first()?.as_u64()?,
+                    pair.get(1)?.as_u64()?
+                ))
+            })
+            .collect::<Option<Vec<_>>>()?
+            .join(","),
+    )
+}
+
+fn format_directed_graph_example(value: &serde_json::Value) -> Option<String> {
+    Some(
+        value
+            .get("arcs")?
+            .as_array()?
+            .iter()
+            .map(|arc| {
+                let pair = arc.as_array()?;
+                Some(format!(
+                    "{}>{}",
+                    pair.first()?.as_u64()?,
+                    pair.get(1)?.as_u64()?
+                ))
+            })
+            .collect::<Option<Vec<_>>>()?
+            .join(","),
+    )
+}
+
+fn format_quantifier_list_example(value: &serde_json::Value) -> Option<String> {
+    Some(
+        value
+            .as_array()?
+            .iter()
+            .map(|entry| match entry.as_str()? {
+                "Exists" => Some("E".to_string()),
+                "ForAll" => Some("A".to_string()),
+                _ => None,
+            })
+            .collect::<Option<Vec<_>>>()?
+            .join(","),
+    )
+}
+
+fn format_job_shop_example(value: &serde_json::Value) -> Option<String> {
+    Some(
+        value
+            .as_array()?
+            .iter()
+            .map(|job| {
+                Some(
+                    job.as_array()?
+                        .iter()
+                        .map(|task| {
+                            let task = task.as_array()?;
+                            Some(format!(
+                                "{}:{}",
+                                task.first()?.as_u64()?,
+                                task.get(1)?.as_u64()?
+                            ))
+                        })
+                        .collect::<Option<Vec<_>>>()?
+                        .join(","),
+                )
+            })
+            .collect::<Option<Vec<_>>>()?
+            .join(";"),
+    )
+}
+
+fn format_dependency_example(value: &serde_json::Value) -> Option<String> {
+    Some(
+        value
+            .as_array()?
+            .iter()
+            .map(|dependency| {
+                let dependency = dependency.as_array()?;
+                let lhs = format_scalar_array_example(dependency.first()?)?;
+                let rhs = format_scalar_array_example(dependency.get(1)?)?;
+                Some(format!("{lhs}>{rhs}"))
+            })
+            .collect::<Option<Vec<_>>>()?
+            .join(";"),
+    )
 }
 
 fn problem_help_flag_name(
@@ -1937,7 +2231,10 @@ fn validate_length_bounded_disjoint_paths_args(
         ));
     }
     if max_length == 0 {
-        return Err(lbdp_validation_error("--max-length must be positive", usage));
+        return Err(lbdp_validation_error(
+            "--max-length must be positive",
+            usage,
+        ));
     }
     Ok(max_length)
 }
@@ -2002,12 +2299,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
     // Show schema-driven help when no data flags are provided
     if all_data_flags_empty(args) {
-        let gt = if graph_type != "SimpleGraph" {
-            Some(graph_type)
-        } else {
-            None
-        };
-        print_problem_help(canonical, gt)?;
+        print_problem_help(canonical, &resolved_variant)?;
         std::process::exit(2);
     }
 
@@ -4505,7 +4797,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let matrix = parse_bool_matrix(args)?;
             let usage = "Usage: pred create SparseMatrixCompression --matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound-k 2";
             let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!("SparseMatrixCompression requires --matrix and --bound-k\n\n{usage}")
+                anyhow::anyhow!(
+                    "SparseMatrixCompression requires --matrix and --bound-k\n\n{usage}"
+                )
             })?;
             let bound = parse_nonnegative_usize_bound(bound, "SparseMatrixCompression", usage)?;
             if bound == 0 {
@@ -5084,11 +5378,15 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // PreemptiveScheduling
         "PreemptiveScheduling" => {
             let usage = "Usage: pred create PreemptiveScheduling --lengths 2,1,3,2,1 --num-processors 2 [--precedences \"0>2,1>3\"]";
-            let lengths_str = args.lengths.as_deref().or(args.sizes.as_deref()).ok_or_else(|| {
-                anyhow::anyhow!(
-                    "PreemptiveScheduling requires --lengths and --num-processors\n\n{usage}"
-                )
-            })?;
+            let lengths_str = args
+                .lengths
+                .as_deref()
+                .or(args.sizes.as_deref())
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "PreemptiveScheduling requires --lengths and --num-processors\n\n{usage}"
+                    )
+                })?;
             let num_processors = args.num_processors.ok_or_else(|| {
                 anyhow::anyhow!("PreemptiveScheduling requires --num-processors\n\n{usage}")
             })?;
@@ -5102,8 +5400,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 "PreemptiveScheduling: all task lengths must be positive\n\n{usage}"
             );
             let num_tasks = lengths.len();
-            let precedences: Vec<(usize, usize)> =
-                match args.precedences.as_deref().or(args.precedence_pairs.as_deref()) {
+            let precedences: Vec<(usize, usize)> = match args
+                .precedences
+                .as_deref()
+                .or(args.precedence_pairs.as_deref())
+            {
                 Some(s) if !s.is_empty() => s
                     .split(',')
                     .map(|pair| {
@@ -5275,8 +5576,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
-            let precedences =
-                parse_precedence_pairs(args.precedences.as_deref().or(args.precedence_pairs.as_deref()))?;
+            let precedences = parse_precedence_pairs(
+                args.precedences
+                    .as_deref()
+                    .or(args.precedence_pairs.as_deref()),
+            )?;
 
             if let Some(lengths_str) = args.lengths.as_deref().or(args.sizes.as_deref()) {
                 // Arbitrary-length variant (W = i32)
@@ -5347,8 +5651,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
-            let precedences: Vec<(usize, usize)> =
-                match args.precedences.as_deref().or(args.precedence_pairs.as_deref()) {
+            let precedences: Vec<(usize, usize)> = match args
+                .precedences
+                .as_deref()
+                .or(args.precedence_pairs.as_deref())
+            {
                 Some(s) if !s.is_empty() => s
                     .split(',')
                     .map(|pair| {
@@ -5534,8 +5841,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 "task lengths must be positive"
             );
             let num_tasks = lengths.len();
-            let precedences: Vec<(usize, usize)> =
-                match args.precedences.as_deref().or(args.precedence_pairs.as_deref()) {
+            let precedences: Vec<(usize, usize)> = match args
+                .precedences
+                .as_deref()
+                .or(args.precedence_pairs.as_deref())
+            {
                 Some(s) if !s.is_empty() => s
                     .split(',')
                     .map(|pair| {
@@ -5637,8 +5947,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let costs: Vec<i64> = util::parse_comma_list(costs_str)?;
-            let precedences =
-                parse_precedence_pairs(args.precedences.as_deref().or(args.precedence_pairs.as_deref()))?;
+            let precedences = parse_precedence_pairs(
+                args.precedences
+                    .as_deref()
+                    .or(args.precedence_pairs.as_deref()),
+            )?;
             validate_precedence_pairs(&precedences, costs.len())?;
             (
                 ser(SequencingToMinimizeMaximumCumulativeCost::new(
@@ -5760,9 +6073,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // JobShopScheduling
         "JobShopScheduling" => {
             let usage = "Usage: pred create JobShopScheduling --jobs \"0:3,1:4;1:2,0:3,1:2;0:4,1:3\" --num-processors 2";
-            let job_tasks = args.job_tasks.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("JobShopScheduling requires --jobs\n\n{usage}")
-            })?;
+            let job_tasks = args
+                .job_tasks
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("JobShopScheduling requires --jobs\n\n{usage}"))?;
             let jobs = parse_job_shop_jobs(job_tasks)?;
             let inferred_processors = jobs
                 .iter()
@@ -8278,9 +8592,9 @@ fn parse_bundles(args: &CreateArgs, num_arcs: usize, usage: &str) -> Result<Vec<
 }
 
 fn parse_multiple_choice_branching_threshold(args: &CreateArgs, usage: &str) -> Result<i32> {
-    let raw_bound = args
-        .bound
-        .ok_or_else(|| anyhow::anyhow!("MultipleChoiceBranching requires --threshold\n\n{usage}"))?;
+    let raw_bound = args.bound.ok_or_else(|| {
+        anyhow::anyhow!("MultipleChoiceBranching requires --threshold\n\n{usage}")
+    })?;
     anyhow::ensure!(
         raw_bound >= 0,
         "MultipleChoiceBranching threshold must be non-negative, got {raw_bound}"
@@ -9488,13 +9802,8 @@ mod tests {
 
     #[test]
     fn test_parse_field_value_parses_simple_graph_to_json() {
-        let value = parse_field_value(
-            "SimpleGraph",
-            "graph",
-            "0-1,1-2",
-            &CreateContext::default(),
-        )
-        .expect("parse graph");
+        let value = parse_field_value("SimpleGraph", "graph", "0-1,1-2", &CreateContext::default())
+            .expect("parse graph");
 
         assert_eq!(
             value,
@@ -9515,13 +9824,7 @@ mod tests {
         )
         .expect("parse dependencies");
 
-        assert_eq!(
-            value,
-            serde_json::json!([
-                [[0, 1], [2, 3]],
-                [[2], [4]],
-            ])
-        );
+        assert_eq!(value, serde_json::json!([[[0, 1], [2, 3]], [[2], [4]],]));
     }
 
     #[test]
@@ -9536,10 +9839,7 @@ mod tests {
 
         assert_eq!(
             value,
-            serde_json::json!([
-                [[0, 3], [1, 4]],
-                [[1, 2], [0, 3], [1, 2]],
-            ])
+            serde_json::json!([[[0, 3], [1, 4]], [[1, 2], [0, 3], [1, 2]],])
         );
     }
 
@@ -9549,10 +9849,7 @@ mod tests {
         let value = parse_field_value("Vec<Quantifier>", "quantifiers", "E,A,E", &context)
             .expect("parse quantifiers");
 
-        assert_eq!(
-            value,
-            serde_json::json!(["Exists", "ForAll", "Exists"])
-        );
+        assert_eq!(value, serde_json::json!(["Exists", "ForAll", "Exists"]));
     }
 
     #[test]
@@ -9605,13 +9902,14 @@ mod tests {
                 .expect("schema-driven create should parse")
                 .expect("schema-driven path should support QBF");
 
-        let entry = problemreductions::registry::find_variant_entry(
-            "QuantifiedBooleanFormulas",
-            &variant,
-        )
-        .expect("variant entry");
+        let entry =
+            problemreductions::registry::find_variant_entry("QuantifiedBooleanFormulas", &variant)
+                .expect("variant entry");
         (entry.factory)(data.clone()).expect("factory should deserialize generated JSON");
-        assert_eq!(data["quantifiers"], serde_json::json!(["Exists", "ForAll", "Exists"]));
+        assert_eq!(
+            data["quantifiers"],
+            serde_json::json!(["Exists", "ForAll", "Exists"])
+        );
     }
 
     #[test]
@@ -9643,11 +9941,9 @@ mod tests {
                 .expect("schema-driven create should parse")
                 .expect("schema-driven path should support UndirectedFlowLowerBounds");
 
-        let entry = problemreductions::registry::find_variant_entry(
-            "UndirectedFlowLowerBounds",
-            &variant,
-        )
-        .expect("variant entry");
+        let entry =
+            problemreductions::registry::find_variant_entry("UndirectedFlowLowerBounds", &variant)
+                .expect("variant entry");
         (entry.factory)(data.clone()).expect("factory should deserialize generated JSON");
         assert_eq!(data["graph"]["num_vertices"], 4);
         assert_eq!(data["capacities"], serde_json::json!([2, 2, 2, 2]));
@@ -9693,6 +9989,53 @@ mod tests {
         fs::remove_file(out.output.as_ref().unwrap()).ok();
 
         assert_eq!(created.problem_type, "ConjunctiveBooleanQuery");
+    }
+
+    #[test]
+    fn test_schema_help_example_for_qbf_uses_example_db() {
+        let example =
+            schema_help_example_for("QuantifiedBooleanFormulas", &BTreeMap::new()).unwrap();
+        assert_eq!(
+            example,
+            "--num-vars 2 --quantifiers E,A --clauses \"1,2;1,-2\""
+        );
+    }
+
+    #[test]
+    fn test_schema_help_example_for_cbm_uses_json_matrix_syntax() {
+        let example =
+            schema_help_example_for("ConsecutiveBlockMinimization", &BTreeMap::new()).unwrap();
+        assert!(example.contains("--matrix \"[[false,true,false,false,false,false],[true,false,true,false,false,false],[false,true,false,true,false,false],[false,false,true,false,true,false],[false,false,false,true,false,true],[false,false,false,false,true,false]]\""));
+        assert!(example.contains("--bound-k 6"));
+    }
+
+    #[test]
+    fn test_problem_help_flag_name_uses_bound_for_grouping_by_swapping_budget() {
+        assert_eq!(
+            problem_help_flag_name("GroupingBySwapping", "budget", "usize", false),
+            "bound"
+        );
+    }
+
+    #[test]
+    fn test_problem_help_flag_name_preserves_edge_lengths_for_shortest_weight_constrained_path() {
+        assert_eq!(
+            problem_help_flag_name(
+                "ShortestWeightConstrainedPath",
+                "edge_lengths",
+                "Vec<W>",
+                false
+            ),
+            "edge-lengths"
+        );
+    }
+
+    #[test]
+    fn test_problem_help_flag_name_uses_edge_weights_for_longest_circuit_edge_lengths() {
+        assert_eq!(
+            problem_help_flag_name("LongestCircuit", "edge_lengths", "Vec<W>", false),
+            "edge-weights"
+        );
     }
 
     #[test]

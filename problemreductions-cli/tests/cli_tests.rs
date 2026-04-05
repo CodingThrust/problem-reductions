@@ -4567,7 +4567,8 @@ fn test_create_length_bounded_disjoint_paths_rejects_negative_bound_value() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--max-length must be a nonnegative integer for LengthBoundedDisjointPaths"),
+        stderr
+            .contains("--max-length must be a nonnegative integer for LengthBoundedDisjointPaths"),
         "expected user-facing negative-bound error, got: {stderr}"
     );
 }
@@ -4590,7 +4591,8 @@ fn test_create_random_length_bounded_disjoint_paths_rejects_negative_bound_value
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--max-length must be a nonnegative integer for LengthBoundedDisjointPaths"),
+        stderr
+            .contains("--max-length must be a nonnegative integer for LengthBoundedDisjointPaths"),
         "expected shared negative-bound validation, got: {stderr}"
     );
 }

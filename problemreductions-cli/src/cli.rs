@@ -1070,7 +1070,10 @@ impl CreateArgs {
             "dependencies",
             self.dependencies.as_deref().or(self.deps.as_deref())
         );
-        insert!("deps", self.dependencies.as_deref().or(self.deps.as_deref()));
+        insert!(
+            "deps",
+            self.dependencies.as_deref().or(self.deps.as_deref())
+        );
         insert!("relation-attrs", self.relation_attrs.as_deref());
         insert!("known-keys", self.known_keys.as_deref());
         insert!("num-objects", self.num_objects);
