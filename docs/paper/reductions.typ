@@ -10126,6 +10126,54 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Set $x_i = 1$ if $"pos"_i$ selected; $x_i = 0$ if $"neg"_i$ selected.
 ]
 
+#let sat_ifha = load-example("Satisfiability", "IntegralFlowHomologousArcs")
+#let sat_ifha_sol = sat_ifha.solutions.at(0)
+#reduction-rule("Satisfiability", "IntegralFlowHomologousArcs",
+  example: true,
+  example-caption: [3-variable 4-clause SAT to equality-constrained integral flow],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(sat_ifha.source) + " -o sat.json",
+      "pred reduce sat.json --to " + target-spec(sat_ifha) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate sat.json --config " + sat_ifha_sol.source_config.map(str).join(","),
+    )
+    SAT assignment: $(x_1, x_2, x_3) = (#sat_ifha_sol.source_config.map(str).join(", "))$ \
+    Target network: $#sat_ifha.target.instance.graph.num_vertices$ vertices, $#sat_ifha.target.instance.graph.arcs.len()$ arcs, #sat_ifha.target.instance.homologous_pairs.len() homologous pairs, and $R = #sat_ifha.target.instance.requirement$ \
+    The stored flow witness gives bottleneck loads $1, 1, 1, 0$ across the four clause stages, so every stage respects its unit capacity #sym.checkmark
+
+    *Step 1 -- Choose variable channels.* The fixture assignment sends one unit on the $T$ channel of $x_1$, one unit on the $F$ channel of $x_2$, and one unit on the $T$ channel of $x_3$. Because $R = 3$, any feasible witness must route exactly one unit out of each split node.
+
+    *Step 2 -- Process the clauses.* Clause $C_1 = (x_1 or x_2)$ sends the false channels of $x_1$ and $x_2$ through the first bottleneck, so only the chosen $F_2$ path contributes. Clause $C_2 = (not x_1 or x_3)$ sends $T_1$ and $F_3$ through stage 2, giving load $1$. Clause $C_3 = (not x_2 or not x_3)$ sends $T_2$ and $T_3$ through stage 3, again giving load $1$. Clause $C_4 = (x_1 or x_3)$ sends $F_1$ and $F_3$ through stage 4, so the chosen assignment contributes load $0$.
+
+    *Step 3 -- Verify a witness.* The sink receives all three units, and each homologous pair forces the flow entering a collector from variable $x_i$ to leave the matching distributor arc for the same variable/channel. The unsatisfying assignment $(1, 1, 1)$ is rejected because stage 3 would send both $T_2$ and $T_3$ through a unit-capacity bottleneck.
+
+    *Multiplicity:* The fixture stores one canonical satisfying assignment / flow pair. Other satisfying assignments induce different T/F channel choices, but the clause-stage bottleneck test is always determined by which literals of each clause are false.
+  ],
+)[
+  This $O(n m + L)$ reduction @sahni1974 @garey1979 constructs a directed network with one unit-capacity variable path per Boolean variable and one capacity-$(|C_j| - 1)$ bottleneck per clause. A feasible integral flow of value $n$ exists if and only if the SAT formula is satisfiable. For $n$ variables, $m$ clauses, and total literal count $L = sum_j |C_j|$, the target has $2 n m + 3 n + 2 m + 2$ vertices, $2 n m + 5 n + m + L$ arcs, and $L$ homologous pairs.
+][
+  _Construction._ Let $phi = and.big_(j=1)^m C_j$ with variables $x_1, dots, x_n$ and clause widths $k_j = |C_j|$. Introduce source $s$, sink $t$, split vertices $"split"_i$ for $i in {1, dots, n}$, true/false pipeline vertices $T_(j,i)$ and $F_(j,i)$ for every boundary $j in {0, dots, m}$, and a collector/distributor pair $(gamma_j, delta_j)$ for each clause stage $j in {1, dots, m}$.
+
+  _Variable stage._ For each variable $x_i$, add $(s, "split"_i)$, $( "split"_i, T_(0,i))$, and $( "split"_i, F_(0,i))$, all with capacity $1$. Any feasible flow of value $n$ must therefore choose exactly one of the two channels for each variable.
+
+  _Clause stage._ For clause $C_j$, add a bottleneck arc $(gamma_j, delta_j)$ of capacity $k_j - 1$. For each variable $x_i$:
+  - if $x_i in C_j$, route the false channel through the bottleneck via $(F_(j-1,i), gamma_j)$ and $(delta_j, F_(j,i))$, while the true channel bypasses directly from $T_(j-1,i)$ to $T_(j,i)$;
+  - if $overline(x_i) in C_j$, route the true channel through the bottleneck via $(T_(j-1,i), gamma_j)$ and $(delta_j, T_(j,i))$, while the false channel bypasses directly from $F_(j-1,i)$ to $F_(j,i)$;
+  - otherwise both channels bypass directly from boundary $j - 1$ to boundary $j$.
+  Finally add $(T_(m,i), t)$ and $(F_(m,i), t)$ of capacity $1$ for every variable, and set the requirement to $R = n$.
+
+  For every literal occurrence in $C_j$, declare the corresponding collector-entry and distributor-exit arcs homologous: pair $(F_(j-1,i), gamma_j)$ with $(delta_j, F_(j,i))$ when $x_i in C_j$, and pair $(T_(j-1,i), gamma_j)$ with $(delta_j, T_(j,i))$ when $overline(x_i) in C_j$.
+
+  _Variable mapping._ Choosing the T-channel for $x_i$ represents $x_i = 1$; choosing the F-channel represents $x_i = 0$. A literal of $not C_j$ is true exactly when its designated channel is forced through the stage-$j$ bottleneck.
+
+  _Correctness._ ($arrow.r.double$) Let $sigma$ satisfy $phi$. Route one unit from $s$ through $"split"_i$ along the T-channel when $sigma(x_i) = 1$ and along the F-channel otherwise. In clause stage $j$, exactly those literals of $not C_j$ that are true under $sigma$ attempt to use $(gamma_j, delta_j)$. Since $sigma$ satisfies $C_j$, at least one literal of $C_j$ is true, so at least one literal of $not C_j$ is false. Hence at most $k_j - 1$ chosen channels use the bottleneck, respecting its capacity. The homologous equalities are satisfied because every chosen collector entry for variable $x_i$ is matched with the corresponding distributor exit on the same variable/channel.
+
+  ($arrow.l.double$) Let $f$ be a feasible integral flow of value at least $n$. The only outgoing arcs of $s$ are the $n$ unit-capacity arcs $(s, "split"_i)$, so each variable contributes exactly one unit. Conservation at $"split"_i$ forces that unit onto exactly one of $( "split"_i, T_(0,i))$ or $( "split"_i, F_(0,i))$, defining a truth assignment $sigma$. In clause stage $j$, the bottleneck allows at most $k_j - 1$ literal channels of $not C_j$ to carry flow. Because homologous pairs prevent flow from entering through one variable's channel and exiting through another's, this load counts genuine literals of $not C_j$ made true by $sigma$. Therefore at least one literal of $not C_j$ is false, so the corresponding literal of $C_j$ is true. Every clause is satisfied.
+
+  _Solution extraction._ Read the base channel choice for each variable: output $x_i = 1$ iff the flow on $( "split"_i, T_(0,i))$ is $1$, and $x_i = 0$ iff the flow on $( "split"_i, F_(0,i))$ is $1$.
+]
+
 #reduction-rule("KSatisfiability", "Satisfiability")[
   Every $k$-SAT instance is already a SAT instance --- clauses happen to have exactly $k$ literals, but SAT places no restriction on clause width. The embedding is the identity.
 ][
