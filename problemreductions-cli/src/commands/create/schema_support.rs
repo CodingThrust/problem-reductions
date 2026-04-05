@@ -1870,7 +1870,7 @@ pub(super) fn help_flag_name(canonical: &str, field_name: &str) -> String {
     // General field-name overrides (previously in cli_flag_name)
     match field_name {
         "universe_size" => "universe-size".to_string(),
-        "collection" | "subsets" => "subsets".to_string(),
+        "collection" | "subsets" | "sets" => "subsets".to_string(),
         "left_size" => "left".to_string(),
         "right_size" => "right".to_string(),
         "edges" => "biedges".to_string(),

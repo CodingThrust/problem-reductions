@@ -281,7 +281,7 @@ Flags by problem type:
   ThreeMatroidIntersection        --universe-size, --partitions, --bound
   SetBasis                        --universe-size, --subsets, --k
   MinimumCardinalityKey           --num-attributes, --dependencies
-  PrimeAttributeName              --universe, --dependencies, --query-attribute
+  PrimeAttributeName              --universe-size, --dependencies, --query-attribute
   RootedTreeStorageAssignment     --universe-size, --subsets, --bound
   TwoDimensionalConsecutiveSets   --alphabet-size, --subsets
   BicliqueCover                   --left, --right, --biedges, --k
@@ -394,8 +394,8 @@ Examples:
   pred create MinimumDummyActivitiesPert --arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6
   pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
   pred create IntegralFlowHomologousArcs --arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\"
-  pred create X3C --universe-size 9 --subsets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
-  pred create SetBasis --universe-size 4 --subsets \"0,1;1,2;0,2;0,1,2\" --k 3
+  pred create X3C --universe 9 --subsets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
+  pred create SetBasis --universe 4 --subsets \"0,1;1,2;0,2;0,1,2\" --k 3
   pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\"
   pred create PrimeAttributeName --universe 6 --dependencies \"0,1>2,3,4,5;2,3>0,1,4,5\" --query-attribute 3
   pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --subsets \"0,1,2;3,4,5;1,3;2,4;0,5\"")]
@@ -976,7 +976,6 @@ impl CreateArgs {
         insert!("capacity", self.capacity.as_deref());
         insert!("sequence", self.sequence.as_deref());
         insert!("subsets", self.sets.as_deref());
-        insert!("sets", self.sets.as_deref());
         insert!("r-sets", self.r_sets.as_deref());
         insert!("s-sets", self.s_sets.as_deref());
         insert!("r-weights", self.r_weights.as_deref());
@@ -985,7 +984,7 @@ impl CreateArgs {
         insert!("partitions", self.partitions.as_deref());
         insert!("bundles", self.bundles.as_deref());
         insert!("universe-size", self.universe);
-        insert!("universe", self.universe);
+        insert!("universe", self.universe); // PrimeAttributeName maps num_attributes → --universe
         insert!("biedges", self.biedges.as_deref());
         insert!("left", self.left);
         insert!("right", self.right);
@@ -1084,7 +1083,6 @@ impl CreateArgs {
         insert!("relations", self.relations.as_deref());
         insert!("conjuncts-spec", self.conjuncts_spec.as_deref());
         insert!("query-attribute", self.query);
-        insert!("query", self.query);
         insert!("rhs", self.rhs.as_deref());
         insert!("required-columns", self.required_columns.as_deref());
         insert!("num-groups", self.num_groups);
