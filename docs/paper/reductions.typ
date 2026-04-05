@@ -14394,6 +14394,76 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Read the positive literal vertices: $x_i = 1$ iff vertex $2i$ lies on side 1 of the cut.
 ]
 
+#let tdm_tp = load-example("ThreeDimensionalMatching", "ThreePartition")
+#let tdm_tp_sol = tdm_tp.solutions.at(0)
+#reduction-rule("ThreeDimensionalMatching", "ThreePartition",
+  example: true,
+  example-caption: [$q = #tdm_tp.source.instance.universe_size$, $t = #tdm_tp.source.instance.triples.len()$, target has #tdm_tp.target.instance.sizes.len() numbers],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tdm_tp.source) + " -o three-dimensional-matching.json",
+      "pred reduce three-dimensional-matching.json --to " + target-spec(tdm_tp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate three-dimensional-matching.json --config " + tdm_tp_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let q = tdm_tp.source.instance.universe_size
+      let t = tdm_tp.source.instance.triples.len()
+      let r = 32 * q
+      let r4 = calc.pow(r, 4)
+      let T1 = 40 * r4
+      let a0 = 16 * (10 * r4) + 1
+      let b0 = 16 * (10 * r4) + 2
+      let c0 = 16 * (10 * r4) + 4
+      let d0 = 16 * (10 * r4) + 8
+      let T2 = 16 * T1 + 15
+      let B = 64 * T2 + 4
+      let target = tdm_tp.target.instance
+
+      [
+        *Step 1 -- Source instance.* The canonical source has $q = #q$ and a single triple $M = {(0, 0, 0)}$, so the witness $(#tdm_tp_sol.source_config.map(str).join(", "))$ selects the only available triple and is therefore a perfect 3-dimensional matching #sym.checkmark.
+
+        *Step 2 -- Encode the ABCD and tagged 4-partition numbers.* Here $r = 32 q = #r$ and $T_1 = 40 r^4 = #T1$. Because every coordinate is 0 and occurs once, the ABCD numbers are all $10 r^4 = #(10 * r4)$. After the mod-16 tags, the 4-partition numbers become $(#a0, #b0, #c0, #d0)$ and sum to $T_2 = 16 T_1 + 15 = #T2$.
+
+        *Step 3 -- Build the 3-partition gadget.* From the 4 tagged numbers the construction creates #target.sizes.len() target numbers: 4 regular numbers, 12 pairing numbers, and 5 fillers. The target bound is $B = 64 T_2 + 4 = #B$, matching the exported instance's bound $#target.bound$. The canonical target witness is $(#tdm_tp_sol.target_config.map(str).join(", "))$: groups 0 and 1 are the non-filler triples, and the remaining 5 groups each contain one filler together with one unused pairing pair.
+
+        *Step 4 -- Verify the witness.* The target configuration partitions all #target.sizes.len() numbers into $#(target.sizes.len() / 3)$ triples summing to $B = #B$ #sym.checkmark. Reversing the gadget recovers the unique tagged 4-set, whose $B$, $C$, and $D$ members are all first occurrences, so the extracted source witness is again $(#tdm_tp_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness. In this $q = 1$ instance there is only one source matching, but the target still admits multiple equivalent 3-partition witnesses because any choice of one pairing gadget to split the unique 4-set yields a valid solution.
+      ]
+    }
+  ],
+)[
+  This $O(t^2)$ reduction @garey1979 first checks whether every coordinate of $W$, $X$, and $Y$ appears in some triple; uncovered coordinates yield a fixed infeasible 3-Partition instance. Otherwise it composes the classical 3DM $arrow.r$ ABCD-Partition, ABCD-Partition $arrow.r$ 4-Partition, and 4-Partition $arrow.r$ 3-Partition constructions, producing $24 t^2 - 3 t$ integers arranged into $8 t^2 - t$ triples.
+][
+  _Construction._ Let the source instance have universe size $q$ and triples $m_l = (w_(a_l), x_(b_l), y_(c_l))$ for $l = 0, dots, t - 1$. If some coordinate of $W union X union Y$ is absent from all triples, the source instance is trivially NO, so the implementation returns a fixed infeasible 3-Partition instance with sizes $(6, 6, 6, 6, 7, 9)$ and bound $20$.
+
+  Otherwise set $r = 32 q$ and $T_1 = 40 r^4$. For each triple create
+  $ u_l = 10 r^4 - c_l r^3 - b_l r^2 - a_l r $,
+  one $B$-item $10 r^4 + a_l r$ on the first occurrence of coordinate $a_l$ and $11 r^4 + a_l r$ on later occurrences, one $C$-item $10 r^4 + b_l r^2$ on the first occurrence of $b_l$ and $11 r^4 + b_l r^2$ later, and one $D$-item $10 r^4 + c_l r^3$ on the first occurrence of $c_l$ and $8 r^4 + c_l r^3$ later. This is the ABCD-Partition instance.
+
+  Tag the four classes modulo 16:
+  $ a'_i = 16 a_i + 1, b'_i = 16 b_i + 2, c'_i = 16 c_i + 4, d'_i = 16 d_i + 8 $
+  with target $T_2 = 16 T_1 + 15$. Enumerate the resulting $4 t$ tagged numbers as $a_0, dots, a_(4 t - 1)$.
+
+  For every tagged number create one regular element $w_i = 4(5 T_2 + a_i) + 1$. For every unordered pair $i < j$, create pairing elements
+  $ u_(i j) = 4(6 T_2 - a_i - a_j) + 2 $
+  and
+  $ u'_(i j) = 4(5 T_2 + a_i + a_j) + 2 $.
+  Finally add $8 t^2 - 3 t$ filler elements of size $20 T_2$ and set the 3-Partition bound to $B = 64 T_2 + 4$.
+
+  _Correctness._ The fixed preprocessing case is immediate: an uncovered coordinate makes the 3DM instance infeasible, and $(6, 6, 6, 6, 7, 9; 20)$ is a valid infeasible 3-Partition instance.
+
+  Assume now that every coordinate appears at least once.
+
+  ($arrow.r.double$) Given a perfect matching $M'$, form one ABCD group for every source triple. If $m_l in M'$, combine $u_l$ with the unique first-occurrence $B$, $C$, and $D$ items of coordinates $(a_l, b_l, c_l)$; otherwise combine $u_l$ with the corresponding later-occurrence dummy items. Because $r = 32 q$ prevents carries between the $r$, $r^2$, $r^3$, and $r^4$ digits, every such group sums to $T_1$, so the tagged instance has a 4-partition. For each tagged 4-set choose any two members $a_i, a_j$ and let the other two be $a_k, a_l$. Then ${w_i, w_j, u_(i j)}$ and ${w_k, w_l, u'_(i j)}$ both sum to $B$. Every pairing gadget not used this way joins one filler in a triple ${u_(i j), u'_(i j), 20 T_2}$. Hence the produced 3-Partition instance is feasible.
+
+  ($arrow.l.double$) In any feasible target solution every number lies strictly between $B / 4$ and $B / 2$, so the partition really is into triples. Modulo 4, regular numbers are congruent to 1, pairing numbers to 2, and fillers to 0. Therefore every triple is either of type $(1, 1, 2)$ or $(0, 2, 2)$. The $(0, 2, 2)$ triples identify the unused pairing gadgets, leaving a family of $(1, 1, 2)$ triples that reconstructs a 4-partition of the tagged numbers. Since $1 + 2 + 4 + 8 equiv 15 mod 16$, every recovered tagged 4-set contains exactly one former $A$-, $B$-, $C$-, and $D$-item. The carry-free base-$r$ encoding then forces each ABCD group to be either a real group (all first occurrences) or a dummy group (all later occurrences). The real groups pick exactly $q$ source triples, one for each coordinate of $W$, $X$, and $Y$, so they form a perfect 3-dimensional matching.
+
+  _Solution extraction._ Reverse the 4-Partition $arrow.r$ 3-Partition gadget by pairing each triple containing some $u_(i j)$ with the unique triple containing the matching $u'_(i j)$. This recovers the tagged 4-set. Undo the mod-16 tags to obtain one ABCD group, discard every dummy group whose $B$, $C$, and $D$ items are not first occurrences, and read the selected source triple from the surviving $A$-item.
+]
+
 #let tp_rcs = load-example("ThreePartition", "ResourceConstrainedScheduling")
 #let tp_rcs_sol = tp_rcs.solutions.at(0)
 #reduction-rule("ThreePartition", "ResourceConstrainedScheduling",

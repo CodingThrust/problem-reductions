@@ -100,6 +100,7 @@ pub(crate) mod subsetsum_integerexpressionmembership;
 pub(crate) mod subsetsum_partition;
 #[cfg(test)]
 pub(crate) mod test_helpers;
+pub(crate) mod threedimensionalmatching_threepartition;
 pub(crate) mod threepartition_flowshopscheduling;
 pub(crate) mod threepartition_jobshopscheduling;
 pub(crate) mod threepartition_resourceconstrainedscheduling;
@@ -403,6 +404,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(exactcoverby3sets_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maxcut_minimumcutintoboundedsets::canonical_rule_example_specs());
     specs.extend(partition_binpacking::canonical_rule_example_specs());
+    specs.extend(threedimensionalmatching_threepartition::canonical_rule_example_specs());
     specs.extend(threepartition_flowshopscheduling::canonical_rule_example_specs());
     specs.extend(threepartition_jobshopscheduling::canonical_rule_example_specs());
     specs.extend(threepartition_resourceconstrainedscheduling::canonical_rule_example_specs());
