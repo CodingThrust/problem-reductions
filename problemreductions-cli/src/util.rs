@@ -102,6 +102,7 @@ pub fn ser_kcoloring(
 }
 
 /// Serialize a KSatisfiability instance given clauses and validated k.
+#[cfg(feature = "mcp")]
 pub fn ser_ksat(
     num_vars: usize,
     clauses: Vec<CNFClause>,
