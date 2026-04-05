@@ -62,7 +62,7 @@ Only run if review type includes "model". Given: problem name `P`, category `C`,
 | 10 | Re-exported in `models/mod.rs` | `Grep("{P}", "src/models/mod.rs")` |
 | 11 | Variant registration exists | `Grep("declare_variants!|VariantEntry", file)` |
 | 12 | CLI `resolve_alias` entry | `Grep("{P}", "problemreductions-cli/src/problem_name.rs")` |
-| 13 | CLI `create` support | `Grep('"{P}"', "problemreductions-cli/src/commands/create.rs")` |
+| 13 | CLI `create` support | Schema-driven: verify each `ProblemSchemaEntry` field has a matching CLI flag in `CreateArgs` (field `snake_case` → flag `kebab-case`). Check `flag_map()` includes the flag. If the field type is unusual, verify `parse_field_value()` handles it. |
 | 14 | Canonical model example registered | `Grep("{P}", "src/example_db/model_builders.rs")` |
 | 15 | Paper `display-name` entry | `Grep('"{P}"', "docs/paper/reductions.typ")` |
 | 16 | Paper `problem-def` block | `Grep('problem-def.*"{P}"', "docs/paper/reductions.typ")` |
