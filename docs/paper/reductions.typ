@@ -13610,6 +13610,58 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For selected vertex $v$: clause $j = floor(v / 3)$, position $p = v mod 3$. If literal $ell_(j,p) = x_i$ set $x_i = 1$; if $ell_(j,p) = not x_i$ set $x_i = 0$.
 ]
 
+#let ksat_ps = load-example("KSatisfiability", "PreemptiveScheduling")
+#let ksat_ps_sol = ksat_ps.solutions.at(0)
+#reduction-rule("KSatisfiability", "PreemptiveScheduling",
+  example: true,
+  example-caption: [3-SAT with $n = #ksat_ps.source.instance.num_vars$ variables and $m = #ksat_ps.source.instance.clauses.len()$ clause $arrow.r$ unit-task preemptive schedule on #ksat_ps.target.instance.lengths.len() jobs and $#ksat_ps.target.instance.num_processors$ processors],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_ps.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_ps) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_ps_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let n = ksat_ps.source.instance.num_vars
+      let m = ksat_ps.source.instance.clauses.len()
+      let t = n + 3
+      let p = ksat_ps.target.instance.num_processors
+      let num-jobs = ksat_ps.target.instance.lengths.len()
+      let original-jobs = 2 * n * (n + 1) + 2 * n + 7 * m
+      let filler-jobs = num-jobs - original-jobs
+      let sigma = range(num-jobs).map(job =>
+        range(num-jobs).filter(slot => ksat_ps_sol.target_config.at(job * num-jobs + slot) == 1).at(0)
+      )
+      let slot-counts = range(t).map(slot =>
+        range(num-jobs).filter(job => sigma.at(job) == slot).len()
+      )
+      let clause-slots = range(7).map(i => sigma.at(30 + i))
+      [
+        *Step 1 -- Source instance.* The formula is $phi = (x_1 or x_2 or x_3)$ with satisfying assignment $(x_1, x_2, x_3) = (#ksat_ps_sol.source_config.map(str).join(", "))$.
+
+        *Step 2 -- Build Ullman's unit-task gadgets.* For $n = #n$, the reduction creates $2 n (n + 1) = #(2 * n * (n + 1))$ chain jobs $x_(i,j), overline(x)_(i,j)$, $2n = #(2 * n)$ forcing jobs $y_i, overline(y)_i$, and $7m = #(7 * m)$ clause jobs $D_(r,s)$. The slot capacities are $(#(n), #(2 * n + 1), #(2 * n + 2), #(2 * n + 2), #(m + n + 1), #(6 * m)) = (3, 7, 8, 8, 5, 6)$. We realize these capacities with $p = max(2n + 2, 6m) = #p$ processors and $F = #filler-jobs$ filler jobs, giving $#num-jobs$ total unit jobs. In this example the filler counts are $(5, 1, 0, 0, 3, 2)$.
+
+        *Step 3 -- Verify a schedule.* The witness schedule has exactly $p = #p$ jobs in each of the $T = #t$ slots: $(#slot-counts.map(str).join(", "))$. The positive chain starters $x_(1,0), x_(2,0), x_(3,0)$ are jobs $0, 8, 16$, placed at slots $(#sigma.at(0), #sigma.at(8), #sigma.at(16)) = (1, 1, 0)$, so extraction reads $(0, 0, 1)$ back from slot 0. The clause-pattern jobs are indices $30, dots, 36$; their slots are $(#clause-slots.map(str).join(", "))$, so exactly one clause job is promoted to slot $n + 1 = 4$ and the remaining six sit at slot $n + 2 = 5$.
+
+        *Multiplicity:* The fixture stores one canonical witness. Other satisfying assignments induce different slot-0 choices for the variable chains and therefore different valid schedules meeting the same threshold.
+      ]
+    }
+  ],
+)[
+  Ullman's reduction first builds a variable-capacity unit-task scheduling instance for 3-SAT, then pads each time slot with chained filler jobs so a fixed number of processors simulates the desired capacity profile. Because every task has length $1$, preemption is irrelevant: the resulting instance is already a valid preemptive scheduling instance whose optimal makespan is at most $T = n + 3$ iff the formula is satisfiable @ullman1975 @garey1979.
+][
+  _Construction._ Let $phi$ be a 3-CNF formula with variables $x_1, dots, x_n$ and clauses $C_1, dots, C_m$. Create unit jobs $x_(i,j)$ and $overline(x)_(i,j)$ for $1 <= i <= n$ and $0 <= j <= n$, plus forcing jobs $y_i, overline(y)_i$, and clause jobs $D_(r,s)$ for $1 <= r <= m$, $1 <= s <= 7$. Add chain precedences $x_(i,j) prec x_(i,j+1)$ and $overline(x)_(i,j) prec overline(x)_(i,j+1)$, and branching precedences $x_(i,i-1) prec y_i$, $overline(x)_(i,i-1) prec overline(y)_i$. Set $T = n + 3$ and slot capacities $c_0 = n$, $c_1 = 2n + 1$, $c_t = 2n + 2$ for $2 <= t <= n$, $c_(n+1) = m + n + 1$, and $c_(n+2) = 6m$.
+  For each clause $C_r = (ell_1 or ell_2 or ell_3)$ and each nonzero bit pattern $b in {1, dots, 7}$, create clause job $D_(r,b)$. Its predecessors are the three chain endpoints chosen according to the bits of $b$: for literal position $k$, use the endpoint of $ell_k$ when bit $k$ is 1 and of $not ell_k$ when bit $k$ is 0. This makes exactly one clause job per clause ready one slot earlier when the clause is satisfied.
+
+  To convert the variable-capacity instance to fixed processors, let $p = max(2n + 2, 6m)$. For every slot $t$, add $p - c_t$ filler jobs and impose complete-bipartite precedences from every filler at slot $t$ to every filler at slot $t+1$. Keep every task length equal to $1$ and use $p$ processors. The total work is exactly $p T$, so any schedule of makespan at most $T$ must saturate every slot and therefore realizes the intended capacities.
+
+  _Correctness._ ($arrow.r.double$) Given a satisfying assignment, place exactly one of $x_(i,0), overline(x)_(i,0)$ at slot $0$ for each variable, propagate the two chains forward one step at a time, schedule the forcing jobs immediately after their branch points, and place the unique matching clause job for each clause at slot $n + 1$ (all other clause jobs at slot $n + 2$). The filler jobs occupy the remaining $p - c_t$ processor positions in slot $t$, so the schedule finishes by time $T = n + 3$. ($arrow.l.double$) Conversely, if the constructed instance has makespan at most $T$, then every slot is full and the filler chains force exactly $p - c_t$ filler jobs into slot $t$, leaving precisely $c_t$ non-filler positions. Ullman's capacity argument then applies: at slot $0$ exactly one of $x_(i,0), overline(x)_(i,0)$ is chosen per variable, this choice propagates consistently through the chains, and the availability of one clause job per clause at slot $n + 1$ implies each clause has a satisfied literal. Hence the extracted assignment satisfies $phi$.
+
+  _Solution extraction._ In the binary schedule encoding, inspect the row for each starter job $x_(i,0)$. Set $x_i = 1$ iff that row has its single $1$ in column $0$; otherwise set $x_i = 0$.
+]
+
 #let hc_bicon = load-example("HamiltonianCircuit", "BiconnectivityAugmentation")
 #let hc_bicon_sol = hc_bicon.solutions.at(0)
 #reduction-rule("HamiltonianCircuit", "BiconnectivityAugmentation",
