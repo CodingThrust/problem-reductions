@@ -77,7 +77,7 @@ impl ReductionThreeDimensionalMatchingToThreePartition {
         if element_index < self.filler_start() {
             let pairing_offset = element_index - self.pairing_start();
             let pair_index = pairing_offset / 2;
-            let kind = if pairing_offset % 2 == 0 {
+            let kind = if pairing_offset.is_multiple_of(2) {
                 PairingKind::U
             } else {
                 PairingKind::UPrime
@@ -618,7 +618,7 @@ impl ReduceTo<ThreePartition> for ThreeDimensionalMatching {
         }
 
         let filler_value = to_u64(checked_mul(20, target2, "filler"), "filler element");
-        sizes.extend(std::iter::repeat(filler_value).take(num_fillers));
+        sizes.extend(std::iter::repeat_n(filler_value, num_fillers));
 
         let bound = to_u64(
             checked_add(

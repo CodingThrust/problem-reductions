@@ -883,6 +883,17 @@ fn test_nae_sat_to_maxcut_reduction_registered() {
 }
 
 #[test]
+fn test_nae_sat_to_partition_into_perfect_matchings_reduction_registered() {
+    use crate::models::graph::PartitionIntoPerfectMatchings;
+
+    let graph = ReductionGraph::new();
+
+    assert!(
+        graph.has_direct_reduction::<NAESatisfiability, PartitionIntoPerfectMatchings<SimpleGraph>>()
+    );
+}
+
+#[test]
 fn test_all_categories_present() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();

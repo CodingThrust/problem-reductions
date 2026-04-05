@@ -14085,6 +14085,50 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Set $alpha(x_(i+1)) = chi(2i)$ for $i = 0, dots, n-1$.
 ]
 
+// 6b. NAESatisfiability → PartitionIntoPerfectMatchings (#845)
+#let nae_ppm = load-example("NAESatisfiability", "PartitionIntoPerfectMatchings")
+#let nae_ppm_sol = nae_ppm.solutions.at(0)
+#reduction-rule("NAESatisfiability", "PartitionIntoPerfectMatchings",
+  example: true,
+  example-caption: [$n = #nae_ppm.source.instance.num_vars$ variables, $m = #sat-num-clauses(nae_ppm.source.instance)$ clauses, target $K = #nae_ppm.target.instance.num_matchings$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(nae_ppm.source) + " -o naesat.json",
+      "pred reduce naesat.json --to " + target-spec(nae_ppm) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate naesat.json --config " + nae_ppm_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let target = nae_ppm.target.instance
+      let config = nae_ppm_sol.target_config
+      [
+        *Step 1 -- Source instance.* The canonical NAE-SAT fixture has clauses $C_1 = (x_1 or x_2 or x_3)$ and $C_2 = (overline(x_1) or x_2 or overline(x_3))$. The stored source witness is $(#nae_ppm_sol.source_config.map(str).join(", "))$, so the clause truth patterns are $(1, 1, 0)$ and $(0, 1, 1)$, hence both clauses satisfy the NAE condition.
+
+        *Step 2 -- Lay out the gadgets.* Each variable contributes 4 vertices, each clause contributes 6 signal vertices and 4 clause-gadget vertices, and each literal occurrence contributes one 2-vertex equality-chain pair. Concretely the target has $#target.graph.num_vertices$ vertices and $#target.graph.edges.len()$ edges: variable gadgets occupy vertices $0, dots, 11$, signal pairs occupy $12, dots, 23$, the two $K_4$ clause gadgets occupy $24, dots, 31$, and the equality-chain pairs occupy $32, dots, 43$.
+
+        *Step 3 -- Propagate the literal values.* Because $x_1 = x_2 = 1$ and $x_3 = 0$, the three signal vertices for clause $C_1$ are in groups $(#config.at(12), #config.at(14), #config.at(16)) = (0, 0, 1)$, while the three signal vertices for clause $C_2$ are in groups $(#config.at(18), #config.at(20), #config.at(22)) = (1, 0, 0)$. The equality-chain pairs at $(32, 33), dots, (42, 43)$ carry the complementary groups needed to keep each copied signal synchronized with the appropriate $t_i$ or $f_i$.
+
+        *Step 4 -- Verify the clause gadgets and extraction.* The first $K_4$ gadget uses groups $(#config.at(24), #config.at(25), #config.at(26), #config.at(27)) = (1, 1, 0, 0)$, and the second uses $(#config.at(28), #config.at(29), #config.at(30), #config.at(31)) = (0, 1, 1, 0)$. Each gadget therefore splits $2 + 2$, so every clause gadget induces a perfect matching inside each group. Reading the truth assignment back from the variable vertices $(0, 4, 8)$ gives groups $(#config.at(0), #config.at(4), #config.at(8)) = (0, 0, 1)$, which extracts to $(#nae_ppm_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness.
+      ]
+    }
+  ],
+)[
+  This $O(n + m)$ reduction @schaefer1978 @garey1979[GT16] normalizes each 2-literal clause $(ell_1, ell_2)$ to $(ell_1, ell_1, ell_2)$, then builds 4-vertex variable gadgets, 2-vertex signal pairs, 4-vertex $K_4$ clause gadgets, and 2-vertex equality-chain links. For $m$ normalized clauses it produces $4n + 16m$ vertices, $3n + 21m$ edges, and fixes $K = 2$.
+][
+  _Construction._ Let $phi$ be a NAE-SAT instance on variables $x_1, dots, x_n$ whose clauses have size 2 or 3, matching the implemented rule. Replace every 2-literal clause $(ell_1, ell_2)$ by $(ell_1, ell_1, ell_2)$, yielding normalized 3-literal clauses $C_j = (ell_(j,0), ell_(j,1), ell_(j,2))$ for $j = 0, dots, m - 1$. For each variable $x_i$, create vertices $t_i, t'_i, f_i, f'_i$ with edges $(t_i, t'_i)$, $(f_i, f'_i)$, and $(t_i, f_i)$. For each clause position $(j, k)$, create a signal pair $s_(j,k), s'_(j,k)$ with edge $(s_(j,k), s'_(j,k))$. For each clause $C_j$, create vertices $w_(j,0), w_(j,1), w_(j,2), w_(j,3)$ forming a $K_4$, and add connection edges $(s_(j,k), w_(j,k))$ for $k in {0,1,2}$.
+
+  For each variable, chain its positive occurrences starting from $t_i$ and its negative occurrences starting from $f_i$. If $(j, k)$ is the next occurrence in the chosen sign-order and $"src"$ is the current chain source, create fresh vertices $mu, mu'$ with edges $(mu, mu')$, $("src", mu)$, and $(s_(j,k), mu)$, then update $"src" := s_(j,k)$. Output the Partition Into Perfect Matchings instance $(G, 2)$.
+
+  _Correctness._ ($arrow.r.double$) Let $alpha$ be a NAE-satisfying assignment. Put $t_i, t'_i$ in group 0 and $f_i, f'_i$ in group 1 when $alpha(x_i) = 1$; swap the two groups when $alpha(x_i) = 0$. Every equality-chain pair forces its signal vertex to share the group of the current chain source, so positive occurrences inherit the group of $t_i$ and negative occurrences inherit the group of $f_i$. In each normalized clause, the three signals are not all equal because $alpha$ satisfies the NAE condition. Assign $w_(j,k)$ to the opposite group from $s_(j,k)$ for $k = 0, 1, 2$, and assign $w_(j,3)$ to the minority group among $w_(j,0), w_(j,1), w_(j,2)$. Then every variable gadget, signal pair, and equality-chain pair contributes exactly one same-group edge, and each $K_4$ splits $2 + 2$, so every vertex has exactly one same-group neighbor.
+
+  ($arrow.l.double$) Suppose $(G, 2)$ admits a partition into two perfect matchings. In each variable gadget, the edges $(t_i, t'_i)$ and $(f_i, f'_i)$ force those pairs to share a group, while the edge $(t_i, f_i)$ forces $t_i$ and $f_i$ to lie in opposite groups. Each equality-chain pair forces its signal vertex to share the group of the chain source, so positive signals copy $t_i$ and negative signals copy $f_i$. In a clause gadget, each signal vertex is opposite its corresponding $w_(j,k)$, and the $K_4$ must split $2 + 2$; therefore $w_(j,0), w_(j,1), w_(j,2)$ cannot all share one group, so neither can the three signal vertices. Defining $alpha(x_i) = 1$ iff $t_i$ lies in group 0 makes every normalized clause NAE-satisfied, hence every original clause is NAE-satisfied as well.
+
+  _Solution extraction._ Read the variable gadgets: set $alpha(x_i) = 1$ iff $t_i$ lies in group 0.
+]
+
 // 7. ExactCoverBy3Sets → SubsetProduct (#388)
 #let x3c_sp = load-example("ExactCoverBy3Sets", "SubsetProduct")
 #let x3c_sp_sol = x3c_sp.solutions.at(0)

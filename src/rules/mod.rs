@@ -70,6 +70,7 @@ pub(crate) mod minimumvertexcover_minimumfeedbackvertexset;
 pub(crate) mod minimumvertexcover_minimumhittingset;
 pub(crate) mod minimumvertexcover_minimumsetcovering;
 pub(crate) mod naesatisfiability_maxcut;
+pub(crate) mod naesatisfiability_partitionintoperfectmatchings;
 pub(crate) mod naesatisfiability_setsplitting;
 pub(crate) mod paintshop_qubo;
 pub(crate) mod partition_binpacking;
@@ -401,6 +402,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(partition_subsetsum::canonical_rule_example_specs());
     specs.extend(rootedtreearrangement_rootedtreestorageassignment::canonical_rule_example_specs());
     specs.extend(naesatisfiability_maxcut::canonical_rule_example_specs());
+    specs.extend(naesatisfiability_partitionintoperfectmatchings::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maxcut_minimumcutintoboundedsets::canonical_rule_example_specs());
     specs.extend(partition_binpacking::canonical_rule_example_specs());
