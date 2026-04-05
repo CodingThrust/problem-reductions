@@ -1,4 +1,5 @@
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -914,6 +915,228 @@ pub struct CreateArgs {
     pub num_colors: Option<usize>,
 }
 
+impl CreateArgs {
+    #[allow(dead_code)]
+    pub fn flag_map(&self) -> HashMap<&'static str, Option<String>> {
+        let mut flags = HashMap::new();
+
+        macro_rules! insert {
+            ($key:literal, $expr:expr) => {
+                flags.insert($key, ($expr).map(|value| value.to_string()));
+            };
+        }
+
+        insert!("example", self.example.as_deref());
+        insert!("to", self.example_target.as_deref());
+        insert!("graph", self.graph.as_deref());
+        insert!("weights", self.weights.as_deref());
+        insert!("edge-weights", self.edge_weights.as_deref());
+        insert!("edge-lengths", self.edge_lengths.as_deref());
+        insert!("capacities", self.capacities.as_deref());
+        insert!("demands", self.demands.as_deref());
+        insert!("setup-costs", self.setup_costs.as_deref());
+        insert!("production-costs", self.production_costs.as_deref());
+        insert!("inventory-costs", self.inventory_costs.as_deref());
+        insert!("bundle-capacities", self.bundle_capacities.as_deref());
+        insert!("cost-matrix", self.cost_matrix.as_deref());
+        insert!("delay-matrix", self.delay_matrix.as_deref());
+        insert!("lower-bounds", self.lower_bounds.as_deref());
+        insert!("multipliers", self.multipliers.as_deref());
+        insert!("sink", self.sink);
+        insert!("requirement", self.requirement);
+        insert!("num-paths-required", self.num_paths_required);
+        insert!("paths", self.paths.as_deref());
+        insert!("couplings", self.couplings.as_deref());
+        insert!("fields", self.fields.as_deref());
+        insert!("clauses", self.clauses.as_deref());
+        insert!("disjuncts", self.disjuncts.as_deref());
+        insert!("num-vars", self.num_vars);
+        insert!("matrix", self.matrix.as_deref());
+        insert!("k", self.k);
+        insert!("num-partitions", self.num_partitions);
+        flags.insert("random", self.random.then(|| "true".to_string()));
+        insert!("num-vertices", self.num_vertices);
+        insert!("source-vertex", self.source_vertex);
+        insert!("target-vertex", self.target_vertex);
+        insert!("edge-prob", self.edge_prob);
+        insert!("seed", self.seed);
+        insert!("target", self.target.as_deref());
+        insert!("m", self.m);
+        insert!("n", self.n);
+        insert!("positions", self.positions.as_deref());
+        insert!("radius", self.radius);
+        insert!("source-1", self.source_1);
+        insert!("sink-1", self.sink_1);
+        insert!("source-2", self.source_2);
+        insert!("sink-2", self.sink_2);
+        insert!("requirement-1", self.requirement_1);
+        insert!("requirement-2", self.requirement_2);
+        insert!("sizes", self.sizes.as_deref());
+        insert!("probabilities", self.probabilities.as_deref());
+        insert!("capacity", self.capacity.as_deref());
+        insert!("sequence", self.sequence.as_deref());
+        insert!("subsets", self.sets.as_deref());
+        insert!("sets", self.sets.as_deref());
+        insert!("r-sets", self.r_sets.as_deref());
+        insert!("s-sets", self.s_sets.as_deref());
+        insert!("r-weights", self.r_weights.as_deref());
+        insert!("s-weights", self.s_weights.as_deref());
+        insert!("partition", self.partition.as_deref());
+        insert!("partitions", self.partitions.as_deref());
+        insert!("bundles", self.bundles.as_deref());
+        insert!("universe-size", self.universe);
+        insert!("universe", self.universe);
+        insert!("biedges", self.biedges.as_deref());
+        insert!("left", self.left);
+        insert!("right", self.right);
+        insert!("rank", self.rank);
+        insert!("basis", self.basis.as_deref());
+        insert!("target-vec", self.target_vec.as_deref());
+        insert!("bounds", self.bounds.as_deref());
+        insert!("release-times", self.release_times.as_deref());
+        insert!("lengths", self.lengths.as_deref().or(self.sizes.as_deref()));
+        insert!("terminals", self.terminals.as_deref());
+        insert!("terminal-pairs", self.terminal_pairs.as_deref());
+        insert!("tree", self.tree.as_deref());
+        insert!("required-edges", self.required_edges.as_deref());
+        insert!("bound", self.bound);
+        insert!("max-length", self.bound);
+        insert!("max-weight", self.bound);
+        insert!("bound-k", self.bound);
+        insert!("threshold", self.bound);
+        insert!("latency-bound", self.latency_bound);
+        insert!("length-bound", self.length_bound);
+        insert!("weight-bound", self.weight_bound);
+        insert!("diameter-bound", self.diameter_bound);
+        insert!("cost-bound", self.cost_bound);
+        insert!("delay-budget", self.delay_budget);
+        insert!("pattern", self.pattern.as_deref());
+        insert!("strings", self.strings.as_deref());
+        insert!("string", self.string.as_deref());
+        insert!("costs", self.costs.as_deref());
+        insert!("arc-weights", self.arc_costs.as_deref());
+        insert!("arc-costs", self.arc_costs.as_deref());
+        insert!("arc-lengths", self.arc_costs.as_deref());
+        insert!("arcs", self.arcs.as_deref());
+        insert!("left-arcs", self.left_arcs.as_deref());
+        insert!("right-arcs", self.right_arcs.as_deref());
+        insert!("homologous-pairs", self.homologous_pairs.as_deref());
+        insert!("quantifiers", self.quantifiers.as_deref());
+        insert!("size-bound", self.size_bound);
+        insert!("cut-bound", self.cut_bound);
+        insert!("values", self.values.as_deref());
+        insert!(
+            "precedences",
+            self.precedences
+                .as_deref()
+                .or(self.precedence_pairs.as_deref())
+        );
+        insert!(
+            "precedence-pairs",
+            self.precedences
+                .as_deref()
+                .or(self.precedence_pairs.as_deref())
+        );
+        insert!("distance-matrix", self.distance_matrix.as_deref());
+        insert!("potential-weights", self.potential_edges.as_deref());
+        insert!("potential-edges", self.potential_edges.as_deref());
+        insert!("budget", self.budget.as_deref());
+        insert!("max-cycle-length", self.max_cycle_length);
+        insert!("candidate-arcs", self.candidate_arcs.as_deref());
+        insert!("usage", self.usage.as_deref());
+        insert!("storage", self.storage.as_deref());
+        insert!("deadlines", self.deadlines.as_deref());
+        insert!("resource-bounds", self.resource_bounds.as_deref());
+        insert!(
+            "resource-requirements",
+            self.resource_requirements.as_deref()
+        );
+        insert!("task-lengths", self.task_lengths.as_deref());
+        insert!("jobs", self.job_tasks.as_deref());
+        insert!("job-tasks", self.job_tasks.as_deref());
+        insert!("deadline", self.deadline);
+        insert!("num-processors", self.num_processors);
+        insert!("schedules", self.schedules.as_deref());
+        insert!("requirements", self.requirements.as_deref());
+        insert!("num-workers", self.num_workers);
+        insert!("num-periods", self.num_periods);
+        insert!("num-craftsmen", self.num_craftsmen);
+        insert!("num-tasks", self.num_tasks.or(self.n));
+        insert!("craftsman-avail", self.craftsman_avail.as_deref());
+        insert!("task-avail", self.task_avail.as_deref());
+        insert!("alphabet-size", self.alphabet_size);
+        insert!("num-attributes", self.num_attributes);
+        insert!(
+            "dependencies",
+            self.dependencies.as_deref().or(self.deps.as_deref())
+        );
+        insert!("deps", self.dependencies.as_deref().or(self.deps.as_deref()));
+        insert!("relation-attrs", self.relation_attrs.as_deref());
+        insert!("known-keys", self.known_keys.as_deref());
+        insert!("num-objects", self.num_objects);
+        insert!("attribute-domains", self.attribute_domains.as_deref());
+        insert!("frequency-tables", self.frequency_tables.as_deref());
+        insert!("known-values", self.known_values.as_deref());
+        insert!("domain-size", self.domain_size);
+        insert!("relations", self.relations.as_deref());
+        insert!("conjuncts-spec", self.conjuncts_spec.as_deref());
+        insert!("query-attribute", self.query);
+        insert!("query", self.query);
+        insert!("rhs", self.rhs.as_deref());
+        insert!("required-columns", self.required_columns.as_deref());
+        insert!("num-groups", self.num_groups);
+        insert!("num-sectors", self.num_sectors);
+        insert!("compilers", self.compilers.as_deref());
+        insert!("setup-times", self.setup_times.as_deref());
+        insert!("source-string", self.source_string.as_deref());
+        insert!("target-string", self.target_string.as_deref());
+        insert!("pointer-cost", self.pointer_cost);
+        insert!("expression", self.expression.as_deref());
+        insert!("equations", self.equations.as_deref());
+        insert!("assignment", self.assignment.as_deref());
+        insert!("coeff-a", self.coeff_a);
+        insert!("coeff-b", self.coeff_b);
+        insert!("coeff-c", self.coeff_c);
+        insert!("pairs", self.pairs.as_deref());
+        insert!("w-sizes", self.w_sizes.as_deref());
+        insert!("x-sizes", self.x_sizes.as_deref());
+        insert!("y-sizes", self.y_sizes.as_deref());
+        insert!("initial-marking", self.initial_marking.as_deref());
+        insert!("output-arcs", self.output_arcs.as_deref());
+        insert!("gate-types", self.gate_types.as_deref());
+        insert!("inputs", self.inputs.as_deref());
+        insert!("outputs", self.outputs.as_deref());
+        insert!("true-sentences", self.true_sentences.as_deref());
+        insert!("implications", self.implications.as_deref());
+        insert!("loop-length", self.loop_length);
+        insert!("loop-variables", self.loop_variables.as_deref());
+        insert!("assignments", self.assignments.as_deref());
+        insert!("num-variables", self.num_variables);
+        insert!("truth-table", self.truth_table.as_deref());
+        insert!("test-matrix", self.test_matrix.as_deref());
+        insert!("num-tests", self.num_tests);
+        insert!("tiles", self.tiles.as_deref());
+        insert!("grid-size", self.grid_size);
+        insert!("num-colors", self.num_colors);
+
+        flags.insert(
+            "source",
+            self.source_string
+                .clone()
+                .or_else(|| self.source.map(|value| value.to_string())),
+        );
+        flags.insert(
+            "target",
+            self.target_string
+                .clone()
+                .or_else(|| self.target.clone())
+                .or_else(|| self.sink.map(|value| value.to_string())),
+        );
+
+        flags
+    }
+}
+
 #[derive(clap::Args)]
 #[command(after_help = "\
 Examples:
@@ -1180,6 +1403,83 @@ mod tests {
             Some("0,1>2,3,4,5;2,3>0,1,4,5")
         );
         assert_eq!(args.query, Some(3));
+    }
+
+    #[test]
+    fn test_create_args_flag_map_prefers_canonical_prime_attribute_keys() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "PrimeAttributeName",
+            "--universe",
+            "6",
+            "--dependencies",
+            "0,1>2,3,4,5;2,3>0,1,4,5",
+            "--query-attribute",
+            "3",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        let flags = args.flag_map();
+        assert_eq!(flags.get("universe-size"), Some(&Some("6".to_string())));
+        assert_eq!(
+            flags.get("dependencies"),
+            Some(&Some("0,1>2,3,4,5;2,3>0,1,4,5".to_string()))
+        );
+        assert_eq!(flags.get("query-attribute"), Some(&Some("3".to_string())));
+    }
+
+    #[test]
+    fn test_create_args_flag_map_converts_numeric_and_alias_backed_values() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--max-length",
+            "4",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        let flags = args.flag_map();
+        assert_eq!(flags.get("source"), Some(&Some("0".to_string())));
+        assert_eq!(flags.get("sink"), Some(&Some("3".to_string())));
+        assert_eq!(flags.get("max-length"), Some(&Some("4".to_string())));
+        assert_eq!(flags.get("bound"), Some(&Some("4".to_string())));
+    }
+
+    #[test]
+    fn test_create_args_flag_map_promotes_legacy_jobs_alias_to_canonical_key() {
+        let cli = Cli::parse_from([
+            "pred",
+            "create",
+            "JobShopScheduling",
+            "--job-tasks",
+            "0:3,1:4;1:2,0:3,1:2",
+            "--num-processors",
+            "2",
+        ]);
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+
+        let flags = args.flag_map();
+        assert_eq!(
+            flags.get("jobs"),
+            Some(&Some("0:3,1:4;1:2,0:3,1:2".to_string()))
+        );
     }
 
     #[test]
