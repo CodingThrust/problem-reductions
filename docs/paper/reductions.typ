@@ -9175,6 +9175,53 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ For IS solution $S$, return $C = V backslash S$, i.e.\ flip each variable: $c_v = 1 - s_v$.
 ]
 
+#let mvc_lcs = load-example("MinimumVertexCover", "LongestCommonSubsequence")
+#let mvc_lcs_sol = mvc_lcs.solutions.at(0)
+#reduction-rule("MinimumVertexCover", "LongestCommonSubsequence",
+  example: true,
+  example-caption: [Path graph $P_4$: VC $arrow.r$ LCS via vertex symbols],
+  extra: [
+    #{
+      let source-cover = mvc_lcs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let target-config = mvc_lcs_sol.target_config
+      let witness = target-config.filter(x => x < mvc_lcs.target.instance.alphabet_size)
+      let num-strings = mvc_lcs.target.instance.strings.len()
+      let total-length = mvc_lcs.target.instance.strings.map(s => s.len()).fold(0, (acc, n) => acc + n)
+      let fmt-seq(xs) = "(" + xs.map(str).join(", ") + ")"
+      [
+        #pred-commands(
+          "pred create --example " + problem-spec(mvc_lcs.source) + " -o mvc.json",
+          "pred reduce mvc.json --to " + target-spec(mvc_lcs) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate mvc.json --config " + mvc_lcs_sol.source_config.map(str).join(","),
+        )
+
+        *Step 1 -- Source instance.* Path graph $P_4$ with $n = #graph-num-vertices(mvc_lcs.source.instance)$ vertices and $|E| = #graph-num-edges(mvc_lcs.source.instance)$ edges. The canonical minimum vertex cover is $C = {#source-cover.map(str).join(", ")}$.
+
+        *Step 2 -- Construct the LCS instance.* Alphabet $Sigma = {0, dots, #((mvc_lcs.target.instance.alphabet_size) - 1)}$ and $#num-strings$ strings: $S_0 = #fmt-seq(mvc_lcs.target.instance.strings.at(0))$, $S_1 = #fmt-seq(mvc_lcs.target.instance.strings.at(1))$, $S_2 = #fmt-seq(mvc_lcs.target.instance.strings.at(2))$, $S_3 = #fmt-seq(mvc_lcs.target.instance.strings.at(3))$. The target has `max_length` $#mvc_lcs.target.instance.max_length$ and total input length $#total-length$.
+
+        *Step 3 -- Verify the witness.* The stored target config is #fmt-seq(target-config), so the non-padding common subsequence is $w = #fmt-seq(witness)$ and the corresponding independent set is ${#witness.map(str).join(", ")}$. Taking the complement gives $V backslash w = {#source-cover.map(str).join(", ")} = C$ #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness.
+      ]
+    }
+  ],
+)[
+  This $O(|V| |E|)$ reduction follows #cite(<maier1978>, form: "prose") and the Garey--Johnson entry SR10 @garey1979. Each source vertex becomes one alphabet symbol, one template string lists the vertices in sorted order, and each source edge contributes a two-block constraint string. The longest common subsequence length equals the maximum independent-set size, so a size-$K$ vertex cover exists exactly when the target LCS has length at least $|V| - K$.
+][
+  _Construction._ Given a unit-weight Minimum Vertex Cover instance $(G = (V, E), K)$ with $V = {0, 1, dots, n-1}$, build a Longest Common Subsequence instance as follows. Let $Sigma = V$. Create the template string $S_0 = (0, 1, dots, n-1)$. For each edge $\{u, v\} in E$, rename the endpoints so that $u < v$, then add the edge string
+  $
+    S_(\{u,v\}) = (0, dots, hat(u), dots, n-1) thick || thick (0, dots, hat(v), dots, n-1),
+  $
+  where $hat(u)$ means that symbol $u$ is omitted. The target string family is $R = {S_0} union {S_e : e in E}$. Its alphabet size is $n$, it has $|E| + 1$ strings, `max_length` $= n$, and total input length $n + 2 |E| (n - 1)$. Set the target threshold to $K' = n - K$.
+
+  _Correctness._ ($arrow.r.double$) If $C subset.eq V$ is a vertex cover of size $K$, then $I = V backslash C$ is an independent set of size $n - K$. List the vertices of $I$ in increasing order. This sequence is a subsequence of $S_0$ immediately. For an edge string $S_(\{u,v\})$, at most one endpoint lies in $I$. If neither endpoint lies in $I$, every symbol of $I$ appears in both halves, so the subsequence is immediate. If only the larger endpoint $v$ lies in $I$, then every symbol of $I$ still appears in the first half $(V backslash {u})$, so the same ordered list is a subsequence there. If only the smaller endpoint $u$ lies in $I$, then all symbols of $I$ smaller than $u$ appear in the first half, while $u$ and every larger symbol appear in the second half $(V backslash {v})$; concatenating the two halves therefore still contains the sorted list of $I$ as a subsequence. Hence every edge string contains that sequence, so the target LCS has length at least $|I| = n - K = K'$.
+
+  ($arrow.l.double$) Let $w$ be a common subsequence of the target strings with $|w| >= K'$. Because $w$ is a subsequence of $S_0 = (0, 1, dots, n-1)$, its symbols are distinct and already appear in increasing order. Consider any edge $\{u, v\}$ with $u < v$. In $S_(\{u,v\})$, the symbol $v$ appears only in the first half and the symbol $u$ appears only in the second half, so any embedding of both symbols would force $v$ to be matched before $u$. That contradicts the increasing order forced by $S_0$. Therefore $w$ contains at most one endpoint of every edge, so its symbols form an independent set $I$ of size at least $K' = n - K$. The complement $V backslash I$ is then a vertex cover of size at most $K$.
+
+  _Solution extraction._ Given an LCS witness $w$, mark every symbol that appears before the padding symbol as "outside the cover" and return its complement: $c_v = 1$ iff $v in.not w$, and $c_v = 0$ iff $v in w$.
+]
+
 #let mvc_fvs = load-example("MinimumVertexCover", "MinimumFeedbackVertexSet")
 #let mvc_fvs_sol = mvc_fvs.solutions.at(0)
 #let mvc_fvs_cover = mvc_fvs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)

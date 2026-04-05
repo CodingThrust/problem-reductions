@@ -63,6 +63,7 @@ mod maximumsetpacking_casts;
 pub(crate) mod maximumsetpacking_qubo;
 pub(crate) mod minimummultiwaycut_qubo;
 pub(crate) mod minimumvertexcover_ensemblecomputation;
+pub(crate) mod minimumvertexcover_longestcommonsubsequence;
 pub(crate) mod minimumvertexcover_maximumindependentset;
 pub(crate) mod minimumvertexcover_minimumfeedbackarcset;
 pub(crate) mod minimumvertexcover_minimumfeedbackvertexset;
@@ -412,6 +413,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         threepartition_sequencingwithreleasetimesanddeadlines::canonical_rule_example_specs(),
     );
     specs.extend(minimumvertexcover_ensemblecomputation::canonical_rule_example_specs());
+    specs.extend(minimumvertexcover_longestcommonsubsequence::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_maximumindependentset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackarcset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackvertexset::canonical_rule_example_specs());
