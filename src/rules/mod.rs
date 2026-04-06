@@ -42,9 +42,9 @@ mod kcoloring_casts;
 pub(crate) mod kcoloring_partitionintocliques;
 pub(crate) mod kcoloring_twodimensionalconsecutivesets;
 mod knapsack_qubo;
+pub(crate) mod ksatisfiability_acyclicpartition;
 mod ksatisfiability_casts;
 pub(crate) mod ksatisfiability_cyclicordering;
-pub(crate) mod ksatisfiability_acyclicpartition;
 pub(crate) mod ksatisfiability_kclique;
 pub(crate) mod ksatisfiability_kernel;
 pub(crate) mod ksatisfiability_minimumvertexcover;
@@ -331,6 +331,8 @@ pub(crate) mod subgraphisomorphism_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod sumofsquarespartition_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod threedimensionalmatching_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod timetabledesign_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod travelingsalesman_ilp;
@@ -562,6 +564,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(subgraphisomorphism_ilp::canonical_rule_example_specs());
         specs.extend(sumofsquarespartition_ilp::canonical_rule_example_specs());
         specs.extend(timetabledesign_ilp::canonical_rule_example_specs());
+        specs.extend(threedimensionalmatching_ilp::canonical_rule_example_specs());
         specs.extend(travelingsalesman_ilp::canonical_rule_example_specs());
         specs.extend(undirectedflowlowerbounds_ilp::canonical_rule_example_specs());
         specs.extend(undirectedtwocommodityintegralflow_ilp::canonical_rule_example_specs());

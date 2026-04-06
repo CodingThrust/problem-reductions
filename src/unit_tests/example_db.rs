@@ -265,6 +265,27 @@ fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances()
     assert!(!example.solutions[0].target_config.is_empty());
 }
 
+#[cfg(feature = "ilp-solver")]
+#[test]
+fn test_find_rule_example_threedimensionalmatching_to_ilp_contains_full_instances() {
+    let source = ProblemRef {
+        name: "ThreeDimensionalMatching".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "ILP".to_string(),
+        variant: BTreeMap::from([("variable".to_string(), "bool".to_string())]),
+    };
+
+    let example =
+        find_rule_example(&source, &target).expect("ThreeDimensionalMatching -> ILP exists");
+    assert_eq!(example.source.problem, "ThreeDimensionalMatching");
+    assert_eq!(example.target.problem, "ILP");
+    assert!(example.source.instance.get("triples").is_some());
+    assert_eq!(example.solutions[0].source_config, vec![1, 1, 1, 0, 0]);
+    assert_eq!(example.solutions[0].target_config, vec![1, 1, 1, 0, 0]);
+}
+
 #[test]
 fn test_build_rule_db_has_unique_structural_keys() {
     let db = build_rule_db().expect("rule db should build");
