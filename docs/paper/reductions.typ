@@ -13658,6 +13658,45 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For selected vertex $v$: clause $j = floor(v / 3)$, position $p = v mod 3$. If literal $ell_(j,p) = x_i$ set $x_i = 1$; if $ell_(j,p) = not x_i$ set $x_i = 0$.
 ]
 
+#let ksat_co = load-example("KSatisfiability", "CyclicOrdering")
+#let ksat_co_sol = ksat_co.solutions.at(0)
+#reduction-rule("KSatisfiability", "CyclicOrdering",
+  example: true,
+  example-caption: [Single-clause 3-SAT reduced to #ksat_co.target.instance.num_elements cyclic-order elements],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_co.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_co) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_co_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical formula is $phi = (x_1 or x_2 or x_3)$ with $n = #ksat_co.source.instance.num_vars$ variables and $m = #ksat_co.source.instance.clauses.len()$ clause. The stored satisfying assignment is $(#ksat_co_sol.source_config.map(str).join(", "))$, so every literal in the clause is true.
+
+    *Step 2 -- Create variable and clause elements.* The reduction introduces three variable elements per Boolean variable, giving variable triples $(alpha_1, beta_1, gamma_1) = (0, 1, 2)$, $(alpha_2, beta_2, gamma_2) = (3, 4, 5)$, and $(alpha_3, beta_3, gamma_3) = (6, 7, 8)$. The single clause adds five auxiliary elements $(j, k, l, m, n) = (9, 10, 11, 12, 13)$, so the target has $3n + 5m = #ksat_co.target.instance.num_elements$ elements total.
+
+    *Step 3 -- Emit the ten cyclic-ordering triples.* Because the clause literals are $(x_1, x_2, x_3)$, the literal-orientation triples are the forward variable triples. The target constraints are exactly #{ksat_co.target.instance.triples.map(t => "(" + t.map(str).join(", ") + ")").join(", ")}, so $|Delta| = #ksat_co.target.instance.triples.len() = 10m$.
+
+    *Step 4 -- Verify a solution.* The target witness permutation is $(#ksat_co_sol.target_config.map(str).join(", "))$. It satisfies all ten cyclic-order constraints #sym.checkmark. For each variable triple, the forward orientation $(alpha_i, beta_i, gamma_i)$ is _not_ derived by this permutation, so extraction returns $(#ksat_co_sol.source_config.map(str).join(", "))$, which satisfies $phi$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. Any cyclic permutation of the target order is also valid, and other satisfying assignments of $phi$ induce additional valid cyclic orders.
+  ],
+)[
+  This $O(n + m)$ reduction @garey1979 @galilMegiddo1977 represents each variable by a three-element orientation gadget and each clause by five auxiliary elements linked through ten cyclic-ordering triples. For $n$ variables and $m$ clauses it produces $3n + 5m$ target elements and $10m$ triples.
+][
+  _Construction._ Let $phi$ be a 3-CNF formula with variables $x_1, dots, x_n$ and clauses $C_1, dots, C_m$. For each variable $x_i$, create three target elements $alpha_i, beta_i, gamma_i$. For a positive literal $x_i$, define its associated cyclically ordered triple as $(alpha_i, beta_i, gamma_i)$; for a negative literal $not x_i$, define it as $(alpha_i, gamma_i, beta_i)$. For each clause $C_nu = (ell_1 or ell_2 or ell_3)$, write the three associated literal triples as $(a, b, c)$, $(d, e, f)$, and $(g, h, i)$. Add five fresh auxiliary elements $j_nu, k_nu, l_nu, m_nu, n_nu$ and the ten cyclic-ordering triples
+  $
+  (a, c, j_nu), (b, j_nu, k_nu), (c, k_nu, l_nu), (d, f, j_nu), (e, j_nu, l_nu),
+  (f, l_nu, m_nu), (g, i, k_nu), (h, k_nu, m_nu), (i, m_nu, n_nu), (n_nu, m_nu, l_nu).
+  $
+
+  _Correctness._ ($arrow.r.double$) Let $S$ be a satisfying assignment of $phi$. For each variable, exactly one of the two opposite orientations $(alpha_i, beta_i, gamma_i)$ and $(alpha_i, gamma_i, beta_i)$ is derived by any cyclic order; interpret the literal made true by $S$ as the one whose associated orientation is _not_ derived. In every clause at least one literal is true, and Galil--Megiddo's clause gadget lemma shows that the ten triples above are then consistent with the three literal orientations for that clause @galilMegiddo1977. Because different clauses use disjoint auxiliary element sets, the per-clause cyclic orders combine into one global cyclic order satisfying all target triples. ($arrow.l.double$) Conversely, let a cyclic ordering satisfy every target triple. For each variable $x_i$, put $x_i = 1$ iff $(alpha_i, beta_i, gamma_i)$ is _not_ derived. If some clause had all three literals false under this rule, then all three associated literal orientations would be derived. The same clause gadget lemma implies that the ten triples for that clause would then be inconsistent, contradicting feasibility. Hence every clause contains a true literal, so the extracted assignment satisfies $phi$.
+
+  _Variable mapping._ Positive literal $x_i$ is read through the orientation $(alpha_i, beta_i, gamma_i)$, while negative literal $not x_i$ is read through the reversed orientation $(alpha_i, gamma_i, beta_i)$.
+
+  _Solution extraction._ Given a target permutation $f$, set $x_i = 1$ iff $(f(alpha_i), f(beta_i), f(gamma_i))$ is _not_ in cyclic order; otherwise set $x_i = 0$.
+]
+
 #let ksat_ps = load-example("KSatisfiability", "PreemptiveScheduling")
 #let ksat_ps_sol = ksat_ps.solutions.at(0)
 #reduction-rule("KSatisfiability", "PreemptiveScheduling",
