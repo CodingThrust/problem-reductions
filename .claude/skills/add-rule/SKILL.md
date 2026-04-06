@@ -5,7 +5,16 @@ description: Use when adding a new reduction rule to the codebase, either from a
 
 # Add Rule
 
-Step-by-step guide for adding a new reduction rule (A -> B) to the codebase.
+Step-by-step guide for adding a new reduction rule (A -> B) to the codebase. By default, every rule goes through mathematical verification (via `/verify-reduction`) before implementation. Pass `--no-verify` to skip verification for trivial reductions.
+
+## Invocation
+
+```
+/add-rule                     # interactive, with verification (default)
+/add-rule --no-verify         # interactive, skip verification
+```
+
+When called from `/issue-to-pr`, the `--no-verify` flag is passed through if present.
 
 ## Step 0: Gather Required Information
 
@@ -27,6 +36,26 @@ Before any implementation, collect all required information. If called from `iss
 
 If any item is missing, ask the user to provide it. Put a high standard on item 7 (concrete example): it must be in tutorial style with clear intuition and easy to understand. Do NOT proceed until the checklist is complete.
 
+## Step 0.5: Type Compatibility Gate
+
+Check source/target `Value` types before any work:
+
+```bash
+grep "type Value = " src/models/*/<source_file>.rs src/models/*/<target_file>.rs
+```
+
+**Compatible pairs for `ReduceTo` (witness-capable):**
+- `Or`->`Or`, `Min`->`Min`, `Max`->`Max` (same type)
+- `Or`->`Min`, `Or`->`Max` (feasibility embeds into optimization)
+
+**Incompatible — STOP if any of these:**
+- `Min`->`Or` or `Max`->`Or` — optimization source has no threshold K; needs a decision-variant source model
+- `Max`->`Min` or `Min`->`Max` — opposite optimization directions; needs `ReduceToAggregate` or a decision-variant wrapper
+- `Or`->`Sum` or `Min`->`Sum` — Sum is aggregate-only; needs `ReduceToAggregate`
+- Any pair involving `And` or `Sum` on the target side
+
+If incompatible, STOP and comment on the issue explaining the type mismatch and options. Do NOT proceed.
+
 ## Reference Implementations
 
 Read these first to understand the patterns:
@@ -35,7 +64,19 @@ Read these first to understand the patterns:
 - **Paper entry:** search `docs/paper/reductions.typ` for `MinimumVertexCover` `MaximumIndependentSet`
 - **Traits:** `src/rules/traits.rs` (`ReduceTo<T>`, `ReduceToAggregate<T>`, `ReductionResult`, `AggregateReductionResult`)
 
-## Step 1: Implement the reduction
+## Step 1: Mathematical Verification (default, skip with `--no-verify`)
+
+**If `--no-verify` was passed, skip to Step 2.**
+
+Invoke the `/verify-reduction` skill to mathematically verify the reduction before writing Rust code. This runs the full verification pipeline: Typst proof, constructor Python script (>=5000 checks), adversary subagent (>=5000 independent checks), and cross-comparison.
+
+All verification artifacts are ephemeral — they exist only in conversation context and temp files. Nothing is committed to the repository.
+
+**If verification FAILS: STOP. Report to user. Do NOT proceed to implementation.**
+
+If verification passes, the verified Python `reduce()` and `extract_solution()` functions, along with the YES/NO instances, carry forward in conversation context to inform Steps 2-5. Use them as the canonical spec for the Rust implementation.
+
+## Step 2: Implement the reduction
 
 Create `src/rules/<source>_<target>.rs` (all lowercase, no underscores between words within a problem name):
 
@@ -67,6 +108,7 @@ impl ReductionResult for ReductionXToY {
     fn target_problem(&self) -> &Self::Target { &self.target }
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         // Map target solution back to source solution
+        // If Step 1 ran: translate the verified Python extract_solution() logic
     }
 }
 ```
@@ -78,7 +120,9 @@ impl ReductionResult for ReductionXToY {
 })]
 impl ReduceTo<TargetType> for SourceType {
     type Result = ReductionXToY;
-    fn reduce_to(&self) -> Self::Result { ... }
+    fn reduce_to(&self) -> Self::Result {
+        // If Step 1 ran: translate the verified Python reduce() logic
+    }
 }
 ```
 
@@ -86,13 +130,13 @@ Each primitive reduction is determined by the exact source/target variant pair. 
 
 **Aggregate-only reductions:** when the rule preserves aggregate values but cannot recover a source witness from a target witness, implement `AggregateReductionResult` + `ReduceToAggregate<T>` instead of `ReductionResult` + `ReduceTo<T>`. Those edges are not auto-registered by `#[reduction]` yet; register them manually with `ReductionEntry { reduce_aggregate_fn: ..., capabilities: EdgeCapabilities::aggregate_only(), ... }`. See `src/unit_tests/rules/traits.rs` and `src/unit_tests/rules/graph.rs` for the reference pattern.
 
-## Step 2: Register in mod.rs
+## Step 3: Register in mod.rs
 
 Add to `src/rules/mod.rs`:
 - `mod <source>_<target>;`
 - If feature-gated (e.g., ILP): wrap with `#[cfg(feature = "ilp-solver")]`
 
-## Step 3: Write unit tests
+## Step 4: Write unit tests
 
 Create `src/unit_tests/rules/<source>_<target>.rs`:
 
@@ -104,6 +148,8 @@ Create `src/unit_tests/rules/<source>_<target>.rs`:
 // 4. Extract: reduction.extract_solution(&target_sol)
 // 5. Verify: extracted solution is valid and optimal for source
 ```
+
+If Step 1 ran, use the verified YES/NO instances from conversation context to construct test cases. Include both a feasible (closed-loop) and infeasible (no witnesses) test.
 
 Additional recommended tests:
 - Verify target problem structure (correct size, edges, constraints)
@@ -117,15 +163,17 @@ For aggregate-only reductions, replace the closed-loop witness test with value-c
 
 Link via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the rule file.
 
-## Step 4: Add canonical example to example_db
+## Step 5: Add canonical example to example_db
 
 Add a builder function in `src/example_db/rule_builders.rs` that constructs a small, canonical instance for this reduction. Follow the existing patterns in that file. Register the builder in `build_rule_examples()`.
 
-## Step 5: Document in paper
+## Step 6: Document in paper
 
 Write a `reduction-rule` entry in `docs/paper/reductions.typ`. **Reference example:** search for `reduction-rule("KColoring", "QUBO"` to see the gold-standard entry — use it as a template. For a minimal example, see MinimumVertexCover -> MaximumIndependentSet.
 
-### 5a. Write theorem body (rule statement)
+If Step 1 ran, adapt the verified Typst proof into the paper's macros. Do not rewrite the proof from scratch — reformat it.
+
+### 6a. Write theorem body (rule statement)
 
 ```typst
 #reduction-rule("Source", "Target",
@@ -138,7 +186,7 @@ Write a `reduction-rule` entry in `docs/paper/reductions.typ`. **Reference examp
 
 Three parts: complexity with citation, construction summary, overhead hint.
 
-### 5b. Write proof body
+### 6b. Write proof body
 
 Use these subsections with italic labels:
 
@@ -156,7 +204,7 @@ Use these subsections with italic labels:
 
 Must be self-contained (all notation defined) and reproducible.
 
-### 5c. Write worked example (extra block)
+### 6c. Write worked example (extra block)
 
 Step-by-step walkthrough with concrete numbers from JSON data. Required steps:
 1. Show source instance (dimensions, structure, graph visualization if applicable)
@@ -168,7 +216,7 @@ Use `graph-colors`, `g-node()`, `g-edge()` for graph visualization — see refer
 
 **Reproducibility:** The `extra:` block must start with a `pred-commands()` call showing the create/reduce/solve/evaluate pipeline. The source-side `pred create --example ...` spec must be derived from the loaded canonical example data via the helper pattern in `write-rule-in-paper`; do not hand-write a bare alias and assume the default variant matches.
 
-### 5d. Build and verify
+### 6d. Build and verify
 
 ```bash
 make paper     # Must compile without errors
@@ -176,7 +224,7 @@ make paper     # Must compile without errors
 
 Checklist: notation self-contained, complexity cited, overhead consistent, example uses JSON data (not hardcoded), solution verified end-to-end, witness semantics respected, paper compiles.
 
-## Step 6: Regenerate exports and verify
+## Step 7: Regenerate exports and verify
 
 ```bash
 cargo run --example export_graph    # Generate reduction_graph.json for docs/paper builds
@@ -185,7 +233,7 @@ make regenerate-fixtures            # Regenerate example_db/fixtures/examples.js
 make test clippy                    # Must pass
 ```
 
-`make regenerate-fixtures` is required so the paper can load the new rule's example data from `src/example_db/fixtures/examples.json`. Without it, the `reduction-rule` entry in Step 5 will reference missing fixture data.
+`make regenerate-fixtures` is required so the paper can load the new rule's example data from `src/example_db/fixtures/examples.json`. Without it, the `reduction-rule` entry in Step 6 will reference missing fixture data.
 
 Structural and quality review is handled by the `review-pipeline` stage, not here. The run stage just needs to produce working code.
 
@@ -226,3 +274,4 @@ Aggregate-only reductions currently have a narrower CLI surface:
 | Not regenerating reduction graph | Run `cargo run --example export_graph` after adding a rule |
 | Source/target model not fully registered | Both problems must already have `declare_variants!`, aliases as needed, and CLI create support -- use `add-model` skill first |
 | Treating a direct-to-ILP rule as a toy stub | Direct ILP reductions need exact overhead metadata and strong semantic regression tests, just like other production ILP rules |
+| Skipping verification for complex reductions | Verification is default for a reason — `--no-verify` is for trivial identity/complement reductions only |

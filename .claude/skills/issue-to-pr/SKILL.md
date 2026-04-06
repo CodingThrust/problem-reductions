@@ -9,7 +9,8 @@ Convert a GitHub issue into a PR: write a plan, create the PR, then execute the 
 
 ## Invocation
 
-- `/issue-to-pr 42` — create PR with plan, then execute
+- `/issue-to-pr 42` — create PR with plan, then execute (for `[Rule]` issues, verification runs by default)
+- `/issue-to-pr 42 --no-verify` — skip mathematical verification for `[Rule]` issues
 
 For Codex, open this `SKILL.md` directly and treat the slash-command forms above as aliases. The Makefile `run-issue` target already does this translation.
 
@@ -37,6 +38,7 @@ Normalize to:
 - `ISSUE=<number>`
 - `REPO=<owner/repo>` (default `CodingThrust/problem-reductions`)
 - `EXECUTE=true|false`
+- `NO_VERIFY=true|false` (default `false`; pass `--no-verify` to skip mathematical verification for `[Rule]` issues)
 
 ### 2. Fetch Issue + Preflight Guards
 
@@ -91,7 +93,7 @@ The plan MUST reference the appropriate implementation skill and follow its step
 
 - **For ordinary `[Model]` issues:** Follow [add-model](../add-model/SKILL.md) Steps 1-7 as the action pipeline
 - **For `[Model]` issues that explicitly claim direct ILP solving:** Follow [add-model](../add-model/SKILL.md) Steps 1-7 **and** [add-rule](../add-rule/SKILL.md) Steps 1-6 for the direct `<Problem> -> ILP` rule in the same plan / PR
-- **For `[Rule]` issues:** Follow [add-rule](../add-rule/SKILL.md) Steps 1-6 as the action pipeline
+- **For `[Rule]` issues:** Follow [add-rule](../add-rule/SKILL.md) Steps 1-7 as the action pipeline. By default, `/add-rule` runs mathematical verification (Step 1) before implementation. If `--no-verify` was passed, include `--no-verify` when invoking `/add-rule` to skip verification.
 
 Include the concrete details from the issue (problem definition, reduction algorithm, example, etc.) mapped onto each step.
 
