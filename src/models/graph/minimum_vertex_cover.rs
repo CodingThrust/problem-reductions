@@ -254,8 +254,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 #[cfg(feature = "example-db")]
-pub(crate) fn decision_canonical_model_example_specs()
--> Vec<crate::example_db::specs::ModelExampleSpec> {
+pub(crate) fn decision_canonical_model_example_specs(
+) -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "decision_minimum_vertex_cover_simplegraph_i32",
         instance: Box::new(Decision::new(

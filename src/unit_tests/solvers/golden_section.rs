@@ -28,7 +28,10 @@ fn test_golden_section_matches_brute_force() {
 
     let brute_force_value = BruteForce::new().solve(&problem);
 
-    assert_eq!(solve_via_decision(&problem, 0, 5), brute_force_value.size().copied());
+    assert_eq!(
+        solve_via_decision(&problem, 0, 5),
+        brute_force_value.size().copied()
+    );
 }
 
 #[test]

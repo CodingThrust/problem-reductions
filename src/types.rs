@@ -307,7 +307,9 @@ pub trait OptimizationValue: Aggregate {
     fn meets_bound(value: &Self, bound: &Self::Inner) -> bool;
 }
 
-impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> OptimizationValue for Min<V> {
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> OptimizationValue
+    for Min<V>
+{
     type Inner = V;
 
     fn meets_bound(value: &Self, bound: &V) -> bool {
@@ -315,7 +317,9 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Optimiza
     }
 }
 
-impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> OptimizationValue for Max<V> {
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> OptimizationValue
+    for Max<V>
+{
     type Inner = V;
 
     fn meets_bound(value: &Self, bound: &V) -> bool {

@@ -13,7 +13,6 @@ use problemreductions::models::algebraic::{
     SparseMatrixCompression,
 };
 use problemreductions::models::formula::Quantifier;
-use problemreductions::models::Decision;
 use problemreductions::models::graph::{
     GeneralizedHex, HamiltonianCircuit, HamiltonianPath, HamiltonianPathBetweenTwoVertices,
     LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets,
@@ -24,6 +23,7 @@ use problemreductions::models::misc::{
     CbqRelation, FrequencyTable, KnownValue, QueryArg, SchedulingWithIndividualDeadlines,
     ThreePartition,
 };
+use problemreductions::models::Decision;
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -673,12 +673,17 @@ fn ser_vertex_weight_problem_with<G: Graph + Serialize>(
     }
 }
 
-fn ser_decision_minimum_vertex_cover_with<G: Graph + Serialize + problemreductions::variant::VariantParam>(
+fn ser_decision_minimum_vertex_cover_with<
+    G: Graph + Serialize + problemreductions::variant::VariantParam,
+>(
     graph: G,
     weights: Vec<i32>,
     bound: i32,
 ) -> Result<serde_json::Value> {
-    ser(Decision::new(MinimumVertexCover::new(graph, weights), bound))
+    ser(Decision::new(
+        MinimumVertexCover::new(graph, weights),
+        bound,
+    ))
 }
 
 fn ser<T: Serialize>(problem: T) -> Result<serde_json::Value> {
