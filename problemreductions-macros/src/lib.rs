@@ -127,12 +127,26 @@ fn parse_overhead_content(content: syn::parse::ParseStream) -> syn::Result<Overh
     }
 }
 
-/// Extract the base type name from a Type (e.g., "IndependentSet" from "IndependentSet<i32>")
+/// Extract the base type name from a Type (e.g., "IndependentSet" from "IndependentSet<i32>").
+/// Special-cases `Decision<T>` to produce `DecisionT`.
 fn extract_type_name(ty: &Type) -> Option<String> {
     match ty {
         Type::Path(type_path) => {
             let segment = type_path.path.segments.last()?;
-            Some(segment.ident.to_string())
+            let ident = segment.ident.to_string();
+
+            if ident == "Decision" {
+                if let PathArguments::AngleBracketed(args) = &segment.arguments {
+                    let inner_ty = args.args.iter().find_map(|arg| match arg {
+                        GenericArgument::Type(ty) => Some(ty),
+                        _ => None,
+                    })?;
+                    let inner_name = extract_type_name(inner_ty)?;
+                    return Some(format!("Decision{inner_name}"));
+                }
+            }
+
+            Some(ident)
         }
         _ => None,
     }
@@ -652,6 +666,25 @@ fn generate_complexity_eval_fn(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use syn::{parse_str, Type};
+
+    #[test]
+    fn extract_type_name_strips_non_decision_generics() {
+        let ty: Type = parse_str("MinimumVertexCover<SimpleGraph, i32>").unwrap();
+        assert_eq!(
+            extract_type_name(&ty).as_deref(),
+            Some("MinimumVertexCover")
+        );
+    }
+
+    #[test]
+    fn extract_type_name_unwraps_decision_inner_type() {
+        let ty: Type = parse_str("Decision<MinimumVertexCover<SimpleGraph, i32>>").unwrap();
+        assert_eq!(
+            extract_type_name(&ty).as_deref(),
+            Some("DecisionMinimumVertexCover")
+        );
+    }
 
     #[test]
     fn declare_variants_accepts_single_default() {
