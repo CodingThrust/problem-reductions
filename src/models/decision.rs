@@ -1,7 +1,9 @@
 //! Generic decision wrapper for optimization problems.
 
+use crate::rules::{AggregateReductionResult, ReduceToAggregate};
 use crate::traits::Problem;
 use crate::types::{OptimizationValue, Or};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 /// Metadata for concrete optimization problems that expose a decision wrapper.
@@ -74,6 +76,52 @@ where
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         P::variant()
+    }
+}
+
+/// Aggregate reduction result for `Decision<P> -> P`.
+#[derive(Debug, Clone)]
+pub struct DecisionToOptimizationResult<P>
+where
+    P: Problem,
+    P::Value: OptimizationValue,
+{
+    target: P,
+    bound: <P::Value as OptimizationValue>::Inner,
+}
+
+impl<P> AggregateReductionResult for DecisionToOptimizationResult<P>
+where
+    P: DecisionProblemMeta + 'static,
+    P::Value: OptimizationValue + Serialize + DeserializeOwned,
+{
+    type Source = Decision<P>;
+    type Target = P;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_value(&self, target_value: P::Value) -> Or {
+        Or(<P::Value as OptimizationValue>::meets_bound(
+            &target_value,
+            &self.bound,
+        ))
+    }
+}
+
+impl<P> ReduceToAggregate<P> for Decision<P>
+where
+    P: DecisionProblemMeta + Clone + 'static,
+    P::Value: OptimizationValue + Serialize + DeserializeOwned,
+{
+    type Result = DecisionToOptimizationResult<P>;
+
+    fn reduce_to_aggregate(&self) -> Self::Result {
+        DecisionToOptimizationResult {
+            target: self.inner.clone(),
+            bound: self.bound.clone(),
+        }
     }
 }
 

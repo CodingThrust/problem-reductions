@@ -70,3 +70,21 @@ fn test_decision_serialization() {
     assert_eq!(deserialized.bound(), &2);
     assert_eq!(deserialized.evaluate(&[1, 1, 0]), Or(true));
 }
+
+#[test]
+fn test_decision_reduce_to_aggregate() {
+    use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+
+    let decision = Decision::new(triangle_mvc(), 2);
+    let result = decision.reduce_to_aggregate();
+    let target = result.target_problem();
+    assert_eq!(target.num_vertices(), 3);
+
+    let target_val = target.evaluate(&[1, 1, 0]);
+    let source_val = result.extract_value(target_val);
+    assert_eq!(source_val, Or(true));
+
+    let target_val = target.evaluate(&[1, 1, 1]);
+    let source_val = result.extract_value(target_val);
+    assert_eq!(source_val, Or(false));
+}
