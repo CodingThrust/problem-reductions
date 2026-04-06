@@ -3,6 +3,7 @@
 //! Each sub-module groups related problem types by input structure.
 
 pub mod algebraic;
+pub mod decision;
 pub mod formula;
 pub mod graph;
 pub mod misc;
@@ -17,6 +18,7 @@ pub use algebraic::{
     QuadraticDiophantineEquations, SimultaneousIncongruences, SparseMatrixCompression, BMF, ILP,
     QUBO,
 };
+pub use decision::Decision;
 pub use formula::{
     CNFClause, CircuitSAT, KSatisfiability, Maximum2Satisfiability, NAESatisfiability,
     NonTautology, OneInThreeSatisfiability, Planar3Satisfiability, QuantifiedBooleanFormulas,

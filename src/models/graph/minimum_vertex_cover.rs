@@ -155,6 +155,11 @@ crate::declare_variants! {
     MinimumVertexCover<SimpleGraph, One> => "1.1996^num_vertices",
 }
 
+crate::decision_problem_meta!(
+    MinimumVertexCover<SimpleGraph, i32>,
+    "DecisionMinimumVertexCover"
+);
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {

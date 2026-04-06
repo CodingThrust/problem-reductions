@@ -163,6 +163,11 @@ crate::declare_variants! {
     MaximumIndependentSet<UnitDiskGraph, One>       => "2^sqrt(num_vertices)",
 }
 
+crate::decision_problem_meta!(
+    MaximumIndependentSet<SimpleGraph, i32>,
+    "DecisionMaximumIndependentSet"
+);
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![
