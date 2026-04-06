@@ -141,27 +141,26 @@ impl SetSplitting {
         normalize_subsets(self.universe_size, &self.subsets)
     }
 
+    fn normalized_stats(&self) -> (usize, usize, usize) {
+        let (universe_size, subsets) = self.normalized_instance();
+        let size2 = subsets.iter().filter(|s| s.len() == 2).count();
+        let size3 = subsets.iter().filter(|s| s.len() == 3).count();
+        (universe_size, size2, size3)
+    }
+
     /// Universe size after decomposing all subsets to size 2 or 3.
     pub fn normalized_universe_size(&self) -> usize {
-        self.normalized_instance().0
+        self.normalized_stats().0
     }
 
     /// Number of size-2 subsets after decomposition.
     pub fn normalized_num_size2_subsets(&self) -> usize {
-        self.normalized_instance()
-            .1
-            .iter()
-            .filter(|subset| subset.len() == 2)
-            .count()
+        self.normalized_stats().1
     }
 
     /// Number of size-3 subsets after decomposition.
     pub fn normalized_num_size3_subsets(&self) -> usize {
-        self.normalized_instance()
-            .1
-            .iter()
-            .filter(|subset| subset.len() == 3)
-            .count()
+        self.normalized_stats().2
     }
 
     /// Check if a coloring (config) splits all subsets.

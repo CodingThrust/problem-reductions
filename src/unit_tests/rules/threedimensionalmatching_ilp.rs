@@ -48,7 +48,8 @@ fn test_threedimensionalmatching_to_ilp_structure() {
     assert!(ilp.objective.is_empty());
     assert_eq!(ilp.sense, ObjectiveSense::Minimize);
 
-    let actual_constraints: Vec<(Comparison, f64, Vec<(usize, f64)>)> = ilp
+    type Constraint = (Comparison, f64, Vec<(usize, f64)>);
+    let actual_constraints: Vec<Constraint> = ilp
         .constraints
         .iter()
         .map(|constraint| {

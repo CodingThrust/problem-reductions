@@ -13847,6 +13847,50 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The implementation reads the period of the distinguished `vb` edge in each variable gadget. Color $N_(i,2)$ is interpreted as truth value $1$, and color $P_(i,2)$ as truth value $0$. The recovered transformed assignment is then projected back to the original variables, with the fixed pure-literal values reinserted.
 ]
 
+#let ksat_ap = load-example("KSatisfiability", "AcyclicPartition")
+#let ksat_ap_sol = ksat_ap.solutions.at(0)
+#reduction-rule("KSatisfiability", "AcyclicPartition",
+  example: true,
+  example-caption: [3-SAT with $n = #ksat_ap.source.instance.num_vars$ variables, $m = #ksat_ap.source.instance.clauses.len()$ clause $arrow.r$ acyclic partition on #ksat_ap.target.instance.graph.num_vertices vertices],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_ap.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_ap) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_ap_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let n = ksat_ap.source.instance.num_vars
+      let m = ksat_ap.source.instance.clauses.len()
+      let tgt = ksat_ap.target.instance
+      [
+        *Step 1 -- Source instance.* The canonical formula has $n = #n$ variable and $m = #m$ clause. The stored satisfying assignment is $(#ksat_ap_sol.source_config.map(str).join(", "))$.
+
+        *Step 2 -- Compose the three-stage chain.* The reduction composes 3-SAT $arrow.r$ Subset Sum $arrow.r$ Partition $arrow.r$ Acyclic Partition. First, the Sipser digit-encoding produces a Subset Sum instance with $2n + 2m$ elements. Second, the Subset Sum $arrow.r$ Partition padding appends at most one element. Third, the Partition $arrow.r$ Acyclic Partition gadget builds a bipartite digraph: for each of the Partition elements, create one item vertex; add a source vertex and a sink vertex, with arcs from source to every item vertex and from every item vertex to sink. The resulting digraph has #tgt.graph.num_vertices vertices and #tgt.graph.arcs.len() arcs. Vertex weights are doubled element sizes for items and $(Sigma + 1)$ for the two endpoints; the weight bound is $Sigma + 1 + Sigma - (Sigma mod 2)$ where $Sigma$ is the Partition total, and the arc-cost bound equals the number of items.
+
+        *Step 3 -- Verify a solution.* The target witness $(#ksat_ap_sol.target_config.map(str).join(", "))$ partitions the #tgt.graph.num_vertices vertices into two blocks. The source and sink land in different blocks, ensuring the quotient digraph is acyclic. The item vertices split so that the doubled sizes on each side, together with the endpoint weight, respect the weight cap. Extracting back through Partition and Subset Sum recovers $(#ksat_ap_sol.source_config.map(str).join(", "))$, which satisfies the formula #sym.checkmark
+
+        *Multiplicity:* The fixture stores one canonical witness. Other satisfying assignments of the source formula induce different balanced partitions of the item vertices.
+      ]
+    }
+  ],
+)[
+  This composed reduction realizes 3-SAT $arrow.r$ Acyclic Partition via the witness-preserving chain 3-SAT $arrow.r$ Subset Sum $arrow.r$ Partition $arrow.r$ Acyclic Partition. The first two stages are the classical Sipser digit encoding @sipser2012 and Garey--Johnson padding @garey1979; the final stage embeds the balanced partition into a bipartite source--sink digraph whose two-block quotient is automatically acyclic. For $n$ variables and $m$ clauses, the target has $2n + 2m + 3$ vertices and $4n + 4m + 2$ arcs.
+][
+  _Construction._ Given a 3-CNF formula $phi$ with $n$ variables and $m$ clauses:
+
+  (i) Apply the Sipser digit-encoding reduction (see KSatisfiability $arrow.r$ SubsetSum) to obtain a Subset Sum instance with $2n + 2m$ elements and target $T$.
+
+  (ii) Apply the Subset Sum $arrow.r$ Partition reduction (see SubsetSum $arrow.r$ Partition) to obtain a Partition instance with at most $2n + 2m + 1$ elements and total $Sigma$.
+
+  (iii) For each Partition element $a_i$, create one item vertex with weight $2 a_i$. Add a source vertex $s$ and a sink vertex $t$, each with weight $Sigma + 1$. Create arcs $(s, v_i)$ and $(v_i, t)$ for every item vertex $v_i$, all with unit cost. Set the weight bound $B = Sigma + 1 + Sigma - (Sigma mod 2)$ and the arc-cost bound $K =$ number of items.
+
+  _Correctness._ ($arrow.r.double$) A satisfying assignment of $phi$ yields a Subset Sum solution, which yields a balanced Partition, which splits the item vertices into two groups of equal total size. Placing one group with $s$ and the other with $t$ gives a two-block partition. Each block's weight is $Sigma + 1 + Sigma <= B$. The arcs from $s$ to the opposite group and from the opposite group to $t$ form the cut, and the quotient digraph $s$-block $arrow$ $t$-block is acyclic. ($arrow.l.double$) Any feasible acyclic partition must separate $s$ and $t$ (otherwise the digon $s arrow v arrow t$ and $s arrow v' arrow t$ would create a quotient cycle). The weight bound forces the doubled item sizes in each block to be nearly balanced, recovering a balanced Partition. Reversing the Subset Sum and 3-SAT stages then yields a satisfying assignment.
+
+  _Solution extraction._ Identify the block containing $s$ and the block containing $t$. Assign each item vertex to Partition side 0 or 1 according to whether it shares a block with $t$. Reverse the Subset Sum $arrow.r$ Partition extraction, then reverse the 3-SAT $arrow.r$ Subset Sum extraction.
+]
+
 #let hc_bicon = load-example("HamiltonianCircuit", "BiconnectivityAugmentation")
 #let hc_bicon_sol = hc_bicon.solutions.at(0)
 #reduction-rule("HamiltonianCircuit", "BiconnectivityAugmentation",
@@ -14840,6 +14884,51 @@ The following table shows concrete variable overhead for example instances, take
   ($arrow.l.double$) In any feasible target solution every number lies strictly between $B / 4$ and $B / 2$, so the partition really is into triples. Modulo 4, regular numbers are congruent to 1, pairing numbers to 2, and fillers to 0. Therefore every triple is either of type $(1, 1, 2)$ or $(0, 2, 2)$. The $(0, 2, 2)$ triples identify the unused pairing gadgets, leaving a family of $(1, 1, 2)$ triples that reconstructs a 4-partition of the tagged numbers. Since $1 + 2 + 4 + 8 equiv 15 mod 16$, every recovered tagged 4-set contains exactly one former $A$-, $B$-, $C$-, and $D$-item. The carry-free base-$r$ encoding then forces each ABCD group to be either a real group (all first occurrences) or a dummy group (all later occurrences). The real groups pick exactly $q$ source triples, one for each coordinate of $W$, $X$, and $Y$, so they form a perfect 3-dimensional matching.
 
   _Solution extraction._ Reverse the 4-Partition $arrow.r$ 3-Partition gadget by pairing each triple containing some $u_(i j)$ with the unique triple containing the matching $u'_(i j)$. This recovers the tagged 4-set. Undo the mod-16 tags to obtain one ABCD group, discard every dummy group whose $B$, $C$, and $D$ items are not first occurrences, and read the selected source triple from the surviving $A$-item.
+]
+
+#let tdm_ilp = load-example("ThreeDimensionalMatching", "ILP")
+#let tdm_ilp_sol = tdm_ilp.solutions.at(0)
+#reduction-rule("ThreeDimensionalMatching", "ILP",
+  example: true,
+  example-caption: [$q = #tdm_ilp.source.instance.universe_size$, $t = #tdm_ilp.source.instance.triples.len()$ triples $arrow.r$ ILP with #tdm_ilp.target.instance.num_vars variables and #tdm_ilp.target.instance.constraints.len() constraints],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tdm_ilp.source) + " -o three-dimensional-matching.json",
+      "pred reduce three-dimensional-matching.json --to " + target-spec(tdm_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate three-dimensional-matching.json --config " + tdm_ilp_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let q = tdm_ilp.source.instance.universe_size
+      let t = tdm_ilp.source.instance.triples.len()
+      let triples = tdm_ilp.source.instance.triples
+      [
+        *Step 1 -- Source instance.* The canonical source has universe size $q = #q$ and $t = #t$ triples: #triples.map(tr => "(" + tr.map(str).join(", ") + ")").join(", "). The stored witness $(#tdm_ilp_sol.source_config.map(str).join(", "))$ selects triples #tdm_ilp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", "), which cover every element of $W$, $X$, and $Y$ exactly once #sym.checkmark.
+
+        *Step 2 -- Build the ILP.* One binary variable $x_j$ per triple ($j = 0, dots, #(t - 1)$). For each of the $3q = #(3 * q)$ elements across the three sets $W$, $X$, $Y$, add an equality constraint requiring that the sum of $x_j$ over all triples containing that element equals 1. This yields #tdm_ilp.target.instance.constraints.len() constraints and #tdm_ilp.target.instance.num_vars variables.
+
+        *Step 3 -- Verify a solution.* The target configuration $(#tdm_ilp_sol.target_config.map(str).join(", "))$ is identical to the source configuration because the mapping is one variable per triple with identity extraction. Each element-coverage constraint sums to exactly 1 #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness.
+      ]
+    }
+  ],
+)[
+  Direct ILP formulation: one binary variable per triple, with $3q$ equality constraints ensuring each element of $W$, $X$, and $Y$ is covered exactly once. The ILP has $t$ variables and $3q$ constraints.
+][
+  _Construction._ Given a 3DM instance with universe size $q$ and triples $m_0, dots, m_(t-1)$ where $m_l = (w_(a_l), x_(b_l), y_(c_l))$. Create binary variables $x_0, dots, x_(t-1)$. For each element $e in {0, dots, q - 1}$ in $W$, add constraint $sum_(l : a_l = e) x_l = 1$. Similarly for each element in $X$ and $Y$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & sum_(l : a_l = e) x_l = 1 quad forall e in {0, dots, q - 1} quad "(W-coverage)" \
+    & sum_(l : b_l = e) x_l = 1 quad forall e in {0, dots, q - 1} quad "(X-coverage)" \
+    & sum_(l : c_l = e) x_l = 1 quad forall e in {0, dots, q - 1} quad "(Y-coverage)" \
+    & x_l in {0, 1} quad forall l in {0, dots, t - 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) A perfect 3-dimensional matching selects $q$ triples covering every element exactly once. Setting $x_l = 1$ for selected triples satisfies all $3q$ equality constraints. ($arrow.l.double$) Any binary feasible solution selects a set of triples in which every element of $W$, $X$, and $Y$ appears exactly once, which is a perfect 3-dimensional matching.
+
+  _Solution extraction._ Return the ILP solution vector directly: $x_l = 1$ iff triple $m_l$ is selected.
 ]
 
 #let tp_rcs = load-example("ThreePartition", "ResourceConstrainedScheduling")

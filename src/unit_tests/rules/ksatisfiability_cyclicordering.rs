@@ -139,7 +139,8 @@ fn test_ksatisfiability_to_cyclicordering_single_clause_reference_vector() {
         ]
     );
 
-    let target_solution = solve_cyclic_ordering(target).expect("single-clause gadget should be solvable");
+    let target_solution =
+        solve_cyclic_ordering(target).expect("single-clause gadget should be solvable");
     let extracted = reduction.extract_solution(&target_solution);
     assert_eq!(extracted, vec![1, 1, 1]);
     assert!(source.evaluate(&extracted).0);
@@ -229,5 +230,30 @@ fn test_ksatisfiability_to_cyclicordering_unsatisfiable_repeated_literal_pair() 
     assert!(
         solve_cyclic_ordering(reduction.target_problem()).is_none(),
         "opposite repeated-literal clauses should be unsatisfiable after reduction"
+    );
+}
+
+#[test]
+fn test_ksatisfiability_to_cyclicordering_closed_loop() {
+    let source = KSatisfiability::<K3>::new(2, vec![CNFClause::new(vec![1, 2, 1])]);
+
+    let reduction = ReduceTo::<CyclicOrdering>::reduce_to(&source);
+    let target = reduction.target_problem();
+
+    // CyclicOrdering configs are permutations of length num_elements;
+    // brute-force over n! is infeasible for any non-trivial instance.
+    // Use the custom backtracking solver instead.
+    let target_solution =
+        solve_cyclic_ordering(target).expect("satisfiable source must yield solvable target");
+
+    assert!(
+        target.evaluate(&target_solution).0,
+        "target solution must evaluate as satisfying"
+    );
+
+    let extracted = reduction.extract_solution(&target_solution);
+    assert!(
+        source.evaluate(&extracted).0,
+        "extracted source config must satisfy the source"
     );
 }

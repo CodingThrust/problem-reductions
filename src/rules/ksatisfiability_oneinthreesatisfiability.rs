@@ -20,14 +20,7 @@ impl ReductionResult for Reduction3SATToOneInThreeSAT {
     }
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut source_solution = vec![0; self.source_num_vars];
-        for (slot, value) in source_solution
-            .iter_mut()
-            .zip(target_solution.iter().copied())
-        {
-            *slot = value;
-        }
-        source_solution
+        target_solution[..self.source_num_vars].to_vec()
     }
 }
 

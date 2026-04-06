@@ -3,6 +3,9 @@
 ## Project Overview
 Rust library for NP-hard problem reductions. Implements computational problems with reduction rules for transforming between equivalent formulations.
 
+## Agent Preferences
+- For tasks with complex logic (implementing reductions, fixing CI, issue-to-pr, check-issue, etc.), prefer invoking the `codex` CLI (if installed) with the latest model: `codex exec -c model="gpt-5.4" "<prompt>"`.
+
 ## Skills
 These repo-local skills live under `.claude/skills/*/SKILL.md`.
 

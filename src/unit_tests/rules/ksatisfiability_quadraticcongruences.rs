@@ -101,3 +101,38 @@ fn test_ksatisfiability_to_quadraticcongruences_extracts_assignment_from_constru
         crate::types::Or(true)
     );
 }
+
+#[test]
+fn test_ksatisfiability_to_quadraticcongruences_closed_loop() {
+    let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, -3])]);
+
+    let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source);
+
+    // Construct a target config from a known-satisfying source assignment.
+    // Assignment: x1=true, x2=false, x3=false => clause (1,2,-3) satisfied by x1=true.
+    let assignment = [1, 0, 0];
+    assert_eq!(
+        source.evaluate(assignment.as_ref()),
+        crate::types::Or(true),
+        "assignment must satisfy the source"
+    );
+
+    let target_config = witness_config_for_assignment(&source, &assignment)
+        .expect("satisfying assignment should lift to a target witness");
+
+    // Verify the target config is a valid witness.
+    assert_eq!(
+        reduction.target_problem().evaluate(&target_config),
+        crate::types::Or(true),
+        "constructed target config must satisfy the target"
+    );
+
+    // Verify round-trip: extracting the source solution recovers the original assignment.
+    let extracted = reduction.extract_solution(&target_config);
+    assert_eq!(extracted, vec![1, 0, 0]);
+    assert_eq!(
+        source.evaluate(&extracted),
+        crate::types::Or(true),
+        "extracted source config must satisfy the source"
+    );
+}

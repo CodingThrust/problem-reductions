@@ -73,6 +73,25 @@ fn test_ksatisfiability_to_preemptivescheduling_extract_solution_from_constructe
     assert!(source.evaluate(&extracted).0);
 }
 
+#[test]
+fn test_ksatisfiability_to_preemptivescheduling_multi_variable_round_trip() {
+    let source = KSatisfiability::<K3>::new(
+        3,
+        vec![
+            CNFClause::new(vec![1, 2, 3]),
+            CNFClause::new(vec![-1, -2, -3]),
+        ],
+    );
+    let result = ReduceTo::<PreemptiveScheduling>::reduce_to(&source);
+
+    let schedule = construct_schedule_from_assignment(result.target_problem(), &[1, 1, 0], &source)
+        .expect("satisfying assignment should yield a witness schedule");
+
+    let extracted = result.extract_solution(&schedule);
+    assert_eq!(extracted, vec![1, 1, 0]);
+    assert!(source.evaluate(&extracted).0);
+}
+
 #[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_preemptivescheduling_closed_loop() {

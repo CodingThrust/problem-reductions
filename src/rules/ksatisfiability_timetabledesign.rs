@@ -136,7 +136,11 @@ fn literal_var_index(literal: i32) -> usize {
 fn evaluate_clause(clause: &CNFClause, assignment: &[usize]) -> bool {
     clause.literals.iter().any(|&literal| {
         let value = assignment[literal_var_index(literal)] == 1;
-        if literal > 0 { value } else { !value }
+        if literal > 0 {
+            value
+        } else {
+            !value
+        }
     })
 }
 
@@ -221,8 +225,11 @@ fn normalize_formula(source: &KSatisfiability<K3>) -> NormalizedFormula {
             next_var += 1;
             transformed_to_original.push(original_var - 1);
             for (clause_idx, lit_idx, is_positive) in occurrences {
-                clauses[clause_idx].literals[lit_idx] =
-                    if is_positive { replacement as i32 } else { -(replacement as i32) };
+                clauses[clause_idx].literals[lit_idx] = if is_positive {
+                    replacement as i32
+                } else {
+                    -(replacement as i32)
+                };
             }
             continue;
         }
@@ -239,8 +246,11 @@ fn normalize_formula(source: &KSatisfiability<K3>) -> NormalizedFormula {
         for ((clause_idx, lit_idx, is_positive), replacement) in
             occurrences.into_iter().zip(replacements.iter().copied())
         {
-            clauses[clause_idx].literals[lit_idx] =
-                if is_positive { replacement as i32 } else { -(replacement as i32) };
+            clauses[clause_idx].literals[lit_idx] = if is_positive {
+                replacement as i32
+            } else {
+                -(replacement as i32)
+            };
         }
 
         for idx in 0..replacements.len() {
@@ -277,8 +287,14 @@ fn normalize_formula(source: &KSatisfiability<K3>) -> NormalizedFormula {
                 }
             }
         }
-        debug_assert!(positive <= 2, "normalized variable {transformed_var} has {positive} positive occurrences");
-        debug_assert!(negative <= 2, "normalized variable {transformed_var} has {negative} negative occurrences");
+        debug_assert!(
+            positive <= 2,
+            "normalized variable {transformed_var} has {positive} positive occurrences"
+        );
+        debug_assert!(
+            negative <= 2,
+            "normalized variable {transformed_var} has {negative} negative occurrences"
+        );
         debug_assert!(
             positive > 0 && negative > 0,
             "pure literals should have been eliminated before gadget construction"
@@ -294,7 +310,11 @@ fn normalize_formula(source: &KSatisfiability<K3>) -> NormalizedFormula {
 }
 
 #[cfg(any(test, feature = "example-db"))]
-fn choose_clause_edge_color(clause: &CNFClause, assignment: &[usize], colors: &[usize]) -> Option<usize> {
+fn choose_clause_edge_color(
+    clause: &CNFClause,
+    assignment: &[usize],
+    colors: &[usize],
+) -> Option<usize> {
     clause
         .literals
         .iter()
@@ -353,18 +373,19 @@ fn add_direct_clause_edge(
     EdgeEncoding::Direct { edge, allowed }
 }
 
-fn core_edge_color(solution: &[usize], pair: (usize, usize), num_tasks: usize, num_periods: usize) -> usize {
+fn core_edge_color(
+    solution: &[usize],
+    pair: (usize, usize),
+    num_tasks: usize,
+    num_periods: usize,
+) -> usize {
     (0..num_periods)
         .find(|&period| solution[((pair.0 * num_tasks) + pair.1) * num_periods + period] == 1)
         .expect("each required pair should be scheduled exactly once")
 }
 
 #[cfg(any(test, feature = "example-db"))]
-fn encode_edge_color(
-    colors: &mut [Option<usize>],
-    encoding: &EdgeEncoding,
-    chosen_color: usize,
-) {
+fn encode_edge_color(colors: &mut [Option<usize>], encoding: &EdgeEncoding, chosen_color: usize) {
     match encoding {
         EdgeEncoding::Direct { edge, allowed } => {
             assert!(
@@ -384,7 +405,11 @@ fn encode_edge_color(
                 chosen_color == *first || chosen_color == *second,
                 "chosen color {chosen_color} must belong to two-list edge {{{first}, {second}}}"
             );
-            let other = if chosen_color == *first { *second } else { *first };
+            let other = if chosen_color == *first {
+                *second
+            } else {
+                *first
+            };
             colors[*left_outer] = Some(chosen_color);
             colors[*right_outer] = Some(chosen_color);
             colors[*middle] = Some(other);
@@ -397,7 +422,11 @@ fn edge_from_assignment(encoding: &EdgeEncoding, choose_first: bool) -> usize {
     match encoding {
         EdgeEncoding::Direct { allowed, .. } => allowed[usize::from(!choose_first)],
         EdgeEncoding::TwoList { first, second, .. } => {
-            if choose_first { *first } else { *second }
+            if choose_first {
+                *first
+            } else {
+                *second
+            }
         }
     }
 }
@@ -460,7 +489,8 @@ fn build_layout(source: &KSatisfiability<K3>) -> ReductionLayout {
     let num_periods = 4 * num_transformed_vars.max(1);
     let all_colors: Vec<usize> = (0..num_periods).collect();
 
-    let mut occurrences_by_var: Vec<Vec<(usize, usize, bool)>> = vec![Vec::new(); num_transformed_vars];
+    let mut occurrences_by_var: Vec<Vec<(usize, usize, bool)>> =
+        vec![Vec::new(); num_transformed_vars];
     for (clause_idx, clause) in normalized.clauses.iter().enumerate() {
         for (lit_idx, &literal) in clause.literals.iter().enumerate() {
             occurrences_by_var[literal_var_index(literal)].push((clause_idx, lit_idx, literal > 0));
@@ -679,7 +709,14 @@ impl Reduction3SATToTimetableDesign {
 
         for (transformed_var, encoding) in self.layout.variable_encodings.iter().enumerate() {
             let choose_first = transformed_assignment[transformed_var] == 1;
-            for edge in [&encoding.ab, &encoding.bc, &encoding.cd, &encoding.de, &encoding.vb, &encoding.vd] {
+            for edge in [
+                &encoding.ab,
+                &encoding.bc,
+                &encoding.cd,
+                &encoding.de,
+                &encoding.vb,
+                &encoding.vd,
+            ] {
                 let chosen = edge_from_assignment(edge, choose_first);
                 encode_edge_color(&mut colors, edge, chosen);
             }
