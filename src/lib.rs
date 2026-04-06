@@ -43,53 +43,57 @@ pub mod variant;
 pub mod prelude {
     // Problem types
     pub use crate::models::algebraic::{
-        ConsecutiveOnesMatrixAugmentation, QuadraticAssignment, QuadraticCongruences,
-        SparseMatrixCompression, BMF, QUBO,
+        AlgebraicEquationsOverGF2, ConsecutiveOnesMatrixAugmentation,
+        MinimumWeightSolutionToLinearEquations, QuadraticAssignment, QuadraticCongruences,
+        SimultaneousIncongruences, SparseMatrixCompression, BMF, QUBO,
     };
     pub use crate::models::formula::{
-        CNFClause, CircuitSAT, KSatisfiability, NAESatisfiability, NonTautology,
-        OneInThreeSatisfiability, Planar3Satisfiability, QuantifiedBooleanFormulas, Satisfiability,
+        CNFClause, CircuitSAT, KSatisfiability, Maximum2Satisfiability, NAESatisfiability,
+        NonTautology, OneInThreeSatisfiability, Planar3Satisfiability, QuantifiedBooleanFormulas,
+        Satisfiability,
     };
     pub use crate::models::graph::{
         AcyclicPartition, BalancedCompleteBipartiteSubgraph, BicliqueCover,
         BiconnectivityAugmentation, BottleneckTravelingSalesman, BoundedComponentSpanningForest,
-        DirectedTwoCommodityIntegralFlow, DisjointConnectingPaths, GeneralizedHex,
-        HamiltonianCircuit, HamiltonianPath, HamiltonianPathBetweenTwoVertices,
-        IntegralFlowBundles, IntegralFlowHomologousArcs, IntegralFlowWithMultipliers,
-        IsomorphicSpanningTree, KClique, KthBestSpanningTree, LengthBoundedDisjointPaths,
-        LongestPath, MixedChinesePostman, SpinGlass, SteinerTree, StrongConnectivityAugmentation,
-        SubgraphIsomorphism,
+        DegreeConstrainedSpanningTree, DirectedTwoCommodityIntegralFlow, DisjointConnectingPaths,
+        GeneralizedHex, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
+        HamiltonianPathBetweenTwoVertices, IntegralFlowBundles, IntegralFlowHomologousArcs,
+        IntegralFlowWithMultipliers, IsomorphicSpanningTree, KClique, Kernel, KthBestSpanningTree,
+        LengthBoundedDisjointPaths, LongestPath, MixedChinesePostman, SpinGlass, SteinerTree,
+        StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, LongestCircuit, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
-        MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets, MinimumDominatingSet,
-        MinimumDummyActivitiesPert, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
-        MinimumGeometricConnectedDominatingSet, MinimumMultiwayCut, MinimumSumMulticenter,
-        MinimumVertexCover, MonochromaticTriangle, MultipleChoiceBranching,
-        MultipleCopyFileAllocation, OptimalLinearArrangement, PartialFeedbackEdgeSet,
-        PartitionIntoPathsOfLength2, PartitionIntoTriangles, PathConstrainedNetworkFlow,
-        RootedTreeArrangement, RuralPostman, ShortestWeightConstrainedPath, SteinerTreeInGraphs,
-        TravelingSalesman, UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
+        MaximumLeafSpanningTree, MaximumMatching, MinMaxMulticenter, MinimumCutIntoBoundedSets,
+        MinimumDominatingSet, MinimumDummyActivitiesPert, MinimumFeedbackArcSet,
+        MinimumFeedbackVertexSet, MinimumGeometricConnectedDominatingSet, MinimumGraphBandwidth,
+        MinimumMultiwayCut, MinimumSumMulticenter, MinimumVertexCover, MonochromaticTriangle,
+        MultipleChoiceBranching, MultipleCopyFileAllocation, OptimalLinearArrangement,
+        PartialFeedbackEdgeSet, PartitionIntoCliques, PartitionIntoPathsOfLength2,
+        PartitionIntoTriangles, PathConstrainedNetworkFlow, RootedTreeArrangement, RuralPostman,
+        ShortestWeightConstrainedPath, SteinerTreeInGraphs, TravelingSalesman,
+        UndirectedFlowLowerBounds, UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
         AdditionalKey, BinPacking, BoyceCoddNormalFormViolation, CapacityAssignment, CbqRelation,
         ConjunctiveBooleanQuery, ConjunctiveQueryFoldability, ConsistencyOfDatabaseFrequencyTables,
         CosineProductIntegration, EnsembleComputation, ExpectedRetrievalCost, Factoring,
-        FlowShopScheduling, GroupingBySwapping, JobShopScheduling, Knapsack,
-        LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
+        FlowShopScheduling, GroupingBySwapping, IntegerExpressionMembership, JobShopScheduling,
+        Knapsack, LongestCommonSubsequence, MinimumTardinessSequencing, MultiprocessorScheduling,
         OpenShopScheduling, PaintShop, Partition, PreemptiveScheduling, ProductionPlanning,
         QueryArg, RectilinearPictureCompression, ResourceConstrainedScheduling,
         SchedulingWithIndividualDeadlines, SequencingToMinimizeMaximumCumulativeCost,
-        SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
-        SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
-        SequencingWithinIntervals, ShortestCommonSupersequence, StackerCrane, StaffScheduling,
-        StringToStringCorrection, SubsetSum, SumOfSquaresPartition, Term, ThreePartition,
-        TimetableDesign,
+        SequencingToMinimizeTardyTaskWeight, SequencingToMinimizeWeightedCompletionTime,
+        SequencingToMinimizeWeightedTardiness, SequencingWithDeadlinesAndSetUpTimes,
+        SequencingWithReleaseTimesAndDeadlines, SequencingWithinIntervals,
+        ShortestCommonSupersequence, StackerCrane, StaffScheduling, StringToStringCorrection,
+        SubsetProduct, SubsetSum, SumOfSquaresPartition, Term, ThreePartition, TimetableDesign,
     };
     pub use crate::models::set::{
         ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, IntegerKnapsack,
         MaximumSetPacking, MinimumCardinalityKey, MinimumHittingSet, MinimumSetCovering,
         PrimeAttributeName, RootedTreeStorageAssignment, SetBasis, SetSplitting,
+        ThreeMatroidIntersection,
     };
 
     // Core traits

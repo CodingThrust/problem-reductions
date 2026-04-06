@@ -167,7 +167,9 @@ Link via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the rule fil
 
 Add a builder function in `src/example_db/rule_builders.rs` that constructs a small, canonical instance for this reduction. Follow the existing patterns in that file. Register the builder in `build_rule_examples()`.
 
-## Step 6: Document in paper
+## Step 6: Document in paper (MANDATORY — DO NOT SKIP)
+
+**This step is NOT optional.** Every reduction rule MUST have a corresponding `reduction-rule` entry in the paper. Skipping documentation is a blocking error — the PR will be rejected in review. Do not proceed to Step 6 until the paper entry is written and `make paper` compiles.
 
 Write a `reduction-rule` entry in `docs/paper/reductions.typ`. **Reference example:** search for `reduction-rule("KColoring", "QUBO"` to see the gold-standard entry — use it as a template. For a minimal example, see MinimumVertexCover -> MaximumIndependentSet.
 
@@ -272,6 +274,7 @@ Aggregate-only reductions currently have a narrower CLI surface:
 | Missing `extract_solution` mapping state | Store any index maps needed in the ReductionResult struct |
 | Not adding canonical example to `example_db` | Add builder in `src/example_db/rule_builders.rs` |
 | Not regenerating reduction graph | Run `cargo run --example export_graph` after adding a rule |
+| Skipping Step 5 (paper documentation) | **Every rule MUST have a `reduction-rule` entry in the paper. This is mandatory, not optional. PRs without documentation will be rejected.** |
 | Source/target model not fully registered | Both problems must already have `declare_variants!`, aliases as needed, and CLI create support -- use `add-model` skill first |
 | Treating a direct-to-ILP rule as a toy stub | Direct ILP reductions need exact overhead metadata and strong semantic regression tests, just like other production ILP rules |
 | Skipping verification for complex reductions | Verification is default for a reason — `--no-verify` is for trivial identity/complement reductions only |

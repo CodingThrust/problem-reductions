@@ -62,7 +62,7 @@ pub struct SimultaneousIncongruences {
 
 /// Maximum lcm value we will compute in full; if the lcm exceeds this cap we
 /// return this value to keep the brute-force search space manageable.
-const MAX_LCM: u128 = 1_000_000;
+pub(crate) const MAX_LCM: u128 = 1_000_000;
 
 fn lcm128(a: u128, b: u128) -> u128 {
     if a == 0 || b == 0 {

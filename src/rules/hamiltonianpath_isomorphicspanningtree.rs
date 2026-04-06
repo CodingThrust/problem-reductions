@@ -1,4 +1,4 @@
-//! Reduction from HamiltonianPath to IsomorphicSpanningTree.
+//! Reduction from HamiltonianPath to IsomorphicSpanningTree<SimpleGraph>.
 //!
 //! A Hamiltonian path in G exists iff G has a spanning tree isomorphic to the
 //! path graph P_n. The reduction keeps G unchanged as the host graph and
@@ -9,15 +9,15 @@ use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
 
-/// Result of reducing HamiltonianPath to IsomorphicSpanningTree.
+/// Result of reducing HamiltonianPath to IsomorphicSpanningTree<SimpleGraph>.
 #[derive(Debug, Clone)]
 pub struct ReductionHPToIST {
-    target: IsomorphicSpanningTree,
+    target: IsomorphicSpanningTree<SimpleGraph>,
 }
 
 impl ReductionResult for ReductionHPToIST {
     type Source = HamiltonianPath<SimpleGraph>;
-    type Target = IsomorphicSpanningTree;
+    type Target = IsomorphicSpanningTree<SimpleGraph>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -40,7 +40,7 @@ impl ReductionResult for ReductionHPToIST {
         num_tree_edges = "num_vertices - 1",
     }
 )]
-impl ReduceTo<IsomorphicSpanningTree> for HamiltonianPath<SimpleGraph> {
+impl ReduceTo<IsomorphicSpanningTree<SimpleGraph>> for HamiltonianPath<SimpleGraph> {
     type Result = ReductionHPToIST;
 
     fn reduce_to(&self) -> Self::Result {
@@ -66,7 +66,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Path graph 0-1-2-3-4 has a trivial Hamiltonian path
             let source = HamiltonianPath::new(SimpleGraph::path(5));
-            crate::example_db::specs::rule_example_with_witness::<_, IsomorphicSpanningTree>(
+            crate::example_db::specs::rule_example_with_witness::<
+                _,
+                IsomorphicSpanningTree<SimpleGraph>,
+            >(
                 source,
                 SolutionPair {
                     source_config: vec![0, 1, 2, 3, 4],

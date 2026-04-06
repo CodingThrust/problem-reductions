@@ -139,7 +139,7 @@ where
 }
 
 /// Check if a configuration forms a valid vertex cover.
-fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
+pub(crate) fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
     for (u, v) in graph.edges() {
         let u_covered = config.get(u).copied().unwrap_or(0) == 1;
         let v_covered = config.get(v).copied().unwrap_or(0) == 1;

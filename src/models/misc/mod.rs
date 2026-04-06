@@ -4,6 +4,7 @@
 //! - [`AdditionalKey`]: Determine whether a relational schema has an additional candidate key
 //! - [`Betweenness`]: Find a linear ordering satisfying betweenness constraints on triples
 //! - [`BinPacking`]: Bin Packing (minimize bins)
+//! - [`Clustering`]: Partition elements into bounded-diameter clusters
 //! - [`CyclicOrdering`]: Find a permutation satisfying cyclic ordering constraints on triples
 //! - [`BoyceCoddNormalFormViolation`]: Boyce-Codd Normal Form Violation (BCNF)
 //! - [`ConsistencyOfDatabaseFrequencyTables`]: Pairwise frequency-table consistency
@@ -20,11 +21,21 @@
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
 //! - [`MultiprocessorScheduling`]: Schedule tasks on processors to meet a deadline
 //! - [`Numerical3DimensionalMatching`]: Partition W∪X∪Y into m triples each summing to B
+//! - [`NumericalMatchingWithTargetSums`]: Partition X∪Y into m pairs with pair sums matching targets
 //! - [`OpenShopScheduling`]: Open Shop Scheduling (minimize makespan, free task order per job)
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
+//! - [`MaximumLikelihoodRanking`]: Find a ranking minimizing total pairwise disagreement
+//! - [`MinimumAxiomSet`]: Find smallest axiom subset whose deductive closure covers all true sentences
+//! - [`MinimumCodeGenerationOneRegister`]: Minimize instruction count for a one-register machine
+//! - [`MinimumCodeGenerationParallelAssignments`]: Minimize backward dependencies when ordering parallel assignments
+//! - [`MinimumCodeGenerationUnlimitedRegisters`]: Minimize instruction count for an unlimited-register machine with 2-address instructions
 //! - [`MinimumExternalMacroDataCompression`]: Minimize compression cost using external dictionary
+//! - [`MinimumFaultDetectionTestSet`]: Find minimum set of input-output paths covering all DAG vertices
 //! - [`MinimumInternalMacroDataCompression`]: Minimize self-referencing compression cost
+//! - [`MinimumRegisterSufficiencyForLoops`]: Minimize registers for loop variable allocation (circular arc coloring)
+//! - [`MinimumWeightAndOrGraph`]: Find minimum-weight solution subgraph in a DAG with AND/OR gates
 //! - [`MinimumTardinessSequencing`]: Minimize tardy tasks in single-machine scheduling
+//! - [`OptimumCommunicationSpanningTree`]: Find spanning tree minimizing total weighted communication cost
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
 //! - [`CosineProductIntegration`]: Balanced sign assignment for integer frequencies
 //! - [`NonLivenessFreePetriNet`]: Determine whether a free-choice Petri net is not live
@@ -46,6 +57,7 @@
 //! - [`SequencingWithReleaseTimesAndDeadlines`]: Single-machine scheduling feasibility
 //! - [`SequencingWithinIntervals`]: Schedule tasks within time windows
 //! - [`ShortestCommonSupersequence`]: Find a common supersequence of bounded length
+//! - [`SquareTiling`]: Place colored square tiles on an N x N grid with matching edge colors
 //! - [`TimetableDesign`]: Schedule craftsmen on tasks across work periods
 //! - [`StringToStringCorrection`]: String-to-String Correction (derive target via deletions and swaps)
 //! - [`SubsetProduct`]: Find a subset whose product equals exactly a target value
@@ -102,6 +114,7 @@ pub(crate) fn lehmer_dims(n: usize) -> Vec<usize> {
 mod bin_packing;
 mod boyce_codd_normal_form_violation;
 mod capacity_assignment;
+pub(crate) mod clustering;
 pub(crate) mod conjunctive_boolean_query;
 pub(crate) mod conjunctive_query_foldability;
 mod consistency_of_database_frequency_tables;
@@ -118,13 +131,25 @@ mod job_shop_scheduling;
 mod knapsack;
 mod kth_largest_m_tuple;
 mod longest_common_subsequence;
+pub(crate) mod maximum_likelihood_ranking;
+mod minimum_axiom_set;
+mod minimum_code_generation_one_register;
+pub(crate) mod minimum_code_generation_parallel_assignments;
+mod minimum_code_generation_unlimited_registers;
+pub(crate) mod minimum_decision_tree;
+pub(crate) mod minimum_disjunctive_normal_form;
 mod minimum_external_macro_data_compression;
+mod minimum_fault_detection_test_set;
 mod minimum_internal_macro_data_compression;
+mod minimum_register_sufficiency_for_loops;
 mod minimum_tardiness_sequencing;
+mod minimum_weight_and_or_graph;
 mod multiprocessor_scheduling;
 mod non_liveness_free_petri_net;
 mod numerical_3_dimensional_matching;
+mod numerical_matching_with_target_sums;
 mod open_shop_scheduling;
+pub(crate) mod optimum_communication_spanning_tree;
 pub(crate) mod paintshop;
 pub(crate) mod partially_ordered_knapsack;
 pub(crate) mod partition;
@@ -144,6 +169,7 @@ mod sequencing_with_deadlines_and_set_up_times;
 mod sequencing_with_release_times_and_deadlines;
 mod sequencing_within_intervals;
 pub(crate) mod shortest_common_supersequence;
+mod square_tiling;
 mod stacker_crane;
 mod staff_scheduling;
 pub(crate) mod string_to_string_correction;
@@ -158,6 +184,7 @@ pub use betweenness::Betweenness;
 pub use bin_packing::BinPacking;
 pub use boyce_codd_normal_form_violation::BoyceCoddNormalFormViolation;
 pub use capacity_assignment::CapacityAssignment;
+pub use clustering::Clustering;
 pub use conjunctive_boolean_query::{ConjunctiveBooleanQuery, QueryArg, Relation as CbqRelation};
 pub use conjunctive_query_foldability::{ConjunctiveQueryFoldability, Term};
 pub use consistency_of_database_frequency_tables::{
@@ -177,13 +204,25 @@ pub use job_shop_scheduling::JobShopScheduling;
 pub use knapsack::Knapsack;
 pub use kth_largest_m_tuple::KthLargestMTuple;
 pub use longest_common_subsequence::LongestCommonSubsequence;
+pub use maximum_likelihood_ranking::MaximumLikelihoodRanking;
+pub use minimum_axiom_set::MinimumAxiomSet;
+pub use minimum_code_generation_one_register::MinimumCodeGenerationOneRegister;
+pub use minimum_code_generation_parallel_assignments::MinimumCodeGenerationParallelAssignments;
+pub use minimum_code_generation_unlimited_registers::MinimumCodeGenerationUnlimitedRegisters;
+pub use minimum_decision_tree::MinimumDecisionTree;
+pub use minimum_disjunctive_normal_form::MinimumDisjunctiveNormalForm;
 pub use minimum_external_macro_data_compression::MinimumExternalMacroDataCompression;
+pub use minimum_fault_detection_test_set::MinimumFaultDetectionTestSet;
 pub use minimum_internal_macro_data_compression::MinimumInternalMacroDataCompression;
+pub use minimum_register_sufficiency_for_loops::MinimumRegisterSufficiencyForLoops;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
+pub use minimum_weight_and_or_graph::MinimumWeightAndOrGraph;
 pub use multiprocessor_scheduling::MultiprocessorScheduling;
 pub use non_liveness_free_petri_net::NonLivenessFreePetriNet;
 pub use numerical_3_dimensional_matching::Numerical3DimensionalMatching;
+pub use numerical_matching_with_target_sums::NumericalMatchingWithTargetSums;
 pub use open_shop_scheduling::OpenShopScheduling;
+pub use optimum_communication_spanning_tree::OptimumCommunicationSpanningTree;
 pub use paintshop::PaintShop;
 pub use partially_ordered_knapsack::PartiallyOrderedKnapsack;
 pub use partition::Partition;
@@ -203,6 +242,7 @@ pub use sequencing_with_deadlines_and_set_up_times::SequencingWithDeadlinesAndSe
 pub use sequencing_with_release_times_and_deadlines::SequencingWithReleaseTimesAndDeadlines;
 pub use sequencing_within_intervals::SequencingWithinIntervals;
 pub use shortest_common_supersequence::ShortestCommonSupersequence;
+pub use square_tiling::SquareTiling;
 pub use stacker_crane::StackerCrane;
 pub use staff_scheduling::StaffScheduling;
 pub use string_to_string_correction::StringToStringCorrection;
@@ -259,11 +299,18 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(subset_product::canonical_model_example_specs());
     specs.extend(subset_sum::canonical_model_example_specs());
     specs.extend(numerical_3_dimensional_matching::canonical_model_example_specs());
+    specs.extend(numerical_matching_with_target_sums::canonical_model_example_specs());
     specs.extend(three_partition::canonical_model_example_specs());
     specs.extend(cosine_product_integration::canonical_model_example_specs());
     specs.extend(dynamic_storage_allocation::canonical_model_example_specs());
+    specs.extend(minimum_code_generation_one_register::canonical_model_example_specs());
+    specs.extend(minimum_code_generation_parallel_assignments::canonical_model_example_specs());
+    specs.extend(minimum_code_generation_unlimited_registers::canonical_model_example_specs());
+    specs.extend(minimum_decision_tree::canonical_model_example_specs());
+    specs.extend(minimum_disjunctive_normal_form::canonical_model_example_specs());
     specs.extend(minimum_external_macro_data_compression::canonical_model_example_specs());
     specs.extend(minimum_internal_macro_data_compression::canonical_model_example_specs());
+    specs.extend(minimum_register_sufficiency_for_loops::canonical_model_example_specs());
     specs.extend(register_sufficiency::canonical_model_example_specs());
     specs.extend(feasible_register_assignment::canonical_model_example_specs());
     specs.extend(kth_largest_m_tuple::canonical_model_example_specs());
@@ -271,5 +318,12 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(betweenness::canonical_model_example_specs());
     specs.extend(cyclic_ordering::canonical_model_example_specs());
     specs.extend(non_liveness_free_petri_net::canonical_model_example_specs());
+    specs.extend(maximum_likelihood_ranking::canonical_model_example_specs());
+    specs.extend(clustering::canonical_model_example_specs());
+    specs.extend(minimum_weight_and_or_graph::canonical_model_example_specs());
+    specs.extend(minimum_fault_detection_test_set::canonical_model_example_specs());
+    specs.extend(minimum_axiom_set::canonical_model_example_specs());
+    specs.extend(optimum_communication_spanning_tree::canonical_model_example_specs());
+    specs.extend(square_tiling::canonical_model_example_specs());
     specs
 }

@@ -3,6 +3,9 @@
 ## Project Overview
 Rust library for NP-hard problem reductions. Implements computational problems with reduction rules for transforming between equivalent formulations.
 
+## Agent Preferences
+- For tasks with complex logic (implementing reductions, fixing CI, issue-to-pr, check-issue, etc.), prefer invoking the `codex` CLI (if installed) with the latest model: `codex exec -c model="gpt-5.4" "<prompt>"`.
+
 ## Skills
 These repo-local skills live under `.claude/skills/*/SKILL.md`.
 
@@ -173,9 +176,11 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 
 ### Extension Points
 - New models register dynamic load/serialize/brute-force dispatch through `declare_variants!` in the model file, not by adding manual match arms in the CLI
+- **CLI creation is schema-driven:** `pred create` automatically maps `ProblemSchemaEntry` fields to CLI flags via `snake_case → kebab-case` convention. New models need only: (1) matching CLI flags in `CreateArgs` + `flag_map()`, and (2) type parser support in `parse_field_value()` if using a new field type. No match arm in `create.rs` is needed.
+- **CLI flag names must match schema field names.** The canonical name for a CLI flag is the schema field name in kebab-case (e.g., schema field `universe_size` → `--universe-size`, field `subsets` → `--subsets`). Old aliases (e.g., `--universe`, `--sets`) may exist as clap `alias` for backward compatibility at the clap level, but `flag_map()`, help text, error messages, and documentation must use the schema-derived name. Do not add new backward-compat aliases; if a field is renamed in the schema, update the CLI flag name to match.
 - Aggregate-only models are first-class in `declare_variants!`; aggregate-only reduction edges still need manual `ReductionEntry` wiring because `#[reduction]` only registers witness/config reductions today
 - Exact registry dispatch lives in `src/registry/`; alias resolution and partial/default variant resolution live in `problemreductions-cli/src/problem_name.rs`
-- `pred create` UX lives in `problemreductions-cli/src/commands/create.rs`
+- `pred create` schema-driven dispatch lives in `problemreductions-cli/src/commands/create.rs` (`create_schema_driven()`)
 - Canonical paper and CLI examples live in `src/example_db/model_builders.rs` and `src/example_db/rule_builders.rs`
 
 ## Conventions

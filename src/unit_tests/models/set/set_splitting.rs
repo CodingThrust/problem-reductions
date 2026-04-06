@@ -20,6 +20,19 @@ fn test_set_splitting_getters() {
 }
 
 #[test]
+fn test_set_splitting_normalization_getters() {
+    let problem = SetSplitting::new(4, vec![vec![0, 1, 2, 3], vec![0, 2]]);
+
+    assert_eq!(problem.normalized_universe_size(), 6);
+    assert_eq!(problem.normalized_num_size2_subsets(), 2);
+    assert_eq!(problem.normalized_num_size3_subsets(), 2);
+    assert_eq!(
+        problem.normalized_instance().1,
+        vec![vec![0, 1, 4], vec![4, 5], vec![5, 2, 3], vec![0, 2]]
+    );
+}
+
+#[test]
 fn test_set_splitting_evaluate_valid() {
     // Universe {0,1,2,3}, one subset {0,1,2,3}
     // config [0,0,1,1] → subset has {0,1} in S1 and {2,3} in S2 → split

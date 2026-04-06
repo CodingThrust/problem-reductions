@@ -20,6 +20,24 @@ pub fn resolve_alias(input: &str) -> String {
     if input.eq_ignore_ascii_case("GroupingBySwapping") {
         return "GroupingBySwapping".to_string();
     }
+    if input.eq_ignore_ascii_case("MinimumWeightAndOrGraph") {
+        return "MinimumWeightAndOrGraph".to_string();
+    }
+    if input.eq_ignore_ascii_case("MinimumFaultDetectionTestSet") {
+        return "MinimumFaultDetectionTestSet".to_string();
+    }
+    if input.eq_ignore_ascii_case("MinimumCodeGenerationUnlimitedRegisters") {
+        return "MinimumCodeGenerationUnlimitedRegisters".to_string();
+    }
+    if input.eq_ignore_ascii_case("MinimumCodeGenerationParallelAssignments") {
+        return "MinimumCodeGenerationParallelAssignments".to_string();
+    }
+    if input.eq_ignore_ascii_case("ThreeMatroidIntersection") {
+        return "ThreeMatroidIntersection".to_string();
+    }
+    if input.eq_ignore_ascii_case("GraphPartitioning") {
+        return "GraphPartitioning".to_string();
+    }
     if let Some(pt) = problemreductions::registry::find_problem_type_by_alias(input) {
         return pt.canonical_name.to_string();
     }
@@ -291,6 +309,9 @@ mod tests {
             resolve_alias("biconnectivityaugmentation"),
             "BiconnectivityAugmentation"
         );
+        // VertexCover alias
+        assert_eq!(resolve_alias("VC"), "VertexCover");
+        assert_eq!(resolve_alias("VertexCover"), "VertexCover");
         // Pass-through for full names
         assert_eq!(
             resolve_alias("MaximumIndependentSet"),

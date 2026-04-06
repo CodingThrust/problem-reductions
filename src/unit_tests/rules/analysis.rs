@@ -261,6 +261,11 @@ fn test_find_dominated_rules_returns_known_set() {
         ),
         // ExactCoverBy3Sets → MaxSetPacking → ILP is better than direct ExactCoverBy3Sets → ILP
         ("ExactCoverBy3Sets", "ILP {variable: \"bool\"}"),
+        // GraphPartitioning → MaxCut → SpinGlass → QUBO is better than direct GraphPartitioning → QUBO
+        (
+            "GraphPartitioning {graph: \"SimpleGraph\"}",
+            "QUBO {weight: \"f64\"}",
+        ),
     ]
     .into_iter()
     .collect();

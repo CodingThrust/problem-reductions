@@ -109,9 +109,19 @@ impl ExactCoverBy3Sets {
         self.subsets.len()
     }
 
+    /// Get the number of sets in the collection.
+    pub fn num_sets(&self) -> usize {
+        self.num_subsets()
+    }
+
     /// Get the subsets.
     pub fn subsets(&self) -> &[[usize; 3]] {
         &self.subsets
+    }
+
+    /// Get the sets.
+    pub fn sets(&self) -> &[[usize; 3]] {
+        self.subsets()
     }
 
     /// Get a specific subset.

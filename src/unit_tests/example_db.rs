@@ -265,6 +265,27 @@ fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances()
     assert!(!example.solutions[0].target_config.is_empty());
 }
 
+#[cfg(feature = "ilp-solver")]
+#[test]
+fn test_find_rule_example_threedimensionalmatching_to_ilp_contains_full_instances() {
+    let source = ProblemRef {
+        name: "ThreeDimensionalMatching".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "ILP".to_string(),
+        variant: BTreeMap::from([("variable".to_string(), "bool".to_string())]),
+    };
+
+    let example =
+        find_rule_example(&source, &target).expect("ThreeDimensionalMatching -> ILP exists");
+    assert_eq!(example.source.problem, "ThreeDimensionalMatching");
+    assert_eq!(example.target.problem, "ILP");
+    assert!(example.source.instance.get("triples").is_some());
+    assert_eq!(example.solutions[0].source_config, vec![1, 1, 1, 0, 0]);
+    assert_eq!(example.solutions[0].target_config, vec![1, 1, 1, 0, 0]);
+}
+
 #[test]
 fn test_build_rule_db_has_unique_structural_keys() {
     let db = build_rule_db().expect("rule db should build");
@@ -617,4 +638,665 @@ fn rule_specs_solution_pairs_are_consistent() {
             );
         }
     }
+}
+
+// ---- Rule lookup tests for issue #974 ----
+
+// PR #777 rules
+
+#[test]
+fn test_find_rule_example_hamiltoniancircuit_to_hamiltonianpath() {
+    let source = ProblemRef {
+        name: "HamiltonianCircuit".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "HamiltonianPath".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "HamiltonianCircuit");
+    assert_eq!(example.target.problem, "HamiltonianPath");
+}
+
+#[test]
+fn test_find_rule_example_kclique_to_subgraphisomorphism() {
+    let source = ProblemRef {
+        name: "KClique".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "SubgraphIsomorphism".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "KClique");
+    assert_eq!(example.target.problem, "SubgraphIsomorphism");
+}
+
+#[test]
+fn test_find_rule_example_partition_to_multiprocessorscheduling() {
+    let source = ProblemRef {
+        name: "Partition".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "MultiprocessorScheduling".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "Partition");
+    assert_eq!(example.target.problem, "MultiprocessorScheduling");
+}
+
+#[test]
+fn test_find_rule_example_hamiltonianpath_to_isomorphicspanningtree() {
+    let source = ProblemRef {
+        name: "HamiltonianPath".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "IsomorphicSpanningTree".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "HamiltonianPath");
+    assert_eq!(example.target.problem, "IsomorphicSpanningTree");
+}
+
+#[test]
+fn test_find_rule_example_hamiltoniancircuit_to_bottlenecktravelingsalesman() {
+    let source = ProblemRef {
+        name: "HamiltonianCircuit".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "BottleneckTravelingSalesman".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "HamiltonianCircuit");
+    assert_eq!(example.target.problem, "BottleneckTravelingSalesman");
+}
+
+#[test]
+fn test_find_rule_example_kclique_to_conjunctivebooleanquery() {
+    let source = ProblemRef {
+        name: "KClique".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "ConjunctiveBooleanQuery".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "KClique");
+    assert_eq!(example.target.problem, "ConjunctiveBooleanQuery");
+}
+
+#[test]
+fn test_find_rule_example_exactcoverby3sets_to_staffscheduling() {
+    let source = ProblemRef {
+        name: "ExactCoverBy3Sets".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "StaffScheduling".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "ExactCoverBy3Sets");
+    assert_eq!(example.target.problem, "StaffScheduling");
+}
+
+#[test]
+fn test_find_rule_example_satisfiability_to_naesatisfiability() {
+    let source = ProblemRef {
+        name: "Satisfiability".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "NAESatisfiability".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "Satisfiability");
+    assert_eq!(example.target.problem, "NAESatisfiability");
+}
+
+// PR #779 rules
+
+#[test]
+fn test_find_rule_example_ksatisfiability_to_minimumvertexcover() {
+    let source = ProblemRef {
+        name: "KSatisfiability".to_string(),
+        variant: BTreeMap::from([("k".to_string(), "K3".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "MinimumVertexCover".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "KSatisfiability");
+    assert_eq!(example.target.problem, "MinimumVertexCover");
+}
+
+#[test]
+fn test_find_rule_example_partition_to_sequencingwithinintervals() {
+    let source = ProblemRef {
+        name: "Partition".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "SequencingWithinIntervals".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "Partition");
+    assert_eq!(example.target.problem, "SequencingWithinIntervals");
+}
+
+#[test]
+fn test_find_rule_example_minimumvertexcover_to_minimumfeedbackarcset() {
+    let source = ProblemRef {
+        name: "MinimumVertexCover".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ]),
+    };
+    let target = ProblemRef {
+        name: "MinimumFeedbackArcSet".to_string(),
+        variant: BTreeMap::from([("weight".to_string(), "i32".to_string())]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "MinimumVertexCover");
+    assert_eq!(example.target.problem, "MinimumFeedbackArcSet");
+}
+
+#[test]
+fn test_find_rule_example_ksatisfiability_to_kclique() {
+    let source = ProblemRef {
+        name: "KSatisfiability".to_string(),
+        variant: BTreeMap::from([("k".to_string(), "K3".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "KClique".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "KSatisfiability");
+    assert_eq!(example.target.problem, "KClique");
+}
+
+#[test]
+fn test_find_rule_example_hamiltoniancircuit_to_biconnectivityaugmentation() {
+    let source = ProblemRef {
+        name: "HamiltonianCircuit".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "BiconnectivityAugmentation".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "HamiltonianCircuit");
+    assert_eq!(example.target.problem, "BiconnectivityAugmentation");
+}
+
+#[test]
+fn test_find_rule_example_hamiltoniancircuit_to_strongconnectivityaugmentation() {
+    let source = ProblemRef {
+        name: "HamiltonianCircuit".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "StrongConnectivityAugmentation".to_string(),
+        variant: BTreeMap::from([("weight".to_string(), "i32".to_string())]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "HamiltonianCircuit");
+    assert_eq!(example.target.problem, "StrongConnectivityAugmentation");
+}
+
+#[test]
+fn test_find_rule_example_hamiltoniancircuit_to_stackercrane() {
+    let source = ProblemRef {
+        name: "HamiltonianCircuit".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "StackerCrane".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "HamiltonianCircuit");
+    assert_eq!(example.target.problem, "StackerCrane");
+}
+
+#[test]
+fn test_find_rule_example_hamiltoniancircuit_to_ruralpostman() {
+    let source = ProblemRef {
+        name: "HamiltonianCircuit".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "RuralPostman".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "HamiltonianCircuit");
+    assert_eq!(example.target.problem, "RuralPostman");
+}
+
+#[test]
+fn test_find_rule_example_partition_to_shortestweightconstrainedpath() {
+    let source = ProblemRef {
+        name: "Partition".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "ShortestWeightConstrainedPath".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "Partition");
+    assert_eq!(example.target.problem, "ShortestWeightConstrainedPath");
+}
+
+#[test]
+fn test_find_rule_example_maximumindependentset_to_integralflowbundles() {
+    let source = ProblemRef {
+        name: "MaximumIndependentSet".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ]),
+    };
+    let target = ProblemRef {
+        name: "IntegralFlowBundles".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "MaximumIndependentSet");
+    assert_eq!(example.target.problem, "IntegralFlowBundles");
+}
+
+#[test]
+fn test_find_rule_example_hamiltoniancircuit_to_quadraticassignment() {
+    let source = ProblemRef {
+        name: "HamiltonianCircuit".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "QuadraticAssignment".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "HamiltonianCircuit");
+    assert_eq!(example.target.problem, "QuadraticAssignment");
+}
+
+#[test]
+fn test_find_rule_example_hamiltonianpath_to_consecutiveonessubmatrix() {
+    let source = ProblemRef {
+        name: "HamiltonianPath".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "ConsecutiveOnesSubmatrix".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "HamiltonianPath");
+    assert_eq!(example.target.problem, "ConsecutiveOnesSubmatrix");
+}
+
+// PR #804 rules
+
+#[test]
+fn test_find_rule_example_minimumvertexcover_to_minimumhittingset() {
+    let source = ProblemRef {
+        name: "MinimumVertexCover".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "One".to_string()),
+        ]),
+    };
+    let target = ProblemRef {
+        name: "MinimumHittingSet".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "MinimumVertexCover");
+    assert_eq!(example.target.problem, "MinimumHittingSet");
+}
+
+#[test]
+fn test_find_rule_example_pp2_to_boundedcomponentspanningforest() {
+    let source = ProblemRef {
+        name: "PartitionIntoPathsOfLength2".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "BoundedComponentSpanningForest".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "PartitionIntoPathsOfLength2");
+    assert_eq!(example.target.problem, "BoundedComponentSpanningForest");
+}
+
+#[test]
+fn test_find_rule_example_hamiltoniancircuit_to_longestcircuit() {
+    let source = ProblemRef {
+        name: "HamiltonianCircuit".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "LongestCircuit".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "HamiltonianCircuit");
+    assert_eq!(example.target.problem, "LongestCircuit");
+}
+
+#[test]
+fn test_find_rule_example_partition_to_subsetsum() {
+    let source = ProblemRef {
+        name: "Partition".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "SubsetSum".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "Partition");
+    assert_eq!(example.target.problem, "SubsetSum");
+}
+
+#[test]
+fn test_find_rule_example_rootedtreearrangement_to_rootedtreestorageassignment() {
+    let source = ProblemRef {
+        name: "RootedTreeArrangement".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "RootedTreeStorageAssignment".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "RootedTreeArrangement");
+    assert_eq!(example.target.problem, "RootedTreeStorageAssignment");
+}
+
+#[test]
+fn test_find_rule_example_subsetsum_to_capacityassignment() {
+    let source = ProblemRef {
+        name: "SubsetSum".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "CapacityAssignment".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "SubsetSum");
+    assert_eq!(example.target.problem, "CapacityAssignment");
+}
+
+#[test]
+fn test_find_rule_example_longestcommonsubsequence_to_maximumindependentset() {
+    let source = ProblemRef {
+        name: "LongestCommonSubsequence".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "MaximumIndependentSet".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "One".to_string()),
+        ]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "LongestCommonSubsequence");
+    assert_eq!(example.target.problem, "MaximumIndependentSet");
+}
+
+#[test]
+fn test_find_rule_example_minimumvertexcover_to_ensemblecomputation() {
+    let source = ProblemRef {
+        name: "MinimumVertexCover".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "One".to_string()),
+        ]),
+    };
+    let target = ProblemRef {
+        name: "EnsembleComputation".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "MinimumVertexCover");
+    assert_eq!(example.target.problem, "EnsembleComputation");
+}
+
+#[test]
+fn test_find_rule_example_kclique_to_balancedcompletebipartitesubgraph() {
+    let source = ProblemRef {
+        name: "KClique".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let target = ProblemRef {
+        name: "BalancedCompleteBipartiteSubgraph".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "KClique");
+    assert_eq!(example.target.problem, "BalancedCompleteBipartiteSubgraph");
+}
+
+#[test]
+fn test_find_rule_example_kcoloring_to_twodimensionalconsecutivesets() {
+    let source = ProblemRef {
+        name: "KColoring".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("k".to_string(), "K3".to_string()),
+        ]),
+    };
+    let target = ProblemRef {
+        name: "TwoDimensionalConsecutiveSets".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "KColoring");
+    assert_eq!(example.target.problem, "TwoDimensionalConsecutiveSets");
+}
+
+#[test]
+fn test_find_rule_example_paintshop_to_qubo() {
+    let source = ProblemRef {
+        name: "PaintShop".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "QUBO".to_string(),
+        variant: BTreeMap::from([("weight".to_string(), "f64".to_string())]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "PaintShop");
+    assert_eq!(example.target.problem, "QUBO");
+}
+
+// PR #972 rules
+
+#[test]
+fn test_find_rule_example_partition_to_binpacking() {
+    let source = ProblemRef {
+        name: "Partition".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "BinPacking".to_string(),
+        variant: BTreeMap::from([("weight".to_string(), "i32".to_string())]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "Partition");
+    assert_eq!(example.target.problem, "BinPacking");
+}
+
+#[test]
+fn test_find_rule_example_exactcoverby3sets_to_maximumsetpacking() {
+    let source = ProblemRef {
+        name: "ExactCoverBy3Sets".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "MaximumSetPacking".to_string(),
+        variant: BTreeMap::from([("weight".to_string(), "One".to_string())]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "ExactCoverBy3Sets");
+    assert_eq!(example.target.problem, "MaximumSetPacking");
+}
+
+#[test]
+fn test_find_rule_example_naesatisfiability_to_maxcut() {
+    let source = ProblemRef {
+        name: "NAESatisfiability".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "MaxCut".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "NAESatisfiability");
+    assert_eq!(example.target.problem, "MaxCut");
+}
+
+#[test]
+fn test_find_rule_example_threepartition_to_resourceconstrainedscheduling() {
+    let source = ProblemRef {
+        name: "ThreePartition".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "ResourceConstrainedScheduling".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "ThreePartition");
+    assert_eq!(example.target.problem, "ResourceConstrainedScheduling");
+}
+
+#[test]
+fn test_find_rule_example_threepartition_to_sequencingwithreleasetimesanddeadlines() {
+    let source = ProblemRef {
+        name: "ThreePartition".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "SequencingWithReleaseTimesAndDeadlines".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "ThreePartition");
+    assert_eq!(
+        example.target.problem,
+        "SequencingWithReleaseTimesAndDeadlines"
+    );
+}
+
+#[test]
+fn test_find_rule_example_threepartition_to_sequencingtominimizeweightedtardiness() {
+    let source = ProblemRef {
+        name: "ThreePartition".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "SequencingToMinimizeWeightedTardiness".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "ThreePartition");
+    assert_eq!(
+        example.target.problem,
+        "SequencingToMinimizeWeightedTardiness"
+    );
+}
+
+#[test]
+fn test_find_rule_example_threepartition_to_flowshopscheduling() {
+    let source = ProblemRef {
+        name: "ThreePartition".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "FlowShopScheduling".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "ThreePartition");
+    assert_eq!(example.target.problem, "FlowShopScheduling");
+}
+
+#[test]
+fn test_find_rule_example_threepartition_to_jobshopscheduling() {
+    let source = ProblemRef {
+        name: "ThreePartition".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "JobShopScheduling".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "ThreePartition");
+    assert_eq!(example.target.problem, "JobShopScheduling");
+}
+
+#[test]
+fn test_find_rule_example_maxcut_to_minimumcutintoboundedsets() {
+    let source = ProblemRef {
+        name: "MaxCut".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ]),
+    };
+    let target = ProblemRef {
+        name: "MinimumCutIntoBoundedSets".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "MaxCut");
+    assert_eq!(example.target.problem, "MinimumCutIntoBoundedSets");
 }
