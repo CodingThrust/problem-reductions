@@ -1501,8 +1501,19 @@ pub(super) fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static
             Some("UnitDiskGraph") => "--positions \"0,0;1,0;0.5,0.8\" --radius 1.5",
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
+        "DecisionMinimumVertexCover" => match graph_type {
+            Some("KingsSubgraph") => {
+                "--positions \"0,0;1,0;1,1;0,1\" --weights 1,1,1,1 --bound 2"
+            }
+            Some("TriangularSubgraph") => {
+                "--positions \"0,0;0,1;1,0;1,1\" --weights 1,1,1,1 --bound 2"
+            }
+            Some("UnitDiskGraph") => {
+                "--positions \"0,0;1,0;0.5,0.8\" --radius 1.5 --weights 1,1,1 --bound 2"
+            }
+            _ => "--graph 0-1,1-2,0-2,2-3 --weights 1,1,1,1 --bound 2",
+        },
         "KClique" => "--graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3",
-        "VertexCover" => "--graph 0-1,1-2,0-2,2-3 --k 2",
         "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
         "IntegralFlowBundles" => {
             "--arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4"

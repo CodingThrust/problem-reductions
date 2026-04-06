@@ -95,9 +95,13 @@ fn test_decision_problem_schema_entries_registered() {
         .iter()
         .find(|entry| entry.name == "DecisionMinimumVertexCover")
         .expect("DecisionMinimumVertexCover schema should be registered");
-    assert!(mvc.aliases.is_empty());
+    assert_eq!(mvc.aliases, ["VertexCover", "VC"]);
     assert!(mvc.fields.iter().any(|field| field.name == "bound"));
     assert_eq!(mvc.dimensions.len(), 2);
+    assert!(
+        entries.iter().all(|entry| entry.name != "VertexCover"),
+        "legacy VertexCover schema should be removed"
+    );
 
     let mds = entries
         .iter()

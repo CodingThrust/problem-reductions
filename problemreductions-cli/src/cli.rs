@@ -230,7 +230,7 @@ Flags by problem type:
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
   KClique                         --graph, --k
-  VertexCover (VC)                --graph, --k
+  DecisionMinimumVertexCover      --graph, --weights, --bound
   MinimumMultiwayCut              --graph, --terminals, --edge-weights
   MonochromaticTriangle           --graph
   PartitionIntoTriangles          --graph

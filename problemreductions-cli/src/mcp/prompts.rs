@@ -142,7 +142,7 @@ pub fn get_prompt(
 
         "compare" => {
             let a = get("problem_a", "MIS");
-            let b = get("problem_b", "VertexCover");
+            let b = get("problem_b", "DecisionMinimumVertexCover");
             Some(prompt_result(
                 &format!("Compare {a} and {b}"),
                 &format!(

@@ -13,11 +13,12 @@ use problemreductions::models::algebraic::{
     SparseMatrixCompression,
 };
 use problemreductions::models::formula::Quantifier;
+use problemreductions::models::Decision;
 use problemreductions::models::graph::{
     GeneralizedHex, HamiltonianCircuit, HamiltonianPath, HamiltonianPathBetweenTwoVertices,
     LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets,
     MinimumDummyActivitiesPert, MinimumMaximalMatching, RootedTreeArrangement, SteinerTree,
-    SteinerTreeInGraphs, VertexCover,
+    SteinerTreeInGraphs,
 };
 use problemreductions::models::misc::{
     CbqRelation, FrequencyTable, KnownValue, QueryArg, SchedulingWithIndividualDeadlines,
@@ -670,6 +671,14 @@ fn ser_vertex_weight_problem_with<G: Graph + Serialize>(
         "MaximalIS" => ser(MaximalIS::new(graph, weights)),
         _ => unreachable!(),
     }
+}
+
+fn ser_decision_minimum_vertex_cover_with<G: Graph + Serialize + problemreductions::variant::VariantParam>(
+    graph: G,
+    weights: Vec<i32>,
+    bound: i32,
+) -> Result<serde_json::Value> {
+    ser(Decision::new(MinimumVertexCover::new(graph, weights), bound))
 }
 
 fn ser<T: Serialize>(problem: T) -> Result<serde_json::Value> {
@@ -1787,6 +1796,63 @@ fn create_random(
     let graph_type = resolved_graph_type(resolved_variant);
 
     let (data, variant) = match canonical {
+        "DecisionMinimumVertexCover" => {
+            let raw_bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "DecisionMinimumVertexCover requires --bound\n\n\
+                     Usage: pred create DecisionMinimumVertexCover --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] --bound 3"
+                )
+            })?;
+            anyhow::ensure!(
+                raw_bound >= 0,
+                "DecisionMinimumVertexCover: --bound must be non-negative"
+            );
+            let bound = i32::try_from(raw_bound).map_err(|_| {
+                anyhow::anyhow!(
+                    "DecisionMinimumVertexCover: --bound must fit in a 32-bit signed integer, got {raw_bound}"
+                )
+            })?;
+            let weights = vec![1i32; num_vertices];
+            match graph_type {
+                "KingsSubgraph" => {
+                    let positions = util::create_random_int_positions(num_vertices, args.seed);
+                    let graph = KingsSubgraph::new(positions);
+                    (
+                        ser_decision_minimum_vertex_cover_with(graph, weights, bound)?,
+                        resolved_variant.clone(),
+                    )
+                }
+                "TriangularSubgraph" => {
+                    let positions = util::create_random_int_positions(num_vertices, args.seed);
+                    let graph = TriangularSubgraph::new(positions);
+                    (
+                        ser_decision_minimum_vertex_cover_with(graph, weights, bound)?,
+                        resolved_variant.clone(),
+                    )
+                }
+                "UnitDiskGraph" => {
+                    let positions = util::create_random_float_positions(num_vertices, args.seed);
+                    let radius = args.radius.unwrap_or(1.5);
+                    let graph = UnitDiskGraph::new(positions, radius);
+                    (
+                        ser_decision_minimum_vertex_cover_with(graph, weights, bound)?,
+                        resolved_variant.clone(),
+                    )
+                }
+                _ => {
+                    let edge_prob = args.edge_prob.unwrap_or(0.5);
+                    if !(0.0..=1.0).contains(&edge_prob) {
+                        bail!("--edge-prob must be between 0.0 and 1.0");
+                    }
+                    let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+                    (
+                        ser_decision_minimum_vertex_cover_with(graph, weights, bound)?,
+                        resolved_variant.clone(),
+                    )
+                }
+            }
+        }
+
         // Graph problems with vertex weights
         "MaximumIndependentSet"
         | "MinimumVertexCover"
@@ -1844,29 +1910,6 @@ fn create_random(
             let k = parse_kclique_threshold(args.k, graph.num_vertices(), usage)?;
             (
                 ser(KClique::new(graph, k))?,
-                variant_map(&[("graph", "SimpleGraph")]),
-            )
-        }
-
-        "VertexCover" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
-            if !(0.0..=1.0).contains(&edge_prob) {
-                bail!("--edge-prob must be between 0.0 and 1.0");
-            }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
-            let usage =
-                "Usage: pred create VertexCover --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] --k 3";
-            let k = args
-                .k
-                .ok_or_else(|| anyhow::anyhow!("VertexCover requires --k\n\n{usage}"))?;
-            if k == 0 {
-                bail!("VertexCover: --k must be positive");
-            }
-            if k > graph.num_vertices() {
-                bail!("VertexCover: k must be <= graph num_vertices");
-            }
-            (
-                ser(VertexCover::new(graph, k))?,
                 variant_map(&[("graph", "SimpleGraph")]),
             )
         }
@@ -2232,7 +2275,7 @@ fn create_random(
         _ => bail!(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
-             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, VertexCover, TravelingSalesman, \
+             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, DecisionMinimumVertexCover, TravelingSalesman, \
              BottleneckTravelingSalesman, SteinerTreeInGraphs, HamiltonianCircuit, MaximumLeafSpanningTree, SteinerTree, \
              OptimalLinearArrangement, RootedTreeArrangement, HamiltonianPath, LongestCircuit, GeneralizedHex)"
         ),

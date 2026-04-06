@@ -45,7 +45,7 @@ pub use graph::{
     PathConstrainedNetworkFlow, RootedTreeArrangement, RuralPostman, ShortestWeightConstrainedPath,
     SpinGlass, SteinerTree, SteinerTreeInGraphs, StrongConnectivityAugmentation,
     SubgraphIsomorphism, TravelingSalesman, UndirectedFlowLowerBounds,
-    UndirectedTwoCommodityIntegralFlow, VertexCover,
+    UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{

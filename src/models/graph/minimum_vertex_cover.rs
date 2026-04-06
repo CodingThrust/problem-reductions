@@ -187,7 +187,7 @@ inventory::submit! {
     ProblemSchemaEntry {
         name: "DecisionMinimumVertexCover",
         display_name: "Decision Minimum Vertex Cover",
-        aliases: &[],
+        aliases: &["VertexCover", "VC"],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
