@@ -298,6 +298,31 @@ impl<V> Min<V> {
     }
 }
 
+/// Trait for aggregate values that represent optimization objectives.
+pub trait OptimizationValue: Aggregate {
+    /// The inner numeric type used for comparisons with decision bounds.
+    type Inner: Clone + PartialOrd + fmt::Debug + Serialize + DeserializeOwned;
+
+    /// Whether this aggregate value satisfies the provided decision bound.
+    fn meets_bound(value: &Self, bound: &Self::Inner) -> bool;
+}
+
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> OptimizationValue for Min<V> {
+    type Inner = V;
+
+    fn meets_bound(value: &Self, bound: &V) -> bool {
+        matches!(&value.0, Some(v) if *v <= *bound)
+    }
+}
+
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> OptimizationValue for Max<V> {
+    type Inner = V;
+
+    fn meets_bound(value: &Self, bound: &V) -> bool {
+        matches!(&value.0, Some(v) if *v >= *bound)
+    }
+}
+
 /// Sum aggregate for value-only problems.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Sum<W>(pub W);
@@ -557,3 +582,7 @@ impl_variant_param!(One, "weight", parent: i32, cast: |_| 1i32);
 #[cfg(test)]
 #[path = "unit_tests/types.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "unit_tests/types_optimization_value.rs"]
+mod optimization_value_tests;
