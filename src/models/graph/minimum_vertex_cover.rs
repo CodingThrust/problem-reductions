@@ -253,6 +253,23 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     }]
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_model_example_specs()
+-> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "decision_minimum_vertex_cover_simplegraph_i32",
+        instance: Box::new(Decision::new(
+            MinimumVertexCover::new(
+                SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]),
+                vec![1i32; 4],
+            ),
+            2,
+        )),
+        optimal_config: vec![1, 0, 1, 0],
+        optimal_value: serde_json::json!(true),
+    }]
+}
+
 /// Check if a set of vertices forms a vertex cover.
 ///
 /// # Arguments

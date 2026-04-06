@@ -62,8 +62,18 @@
   }
 }
 
-#let graph-num-vertices(instance) = instance.graph.num_vertices
-#let graph-num-edges(instance) = instance.graph.edges.len()
+#let graph-instance(instance) = {
+  if "graph" in instance {
+    instance
+  } else if "inner" in instance and "graph" in instance.inner {
+    instance.inner
+  } else {
+    instance
+  }
+}
+
+#let graph-num-vertices(instance) = graph-instance(instance).graph.num_vertices
+#let graph-num-edges(instance) = graph-instance(instance).graph.edges.len()
 #let spin-num-spins(instance) = instance.fields.len()
 #let sat-num-clauses(instance) = instance.clauses.len()
 #let subsetsum-num-elements(instance) = instance.sizes.len()
@@ -234,6 +244,7 @@
   "MinimumDisjunctiveNormalForm": [Minimum Disjunctive Normal Form],
   "MinimumGraphBandwidth": [Minimum Graph Bandwidth],
   "MinimumMetricDimension": [Minimum Metric Dimension],
+  "DecisionMinimumVertexCover": [Decision Minimum Vertex Cover],
   "MinimumCodeGenerationUnlimitedRegisters": [Minimum Code Generation (Unlimited Registers)],
   "RegisterSufficiency": [Register Sufficiency],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
@@ -643,6 +654,31 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     },
     caption: [The house graph with a minimum vertex cover $S = {#cover.map(i => $v_#i$).join(", ")}$ shown in blue ($w(S) = #wS$). Every edge is incident to at least one blue vertex.],
     ) <fig:house-vc>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("DecisionMinimumVertexCover")
+  let inner = x.instance.inner
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let k = x.instance.bound
+  let sol = x.optimal_config
+  let cover = sol.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  [
+    #problem-def("DecisionMinimumVertexCover")[
+      Given an undirected graph $G = (V, E)$ with vertex weights $w: V -> RR_ge 0$ and an integer bound $k$, determine whether there exists a vertex cover $S subset.eq V$ with $sum_(v in S) w(v) <= k$ such that every edge has at least one endpoint in $S$.
+    ][
+    Decision Minimum Vertex Cover is the decision version of Minimum Vertex Cover and one of Karp's 21 NP-complete problems @karp1972 @garey1979. It asks whether the optimization objective can be achieved within a prescribed budget rather than minimizing the cover weight directly.
+
+    *Example.* Consider a graph on $n = #nv$ vertices and $|E| = #ne$ edges with threshold $k = #k$. The cover $S = {#cover.map(i => $v_#i$).join(", ")}$ has total weight $2 <= #k$ and therefore certifies a yes-instance.
+
+    #pred-commands(
+      "pred create --example DecisionMinimumVertexCover -o vc.json",
+      "pred solve vc.json",
+      "pred evaluate vc.json --config " + sol.map(str).join(","),
+    )
     ]
   ]
 }

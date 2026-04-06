@@ -199,6 +199,26 @@ fn test_find_model_example_minimum_dummy_activities_pert() {
 }
 
 #[test]
+fn test_find_model_example_decision_minimum_vertex_cover() {
+    let problem = ProblemRef {
+        name: "DecisionMinimumVertexCover".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ]),
+    };
+
+    let example =
+        find_model_example(&problem).expect("DecisionMinimumVertexCover example should exist");
+    assert_eq!(example.problem, "DecisionMinimumVertexCover");
+    assert_eq!(example.variant, problem.variant);
+    assert_eq!(example.instance["bound"], 2);
+    assert_eq!(example.instance["inner"]["graph"]["num_vertices"], 4);
+    assert_eq!(example.optimal_config, vec![1, 0, 1, 0]);
+    assert_eq!(example.optimal_value, serde_json::json!(true));
+}
+
+#[test]
 fn test_find_rule_example_mvc_to_mis_contains_full_problem_json() {
     let source = ProblemRef {
         name: "MinimumVertexCover".to_string(),
