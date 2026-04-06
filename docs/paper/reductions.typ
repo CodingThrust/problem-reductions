@@ -13541,6 +13541,58 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For variable $x_i$, set $x_i = 1$ if the cover indicator at position $2i$ is 1.
 ]
 
+#let ksat_1in3 = load-example("KSatisfiability", "OneInThreeSatisfiability")
+#let ksat_1in3_sol = ksat_1in3.solutions.at(0)
+#reduction-rule("KSatisfiability", "OneInThreeSatisfiability",
+  example: true,
+  example-caption: [Single clause ($n = #ksat_1in3.source.instance.num_vars$, $m = #sat-num-clauses(ksat_1in3.source.instance)$): 3-SAT $arrow.r$ 1-in-3 SAT],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_1in3.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_1in3) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_1in3_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The source formula has one clause $c_1 = (x_1 or x_2 or x_3)$. The canonical satisfying assignment is $(#ksat_1in3_sol.source_config.map(str).join(", "))$, i.e.\ $x_1 = 0$, $x_2 = 0$, $x_3 = 1$.
+
+    *Step 2 -- Add the global false literal.* Introduce $z_0$ (index 4) and $z_T$ (index 5), then add the forcing clause $R(z_0, z_0, z_T)$, where $R(u, v, w)$ means "exactly one of $u, v, w$ is true." In the stored witness, $(z_0, z_T) = (0, 1)$, which is the unique satisfying pattern of that clause.
+
+    *Step 3 -- Build the clause gadget.* Introduce auxiliaries $a_1, b_1, c_1, d_1, e_1, f_1$ at indices 6 through 11 and replace $c_1$ by the five 1-in-3 clauses
+    $
+      R(x_1, a_1, d_1), quad
+      R(x_2, b_1, d_1), quad
+      R(a_1, b_1, e_1), quad
+      R(c_1, d_1, f_1), quad
+      R(x_3, c_1, z_0).
+    $
+    In the exported target instance these become exactly the six clauses
+    $(4, 4, 5)$, $(1, 6, 9)$, $(2, 7, 9)$, $(6, 7, 10)$, $(8, 9, 11)$, $(3, 8, 4)$.
+
+    *Step 4 -- Verify a witness.* The canonical target witness is $(#ksat_1in3_sol.target_config.map(str).join(", "))$. Reading off the auxiliaries gives $(a_1, b_1, c_1, d_1, e_1, f_1) = (0, 0, 0, 1, 1, 0)$. Every target clause has exactly one true literal #sym.checkmark, and restricting to the first three coordinates recovers $(0, 0, 1)$, which satisfies the original clause #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. This single-clause source formula has 7 satisfying assignments, and each satisfying literal pattern extends to at least one target witness by the gadget construction.
+  ],
+)[
+  This $O(n + m)$ reduction @schaefer1978 @garey1979[LO4] preserves the original variables, adds two global variables $z_0$ and $z_T$, and introduces six fresh auxiliaries per clause. Each 3-SAT clause $(ell_1 or ell_2 or ell_3)$ is replaced by a five-clause gadget of exact-one constraints. The target therefore has $n + 2 + 6m$ variables and $1 + 5m$ clauses.
+][
+  _Construction._ Let $phi = and_(j=1)^m (ell_1^j or ell_2^j or ell_3^j)$ be a 3-CNF formula on variables $x_1, dots, x_n$. Introduce global variables $z_0$ and $z_T$, and add the clause $R(z_0, z_0, z_T)$, where $R(u, v, w)$ means that exactly one of the three literals is true. This forces $z_0 = 0$ and $z_T = 1$. For every source clause $C_j = (ell_1^j or ell_2^j or ell_3^j)$, introduce six fresh auxiliaries $a_j, b_j, c_j, d_j, e_j, f_j$ and append the five target clauses
+  $
+    R(ell_1^j, a_j, d_j), quad
+    R(ell_2^j, b_j, d_j), quad
+    R(a_j, b_j, e_j), quad
+    R(c_j, d_j, f_j), quad
+    R(ell_3^j, c_j, z_0).
+  $
+  Negated source literals are copied directly; no complement variables are needed because 1-in-3 SAT clauses in this codebase may contain negated literals.
+
+  _Correctness._ ($arrow.r.double$) Suppose $phi$ is satisfiable. Set the first $n$ target variables according to any satisfying source assignment, and set $(z_0, z_T) = (0, 1)$. Consider one clause gadget. Because $ell_1^j or ell_2^j or ell_3^j = 1$, the truth triple $(ell_1^j, ell_2^j, ell_3^j)$ is one of the seven nonzero 0/1 patterns. For each such pattern there is a choice of $(a_j, b_j, c_j, d_j, e_j, f_j)$ satisfying all five exact-one clauses; the implementation uses the gadget directly and the worked example shows one such extension. Doing this independently for every clause yields a satisfying 1-in-3 assignment.
+
+  ($arrow.l.double$) Suppose the target instance is satisfiable. The global clause forces $z_0 = 0$. Fix any clause gadget, and assume for contradiction that $ell_1^j = ell_2^j = ell_3^j = 0$. Then $R(ell_3^j, c_j, z_0)$ forces $c_j = 1$. Next $R(c_j, d_j, f_j)$ forces $d_j = f_j = 0$. Then $R(ell_1^j, a_j, d_j)$ and $R(ell_2^j, b_j, d_j)$ force $a_j = b_j = 1$. But now $R(a_j, b_j, e_j)$ has two true literals, impossible. Therefore every source clause has at least one true literal, so the restriction to the original variables satisfies $phi$.
+
+  _Solution extraction._ Return the first $n$ target coordinates unchanged, discarding $z_0$, $z_T$, and all clause auxiliaries.
+]
+
 #let part_swi = load-example("Partition", "SequencingWithinIntervals")
 #let part_swi_sol = part_swi.solutions.at(0)
 #reduction-rule("Partition", "SequencingWithinIntervals",
