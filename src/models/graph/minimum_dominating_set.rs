@@ -3,10 +3,12 @@
 //! The Dominating Set problem asks for a minimum weight subset of vertices
 //! such that every vertex is either in the set or adjacent to a vertex in the set.
 
+use crate::models::decision::Decision;
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::rules::{EdgeCapabilities, ReduceToAggregate, ReductionEntry, ReductionOverhead};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::types::{Min, WeightElement};
+use crate::types::{Min, ProblemSize, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -165,6 +167,89 @@ where
 
 crate::declare_variants! {
     default MinimumDominatingSet<SimpleGraph, i32> => "1.4969^num_vertices",
+}
+
+crate::decision_problem_meta!(
+    MinimumDominatingSet<SimpleGraph, i32>,
+    "DecisionMinimumDominatingSet"
+);
+
+impl Decision<MinimumDominatingSet<SimpleGraph, i32>> {
+    /// Number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.inner().num_vertices()
+    }
+
+    /// Number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.inner().num_edges()
+    }
+
+    /// Decision bound as a nonnegative integer.
+    pub fn k(&self) -> usize {
+        (*self.bound()).try_into().unwrap_or(0)
+    }
+}
+
+crate::declare_variants! {
+    default Decision<MinimumDominatingSet<SimpleGraph, i32>> => "1.4969^num_vertices",
+}
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "DecisionMinimumDominatingSet",
+        display_name: "Decision Minimum Dominating Set",
+        aliases: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
+        module_path: module_path!(),
+        description: "Decision version: does a dominating set of cost <= bound exist?",
+        fields: &[
+            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
+            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
+            FieldInfo { name: "bound", type_name: "i32", description: "Decision bound (maximum allowed dominating-set cost)" },
+        ],
+    }
+}
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "DecisionMinimumDominatingSet",
+        target_name: "MinimumDominatingSet",
+        source_variant_fn: <Decision<MinimumDominatingSet<SimpleGraph, i32>> as Problem>::variant,
+        target_variant_fn: <MinimumDominatingSet<SimpleGraph, i32> as Problem>::variant,
+        overhead_fn: || ReductionOverhead::identity(&["num_vertices", "num_edges"]),
+        module_path: module_path!(),
+        reduce_fn: None,
+        reduce_aggregate_fn: Some(|any| {
+            let source = any
+                .downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, i32>>>()
+                .expect("DecisionMinimumDominatingSet aggregate reduction source type mismatch");
+            Box::new(source.reduce_to_aggregate())
+        }),
+        capabilities: EdgeCapabilities::aggregate_only(),
+        overhead_eval_fn: |any| {
+            let source = any
+                .downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, i32>>>()
+                .expect("DecisionMinimumDominatingSet overhead source type mismatch");
+            ProblemSize::new(vec![
+                ("num_vertices", source.num_vertices()),
+                ("num_edges", source.num_edges()),
+            ])
+        },
+        source_size_fn: |any| {
+            let source = any
+                .downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, i32>>>()
+                .expect("DecisionMinimumDominatingSet size source type mismatch");
+            ProblemSize::new(vec![
+                ("num_vertices", source.num_vertices()),
+                ("num_edges", source.num_edges()),
+                ("k", source.k()),
+            ])
+        },
+    }
 }
 
 #[cfg(feature = "example-db")]

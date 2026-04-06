@@ -1,4 +1,6 @@
 use super::*;
+use crate::registry::find_variant_entry;
+use std::collections::BTreeMap;
 
 #[test]
 fn test_collect_schemas_returns_all_problems() {
@@ -83,4 +85,42 @@ fn test_field_info_json_fields() {
         assert!(!f.type_name.is_empty());
         assert!(!f.description.is_empty());
     }
+}
+
+#[test]
+fn test_decision_problem_schema_entries_registered() {
+    let entries: Vec<_> = inventory::iter::<ProblemSchemaEntry>().collect();
+
+    let mvc = entries
+        .iter()
+        .find(|entry| entry.name == "DecisionMinimumVertexCover")
+        .expect("DecisionMinimumVertexCover schema should be registered");
+    assert!(mvc.aliases.is_empty());
+    assert!(mvc.fields.iter().any(|field| field.name == "bound"));
+    assert_eq!(mvc.dimensions.len(), 2);
+
+    let mds = entries
+        .iter()
+        .find(|entry| entry.name == "DecisionMinimumDominatingSet")
+        .expect("DecisionMinimumDominatingSet schema should be registered");
+    assert!(mds.aliases.is_empty());
+    assert!(mds.fields.iter().any(|field| field.name == "bound"));
+    assert_eq!(mds.dimensions.len(), 2);
+}
+
+#[test]
+fn test_decision_problem_variants_registered() {
+    let simple_weighted_variant = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+
+    assert!(
+        find_variant_entry("DecisionMinimumVertexCover", &simple_weighted_variant).is_some(),
+        "DecisionMinimumVertexCover default variant should be registered"
+    );
+    assert!(
+        find_variant_entry("DecisionMinimumDominatingSet", &simple_weighted_variant).is_some(),
+        "DecisionMinimumDominatingSet default variant should be registered"
+    );
 }

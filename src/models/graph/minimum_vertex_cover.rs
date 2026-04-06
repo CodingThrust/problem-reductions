@@ -3,10 +3,12 @@
 //! The Vertex Cover problem asks for a minimum weight subset of vertices
 //! such that every edge has at least one endpoint in the subset.
 
+use crate::models::decision::Decision;
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::rules::{EdgeCapabilities, ReduceToAggregate, ReductionEntry, ReductionOverhead};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::types::{Min, One, WeightElement};
+use crate::types::{Min, One, ProblemSize, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -159,6 +161,84 @@ crate::decision_problem_meta!(
     MinimumVertexCover<SimpleGraph, i32>,
     "DecisionMinimumVertexCover"
 );
+
+impl Decision<MinimumVertexCover<SimpleGraph, i32>> {
+    /// Number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.inner().num_vertices()
+    }
+
+    /// Number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.inner().num_edges()
+    }
+
+    /// Decision bound as a nonnegative integer.
+    pub fn k(&self) -> usize {
+        (*self.bound()).try_into().unwrap_or(0)
+    }
+}
+
+crate::declare_variants! {
+    default Decision<MinimumVertexCover<SimpleGraph, i32>> => "1.1996^num_vertices",
+}
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "DecisionMinimumVertexCover",
+        display_name: "Decision Minimum Vertex Cover",
+        aliases: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
+        module_path: module_path!(),
+        description: "Decision version: does a vertex cover of cost <= bound exist?",
+        fields: &[
+            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
+            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
+            FieldInfo { name: "bound", type_name: "i32", description: "Decision bound (maximum allowed cover cost)" },
+        ],
+    }
+}
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "DecisionMinimumVertexCover",
+        target_name: "MinimumVertexCover",
+        source_variant_fn: <Decision<MinimumVertexCover<SimpleGraph, i32>> as Problem>::variant,
+        target_variant_fn: <MinimumVertexCover<SimpleGraph, i32> as Problem>::variant,
+        overhead_fn: || ReductionOverhead::identity(&["num_vertices", "num_edges"]),
+        module_path: module_path!(),
+        reduce_fn: None,
+        reduce_aggregate_fn: Some(|any| {
+            let source = any
+                .downcast_ref::<Decision<MinimumVertexCover<SimpleGraph, i32>>>()
+                .expect("DecisionMinimumVertexCover aggregate reduction source type mismatch");
+            Box::new(source.reduce_to_aggregate())
+        }),
+        capabilities: EdgeCapabilities::aggregate_only(),
+        overhead_eval_fn: |any| {
+            let source = any
+                .downcast_ref::<Decision<MinimumVertexCover<SimpleGraph, i32>>>()
+                .expect("DecisionMinimumVertexCover overhead source type mismatch");
+            ProblemSize::new(vec![
+                ("num_vertices", source.num_vertices()),
+                ("num_edges", source.num_edges()),
+            ])
+        },
+        source_size_fn: |any| {
+            let source = any
+                .downcast_ref::<Decision<MinimumVertexCover<SimpleGraph, i32>>>()
+                .expect("DecisionMinimumVertexCover size source type mismatch");
+            ProblemSize::new(vec![
+                ("num_vertices", source.num_vertices()),
+                ("num_edges", source.num_edges()),
+                ("k", source.k()),
+            ])
+        },
+    }
+}
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
