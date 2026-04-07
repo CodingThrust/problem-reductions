@@ -99,6 +99,7 @@ pub(crate) mod sat_ksat;
 pub(crate) mod sat_maximumindependentset;
 pub(crate) mod sat_minimumdominatingset;
 pub(crate) mod satisfiability_integralflowhomologousarcs;
+pub(crate) mod satisfiability_maximum2satisfiability;
 pub(crate) mod satisfiability_naesatisfiability;
 pub(crate) mod satisfiability_nontautology;
 pub(crate) mod setsplitting_betweenness;
@@ -423,6 +424,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(rootedtreearrangement_rootedtreestorageassignment::canonical_rule_example_specs());
     specs.extend(naesatisfiability_maxcut::canonical_rule_example_specs());
     specs.extend(naesatisfiability_partitionintoperfectmatchings::canonical_rule_example_specs());
+    specs.extend(satisfiability_maximum2satisfiability::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maxcut_minimumcutintoboundedsets::canonical_rule_example_specs());
     specs.extend(partition_binpacking::canonical_rule_example_specs());

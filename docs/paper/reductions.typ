@@ -10275,6 +10275,71 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Discard auxiliary variables; return original variable assignments.
 ]
 
+#let sat_max2sat = load-example("Satisfiability", "Maximum2Satisfiability")
+#let sat_max2sat_sol = sat_max2sat.solutions.at(0)
+#reduction-rule("Satisfiability", "Maximum2Satisfiability",
+  example: true,
+  example-caption: [3-variable 2-clause SAT to MAX-2-SAT],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(sat_max2sat.source) + " -o sat.json",
+      "pred reduce sat.json --to " + target-spec(sat_max2sat) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate sat.json --config " + sat_max2sat_sol.source_config.map(str).join(","),
+    )
+    *Step 1 -- Source instance.* The canonical SAT formula has $n = #sat_max2sat.source.instance.num_vars$ variables and $m = #sat-num-clauses(sat_max2sat.source.instance)$ clauses:
+    $
+      C_1 = (x_1 or overline(x_2) or x_3), quad
+      C_2 = (overline(x_1) or x_2).
+    $
+    The stored satisfying assignment is $(x_1, x_2, x_3) = (#sat_max2sat_sol.source_config.map(str).join(", "))$.
+
+    *Step 2 -- Normalize to 3-CNF.* Clause $C_1$ already has width $3$. Clause $C_2$ introduces one auxiliary variable $y_1$ and becomes
+    $
+      (overline(x_1) or x_2 or y_1) and
+      (overline(x_1) or x_2 or overline(y_1)).
+    $
+    The normalized formula therefore has $4$ variables and $3$ clauses.
+
+    *Step 3 -- Build the MAX-2-SAT gadgets.* Introduce one gadget variable per normalized clause, so the target has $#sat_max2sat.target.instance.num_vars$ variables and #sat_max2sat.target.instance.clauses.len() clauses. The stored witness is $(x_1, x_2, x_3, y_1, w_1, w_2, w_3) = (#sat_max2sat_sol.target_config.map(str).join(", "))$. With $(y_1, w_1, w_2, w_3) = (0, 1, 0, 1)$, each of the three gadgets satisfies exactly $7$ clauses, so the target objective reaches $21 = 7 times 3$ #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical optimum. Auxiliary variables such as $y_1$ can vary across optimal witnesses, but truncating any optimal target assignment to the first $3$ coordinates still yields a satisfying assignment of the original SAT formula.
+  ],
+)[
+  This reduction composes a satisfiability-preserving normalization to 3-CNF with the Garey--Johnson--Stockmeyer MAX-2-SAT gadget @garey1976 @garey1979. Each normalized 3-clause contributes a 10-clause MAX-2-SAT block with a one-clause gap between the satisfied and unsatisfied cases. For a SAT instance with $n$ variables, $m$ clauses, and total literal count $L = sum_j |C_j|$, the implementation produces at most $n + 2L + 4m$ target variables and $10 (L + 3m)$ target clauses.
+][
+  _Construction._ Let $phi = and.big_(j=1)^m C_j$ be a CNF formula on variables $x_1, dots, x_n$.
+
+  _Step 1: normalize each clause to width 3._ Replace every clause independently:
+  - if $C = ()$, introduce a fresh variable $y$ and use $(y or y or y) and (overline(y) or overline(y) or overline(y))$;
+  - if $C = (ell_1)$, introduce fresh $y, z$ and use the four clauses $(ell_1 or y or z)$, $(ell_1 or y or overline(z))$, $(ell_1 or overline(y) or z)$, $(ell_1 or overline(y) or overline(z))$;
+  - if $C = (ell_1 or ell_2)$, introduce fresh $y$ and use $(ell_1 or ell_2 or y) and (ell_1 or ell_2 or overline(y))$;
+  - if $C$ already has width $3$, keep it unchanged;
+  - if $C = (ell_1 or dots or ell_k)$ with $k > 3$, introduce fresh $y_1, dots, y_(k-3)$ and replace $C$ by
+    $
+      (ell_1 or ell_2 or y_1) and
+      (overline(y_1) or ell_3 or y_2) and dots and
+      (overline(y_(k-3)) or ell_(k-1) or ell_k).
+    $
+  Let the resulting 3-CNF formula be $psi = and.big_(t=1)^(m') D_t$.
+
+  _Step 2: convert each 3-clause to MAX-2-SAT._ For every normalized clause $D_t = (a_t or b_t or c_t)$, introduce a fresh variable $w_t$ and add the ten 2-clauses
+  $
+    (a_t or a_t), (b_t or b_t), (c_t or c_t), (w_t or w_t), \
+    (overline(a_t) or overline(b_t)), (overline(b_t) or overline(c_t)), (overline(a_t) or overline(c_t)), \
+    (a_t or overline(w_t)), (b_t or overline(w_t)), (c_t or overline(w_t)).
+  $
+  The repeated literals encode unit clauses inside the exact-2-literal MAX-2-SAT model.
+
+  _Correctness._ For one gadget corresponding to $D_t$, exhaustive case analysis shows that the best choice of $w_t$ satisfies exactly $7$ of the ten clauses when $D_t$ is true and at most $6$ when $D_t$ is false. Therefore, for every assignment to the normalized variables,
+  $
+    "MAX2SAT"("target") = 6 m' + \#\{t : D_t " is true"\}.
+  $
+  ($arrow.r.double$) If $phi$ is satisfiable, then the normalized formula $psi$ is satisfiable by Step 1. Every normalized clause is true, so each gadget attains value $7$ and the target optimum is $7 m'$. ($arrow.l.double$) If the target optimum is $7 m'$, then every gadget must contribute $7$, so every normalized clause $D_t$ is true. Hence $psi$ is satisfiable, and the normalization in Step 1 implies that the restriction to the original variables satisfies $phi$. If $phi$ is unsatisfiable, then $psi$ is unsatisfiable, so every assignment leaves at least one normalized clause false and the target optimum is strictly less than $7 m'$.
+
+  _Solution extraction._ Discard all auxiliary normalization variables and all gadget variables $w_t$; return only the first $n$ Boolean variables $(x_1, dots, x_n)$.
+]
+
 #let sat_cs = load-example("Satisfiability", "CircuitSAT")
 #let sat_cs_sol = sat_cs.solutions.at(0)
 #reduction-rule("Satisfiability", "CircuitSAT",
@@ -13236,6 +13301,7 @@ The following table shows concrete variable overhead for example instances, take
   ),
   (source: "ILP", target: "QUBO"),
   (source: "Satisfiability", target: "MaximumIndependentSet"),
+  (source: "Satisfiability", target: "Maximum2Satisfiability"),
   (source: "Satisfiability", target: "KColoring"),
   (source: "Satisfiability", target: "MinimumDominatingSet"),
   (source: "Satisfiability", target: "KSatisfiability"),
