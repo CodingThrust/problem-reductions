@@ -51,6 +51,7 @@ pub(crate) mod ksatisfiability_directedtwocommodityintegralflow;
 pub(crate) mod ksatisfiability_kclique;
 pub(crate) mod ksatisfiability_kernel;
 pub(crate) mod ksatisfiability_minimumvertexcover;
+pub(crate) mod ksatisfiability_monochromatictriangle;
 pub(crate) mod ksatisfiability_oneinthreesatisfiability;
 pub(crate) mod ksatisfiability_preemptivescheduling;
 pub(crate) mod ksatisfiability_quadraticcongruences;
@@ -256,6 +257,8 @@ pub(crate) mod minmaxmulticenter_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod mixedchinesepostman_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod monochromatictriangle_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod multiplecopyfileallocation_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod multiprocessorscheduling_ilp;
@@ -396,6 +399,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(ksatisfiability_kclique::canonical_rule_example_specs());
     specs.extend(ksatisfiability_kernel::canonical_rule_example_specs());
     specs.extend(ksatisfiability_minimumvertexcover::canonical_rule_example_specs());
+    specs.extend(ksatisfiability_monochromatictriangle::canonical_rule_example_specs());
     specs.extend(ksatisfiability_oneinthreesatisfiability::canonical_rule_example_specs());
     specs.extend(ksatisfiability_preemptivescheduling::canonical_rule_example_specs());
     specs.extend(ksatisfiability_quadraticcongruences::canonical_rule_example_specs());
@@ -458,9 +462,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(sat_maximumindependentset::canonical_rule_example_specs());
     specs.extend(sat_minimumdominatingset::canonical_rule_example_specs());
     specs.extend(satisfiability_nontautology::canonical_rule_example_specs());
-    specs.extend(
-        ksatisfiability_directedtwocommodityintegralflow::canonical_rule_example_specs(),
-    );
+    specs.extend(ksatisfiability_directedtwocommodityintegralflow::canonical_rule_example_specs());
     specs.extend(spinglass_maxcut::canonical_rule_example_specs());
     specs.extend(spinglass_qubo::canonical_rule_example_specs());
     specs.extend(subsetsum_capacityassignment::canonical_rule_example_specs());
@@ -539,6 +541,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(minimumsummulticenter_ilp::canonical_rule_example_specs());
         specs.extend(minmaxmulticenter_ilp::canonical_rule_example_specs());
         specs.extend(mixedchinesepostman_ilp::canonical_rule_example_specs());
+        specs.extend(monochromatictriangle_ilp::canonical_rule_example_specs());
         specs.extend(multiplecopyfileallocation_ilp::canonical_rule_example_specs());
         specs.extend(multiprocessorscheduling_ilp::canonical_rule_example_specs());
         specs.extend(naesatisfiability_ilp::canonical_rule_example_specs());

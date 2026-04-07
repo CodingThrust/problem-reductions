@@ -11270,6 +11270,43 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $S_2 = {u_i : x_i = 1}$, $S_1 = U without S_2$.
 ]
 
+#let mono_ilp = load-example("MonochromaticTriangle", "ILP")
+#let mono_ilp_sol = mono_ilp.solutions.at(0)
+#reduction-rule("MonochromaticTriangle", "ILP",
+  example: true,
+  example-caption: [$K_4$ with $n = #graph-num-vertices(mono_ilp.source.instance)$ vertices, $m = #graph-num-edges(mono_ilp.source.instance)$ edges, and $#mono_ilp.source.instance.triangles.len()$ triangles],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mono_ilp.source) + " -o monochromatic-triangle.json",
+      "pred reduce monochromatic-triangle.json --to " + target-spec(mono_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate monochromatic-triangle.json --config " + mono_ilp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Monochromatic Triangle fixture is $K_4$ on vertices $0, 1, 2, 3$ with edges #{mono_ilp.source.instance.graph.edges.map(((u, v)) => [${#u, #v}$]).join(", ")}. It has $#mono_ilp.source.instance.triangles.len()$ triangles, so the reduction creates one pair of inequalities for each of those four triangles.
+
+    *Step 2 -- Build the ILP.* Introduce one binary variable per edge, so the target has $m = #mono_ilp.target.instance.num_vars$ variables. For each triangle, add the lower bound $x_a + x_b + x_c >= 1$ and the upper bound $x_a + x_b + x_c <= 2$, giving $#mono_ilp.target.instance.constraints.len()$ total constraints.
+
+    *Step 3 -- Verify a witness.* The stored ILP witness is $(#mono_ilp_sol.target_config.map(str).join(", "))$. Because extraction is identity, it immediately yields the edge coloring $(#mono_ilp_sol.source_config.map(str).join(", "))$, and evaluating that coloring on the source returns `true` #sym.checkmark. Every triangle therefore uses both colors.
+
+    *Multiplicity:* The fixture stores one canonical edge coloring. Any binary ILP solution satisfying all triangle pairs is a valid Monochromatic Triangle witness.
+  ],
+)[
+  This $O(m + t)$ reduction uses one binary variable per edge and two linear inequalities per triangle, where $m = |E|$ and $t$ is the number of triangles in the source graph. The target ILP is a pure feasibility problem with $m$ variables and $2t$ constraints.
+][
+  _Construction._ Let the source graph edges be indexed as $e_0, dots, e_(m-1)$. Introduce binary variables $x_0, dots, x_(m-1)$, where $x_i = 0$ or $1$ is the color assigned to edge $e_i$. For every triangle $T = {e_a, e_b, e_c}$ in the source graph, add the pair of inequalities
+  $
+    x_a + x_b + x_c >= 1
+    quad "and" quad
+    x_a + x_b + x_c <= 2.
+  $
+  The objective is empty, so the ILP asks only for feasibility.
+
+  _Correctness._ ($arrow.r.double$) Any triangle-free 2-edge-coloring assigns each triangle at least one edge of color 0 and at least one edge of color 1, so the corresponding sum is either $1$ or $2$ and both inequalities hold. ($arrow.l.double$) Any feasible ILP assignment gives a 0/1 color to every edge, and the triangle bounds forbid sums $0$ and $3$, so no triangle is monochromatic.
+
+  _Solution extraction._ Return the ILP variables unchanged as the target edge-coloring vector.
+]
+
 #let ss_bt = load-example("SetSplitting", "Betweenness")
 #let ss_bt_sol = ss_bt.solutions.at(0)
 #reduction-rule("SetSplitting", "Betweenness",
@@ -13749,6 +13786,37 @@ The following table shows concrete variable overhead for example instances, take
   _Correctness._ ($arrow.r.double$) A satisfying assignment selects literal vertices ($n$ total) and two triangle vertices per clause ($2m$ total), covering all edges. ($arrow.l.double$) A cover of size $n + 2m$ must include exactly one literal vertex per variable and two triangle vertices per clause; the uncovered triangle vertex's communication edge forces the corresponding literal to be true.
 
   _Solution extraction._ For variable $x_i$, set $x_i = 1$ if the cover indicator at position $2i$ is 1.
+]
+
+#let ksat_mono = load-example("KSatisfiability", "MonochromaticTriangle")
+#let ksat_mono_sol = ksat_mono.solutions.at(0)
+#reduction-rule("KSatisfiability", "MonochromaticTriangle",
+  example: true,
+  example-caption: [Single-clause 3-SAT instance ($n = #ksat_mono.source.instance.num_vars$, $m = #sat-num-clauses(ksat_mono.source.instance)$) reduced to a 4-triangle graph],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_mono.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_mono) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_mono_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The fixture uses the single clause $c_1 = (x_1 or x_2 or x_3)$. The extracted satisfying assignment is $(#ksat_mono_sol.source_config.map(str).join(", "))$.
+
+    *Step 2 -- Build the clause gadget.* Create literal vertices $p_1, p_2, p_3, n_1, n_2, n_3$ together with negation edges $(p_1, n_1)$, $(p_2, n_2)$, and $(p_3, n_3)$. For the clause, add intermediates $m_12, m_13, m_23$ and the six fan edges $(p_1, m_12)$, $(p_2, m_12)$, $(p_1, m_13)$, $(p_3, m_13)$, $(p_2, m_23)$, $(p_3, m_23)$, plus the clause triangle on $(m_12, m_13, m_23)$. The target therefore has $|V| = #graph-num-vertices(ksat_mono.target.instance)$ vertices, $|E| = #graph-num-edges(ksat_mono.target.instance)$ edges, and $#ksat_mono.target.instance.triangles.len()$ triangles.
+
+    *Step 3 -- Verify a witness.* The stored target coloring is $(#ksat_mono_sol.target_config.map(str).join(", "))$. Its first $n = #ksat_mono.source.instance.num_vars$ entries color the negation edges; reading those colors and applying the global color-swap symmetry fix yields the source assignment $(#ksat_mono_sol.source_config.map(str).join(", "))$, which satisfies $c_1$ #sym.checkmark. The same target coloring makes all four target triangles non-monochromatic #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical target coloring. Swapping the two edge colors gives another valid witness and may flip the decoded assignment to its complement.
+  ],
+)[
+  This $O(n + m)$ reduction @garey1979[GT6] uses one positive/negative literal pair per variable and one three-vertex clause gadget per clause. The target graph has $2n + 3m$ vertices and $n + 9m$ edges.
+][
+  _Construction._ Let $phi = and_(j=1)^m (ell_1^j or ell_2^j or ell_3^j)$ be a 3-CNF formula on variables $x_1, dots, x_n$. For each variable $x_i$, create literal vertices $p_i$ and $n_i$ and add the negation edge $(p_i, n_i)$. For each clause $C_j$, map each literal $ell_r^j$ to its literal vertex $v_r^j$ ($x_i mapsto p_i$, $overline(x)_i mapsto n_i$). Introduce fresh intermediate vertices $m_12^j$, $m_13^j$, and $m_23^j$. Add fan edges $(v_1^j, m_12^j)$, $(v_2^j, m_12^j)$, $(v_1^j, m_13^j)$, $(v_3^j, m_13^j)$, $(v_2^j, m_23^j)$, and $(v_3^j, m_23^j)$, then connect the intermediates into the clause triangle $(m_12^j, m_13^j)$, $(m_12^j, m_23^j)$, $(m_13^j, m_23^j)$. Each clause gadget therefore contributes exactly four triangles: the clause triangle itself and the three fan triangles rooted at $v_1^j$, $v_2^j$, and $v_3^j$.
+
+  _Correctness._ ($arrow.r.double$) Fix a satisfying assignment of $phi$. Color each negation edge $(p_i, n_i)$ by the truth value of $x_i$, using color $0$ for true and color $1$ for false. For any clause, at least one of its literals is satisfied, and the four-triangle gadget has a 2-edge-coloring extending those literal choices with no monochromatic triangle; the implementation follows the verified local construction from issue #884 and colors each clause independently because the intermediates are clause-local. ($arrow.l.double$) Given a triangle-free coloring of the target graph, inspect the negation-edge colors. Either those colors, or their global complement after swapping the two colors, yields a satisfying assignment of the source formula under the same verified gadget analysis.
+
+  _Solution extraction._ Read the negation-edge colors in variable order, setting $x_i = 1$ when $(p_i, n_i)$ has color $0$ and $x_i = 0$ otherwise. If that assignment does not satisfy $phi$, complement all bits; this accounts for the global color-swap symmetry of the target witness.
 ]
 
 #let ksat_1in3 = load-example("KSatisfiability", "OneInThreeSatisfiability")

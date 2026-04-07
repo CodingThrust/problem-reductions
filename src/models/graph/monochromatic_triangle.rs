@@ -125,6 +125,11 @@ impl<G: Graph> MonochromaticTriangle<G> {
         &self.triangles
     }
 
+    /// Get the number of triangles in the graph.
+    pub fn num_triangles(&self) -> usize {
+        self.triangles.len()
+    }
+
     /// Get the ordered edge list.
     pub fn edge_list(&self) -> &[(usize, usize)] {
         &self.edge_list
