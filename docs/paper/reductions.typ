@@ -668,7 +668,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let cover = sol.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   [
     #problem-def("DecisionMinimumVertexCover")[
-      Given an undirected graph $G = (V, E)$ with vertex weights $w: V -> RR_ge 0$ and an integer bound $k$, determine whether there exists a vertex cover $S subset.eq V$ with $sum_(v in S) w(v) <= k$ such that every edge has at least one endpoint in $S$.
+      Given an undirected graph $G = (V, E)$ with vertex weights $w: V -> RR_(gt.eq 0)$ and an integer bound $k$, determine whether there exists a vertex cover $S subset.eq V$ with $sum_(v in S) w(v) <= k$ such that every edge has at least one endpoint in $S$.
     ][
     Decision Minimum Vertex Cover is the decision version of Minimum Vertex Cover and one of Karp's 21 NP-complete problems @karp1972 @garey1979. It asks whether the optimization objective can be achieved within a prescribed budget rather than minimizing the cover weight directly.
 
@@ -13102,8 +13102,8 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
     src == "Decision" + tgt or tgt == "Decision" + src
   }
   let missing = json-edges.filter(e => {
-    not is-decision-opt-pair(e.at(0), e.at(1)) and
-    covered.find(c => c.at(0) == e.at(0) and c.at(1) == e.at(1)) == none
+    if is-decision-opt-pair(e.at(0), e.at(1)) { false }
+    else { covered.find(c => c.at(0) == e.at(0) and c.at(1) == e.at(1)) == none }
   })
   if missing.len() > 0 {
     block(width: 100%, inset: (x: 1em, y: 0.5em), fill: rgb("#fff3cd"), stroke: (left: 3pt + rgb("#ffc107")))[
