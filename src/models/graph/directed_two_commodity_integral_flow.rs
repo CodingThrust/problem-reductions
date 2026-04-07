@@ -39,7 +39,7 @@ inventory::submit! {
 /// whether two integral flow functions f_1, f_2: A -> Z_0^+ exist such that:
 /// 1. Joint capacity: f_1(a) + f_2(a) <= c(a) for all a in A
 /// 2. Flow conservation: for each commodity i, flow is conserved at every
-///    vertex except the four terminals
+///    vertex except its own source and sink
 /// 3. Requirements: net flow into t_i under f_i is at least R_i
 ///
 /// # Variables
@@ -191,8 +191,6 @@ impl DirectedTwoCommodityIntegralFlow {
             return false;
         }
         let arcs = self.graph.arcs();
-        let terminals = [self.source_1, self.sink_1, self.source_2, self.sink_2];
-
         // (1) Joint capacity constraint
         for a in 0..m {
             let f1 = config[a] as u64;
@@ -216,8 +214,18 @@ impl DirectedTwoCommodityIntegralFlow {
         }
 
         for (commodity, commodity_balances) in balances.iter().enumerate() {
+            let src = if commodity == 0 {
+                self.source_1
+            } else {
+                self.source_2
+            };
             for (v, &balance) in commodity_balances.iter().enumerate() {
-                if !terminals.contains(&v) && balance != 0 {
+                let snk = if commodity == 0 {
+                    self.sink_1
+                } else {
+                    self.sink_2
+                };
+                if v != src && v != snk && balance != 0 {
                     return false;
                 }
             }

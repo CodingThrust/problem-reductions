@@ -47,6 +47,7 @@ pub(crate) mod ksatisfiability_acyclicpartition;
 mod ksatisfiability_casts;
 pub(crate) mod ksatisfiability_cyclicordering;
 pub(crate) mod ksatisfiability_decisionminimumvertexcover;
+pub(crate) mod ksatisfiability_directedtwocommodityintegralflow;
 pub(crate) mod ksatisfiability_kclique;
 pub(crate) mod ksatisfiability_kernel;
 pub(crate) mod ksatisfiability_minimumvertexcover;
@@ -457,6 +458,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(sat_maximumindependentset::canonical_rule_example_specs());
     specs.extend(sat_minimumdominatingset::canonical_rule_example_specs());
     specs.extend(satisfiability_nontautology::canonical_rule_example_specs());
+    specs.extend(
+        ksatisfiability_directedtwocommodityintegralflow::canonical_rule_example_specs(),
+    );
     specs.extend(spinglass_maxcut::canonical_rule_example_specs());
     specs.extend(spinglass_qubo::canonical_rule_example_specs());
     specs.extend(subsetsum_capacityassignment::canonical_rule_example_specs());

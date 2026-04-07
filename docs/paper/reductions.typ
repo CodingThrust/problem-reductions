@@ -8247,7 +8247,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #problem-def("DirectedTwoCommodityIntegralFlow")[
-  Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) flow $f_i$ is conserved at every vertex except $s_1, s_2, t_1, t_2$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$ for $i in {1, 2}$.
+  Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) for each commodity $i in {1, 2}$, flow $f_i$ is conserved at every vertex except $s_i$ and $t_i$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$.
 ][
   Directed Two-Commodity Integral Flow is a fundamental NP-complete problem in multicommodity flow theory, catalogued as ND38 in Garey & Johnson @garey1979. While single-commodity max-flow is solvable in polynomial time and fractional multicommodity flow reduces to linear programming, requiring integral flows with just two commodities makes the problem NP-complete.
 
@@ -13801,6 +13801,39 @@ The following table shows concrete variable overhead for example instances, take
   ($arrow.l.double$) Suppose the target instance is satisfiable. The global clause forces $z_0 = 0$. Fix any clause gadget, and assume for contradiction that $ell_1^j = ell_2^j = ell_3^j = 0$. Then $R(ell_3^j, c_j, z_0)$ forces $c_j = 1$. Next $R(c_j, d_j, f_j)$ forces $d_j = f_j = 0$. Then $R(ell_1^j, a_j, d_j)$ and $R(ell_2^j, b_j, d_j)$ force $a_j = b_j = 1$. But now $R(a_j, b_j, e_j)$ has two true literals, impossible. Therefore every source clause has at least one true literal, so the restriction to the original variables satisfies $phi$.
 
   _Solution extraction._ Return the first $n$ target coordinates unchanged, discarding $z_0$, $z_T$, and all clause auxiliaries.
+]
+
+#let ksat_d2cif = load-example("KSatisfiability", "DirectedTwoCommodityIntegralFlow")
+#let ksat_d2cif_sol = ksat_d2cif.solutions.at(0)
+#reduction-rule("KSatisfiability", "DirectedTwoCommodityIntegralFlow",
+  example: true,
+  example-caption: [Two-clause 3-SAT instance ($n = #ksat_d2cif.source.instance.num_vars$, $m = #sat-num-clauses(ksat_d2cif.source.instance)$) reduced to Directed Two-Commodity Integral Flow],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_d2cif.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_d2cif) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_d2cif_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The source formula has clauses $c_1 = (x_1 or overline(x)_2 or x_3)$ and $c_2 = (overline(x)_1 or x_2 or overline(x)_3)$. The canonical satisfying assignment is $(#ksat_d2cif_sol.source_config.map(str).join(", "))$, i.e.\ $x_1 = 1$, $x_2 = 1$, $x_3 = 0$.
+
+    *Step 2 -- Build the lobes and clause sinks.* Each variable appears once positively and once negatively, so each lobe contains an entry vertex, an exit vertex, one dummy segment on each branch, and one literal-occurrence segment on each branch. That is $10$ vertices and $14$ arcs per variable. Adding the $4$ terminals and $2$ clause vertices gives $|V| = #ksat_d2cif.target.instance.graph.num_vertices = 36$; adding the $4$ commodity-1 chain arcs and $2$ clause-to-sink arcs gives $|A| = #ksat_d2cif.target.instance.graph.arcs.len() = 48$.
+
+    *Step 3 -- Verify a witness.* Commodity 1 uses the lower branch in the lobes of $x_1$ and $x_2$ and the upper branch in the lobe of $x_3$, exactly matching the assignment $(1, 1, 0)$. Clause $c_1$ is satisfied by $x_1$, so commodity 2 routes one unit through the positive occurrence segment of $x_1$ into $d_1$. Clause $c_2$ is satisfied by $x_2$, so a second unit routes through the positive occurrence segment of $x_2$ into $d_2$. Both clause-to-sink arcs carry one unit, so the target meets $R_2 = #ksat_d2cif.target.instance.requirement_2 = 2$ #sym.checkmark. Reading back which lower-branch entry arcs commodity 1 used recovers $(#ksat_d2cif_sol.source_config.map(str).join(", "))$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. This source formula has multiple satisfying assignments, and each satisfying clause can choose any satisfied literal occurrence when routing commodity 2.
+  ],
+)[
+  This $O(n + m)$ reduction @even1976 @garey1979[ND38] builds a unit-capacity directed network of variable lobes and clause sinks. Each literal occurrence contributes one clause-entry segment on the corresponding branch, and the repository pads every branch with one dummy segment so variables with missing polarity occurrences still have two realizable choices. For a 3-CNF formula with $n$ variables and $m$ clauses, the target has $6n + 7m + 4$ vertices and $7n + 13m + 1$ arcs.
+][
+  _Construction._ Let $phi = and_(j=1)^m C_j$ be a 3-CNF formula on variables $x_1, dots, x_n$. For each variable $x_i$, let $p_i$ be its number of positive occurrences and $q_i$ its number of negative occurrences. Create terminals $s_1, t_1, s_2, t_2$, one clause vertex $d_j$ for each clause, and for each variable a lobe with entry $a_i$ and exit $b_i$. The upper branch contains a dummy segment followed by one directed segment $u_(i,r)^+ -> w_(i,r)^+$ for each positive occurrence $r = 1, dots, p_i$; the lower branch contains a dummy segment followed by one directed segment $u_(i,r)^- -> w_(i,r)^-$ for each negative occurrence $r = 1, dots, q_i$. Chain the lobes with arcs $s_1 -> a_1$, $b_i -> a_(i+1)$, and $b_n -> t_1$. For every positive occurrence of $x_i$ in clause $C_j$, add $s_2 -> u_(i,r)^+$ and $w_(i,r)^+ -> d_j$; for every negative occurrence, add $s_2 -> u_(i,r)^-$ and $w_(i,r)^- -> d_j$. Finally add $d_j -> t_2$ for each clause. All arcs have capacity $1$, and the requirements are $R_1 = 1$ and $R_2 = m$.
+
+  _Correctness._ ($arrow.r.double$) Suppose $phi$ is satisfiable. Route commodity 1 through the lower branch of lobe $i$ when $x_i = 1$, and through the upper branch when $x_i = 0$. Consider any clause $C_j$. Choose one satisfied literal occurrence in that clause. If the chosen literal is $x_i$, route one unit of commodity 2 along $s_2 -> u_(i,r)^+ -> w_(i,r)^+ -> d_j -> t_2$; if it is $overline(x)_i$, use the analogous lower-branch route. A true literal always lies on the branch opposite to commodity 1, so the shared occurrence segment is free. Because occurrence segments are distinct per clause position, the $m$ commodity-2 units respect all capacities.
+
+  ($arrow.l.double$) Suppose the target instance is feasible. Because commodity 1 has requirement $R_1 = 1$ and conservation holds for commodity 1 away from $s_1$ and $t_1$, its unit flow traverses exactly one branch in each lobe. Define $x_i = 1$ iff commodity 1 uses the lower branch of lobe $i$. Now fix any clause vertex $d_j$. Since $d_j -> t_2$ is the only outgoing arc from $d_j$, meeting $R_2 = m$ forces one unit of commodity 2 through every clause vertex. That unit must arrive from some occurrence segment $u -> w -> d_j$. The shared arc $u -> w$ cannot lie on commodity 1's chosen branch, so the corresponding literal is true under the assignment above. Hence every clause contains a true literal and $phi$ is satisfiable.
+
+  _Solution extraction._ For each variable lobe, inspect the first lower-branch arc leaving its entry. Output $x_i = 1$ exactly when commodity 1 uses that arc.
 ]
 
 #let part_swi = load-example("Partition", "SequencingWithinIntervals")

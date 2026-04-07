@@ -57,11 +57,12 @@ fn test_directedtwocommodityintegralflow_to_ilp_structure() {
     assert_eq!(ilp.sense, ObjectiveSense::Minimize);
     assert!(ilp.objective.is_empty());
 
-    // 8 capacity + some conservation (4 non-terminals: vertices 2,3) + 2 sink req = 8 + 4 + 2 = 14
-    // Actually conservation: for vertex 2 (c1): arcs (0,2),(1,2) in; (2,4),(2,5) out → 4 terms → 1 eq per commodity per vertex
-    // Terminals: 0,4,1,5 — so non-terminals are: 2,3
-    // vertex 2: c1 terms and c2 terms → 2 constraints; vertex 3: 2 constraints → 4 total
-    assert_eq!(ilp.constraints.len(), 8 + 4 + 2);
+    // 8 capacity constraints.
+    // Conservation is now enforced away from each commodity's own source/sink only:
+    // - commodity 1 at vertices 1,2,3,5
+    // - commodity 2 at vertices 0,2,3,4
+    // That yields 8 conservation equations total, plus 2 sink requirements.
+    assert_eq!(ilp.constraints.len(), 8 + 8 + 2);
 }
 
 #[test]
@@ -95,6 +96,18 @@ fn test_directedtwocommodityintegralflow_to_ilp_infeasible() {
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_none(),
         "infeasible flow instance should produce infeasible ILP"
+    );
+}
+
+#[test]
+fn test_directedtwocommodityintegralflow_to_ilp_disallows_using_other_commodity_source() {
+    let graph = DirectedGraph::new(4, vec![(2, 3), (3, 1)]);
+    let problem = DirectedTwoCommodityIntegralFlow::new(graph, vec![1, 1], 0, 1, 2, 3, 1, 0);
+
+    let reduction: ReductionD2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    assert!(
+        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        "commodity 1 must conserve flow at commodity 2's source in the ILP reduction"
     );
 }
 
