@@ -9,6 +9,7 @@ fn test_feasible_register_assignment_basic() {
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_arcs(), 3);
     assert_eq!(problem.num_registers(), 2);
+    assert_eq!(problem.num_same_register_pairs(), 3);
     assert_eq!(problem.arcs(), &[(0, 1), (0, 2), (1, 3)]);
     assert_eq!(problem.assignment(), &[0, 1, 0, 0]);
     assert_eq!(problem.dims(), vec![4; 4]);
@@ -151,4 +152,10 @@ fn test_feasible_register_assignment_no_dependencies() {
     // Any order works since no vertex has dependents => nothing is ever live
     assert!(problem.evaluate(&[0, 1, 2]));
     assert!(problem.evaluate(&[2, 1, 0]));
+}
+
+#[test]
+fn test_feasible_register_assignment_same_register_pair_count() {
+    let problem = FeasibleRegisterAssignment::new(5, vec![], 3, vec![0, 1, 0, 2, 0]);
+    assert_eq!(problem.num_same_register_pairs(), 3);
 }

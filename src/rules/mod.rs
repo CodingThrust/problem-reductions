@@ -50,6 +50,7 @@ mod ksatisfiability_casts;
 pub(crate) mod ksatisfiability_cyclicordering;
 pub(crate) mod ksatisfiability_decisionminimumvertexcover;
 pub(crate) mod ksatisfiability_directedtwocommodityintegralflow;
+pub(crate) mod ksatisfiability_feasibleregisterassignment;
 pub(crate) mod ksatisfiability_kclique;
 pub(crate) mod ksatisfiability_kernel;
 pub(crate) mod ksatisfiability_minimumvertexcover;
@@ -170,6 +171,8 @@ pub(crate) mod disjointconnectingpaths_ilp;
 pub(crate) mod exactcoverby3sets_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod expectedretrievalcost_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod feasibleregisterassignment_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod factoring_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -404,6 +407,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(ksatisfiability_cyclicordering::canonical_rule_example_specs());
     specs.extend(ksatisfiability_acyclicpartition::canonical_rule_example_specs());
     specs.extend(ksatisfiability_decisionminimumvertexcover::canonical_rule_example_specs());
+    specs.extend(ksatisfiability_directedtwocommodityintegralflow::canonical_rule_example_specs());
+    specs.extend(ksatisfiability_feasibleregisterassignment::canonical_rule_example_specs());
     specs.extend(ksatisfiability_kclique::canonical_rule_example_specs());
     specs.extend(ksatisfiability_kernel::canonical_rule_example_specs());
     specs.extend(ksatisfiability_minimumvertexcover::canonical_rule_example_specs());
@@ -471,7 +476,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(sat_maximumindependentset::canonical_rule_example_specs());
     specs.extend(sat_minimumdominatingset::canonical_rule_example_specs());
     specs.extend(satisfiability_nontautology::canonical_rule_example_specs());
-    specs.extend(ksatisfiability_directedtwocommodityintegralflow::canonical_rule_example_specs());
     specs.extend(spinglass_maxcut::canonical_rule_example_specs());
     specs.extend(spinglass_qubo::canonical_rule_example_specs());
     specs.extend(subsetsum_capacityassignment::canonical_rule_example_specs());
@@ -508,6 +512,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(disjointconnectingpaths_ilp::canonical_rule_example_specs());
         specs.extend(exactcoverby3sets_ilp::canonical_rule_example_specs());
         specs.extend(expectedretrievalcost_ilp::canonical_rule_example_specs());
+        specs.extend(feasibleregisterassignment_ilp::canonical_rule_example_specs());
         specs.extend(factoring_ilp::canonical_rule_example_specs());
         specs.extend(flowshopscheduling_ilp::canonical_rule_example_specs());
         specs.extend(graphpartitioning_ilp::canonical_rule_example_specs());

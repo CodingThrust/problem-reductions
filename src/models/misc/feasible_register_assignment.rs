@@ -187,6 +187,18 @@ impl FeasibleRegisterAssignment {
         self.num_registers
     }
 
+    /// Count unordered vertex pairs that share a register.
+    pub fn num_same_register_pairs(&self) -> usize {
+        let mut counts = vec![0usize; self.num_registers];
+        for &register in &self.assignment {
+            counts[register] += 1;
+        }
+        counts
+            .into_iter()
+            .map(|count| count.saturating_sub(1) * count / 2)
+            .sum()
+    }
+
     /// Get the arcs.
     pub fn arcs(&self) -> &[(usize, usize)] {
         &self.arcs
