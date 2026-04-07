@@ -26,6 +26,14 @@ macro_rules! decision_problem_meta {
 }
 
 /// Register the boilerplate inventory entries for a concrete `Decision<P>` variant.
+///
+/// The `size_getters` parameter defines problem-specific size fields as
+/// `(name, getter_on_inner)` pairs, e.g., `[("num_vertices", num_vertices), ("num_edges", num_edges)]`.
+/// These are used for overhead expressions and `ProblemSize` extraction.
+/// The macro automatically adds a `("k", k)` entry for `source_size_fn` on the Decision side.
+///
+/// Callers must define inherent methods on `Decision<Inner>` (delegating to `self.inner()`)
+/// and a `k()` method (from `self.bound()`) **before** invoking this macro.
 #[macro_export]
 macro_rules! register_decision_variant {
     (
@@ -34,25 +42,10 @@ macro_rules! register_decision_variant {
         $complexity:literal,
         $aliases:expr,
         $description:literal,
-        [$($field:expr),* $(,)?]
+        dims: [$($dim:expr),* $(,)?],
+        fields: [$($field:expr),* $(,)?],
+        size_getters: [$(($sg_name:literal, $sg_method:ident)),* $(,)?]
     ) => {
-        impl $crate::models::decision::Decision<$inner> {
-            /// Number of vertices in the underlying graph.
-            pub fn num_vertices(&self) -> usize {
-                self.inner().num_vertices()
-            }
-
-            /// Number of edges in the underlying graph.
-            pub fn num_edges(&self) -> usize {
-                self.inner().num_edges()
-            }
-
-            /// Decision bound as a nonnegative integer.
-            pub fn k(&self) -> usize {
-                (*self.bound()).try_into().unwrap_or(0)
-            }
-        }
-
         $crate::declare_variants! {
             default $crate::models::decision::Decision<$inner> => $complexity,
         }
@@ -62,10 +55,7 @@ macro_rules! register_decision_variant {
                 name: $name,
                 display_name: $crate::register_decision_variant!(@display_name $name),
                 aliases: $aliases,
-                dimensions: &[
-                    $crate::registry::VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-                    $crate::registry::VariantDimension::new("weight", "i32", &["i32"]),
-                ],
+                dimensions: &[$($dim),*],
                 module_path: module_path!(),
                 description: $description,
                 fields: &[$($field),*],
@@ -78,7 +68,7 @@ macro_rules! register_decision_variant {
                 target_name: <$inner as $crate::traits::Problem>::NAME,
                 source_variant_fn: <$crate::models::decision::Decision<$inner> as $crate::traits::Problem>::variant,
                 target_variant_fn: <$inner as $crate::traits::Problem>::variant,
-                overhead_fn: || $crate::rules::ReductionOverhead::identity(&["num_vertices", "num_edges"]),
+                overhead_fn: || $crate::rules::ReductionOverhead::identity(&[$($sg_name),*]),
                 module_path: module_path!(),
                 reduce_fn: None,
                 reduce_aggregate_fn: Some(|any| {
@@ -95,8 +85,7 @@ macro_rules! register_decision_variant {
                         .downcast_ref::<$crate::models::decision::Decision<$inner>>()
                         .expect(concat!($name, " overhead source type mismatch"));
                     $crate::types::ProblemSize::new(vec![
-                        ("num_vertices", source.num_vertices()),
-                        ("num_edges", source.num_edges()),
+                        $(($sg_name, source.$sg_method())),*
                     ])
                 },
                 source_size_fn: |any| {
@@ -104,8 +93,7 @@ macro_rules! register_decision_variant {
                         .downcast_ref::<$crate::models::decision::Decision<$inner>>()
                         .expect(concat!($name, " size source type mismatch"));
                     $crate::types::ProblemSize::new(vec![
-                        ("num_vertices", source.num_vertices()),
-                        ("num_edges", source.num_edges()),
+                        $(($sg_name, source.$sg_method()),)*
                         ("k", source.k()),
                     ])
                 },
@@ -119,7 +107,7 @@ macro_rules! register_decision_variant {
                 target_name: $name,
                 source_variant_fn: <$inner as $crate::traits::Problem>::variant,
                 target_variant_fn: <$crate::models::decision::Decision<$inner> as $crate::traits::Problem>::variant,
-                overhead_fn: || $crate::rules::ReductionOverhead::identity(&["num_vertices", "num_edges"]),
+                overhead_fn: || $crate::rules::ReductionOverhead::identity(&[$($sg_name),*]),
                 module_path: module_path!(),
                 reduce_fn: None,
                 reduce_aggregate_fn: None,
@@ -129,8 +117,7 @@ macro_rules! register_decision_variant {
                         .downcast_ref::<$inner>()
                         .expect(concat!($name, " turing overhead source type mismatch"));
                     $crate::types::ProblemSize::new(vec![
-                        ("num_vertices", source.num_vertices()),
-                        ("num_edges", source.num_edges()),
+                        $(($sg_name, source.$sg_method())),*
                     ])
                 },
                 source_size_fn: |any| {
@@ -138,8 +125,7 @@ macro_rules! register_decision_variant {
                         .downcast_ref::<$inner>()
                         .expect(concat!($name, " turing size source type mismatch"));
                     $crate::types::ProblemSize::new(vec![
-                        ("num_vertices", source.num_vertices()),
-                        ("num_edges", source.num_edges()),
+                        $(($sg_name, source.$sg_method())),*
                     ])
                 },
             }

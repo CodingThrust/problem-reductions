@@ -3,6 +3,7 @@
 //! The Dominating Set problem asks for a minimum weight subset of vertices
 //! such that every vertex is either in the set or adjacent to a vertex in the set.
 
+use crate::models::decision::Decision;
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -176,29 +177,39 @@ where
     const DECISION_NAME: &'static str = "DecisionMinimumDominatingSet";
 }
 
+impl Decision<MinimumDominatingSet<SimpleGraph, i32>> {
+    /// Number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.inner().num_vertices()
+    }
+
+    /// Number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.inner().num_edges()
+    }
+
+    /// Decision bound as a nonnegative integer.
+    pub fn k(&self) -> usize {
+        (*self.bound()).try_into().unwrap_or(0)
+    }
+}
+
 crate::register_decision_variant!(
     MinimumDominatingSet<SimpleGraph, i32>,
     "DecisionMinimumDominatingSet",
     "1.4969^num_vertices",
     &[],
     "Decision version: does a dominating set of cost <= bound exist?",
-    [
-        FieldInfo {
-            name: "graph",
-            type_name: "G",
-            description: "The underlying graph G=(V,E)",
-        },
-        FieldInfo {
-            name: "weights",
-            type_name: "Vec<W>",
-            description: "Vertex weights w: V -> R",
-        },
-        FieldInfo {
-            name: "bound",
-            type_name: "i32",
-            description: "Decision bound (maximum allowed dominating-set cost)",
-        },
-    ]
+    dims: [
+        VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+        VariantDimension::new("weight", "i32", &["i32"]),
+    ],
+    fields: [
+        FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
+        FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
+        FieldInfo { name: "bound", type_name: "i32", description: "Decision bound (maximum allowed dominating-set cost)" },
+    ],
+    size_getters: [("num_vertices", num_vertices), ("num_edges", num_edges)]
 );
 
 #[cfg(feature = "example-db")]
