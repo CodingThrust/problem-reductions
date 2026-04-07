@@ -47,8 +47,8 @@ fn test_solution_extraction() {
         .expect("solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
     assert_eq!(problem.evaluate(&extracted), Or(true));
-    // Should select exactly 3 vertices
-    assert_eq!(extracted.iter().sum::<usize>(), 3);
+    // Should select at least k=3 vertices (ILP may return a larger valid clique)
+    assert!(extracted.iter().sum::<usize>() >= 3);
 }
 
 #[test]
