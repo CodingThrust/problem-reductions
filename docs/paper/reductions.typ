@@ -10247,6 +10247,46 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Return the values of the circuit input variables $x_1, dots, x_n$.
 ]
 
+#let cs_sat = load-example("CircuitSAT", "Satisfiability")
+#let cs_sat_sol = cs_sat.solutions.at(0)
+#reduction-rule("CircuitSAT", "Satisfiability",
+  example: true,
+  example-caption: [Tseitin encoding of a circuit equation],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(cs_sat.source) + " -o circuitsat.json",
+      "pred reduce circuitsat.json --to " + target-spec(cs_sat) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate circuitsat.json --config " + cs_sat_sol.source_config.map(str).join(","),
+    )
+    Circuit: #circuit-num-gates(cs_sat.source.instance) assignment, #circuit-num-variables(cs_sat.source.instance) named variables \
+    Target: #cs_sat.target.instance.num_vars SAT variables, #cs_sat.target.instance.clauses.len() clauses \
+
+    *Step 1 -- Flatten the expression.* The canonical example is the circuit equation $r = (x_1 and x_2) or (not x_3 and x_4)$. Introduce auxiliary variables $a = x_1 and x_2$, $b = not x_3$, $c = b and x_4$, and $d = a or c$. This yields #cs_sat.target.instance.num_vars SAT variables: the five named circuit variables $(r, x_1, x_2, x_3, x_4)$ plus four Tseitin variables $(a, b, c, d)$.
+
+    *Step 2 -- Emit clauses.* Add three clauses for $a = x_1 and x_2$, two for $b = not x_3$, three for $c = b and x_4$, three for $d = a or c$, and two clauses for the output identity $r equiv d$. The CNF therefore has #cs_sat.target.instance.clauses.len() clauses.
+
+    *Step 3 -- Verify a witness.* The fixture stores source config #cs_sat_sol.source_config.map(str).join(", "), meaning $(r, x_1, x_2, x_3, x_4) = (1, 1, 1, 0, 1)$. Extending with $(a, b, c, d) = (1, 1, 1, 1)$ gives the SAT witness #cs_sat_sol.target_config.map(str).join(", "), which satisfies every gate-definition clause and the two clauses enforcing $r equiv d$.
+
+    *Multiplicity:* The fixture stores one canonical consistent assignment. Other satisfying assignments may exist whenever the circuit equations leave some named variables unconstrained.
+  ],
+)[
+  This linear-time Tseitin reduction @cook1971 rewrites each circuit assignment into CNF by keeping every named circuit variable as a SAT variable and introducing one auxiliary variable for each non-leaf subexpression after constant folding and binary balancing. The target therefore has one SAT variable per circuit variable plus one per introduced gate.
+][
+  _Construction._ Consider one circuit assignment $o_1, dots, o_t = e$. First simplify constant subexpressions inside $e$ and rewrite every n-ary AND, OR, and XOR node as a balanced binary tree. For each non-leaf subexpression $alpha$, introduce a fresh SAT variable $v_alpha$; named circuit variables are reused directly. Add the standard Tseitin clauses
+  $
+    v_(not a) " iff " not a, \
+    v_(a and b) " iff " a and b, \
+    v_(a or b) " iff " a or b, \
+    v_(a xor b) " iff " a xor b
+  $
+  using the 2-clause NOT gadget, the 3-clause AND/OR gadgets, and the 4-clause XOR gadget. If the simplified right-hand side becomes a variable or auxiliary variable $z_e$, add $(overline(o_i) or z_e)$ and $(o_i or overline(z_e))$ for every output $o_i$. If it simplifies to a constant, add the unit clause $o_i$ or $overline(o_i)$ accordingly. Repeat this independently for every assignment in the circuit.
+
+  _Correctness._ ($arrow.r.double$) Let $sigma$ be a satisfying CircuitSAT assignment. Set every auxiliary variable $v_alpha$ to the truth value of the corresponding subexpression $alpha$ under $sigma$. Each Tseitin gadget is then satisfied because its output variable matches the gate semantics, and every output-equivalence or unit clause holds because $sigma$ already makes each circuit assignment $o_1, dots, o_t = e$ true. Hence the CNF is satisfiable. ($arrow.l.double$) Let $tau$ satisfy the constructed CNF. Every Tseitin gadget forces its auxiliary variable to equal the truth value of its subexpression, so the root variable $z_e$ equals the value of $e$. The output-equivalence clauses therefore force every output $o_i$ to equal $e$, and unit clauses force the required constants. Restricting $tau$ to the named circuit variables yields an assignment satisfying every original circuit equation.
+
+  _Solution extraction._ Return the values of the named circuit variables and discard the auxiliary Tseitin variables.
+]
+
 #let cs_sg = load-example("CircuitSAT", "SpinGlass")
 #let cs_sg_sol = cs_sg.solutions.at(0)
 #reduction-rule("CircuitSAT", "SpinGlass",
@@ -13148,6 +13188,7 @@ The following table shows concrete variable overhead for example instances, take
   (source: "Satisfiability", target: "KColoring"),
   (source: "Satisfiability", target: "MinimumDominatingSet"),
   (source: "Satisfiability", target: "KSatisfiability"),
+  (source: "CircuitSAT", target: "Satisfiability"),
   (source: "CircuitSAT", target: "SpinGlass"),
   (source: "Factoring", target: "CircuitSAT"),
   (source: "MaximumSetPacking", target: "ILP"),
