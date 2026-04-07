@@ -90,7 +90,8 @@ make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
   - `misc/` - Unique input structures
   - Run `pred list` for the full catalog of problems, variants, and reductions; `pred show <name>` for details on a specific problem
 - `src/rules/` - Reduction rules + inventory registration
-- `src/solvers/` - BruteForce solver for aggregate values plus witness recovery when supported, ILP solver (feature-gated, witness-only). To check if a problem supports ILP solving via a witness-capable reduction path, run `pred path <ProblemName> ILP`
+- `src/models/decision.rs` - Generic `Decision<P>` wrapper converting optimization problems to decision problems
+- `src/solvers/` - BruteForce solver for aggregate values plus witness recovery when supported, ILP solver (feature-gated, witness-only), decision search (binary search via Decision queries). To check if a problem supports ILP solving via a witness-capable reduction path, run `pred path <ProblemName> ILP`
 - `src/traits.rs` - `Problem` trait
 - `src/rules/traits.rs` - `ReduceTo<T>`, `ReduceToAggregate<T>`, `ReductionResult`, `AggregateReductionResult` traits
 - `src/registry/` - Compile-time reduction metadata collection
@@ -121,14 +122,22 @@ Problem (core trait — all problems must implement)
 
 **Aggregate-only problems** use fold values such as `Sum<W>` or `And`; these solve to a value but have no representative witness configuration.
 
+**Decision problems** wrap an optimization problem with a bound: `Decision<P>` where `P::Value: OptimizationValue`. Evaluates to `Or(true)` when the inner objective meets the bound (≤ for Min, ≥ for Max).
+
 Common aggregate wrappers live in `src/types.rs`:
 ```rust
 Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 ```
 
+`OptimizationValue` trait (in `src/types.rs`) enables generic Decision conversion:
+- `Min<V>`: meets bound when value ≤ bound
+- `Max<V>`: meets bound when value ≥ bound
+
 ### Key Patterns
 - `variant_params!` macro implements `Problem::variant()` — e.g., `crate::variant_params![G, W]` for two type params, `crate::variant_params![]` for none (see `src/variant.rs`)
 - `declare_variants!` proc macro registers concrete type instantiations with best-known complexity and registry-backed load/serialize/value-solve/witness-solve metadata. One entry per problem may be marked `default`, and variable names in complexity strings are validated at compile time against actual getter methods.
+- `decision_problem_meta!` macro registers `DecisionProblemMeta` for a concrete inner type, providing the `DECISION_NAME` constant.
+- `register_decision_variant!` macro generates `declare_variants!`, `ProblemSchemaEntry`, and both `ReductionEntry` submissions (aggregate Decision→Opt + Turing Opt→Decision) for a `Decision<P>` variant. Callers must define inherent getters (`num_vertices()`, `num_edges()`, `k()`) on `Decision<P>` before invoking. Accepts `dims`, `fields`, and `size_getters` parameters for problem-specific size fields.
 - Problems parameterized by graph type `G` and optionally weight type `W` (problem-dependent)
 - `Solver::solve()` computes the aggregate value for any `Problem` whose `Value` implements `Aggregate`
 - `BruteForce::find_witness()` / `find_all_witnesses()` recover witnesses only when `P::Value::supports_witnesses()`
@@ -170,14 +179,16 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Default variant ranking: `SimpleGraph`, `One`, `KN` are considered default values; variants with the most default values sort first
 - Nodes come exclusively from `#[reduction]` registrations; natural edges between same-name variants are inferred from the graph/weight subtype partial order
 - Each primitive reduction is determined by the exact `(source_variant, target_variant)` endpoint pair
-- Reduction edges carry `EdgeCapabilities { witness, aggregate }`; graph search defaults to witness mode, and aggregate mode is available through `ReductionMode::Aggregate`
-- `#[reduction]` accepts only `overhead = { ... }` and currently registers witness/config reductions; aggregate-only edges require manual `ReductionEntry` registration with `reduce_aggregate_fn`
+- Reduction edges carry `EdgeCapabilities { witness, aggregate, turing }`; graph search defaults to witness mode, aggregate mode is available through `ReductionMode::Aggregate`, and Turing (multi-query) mode via `ReductionMode::Turing`
+- `#[reduction]` accepts only `overhead = { ... }` and currently registers witness/config reductions; aggregate-only and Turing edges require manual `ReductionEntry` registration
+- `Decision<P> → P` is an aggregate-only edge (solve optimization, compare to bound); `P → Decision<P>` is a Turing edge (binary search over decision bound)
 
 ### Extension Points
 - New models register dynamic load/serialize/brute-force dispatch through `declare_variants!` in the model file, not by adding manual match arms in the CLI
 - **CLI creation is schema-driven:** `pred create` automatically maps `ProblemSchemaEntry` fields to CLI flags via `snake_case → kebab-case` convention. New models need only: (1) matching CLI flags in `CreateArgs` + `flag_map()`, and (2) type parser support in `parse_field_value()` if using a new field type. No match arm in `create.rs` is needed.
 - **CLI flag names must match schema field names.** The canonical name for a CLI flag is the schema field name in kebab-case (e.g., schema field `universe_size` → `--universe-size`, field `subsets` → `--subsets`). Old aliases (e.g., `--universe`, `--sets`) may exist as clap `alias` for backward compatibility at the clap level, but `flag_map()`, help text, error messages, and documentation must use the schema-derived name. Do not add new backward-compat aliases; if a field is renamed in the schema, update the CLI flag name to match.
-- Aggregate-only models are first-class in `declare_variants!`; aggregate-only reduction edges still need manual `ReductionEntry` wiring because `#[reduction]` only registers witness/config reductions today
+- **Decision variants** of optimization problems use `Decision<P>` wrapper. Add via: (1) `decision_problem_meta!` for the inner type, (2) inherent methods on `Decision<Inner>`, (3) `register_decision_variant!` with `dims`, `fields`, `size_getters`. Schema-driven CLI creation auto-restructures flat JSON into `{inner: {...}, bound}`.
+- Aggregate-only models are first-class in `declare_variants!`; aggregate-only and Turing reduction edges still need manual `ReductionEntry` wiring because `#[reduction]` only registers witness/config reductions today
 - Exact registry dispatch lives in `src/registry/`; alias resolution and partial/default variant resolution live in `problemreductions-cli/src/problem_name.rs`
 - `pred create` schema-driven dispatch lives in `problemreductions-cli/src/commands/create.rs` (`create_schema_driven()`)
 - Canonical paper and CLI examples live in `src/example_db/model_builders.rs` and `src/example_db/rule_builders.rs`
@@ -194,8 +205,8 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 ### Paper (docs/paper/reductions.typ)
 - `problem-def(name)[def][body]` — defines a problem with auto-generated schema, reductions list, and label `<def:ProblemName>`. Title comes from `display-name` dict.
 - `reduction-rule(source, target, example: bool, ...)[rule][proof]` — generates a theorem with label `<thm:Source-to-Target>` and registers in `covered-rules` state. Overhead auto-derived from JSON edge data.
-- Every directed reduction needs its own `reduction-rule` entry
-- Completeness warnings auto-check that all JSON graph nodes/edges are covered in the paper
+- Every directed reduction needs its own `reduction-rule` entry (except trivial Decision↔Optimization pairs which are auto-filtered)
+- Completeness warnings auto-check that all JSON graph nodes/edges are covered in the paper; `Decision<P> ↔ P` edges are excluded since they are trivial solve-and-compare reductions
 - `display-name` dict maps `ProblemName` to display text
 
 ## Testing Requirements

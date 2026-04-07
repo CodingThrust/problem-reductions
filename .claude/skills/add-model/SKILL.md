@@ -311,6 +311,7 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 | Wrong aggregate wrapper | Use `Max` / `Min` / `Extremum` for objective problems, `Or` for existential witness problems, and `Sum` / `And` (or a custom aggregate) for value-only folds |
 | Wrong `declare_variants!` syntax | Entries no longer use `opt` / `sat`; one entry per problem may be marked `default` |
 | Forgetting CLI alias | Must add lowercase entry in `problem_name.rs` `resolve_alias()` |
+| Adding a hand-written decision model | Use `Decision<P>` wrapper instead — see `decision_problem_meta!` + `register_decision_variant!` in `src/models/graph/minimum_vertex_cover.rs` for the pattern |
 | Inventing short aliases | Only use well-established literature abbreviations (MIS, SAT, TSP); do NOT invent new ones |
 | Forgetting CLI flags | Schema-driven create needs matching CLI flags in `CreateArgs` for each `ProblemSchemaEntry` field (snake_case → kebab-case). Also add to `flag_map()`. |
 | Missing type parser | If the problem uses a new field type, add a handler in `parse_field_value()` in `create.rs` |
