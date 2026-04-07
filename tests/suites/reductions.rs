@@ -4,9 +4,12 @@
 //! solutions can be properly extracted through the reduction pipeline.
 
 use problemreductions::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use problemreductions::models::graph::MinimumCoveringByCliques;
 use problemreductions::prelude::*;
 use problemreductions::rules::{Minimize, ReductionGraph};
+use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::{Graph, SimpleGraph};
+use problemreductions::types::Min;
 use problemreductions::variant::{K2, K3};
 
 /// Tests for MaximumIndependentSet <-> MinimumVertexCover reductions.
@@ -292,6 +295,29 @@ mod sg_qubo_reductions {
 
         // Energies should match for optimal solutions
         assert!((sg_energy - extracted_energy).abs() < 1e-10);
+    }
+}
+
+/// Tests for MinimumCoveringByCliques -> ILP reductions.
+#[cfg(feature = "ilp-solver")]
+mod minimum_covering_by_cliques_ilp_reductions {
+    use super::*;
+
+    #[test]
+    fn test_covering_by_cliques_to_ilp_closed_loop() {
+        let source =
+            MinimumCoveringByCliques::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+
+        let reduction =
+            <MinimumCoveringByCliques<SimpleGraph> as ReduceTo<ILP<bool>>>::reduce_to(&source);
+        let ilp = reduction.target_problem();
+
+        let ilp_solution = ILPSolver::new()
+            .solve(ilp)
+            .expect("MinimumCoveringByCliques -> ILP should be solvable");
+        let extracted = reduction.extract_solution(&ilp_solution);
+
+        assert_eq!(source.evaluate(&extracted), Min(Some(3)));
     }
 }
 

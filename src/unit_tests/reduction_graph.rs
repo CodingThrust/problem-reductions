@@ -724,6 +724,18 @@ fn test_minimumvertexcover_to_minimummaximalmatching_is_proof_only_direct_edge()
     ));
 }
 
+#[cfg(feature = "ilp-solver")]
+#[test]
+fn test_minimumcoveringbycliques_to_ilp_is_runtime_witness_edge() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_by_name_mode(
+        "MinimumCoveringByCliques",
+        "ILP",
+        ReductionMode::Witness,
+    ));
+}
+
 #[test]
 fn test_find_all_paths_mode_witness() {
     let graph = ReductionGraph::new();

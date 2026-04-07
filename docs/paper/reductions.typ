@@ -11495,6 +11495,28 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $M = {e : x_e = 1}$.
 ]
 
+#reduction-rule("MinimumCoveringByCliques", "ILP")[
+  Use one potential clique slot per source edge, with binary vertex-membership, slot-activation, and edge-covered-by-slot variables.
+][
+  _Construction._ Let $m = |E|$ and index the clique slots by $k in {0, dots, m-1}$. Introduce binary variables $x_(v,k)$ for $v in V$ and $k in {0, dots, m-1}$, where $x_(v,k) = 1$ means vertex $v$ is placed in clique slot $k$; binary activation variables $z_k$; and binary variables $y_(e,k)$ for $e = {u, v} in E$, where $y_(e,k) = 1$ means edge $e$ is covered by slot $k$. The ILP is:
+  $
+    "minimize" quad & sum_(k=0)^(m-1) z_k \
+    "subject to" quad & x_(u,k) + x_(v,k) <= 1 quad forall k,\ forall {u, v} in.not E \
+    & x_(v,k) <= z_k quad forall v in V,\ forall k \
+    & y_({u,v},k) <= x_(u,k) quad forall {u,v} in E,\ forall k \
+    & y_({u,v},k) <= x_(v,k) quad forall {u,v} in E,\ forall k \
+    & y_({u,v},k) >= x_(u,k) + x_(v,k) - 1 quad forall {u,v} in E,\ forall k \
+    & sum_(k=0)^(m-1) y_(e,k) >= 1 quad forall e in E \
+    & x_(v,k), z_k, y_(e,k) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Given an edge-clique cover $C_0, dots, C_(t-1)$ with $t <= m$, map clique $C_k$ to slot $k$: set $z_k = 1$, set $x_(v,k) = 1$ exactly for $v in C_k$, and set $y_(e,k) = 1$ exactly for the edges $e$ whose endpoints both lie in $C_k$. Because each $C_k$ is a clique, no non-edge constraint is violated. Every covered edge satisfies at least one coverage inequality, so the ILP objective is at most $t$.
+
+  ($arrow.l.double$) Conversely, let $(x, z, y)$ be any feasible ILP solution. For each slot $k$, the vertices with $x_(v,k) = 1$ form a clique because every non-edge pair is forbidden from appearing together in that slot. If $y_({u,v},k) = 1$, the McCormick constraints force both endpoints $u$ and $v$ into slot $k$, so the edge is indeed contained in that clique. The coverage inequalities therefore certify that every source edge lies in at least one clique slot, giving a valid edge-clique cover. Since the objective counts active slots, minimizing it yields a minimum cover.
+
+  _Solution extraction._ For each source edge $e$, choose any slot $k$ with $y_(e,k) = 1$ and output the label $k$. The extracted edge-to-slot labeling is valid because every slot induces a clique and every edge is assigned to at least one covering slot.
+]
+
 #reduction-rule("PartiallyOrderedKnapsack", "ILP")[
   Standard knapsack with precedence constraints: item $b$ can only be selected if item $a$ is also selected for each precedence $(a, b)$.
 ][
