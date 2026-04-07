@@ -4171,6 +4171,57 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   ]
 }
 
+#let max2sat_mc = load-example("Maximum2Satisfiability", "MaxCut")
+#let max2sat_mc_sol = max2sat_mc.solutions.at(0)
+#reduction-rule("Maximum2Satisfiability", "MaxCut",
+  example: true,
+  example-caption: [$n = #max2sat_mc.source.instance.num_vars$ variables, $m = #max2sat_mc.source.instance.clauses.len()$ clauses, target has #max2sat_mc.target.instance.graph.num_vertices vertices and #max2sat_mc.target.instance.graph.edges.len() edges],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(max2sat_mc.source) + " -o max2sat.json",
+      "pred reduce max2sat.json --to " + target-spec(max2sat_mc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate max2sat.json --config " + max2sat_mc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical source has $n = #max2sat_mc.source.instance.num_vars$ variables and #max2sat_mc.source.instance.clauses.len() two-literal clauses. The stored optimal assignment is $(#max2sat_mc_sol.source_config.map(str).join(", "))$, which satisfies all five clauses.
+
+    *Step 2 -- Accumulate the cut weights.* Introduce the reference vertex $s = v_0$ and variable vertices $v_1, v_2, v_3$. After summing the per-clause contributions and deleting zero-weight edges, the target graph has the four signed edges $(s, v_2)$ with weight $-1$, $(s, v_3)$ with weight $-1$, $(v_1, v_2)$ with weight $2$, and $(v_2, v_3)$ with weight $-1$.
+
+    *Step 3 -- Verify the witness.* The target witness $(#max2sat_mc_sol.target_config.map(str).join(", "))$ puts $v_2$ and $v_3$ on the same side as $s$ and $v_1$ on the opposite side, so extraction recovers $(#max2sat_mc_sol.source_config.map(str).join(", "))$. Only edge $(v_1, v_2)$ crosses, so the cut value is $2$ and the affine objective identity certifies optimality #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. Flipping every target bit yields the complementary cut partition but extracts the same source assignment because extraction compares each variable vertex to $s$.
+  ],
+)[
+  This $O(n + m)$ reduction @karp1972 @garey1979 builds a signed weighted graph with one reference vertex $s$ and one vertex per Boolean variable. Each 2-clause contributes two reference-variable terms and, when the clause uses two different variables, one variable-variable term. After doubling the affine clause identity to clear fractions, the target has $n + 1$ vertices and at most $n + m$ nonzero edges.
+][
+  _Construction._ Let $phi$ be a MAX-2-SAT instance on variables $x_1, dots, x_n$. Create one reference vertex $s = v_0$ and one vertex $v_i$ for each variable $x_i$. For a literal $ell$ over variable $x_i$, define $sigma(ell) = 1$ when $ell = x_i$ and $sigma(ell) = -1$ when $ell = not x_i$. For each clause $C = (ell_a or ell_b)$, add $-sigma(ell_a)$ to edge $(s, v_a)$ and $-sigma(ell_b)$ to edge $(s, v_b)$. If $a != b$, also add $sigma(ell_a) sigma(ell_b)$ to edge $(v_a, v_b)$. Repeated contributions accumulate; zero-weight edges are omitted. Interpret a cut by setting $x_i = 1$ exactly when $v_i$ lies on the same side of the cut as $s$.
+
+  _Correctness._ Let $delta(u, v) in {0, 1}$ indicate whether vertices $u$ and $v$ lie on opposite sides of the cut. For each variable define $y_i = 1 - 2 delta(s, v_i)$, so $y_i = 1$ iff $x_i = 1$ and $y_i = -1$ iff $x_i = 0$. For clause $C = (ell_a or ell_b)$ with $sigma_a = sigma(ell_a)$ and $sigma_b = sigma(ell_b)$, its satisfaction indicator is
+  $
+    S_C = (3 + sigma_a y_a + sigma_b y_b - sigma_a sigma_b y_a y_b) / 4.
+  $
+  Since $y_i = 1 - 2 delta(s, v_i)$ and $y_a y_b = 1 - 2 delta(v_a, v_b)$, multiplying by $2$ yields
+  $
+    2 S_C
+      = K_C
+      - sigma_a delta(s, v_a)
+      - sigma_b delta(s, v_b)
+      + sigma_a sigma_b delta(v_a, v_b),
+  $
+  where $K_C = (3 + sigma_a + sigma_b - sigma_a sigma_b) / 2$ is independent of the chosen cut. Summing over all clauses gives
+  $
+    2 S(phi, bold(x)) = C_0 + w(delta)
+  $
+  for the constant $C_0 = sum_C K_C$.
+
+  ($arrow.r.double$) Any truth assignment $bold(x)$ induces a cut by placing $v_i$ with $s$ iff $x_i = 1$. The displayed identity shows that an assignment satisfying $k$ clauses yields cut value $2k - C_0$.
+
+  ($arrow.l.double$) Any cut $delta$ extracts a truth assignment by comparing each $v_i$ with $s$. If another assignment satisfied more clauses, its induced cut would have strictly larger cut value by the same identity, contradicting maximality. Therefore every maximum cut extracts to an optimal MAX-2-SAT assignment.
+
+  _Solution extraction._ Return the source bit $x_i = 1$ iff $v_i$ and $s$ lie on the same side of the cut. Because this depends only on equality with $s$, globally swapping the two cut sides leaves the extracted assignment unchanged.
+]
+
 #let max2sat_ilp = load-example("Maximum2Satisfiability", "ILP")
 #let max2sat_ilp_sol = max2sat_ilp.solutions.at(0)
 #reduction-rule("Maximum2Satisfiability", "ILP",

@@ -295,6 +295,36 @@ mod sg_qubo_reductions {
     }
 }
 
+/// Tests for Maximum2Satisfiability -> MaxCut reductions.
+mod max2sat_maxcut_reductions {
+    use super::*;
+
+    #[test]
+    fn test_maximum2satisfiability_to_maxcut_closed_loop() {
+        let source = Maximum2Satisfiability::new(
+            3,
+            vec![
+                CNFClause::new(vec![1, 2]),
+                CNFClause::new(vec![-1, 3]),
+                CNFClause::new(vec![2, -3]),
+                CNFClause::new(vec![-1, -2]),
+                CNFClause::new(vec![1, 3]),
+            ],
+        );
+
+        let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
+        let target = reduction.target_problem();
+
+        assert_eq!(target.graph().num_vertices(), 4);
+
+        let solver = BruteForce::new();
+        let target_solutions = solver.find_all_witnesses(target);
+        let extracted = reduction.extract_solution(&target_solutions[0]);
+
+        assert_eq!(source.evaluate(&extracted), Max(Some(5)));
+    }
+}
+
 /// Tests for SpinGlass <-> MaxCut reductions.
 mod sg_maxcut_reductions {
     use super::*;
