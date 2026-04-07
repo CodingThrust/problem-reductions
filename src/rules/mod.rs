@@ -46,6 +46,7 @@ mod knapsack_qubo;
 pub(crate) mod ksatisfiability_acyclicpartition;
 mod ksatisfiability_casts;
 pub(crate) mod ksatisfiability_cyclicordering;
+pub(crate) mod ksatisfiability_decisionminimumvertexcover;
 pub(crate) mod ksatisfiability_kclique;
 pub(crate) mod ksatisfiability_kernel;
 pub(crate) mod ksatisfiability_minimumvertexcover;
@@ -390,6 +391,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(longestcommonsubsequence_maximumindependentset::canonical_rule_example_specs());
     specs.extend(ksatisfiability_cyclicordering::canonical_rule_example_specs());
     specs.extend(ksatisfiability_acyclicpartition::canonical_rule_example_specs());
+    specs.extend(ksatisfiability_decisionminimumvertexcover::canonical_rule_example_specs());
     specs.extend(ksatisfiability_kclique::canonical_rule_example_specs());
     specs.extend(ksatisfiability_kernel::canonical_rule_example_specs());
     specs.extend(ksatisfiability_minimumvertexcover::canonical_rule_example_specs());

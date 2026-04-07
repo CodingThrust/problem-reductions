@@ -13674,6 +13674,42 @@ The following table shows concrete variable overhead for example instances, take
 ]
 
 
+#let ksat_dmvc = load-example("KSatisfiability", "DecisionMinimumVertexCover")
+#let ksat_dmvc_sol = ksat_dmvc.solutions.at(0)
+#reduction-rule("KSatisfiability", "DecisionMinimumVertexCover",
+  example: true,
+  example-caption: [3-SAT with $n = #ksat_dmvc.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_dmvc.source.instance)$ clauses reduced to Decision Minimum Vertex Cover with bound $k = #ksat_dmvc.target.instance.bound$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_dmvc.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_dmvc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_dmvc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The 3-SAT formula has $n = #ksat_dmvc.source.instance.num_vars$ variables and $m = #sat-num-clauses(ksat_dmvc.source.instance)$ clauses: #{ksat_dmvc.source.instance.clauses.enumerate().map(((j, c)) => {
+      let lits = c.literals.map(l => if l > 0 { $x_#l$ } else { $overline(x)_#calc.abs(l)$ })
+      [$c_#j = (#lits.join($or$))$]
+    }).join(", ")}. A satisfying assignment is $(#ksat_dmvc_sol.source_config.map(str).join(", "))$.
+
+    *Step 2 -- Build the vertex-cover graph.* Create one truth-setting edge $(u_i, overline(u)_i)$ per variable and one clause triangle per clause. Each triangle vertex is connected to the literal vertex of its clause position by a communication edge. The resulting graph has $|V| = 2n + 3m = #graph-num-vertices(ksat_dmvc.target.instance)$ vertices and $|E| = n + 6m = #graph-num-edges(ksat_dmvc.target.instance)$ edges.
+
+    *Step 3 -- Add the decision threshold.* Wrap the constructed Minimum Vertex Cover instance in the decision predicate with bound $k = n + 2m = #ksat_dmvc.target.instance.bound$. For this example, $k = 3 + 2 dot 2 = 7$.
+
+    *Step 4 -- Verify a witness.* The target configuration $(#ksat_dmvc_sol.target_config.map(str).join(", "))$ selects #ksat_dmvc_sol.target_config.filter(x => x == 1).len() vertices, so it meets the bound exactly. Each truth-setting edge has one selected endpoint #sym.checkmark. Each clause triangle has two selected vertices #sym.checkmark. Each communication edge is covered either by its literal endpoint or by its triangle endpoint #sym.checkmark. Extracting the truth-setting choices returns $(#ksat_dmvc_sol.source_config.map(str).join(", "))$, which satisfies every clause #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical decision witness. Different satisfying assignments may yield different size-$k$ covers of the same graph.
+  ],
+)[
+  Use the classical 3-SAT to Vertex Cover gadget construction, then ask whether the resulting graph has a vertex cover of size at most $k = n + 2m$ @garey1979.
+][
+  _Construction._ Given 3-CNF $phi$ with $n$ variables and $m$ clauses, build the graph $G = (V, E)$ used in the classical 3-SAT $arrow.r$ Minimum Vertex Cover reduction: for each variable $x_i$, add literal vertices $u_i$ and $overline(u)_i$ with one truth-setting edge between them; for each clause $c_j$, add triangle vertices $t^j_0, t^j_1, t^j_2$; for each literal position $(j, r)$, add a communication edge from $t^j_r$ to the literal vertex representing that literal. Assign unit weight to every vertex and set the decision threshold to $k = n + 2m$.
+
+  _Correctness._ ($arrow.r.double$) If $phi$ is satisfiable, choose one literal vertex per variable according to a satisfying assignment and choose two triangle vertices per clause, omitting a vertex whose literal is true. This gives a cover of size $n + 2m$, so the decision instance is yes. ($arrow.l.double$) If the decision instance is yes, any cover of size at most $n + 2m$ must use exactly one literal vertex per variable edge and exactly two vertices per clause triangle. The omitted triangle vertex in each clause has its communication edge covered only by a selected literal vertex, so the corresponding literal is true. These selected literal vertices define a satisfying assignment for $phi$.
+
+  _Solution extraction._ For each variable $x_i$, inspect the truth-setting pair. Set $x_i = 1$ when the cover contains $u_i$, and set $x_i = 0$ otherwise.
+]
+
 #let ksat_mvc = load-example("KSatisfiability", "MinimumVertexCover")
 #let ksat_mvc_sol = ksat_mvc.solutions.at(0)
 #reduction-rule("KSatisfiability", "MinimumVertexCover",

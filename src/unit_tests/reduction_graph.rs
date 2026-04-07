@@ -1,5 +1,6 @@
 //! Tests for ReductionGraph: discovery, path finding, and typed API.
 
+use crate::models::decision::Decision;
 use crate::models::formula::KSatisfiability;
 use crate::prelude::*;
 use crate::rules::{MinimizeSteps, ReductionGraph, ReductionMode, TraversalFlow};
@@ -793,4 +794,22 @@ fn test_optimization_to_decision_turing_edges() {
         "DecisionMinimumDominatingSet",
         ReductionMode::Turing,
     ));
+}
+
+#[test]
+fn test_ksatisfiability_k3_to_decision_minimum_vertex_cover_direct_witness_edge() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_mode::<
+        KSatisfiability<K3>,
+        Decision<MinimumVertexCover<SimpleGraph, i32>>,
+    >(ReductionMode::Witness));
+    assert!(!graph.has_direct_reduction_mode::<
+        KSatisfiability<K3>,
+        Decision<MinimumVertexCover<SimpleGraph, i32>>,
+    >(ReductionMode::Aggregate));
+    assert!(!graph.has_direct_reduction_mode::<
+        KSatisfiability<K3>,
+        Decision<MinimumVertexCover<SimpleGraph, i32>>,
+    >(ReductionMode::Turing));
 }
