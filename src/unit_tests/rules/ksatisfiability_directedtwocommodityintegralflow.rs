@@ -43,7 +43,9 @@ fn all_assignments(num_vars: usize) -> Vec<Vec<usize>> {
 }
 
 #[cfg(feature = "ilp-solver")]
-fn solve_target_via_ilp(problem: &crate::models::graph::DirectedTwoCommodityIntegralFlow) -> Option<Vec<usize>> {
+fn solve_target_via_ilp(
+    problem: &crate::models::graph::DirectedTwoCommodityIntegralFlow,
+) -> Option<Vec<usize>> {
     let reduction = ReduceTo::<ILP<i32>>::reduce_to(problem);
     let ilp_solution = ILPSolver::new().solve(reduction.target_problem())?;
     let extracted = reduction.extract_solution(&ilp_solution);
@@ -53,7 +55,8 @@ fn solve_target_via_ilp(problem: &crate::models::graph::DirectedTwoCommodityInte
 #[test]
 fn test_ksatisfiability_to_directedtwocommodityintegralflow_structure() {
     let source = issue_example();
-    let reduction = ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 36);
@@ -64,9 +67,11 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_structure() {
 }
 
 #[test]
-fn test_ksatisfiability_to_directedtwocommodityintegralflow_assignment_encoding_matches_truth_table() {
+fn test_ksatisfiability_to_directedtwocommodityintegralflow_assignment_encoding_matches_truth_table(
+) {
     let source = issue_example();
-    let reduction = ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
     let target = reduction.target_problem();
 
     for assignment in all_assignments(source.num_vars()) {
@@ -81,9 +86,11 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_assignment_encoding_
 }
 
 #[test]
-fn test_ksatisfiability_to_directedtwocommodityintegralflow_extract_solution_from_encoded_witness() {
+fn test_ksatisfiability_to_directedtwocommodityintegralflow_extract_solution_from_encoded_witness()
+{
     let source = issue_example();
-    let reduction = ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
 
     let assignment = vec![1, 1, 0];
     let flow = reduction.encode_assignment(&assignment);
@@ -95,7 +102,8 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_extract_solution_fro
 #[test]
 fn test_ksatisfiability_to_directedtwocommodityintegralflow_closed_loop() {
     let source = issue_example();
-    let reduction = ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
 
     let target_solution = solve_target_via_ilp(reduction.target_problem())
         .expect("satisfiable source instance should produce a feasible two-commodity flow");
@@ -110,7 +118,8 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_closed_loop() {
 #[test]
 fn test_ksatisfiability_to_directedtwocommodityintegralflow_unsatisfiable() {
     let source = unsatisfiable_instance();
-    let reduction = ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
     let maybe_solution = solve_target_via_ilp(reduction.target_problem());
     assert!(
         maybe_solution.is_none(),
@@ -121,10 +130,9 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_unsatisfiable() {
 #[test]
 fn test_reduction_graph_registers_ksatisfiability_to_directedtwocommodityintegralflow() {
     let graph = ReductionGraph::new();
-    assert!(graph.has_direct_reduction_by_name(
-        "KSatisfiability",
-        "DirectedTwoCommodityIntegralFlow",
-    ));
+    assert!(
+        graph.has_direct_reduction_by_name("KSatisfiability", "DirectedTwoCommodityIntegralFlow",)
+    );
 }
 
 #[cfg(feature = "example-db")]
@@ -138,8 +146,14 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_canonical_example_sp
 
     assert_eq!(example.source.problem, "KSatisfiability");
     assert_eq!(example.target.problem, "DirectedTwoCommodityIntegralFlow");
-    assert_eq!(example.target.instance["requirement_1"], serde_json::json!(1));
-    assert_eq!(example.target.instance["requirement_2"], serde_json::json!(2));
+    assert_eq!(
+        example.target.instance["requirement_1"],
+        serde_json::json!(1)
+    );
+    assert_eq!(
+        example.target.instance["requirement_2"],
+        serde_json::json!(2)
+    );
     assert_eq!(example.solutions.len(), 1);
     assert_eq!(example.solutions[0].source_config, vec![1, 1, 0]);
 
