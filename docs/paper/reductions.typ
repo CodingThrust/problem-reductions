@@ -10795,6 +10795,63 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Identity: return the binary variable vector $bold(x)$ as the knapsack selection.
 ]
 
+#let ik_ilp = load-example("IntegerKnapsack", "ILP")
+#let ik_ilp_sol = ik_ilp.solutions.at(0)
+#reduction-rule("IntegerKnapsack", "ILP",
+  example: true,
+  example-caption: [$n = #ik_ilp.source.instance.sizes.len()$ items, capacity $B = #ik_ilp.source.instance.capacity$],
+  extra: [
+    #{
+      let sizes = ik_ilp.source.instance.sizes
+      let values = ik_ilp.source.instance.values
+      let B = ik_ilp.source.instance.capacity
+      let upper = sizes.map(s => calc.floor(B / s))
+      let chosen = ik_ilp_sol.source_config.enumerate().filter(((i, c)) => c > 0)
+      let total_size = chosen.map(((i, c)) => c * sizes.at(i)).sum()
+      let total_value = chosen.map(((i, c)) => c * values.at(i)).sum()
+      [
+        #pred-commands(
+          "pred create --example " + problem-spec(ik_ilp.source) + " -o integer-knapsack.json",
+          "pred reduce integer-knapsack.json --to " + target-spec(ik_ilp) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate integer-knapsack.json --config " + ik_ilp_sol.source_config.map(str).join(","),
+        )
+
+        *Step 1 -- Source instance.* The canonical Integer Knapsack instance has sizes $(#sizes.map(str).join(", "))$, values $(#values.map(str).join(", "))$, and capacity $B = #B$.
+
+        *Step 2 -- Build the ILP.* Introduce one integer variable per item multiplicity:
+        $#range(sizes.len()).map(i => $c_#i$).join(", ") in NN$.
+        The capacity constraint is
+        $ #sizes.enumerate().map(((i, s)) => $#s c_#i$).join($+$) <= #B $,
+        and the explicit upper bounds are $(#upper.map(str).join(", "))$, i.e. $c_i <= floor.l B / s_i floor.r$ for every item.
+
+        *Step 3 -- Verify the canonical witness.* The ILP optimum is $(#ik_ilp_sol.target_config.map(str).join(", "))$, which extracts identically to the source multiplicities $(#ik_ilp_sol.source_config.map(str).join(", "))$. The selected terms contribute total size $#total_size <= B$ and total value $#total_value$ #sym.checkmark.
+
+        *Uniqueness:* The fixture stores one canonical optimum, here $(0, 0, 2)$.
+      ]
+    }
+  ],
+)[
+  This linear-size reduction reformulates Integer Knapsack as a non-negative integer program @papadimitriou-steiglitz1982: each item multiplicity becomes an ILP variable, the knapsack capacity is a single linear inequality, and explicit upper bounds $c_i <= floor.l B / s_i floor.r$ preserve the exact witness domain of the source problem. The target therefore has $n$ variables and $n + 1$ constraints.
+][
+  _Construction._ Given item sizes $s_0, dots, s_(n-1) in ZZ^+$, values $v_0, dots, v_(n-1) in ZZ^+$, and capacity $B in NN$, introduce one non-negative integer variable $c_i$ for each item. Add the capacity constraint
+  $
+    sum_(i=0)^(n-1) s_i c_i <= B
+  $
+  and, for each $i$, the upper bound
+  $
+    c_i <= floor.l B / s_i floor.r.
+  $
+  Maximize the linear objective
+  $
+    sum_(i=0)^(n-1) v_i c_i.
+  $
+
+  _Correctness._ ($arrow.r.double$) Any feasible Integer Knapsack multiplicity vector $bold(c)$ already satisfies $sum_i s_i c_i <= B$, and every source multiplicity also satisfies $c_i <= floor.l B / s_i floor.r$, so the same vector is feasible for the ILP and attains exactly the same objective value $sum_i v_i c_i$. ($arrow.l.double$) Any feasible ILP solution satisfies the same capacity inequality and the same per-item multiplicity bounds, so it is a valid Integer Knapsack witness with identical total value. Therefore optimal solutions correspond one-to-one and preserve the optimum value.
+
+  _Solution extraction._ Identity: return the ILP variable vector $bold(c)$ as the Integer Knapsack multiplicities.
+]
+
 #let clique_mis = load-example("MaximumClique", "MaximumIndependentSet")
 #let clique_mis_sol = clique_mis.solutions.at(0)
 #reduction-rule("MaximumClique", "MaximumIndependentSet",
@@ -14657,6 +14714,59 @@ The following table shows concrete variable overhead for example instances, take
   If $T > Sigma$, then $d > Sigma' \/ 2$, so a single element exceeds the half-sum and the Partition instance is infeasible.
 
   _Solution extraction._ Given a Partition solution $c in {0,1}^m$: if $d = 0$, return $c[0..n]$. If $Sigma > 2T$, the $S$-elements on the same side as the padding form the subset summing to $T$. If $Sigma < 2T$, the $S$-elements on the opposite side from the padding form the subset summing to $T$.
+]
+
+#let ss_ik = load-example("SubsetSum", "IntegerKnapsack")
+#let ss_ik_sol = ss_ik.solutions.at(0)
+#reduction-rule("SubsetSum", "IntegerKnapsack",
+  example: true,
+  example-caption: [#subsetsum-num-elements(ss_ik.source.instance) elements, target $B = #ss_ik.source.instance.target$: exact forward witness, but multiplicities create a backward gap],
+  extra: [
+    #{
+      let sizes = ss_ik.source.instance.sizes.map(s => int(s))
+      let B = int(ss_ik.source.instance.target)
+      let chosen = ss_ik_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let chosen_sum = chosen.map(i => sizes.at(i)).sum()
+      [
+        #pred-commands(
+          "pred create --example " + problem-spec(ss_ik.source) + " -o subsetsum.json",
+          "pred solve subsetsum.json",
+          "pred create --example " + problem-spec(ss_ik.target) + " -o integer-knapsack.json",
+          "pred solve integer-knapsack.json",
+        )
+
+        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#sizes.map(str).join(", "))$ and target $B = #B$. The stored witness $(#ss_ik_sol.source_config.map(str).join(", "))$ selects elements ${#chosen.map(str).join(", ")}$, whose values sum to $#chosen_sum = B$ #sym.checkmark.
+
+        *Step 2 -- Build the target.* Copy each source size into both the size and value lists. The Integer Knapsack instance therefore has sizes $(#ss_ik.target.instance.sizes.map(str).join(", "))$, values $(#ss_ik.target.instance.values.map(str).join(", "))$, and the same capacity $B = #ss_ik.target.instance.capacity$.
+
+        *Step 3 -- Verify the forward witness.* Reuse the same 0-1 vector as multiplicities: $(#ss_ik_sol.target_config.map(str).join(", "))$. Its total size is $#chosen_sum <= #ss_ik.target.instance.capacity$, and because size equals value coordinate-wise, its total value is also $#chosen_sum = B$ #sym.checkmark.
+
+        *Step 4 -- Backward gap.* For the source instance $A = {3}$ with target $B = 6$, Subset Sum is NO, but Integer Knapsack can set multiplicity $c_0 = 2$ and achieve total size/value $6$. This is why the catalog records the edge for proof topology only and disables all runtime reduction modes.
+      ]
+    }
+  ],
+)[
+  This size-preserving embedding from Garey and Johnson's Integer Knapsack entry @garey1979[MP10] copies each Subset Sum number into both the size and value of a knapsack item and sets the capacity to the target sum. Any exact subset-sum witness becomes a feasible Integer Knapsack witness of value $B$. The converse fails for the implemented unbounded model because target witnesses may use multiplicities greater than $1$, so the edge is documented but intentionally proof-only.
+][
+  _Construction._ Given Subset Sum instance $(S = {a_1, dots, a_n}, B)$, create $n$ Integer Knapsack items. For each $i$, set the item size and value to the same number:
+  $
+    s_i = a_i, quad v_i = a_i.
+  $
+  Set the knapsack capacity to $B$. The target therefore has the same number of items as the source has elements.
+
+  _Correctness._ ($arrow.r.double$) If $I subset.eq {1, dots, n}$ satisfies $sum_(i in I) a_i = B$, define multiplicities $c_i = 1$ for $i in I$ and $c_i = 0$ otherwise. Then
+  $
+    sum_i c_i s_i = sum_(i in I) a_i = B <= B
+  $
+  and, because $v_i = s_i$, also
+  $
+    sum_i c_i v_i = B.
+  $
+  So every YES instance of Subset Sum maps to an Integer Knapsack witness achieving value $B$.
+
+  ($arrow.l.double$) The backward implication is false for the implemented target model. Integer Knapsack allows arbitrary non-negative multiplicities, while Subset Sum is 0-1. For example, with $S = {3}$ and $B = 6$, the target witness $c_0 = 2$ is feasible and attains value $6$, but the source has no subset summing to $6$. Hence neither exact witness recovery nor exact optimum-value recovery is available from the target side.
+
+  _Solution extraction._ No runtime extractor is registered. The forward map is enough for the NP-hardness proof, but unbounded multiplicities prevent an exact inverse map back to Subset Sum.
 ]
 
 // 2. Satisfiability → NonTautology (#868)

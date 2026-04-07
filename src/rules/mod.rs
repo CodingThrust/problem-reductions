@@ -36,6 +36,8 @@ pub(crate) mod hamiltonianpath_degreeconstrainedspanningtree;
 pub(crate) mod hamiltonianpath_isomorphicspanningtree;
 pub(crate) mod hamiltonianpathbetweentwovertices_longestpath;
 pub(crate) mod ilp_i32_ilp_bool;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod integerknapsack_ilp;
 pub(crate) mod kclique_balancedcompletebipartitesubgraph;
 pub(crate) mod kclique_conjunctivebooleanquery;
 pub(crate) mod kclique_subgraphisomorphism;
@@ -113,6 +115,7 @@ pub(crate) mod spinglass_qubo;
 pub(crate) mod subsetsum_capacityassignment;
 pub(crate) mod subsetsum_closestvectorproblem;
 pub(crate) mod subsetsum_integerexpressionmembership;
+pub(crate) mod subsetsum_integerknapsack;
 pub(crate) mod subsetsum_partition;
 #[cfg(test)]
 pub(crate) mod test_helpers;
@@ -389,6 +392,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(graphpartitioning_qubo::canonical_rule_example_specs());
     specs.extend(hamiltonianpathbetweentwovertices_longestpath::canonical_rule_example_specs());
     specs.extend(hamiltonianpath_isomorphicspanningtree::canonical_rule_example_specs());
+    #[cfg(feature = "ilp-solver")]
+    specs.extend(integerknapsack_ilp::canonical_rule_example_specs());
     specs.extend(kclique_balancedcompletebipartitesubgraph::canonical_rule_example_specs());
     specs.extend(kclique_conjunctivebooleanquery::canonical_rule_example_specs());
     specs.extend(kclique_subgraphisomorphism::canonical_rule_example_specs());
@@ -471,6 +476,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(spinglass_qubo::canonical_rule_example_specs());
     specs.extend(subsetsum_capacityassignment::canonical_rule_example_specs());
     specs.extend(subsetsum_closestvectorproblem::canonical_rule_example_specs());
+    specs.extend(subsetsum_integerknapsack::canonical_rule_example_specs());
     specs.extend(subsetsum_integerexpressionmembership::canonical_rule_example_specs());
     specs.extend(subsetsum_partition::canonical_rule_example_specs());
     specs.extend(travelingsalesman_qubo::canonical_rule_example_specs());

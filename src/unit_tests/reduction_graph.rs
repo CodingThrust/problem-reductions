@@ -195,6 +195,40 @@ fn test_json_export() {
     assert!(categories.len() >= 3, "Should have multiple categories");
 }
 
+#[test]
+fn test_subsetsum_to_integerknapsack_is_proof_only() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_by_name("SubsetSum", "IntegerKnapsack"));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "SubsetSum",
+        "IntegerKnapsack",
+        ReductionMode::Witness,
+    ));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "SubsetSum",
+        "IntegerKnapsack",
+        ReductionMode::Aggregate,
+    ));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "SubsetSum",
+        "IntegerKnapsack",
+        ReductionMode::Turing,
+    ));
+}
+
+#[cfg(feature = "ilp-solver")]
+#[test]
+fn test_integerknapsack_to_ilp_is_runtime_witness_edge() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_by_name_mode(
+        "IntegerKnapsack",
+        "ILP",
+        ReductionMode::Witness,
+    ));
+}
+
 // ---- Path finding (variant-level API) ----
 
 #[test]
