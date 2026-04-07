@@ -409,10 +409,6 @@ pub(super) fn schema_field_flag_keys(
             keys.push(display_key);
         }
     }
-    // Decision types accept --k as an alias for --bound (backward compat with old VertexCover)
-    if field_name == "bound" && canonical.starts_with("Decision") && !keys.contains(&"k".into()) {
-        keys.push("k".into());
-    }
     keys
 }
 

@@ -309,9 +309,7 @@ mod tests {
             resolve_alias("biconnectivityaugmentation"),
             "BiconnectivityAugmentation"
         );
-        // VertexCover aliases now resolve to the Decision<MinimumVertexCover> wrapper
-        assert_eq!(resolve_alias("VC"), "DecisionMinimumVertexCover");
-        assert_eq!(resolve_alias("VertexCover"), "DecisionMinimumVertexCover");
+        assert_eq!(resolve_alias("DMVC"), "DecisionMinimumVertexCover");
         // Pass-through for full names
         assert_eq!(
             resolve_alias("MaximumIndependentSet"),
