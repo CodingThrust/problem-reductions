@@ -765,3 +765,32 @@ fn test_decision_minimum_dominating_set_has_direct_aggregate_edge() {
         ReductionMode::Witness,
     ));
 }
+
+#[test]
+fn test_optimization_to_decision_turing_edges() {
+    let graph = ReductionGraph::new();
+
+    // MinimumVertexCover → DecisionMinimumVertexCover (Turing)
+    assert!(graph.has_direct_reduction_by_name_mode(
+        "MinimumVertexCover",
+        "DecisionMinimumVertexCover",
+        ReductionMode::Turing,
+    ));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "MinimumVertexCover",
+        "DecisionMinimumVertexCover",
+        ReductionMode::Witness,
+    ));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "MinimumVertexCover",
+        "DecisionMinimumVertexCover",
+        ReductionMode::Aggregate,
+    ));
+
+    // MinimumDominatingSet → DecisionMinimumDominatingSet (Turing)
+    assert!(graph.has_direct_reduction_by_name_mode(
+        "MinimumDominatingSet",
+        "DecisionMinimumDominatingSet",
+        ReductionMode::Turing,
+    ));
+}

@@ -111,6 +111,39 @@ macro_rules! register_decision_variant {
                 },
             }
         }
+
+        // Reverse edge: P → Decision<P> (Turing/multi-query reduction via binary search)
+        $crate::inventory::submit! {
+            $crate::rules::ReductionEntry {
+                source_name: <$inner as $crate::traits::Problem>::NAME,
+                target_name: $name,
+                source_variant_fn: <$inner as $crate::traits::Problem>::variant,
+                target_variant_fn: <$crate::models::decision::Decision<$inner> as $crate::traits::Problem>::variant,
+                overhead_fn: || $crate::rules::ReductionOverhead::identity(&["num_vertices", "num_edges"]),
+                module_path: module_path!(),
+                reduce_fn: None,
+                reduce_aggregate_fn: None,
+                capabilities: $crate::rules::EdgeCapabilities::turing(),
+                overhead_eval_fn: |any| {
+                    let source = any
+                        .downcast_ref::<$inner>()
+                        .expect(concat!($name, " turing overhead source type mismatch"));
+                    $crate::types::ProblemSize::new(vec![
+                        ("num_vertices", source.num_vertices()),
+                        ("num_edges", source.num_edges()),
+                    ])
+                },
+                source_size_fn: |any| {
+                    let source = any
+                        .downcast_ref::<$inner>()
+                        .expect(concat!($name, " turing size source type mismatch"));
+                    $crate::types::ProblemSize::new(vec![
+                        ("num_vertices", source.num_vertices()),
+                        ("num_edges", source.num_edges()),
+                    ])
+                },
+            }
+        }
     };
     (@display_name "DecisionMinimumVertexCover") => {
         "Decision Minimum Vertex Cover"

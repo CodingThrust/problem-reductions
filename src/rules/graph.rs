@@ -117,6 +117,8 @@ pub(crate) struct EdgeJson {
     pub(crate) witness: bool,
     /// Whether the edge supports aggregate/value workflows.
     pub(crate) aggregate: bool,
+    /// Whether the edge is a Turing (multi-query) reduction.
+    pub(crate) turing: bool,
 }
 
 /// A path through the variant-level reduction graph.
@@ -253,6 +255,9 @@ pub enum TraversalFlow {
 pub enum ReductionMode {
     Witness,
     Aggregate,
+    /// Multi-query (Turing) reductions: solving the source requires multiple
+    /// adaptive queries to the target (e.g., binary search over a bound).
+    Turing,
 }
 
 /// A tree node for neighbor traversal results.
@@ -421,6 +426,7 @@ impl ReductionGraph {
         match mode {
             ReductionMode::Witness => edge.capabilities.witness,
             ReductionMode::Aggregate => edge.capabilities.aggregate,
+            ReductionMode::Turing => edge.capabilities.turing,
         }
     }
 
@@ -1208,6 +1214,7 @@ impl ReductionGraph {
                 doc_path,
                 witness: capabilities.witness,
                 aggregate: capabilities.aggregate,
+                turing: capabilities.turing,
             });
         }
 

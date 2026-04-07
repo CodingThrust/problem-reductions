@@ -94,6 +94,10 @@ pub type AggregateReduceFn = fn(&dyn Any) -> Box<dyn DynAggregateReductionResult
 pub struct EdgeCapabilities {
     pub witness: bool,
     pub aggregate: bool,
+    /// Turing (multi-query) reduction: solving the source requires multiple
+    /// adaptive queries to the target (e.g., binary search over a decision bound).
+    #[serde(default)]
+    pub turing: bool,
 }
 
 impl EdgeCapabilities {
@@ -101,6 +105,7 @@ impl EdgeCapabilities {
         Self {
             witness: true,
             aggregate: false,
+            turing: false,
         }
     }
 
@@ -108,6 +113,7 @@ impl EdgeCapabilities {
         Self {
             witness: false,
             aggregate: true,
+            turing: false,
         }
     }
 
@@ -115,6 +121,15 @@ impl EdgeCapabilities {
         Self {
             witness: true,
             aggregate: true,
+            turing: false,
+        }
+    }
+
+    pub const fn turing() -> Self {
+        Self {
+            witness: false,
+            aggregate: false,
+            turing: true,
         }
     }
 }

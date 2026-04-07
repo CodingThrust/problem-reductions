@@ -420,6 +420,8 @@ fn canonical_rule_examples_cover_exactly_authored_direct_reductions() {
     let direct_reduction_keys: BTreeSet<_> = reduction_entries()
         .into_iter()
         .filter(|entry| entry.source_name != entry.target_name)
+        // Turing (multi-query) edges have no single-shot reduction to demonstrate
+        .filter(|entry| !entry.capabilities.turing)
         .map(|entry| {
             (
                 ProblemRef {
