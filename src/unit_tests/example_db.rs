@@ -586,7 +586,9 @@ fn rule_specs_solution_pairs_are_consistent() {
         )
         .unwrap_or_else(|e| panic!("Failed to load target for {label}: {e}"));
 
-        // Try witness path first; fall back to aggregate for aggregate-only edges
+        // Try witness path first; fall back to aggregate for aggregate-only edges.
+        // Some authored direct reductions are proof-only and intentionally have
+        // no runtime capability in any mode.
         let witness_path = graph.find_cheapest_path(
             &example.source.problem,
             &example.source.variant,
@@ -595,10 +597,8 @@ fn rule_specs_solution_pairs_are_consistent() {
             &crate::types::ProblemSize::new(vec![]),
             &crate::rules::MinimizeSteps,
         );
-        let aggregate_only = witness_path.is_none();
-        if aggregate_only {
-            // Verify the aggregate path exists
-            let agg_path = graph.find_cheapest_path_mode(
+        if witness_path.is_none() {
+            let aggregate_path = graph.find_cheapest_path_mode(
                 &example.source.problem,
                 &example.source.variant,
                 &example.target.problem,
@@ -607,10 +607,28 @@ fn rule_specs_solution_pairs_are_consistent() {
                 &crate::types::ProblemSize::new(vec![]),
                 &crate::rules::MinimizeSteps,
             );
-            assert!(
-                agg_path.is_some(),
-                "No reduction path (witness or aggregate) for {label}"
-            );
+            if aggregate_path.is_none() {
+                assert!(
+                    graph.has_direct_reduction_by_name(&example.source.problem, &example.target.problem),
+                    "No reduction path (witness or aggregate) or direct proof-only edge for {label}"
+                );
+                assert!(
+                    !graph.has_direct_reduction_by_name_mode(
+                        &example.source.problem,
+                        &example.target.problem,
+                        crate::rules::ReductionMode::Witness,
+                    ),
+                    "Proof-only edge unexpectedly exposed witness mode for {label}"
+                );
+                assert!(
+                    !graph.has_direct_reduction_by_name_mode(
+                        &example.source.problem,
+                        &example.target.problem,
+                        crate::rules::ReductionMode::Aggregate,
+                    ),
+                    "Proof-only edge unexpectedly exposed aggregate mode for {label}"
+                );
+            }
         }
 
         // Only do witness round-trip when a witness path exists
@@ -1019,6 +1037,24 @@ fn test_find_rule_example_minimumvertexcover_to_minimumhittingset() {
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "MinimumVertexCover");
     assert_eq!(example.target.problem, "MinimumHittingSet");
+}
+
+#[test]
+fn test_find_rule_example_minimumvertexcover_to_minimummaximalmatching() {
+    let source = ProblemRef {
+        name: "MinimumVertexCover".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "One".to_string()),
+        ]),
+    };
+    let target = ProblemRef {
+        name: "MinimumMaximalMatching".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let example = find_rule_example(&source, &target).unwrap();
+    assert_eq!(example.source.problem, "MinimumVertexCover");
+    assert_eq!(example.target.problem, "MinimumMaximalMatching");
 }
 
 #[test]

@@ -703,6 +703,28 @@ fn test_has_direct_reduction_by_name_mode() {
 }
 
 #[test]
+fn test_minimumvertexcover_to_minimummaximalmatching_is_proof_only_direct_edge() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_by_name("MinimumVertexCover", "MinimumMaximalMatching",));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "MinimumVertexCover",
+        "MinimumMaximalMatching",
+        ReductionMode::Witness,
+    ));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "MinimumVertexCover",
+        "MinimumMaximalMatching",
+        ReductionMode::Aggregate,
+    ));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "MinimumVertexCover",
+        "MinimumMaximalMatching",
+        ReductionMode::Turing,
+    ));
+}
+
+#[test]
 fn test_find_all_paths_mode_witness() {
     let graph = ReductionGraph::new();
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());

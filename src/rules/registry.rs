@@ -101,6 +101,14 @@ pub struct EdgeCapabilities {
 }
 
 impl EdgeCapabilities {
+    pub const fn none() -> Self {
+        Self {
+            witness: false,
+            aggregate: false,
+            turing: false,
+        }
+    }
+
     pub const fn witness_only() -> Self {
         Self {
             witness: true,

@@ -530,7 +530,7 @@
 ]
 
 #block(width: 100%, inset: (x: 2em, y: 1em))[
-  *Abstract.* We present formal definitions for computational problems and polynomial-time reductions implemented in the `problem-reductions` library. For each reduction, we state theorems with constructive proofs that preserve solution structure.
+  *Abstract.* We present formal definitions for computational problems and polynomial-time reductions implemented in the `problem-reductions` library. For each reduction, we state a theorem with a constructive proof; when a reduction is proof-only rather than solver-executable, that restriction is stated explicitly in the rule text.
 ]
 
 
@@ -541,7 +541,7 @@
 
 = Introduction
 
-A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a polynomial-time transformation of $A$-instances into $B$-instances such that: (1) the transformation runs in polynomial time, (2) solutions to $B$ can be efficiently mapped back to solutions of $A$, and (3) optimal solutions are preserved. The library implements #graph-data.edges.len() reductions connecting #graph-data.nodes.len() problem types.
+A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a polynomial-time transformation of $A$-instances into $B$-instances such that: (1) the transformation runs in polynomial time, (2) solutions to $B$ can be efficiently mapped back to solutions of $A$, and (3) optimal solutions are preserved. The library implements #graph-data.edges.len() catalogued edges connecting #graph-data.nodes.len() problem types; most are solver-executable witness, aggregate, or Turing reductions, while a few are proof-only NP-hardness embeddings that are excluded from runtime path search.
 
 == Notation
 
@@ -9235,6 +9235,49 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Correctness._ ($arrow.r.double$) If $C$ is a vertex cover, then for any $u, v in V backslash C$, the edge $(u, v) in.not E$ (otherwise $C$ would miss it), so $V backslash C$ is independent. ($arrow.l.double$) If $S$ is independent, then for any $(u, v) in E$, at most one endpoint lies in $S$, so $V backslash S$ covers every edge. Since $|S| + |C| = |V|$ is constant, a minimum vertex cover corresponds to a maximum independent set.
 
   _Solution extraction._ For IS solution $S$, return $C = V backslash S$, i.e.\ flip each variable: $c_v = 1 - s_v$.
+]
+
+#let mvc_mmm = load-example("MinimumVertexCover", "MinimumMaximalMatching")
+#let mvc_mmm_sol = mvc_mmm.solutions.at(0)
+#reduction-rule("MinimumVertexCover", "MinimumMaximalMatching",
+  example: true,
+  example-caption: [Cycle $C_5$: the forward implication is exact, but the backward gap is strict],
+  extra: [
+    #{
+      let target-edges = mvc_mmm.target.instance.graph.edges
+      let source-cover = mvc_mmm_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let matching = mvc_mmm_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => target-edges.at(i))
+      let fmt-edge(e) = "(" + str(e.at(0)) + ", " + str(e.at(1)) + ")"
+      [
+        #pred-commands(
+          "pred create MinimumVertexCover --graph 0-1,1-2,2-3,3-4,4-0 --weights 1,1,1,1,1 -o mvc.json",
+          "pred solve mvc.json",
+          "pred create MinimumMaximalMatching --graph 0-1,1-2,2-3,3-4,4-0 -o mmm.json",
+          "pred solve mmm.json",
+        )
+
+        *Step 1 -- Shared instance.* Both problems use the same 5-cycle, so $n = #graph-num-vertices(mvc_mmm.source.instance)$ and $|E| = #graph-num-edges(mvc_mmm.source.instance)$.
+
+        *Step 2 -- Source optimum.* The canonical minimum vertex cover is $C = {#source-cover.map(str).join(", ")}$, so $"mvc"(C_5) = #source-cover.len() = 3$.
+
+        *Step 3 -- Target optimum.* The canonical minimum maximal matching is $M = {#matching.map(fmt-edge).join(", ")}$, so $"mmm"(C_5) = #matching.len() = 2$.
+
+        *Step 4 -- Backward gap.* The endpoint set of $M$ is ${0, 1, 2, 3}$, a valid vertex cover of size $4$. Pruning can recover an optimal cover of size $3$, but not one of size $2$, so the same-bound backward implication fails.
+
+        *Runtime note:* This catalog edge is proof-only. The CLI can solve the two instances separately, but runtime reduction search does not traverse this edge because there is no exact witness or aggregate extractor.
+      ]
+    }
+  ],
+)[
+  This size-preserving identity map records the forward implication used in the classical NP-hardness proof for Minimum Maximal Matching (equivalently, Minimum Edge Dominating Set) on bounded-degree graphs: every unit-weight vertex cover of $G$ can be greedily converted into a maximal matching of size at most the cover size. The converse loses a factor of two in general, so the edge is documented but intentionally disabled for runtime reduction search.
+][
+  _Construction._ Given a unit-weight Minimum Vertex Cover instance $(G = (V, E), K)$, build the Minimum Maximal Matching instance on the same graph $G$. The target uses one binary variable per source edge, so the graph structure and size fields are unchanged.
+
+  _Correctness._ ($arrow.r.double$) Let $C subset.eq V$ be a vertex cover with $|C| lt.eq K$. Start with $M = emptyset$ and process the vertices of $C$ in arbitrary order. Whenever $v in C$ is unmatched, choose any edge $\{v, u\} in E$ whose other endpoint $u$ is also unmatched, add that edge to $M$, and mark both endpoints matched. Because only unmatched endpoints are paired, $M$ is a matching. If some edge $\{x, y\} in E$ were disjoint from every edge of $M$ at the end, then both $x$ and $y$ would still be unmatched. Since $C$ covers every edge, at least one endpoint, say $x$, lies in $C$, and when the algorithm processed $x$ it could have added $\{x, y\}$, a contradiction. Hence $M$ is maximal and $|M| lt.eq |C| lt.eq K$.
+
+  ($arrow.l.double$) Let $M$ be any maximal matching. The set of all endpoints of edges in $M$ is a vertex cover, so $"mvc"(G) lt.eq 2 dot |M|$. This yields the standard bound $"mmm"(G) lt.eq "mvc"(G) lt.eq 2 dot "mmm"(G)$, but it does not recover an exact same-bound inverse. On $C_5$, the target optimum is $2$ while the source optimum is $3$.
+
+  _Solution extraction._ No runtime extractor is registered. The endpoint map always returns a valid vertex cover and greedy pruning can shrink it, but neither approach guarantees an optimal cover from an optimal maximal matching witness, and the target optimum value does not determine the source optimum value exactly.
 ]
 
 #let mvc_lcs = load-example("MinimumVertexCover", "LongestCommonSubsequence")
