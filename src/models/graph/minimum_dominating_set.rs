@@ -226,6 +226,23 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 #[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_model_example_specs(
+) -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "decision_minimum_dominating_set_simplegraph_i32",
+        instance: Box::new(Decision::new(
+            MinimumDominatingSet::new(
+                SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
+                vec![1i32; 5],
+            ),
+            2,
+        )),
+        optimal_config: vec![0, 0, 1, 1, 0],
+        optimal_value: serde_json::json!(true),
+    }]
+}
+
+#[cfg(feature = "example-db")]
 pub(crate) fn decision_canonical_rule_example_specs(
 ) -> Vec<crate::example_db::specs::RuleExampleSpec> {
     vec![crate::example_db::specs::RuleExampleSpec {

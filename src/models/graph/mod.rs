@@ -254,6 +254,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(monochromatic_triangle::canonical_model_example_specs());
     specs.extend(minimum_intersection_graph_basis::canonical_model_example_specs());
     specs.extend(minimum_dominating_set::canonical_model_example_specs());
+    specs.extend(minimum_dominating_set::decision_canonical_model_example_specs());
     specs.extend(minimum_metric_dimension::canonical_model_example_specs());
     specs.extend(minimum_geometric_connected_dominating_set::canonical_model_example_specs());
     specs.extend(maximum_matching::canonical_model_example_specs());
