@@ -13097,7 +13097,12 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
     }
     unique
   }
+  // Skip trivial Decision<P> ↔ P edges (solve-and-compare, no interesting proof)
+  let is-decision-opt-pair(src, tgt) = {
+    src == "Decision" + tgt or tgt == "Decision" + src
+  }
   let missing = json-edges.filter(e => {
+    not is-decision-opt-pair(e.at(0), e.at(1)) and
     covered.find(c => c.at(0) == e.at(0) and c.at(1) == e.at(1)) == none
   })
   if missing.len() > 0 {

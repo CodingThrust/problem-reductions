@@ -456,6 +456,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(subsetsum_integerexpressionmembership::canonical_rule_example_specs());
     specs.extend(subsetsum_partition::canonical_rule_example_specs());
     specs.extend(travelingsalesman_qubo::canonical_rule_example_specs());
+    specs.extend(
+        crate::models::graph::minimum_vertex_cover::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(
+        crate::models::graph::minimum_dominating_set::decision_canonical_rule_example_specs(),
+    );
     #[cfg(feature = "ilp-solver")]
     {
         specs.extend(acyclicpartition_ilp::canonical_rule_example_specs());

@@ -178,7 +178,20 @@ pub(super) fn create_schema_driven(
         json_map.insert(field.name.clone(), value);
     }
 
-    let data = serde_json::Value::Object(json_map);
+    // Decision<P> types serialize as {inner: {graph, weights, ...}, bound} but schema
+    // fields are flat (graph, weights, bound).  Restructure when the canonical name
+    // indicates a Decision wrapper.
+    let data = if canonical.starts_with("Decision") {
+        let bound = json_map
+            .remove("bound")
+            .expect("Decision types require a bound field");
+        let mut outer = serde_json::Map::new();
+        outer.insert("inner".to_string(), serde_json::Value::Object(json_map));
+        outer.insert("bound".to_string(), bound);
+        serde_json::Value::Object(outer)
+    } else {
+        serde_json::Value::Object(json_map)
+    };
     validate_schema_driven_semantics(args, canonical, resolved_variant, &data)
         .map_err(|error| with_schema_usage(error, canonical, resolved_variant))?;
     (variant_entry.factory)(data.clone()).map_err(|error| {

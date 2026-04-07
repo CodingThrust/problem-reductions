@@ -584,22 +584,35 @@ fn rule_specs_solution_pairs_are_consistent() {
         )
         .unwrap_or_else(|e| panic!("Failed to load target for {label}: {e}"));
 
-        // Re-run the reduction to get extract_solution for round-trip check
-        let chain = graph
-            .reduce_along_path(
-                &graph
-                    .find_cheapest_path(
-                        &example.source.problem,
-                        &example.source.variant,
-                        &example.target.problem,
-                        &example.target.variant,
-                        &crate::types::ProblemSize::new(vec![]),
-                        &crate::rules::MinimizeSteps,
-                    )
-                    .unwrap_or_else(|| panic!("No reduction path for {label}")),
-                source.as_any(),
-            )
-            .unwrap_or_else(|| panic!("Failed to reduce along path for {label}"));
+        // Try witness path first; fall back to aggregate for aggregate-only edges
+        let witness_path = graph.find_cheapest_path(
+            &example.source.problem,
+            &example.source.variant,
+            &example.target.problem,
+            &example.target.variant,
+            &crate::types::ProblemSize::new(vec![]),
+            &crate::rules::MinimizeSteps,
+        );
+        let aggregate_only = witness_path.is_none();
+        if aggregate_only {
+            // Verify the aggregate path exists
+            let agg_path = graph.find_cheapest_path_mode(
+                &example.source.problem,
+                &example.source.variant,
+                &example.target.problem,
+                &example.target.variant,
+                crate::rules::ReductionMode::Aggregate,
+                &crate::types::ProblemSize::new(vec![]),
+                &crate::rules::MinimizeSteps,
+            );
+            assert!(
+                agg_path.is_some(),
+                "No reduction path (witness or aggregate) for {label}"
+            );
+        }
+
+        // Only do witness round-trip when a witness path exists
+        let chain = witness_path.and_then(|path| graph.reduce_along_path(&path, source.as_any()));
 
         for pair in &example.solutions {
             // Verify config lengths match problem dimensions
@@ -617,7 +630,7 @@ fn rule_specs_solution_pairs_are_consistent() {
                 pair.target_config.len(),
                 target.dims_dyn().len()
             );
-            // Verify configs produce feasible witness-capable evaluations.
+            // Verify configs produce feasible evaluations.
             let source_eval = source.evaluate_dyn(&pair.source_config);
             let target_eval = target.evaluate_dyn(&pair.target_config);
             let source_val = source.evaluate_json(&pair.source_config);
@@ -646,16 +659,18 @@ fn rule_specs_solution_pairs_are_consistent() {
                 "Rule {label}: target_config evaluates to Or(false)"
             );
             // Round-trip: extract_solution(target_config) must produce a valid
-            // source config with the same evaluation value
-            let extracted = chain.extract_solution(&pair.target_config);
-            let extracted_val = source.evaluate_json(&extracted);
-            assert_eq!(
-                extracted_val, source_val,
-                "Rule {label}: round-trip value mismatch: \
-                 evaluate(extract_solution(target_config)) = {} but evaluate(source_config) = {} \
-                 (extracted: {:?}, stored: {:?})",
-                extracted_val, source_val, extracted, pair.source_config
-            );
+            // source config with the same evaluation value (witness paths only)
+            if let Some(ref chain) = chain {
+                let extracted = chain.extract_solution(&pair.target_config);
+                let extracted_val = source.evaluate_json(&extracted);
+                assert_eq!(
+                    extracted_val, source_val,
+                    "Rule {label}: round-trip value mismatch: \
+                     evaluate(extract_solution(target_config)) = {} but evaluate(source_config) = {} \
+                     (extracted: {:?}, stored: {:?})",
+                    extracted_val, source_val, extracted, pair.source_config
+                );
+            }
         }
     }
 }

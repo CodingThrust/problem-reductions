@@ -163,10 +163,14 @@ crate::declare_variants! {
     MaximumIndependentSet<UnitDiskGraph, One>       => "2^sqrt(num_vertices)",
 }
 
-crate::decision_problem_meta!(
-    MaximumIndependentSet<SimpleGraph, i32>,
-    "DecisionMaximumIndependentSet"
-);
+impl<G, W> crate::models::decision::DecisionProblemMeta for MaximumIndependentSet<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+    W::Sum: std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned,
+{
+    const DECISION_NAME: &'static str = "DecisionMaximumIndependentSet";
+}
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {

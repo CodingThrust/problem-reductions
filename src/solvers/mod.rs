@@ -2,7 +2,7 @@
 
 mod brute_force;
 pub mod customized;
-pub mod golden_section;
+pub mod decision_search;
 
 #[cfg(feature = "ilp-solver")]
 pub mod ilp;

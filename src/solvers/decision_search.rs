@@ -1,4 +1,4 @@
-//! Golden-section-style search for optimization via decision queries.
+//! Decision-guided binary search for optimization via decision queries.
 
 use crate::models::decision::{Decision, DecisionProblemMeta};
 use crate::solvers::{BruteForce, Solver};
@@ -105,5 +105,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "../unit_tests/solvers/golden_section.rs"]
+#[path = "../unit_tests/solvers/decision_search.rs"]
 mod tests;

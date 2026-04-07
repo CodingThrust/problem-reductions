@@ -25,6 +25,107 @@ macro_rules! decision_problem_meta {
     };
 }
 
+/// Register the boilerplate inventory entries for a concrete `Decision<P>` variant.
+#[macro_export]
+macro_rules! register_decision_variant {
+    (
+        $inner:ty,
+        $name:literal,
+        $complexity:literal,
+        $aliases:expr,
+        $description:literal,
+        [$($field:expr),* $(,)?]
+    ) => {
+        impl $crate::models::decision::Decision<$inner> {
+            /// Number of vertices in the underlying graph.
+            pub fn num_vertices(&self) -> usize {
+                self.inner().num_vertices()
+            }
+
+            /// Number of edges in the underlying graph.
+            pub fn num_edges(&self) -> usize {
+                self.inner().num_edges()
+            }
+
+            /// Decision bound as a nonnegative integer.
+            pub fn k(&self) -> usize {
+                (*self.bound()).try_into().unwrap_or(0)
+            }
+        }
+
+        $crate::declare_variants! {
+            default $crate::models::decision::Decision<$inner> => $complexity,
+        }
+
+        $crate::inventory::submit! {
+            $crate::registry::ProblemSchemaEntry {
+                name: $name,
+                display_name: $crate::register_decision_variant!(@display_name $name),
+                aliases: $aliases,
+                dimensions: &[
+                    $crate::registry::VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+                    $crate::registry::VariantDimension::new("weight", "i32", &["i32"]),
+                ],
+                module_path: module_path!(),
+                description: $description,
+                fields: &[$($field),*],
+            }
+        }
+
+        $crate::inventory::submit! {
+            $crate::rules::ReductionEntry {
+                source_name: $name,
+                target_name: <$inner as $crate::traits::Problem>::NAME,
+                source_variant_fn: <$crate::models::decision::Decision<$inner> as $crate::traits::Problem>::variant,
+                target_variant_fn: <$inner as $crate::traits::Problem>::variant,
+                overhead_fn: || $crate::rules::ReductionOverhead::identity(&["num_vertices", "num_edges"]),
+                module_path: module_path!(),
+                reduce_fn: None,
+                reduce_aggregate_fn: Some(|any| {
+                    let source = any
+                        .downcast_ref::<$crate::models::decision::Decision<$inner>>()
+                        .expect(concat!($name, " aggregate reduction source type mismatch"));
+                    Box::new(
+                        <$crate::models::decision::Decision<$inner> as $crate::rules::ReduceToAggregate<$inner>>::reduce_to_aggregate(source),
+                    )
+                }),
+                capabilities: $crate::rules::EdgeCapabilities::aggregate_only(),
+                overhead_eval_fn: |any| {
+                    let source = any
+                        .downcast_ref::<$crate::models::decision::Decision<$inner>>()
+                        .expect(concat!($name, " overhead source type mismatch"));
+                    $crate::types::ProblemSize::new(vec![
+                        ("num_vertices", source.num_vertices()),
+                        ("num_edges", source.num_edges()),
+                    ])
+                },
+                source_size_fn: |any| {
+                    let source = any
+                        .downcast_ref::<$crate::models::decision::Decision<$inner>>()
+                        .expect(concat!($name, " size source type mismatch"));
+                    $crate::types::ProblemSize::new(vec![
+                        ("num_vertices", source.num_vertices()),
+                        ("num_edges", source.num_edges()),
+                        ("k", source.k()),
+                    ])
+                },
+            }
+        }
+    };
+    (@display_name "DecisionMinimumVertexCover") => {
+        "Decision Minimum Vertex Cover"
+    };
+    (@display_name "DecisionMinimumDominatingSet") => {
+        "Decision Minimum Dominating Set"
+    };
+    (@display_name "DecisionMaximumIndependentSet") => {
+        "Decision Maximum Independent Set"
+    };
+    (@display_name $name:literal) => {
+        $name
+    };
+}
+
 /// Decision version of an optimization problem with a fixed objective bound.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Decision<P: Problem>

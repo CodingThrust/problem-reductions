@@ -6,7 +6,7 @@ use crate::types::{Max, Min};
 use crate::Solver;
 
 #[test]
-fn test_golden_section_min() {
+fn test_decision_search_min() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumVertexCover::new(graph, vec![1i32; 3]);
 
@@ -14,7 +14,7 @@ fn test_golden_section_min() {
 }
 
 #[test]
-fn test_golden_section_max() {
+fn test_decision_search_max() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MaximumIndependentSet::new(graph, vec![1i32; 3]);
 
@@ -22,7 +22,7 @@ fn test_golden_section_max() {
 }
 
 #[test]
-fn test_golden_section_matches_brute_force() {
+fn test_decision_search_matches_brute_force() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
     let problem = MinimumVertexCover::new(graph, vec![1i32; 5]);
 
@@ -35,7 +35,7 @@ fn test_golden_section_matches_brute_force() {
 }
 
 #[test]
-fn test_golden_section_min_returns_none_when_upper_bound_is_too_small() {
+fn test_decision_search_min_returns_none_when_upper_bound_is_too_small() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumVertexCover::new(graph, vec![1i32; 3]);
 
@@ -43,7 +43,7 @@ fn test_golden_section_min_returns_none_when_upper_bound_is_too_small() {
 }
 
 #[test]
-fn test_golden_section_max_returns_none_when_interval_is_above_optimum() {
+fn test_decision_search_max_returns_none_when_interval_is_above_optimum() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MaximumIndependentSet::new(graph, vec![1i32; 3]);
 
@@ -51,7 +51,7 @@ fn test_golden_section_max_returns_none_when_interval_is_above_optimum() {
 }
 
 #[test]
-fn test_golden_section_invalid_interval_returns_none() {
+fn test_decision_search_invalid_interval_returns_none() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let min_problem = MinimumVertexCover::new(graph.clone(), vec![1i32; 3]);
     let max_problem = MaximumIndependentSet::new(graph, vec![1i32; 3]);
@@ -61,7 +61,7 @@ fn test_golden_section_invalid_interval_returns_none() {
 }
 
 #[test]
-fn test_golden_section_preserves_value_direction() {
+fn test_decision_search_preserves_value_direction() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let min_problem = MinimumVertexCover::new(graph.clone(), vec![1i32; 3]);
     let max_problem = MaximumIndependentSet::new(graph, vec![1i32; 3]);
