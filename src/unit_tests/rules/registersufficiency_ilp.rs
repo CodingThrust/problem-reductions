@@ -16,7 +16,16 @@ fn infeasible_example() -> RegisterSufficiency {
 fn canonical_example() -> RegisterSufficiency {
     RegisterSufficiency::new(
         7,
-        vec![(2, 0), (2, 1), (3, 1), (4, 2), (4, 3), (5, 0), (6, 4), (6, 5)],
+        vec![
+            (2, 0),
+            (2, 1),
+            (3, 1),
+            (4, 2),
+            (4, 3),
+            (5, 0),
+            (6, 4),
+            (6, 5),
+        ],
         3,
     )
 }
@@ -83,7 +92,10 @@ fn test_register_sufficiency_to_ilp_canonical_example_spec() {
     assert_eq!(example.source.instance["arcs"].as_array().unwrap().len(), 8);
     assert_eq!(example.target.instance["num_vars"], 182);
     assert_eq!(
-        example.target.instance["constraints"].as_array().unwrap().len(),
+        example.target.instance["constraints"]
+            .as_array()
+            .unwrap()
+            .len(),
         542
     );
     assert_eq!(example.solutions.len(), 1);
@@ -92,5 +104,8 @@ fn test_register_sufficiency_to_ilp_canonical_example_spec() {
     let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
     let solution = &example.solutions[0];
     assert_eq!(source.evaluate(&solution.source_config), Or(true));
-    assert_eq!(reduction.extract_solution(&solution.target_config), solution.source_config);
+    assert_eq!(
+        reduction.extract_solution(&solution.target_config),
+        solution.source_config
+    );
 }
