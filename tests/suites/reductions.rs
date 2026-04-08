@@ -4,11 +4,14 @@
 //! solutions can be properly extracted through the reduction pipeline.
 
 use problemreductions::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+#[cfg(feature = "ilp-solver")]
 use problemreductions::models::graph::MinimumCoveringByCliques;
 use problemreductions::prelude::*;
 use problemreductions::rules::{Minimize, ReductionGraph};
+#[cfg(feature = "ilp-solver")]
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::{Graph, SimpleGraph};
+#[cfg(feature = "ilp-solver")]
 use problemreductions::types::Min;
 use problemreductions::variant::{K2, K3};
 
