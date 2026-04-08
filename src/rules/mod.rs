@@ -12,6 +12,7 @@ pub(crate) mod circuit_sat;
 pub(crate) mod circuit_spinglass;
 mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
+pub(crate) mod decisionminimumdominatingset_minmaxmulticenter;
 pub(crate) mod decisionminimumvertexcover_hamiltoniancircuit;
 pub(crate) mod exactcoverby3sets_algebraicequationsovergf2;
 pub(crate) mod exactcoverby3sets_maximumsetpacking;
@@ -99,8 +100,8 @@ pub(crate) mod partition_productionplanning;
 pub(crate) mod partition_sequencingtominimizetardytaskweight;
 pub(crate) mod partition_sequencingwithinintervals;
 pub(crate) mod partition_shortestweightconstrainedpath;
-pub(crate) mod partitionintocliques_minimumcoveringbycliques;
 pub(crate) mod partition_subsetsum;
+pub(crate) mod partitionintocliques_minimumcoveringbycliques;
 pub(crate) mod partitionintopathsoflength2_boundedcomponentspanningforest;
 pub(crate) mod rootedtreearrangement_rootedtreestorageassignment;
 pub(crate) mod sat_circuitsat;
@@ -175,9 +176,9 @@ pub(crate) mod exactcoverby3sets_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod expectedretrievalcost_ilp;
 #[cfg(feature = "ilp-solver")]
-pub(crate) mod feasibleregisterassignment_ilp;
-#[cfg(feature = "ilp-solver")]
 pub(crate) mod factoring_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod feasibleregisterassignment_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod flowshopscheduling_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -376,6 +377,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     let mut specs = Vec::new();
     specs.extend(circuit_sat::canonical_rule_example_specs());
     specs.extend(circuit_spinglass::canonical_rule_example_specs());
+    specs.extend(decisionminimumdominatingset_minmaxmulticenter::canonical_rule_example_specs());
     specs.extend(decisionminimumvertexcover_hamiltoniancircuit::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_staffscheduling::canonical_rule_example_specs());
     specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());

@@ -244,6 +244,7 @@
   "MinimumDisjunctiveNormalForm": [Minimum Disjunctive Normal Form],
   "MinimumGraphBandwidth": [Minimum Graph Bandwidth],
   "MinimumMetricDimension": [Minimum Metric Dimension],
+  "DecisionMinimumDominatingSet": [Decision Minimum Dominating Set],
   "DecisionMinimumVertexCover": [Decision Minimum Vertex Cover],
   "MinimumCodeGenerationUnlimitedRegisters": [Minimum Code Generation (Unlimited Registers)],
   "RegisterSufficiency": [Register Sufficiency],
@@ -9235,6 +9236,41 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Correctness._ ($arrow.r.double$) If $C$ is a vertex cover, then for any $u, v in V backslash C$, the edge $(u, v) in.not E$ (otherwise $C$ would miss it), so $V backslash C$ is independent. ($arrow.l.double$) If $S$ is independent, then for any $(u, v) in E$, at most one endpoint lies in $S$, so $V backslash S$ covers every edge. Since $|S| + |C| = |V|$ is constant, a minimum vertex cover corresponds to a maximum independent set.
 
   _Solution extraction._ For IS solution $S$, return $C = V backslash S$, i.e.\ flip each variable: $c_v = 1 - s_v$.
+]
+
+#let dmds_mmmc = load-example(
+  "DecisionMinimumDominatingSet",
+  "MinMaxMulticenter",
+  source-variant: (graph: "SimpleGraph", weight: "One"),
+  target-variant: (graph: "SimpleGraph", weight: "One"),
+)
+#let dmds_mmmc_sol = dmds_mmmc.solutions.at(0)
+#reduction-rule("DecisionMinimumDominatingSet", "MinMaxMulticenter",
+  example: true,
+  example-source-variant: (graph: "SimpleGraph", weight: "One"),
+  example-target-variant: (graph: "SimpleGraph", weight: "One"),
+  example-caption: [6-vertex unit graph: dominating set of size 2 equals a 2-center of radius 1],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(dmds_mmmc.source) + " -o dmds.json",
+      "pred reduce dmds.json --to " + target-spec(dmds_mmmc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate dmds.json --config " + dmds_mmmc_sol.source_config.map(str).join(","),
+    )
+    *Step 1 -- Source instance.* The source graph has vertices ${0, 1, 2, 3, 4, 5}$, edges #{dmds_mmmc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and bound $K = #dmds_mmmc.source.instance.bound$. The stored dominating-set witness is $D = {#dmds_mmmc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$.
+
+    *Step 2 -- Build the target instance.* Keep the graph unchanged, assign weight $1$ to every vertex, assign length $1$ to every edge, and set the number of centers to $k = #dmds_mmmc.target.instance.k$. The target therefore still has $#graph-num-vertices(dmds_mmmc.target.instance)$ vertices and $#graph-num-edges(dmds_mmmc.target.instance)$ edges.
+
+    *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_mmmc_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1)$ to the nearest center, so the maximum weighted distance is $1$. The extracted source witness is the same indicator vector, hence a dominating set of size $2$ #sym.checkmark
+  ],
+)[
+  This $O(n + m)$ parameter-setting reduction @garey1979[ND50] keeps the graph unchanged, replaces all vertex weights and edge lengths by $1$, and copies the decision budget $K$ into the target center count $k$. On such unit graphs, a $k$-center solution of radius at most $1$ exists exactly when every vertex is itself chosen or adjacent to a chosen vertex, which is the dominating-set condition.
+][
+  _Construction._ Given a unit-weight decision dominating-set instance $(G = (V, E), K)$, build a Min-Max Multicenter instance on the same graph $G$. Set $w(v) = 1$ for every vertex, set $l(e) = 1$ for every edge, and set the number of centers to $k = K$.
+
+  _Correctness._ ($arrow.r.double$) If $D subseteq V$ is a dominating set with $|D| <= K$, pad $D$ with arbitrary additional vertices until exactly $K$ centers are chosen. Every vertex is then either a center (distance $0$) or adjacent to one (distance $1$), so the target maximum weighted distance is at most $1$. ($arrow.l.double$) If a set $P subseteq V$ of exactly $K$ centers has maximum weighted distance at most $1$, then every vertex lies at graph distance $0$ or $1$ from some vertex of $P$. Hence every vertex is either in $P$ or adjacent to a vertex of $P$, so $P$ is a dominating set of size $K$.
+
+  _Solution extraction._ Return the same indicator vector: every chosen target center becomes a chosen source dominating-set vertex.
 ]
 
 #let mvc_mmm = load-example("MinimumVertexCover", "MinimumMaximalMatching")

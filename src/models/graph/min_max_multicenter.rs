@@ -17,7 +17,7 @@ inventory::submit! {
         aliases: &["pCenter"],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i32", &["i32", "One"]),
         ],
         module_path: module_path!(),
         description: "Find K centers minimizing the maximum weighted distance from any vertex to its nearest center (vertex p-center)",
@@ -273,6 +273,7 @@ where
 
 crate::declare_variants! {
     default MinMaxMulticenter<SimpleGraph, i32> => "1.4969^num_vertices",
+    MinMaxMulticenter<SimpleGraph, crate::types::One> => "1.4969^num_vertices",
 }
 
 #[cfg(feature = "example-db")]
