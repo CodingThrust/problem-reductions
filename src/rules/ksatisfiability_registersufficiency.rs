@@ -339,9 +339,9 @@ impl ReduceTo<RegisterSufficiency> for KSatisfiability<K3> {
                 arcs.push((lit_nodes[literal_pos], layout.f(clause_idx, literal_pos)));
             }
 
-            for earlier in 0..3 {
+            for (earlier, &neg_node) in neg_nodes.iter().enumerate() {
                 for later in (earlier + 1)..3 {
-                    arcs.push((neg_nodes[earlier], layout.f(clause_idx, later)));
+                    arcs.push((neg_node, layout.f(clause_idx, later)));
                 }
             }
         }

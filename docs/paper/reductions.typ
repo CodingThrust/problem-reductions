@@ -9273,6 +9273,43 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ Return the same indicator vector: every chosen target center becomes a chosen source dominating-set vertex.
 ]
 
+#let dmds_msmc = load-example(
+  "DecisionMinimumDominatingSet",
+  "MinimumSumMulticenter",
+  source-variant: (graph: "SimpleGraph", weight: "One"),
+  target-variant: (graph: "SimpleGraph", weight: "i32"),
+)
+#let dmds_msmc_sol = dmds_msmc.solutions.at(0)
+#reduction-rule("DecisionMinimumDominatingSet", "MinimumSumMulticenter",
+  example: true,
+  example-source-variant: (graph: "SimpleGraph", weight: "One"),
+  example-target-variant: (graph: "SimpleGraph", weight: "i32"),
+  example-caption: [6-vertex unit graph: dominating set of size 2 gives total distance 4],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(dmds_msmc.source) + " -o dmds.json",
+      "pred reduce dmds.json --to " + target-spec(dmds_msmc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate dmds.json --config " + dmds_msmc_sol.source_config.map(str).join(","),
+    )
+    *Step 1 -- Source instance.* The source graph has vertices ${0, 1, 2, 3, 4, 5}$, edges #{dmds_msmc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and decision bound $K = #dmds_msmc.source.instance.bound$. The stored dominating-set witness is $D = {#dmds_msmc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$.
+
+    *Step 2 -- Build the target instance.* Keep the graph unchanged, assign vertex weight $1$ everywhere, assign edge length $1$ everywhere, and set the target center count to $k = #dmds_msmc.target.instance.k$. The comparison threshold is $B = |V| - K = 6 - 2 = 4$.
+
+    *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_msmc_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1)$ to the nearest center, so the total weighted distance is $4 = B$. The extracted source witness is the same indicator vector, hence a valid YES witness for the original decision instance #sym.checkmark
+  ],
+)[
+  This $O(n + m)$ parameter-setting reduction @garey1979[ND51] keeps the graph unchanged, sets every vertex weight and edge length to $1$, copies the decision budget $K$ into the target center count $k$, and compares the target optimum against $B = |V| - K$. On such unit graphs, every exact-$K$ center placement has total distance at least $n - K$, with equality exactly when every non-center vertex is adjacent to a center.
+][
+  _Construction._ Given a decision dominating-set instance $(G = (V, E), K)$ with unit vertex weights, build a Minimum Sum Multicenter instance on the same graph $G$. Set $w(v) = 1$ for every vertex, set $l(e) = 1$ for every edge, and set the number of centers to $k = K$. Let $n = |V|$, and define the decision threshold $B = n - K$ for the target optimum.
+
+  _Correctness._ ($arrow.r.double$) If $D subseteq V$ is a dominating set with $|D| <= K$, pad $D$ with arbitrary additional vertices until exactly $K$ centers are chosen. Every chosen center contributes distance $0$, and every non-center vertex is adjacent to at least one chosen center, so every non-center contributes distance $1$. Hence the total weighted distance is exactly $n - K = B$.
+
+  ($arrow.l.double$) Suppose a set $P subseteq V$ of exactly $K$ centers has total weighted distance at most $B = n - K$. Every non-center vertex has distance at least $1$ from $P$, so any exact-$K$ center placement has total distance at least $n - K$. Therefore total distance at most $n - K$ forces equality, meaning every non-center contributes exactly $1$. Thus every non-center vertex is adjacent to some center in $P$, so $P$ is a dominating set of size $K$.
+
+  _Solution extraction._ Return the same indicator vector: every chosen target center becomes a chosen source dominating-set vertex.
+]
+
 #let mvc_mmm = load-example("MinimumVertexCover", "MinimumMaximalMatching")
 #let mvc_mmm_sol = mvc_mmm.solutions.at(0)
 #reduction-rule("MinimumVertexCover", "MinimumMaximalMatching",

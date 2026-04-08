@@ -854,6 +854,24 @@ fn test_decision_minimum_dominating_set_to_minmax_multicenter_has_direct_witness
 }
 
 #[test]
+fn test_decision_minimum_dominating_set_to_minimum_sum_multicenter_has_direct_witness_edge() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_mode::<
+        Decision<MinimumDominatingSet<SimpleGraph, One>>,
+        MinimumSumMulticenter<SimpleGraph, i32>,
+    >(ReductionMode::Witness));
+    assert!(!graph.has_direct_reduction_mode::<
+        Decision<MinimumDominatingSet<SimpleGraph, One>>,
+        MinimumSumMulticenter<SimpleGraph, i32>,
+    >(ReductionMode::Aggregate));
+    assert!(!graph.has_direct_reduction_mode::<
+        Decision<MinimumDominatingSet<SimpleGraph, One>>,
+        MinimumSumMulticenter<SimpleGraph, i32>,
+    >(ReductionMode::Turing));
+}
+
+#[test]
 fn test_optimization_to_decision_turing_edges() {
     let graph = ReductionGraph::new();
 

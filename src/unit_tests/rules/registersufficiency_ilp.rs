@@ -12,6 +12,7 @@ fn infeasible_example() -> RegisterSufficiency {
     RegisterSufficiency::new(4, vec![(1, 0), (2, 1), (3, 2), (3, 0)], 1)
 }
 
+#[allow(dead_code)]
 fn canonical_example() -> RegisterSufficiency {
     RegisterSufficiency::new(
         7,
