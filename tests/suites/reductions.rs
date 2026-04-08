@@ -4,15 +4,13 @@
 //! solutions can be properly extracted through the reduction pipeline.
 
 use problemreductions::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
-#[cfg(feature = "ilp-solver")]
-use problemreductions::models::graph::MinimumCoveringByCliques;
+use problemreductions::models::graph::{MinimumCoveringByCliques, PartitionIntoCliques};
 use problemreductions::prelude::*;
 use problemreductions::rules::{Minimize, ReductionGraph};
 #[cfg(feature = "ilp-solver")]
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::{Graph, SimpleGraph};
-#[cfg(feature = "ilp-solver")]
-use problemreductions::types::Min;
+use problemreductions::types::{Min, Or};
 use problemreductions::variant::{K2, K3};
 
 /// Tests for MaximumIndependentSet <-> MinimumVertexCover reductions.
@@ -321,6 +319,36 @@ mod minimum_covering_by_cliques_ilp_reductions {
         let extracted = reduction.extract_solution(&ilp_solution);
 
         assert_eq!(source.evaluate(&extracted), Min(Some(3)));
+    }
+}
+
+/// Tests for PartitionIntoCliques -> MinimumCoveringByCliques reductions.
+mod partition_into_cliques_covering_by_cliques_reductions {
+    use super::*;
+
+    #[test]
+    fn test_partition_into_cliques_to_covering_by_cliques_closed_loop() {
+        let source = PartitionIntoCliques::new(SimpleGraph::new(1, vec![]), 1);
+
+        let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source);
+        let target = reduction.target_problem();
+
+        let target_solution = BruteForce::new()
+            .find_witness(target)
+            .expect("target should be solvable");
+        let extracted = reduction.extract_solution(&target_solution);
+
+        assert_eq!(source.evaluate(&extracted), Or(true));
+    }
+
+    #[test]
+    fn test_partition_into_cliques_to_covering_by_cliques_orlin_issue_counts() {
+        let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
+        let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source);
+        let target = reduction.target_problem();
+
+        assert_eq!(target.graph().num_vertices(), 12);
+        assert_eq!(target.graph().num_edges(), 41);
     }
 }
 

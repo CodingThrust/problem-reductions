@@ -14857,6 +14857,46 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Given a partition $V_0, dots, V_(k-1)$ into cliques, assign color $i$ to every vertex in $V_i$.
 ]
 
+// 4. PartitionIntoCliques → MinimumCoveringByCliques (#889)
+#let pic_mcbc = load-example("PartitionIntoCliques", "MinimumCoveringByCliques")
+#let pic_mcbc_sol = pic_mcbc.solutions.at(0)
+#reduction-rule("PartitionIntoCliques", "MinimumCoveringByCliques",
+  example: true,
+  example-caption: [$n = #graph-num-vertices(pic_mcbc.source.instance)$ vertices, $m = #graph-num-edges(pic_mcbc.source.instance)$ edges, $K = #pic_mcbc.source.instance.num_cliques$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(pic_mcbc.source) + " -o partition-into-cliques.json",
+      "pred reduce partition-into-cliques.json --to " + target-spec(pic_mcbc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition-into-cliques.json --config " + pic_mcbc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* Graph $G$ with $n = #graph-num-vertices(pic_mcbc.source.instance)$ vertices, $m = #graph-num-edges(pic_mcbc.source.instance)$ edge, and clique bound $K = #pic_mcbc.source.instance.num_cliques$. The stored partition witness is $(#pic_mcbc_sol.source_config.map(str).join(", "))$, namely the cliques ${0,1}$ and ${2}$.
+
+    *Step 2 -- Orlin construction.* The target graph has $#graph-num-vertices(pic_mcbc.target.instance)$ vertices and $#graph-num-edges(pic_mcbc.target.instance)$ edges. Because the source has two directed edge copies, the construction adds the gadgets $Q_(0,1)$ and $Q_(1,0)$, plus the side cliques $L^*$ and $R^*$. The threshold is $K' = K + 2m + 2 = #(pic_mcbc.source.instance.num_cliques + 2 * graph-num-edges(pic_mcbc.source.instance) + 2)$.
+
+    *Step 3 -- Verify the witness.* The target witness labels $#pic_mcbc_sol.target_config.len() target edges with 6 clique IDs, corresponding to $D_1 = {x_0, x_1, y_0, y_1}$, $D_2 = {x_2, y_2}$, $Q_(0,1)$, $Q_(1,0)$, $L^*$, and $R^*$. Reading only the labels on the matching edges $x_i y_i$ recovers the source partition $(#pic_mcbc_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. Any permutation of the six target clique labels is equivalent.
+  ],
+)[
+  This $O((n + 2m)^2)$ reduction @garey1979[GT17] @orlin1977 @kouStockmeyerWong1978 inlines Orlin's vertex-clique-cover to edge-clique-cover construction. Each source vertex $v_i$ becomes left/right copies $x_i$ and $y_i$, each directed source edge contributes a 4-vertex gadget, and two side cliques account for the additive $2m + 2$ slack. The target graph has an edge-clique cover of size at most $K + 2m + 2$ if and only if the source graph admits a partition into at most $K$ cliques.
+][
+  _Construction._ Let $(G = (V, E), K)$ be a Partition Into Cliques instance with $V = {v_1, dots, v_n}$ and $m = |E|$. Define the directed-edge index set $A = {(i,j) : i != j and {v_i,v_j} in E}$, so $|A| = 2m$. Create vertices $x_i, y_i$ for each source vertex $v_i$, gadget vertices $a_(i,j), b_(i,j)$ for each $(i,j) in A$, and two special vertices $z_L, z_R$. Let $L = {x_i : 1 <= i <= n} union {a_(i,j) : (i,j) in A}$ and $R = {y_i : 1 <= i <= n} union {b_(i,j) : (i,j) in A}$. Make $L$ a clique and $R$ a clique, join $z_L$ to every vertex of $L$ and $z_R$ to every vertex of $R$, add each matching edge $x_i y_i$, and for every $(i,j) in A$ add the four cross edges $x_i y_j$, $x_i b_(i,j)$, $a_(i,j) y_j$, and $a_(i,j) b_(i,j)$. Output the resulting Minimum Covering by Cliques instance. It has
+  $
+    |V(H)| = 2n + 4m + 2, quad |E(H)| = (n + 2m)^2 + 2n + 10m,
+  $
+  and threshold $K' = K + 2m + 2$.
+
+  _Correctness._ ($arrow.r.double$) Suppose $G$ is partitioned into cliques $C_1, dots, C_t$ with $t <= K$. For each source clique $C_r$, define $D_r = {x_i, y_i : v_i in C_r}$. For each $(i,j) in A$, define $Q_(i,j) = {x_i, a_(i,j), b_(i,j), y_j}$. Also define $L^* = L union {z_L}$ and $R^* = R union {z_R}$. Every $D_r$ is a clique: if $v_i, v_j in C_r$ with $i != j$, then ${v_i,v_j} in E$, so the construction includes both cross edges $x_i y_j$ and $x_j y_i$. The family ${D_1, dots, D_t} union {Q_(i,j) : (i,j) in A} union {L^*, R^*}$ therefore covers every target edge, using at most $K + 2m + 2$ cliques.
+
+  ($arrow.l.double$) Conversely, suppose $H$ has an edge-clique cover with at most $K + 2m + 2$ cliques. Each gadget edge $a_(i,j) b_(i,j)$ belongs to the unique maximal clique $Q_(i,j)$, so covering all $2m$ such edges requires at least $2m$ distinct cliques. Likewise, some clique must contain $z_L$ and some clique must contain $z_R$, and neither of those cliques can contain a matching edge $x_i y_i$. Hence at most $K$ cliques remain available for the matching edges. If two matching edges $x_i y_i$ and $x_j y_j$ lie in the same target clique, that clique contains the four vertices $x_i, y_i, x_j, y_j$, so in particular $x_i y_j$ is an edge of $H$; by construction this implies ${v_i,v_j} in E$. Therefore the source vertices whose matching edges share one target-clique label form a clique of $G$. Grouping each $v_i$ by the label used on $x_i y_i$ yields a partition of $V$ into at most $K$ cliques.
+
+  _Variable mapping._ The source witness labels source vertices by clique. The target witness labels target edges by the covering clique that contains them.
+
+  _Solution extraction._ Inspect the label assigned to each matching edge $x_i y_i$. Compress the distinct matching-edge labels to $0, dots, k-1$ and assign source vertex $v_i$ to the compressed label of its matching edge. The previous paragraph proves that these label classes are source cliques, and the forced gadget/side cliques guarantee $k <= K$ whenever the target cover has size at most $K + 2m + 2$.
+]
+
 // 4. KSatisfiability → Kernel (#882)
 #let ksat_ker = load-example("KSatisfiability", "Kernel")
 #let ksat_ker_sol = ksat_ker.solutions.at(0)
