@@ -73,7 +73,8 @@ impl ReductionResult for Reduction3SATToFeasibleRegisterAssignment {
         (0..self.num_vars)
             .map(|var| {
                 usize::from(
-                    target_solution[s_pos_idx(var)] < target_solution[s_neg_idx(self.num_vars, var)],
+                    target_solution[s_pos_idx(var)]
+                        < target_solution[s_neg_idx(self.num_vars, var)],
                 )
             })
             .collect()

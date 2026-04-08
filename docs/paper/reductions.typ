@@ -14038,6 +14038,39 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For each variable $x_k$, set $tau(x_k) = 1$ iff $s_k^+$ appears before $s_k^-$ in the realization.
 ]
 
+#let ksat_rs = load-example("KSatisfiability", "RegisterSufficiency")
+#let ksat_rs_sol = ksat_rs.solutions.at(0)
+#reduction-rule("KSatisfiability", "RegisterSufficiency",
+  example: true,
+  example-caption: [Two-clause 3-SAT instance ($n = #ksat_rs.source.instance.num_vars$, $m = #sat-num-clauses(ksat_rs.source.instance)$) reduced to Register Sufficiency],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_rs.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_rs) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_rs_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical source formula is $phi = (x_1 or overline(x)_2 or x_3) and (overline(x)_1 or x_2 or overline(x)_3)$. The stored satisfying assignment is $(#ksat_rs_sol.source_config.map(str).join(", "))$.
+
+    *Step 2 -- Build Sethi's DAG.* Here $n = #ksat_rs.source.instance.num_vars$, $m = #sat-num-clauses(ksat_rs.source.instance)$, and $b = max(0, 2n - m) = 4$. The construction creates $|A| = 2n + 1 = 7$, $|B| = b = 4$, $|C| = m = 2$, $|F| = 3m = 6$, $|M| = 3$, $|R| = n(n+1) = 12$, $|S| = |T| = n^2 = 9$, $|U| = 2n = 6$, $|W| = |Z| = n = 3$, and $|X| = 2n = 6$, for a total of $|V| = #ksat_rs.target.instance.num_vertices = 70$ vertices. The target bound is $K = #ksat_rs.target.instance.bound = 23$, and the construction emits $|A| = #ksat_rs.target.instance.arcs.len() = 152$ arcs. For clause $C_1$, the six literal-lock arcs are $(x_1^+, f_(1,1))$, $(x_2^-, f_(1,2))$, $(x_3^+, f_(1,3))$, $(x_1^-, f_(1,2))$, $(x_1^-, f_(1,3))$, and $(x_2^+, f_(1,3))$.
+
+    *Step 3 -- Verify extraction at $w_n$.* The target witness is a computation ordering on $70$ vertices. Reading the prefix ending at $w_3$ marks exactly those variables whose $x_k^+$ node has already been computed, which reconstructs $(#ksat_rs_sol.source_config.map(str).join(", "))$ #sym.checkmark. Evaluating the original 3-SAT formula under that assignment returns true #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical satisfying assignment. Different satisfying assignments can induce different valid computation orders in the target DAG.
+  ],
+)[
+  Sethi's Reduction I / Theorem 3.11 @sethi1975 @garey1979[PO1] builds a dependency DAG whose register pressure mirrors a literal-assignment phase followed by a clause-verification phase. For a 3-CNF formula with $n$ variables, $m$ clauses, and $b = max(0, 2n - m)$, the target has $3n^2 + 9n + 4m + b + 4$ vertices, $6n^2 + 19n + 16m + 2b + 1$ arcs, and register bound $K = 3m + 4n + 1 + b$.
+][
+  _Construction._ Let $phi = and_(i=1)^m C_i$ be a 3-CNF formula over variables $x_1, dots, x_n$, where $C_i = (Y_(i,1) or Y_(i,2) or Y_(i,3))$. Define $b = max(0, 2n - m)$. Create node families $A = {a_j : 1 <= j <= 2n+1}$, $B = {b_j : 1 <= j <= b}$, $C = {c_i : 1 <= i <= m}$, $F = {f_(i,j) : 1 <= i <= m, 1 <= j <= 3}$, $M = {initial, d, final}$, $R = {r_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+2}$, $S = {s_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+1}$, $T = {t_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+1}$, $U = {u_(k,1), u_(k,2) : 1 <= k <= n}$, $W = {w_k : 1 <= k <= n}$, $X = {x_k^+, x_k^- : 1 <= k <= n}$, and $Z = {z_k : 1 <= k <= n}$. Add the ten arc families from Sethi's theorem exactly as stated in the issue: $initial$ depends on every node in $A union B union F union U$, every node in $C union R union S union T union W$ depends on $initial$, $final$ depends on $W union X union Z union {initial, d}$, each variable gadget links $x_k^+$ and $x_k^-$ to $z_k$, $u_(k,1)$, $u_(k,2)$, $s_(k,*)$, $t_(k,*)$, $r_(k,*)$, and each clause gadget links $c_i$ to $w_n$, $z_n$, its three $f_(i,j)$ nodes, and the literal-lock edges determined by whether $Y_(i,j)$ is positive or negative.
+
+  _Correctness._ ($arrow.r.double$) Suppose $phi$ is satisfiable under assignment $tau$. Execute Sethi's eight-stage schedule. In the variable phase, the chain gadgets force a choice between the positive and negative side of each variable, and the schedule can be arranged so that by the moment $w_n$ is computed, $x_k^+$ has appeared iff $tau(x_k) = 1$. Because every clause has a satisfied literal, the corresponding $f_(i,j)$ node is unlocked during the clause phase, and the lock edges from the opposite literals prevent incompatible clause traversals. Sethi proves that this entire computation uses at most $K$ registers, so the target Register Sufficiency instance is feasible.
+
+  ($arrow.l.double$) Suppose the target instance has a computation using at most $K$ registers. Stop immediately after $w_n$ is computed. At that snapshot, for each variable gadget, at most one of $x_k^+$ and $x_k^-$ has been computed. Define $tau(x_k) = 1$ iff $x_k^+$ has already been computed. Now assume some clause $C_i$ is false under $tau$. Then every literal $Y_(i,j)$ is false, so the corresponding literal node has not yet been computed by the $w_n$ snapshot. Consequently each $f_(i,j)$ still has an uncomputed literal predecessor. Sethi's clause-phase invariant leaves no free register between the computation of $w_n$ and the later computation of $d$, so such a clause node $c_i$ could not be discharged without exceeding $K$, contradiction. Therefore every clause contains a true literal under $tau$, and $phi$ is satisfiable.
+
+  _Solution extraction._ Given a target computation ordering, let $t(w_n)$ be the position of $w_n$. Output $x_k = 1$ exactly when $t(x_k^+) < t(w_n)$. This is the corrected extraction rule: the snapshot is taken at $w_n$, not $z_n$, and the sign test uses $x_k^+$, not $x_k^-$.
+]
+
 #reduction-rule("FeasibleRegisterAssignment", "ILP",
   example: false,
 )[
@@ -14048,6 +14081,18 @@ The following table shows concrete variable overhead for example instances, take
   _Correctness._ The ILP is feasible iff a valid evaluation ordering respecting the register assignment exists.
 
   _Solution extraction._ Read vertex positions from the permutation matrix.
+]
+
+#reduction-rule("RegisterSufficiency", "ILP",
+  example: false,
+)[
+  Direct ILP formulation of Register Sufficiency: integer evaluation times, latest-use times, binary pair-order selectors, and per-step live-value indicators. For a DAG with $n$ vertices, $m$ arcs, and $s$ sinks, the ILP has $(7n^2 + 3n)/2$ variables and $(21n^2 + 3n)/2 + 2m + s$ constraints.
+][
+  _Construction._ Let the source DAG use the repository convention that an arc $(v, u)$ means vertex $v$ depends on vertex $u$. Introduce integer variables $t_v in {0, dots, n-1}$ for evaluation positions and $l_v in {0, dots, n}$ for latest-use positions. For every unordered vertex pair ${u, v}$, add a binary selector $b_(u,v)$ with big-$M$ constraints forcing either $t_u < t_v$ or $t_v < t_u$; since all $t_v$ lie in the interval ${0, dots, n-1}$, the positions form a permutation. For every dependency arc $(v, u)$, enforce $t_v >= t_u + 1$ and $l_u >= t_v$. For every sink vertex (no dependents), set $l_u = n$. For each vertex-step pair $(u, s)$ with $s in {0, dots, n-1}$, add binary threshold variables $p_(u,s)$ and $q_(u,s)$ satisfying $p_(u,s) = 1$ iff $t_u <= s$ and $q_(u,s) = 1$ iff $l_u > s$, plus a binary live indicator $h_(u,s) = p_(u,s) and q_(u,s)$. Finally impose $sum_u h_(u,s) <= K$ for every step $s$.
+
+  _Correctness._ ($arrow.r.double$) Any valid computation ordering of the source DAG yields a feasible ILP solution: assign each $t_v$ to the vertex position in the ordering, each $l_v$ to the latest dependent position (or $n$ for sinks), and derive the binary threshold/live variables from those integers. The dependency constraints hold by topological validity, and the live-count inequalities hold because the source witness uses at most $K$ registers. ($arrow.l.double$) Any feasible ILP solution gives distinct positions $t_v$, hence a permutation of the vertices, and the arc constraints make that permutation topological. The live indicators $h_(u,s)$ certify exactly which values remain live after step $s$, so the step constraints prove that no more than $K$ values are simultaneously live. Therefore the extracted ordering is a valid Register Sufficiency witness.
+
+  _Solution extraction._ Return the first $n$ ILP coordinates $(t_0, dots, t_(n-1))$ as the vertex evaluation positions.
 ]
 
 #let part_swi = load-example("Partition", "SequencingWithinIntervals")
@@ -14897,7 +14942,7 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Inspect the label assigned to each matching edge $x_i y_i$. Compress the distinct matching-edge labels to $0, dots, k-1$ and assign source vertex $v_i$ to the compressed label of its matching edge. The previous paragraph proves that these label classes are source cliques, and the forced gadget/side cliques guarantee $k <= K$ whenever the target cover has size at most $K + 2m + 2$.
 ]
 
-// 4. KSatisfiability → Kernel (#882)
+// 5. KSatisfiability → Kernel (#882)
 #let ksat_ker = load-example("KSatisfiability", "Kernel")
 #let ksat_ker_sol = ksat_ker.solutions.at(0)
 #reduction-rule("KSatisfiability", "Kernel",

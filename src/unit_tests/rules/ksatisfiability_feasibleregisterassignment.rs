@@ -26,11 +26,26 @@ fn test_ksatisfiability_to_feasible_register_assignment_structure() {
     assert_eq!(target.num_arcs(), 30);
     assert_eq!(target.num_registers(), 21);
 
-    assert_eq!(target.assignment()[s_pos_idx(0)], target.assignment()[s_neg_idx(3, 0)]);
-    assert_eq!(target.assignment()[s_pos_idx(1)], target.assignment()[s_neg_idx(3, 1)]);
-    assert_eq!(target.assignment()[s_pos_idx(2)], target.assignment()[s_neg_idx(3, 2)]);
-    assert_eq!(target.assignment()[r_idx(3, 0, 0)], target.assignment()[rbar_idx(3, 0, 0)]);
-    assert_eq!(target.assignment()[r_idx(3, 1, 2)], target.assignment()[rbar_idx(3, 1, 2)]);
+    assert_eq!(
+        target.assignment()[s_pos_idx(0)],
+        target.assignment()[s_neg_idx(3, 0)]
+    );
+    assert_eq!(
+        target.assignment()[s_pos_idx(1)],
+        target.assignment()[s_neg_idx(3, 1)]
+    );
+    assert_eq!(
+        target.assignment()[s_pos_idx(2)],
+        target.assignment()[s_neg_idx(3, 2)]
+    );
+    assert_eq!(
+        target.assignment()[r_idx(3, 0, 0)],
+        target.assignment()[rbar_idx(3, 0, 0)]
+    );
+    assert_eq!(
+        target.assignment()[r_idx(3, 1, 2)],
+        target.assignment()[rbar_idx(3, 1, 2)]
+    );
 
     let arc_set: BTreeSet<_> = target.arcs().iter().copied().collect();
     assert!(arc_set.contains(&(q_idx(3, 0, 0), p_idx(3, 0, 0))));
@@ -87,7 +102,9 @@ fn test_ksatisfiability_to_feasible_register_assignment_unsatisfiable_instance()
     let fra_to_ilp = ReduceTo::<ILP<i32>>::reduce_to(reduction.target_problem());
 
     assert!(
-        ILPSolver::new().solve(fra_to_ilp.target_problem()).is_none(),
+        ILPSolver::new()
+            .solve(fra_to_ilp.target_problem())
+            .is_none(),
         "an unsatisfiable source formula should yield an infeasible FRA instance"
     );
 }

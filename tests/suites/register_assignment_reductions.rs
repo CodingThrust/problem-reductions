@@ -65,7 +65,10 @@ fn test_ksat_to_fra_structure_and_closed_loop_via_ilp() {
     assert_eq!(fra.num_registers(), 21);
 
     let fra_path = fra_to_ilp_path();
-    assert_eq!(fra_path.type_names(), vec!["FeasibleRegisterAssignment", "ILP"]);
+    assert_eq!(
+        fra_path.type_names(),
+        vec!["FeasibleRegisterAssignment", "ILP"]
+    );
     let fra_chain = graph
         .reduce_along_path(&fra_path, fra as &dyn std::any::Any)
         .expect("FRA -> ILP reduction should execute");
@@ -101,7 +104,9 @@ fn test_unsatisfiable_ksat_stays_infeasible_through_fra_to_ilp() {
         .expect("FRA -> ILP reduction should execute");
 
     assert!(
-        ILPSolver::new().solve(fra_chain.target_problem::<ILP<i32>>()).is_none(),
+        ILPSolver::new()
+            .solve(fra_chain.target_problem::<ILP<i32>>())
+            .is_none(),
         "unsatisfiable source instance should yield an infeasible ILP"
     );
 }

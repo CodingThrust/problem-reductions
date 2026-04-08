@@ -62,8 +62,9 @@ impl ReduceTo<ILP<i32>> for FeasibleRegisterAssignment {
         let latest_idx = |vertex: usize| -> usize { n + vertex };
         let order_idx = |pair_idx: usize| -> usize { 2 * n + pair_idx };
 
-        let mut constraints =
-            Vec::with_capacity(3 * num_pair_vars + 3 * n + 2 * self.num_arcs() + 2 * same_register_pairs.len());
+        let mut constraints = Vec::with_capacity(
+            3 * num_pair_vars + 3 * n + 2 * self.num_arcs() + 2 * same_register_pairs.len(),
+        );
 
         for vertex in 0..n {
             constraints.push(LinearConstraint::le(
@@ -95,19 +96,11 @@ impl ReduceTo<ILP<i32>> for FeasibleRegisterAssignment {
             let order_var = order_idx(pair_idx);
             constraints.push(LinearConstraint::le(vec![(order_var, 1.0)], 1.0));
             constraints.push(LinearConstraint::ge(
-                vec![
-                    (time_idx(v), 1.0),
-                    (time_idx(u), -1.0),
-                    (order_var, -big_m),
-                ],
+                vec![(time_idx(v), 1.0), (time_idx(u), -1.0), (order_var, -big_m)],
                 1.0 - big_m,
             ));
             constraints.push(LinearConstraint::ge(
-                vec![
-                    (time_idx(u), 1.0),
-                    (time_idx(v), -1.0),
-                    (order_var, big_m),
-                ],
+                vec![(time_idx(u), 1.0), (time_idx(v), -1.0), (order_var, big_m)],
                 1.0,
             ));
         }

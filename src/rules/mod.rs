@@ -59,6 +59,7 @@ pub(crate) mod ksatisfiability_oneinthreesatisfiability;
 pub(crate) mod ksatisfiability_preemptivescheduling;
 pub(crate) mod ksatisfiability_quadraticcongruences;
 pub(crate) mod ksatisfiability_qubo;
+pub(crate) mod ksatisfiability_registersufficiency;
 pub(crate) mod ksatisfiability_simultaneousincongruences;
 pub(crate) mod ksatisfiability_subsetsum;
 pub(crate) mod ksatisfiability_timetabledesign;
@@ -303,6 +304,8 @@ pub(crate) mod qubo_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod rectilinearpicturecompression_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod registersufficiency_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod resourceconstrainedscheduling_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod rootedtreestorageassignment_ilp;
@@ -418,6 +421,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(ksatisfiability_preemptivescheduling::canonical_rule_example_specs());
     specs.extend(ksatisfiability_quadraticcongruences::canonical_rule_example_specs());
     specs.extend(ksatisfiability_qubo::canonical_rule_example_specs());
+    specs.extend(ksatisfiability_registersufficiency::canonical_rule_example_specs());
     specs.extend(ksatisfiability_simultaneousincongruences::canonical_rule_example_specs());
     specs.extend(ksatisfiability_subsetsum::canonical_rule_example_specs());
     specs.extend(ksatisfiability_timetabledesign::canonical_rule_example_specs());
@@ -577,6 +581,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(quadraticassignment_ilp::canonical_rule_example_specs());
         specs.extend(qubo_ilp::canonical_rule_example_specs());
         specs.extend(rectilinearpicturecompression_ilp::canonical_rule_example_specs());
+        specs.extend(registersufficiency_ilp::canonical_rule_example_specs());
         specs.extend(resourceconstrainedscheduling_ilp::canonical_rule_example_specs());
         specs.extend(rootedtreestorageassignment_ilp::canonical_rule_example_specs());
         specs.extend(ruralpostman_ilp::canonical_rule_example_specs());

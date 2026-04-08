@@ -99,6 +99,15 @@ impl RegisterSufficiency {
         self.arcs.len()
     }
 
+    /// Count vertices with no dependents.
+    pub fn num_sinks(&self) -> usize {
+        let mut has_dependent = vec![false; self.num_vertices];
+        for &(_, dependency) in &self.arcs {
+            has_dependent[dependency] = true;
+        }
+        has_dependent.into_iter().filter(|&flag| !flag).count()
+    }
+
     /// Get the register bound K.
     pub fn bound(&self) -> usize {
         self.bound

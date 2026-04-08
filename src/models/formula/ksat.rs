@@ -183,6 +183,11 @@ impl<K: KValue> KSatisfiability<K> {
         self.clauses().iter().map(|c| c.len()).sum()
     }
 
+    /// Padding term used by Sethi's Register Sufficiency reduction.
+    pub fn register_sufficiency_padding(&self) -> usize {
+        (2 * self.num_vars).saturating_sub(self.num_clauses())
+    }
+
     pub fn simultaneous_incongruences_num_incongruences(&self) -> usize {
         first_n_odd_primes(self.num_vars)
             .into_iter()
