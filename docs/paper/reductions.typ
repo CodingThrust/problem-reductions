@@ -14026,6 +14026,30 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For each variable lobe, inspect the first lower-branch arc leaving its entry. Output $x_i = 1$ exactly when commodity 1 uses that arc.
 ]
 
+#reduction-rule("KSatisfiability", "FeasibleRegisterAssignment",
+  example: false,
+)[
+  Sethi's Reduction 3 @sethi1975 @garey1979[PO2] builds a DAG with shared-register variable leaf pairs and $p\/q\/r\/overline(r)$ clause gadgets with cyclic links, plus a preassigned register allocation. The target has $2n + 12m$ vertices, $15m$ arcs, and $K = n + 9m$ registers.
+][
+  _Construction._ For each variable $x_k$, create two leaf nodes $s_k^+, s_k^-$ sharing register $S_k$. For each literal occurrence $Y_(i,j)$ in clause $C_i$, create four nodes $p_(i,j), q_(i,j), r_(i,j), overline(r)_(i,j)$ with internal arcs $q_(i,j) -> p_(i,j) -> r_(i,j)$ and cyclic links $q_(i,1) -> overline(r)_(i,2)$, $q_(i,2) -> overline(r)_(i,3)$, $q_(i,3) -> overline(r)_(i,1)$. Nodes $r_(i,j)$ and $overline(r)_(i,j)$ share register $R_(i,j)$. If $Y_(i,j) = x_k$: $r_(i,j) -> s_k^+$ and $overline(r)_(i,j) -> s_k^-$; if $Y_(i,j) = overline(x)_k$: swap the attachments.
+
+  _Correctness._ ($arrow.r.double$) If $phi$ is satisfiable, place the truth-selected leaf first for each variable, then unlock each clause gadget starting from a satisfied literal. ($arrow.l.double$) The cyclic links force at least one position $j$ per clause where $r_(i,j)$ appears before $overline(r)_(i,j)$; shared-register order transfer forces the corresponding literal leaf to appear first, encoding a true literal.
+
+  _Solution extraction._ For each variable $x_k$, set $tau(x_k) = 1$ iff $s_k^+$ appears before $s_k^-$ in the realization.
+]
+
+#reduction-rule("FeasibleRegisterAssignment", "ILP",
+  example: false,
+)[
+  Direct ILP formulation of the feasible register assignment problem: binary permutation matrix variables, topological ordering constraints, and register-conflict constraints via shared-register ordering indicators.
+][
+  _Construction._ Binary variables $x_(v,t) in {0,1}$ (vertex $v$ at position $t$). Permutation: each row and column sums to $1$. Topological: for arc $(u,v)$, $sum_(t) t dot x_(v,t) < sum_(t) t dot x_(u,t)$. Register conflict: for vertices $v,w$ sharing a register, an ordering indicator $b_(v,w)$ with big-$M$ constraints ensures all dependents of the first-computed vertex complete before the second uses the register. Feasibility objective (Value $=$ Or).
+
+  _Correctness._ The ILP is feasible iff a valid evaluation ordering respecting the register assignment exists.
+
+  _Solution extraction._ Read vertex positions from the permutation matrix.
+]
+
 #let part_swi = load-example("Partition", "SequencingWithinIntervals")
 #let part_swi_sol = part_swi.solutions.at(0)
 #reduction-rule("Partition", "SequencingWithinIntervals",
