@@ -1,6 +1,8 @@
 use super::*;
 use crate::models::algebraic::{ILP, QUBO};
-use crate::models::formula::NAESatisfiability;
+use crate::models::formula::{
+    CircuitSAT, Maximum2Satisfiability, NAESatisfiability, Satisfiability,
+};
 use crate::models::graph::MaxCut;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::misc::Knapsack;
@@ -883,6 +885,13 @@ fn test_nae_sat_to_maxcut_reduction_registered() {
 }
 
 #[test]
+fn test_maximum2satisfiability_to_maxcut_reduction_registered() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction::<Maximum2Satisfiability, MaxCut<SimpleGraph, i32>>());
+}
+
+#[test]
 fn test_nae_sat_to_partition_into_perfect_matchings_reduction_registered() {
     use crate::models::graph::PartitionIntoPerfectMatchings;
 
@@ -1038,6 +1047,28 @@ fn test_directed_edge_pairs() {
     assert!(
         !circuit_to_factoring,
         "Should NOT have CircuitSAT -> Factoring"
+    );
+}
+
+#[test]
+fn test_circuitsat_to_satisfiability_direct_edge() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&CircuitSAT::variant());
+    let dst = ReductionGraph::variant_to_map(&Satisfiability::variant());
+
+    assert!(graph.has_direct_reduction_by_name("CircuitSAT", "Satisfiability"));
+
+    let path = graph.find_cheapest_path(
+        "CircuitSAT",
+        &src,
+        "Satisfiability",
+        &dst,
+        &ProblemSize::new(vec![]),
+        &MinimizeSteps,
+    );
+    assert!(
+        path.is_some(),
+        "CircuitSAT -> Satisfiability path should exist"
     );
 }
 

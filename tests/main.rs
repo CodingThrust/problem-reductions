@@ -8,6 +8,9 @@ mod integration;
 mod jl_parity;
 #[path = "suites/ksatisfiability_simultaneous_incongruences.rs"]
 mod ksatisfiability_simultaneous_incongruences;
+#[cfg(feature = "ilp-solver")]
+#[path = "suites/register_assignment_reductions.rs"]
+mod register_assignment_reductions;
 #[path = "suites/reductions.rs"]
 mod reductions;
 #[path = "suites/simultaneous_incongruences.rs"]

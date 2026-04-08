@@ -530,7 +530,7 @@
 ]
 
 #block(width: 100%, inset: (x: 2em, y: 1em))[
-  *Abstract.* We present formal definitions for computational problems and polynomial-time reductions implemented in the `problem-reductions` library. For each reduction, we state theorems with constructive proofs that preserve solution structure.
+  *Abstract.* We present formal definitions for computational problems and polynomial-time reductions implemented in the `problem-reductions` library. For each reduction, we state a theorem with a constructive proof; when a reduction is proof-only rather than solver-executable, that restriction is stated explicitly in the rule text.
 ]
 
 
@@ -541,7 +541,7 @@
 
 = Introduction
 
-A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a polynomial-time transformation of $A$-instances into $B$-instances such that: (1) the transformation runs in polynomial time, (2) solutions to $B$ can be efficiently mapped back to solutions of $A$, and (3) optimal solutions are preserved. The library implements #graph-data.edges.len() reductions connecting #graph-data.nodes.len() problem types.
+A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a polynomial-time transformation of $A$-instances into $B$-instances such that: (1) the transformation runs in polynomial time, (2) solutions to $B$ can be efficiently mapped back to solutions of $A$, and (3) optimal solutions are preserved. The library implements #graph-data.edges.len() catalogued edges connecting #graph-data.nodes.len() problem types; most are solver-executable witness, aggregate, or Turing reductions, while a few are proof-only NP-hardness embeddings that are excluded from runtime path search.
 
 == Notation
 
@@ -4170,6 +4170,57 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
     ]
   ]
 }
+
+#let max2sat_mc = load-example("Maximum2Satisfiability", "MaxCut")
+#let max2sat_mc_sol = max2sat_mc.solutions.at(0)
+#reduction-rule("Maximum2Satisfiability", "MaxCut",
+  example: true,
+  example-caption: [$n = #max2sat_mc.source.instance.num_vars$ variables, $m = #max2sat_mc.source.instance.clauses.len()$ clauses, target has #max2sat_mc.target.instance.graph.num_vertices vertices and #max2sat_mc.target.instance.graph.edges.len() edges],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(max2sat_mc.source) + " -o max2sat.json",
+      "pred reduce max2sat.json --to " + target-spec(max2sat_mc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate max2sat.json --config " + max2sat_mc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical source has $n = #max2sat_mc.source.instance.num_vars$ variables and #max2sat_mc.source.instance.clauses.len() two-literal clauses. The stored optimal assignment is $(#max2sat_mc_sol.source_config.map(str).join(", "))$, which satisfies all five clauses.
+
+    *Step 2 -- Accumulate the cut weights.* Introduce the reference vertex $s = v_0$ and variable vertices $v_1, v_2, v_3$. After summing the per-clause contributions and deleting zero-weight edges, the target graph has the four signed edges $(s, v_2)$ with weight $-1$, $(s, v_3)$ with weight $-1$, $(v_1, v_2)$ with weight $2$, and $(v_2, v_3)$ with weight $-1$.
+
+    *Step 3 -- Verify the witness.* The target witness $(#max2sat_mc_sol.target_config.map(str).join(", "))$ puts $v_2$ and $v_3$ on the same side as $s$ and $v_1$ on the opposite side, so extraction recovers $(#max2sat_mc_sol.source_config.map(str).join(", "))$. Only edge $(v_1, v_2)$ crosses, so the cut value is $2$ and the affine objective identity certifies optimality #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. Flipping every target bit yields the complementary cut partition but extracts the same source assignment because extraction compares each variable vertex to $s$.
+  ],
+)[
+  This $O(n + m)$ reduction @karp1972 @garey1979 builds a signed weighted graph with one reference vertex $s$ and one vertex per Boolean variable. Each 2-clause contributes two reference-variable terms and, when the clause uses two different variables, one variable-variable term. After doubling the affine clause identity to clear fractions, the target has $n + 1$ vertices and at most $n + m$ nonzero edges.
+][
+  _Construction._ Let $phi$ be a MAX-2-SAT instance on variables $x_1, dots, x_n$. Create one reference vertex $s = v_0$ and one vertex $v_i$ for each variable $x_i$. For a literal $ell$ over variable $x_i$, define $sigma(ell) = 1$ when $ell = x_i$ and $sigma(ell) = -1$ when $ell = not x_i$. For each clause $C = (ell_a or ell_b)$, add $-sigma(ell_a)$ to edge $(s, v_a)$ and $-sigma(ell_b)$ to edge $(s, v_b)$. If $a != b$, also add $sigma(ell_a) sigma(ell_b)$ to edge $(v_a, v_b)$. Repeated contributions accumulate; zero-weight edges are omitted. Interpret a cut by setting $x_i = 1$ exactly when $v_i$ lies on the same side of the cut as $s$.
+
+  _Correctness._ Let $delta(u, v) in {0, 1}$ indicate whether vertices $u$ and $v$ lie on opposite sides of the cut. For each variable define $y_i = 1 - 2 delta(s, v_i)$, so $y_i = 1$ iff $x_i = 1$ and $y_i = -1$ iff $x_i = 0$. For clause $C = (ell_a or ell_b)$ with $sigma_a = sigma(ell_a)$ and $sigma_b = sigma(ell_b)$, its satisfaction indicator is
+  $
+    S_C = (3 + sigma_a y_a + sigma_b y_b - sigma_a sigma_b y_a y_b) / 4.
+  $
+  Since $y_i = 1 - 2 delta(s, v_i)$ and $y_a y_b = 1 - 2 delta(v_a, v_b)$, multiplying by $2$ yields
+  $
+    2 S_C
+      = K_C
+      - sigma_a delta(s, v_a)
+      - sigma_b delta(s, v_b)
+      + sigma_a sigma_b delta(v_a, v_b),
+  $
+  where $K_C = (3 + sigma_a + sigma_b - sigma_a sigma_b) / 2$ is independent of the chosen cut. Summing over all clauses gives
+  $
+    2 S(phi, bold(x)) = C_0 + w(delta)
+  $
+  for the constant $C_0 = sum_C K_C$.
+
+  ($arrow.r.double$) Any truth assignment $bold(x)$ induces a cut by placing $v_i$ with $s$ iff $x_i = 1$. The displayed identity shows that an assignment satisfying $k$ clauses yields cut value $2k - C_0$.
+
+  ($arrow.l.double$) Any cut $delta$ extracts a truth assignment by comparing each $v_i$ with $s$. If another assignment satisfied more clauses, its induced cut would have strictly larger cut value by the same identity, contradicting maximality. Therefore every maximum cut extracts to an optimal MAX-2-SAT assignment.
+
+  _Solution extraction._ Return the source bit $x_i = 1$ iff $v_i$ and $s$ lie on the same side of the cut. Because this depends only on equality with $s$, globally swapping the two cut sides leaves the extracted assignment unchanged.
+]
 
 #let max2sat_ilp = load-example("Maximum2Satisfiability", "ILP")
 #let max2sat_ilp_sol = max2sat_ilp.solutions.at(0)
@@ -8196,7 +8247,7 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 }
 
 #problem-def("DirectedTwoCommodityIntegralFlow")[
-  Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) flow $f_i$ is conserved at every vertex except $s_1, s_2, t_1, t_2$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$ for $i in {1, 2}$.
+  Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) for each commodity $i in {1, 2}$, flow $f_i$ is conserved at every vertex except $s_i$ and $t_i$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$.
 ][
   Directed Two-Commodity Integral Flow is a fundamental NP-complete problem in multicommodity flow theory, catalogued as ND38 in Garey & Johnson @garey1979. While single-commodity max-flow is solvable in polynomial time and fractional multicommodity flow reduces to linear programming, requiring integral flows with just two commodities makes the problem NP-complete.
 
@@ -9184,6 +9235,49 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Correctness._ ($arrow.r.double$) If $C$ is a vertex cover, then for any $u, v in V backslash C$, the edge $(u, v) in.not E$ (otherwise $C$ would miss it), so $V backslash C$ is independent. ($arrow.l.double$) If $S$ is independent, then for any $(u, v) in E$, at most one endpoint lies in $S$, so $V backslash S$ covers every edge. Since $|S| + |C| = |V|$ is constant, a minimum vertex cover corresponds to a maximum independent set.
 
   _Solution extraction._ For IS solution $S$, return $C = V backslash S$, i.e.\ flip each variable: $c_v = 1 - s_v$.
+]
+
+#let mvc_mmm = load-example("MinimumVertexCover", "MinimumMaximalMatching")
+#let mvc_mmm_sol = mvc_mmm.solutions.at(0)
+#reduction-rule("MinimumVertexCover", "MinimumMaximalMatching",
+  example: true,
+  example-caption: [Cycle $C_5$: the forward implication is exact, but the backward gap is strict],
+  extra: [
+    #{
+      let target-edges = mvc_mmm.target.instance.graph.edges
+      let source-cover = mvc_mmm_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let matching = mvc_mmm_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => target-edges.at(i))
+      let fmt-edge(e) = "(" + str(e.at(0)) + ", " + str(e.at(1)) + ")"
+      [
+        #pred-commands(
+          "pred create MinimumVertexCover --graph 0-1,1-2,2-3,3-4,4-0 --weights 1,1,1,1,1 -o mvc.json",
+          "pred solve mvc.json",
+          "pred create MinimumMaximalMatching --graph 0-1,1-2,2-3,3-4,4-0 -o mmm.json",
+          "pred solve mmm.json",
+        )
+
+        *Step 1 -- Shared instance.* Both problems use the same 5-cycle, so $n = #graph-num-vertices(mvc_mmm.source.instance)$ and $|E| = #graph-num-edges(mvc_mmm.source.instance)$.
+
+        *Step 2 -- Source optimum.* The canonical minimum vertex cover is $C = {#source-cover.map(str).join(", ")}$, so $"mvc"(C_5) = #source-cover.len() = 3$.
+
+        *Step 3 -- Target optimum.* The canonical minimum maximal matching is $M = {#matching.map(fmt-edge).join(", ")}$, so $"mmm"(C_5) = #matching.len() = 2$.
+
+        *Step 4 -- Backward gap.* The endpoint set of $M$ is ${0, 1, 2, 3}$, a valid vertex cover of size $4$. Pruning can recover an optimal cover of size $3$, but not one of size $2$, so the same-bound backward implication fails.
+
+        *Runtime note:* This catalog edge is proof-only. The CLI can solve the two instances separately, but runtime reduction search does not traverse this edge because there is no exact witness or aggregate extractor.
+      ]
+    }
+  ],
+)[
+  This size-preserving identity map records the forward implication used in the classical NP-hardness proof for Minimum Maximal Matching (equivalently, Minimum Edge Dominating Set) on bounded-degree graphs: every unit-weight vertex cover of $G$ can be greedily converted into a maximal matching of size at most the cover size. The converse loses a factor of two in general, so the edge is documented but intentionally disabled for runtime reduction search.
+][
+  _Construction._ Given a unit-weight Minimum Vertex Cover instance $(G = (V, E), K)$, build the Minimum Maximal Matching instance on the same graph $G$. The target uses one binary variable per source edge, so the graph structure and size fields are unchanged.
+
+  _Correctness._ ($arrow.r.double$) Let $C subset.eq V$ be a vertex cover with $|C| lt.eq K$. Start with $M = emptyset$ and process the vertices of $C$ in arbitrary order. Whenever $v in C$ is unmatched, choose any edge $\{v, u\} in E$ whose other endpoint $u$ is also unmatched, add that edge to $M$, and mark both endpoints matched. Because only unmatched endpoints are paired, $M$ is a matching. If some edge $\{x, y\} in E$ were disjoint from every edge of $M$ at the end, then both $x$ and $y$ would still be unmatched. Since $C$ covers every edge, at least one endpoint, say $x$, lies in $C$, and when the algorithm processed $x$ it could have added $\{x, y\}$, a contradiction. Hence $M$ is maximal and $|M| lt.eq |C| lt.eq K$.
+
+  ($arrow.l.double$) Let $M$ be any maximal matching. The set of all endpoints of edges in $M$ is a vertex cover, so $"mvc"(G) lt.eq 2 dot |M|$. This yields the standard bound $"mmm"(G) lt.eq "mvc"(G) lt.eq 2 dot "mmm"(G)$, but it does not recover an exact same-bound inverse. On $C_5$, the target optimum is $2$ while the source optimum is $3$.
+
+  _Solution extraction._ No runtime extractor is registered. The endpoint map always returns a valid vertex cover and greedy pruning can shrink it, but neither approach guarantees an optimal cover from an optimal maximal matching witness, and the target optimum value does not determine the source optimum value exactly.
 ]
 
 #let mvc_lcs = load-example("MinimumVertexCover", "LongestCommonSubsequence")
@@ -10224,6 +10318,71 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Discard auxiliary variables; return original variable assignments.
 ]
 
+#let sat_max2sat = load-example("Satisfiability", "Maximum2Satisfiability")
+#let sat_max2sat_sol = sat_max2sat.solutions.at(0)
+#reduction-rule("Satisfiability", "Maximum2Satisfiability",
+  example: true,
+  example-caption: [3-variable 2-clause SAT to MAX-2-SAT],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(sat_max2sat.source) + " -o sat.json",
+      "pred reduce sat.json --to " + target-spec(sat_max2sat) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate sat.json --config " + sat_max2sat_sol.source_config.map(str).join(","),
+    )
+    *Step 1 -- Source instance.* The canonical SAT formula has $n = #sat_max2sat.source.instance.num_vars$ variables and $m = #sat-num-clauses(sat_max2sat.source.instance)$ clauses:
+    $
+      C_1 = (x_1 or overline(x_2) or x_3), quad
+      C_2 = (overline(x_1) or x_2).
+    $
+    The stored satisfying assignment is $(x_1, x_2, x_3) = (#sat_max2sat_sol.source_config.map(str).join(", "))$.
+
+    *Step 2 -- Normalize to 3-CNF.* Clause $C_1$ already has width $3$. Clause $C_2$ introduces one auxiliary variable $y_1$ and becomes
+    $
+      (overline(x_1) or x_2 or y_1) and
+      (overline(x_1) or x_2 or overline(y_1)).
+    $
+    The normalized formula therefore has $4$ variables and $3$ clauses.
+
+    *Step 3 -- Build the MAX-2-SAT gadgets.* Introduce one gadget variable per normalized clause, so the target has $#sat_max2sat.target.instance.num_vars$ variables and #sat_max2sat.target.instance.clauses.len() clauses. The stored witness is $(x_1, x_2, x_3, y_1, w_1, w_2, w_3) = (#sat_max2sat_sol.target_config.map(str).join(", "))$. With $(y_1, w_1, w_2, w_3) = (0, 1, 0, 1)$, each of the three gadgets satisfies exactly $7$ clauses, so the target objective reaches $21 = 7 times 3$ #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical optimum. Auxiliary variables such as $y_1$ can vary across optimal witnesses, but truncating any optimal target assignment to the first $3$ coordinates still yields a satisfying assignment of the original SAT formula.
+  ],
+)[
+  This reduction composes a satisfiability-preserving normalization to 3-CNF with the Garey--Johnson--Stockmeyer MAX-2-SAT gadget @garey1976 @garey1979. Each normalized 3-clause contributes a 10-clause MAX-2-SAT block with a one-clause gap between the satisfied and unsatisfied cases. For a SAT instance with $n$ variables, $m$ clauses, and total literal count $L = sum_j |C_j|$, the implementation produces at most $n + 2L + 4m$ target variables and $10 (L + 3m)$ target clauses.
+][
+  _Construction._ Let $phi = and.big_(j=1)^m C_j$ be a CNF formula on variables $x_1, dots, x_n$.
+
+  _Step 1: normalize each clause to width 3._ Replace every clause independently:
+  - if $C = ()$, introduce a fresh variable $y$ and use $(y or y or y) and (overline(y) or overline(y) or overline(y))$;
+  - if $C = (ell_1)$, introduce fresh $y, z$ and use the four clauses $(ell_1 or y or z)$, $(ell_1 or y or overline(z))$, $(ell_1 or overline(y) or z)$, $(ell_1 or overline(y) or overline(z))$;
+  - if $C = (ell_1 or ell_2)$, introduce fresh $y$ and use $(ell_1 or ell_2 or y) and (ell_1 or ell_2 or overline(y))$;
+  - if $C$ already has width $3$, keep it unchanged;
+  - if $C = (ell_1 or dots or ell_k)$ with $k > 3$, introduce fresh $y_1, dots, y_(k-3)$ and replace $C$ by
+    $
+      (ell_1 or ell_2 or y_1) and
+      (overline(y_1) or ell_3 or y_2) and dots and
+      (overline(y_(k-3)) or ell_(k-1) or ell_k).
+    $
+  Let the resulting 3-CNF formula be $psi = and.big_(t=1)^(m') D_t$.
+
+  _Step 2: convert each 3-clause to MAX-2-SAT._ For every normalized clause $D_t = (a_t or b_t or c_t)$, introduce a fresh variable $w_t$ and add the ten 2-clauses
+  $
+    (a_t or a_t), (b_t or b_t), (c_t or c_t), (w_t or w_t), \
+    (overline(a_t) or overline(b_t)), (overline(b_t) or overline(c_t)), (overline(a_t) or overline(c_t)), \
+    (a_t or overline(w_t)), (b_t or overline(w_t)), (c_t or overline(w_t)).
+  $
+  The repeated literals encode unit clauses inside the exact-2-literal MAX-2-SAT model.
+
+  _Correctness._ For one gadget corresponding to $D_t$, exhaustive case analysis shows that the best choice of $w_t$ satisfies exactly $7$ of the ten clauses when $D_t$ is true and at most $6$ when $D_t$ is false. Therefore, for every assignment to the normalized variables,
+  $
+    "MAX2SAT"("target") = 6 m' + \#\{t : D_t " is true"\}.
+  $
+  ($arrow.r.double$) If $phi$ is satisfiable, then the normalized formula $psi$ is satisfiable by Step 1. Every normalized clause is true, so each gadget attains value $7$ and the target optimum is $7 m'$. ($arrow.l.double$) If the target optimum is $7 m'$, then every gadget must contribute $7$, so every normalized clause $D_t$ is true. Hence $psi$ is satisfiable, and the normalization in Step 1 implies that the restriction to the original variables satisfies $phi$. If $phi$ is unsatisfiable, then $psi$ is unsatisfiable, so every assignment leaves at least one normalized clause false and the target optimum is strictly less than $7 m'$.
+
+  _Solution extraction._ Discard all auxiliary normalization variables and all gadget variables $w_t$; return only the first $n$ Boolean variables $(x_1, dots, x_n)$.
+]
+
 #let sat_cs = load-example("Satisfiability", "CircuitSAT")
 #let sat_cs_sol = sat_cs.solutions.at(0)
 #reduction-rule("Satisfiability", "CircuitSAT",
@@ -10245,6 +10404,46 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) A satisfying assignment makes at least one literal true in each clause, so each OR gate outputs true and the AND gate outputs true. ($arrow.l.double$) A satisfying circuit assignment has all OR gates true (forced by the AND output constraint), meaning at least one literal per clause is true --- exactly a SAT solution.
 
   _Solution extraction._ Return the values of the circuit input variables $x_1, dots, x_n$.
+]
+
+#let cs_sat = load-example("CircuitSAT", "Satisfiability")
+#let cs_sat_sol = cs_sat.solutions.at(0)
+#reduction-rule("CircuitSAT", "Satisfiability",
+  example: true,
+  example-caption: [Tseitin encoding of a circuit equation],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(cs_sat.source) + " -o circuitsat.json",
+      "pred reduce circuitsat.json --to " + target-spec(cs_sat) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate circuitsat.json --config " + cs_sat_sol.source_config.map(str).join(","),
+    )
+    Circuit: #circuit-num-gates(cs_sat.source.instance) assignment, #circuit-num-variables(cs_sat.source.instance) named variables \
+    Target: #cs_sat.target.instance.num_vars SAT variables, #cs_sat.target.instance.clauses.len() clauses \
+
+    *Step 1 -- Flatten the expression.* The canonical example is the circuit equation $r = (x_1 and x_2) or (not x_3 and x_4)$. Introduce auxiliary variables $a = x_1 and x_2$, $b = not x_3$, $c = b and x_4$, and $d = a or c$. This yields #cs_sat.target.instance.num_vars SAT variables: the five named circuit variables $(r, x_1, x_2, x_3, x_4)$ plus four Tseitin variables $(a, b, c, d)$.
+
+    *Step 2 -- Emit clauses.* Add three clauses for $a = x_1 and x_2$, two for $b = not x_3$, three for $c = b and x_4$, three for $d = a or c$, and two clauses for the output identity $r equiv d$. The CNF therefore has #cs_sat.target.instance.clauses.len() clauses.
+
+    *Step 3 -- Verify a witness.* The fixture stores source config #cs_sat_sol.source_config.map(str).join(", "), meaning $(r, x_1, x_2, x_3, x_4) = (1, 1, 1, 0, 1)$. Extending with $(a, b, c, d) = (1, 1, 1, 1)$ gives the SAT witness #cs_sat_sol.target_config.map(str).join(", "), which satisfies every gate-definition clause and the two clauses enforcing $r equiv d$.
+
+    *Multiplicity:* The fixture stores one canonical consistent assignment. Other satisfying assignments may exist whenever the circuit equations leave some named variables unconstrained.
+  ],
+)[
+  This linear-time Tseitin reduction @cook1971 rewrites each circuit assignment into CNF by keeping every named circuit variable as a SAT variable and introducing one auxiliary variable for each non-leaf subexpression after constant folding and binary balancing. The target therefore has one SAT variable per circuit variable plus one per introduced gate.
+][
+  _Construction._ Consider one circuit assignment $o_1, dots, o_t = e$. First simplify constant subexpressions inside $e$ and rewrite every n-ary AND, OR, and XOR node as a balanced binary tree. For each non-leaf subexpression $alpha$, introduce a fresh SAT variable $v_alpha$; named circuit variables are reused directly. Add the standard Tseitin clauses
+  $
+    v_(not a) " iff " not a, \
+    v_(a and b) " iff " a and b, \
+    v_(a or b) " iff " a or b, \
+    v_(a xor b) " iff " a xor b
+  $
+  using the 2-clause NOT gadget, the 3-clause AND/OR gadgets, and the 4-clause XOR gadget. If the simplified right-hand side becomes a variable or auxiliary variable $z_e$, add $(overline(o_i) or z_e)$ and $(o_i or overline(z_e))$ for every output $o_i$. If it simplifies to a constant, add the unit clause $o_i$ or $overline(o_i)$ accordingly. Repeat this independently for every assignment in the circuit.
+
+  _Correctness._ ($arrow.r.double$) Let $sigma$ be a satisfying CircuitSAT assignment. Set every auxiliary variable $v_alpha$ to the truth value of the corresponding subexpression $alpha$ under $sigma$. Each Tseitin gadget is then satisfied because its output variable matches the gate semantics, and every output-equivalence or unit clause holds because $sigma$ already makes each circuit assignment $o_1, dots, o_t = e$ true. Hence the CNF is satisfiable. ($arrow.l.double$) Let $tau$ satisfy the constructed CNF. Every Tseitin gadget forces its auxiliary variable to equal the truth value of its subexpression, so the root variable $z_e$ equals the value of $e$. The output-equivalence clauses therefore force every output $o_i$ to equal $e$, and unit clauses force the required constants. Restricting $tau$ to the named circuit variables yields an assignment satisfying every original circuit equation.
+
+  _Solution extraction._ Return the values of the named circuit variables and discard the auxiliary Tseitin variables.
 ]
 
 #let cs_sg = load-example("CircuitSAT", "SpinGlass")
@@ -10594,6 +10793,63 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) Any feasible knapsack solution $bold(x)$ satisfies $sum_i w_i x_i <= C$, so the same binary vector is feasible for the ILP and attains identical objective value $sum_i v_i x_i$. ($arrow.l.double$) Any feasible binary ILP solution selects exactly the items with $x_i = 1$; the single inequality guarantees the chosen set fits in the knapsack, and the ILP objective equals the knapsack value. Therefore optimal solutions correspond one-to-one and preserve the optimum value.
 
   _Solution extraction._ Identity: return the binary variable vector $bold(x)$ as the knapsack selection.
+]
+
+#let ik_ilp = load-example("IntegerKnapsack", "ILP")
+#let ik_ilp_sol = ik_ilp.solutions.at(0)
+#reduction-rule("IntegerKnapsack", "ILP",
+  example: true,
+  example-caption: [$n = #ik_ilp.source.instance.sizes.len()$ items, capacity $B = #ik_ilp.source.instance.capacity$],
+  extra: [
+    #{
+      let sizes = ik_ilp.source.instance.sizes
+      let values = ik_ilp.source.instance.values
+      let B = ik_ilp.source.instance.capacity
+      let upper = sizes.map(s => calc.floor(B / s))
+      let chosen = ik_ilp_sol.source_config.enumerate().filter(((i, c)) => c > 0)
+      let total_size = chosen.map(((i, c)) => c * sizes.at(i)).sum()
+      let total_value = chosen.map(((i, c)) => c * values.at(i)).sum()
+      [
+        #pred-commands(
+          "pred create --example " + problem-spec(ik_ilp.source) + " -o integer-knapsack.json",
+          "pred reduce integer-knapsack.json --to " + target-spec(ik_ilp) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate integer-knapsack.json --config " + ik_ilp_sol.source_config.map(str).join(","),
+        )
+
+        *Step 1 -- Source instance.* The canonical Integer Knapsack instance has sizes $(#sizes.map(str).join(", "))$, values $(#values.map(str).join(", "))$, and capacity $B = #B$.
+
+        *Step 2 -- Build the ILP.* Introduce one integer variable per item multiplicity:
+        $#range(sizes.len()).map(i => $c_#i$).join(", ") in NN$.
+        The capacity constraint is
+        $ #sizes.enumerate().map(((i, s)) => $#s c_#i$).join($+$) <= #B $,
+        and the explicit upper bounds are $(#upper.map(str).join(", "))$, i.e. $c_i <= floor.l B / s_i floor.r$ for every item.
+
+        *Step 3 -- Verify the canonical witness.* The ILP optimum is $(#ik_ilp_sol.target_config.map(str).join(", "))$, which extracts identically to the source multiplicities $(#ik_ilp_sol.source_config.map(str).join(", "))$. The selected terms contribute total size $#total_size <= B$ and total value $#total_value$ #sym.checkmark.
+
+        *Uniqueness:* The fixture stores one canonical optimum, here $(0, 0, 2)$.
+      ]
+    }
+  ],
+)[
+  This linear-size reduction reformulates Integer Knapsack as a non-negative integer program @papadimitriou-steiglitz1982: each item multiplicity becomes an ILP variable, the knapsack capacity is a single linear inequality, and explicit upper bounds $c_i <= floor.l B / s_i floor.r$ preserve the exact witness domain of the source problem. The target therefore has $n$ variables and $n + 1$ constraints.
+][
+  _Construction._ Given item sizes $s_0, dots, s_(n-1) in ZZ^+$, values $v_0, dots, v_(n-1) in ZZ^+$, and capacity $B in NN$, introduce one non-negative integer variable $c_i$ for each item. Add the capacity constraint
+  $
+    sum_(i=0)^(n-1) s_i c_i <= B
+  $
+  and, for each $i$, the upper bound
+  $
+    c_i <= floor.l B / s_i floor.r.
+  $
+  Maximize the linear objective
+  $
+    sum_(i=0)^(n-1) v_i c_i.
+  $
+
+  _Correctness._ ($arrow.r.double$) Any feasible Integer Knapsack multiplicity vector $bold(c)$ already satisfies $sum_i s_i c_i <= B$, and every source multiplicity also satisfies $c_i <= floor.l B / s_i floor.r$, so the same vector is feasible for the ILP and attains exactly the same objective value $sum_i v_i c_i$. ($arrow.l.double$) Any feasible ILP solution satisfies the same capacity inequality and the same per-item multiplicity bounds, so it is a valid Integer Knapsack witness with identical total value. Therefore optimal solutions correspond one-to-one and preserve the optimum value.
+
+  _Solution extraction._ Identity: return the ILP variable vector $bold(c)$ as the Integer Knapsack multiplicities.
 ]
 
 #let clique_mis = load-example("MaximumClique", "MaximumIndependentSet")
@@ -11114,6 +11370,43 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $S_2 = {u_i : x_i = 1}$, $S_1 = U without S_2$.
 ]
 
+#let mono_ilp = load-example("MonochromaticTriangle", "ILP")
+#let mono_ilp_sol = mono_ilp.solutions.at(0)
+#reduction-rule("MonochromaticTriangle", "ILP",
+  example: true,
+  example-caption: [$K_4$ with $n = #graph-num-vertices(mono_ilp.source.instance)$ vertices, $m = #graph-num-edges(mono_ilp.source.instance)$ edges, and $#mono_ilp.source.instance.triangles.len()$ triangles],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mono_ilp.source) + " -o monochromatic-triangle.json",
+      "pred reduce monochromatic-triangle.json --to " + target-spec(mono_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate monochromatic-triangle.json --config " + mono_ilp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Monochromatic Triangle fixture is $K_4$ on vertices $0, 1, 2, 3$ with edges #{mono_ilp.source.instance.graph.edges.map(((u, v)) => [${#u, #v}$]).join(", ")}. It has $#mono_ilp.source.instance.triangles.len()$ triangles, so the reduction creates one pair of inequalities for each of those four triangles.
+
+    *Step 2 -- Build the ILP.* Introduce one binary variable per edge, so the target has $m = #mono_ilp.target.instance.num_vars$ variables. For each triangle, add the lower bound $x_a + x_b + x_c >= 1$ and the upper bound $x_a + x_b + x_c <= 2$, giving $#mono_ilp.target.instance.constraints.len()$ total constraints.
+
+    *Step 3 -- Verify a witness.* The stored ILP witness is $(#mono_ilp_sol.target_config.map(str).join(", "))$. Because extraction is identity, it immediately yields the edge coloring $(#mono_ilp_sol.source_config.map(str).join(", "))$, and evaluating that coloring on the source returns `true` #sym.checkmark. Every triangle therefore uses both colors.
+
+    *Multiplicity:* The fixture stores one canonical edge coloring. Any binary ILP solution satisfying all triangle pairs is a valid Monochromatic Triangle witness.
+  ],
+)[
+  This $O(m + t)$ reduction uses one binary variable per edge and two linear inequalities per triangle, where $m = |E|$ and $t$ is the number of triangles in the source graph. The target ILP is a pure feasibility problem with $m$ variables and $2t$ constraints.
+][
+  _Construction._ Let the source graph edges be indexed as $e_0, dots, e_(m-1)$. Introduce binary variables $x_0, dots, x_(m-1)$, where $x_i = 0$ or $1$ is the color assigned to edge $e_i$. For every triangle $T = {e_a, e_b, e_c}$ in the source graph, add the pair of inequalities
+  $
+    x_a + x_b + x_c >= 1
+    quad "and" quad
+    x_a + x_b + x_c <= 2.
+  $
+  The objective is empty, so the ILP asks only for feasibility.
+
+  _Correctness._ ($arrow.r.double$) Any triangle-free 2-edge-coloring assigns each triangle at least one edge of color 0 and at least one edge of color 1, so the corresponding sum is either $1$ or $2$ and both inequalities hold. ($arrow.l.double$) Any feasible ILP assignment gives a 0/1 color to every edge, and the triangle bounds forbid sums $0$ and $3$, so no triangle is monochromatic.
+
+  _Solution extraction._ Return the ILP variables unchanged as the target edge-coloring vector.
+]
+
 #let ss_bt = load-example("SetSplitting", "Betweenness")
 #let ss_bt_sol = ss_bt.solutions.at(0)
 #reduction-rule("SetSplitting", "Betweenness",
@@ -11257,6 +11550,28 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ Degree constraints enforce the matching property. For each edge $j$, the maximality constraint requires that $j$ itself or at least one adjacent edge is selected, ensuring the matching cannot be extended. ($arrow.r.double$) A minimum maximal matching satisfies both constraints and minimizes cardinality. ($arrow.l.double$) Any feasible solution is a maximal matching; the objective minimizes its size.
 
   _Solution extraction._ $M = {e : x_e = 1}$.
+]
+
+#reduction-rule("MinimumCoveringByCliques", "ILP")[
+  Use one potential clique slot per source edge, with binary vertex-membership, slot-activation, and edge-covered-by-slot variables.
+][
+  _Construction._ Let $m = |E|$ and index the clique slots by $k in {0, dots, m-1}$. Introduce binary variables $x_(v,k)$ for $v in V$ and $k in {0, dots, m-1}$, where $x_(v,k) = 1$ means vertex $v$ is placed in clique slot $k$; binary activation variables $z_k$; and binary variables $y_(e,k)$ for $e = {u, v} in E$, where $y_(e,k) = 1$ means edge $e$ is covered by slot $k$. The ILP is:
+  $
+    "minimize" quad & sum_(k=0)^(m-1) z_k \
+    "subject to" quad & x_(u,k) + x_(v,k) <= 1 quad forall k,\ forall {u, v} in.not E \
+    & x_(v,k) <= z_k quad forall v in V,\ forall k \
+    & y_({u,v},k) <= x_(u,k) quad forall {u,v} in E,\ forall k \
+    & y_({u,v},k) <= x_(v,k) quad forall {u,v} in E,\ forall k \
+    & y_({u,v},k) >= x_(u,k) + x_(v,k) - 1 quad forall {u,v} in E,\ forall k \
+    & sum_(k=0)^(m-1) y_(e,k) >= 1 quad forall e in E \
+    & x_(v,k), z_k, y_(e,k) in {0, 1}
+  $.
+
+  _Correctness._ ($arrow.r.double$) Given an edge-clique cover $C_0, dots, C_(t-1)$ with $t <= m$, map clique $C_k$ to slot $k$: set $z_k = 1$, set $x_(v,k) = 1$ exactly for $v in C_k$, and set $y_(e,k) = 1$ exactly for the edges $e$ whose endpoints both lie in $C_k$. Because each $C_k$ is a clique, no non-edge constraint is violated. Every covered edge satisfies at least one coverage inequality, so the ILP objective is at most $t$.
+
+  ($arrow.l.double$) Conversely, let $(x, z, y)$ be any feasible ILP solution. For each slot $k$, the vertices with $x_(v,k) = 1$ form a clique because every non-edge pair is forbidden from appearing together in that slot. If $y_({u,v},k) = 1$, the McCormick constraints force both endpoints $u$ and $v$ into slot $k$, so the edge is indeed contained in that clique. The coverage inequalities therefore certify that every source edge lies in at least one clique slot, giving a valid edge-clique cover. Since the objective counts active slots, minimizing it yields a minimum cover.
+
+  _Solution extraction._ For each source edge $e$, choose any slot $k$ with $y_(e,k) = 1$ and output the label $k$. The extracted edge-to-slot labeling is valid because every slot induces a clique and every edge is assigned to at least one covering slot.
 ]
 
 #reduction-rule("PartiallyOrderedKnapsack", "ILP")[
@@ -13145,9 +13460,11 @@ The following table shows concrete variable overhead for example instances, take
   ),
   (source: "ILP", target: "QUBO"),
   (source: "Satisfiability", target: "MaximumIndependentSet"),
+  (source: "Satisfiability", target: "Maximum2Satisfiability"),
   (source: "Satisfiability", target: "KColoring"),
   (source: "Satisfiability", target: "MinimumDominatingSet"),
   (source: "Satisfiability", target: "KSatisfiability"),
+  (source: "CircuitSAT", target: "Satisfiability"),
   (source: "CircuitSAT", target: "SpinGlass"),
   (source: "Factoring", target: "CircuitSAT"),
   (source: "MaximumSetPacking", target: "ILP"),
@@ -13516,6 +13833,42 @@ The following table shows concrete variable overhead for example instances, take
 ]
 
 
+#let ksat_dmvc = load-example("KSatisfiability", "DecisionMinimumVertexCover")
+#let ksat_dmvc_sol = ksat_dmvc.solutions.at(0)
+#reduction-rule("KSatisfiability", "DecisionMinimumVertexCover",
+  example: true,
+  example-caption: [3-SAT with $n = #ksat_dmvc.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_dmvc.source.instance)$ clauses reduced to Decision Minimum Vertex Cover with bound $k = #ksat_dmvc.target.instance.bound$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_dmvc.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_dmvc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_dmvc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The 3-SAT formula has $n = #ksat_dmvc.source.instance.num_vars$ variables and $m = #sat-num-clauses(ksat_dmvc.source.instance)$ clauses: #{ksat_dmvc.source.instance.clauses.enumerate().map(((j, c)) => {
+      let lits = c.literals.map(l => if l > 0 { $x_#l$ } else { $overline(x)_#calc.abs(l)$ })
+      [$c_#j = (#lits.join($or$))$]
+    }).join(", ")}. A satisfying assignment is $(#ksat_dmvc_sol.source_config.map(str).join(", "))$.
+
+    *Step 2 -- Build the vertex-cover graph.* Create one truth-setting edge $(u_i, overline(u)_i)$ per variable and one clause triangle per clause. Each triangle vertex is connected to the literal vertex of its clause position by a communication edge. The resulting graph has $|V| = 2n + 3m = #graph-num-vertices(ksat_dmvc.target.instance)$ vertices and $|E| = n + 6m = #graph-num-edges(ksat_dmvc.target.instance)$ edges.
+
+    *Step 3 -- Add the decision threshold.* Wrap the constructed Minimum Vertex Cover instance in the decision predicate with bound $k = n + 2m = #ksat_dmvc.target.instance.bound$. For this example, $k = 3 + 2 dot 2 = 7$.
+
+    *Step 4 -- Verify a witness.* The target configuration $(#ksat_dmvc_sol.target_config.map(str).join(", "))$ selects #ksat_dmvc_sol.target_config.filter(x => x == 1).len() vertices, so it meets the bound exactly. Each truth-setting edge has one selected endpoint #sym.checkmark. Each clause triangle has two selected vertices #sym.checkmark. Each communication edge is covered either by its literal endpoint or by its triangle endpoint #sym.checkmark. Extracting the truth-setting choices returns $(#ksat_dmvc_sol.source_config.map(str).join(", "))$, which satisfies every clause #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical decision witness. Different satisfying assignments may yield different size-$k$ covers of the same graph.
+  ],
+)[
+  Use the classical 3-SAT to Vertex Cover gadget construction, then ask whether the resulting graph has a vertex cover of size at most $k = n + 2m$ @garey1979.
+][
+  _Construction._ Given 3-CNF $phi$ with $n$ variables and $m$ clauses, build the graph $G = (V, E)$ used in the classical 3-SAT $arrow.r$ Minimum Vertex Cover reduction: for each variable $x_i$, add literal vertices $u_i$ and $overline(u)_i$ with one truth-setting edge between them; for each clause $c_j$, add triangle vertices $t^j_0, t^j_1, t^j_2$; for each literal position $(j, r)$, add a communication edge from $t^j_r$ to the literal vertex representing that literal. Assign unit weight to every vertex and set the decision threshold to $k = n + 2m$.
+
+  _Correctness._ ($arrow.r.double$) If $phi$ is satisfiable, choose one literal vertex per variable according to a satisfying assignment and choose two triangle vertices per clause, omitting a vertex whose literal is true. This gives a cover of size $n + 2m$, so the decision instance is yes. ($arrow.l.double$) If the decision instance is yes, any cover of size at most $n + 2m$ must use exactly one literal vertex per variable edge and exactly two vertices per clause triangle. The omitted triangle vertex in each clause has its communication edge covered only by a selected literal vertex, so the corresponding literal is true. These selected literal vertices define a satisfying assignment for $phi$.
+
+  _Solution extraction._ For each variable $x_i$, inspect the truth-setting pair. Set $x_i = 1$ when the cover contains $u_i$, and set $x_i = 0$ otherwise.
+]
+
 #let ksat_mvc = load-example("KSatisfiability", "MinimumVertexCover")
 #let ksat_mvc_sol = ksat_mvc.solutions.at(0)
 #reduction-rule("KSatisfiability", "MinimumVertexCover",
@@ -13555,6 +13908,37 @@ The following table shows concrete variable overhead for example instances, take
   _Correctness._ ($arrow.r.double$) A satisfying assignment selects literal vertices ($n$ total) and two triangle vertices per clause ($2m$ total), covering all edges. ($arrow.l.double$) A cover of size $n + 2m$ must include exactly one literal vertex per variable and two triangle vertices per clause; the uncovered triangle vertex's communication edge forces the corresponding literal to be true.
 
   _Solution extraction._ For variable $x_i$, set $x_i = 1$ if the cover indicator at position $2i$ is 1.
+]
+
+#let ksat_mono = load-example("KSatisfiability", "MonochromaticTriangle")
+#let ksat_mono_sol = ksat_mono.solutions.at(0)
+#reduction-rule("KSatisfiability", "MonochromaticTriangle",
+  example: true,
+  example-caption: [Single-clause 3-SAT instance ($n = #ksat_mono.source.instance.num_vars$, $m = #sat-num-clauses(ksat_mono.source.instance)$) reduced to a 4-triangle graph],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_mono.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_mono) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_mono_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The fixture uses the single clause $c_1 = (x_1 or x_2 or x_3)$. The extracted satisfying assignment is $(#ksat_mono_sol.source_config.map(str).join(", "))$.
+
+    *Step 2 -- Build the clause gadget.* Create literal vertices $p_1, p_2, p_3, n_1, n_2, n_3$ together with negation edges $(p_1, n_1)$, $(p_2, n_2)$, and $(p_3, n_3)$. For the clause, add intermediates $m_12, m_13, m_23$ and the six fan edges $(p_1, m_12)$, $(p_2, m_12)$, $(p_1, m_13)$, $(p_3, m_13)$, $(p_2, m_23)$, $(p_3, m_23)$, plus the clause triangle on $(m_12, m_13, m_23)$. The target therefore has $|V| = #graph-num-vertices(ksat_mono.target.instance)$ vertices, $|E| = #graph-num-edges(ksat_mono.target.instance)$ edges, and $#ksat_mono.target.instance.triangles.len()$ triangles.
+
+    *Step 3 -- Verify a witness.* The stored target coloring is $(#ksat_mono_sol.target_config.map(str).join(", "))$. Its first $n = #ksat_mono.source.instance.num_vars$ entries color the negation edges; reading those colors and applying the global color-swap symmetry fix yields the source assignment $(#ksat_mono_sol.source_config.map(str).join(", "))$, which satisfies $c_1$ #sym.checkmark. The same target coloring makes all four target triangles non-monochromatic #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical target coloring. Swapping the two edge colors gives another valid witness and may flip the decoded assignment to its complement.
+  ],
+)[
+  This $O(n + m)$ reduction @garey1979[GT6] uses one positive/negative literal pair per variable and one three-vertex clause gadget per clause. The target graph has $2n + 3m$ vertices and $n + 9m$ edges.
+][
+  _Construction._ Let $phi = and_(j=1)^m (ell_1^j or ell_2^j or ell_3^j)$ be a 3-CNF formula on variables $x_1, dots, x_n$. For each variable $x_i$, create literal vertices $p_i$ and $n_i$ and add the negation edge $(p_i, n_i)$. For each clause $C_j$, map each literal $ell_r^j$ to its literal vertex $v_r^j$ ($x_i mapsto p_i$, $overline(x)_i mapsto n_i$). Introduce fresh intermediate vertices $m_12^j$, $m_13^j$, and $m_23^j$. Add fan edges $(v_1^j, m_12^j)$, $(v_2^j, m_12^j)$, $(v_1^j, m_13^j)$, $(v_3^j, m_13^j)$, $(v_2^j, m_23^j)$, and $(v_3^j, m_23^j)$, then connect the intermediates into the clause triangle $(m_12^j, m_13^j)$, $(m_12^j, m_23^j)$, $(m_13^j, m_23^j)$. Each clause gadget therefore contributes exactly four triangles: the clause triangle itself and the three fan triangles rooted at $v_1^j$, $v_2^j$, and $v_3^j$.
+
+  _Correctness._ ($arrow.r.double$) Fix a satisfying assignment of $phi$. Color each negation edge $(p_i, n_i)$ by the truth value of $x_i$, using color $0$ for true and color $1$ for false. For any clause, at least one of its literals is satisfied, and the four-triangle gadget has a 2-edge-coloring extending those literal choices with no monochromatic triangle; the implementation follows the verified local construction from issue #884 and colors each clause independently because the intermediates are clause-local. ($arrow.l.double$) Given a triangle-free coloring of the target graph, inspect the negation-edge colors. Either those colors, or their global complement after swapping the two colors, yields a satisfying assignment of the source formula under the same verified gadget analysis.
+
+  _Solution extraction._ Read the negation-edge colors in variable order, setting $x_i = 1$ when $(p_i, n_i)$ has color $0$ and $x_i = 0$ otherwise. If that assignment does not satisfy $phi$, complement all bits; this accounts for the global color-swap symmetry of the target witness.
 ]
 
 #let ksat_1in3 = load-example("KSatisfiability", "OneInThreeSatisfiability")
@@ -13607,6 +13991,63 @@ The following table shows concrete variable overhead for example instances, take
   ($arrow.l.double$) Suppose the target instance is satisfiable. The global clause forces $z_0 = 0$. Fix any clause gadget, and assume for contradiction that $ell_1^j = ell_2^j = ell_3^j = 0$. Then $R(ell_3^j, c_j, z_0)$ forces $c_j = 1$. Next $R(c_j, d_j, f_j)$ forces $d_j = f_j = 0$. Then $R(ell_1^j, a_j, d_j)$ and $R(ell_2^j, b_j, d_j)$ force $a_j = b_j = 1$. But now $R(a_j, b_j, e_j)$ has two true literals, impossible. Therefore every source clause has at least one true literal, so the restriction to the original variables satisfies $phi$.
 
   _Solution extraction._ Return the first $n$ target coordinates unchanged, discarding $z_0$, $z_T$, and all clause auxiliaries.
+]
+
+#let ksat_d2cif = load-example("KSatisfiability", "DirectedTwoCommodityIntegralFlow")
+#let ksat_d2cif_sol = ksat_d2cif.solutions.at(0)
+#reduction-rule("KSatisfiability", "DirectedTwoCommodityIntegralFlow",
+  example: true,
+  example-caption: [Two-clause 3-SAT instance ($n = #ksat_d2cif.source.instance.num_vars$, $m = #sat-num-clauses(ksat_d2cif.source.instance)$) reduced to Directed Two-Commodity Integral Flow],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ksat_d2cif.source) + " -o ksat.json",
+      "pred reduce ksat.json --to " + target-spec(ksat_d2cif) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ksat.json --config " + ksat_d2cif_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The source formula has clauses $c_1 = (x_1 or overline(x)_2 or x_3)$ and $c_2 = (overline(x)_1 or x_2 or overline(x)_3)$. The canonical satisfying assignment is $(#ksat_d2cif_sol.source_config.map(str).join(", "))$, i.e.\ $x_1 = 1$, $x_2 = 1$, $x_3 = 0$.
+
+    *Step 2 -- Build the lobes and clause sinks.* Each variable appears once positively and once negatively, so each lobe contains an entry vertex, an exit vertex, one dummy segment on each branch, and one literal-occurrence segment on each branch. That is $10$ vertices and $14$ arcs per variable. Adding the $4$ terminals and $2$ clause vertices gives $|V| = #ksat_d2cif.target.instance.graph.num_vertices = 36$; adding the $4$ commodity-1 chain arcs and $2$ clause-to-sink arcs gives $|A| = #ksat_d2cif.target.instance.graph.arcs.len() = 48$.
+
+    *Step 3 -- Verify a witness.* Commodity 1 uses the lower branch in the lobes of $x_1$ and $x_2$ and the upper branch in the lobe of $x_3$, exactly matching the assignment $(1, 1, 0)$. Clause $c_1$ is satisfied by $x_1$, so commodity 2 routes one unit through the positive occurrence segment of $x_1$ into $d_1$. Clause $c_2$ is satisfied by $x_2$, so a second unit routes through the positive occurrence segment of $x_2$ into $d_2$. Both clause-to-sink arcs carry one unit, so the target meets $R_2 = #ksat_d2cif.target.instance.requirement_2 = 2$ #sym.checkmark. Reading back which lower-branch entry arcs commodity 1 used recovers $(#ksat_d2cif_sol.source_config.map(str).join(", "))$ #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness. This source formula has multiple satisfying assignments, and each satisfying clause can choose any satisfied literal occurrence when routing commodity 2.
+  ],
+)[
+  This $O(n + m)$ reduction @even1976 @garey1979[ND38] builds a unit-capacity directed network of variable lobes and clause sinks. Each literal occurrence contributes one clause-entry segment on the corresponding branch, and the repository pads every branch with one dummy segment so variables with missing polarity occurrences still have two realizable choices. For a 3-CNF formula with $n$ variables and $m$ clauses, the target has $6n + 7m + 4$ vertices and $7n + 13m + 1$ arcs.
+][
+  _Construction._ Let $phi = and_(j=1)^m C_j$ be a 3-CNF formula on variables $x_1, dots, x_n$. For each variable $x_i$, let $p_i$ be its number of positive occurrences and $q_i$ its number of negative occurrences. Create terminals $s_1, t_1, s_2, t_2$, one clause vertex $d_j$ for each clause, and for each variable a lobe with entry $a_i$ and exit $b_i$. The upper branch contains a dummy segment followed by one directed segment $u_(i,r)^+ -> w_(i,r)^+$ for each positive occurrence $r = 1, dots, p_i$; the lower branch contains a dummy segment followed by one directed segment $u_(i,r)^- -> w_(i,r)^-$ for each negative occurrence $r = 1, dots, q_i$. Chain the lobes with arcs $s_1 -> a_1$, $b_i -> a_(i+1)$, and $b_n -> t_1$. For every positive occurrence of $x_i$ in clause $C_j$, add $s_2 -> u_(i,r)^+$ and $w_(i,r)^+ -> d_j$; for every negative occurrence, add $s_2 -> u_(i,r)^-$ and $w_(i,r)^- -> d_j$. Finally add $d_j -> t_2$ for each clause. All arcs have capacity $1$, and the requirements are $R_1 = 1$ and $R_2 = m$.
+
+  _Correctness._ ($arrow.r.double$) Suppose $phi$ is satisfiable. Route commodity 1 through the lower branch of lobe $i$ when $x_i = 1$, and through the upper branch when $x_i = 0$. Consider any clause $C_j$. Choose one satisfied literal occurrence in that clause. If the chosen literal is $x_i$, route one unit of commodity 2 along $s_2 -> u_(i,r)^+ -> w_(i,r)^+ -> d_j -> t_2$; if it is $overline(x)_i$, use the analogous lower-branch route. A true literal always lies on the branch opposite to commodity 1, so the shared occurrence segment is free. Because occurrence segments are distinct per clause position, the $m$ commodity-2 units respect all capacities.
+
+  ($arrow.l.double$) Suppose the target instance is feasible. Because commodity 1 has requirement $R_1 = 1$ and conservation holds for commodity 1 away from $s_1$ and $t_1$, its unit flow traverses exactly one branch in each lobe. Define $x_i = 1$ iff commodity 1 uses the lower branch of lobe $i$. Now fix any clause vertex $d_j$. Since $d_j -> t_2$ is the only outgoing arc from $d_j$, meeting $R_2 = m$ forces one unit of commodity 2 through every clause vertex. That unit must arrive from some occurrence segment $u -> w -> d_j$. The shared arc $u -> w$ cannot lie on commodity 1's chosen branch, so the corresponding literal is true under the assignment above. Hence every clause contains a true literal and $phi$ is satisfiable.
+
+  _Solution extraction._ For each variable lobe, inspect the first lower-branch arc leaving its entry. Output $x_i = 1$ exactly when commodity 1 uses that arc.
+]
+
+#reduction-rule("KSatisfiability", "FeasibleRegisterAssignment",
+  example: false,
+)[
+  Sethi's Reduction 3 @sethi1975 @garey1979[PO2] builds a DAG with shared-register variable leaf pairs and $p\/q\/r\/overline(r)$ clause gadgets with cyclic links, plus a preassigned register allocation. The target has $2n + 12m$ vertices, $15m$ arcs, and $K = n + 9m$ registers.
+][
+  _Construction._ For each variable $x_k$, create two leaf nodes $s_k^+, s_k^-$ sharing register $S_k$. For each literal occurrence $Y_(i,j)$ in clause $C_i$, create four nodes $p_(i,j), q_(i,j), r_(i,j), overline(r)_(i,j)$ with internal arcs $q_(i,j) -> p_(i,j) -> r_(i,j)$ and cyclic links $q_(i,1) -> overline(r)_(i,2)$, $q_(i,2) -> overline(r)_(i,3)$, $q_(i,3) -> overline(r)_(i,1)$. Nodes $r_(i,j)$ and $overline(r)_(i,j)$ share register $R_(i,j)$. If $Y_(i,j) = x_k$: $r_(i,j) -> s_k^+$ and $overline(r)_(i,j) -> s_k^-$; if $Y_(i,j) = overline(x)_k$: swap the attachments.
+
+  _Correctness._ ($arrow.r.double$) If $phi$ is satisfiable, place the truth-selected leaf first for each variable, then unlock each clause gadget starting from a satisfied literal. ($arrow.l.double$) The cyclic links force at least one position $j$ per clause where $r_(i,j)$ appears before $overline(r)_(i,j)$; shared-register order transfer forces the corresponding literal leaf to appear first, encoding a true literal.
+
+  _Solution extraction._ For each variable $x_k$, set $tau(x_k) = 1$ iff $s_k^+$ appears before $s_k^-$ in the realization.
+]
+
+#reduction-rule("FeasibleRegisterAssignment", "ILP",
+  example: false,
+)[
+  Direct ILP formulation of the feasible register assignment problem: binary permutation matrix variables, topological ordering constraints, and register-conflict constraints via shared-register ordering indicators.
+][
+  _Construction._ Binary variables $x_(v,t) in {0,1}$ (vertex $v$ at position $t$). Permutation: each row and column sums to $1$. Topological: for arc $(u,v)$, $sum_(t) t dot x_(v,t) < sum_(t) t dot x_(u,t)$. Register conflict: for vertices $v,w$ sharing a register, an ordering indicator $b_(v,w)$ with big-$M$ constraints ensures all dependents of the first-computed vertex complete before the second uses the register. Feasibility objective (Value $=$ Or).
+
+  _Correctness._ The ILP is feasible iff a valid evaluation ordering respecting the register assignment exists.
+
+  _Solution extraction._ Read vertex positions from the permutation matrix.
 ]
 
 #let part_swi = load-example("Partition", "SequencingWithinIntervals")
@@ -14297,6 +14738,59 @@ The following table shows concrete variable overhead for example instances, take
   If $T > Sigma$, then $d > Sigma' \/ 2$, so a single element exceeds the half-sum and the Partition instance is infeasible.
 
   _Solution extraction._ Given a Partition solution $c in {0,1}^m$: if $d = 0$, return $c[0..n]$. If $Sigma > 2T$, the $S$-elements on the same side as the padding form the subset summing to $T$. If $Sigma < 2T$, the $S$-elements on the opposite side from the padding form the subset summing to $T$.
+]
+
+#let ss_ik = load-example("SubsetSum", "IntegerKnapsack")
+#let ss_ik_sol = ss_ik.solutions.at(0)
+#reduction-rule("SubsetSum", "IntegerKnapsack",
+  example: true,
+  example-caption: [#subsetsum-num-elements(ss_ik.source.instance) elements, target $B = #ss_ik.source.instance.target$: exact forward witness, but multiplicities create a backward gap],
+  extra: [
+    #{
+      let sizes = ss_ik.source.instance.sizes.map(s => int(s))
+      let B = int(ss_ik.source.instance.target)
+      let chosen = ss_ik_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let chosen_sum = chosen.map(i => sizes.at(i)).sum()
+      [
+        #pred-commands(
+          "pred create --example " + problem-spec(ss_ik.source) + " -o subsetsum.json",
+          "pred solve subsetsum.json",
+          "pred create --example " + problem-spec(ss_ik.target) + " -o integer-knapsack.json",
+          "pred solve integer-knapsack.json",
+        )
+
+        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#sizes.map(str).join(", "))$ and target $B = #B$. The stored witness $(#ss_ik_sol.source_config.map(str).join(", "))$ selects elements ${#chosen.map(str).join(", ")}$, whose values sum to $#chosen_sum = B$ #sym.checkmark.
+
+        *Step 2 -- Build the target.* Copy each source size into both the size and value lists. The Integer Knapsack instance therefore has sizes $(#ss_ik.target.instance.sizes.map(str).join(", "))$, values $(#ss_ik.target.instance.values.map(str).join(", "))$, and the same capacity $B = #ss_ik.target.instance.capacity$.
+
+        *Step 3 -- Verify the forward witness.* Reuse the same 0-1 vector as multiplicities: $(#ss_ik_sol.target_config.map(str).join(", "))$. Its total size is $#chosen_sum <= #ss_ik.target.instance.capacity$, and because size equals value coordinate-wise, its total value is also $#chosen_sum = B$ #sym.checkmark.
+
+        *Step 4 -- Backward gap.* For the source instance $A = {3}$ with target $B = 6$, Subset Sum is NO, but Integer Knapsack can set multiplicity $c_0 = 2$ and achieve total size/value $6$. This is why the catalog records the edge for proof topology only and disables all runtime reduction modes.
+      ]
+    }
+  ],
+)[
+  This size-preserving embedding from Garey and Johnson's Integer Knapsack entry @garey1979[MP10] copies each Subset Sum number into both the size and value of a knapsack item and sets the capacity to the target sum. Any exact subset-sum witness becomes a feasible Integer Knapsack witness of value $B$. The converse fails for the implemented unbounded model because target witnesses may use multiplicities greater than $1$, so the edge is documented but intentionally proof-only.
+][
+  _Construction._ Given Subset Sum instance $(S = {a_1, dots, a_n}, B)$, create $n$ Integer Knapsack items. For each $i$, set the item size and value to the same number:
+  $
+    s_i = a_i, quad v_i = a_i.
+  $
+  Set the knapsack capacity to $B$. The target therefore has the same number of items as the source has elements.
+
+  _Correctness._ ($arrow.r.double$) If $I subset.eq {1, dots, n}$ satisfies $sum_(i in I) a_i = B$, define multiplicities $c_i = 1$ for $i in I$ and $c_i = 0$ otherwise. Then
+  $
+    sum_i c_i s_i = sum_(i in I) a_i = B <= B
+  $
+  and, because $v_i = s_i$, also
+  $
+    sum_i c_i v_i = B.
+  $
+  So every YES instance of Subset Sum maps to an Integer Knapsack witness achieving value $B$.
+
+  ($arrow.l.double$) The backward implication is false for the implemented target model. Integer Knapsack allows arbitrary non-negative multiplicities, while Subset Sum is 0-1. For example, with $S = {3}$ and $B = 6$, the target witness $c_0 = 2$ is feasible and attains value $6$, but the source has no subset summing to $6$. Hence neither exact witness recovery nor exact optimum-value recovery is available from the target side.
+
+  _Solution extraction._ No runtime extractor is registered. The forward map is enough for the NP-hardness proof, but unbounded multiplicities prevent an exact inverse map back to Subset Sum.
 ]
 
 // 2. Satisfiability → NonTautology (#868)

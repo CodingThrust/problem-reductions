@@ -96,6 +96,17 @@ fn test_directed_two_commodity_integral_flow_negative_net_flow_at_sink_is_infeas
 }
 
 #[test]
+fn test_directed_two_commodity_integral_flow_disallows_using_other_commodity_source() {
+    let graph = DirectedGraph::new(4, vec![(2, 3), (3, 1)]);
+    let problem = DirectedTwoCommodityIntegralFlow::new(graph, vec![1, 1], 0, 1, 2, 3, 1, 0);
+
+    // Commodity 1 reaches t1 from s2, which is illegal in the classical definition:
+    // conservation must hold for commodity 1 at s2.
+    let config = vec![1, 1, 0, 0];
+    assert!(!problem.evaluate(&config));
+}
+
+#[test]
 fn test_directed_two_commodity_integral_flow_solver_yes() {
     let problem = yes_instance();
     let solver = BruteForce::new();

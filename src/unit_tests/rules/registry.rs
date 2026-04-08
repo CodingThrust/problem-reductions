@@ -472,6 +472,11 @@ fn test_edge_capabilities_constructors() {
     let both = EdgeCapabilities::both();
     assert!(both.witness);
     assert!(both.aggregate);
+
+    let none = EdgeCapabilities::none();
+    assert!(!none.witness);
+    assert!(!none.aggregate);
+    assert!(!none.turing);
 }
 
 #[test]

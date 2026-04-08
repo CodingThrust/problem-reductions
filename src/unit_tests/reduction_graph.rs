@@ -1,5 +1,6 @@
 //! Tests for ReductionGraph: discovery, path finding, and typed API.
 
+use crate::models::decision::Decision;
 use crate::models::formula::KSatisfiability;
 use crate::prelude::*;
 use crate::rules::{MinimizeSteps, ReductionGraph, ReductionMode, TraversalFlow};
@@ -192,6 +193,40 @@ fn test_json_export() {
     let categories: std::collections::HashSet<&str> =
         json.nodes.iter().map(|n| n.category.as_str()).collect();
     assert!(categories.len() >= 3, "Should have multiple categories");
+}
+
+#[test]
+fn test_subsetsum_to_integerknapsack_is_proof_only() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_by_name("SubsetSum", "IntegerKnapsack"));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "SubsetSum",
+        "IntegerKnapsack",
+        ReductionMode::Witness,
+    ));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "SubsetSum",
+        "IntegerKnapsack",
+        ReductionMode::Aggregate,
+    ));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "SubsetSum",
+        "IntegerKnapsack",
+        ReductionMode::Turing,
+    ));
+}
+
+#[cfg(feature = "ilp-solver")]
+#[test]
+fn test_integerknapsack_to_ilp_is_runtime_witness_edge() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_by_name_mode(
+        "IntegerKnapsack",
+        "ILP",
+        ReductionMode::Witness,
+    ));
 }
 
 // ---- Path finding (variant-level API) ----
@@ -702,6 +737,40 @@ fn test_has_direct_reduction_by_name_mode() {
 }
 
 #[test]
+fn test_minimumvertexcover_to_minimummaximalmatching_is_proof_only_direct_edge() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_by_name("MinimumVertexCover", "MinimumMaximalMatching",));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "MinimumVertexCover",
+        "MinimumMaximalMatching",
+        ReductionMode::Witness,
+    ));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "MinimumVertexCover",
+        "MinimumMaximalMatching",
+        ReductionMode::Aggregate,
+    ));
+    assert!(!graph.has_direct_reduction_by_name_mode(
+        "MinimumVertexCover",
+        "MinimumMaximalMatching",
+        ReductionMode::Turing,
+    ));
+}
+
+#[cfg(feature = "ilp-solver")]
+#[test]
+fn test_minimumcoveringbycliques_to_ilp_is_runtime_witness_edge() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_by_name_mode(
+        "MinimumCoveringByCliques",
+        "ILP",
+        ReductionMode::Witness,
+    ));
+}
+
+#[test]
 fn test_find_all_paths_mode_witness() {
     let graph = ReductionGraph::new();
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
@@ -793,4 +862,22 @@ fn test_optimization_to_decision_turing_edges() {
         "DecisionMinimumDominatingSet",
         ReductionMode::Turing,
     ));
+}
+
+#[test]
+fn test_ksatisfiability_k3_to_decision_minimum_vertex_cover_direct_witness_edge() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction_mode::<
+        KSatisfiability<K3>,
+        Decision<MinimumVertexCover<SimpleGraph, i32>>,
+    >(ReductionMode::Witness));
+    assert!(!graph.has_direct_reduction_mode::<
+        KSatisfiability<K3>,
+        Decision<MinimumVertexCover<SimpleGraph, i32>>,
+    >(ReductionMode::Aggregate));
+    assert!(!graph.has_direct_reduction_mode::<
+        KSatisfiability<K3>,
+        Decision<MinimumVertexCover<SimpleGraph, i32>>,
+    >(ReductionMode::Turing));
 }

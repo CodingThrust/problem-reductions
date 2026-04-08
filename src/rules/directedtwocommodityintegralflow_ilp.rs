@@ -70,40 +70,44 @@ impl ReduceTo<ILP<i32>> for DirectedTwoCommodityIntegralFlow {
             ));
         }
 
-        // 2. Flow conservation at non-terminal vertices
-        let terminals = [
-            self.source_1(),
-            self.sink_1(),
-            self.source_2(),
-            self.sink_2(),
-        ];
-
+        // 2. Flow conservation away from each commodity's own source and sink
         for vertex in 0..n {
-            if terminals.contains(&vertex) {
-                continue;
-            }
-
             // Commodity 1: Σ_in f1 - Σ_out f1 = 0
-            let mut terms_c1: Vec<(usize, f64)> = Vec::new();
+            let mut terms_c1: Option<Vec<(usize, f64)>> = None;
             // Commodity 2: Σ_in f2 - Σ_out f2 = 0
-            let mut terms_c2: Vec<(usize, f64)> = Vec::new();
+            let mut terms_c2: Option<Vec<(usize, f64)>> = None;
+
+            if vertex != self.source_1() && vertex != self.sink_1() {
+                terms_c1 = Some(Vec::new());
+            }
+            if vertex != self.source_2() && vertex != self.sink_2() {
+                terms_c2 = Some(Vec::new());
+            }
 
             for (a, &(u, v)) in arcs.iter().enumerate() {
                 if vertex == u {
                     // Arc leaves vertex: outgoing
-                    terms_c1.push((f1(a), -1.0));
-                    terms_c2.push((f2(a), -1.0));
+                    if let Some(terms) = &mut terms_c1 {
+                        terms.push((f1(a), -1.0));
+                    }
+                    if let Some(terms) = &mut terms_c2 {
+                        terms.push((f2(a), -1.0));
+                    }
                 } else if vertex == v {
                     // Arc enters vertex: incoming
-                    terms_c1.push((f1(a), 1.0));
-                    terms_c2.push((f2(a), 1.0));
+                    if let Some(terms) = &mut terms_c1 {
+                        terms.push((f1(a), 1.0));
+                    }
+                    if let Some(terms) = &mut terms_c2 {
+                        terms.push((f2(a), 1.0));
+                    }
                 }
             }
 
-            if !terms_c1.is_empty() {
+            if let Some(terms_c1) = terms_c1.filter(|terms| !terms.is_empty()) {
                 constraints.push(LinearConstraint::eq(terms_c1, 0.0));
             }
-            if !terms_c2.is_empty() {
+            if let Some(terms_c2) = terms_c2.filter(|terms| !terms.is_empty()) {
                 constraints.push(LinearConstraint::eq(terms_c2, 0.0));
             }
         }
