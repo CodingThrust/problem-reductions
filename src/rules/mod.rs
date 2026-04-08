@@ -12,6 +12,7 @@ pub(crate) mod circuit_sat;
 pub(crate) mod circuit_spinglass;
 mod closestvectorproblem_qubo;
 pub(crate) mod coloring_qubo;
+pub(crate) mod decisionminimumvertexcover_hamiltoniancircuit;
 pub(crate) mod exactcoverby3sets_algebraicequationsovergf2;
 pub(crate) mod exactcoverby3sets_maximumsetpacking;
 pub(crate) mod exactcoverby3sets_minimumweightsolutiontolinearequations;
@@ -375,6 +376,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     let mut specs = Vec::new();
     specs.extend(circuit_sat::canonical_rule_example_specs());
     specs.extend(circuit_spinglass::canonical_rule_example_specs());
+    specs.extend(decisionminimumvertexcover_hamiltoniancircuit::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_staffscheduling::canonical_rule_example_specs());
     specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());

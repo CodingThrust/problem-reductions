@@ -13869,6 +13869,37 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For each variable $x_i$, inspect the truth-setting pair. Set $x_i = 1$ when the cover contains $u_i$, and set $x_i = 0$ otherwise.
 ]
 
+#let dmvc_hc = load-example("DecisionMinimumVertexCover", "HamiltonianCircuit")
+#let dmvc_hc_sol = dmvc_hc.solutions.at(0)
+#reduction-rule("DecisionMinimumVertexCover", "HamiltonianCircuit",
+  example: true,
+  example-caption: [3-vertex path with bound $k = #dmvc_hc.source.instance.bound$: one selector threads two cover-testing gadgets],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(dmvc_hc.source) + " -o dmvc.json",
+      "pred reduce dmvc.json --to " + target-spec(dmvc_hc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate dmvc.json --config " + dmvc_hc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Decision Minimum Vertex Cover fixture has inner graph $G$ on vertices ${0, 1, 2}$ with edges #{dmvc_hc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")} and unit weights. The bound is $k = #dmvc_hc.source.instance.bound$, and the stored cover witness is $(#dmvc_hc_sol.source_config.map(str).join(", "))$, i.e.\ $C = {1}$.
+
+    *Step 2 -- Build the Hamiltonian graph.* There is one selector vertex $a_1$ and one 12-vertex gadget for each source edge, so the target graph has $1 + 2 dot 12 = #graph-num-vertices(dmvc_hc.target.instance)$ vertices. The path for source vertex $1$ chains the two gadgets through the connector from $(1, e_0, 6)$ to $(1, e_1, 1)$. The completed target has #graph-num-edges(dmvc_hc.target.instance) edges.
+
+    *Step 3 -- Verify a witness.* The stored Hamiltonian circuit is $(#dmvc_hc_sol.target_config.map(str).join(", "))$. Reading the cycle between selector contacts shows that the unique selector traverses first the gadget for edge $(0,1)$ in the "only vertex 1 chosen" mode and then the gadget for edge $(1,2)$ in the same mode, visiting every one of the 25 target vertices exactly once. Extracting the selector-adjacent path endpoints returns the source cover $(#dmvc_hc_sol.source_config.map(str).join(", ")) = {1}$, which indeed covers both source edges #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical Hamiltonian circuit. Rotating or reversing that same cycle yields equivalent target witnesses with the same extracted cover.
+  ],
+)[
+  Garey and Johnson's Theorem 3.4 replaces each source edge by a 12-vertex cover-testing gadget and uses $k$ selector vertices to choose $k$ source vertices whose incident gadget-paths together cover every gadget @garey1979. In the unit-weight decision setting, the constructed graph is Hamiltonian iff the source graph has a vertex cover of size at most $k$.
+][
+  _Construction._ Let the source be a unit-weight Decision Minimum Vertex Cover instance $(G = (V, E), k)$ with $G$ simple. For each edge $e = {u, v} in E$, create a gadget with vertices $(u, e, i)$ and $(v, e, i)$ for $1 <= i <= 6$. Add the two 6-chains on the $u$-side and $v$-side together with the four cross edges ${(u, e, 3), (v, e, 1)}$, ${(v, e, 3), (u, e, 1)}$, ${(u, e, 6), (v, e, 4)}$, and ${(v, e, 6), (u, e, 4)}$. For every source vertex $v$, order its incident edges as $e_(v[1]), dots, e_(v[deg(v)])$ and connect ${(v, e_(v[i]), 6), (v, e_(v[i+1]), 1)}$ for $1 <= i < deg(v)$, forming one path that contains exactly the gadget copies labeled by $v$. Finally add selector vertices $a_1, dots, a_k$ and join each selector to both endpoints of every non-isolated vertex-path. Thus the theorem branch has $k + 12|E|$ vertices and $14|E| + sum_(v in V^+) (deg(v)-1) + 2k|V^+|$ edges, where $V^+ = {v in V : deg(v) > 0}$.
+
+  _Correctness._ ($arrow.r.double$) Suppose $C subseteq V$ is a vertex cover with $|C| <= k$. Because all weights are 1, we may pad $C$ with arbitrary additional non-isolated vertices until it has exactly $k$ elements, say $v_1, dots, v_k$. For every edge gadget $e = {u, v}$, traverse it in one of the three gadget modes from @garey1979: if only $u in C$, follow the unique Hamiltonian path from $(u, e, 1)$ to $(u, e, 6)$ through all 12 gadget vertices; if only $v in C$, use the symmetric path from $(v, e, 1)$ to $(v, e, 6)$ through all 12 vertices; if both endpoints lie in $C$, use the two disjoint side paths from $(u, e, 1)$ to $(u, e, 6)$ and from $(v, e, 1)$ to $(v, e, 6)$. Chaining these gadget traversals along the paths for $v_1, dots, v_k$ and connecting consecutive paths through the selectors yields a Hamiltonian circuit of the target graph. ($arrow.l.double$) Suppose the target graph has a Hamiltonian circuit. Each selector has degree two inside the circuit and therefore cuts the circuit into $k$ selector-to-selector segments. Inside any edge gadget, the circuit can appear only in the three modes above, so each segment must stay on the path corresponding to one source vertex. Mark a source vertex $v$ selected exactly when both endpoints of its path are adjacent to selectors in the Hamiltonian circuit. This selects exactly $k$ source vertices. Every edge gadget must be completely visited, and that is possible only if at least one of its endpoint paths is selected, so every source edge has a selected endpoint. Hence the extracted set is a vertex cover of size at most $k$.
+
+  _Solution extraction._ Given a Hamiltonian circuit witness, inspect the two endpoints of each source vertex-path. Set $x_v = 1$ iff both path endpoints are adjacent to selector vertices in the cycle; otherwise set $x_v = 0$. The resulting indicator vector is a valid source-side vertex cover.
+]
+
 #let ksat_mvc = load-example("KSatisfiability", "MinimumVertexCover")
 #let ksat_mvc_sol = ksat_mvc.solutions.at(0)
 #reduction-rule("KSatisfiability", "MinimumVertexCover",
