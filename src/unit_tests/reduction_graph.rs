@@ -2,6 +2,7 @@
 
 use crate::models::decision::Decision;
 use crate::models::formula::KSatisfiability;
+use crate::models::misc::Clustering;
 use crate::prelude::*;
 use crate::rules::{MinimizeSteps, ReductionGraph, ReductionMode, TraversalFlow};
 use crate::topology::{KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
@@ -29,6 +30,13 @@ fn test_reduction_graph_discovers_registered_reductions() {
     assert!(graph.has_direct_reduction_by_name("MaximumIndependentSet", "MinimumVertexCover"));
     assert!(graph.has_direct_reduction_by_name("MaxCut", "SpinGlass"));
     assert!(graph.has_direct_reduction_by_name("Satisfiability", "MaximumIndependentSet"));
+}
+
+#[test]
+fn test_reduction_graph_discovers_k3coloring_to_clustering() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction::<KColoring<K3, SimpleGraph>, Clustering>());
 }
 
 // ---- Path finding (by name) ----

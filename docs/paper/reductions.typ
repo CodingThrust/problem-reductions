@@ -15006,7 +15006,18 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Given a partition $V_0, dots, V_(k-1)$ into cliques, assign color $i$ to every vertex in $V_i$.
 ]
 
-// 4. PartitionIntoCliques → MinimumCoveringByCliques (#889)
+// 4. KColoring → Clustering (#924)
+#reduction-rule("KColoring", "Clustering")[
+  This $O(n^2)$ reduction @garey1979[MS9] @brucker1978clustering keeps the vertex set as the ground set, assigns distance 1 to adjacent pairs and distance 0 to nonadjacent pairs, and fixes $K = 3$ and $B = 0$. A feasible clustering is therefore exactly a partition of the graph into at most three independent sets.
+][
+  _Construction._ Given a 3-Coloring instance $(G = (V, E), 3)$, build a Clustering instance on the same ground set $X = V$. Set $d(u, v) = 1$ if ${u, v} in E$, set $d(u, v) = 0$ if ${u, v} in.not E$, and set $d(u, u) = 0$ for every vertex $u$. Set the cluster bound to $K = 3$ and the diameter bound to $B = 0$.
+
+  _Correctness._ ($arrow.r.double$) A proper 3-coloring partitions $V$ into at most three color classes, and each color class is an independent set. Because independent sets contain no adjacent pair, every two vertices inside one color class have distance 0, so these classes form a feasible clustering. ($arrow.l.double$) Conversely, a feasible clustering with $B = 0$ puts only distance-0 pairs in the same cluster. By construction distance 0 means nonadjacent, so every cluster is an independent set. Assigning one color per cluster yields a proper 3-coloring.
+
+  _Solution extraction._ Read the cluster label of each source vertex as its color label.
+]
+
+// 5. PartitionIntoCliques → MinimumCoveringByCliques (#889)
 #let pic_mcbc = load-example("PartitionIntoCliques", "MinimumCoveringByCliques")
 #let pic_mcbc_sol = pic_mcbc.solutions.at(0)
 #reduction-rule("PartitionIntoCliques", "MinimumCoveringByCliques",
@@ -15046,7 +15057,7 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Inspect the label assigned to each matching edge $x_i y_i$. Compress the distinct matching-edge labels to $0, dots, k-1$ and assign source vertex $v_i$ to the compressed label of its matching edge. The previous paragraph proves that these label classes are source cliques, and the forced gadget/side cliques guarantee $k <= K$ whenever the target cover has size at most $K + 2m + 2$.
 ]
 
-// 5. KSatisfiability → Kernel (#882)
+// 6. KSatisfiability → Kernel (#882)
 #let ksat_ker = load-example("KSatisfiability", "Kernel")
 #let ksat_ker_sol = ksat_ker.solutions.at(0)
 #reduction-rule("KSatisfiability", "Kernel",
@@ -15091,7 +15102,7 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Read only the positive literal vertices: $alpha(x_i) = 1$ iff the even-indexed vertex for $x_i$ is in the kernel. Any selected clause vertices are ignored during extraction.
 ]
 
-// 5. HamiltonianPath → DegreeConstrainedSpanningTree (#911)
+// 7. HamiltonianPath → DegreeConstrainedSpanningTree (#911)
 #let hp_dcst = load-example("HamiltonianPath", "DegreeConstrainedSpanningTree")
 #let hp_dcst_sol = hp_dcst.solutions.at(0)
 #reduction-rule("HamiltonianPath", "DegreeConstrainedSpanningTree",
@@ -15123,7 +15134,7 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Collect the selected edges, find an endpoint (degree 1 vertex), walk the path to produce the vertex permutation.
 ]
 
-// 6. NAESatisfiability → SetSplitting (#382)
+// 8. NAESatisfiability → SetSplitting (#382)
 #let nae_ss = load-example("NAESatisfiability", "SetSplitting")
 #let nae_ss_sol = nae_ss.solutions.at(0)
 #reduction-rule("NAESatisfiability", "SetSplitting",
