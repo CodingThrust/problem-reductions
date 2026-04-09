@@ -64,6 +64,7 @@ pub(crate) mod ksatisfiability_monochromatictriangle;
 pub(crate) mod ksatisfiability_oneinthreesatisfiability;
 pub(crate) mod ksatisfiability_preemptivescheduling;
 pub(crate) mod ksatisfiability_quadraticcongruences;
+pub(crate) mod ksatisfiability_quadraticdiophantineequations;
 pub(crate) mod ksatisfiability_qubo;
 pub(crate) mod ksatisfiability_registersufficiency;
 pub(crate) mod ksatisfiability_simultaneousincongruences;
@@ -436,6 +437,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(ksatisfiability_oneinthreesatisfiability::canonical_rule_example_specs());
     specs.extend(ksatisfiability_preemptivescheduling::canonical_rule_example_specs());
     specs.extend(ksatisfiability_quadraticcongruences::canonical_rule_example_specs());
+    specs.extend(ksatisfiability_quadraticdiophantineequations::canonical_rule_example_specs());
     specs.extend(ksatisfiability_qubo::canonical_rule_example_specs());
     specs.extend(ksatisfiability_registersufficiency::canonical_rule_example_specs());
     specs.extend(ksatisfiability_simultaneousincongruences::canonical_rule_example_specs());
