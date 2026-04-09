@@ -624,13 +624,14 @@ impl ReductionGraph {
         target_variant: &BTreeMap<String, String>,
         limit: usize,
     ) -> Vec<ReductionPath> {
-        self.find_paths_up_to_mode(
+        self.find_paths_up_to_mode_bounded(
             source,
             source_variant,
             target,
             target_variant,
             ReductionMode::Witness,
             limit,
+            None,
         )
     }
 
@@ -645,6 +646,29 @@ impl ReductionGraph {
         mode: ReductionMode,
         limit: usize,
     ) -> Vec<ReductionPath> {
+        self.find_paths_up_to_mode_bounded(
+            source,
+            source_variant,
+            target,
+            target_variant,
+            mode,
+            limit,
+            None,
+        )
+    }
+
+    /// Like [`find_paths_up_to_mode`](Self::find_paths_up_to_mode) but also
+    /// bounds the number of intermediate nodes in each enumerated path.
+    pub fn find_paths_up_to_mode_bounded(
+        &self,
+        source: &str,
+        source_variant: &BTreeMap<String, String>,
+        target: &str,
+        target_variant: &BTreeMap<String, String>,
+        mode: ReductionMode,
+        limit: usize,
+        max_intermediate_nodes: Option<usize>,
+    ) -> Vec<ReductionPath> {
         let src = match self.lookup_node(source, source_variant) {
             Some(idx) => idx,
             None => return vec![],
@@ -658,7 +682,7 @@ impl ReductionGraph {
             Vec<NodeIndex>,
             _,
             std::hash::RandomState,
-        >(&self.graph, src, dst, 0, None)
+        >(&self.graph, src, dst, 0, max_intermediate_nodes)
         .take(limit)
         .collect();
 

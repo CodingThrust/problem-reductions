@@ -343,15 +343,21 @@ pub fn compare_overhead(
 pub fn find_dominated_rules(
     graph: &ReductionGraph,
 ) -> (Vec<DominatedRule>, Vec<UnknownComparison>) {
+    const MAX_PATHS_PER_EDGE: usize = 1024;
+    const MAX_INTERMEDIATE_NODES: usize = 6;
+
     let mut dominated = Vec::new();
     let mut unknown = Vec::new();
 
     for edge_info in all_edges(graph) {
-        let paths = graph.find_all_paths(
+        let paths = graph.find_paths_up_to_mode_bounded(
             edge_info.source_name,
             &edge_info.source_variant,
             edge_info.target_name,
             &edge_info.target_variant,
+            crate::rules::graph::ReductionMode::Witness,
+            MAX_PATHS_PER_EDGE,
+            Some(MAX_INTERMEDIATE_NODES),
         );
 
         let mut best_dominating: Option<(ReductionPath, ReductionOverhead, Vec<String>)> = None;
