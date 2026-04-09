@@ -82,6 +82,7 @@ mod maximumindependentset_triangular;
 pub(crate) mod maximummatching_maximumsetpacking;
 mod maximumsetpacking_casts;
 pub(crate) mod maximumsetpacking_qubo;
+pub(crate) mod minimumfeedbackarcset_maximumlikelihoodranking;
 pub(crate) mod minimummultiwaycut_qubo;
 pub(crate) mod minimumvertexcover_ensemblecomputation;
 pub(crate) mod minimumvertexcover_longestcommonsubsequence;
@@ -478,6 +479,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         threepartition_sequencingwithreleasetimesanddeadlines::canonical_rule_example_specs(),
     );
     specs.extend(minimumvertexcover_ensemblecomputation::canonical_rule_example_specs());
+    specs.extend(minimumfeedbackarcset_maximumlikelihoodranking::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_longestcommonsubsequence::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_maximumindependentset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimummaximalmatching::canonical_rule_example_specs());
