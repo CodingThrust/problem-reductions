@@ -154,9 +154,23 @@ fn test_maximum_likelihood_ranking_nonzero_diagonal_panics() {
 }
 
 #[test]
-#[should_panic(expected = "off-diagonal entries must be non-negative")]
-fn test_maximum_likelihood_ranking_negative_off_diagonal_panics() {
-    MaximumLikelihoodRanking::new(vec![vec![0, -1], vec![6, 0]]);
+fn test_maximum_likelihood_ranking_skew_symmetric() {
+    // c = 0: skew-symmetric matrix (a_ij = -a_ji)
+    // Encodes a directed 3-cycle: 0->1, 1->2, 2->0
+    let matrix = vec![
+        vec![0, 1, -1],
+        vec![-1, 0, 1],
+        vec![1, -1, 0],
+    ];
+    let problem = MaximumLikelihoodRanking::new(matrix);
+    assert_eq!(problem.comparison_count(), 0);
+    // Ranking [0,1,2]: 1 backward arc (2->0, cost +1), 2 forward arcs (cost -1 each)
+    // Total = 1 + (-1) + (-1) = -1 = 2*FAS - |A| = 2*1 - 3
+    assert_eq!(problem.evaluate(&[0, 1, 2]), Min(Some(-1)));
+    // Optimal FAS = 1, so minimum cost = 2*1 - 3 = -1
+    let solver = BruteForce::new();
+    let solution = solver.find_witness(&problem).unwrap();
+    assert_eq!(problem.evaluate(&solution), Min(Some(-1)));
 }
 
 #[test]
