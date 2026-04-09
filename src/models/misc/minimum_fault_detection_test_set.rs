@@ -1,7 +1,8 @@
 //! Minimum Fault Detection Test Set problem implementation.
 //!
 //! Given a directed acyclic graph with designated input and output vertices,
-//! find the minimum set of input-output pairs whose coverage sets cover all vertices.
+//! find the minimum set of input-output pairs whose coverage sets cover all
+//! internal vertices.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
@@ -16,7 +17,7 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),
-        description: "Find minimum set of input-output paths covering all DAG vertices",
+        description: "Find minimum set of input-output paths covering all internal DAG vertices",
         fields: &[
             FieldInfo { name: "num_vertices", type_name: "usize", description: "Number of vertices in the DAG" },
             FieldInfo { name: "arcs", type_name: "Vec<(usize, usize)>", description: "Directed arcs (u, v)" },
@@ -31,10 +32,11 @@ inventory::submit! {
 /// Given a directed acyclic graph G = (V, A) with designated input vertices
 /// I ⊆ V and output vertices O ⊆ V, find the minimum number of input-output
 /// pairs (i, o) ∈ I × O such that the union of their coverage sets covers
-/// all vertices V.
+/// every internal vertex V \ (I ∪ O).
 ///
 /// For a pair (i, o), the coverage set is the set of vertices reachable from i
-/// that can also reach o (i.e., vertices on some i-to-o path).
+/// that can also reach o (i.e., vertices on some i-to-o path). Inputs and
+/// outputs themselves are not required to be covered.
 ///
 /// The configuration space is binary over all |I| × |O| pairs.
 ///
@@ -286,18 +288,33 @@ impl Problem for MinimumFaultDetectionTestSet {
             return Min(None);
         }
 
-        // Collect union of coverage sets for selected pairs
+        let mut boundary = vec![false; self.num_vertices];
+        for &input in &self.inputs {
+            boundary[input] = true;
+        }
+        for &output in &self.outputs {
+            boundary[output] = true;
+        }
+        let required_internal_vertices =
+            boundary.iter().filter(|&&is_boundary| !is_boundary).count();
+
+        // Collect union of internal vertices covered by the selected pairs.
         let mut covered: HashSet<usize> = HashSet::new();
         let mut count = 0usize;
         for (idx, &sel) in config.iter().enumerate() {
             if sel == 1 {
                 count += 1;
-                covered.extend(&self.coverage[idx]);
+                covered.extend(
+                    self.coverage[idx]
+                        .iter()
+                        .copied()
+                        .filter(|&vertex| !boundary[vertex]),
+                );
             }
         }
 
-        // Check all vertices are covered
-        if covered.len() == self.num_vertices {
+        // Check all internal vertices are covered.
+        if covered.len() == required_internal_vertices {
             Min(Some(count))
         } else {
             Min(None)
@@ -312,9 +329,10 @@ crate::declare_variants! {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     // 7 vertices, inputs={0,1}, outputs={5,6}
+    // Internal vertices are {2,3,4}
     // Arcs: (0,2),(0,3),(1,3),(1,4),(2,5),(3,5),(3,6),(4,6)
     // Pairs: (0,5)->{0,2,3,5}, (0,6)->{0,3,6}, (1,5)->{1,3,5}, (1,6)->{1,3,4,6}
-    // Config [1,0,0,1]: select pairs (0,5) and (1,6) -> covers all 7 -> Min(2)
+    // Config [1,0,0,1]: select pairs (0,5) and (1,6) -> covers all internal vertices -> Min(2)
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_fault_detection_test_set",
         instance: Box::new(MinimumFaultDetectionTestSet::new(

@@ -30,7 +30,7 @@
 //! - [`MinimumCodeGenerationParallelAssignments`]: Minimize backward dependencies when ordering parallel assignments
 //! - [`MinimumCodeGenerationUnlimitedRegisters`]: Minimize instruction count for an unlimited-register machine with 2-address instructions
 //! - [`MinimumExternalMacroDataCompression`]: Minimize compression cost using external dictionary
-//! - [`MinimumFaultDetectionTestSet`]: Find minimum set of input-output paths covering all DAG vertices
+//! - [`MinimumFaultDetectionTestSet`]: Find minimum set of input-output paths covering all internal DAG vertices
 //! - [`MinimumInternalMacroDataCompression`]: Minimize self-referencing compression cost
 //! - [`MinimumRegisterSufficiencyForLoops`]: Minimize registers for loop variable allocation (circular arc coloring)
 //! - [`MinimumWeightAndOrGraph`]: Find minimum-weight solution subgraph in a DAG with AND/OR gates

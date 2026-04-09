@@ -6634,11 +6634,11 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
   let count = sel-pairs.len()
   [
     #problem-def("MinimumFaultDetectionTestSet")[
-      Given a directed acyclic graph $G = (V, A)$ with $n = |V|$ vertices, designated input vertices $I subset.eq V$, and designated output vertices $O subset.eq V$, find the minimum number of input-output pairs $(i, o) in I times O$ such that the union of their coverage sets covers all vertices $V$. For a pair $(i, o)$, the coverage set is the set of vertices reachable from $i$ that can also reach $o$.
+      Given a directed acyclic graph $G = (V, A)$ with $n = |V|$ vertices, designated input vertices $I subset.eq V$, and designated output vertices $O subset.eq V$, find the minimum number of input-output pairs $(i, o) in I times O$ such that the union of their coverage sets covers every internal vertex in $V minus (I union O)$. For a pair $(i, o)$, the coverage set is the set of vertices reachable from $i$ that can also reach $o$.
     ][
-      Fault detection test sets arise in hardware testing: each input-output path through a circuit's DAG representation can detect faults at the vertices it traverses, and the goal is to find the fewest test paths that collectively exercise every component. The problem generalises Set Cover over a structured family of subsets induced by DAG reachability.#footnote[No algorithm improving on brute-force enumeration of all $2^(|I| dot |O|)$ input-output pair subsets is known for the general case.]
+      Fault detection test sets arise in hardware testing: each input-output path through a circuit's DAG representation exercises the internal components it traverses, while the boundary pins themselves are fixed sources and sinks. The problem therefore asks for the fewest test pairs whose induced paths cover all internal vertices. It generalises Set Cover over a structured family of subsets induced by DAG reachability.#footnote[No algorithm improving on brute-force enumeration of all $2^(|I| dot |O|)$ input-output pair subsets is known for the general case.]
 
-      *Example.* Consider $n = #n$ vertices with inputs $I = {#inputs.map(str).join(", ")}$ and outputs $O = {#outputs.map(str).join(", ")}$. Arcs: #{arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")}. Selecting pair $(#(inputs.at(0)), #(outputs.at(0)))$ covers ${0, 2, 3, 5}$, and pair $(#(inputs.at(1)), #(outputs.at(1)))$ covers ${1, 3, 4, 6}$. Their union is all $#n$ vertices, giving an optimal count of $#count$.
+      *Example.* Consider $n = #n$ vertices with inputs $I = {#inputs.map(str).join(", ")}$ and outputs $O = {#outputs.map(str).join(", ")}$. The internal vertices are ${2, 3, 4}$. Arcs: #{arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")}. Selecting pair $(#(inputs.at(0)), #(outputs.at(0)))$ covers internal vertices ${2, 3}$, and pair $(#(inputs.at(1)), #(outputs.at(1)))$ covers internal vertices ${3, 4}$. Their union is all internal vertices, giving an optimal count of $#count$.
 
       #pred-commands(
         "pred create --example MinimumFaultDetectionTestSet -o mfdts.json",
@@ -14837,6 +14837,41 @@ The following table shows concrete variable overhead for example instances, take
   _Correctness._ ($arrow.r.double$) An exact cover selects $q$ pairwise-disjoint sets, which is a maximum packing (no packing can exceed $q$ sets of size 3 over $3q$ elements). ($arrow.l.double$) A maximum packing of $q$ disjoint size-3 sets covers all $3q$ elements, hence is an exact cover.
 
   _Solution extraction._ The selection vector is unchanged.
+]
+
+#let x3c_mfdts = load-example("ExactCoverBy3Sets", "MinimumFaultDetectionTestSet")
+#let x3c_mfdts_sol = x3c_mfdts.solutions.at(0)
+#reduction-rule("ExactCoverBy3Sets", "MinimumFaultDetectionTestSet",
+  example: true,
+  example-caption: [#x3c_mfdts.source.instance.subsets.len() triples over $3q = #x3c_mfdts.source.instance.universe_size$ elements, with one shared output],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(x3c_mfdts.source) + " -o x3c.json",
+      "pred reduce x3c.json --to " + target-spec(x3c_mfdts) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate x3c.json --config " + x3c_mfdts_sol.source_config.map(str).join(","),
+    )
+
+    #let q = x3c_mfdts.source.instance.universe_size / 3
+    *Step 1 -- Source instance.* The X3C fixture has universe $U = {0, dots, #(x3c_mfdts.source.instance.universe_size - 1)}$ with $q = #q$ and triples
+    #for (i, s) in x3c_mfdts.source.instance.subsets.enumerate() [
+      $C_#i = {#s.map(str).join(", ")}$#if i < x3c_mfdts.source.instance.subsets.len() - 1 [, ] else [.]
+    ]
+
+    *Step 2 -- Build the fault-detection DAG.* Create one input vertex for each triple, one internal vertex for each universe element, and one shared output. The target therefore has $#x3c_mfdts.target.instance.num_vertices$ vertices, $#x3c_mfdts.target.instance.arcs.len()$ arcs, inputs ${#x3c_mfdts.target.instance.inputs.map(str).join(", ")}$, and output ${#x3c_mfdts.target.instance.outputs.map(str).join(", ")}$. Input $i_j$ connects to exactly the three internal vertices for elements in $C_j$, and every internal vertex connects to the shared output.
+
+    *Step 3 -- Verify the canonical witness.* The stored source configuration $(#x3c_mfdts_sol.source_config.map(str).join(", "))$ selects $C_0 = {#x3c_mfdts.source.instance.subsets.at(0).map(str).join(", ")}$ and $C_1 = {#x3c_mfdts.source.instance.subsets.at(1).map(str).join(", ")}$, which are disjoint and cover all six universe elements. The target configuration is identical: $(#x3c_mfdts_sol.target_config.map(str).join(", "))$. Pair $(0, #(x3c_mfdts.target.instance.outputs.at(0)))$ covers internal vertices ${0, 1, 2}$, pair $(1, #(x3c_mfdts.target.instance.outputs.at(0)))$ covers ${3, 4, 5}$, and together they cover every internal vertex with value $#q$ #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. Any target witness of value $q$ selects exactly $q$ inputs, and since each selected pair covers only 3 internal vertices while there are $3q$ internal vertices overall, those $q$ neighborhoods must be pairwise disjoint and form an exact cover.
+  ],
+)[
+  This $O(m + q)$ reduction adapts the classical X3C gadget behind Fault Detection in Directed Graphs @garey1979[MS18] to the repository's internal-vertex coverage semantics. It creates one input per source triple, one internal vertex per universe element, and one shared output, so the target has $m + 3q + 1$ vertices and $3m + 3q$ arcs. The X3C instance is a YES-instance if and only if the Minimum Fault Detection Test Set optimum is at most $q = |U| / 3$.
+][
+  _Construction._ Let the X3C instance be $(U, cal(C))$ with $|U| = 3q$ and $cal(C) = {C_0, dots, C_(m-1)}$, where each $C_j subset.eq U$ has size $3$. Create input vertices $i_0, dots, i_(m-1)$, internal vertices $e_u$ for every $u in U$, and one shared output vertex $o$. Add arcs $(i_j, e_u)$ exactly when $u in C_j$, and add $(e_u, o)$ for every $u in U$. The implemented target counts only internal vertices, so the coverage requirement applies precisely to the $3q$ vertices $e_u$.
+
+  _Correctness._ ($arrow.r.double$) If $cal(C)' subset.eq cal(C)$ is an exact cover, select the corresponding input-output pairs $(i_j, o)$. Each chosen pair covers exactly the three internal vertices $e_u$ with $u in C_j$, and the $q$ chosen triples partition $U$, so all $3q$ internal vertices are covered using $q$ pairs. ($arrow.l.double$) Suppose the target admits a witness of value at most $q$. Every selected pair covers at most three internal vertices, while there are $3q$ internal vertices to cover, so an optimal witness of value at most $q$ must in fact have value exactly $q$ and each selected pair must cover three previously uncovered internal vertices. Hence the corresponding source triples are pairwise disjoint and together cover all of $U$, yielding an exact cover.
+
+  _Solution extraction._ The target configuration has one coordinate per source triple (there is only one output), so the extraction map is the identity.
 ]
 
 #let x3c_mas = load-example("ExactCoverBy3Sets", "MinimumAxiomSet")

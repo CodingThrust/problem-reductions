@@ -49,7 +49,7 @@ fn test_minimum_fault_detection_test_set_evaluate_optimal() {
 
     // Config [1,0,0,1]: select pairs (0,5) and (1,6)
     // (0,5) covers {0,2,3,5}, (1,6) covers {1,3,4,6}
-    // Union = {0,1,2,3,4,5,6} = all 7 vertices -> Min(2)
+    // Internal vertices are {2,3,4}; both pairs together cover all three.
     assert_eq!(problem.evaluate(&[1, 0, 0, 1]), Min(Some(2)));
 }
 
@@ -58,11 +58,11 @@ fn test_minimum_fault_detection_test_set_evaluate_insufficient() {
     let problem = issue_problem();
 
     // Config [1,0,0,0]: select only pair (0,5)
-    // (0,5) covers {0,2,3,5} -> missing {1,4,6} -> Min(None)
+    // (0,5) covers internal vertices {2,3} -> missing {4} -> Min(None)
     assert_eq!(problem.evaluate(&[1, 0, 0, 0]), Min(None));
 
     // Config [0,0,0,1]: select only pair (1,6)
-    // (1,6) covers {1,3,4,6} -> missing {0,2,5} -> Min(None)
+    // (1,6) covers internal vertices {3,4} -> missing {2} -> Min(None)
     assert_eq!(problem.evaluate(&[0, 0, 0, 1]), Min(None));
 }
 
@@ -71,7 +71,7 @@ fn test_minimum_fault_detection_test_set_evaluate_all_pairs() {
     let problem = issue_problem();
 
     // Config [1,1,1,1]: select all 4 pairs
-    // Union covers all vertices -> Min(4)
+    // Union covers all internal vertices -> Min(4)
     assert_eq!(problem.evaluate(&[1, 1, 1, 1]), Min(Some(4)));
 }
 
@@ -81,6 +81,19 @@ fn test_minimum_fault_detection_test_set_evaluate_no_selection() {
 
     // No pairs selected -> nothing covered -> Min(None)
     assert_eq!(problem.evaluate(&[0, 0, 0, 0]), Min(None));
+}
+
+#[test]
+fn test_minimum_fault_detection_test_set_counts_only_internal_vertices() {
+    let problem = MinimumFaultDetectionTestSet::new(2, vec![(0, 1)], vec![0], vec![1]);
+
+    // With only an input and an output, there are no internal vertices to cover.
+    assert_eq!(problem.evaluate(&[0]), Min(Some(0)));
+    assert_eq!(problem.evaluate(&[1]), Min(Some(1)));
+
+    let solver = BruteForce::new();
+    use crate::solvers::Solver;
+    assert_eq!(solver.solve(&problem), Min(Some(0)));
 }
 
 #[test]
