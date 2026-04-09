@@ -93,6 +93,7 @@ pub(crate) mod minimumvertexcover_minimumfeedbackvertexset;
 pub(crate) mod minimumvertexcover_minimumhittingset;
 pub(crate) mod minimumvertexcover_minimummaximalmatching;
 pub(crate) mod minimumvertexcover_minimumsetcovering;
+pub(crate) mod minimumvertexcover_minimumweightandorgraph;
 pub(crate) mod naesatisfiability_maxcut;
 pub(crate) mod naesatisfiability_partitionintoperfectmatchings;
 pub(crate) mod naesatisfiability_setsplitting;
@@ -491,6 +492,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(minimumvertexcover_minimumfeedbackvertexset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumhittingset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumsetcovering::canonical_rule_example_specs());
+    specs.extend(minimumvertexcover_minimumweightandorgraph::canonical_rule_example_specs());
     specs.extend(naesatisfiability_setsplitting::canonical_rule_example_specs());
     specs.extend(setsplitting_betweenness::canonical_rule_example_specs());
     specs.extend(satisfiability_integralflowhomologousarcs::canonical_rule_example_specs());
