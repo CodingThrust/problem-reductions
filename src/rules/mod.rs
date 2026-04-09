@@ -17,6 +17,7 @@ pub(crate) mod decisionminimumdominatingset_minmaxmulticenter;
 pub(crate) mod decisionminimumvertexcover_hamiltoniancircuit;
 pub(crate) mod exactcoverby3sets_algebraicequationsovergf2;
 pub(crate) mod exactcoverby3sets_maximumsetpacking;
+pub(crate) mod exactcoverby3sets_minimumaxiomset;
 pub(crate) mod exactcoverby3sets_minimumweightsolutiontolinearequations;
 pub(crate) mod exactcoverby3sets_staffscheduling;
 pub(crate) mod exactcoverby3sets_subsetproduct;
@@ -387,6 +388,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_algebraicequationsovergf2::canonical_rule_example_specs());
+    specs.extend(exactcoverby3sets_minimumaxiomset::canonical_rule_example_specs());
     specs.extend(
         exactcoverby3sets_minimumweightsolutiontolinearequations::canonical_rule_example_specs(),
     );

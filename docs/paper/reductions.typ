@@ -9268,7 +9268,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
 ][
   _Construction._ Given a unit-weight decision dominating-set instance $(G = (V, E), K)$, build a Min-Max Multicenter instance on the same graph $G$. Set $w(v) = 1$ for every vertex, set $l(e) = 1$ for every edge, and set the number of centers to $k = K$.
 
-  _Correctness._ ($arrow.r.double$) If $D subseteq V$ is a dominating set with $|D| <= K$, pad $D$ with arbitrary additional vertices until exactly $K$ centers are chosen. Every vertex is then either a center (distance $0$) or adjacent to one (distance $1$), so the target maximum weighted distance is at most $1$. ($arrow.l.double$) If a set $P subseteq V$ of exactly $K$ centers has maximum weighted distance at most $1$, then every vertex lies at graph distance $0$ or $1$ from some vertex of $P$. Hence every vertex is either in $P$ or adjacent to a vertex of $P$, so $P$ is a dominating set of size $K$.
+  _Correctness._ ($arrow.r.double$) If $D subset.eq V$ is a dominating set with $|D| <= K$, pad $D$ with arbitrary additional vertices until exactly $K$ centers are chosen. Every vertex is then either a center (distance $0$) or adjacent to one (distance $1$), so the target maximum weighted distance is at most $1$. ($arrow.l.double$) If a set $P subset.eq V$ of exactly $K$ centers has maximum weighted distance at most $1$, then every vertex lies at graph distance $0$ or $1$ from some vertex of $P$. Hence every vertex is either in $P$ or adjacent to a vertex of $P$, so $P$ is a dominating set of size $K$.
 
   _Solution extraction._ Return the same indicator vector: every chosen target center becomes a chosen source dominating-set vertex.
 ]
@@ -9303,9 +9303,9 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
 ][
   _Construction._ Given a decision dominating-set instance $(G = (V, E), K)$ with unit vertex weights, build a Minimum Sum Multicenter instance on the same graph $G$. Set $w(v) = 1$ for every vertex, set $l(e) = 1$ for every edge, and set the number of centers to $k = K$. Let $n = |V|$, and define the decision threshold $B = n - K$ for the target optimum.
 
-  _Correctness._ ($arrow.r.double$) If $D subseteq V$ is a dominating set with $|D| <= K$, pad $D$ with arbitrary additional vertices until exactly $K$ centers are chosen. Every chosen center contributes distance $0$, and every non-center vertex is adjacent to at least one chosen center, so every non-center contributes distance $1$. Hence the total weighted distance is exactly $n - K = B$.
+  _Correctness._ ($arrow.r.double$) If $D subset.eq V$ is a dominating set with $|D| <= K$, pad $D$ with arbitrary additional vertices until exactly $K$ centers are chosen. Every chosen center contributes distance $0$, and every non-center vertex is adjacent to at least one chosen center, so every non-center contributes distance $1$. Hence the total weighted distance is exactly $n - K = B$.
 
-  ($arrow.l.double$) Suppose a set $P subseteq V$ of exactly $K$ centers has total weighted distance at most $B = n - K$. Every non-center vertex has distance at least $1$ from $P$, so any exact-$K$ center placement has total distance at least $n - K$. Therefore total distance at most $n - K$ forces equality, meaning every non-center contributes exactly $1$. Thus every non-center vertex is adjacent to some center in $P$, so $P$ is a dominating set of size $K$.
+  ($arrow.l.double$) Suppose a set $P subset.eq V$ of exactly $K$ centers has total weighted distance at most $B = n - K$. Every non-center vertex has distance at least $1$ from $P$, so any exact-$K$ center placement has total distance at least $n - K$. Therefore total distance at most $n - K$ forces equality, meaning every non-center contributes exactly $1$. Thus every non-center vertex is adjacent to some center in $P$, so $P$ is a dominating set of size $K$.
 
   _Solution extraction._ Return the same indicator vector: every chosen target center becomes a chosen source dominating-set vertex.
 ]
@@ -13968,7 +13968,7 @@ The following table shows concrete variable overhead for example instances, take
 ][
   _Construction._ Let the source be a unit-weight Decision Minimum Vertex Cover instance $(G = (V, E), k)$ with $G$ simple. For each edge $e = {u, v} in E$, create a gadget with vertices $(u, e, i)$ and $(v, e, i)$ for $1 <= i <= 6$. Add the two 6-chains on the $u$-side and $v$-side together with the four cross edges ${(u, e, 3), (v, e, 1)}$, ${(v, e, 3), (u, e, 1)}$, ${(u, e, 6), (v, e, 4)}$, and ${(v, e, 6), (u, e, 4)}$. For every source vertex $v$, order its incident edges as $e_(v[1]), dots, e_(v[deg(v)])$ and connect ${(v, e_(v[i]), 6), (v, e_(v[i+1]), 1)}$ for $1 <= i < deg(v)$, forming one path that contains exactly the gadget copies labeled by $v$. Finally add selector vertices $a_1, dots, a_k$ and join each selector to both endpoints of every non-isolated vertex-path. Thus the theorem branch has $k + 12|E|$ vertices and $14|E| + sum_(v in V^+) (deg(v)-1) + 2k|V^+|$ edges, where $V^+ = {v in V : deg(v) > 0}$.
 
-  _Correctness._ ($arrow.r.double$) Suppose $C subseteq V$ is a vertex cover with $|C| <= k$. Because all weights are 1, we may pad $C$ with arbitrary additional non-isolated vertices until it has exactly $k$ elements, say $v_1, dots, v_k$. For every edge gadget $e = {u, v}$, traverse it in one of the three gadget modes from @garey1979: if only $u in C$, follow the unique Hamiltonian path from $(u, e, 1)$ to $(u, e, 6)$ through all 12 gadget vertices; if only $v in C$, use the symmetric path from $(v, e, 1)$ to $(v, e, 6)$ through all 12 vertices; if both endpoints lie in $C$, use the two disjoint side paths from $(u, e, 1)$ to $(u, e, 6)$ and from $(v, e, 1)$ to $(v, e, 6)$. Chaining these gadget traversals along the paths for $v_1, dots, v_k$ and connecting consecutive paths through the selectors yields a Hamiltonian circuit of the target graph. ($arrow.l.double$) Suppose the target graph has a Hamiltonian circuit. Each selector has degree two inside the circuit and therefore cuts the circuit into $k$ selector-to-selector segments. Inside any edge gadget, the circuit can appear only in the three modes above, so each segment must stay on the path corresponding to one source vertex. Mark a source vertex $v$ selected exactly when both endpoints of its path are adjacent to selectors in the Hamiltonian circuit. This selects exactly $k$ source vertices. Every edge gadget must be completely visited, and that is possible only if at least one of its endpoint paths is selected, so every source edge has a selected endpoint. Hence the extracted set is a vertex cover of size at most $k$.
+  _Correctness._ ($arrow.r.double$) Suppose $C subset.eq V$ is a vertex cover with $|C| <= k$. Because all weights are 1, we may pad $C$ with arbitrary additional non-isolated vertices until it has exactly $k$ elements, say $v_1, dots, v_k$. For every edge gadget $e = {u, v}$, traverse it in one of the three gadget modes from @garey1979: if only $u in C$, follow the unique Hamiltonian path from $(u, e, 1)$ to $(u, e, 6)$ through all 12 gadget vertices; if only $v in C$, use the symmetric path from $(v, e, 1)$ to $(v, e, 6)$ through all 12 vertices; if both endpoints lie in $C$, use the two disjoint side paths from $(u, e, 1)$ to $(u, e, 6)$ and from $(v, e, 1)$ to $(v, e, 6)$. Chaining these gadget traversals along the paths for $v_1, dots, v_k$ and connecting consecutive paths through the selectors yields a Hamiltonian circuit of the target graph. ($arrow.l.double$) Suppose the target graph has a Hamiltonian circuit. Each selector has degree two inside the circuit and therefore cuts the circuit into $k$ selector-to-selector segments. Inside any edge gadget, the circuit can appear only in the three modes above, so each segment must stay on the path corresponding to one source vertex. Mark a source vertex $v$ selected exactly when both endpoints of its path are adjacent to selectors in the Hamiltonian circuit. This selects exactly $k$ source vertices. Every edge gadget must be completely visited, and that is possible only if at least one of its endpoint paths is selected, so every source edge has a selected endpoint. Hence the extracted set is a vertex cover of size at most $k$.
 
   _Solution extraction._ Given a Hamiltonian circuit witness, inspect the two endpoints of each source vertex-path. Set $x_v = 1$ iff both path endpoints are adjacent to selector vertices in the cycle; otherwise set $x_v = 0$. The resulting indicator vector is a valid source-side vertex cover.
 ]
@@ -14166,7 +14166,7 @@ The following table shows concrete variable overhead for example instances, take
 )[
   Sethi's Reduction I / Theorem 3.11 @sethi1975 @garey1979[PO1] builds a dependency DAG whose register pressure mirrors a literal-assignment phase followed by a clause-verification phase. For a 3-CNF formula with $n$ variables, $m$ clauses, and $b = max(0, 2n - m)$, the target has $3n^2 + 9n + 4m + b + 4$ vertices, $6n^2 + 19n + 16m + 2b + 1$ arcs, and register bound $K = 3m + 4n + 1 + b$.
 ][
-  _Construction._ Let $phi = and_(i=1)^m C_i$ be a 3-CNF formula over variables $x_1, dots, x_n$, where $C_i = (Y_(i,1) or Y_(i,2) or Y_(i,3))$. Define $b = max(0, 2n - m)$. Create node families $A = {a_j : 1 <= j <= 2n+1}$, $B = {b_j : 1 <= j <= b}$, $C = {c_i : 1 <= i <= m}$, $F = {f_(i,j) : 1 <= i <= m, 1 <= j <= 3}$, $M = {initial, d, final}$, $R = {r_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+2}$, $S = {s_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+1}$, $T = {t_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+1}$, $U = {u_(k,1), u_(k,2) : 1 <= k <= n}$, $W = {w_k : 1 <= k <= n}$, $X = {x_k^+, x_k^- : 1 <= k <= n}$, and $Z = {z_k : 1 <= k <= n}$. Add the ten arc families from Sethi's theorem exactly as stated in the issue: $initial$ depends on every node in $A union B union F union U$, every node in $C union R union S union T union W$ depends on $initial$, $final$ depends on $W union X union Z union {initial, d}$, each variable gadget links $x_k^+$ and $x_k^-$ to $z_k$, $u_(k,1)$, $u_(k,2)$, $s_(k,*)$, $t_(k,*)$, $r_(k,*)$, and each clause gadget links $c_i$ to $w_n$, $z_n$, its three $f_(i,j)$ nodes, and the literal-lock edges determined by whether $Y_(i,j)$ is positive or negative.
+  _Construction._ Let $phi = and_(i=1)^m C_i$ be a 3-CNF formula over variables $x_1, dots, x_n$, where $C_i = (Y_(i,1) or Y_(i,2) or Y_(i,3))$. Define $b = max(0, 2n - m)$. Create node families $A = {a_j : 1 <= j <= 2n+1}$, $B = {b_j : 1 <= j <= b}$, $C = {c_i : 1 <= i <= m}$, $F = {f_(i,j) : 1 <= i <= m, 1 <= j <= 3}$, $M = {"initial", d, "final"}$, $R = {r_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+2}$, $S = {s_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+1}$, $T = {t_(k,j) : 1 <= k <= n, 1 <= j <= 2n-2k+1}$, $U = {u_(k,1), u_(k,2) : 1 <= k <= n}$, $W = {w_k : 1 <= k <= n}$, $X = {x_k^+, x_k^- : 1 <= k <= n}$, and $Z = {z_k : 1 <= k <= n}$. Add the ten arc families from Sethi's theorem exactly as stated in the issue: $"initial"$ depends on every node in $A union B union F union U$, every node in $C union R union S union T union W$ depends on $"initial"$, $"final"$ depends on $W union X union Z union {"initial", d}$, each variable gadget links $x_k^+$ and $x_k^-$ to $z_k$, $u_(k,1)$, $u_(k,2)$, $s_(k,*)$, $t_(k,*)$, $r_(k,*)$, and each clause gadget links $c_i$ to $w_n$, $z_n$, its three $f_(i,j)$ nodes, and the literal-lock edges determined by whether $Y_(i,j)$ is positive or negative.
 
   _Correctness._ ($arrow.r.double$) Suppose $phi$ is satisfiable under assignment $tau$. Execute Sethi's eight-stage schedule. In the variable phase, the chain gadgets force a choice between the positive and negative side of each variable, and the schedule can be arranged so that by the moment $w_n$ is computed, $x_k^+$ has appeared iff $tau(x_k) = 1$. Because every clause has a satisfied literal, the corresponding $f_(i,j)$ node is unlocked during the clause phase, and the lock edges from the opposite literals prevent incompatible clause traversals. Sethi proves that this entire computation uses at most $K$ registers, so the target Register Sufficiency instance is feasible.
 
@@ -14839,6 +14839,52 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The selection vector is unchanged.
 ]
 
+#let x3c_mas = load-example("ExactCoverBy3Sets", "MinimumAxiomSet")
+#let x3c_mas_sol = x3c_mas.solutions.at(0)
+#reduction-rule("ExactCoverBy3Sets", "MinimumAxiomSet",
+  example: true,
+  example-caption: [#x3c_mas.source.instance.subsets.len() triples over $3q = #x3c_mas.source.instance.universe_size$ elements, with decision bound $q = #(x3c_mas.source.instance.universe_size / 3)$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(x3c_mas.source) + " -o x3c.json",
+      "pred reduce x3c.json --to " + target-spec(x3c_mas) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate x3c.json --config " + x3c_mas_sol.source_config.map(str).join(","),
+    )
+
+    #let x3c_mas_q = x3c_mas.source.instance.universe_size / 3
+    *Step 1 -- Source instance.* The X3C fixture has universe $U = {0, dots, #(x3c_mas.source.instance.universe_size - 1)}$ with $q = #x3c_mas_q$ and candidate triples
+    #for (i, s) in x3c_mas.source.instance.subsets.enumerate() [
+      $C_#i = {#s.map(str).join(", ")}$#if i < x3c_mas.source.instance.subsets.len() - 1 [, ] else [.]
+    ]
+
+    *Step 2 -- Build the axiom system.* Create one element-sentence for each universe element and one set-sentence for each triple, so the target has $#x3c_mas.target.instance.num_sentences$ sentences and $#x3c_mas.target.instance.true_sentences.len()$ true sentences. Each triple contributes three forward implications and one backward implication, giving $#x3c_mas.target.instance.implications.len()$ implications total. The optimization instance itself stores only the axiom-system data; the X3C bound $q = #x3c_mas_q$ is checked externally against the optimum target value.
+
+    *Step 3 -- Verify the canonical witness.* The stored source config $(#x3c_mas_sol.source_config.map(str).join(", "))$ selects $C_3 = {#x3c_mas.source.instance.subsets.at(3).map(str).join(", ")}$ and $C_4 = {#x3c_mas.source.instance.subsets.at(4).map(str).join(", ")}$. These two triples are disjoint and cover all six universe elements #sym.checkmark. The target axiom vector $(#x3c_mas_sol.target_config.map(str).join(", "))$ selects exactly the set-sentence coordinates $#(x3c_mas.source.instance.universe_size + 3)$ and $#(x3c_mas.source.instance.universe_size + 4)$, namely $z_3$ and $z_4$. One closure round derives every element-sentence $e_0, dots, e_5$; then the backward rules derive the remaining set-sentences $z_0, z_1, z_2$, so the closure equals all $#x3c_mas.target.instance.true_sentences.len()$ true sentences. This witness therefore attains value $#x3c_mas_q$ #sym.checkmark, and extracting the chosen set-sentence coordinates recovers the exact cover.
+
+    *Multiplicity:* The fixture stores one canonical witness. Any target witness of value $q$ must select exactly $q$ set-sentences and no element-sentences, because each direct element axiom lowers the maximum possible element coverage by two.
+  ],
+)[
+  This $O(m)$ reduction @garey1979[LO17] encodes each source triple as a set-sentence with three forward implications to its elements and one backward implication from those three element-sentences back to the set-sentence. The target has $3q + m$ sentences and $4m$ implications, and the X3C instance is a YES-instance if and only if the Minimum Axiom Set optimum is at most $q = |U| / 3$.
+][
+  _Construction._ Let the X3C instance be $(U, cal(C))$ with $|U| = 3q$ and $cal(C) = {C_0, dots, C_(m-1)}$, where each $C_j = {a_j, b_j, c_j}$ has size $3$. Create one element-sentence $e_u$ for each $u in U$ and one set-sentence $z_j$ for each $C_j$, and let $T = S$ be the full sentence set. For every triple $C_j = {a_j, b_j, c_j}$ add the four implications
+  $
+    ({z_j}, e_(a_j)), quad ({z_j}, e_(b_j)), quad ({z_j}, e_(c_j)), quad ({e_(a_j), e_(b_j), e_(c_j)}, z_j).
+  $
+
+  _Variable mapping._ Source coordinate $j$ corresponds to set-sentence $z_j$. The target configuration lists the $3q$ element-sentence coordinates first and the $m$ set-sentence coordinates second.
+
+  _Correctness._ ($arrow.r.double$) If $cal(C)' subset.eq cal(C)$ is an exact cover, then $|cal(C)'| = q$. Choose the corresponding set-sentences as the only axioms. Their forward implications derive all $3q$ element-sentences in one round because the cover spans $U$. Once every element-sentence is true, every backward implication fires, so every set-sentence becomes true and the full closure equals $T$. Hence the target optimum is at most $q$.
+
+  ($arrow.l.double$) Suppose some axiom set $A$ of size at most $q$ derives all of $T$. Write $A = E union Z$, where $E$ contains the chosen element-sentences and $Z$ the chosen set-sentences. Backward implications never create a new element-sentence: if a backward rule derives $z_j$, its antecedent already contains the three element-sentences of $C_j$, and the forward rules from $z_j$ only repeat those same elements. Therefore the closure's element-sentences are exactly the chosen element axioms together with the elements that lie in triples indexed by $Z$. Since the closure contains all $3q$ element-sentences,
+  $
+    3q <= |E| + 3 |Z| <= |E| + 3(q - |E|) = 3q - 2 |E|.
+  $
+  Thus $|E| = 0$ and then $|Z| = q$. Equality also forces the chosen triples to be pairwise disjoint and to cover all $3q$ elements, so the corresponding source subsets form an exact cover.
+
+  _Solution extraction._ Given a target axiom vector, keep only the coordinates of the set-sentences $z_0, dots, z_(m-1)$. On every optimal target witness of value $q$, these coordinates select exactly $q$ disjoint triples covering $U$, so they are an X3C witness.
+]
+
 // ── Batch of 18 reduction rules from derivation document ──
 
 // 1. SubsetSum → Partition (#973)
@@ -15035,7 +15081,7 @@ The following table shows concrete variable overhead for example instances, take
 
     *Step 2 -- Orlin construction.* The target graph has $#graph-num-vertices(pic_mcbc.target.instance)$ vertices and $#graph-num-edges(pic_mcbc.target.instance)$ edges. Because the source has two directed edge copies, the construction adds the gadgets $Q_(0,1)$ and $Q_(1,0)$, plus the side cliques $L^*$ and $R^*$. The threshold is $K' = K + 2m + 2 = #(pic_mcbc.source.instance.num_cliques + 2 * graph-num-edges(pic_mcbc.source.instance) + 2)$.
 
-    *Step 3 -- Verify the witness.* The target witness labels $#pic_mcbc_sol.target_config.len() target edges with 6 clique IDs, corresponding to $D_1 = {x_0, x_1, y_0, y_1}$, $D_2 = {x_2, y_2}$, $Q_(0,1)$, $Q_(1,0)$, $L^*$, and $R^*$. Reading only the labels on the matching edges $x_i y_i$ recovers the source partition $(#pic_mcbc_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+    *Step 3 -- Verify the witness.* The target witness labels $#pic_mcbc_sol.target_config.len()$ target edges with 6 clique IDs, corresponding to $D_1 = {x_0, x_1, y_0, y_1}$, $D_2 = {x_2, y_2}$, $Q_(0,1)$, $Q_(1,0)$, $L^*$, and $R^*$. Reading only the labels on the matching edges $x_i y_i$ recovers the source partition $(#pic_mcbc_sol.source_config.map(str).join(", "))$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness. Any permutation of the six target clique labels is equivalent.
   ],
