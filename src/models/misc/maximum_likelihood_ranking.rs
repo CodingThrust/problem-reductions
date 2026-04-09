@@ -1,8 +1,9 @@
 //! Maximum Likelihood Ranking problem implementation.
 //!
-//! Given an n x n comparison matrix A where a_ij + a_ji = c and a_ii = 0,
-//! find a permutation pi minimizing the total disagreement cost:
-//! sum over all position pairs (i > j) of a_{pi(i), pi(j)}.
+//! Given an n x n comparison matrix A where each off-diagonal entry is
+//! non-negative, a_ij + a_ji = c for every pair, and a_ii = 0, find a
+//! permutation pi minimizing the total disagreement cost: sum over all
+//! position pairs (i > j) of a_{pi(i), pi(j)}.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
@@ -18,16 +19,17 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Find a ranking minimizing total pairwise disagreement cost",
         fields: &[
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<i32>>", description: "Comparison matrix A (a_ij + a_ji = c, a_ii = 0)" },
+            FieldInfo { name: "matrix", type_name: "Vec<Vec<i32>>", description: "Comparison matrix A (off-diagonal entries >= 0, a_ij + a_ji = c, a_ii = 0)" },
         ],
     }
 }
 
 /// The Maximum Likelihood Ranking problem.
 ///
-/// Given an n x n comparison matrix A where a_ij + a_ji = c (constant)
-/// and a_ii = 0, find a permutation pi that minimizes the total
-/// disagreement cost: sum_{i > j} a_{pi(i), pi(j)}.
+/// Given an n x n comparison matrix A where each off-diagonal entry is
+/// non-negative, a_ij + a_ji = c (constant) for every pair, and a_ii = 0,
+/// find a permutation pi that minimizes the total disagreement cost:
+/// sum_{i > j} a_{pi(i), pi(j)}.
 ///
 /// Each item is assigned a rank position (0-indexed). The configuration
 /// maps item -> rank: `config[item] = rank`. The permutation pi maps
@@ -59,7 +61,9 @@ impl MaximumLikelihoodRanking {
     /// Create a new MaximumLikelihoodRanking instance.
     ///
     /// # Panics
-    /// Panics if the matrix is not square, or if any diagonal element is nonzero.
+    /// Panics if the matrix is not square, if any diagonal element is nonzero,
+    /// if any off-diagonal entry is negative, or if the pairwise sums
+    /// `a_ij + a_ji` are not the same constant for all `i != j`.
     pub fn new(matrix: Vec<Vec<i32>>) -> Self {
         let n = matrix.len();
         for (i, row) in matrix.iter().enumerate() {
@@ -74,7 +78,32 @@ impl MaximumLikelihoodRanking {
                 "diagonal entries must be zero: matrix[{i}][{i}] = {}",
                 row[i]
             );
+
+            for (j, &entry) in row.iter().enumerate() {
+                if i != j {
+                    assert!(
+                        entry >= 0,
+                        "off-diagonal entries must be non-negative: matrix[{i}][{j}] = {entry}"
+                    );
+                }
+            }
         }
+
+        let mut comparison_count = None;
+        for (i, row) in matrix.iter().enumerate() {
+            for (j, &entry) in row.iter().enumerate().skip(i + 1) {
+                let pair_sum = entry + matrix[j][i];
+                match comparison_count {
+                    None => comparison_count = Some(pair_sum),
+                    Some(expected) => assert_eq!(
+                        pair_sum,
+                        expected,
+                        "all off-diagonal pairs must have the same comparison count: matrix[{i}][{j}] + matrix[{j}][{i}] = {pair_sum}, expected {expected}"
+                    ),
+                }
+            }
+        }
+
         Self { matrix }
     }
 
@@ -86,6 +115,15 @@ impl MaximumLikelihoodRanking {
     /// Returns the number of items to rank.
     pub fn num_items(&self) -> usize {
         self.matrix.len()
+    }
+
+    /// Returns the constant pairwise comparison count `c`.
+    pub fn comparison_count(&self) -> i32 {
+        if self.matrix.len() < 2 {
+            0
+        } else {
+            self.matrix[0][1] + self.matrix[1][0]
+        }
     }
 }
 

@@ -13,6 +13,7 @@ fn test_maximum_likelihood_ranking_creation() {
     let problem = MaximumLikelihoodRanking::new(matrix.clone());
     assert_eq!(problem.num_items(), 4);
     assert_eq!(problem.matrix(), &matrix);
+    assert_eq!(problem.comparison_count(), 5);
     assert_eq!(problem.dims(), vec![4; 4]);
     assert_eq!(
         <MaximumLikelihoodRanking as Problem>::NAME,
@@ -135,6 +136,7 @@ fn test_maximum_likelihood_ranking_two_items() {
 fn test_maximum_likelihood_ranking_single_item() {
     let problem = MaximumLikelihoodRanking::new(vec![vec![0]]);
     assert_eq!(problem.num_items(), 1);
+    assert_eq!(problem.comparison_count(), 0);
     assert_eq!(problem.dims(), vec![1]);
     assert_eq!(problem.evaluate(&[0]), Min(Some(0)));
 }
@@ -149,6 +151,18 @@ fn test_maximum_likelihood_ranking_non_square_panics() {
 #[should_panic(expected = "diagonal entries must be zero")]
 fn test_maximum_likelihood_ranking_nonzero_diagonal_panics() {
     MaximumLikelihoodRanking::new(vec![vec![1, 2], vec![3, 0]]);
+}
+
+#[test]
+#[should_panic(expected = "off-diagonal entries must be non-negative")]
+fn test_maximum_likelihood_ranking_negative_off_diagonal_panics() {
+    MaximumLikelihoodRanking::new(vec![vec![0, -1], vec![6, 0]]);
+}
+
+#[test]
+#[should_panic(expected = "all off-diagonal pairs must have the same comparison count")]
+fn test_maximum_likelihood_ranking_inconsistent_pair_sum_panics() {
+    MaximumLikelihoodRanking::new(vec![vec![0, 4, 3], vec![1, 0, 4], vec![1, 2, 0]]);
 }
 
 #[cfg(feature = "example-db")]
