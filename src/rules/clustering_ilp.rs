@@ -49,7 +49,7 @@ impl ReductionResult for ReductionClusteringToILP {
 #[reduction(
     overhead = {
         num_vars = "num_elements * num_clusters",
-        num_constraints = "num_elements + num_elements^2 * num_clusters",
+        num_constraints = "num_elements + num_elements * (num_elements - 1) / 2 * num_clusters",
     }
 )]
 impl ReduceTo<ILP<bool>> for Clustering {

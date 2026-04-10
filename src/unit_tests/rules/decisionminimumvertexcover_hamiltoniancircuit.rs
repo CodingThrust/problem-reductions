@@ -33,7 +33,7 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_structure_counts() {
 }
 
 #[test]
-fn test_decisionminimumvertexcover_to_hamiltoniancircuit_builds_valid_target_witness() {
+fn test_decisionminimumvertexcover_to_hamiltoniancircuit_closed_loop() {
     let source = decision_mvc(3, &[(0, 1), (1, 2)], &[1, 1, 1], 1);
     let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source);
 

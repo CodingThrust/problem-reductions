@@ -29,7 +29,7 @@ impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinimumSumMultic
     }
 }
 
-#[reduction(overhead = { num_vertices = "num_vertices" })]
+#[reduction(overhead = { num_vertices = "num_vertices", num_edges = "num_edges" })]
 impl ReduceTo<MinimumSumMulticenter<SimpleGraph, i32>>
     for Decision<MinimumDominatingSet<SimpleGraph, One>>
 {

@@ -212,6 +212,8 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 
 ## Testing Requirements
 
+**No single test should take more than 5 seconds.** If a test requires solving a large instance (e.g., ILP with thousands of variables), use a smaller test instance or a faster solver. Tests that exceed 5s block CI and must be refactored.
+
 **Reference implementations — read these first:**
 - **Reduction test:** `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs` — closed-loop pattern
 - **Model test:** `src/unit_tests/models/graph/maximum_independent_set.rs` — evaluation, serialization

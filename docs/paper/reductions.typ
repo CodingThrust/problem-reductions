@@ -9505,6 +9505,40 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ From an optimal witness, collect all vertices appearing as singleton operands (indices $< |V|$). In a minimum-length normalized sequence, exactly the $K^*$ cover vertices appear as ${a_0}$-paired singletons.
 ]
 
+#let mvc_aog = load-example("MinimumVertexCover", "MinimumWeightAndOrGraph")
+#let mvc_aog_sol = mvc_aog.solutions.at(0)
+#let mvc_aog_cover = mvc_aog_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#reduction-rule("MinimumVertexCover", "MinimumWeightAndOrGraph",
+  example: true,
+  example-caption: [Path $P_3$: vertex cover ${1}$ maps to an AND/OR graph of weight 5],
+  extra: [
+    #pred-commands(
+      "pred create --example MVC -o mvc.json",
+      "pred reduce mvc.json --to " + target-spec(mvc_aog) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate mvc.json --config " + mvc_aog_sol.source_config.map(str).join(","),
+    )
+    Source VC: $C = {#mvc_aog_cover.map(str).join(", ")}$ (size #mvc_aog_cover.len()) on graph with $n = #graph-num-vertices(mvc_aog.source.instance)$ vertices, $m = #graph-num-edges(mvc_aog.source.instance)$ edges \
+    Target AND/OR graph: #mvc_aog.target.instance.num_vertices vertices, source $v_#mvc_aog.target.instance.source$ (AND), arcs: #{range(mvc_aog.target.instance.arcs.len()).map(i => {let a = mvc_aog.target.instance.arcs.at(i); $v_#(a.at(0)) arrow.r v_#(a.at(1))$}).join(", ")} \
+    Selected arcs: #{mvc_aog_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => {let a = mvc_aog.target.instance.arcs.at(i); $v_#(a.at(0)) arrow.r v_#(a.at(1))$}).join(", ")} (weight #mvc_aog.target.optimal_value) #sym.checkmark
+  ],
+)[
+  This reduction encodes vertex cover as a minimum-weight solution subgraph problem on a three-layer AND/OR DAG. The root AND gate requires all edges to be covered; each edge becomes an OR gate selecting which endpoint covers it; and each vertex becomes a sink whose arc weight equals the vertex weight. The minimum-weight solution subgraph selects exactly the arcs corresponding to a minimum vertex cover.
+][
+  _Construction._ Given a Minimum Vertex Cover instance $(G = (V, E), bold(w))$ with $n = |V|$ vertices and $m = |E|$ edges, build an AND/OR graph $D$ with $1 + m + 2n$ vertices arranged in three layers:
+
+  - *Root (AND gate):* A single vertex $r$ (index 0) with gate type AND.
+  - *Edge layer (OR gates):* For each edge $e_i = {u, v}$ ($i = 0, dots, m-1$), create vertex $e_i$ (index $1 + i$) with gate type OR and an arc $(r, e_i)$ of weight 1.
+  - *Cover layer (OR gates):* For each source vertex $v_j$ ($j = 0, dots, n-1$), create vertex $c_j$ (index $1 + m + j$) with gate type OR. For each edge $e_i = {u, v}$, add arcs $(e_i, c_u)$ and $(e_i, c_v)$, each of weight 1.
+  - *Sink layer (leaves):* For each source vertex $v_j$, create leaf $s_j$ (index $1 + m + n + j$) and arc $(c_j, s_j)$ with weight $w_j$.
+
+  Since $r$ is AND, any solution subgraph must include all arcs from $r$ to the edge-layer vertices (cost $m$). Each edge-OR vertex $e_i$ requires at least one of its two outgoing arcs to $c_u$ and $c_v$ (selecting which endpoint covers edge $i$). Each activated cover vertex $c_j$ requires its outgoing arc to $s_j$ (contributing $w_j$). The total weight is $m + |{"activated cover arcs"}| + sum_(j in C) w_j$.
+
+  _Correctness._ ($arrow.r.double$) If $C subset.eq V$ is a vertex cover with weight $W$, then for each edge $e_i = {u, v}$, at least one endpoint lies in $C$; select the arc from $e_i$ to that endpoint's cover vertex. Activate all cover-to-sink arcs for vertices in $C$. This satisfies the AND gate at the root (all edge arcs selected), every edge OR gate (at least one child selected), and all activated cover vertices (sink arc selected). The total weight is $m + |{"edge-to-cover arcs"}| + W$. ($arrow.l.double$) In any valid solution subgraph, the AND root forces all $m$ edge arcs. Each edge OR vertex selects at least one arc to a cover vertex, activating that cover vertex and its sink arc. The set of activated cover vertices forms a vertex cover (every edge has at least one endpoint activated). The sink arc weights sum to the cover weight, so any minimum-weight solution subgraph corresponds to a minimum vertex cover.
+
+  _Solution extraction._ Examine the cover-to-sink arcs (indices $3m, dots, 3m + n - 1$ in the arc list): $c_j = 1$ if arc $(c_j, s_j)$ is selected, $c_j = 0$ otherwise.
+]
+
 #reduction-rule("MaximumMatching", "MaximumSetPacking")[
   A matching selects edges that share no endpoints; set packing selects sets that share no elements. By representing each edge as the 2-element set of its endpoints and using vertices as the universe, two edges conflict (share an endpoint) if and only if their sets overlap. This embeds matching as a special case of set packing where every set has size exactly 2.
 ][
@@ -9772,6 +9806,20 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) A satisfying assignment determines signs $alpha_j in {-1, +1}$ for the lifted knapsack system so that $x = sum_j alpha_j theta_j$ obeys both $x equiv tau_2 mod 2 dot 8^(M+1)$ and $(H+x)(H-x) equiv 0 mod K$. These together imply $x^2 equiv a mod b$ with $0 <= x <= H < c$. ($arrow.l.double$) Any witness $x < c$ with $x^2 equiv a mod b$ yields, for each $j$, a unique sign from whether $p_j^(N+1)$ divides $H-x$ or $H+x$. Those signs recover an exact knapsack solution and hence a satisfying assignment of the original 3-SAT instance.
 
   _Solution extraction._ Recover each sign $alpha_j$ from the divisibility of $H - x$ and $H + x$ by $p_j^(N+1)$. For variable coordinates $j = 2M+i$, interpret $alpha_j = -1$ as $x_i = 1$ and $alpha_j = +1$ as $x_i = 0$.
+]
+
+#reduction-rule("KSatisfiability", "QuadraticDiophantineEquations")[
+  This reduction chains through the Manders--Adleman quadratic congruence construction. Given a 3-SAT instance $phi$, first reduce to a Quadratic Congruences instance $(a, b, c)$ with $x^2 equiv a mod b$ and $x < c$, then convert the bounded congruence into a Diophantine equation $x^2 + b' y = c'$ with $a' = 1$. The conversion exploits the fact that $x < c$ implies $x^2$ is bounded, so the residue $c' - x^2$ is always positive and divisible by $b'$ precisely when the congruence holds.
+][
+  _Construction._ Given a 3-CNF formula $phi$ with $n$ variables and $m$ clauses:
+
+  *Step 1.* Apply the Manders--Adleman reduction (KSatisfiability $arrow.r$ QuadraticCongruences) to obtain $(a, b, c)$ such that $phi$ is satisfiable iff $exists x < c: x^2 equiv a mod b$.
+
+  *Step 2.* Convert to a Diophantine equation. Let $h = c - 1$. Compute a padding value $p = floor((h^2 - a) \/ b) + 1$ and set $c' = a + b dot p$. Output the Diophantine equation $x^2 + b y = c'$ (i.e., $a' = 1$, $b' = b$). A positive integer $x$ with $x^2 + b y = c'$ must satisfy $y = (c' - x^2) \/ b > 0$, which requires $1 <= x <= h = c - 1$.
+
+  _Correctness._ ($arrow.r.double$) If $phi$ is satisfiable, the congruence has a witness $x_0 < c$ with $x_0^2 equiv a mod b$. Then $x_0^2 - a = b k$ for some non-negative integer $k$. Since $c' = a + b p$ and $x_0 <= c - 1 = h$, we have $c' - x_0^2 = b(p - k) > 0$, and $y = p - k$ is a positive integer. So $(x_0, y)$ is a solution to $x^2 + b y = c'$. ($arrow.l.double$) If $(x, y)$ satisfies $x^2 + b y = c'$ with $x, y >= 1$, then $x^2 = c' - b y equiv c' mod b equiv a mod b$ (since $c' = a + b p$). Also $x^2 < c' = a + b p <= h^2 + b$, and since $y >= 1$ we have $x^2 = c' - b y <= c' - b < h^2 + b - b = h^2$, so $x <= h < c$. Thus $x$ is a valid congruence witness, and the original formula is satisfiable.
+
+  _Solution extraction._ Decode the Diophantine witness $x$ from its little-endian binary encoding. Then extract a 3-SAT assignment by passing $x$ through the congruence-to-SAT extraction (sign recovery from divisibility by prime powers).
 ]
 
 #let ksat_ss = load-example("KSatisfiability", "SubsetSum")
@@ -10785,6 +10833,57 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $D = {v : x_v = 1}$.
 ]
 
+#let mfdts_ilp = load-example("MinimumFaultDetectionTestSet", "ILP")
+#let mfdts_ilp_sol = mfdts_ilp.solutions.at(0)
+#reduction-rule("MinimumFaultDetectionTestSet", "ILP",
+  example: true,
+  example-caption: [DAG with #mfdts_ilp.source.instance.num_vertices vertices, #mfdts_ilp.source.instance.inputs.len() inputs, #mfdts_ilp.source.instance.outputs.len() outputs, and #(mfdts_ilp.source.instance.num_vertices - mfdts_ilp.source.instance.inputs.len() - mfdts_ilp.source.instance.outputs.len()) internal vertices],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mfdts_ilp.source) + " -o mfdts.json",
+      "pred reduce mfdts.json --to " + target-spec(mfdts_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate mfdts.json --config " + mfdts_ilp_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let source = mfdts_ilp.source.instance
+      let target = mfdts_ilp.target.instance
+      let source-config = mfdts_ilp_sol.source_config
+      let target-config = mfdts_ilp_sol.target_config
+      [
+        *Step 1 -- Source instance.* The canonical DAG has $#source.num_vertices$ vertices and arcs #source.arcs.map(((u, v)) => [$(#u, #v)$]).join(", "). Inputs are ${#source.inputs.map(str).join(", ")}$, outputs are ${#source.outputs.map(str).join(", ")}$, so the internal vertices are ${2, 3, 4}$. The source configuration therefore has $#source.inputs.len() dot #source.outputs.len() = #target.num_vars$ input-output pair bits.
+
+        *Step 2 -- Build the covering ILP.* Order the pair variables as $(#source.inputs.at(0), #source.outputs.at(0))$, $(#source.inputs.at(0), #source.outputs.at(1))$, $(#source.inputs.at(1), #source.outputs.at(0))$, and $(#source.inputs.at(1), #source.outputs.at(1))$. Their internal coverage sets are ${2, 3}$, ${3}$, ${3}$, and ${3, 4}$, so the target has #target.num_vars binary variables, #target.constraints.len() covering constraints, and objective $min (x_0 + x_1 + x_2 + x_3)$. The exported constraints are exactly $x_0 >= 1$, $x_0 + x_1 + x_2 + x_3 >= 1$, and $x_3 >= 1$.
+
+        *Step 3 -- Verify the canonical witness.* The stored ILP witness is $(#target-config.map(str).join(", "))$. Because extraction is identity, the source witness is the same vector $(#source-config.map(str).join(", "))$, which selects pairs $(#source.inputs.at(0), #source.outputs.at(0))$ and $(#source.inputs.at(1), #source.outputs.at(1))$. These two pairs cover internal vertices ${2, 3}$ and ${3, 4}$ respectively, so their union covers every internal vertex and the optimum value is $2$ #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness. Any feasible solution must include $x_0 = 1$ to cover internal vertex 2 and $x_3 = 1$ to cover internal vertex 4, so the unique optimum is $(1, 0, 0, 1)$.
+      ]
+    }
+  ],
+)[
+  This direct $O((|I| + |O|)(|V| + |A|) + |I| |O| |V|)$ ILP encoding#footnote[Standard set-cover ILP formulation over input-output pair coverage sets; no dedicated bibliography key is currently registered in `references.bib`.] precomputes the coverage set of each input-output pair, then introduces one binary selection variable per pair and one covering inequality per internal vertex ($|I| |O|$ variables and $|V backslash (I union O)|$ constraints).
+][
+  _Construction._ Let the source DAG be $G = (V, A)$ with input set $I = {i_0, dots, i_(a-1)}$ and output set $O = {o_0, dots, o_(b-1)}$. For each ordered pair $(i_r, o_s) in I times O$, define its coverage set
+  $
+    C_(r,s) = {v in V : v " is reachable from " i_r " and can reach " o_s}.
+  $
+  Let $W = V backslash (I union O)$ be the internal vertices. Use `ILP<bool>` with binary variables $t_(r,s)$ indexed by the source pair order $p = r b + s$, so the target has $a b$ variables. For every internal vertex $v in W$, add the covering constraint
+  $
+    sum_((r,s) : v in C_(r,s)) t_(r,s) >= 1.
+  $
+  The objective is
+  $
+    min sum_(r = 0)^(a - 1) sum_(s = 0)^(b - 1) t_(r,s),
+  $
+  so the ILP minimizes the number of selected input-output pairs.
+
+  _Correctness._ ($arrow.r.double$) If $T subset.eq I times O$ is a feasible source witness, set $t_(r,s) = 1$ exactly for pairs in $T$. Every internal vertex lies in the coverage set of at least one chosen pair, so each covering inequality holds, and the ILP objective equals $|T|$. ($arrow.l.double$) If the ILP is feasible, let $T = {(i_r, o_s) : t_(r,s) = 1}$. For every internal vertex $v in W$, the corresponding inequality ensures that some selected pair satisfies $v in C_(r,s)$, so the union of the chosen coverage sets covers all internal vertices. The source value is therefore exactly the ILP objective.
+
+  _Solution extraction._ The target variables already form the source binary selection vector in the same pair order, so return them unchanged.
+]
+
 #reduction-rule("MinimumFeedbackVertexSet", "ILP")[
   A directed graph is a DAG iff it admits a topological ordering. MTZ-style ordering variables enforce this: for each kept vertex, an integer position variable must increase strictly along every arc. Removed vertices relax the ordering constraints via big-$M$ terms.
 ][
@@ -10806,6 +10905,36 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) If $S$ is a feedback vertex set, then $G[V backslash S]$ is a DAG with a topological ordering. Set $x_v = 1$ for $v in S$, $o_v$ to the topological position for kept vertices, and $o_v = 0$ for removed vertices. All constraints are satisfied. ($arrow.l.double$) If the ILP is feasible with all arc constraints satisfied, no directed cycle can exist among kept vertices: a cycle $v_1 -> dots -> v_k -> v_1$ would require $o_(v_1) < o_(v_2) < dots < o_(v_k) < o_(v_1)$, a contradiction.
 
   _Solution extraction._ $S = {v : x_v = 1}$.
+]
+
+#let fvs_cg = load-example("MinimumFeedbackVertexSet", "MinimumCodeGenerationUnlimitedRegisters")
+#let fvs_cg_sol = fvs_cg.solutions.at(0)
+#let fvs_cg_fvs = fvs_cg_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#reduction-rule("MinimumFeedbackVertexSet", "MinimumCodeGenerationUnlimitedRegisters",
+  example: true,
+  example-caption: [3-cycle digraph: FVS of size 1 maps to an expression DAG needing 1 LOAD],
+  extra: [
+    #pred-commands(
+      "pred create --example MinimumFeedbackVertexSet -o fvs.json",
+      "pred reduce fvs.json --to " + target-spec(fvs_cg) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate fvs.json --config " + fvs_cg_sol.source_config.map(str).join(","),
+    )
+    Source FVS: $F = {#fvs_cg_fvs.map(str).join(", ")}$ (size #fvs_cg_fvs.len()) on a digraph with $n = #fvs_cg.source.instance.graph.num_vertices$ vertices and $m = #fvs_cg.source.instance.graph.arcs.len()$ arcs \
+    Target DAG: #fvs_cg.target.instance.num_vertices vertices, left arcs $L$: #{fvs_cg.target.instance.left_arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")}, right arcs $R$: #{fvs_cg.target.instance.right_arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")} \
+    Target evaluation order: $(#fvs_cg_sol.target_config.map(str).join(", "))$ with #fvs_cg.target.optimal_value instructions #sym.checkmark
+  ],
+)[
+  The Aho--Johnson--Ullman chain gadget construction @ahoJohnsonUllman1977 encodes a feedback vertex set problem as a code generation problem on an expression DAG with unlimited registers and 2-address instructions. Each source vertex becomes a leaf (input register), and each outgoing arc becomes an internal chain node. The number of LOAD (copy) instructions needed in an optimal program equals the size of a minimum feedback vertex set.
+][
+  _Construction._ Given a directed graph $G = (V, A)$ with $n = |V|$ vertices and $m = |A|$ arcs, build an expression DAG $D$ with $n + m$ vertices as follows. Vertices $0, dots, n-1$ are _leaves_ (one per source vertex), each stored in its own register. For each source vertex $x$ with outgoing arcs $(x, y_1), dots, (x, y_d)$, create a chain of $d$ internal nodes $x^1, dots, x^d$ where:
+  - $x^1$ has left child $x^0$ (the leaf for $x$) and right child $y_1^0$ (the leaf for $y_1$),
+  - $x^i$ ($i >= 2$) has left child $x^(i-1)$ (previous chain node) and right child $y_i^0$ (the leaf for $y_i$).
+  The left operand's register is destroyed by the OP instruction; a LOAD (copy) is needed whenever a leaf register must survive past its destruction.
+
+  _Correctness._ ($arrow.r.double$) If $F subset.eq V$ is a feedback vertex set of size $k$, then $G[V backslash F]$ is a DAG. The topological order of $G[V backslash F]$ induces an evaluation order of the chain nodes such that each leaf $x^0$ with $x in.not F$ is consumed (as a left child) only after all chain nodes that reference it as a right child have been evaluated. Only leaves corresponding to vertices in $F$ need a LOAD instruction (their register is destroyed before some right-child usage). Hence the program uses exactly $n + m - n + k = m + k$ instructions, of which $k$ are LOADs. ($arrow.l.double$) If an optimal program uses $k$ LOAD instructions, the $k$ leaves that require LOADs form a set $F$: removing $F$ from $G$ leaves a DAG (otherwise a directed cycle $v_1 -> dots -> v_l -> v_1$ would require each $v_i^0$ to be consumed before $v_(i+1)^0$, creating a circular register dependency that demands at least one additional LOAD for each cycle). Thus $F$ is a feedback vertex set of size $k$.
+
+  _Solution extraction._ Given a target evaluation order (permutation of internal nodes), identify which leaves require a LOAD: leaf $x^0$ needs a LOAD iff the chain-start node $x^1$ is evaluated before some other internal node that uses $x^0$ as a right child. Set $c_x = 1$ for such vertices and $c_x = 0$ otherwise.
 ]
 
 #reduction-rule("MaximumClique", "ILP")[
