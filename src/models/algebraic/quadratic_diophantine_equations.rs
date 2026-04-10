@@ -87,7 +87,7 @@ impl QuadraticDiophantineEquations {
         }
 
         let mut low = BigUint::zero();
-        let mut high = BigUint::one() << ((bit_length(n) + 1) / 2);
+        let mut high = BigUint::one() << bit_length(n).div_ceil(2);
 
         while low < high {
             let mid = (&low + &high + BigUint::one()) >> 1usize;

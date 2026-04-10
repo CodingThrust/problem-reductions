@@ -157,11 +157,7 @@ fn test_maximum_likelihood_ranking_nonzero_diagonal_panics() {
 fn test_maximum_likelihood_ranking_skew_symmetric() {
     // c = 0: skew-symmetric matrix (a_ij = -a_ji)
     // Encodes a directed 3-cycle: 0->1, 1->2, 2->0
-    let matrix = vec![
-        vec![0, 1, -1],
-        vec![-1, 0, 1],
-        vec![1, -1, 0],
-    ];
+    let matrix = vec![vec![0, 1, -1], vec![-1, 0, 1], vec![1, -1, 0]];
     let problem = MaximumLikelihoodRanking::new(matrix);
     assert_eq!(problem.comparison_count(), 0);
     // Ranking [0,1,2]: 1 backward arc (2->0, cost +1), 2 forward arcs (cost -1 each)

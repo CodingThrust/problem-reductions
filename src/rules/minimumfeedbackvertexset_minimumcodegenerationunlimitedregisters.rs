@@ -45,26 +45,18 @@ impl ReductionResult for ReductionFVSToCodeGen {
         // Internal nodes are indices n, n+1, ..., n+m-1 (sorted), so
         // target_solution[j] = position for internal node (n + j).
 
-        // Build: target_node_index -> evaluation position
-        let num_internal = target_solution.len();
-        let mut eval_pos = vec![0usize; num_internal];
-        for j in 0..num_internal {
-            // internal node (n + j) has evaluation position target_solution[j]
-            eval_pos[j] = target_solution[j];
-        }
+        // eval_pos[j] = evaluation position for internal node (n + j)
+        let eval_pos = target_solution;
 
-        for x in 0..n {
+        for (x, cfg) in source_config.iter_mut().enumerate() {
             if let Some(chain_start_idx) = self.chain_start[x] {
-                // chain_start_idx is the target node index of x¹
-                // Its position in the internal array = chain_start_idx - n
                 let start_j = chain_start_idx - n;
                 let start_pos = eval_pos[start_j];
 
-                // Check if any right-child user of leaf x⁰ is evaluated after x¹
                 for &user_idx in &self.right_child_users[x] {
                     let user_j = user_idx - n;
                     if eval_pos[user_j] > start_pos {
-                        source_config[x] = 1;
+                        *cfg = 1;
                         break;
                     }
                 }
@@ -109,7 +101,7 @@ impl ReduceTo<MinimumCodeGenerationUnlimitedRegisters> for MinimumFeedbackVertex
 
             chain_start[x] = Some(next_internal);
 
-            for i in 0..d {
+            for (i, &neighbor) in neighbors.iter().enumerate() {
                 let node_idx = next_internal + i;
                 // Left child: predecessor in chain
                 let left_child = if i == 0 {
@@ -118,7 +110,7 @@ impl ReduceTo<MinimumCodeGenerationUnlimitedRegisters> for MinimumFeedbackVertex
                     next_internal + i - 1 // previous chain node
                 };
                 // Right child: leaf y_i⁰
-                let right_child = neighbors[i]; // leaf index = source vertex index
+                let right_child = neighbor; // leaf index = source vertex index
 
                 left_arcs.push((node_idx, left_child));
                 right_arcs.push((node_idx, right_child));
@@ -130,8 +122,7 @@ impl ReduceTo<MinimumCodeGenerationUnlimitedRegisters> for MinimumFeedbackVertex
 
         debug_assert_eq!(next_internal, n + m);
 
-        let target =
-            MinimumCodeGenerationUnlimitedRegisters::new(n + m, left_arcs, right_arcs);
+        let target = MinimumCodeGenerationUnlimitedRegisters::new(n + m, left_arcs, right_arcs);
 
         ReductionFVSToCodeGen {
             target,
@@ -161,8 +152,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimumfeedbackvertexset_to_minimumcodegenerationunlimitedregisters",
         build: || {
             let source = issue_example_source();
-            let reduction =
-                ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&source);
+            let reduction = ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&source);
 
             // Find a target witness whose extracted source solution matches an optimal FVS
             let solver = BruteForce::new();

@@ -68,7 +68,11 @@ fn test_maximum2satisfiability_to_maxcut_issue_affine_relation_on_all_partitions
         let satisfied = source.evaluate(&source_solution).unwrap() as i32;
         let cut_weight = target.evaluate(&target_solution).unwrap();
 
-        assert_eq!(2 * satisfied, 8 + cut_weight, "target config {target_solution:?}");
+        assert_eq!(
+            2 * satisfied,
+            8 + cut_weight,
+            "target config {target_solution:?}"
+        );
     }
 }
 

@@ -659,6 +659,7 @@ impl ReductionGraph {
 
     /// Like [`find_paths_up_to_mode`](Self::find_paths_up_to_mode) but also
     /// bounds the number of intermediate nodes in each enumerated path.
+    #[allow(clippy::too_many_arguments)]
     pub fn find_paths_up_to_mode_bounded(
         &self,
         source: &str,
