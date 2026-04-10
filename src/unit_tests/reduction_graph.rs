@@ -940,3 +940,51 @@ fn test_ksatisfiability_k3_to_decision_minimum_vertex_cover_direct_witness_edge(
         Decision<MinimumVertexCover<SimpleGraph, i32>>,
     >(ReductionMode::Turing));
 }
+
+#[test]
+fn test_find_paths_bounded_limits_depth() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+
+    // With tight bound, should find fewer (or no) paths than unbounded
+    let bounded = graph.find_paths_up_to_mode_bounded(
+        "MaximumIndependentSet",
+        &src,
+        "QUBO",
+        &dst,
+        ReductionMode::Witness,
+        100,
+        Some(2),
+    );
+    let unbounded = graph.find_paths_up_to_mode_bounded(
+        "MaximumIndependentSet",
+        &src,
+        "QUBO",
+        &dst,
+        ReductionMode::Witness,
+        100,
+        None,
+    );
+    assert!(
+        bounded.len() <= unbounded.len(),
+        "bounded ({}) should find <= unbounded ({}) paths",
+        bounded.len(),
+        unbounded.len()
+    );
+
+    // With bound 0, only direct edges (no intermediates) — MIS→QUBO has no direct edge
+    let direct_only = graph.find_paths_up_to_mode_bounded(
+        "MaximumIndependentSet",
+        &src,
+        "QUBO",
+        &dst,
+        ReductionMode::Witness,
+        100,
+        Some(0),
+    );
+    assert!(
+        direct_only.is_empty(),
+        "MIS→QUBO has no direct edge, so bound=0 should return empty"
+    );
+}
