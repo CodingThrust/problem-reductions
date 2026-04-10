@@ -272,6 +272,7 @@ inventory::submit! {
     }
 }
 
+// Decision<MDS<SG, One>> → MDS<SG, One>: both witness (identity config) and aggregate (solve + compare)
 inventory::submit! {
     crate::rules::ReductionEntry {
         source_name: "DecisionMinimumDominatingSet",
@@ -280,7 +281,16 @@ inventory::submit! {
         target_variant_fn: <MinimumDominatingSet<SimpleGraph, One> as Problem>::variant,
         overhead_fn: || crate::rules::ReductionOverhead::identity(&["num_vertices", "num_edges"]),
         module_path: module_path!(),
-        reduce_fn: None,
+        reduce_fn: Some(|any| {
+            let source = any
+                .downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, One>>>()
+                .expect("DecisionMinimumDominatingSet witness reduction source type mismatch");
+            Box::new(
+                <Decision<MinimumDominatingSet<SimpleGraph, One>> as crate::rules::ReduceTo<
+                    MinimumDominatingSet<SimpleGraph, One>,
+                >>::reduce_to(source),
+            )
+        }),
         reduce_aggregate_fn: Some(|any| {
             let source = any
                 .downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, One>>>()
@@ -291,7 +301,7 @@ inventory::submit! {
                 >>::reduce_to_aggregate(source),
             )
         }),
-        capabilities: crate::rules::EdgeCapabilities::aggregate_only(),
+        capabilities: crate::rules::EdgeCapabilities::both(),
         overhead_eval_fn: |any| {
             let source = any
                 .downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, One>>>()
@@ -314,6 +324,7 @@ inventory::submit! {
     }
 }
 
+// Reverse edge: MDS<SG, One> → Decision<MDS<SG, One>> (Turing)
 inventory::submit! {
     crate::rules::ReductionEntry {
         source_name: "MinimumDominatingSet",
@@ -396,33 +407,63 @@ pub(crate) fn decision_canonical_model_example_specs(
 #[cfg(feature = "example-db")]
 pub(crate) fn decision_canonical_rule_example_specs(
 ) -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    vec![crate::example_db::specs::RuleExampleSpec {
-        id: "decision_minimum_dominating_set_to_minimum_dominating_set",
-        build: || {
-            use crate::example_db::specs::assemble_rule_example;
-            use crate::export::SolutionPair;
-            use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+    vec![
+        crate::example_db::specs::RuleExampleSpec {
+            id: "decision_minimum_dominating_set_to_minimum_dominating_set",
+            build: || {
+                use crate::example_db::specs::assemble_rule_example;
+                use crate::export::SolutionPair;
+                use crate::rules::{AggregateReductionResult, ReduceToAggregate};
 
-            let source = crate::models::decision::Decision::new(
-                MinimumDominatingSet::new(
-                    SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
-                    vec![1i32; 5],
-                ),
-                2,
-            );
-            let result = source.reduce_to_aggregate();
-            let target = result.target_problem();
-            let config = vec![0, 0, 1, 1, 0];
-            assemble_rule_example(
-                &source,
-                target,
-                vec![SolutionPair {
-                    source_config: config.clone(),
-                    target_config: config,
-                }],
-            )
+                let source = crate::models::decision::Decision::new(
+                    MinimumDominatingSet::new(
+                        SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
+                        vec![1i32; 5],
+                    ),
+                    2,
+                );
+                let result = source.reduce_to_aggregate();
+                let target = result.target_problem();
+                let config = vec![0, 0, 1, 1, 0];
+                assemble_rule_example(
+                    &source,
+                    target,
+                    vec![SolutionPair {
+                        source_config: config.clone(),
+                        target_config: config,
+                    }],
+                )
+            },
         },
-    }]
+        // One-weight variant: Decision<MDS<SG, One>> → MDS<SG, One> (aggregate)
+        crate::example_db::specs::RuleExampleSpec {
+            id: "decision_minimum_dominating_set_one_to_minimum_dominating_set_one",
+            build: || {
+                use crate::example_db::specs::assemble_rule_example;
+                use crate::export::SolutionPair;
+                use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+
+                let source = crate::models::decision::Decision::new(
+                    MinimumDominatingSet::new(
+                        SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
+                        vec![One; 5],
+                    ),
+                    2,
+                );
+                let result = source.reduce_to_aggregate();
+                let target = result.target_problem();
+                let config = vec![0, 0, 1, 1, 0];
+                assemble_rule_example(
+                    &source,
+                    target,
+                    vec![SolutionPair {
+                        source_config: config.clone(),
+                        target_config: config,
+                    }],
+                )
+            },
+        },
+    ]
 }
 
 /// Check if a set of vertices is a dominating set.

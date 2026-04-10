@@ -266,6 +266,11 @@ fn test_find_dominated_rules_returns_known_set() {
             "GraphPartitioning {graph: \"SimpleGraph\"}",
             "QUBO {weight: \"f64\"}",
         ),
+        // KSat → DecisionMVC → MVC (via witness edge) dominates direct KSat → MVC
+        (
+            "KSatisfiability {k: \"K3\"}",
+            "MinimumVertexCover {graph: \"SimpleGraph\", weight: \"i32\"}",
+        ),
     ]
     .into_iter()
     .collect();

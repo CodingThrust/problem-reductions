@@ -439,7 +439,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 1,
             );
             let source_config = vec![0, 1, 0];
-            let reduction = source.reduce_to();
+            let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source);
             let target_config = reduction.build_target_witness(&source_config);
             assemble_rule_example(
                 &source,

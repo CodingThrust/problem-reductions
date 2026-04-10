@@ -391,7 +391,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     }]
 }
 
-
 #[cfg(test)]
 #[path = "../unit_tests/rules/ksatisfiability_registersufficiency.rs"]
 mod tests;

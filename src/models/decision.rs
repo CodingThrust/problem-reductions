@@ -1,6 +1,6 @@
 //! Generic decision wrapper for optimization problems.
 
-use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+use crate::rules::{AggregateReductionResult, ReduceTo, ReduceToAggregate, ReductionResult};
 use crate::traits::Problem;
 use crate::types::{OptimizationValue, Or};
 use serde::de::DeserializeOwned;
@@ -62,6 +62,7 @@ macro_rules! register_decision_variant {
             }
         }
 
+        // Decision<P> → P: both witness (identity config) and aggregate (solve + compare)
         $crate::inventory::submit! {
             $crate::rules::ReductionEntry {
                 source_name: $name,
@@ -70,7 +71,14 @@ macro_rules! register_decision_variant {
                 target_variant_fn: <$inner as $crate::traits::Problem>::variant,
                 overhead_fn: || $crate::rules::ReductionOverhead::identity(&[$($sg_name),*]),
                 module_path: module_path!(),
-                reduce_fn: None,
+                reduce_fn: Some(|any| {
+                    let source = any
+                        .downcast_ref::<$crate::models::decision::Decision<$inner>>()
+                        .expect(concat!($name, " witness reduction source type mismatch"));
+                    Box::new(
+                        <$crate::models::decision::Decision<$inner> as $crate::rules::ReduceTo<$inner>>::reduce_to(source),
+                    )
+                }),
                 reduce_aggregate_fn: Some(|any| {
                     let source = any
                         .downcast_ref::<$crate::models::decision::Decision<$inner>>()
@@ -79,7 +87,7 @@ macro_rules! register_decision_variant {
                         <$crate::models::decision::Decision<$inner> as $crate::rules::ReduceToAggregate<$inner>>::reduce_to_aggregate(source),
                     )
                 }),
-                capabilities: $crate::rules::EdgeCapabilities::aggregate_only(),
+                capabilities: $crate::rules::EdgeCapabilities::both(),
                 overhead_eval_fn: |any| {
                     let source = any
                         .downcast_ref::<$crate::models::decision::Decision<$inner>>()
@@ -241,6 +249,51 @@ where
         DecisionToOptimizationResult {
             target: self.inner.clone(),
             bound: self.bound.clone(),
+        }
+    }
+}
+
+/// Witness reduction result for `Decision<P> -> P`.
+///
+/// The configuration spaces are identical — a config that is optimal for
+/// `P` and meets the bound is a valid `Decision<P>` witness. The
+/// `extract_solution` is the identity function.
+#[derive(Debug, Clone)]
+pub struct DecisionToOptimizationWitnessResult<P>
+where
+    P: Problem,
+    P::Value: OptimizationValue,
+{
+    target: P,
+}
+
+impl<P> ReductionResult for DecisionToOptimizationWitnessResult<P>
+where
+    P: DecisionProblemMeta + 'static,
+    P::Value: OptimizationValue + Serialize + DeserializeOwned,
+{
+    type Source = Decision<P>;
+    type Target = P;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+        target_solution.to_vec()
+    }
+}
+
+impl<P> ReduceTo<P> for Decision<P>
+where
+    P: DecisionProblemMeta + Clone + 'static,
+    P::Value: OptimizationValue + Serialize + DeserializeOwned,
+{
+    type Result = DecisionToOptimizationWitnessResult<P>;
+
+    fn reduce_to(&self) -> Self::Result {
+        DecisionToOptimizationWitnessResult {
+            target: self.inner.clone(),
         }
     }
 }

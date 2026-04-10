@@ -7642,7 +7642,15 @@ fn test_show_ksat_works() {
 fn test_path_all_max_paths_truncates() {
     // With --max-paths 3, should limit to 3 paths and indicate truncation
     let output = pred()
-        .args(["path", "MIS", "QUBO", "--all", "--max-paths", "3", "--json"])
+        .args([
+            "path",
+            "KSat",
+            "QUBO",
+            "--all",
+            "--max-paths",
+            "3",
+            "--json",
+        ])
         .output()
         .unwrap();
     assert!(
@@ -7661,17 +7669,17 @@ fn test_path_all_max_paths_truncates() {
         paths.len()
     );
     assert_eq!(envelope["max_paths"], 3);
-    // MIS -> QUBO has many paths, so truncation is expected
+    // KSat -> QUBO has many paths, so truncation is expected
     assert_eq!(
         envelope["truncated"], true,
-        "should be truncated since MIS->QUBO has many paths"
+        "should be truncated since KSat->QUBO has many paths"
     );
 }
 
 #[test]
 fn test_path_all_max_paths_text_truncation_note() {
     let output = pred()
-        .args(["path", "MIS", "QUBO", "--all", "--max-paths", "2"])
+        .args(["path", "KSat", "QUBO", "--all", "--max-paths", "2"])
         .output()
         .unwrap();
     assert!(output.status.success());

@@ -827,7 +827,7 @@ fn test_find_all_paths_mode_aggregate_rejects_witness_only() {
 }
 
 #[test]
-fn test_decision_minimum_vertex_cover_has_direct_aggregate_edge() {
+fn test_decision_minimum_vertex_cover_has_both_edges() {
     let graph = ReductionGraph::new();
 
     assert!(graph.has_direct_reduction_by_name_mode(
@@ -835,7 +835,7 @@ fn test_decision_minimum_vertex_cover_has_direct_aggregate_edge() {
         "MinimumVertexCover",
         ReductionMode::Aggregate,
     ));
-    assert!(!graph.has_direct_reduction_by_name_mode(
+    assert!(graph.has_direct_reduction_by_name_mode(
         "DecisionMinimumVertexCover",
         "MinimumVertexCover",
         ReductionMode::Witness,
@@ -843,7 +843,7 @@ fn test_decision_minimum_vertex_cover_has_direct_aggregate_edge() {
 }
 
 #[test]
-fn test_decision_minimum_dominating_set_has_direct_aggregate_edge() {
+fn test_decision_minimum_dominating_set_has_both_edges() {
     let graph = ReductionGraph::new();
 
     assert!(graph.has_direct_reduction_by_name_mode(
@@ -851,7 +851,7 @@ fn test_decision_minimum_dominating_set_has_direct_aggregate_edge() {
         "MinimumDominatingSet",
         ReductionMode::Aggregate,
     ));
-    assert!(!graph.has_direct_reduction_by_name_mode(
+    assert!(graph.has_direct_reduction_by_name_mode(
         "DecisionMinimumDominatingSet",
         "MinimumDominatingSet",
         ReductionMode::Witness,

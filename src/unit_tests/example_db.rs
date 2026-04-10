@@ -524,12 +524,9 @@ fn model_specs_are_optimal() {
             find_variant_entry(name, &variant)
                 .and_then(|entry| (entry.solve_witness_fn)(spec.instance.as_any()))
                 .map(|(config, _)| config)
-                .or_else(|| {
-                    ilp_solver.solve_via_reduction(name, &variant, spec.instance.as_any())
-                })
+                .or_else(|| ilp_solver.solve_via_reduction(name, &variant, spec.instance.as_any()))
         } else {
-            ilp_solver
-                .solve_via_reduction(name, &variant, spec.instance.as_any())
+            ilp_solver.solve_via_reduction(name, &variant, spec.instance.as_any())
         };
 
         if let Some(best_config) = best_config {
