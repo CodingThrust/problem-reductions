@@ -162,6 +162,7 @@ impl ReduceTo<Target> for Source { ... }
 - Expression strings are parsed at compile time by a Pratt parser in the proc macro crate
 - Variable names are validated against actual getter methods on the source type — typos cause compile errors
 - Each problem type provides inherent getter methods (e.g., `num_vertices()`, `num_edges()`) that the overhead expressions reference
+- **Overhead expressions describe scaling (asymptotic upper bounds), not exact sizes.** To determine the actual target problem size for a specific instance, read the `reduce_to()` construction code and count the actual variables/constraints/vertices built.
 - `ReductionOverhead` stores `Vec<(&'static str, Expr)>` — field name to symbolic expression mappings
 - `ReductionEntry` has both symbolic (`overhead_fn`) and compiled (`overhead_eval_fn`) evaluation — the compiled version calls getters directly
 - `VariantEntry` has both a complexity string and compiled `complexity_eval_fn` — same pattern
