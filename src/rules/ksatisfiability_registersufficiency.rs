@@ -356,9 +356,7 @@ impl ReduceTo<RegisterSufficiency> for KSatisfiability<K3> {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
-    use crate::models::algebraic::ILP;
     use crate::models::formula::CNFClause;
-    use crate::solvers::ILPSolver;
 
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "ksatisfiability_to_registersufficiency",
@@ -372,14 +370,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             );
             let to_registers =
                 <KSatisfiability<K3> as ReduceTo<RegisterSufficiency>>::reduce_to(&source);
-            let to_ilp = <RegisterSufficiency as ReduceTo<ILP<i32>>>::reduce_to(
-                to_registers.target_problem(),
-            );
-            let ilp_solution = ILPSolver::new()
-                .solve(to_ilp.target_problem())
-                .expect("canonical RegisterSufficiency example must reduce to a feasible ILP");
-            let target_config = to_ilp.extract_solution(&ilp_solution);
+
+            // Use the B&B solver on the RS instance directly, avoiding the
+            // expensive RS→ILP chain (17K vars, minutes on CI).
+            let target_config = to_registers
+                .target_problem()
+                .solve_exact()
+                .expect("satisfying 3-SAT instance must yield a feasible RS witness");
             let source_config = to_registers.extract_solution(&target_config);
+
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 to_registers.target_problem(),
@@ -391,6 +390,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         },
     }]
 }
+
 
 #[cfg(test)]
 #[path = "../unit_tests/rules/ksatisfiability_registersufficiency.rs"]

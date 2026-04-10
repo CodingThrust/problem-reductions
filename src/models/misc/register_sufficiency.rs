@@ -200,6 +200,144 @@ impl RegisterSufficiency {
 
         Some(max_registers)
     }
+
+    /// Exact branch-and-bound solver: finds a topological ordering using at
+    /// most `self.bound` registers, or returns `None` if no such ordering
+    /// exists.  Uses heuristic candidate ordering (prefer vertices that free
+    /// the most registers) so that YES instances typically resolve on the
+    /// first greedy path without backtracking.  For NO instances the full
+    /// search tree must be explored, so prefer the ILP solver path for
+    /// infeasibility proofs.
+    ///
+    /// NOTE: a greedy topological sort is *not* exact — it can miss valid
+    /// orderings.  This method is exact because it backtracks when the
+    /// greedy choice fails.  Do not replace it with a pure greedy solver.
+    pub fn solve_exact(&self) -> Option<Vec<usize>> {
+        let n = self.num_vertices;
+        if n == 0 {
+            return Some(vec![]);
+        }
+
+        let mut dependents: Vec<Vec<usize>> = vec![vec![]; n];
+        let mut dependencies: Vec<Vec<usize>> = vec![vec![]; n];
+        let mut in_degree = vec![0u32; n];
+        for &(v, u) in &self.arcs {
+            in_degree[v] += 1;
+            dependents[u].push(v);
+            dependencies[v].push(u);
+        }
+
+        let mut state = BnBState {
+            n,
+            bound: self.bound,
+            config: vec![0usize; n],
+            live: vec![false; n],
+            live_count: 0,
+            remaining_in_degree: in_degree.clone(),
+            remaining_deps: dependents.iter().map(|d| d.len()).collect(),
+            ready: (0..n).filter(|&v| in_degree[v] == 0).collect(),
+            dependents,
+            dependencies,
+        };
+        state.ready.sort_unstable();
+
+        if state.backtrack(0) {
+            Some(state.config)
+        } else {
+            None
+        }
+    }
+}
+
+struct BnBState {
+    n: usize,
+    bound: usize,
+    config: Vec<usize>,
+    live: Vec<bool>,
+    live_count: usize,
+    remaining_in_degree: Vec<u32>,
+    remaining_deps: Vec<usize>,
+    ready: Vec<usize>,
+    dependents: Vec<Vec<usize>>,
+    dependencies: Vec<Vec<usize>>,
+}
+
+impl BnBState {
+    fn backtrack(&mut self, step: usize) -> bool {
+        if step == self.n {
+            return true;
+        }
+
+        // Heuristic: prefer vertices that free the most registers.
+        let mut candidates = self.ready.clone();
+        candidates.sort_by_key(|&v| {
+            let frees = self.dependencies[v]
+                .iter()
+                .filter(|&&dep| self.remaining_deps[dep] == 1 && self.live[dep])
+                .count();
+            std::cmp::Reverse(frees)
+        });
+
+        for &vertex in &candidates {
+            self.config[vertex] = step;
+
+            let was_live = self.live[vertex];
+            if !was_live {
+                self.live[vertex] = true;
+                self.live_count += 1;
+            }
+
+            let mut freed = Vec::new();
+            for &dep in &self.dependencies[vertex] {
+                self.remaining_deps[dep] -= 1;
+                if self.remaining_deps[dep] == 0 && self.live[dep] {
+                    self.live[dep] = false;
+                    self.live_count -= 1;
+                    freed.push(dep);
+                }
+            }
+
+            if self.live_count <= self.bound {
+                self.ready.retain(|&v| v != vertex);
+                let mut newly_ready = Vec::new();
+                for &dep in &self.dependents[vertex] {
+                    self.remaining_in_degree[dep] -= 1;
+                    if self.remaining_in_degree[dep] == 0 {
+                        self.ready.push(dep);
+                        newly_ready.push(dep);
+                    }
+                }
+
+                if self.backtrack(step + 1) {
+                    return true;
+                }
+
+                for &dep in &newly_ready {
+                    self.ready.retain(|&v| v != dep);
+                }
+                for &dep in &self.dependents[vertex] {
+                    self.remaining_in_degree[dep] += 1;
+                }
+                self.ready.push(vertex);
+                self.ready.sort_unstable();
+            }
+
+            for &dep in &freed {
+                self.live[dep] = true;
+                self.live_count += 1;
+            }
+            for &dep in &self.dependencies[vertex] {
+                self.remaining_deps[dep] += 1;
+            }
+
+            if !was_live {
+                self.live[vertex] = false;
+                self.live_count -= 1;
+            }
+        }
+
+        false
+    }
 }
 
 impl Problem for RegisterSufficiency {

@@ -93,20 +93,15 @@ fn test_ksatisfiability_to_register_sufficiency_extract_solution_uses_w_snapshot
     assert_eq!(extracted, vec![1]);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
-fn test_ksatisfiability_to_register_sufficiency_closed_loop_via_ilp() {
-    use crate::models::algebraic::ILP;
-    use crate::solvers::ILPSolver;
-
+fn test_ksatisfiability_to_register_sufficiency_closed_loop_via_exact_solver() {
     let source = repeated_positive_literal();
     let reduction = ReduceTo::<RegisterSufficiency>::reduce_to(&source);
-    let to_ilp = ReduceTo::<ILP<i32>>::reduce_to(reduction.target_problem());
 
-    let ilp_solution = ILPSolver::new()
-        .solve(to_ilp.target_problem())
+    let register_schedule = reduction
+        .target_problem()
+        .solve_exact()
         .expect("satisfiable source formula should yield a feasible register schedule");
-    let register_schedule = to_ilp.extract_solution(&ilp_solution);
     assert_eq!(
         reduction.target_problem().evaluate(&register_schedule),
         Or(true)
@@ -125,6 +120,9 @@ fn test_ksatisfiability_to_register_sufficiency_unsatisfiable_instance() {
 
     let source = contradictory_single_variable();
     let reduction = ReduceTo::<RegisterSufficiency>::reduce_to(&source);
+    // Use ILP to prove infeasibility — the B&B exact solver is fast for SAT
+    // instances but must exhaust the search tree for UNSAT, making ILP the
+    // better choice for infeasibility proofs.
     let to_ilp = ReduceTo::<ILP<i32>>::reduce_to(reduction.target_problem());
 
     assert!(
@@ -133,7 +131,7 @@ fn test_ksatisfiability_to_register_sufficiency_unsatisfiable_instance() {
     );
 }
 
-#[cfg(all(feature = "example-db", feature = "ilp-solver"))]
+#[cfg(feature = "example-db")]
 #[test]
 fn test_ksatisfiability_to_register_sufficiency_canonical_example_spec() {
     let spec = canonical_rule_example_specs()
