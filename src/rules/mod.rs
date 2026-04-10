@@ -164,6 +164,8 @@ pub(crate) mod capacityassignment_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod circuit_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod clustering_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod coloring_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod consecutiveblockminimization_ilp;
@@ -247,6 +249,8 @@ pub(crate) mod minimumdominatingset_ilp;
 pub(crate) mod minimumedgecostflow_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumexternalmacrodatacompression_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod minimumfaultdetectiontestset_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumfeedbackarcset_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -531,6 +535,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(boundedcomponentspanningforest_ilp::canonical_rule_example_specs());
         specs.extend(capacityassignment_ilp::canonical_rule_example_specs());
         specs.extend(circuit_ilp::canonical_rule_example_specs());
+        specs.extend(clustering_ilp::canonical_rule_example_specs());
         specs.extend(coloring_ilp::canonical_rule_example_specs());
         specs.extend(consecutiveblockminimization_ilp::canonical_rule_example_specs());
         specs.extend(consecutiveonesmatrixaugmentation_ilp::canonical_rule_example_specs());
@@ -574,6 +579,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(minimumcoveringbycliques_ilp::canonical_rule_example_specs());
         specs.extend(minimumedgecostflow_ilp::canonical_rule_example_specs());
         specs.extend(minimumexternalmacrodatacompression_ilp::canonical_rule_example_specs());
+        specs.extend(minimumfaultdetectiontestset_ilp::canonical_rule_example_specs());
         specs.extend(minimuminternalmacrodatacompression_ilp::canonical_rule_example_specs());
         specs.extend(minimumfeedbackarcset_ilp::canonical_rule_example_specs());
         specs.extend(minimumfeedbackvertexset_ilp::canonical_rule_example_specs());

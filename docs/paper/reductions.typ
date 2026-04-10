@@ -15161,6 +15161,50 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Read the cluster label of each source vertex as its color label.
 ]
 
+#let clustering_ilp = load-example("Clustering", "ILP")
+#let clustering_ilp_sol = clustering_ilp.solutions.at(0)
+#reduction-rule("Clustering", "ILP",
+  example: true,
+  example-caption: [4 elements, $K = 2$, $B = 1$ $arrow.r$ ILP with #clustering_ilp.target.instance.num_vars variables and #clustering_ilp.target.instance.constraints.len() constraints],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(clustering_ilp.source) + " -o clustering.json",
+      "pred reduce clustering.json --to " + target-spec(clustering_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate clustering.json --config " + clustering_ilp_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let n = clustering_ilp.source.instance.distances.len()
+      let k = clustering_ilp.source.instance.num_clusters
+      let b = clustering_ilp.source.instance.diameter_bound
+      let distances = clustering_ilp.source.instance.distances
+      let source-config = clustering_ilp_sol.source_config
+      [
+        *Step 1 -- Source instance.* The canonical source has $n = #n$ elements, cluster bound $K = #k$, and diameter bound $B = #b$. Its distance rows are #distances.map(row => "(" + row.map(str).join(", ") + ")").join("; "), so the only pairs above the bound are $(0, 2)$, $(0, 3)$, $(1, 2)$, and $(1, 3)$.
+
+        *Step 2 -- Build the ILP.* Introduce one binary variable $x_(i,c)$ for each element-cluster pair, giving $n K = #(n * k)$ variables. The $n = #n$ assignment equalities $sum_c x_(i,c) = 1$ force every element into exactly one cluster, and the four violating pairs contribute $4 dot K = #(4 * k)$ conflict inequalities. The stored target therefore has #clustering_ilp.target.instance.num_vars variables and #clustering_ilp.target.instance.constraints.len() constraints.
+
+        *Step 3 -- Verify the canonical witness.* The stored ILP vector is $(#clustering_ilp_sol.target_config.map(str).join(", "))$. Reading each block of $K = #k$ variables yields the clustering $(#source-config.map(str).join(", "))$, so cluster 0 contains elements ${#source-config.enumerate().filter(((i, c)) => c == 0).map(((i, c)) => str(i)).join(", ")}$ and cluster 1 contains elements ${#source-config.enumerate().filter(((i, c)) => c == 1).map(((i, c)) => str(i)).join(", ")}$. The only within-cluster distances are $d(0,1) = #distances.at(0).at(1)$ and $d(2,3) = #distances.at(2).at(3)$, both at most $B$ #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness. Swapping the two cluster labels gives an equivalent second witness because the ILP distinguishes clusters only by index.
+      ]
+    }
+  ],
+)[
+  This direct $O(n^2 K)$ ILP encoding#footnote[Standard ILP formulation of diameter-bounded clustering; no specific literature key is currently registered in `references.bib`.] introduces one binary variable $x_(i,c)$ for each element $i$ and cluster $c$, forces every element into exactly one cluster, and forbids every pair with $d(i,j) > B$ from sharing a cluster ($n K$ variables and at most $n + n^2 K$ constraints).
+][
+  _Construction._ Given a Clustering instance on elements $X = {0, dots, n - 1}$ with cluster bound $K$ and diameter bound $B$, create binary variables $x_(i,c) in {0, 1}$ for every element $i in X$ and cluster $c in {0, dots, K - 1}$. Interpret $x_(i,c) = 1$ iff element $i$ is assigned to cluster $c$.
+
+  For every element $i$, add the assignment constraint $sum_(c=0)^(K-1) x_(i,c) = 1$. For every pair $i < j$ with $d(i,j) > B$ and every cluster $c$, add the conflict constraint $x_(i,c) + x_(j,c) <= 1$. Use the zero objective and minimize it, so the target is a pure feasibility ILP.
+
+  _Correctness._ ($arrow.r.double$) If the source instance has a feasible clustering, set $x_(i,c) = 1$ exactly for the cluster assigned to element $i$. Every element is assigned once, so all assignment equalities hold. Whenever $d(i,j) > B$, the source clustering never puts $i$ and $j$ together, so for every cluster $c$ at least one of $x_(i,c)$ or $x_(j,c)$ is 0 and every conflict inequality holds. ($arrow.l.double$) If the ILP is feasible, the assignment equalities choose exactly one cluster for each element. If some extracted cluster contained a pair $i, j$ with $d(i,j) > B$, then for that cluster $c$ we would have $x_(i,c) = x_(j,c) = 1$, contradicting the conflict inequality. Hence every extracted cluster has diameter at most $B$, so the extracted assignment is a feasible clustering using at most $K$ clusters.
+
+  _Variable mapping._ The implementation stores variable $x_(i,c)$ at index $i dot K + c$, i.e.\ consecutive blocks of $K$ variables per element.
+
+  _Solution extraction._ For each element $i$, scan the block $(x_(i,0), dots, x_(i,K-1))$ and return the unique cluster $c$ with value 1.
+]
+
 // 5. PartitionIntoCliques → MinimumCoveringByCliques (#889)
 #let pic_mcbc = load-example("PartitionIntoCliques", "MinimumCoveringByCliques")
 #let pic_mcbc_sol = pic_mcbc.solutions.at(0)

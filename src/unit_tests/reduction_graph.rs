@@ -1,5 +1,7 @@
 //! Tests for ReductionGraph: discovery, path finding, and typed API.
 
+#[cfg(feature = "ilp-solver")]
+use crate::models::algebraic::ILP;
 use crate::models::decision::Decision;
 use crate::models::formula::KSatisfiability;
 use crate::models::misc::Clustering;
@@ -37,6 +39,14 @@ fn test_reduction_graph_discovers_k3coloring_to_clustering() {
     let graph = ReductionGraph::new();
 
     assert!(graph.has_direct_reduction::<KColoring<K3, SimpleGraph>, Clustering>());
+}
+
+#[cfg(feature = "ilp-solver")]
+#[test]
+fn test_reduction_graph_discovers_clustering_to_ilp() {
+    let graph = ReductionGraph::new();
+
+    assert!(graph.has_direct_reduction::<Clustering, ILP<bool>>());
 }
 
 // ---- Path finding (by name) ----
