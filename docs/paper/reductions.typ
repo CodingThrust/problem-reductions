@@ -3775,9 +3775,9 @@ A classical NP-complete problem from Garey and Johnson @garey1979[Ch.~3, p.~76],
 
 #{
   let x = load-model-example("QuadraticDiophantineEquations")
-  let a = x.instance.a
-  let b = x.instance.b
-  let c = x.instance.c
+  let a = int(x.instance.a)
+  let b = int(x.instance.b)
+  let c = int(x.instance.c)
   let config = x.optimal_config
   let xval = config.at(0) + 1
   let yval = int((c - a * xval * xval) / b)
@@ -9520,7 +9520,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
     )
     Source VC: $C = {#mvc_aog_cover.map(str).join(", ")}$ (size #mvc_aog_cover.len()) on graph with $n = #graph-num-vertices(mvc_aog.source.instance)$ vertices, $m = #graph-num-edges(mvc_aog.source.instance)$ edges \
     Target AND/OR graph: #mvc_aog.target.instance.num_vertices vertices, source $v_#mvc_aog.target.instance.source$ (AND), arcs: #{range(mvc_aog.target.instance.arcs.len()).map(i => {let a = mvc_aog.target.instance.arcs.at(i); $v_#(a.at(0)) arrow.r v_#(a.at(1))$}).join(", ")} \
-    Selected arcs: #{mvc_aog_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => {let a = mvc_aog.target.instance.arcs.at(i); $v_#(a.at(0)) arrow.r v_#(a.at(1))$}).join(", ")} (weight #mvc_aog.target.optimal_value) #sym.checkmark
+    Selected arcs: #{mvc_aog_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => {let a = mvc_aog.target.instance.arcs.at(i); $v_#(a.at(0)) arrow.r v_#(a.at(1))$}).join(", ")} (weight #{mvc_aog_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => mvc_aog.target.instance.arc_weights.at(i)).sum()}) #sym.checkmark
   ],
 )[
   This reduction encodes vertex cover as a minimum-weight solution subgraph problem on a three-layer AND/OR DAG. The root AND gate requires all edges to be covered; each edge becomes an OR gate selecting which endpoint covers it; and each vertex becomes a sink whose arc weight equals the vertex weight. The minimum-weight solution subgraph selects exactly the arcs corresponding to a minimum vertex cover.
@@ -10922,7 +10922,7 @@ The following reductions to Integer Linear Programming are straightforward formu
     )
     Source FVS: $F = {#fvs_cg_fvs.map(str).join(", ")}$ (size #fvs_cg_fvs.len()) on a digraph with $n = #fvs_cg.source.instance.graph.num_vertices$ vertices and $m = #fvs_cg.source.instance.graph.arcs.len()$ arcs \
     Target DAG: #fvs_cg.target.instance.num_vertices vertices, left arcs $L$: #{fvs_cg.target.instance.left_arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")}, right arcs $R$: #{fvs_cg.target.instance.right_arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")} \
-    Target evaluation order: $(#fvs_cg_sol.target_config.map(str).join(", "))$ with #fvs_cg.target.optimal_value instructions #sym.checkmark
+    Target evaluation order: $(#fvs_cg_sol.target_config.map(str).join(", "))$ with #fvs_cg_sol.target_config.len() instructions #sym.checkmark
   ],
 )[
   The Aho--Johnson--Ullman chain gadget construction @ahoJohnsonUllman1977 encodes a feedback vertex set problem as a code generation problem on an expression DAG with unlimited registers and 2-address instructions. Each source vertex becomes a leaf (input register), and each outgoing arc becomes an internal chain node. The number of LOAD (copy) instructions needed in an optimal program equals the size of a minimum feedback vertex set.
