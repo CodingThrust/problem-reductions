@@ -178,6 +178,16 @@ pub(super) fn create_schema_driven(
         json_map.insert(field.name.clone(), value);
     }
 
+    // KColoring/KN stores the number of colors at runtime in `num_colors`.
+    // The schema only declares `graph`, so inject `num_colors` from --k for KN.
+    if canonical == "KColoring"
+        && resolved_variant.get("k").map(|s| s.as_str()) == Some("KN")
+    {
+        if let Some(k) = args.k {
+            json_map.insert("num_colors".to_string(), serde_json::json!(k));
+        }
+    }
+
     // Decision<P> types serialize as {inner: {graph, weights, ...}, bound} but schema
     // fields are flat (graph, weights, bound).  Restructure when the canonical name
     // indicates a Decision wrapper.

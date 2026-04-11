@@ -40,6 +40,8 @@ These repo-local skills live under `.claude/skills/*/SKILL.md`.
 - [verify-reduction](skills/verify-reduction/SKILL.md) -- Standalone mathematical verification of a reduction rule: Typst proof, constructor Python (≥5000 checks), adversary Python (≥5000 independent checks). Reports verdict, no artifacts saved. Also called as a subroutine by `/add-rule` (default behavior).
 - [tutorial](skills/tutorial/SKILL.md) -- Interactive tutorial — walk through the pred CLI to explore, reduce, and solve NP-hard problems. No Rust internals.
 - [update-papers](skills/update-papers/SKILL.md) -- Update research paper collection: download new papers from references.bib, retry failed downloads, sync to Google Drive, regenerate index.md.
+- [find-solver](skills/find-solver/SKILL.md) -- Interactive guide: match a real-world problem to a library model, explore reduction paths, recommend solvers (built-in + external), and generate a solution doc.
+- [find-problem](skills/find-problem/SKILL.md) -- Reverse of find-solver: given a solver for a model, discover what other problems it can handle via incoming reductions, ranked by effective complexity.
 
 ## Codex Compatibility
 - Claude slash commands such as `/issue-to-pr 42 --execute` are aliases for the matching repo-local skill files under `.claude/skills/`.
