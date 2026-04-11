@@ -34,7 +34,7 @@ Adapt the flow: if the user provides a formal problem name, validate it with `pr
 ```
 Step 1: Clarify Problem (skip if user knows the formal name)
 Step 2: Match to Library Models (web search + pred list)
-Step 3: Explore Reduction Paths (multi-hop guided via pred to)
+Step 3: Explore Reduction Paths (auto-explore via pred to --hops 3)
 Step 4: Recommend Solvers (web search + pred solve options)
 Step 5: Generate Solution Doc (docs/solutions/<name>.md)
 ```
@@ -106,47 +106,30 @@ Use `AskUserQuestion` for each question. Format options as **(a)**/**(b)**/**(c)
 
 ## Step 3: Explore Reduction Paths
 
-**Goal:** Guide the user through the reduction graph one hop at a time until they reach a solver-ready target.
+**Goal:** Discover all solver-ready targets reachable from the chosen model and present them ranked.
 
-**This is an interactive loop. Each iteration:**
+**Actions:**
 
-1. **Run `pred to <current_model>`** to get 1-hop reduction targets. Copy-paste the full output.
+1. **Run `pred to <model> --hops 3`** to find all problems reachable within 3 hops. Copy-paste the full output.
 
-2. **For each target**, gather additional info and present an annotated table:
-
+2. **For each reachable problem**, gather info:
+   - Run `pred path <model> <target>` to get the cheapest witness-capable reduction path and composed overhead
    - Run `pred show <target>` to get its best-known complexity
-   - Run `pred path <target> ILP` to check if an ILP path exists (report step count or "No path")
-   - Extract overhead from the `pred to` / `pred show` output
+   - Check if it's a solver-ready target (ILP, QUBO, SAT) or has a path to one via `pred path <target> ILP`
 
-   Present the table:
+3. **Present a ranked table** (most practical paths first — fewest hops, lowest overhead):
 
-   | # | Reduces To | Overhead | Complexity | Has ILP Path? |
-   |---|------------|----------|------------|---------------|
-   | 1 | ... | ... | ... | ... |
-   | 2 | ... | ... | ... | ... |
+   | # | Target | Hops | Composed Overhead | Target Complexity | Solver-Ready? |
+   |---|--------|------|-------------------|-------------------|---------------|
+   | 1 | ILP | 2 | num_vars = 2*n + m | O(2^num_vars) | Yes (is ILP) |
+   | 2 | QUBO | 1 | num_vars = n | O(2^num_vars) | Yes (is QUBO) |
+   | 3 | MaxSetPacking | 1 | num_sets = n | O(2^num_sets) | Yes (ILP in 2 steps) |
 
-3. **Show the running path summary:**
+4. **Ask the user** using `AskUserQuestion`: "Which reduction path would you like to use? Pick a number."
 
-   ```
-   Path so far: MIS -> MaximumSetPacking -> ???
-   Accumulated overhead: num_sets = num_vertices, universe_size = num_edges
-   ```
+**If `--hops 3` returns more than 15 results:** present only the top 10 by overhead and mention the rest are available.
 
-4. **Ask the user** using `AskUserQuestion`:
-   - Pick a target number to continue exploring
-   - Or say "solve here" to stop at the current problem
-   - Or say "go back" to revisit the previous step
-
-5. **Repeat** with the chosen target as the new current model.
-
-**Termination conditions:**
-- User reaches ILP or another solver-ready problem and says "solve here"
-- User explicitly chooses brute-force on the current problem
-- No outgoing reductions exist — inform the user this is a dead end and suggest backtracking
-
-**Backtracking:** If the user says "go back" or "try a different target", re-run `pred to` on the previous model and present options again.
-
-**Proceed to Step 4 with the final reduction path.**
+**Proceed to Step 4 with the chosen path.**
 
 ---
 
