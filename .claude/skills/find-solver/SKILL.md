@@ -34,7 +34,7 @@ Adapt the flow: if the user provides a formal problem name, validate it with `pr
 ```
 Step 1: Clarify Problem (skip if user knows the formal name)
 Step 2: Match to Library Models (web search + pred list)
-Step 3: Explore Reduction Paths (auto-explore via pred to --hops 3)
+Step 3: Explore Reduction Paths (auto-explore via pred from --hops 3)
 Step 4: Recommend Solvers (web search + pred solve options)
 Step 5: Generate Solution Doc (docs/solutions/<name>.md)
 ```
@@ -110,7 +110,7 @@ Use `AskUserQuestion` for each question. Format options as **(a)**/**(b)**/**(c)
 
 **Actions:**
 
-1. **Run `pred to <model> --hops 3`** to find all problems reachable within 3 hops. Copy-paste the full output.
+1. **Run `pred from <model> --hops 3`** to find all problems reachable via outgoing reductions within 3 hops. Copy-paste the full output.
 
 2. **For each reachable problem**, gather info:
    - Run `pred path <model> <target>` to get the cheapest witness-capable reduction path and composed overhead
@@ -127,7 +127,7 @@ Use `AskUserQuestion` for each question. Format options as **(a)**/**(b)**/**(c)
 
 4. **Ask the user** using `AskUserQuestion`: "Which reduction path would you like to use? Pick a number."
 
-**If `--hops 3` returns more than 15 results:** present only the top 10 by overhead and mention the rest are available.
+**If `pred from --hops 3` returns more than 15 results:** present only the top 10 by overhead and mention the rest are available.
 
 **Proceed to Step 4 with the chosen path.**
 

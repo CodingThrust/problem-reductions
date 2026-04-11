@@ -37,7 +37,7 @@ Step 4: Generate Solution Doc (docs/solutions/<name>.md)
 
 Bash tool results are hidden from the user in the Claude Code UI. **After every `pred` command, you MUST copy-paste the full stdout/stderr into your response as text.** The pattern for every command is:
 
-1. Announce the command and why: "Let me run `pred from MIS --hops 3` to discover all problems that can reduce to MIS:"
+1. Announce the command and why: "Let me run `pred to MIS --hops 3` to discover all problems that can reduce to MIS:"
 2. Run the command via the Bash tool
 3. Copy the COMPLETE output into your text response inside a fenced code block
 4. Then add your brief explanation
@@ -69,7 +69,7 @@ Never skip step 1 or 3.
 
 **Actions:**
 
-1. **Run `pred from <model> --hops 3`** to find all problems that can reduce to the user's model within 3 hops. Copy-paste the full output.
+1. **Run `pred to <model> --hops 3`** to find all problems that can reduce to the user's model within 3 hops (incoming direction). Copy-paste the full output.
 
 2. **For each discovered problem**, run:
    - `pred path <source> <model>` — get the cheapest witness-capable reduction path
@@ -181,6 +181,6 @@ pred solve bundle.json --solver ilp --timeout 60
 - **Compact formatting.** Write explanations as plain paragraphs. Do not use blockquote `>` syntax for explanations. Keep tight: command announcement, code block output, 1-3 sentence explanation.
 - **Conversational tone.** Guided consultation, not a lecture.
 - **Live execution.** Every `pred` command runs for real. No fake output.
-- **Graceful fallbacks.** If `pred from` returns no results, suggest trying with more hops or a different model. If `pred path` fails for a specific source, skip it and note it in the table.
+- **Graceful fallbacks.** If `pred to` returns no results (no incoming reductions), suggest trying with more hops or a different model. If `pred path` fails for a specific source, skip it and note it in the table.
 - **Help with complexity notation.** If the user gives informal complexity, show `pred show <model>` size fields and help them write a formal expression.
 - **Cap results at 10.** If discovery returns many problems, show top 10 by effective complexity and offer to show more.
