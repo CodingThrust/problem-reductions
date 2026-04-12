@@ -115,3 +115,6 @@ jobs:
             }
 
             console.log(`Done. Deleted: ${deleted}, Failed: ${failed}`);
+            if (failed > 0) {
+              throw new Error(`Failed to delete ${failed} branch(es). See logs above.`);
+            }
