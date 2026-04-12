@@ -375,6 +375,24 @@ pub(crate) fn variant_to_full_slash(variant: &BTreeMap<String, String>) -> Strin
     }
 }
 
+/// Build a hint string listing available variants for a problem name.
+/// Returns an empty string if there is only one variant (nothing to disambiguate).
+pub(crate) fn variant_hint_for(graph: &ReductionGraph, name: &str) -> String {
+    let variants = graph.variants_for(name);
+    if variants.len() <= 1 {
+        return String::new();
+    }
+    let list: Vec<String> = variants
+        .iter()
+        .map(|v| format!("{}{}", name, variant_to_full_slash(v)))
+        .collect();
+    format!(
+        "\nTip: try specifying a variant. Available variants for {}:\n  {}\n",
+        name,
+        list.join(", "),
+    )
+}
+
 /// Format a problem node as **bold name/variant** in slash notation.
 /// This is the single source of truth for "name/variant" display.
 fn fmt_node(_graph: &ReductionGraph, name: &str, variant: &BTreeMap<String, String>) -> String {
@@ -550,8 +568,10 @@ pub fn path(
             out.emit_with_default_name("", &text, &json)
         }
         None => {
+            let variant_hint = variant_hint_for(&graph, &dst_spec.name);
             anyhow::bail!(
-                "No reduction path from {} to {}\n\n\
+                "No reduction path from {} to {}\n\
+                 {variant_hint}\n\
                  Usage: pred path <SOURCE> <TARGET>\n\
                  Example: pred path MIS QUBO\n\n\
                  Run `pred show {}` and `pred show {}` to check available reductions.",
@@ -578,8 +598,10 @@ fn path_all(
         graph.find_paths_up_to(src_name, src_variant, dst_name, dst_variant, max_paths + 1);
 
     if all_paths.is_empty() {
+        let variant_hint = variant_hint_for(graph, dst_name);
         anyhow::bail!(
-            "No reduction path from {} to {}\n\n\
+            "No reduction path from {} to {}\n\
+             {variant_hint}\n\
              Usage: pred path <SOURCE> <TARGET> --all\n\
              Example: pred path MIS QUBO --all\n\n\
              Run `pred show {}` and `pred show {}` to check available reductions.",

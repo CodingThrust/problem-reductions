@@ -125,8 +125,10 @@ pub fn reduce(
         );
 
         best_path.ok_or_else(|| {
+            let variant_hint = variant_hint_for(&graph, &dst_ref.name);
             anyhow::anyhow!(
-                "No witness-capable reduction path from {} to {}\n\n\
+                "No witness-capable reduction path from {} to {}\n\
+                 {variant_hint}\n\
                  Hint: generate a path file first, then pass it with --via:\n\
                    pred path {} {} -o path.json\n\
                    pred reduce {} --via path.json -o reduced.json",
@@ -196,4 +198,4 @@ pub fn reduce(
     Ok(())
 }
 
-use super::graph::variant_to_full_slash;
+use super::graph::{variant_hint_for, variant_to_full_slash};

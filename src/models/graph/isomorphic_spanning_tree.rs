@@ -195,7 +195,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default IsomorphicSpanningTree<SimpleGraph> => "num_vertices^num_vertices",
+    default IsomorphicSpanningTree<SimpleGraph> => "2^num_vertices",
 }
 
 #[cfg(test)]
