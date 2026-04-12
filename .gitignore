@@ -91,6 +91,7 @@ docs/test-reports/
 docs/superpowers/
 *.log
 docs/src/reductions/*.json
+docs/src/generated/
 .claude/projects/
 docs/research/
 docs/solutions/

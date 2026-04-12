@@ -11,22 +11,11 @@ This infrastructure aims to solve two problems:
 - Given a hard problem $A$, reduce it to the most viable problem $B$, to be solved efficiently with an external solver.
 - Given a solver $S$ for problem $B$, explore how efficiently it can be used for solving other problems.
 
-Download [PDF manual](https://codingthrust.github.io/problem-reductions/reductions.pdf) for humans.
+Download [PDF manual](https://codingthrust.github.io/problem-reductions/reductions.pdf) for the full theory and proofs.
 
-## Installation
+## For Terminal Users
 
-### As a library
-
-Add to your `Cargo.toml`:
-
-```toml
-[dependencies]
-problemreductions = "0.2"
-```
-
-### CLI tool
-
-Install the `pred` command-line tool for exploring the reduction graph from your terminal:
+Install the `pred` CLI tool:
 
 ```bash
 cargo install problemreductions-cli
@@ -40,41 +29,40 @@ cd problem-reductions
 make cli    # builds target/release/pred
 ```
 
-See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples, the reduction workflow, and [CLI usage](https://codingthrust.github.io/problem-reductions/cli.html).
-
-**Have a problem and looking for a solver?** Run `/find-solver` — it matches your real-world problem to a library model, explores reduction paths, and recommends solvers.
-
-**Have a solver and wondering what it can solve?** Run `/find-problem` — given a solver for a specific model, it discovers all other problems reachable via incoming reductions, ranked by effective complexity.
-
-Try a model directly from the CLI:
+Try it out:
 
 ```bash
 # Show the Consecutive Block Minimization model (alias: CBM)
 pred show CBM
 
-# Create and solve a small CBM instance (currently with brute-force)
+# Create and solve a small CBM instance
 pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound 2 \
   | pred solve - --solver brute-force
 ```
 
-## MCP Server (AI Integration)
+See the full [CLI guide](https://codingthrust.github.io/problem-reductions/cli.html) for all commands and examples.
 
-The `pred` CLI includes a built-in [MCP](https://modelcontextprotocol.io/) server for AI assistant integration (Claude Code, Cursor, Windsurf, OpenCode, etc.).
+## For AI Agent Users
 
-Add to your client's MCP config file:
+Paste into Claude Code or Codex:
 
-```json
-{"mcpServers": {"problemreductions": {"command": "pred", "args": ["mcp"]}}}
+```
+Clone https://github.com/CodingThrust/problem-reductions,
+build the pred CLI with `make cli`,
+then run /find-solver to help me find a solver for my scheduling problem.
 ```
 
-| Client | Config file |
-|--------|------------|
-| Claude Code / Desktop | `.mcp.json` or `~/.claude/mcp.json` |
-| Cursor | `.cursor/mcp.json` |
-| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
-| OpenCode | `opencode.json` (use `{"mcp": {"problemreductions": {"type": "local", "command": ["pred", "mcp"]}}}`) |
+Other prompts to try:
 
-See the [MCP documentation](https://codingthrust.github.io/problem-reductions/mcp.html) for available tools, prompts, and full configuration details.
+```
+What problems can my QUBO solver handle? Use /find-problem to explore.
+```
+
+```
+I know a reduction from Vertex Cover to Independent Set. Use /propose to file an issue.
+```
+
+See [AI Agent Skills](https://codingthrust.github.io/problem-reductions/skills.html) for more prompts.
 
 ## Contributing
 
@@ -88,7 +76,7 @@ See the [MCP documentation](https://codingthrust.github.io/problem-reductions/mc
 
 **Authorship:** contribute 10 non-trivial reduction rules and you'll be added to the author list of the [paper](https://codingthrust.github.io/problem-reductions/reductions.pdf).
 
-> **Tip:** If you use Claude Code / OpenCode / Codex, run `/propose` to file issues interactively — it guides you one question at a time, suggests the most needed reductions based on graph topology, and runs quality checks before filing:
+**Tip:** If you use Claude Code / OpenCode / Codex, run `/propose` to file issues interactively — it guides you one question at a time, suggests the most needed reductions based on graph topology, and runs quality checks before filing:
 > ```
 > /propose              # brainstorm a new model or rule
 > /propose model        # propose a new problem

@@ -4,12 +4,15 @@
 
 # User Guide
 
-- [Getting Started](./getting-started.md)
 - [CLI Tool](./cli.md)
-- [MCP Server](./mcp.md)
+- [AI Agent Skills](./skills.md)
+
+# Rust Library
+
+- [Getting Started](./getting-started.md)
 - [Design](./design.md)
-
-# Developer Guide
-
 - [API Reference](./api.md)
-- [Complexity & Overhead Review](./complexity-review.md)
+
+# Reference
+
+- [MCP Server](./mcp.md)

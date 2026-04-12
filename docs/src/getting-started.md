@@ -6,11 +6,8 @@
 
 ## Installation
 
-Add to your `Cargo.toml`:
-
-```toml
-[dependencies]
-problemreductions = "0.2"
+```bash
+cargo add problemreductions
 ```
 
 ## The Reduction Workflow
@@ -124,7 +121,7 @@ variant.
 ```
 
 ```text
-  Factoring → CircuitSAT → SpinGlass {graph: "SimpleGraph", weight: "i32"}
+{{#include generated/factoring-path.txt}}
 ```
 
 #### Step 2 — Create the Factoring problem
@@ -158,7 +155,7 @@ factors.
 ```
 
 ```text
-6 = 3 × 2
+{{#include generated/factoring-result.txt}}
 ```
 
 #### Step 5 — Inspect the overhead
@@ -173,34 +170,23 @@ single end-to-end formula.
 ```
 
 ```text
-Factoring → CircuitSAT:
-  num_variables = num_bits_first * num_bits_second
-  num_assignments = num_bits_first * num_bits_second
-CircuitSAT → SpinGlass {graph: "SimpleGraph", weight: "i32"}:
-  num_spins = num_assignments
-  num_interactions = num_assignments
-SpinGlass {graph: "SimpleGraph", weight: "i32"} → SpinGlass {graph: "SimpleGraph", weight: "f64"}:
-  num_spins = num_spins
-  num_interactions = num_interactions
-Composed (source → target):
-  num_spins = num_bits_first * num_bits_second
-  num_interactions = num_bits_first * num_bits_second
+{{#include generated/factoring-overhead.txt}}
 ```
 
 ## Solvers
 
-Two solvers are available:
+Three solvers are available:
 
 | Solver | Use Case | Notes |
 |--------|----------|-------|
 | [`BruteForce`](api/problemreductions/solvers/struct.BruteForce.html) | Small instances (<20 variables) | Enumerates all configurations |
 | [`ILPSolver`](api/problemreductions/solvers/ilp/struct.ILPSolver.html) | Larger instances | Enabled by default (`ilp` feature) |
+| [`CustomizedSolver`](api/problemreductions/solvers/customized/struct.CustomizedSolver.html) | Structure-exploiting | Uses problem-specific exact algorithms |
 
 ILP support is enabled by default. To disable it:
 
-```toml
-[dependencies]
-problemreductions = { version = "0.2", default-features = false }
+```bash
+cargo add problemreductions --no-default-features
 ```
 
 ## JSON Resources

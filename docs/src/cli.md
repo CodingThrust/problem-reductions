@@ -116,194 +116,46 @@ pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --to QUBO | pred solve -
 
 Lists all registered problem types with their short aliases.
 
-```bash
-$ pred list
-Registered problems: 50 types, 59 reductions, 69 variant nodes
-
-  Problem                                           Aliases      Rules  Complexity
-  ────────────────────────────────────────────────  ───────────  ─────  ──────────────────────────────────────────────────────────────────
-  BMF *                                                                 O(2^(cols * rank + rank * rows))
-  BicliqueCover *                                                       O(2^num_vertices)
-  BiconnectivityAugmentation/SimpleGraph/i32 *                          O(2^num_potential_edges)
-  BinPacking/f64                                                     1  O(2^num_items)
-  BinPacking/i32 *                                                      O(2^num_items)
-  BoundedComponentSpanningForest/SimpleGraph/i32 *                      O(3^num_vertices)
-  CircuitSAT *                                                       2  O(2^num_variables)
-  ClosestVectorProblem/f64                          CVP                 O(2^num_basis_vectors)
-  ClosestVectorProblem/i32 *                                            O(2^num_basis_vectors)
-  DirectedTwoCommodityIntegralFlow *                D2CIF               O((max_capacity + 1)^(2 * num_arcs))
-  ExactCoverBy3Sets *                               X3C                 O(2^universe_size)
-  Factoring *                                                        2  O(exp((m + n)^0.3333333333333333 * log(m + n)^0.6666666666666666))
-  FlowShopScheduling *                                                  O(factorial(num_jobs))
-  HamiltonianPath/SimpleGraph *                                         O(1.657^num_vertices)
-  ILP/bool *                                                         2  O(2^num_vars)
-  ILP/i32                                                               O(num_vars^num_vars)
-  IsomorphicSpanningTree *                                              O(factorial(num_vertices))
-  KColoring/SimpleGraph/KN *                                         3  O(2^num_vertices)
-  KColoring/SimpleGraph/K2                                              O(num_edges + num_vertices)
-  KColoring/SimpleGraph/K3                                              O(1.3289^num_vertices)
-  KColoring/SimpleGraph/K4                                              O(1.7159^num_vertices)
-  KColoring/SimpleGraph/K5                                              O(2^num_vertices)
-  KSatisfiability/KN *                              KSAT             6  O(2^num_variables)
-  KSatisfiability/K2                                                    O(num_clauses + num_variables)
-  KSatisfiability/K3                                                    O(1.307^num_variables)
-  Knapsack *                                                         1  O(2^(0.5 * num_items))
-  LengthBoundedDisjointPaths/SimpleGraph *                              O(2^(max_paths * num_vertices))
-  LongestCommonSubsequence *                        LCS              1  O(2^min_string_length)
-  MaxCut/SimpleGraph/i32 *                                           1  O(2^(0.7906666666666666 * num_vertices))
-  MaximalIS/SimpleGraph/i32 *                                           O(3^(0.3333333333333333 * num_vertices))
-  MaximumClique/SimpleGraph/i32 *                                    2  O(1.1996^num_vertices)
-  MaximumIndependentSet/SimpleGraph/One *           MIS             14  O(1.1996^num_vertices)
-  MaximumIndependentSet/KingsSubgraph/One                               O(2^sqrt(num_vertices))
-  MaximumIndependentSet/SimpleGraph/i32                                 O(1.1996^num_vertices)
-  MaximumIndependentSet/UnitDiskGraph/One                               O(2^sqrt(num_vertices))
-  MaximumIndependentSet/KingsSubgraph/i32                               O(2^sqrt(num_vertices))
-  MaximumIndependentSet/TriangularSubgraph/i32                          O(2^sqrt(num_vertices))
-  MaximumIndependentSet/UnitDiskGraph/i32                               O(2^sqrt(num_vertices))
-  MaximumMatching/SimpleGraph/i32 *                 MaxMatching      2  O(num_vertices^3)
-  MaximumSetPacking/One *                                            6  O(2^num_sets)
-  MaximumSetPacking/f64                                                 O(2^num_sets)
-  MaximumSetPacking/i32                                                 O(2^num_sets)
-  MinimumDominatingSet/SimpleGraph/i32 *                             1  O(1.4969^num_vertices)
-  MinimumFeedbackArcSet/i32 *                       FAS                 O(2^num_vertices)
-  MinimumFeedbackVertexSet/i32 *                    FVS                 O(1.9977^num_vertices)
-  MinimumMultiwayCut/SimpleGraph/i32 *                                  O(num_vertices^3 * 1.84^num_terminals)
-  MinimumSetCovering/i32 *                                           1  O(2^num_sets)
-  MinimumSumMulticenter/SimpleGraph/i32 *           pmedian             O(2^num_vertices)
-  MinimumTardinessSequencing *                                          O(2^num_tasks)
-  MinimumVertexCover/SimpleGraph/i32 *              MVC              2  O(1.1996^num_vertices)
-  MultipleChoiceBranching/i32 *                                         O(2^num_arcs)
-  OptimalLinearArrangement/SimpleGraph *            OLA                 O(2^num_vertices)
-  PaintShop *                                                           O(2^num_cars)
-  PartitionIntoTriangles/SimpleGraph *                                  O(2^num_vertices)
-  QUBO/f64 *                                                         2  O(2^num_vars)
-  RuralPostman/SimpleGraph/i32 *                    RPP                 O(num_vertices^2 * 2^num_vertices)
-  Satisfiability *                                  SAT              5  O(2^num_variables)
-  SequencingWithinIntervals *                                           O(2^num_tasks)
-  SetBasis *                                                            O(2^(basis_size * universe_size))
-  ShortestCommonSupersequence *                     SCS                 O(alphabet_size^bound)
-  SpinGlass/SimpleGraph/f64                                          3  O(2^num_spins)
-  SpinGlass/SimpleGraph/i32 *                                           O(2^num_spins)
-  SteinerTree/SimpleGraph/One                                           O(num_vertices * 3^num_terminals)
-  SteinerTree/SimpleGraph/i32 *                                         O(num_vertices * 3^num_terminals)
-  SubgraphIsomorphism *                                                 O(num_host_vertices^num_pattern_vertices)
-  SubsetSum *                                                           O(2^(0.5 * num_elements))
-  TravelingSalesman/SimpleGraph/i32 *               TSP              2  O(2^num_vertices)
-  UndirectedTwoCommodityIntegralFlow *                                  O(5^num_edges)
-
-* = default variant
-Use `pred show <problem>` to see reductions and fields.
+```text
+{{#include generated/pred-list.txt}}
 ```
 
 ### `pred show` — Inspect a problem
 
-Show variants, fields, size fields, and reductions for a problem type. `show` operates at the **type level** — it displays all variants of a problem, not a specific node. Slash suffixes (e.g., `MIS/UnitDiskGraph`) are rejected; use `pred to` or `pred from` for variant-level exploration. Use short aliases like `MIS` for `MaximumIndependentSet`.
+Show fields, size fields, and reductions for a problem's default variant. Use short aliases like `MIS` for `MaximumIndependentSet`. Use `pred to` or `pred from` for variant-level neighborhood exploration.
 
-```bash
-$ pred show MIS
-MaximumIndependentSet
-  Find maximum weight independent set in a graph
-
-Variants (4):
-  {graph=SimpleGraph, weight=i32}
-  {graph=UnitDiskGraph, weight=i32}
-  {graph=KingsSubgraph, weight=i32}
-  {graph=TriangularSubgraph, weight=i32}
-
-Fields (2):
-  graph (G) -- The underlying graph G=(V,E)
-  weights (Vec<W>) -- Vertex weights w: V -> R
-
-Size fields (2):
-  num_vertices
-  num_edges
-
-Reduces to (10):
-  MaximumIndependentSet {graph=SimpleGraph, weight=i32} → MaximumSetPacking ...
-  MaximumIndependentSet {graph=SimpleGraph, weight=i32} → MinimumVertexCover ...
-  ...
-
-Reduces from (9):
-  MinimumVertexCover {graph=SimpleGraph, weight=i32} → MaximumIndependentSet ...
-  Satisfiability (default) → MaximumIndependentSet {graph=SimpleGraph, weight=i32}
-  ...
+```text
+{{#include generated/pred-show-mis.txt}}
 ```
 
-### `pred to` — Explore outgoing neighbors
+### `pred to` — Explore incoming neighbors
 
-Explore which problems a given problem can reduce **to** within k hops. Each node in the tree shows its variant (graph type, weight type, etc.).
+Explore which problems can reduce **to** the given problem within k hops:
 
-```bash
-$ pred to MIS --hops 2
-MaximumIndependentSet {graph=SimpleGraph, weight=i32} — 2-hop neighbors (outgoing)
-
-MaximumIndependentSet {graph=SimpleGraph, weight=i32}
-├── MaximumSetPacking {weight=i32}
-│   ├── ILP (default)
-│   ├── MaximumIndependentSet {graph=SimpleGraph, weight=i32}
-│   └── QUBO {weight=f64}
-├── MaximumIndependentSet {graph=KingsSubgraph, weight=i32}
-│   └── MaximumIndependentSet {graph=SimpleGraph, weight=i32}
-├── MaximumIndependentSet {graph=TriangularSubgraph, weight=i32}
-│   └── MaximumIndependentSet {graph=SimpleGraph, weight=i32}
-├── MinimumVertexCover {graph=SimpleGraph, weight=i32}
-│   └── MaximumIndependentSet {graph=SimpleGraph, weight=i32}
-
-5 reachable problems in 2 hops
+```text
+{{#include generated/pred-to-mis.txt}}
 ```
 
-### `pred from` — Explore incoming neighbors
+### `pred from` — Explore outgoing neighbors
 
-Explore which problems can reduce **from** (i.e., reduce into) the given problem:
+Explore which problems the given problem can reduce to, starting **from** it:
 
-```bash
-$ pred from QUBO --hops 1
-QUBO {weight=f64} — 1-hop neighbors (incoming)
-
-QUBO {weight=f64}
-├── MaximumIndependentSet {graph=SimpleGraph, weight=i32}
-├── MinimumVertexCover {graph=SimpleGraph, weight=i32}
-└── SpinGlass {graph=SimpleGraph, weight=f64}
-
-3 reachable problems in 1 hops
+```text
+{{#include generated/pred-from-qubo.txt}}
 ```
 
 ### `pred path` — Find a reduction path
 
 Find the cheapest chain of reductions between two problems:
 
-```bash
-$ pred path MIS QUBO
-Path (3 steps): MaximumIndependentSet/SimpleGraph/i32 → MaximumSetPacking/i32 → QUBO/f64
-
-  Step 1: MaximumIndependentSet/SimpleGraph/i32 → MaximumSetPacking/i32
-    num_sets = num_vertices
-    universe_size = num_edges
-
-  Step 2: MaximumSetPacking/i32 → MaximumSetPacking/f64
-    num_sets = num_sets
-    universe_size = universe_size
-
-  Step 3: MaximumSetPacking/f64 → QUBO/f64
-    num_vars = num_sets
-
-  Overall:
-    num_vars = num_vertices
+```text
+{{#include generated/pred-path-mis-qubo.txt}}
 ```
 
 Multi-step paths are discovered automatically:
 
-```bash
-$ pred path Factoring SpinGlass
-Path (2 steps): Factoring → CircuitSAT → SpinGlass {graph: "SimpleGraph", weight: "i32"}
-
-  Step 1: Factoring → CircuitSAT
-    num_variables = num_bits_first * num_bits_second
-    num_assignments = num_bits_first * num_bits_second
-
-  Step 2: CircuitSAT → SpinGlass {graph: "SimpleGraph", weight: "i32"}
-    num_spins = num_assignments
-    num_interactions = num_assignments
+```text
+{{#include generated/pred-path-factoring-spinglass.txt}}
 ```
 
 Show all paths or save for later use with `pred reduce --via`:
@@ -439,9 +291,8 @@ ILP reduction path.
 
 Evaluate a configuration against a problem instance:
 
-```bash
-$ pred evaluate problem.json --config 1,0,1,0
-Max(2)
+```text
+{{#include generated/pred-evaluate.txt}}
 ```
 
 Stdin is supported with `-`:
@@ -502,11 +353,12 @@ The bundle contains everything needed to map solutions back:
 
 ### `pred solve` — Solve a problem
 
-Solve a problem instance using ILP (default) or brute-force:
+Solve a problem instance using ILP (default), brute-force, or the customized solver:
 
 ```bash
 pred solve problem.json                         # ILP solver (default)
 pred solve problem.json --solver brute-force    # brute-force solver
+pred solve problem.json --solver customized     # structure-exploiting exact solver
 pred solve problem.json --timeout 30            # abort after 30 seconds
 ```
 
@@ -519,26 +371,16 @@ pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weigh
 pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets "0,1,2;3,4,5;1,3;2,4;0,5" | pred solve - --solver brute-force
 ```
 
-When the problem is not ILP, the solver automatically reduces it to ILP, solves, and maps the solution back. The auto-reduction is shown in the output:
+Output is JSON. When the problem is not ILP, the solver automatically reduces it to ILP, solves, and maps the solution back:
 
-```bash
-$ pred solve problem.json
-Problem: MaximumIndependentSet (reduced to ILP)
-Solver: ilp
-Solution: [1, 0, 0, 1]
-Evaluation: Max(2)
+```json
+{{#include generated/pred-solve-ilp.txt}}
 ```
 
 Solve a reduction bundle (from `pred reduce`):
 
-```bash
-$ pred solve reduced.json --solver brute-force
-Source: MaximumIndependentSet
-Target: QUBO (solved with brute-force)
-Target solution: [0, 1, 0, 1]
-Target evaluation: Min(-2.0)
-Source solution: [0, 1, 0, 1]
-Source evaluation: Max(2)
+```json
+{{#include generated/pred-solve-bundle.txt}}
 ```
 
 > **Note:** The ILP solver requires a reduction path from the target problem to ILP.
@@ -586,7 +428,7 @@ pred solve problem.json --json
 This is useful for scripting and piping:
 
 ```bash
-pred list --json | jq '.problems[].name'
+pred list --json | jq '.variants[].name'
 pred path MIS QUBO --json | jq '.path'
 ```
 
@@ -594,15 +436,7 @@ pred path MIS QUBO --json | jq '.path'
 
 You can use short aliases instead of full problem names (shown in `pred list`):
 
-| Alias | Full Name |
-|-------|-----------|
-| `MIS` | `MaximumIndependentSet` |
-| `MVC` | `MinimumVertexCover` |
-| `SAT` | `Satisfiability` |
-| `3SAT` / `KSAT` | `KSatisfiability` |
-| `TSP` | `TravelingSalesman` |
-| `CVP` | `ClosestVectorProblem` |
-| `MaxMatching` | `MaximumMatching` |
+{{#include generated/pred-aliases.txt}}
 
 You can also specify variants with a slash: `MIS/UnitDiskGraph`, `SpinGlass/SimpleGraph`.
 
@@ -610,11 +444,6 @@ When a bare name (no slash) is used in commands like `path`, `to`, `from`, `crea
 
 If you mistype a problem name, `pred` will suggest the closest match:
 
-```bash
-$ pred show MaximumIndependentSe
-Error: Unknown problem: MaximumIndependentSe
-
-Did you mean: MaximumIndependentSet?
-
-Run `pred list` to see all available problems.
+```text
+{{#include generated/pred-show-typo.txt}}
 ```
