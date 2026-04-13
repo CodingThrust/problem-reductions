@@ -54,7 +54,6 @@
 #set page(
   paper: "a4",
   margin: (x: 2cm, y: 2.5cm),
-  footer: context align(center, text(size: 9pt, str(counter(page).get().first()))),
 )
 #set text(font: "New Computer Modern", size: 10pt)
 #set par(justify: true)
@@ -594,7 +593,7 @@
 }
 
 // === Cover page (no page number) ===
-#set page(footer: none)
+#set page(numbering: none)
 #v(1fr)
 #align(center)[
   #image("../logo.svg", width: 10cm)
@@ -622,13 +621,15 @@
 // Table of contents
 #outline(title: "Contents", indent: 1.5em, depth: 2)
 
-// === Restore page numbering ===
-#set page(footer: context align(center, text(size: 9pt, str(counter(page).get().first()))))
+// === Front matter: roman numeral page numbering ===
+#set page(numbering: "I")
+#counter(page).update(1)
 
 // Index of Problems
 #pagebreak()
 #heading(level: 1, numbering: none)[Index of Problems]
 #context {
+  show link: set text(black)
   let names = display-name.keys().sorted()
   let entries = ()
   for name in names {
@@ -646,6 +647,7 @@
 #pagebreak()
 #heading(level: 1, numbering: none)[Index of Reduction Rules (by Source)]
 #context {
+  show link: set text(black)
   let rules = covered-rules.final()
   let entries = ()
   let sorted-rules = rules.sorted(key: r => {
@@ -670,6 +672,7 @@
 #pagebreak()
 #heading(level: 1, numbering: none)[Index of Reduction Rules (by Target)]
 #context {
+  show link: set text(black)
   let rules = covered-rules.final()
   let entries = ()
   let sorted-rules = rules.sorted(key: r => {
@@ -690,6 +693,9 @@
   columns(2, gutter: 1.5em, entries.join(linebreak()))
 }
 
+// === Main matter: arabic page numbering, reset to 1 ===
+#set page(numbering: "1")
+#counter(page).update(1)
 #pagebreak()
 
 = Introduction
