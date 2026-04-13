@@ -31,8 +31,8 @@ fn test_ksatisfiability_to_timetabledesign_structure() {
     let target = reduction.target_problem();
 
     assert_eq!(target.num_periods(), 12);
-    assert_eq!(target.num_craftsmen(), 235);
-    assert_eq!(target.num_tasks(), 207);
+    assert_eq!(target.num_craftsmen(), 28);
+    assert_eq!(target.num_tasks(), 27);
     assert!(
         target
             .requirements()

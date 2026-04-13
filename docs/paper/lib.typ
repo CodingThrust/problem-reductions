@@ -117,7 +117,7 @@
 // Draw a set region as an ellipse enclosing given positions.
 //   positions: array of (x, y) positions the set should enclose
 //   pad: padding distance around the bounding box
-//   label: set label (e.g., [$S_1$]), placed above the ellipse
+//   label: set label (e.g., [$S_1$]), placed above the ellipse (or below if label-below)
 //   fill: translucent fill color
 //   stroke: border stroke
 #let sregion(
@@ -128,6 +128,7 @@
   stroke: 0.8pt + rgb("#4e79a7"),
   label-size: 8pt,
   label-anchor: "south",
+  label-below: false,
 ) = {
   if positions.len() == 0 { return }
 
@@ -140,10 +141,18 @@
 
   draw.circle((cx, cy), radius: (rx, ry), fill: fill, stroke: stroke)
   if label != none {
-    draw.content(
-      (cx, cy + ry + 0.15),
-      text(label-size, label), anchor: label-anchor,
-    )
+    if label-below {
+      draw.content(
+        (cx, cy - ry - 0.15),
+        text(label-size, label),
+        anchor: "north",
+      )
+    } else {
+      draw.content(
+        (cx, cy + ry + 0.15),
+        text(label-size, label), anchor: label-anchor,
+      )
+    }
   }
 }
 

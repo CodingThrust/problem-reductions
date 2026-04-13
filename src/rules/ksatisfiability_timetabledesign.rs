@@ -27,7 +27,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 #[cfg(any(test, feature = "example-db"))]
 use crate::traits::Problem;
 use crate::variant::K3;
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 
 #[derive(Debug, Clone)]
 struct NormalizedFormula {
@@ -118,7 +118,6 @@ struct ReductionLayout {
     variable_encodings: Vec<VariableEncoding>,
     clause_encodings: Vec<ClauseEncoding>,
     edge_pairs: Vec<(usize, usize)>,
-    blocker_pairs: HashMap<(usize, usize), (usize, usize)>,
 }
 
 /// Result of reducing KSatisfiability<K3> to TimetableDesign.
@@ -482,7 +481,6 @@ fn build_layout(source: &KSatisfiability<K3>) -> ReductionLayout {
             variable_encodings: Vec::new(),
             clause_encodings: Vec::new(),
             edge_pairs: Vec::new(),
-            blocker_pairs: HashMap::new(),
         };
     }
 
@@ -626,33 +624,19 @@ fn build_layout(source: &KSatisfiability<K3>) -> ReductionLayout {
         edge_pairs[edge_idx] = (craft, task);
     }
 
-    let mut blocker_pairs = HashMap::new();
+    // A blocked color on a core-graph vertex translates directly to
+    // removing that period from the corresponding craftsman/task's
+    // availability. Semantically equivalent to adding a dedicated
+    // blocker pair (same `*_busy` slot gets consumed), but avoids the
+    // O(L²) blowup in craftsman/task counts.
     for (vertex, blocked_colors) in graph.blocked_colors.iter().enumerate() {
         for &color in blocked_colors {
             if side[vertex] {
                 let task = vertex_to_task[vertex].expect("right vertex has task index");
-                craftsman_avail.push({
-                    let mut row = vec![false; num_periods];
-                    row[color] = true;
-                    row
-                });
-                requirements.push(vec![0u64; task_avail.len()]);
-                let craft = requirements.len() - 1;
-                requirements[craft][task] = 1;
-                blocker_pairs.insert((vertex, color), (craft, task));
+                task_avail[task][color] = false;
             } else {
                 let craft = vertex_to_craftsman[vertex].expect("left vertex has craftsman index");
-                task_avail.push({
-                    let mut row = vec![false; num_periods];
-                    row[color] = true;
-                    row
-                });
-                for requirement_row in &mut requirements {
-                    requirement_row.push(0);
-                }
-                let task = task_avail.len() - 1;
-                requirements[craft][task] = 1;
-                blocker_pairs.insert((vertex, color), (craft, task));
+                craftsman_avail[craft][color] = false;
             }
         }
     }
@@ -669,7 +653,6 @@ fn build_layout(source: &KSatisfiability<K3>) -> ReductionLayout {
         variable_encodings,
         clause_encodings,
         edge_pairs,
-        blocker_pairs,
     }
 }
 
@@ -750,10 +733,6 @@ impl Reduction3SATToTimetableDesign {
             config[((craft * num_tasks) + task) * num_periods + color] = 1;
         }
 
-        for (&(_vertex, color), &(craft, task)) in &self.layout.blocker_pairs {
-            config[((craft * num_tasks) + task) * num_periods + color] = 1;
-        }
-
         Some(config)
     }
 }
@@ -804,8 +783,8 @@ impl ReductionResult for Reduction3SATToTimetableDesign {
 
 #[reduction(overhead = {
     num_periods = "4 * num_literals",
-    num_craftsmen = "64 * num_literals^2 + 32 * num_literals + 1",
-    num_tasks = "64 * num_literals^2 + 32 * num_literals + 1",
+    num_craftsmen = "24 * num_literals + 1",
+    num_tasks = "24 * num_literals + 1",
 })]
 impl ReduceTo<TimetableDesign> for KSatisfiability<K3> {
     type Result = Reduction3SATToTimetableDesign;
@@ -854,14 +833,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "ksatisfiability_to_timetabledesign",
         build: || {
             let source = KSatisfiability::<K3>::new(
-                2,
+                3,
                 vec![
-                    CNFClause::new(vec![1, 2, 2]),
-                    CNFClause::new(vec![-1, -2, -2]),
+                    CNFClause::new(vec![1, 2, 3]),
+                    CNFClause::new(vec![-1, -2, -3]),
                 ],
             );
             let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
-            let source_config = vec![1, 0];
+            let source_config = vec![1, 0, 0];
             let target_config = reduction
                 .construct_target_solution(&source_config)
                 .expect("canonical satisfying assignment should lift to timetable");
