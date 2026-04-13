@@ -51,7 +51,11 @@
 #import "@preview/ctheorems:1.1.3": thmbox, thmplain, thmproof, thmrules
 #import "lib.typ": g-node, g-edge, petersen-graph, house-graph, octahedral-graph, draw-grid-graph, draw-triangular-graph, graph-colors, selem, sregion, draw-node-highlight, draw-edge-highlight, draw-node-colors, sregion-selected, sregion-dimmed, gate-and, gate-or, gate-xor
 
-#set page(paper: "a4", margin: (x: 2cm, y: 2.5cm))
+#set page(
+  paper: "a4",
+  margin: (x: 2cm, y: 2.5cm),
+  footer: context align(center, text(size: 9pt, str(counter(page).get().first()))),
+)
 #set text(font: "New Computer Modern", size: 10pt)
 #set par(justify: true)
 #set heading(numbering: "1.1")
@@ -398,7 +402,7 @@
       entries.push(node.complexity)
     }
   }
-  block(above: 0.5em)[
+  block(above: 1em)[
     #set text(size: 9pt)
     - Complexity: #entries.map(e => raw(e)).join("; ").
   ]
@@ -421,7 +425,7 @@
   }
 }
 
-// Render a problem's JSON schema as a field table (subtle styling)
+// Render a problem's CLI arguments table (subtle styling)
 #let render-schema(name) = {
   let schema = problem-schemas.find(s => s.name == name)
   if schema == none { return }
@@ -436,11 +440,11 @@
       align: (left, left),
       stroke: none,
       table.header(
-        text(fill: luma(30), raw(name)),
+        text(fill: luma(30), raw("pred create " + name)),
       ),
       table.hline(stroke: 0.3pt + luma(200)),
       ..schema.fields.map(f => (
-        text(fill: luma(60), raw(f.name)),
+        text(fill: luma(60), raw("--" + f.name.replace("_", "-"))),
         text(fill: luma(60), raw(f.description))
       )).flatten()
     )
@@ -589,26 +593,102 @@
   }
 }
 
+// === Cover page (no page number) ===
+#set page(footer: none)
+#v(1fr)
 #align(center)[
-  #text(size: 16pt, weight: "bold")[Problem Reductions: Models and Transformations]
-  #v(0.5em)
-  #text(size: 11pt)[Jin-Guo Liu#super[1] #h(1em) Xi-Wei Pan#super[1] #h(1em) Shi-Wen An#super[2, 3]]
-  #v(0.3em)
-  #text(size: 9pt)[#super[1]Hong Kong University of Science and Technology (Guangzhou)]
-  #v(0.1em)
-  #text(size: 9pt)[#super[2]Institute of Science Tokyo #h(0.1em) #super[3]RIKEN]
-  #v(0.3em)
-  #text(size: 10pt, style: "italic")[github.com/CodingThrust/problem-reductions]
+  #image("../logo.svg", width: 10cm)
   #v(1em)
+  #text(size: 14pt, weight: "bold")[A Catalog of Computational Problems and Reductions]
+  #v(2em)
+  #text(size: 11pt)[Jin-Guo Liu#super[1] #h(1em) Xi-Wei Pan#super[1] #h(1em) Shi-Wen An#super[2, 3]]
+  #v(0.5em)
+  #text(size: 9pt, fill: luma(80))[
+    #super[1]Hong Kong University of Science and Technology (Guangzhou) \
+    #super[2]Institute of Science Tokyo #h(0.3em) #super[3]RIKEN
+  ]
+  #v(1.5em)
+  #text(size: 10pt, style: "italic")[arXiv:2604.xxxxx]
+  #v(0.3em)
+  #text(size: 10pt, style: "italic", fill: blue)[#link("https://github.com/CodingThrust/problem-reductions")[github.com/CodingThrust/problem-reductions]]
+  #v(1.5em)
+  #block(width: 85%, inset: (x: 1em, y: 0.8em))[
+    #set text(size: 9.5pt)
+    #set par(justify: true)
+    *Abstract.* We present formal definitions for computational problems and polynomial-time reductions implemented in the `problem-reductions` library. For each reduction, we state a theorem with a constructive proof; when a reduction is proof-only rather than solver-executable, that restriction is stated explicitly in the rule text.
+  ]
 ]
-
-#block(width: 100%, inset: (x: 2em, y: 1em))[
-  *Abstract.* We present formal definitions for computational problems and polynomial-time reductions implemented in the `problem-reductions` library. For each reduction, we state a theorem with a constructive proof; when a reduction is proof-only rather than solver-executable, that restriction is stated explicitly in the rule text.
-]
-
 
 // Table of contents
 #outline(title: "Contents", indent: 1.5em, depth: 2)
+
+// === Restore page numbering ===
+#set page(footer: context align(center, text(size: 9pt, str(counter(page).get().first()))))
+
+// Index of Problems
+#pagebreak()
+#heading(level: 1, numbering: none)[Index of Problems]
+#context {
+  let names = display-name.keys().sorted()
+  let entries = ()
+  for name in names {
+    let results = query(label("def:" + name))
+    if results.len() > 0 {
+      let loc = results.first().location()
+      entries.push(box(width: 1fr, link(loc)[#display-name.at(name) #box(width: 1fr, repeat[.]) #loc.page()]))
+    }
+  }
+  set text(size: 9pt)
+  columns(2, gutter: 1.5em, entries.join(linebreak()))
+}
+
+// Index of Reduction Rules (by source)
+#pagebreak()
+#heading(level: 1, numbering: none)[Index of Reduction Rules (by Source)]
+#context {
+  let rules = covered-rules.final()
+  let entries = ()
+  let sorted-rules = rules.sorted(key: r => {
+    let src = display-name.at(r.at(0), default: [#r.at(0)])
+    let tgt = display-name.at(r.at(1), default: [#r.at(1)])
+    repr(src) + " → " + repr(tgt)
+  })
+  for (source, target) in sorted-rules {
+    let results = query(label("thm:" + source + "-to-" + target))
+    if results.len() > 0 {
+      let loc = results.first().location()
+      let src-disp = display-name.at(source, default: source)
+      let tgt-disp = display-name.at(target, default: target)
+      entries.push(box(width: 1fr, link(loc)[#src-disp #sym.arrow.r #tgt-disp #box(width: 1fr, repeat[.]) #loc.page()]))
+    }
+  }
+  set text(size: 9pt)
+  columns(2, gutter: 1.5em, entries.join(linebreak()))
+}
+
+// Index of Reduction Rules (by target)
+#pagebreak()
+#heading(level: 1, numbering: none)[Index of Reduction Rules (by Target)]
+#context {
+  let rules = covered-rules.final()
+  let entries = ()
+  let sorted-rules = rules.sorted(key: r => {
+    let tgt = display-name.at(r.at(1), default: [#r.at(1)])
+    let src = display-name.at(r.at(0), default: [#r.at(0)])
+    repr(tgt) + " ← " + repr(src)
+  })
+  for (source, target) in sorted-rules {
+    let results = query(label("thm:" + source + "-to-" + target))
+    if results.len() > 0 {
+      let loc = results.first().location()
+      let src-disp = display-name.at(source, default: source)
+      let tgt-disp = display-name.at(target, default: target)
+      entries.push(box(width: 1fr, link(loc)[#tgt-disp #sym.arrow.l #src-disp #box(width: 1fr, repeat[.]) #loc.page()]))
+    }
+  }
+  set text(size: 9pt)
+  columns(2, gutter: 1.5em, entries.join(linebreak()))
+}
 
 #pagebreak()
 
@@ -641,9 +721,9 @@ Each problem definition follows this structure:
       inset: (x: 6pt, y: 3pt),
       align: (left, left),
       stroke: none,
-      table.header(text(fill: luma(30), raw("ProblemName"))),
+      table.header(text(fill: luma(30), raw("pred create ProblemName"))),
       table.hline(stroke: 0.3pt + luma(200)),
-      text(fill: luma(60), raw("field_name")), text(fill: luma(60), raw("Field description from JSON schema")),
+      text(fill: luma(60), raw("--field-name")), text(fill: luma(60), raw("Field description from JSON schema")),
     )
   ]
 
@@ -652,7 +732,7 @@ Each problem definition follows this structure:
   _Reduces from:_ ProblemC.
 ]
 
-The gray schema table shows the JSON field names used in the library's data structures. The reduction links at the bottom connect to the corresponding theorems in @sec:reductions.
+The gray table shows the CLI arguments for `pred create`, which can be used to construct problem instances. The reduction links at the bottom connect to the corresponding theorems in @sec:reductions.
 
 
 
