@@ -36,8 +36,8 @@ impl ReductionResult for ReductionSATToCircuit {
 
 #[reduction(
     overhead = {
-        num_variables = "num_vars + num_clauses + 1",
-        num_assignments = "num_clauses + 2",
+        num_variables = "2 * num_vars + num_clauses + 1",
+        num_assignments = "num_vars + num_clauses + 2",
     }
 )]
 impl ReduceTo<CircuitSAT> for Satisfiability {

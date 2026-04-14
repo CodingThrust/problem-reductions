@@ -414,8 +414,8 @@ where
 
 #[reduction(
     overhead = {
-        num_spins = "num_assignments * num_variables",
-        num_interactions = "num_assignments * num_variables",
+        num_spins = "4 * num_assignments * num_variables",
+        num_interactions = "6 * num_assignments * num_variables",
     }
 )]
 impl ReduceTo<SpinGlass<SimpleGraph, i32>> for CircuitSAT {
