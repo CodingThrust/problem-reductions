@@ -607,7 +607,7 @@
     #super[2]Institute of Science Tokyo #h(0.3em) #super[3]RIKEN
   ]
   #v(1.5em)
-  #text(size: 10pt, style: "italic")[arXiv:2604.xxxxx]
+  #text(size: 10pt, style: "italic")[#link("https://arxiv.org/abs/2604.11535")[arXiv:2604.11535]]
   #v(0.3em)
   #text(size: 10pt, style: "italic", fill: blue)[#link("https://github.com/CodingThrust/problem-reductions")[github.com/CodingThrust/problem-reductions]]
   #v(1.5em)
@@ -15027,7 +15027,7 @@ Problems parameterized by graph type, weight type, or clause-width ($k$) admit i
 
 // Completeness check: warn about reduction rules in JSON but missing from paper
 #context {
-  let covered = covered-rules.get()
+  let covered = covered-rules.final()
   let json-edges = {
     let edges = graph-data.edges.map(e => (graph-data.nodes.at(e.source).name, graph-data.nodes.at(e.target).name))
     let unique = ()
