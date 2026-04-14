@@ -100,6 +100,22 @@ This project draws inspiration from the following packages:
 - **[A Compendium of NP Optimization Problems](https://www.csc.kth.se/tcs/compendium/)** — Online catalog of NP optimization problems with approximability results (Crescenzi & Kann).
 - **Computers and Intractability** (Garey & Johnson, 1979) — The classic reference cataloging 300+ NP-complete problems with reductions. The most cited book in computer science.
 
+## Citation
+
+If you find this project useful in your research, please cite:
+
+```bibtex
+@misc{pan2026problemreductionsscaleagentic,
+      title={Problem Reductions at Scale: Agentic Integration of Computationally Hard Problems}, 
+      author={Xi-Wei Pan and Shi-Wen An and Jin-Guo Liu},
+      year={2026},
+      eprint={2604.11535},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2604.11535}, 
+}
+```
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
