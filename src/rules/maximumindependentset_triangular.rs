@@ -34,8 +34,8 @@ impl ReductionResult for ReductionISSimpleToTriangular {
 
 #[reduction(
     overhead = {
-        num_vertices = "num_vertices * num_vertices * num_vertices",
-        num_edges = "num_vertices * num_vertices * num_vertices",
+        num_vertices = "num_vertices * num_vertices",
+        num_edges = "num_vertices * num_vertices",
     }
 )]
 impl ReduceTo<MaximumIndependentSet<TriangularSubgraph, i32>>

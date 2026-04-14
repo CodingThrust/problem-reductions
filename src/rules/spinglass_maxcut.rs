@@ -132,7 +132,7 @@ where
 
 #[reduction(
     overhead = {
-        num_vertices = "num_spins + 1",
+        num_vertices = "num_spins",
         num_edges = "num_interactions + num_spins",
     }
 )]

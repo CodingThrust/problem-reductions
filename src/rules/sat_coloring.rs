@@ -296,8 +296,8 @@ impl ReductionSATToColoring {
 
 #[reduction(
     overhead = {
-        num_vertices = "2 * num_vars + 5 * num_literals + 3",
-        num_edges = "3 * num_vars + 11 * num_literals + 3",
+        num_vertices = "num_vars + num_literals",
+        num_edges = "num_vars + num_literals",
     }
 )]
 impl ReduceTo<KColoring<K3, SimpleGraph>> for Satisfiability {
