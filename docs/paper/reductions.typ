@@ -607,7 +607,7 @@
     #super[2]Institute of Science Tokyo #h(0.3em) #super[3]RIKEN
   ]
   #v(1.5em)
-  #text(size: 10pt, style: "italic")[arXiv:2604.11535]
+  #text(size: 10pt, style: "italic")[#link("https://arxiv.org/abs/2604.11535")[arXiv:2604.11535]]
   #v(0.3em)
   #text(size: 10pt, style: "italic", fill: blue)[#link("https://github.com/CodingThrust/problem-reductions")[github.com/CodingThrust/problem-reductions]]
   #v(1.5em)
