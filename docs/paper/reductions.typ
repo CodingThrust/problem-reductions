@@ -4374,8 +4374,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       $
         min quad & bold(c)^top bold(x) \
         "subject to" quad & A bold(x) <= bold(b) \
-        & bold(x) in cal(D)^n
-      $.
+        & bold(x) in cal(D)^n.
+      $
     ][
     Integer Linear Programming is a universal modeling framework: virtually every NP-hard combinatorial optimization problem admits an ILP formulation. Relaxing integrality to $bold(x) in RR^n$ yields a linear program solvable in polynomial time, forming the basis of branch-and-bound solvers. When the number of integer variables $n$ is fixed, ILP is solvable in polynomial time by Lenstra's algorithm @lenstra1983 using the geometry of numbers, making it fixed-parameter tractable in $n$. The best known general algorithm achieves $O^*(n^n)$ via an FPT algorithm based on lattice techniques @dadush2012.
 
@@ -10554,8 +10554,8 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
     max quad & sum_(j=0)^(m-1) z_j \
     "subject to" quad & z_j <= ell_1' + ell_2' quad forall j in {0, dots, m - 1} \
     & y_i in {0, 1} quad forall i in {0, dots, n - 1} \
-    & z_j in {0, 1} quad forall j in {0, dots, m - 1}
-  $.
+    & z_j in {0, 1} quad forall j in {0, dots, m - 1}.
+  $
   The target has $n + m$ variables and $m$ constraints.
 
   _Correctness._ ($arrow.r.double$) Any truth assignment $bold(y)$ satisfying $k$ clauses yields a feasible ILP solution by setting $z_j = 1$ iff clause $j$ is satisfied, achieving objective $k$. ($arrow.l.double$) Any feasible ILP solution with $z_j = 1$ has clause $j$ satisfied by the constraint, so the truth assignment satisfies at least $sum z_j$ clauses. Thus optimal values coincide.
@@ -10602,8 +10602,8 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
     & z_(t,v,x,x') <= y_(v,b,x') quad forall t in cal(T), v in V, (x, x') in D_a times D_b \
     & z_(t,v,x,x') >= y_(v,a,x) + y_(v,b,x') - 1 quad forall t in cal(T), v in V, (x, x') in D_a times D_b \
     & sum_(v in V) z_(t,v,x,x') = f_t(x, x') quad forall t in cal(T), (x, x') in D_a times D_b \
-    & y_(v,a,x), z_(t,v,x,x') in {0, 1}
-  $.
+    & y_(v,a,x), z_(t,v,x,x') in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) A consistent assignment defines one-hot indicators and their products; all constraints hold by construction, and the frequency equalities match the published counts. ($arrow.l.double$) Any feasible binary solution assigns exactly one value per object-attribute (one-hot), respects known values, and the McCormick constraints force $z_(t,v,x,x') = y_(v,a,x) dot y_(v,b,x')$ for binary variables, so the frequency equalities certify consistency.
 
@@ -11719,8 +11719,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     "subject to" quad & y_(i j) <= x_i quad forall i < j, Q_(i j) != 0 \
     & y_(i j) <= x_j quad forall i < j, Q_(i j) != 0 \
     & y_(i j) >= x_i + x_j - 1 quad forall i < j, Q_(i j) != 0 \
-    & x_i, y_(i j) in {0, 1}
-  $.
+    & x_i, y_(i j) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) For binary $x_i, x_j$, the three McCormick inequalities are tight: $y_(i j) = x_i x_j$ is the unique feasible value. Hence the ILP objective equals $bold(x)^top Q bold(x)$, and any ILP minimizer is a QUBO minimizer. ($arrow.l.double$) Given a QUBO minimizer $bold(x)^*$, setting $y_(i j) = x_i^* x_j^*$ satisfies all constraints and achieves the same objective value.
 
@@ -11768,8 +11768,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     & c >= a - b quad "for each XOR gate" \
     & c >= b - a quad "for each XOR gate" \
     & c <= 2 - a - b quad "for each XOR gate" \
-    & "all gate and input variables are binary"
-  $.
+    & "all gate and input variables are binary".
+  $
 
   _Correctness._ ($arrow.r.double$) Each gate encoding is the convex hull of the gate's truth table rows (viewed as binary vectors), so a satisfying circuit assignment satisfies all constraints. ($arrow.l.double$) Any binary feasible solution respects every gate's input-output relation, and since gates are composed in topological order, the full circuit evaluates to true.
 
@@ -12239,8 +12239,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     "find" quad & bold(x) \
     "subject to" quad & sum_(c=1)^k x_(v,c) = 1 quad forall v in V \
     & x_(u,c) + x_(v,c) <= 1 quad forall (u, v) in E, c in {1, dots, k} \
-    & x_(v,c) in {0, 1}
-  $.
+    & x_(v,c) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) A valid $k$-coloring assigns exactly one color per vertex with different colors on adjacent vertices; setting $x_(v,c) = 1$ for the assigned color satisfies all constraints. ($arrow.l.double$) Any feasible ILP solution has exactly one $x_(v,c) = 1$ per vertex; this defines a coloring, and constraint (2) ensures adjacent vertices differ.
 
@@ -12281,8 +12281,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     & z_(i j) >= p_i + q_j - 1 quad forall i, j \
     & sum_(i+j=k) z_(i j) + c_(k-1) = N_k + 2 c_k quad forall k in {0, dots, m + n - 1} \
     & c_(m+n-1) = 0 \
-    & p_i, q_j, z_(i j) in {0, 1}, c_k in ZZ_(>=0)
-  $.
+    & p_i, q_j, z_(i j) in {0, 1}, c_k in ZZ_(>=0).
+  $
 
   _Correctness._ The McCormick constraints enforce $z_(i j) = p_i dot q_j$ for binary variables. The bit equations encode $p times q = N$ via carry propagation, matching array multiplier semantics.
 
@@ -12300,8 +12300,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
     max quad & sum_i w_i x_i \
     "subject to" quad & sum_(S_i in.rev e) x_i <= 1 quad forall e in U \
-    & x_i in {0, 1} quad forall i
-  $.
+    & x_i in {0, 1} quad forall i.
+  $
 
   _Correctness._ ($arrow.r.double$) A valid packing chooses pairwise disjoint sets, so each element is covered at most once. ($arrow.l.double$) Any feasible binary solution covers each element at most once, hence the chosen sets are pairwise disjoint; the objective maximizes total weight.
 
@@ -12315,8 +12315,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
     max quad & sum_e w_e x_e \
     "subject to" quad & sum_(e in.rev v) x_e <= 1 quad forall v in V \
-    & x_e in {0, 1} quad forall e in E
-  $.
+    & x_e in {0, 1} quad forall e in E.
+  $
 
   _Correctness._ ($arrow.r.double$) A matching has at most one edge per vertex, so all degree constraints hold. ($arrow.l.double$) Any feasible solution is a matching by construction; the objective maximizes total weight.
 
@@ -12330,8 +12330,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
     min quad & sum_i w_i x_i \
     "subject to" quad & sum_(S_i in.rev u) x_i >= 1 quad forall u in U \
-    & x_i in {0, 1} quad forall i
-  $.
+    & x_i in {0, 1} quad forall i.
+  $
 
   _Correctness._ ($arrow.r.double$) A set cover includes at least one set containing each element, satisfying all constraints. ($arrow.l.double$) Any feasible solution covers every element; the objective minimizes total weight.
 
@@ -12345,8 +12345,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
     min quad & sum_v w_v x_v \
     "subject to" quad & x_v + sum_(u in N(v)) x_u >= 1 quad forall v in V \
-    & x_v in {0, 1} quad forall v in V
-  $.
+    & x_v in {0, 1} quad forall v in V.
+  $
 
   _Correctness._ ($arrow.r.double$) A dominating set includes a vertex or one of its neighbors for every vertex, satisfying all constraints. ($arrow.l.double$) Any feasible solution dominates every vertex; the objective minimizes total weight.
 
@@ -12419,8 +12419,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
     min quad & sum_v w_v x_v \
     "subject to" quad & o_v - o_u >= 1 - n (x_u + x_v) quad forall (u -> v) in A \
-    & x_v in {0, 1}, o_v in {0, dots, n - 1} quad forall v in V
-  $.
+    & x_v in {0, 1}, o_v in {0, dots, n - 1} quad forall v in V.
+  $
 
   _Correctness._ ($arrow.r.double$) If $S$ is a feedback vertex set, then $G[V backslash S]$ is a DAG with a topological ordering. Set $x_v = 1$ for $v in S$, $o_v$ to the topological position for kept vertices, and $o_v = 0$ for removed vertices. All constraints are satisfied. ($arrow.l.double$) If the ILP is feasible with all arc constraints satisfied, no directed cycle can exist among kept vertices: a cycle $v_1 -> dots -> v_k -> v_1$ would require $o_(v_1) < o_(v_2) < dots < o_(v_k) < o_(v_1)$, a contradiction.
 
@@ -12464,8 +12464,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
     max quad & sum_v x_v \
     "subject to" quad & x_u + x_v <= 1 quad forall (u, v) in.not E \
-    & x_v in {0, 1} quad forall v in V
-  $.
+    & x_v in {0, 1} quad forall v in V.
+  $
 
   _Correctness._ ($arrow.r.double$) In a clique, every pair of selected vertices is adjacent, so no non-edge constraint is violated. ($arrow.l.double$) Any feasible solution selects only mutually adjacent vertices, forming a clique; the objective maximizes its size.
 
@@ -12495,7 +12495,7 @@ The following reductions to Integer Linear Programming are straightforward formu
     The objective is
     $ max #ks_ilp.source.instance.values.enumerate().map(((i, v)) => $#v x_#i$).join($+$) $
     subject to the single capacity inequality
-    $ #ks_ilp.source.instance.weights.enumerate().map(((i, w)) => $#w x_#i$).join($+$) <= #ks_ilp.source.instance.capacity $.
+    $ #ks_ilp.source.instance.weights.enumerate().map(((i, w)) => $#w x_#i$).join($+$) <= #ks_ilp.source.instance.capacity. $
 
     *Step 3 -- Verify a solution.* The ILP optimum $bold(x)^* = (#ks_ilp_sol.target_config.map(str).join(", "))$ extracts directly to the knapsack selection $bold(x)^* = (#ks_ilp_sol.source_config.map(str).join(", "))$, choosing items $\{#ks_ilp_selected.map(str).join(", ")\}$. Their total weight is $#ks_ilp_selected.map(i => str(ks_ilp.source.instance.weights.at(i))).join(" + ") = #ks_ilp_sel_weight$ and their total value is $#ks_ilp_selected.map(i => str(ks_ilp.source.instance.values.at(i))).join(" + ") = #ks_ilp_sel_value$ #sym.checkmark.
 
@@ -12508,8 +12508,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
     max quad & sum_(i=0)^(n-1) v_i x_i \
     "subject to" quad & sum_(i=0)^(n-1) w_i x_i <= C \
-    & x_i in {0, 1} quad forall i in {0, dots, n - 1}
-  $.
+    & x_i in {0, 1} quad forall i in {0, dots, n - 1}.
+  $
   The target therefore has exactly $n$ variables and one linear constraint.
 
   _Correctness._ ($arrow.r.double$) Any feasible knapsack solution $bold(x)$ satisfies $sum_i w_i x_i <= C$, so the same binary vector is feasible for the ILP and attains identical objective value $sum_i v_i x_i$. ($arrow.l.double$) Any feasible binary ILP solution selects exactly the items with $x_i = 1$; the single inequality guarantees the chosen set fits in the knapsack, and the ILP objective equals the knapsack value. Therefore optimal solutions correspond one-to-one and preserve the optimum value.
@@ -12544,7 +12544,7 @@ The following reductions to Integer Linear Programming are straightforward formu
         *Step 2 -- Build the ILP.* Introduce one integer variable per item multiplicity:
         $#range(sizes.len()).map(i => $c_#i$).join(", ") in NN$.
         The capacity constraint is
-        $ #sizes.enumerate().map(((i, s)) => $#s c_#i$).join($+$) <= #B $,
+        $ #sizes.enumerate().map(((i, s)) => $#s c_#i$).join($+$) <= #B, $
         and the explicit upper bounds are $(#upper.map(str).join(", "))$, i.e. $c_i <= floor.l B / s_i floor.r$ for every item.
 
         *Step 3 -- Verify the canonical witness.* The ILP optimum is $(#ik_ilp_sol.target_config.map(str).join(", "))$, which extracts identically to the source multiplicities $(#ik_ilp_sol.source_config.map(str).join(", "))$. The selected terms contribute total size $#total_size <= B$ and total value $#total_value$ #sym.checkmark.
@@ -12613,8 +12613,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     min quad & sum_(j=0)^(n-1) y_j \
     "subject to" quad & sum_(j=0)^(n-1) x_(i j) = 1 quad forall i in {0, dots, n - 1} \
     & sum_(i=0)^(n-1) s_i x_(i j) <= C y_j quad forall j in {0, dots, n - 1} \
-    & x_(i j), y_j in {0, 1}
-  $.
+    & x_(i j), y_j in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) A valid packing assigns each item to exactly one bin (satisfying (1)); each bin's load is at most $C$ and $y_j = 1$ for any used bin (satisfying (2)). ($arrow.l.double$) Any feasible solution assigns each item to one bin by (1), respects capacity by (2), and the objective counts the number of open bins.
 
@@ -12643,8 +12643,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & sum_(a_i in I_j) x_i <= c_j quad forall j in {1, dots, k} \
     & sum_(a_i = (u, v) in A) x_i - sum_(a_i = (v, w) in A) x_i = 0 quad forall v in V backslash {s, t} \
     & sum_(a_i = (u, t) in A) x_i - sum_(a_i = (t, w) in A) x_i >= R \
-    & x_i in ZZ_(>=0) quad forall i in {0, dots, m - 1}
-  $.
+    & x_i in ZZ_(>=0) quad forall i in {0, dots, m - 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any satisfying bundled flow assigns a non-negative integer to each arc, satisfies every bundle inequality by definition, satisfies every nonterminal conservation equality, and yields sink inflow at least $R$, so it is a feasible ILP solution. ($arrow.l.double$) Any feasible ILP solution gives non-negative integral arc values obeying the same bundle, conservation, and sink-inflow constraints, hence it is a satisfying solution to the original Integral Flow with Bundles instance.
 
@@ -12675,8 +12675,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & C_j - C_i >= l_j quad forall i prec.eq j \
     & C_j - C_i + M (1 - y_(i j)) >= l_j quad forall i < j \
     & C_i - C_j + M y_(i j) >= l_i quad forall i < j \
-    & y_(i j) in {0, 1}, C_j in ZZ_(>=0)
-  $.
+    & y_(i j) in {0, 1}, C_j in ZZ_(>=0).
+  $
 
   _Correctness._ ($arrow.r.double$) Any feasible schedule defines completion times and pairwise order values satisfying the bounds, precedence inequalities, and disjunctive machine constraints; its weighted completion time is exactly the ILP objective. ($arrow.l.double$) Any feasible ILP solution assigns a strict order to every task pair and forbids overlap, so the completion times correspond to a valid single-machine schedule that respects all precedences. Minimizing the ILP objective therefore minimizes the original weighted completion-time objective.
 
@@ -12756,8 +12756,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & y_(u,v,k) <= x_(u,k) quad forall (u, v) in E, k in {0, dots, n - 1} \
     & y_(u,v,k) <= x_(v,(k+1) mod n) quad forall (u, v) in E, k in {0, dots, n - 1} \
     & y_(u,v,k) >= x_(u,k) + x_(v,(k+1) mod n) - 1 quad forall (u, v) in E, k in {0, dots, n - 1} \
-    & x_(v,k), y_(u,v,k) in {0, 1}
-  $.
+    & x_(v,k), y_(u,v,k) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix $(x_(v,k))$ satisfying constraints (1)--(2); consecutive vertices are adjacent by construction, so (3) holds; McCormick constraints (4) force $y = x_(u,k) x_(v,k+1)$, making the objective equal to the tour cost. ($arrow.l.double$) Any feasible binary solution defines a permutation (by (1)--(2)) where consecutive positions are connected by edges (by (3)), forming a Hamiltonian tour; the linearized objective equals the tour cost.
 
@@ -12805,8 +12805,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & x_(u,v) + x_(v,u) <= 1 quad forall {u, v} in E \
     & o_v - o_u >= 1 - n (1 - x_(u,v)) quad forall u -> v \
     & o_s = 0 \
-    & x_(u,v) in {0, 1}, o_v in {0, dots, n - 1}
-  $,
+    & x_(u,v) in {0, 1}, o_v in {0, dots, n - 1},
+  $
   where $b_s = 1$, $b_t = -1$, and $b_v = 0$ otherwise.
 
   _Correctness._ ($arrow.r.double$) Any simple $s$-$t$ path can be oriented from $s$ to $t$, giving exactly one outgoing arc at $s$, one incoming arc at $t$, balanced flow at every internal vertex, and strictly increasing order values along the path. ($arrow.l.double$) Any feasible ILP solution satisfies the flow equations and degree bounds, so the selected arcs form vertex-disjoint directed paths and cycles. The ordering inequalities make every selected arc increase the order value by at least 1, so directed cycles are impossible. The only remaining positive-flow component is therefore a single directed $s$-$t$ path, whose objective is exactly the total selected edge length.
@@ -12898,8 +12898,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & sum_(j = 1)^(|r_i|) y_(i, p, j) + x_(p, bot) = 1 quad forall i, p \
     & y_(i, p, j) <= x_(p, r_i [j]) quad forall i, p, j \
     & y_(i, p, j') + y_(i, p + 1, j) <= 1 quad forall i, p, j' >= j \
-    & x_(p, a), y_(i, p, j) in {0, 1}
-  $.
+    & x_(p, a), y_(i, p, j) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Given an optimal common subsequence $w$ of length $ell$, set $x_(p, w_p) = 1$ for $p lt.eq ell$ and $x_(p, bot) = 1$ for $p > ell$. For active positions, choose the embedding indices in each source string. All constraints are satisfied and the objective equals $ell$. ($arrow.l.double$) Any optimal ILP solution selects contiguous non-padding positions followed by padding. The active prefix, together with character consistency and ordering constraints, forms a valid common subsequence whose length equals the objective value.
 
@@ -12925,8 +12925,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & sum_(i=0)^(k-1) y_(i v) = 1 quad forall v in V \
     & x_e >= y_(i u) - y_(i v) quad forall e = (u, v) in E, i in {0, dots, k - 1} \
     & x_e >= y_(i v) - y_(i u) quad forall e = (u, v) in E, i in {0, dots, k - 1} \
-    & x_e, y_(i v) in {0, 1}
-  $.
+    & x_e, y_(i v) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) A multiway cut $C$ partitions $V$ into $k$ components, one per terminal. Setting $y_(i v) = 1$ iff $v$ is in $t_i$'s component and $x_e = 1$ iff $e in C$ satisfies all constraints: partition by construction, terminal fixing by definition, and linking because any edge with endpoints in different components is in $C$. The objective equals the cut weight. ($arrow.l.double$) Any feasible ILP solution defines a valid partition (by constraint (2)) separating all terminals (by constraint (1)). The linking constraints (3) force $x_e = 1$ for all cross-component edges, so the objective is at least the multiway cut weight; minimization ensures optimality.
 
@@ -12983,8 +12983,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & sum_(u : (u, v) in A) f^t_(u,v) - sum_(u : (v, u) in A) f^t_(v,u) = b_(t,v) quad forall t in T backslash {r}, v in V \
     & f^t_(u,v) <= y_e quad forall t in T backslash {r}, e = {u, v} in E \
     & f^t_(v,u) <= y_e quad forall t in T backslash {r}, e = {u, v} in E \
-    & y_e, f^t_(u,v) in {0, 1}
-  $.
+    & y_e, f^t_(u,v) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) If $S subset.eq E$ is a Steiner tree, set $y_e = 1$ exactly for $e in S$. For each non-root terminal $t$, the unique path from $r$ to $t$ inside the tree defines a binary flow assignment satisfying the conservation equations, and every used arc lies on a selected edge, so all linking inequalities hold. The ILP objective equals $sum_(e in S) w_e$. ($arrow.l.double$) Any feasible ILP solution with edge selector set $Y = {e in E : y_e = 1}$ supports one unit of flow from $r$ to every non-root terminal, so the selected edges contain a connected subgraph spanning all terminals. Because all edge weights are strictly positive, any cycle in the selected subgraph has positive total cost; the optimizer therefore never includes redundant edges, so the selected subgraph is already a Steiner tree. Therefore an optimal ILP solution induces a minimum-cost Steiner tree.
 
@@ -13036,8 +13036,8 @@ The following reductions to Integer Linear Programming are straightforward formu
   $
     min quad & sum_e x_e \
     "subject to" quad & sum_(e in S) x_e >= 1 quad forall S in cal(S) \
-    & x_e in {0, 1} quad forall e in U
-  $.
+    & x_e in {0, 1} quad forall e in U.
+  $
 
   _Correctness._ ($arrow.r.double$) A hitting set includes at least one element from each set. ($arrow.l.double$) Any feasible solution hits every set.
 
@@ -13052,8 +13052,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "find" quad & bold(x) \
     "subject to" quad & sum_(j : e in T_j) x_j = 1 quad forall e in U \
     & sum_j x_j = |U| / 3 \
-    & x_j in {0, 1} quad forall j
-  $.
+    & x_j in {0, 1} quad forall j.
+  $
 
   _Correctness._ The equality constraints force each element to appear in exactly one selected triple, which is the definition of an exact cover.
 
@@ -13068,8 +13068,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "find" quad & bold(x) \
     "subject to" quad & sum_i "coeff"_(C,i) x_i >= 1 - "neg"(C) quad "for each clause" C \
     & sum_i "coeff"_(C,i) x_i <= |C| - 1 - "neg"(C) quad "for each clause" C \
-    & x_i in {0, 1} quad forall i
-  $.
+    & x_i in {0, 1} quad forall i.
+  $
 
   _Correctness._ The two constraints per clause jointly enforce the not-all-equal condition.
 
@@ -13084,8 +13084,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "find" quad & bold(x) \
     "subject to" quad & sum_(j in C) x_j >= 1 quad "for each" C in cal(C) \
     & sum_(j in C) x_j <= |C| - 1 quad "for each" C in cal(C) \
-    & x_i in {0, 1} quad forall i
-  $.
+    & x_i in {0, 1} quad forall i.
+  $
 
   _Correctness._ ($arrow.r.double$) A valid splitting has at least one element in $S_2$ ($sum >= 1$) and at least one in $S_1$ ($sum <= |C|-1$) for every $C$. ($arrow.l.double$) Any feasible ILP solution defines a valid 2-coloring.
 
@@ -13185,8 +13185,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "find" quad & bold(x) \
     "subject to" quad & sum_v x_v >= k \
     & x_u + x_v <= 1 quad forall (u, v) in.not E \
-    & x_v in {0, 1} quad forall v in V
-  $.
+    & x_v in {0, 1} quad forall v in V.
+  $
 
   _Correctness._ ($arrow.r.double$) A $k$-clique selects $>= k$ mutually adjacent vertices, satisfying all constraints. ($arrow.l.double$) Any feasible solution selects $>= k$ vertices with no non-edge pair, forming a clique of size $>= k$.
 
@@ -13249,8 +13249,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     max quad & sum_v w_v x_v \
     "subject to" quad & x_u + x_v <= 1 quad forall (u, v) in E \
     & x_v + sum_(u in N(v)) x_u >= 1 quad forall v in V \
-    & x_v in {0, 1} quad forall v in V
-  $.
+    & x_v in {0, 1} quad forall v in V.
+  $
 
   _Correctness._ Independence constraints prevent adjacent selections; maximality constraints ensure every vertex is either selected or has a selected neighbor.
 
@@ -13265,8 +13265,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     min quad & sum_e x_e \
     "subject to" quad & sum_(e in.rev v) x_e <= 1 quad forall v in V \
     & x_j + sum_(i : i ~ j,\ i eq.not j) x_i >= 1 quad forall j in E \
-    & x_e in {0, 1} quad forall e in E
-  $,
+    & x_e in {0, 1} quad forall e in E,
+  $
   where $i ~ j$ denotes that edges $i$ and $j$ share an endpoint.
 
   _Correctness._ Degree constraints enforce the matching property. For each edge $j$, the maximality constraint requires that $j$ itself or at least one adjacent edge is selected, ensuring the matching cannot be extended. ($arrow.r.double$) A minimum maximal matching satisfies both constraints and minimizes cardinality. ($arrow.l.double$) Any feasible solution is a maximal matching; the objective minimizes its size.
@@ -13286,8 +13286,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & y_({u,v},k) <= x_(v,k) quad forall {u,v} in E,\ forall k \
     & y_({u,v},k) >= x_(u,k) + x_(v,k) - 1 quad forall {u,v} in E,\ forall k \
     & sum_(k=0)^(m-1) y_(e,k) >= 1 quad forall e in E \
-    & x_(v,k), z_k, y_(e,k) in {0, 1}
-  $.
+    & x_(v,k), z_k, y_(e,k) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Given an edge-clique cover $C_0, dots, C_(t-1)$ with $t <= m$, map clique $C_k$ to slot $k$: set $z_k = 1$, set $x_(v,k) = 1$ exactly for $v in C_k$, and set $y_(e,k) = 1$ exactly for the edges $e$ whose endpoints both lie in $C_k$. Because each $C_k$ is a clique, no non-edge constraint is violated. Every covered edge satisfies at least one coverage inequality, so the ILP objective is at most $t$.
 
@@ -13304,8 +13304,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     max quad & sum_i v_i x_i \
     "subject to" quad & sum_i w_i x_i <= C \
     & x_b <= x_a quad "for each precedence" (a, b) \
-    & x_i in {0, 1} quad forall i
-  $.
+    & x_i in {0, 1} quad forall i.
+  $
 
   _Correctness._ Capacity and precedence constraints are directly linear. Any feasible ILP solution is a valid knapsack packing respecting the partial order.
 
@@ -13320,8 +13320,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "find" quad & bold(x) \
     "subject to" quad & sum_(r "covers" (i,j)) x_r >= 1 quad forall (i, j) "with source cell" = 1 \
     & sum_r x_r <= B \
-    & x_r in {0, 1} quad forall r
-  $.
+    & x_r in {0, 1} quad forall r.
+  $
 
   _Correctness._ Coverage constraints ensure every 1-cell is covered; the cardinality bound limits the number of rectangles.
 
@@ -13340,8 +13340,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & a_(u,v) + a_(v,u) <= 1 quad forall {u, v} in E \
     & o_v - o_u >= 1 - M (1 - a_(u,v)) quad forall (u, v) in A \
     & sum_((u,v) in A) w_(u,v) a_(u,v) <= W \
-    & a_(u,v) in {0, 1}, o_v in {0, dots, n - 1}
-  $,
+    & a_(u,v) in {0, 1}, o_v in {0, dots, n - 1},
+  $
   where $b_s = 1$, $b_t = -1$, and $b_v = 0$ otherwise.
 
   _Correctness._ Flow balance forces an $s$-$t$ path; the MTZ inequalities apply only on selected arcs and therefore eliminate subtours; the weight constraint enforces the budget; the objective minimizes total path length.
@@ -13357,8 +13357,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "minimize" quad & sum_v s_v x_v + sum_(v,u) "usage"_v d(v, u) y_(v,u) \
     "subject to" quad & sum_u y_(v,u) = 1 quad forall v \
     & y_(v,u) <= x_u quad forall v, u \
-    & x_v, y_(v,u) in {0, 1}
-  $.
+    & x_v, y_(v,u) in {0, 1}.
+  $
 
   _Correctness._ Assignment constraints ensure each vertex is served by exactly one copy; capacity links prevent assignment to non-copy vertices; the objective linearizes the total cost.
 
@@ -13374,8 +13374,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & sum_j x_j = k \
     & y_(i,j) <= x_j quad forall i, j \
     & sum_j y_(i,j) = 1 quad forall i \
-    & x_j, y_(i,j) in {0, 1}
-  $.
+    & x_j, y_(i,j) in {0, 1}.
+  $
 
   _Correctness._ The assignment structure and cardinality constraint directly encode the $k$-median objective with precomputed shortest-path distances.
 
@@ -13392,8 +13392,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & y_(i,j) <= x_j quad forall i, j \
     & sum_j y_(i,j) = 1 quad forall i \
     & sum_j w_i d(i, j) y_(i,j) <= z quad forall i \
-    & x_j, y_(i,j) in {0, 1}, z in bb(Z)
-  $.
+    & x_j, y_(i,j) in {0, 1}, z in bb(Z).
+  $
 
   _Correctness._ Each minimax constraint forces $z$ to be at least the weighted distance from vertex $i$ to its assigned center. Minimizing $z$ yields the optimal maximum weighted distance.
 
@@ -13408,8 +13408,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "find" quad & bold(x) \
     "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
     & sum_j l_j x_(j,p) <= D quad forall p \
-    & x_(j,p) in {0, 1}
-  $.
+    & x_(j,p) in {0, 1}.
+  $
 
   _Correctness._ One-hot constraints ensure each task is assigned to exactly one processor; load constraints enforce the deadline on every processor.
 
@@ -13424,8 +13424,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "minimize" quad & sum_(l,c) "cost"[l][c] x_(l,c) \
     "subject to" quad & sum_c x_(l,c) = 1 quad forall l \
     & sum_(l,c) "delay"[l][c] x_(l,c) <= J \
-    & x_(l,c) in {0, 1}
-  $.
+    & x_(l,c) in {0, 1}.
+  $
 
   _Correctness._ One-hot constraints fix one capacity per link; the delay budget constraint is linear in the indicators; the objective sums the selected costs.
 
@@ -13442,8 +13442,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & z_((r,s),(r',s')) <= x_(r,s) quad forall r, s, r', s' \
     & z_((r,s),(r',s')) <= x_(r',s') quad forall r, s, r', s' \
     & z_((r,s),(r',s')) >= x_(r,s) + x_(r',s') - 1 quad forall r, s, r', s' \
-    & x_(r,s), z_((r,s),(r',s')) in {0, 1}
-  $.
+    & x_(r,s), z_((r,s),(r',s')) in {0, 1}.
+  $
 
   _Correctness._ McCormick constraints force $z$ to equal the product of binary indicators, linearizing the quadratic cost. The ILP objective directly encodes the expected retrieval cost.
 
@@ -13459,8 +13459,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & sum_g x_(v,g) = 1 quad forall v \
     & sum_v x_(v,g) = 3 quad forall g in {1, dots, q} \
     & x_(u,g) + x_(v,g) <= 1 quad forall g in {1, dots, q}, (u, v) in.not E \
-    & x_(v,g) in {0, 1}
-  $.
+    & x_(v,g) in {0, 1}.
+  $
 
   _Correctness._ Size-3 groups with no non-edge pair within any group forces each group to be a triangle.
 
@@ -13479,8 +13479,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & z_((u,v),g) <= x_(u,g) quad forall (u, v) in E, g \
     & z_((u,v),g) <= x_(v,g) quad forall (u, v) in E, g \
     & z_((u,v),g) >= x_(u,g) + x_(v,g) - 1 quad forall (u, v) in E, g \
-    & x_(v,g), z_((u,v),g) in {0, 1}
-  $.
+    & x_(v,g), z_((u,v),g) in {0, 1}.
+  $
 
   _Correctness._ The edge count constraint ensures connectivity within each group. Combined with group size 3, this forces a path of length 2.
 
@@ -13527,8 +13527,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & z_((i,j),g) <= x_(i,g) quad forall i, j, g \
     & z_((i,j),g) <= x_(j,g) quad forall i, j, g \
     & z_((i,j),g) >= x_(i,g) + x_(j,g) - 1 quad forall i, j, g \
-    & x_(i,g), z_((i,j),g) in {0, 1}
-  $.
+    & x_(i,g), z_((i,j),g) in {0, 1}.
+  $
 
   _Correctness._ Product linearization captures the quadratic sum-of-squares objective; the ILP minimizes the linearized form directly.
 
@@ -13544,8 +13544,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & sum_t x_(j,t) = 1 quad forall j \
     & sum_j x_(j,t) <= m quad forall t \
     & sum_t t x_(j,t) >= sum_t t x_(i,t) + 1 quad "for each precedence" (i, j) \
-    & x_(j,t) in {0, 1}
-  $.
+    & x_(j,t) in {0, 1}.
+  $
 
   _Correctness._ One-hot ensures each task is scheduled once; capacity limits processors per slot; precedence is linearized via weighted time indicators.
 
@@ -13561,8 +13561,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & sum_(t = 0)^(d_j - 1) x_(j,t) = 1 quad forall j \
     & sum_j x_(j,t) <= m quad forall t \
     & sum_t t x_(j,t) >= sum_t t x_(i,t) + 1 quad "for each precedence" (i, j) \
-    & x_(j,t) in {0, 1}
-  $.
+    & x_(j,t) in {0, 1}.
+  $
 
   _Correctness._ Per-task deadline is enforced by restricting the time domain of each task's indicator variables.
 
@@ -13579,8 +13579,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & sum_t x_(t,u) <= m quad forall u quad "(capacity)" \
     & sum_u u dot x_(j,u) - sum_u u dot x_(i,u) >= 1 quad "for each" (i prec j) quad "(precedence)" \
     & M - (u+1) dot x_(t,u) >= 0 quad forall t, u quad "(makespan)" \
-    & x_(t,u) in {0, 1}, quad M in ZZ_(>= 0)
-  $.
+    & x_(t,u) in {0, 1}, quad M in ZZ_(>= 0).
+  $
 
   _Correctness._ Work constraints enforce each task runs for exactly $ell(t)$ slots. Capacity limits at most $m$ tasks per slot. Precedences are enforced by weighted time indicators. Makespan lower bounds force $M >= u+1$ whenever task $t$ is active at slot $u$.
 
@@ -13595,8 +13595,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "find" quad & bold(x) \
     "subject to" quad & sum_(t = r_j)^(d_j - l_j) x_(j,t) = 1 quad forall j \
     & sum_(j, t : t <= tau < t + l_j) x_(j,t) <= 1 quad forall tau \
-    & x_(j,t) in {0, 1}
-  $.
+    & x_(j,t) in {0, 1}.
+  $
 
   _Correctness._ One-hot ensures each task starts once within its feasible window; non-overlap prevents simultaneous execution.
 
@@ -13611,8 +13611,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     min quad & sum_a w_a y_a \
     "subject to" quad & o_v - o_u >= 1 - n y_a quad forall a = (u -> v) \
     & y_a in {0, 1} quad forall a \
-    & o_v in {0, dots, n - 1} quad forall v
-  $.
+    & o_v in {0, dots, n - 1} quad forall v.
+  $
 
   _Correctness._ ($arrow.r.double$) Removing a FAS leaves a DAG with a topological ordering satisfying all constraints. ($arrow.l.double$) Among kept arcs, the ordering variables enforce acyclicity: a cycle would require $o_(v_1) < dots < o_(v_k) < o_(v_1)$, a contradiction.
 
@@ -13629,8 +13629,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & f^k_(v,u) <= "cap"_e (1 - d^k_e) quad forall e = {u, v} in E, k in {1, 2} \
     & sum_(k=1)^2 (f^k_(u,v) + f^k_(v,u)) <= "cap"_e quad forall e = {u, v} in E \
     & sum_(w) f^k_(v,w) - sum_(u) f^k_(u,v) = b^k_v quad forall k in {1, 2}, v in V \
-    & d^k_e in {0, 1}, f^k_(u,v) in ZZ_(>=0)
-  $.
+    & d^k_e in {0, 1}, f^k_(u,v) in ZZ_(>=0).
+  $
 
   _Correctness._ Direction indicators linearize the capacity-sharing constraint; flow conservation and demand constraints ensure valid multi-commodity flow.
 
@@ -13646,8 +13646,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & f^1_a + f^2_a <= "cap"(a) quad forall a in A \
     & sum_(a in delta^+(v)) f^k_a - sum_(a in delta^-(v)) f^k_a = b^k_v quad forall k in {1, 2}, v in V \
     & sum_(a in delta^-(t_k)) f^k_a - sum_(a in delta^+(t_k)) f^k_a >= R_k quad forall k in {1, 2} \
-    & f^1_a, f^2_a in ZZ_(>=0) quad forall a in A
-  $.
+    & f^1_a, f^2_a in ZZ_(>=0) quad forall a in A.
+  $
 
   _Correctness._ Joint capacity and conservation constraints directly encode the two-commodity flow problem.
 
@@ -13666,8 +13666,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & f_(v,u) >= "lower"_e (1 - z_e) quad forall e = {u, v} in E \
     & sum_(a in delta^+(v)) f_a - sum_(a in delta^-(v)) f_a = b_v quad forall v in V \
     & sum_(a in delta^-(t)) f_a - sum_(a in delta^+(t)) f_a >= R \
-    & z_e in {0, 1}, f_(u,v) in ZZ_(>=0)
-  $.
+    & z_e in {0, 1}, f_(u,v) in ZZ_(>=0).
+  $
 
   _Correctness._ Direction indicators force flow in one direction per edge; bounds enforce both upper and lower capacity limits.
 
@@ -13686,8 +13686,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & sum_(a in delta^-(v)) f_a = sum_(a in delta^+(v)) f_a quad forall v in V backslash {s, t} \
     & f_a = f_b quad forall (a, b) \
     & sum_(a in delta^-(t)) f_a - sum_(a in delta^+(t)) f_a >= R \
-    & f_a in ZZ_(>=0) quad forall a in A
-  $.
+    & f_a in ZZ_(>=0) quad forall a in A.
+  $
 
   _Correctness._ ($arrow.r.double$) Any feasible integral flow already satisfies the capacity, conservation, equality, and sink-demand constraints. ($arrow.l.double$) Any feasible ILP assignment is exactly an integral arc-flow meeting the homologous-pair and requirement conditions.
 
@@ -13703,8 +13703,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & f_a <= c_a quad forall a in A \
     & sum_(a in delta^+(v)) f_a = h(v) sum_(a in delta^-(v)) f_a quad forall v in V backslash {s, t} \
     & sum_(a in delta^-(t)) f_a - sum_(a in delta^+(t)) f_a >= R \
-    & f_a in ZZ_(>=0) quad forall a in A
-  $.
+    & f_a in ZZ_(>=0) quad forall a in A.
+  $
 
   _Correctness._ ($arrow.r.double$) A valid multiplier flow satisfies these linear equalities and inequalities by definition. ($arrow.l.double$) Any feasible ILP solution gives an integral arc flow whose non-terminal outflow equals the prescribed multiple of its inflow and whose sink inflow meets the requirement.
 
@@ -13719,8 +13719,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "find" quad & (f_i)_(i = 1)^q \
     "subject to" quad & sum_(i : a in P_i) f_i <= c_a quad forall a in A \
     & sum_i f_i >= R \
-    & f_i in ZZ_(>=0) quad forall i in {1, dots, q}
-  $.
+    & f_i in ZZ_(>=0) quad forall i in {1, dots, q}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any valid path-flow assignment respects every arc capacity and delivers at least $R$ units in total. ($arrow.l.double$) Any feasible ILP solution assigns integral flow only to the prescribed paths, and the aggregated arc loads satisfy the network capacities.
 
@@ -13739,8 +13739,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & f^k_(u,v) + f^k_(v,u) <= 1 quad forall {u, v} in E, k \
     & sum_k sum_(w in N(v)) f^k_(v,w) <= 1 quad forall "non-terminal" v \
     & h^k_v >= h^k_u + 1 - M (1 - f^k_(u,v)) quad forall k, u -> v \
-    & f^k_(u,v) in {0, 1}, h^k_v in ZZ_(>=0)
-  $.
+    & f^k_(u,v) in {0, 1}, h^k_v in ZZ_(>=0).
+  $
 
   _Correctness._ ($arrow.r.double$) A family of pairwise internally vertex-disjoint connecting paths orients each path from its source to its sink and satisfies all constraints. ($arrow.l.double$) The conservation, disjointness, and ordering constraints force each commodity to trace one simple path, and different commodities can intersect only at terminals.
 
@@ -13761,8 +13761,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & h^k_s = 0 quad forall k \
     & h^k_v >= h^k_u + 1 - M (1 - f^k_(u,v)) quad forall k, u -> v \
     & h^k_t <= K quad forall k \
-    & f^k_(u,v) in {0, 1}, h^k_v in {0, dots, K}
-  $.
+    & f^k_(u,v) in {0, 1}, h^k_v in {0, dots, K}.
+  $
 
   _Correctness._ ($arrow.r.double$) A collection of $J$ internally disjoint $s$-$t$ paths of length at most $K$ yields feasible commodity flows and consistent hop labels. ($arrow.l.double$) The flow and hop constraints force each commodity to be a simple $s$-$t$ path, while the vertex-disjointness inequalities match the source requirement.
 
@@ -13812,8 +13812,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & 0 <= f_j, h_j <= (n - 1) y_j quad forall j in {0, dots, L - 1} \
     & "forward and reverse root-flow conservation hold on the used support" \
     & sum_(j = 0)^(L - 1) ell_j (r_j(d) + g_j) <= B \
-    & d_k, y_j, z_v, rho_v in {0, 1}; g_j in {0, dots, G}; f_j, h_j in {0, dots, n - 1}; s, b_v in ZZ_(>=0)
-  $.
+    & d_k, y_j, z_v, rho_v in {0, 1}; g_j in {0, dots, G}; f_j, h_j in {0, dots, n - 1}; s, b_v in ZZ_(>=0).
+  $
 
   _Correctness._ ($arrow.r.double$) From any feasible mixed-postman tour, set $d_k$ from the direction in which edge $e_k$ is first required, let $g_j$ be the number of extra copies of $b_j$ beyond the required multiplicity, and let $y_j$ mark the positive-support arcs. The tour itself visits exactly the active vertices, so some active vertex can be chosen as the root. Taking one outgoing spanning arborescence and one incoming spanning arborescence of the used Eulerian digraph gives feasible $f$- and $h$-flows. The walk length is exactly $sum_j ell_j (r_j(d) + g_j)$, hence the ILP is feasible.
   ($arrow.l.double$) A feasible ILP solution chooses one direction for every undirected edge, and the balance equations make the directed multigraph with multiplicities $r_j(d) + g_j$ Eulerian. The two root-flow systems imply that the positive-support digraph on the active vertices is strongly connected. Therefore the used multigraph admits an Euler tour, and its total length is exactly the bounded linear form above, so the source instance is a YES-instance.
@@ -13836,8 +13836,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & sum_(w : {r, w} in E) f_(r,w) - sum_(u : {u, r} in E) f_(u,r) = sum_v z_v - 1 \
     & sum_(u : {u, v} in E) f_(u,v) - sum_(w : {v, w} in E) f_(v,w) = z_v quad forall v in V backslash {r} \
     & sum_e ell_e t_e <= B \
-    & y_e, z_v in {0, 1}, t_e in {0, 1, 2}, q_v, f_(u,v) in ZZ_(>=0)
-  $.
+    & y_e, z_v in {0, 1}, t_e in {0, 1, 2}, q_v, f_(u,v) in ZZ_(>=0).
+  $
 
   _Correctness._ ($arrow.r.double$) Any feasible rural-postman circuit uses each edge at most twice, has even degrees, is connected on its positive-support edges, and satisfies the bound. ($arrow.l.double$) A feasible ILP solution defines a connected Eulerian multigraph containing every required edge, hence an Eulerian circuit of total length at most $B$.
 
@@ -13877,8 +13877,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & z_(i,j,p) >= x_(i,p) + x_(j,(p + 1) mod m) - 1 quad forall i, j, p \
     & z_(i,j,p) = 0 quad "whenever" D["head"_i, "tail"_j] = oo \
     & sum_(i = 0)^(m - 1) ell_i + sum_(p = 0)^(m - 1) sum_(i = 0)^(m - 1) sum_(j = 0)^(m - 1) D["head"_i, "tail"_j] z_(i,j,p) <= B \
-    & x_(i,p), z_(i,j,p) in {0, 1}
-  $.
+    & x_(i,p), z_(i,j,p) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any feasible Stacker Crane permutation determines a one-hot assignment and consecutive-pair indicators whose connector costs equal the route length. ($arrow.l.double$) Any feasible ILP solution yields a permutation of the required arcs, and the linearized connector term is exactly the sum of shortest paths between consecutive arcs.
 
@@ -13894,8 +13894,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & sum_(u) f^t_(u,v) - sum_(w) f^t_(v,w) = b_(t,v) quad forall t in R backslash {r}, v in V \
     & f^t_(u,v) <= y_(u,v) quad forall {u, v} in E, t in R backslash {r} \
     & f^t_(v,u) <= y_(u,v) quad forall {u, v} in E, t in R backslash {r} \
-    & y_(u,v) in {0, 1}, f^t_(u,v) in ZZ_(>=0)
-  $,
+    & y_(u,v) in {0, 1}, f^t_(u,v) in ZZ_(>=0),
+  $
   where $b_(t,v) = -1$ if $v = r$, $b_(t,v) = 1$ if $v = t$, and $b_(t,v) = 0$ otherwise.
 
   _Correctness._ ($arrow.r.double$) A Steiner tree supports a unit flow from the root to every other terminal using exactly its selected edges, with the same total weight. ($arrow.l.double$) Any feasible ILP solution selects a connected subgraph spanning all terminals, and with nonnegative edge weights an optimum solution is a minimum-weight Steiner tree.
@@ -13916,8 +13916,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & C_(j,q + 1) >= C_(j,q) + p_(j,q + 1) quad forall j, q in {1, dots, m - 1} \
     & C_(j,q) >= C_(i,q) + p_(j,q) - M (1 - y_(i,j)) quad forall i != j, q in {1, dots, m} \
     & C_(j,m) <= D quad forall j \
-    & y_(i,j) in {0, 1}, C_(j,q) in ZZ_(>=0)
-  $.
+    & y_(i,j) in {0, 1}, C_(j,q) in ZZ_(>=0).
+  $
 
   _Correctness._ ($arrow.r.double$) Any feasible flow-shop permutation induces a total order and completion times satisfying the machine and deadline constraints. ($arrow.l.double$) Any feasible ILP solution defines one common order of the jobs on all machines, and the resulting schedule completes by the deadline.
 
@@ -13936,8 +13936,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & s_(j,i') - s_(j,i) - M y_(j i i') >= p(j, i) - M quad forall j, i < i' \
     & s_(j,i) - s_(j,i') + M y_(j i i') >= p(j, i') quad forall j, i < i' \
     & C - s_(j,i) >= p(j, i) quad forall j, i \
-    & x_(j k i), y_(j i i') in {0,1},; s_(j,i), C in ZZ_(>=0)
-  $.
+    & x_(j k i), y_(j i i') in {0,1},; s_(j,i), C in ZZ_(>=0).
+  $
 
   _Correctness._ ($arrow.r.double$) Any feasible open-shop schedule with the given permutations $sigma_i$ induces valid ordering bits $x_{j k i}$ and $y_{j i i'}$ and start times satisfying all non-overlap constraints. ($arrow.l.double$) Any feasible ILP solution defines non-overlapping start times for all tasks, respecting both machine and job constraints.
 
@@ -13954,8 +13954,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & sum_j x_(j,p) = 1 quad forall p \
     & sum_p p x_(i,p) + 1 <= sum_p p x_(j,p) quad "for each precedence" (i, j) \
     & sum_p (p + 1) x_(j,p) - d_j <= M u_j quad forall j \
-    & x_(j,p), u_j in {0, 1}
-  $.
+    & x_(j,p), u_j in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any feasible schedule gives a permutation and tardy bits with objective equal to the number of tardy tasks. ($arrow.l.double$) Any feasible ILP assignment decodes to a precedence-respecting permutation, and each $u_j$ is forced to record whether task $j$ misses its deadline.
 
@@ -13971,8 +13971,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & sum_t x_(j,t) = 1 quad forall j \
     & sum_j x_(j,t) <= m quad forall t \
     & sum_j r_(j,q) x_(j,t) <= B_q quad forall q, t \
-    & x_(j,t) in {0, 1}
-  $.
+    & x_(j,t) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any feasible schedule chooses one slot per task while respecting processor and resource capacities in every period. ($arrow.l.double$) Any feasible ILP solution directly gives such a slot assignment.
 
@@ -13989,8 +13989,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & sum_j x_(j,p) = 1 quad forall p \
     & sum_p p x_(i,p) + 1 <= sum_p p x_(j,p) quad "for each precedence" (i, j) \
     & sum_j sum_(p in {0, dots, q}) c_j x_(j,p) <= K quad forall q \
-    & x_(j,p) in {0, 1}
-  $.
+    & x_(j,p) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) A feasible permutation satisfies the precedence constraints and keeps every prefix sum at most $K$. ($arrow.l.double$) Any feasible ILP assignment is a permutation whose cumulative cost after each prefix is exactly the linear expression being bounded.
 
@@ -14006,8 +14006,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & sum_p x_(j,p) = 1 quad forall j \
     & sum_j x_(j,p) = 1 quad forall p \
     & M x_(j,p) + sum_(p' < p) sum_(j') ell_(j') x_(j',p') - M u_j <= d_j - ell_j + M quad forall j, p \
-    & x_(j,p) in {0, 1}, u_j in {0, 1}
-  $.
+    & x_(j,p) in {0, 1}, u_j in {0, 1}.
+  $
   The third family of constraints enforces: if task $j$ is at position $p$ (so $x_(j,p) = 1$), then its completion time $ell_j + sum_(p' < p) sum_(j') ell_(j') x_(j',p')$ exceeds $d_j$ only when $u_j = 1$.
 
   _Correctness._ ($arrow.r.double$) Any schedule induces completion times; for each tardy task the big-$M$ constraint forces $u_j = 1$, so the objective counts exactly the total tardy weight. ($arrow.l.double$) Any feasible ILP assignment is a valid permutation (by the assignment constraints) and the tardy indicators agree with the actual completion times.
@@ -14026,8 +14026,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & x_(j,p) + x_(j',p-1) - "sw"_p <= 1 quad forall p >= 1, j, j' : k(j) != k(j') \
     & a_(j,p) <= x_(j,p), quad a_(j,p) <= "sw"_p, quad x_(j,p) + "sw"_p - a_(j,p) <= 1 quad forall j, p >= 1 \
     & M x_(j,p) + sum_(p' < p) sum_(j') ell_(j') x_(j',p') + sum_(p'=1)^(p) sum_(j') s(k(j')) a_(j',p') <= d_j - ell_j + M quad forall j, p \
-    & x_(j,p), "sw"_p, a_(j,p) in {0, 1}
-  $.
+    & x_(j,p), "sw"_p, a_(j,p) in {0, 1}.
+  $
   The switch-detection row forces $"sw"_p = 1$ whenever the tasks at positions $p-1$ and $p$ use different compilers. The $a_(j,p)$ linearisation then routes the correct per-compiler setup time into the completion-time bound for each position.
 
   _Correctness._ ($arrow.r.double$) Any feasible schedule assigns each task to a position; the switch indicator equals one exactly when consecutive compilers differ, and the deadline constraint is satisfied by hypothesis. ($arrow.l.double$) Any feasible ILP solution is a valid permutation and the deadline bound ensures each task finishes on time accounting for all setup penalties.
@@ -14047,8 +14047,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & T_j >= C_j - d_j quad forall j \
     & T_j >= 0 quad forall j \
     & sum_j w_j T_j <= K \
-    & y_(i,j) in {0, 1}, C_j in ZZ_(>=0), T_j in ZZ_(>=0)
-  $.
+    & y_(i,j) in {0, 1}, C_j in ZZ_(>=0), T_j in ZZ_(>=0).
+  $
 
   _Correctness._ ($arrow.r.double$) Any job order induces completion times and tardiness values satisfying the bound exactly when the source instance is feasible. ($arrow.l.double$) Any feasible ILP solution yields a single-machine order whose weighted tardiness equals the encoded linear objective term.
 
@@ -14063,8 +14063,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "find" quad & bold(x) \
     "subject to" quad & sum_(t = r_j)^(d_j - p_j) x_(j,t) = 1 quad forall j \
     & sum_(j, t : t <= tau < t + p_j) x_(j,t) <= 1 quad forall tau \
-    & x_(j,t) in {0, 1}
-  $.
+    & x_(j,t) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any feasible non-preemptive schedule chooses one valid start time per task and never overlaps two active jobs. ($arrow.l.double$) Any feasible ILP solution gives exactly such a start-time assignment, so executing the jobs in increasing start order solves the source instance.
 
@@ -14081,8 +14081,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & sum_t x_(c,t,h) <= 1 quad forall c, h \
     & sum_c x_(c,t,h) <= 1 quad forall t, h \
     & sum_h x_(c,t,h) = r_(c,t) quad forall c, t \
-    & x_(c,t,h) in {0, 1}
-  $.
+    & x_(c,t,h) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any valid timetable satisfies availability, exclusivity, and exact requirement counts. ($arrow.l.double$) Any feasible ILP solution is exactly such a timetable because the variable layout matches the source configuration.
 
@@ -14103,8 +14103,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & z_((u,v),p) <= x_(v,p+1) quad forall (u, v), p \
     & z_((u,v),p) >= x_(u,p) + x_(v,p+1) - 1 quad forall (u, v), p \
     & sum_((u,v) in E) z_((u,v),p) = 1 quad forall p \
-    & x_(v,p), z_((u,v),p) in {0, 1}
-  $.
+    & x_(v,p), z_((u,v),p) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) A Hamiltonian path defines a permutation of the vertices and therefore a feasible assignment matrix with one admissible graph edge between every consecutive pair. ($arrow.l.double$) Any feasible ILP solution is a vertex permutation whose consecutive pairs are graph edges, hence a Hamiltonian path.
 
@@ -14120,8 +14120,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & sum_k x_(v,k) = 1 quad forall v \
     & sum_v x_(v,k) = 1 quad forall k \
     & x_(v,k) + x_(w,k+1) <= 1 quad forall k, (v, w) in.not A \
-    & x_(v,k) in {0, 1}
-  $.
+    & x_(v,k) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) A directed Hamiltonian path yields a permutation where every consecutive pair is a directed arc; the arc-exclusion constraints are satisfied by definition. ($arrow.l.double$) Any feasible ILP solution defines a vertex permutation whose consecutive pairs are all directed arcs, hence a directed Hamiltonian path.
 
@@ -14141,8 +14141,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & z_((u,v),p) >= x_(u,p) + x_(v,(p+1) mod n) - 1 quad forall (u, v), p \
     & sum_((u,v) in E) z_((u,v),p) = 1 quad forall p \
     & b >= w_(u,v) z_((u,v),p) quad forall (u, v), p \
-    & x_(v,p), z_((u,v),p) in {0, 1}, b in ZZ_(>=0)
-  $.
+    & x_(v,p), z_((u,v),p) in {0, 1}, b in ZZ_(>=0).
+  $
 
   _Correctness._ ($arrow.r.double$) Any Hamiltonian tour yields a feasible assignment and sets $b$ to the maximum selected edge weight. ($arrow.l.double$) Any feasible ILP solution encodes a Hamiltonian cycle, and the minimax constraints force $b$ to equal its bottleneck edge weight.
 
@@ -14195,8 +14195,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & sum_e y_e >= 3 \
     & sum_e l_e y_e >= K \
     & "root-flow connectivity constraints hold on the selected edges" \
-    & y_e, s_v in {0, 1}
-  $.
+    & y_e, s_v in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) A simple circuit has degree 2 at each used vertex, is connected, and meets the length bound $K$. ($arrow.l.double$) The degree and connectivity constraints force the selected edges to form exactly one simple circuit, and the final inequality enforces the required total length.
 
@@ -14214,8 +14214,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & z_((i,p),(j,q)) <= x_(i,p) quad forall i, p, j, q \
     & z_((i,p),(j,q)) <= x_(j,q) quad forall i, p, j, q \
     & z_((i,p),(j,q)) >= x_(i,p) + x_(j,q) - 1 quad forall i, p, j, q \
-    & x_(i,p), z_((i,p),(j,q)) in {0, 1}
-  $.
+    & x_(i,p), z_((i,p),(j,q)) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any injective facility placement gives a feasible ILP assignment with exactly the same quadratic cost. ($arrow.l.double$) Any feasible ILP solution decodes to an injective facility-to-location map, and the linearized objective equals the source objective term by term.
 
@@ -14233,8 +14233,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & z_(u,v) >= p_u - p_v quad forall {u, v} in E \
     & z_(u,v) >= p_v - p_u quad forall {u, v} in E \
     & sum_({u,v} in E) z_(u,v) <= K \
-    & x_(v,p) in {0, 1}, z_(u,v) in ZZ_(>=0)
-  $.
+    & x_(v,p) in {0, 1}, z_(u,v) in ZZ_(>=0).
+  $
 
   _Correctness._ ($arrow.r.double$) Any valid linear arrangement satisfies the permutation constraints and gives edge lengths $|p_u - p_v|$ within the bound. ($arrow.l.double$) Any feasible ILP solution is a bijection from vertices to positions, and the auxiliary variables exactly upper-bound the edge lengths, so the total arrangement cost is at most $K$.
 
@@ -14251,8 +14251,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & sum_v x_(v,u) <= 1 quad forall u \
     & x_(v,u) + x_(w,u') <= 1 quad forall {v, w} in E_"pat", {u, u'} in.not E_"host" \
     & x_(v,u') + x_(w,u) <= 1 quad forall {v, w} in E_"pat", {u, u'} in.not E_"host" \
-    & x_(v,u) in {0, 1}
-  $.
+    & x_(v,u) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any injective edge-preserving embedding satisfies the assignment and non-edge constraints. ($arrow.l.double$) Any feasible ILP solution is an injective vertex map, and the non-edge inequalities ensure every pattern edge is sent to a host edge.
 
@@ -14270,8 +14270,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & sum_(v in V) x_v = n / 2 \
     & y_e >= x_u - x_v quad forall e = {u, v} in E \
     & y_e >= x_v - x_u quad forall e = {u, v} in E \
-    & x_v, y_e in {0, 1}
-  $.
+    & x_v, y_e in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any balanced partition assigns $n\/2$ vertices to each side; setting $y_e = |x_u - x_v|$ for each edge gives a feasible ILP solution whose objective equals the cut size. ($arrow.l.double$) The balance constraint forces an equal partition, and the two linking inequalities force $y_e >= |x_u - x_v|$; minimization then drives $y_e = |x_u - x_v|$, so the objective equals the number of crossing edges.
 
@@ -14317,8 +14317,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & sum_(t = 0)^(m - 1) "cost"(a_t) y_t <= K \
     & p_v - o_c <= (n - 1) (1 - x_(v,c)), o_c - p_v <= (n - 1) (1 - x_(v,c)) quad forall v, c \
     & p_(v_t) - p_(u_t) >= 1 - n sum_(c = 0)^(n - 1) s_(t,c) quad forall t in {0, dots, m - 1} \
-    & x_(v,c), s_(t,c), y_t in {0, 1}; o_c, p_v in {0, dots, n - 1}
-  $.
+    & x_(v,c), s_(t,c), y_t in {0, 1}; o_c, p_v in {0, dots, n - 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any valid acyclic partition gives a class assignment whose quotient arcs respect some topological ordering, with the same class weights and crossing cost. ($arrow.l.double$) Any feasible ILP solution partitions the vertices, keeps every class within the weight bound, charges exactly the inter-class arcs, and the order variables force the quotient digraph to be acyclic.
 
@@ -14334,8 +14334,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "subject to" quad & sum_(l in L) x_l = k \
     & sum_(r in R) y_r = k \
     & x_l + y_r <= 1 quad forall (l, r) in.not E \
-    & x_l, y_r in {0, 1}
-  $.
+    & x_l, y_r in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) A balanced complete bipartite subgraph of size $k + k$ satisfies the cardinality constraints and has no selected non-edge pair. ($arrow.l.double$) Any feasible ILP solution selects $k$ left vertices and $k$ right vertices with every cross-pair present, hence a balanced biclique.
 
@@ -14353,8 +14353,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & z_((l,r),b) >= x_(l,b) + y_(r,b) - 1 quad forall l, r, b \
     & sum_b z_((l,r),b) >= 1 quad forall (l, r) in E \
     & x_(l,b) + y_(r,b) <= 1 quad forall (l, r) in.not E, b \
-    & x_(l,b), y_(r,b), z_((l,r),b) in {0, 1}
-  $.
+    & x_(l,b), y_(r,b), z_((l,r),b) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any valid $k$-biclique cover assigns each covered edge to a biclique containing both endpoints, with objective equal to the total biclique size. ($arrow.l.double$) Any feasible ILP solution defines $k$ complete bipartite subgraphs whose union covers every edge, and the objective is exactly the source objective.
 
@@ -14395,8 +14395,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & g^(q,t)_(j,eta) = 0 quad "whenever" t in {q, r_q} "or" f_j "is incident to" q \
     & g^(q,t)_(j,eta) <= y_j quad forall q, t in {0, dots, n - 1}, j in {0, dots, p - 1}, eta in {0, 1} \
     & "for each valid pair" (q,t) ", unit-flow conservation from" r_q "to" t "holds in" G - q \
-    & y_j, f^(q,t)_(i,eta), g^(q,t)_(j,eta) in {0, 1}
-  $.
+    & y_j, f^(q,t)_(i,eta), g^(q,t)_(j,eta) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) If the chosen augmentation makes the graph biconnected, then every vertex-deleted graph is connected and therefore supports the required flows. ($arrow.l.double$) If the ILP is feasible, then removing any single vertex leaves a connected graph, which is exactly the definition of biconnectivity for the augmented graph.
 
@@ -14445,8 +14445,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & "the standard product linearization enforces" b_(v,c) = s_c r_(v,c) quad forall v, c \
     & 0 <= f_(i,eta,c) <= (n - 1) x_(u_i,c), 0 <= f_(i,eta,c) <= (n - 1) x_(v_i,c) quad forall i, eta, c \
     & sum_"out of v in c" f - sum_"into v in c" f = b_(v,c) - x_(v,c) quad forall v, c \
-    & x_(v,c), u_c, r_(v,c) in {0, 1}; s_c in {0, dots, n}; b_(v,c), f_(i,eta,c) in ZZ_(>=0)
-  $.
+    & x_(v,c), u_c, r_(v,c) in {0, 1}; s_c in {0, dots, n}; b_(v,c), f_(i,eta,c) in ZZ_(>=0).
+  $
 
   _Correctness._ ($arrow.r.double$) Any valid bounded-component partition assigns each component a connected supporting subgraph and respects the weight bound. ($arrow.l.double$) Any feasible ILP solution partitions the vertices into at most $K$ connected sets, each of total weight at most $B$, exactly as required by the source problem.
 
@@ -14466,8 +14466,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & y_e >= x_u - x_v quad forall e = {u, v} in E \
     & y_e >= x_v - x_u quad forall e = {u, v} in E \
     & sum_e w_e y_e <= K \
-    & x_v, y_e in {0, 1}
-  $.
+    & x_v, y_e in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any feasible bounded cut determines a 0/1 side assignment, and the edge indicators are 1 exactly on the cut edges. ($arrow.l.double$) Any feasible ILP solution partitions the vertices into two bounded sets with $s$ and $t$ separated and total cut weight at most $K$.
 
@@ -14513,8 +14513,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & bar(f)^t_j <= y_j, bar(g)^t_j <= y_j quad forall t in {0, dots, n - 1}, j in {0, dots, p - 1} \
     & "root-to-target unit-flow conservation holds on" f^t, bar(f)^t quad forall t != r \
     & "target-to-root unit-flow conservation holds on" g^t, bar(g)^t quad forall t != r \
-    & y_j, f^t_i, bar(f)^t_j, g^t_i, bar(g)^t_j in {0, 1}
-  $.
+    & y_j, f^t_i, bar(f)^t_j, g^t_i, bar(g)^t_j in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) A strongly connected augmentation provides both directions of reachability between the root and every other vertex, hence all required flows. ($arrow.l.double$) If those flows exist for every vertex, then every vertex is reachable from the root and can reach the root, so the augmented digraph is strongly connected.
 
@@ -14536,8 +14536,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & w_(i,j) <= sum_r p_(i,r,j) quad forall i, j \
     & e_(i,j) >= A_(i,j) - w_(i,j) quad forall i, j \
     & e_(i,j) >= w_(i,j) - A_(i,j) quad forall i, j \
-    & b_(i,r), c_(r,j), p_(i,r,j), w_(i,j) in {0, 1}, e_(i,j) in ZZ_(>=0)
-  $.
+    & b_(i,r), c_(r,j), p_(i,r,j), w_(i,j) in {0, 1}, e_(i,j) in ZZ_(>=0).
+  $
 
   _Correctness._ ($arrow.r.double$) Any choice of factor matrices induces the same Boolean product and Hamming error in the ILP. ($arrow.l.double$) Any feasible ILP assignment determines factor matrices $B$ and $C$, and the linearization forces the objective to equal the Hamming distance between $A$ and $B dot C$.
 
@@ -14556,8 +14556,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & b_(r,0) = a_(r,0) quad forall r \
     & b_(r,p) >= a_(r,p) - a_(r,p-1) quad forall r, p > 0 \
     & sum_(r,p) b_(r,p) <= K \
-    & x_(c,p), a_(r,p), b_(r,p) in {0, 1}
-  $.
+    & x_(c,p), a_(r,p), b_(r,p) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any column permutation determines exactly one block-start variable for each maximal run of 1s in every row. ($arrow.l.double$) A feasible ILP solution is a column permutation whose counted block starts sum to at most $K$, which is precisely the source criterion.
 
@@ -14611,8 +14611,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & h_(r,p) >= sum_(q = 0)^p ell_(r,q) + sum_(q = p)^(n - 1) u_(r,q) - 1 quad forall r, p \
     & a_(r,p) <= h_(r,p); h_(r,p) <= a_(r,p) + f_(r,p); f_(r,p) <= h_(r,p); f_(r,p) + a_(r,p) <= 1 quad forall r, p \
     & sum_(r = 0)^(m - 1) sum_(p = 0)^(n - 1) f_(r,p) <= K \
-    & x_(c,p), a_(r,p), ell_(r,p), u_(r,p), h_(r,p), f_(r,p) in {0, 1}
-  $.
+    & x_(c,p), a_(r,p), ell_(r,p), u_(r,p), h_(r,p), f_(r,p) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) A feasible augmentation chooses a permutation and flips exactly the zeros lying inside each row's final consecutive-ones interval. ($arrow.l.double$) Any feasible ILP solution yields a permuted matrix whose rows become consecutive-ones after the encoded zero-to-one augmentations, with total augmentation cost at most $K$.
 
@@ -14629,8 +14629,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & sum_p x_(c,p) = s_c quad forall c \
     & sum_c x_(c,p) = 1 quad forall p in {1, dots, K} \
     & "the selected rows satisfy the consecutive-ones interval constraints" \
-    & s_c, x_(c,p) in {0, 1}
-  $.
+    & s_c, x_(c,p) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any feasible column subset with a valid permutation satisfies the selection and interval constraints. ($arrow.l.double$) Any feasible ILP solution chooses exactly $K$ columns whose induced submatrix admits a consecutive-ones permutation.
 
@@ -14645,8 +14645,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     "find" quad & bold(x) \
     "subject to" quad & sum_g x_(r,g) = 1 quad forall r \
     & x_(r,g) + x_(s,h) <= 1 quad "whenever" A_(r,i) = A_(s,j) = 1 "and" i + g = j + h \
-    & x_(r,g) in {0, 1}
-  $.
+    & x_(r,g) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) A valid compression chooses one shift per row and never overlays 1-entries from different rows in the same storage position. ($arrow.l.double$) Any feasible ILP solution gives exactly such a collision-free shift assignment, hence a valid storage vector of length $n + K$.
 
@@ -14665,8 +14665,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & sum_p m_(s,j,p) = 1 quad forall s, j \
     & m_(s,j,p) <= x_(p,a) quad forall s, j, p " with symbol " a \
     & "matching positions are strictly increasing in j for every string s" \
-    & x_(p,a), m_(s,j,p) in {0, 1}
-  $.
+    & x_(p,a), m_(s,j,p) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any common supersequence of length at most $B$ induces a one-hot symbol assignment and a monotone match of every input string. ($arrow.l.double$) Any feasible ILP solution yields a length-$B$ string into which every source string embeds as a subsequence.
 
@@ -14739,8 +14739,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & "the exact M = 1 state-update equations enforce no-op, delete, and adjacent-swap transitions" \
     & sum_(i : x_i = y_p) z_(K,p,i) = 1 quad forall p in {0, dots, m - 1} \
     & e_(K,p) = 1 quad forall p in {m, dots, n - 1} \
-    & z_(t,p,i), e_(t,p), d_(t,j), s_(t,j), nu_t in {0, 1}
-  $.
+    & z_(t,p,i), e_(t,p), d_(t,j), s_(t,j), nu_t in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any valid length-$K$ edit script yields a feasible sequence of operations and states ending at the target. ($arrow.l.double$) Any feasible ILP solution traces a legal sequence of deletes, adjacent swaps, and no-ops whose final string is the target.
 
@@ -14803,8 +14803,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & k_p = 1 - x_i quad "otherwise" \
     & c_p >= k_p - k_(p-1) quad forall p > 0 \
     & c_p >= k_(p-1) - k_p quad forall p > 0 \
-    & x_i, k_p, c_p in {0, 1}
-  $.
+    & x_i, k_p, c_p in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any first-occurrence coloring determines the whole paint sequence and induces exactly the same number of switches in the ILP. ($arrow.l.double$) Any ILP assignment is already a valid source witness, and the switch variables are forced to count adjacent color changes.
 
@@ -14821,8 +14821,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & sum_u x_(u,v) = 1 quad forall v \
     & x_(u,v) + x_(w,z) <= 1 quad forall {u, w} in E_"tree", {v, z} in.not E_"graph" \
     & x_(u,z) + x_(w,v) <= 1 quad forall {u, w} in E_"tree", {v, z} in.not E_"graph" \
-    & x_(u,v) in {0, 1}
-  $.
+    & x_(u,v) in {0, 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) Any isomorphism from the given tree to a spanning tree of the graph satisfies the bijection and non-edge constraints. ($arrow.l.double$) Any feasible ILP solution is a bijection that preserves every tree edge, so the image edges form a spanning tree of the graph isomorphic to the source tree.
 
@@ -14944,8 +14944,8 @@ The following reductions to Integer Linear Programming are straightforward formu
     & B_s - d_v <= (n - 1) (1 - b_(s,v)), d_v - B_s <= (n - 1) (1 - b_(s,v)) quad forall s, v \
     & c_s = B_s - T_s + 1 - |S_(k_s)|, c_s >= 0 quad forall s; sum_s c_s <= K \
     & p_(v,u), a_(u,v), h_(u,v,w), t_(s,u), b_(s,v), m_(s,u,v) in {0, 1} \
-    & d_v, T_s, B_s, c_s in ZZ_(>=0)
-  $.
+    & d_v, T_s, B_s, c_s in ZZ_(>=0).
+  $
 
   _Correctness._ ($arrow.r.double$) Any rooted tree satisfying all subset-path conditions induces parent, depth, and path-endpoint variables with the same total extension cost. ($arrow.l.double$) Any feasible ILP solution defines a rooted tree in which every subset lies on one ancestor chain, and the encoded path lengths keep the total extension cost within the bound.
 
@@ -15004,7 +15004,7 @@ The following reductions to Integer Linear Programming are straightforward formu
         *Step 1 -- Source instance.* The source digraph has vertices ${#range(mfas_mlr.source.instance.graph.num_vertices).map(str).join(", ")}$ and arcs #{source-arcs.map(a => $(#(a.at(0)) arrow #(a.at(1)))$).join(", ")}, all with unit weight. The extracted optimal feedback arc set removes #{removed-arcs.map(a => $(#(a.at(0)) arrow #(a.at(1)))$).join(" and ")}, so $|F| = #removed-arcs.len()$.
 
         *Step 2 -- Build the comparison matrix.* The reduction keeps the same item set and writes $M_(i j) = 1$ when only $i arrow j$ exists, $M_(i j) = -1$ when only $j arrow i$ exists, and $M_(i j) = 0$ otherwise. For this instance,
-        $ M = mat(#fmt-mat(target-matrix)) $.
+        $ M = mat(#fmt-mat(target-matrix)). $
         Every off-diagonal pair sums to $0$, so the target is a valid Maximum Likelihood Ranking instance with $c = 0$.
 
         *Step 3 -- Verify a solution.* The stored ranking vector is $(#ranking.map(str).join(", "))$, interpreted as the map from items to ranks. The target disagreement cost is $#target-cost = 2 dot #removed-arcs.len() - #source-arcs.len()$, and the extracted source witness is exactly the backward-arc set #{removed-arcs.map(a => $(#(a.at(0)) arrow #(a.at(1)))$).join(" and ")} #sym.checkmark
@@ -17561,7 +17561,7 @@ The following table shows concrete variable overhead for example instances, take
   _Construction._ Let the source instance have universe size $q$ and triples $m_l = (w_(a_l), x_(b_l), y_(c_l))$ for $l = 0, dots, t - 1$. If some coordinate of $W union X union Y$ is absent from all triples, the source instance is trivially NO, so the implementation returns a fixed infeasible 3-Partition instance with sizes $(6, 6, 6, 6, 7, 9)$ and bound $20$.
 
   Otherwise set $r = 32 q$ and $T_1 = 40 r^4$. For each triple create
-  $ u_l = 10 r^4 - c_l r^3 - b_l r^2 - a_l r $,
+  $ u_l = 10 r^4 - c_l r^3 - b_l r^2 - a_l r, $
   one $B$-item $10 r^4 + a_l r$ on the first occurrence of coordinate $a_l$ and $11 r^4 + a_l r$ on later occurrences, one $C$-item $10 r^4 + b_l r^2$ on the first occurrence of $b_l$ and $11 r^4 + b_l r^2$ later, and one $D$-item $10 r^4 + c_l r^3$ on the first occurrence of $c_l$ and $8 r^4 + c_l r^3$ later. This is the ABCD-Partition instance.
 
   Tag the four classes modulo 16:
@@ -17571,7 +17571,7 @@ The following table shows concrete variable overhead for example instances, take
   For every tagged number create one regular element $w_i = 4(5 T_2 + a_i) + 1$. For every unordered pair $i < j$, create pairing elements
   $ u_(i j) = 4(6 T_2 - a_i - a_j) + 2 $
   and
-  $ u'_(i j) = 4(5 T_2 + a_i + a_j) + 2 $.
+  $ u'_(i j) = 4(5 T_2 + a_i + a_j) + 2. $
   Finally add $8 t^2 - 3 t$ filler elements of size $20 T_2$ and set the 3-Partition bound to $B = 64 T_2 + 4$.
 
   _Correctness._ The fixed preprocessing case is immediate: an uncovered coordinate makes the 3DM instance infeasible, and $(6, 6, 6, 6, 7, 9; 20)$ is a valid infeasible 3-Partition instance.
@@ -17622,8 +17622,8 @@ The following table shows concrete variable overhead for example instances, take
     "subject to" quad & sum_(l : a_l = e) x_l = 1 quad forall e in {0, dots, q - 1} quad "(W-coverage)" \
     & sum_(l : b_l = e) x_l = 1 quad forall e in {0, dots, q - 1} quad "(X-coverage)" \
     & sum_(l : c_l = e) x_l = 1 quad forall e in {0, dots, q - 1} quad "(Y-coverage)" \
-    & x_l in {0, 1} quad forall l in {0, dots, t - 1}
-  $.
+    & x_l in {0, 1} quad forall l in {0, dots, t - 1}.
+  $
 
   _Correctness._ ($arrow.r.double$) A perfect 3-dimensional matching selects $q$ triples covering every element exactly once. Setting $x_l = 1$ for selected triples satisfies all $3q$ equality constraints. ($arrow.l.double$) Any binary feasible solution selects a set of triples in which every element of $W$, $X$, and $Y$ appears exactly once, which is a perfect 3-dimensional matching.
 
