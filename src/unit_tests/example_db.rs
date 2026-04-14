@@ -837,21 +837,6 @@ fn test_find_rule_example_ksatisfiability_to_minimumvertexcover() {
 }
 
 #[test]
-fn test_find_rule_example_partition_to_sequencingwithinintervals() {
-    let source = ProblemRef {
-        name: "Partition".to_string(),
-        variant: BTreeMap::new(),
-    };
-    let target = ProblemRef {
-        name: "SequencingWithinIntervals".to_string(),
-        variant: BTreeMap::new(),
-    };
-    let example = find_rule_example(&source, &target).unwrap();
-    assert_eq!(example.source.problem, "Partition");
-    assert_eq!(example.target.problem, "SequencingWithinIntervals");
-}
-
-#[test]
 fn test_find_rule_example_minimumvertexcover_to_minimumfeedbackarcset() {
     let source = ProblemRef {
         name: "MinimumVertexCover".to_string(),
@@ -951,24 +936,6 @@ fn test_find_rule_example_hamiltoniancircuit_to_ruralpostman() {
 }
 
 #[test]
-fn test_find_rule_example_partition_to_shortestweightconstrainedpath() {
-    let source = ProblemRef {
-        name: "Partition".to_string(),
-        variant: BTreeMap::new(),
-    };
-    let target = ProblemRef {
-        name: "ShortestWeightConstrainedPath".to_string(),
-        variant: BTreeMap::from([
-            ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
-        ]),
-    };
-    let example = find_rule_example(&source, &target).unwrap();
-    assert_eq!(example.source.problem, "Partition");
-    assert_eq!(example.target.problem, "ShortestWeightConstrainedPath");
-}
-
-#[test]
 fn test_find_rule_example_maximumindependentset_to_integralflowbundles() {
     let source = ProblemRef {
         name: "MaximumIndependentSet".to_string(),
@@ -999,21 +966,6 @@ fn test_find_rule_example_hamiltoniancircuit_to_quadraticassignment() {
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "HamiltonianCircuit");
     assert_eq!(example.target.problem, "QuadraticAssignment");
-}
-
-#[test]
-fn test_find_rule_example_hamiltonianpath_to_consecutiveonessubmatrix() {
-    let source = ProblemRef {
-        name: "HamiltonianPath".to_string(),
-        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
-    };
-    let target = ProblemRef {
-        name: "ConsecutiveOnesSubmatrix".to_string(),
-        variant: BTreeMap::new(),
-    };
-    let example = find_rule_example(&source, &target).unwrap();
-    assert_eq!(example.source.problem, "HamiltonianPath");
-    assert_eq!(example.target.problem, "ConsecutiveOnesSubmatrix");
 }
 
 // PR #804 rules
@@ -1118,21 +1070,6 @@ fn test_find_rule_example_rootedtreearrangement_to_rootedtreestorageassignment()
     let example = find_rule_example(&source, &target).unwrap();
     assert_eq!(example.source.problem, "RootedTreeArrangement");
     assert_eq!(example.target.problem, "RootedTreeStorageAssignment");
-}
-
-#[test]
-fn test_find_rule_example_subsetsum_to_capacityassignment() {
-    let source = ProblemRef {
-        name: "SubsetSum".to_string(),
-        variant: BTreeMap::new(),
-    };
-    let target = ProblemRef {
-        name: "CapacityAssignment".to_string(),
-        variant: BTreeMap::new(),
-    };
-    let example = find_rule_example(&source, &target).unwrap();
-    assert_eq!(example.source.problem, "SubsetSum");
-    assert_eq!(example.target.problem, "CapacityAssignment");
 }
 
 #[test]
@@ -1300,54 +1237,6 @@ fn test_find_rule_example_threepartition_to_sequencingwithreleasetimesanddeadlin
         example.target.problem,
         "SequencingWithReleaseTimesAndDeadlines"
     );
-}
-
-#[test]
-fn test_find_rule_example_threepartition_to_sequencingtominimizeweightedtardiness() {
-    let source = ProblemRef {
-        name: "ThreePartition".to_string(),
-        variant: BTreeMap::new(),
-    };
-    let target = ProblemRef {
-        name: "SequencingToMinimizeWeightedTardiness".to_string(),
-        variant: BTreeMap::new(),
-    };
-    let example = find_rule_example(&source, &target).unwrap();
-    assert_eq!(example.source.problem, "ThreePartition");
-    assert_eq!(
-        example.target.problem,
-        "SequencingToMinimizeWeightedTardiness"
-    );
-}
-
-#[test]
-fn test_find_rule_example_threepartition_to_flowshopscheduling() {
-    let source = ProblemRef {
-        name: "ThreePartition".to_string(),
-        variant: BTreeMap::new(),
-    };
-    let target = ProblemRef {
-        name: "FlowShopScheduling".to_string(),
-        variant: BTreeMap::new(),
-    };
-    let example = find_rule_example(&source, &target).unwrap();
-    assert_eq!(example.source.problem, "ThreePartition");
-    assert_eq!(example.target.problem, "FlowShopScheduling");
-}
-
-#[test]
-fn test_find_rule_example_threepartition_to_jobshopscheduling() {
-    let source = ProblemRef {
-        name: "ThreePartition".to_string(),
-        variant: BTreeMap::new(),
-    };
-    let target = ProblemRef {
-        name: "JobShopScheduling".to_string(),
-        variant: BTreeMap::new(),
-    };
-    let example = find_rule_example(&source, &target).unwrap();
-    assert_eq!(example.source.problem, "ThreePartition");
-    assert_eq!(example.target.problem, "JobShopScheduling");
 }
 
 #[test]

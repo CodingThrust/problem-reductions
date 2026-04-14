@@ -8,6 +8,7 @@ use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
+use std::collections::HashSet;
 
 /// Result of reducing SAT to CircuitSAT.
 #[derive(Debug, Clone)]
@@ -94,6 +95,22 @@ impl ReduceTo<CircuitSAT> for Satisfiability {
             vec![final_output],
             BooleanExpr::constant(true),
         ));
+
+        // Add identity assignments for variables that don't appear in any clause,
+        // so they are present in Circuit::variables() for index mapping.
+        let used_vars: HashSet<usize> = clauses
+            .iter()
+            .flat_map(|c| c.literals.iter().map(|&lit| lit.unsigned_abs() as usize))
+            .collect();
+        for i in 1..=num_vars {
+            if !used_vars.contains(&i) {
+                let var_name = format!("x{}", i);
+                assignments.push(Assignment::new(
+                    vec![format!("__unused_{}", i)],
+                    BooleanExpr::var(&var_name),
+                ));
+            }
+        }
 
         let circuit = Circuit::new(assignments);
         let target = CircuitSAT::new(circuit);

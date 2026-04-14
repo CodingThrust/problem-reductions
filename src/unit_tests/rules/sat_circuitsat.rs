@@ -65,3 +65,16 @@ fn test_sat_to_circuitsat_single_literal_clause() {
     let extracted = result.extract_solution(&target_solution);
     assert_eq!(extracted, vec![1, 1]);
 }
+
+#[test]
+fn test_sat_to_circuitsat_unused_variables() {
+    // 5 variables but only x1 and x2 appear in clauses; x3..x5 are unused.
+    // Previously panicked because unused variables were missing from CircuitSAT.
+    let sat = Satisfiability::new(5, vec![CNFClause::new(vec![1, 2])]);
+    let result = ReduceTo::<CircuitSAT>::reduce_to(&sat);
+    assert_satisfaction_round_trip_from_satisfaction_target(
+        &sat,
+        &result,
+        "SAT->CircuitSAT unused variables",
+    );
+}

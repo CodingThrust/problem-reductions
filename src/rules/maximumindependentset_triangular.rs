@@ -28,14 +28,14 @@ impl ReductionResult for ReductionISSimpleToTriangular {
     }
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.mapping_result.map_config_back(target_solution)
+        self.mapping_result.map_config_back_via_centers(target_solution)
     }
 }
 
 #[reduction(
     overhead = {
-        num_vertices = "num_vertices * num_vertices",
-        num_edges = "num_vertices * num_vertices",
+        num_vertices = "num_vertices * num_vertices * num_vertices",
+        num_edges = "num_vertices * num_vertices * num_vertices",
     }
 )]
 impl ReduceTo<MaximumIndependentSet<TriangularSubgraph, i32>>

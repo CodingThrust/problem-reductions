@@ -33,7 +33,7 @@ impl ReductionResult for ReductionISSimpleOneToGridOne {
 #[reduction(
     overhead = {
         num_vertices = "num_vertices * num_vertices",
-        num_edges = "num_vertices * num_vertices",
+        num_edges = "num_vertices * num_vertices * num_vertices",
     }
 )]
 impl ReduceTo<MaximumIndependentSet<KingsSubgraph, One>>
