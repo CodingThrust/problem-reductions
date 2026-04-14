@@ -95,7 +95,7 @@ fn test_decision_problem_schema_entries_registered() {
         .iter()
         .find(|entry| entry.name == "DecisionMinimumVertexCover")
         .expect("DecisionMinimumVertexCover schema should be registered");
-    assert_eq!(mvc.aliases, ["DMVC"]);
+    assert_eq!(mvc.aliases, ["DMVC", "VC", "VertexCover"]);
     assert!(mvc.fields.iter().any(|field| field.name == "bound"));
     assert_eq!(mvc.dimensions.len(), 2);
     assert!(

@@ -310,6 +310,8 @@ mod tests {
             "BiconnectivityAugmentation"
         );
         assert_eq!(resolve_alias("DMVC"), "DecisionMinimumVertexCover");
+        assert_eq!(resolve_alias("VC"), "DecisionMinimumVertexCover");
+        assert_eq!(resolve_alias("VertexCover"), "DecisionMinimumVertexCover");
         // Pass-through for full names
         assert_eq!(
             resolve_alias("MaximumIndependentSet"),
