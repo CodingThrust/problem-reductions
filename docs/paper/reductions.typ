@@ -3671,7 +3671,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #problem-def("SetSplitting")[
       Given a finite universe $U$ and a collection $cal(C) = {C_1, dots, C_m}$ of subsets of $U$ each of size $gt.eq 2$, does there exist a 2-coloring $chi: U -> {0, 1}$ such that every $C_i$ is non-monochromatic — i.e., contains at least one element of each color?
     ][
-    One of Garey and Johnson's NP-complete problems (SP4 in @garey1979), shown NP-complete by reduction from 3-SAT. It is equivalent to deciding whether a hypergraph is 2-colorable (also called Property B). The problem is trivially satisfiable when every subset has size exactly 2, reducing to 2-colorability of the corresponding graph; it becomes NP-complete for subsets of size $gt.eq 3$. The best known exact algorithm runs in $O^*(2^n)$ by brute-force enumeration over the $n = |U|$ elements.
+    One of Garey and Johnson's NP-complete problems (SP4 in @garey1979), shown NP-complete by #cite(<lovasz1973>, form: "prose") via reduction from Not-All-Equal 3-Satisfiability. It is equivalent to deciding whether a hypergraph is 2-colorable (also called Property B). The problem is trivially satisfiable when every subset has size exactly 2, reducing to 2-colorability of the corresponding graph; it becomes NP-complete for subsets of size $gt.eq 3$. The best known exact algorithm runs in $O^*(2^n)$ by brute-force enumeration over the $n = |U|$ elements.
 
     *Example.* Let $U = {1, 2, dots, #n}$ and $cal(C) = {C_1, dots, C_#m}$ with #range(m).map(i => $C_#(i + 1) = #fmt-set(subsets.at(i))$).join(", "). Coloring $S_1 = #fmt-set(part0)$ and $S_2 = #fmt-set(part1)$ splits all subsets: each $C_i$ has at least one element in each part.
 
@@ -3736,6 +3736,39 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
         "pred solve consecutive-sets.json",
         "pred evaluate consecutive-sets.json --config " + x.optimal_config.map(str).join(","),
       )
+
+      // Subset span data: (start_pos, end_pos) in the solution string
+      // Σ1={0,4} at 0–1, Σ2={2,4} at 1–2, Σ3={2,5} at 2–3, Σ4={1,5} at 3–4, Σ5={1,3} at 4–5
+      #let spans = ((0, 1), (1, 2), (2, 3), (3, 4), (4, 5))
+      #let span-colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#59a14f"), rgb("#f28e2b"), rgb("#b07aa1"))
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let cell = 1.0
+          // String positions as boxes
+          for (pos, sym) in sol.enumerate() {
+            let x = pos * cell
+            rect((x - cell / 2, -0.3), (x + cell / 2, 0.3), stroke: 0.6pt + black)
+            content((x, 0), text(10pt, weight: "bold", str(sym)))
+            // Position label above
+            content((x, 0.55), text(7pt, fill: luma(120), str(pos)))
+          }
+          // Subset spans as colored brackets below
+          for (si, ((s, e), color)) in spans.zip(span-colors).enumerate() {
+            let y = -0.65 - si * 0.4
+            let x0 = s * cell
+            let x1 = e * cell
+            line((x0, y), (x1, y), stroke: 1.5pt + color)
+            // Tick marks at endpoints
+            line((x0, y - 0.08), (x0, y + 0.08), stroke: 1.2pt + color)
+            line((x1, y - 0.08), (x1, y + 0.08), stroke: 1.2pt + color)
+            // Label
+            content((x1 + 0.45, y), text(7pt, fill: color, $Sigma_#(si + 1)$))
+          }
+        }),
+        caption: [Consecutive Sets: the string $w = (#sol.map(str).join(", "))$ with each subset $Sigma_i$ occupying a contiguous block. Colored bars below indicate the span of each subset.]
+      ) <fig:consecutive-sets>
     ]
   ]
 }
@@ -3765,6 +3798,43 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       "pred solve exact-cover-by-3-sets.json",
       "pred evaluate exact-cover-by-3-sets.json --config " + x3c.optimal_config.map(str).join(","),
     )
+
+    #figure(
+      canvas(length: 1cm, {
+        import draw: *
+        // Element nodes (top row, 1-indexed labels)
+        let elem-pos = range(n).map(i => ((i - (n - 1) / 2) * 0.9, 1.2))
+        // Subset nodes (bottom row)
+        let sub-pos = range(m).map(j => ((j - (m - 1) / 2) * 1.3, -1.2))
+        // Edges: element ∈ subset
+        for (j, subset) in subs.enumerate() {
+          let is-sel = selected.contains(j)
+          for i in subset {
+            line(elem-pos.at(i), sub-pos.at(j),
+              stroke: if is-sel { 1pt + graph-colors.at(0) } else { 0.5pt + luma(190) })
+          }
+        }
+        // Element nodes
+        for (k, pos) in elem-pos.enumerate() {
+          // Find which selected subset covers this element
+          let covered-by = selected.filter(j => subs.at(j).contains(k))
+          let covered = covered-by.len() > 0
+          circle(pos, radius: 0.22,
+            fill: if covered { graph-colors.at(0) } else { white },
+            stroke: 0.8pt + black)
+          content(pos, text(7pt, fill: if covered { white } else { black }, [#(k + 1)]))
+        }
+        // Subset nodes
+        for (j, pos) in sub-pos.enumerate() {
+          let is-sel = selected.contains(j)
+          circle(pos, radius: 0.26,
+            fill: if is-sel { graph-colors.at(0).lighten(70%) } else { luma(240) },
+            stroke: if is-sel { 1pt + graph-colors.at(0) } else { 0.8pt + black })
+          content(pos, text(7pt, $S_#(j + 1)$))
+        }
+      }),
+      caption: [Exact Cover by 3-Sets: the selected cover $cal(C)' = {#selected.map(i => $S_#(i + 1)$).join(", ")}$ (blue) partitions the universe $X = {1, dots, #n}$ into $q = #q$ disjoint triples. Every element (top) is covered by exactly one selected subset (bottom).]
+    ) <fig:exact-cover-by-3-sets>
     ]
   ]
 }
@@ -3793,6 +3863,43 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       "pred solve three-dimensional-matching.json",
       "pred evaluate three-dimensional-matching.json --config " + tdm.optimal_config.map(str).join(","),
     )
+
+    // Tripartite layout: W (left), X (center), Y (right) with triples as hyperedges
+    #figure(
+      canvas(length: 1cm, {
+        import draw: *
+        let col-x = (-2.0, 0.0, 2.0)  // W, X, Y column positions
+        let col-labels = ($W$, $X$, $Y$)
+        let spacing = 0.9
+        // Node positions for each dimension
+        let node-pos(dim, idx) = (col-x.at(dim), (q - 1) / 2 * spacing - idx * spacing)
+        // Draw triples as colored lines connecting W, X, Y nodes
+        let triple-colors = (graph-colors.at(0), rgb("#e15759"), rgb("#59a14f"), luma(180), luma(180))
+        for (ti, triple) in triples.enumerate() {
+          let is-sel = selected.contains(ti)
+          let color = if is-sel { triple-colors.at(ti) } else { luma(200) }
+          let sw = if is-sel { 1.2pt } else { 0.5pt }
+          // W→X, X→Y lines
+          line(node-pos(0, triple.at(0)), node-pos(1, triple.at(1)), stroke: sw + color)
+          line(node-pos(1, triple.at(1)), node-pos(2, triple.at(2)), stroke: sw + color)
+        }
+        // Nodes
+        for dim in range(3) {
+          for idx in range(q) {
+            let pos = node-pos(dim, idx)
+            // Check if this node is used by a selected triple in this dimension
+            let used = selected.any(ti => triples.at(ti).at(dim) == idx)
+            circle(pos, radius: 0.22,
+              fill: if used { graph-colors.at(0) } else { white },
+              stroke: 0.8pt + black)
+            content(pos, text(8pt, fill: if used { white } else { black }, [#(idx + 1)]))
+          }
+          // Column label
+          content((col-x.at(dim), (q - 1) / 2 * spacing + 0.65), text(9pt, col-labels.at(dim)))
+        }
+      }),
+      caption: [Three-Dimensional Matching: tripartite layout with $W$, $X$, $Y$ columns. The matching $M' = {#selected.map(i => $t_#(i + 1)$).join(", ")}$ (colored paths) covers every element exactly once.]
+    ) <fig:three-dimensional-matching>
     ]
   ]
 }
@@ -3825,6 +3932,39 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       "pred solve three-matroid-intersection.json",
       "pred evaluate three-matroid-intersection.json --config " + tmi.optimal_config.map(str).join(","),
     )
+
+    // Three rows of partition groups, elements shown in each
+    #figure(
+      canvas(length: 1cm, {
+        import draw: *
+        let matroid-labels = ($cal(F)_1$, $cal(F)_2$, $cal(F)_3$)
+        let row-y = (1.6, 0.0, -1.6)
+        let group-colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#59a14f"))
+        for (mi, partition) in parts.enumerate() {
+          let y = row-y.at(mi)
+          let total-groups = partition.len()
+          // Label
+          content((-3.2, y), text(9pt, matroid-labels.at(mi)), anchor: "east")
+          // Draw each group as a rounded rectangle with elements inside
+          for (gi, group) in partition.enumerate() {
+            let gx = (gi - (total-groups - 1) / 2) * 2.2
+            let w = group.len() * 0.55 + 0.3
+            rect((gx - w / 2, y - 0.35), (gx + w / 2, y + 0.35),
+              stroke: 0.8pt + group-colors.at(mi), radius: 4pt)
+            // Elements inside the group
+            for (ei, elem) in group.enumerate() {
+              let ex = gx + (ei - (group.len() - 1) / 2) * 0.5
+              let is-sel = selected.contains(elem)
+              circle((ex, y), radius: 0.18,
+                fill: if is-sel { graph-colors.at(0) } else { white },
+                stroke: 0.6pt + black)
+              content((ex, y), text(7pt, fill: if is-sel { white } else { black }, str(elem)))
+            }
+          }
+        }
+      }),
+      caption: [Three-Matroid Intersection: each row shows one partition matroid's groups (rounded boxes). The selected elements $E' = #fmt-set(selected)$ (blue) place at most one element per group in all three matroids.]
+    ) <fig:three-matroid-intersection>
     ]
   ]
 }
@@ -4000,7 +4140,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
     A functional dependency $X arrow Y$ on attribute set $A$ means: whenever two database rows agree on every attribute in $X$, they must also agree on every attribute in $Y$. The _closure_ $X^+_F$ of a subset $X subset.eq A$ under a set $F$ of functional dependencies is the largest set of attributes determined by $X$: start with $X^+_F = X$, then repeatedly apply every rule $L arrow R in F$ for which $L subset.eq X^+_F$, adding $R$ to $X^+_F$, until no more attributes can be added. A _superkey_ is any $K subset.eq A$ with $K^+_F = A$ (knowing $K$ determines everything). A _candidate key_ is a minimal superkey — no proper subset of $K$ is itself a superkey. An attribute $x$ is _prime_ if it belongs to at least one candidate key.
 
-    Determining whether an attribute is prime is NP-complete (Lucchesi and Osborn, 1978; Garey & Johnson SR28). The brute-force approach enumerates all $2^n$ subsets of $A$ containing $x$ and checks each for the key property; no algorithm significantly improving on this is known for the general problem.
+    Determining whether an attribute is prime is NP-complete @lucchesi1978keys (Garey & Johnson SR28 @garey1979). The brute-force approach enumerates all $2^n$ subsets of $A$ containing $x$ and checks each for the key property; no algorithm significantly improving on this is known for the general problem.
 
     *Example.* Let $A = {0, 1, ..., #(n - 1)}$ ($n = #n$), query attribute $x = #q$, and $F = {#deps.enumerate().map(((i, d)) => $#fmt-set-math(d.at(0)) arrow #fmt-set-math(d.at(1))$).join(", ")}$.
 
@@ -4087,6 +4227,47 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       "pred solve minimum-cardinality-key.json",
       "pred evaluate minimum-cardinality-key.json --config " + x.optimal_config.map(str).join(","),
     )
+
+    #figure(
+      canvas(length: 1cm, {
+        import draw: *
+        // Attribute nodes in a single row
+        let spacing = 1.0
+        let attr-pos = range(n).map(i => (i * spacing, 0))
+        // FD colors
+        let fd-colors = (rgb("#e15759"), rgb("#59a14f"), rgb("#b07aa1"), rgb("#f28e2b"), rgb("#76b7b2"))
+        // Junction y-levels for each FD
+        let fd-y = range(m).map(i => -1.0 - i * 0.9)
+        // Draw FDs: LHS → junction dot → arrows to RHS
+        for (fi, (lhs, rhs)) in deps.enumerate() {
+          let color = fd-colors.at(calc.rem(fi, fd-colors.len()))
+          let y = fd-y.at(fi)
+          let jx = lhs.map(a => attr-pos.at(a).at(0)).sum() / lhs.len()
+          let junc = (jx, y)
+          for a in lhs {
+            line(attr-pos.at(a), junc, stroke: 0.8pt + color)
+          }
+          for a in rhs {
+            line(junc, attr-pos.at(a), stroke: 0.8pt + color, mark: (end: "straight"))
+          }
+          circle(junc, radius: 0.08, fill: color, stroke: none)
+          on-layer(1, {
+            content((jx - 0.5, y),
+              text(6.5pt, fill: color)[FD#(fi + 1)],
+              anchor: "east")
+          })
+        }
+        // Attribute nodes (drawn on top layer)
+        for (k, pos) in attr-pos.enumerate() {
+          let is-key = key-attrs.contains(k)
+          circle(pos, radius: 0.22,
+            fill: if is-key { graph-colors.at(0) } else { white },
+            stroke: 0.8pt + black)
+          content(pos, text(8pt, fill: if is-key { white } else { black }, [$#k$]))
+        }
+      }),
+      caption: [Minimum Cardinality Key: optimal key $K = #fmt-set(key-attrs)$ shown in blue. Each FD is drawn as lines converging to a dot (LHS) with arrows fanning out to RHS attributes. Chaining all FDs from $K$ reaches every attribute in $A$.]
+    ) <fig:minimum-cardinality-key>
     ]
   ]
 }
