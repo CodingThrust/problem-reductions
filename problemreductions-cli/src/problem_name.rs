@@ -12,7 +12,10 @@ pub struct ProblemSpec {
 
 /// Resolve a short alias to the canonical problem name.
 ///
-/// Uses the catalog for both aliases and canonical names.
+/// Searches both variant-level aliases (e.g., `"3SAT"` → `KSatisfiability`) and
+/// problem-level aliases (e.g., `"MIS"` → `MaximumIndependentSet`). When a
+/// variant-level alias is matched, only the canonical name is returned here;
+/// use [`parse_problem_spec`] to also recover the variant tokens.
 pub fn resolve_alias(input: &str) -> String {
     if input.eq_ignore_ascii_case("UndirectedFlowLowerBounds") {
         return "UndirectedFlowLowerBounds".to_string();
@@ -37,6 +40,9 @@ pub fn resolve_alias(input: &str) -> String {
     }
     if input.eq_ignore_ascii_case("GraphPartitioning") {
         return "GraphPartitioning".to_string();
+    }
+    if let Some((entry, _)) = problemreductions::registry::find_variant_by_alias(input) {
+        return entry.name.to_string();
     }
     if let Some(pt) = problemreductions::registry::find_problem_type_by_alias(input) {
         return pt.canonical_name.to_string();
@@ -64,16 +70,34 @@ pub fn resolve_catalog_problem_ref(
 }
 
 /// Parse a problem spec string like "MIS/UnitDiskGraph/i32" into name + variant values.
+///
+/// Resolution order:
+/// 1. **Variant-level alias** (`"3SAT"` → `KSatisfiability` + variant tokens `["K3"]`):
+///    injects the variant tokens *before* any user-supplied tokens from the slash spec.
+/// 2. **Problem-level alias** (`"MIS"` → `MaximumIndependentSet`): canonical-name only;
+///    downstream default-variant resolution fills in the variant dimensions.
 pub fn parse_problem_spec(input: &str) -> anyhow::Result<ProblemSpec> {
     let parts: Vec<&str> = input.split('/').collect();
     let raw_name = parts[0];
-    let variant_values: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
+    let user_tokens: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
+
+    if let Some((entry, variant_map)) = problemreductions::registry::find_variant_by_alias(raw_name)
+    {
+        // Prepend the alias's own variant values; the slash-spec resolver handles
+        // additional user tokens (and errors on dimension collisions).
+        let mut variant_values: Vec<String> = variant_map.into_values().collect();
+        variant_values.extend(user_tokens);
+        return Ok(ProblemSpec {
+            name: entry.name.to_string(),
+            variant_values,
+        });
+    }
 
     let name = resolve_alias(raw_name);
 
     Ok(ProblemSpec {
         name,
-        variant_values,
+        variant_values: user_tokens,
     })
 }
 
@@ -301,8 +325,11 @@ mod tests {
         assert_eq!(resolve_alias("X3C"), "ExactCoverBy3Sets");
         assert_eq!(resolve_alias("3Partition"), "ThreePartition");
         assert_eq!(resolve_alias("3-partition"), "ThreePartition");
-        // 3SAT is no longer a registered alias (removed to avoid confusion with KSatisfiability/KN)
-        assert_eq!(resolve_alias("3SAT"), "3SAT"); // pass-through
+        // Variant-level aliases: resolve_alias only returns the canonical name;
+        // parse_problem_spec recovers the variant tokens (see tests below).
+        assert_eq!(resolve_alias("3SAT"), "KSatisfiability");
+        assert_eq!(resolve_alias("3sat"), "KSatisfiability");
+        assert_eq!(resolve_alias("2SAT"), "KSatisfiability");
         assert_eq!(resolve_alias("QUBO"), "QUBO");
         assert_eq!(resolve_alias("MaxCut"), "MaxCut");
         assert_eq!(
@@ -370,6 +397,34 @@ mod tests {
         let spec = parse_problem_spec("KSAT/K3").unwrap();
         assert_eq!(spec.name, "KSatisfiability");
         assert_eq!(spec.variant_values, vec!["K3"]);
+    }
+
+    #[test]
+    fn test_parse_problem_spec_variant_alias_3sat() {
+        // Variant-level alias: "3SAT" injects the K3 variant token.
+        let spec = parse_problem_spec("3SAT").unwrap();
+        assert_eq!(spec.name, "KSatisfiability");
+        assert_eq!(spec.variant_values, vec!["K3"]);
+
+        let spec = parse_problem_spec("3sat").unwrap();
+        assert_eq!(spec.name, "KSatisfiability");
+        assert_eq!(spec.variant_values, vec!["K3"]);
+    }
+
+    #[test]
+    fn test_parse_problem_spec_variant_alias_2sat() {
+        let spec = parse_problem_spec("2SAT").unwrap();
+        assert_eq!(spec.name, "KSatisfiability");
+        assert_eq!(spec.variant_values, vec!["K2"]);
+    }
+
+    #[test]
+    fn test_parse_problem_spec_max2sat_problem_level() {
+        // MAX2SAT is a problem-level alias on Maximum2Satisfiability (standalone problem,
+        // no K variants) — no variant tokens injected.
+        let spec = parse_problem_spec("MAX2SAT").unwrap();
+        assert_eq!(spec.name, "Maximum2Satisfiability");
+        assert!(spec.variant_values.is_empty());
     }
 
     #[test]

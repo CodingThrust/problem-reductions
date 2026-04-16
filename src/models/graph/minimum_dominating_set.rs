@@ -244,6 +244,7 @@ inventory::submit! {
             1.4969_f64.powf(problem.num_vertices() as f64)
         },
         is_default: false,
+        aliases: &[],
         factory: |data| {
             serde_json::from_value::<Decision<MinimumDominatingSet<SimpleGraph, One>>>(data)
                 .map(|problem| Box::new(problem) as Box<dyn crate::registry::DynProblem>)

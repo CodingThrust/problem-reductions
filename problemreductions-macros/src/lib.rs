@@ -444,11 +444,12 @@ struct DeclareVariantsInput {
     entries: Vec<DeclareVariantEntry>,
 }
 
-/// A single entry: `[default] Type => "complexity_string"`.
+/// A single entry: `[default] Type => "complexity_string" [aliases ["X", ...]]`.
 struct DeclareVariantEntry {
     is_default: bool,
     ty: Type,
     complexity: syn::LitStr,
+    aliases: Vec<syn::LitStr>,
 }
 
 impl syn::parse::Parse for DeclareVariantsInput {
@@ -464,10 +465,35 @@ impl syn::parse::Parse for DeclareVariantsInput {
             let ty: Type = input.parse()?;
             input.parse::<syn::Token![=>]>()?;
             let complexity: syn::LitStr = input.parse()?;
+
+            // Optional: `aliases ["X", "Y", ...]`
+            let aliases = if input.peek(syn::Ident) {
+                let ident: syn::Ident = input.fork().parse()?;
+                if ident == "aliases" {
+                    input.parse::<syn::Ident>()?;
+                    let content;
+                    syn::bracketed!(content in input);
+                    let mut out = Vec::new();
+                    while !content.is_empty() {
+                        let lit: syn::LitStr = content.parse()?;
+                        out.push(lit);
+                        if content.peek(syn::Token![,]) {
+                            content.parse::<syn::Token![,]>()?;
+                        }
+                    }
+                    out
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            };
+
             entries.push(DeclareVariantEntry {
                 is_default,
                 ty,
                 complexity,
+                aliases,
             });
 
             if input.peek(syn::Token![,]) {
@@ -552,6 +578,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         let ty = &entry.ty;
         let complexity_str = entry.complexity.value();
         let is_default = entry.is_default;
+        let alias_lits: Vec<_> = entry.aliases.iter().map(|s| s.value()).collect();
 
         // Parse the complexity expression to validate syntax
         let parsed = parser::parse_expr(&complexity_str).map_err(|e| {
@@ -633,6 +660,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
                     complexity: #complexity_str,
                     complexity_eval_fn: #complexity_eval_fn,
                     is_default: #is_default,
+                    aliases: &[#(#alias_lits),*],
                     #dispatch_fields
                 }
             }

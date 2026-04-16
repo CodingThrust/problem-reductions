@@ -22,6 +22,12 @@ pub struct VariantEntry {
     pub complexity_eval_fn: fn(&dyn Any) -> f64,
     /// Whether this entry is the declared default variant for its problem.
     pub is_default: bool,
+    /// Variant-level aliases (e.g., `&["3SAT"]` for `KSatisfiability<K3>`).
+    ///
+    /// Unlike problem-level aliases (on `ProblemSchemaEntry`), these resolve to a
+    /// specific reduction-graph node, not just to a canonical problem name. The CLI
+    /// resolver tries variant-level aliases first and falls back to problem-level.
+    pub aliases: &'static [&'static str],
     /// Factory: deserialize JSON into a boxed dynamic problem.
     pub factory: fn(serde_json::Value) -> Result<Box<dyn DynProblem>, serde_json::Error>,
     /// Serialize: downcast `&dyn Any` and serialize to JSON.
@@ -56,6 +62,23 @@ pub fn find_variant_entry(
 ) -> Option<&'static VariantEntry> {
     inventory::iter::<VariantEntry>()
         .find(|entry| entry.name == name && entry.variant_map() == *variant)
+}
+
+/// Find a variant entry by a variant-level alias (case-insensitive).
+///
+/// A variant-level alias points at a specific reduction-graph node (e.g., `"3SAT"` →
+/// `KSatisfiability` with variant `{k: "K3"}`), unlike problem-level aliases which
+/// resolve only to a canonical problem name.
+///
+/// Returns the matched entry along with its variant map. The first match in registration
+/// order wins — duplicate variant-level aliases across problems are a declaration bug.
+pub fn find_variant_by_alias(
+    input: &str,
+) -> Option<(&'static VariantEntry, BTreeMap<String, String>)> {
+    let lower = input.to_lowercase();
+    let entry = inventory::iter::<VariantEntry>()
+        .find(|entry| entry.aliases.iter().any(|a| a.to_lowercase() == lower))?;
+    Some((entry, entry.variant_map()))
 }
 
 impl std::fmt::Debug for VariantEntry {

@@ -241,8 +241,8 @@ impl<K: KValue> Problem for KSatisfiability<K> {
 
 crate::declare_variants! {
     default KSatisfiability<KN> => "2^num_variables",
-    KSatisfiability<K2> => "num_variables + num_clauses",
-    KSatisfiability<K3> => "1.307^num_variables",
+    KSatisfiability<K2> => "num_variables + num_clauses" aliases ["2SAT"],
+    KSatisfiability<K3> => "1.307^num_variables" aliases ["3SAT"],
 }
 
 #[cfg(feature = "example-db")]

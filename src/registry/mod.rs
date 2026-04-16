@@ -59,7 +59,7 @@ pub use schema::{
     collect_schemas, declared_size_fields, FieldInfoJson, ProblemSchemaEntry, ProblemSchemaJson,
     ProblemSizeFieldEntry, VariantDimension,
 };
-pub use variant::{find_variant_entry, VariantEntry};
+pub use variant::{find_variant_by_alias, find_variant_entry, VariantEntry};
 
 use std::any::Any;
 use std::collections::BTreeMap;

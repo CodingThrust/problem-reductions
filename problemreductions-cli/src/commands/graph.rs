@@ -33,12 +33,7 @@ pub fn list(out: &OutputConfig) -> Result<()> {
     for name in &types {
         let variants = graph.variants_for(name);
         let default_variant = graph.default_variant_for(name);
-        let aliases = aliases_for(name);
-        let alias_str = if aliases.is_empty() {
-            String::new()
-        } else {
-            aliases.join(", ")
-        };
+        let problem_aliases = aliases_for(name);
 
         for (i, v) in variants.iter().enumerate() {
             let slash = variant_to_full_slash(v);
@@ -53,13 +48,22 @@ pub fn list(out: &OutputConfig) -> Result<()> {
                 .variant_complexity(name, v)
                 .map(|c| big_o_of(&Expr::parse(c)))
                 .unwrap_or_default();
+
+            // Per-row aliases: problem-level aliases on the first row, plus any
+            // variant-level aliases attached to the specific reduction-graph node.
+            let variant_aliases: Vec<&'static str> =
+                problemreductions::registry::find_variant_entry(name, v)
+                    .map(|entry| entry.aliases.to_vec())
+                    .unwrap_or_default();
+            let mut parts: Vec<String> = Vec::new();
+            if i == 0 {
+                parts.extend(problem_aliases.iter().map(|s| s.to_string()));
+            }
+            parts.extend(variant_aliases.iter().map(|s| s.to_string()));
+
             rows_data.push(VariantRow {
                 display,
-                aliases: if i == 0 {
-                    alias_str.clone()
-                } else {
-                    String::new()
-                },
+                aliases: parts.join(", "),
                 is_default,
                 rules: if i == 0 { rules } else { 0 },
                 complexity,
