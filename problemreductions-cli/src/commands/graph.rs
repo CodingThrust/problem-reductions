@@ -57,9 +57,13 @@ pub fn list(out: &OutputConfig) -> Result<()> {
                     .unwrap_or_default();
             let mut parts: Vec<String> = Vec::new();
             if i == 0 {
-                parts.extend(problem_aliases.iter().map(|s| s.to_string()));
+                for alias in &problem_aliases {
+                    push_alias_part(&mut parts, alias);
+                }
             }
-            parts.extend(variant_aliases.iter().map(|s| s.to_string()));
+            for alias in &variant_aliases {
+                push_alias_part(&mut parts, alias);
+            }
 
             rows_data.push(VariantRow {
                 display,
@@ -719,6 +723,12 @@ pub fn export(out: &OutputConfig) -> Result<()> {
     out.emit_with_default_name("reduction_graph.json", &text, &json)
 }
 
+fn push_alias_part(parts: &mut Vec<String>, alias: &str) {
+    if !parts.iter().any(|part| part.eq_ignore_ascii_case(alias)) {
+        parts.push(alias.to_string());
+    }
+}
+
 fn parse_direction(s: &str) -> Result<TraversalFlow> {
     match s {
         "out" => Ok(TraversalFlow::Outgoing),
@@ -807,5 +817,22 @@ fn render_tree(graph: &ReductionGraph, nodes: &[NeighborTree], text: &mut String
             let new_prefix = format!("{}{}", prefix, child_prefix);
             render_tree(graph, &node.children, text, &new_prefix);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::push_alias_part;
+
+    #[test]
+    fn push_alias_part_deduplicates_case_insensitively_in_order() {
+        let mut parts = Vec::new();
+        push_alias_part(&mut parts, "KSAT");
+        push_alias_part(&mut parts, "3SAT");
+        push_alias_part(&mut parts, "ksat");
+        push_alias_part(&mut parts, "2SAT");
+        push_alias_part(&mut parts, "3sat");
+
+        assert_eq!(parts, vec!["KSAT", "3SAT", "2SAT"]);
     }
 }

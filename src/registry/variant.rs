@@ -81,6 +81,98 @@ pub fn find_variant_by_alias(
     Some((entry, entry.variant_map()))
 }
 
+/// Validate all variant-level aliases registered in inventory.
+///
+/// This is intended for explicit test-time or startup invocation. It rejects
+/// duplicate variant-level aliases, aliases that collide with canonical
+/// problem names or problem-level aliases, and empty aliases for manually
+/// constructed [`VariantEntry`] values that bypass `declare_variants!`.
+pub fn validate_variant_aliases() -> Result<(), Vec<String>> {
+    let mut conflicts = Vec::new();
+    let mut problem_names: BTreeMap<String, Vec<String>> = BTreeMap::new();
+
+    for problem in super::problem_type::problem_types() {
+        problem_names
+            .entry(problem.canonical_name.to_lowercase())
+            .or_default()
+            .push(format!(
+                "canonical problem name `{}`",
+                problem.canonical_name
+            ));
+
+        for alias in problem.aliases {
+            problem_names
+                .entry(alias.to_lowercase())
+                .or_default()
+                .push(format!(
+                    "problem-level alias `{alias}` for `{}`",
+                    problem.canonical_name
+                ));
+        }
+    }
+
+    let mut variant_aliases: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
+    for entry in inventory::iter::<VariantEntry> {
+        let target = variant_label(entry);
+        for alias in entry.aliases {
+            if alias.trim().is_empty() {
+                conflicts.push(format!(
+                    "variant-level alias on {target} is empty or whitespace-only"
+                ));
+                continue;
+            }
+
+            let lower = alias.to_lowercase();
+            if let Some(collisions) = problem_names.get(&lower) {
+                for collision in collisions {
+                    conflicts.push(format!(
+                        "variant-level alias `{alias}` on {target} conflicts with {collision}"
+                    ));
+                }
+            }
+
+            variant_aliases
+                .entry(lower)
+                .or_default()
+                .push((alias.to_string(), target.clone()));
+        }
+    }
+
+    for (lower, registrations) in variant_aliases {
+        if registrations.len() > 1 {
+            let details = registrations
+                .iter()
+                .map(|(alias, target)| format!("`{alias}` on {target}"))
+                .collect::<Vec<_>>()
+                .join("; ");
+            conflicts.push(format!(
+                "duplicate variant-level alias `{lower}` (case-insensitive): {details}"
+            ));
+        }
+    }
+
+    if conflicts.is_empty() {
+        Ok(())
+    } else {
+        conflicts.sort();
+        Err(conflicts)
+    }
+}
+
+fn variant_label(entry: &VariantEntry) -> String {
+    let variant = entry.variant();
+    if variant.is_empty() {
+        return entry.name.to_string();
+    }
+
+    let parts = variant
+        .iter()
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{} {{{parts}}}", entry.name)
+}
+
 impl std::fmt::Debug for VariantEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("VariantEntry")
@@ -92,3 +184,7 @@ impl std::fmt::Debug for VariantEntry {
 }
 
 inventory::collect!(VariantEntry);
+
+#[cfg(test)]
+#[path = "../unit_tests/registry/variant.rs"]
+mod tests;
