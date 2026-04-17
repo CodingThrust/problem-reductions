@@ -186,7 +186,7 @@ crate::register_decision_variant!(
     MinimumVertexCover<SimpleGraph, i32>,
     "DecisionMinimumVertexCover",
     "1.1996^num_vertices",
-    &["DMVC"],
+    &["DMVC", "VC", "VertexCover"],
     "Decision version: does a vertex cover of cost <= bound exist?",
     dims: [
         VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),

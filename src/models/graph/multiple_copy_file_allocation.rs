@@ -191,12 +191,12 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "multiple_copy_file_allocation",
         instance: Box::new(MultipleCopyFileAllocation::new(
-            SimpleGraph::cycle(6),
-            vec![10; 6],
-            vec![1; 6],
+            SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]),
+            vec![5, 1, 1, 1, 1, 5],
+            vec![6, 2, 6, 6, 2, 6],
         )),
-        optimal_config: vec![1, 1, 1, 1, 1, 1],
-        optimal_value: serde_json::json!(6),
+        optimal_config: vec![0, 1, 0, 0, 1, 0],
+        optimal_value: serde_json::json!(16),
     }]
 }
 

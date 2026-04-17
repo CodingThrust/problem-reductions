@@ -173,10 +173,13 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "partition_into_paths_of_length_2_simplegraph",
         instance: Box::new(PartitionIntoPathsOfLength2::new(SimpleGraph::new(
-            6,
-            vec![(0, 1), (1, 2), (3, 4), (4, 5)],
+            9,
+            vec![
+                (0, 1), (1, 2), (3, 4), (4, 5), (6, 7), (7, 8),
+                (0, 3), (2, 5), (3, 6), (5, 8), (1, 4), (4, 7),
+            ],
         ))),
-        optimal_config: vec![0, 0, 0, 1, 1, 1],
+        optimal_config: vec![0, 0, 0, 1, 1, 1, 2, 2, 2],
         optimal_value: serde_json::json!(true),
     }]
 }
