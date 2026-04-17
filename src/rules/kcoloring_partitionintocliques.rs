@@ -29,18 +29,7 @@ impl ReductionResult for ReductionKColoringToPartitionIntoCliques {
     }
 }
 
-fn complement_edges(graph: &SimpleGraph) -> Vec<(usize, usize)> {
-    let n = graph.num_vertices();
-    let mut edges = Vec::new();
-    for u in 0..n {
-        for v in (u + 1)..n {
-            if !graph.has_edge(u, v) {
-                edges.push((u, v));
-            }
-        }
-    }
-    edges
-}
+use super::graph_helpers::complement_edges;
 
 #[reduction(
     overhead = {

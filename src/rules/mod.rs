@@ -71,6 +71,7 @@ pub(crate) mod ksatisfiability_timetabledesign;
 pub(crate) mod longestcommonsubsequence_maximumindependentset;
 pub(crate) mod maxcut_minimumcutintoboundedsets;
 pub(crate) mod maximum2satisfiability_maxcut;
+mod maximumclique_casts;
 pub(crate) mod maximumclique_maximumindependentset;
 mod maximumindependentset_casts;
 mod maximumindependentset_gridgraph;

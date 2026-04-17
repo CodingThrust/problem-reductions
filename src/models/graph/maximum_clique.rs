@@ -6,7 +6,7 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::types::{Max, WeightElement};
+use crate::types::{Max, One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +17,7 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "One", &["One", "i32"]),
         ],
         module_path: module_path!(),
         description: "Find maximum weight clique in a graph",
@@ -165,7 +165,8 @@ fn is_clique_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    default MaximumClique<SimpleGraph, i32> => "1.1996^num_vertices",
+    MaximumClique<SimpleGraph, i32> => "1.1996^num_vertices",
+    default MaximumClique<SimpleGraph, One> => "1.1996^num_vertices",
 }
 
 #[cfg(feature = "example-db")]
