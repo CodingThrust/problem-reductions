@@ -133,7 +133,7 @@ where
 #[reduction(
     overhead = {
         num_vertices = "num_spins",
-        num_edges = "num_interactions",
+        num_edges = "num_interactions + num_spins",
     }
 )]
 impl ReduceTo<MaxCut<SimpleGraph, i32>> for SpinGlass<SimpleGraph, i32> {

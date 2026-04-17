@@ -424,7 +424,7 @@ fn test_3sat_to_mis_triangular_overhead() {
     assert_eq!(edges[2].get("num_edges").unwrap().eval(&test_size), 36.0);
 
     // Edge 3: MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
-    // num_vertices = num_vertices^2, num_edges = num_vertices^2
+    // num_vertices = num_vertices², num_edges = num_vertices²
     assert_eq!(
         edges[3].get("num_vertices").unwrap().eval(&test_size),
         100.0
@@ -441,9 +441,10 @@ fn test_3sat_to_mis_triangular_overhead() {
     //
     // Composed: num_vertices = L², num_edges = L²
     let composed = graph.compose_path_overhead(&path);
-    // Evaluate composed at input: L=6, so L^2=36
+    // Evaluate composed at input: L=6, so L²=36
     assert_eq!(composed.get("num_vertices").unwrap().eval(&test_size), 36.0);
-    assert_eq!(composed.get("num_edges").unwrap().eval(&test_size), 36.0);
+    assert_eq!(composed.get("num_edges").unwrap().eval(&test_size), 36.0
+    );
 }
 
 // ---- k-neighbor BFS ----

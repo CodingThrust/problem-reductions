@@ -11145,56 +11145,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   ]
 }
 
-#{
-  let ss-ca = load-example("SubsetSum", "CapacityAssignment")
-  let ss-ca-sol = ss-ca.solutions.at(0)
-  let ss-ca-sizes = ss-ca.source.instance.sizes.map(int)
-  let ss-ca-target = int(ss-ca.source.instance.target)
-  let ss-ca-n = ss-ca-sizes.len()
-  let ss-ca-S = ss-ca-sizes.fold(0, (a, b) => a + b)
-  let ss-ca-J = ss-ca-S - ss-ca-target
-  let ss-ca-selected = ss-ca-sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
-  let ss-ca-selected-sizes = ss-ca-selected.map(i => ss-ca-sizes.at(i))
-  let ss-ca-selected-sum = ss-ca-selected-sizes.fold(0, (a, b) => a + b)
-  let ss-ca-not-selected = ss-ca-sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
-  let ss-ca-delay-sum = ss-ca-not-selected.map(i => ss-ca-sizes.at(i)).fold(0, (a, b) => a + b)
-  [
-    #reduction-rule("SubsetSum", "CapacityAssignment",
-      example: true,
-      example-caption: [#ss-ca-n elements, target sum $B = #ss-ca-target$],
-      extra: [
-        #pred-commands(
-          "pred create --example SubsetSum -o subsetsum.json",
-          "pred reduce subsetsum.json --to " + target-spec(ss-ca) + " -o bundle.json",
-          "pred solve bundle.json",
-          "pred evaluate subsetsum.json --config " + ss-ca-sol.source_config.map(str).join(","),
-        )
-        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#ss-ca-sizes.map(str).join(", "))$ and target $B = #ss-ca-target$. The total sum is $S = #ss-ca-S$.
-
-        *Step 2 -- Build the Capacity Assignment instance.* The reduction creates #ss-ca-n communication links with two capacities ${1, 2}$. For each link $c_i$ with element value $a_i$: cost row $(0, a_i)$ and delay row $(a_i, 0)$. The delay budget is $J = S - B = #ss-ca-S - #ss-ca-target = #ss-ca-J$.
-
-        *Step 3 -- Verify the canonical witness.* The fixture stores source config $(#ss-ca-sol.source_config.map(str).join(", "))$, selecting elements at indices $#ss-ca-selected.map(str).join(", ")$ with values $#ss-ca-selected-sizes.map(str).join(" + ") = #ss-ca-selected-sum = B$. In the target, these links get high capacity (index 1) with total cost $#ss-ca-selected-sum$ and the remaining links get low capacity (index 0) with total delay $#ss-ca-delay-sum <= #ss-ca-J = J$.
-
-        *Witness semantics.* The example DB stores one canonical witness. Other subsets summing to $B$ would also yield valid witnesses.
-      ],
-    )[
-      This $O(n)$ reduction from Subset Sum to Capacity Assignment follows the original NP-completeness proof of Van Sickle and Chandy @vansicklechandy1977 (GJ SR7 @garey1979). Each element becomes a communication link with two capacity levels; the cost/delay duality encodes complementary subset selection.
-    ][
-      _Construction._ Given sizes $a_1, dots, a_n in ZZ^+$ and target $B$, let $S = sum_(i=1)^n a_i$. Create $n$ communication links with capacity set $M = {1, 2}$. For each link $c_i$:
-      - Cost: $g(c_i, 1) = 0$, $g(c_i, 2) = a_i$ (non-decreasing since $0 <= a_i$).
-      - Delay: $d(c_i, 1) = a_i$, $d(c_i, 2) = 0$ (non-increasing since $a_i >= 0$).
-      Set the delay budget $J = S - B$.
-
-      _Correctness._ For any assignment $sigma$, the total cost is $sum_(i: sigma(c_i)=2) a_i$ and the total delay is $sum_(i: sigma(c_i)=1) a_i$. Since every element contributes to exactly one of these sums, cost $+$ delay $= S$.
-
-      ($arrow.r.double$) If $A' subset.eq A$ sums to $B$, assign $sigma(c_i) = 2$ for $a_i in A'$ and $sigma(c_i) = 1$ otherwise. Total cost $= B$, total delay $= S - B = J$.
-
-      ($arrow.l.double$) The delay constraint forces delay $<= S - B$, so cost $>= S - (S - B) = B$. If the optimal cost equals $B$, the high-capacity links form a subset summing to exactly $B$. If no such subset exists, the minimum cost is strictly greater than $B$.
-
-      _Solution extraction._ Return the target configuration unchanged: capacity index 1 (high) for link $c_i$ means element $a_i$ is selected.
-    ]
-  ]
-}
+// Removed: SubsetSum → CapacityAssignment (unsound reduction, #1006)
 
 #reduction-rule("ILP", "QUBO")[
   A binary ILP optimizes a linear objective over binary variables subject to linear constraints. The penalty method converts each equality constraint $bold(a)_k^top bold(x) = b_k$ into the quadratic penalty $(bold(a)_k^top bold(x) - b_k)^2$, which is zero if and only if the constraint is satisfied. Inequality constraints are first converted to equalities using binary slack variables with powers-of-two coefficients. The resulting unconstrained quadratic over binary variables is a QUBO whose matrix $Q$ combines the negated objective (as diagonal terms) with the expanded constraint penalties (as a Gram matrix $A^top A$).
@@ -11314,24 +11265,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Return the same binary selection vector: element $i$ is in the partition subset if and only if it is selected in the Subset Sum witness.
 ]
 
-#reduction-rule("Partition", "ShortestWeightConstrainedPath")[
-  Build a chain of $n + 1$ vertices with two parallel edges per layer; the "include" and "exclude" edges swap length and weight so that a balanced partition corresponds to a shortest weight-constrained $s$-$t$ path.
-][
-  _Construction._ Given positive sizes $s_0, dots, s_(n-1)$ with total sum $S$, build a multigraph on vertices $v_0, dots, v_n$. For each element $i$, add two parallel edges from $v_i$ to $v_(i+1)$:
-  - _Include edge:_ length $= s_i + 1$, weight $= 1$.
-  - _Exclude edge:_ length $= 1$, weight $= s_i + 1$.
-
-  Set source $= v_0$, target $= v_n$, and weight bound $W = S\/2 + n$. The objective minimizes path length.
-
-  _Correctness._ Every $s$-$t$ path selects exactly one edge per layer, so the path length and weight sum decompose as
-  $
-    L = sum_(i in A) (s_i + 1) + sum_(i in.not A) 1 = sum_(i in A) s_i + n, quad
-    W' = sum_(i in.not A) (s_i + 1) + sum_(i in A) 1 = (S - sum_(i in A) s_i) + n,
-  $
-  where $A$ is the set of layers choosing the include edge. Note $L + W' = S + 2n$, so the weight constraint $W' <= S\/2 + n$ is equivalent to $L >= S\/2 + n$. A balanced partition with $sum_(i in A) s_i = S\/2$ achieves $L = S\/2 + n$ (the minimum) and $W' = S\/2 + n = W$ (tight). ($arrow.r.double$) A balanced partition gives the shortest feasible path. ($arrow.l.double$) Any shortest feasible path must have $L = S\/2 + n$, implying $sum_(i in A) s_i = S\/2$.
-
-  _Solution extraction._ For each layer $i$, if the exclude edge is selected, element $i$ goes to subset $A_2$ (config $= 1$); otherwise element $i$ goes to subset $A_1$ (config $= 0$).
-]
+// Removed: Partition → ShortestWeightConstrainedPath (unsound reduction, #1006)
 
 #let ks_qubo = load-example("Knapsack", "QUBO")
 #let ks_qubo_sol = ks_qubo.solutions.at(0)
@@ -15828,37 +15762,7 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Return the first $n$ ILP coordinates $(t_0, dots, t_(n-1))$ as the vertex evaluation positions.
 ]
 
-#let part_swi = load-example("Partition", "SequencingWithinIntervals")
-#let part_swi_sol = part_swi.solutions.at(0)
-#reduction-rule("Partition", "SequencingWithinIntervals",
-  example: true,
-  example-caption: [$n = #part_swi.source.instance.sizes.len()$ elements, $S = #part_swi.source.instance.sizes.sum()$],
-  extra: [
-    #pred-commands(
-      "pred create --example " + problem-spec(part_swi.source) + " -o partition.json",
-      "pred reduce partition.json --to " + target-spec(part_swi) + " -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate partition.json --config " + part_swi_sol.source_config.map(str).join(","),
-    )
-
-    *Step 1 -- Source instance.* The Partition instance has $n = #part_swi.source.instance.sizes.len()$ elements with sizes $(#part_swi.source.instance.sizes.map(str).join(", "))$ and total sum $S = #part_swi.source.instance.sizes.sum()$. The half-sum is $h = floor(S\/2) = #calc.floor(part_swi.source.instance.sizes.sum() / 2)$.
-
-    *Step 2 -- Construct tasks.* The reduction creates $n + 1 = #part_swi.target.instance.lengths.len()$ tasks. Each element $a_i$ becomes a task with release time $r_i = 0$, deadline $d_i = S + 1 = #part_swi.target.instance.deadlines.at(0)$, and length $p_i = a_i$. An enforcer task is pinned at the midpoint: $r = #part_swi.target.instance.release_times.at(part_swi.source.instance.sizes.len())$, $d = #part_swi.target.instance.deadlines.at(part_swi.source.instance.sizes.len())$, $p = 1$. This enforcer occupies $[h, h+1)$, splitting the timeline into two blocks of size $h = #calc.floor(part_swi.source.instance.sizes.sum() / 2)$ each.
-
-    *Step 3 -- Verify a solution.* The canonical partition assigns elements to subsets via $(#part_swi_sol.source_config.map(str).join(", "))$: subset 0 = $\{#part_swi_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => str(part_swi.source.instance.sizes.at(i))).join(", ")\}$ (sum #part_swi_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => part_swi.source.instance.sizes.at(i)).sum()), subset 1 = $\{#part_swi_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(part_swi.source.instance.sizes.at(i))).join(", ")\}$ (sum #part_swi_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => part_swi.source.instance.sizes.at(i)).sum()). Both subsets sum to $S\/2 = #calc.floor(part_swi.source.instance.sizes.sum() / 2)$ #sym.checkmark \
-    The target schedule has start-time offsets $(#part_swi_sol.target_config.map(str).join(", "))$: subset-0 tasks fill $[0, h)$ and subset-1 tasks fill $[h+1, S+1)$, with the enforcer at $[h, h+1)$ #sym.checkmark
-
-    *Multiplicity:* The fixture stores one canonical witness. Other valid partitions (e.g.\ swapping the two subsets) exist but are symmetric.
-  ],
-)[
-  A unit-length enforcer task pinned at $[floor(S/2), floor(S/2)+1)$ splits the timeline into two blocks. A valid schedule exists iff the elements partition into two equal-sum subsets.
-][
-  _Construction._ Let $A = {a_1, dots, a_n}$ with $S = sum a_i$ and $h = floor(S/2)$. Create $n+1$ tasks: element tasks with $r_i = 0$, $d_i = S+1$, $p_i = a_i$; enforcer task with $r = h$, $d = h+1$, $p = 1$.
-
-  _Correctness._ ($arrow.r.double$) A balanced partition places one subset's tasks in $[0, h)$ and the other in $[h+1, S+1)$. ($arrow.l.double$) The enforcer at $[h, h+1)$ splits usable time into two blocks of size $h = S/2$; since element tasks fill both blocks exactly, the assignment gives a balanced partition.
-
-  _Solution extraction._ Task $t_i$ starting at time $s_i$: assign to subset 0 if $s_i <= h$, else subset 1.
-]
+// Removed: Partition → SequencingWithinIntervals (unsound reduction, #1006)
 
 #let mvc_mfas = load-example("MinimumVertexCover", "MinimumFeedbackArcSet")
 #let mvc_mfas_sol = mvc_mfas.solutions.at(0)
@@ -16351,39 +16255,7 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The QAP permutation $gamma$ is the Hamiltonian circuit visit order directly.
 ]
 
-#let hp_cos = load-example("HamiltonianPath", "ConsecutiveOnesSubmatrix")
-#let hp_cos_sol = hp_cos.solutions.at(0)
-#reduction-rule("HamiltonianPath", "ConsecutiveOnesSubmatrix",
-  example: true,
-  example-caption: [Path graph $P_#hp_cos.source.instance.graph.num_vertices$ ($n = #hp_cos.source.instance.graph.num_vertices$, $|E| = #hp_cos.source.instance.graph.edges.len()$)],
-  extra: [
-    #pred-commands(
-      "pred create --example " + problem-spec(hp_cos.source) + " -o hp.json",
-      "pred reduce hp.json --to " + target-spec(hp_cos) + " -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate hp.json --config " + hp_cos_sol.source_config.map(str).join(","),
-    )
-
-    *Step 1 -- Source instance.* The graph $G$ has $n = #hp_cos.source.instance.graph.num_vertices$ vertices and $m = #hp_cos.source.instance.graph.edges.len()$ edges: ${#hp_cos.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$.
-
-    *Step 2 -- Build the incidence matrix.* Construct the $n times m = #hp_cos.target.instance.matrix.len() times #hp_cos.target.instance.matrix.at(0).len()$ vertex-edge incidence matrix $A$ where $A_(i,j) = 1$ iff vertex $i$ is an endpoint of edge $j$. Set bound $K = n - 1 = #hp_cos.target.instance.bound$. The matrix is:
-    $ A = mat(
-      #hp_cos.target.instance.matrix.map(row => row.map(v => if v { "1" } else { "0" }).join(", ")).join(";\n      ")
-    ) $
-
-    *Step 3 -- Verify a solution.* The canonical Hamiltonian path visits vertices in order $(#hp_cos_sol.source_config.map(str).join(", "))$. The target configuration $(#hp_cos_sol.target_config.map(str).join(", "))$ selects #hp_cos_sol.target_config.filter(x => x == 1).len() columns (all $K = #hp_cos.target.instance.bound$ edges). Ordering the selected columns by path position, each row has at most two consecutive ones #sym.checkmark
-
-    *Multiplicity:* The fixture stores one canonical witness. The path $P_#hp_cos.source.instance.graph.num_vertices$ has exactly 2 Hamiltonian paths (forward and reverse); the canonical one is $(#hp_cos_sol.source_config.map(str).join(", "))$.
-  ],
-)[
-  The vertex-edge incidence matrix has the consecutive-ones property on a selected subset of $n-1$ columns iff those columns correspond to a Hamiltonian path.
-][
-  _Construction._ Given $G = (V, E)$ with $|V| = n$, $|E| = m$, build $n times m$ Boolean matrix $A$ with $A_(i,j) = 1$ iff vertex $i$ is an endpoint of edge $j$. Set bound $K = n - 1$.
-
-  _Correctness._ ($arrow.r.double$) A Hamiltonian path's $n-1$ edges, ordered by path position, give each row at most two consecutive ones. ($arrow.l.double$) $n-1$ columns with the C1P property form a subgraph where each vertex has degree $<= 2$; with $n-1$ edges spanning $n$ vertices, this is a Hamiltonian path.
-
-  _Solution extraction._ Selected columns identify edges; walk from a degree-1 vertex to recover the path ordering.
-]
+// Removed: HamiltonianPath → ConsecutiveOnesSubmatrix (unsound reduction, #1006)
 
 #let part_bp = load-example("Partition", "BinPacking")
 #let part_bp_sol = part_bp.solutions.at(0)
@@ -17047,46 +16919,7 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The Subset Sum configuration is the Integer Expression Membership configuration: $x_i = 1$ (right branch) means element $i$ is selected.
 ]
 
-// 9. ExactCoverBy3Sets → MinimumWeightSolutionToLinearEquations (#860)
-#let x3c_mwle = load-example("ExactCoverBy3Sets", "MinimumWeightSolutionToLinearEquations")
-#let x3c_mwle_sol = x3c_mwle.solutions.at(0)
-#reduction-rule("ExactCoverBy3Sets", "MinimumWeightSolutionToLinearEquations",
-  example: true,
-  example-caption: [$|U| = #x3c_mwle.source.instance.universe_size$, $|cal(C)| = #x3c_mwle.source.instance.subsets.len()$ subsets],
-  extra: [
-    #pred-commands(
-      "pred create --example " + problem-spec(x3c_mwle.source) + " -o x3c.json",
-      "pred reduce x3c.json --to " + target-spec(x3c_mwle) + " -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate x3c.json --config " + x3c_mwle_sol.source_config.map(str).join(","),
-    )
-
-    #{
-      let rows = x3c_mwle.target.instance.matrix
-      let y = x3c_mwle_sol.target_config
-      let q = x3c_mwle.source.instance.universe_size / 3
-      [
-        *Step 1 -- Source instance.* The X3C fixture has subsets $C_0 = {#x3c_mwle.source.instance.subsets.at(0).map(str).join(", ")}$, $C_1 = {#x3c_mwle.source.instance.subsets.at(1).map(str).join(", ")}$, and $C_2 = {#x3c_mwle.source.instance.subsets.at(2).map(str).join(", ")}$ over a universe of size $#x3c_mwle.source.instance.universe_size$, so $q = #q$.
-
-        *Step 2 -- Build the incidence matrix.* The three columns correspond to $C_0$, $C_1$, and $C_2$. The six rows are $r_0 = (#rows.at(0).map(str).join(", "))$, $r_1 = (#rows.at(1).map(str).join(", "))$, $r_2 = (#rows.at(2).map(str).join(", "))$, $r_3 = (#rows.at(3).map(str).join(", "))$, $r_4 = (#rows.at(4).map(str).join(", "))$, and $r_5 = (#rows.at(5).map(str).join(", "))$, with right-hand side $b = (#x3c_mwle.target.instance.rhs.map(str).join(", "))$.
-
-        *Step 3 -- Check the linear equations on the witness.* With $y = (#y.map(str).join(", "))$, the row products are $r_0 dot y = 1$, $r_1 dot y = 1$, $r_2 dot y = 1$, $r_3 dot y = 1$, $r_4 dot y = 1$, and $r_5 dot y = 1$. Hence $A y = b$ for the stored target witness.
-
-        *Step 4 -- Check weight and extraction.* The vector $y$ has #y.filter(x => x != 0).len() nonzero entries, exactly the required $q = #q$. Those two nonzero positions select $C_0$ and $C_1$, so the target witness encodes the same exact cover as the source configuration $(#x3c_mwle_sol.source_config.map(str).join(", "))$ #sym.checkmark.
-      ]
-    }
-
-    *Multiplicity:* The fixture stores one canonical witness.
-  ],
-)[
-  This $O(q n)$ reduction @garey1979 builds the $3q times n$ incidence matrix $A$ where $A_(i,j) = 1$ iff element $u_i in C_j$. Set right-hand side $b = (1, dots, 1)^top$ and weight bound $K = q = |X|\/3$. An exact cover corresponds to a binary solution of weight exactly $q$.
-][
-  _Construction._ Let $(X, cal(C))$ be an X3C instance with $|X| = 3q$ and $cal(C) = {C_1, dots, C_n}$. Define $n$ variables $y_1, dots, y_n$. Build matrix $A in {0,1}^(3q times n)$ with $A_(i,j) = 1$ iff $u_i in C_j$. Each column has exactly 3 ones. Set $b = bold(1) in ZZ^(3q)$ and $K = q$.
-
-  _Correctness._ ($arrow.r.double$) An exact cover selects $q$ sets, each covering 3 elements with no overlap, giving $A y = b$ with $y in {0,1}^n$ and weight $q = K$. ($arrow.l.double$) If $y$ has at most $K = q$ nonzero entries and $A y = b$, summing all equations gives $3 sum_j y_j = 3q$, so $sum y_j = q$. With $|"support"| <= q$ and each column contributing 3 incidences, every row is hit by exactly one selected column, forcing each nonzero $y_j = 1$. The selected sets form an exact cover.
-
-  _Solution extraction._ Select subset $j$ iff $y_j != 0$.
-]
+// Removed: ExactCoverBy3Sets → MinimumWeightSolutionToLinearEquations (unsound reduction, #1006)
 
 // 11. KSatisfiability → SimultaneousIncongruences (#554)
 #let ksat_si = load-example("KSatisfiability", "SimultaneousIncongruences")
@@ -17461,90 +17294,11 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Decode the Lehmer code, simulate the schedule tracking start times; assign elements to groups by $floor("start" / (B+1))$.
 ]
 
-#let tp_smwt = load-example("ThreePartition", "SequencingToMinimizeWeightedTardiness")
-#let tp_smwt_sol = tp_smwt.solutions.at(0)
-#reduction-rule("ThreePartition", "SequencingToMinimizeWeightedTardiness",
-  example: true,
-  example-caption: [$m = #(tp_smwt.source.instance.sizes.len() / 3)$ groups, $B = #tp_smwt.source.instance.bound$, $3m = #tp_smwt.source.instance.sizes.len()$ elements],
-  extra: [
-    #pred-commands(
-      "pred create --example " + problem-spec(tp_smwt.source) + " -o threepartition.json",
-      "pred reduce threepartition.json --to " + target-spec(tp_smwt) + " -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate threepartition.json --config " + tp_smwt_sol.source_config.map(str).join(","),
-    )
+// Removed: ThreePartition → SequencingToMinimizeWeightedTardiness (unsound reduction, #1006)
 
-    #{
-      let sizes = tp_smwt.source.instance.sizes
-      let B = tp_smwt.source.instance.bound
-      let m = sizes.len() / 3
-      let n = sizes.len()
-      let H = m * B + (m - 1)
-      let Wf = m * B + 1
-      let tgt = tp_smwt.target.instance
+// Removed: ThreePartition → JobShopScheduling (unsound reduction, #1006)
 
-      [*Step 1 -- Source instance.* The canonical ThreePartition instance has $3m = #n$ elements with sizes $(#sizes.map(str).join(", "))$ and bound $B = #B$. The total sum is $#sizes.fold(0, (a, b) => a + b) = m B = #m times #B$. Each element satisfies $B\/4 < a_i < B\/2$, i.e.\ $#(calc.floor(B / 4) + 1) <= a_i <= #(calc.ceil(B / 2) - 1)$.]
-
-      [*Step 2 -- Construct target tasks.* The horizon is $H = m B + (m - 1) = #H$, and the filler weight is $W_f = m B + 1 = #Wf$. The reduction creates #tgt.lengths.len() tasks:
-      - *#n element tasks* with lengths $(#tgt.lengths.slice(0, n).map(str).join(", "))$, weights $(#tgt.weights.slice(0, n).map(str).join(", "))$, and deadlines $(#tgt.deadlines.slice(0, n).map(str).join(", "))$ (all equal to $H$).
-      - *#(m - 1) filler task#if m - 1 != 1 [s]* with length $#tgt.lengths.at(n)$, weight $W_f = #tgt.weights.at(n)$, and deadline $#tgt.deadlines.at(n)$ (tight: $(1) dot B + 1 = #tgt.deadlines.at(n)$).
-      The tardiness bound is $K = #tgt.bound$.]
-
-      [*Step 3 -- Verify a solution.* The source assignment $(#tp_smwt_sol.source_config.map(str).join(", "))$ places elements ${0, 1, 2}$ (sizes $#sizes.at(0), #sizes.at(1), #sizes.at(2)$, sum $= #(sizes.at(0) + sizes.at(1) + sizes.at(2))$) in group 0 and elements ${3, 4, 5}$ (sizes $#sizes.at(3), #sizes.at(4), #sizes.at(5)$, sum $= #(sizes.at(3) + sizes.at(4) + sizes.at(5))$) in group 1. Both groups sum to $B = #B$ #sym.checkmark. The target Lehmer code is $(#tp_smwt_sol.target_config.map(str).join(", "))$, which decodes to the schedule: tasks $0, 1, 2$ (slot 0, total length $#B$), then filler (length 1, completes at $#(B + 1) <= #tgt.deadlines.at(n)$ #sym.checkmark), then tasks $3, 4, 5$ (slot 1, completes at $#H$). All element deadlines are $#H$ #sym.checkmark, and the filler meets its tight deadline. Zero tardiness achieved #sym.checkmark.]
-
-      [*Multiplicity:* The fixture stores one canonical witness. This instance admits other valid orderings within each slot (e.g.\ permuting elements 0, 1, 2 within slot 0), but the group assignment is unique up to slot relabeling.]
-    }
-  ],
-)[
-  High-weight filler tasks with tight deadlines force zero-tardiness schedules to leave exactly $m$ slots of width $B$ for element tasks. Size constraints ensure 3 elements per slot.
-][
-  _Construction._ Given $(S, B)$ with $|S| = 3m$. Horizon $H = m B + (m-1)$, filler weight $W_f = m B + 1$. Element tasks: $p_i = a_i$, $w_i = 1$, $d_i = H$. Filler tasks ($m-1$): $p = 1$, $w = W_f$, $d_j = (j+1)B + (j+1)$. Tardiness bound $K = 0$.
-
-  _Correctness._ ($arrow.r.double$) A valid 3-partition schedules each triple in a slot between fillers, achieving zero tardiness. ($arrow.l.double$) Zero tardiness forces fillers to their tight deadlines, creating $m$ slots of width $B$; element tasks fill them exactly with 3 per slot.
-
-  _Solution extraction._ Decode Lehmer code; scan left to right incrementing group index at each filler.
-]
-
-#let tp_jss = load-example("ThreePartition", "JobShopScheduling")
-#let tp_jss_sol = tp_jss.solutions.at(0)
-#reduction-rule("ThreePartition", "JobShopScheduling",
-  example: true,
-  example-caption: [$3m = #tp_jss.source.instance.sizes.len()$ elements, $B = #tp_jss.source.instance.bound$, #tp_jss.target.instance.num_processors machines],
-  extra: [
-    #pred-commands(
-      "pred create --example " + problem-spec(tp_jss.source) + " -o threepartition.json",
-      "pred reduce threepartition.json --to " + target-spec(tp_jss) + " -o bundle.json",
-      "pred solve bundle.json",
-      "pred evaluate threepartition.json --config " + tp_jss_sol.source_config.map(str).join(","),
-    )
-
-    *Step 1 -- Source instance.* The canonical 3-Partition instance has $3m = #tp_jss.source.instance.sizes.len()$ elements with sizes $S = (#tp_jss.source.instance.sizes.map(str).join(", "))$ and bound $B = #tp_jss.source.instance.bound$. Since $m = #{ let n = tp_jss.source.instance.sizes.len(); str(calc.div-euclid(n, 3)) }$, there are $m - 1 = #{ let n = tp_jss.source.instance.sizes.len(); str(calc.div-euclid(n, 3) - 1) }$ separators, separator length $L = m B + 1 = #{ let n = tp_jss.source.instance.sizes.len(); let m = calc.div-euclid(n, 3); str(m * tp_jss.source.instance.bound + 1) }$, and deadline $D = m B + (m-1) L = #{ let n = tp_jss.source.instance.sizes.len(); let m = calc.div-euclid(n, 3); let B = tp_jss.source.instance.bound; let L = m * B + 1; str(m * B + (m - 1) * L) }$.
-
-    *Step 2 -- Construct jobs.* Each element $a_i$ becomes an element job with two tasks: $(text("machine") 0, a_i)$ then $(text("machine") 1, a_i)$. This gives #tp_jss.target.instance.jobs.len() jobs on #tp_jss.target.instance.num_processors processors. The target JSS instance has jobs: #{ let jobs = tp_jss.target.instance.jobs; let descs = jobs.map(j => { let tasks = j.map(t => "(" + str(t.at(0)) + "," + str(t.at(1)) + ")"); "[" + tasks.join(", ") + "]" }); descs.join("; ") }.
-
-    *Step 3 -- Verify a solution.* The source config $(#tp_jss_sol.source_config.map(str).join(", "))$ assigns all #tp_jss.source.instance.sizes.len() elements to group 0. With $m = 1$ and no separators, any ordering of the #tp_jss.source.instance.sizes.len() element tasks on each machine is valid. The target Lehmer code $(#tp_jss_sol.target_config.map(str).join(", "))$ encodes identity orderings on both machines. The resulting makespan is $sum a_i = #{ tp_jss.source.instance.sizes.sum() } = B = #tp_jss.source.instance.bound <= D$ #sym.checkmark, and all #tp_jss.source.instance.sizes.len() elements land in a single processor slot containing exactly 3 elements #sym.checkmark.
-
-    *Multiplicity:* The fixture stores one canonical witness. With $m = 1$ there is only one valid group assignment (all elements in group 0); the $3! times 3!$ task orderings on the two machines yield multiple target configs, but only one source partition.
-  ],
-)[
-  On 2 machines, $m-1$ long separator jobs on machine 0 force element jobs into $m$ windows of width $B$. Size constraints ensure 3 elements per window.
-][
-  _Construction._ Given $(S, B)$ with $|S| = 3m$, $L = m B + 1$, $D = m B + (m-1)L$. Element jobs ($3m$): two tasks $(text("machine") 0, a_i)$ then $(text("machine") 1, a_i)$. Separator jobs ($m-1$): single task $(text("machine") 0, L)$.
-
-  _Correctness._ ($arrow.r.double$) A valid 3-partition interleaves element groups with separators on machine 0, achieving makespan $D$. ($arrow.l.double$) Separators of length $L > m B$ create impassable barriers; remaining budget $m B$ split into $m$ windows; size constraints force 3 elements per window.
-
-  _Solution extraction._ Decode machine 0 Lehmer code; walk permutation incrementing group at each separator.
-]
-
-#reduction-rule("ThreePartition", "FlowShopScheduling")[
-  On 3 machines, $m - 1$ separator jobs with a large middle-machine task force element jobs into $m$ groups of width $B$, so a valid 3-partition exists iff the flow-shop schedule meets its deadline.
-][
-  _Construction._ Given $(S, B)$ with $|S| = 3m$ and sizes $s(a_0), dots, s(a_(3m - 1))$. Set $L = m B + 1$. Create $3m$ element jobs: job $i$ has task lengths $(s(a_i), s(a_i), s(a_i))$ (identical on all 3 machines). Create $m - 1$ separator jobs with task lengths $(0, L, 0)$. Compute the deadline $D$ as the makespan of a canonical schedule that interleaves element triples with separators: $[a_0, a_1, a_2, "sep"_1, a_3, a_4, a_5, "sep"_2, dots]$.
-
-  _Correctness._ ($arrow.r.double$) A valid 3-partition with group sums all equal to $B$ yields a schedule that places each triple between consecutive separators. Since each element job has equal task length on all machines, the pipeline delay between machines matches exactly, and the interleaved schedule achieves makespan $D$. ($arrow.l.double$) Each separator has a middle-machine task of length $L = m B + 1 > m B$, which blocks machine 2 for longer than the total element processing time on that machine. This forces element jobs to occupy exactly $m$ windows of width $B$ between separators. Since $B\/4 < s(a_i) < B\/2$ (the standard strong-sense 3-Partition assumption), each window contains exactly 3 elements whose sizes sum to $B$.
-
-  _Solution extraction._ Decode the Lehmer code to a job permutation. Walk left to right, incrementing the group index at each separator job. Each element job's group index gives the source configuration.
-]
+// Removed: ThreePartition → FlowShopScheduling (unsound reduction, #1006)
 
 #let mc_mcbs = load-example("MaxCut", "MinimumCutIntoBoundedSets")
 #let mc_mcbs_sol = mc_mcbs.solutions.at(0)

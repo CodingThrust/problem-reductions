@@ -42,13 +42,20 @@ impl ReductionResult for ReductionVCToEC {
     /// - z_i = {a₀} ∪ {v}  — vertex v is in the cover
     /// - z_j = {u} ∪ z_k   — edge {u, v_r} is covered by v_r
     ///
-    /// We collect all vertices that appear as singleton operands (index < |V|).
-    /// In a minimum-length witness, exactly the cover vertices appear this way.
+    /// We collect all vertices that appear as singleton operands (index < |V|)
+    /// in the meaningful steps only (before all required subsets are covered).
+    /// Padding steps beyond the coverage point are ignored.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let budget = self.target.budget();
+        use crate::traits::Problem;
+        use crate::types::Min;
+
+        let meaningful_steps = match self.target.evaluate(target_solution) {
+            Min(Some(n)) => n,
+            _ => return vec![0; self.num_vertices],
+        };
         let mut cover = vec![0usize; self.num_vertices];
 
-        for step in 0..budget {
+        for step in 0..meaningful_steps {
             let left = target_solution[2 * step];
             let right = target_solution[2 * step + 1];
 
@@ -121,7 +128,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 1, 3, // step 1: {1} ∪ z₀
                 2, 1, // step 2: padding
             ];
-            // Extraction picks up vertices 0 (step 0) and 1 (steps 1 and 2).
+            // Extraction picks up vertices 0 (step 0) and 1 (step 1) from the
+            // 2 meaningful steps. Step 2 is padding and is ignored.
             // Cover {0,1} is valid (though not minimum — the optimal witness
             // is found by BruteForce, giving cover {0} or {1}).
             let source_config = vec![1, 1];

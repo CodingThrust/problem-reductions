@@ -19,7 +19,6 @@ pub(crate) mod exactcoverby3sets_algebraicequationsovergf2;
 pub(crate) mod exactcoverby3sets_maximumsetpacking;
 pub(crate) mod exactcoverby3sets_minimumaxiomset;
 pub(crate) mod exactcoverby3sets_minimumfaultdetectiontestset;
-pub(crate) mod exactcoverby3sets_minimumweightsolutiontolinearequations;
 pub(crate) mod exactcoverby3sets_staffscheduling;
 pub(crate) mod exactcoverby3sets_subsetproduct;
 pub(crate) mod factoring_circuit;
@@ -36,7 +35,6 @@ pub(crate) mod hamiltoniancircuit_ruralpostman;
 pub(crate) mod hamiltoniancircuit_stackercrane;
 pub(crate) mod hamiltoniancircuit_strongconnectivityaugmentation;
 pub(crate) mod hamiltoniancircuit_travelingsalesman;
-pub(crate) mod hamiltonianpath_consecutiveonessubmatrix;
 pub(crate) mod hamiltonianpath_degreeconstrainedspanningtree;
 pub(crate) mod hamiltonianpath_isomorphicspanningtree;
 pub(crate) mod hamiltonianpathbetweentwovertices_longestpath;
@@ -106,8 +104,6 @@ pub(crate) mod partition_multiprocessorscheduling;
 pub(crate) mod partition_openshopscheduling;
 pub(crate) mod partition_productionplanning;
 pub(crate) mod partition_sequencingtominimizetardytaskweight;
-pub(crate) mod partition_sequencingwithinintervals;
-pub(crate) mod partition_shortestweightconstrainedpath;
 pub(crate) mod partition_subsetsum;
 pub(crate) mod partitionintocliques_minimumcoveringbycliques;
 pub(crate) mod partitionintopathsoflength2_boundedcomponentspanningforest;
@@ -125,7 +121,6 @@ pub(crate) mod setsplitting_betweenness;
 mod spinglass_casts;
 pub(crate) mod spinglass_maxcut;
 pub(crate) mod spinglass_qubo;
-pub(crate) mod subsetsum_capacityassignment;
 pub(crate) mod subsetsum_closestvectorproblem;
 pub(crate) mod subsetsum_integerexpressionmembership;
 pub(crate) mod subsetsum_integerknapsack;
@@ -133,10 +128,7 @@ pub(crate) mod subsetsum_partition;
 #[cfg(test)]
 pub(crate) mod test_helpers;
 pub(crate) mod threedimensionalmatching_threepartition;
-pub(crate) mod threepartition_flowshopscheduling;
-pub(crate) mod threepartition_jobshopscheduling;
 pub(crate) mod threepartition_resourceconstrainedscheduling;
-pub(crate) mod threepartition_sequencingtominimizeweightedtardiness;
 pub(crate) mod threepartition_sequencingwithreleasetimesanddeadlines;
 mod traits;
 pub(crate) mod travelingsalesman_qubo;
@@ -399,9 +391,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(exactcoverby3sets_algebraicequationsovergf2::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_minimumfaultdetectiontestset::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_minimumaxiomset::canonical_rule_example_specs());
-    specs.extend(
-        exactcoverby3sets_minimumweightsolutiontolinearequations::canonical_rule_example_specs(),
-    );
     specs.extend(exactcoverby3sets_subsetproduct::canonical_rule_example_specs());
     specs.extend(factoring_circuit::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_biconnectivityaugmentation::canonical_rule_example_specs());
@@ -413,7 +402,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(hamiltoniancircuit_stackercrane::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_strongconnectivityaugmentation::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_travelingsalesman::canonical_rule_example_specs());
-    specs.extend(hamiltonianpath_consecutiveonessubmatrix::canonical_rule_example_specs());
     specs.extend(hamiltonianpath_degreeconstrainedspanningtree::canonical_rule_example_specs());
     specs.extend(graphpartitioning_maxcut::canonical_rule_example_specs());
     specs.extend(graphpartitioning_qubo::canonical_rule_example_specs());
@@ -465,8 +453,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         partitionintopathsoflength2_boundedcomponentspanningforest::canonical_rule_example_specs(),
     );
     specs.extend(partition_multiprocessorscheduling::canonical_rule_example_specs());
-    specs.extend(partition_sequencingwithinintervals::canonical_rule_example_specs());
-    specs.extend(partition_shortestweightconstrainedpath::canonical_rule_example_specs());
     specs.extend(partitionintocliques_minimumcoveringbycliques::canonical_rule_example_specs());
     specs.extend(partition_subsetsum::canonical_rule_example_specs());
     specs.extend(rootedtreearrangement_rootedtreestorageassignment::canonical_rule_example_specs());
@@ -477,12 +463,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(maxcut_minimumcutintoboundedsets::canonical_rule_example_specs());
     specs.extend(partition_binpacking::canonical_rule_example_specs());
     specs.extend(threedimensionalmatching_threepartition::canonical_rule_example_specs());
-    specs.extend(threepartition_flowshopscheduling::canonical_rule_example_specs());
-    specs.extend(threepartition_jobshopscheduling::canonical_rule_example_specs());
     specs.extend(threepartition_resourceconstrainedscheduling::canonical_rule_example_specs());
-    specs.extend(
-        threepartition_sequencingtominimizeweightedtardiness::canonical_rule_example_specs(),
-    );
     specs.extend(
         threepartition_sequencingwithreleasetimesanddeadlines::canonical_rule_example_specs(),
     );
@@ -511,7 +492,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(satisfiability_nontautology::canonical_rule_example_specs());
     specs.extend(spinglass_maxcut::canonical_rule_example_specs());
     specs.extend(spinglass_qubo::canonical_rule_example_specs());
-    specs.extend(subsetsum_capacityassignment::canonical_rule_example_specs());
     specs.extend(subsetsum_closestvectorproblem::canonical_rule_example_specs());
     specs.extend(subsetsum_integerknapsack::canonical_rule_example_specs());
     specs.extend(subsetsum_integerexpressionmembership::canonical_rule_example_specs());
