@@ -88,7 +88,6 @@ pub fn find_variant_by_alias(
 /// problem names or problem-level aliases, and empty aliases for manually
 /// constructed [`VariantEntry`] values that bypass `declare_variants!`.
 pub fn validate_variant_aliases() -> Result<(), Vec<String>> {
-    let mut conflicts = Vec::new();
     let mut problem_names: BTreeMap<String, Vec<String>> = BTreeMap::new();
 
     for problem in super::problem_type::problem_types() {
@@ -111,10 +110,26 @@ pub fn validate_variant_aliases() -> Result<(), Vec<String>> {
         }
     }
 
+    let entries: Vec<_> = inventory::iter::<VariantEntry>()
+        .map(|e| (variant_label(e), e.aliases))
+        .collect();
+
+    validate_aliases_inner(&problem_names, &entries)
+}
+
+/// Core validation logic, separated for testability with mock data.
+///
+/// - `problem_names`: lowercase key → list of human-readable sources (canonical names + problem-level aliases).
+/// - `entries`: `(variant_label, aliases_slice)` per variant entry.
+pub fn validate_aliases_inner(
+    problem_names: &BTreeMap<String, Vec<String>>,
+    entries: &[(String, &[&str])],
+) -> Result<(), Vec<String>> {
+    let mut conflicts = Vec::new();
     let mut variant_aliases: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
-    for entry in inventory::iter::<VariantEntry> {
-        let target = variant_label(entry);
-        for alias in entry.aliases {
+
+    for (target, aliases) in entries {
+        for alias in *aliases {
             if alias.trim().is_empty() {
                 conflicts.push(format!(
                     "variant-level alias on {target} is empty or whitespace-only"
@@ -159,7 +174,7 @@ pub fn validate_variant_aliases() -> Result<(), Vec<String>> {
     }
 }
 
-fn variant_label(entry: &VariantEntry) -> String {
+pub fn variant_label(entry: &VariantEntry) -> String {
     let variant = entry.variant();
     if variant.is_empty() {
         return entry.name.to_string();
