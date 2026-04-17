@@ -126,6 +126,7 @@ problemreductions::inventory::submit! {
         complexity: "2^num_values",
         complexity_eval_fn: |_| 1.0,
         is_default: true,
+        aliases: &[],
         factory: |data| {
             let problem: AggregateValueSource = serde_json::from_value(data)?;
             Ok(Box::new(problem))
@@ -146,6 +147,7 @@ problemreductions::inventory::submit! {
         complexity: "2",
         complexity_eval_fn: |_| 1.0,
         is_default: true,
+        aliases: &[],
         factory: |data| {
             let problem: AggregateValueTarget = serde_json::from_value(data)?;
             Ok(Box::new(problem))

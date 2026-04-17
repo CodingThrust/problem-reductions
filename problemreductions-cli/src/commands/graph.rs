@@ -33,12 +33,7 @@ pub fn list(out: &OutputConfig) -> Result<()> {
     for name in &types {
         let variants = graph.variants_for(name);
         let default_variant = graph.default_variant_for(name);
-        let aliases = aliases_for(name);
-        let alias_str = if aliases.is_empty() {
-            String::new()
-        } else {
-            aliases.join(", ")
-        };
+        let problem_aliases = aliases_for(name);
 
         for (i, v) in variants.iter().enumerate() {
             let slash = variant_to_full_slash(v);
@@ -53,13 +48,26 @@ pub fn list(out: &OutputConfig) -> Result<()> {
                 .variant_complexity(name, v)
                 .map(|c| big_o_of(&Expr::parse(c)))
                 .unwrap_or_default();
+
+            // Per-row aliases: problem-level aliases on the first row, plus any
+            // variant-level aliases attached to the specific reduction-graph node.
+            let variant_aliases: Vec<&'static str> =
+                problemreductions::registry::find_variant_entry(name, v)
+                    .map(|entry| entry.aliases.to_vec())
+                    .unwrap_or_default();
+            let mut parts: Vec<String> = Vec::new();
+            if i == 0 {
+                for alias in &problem_aliases {
+                    push_alias_part(&mut parts, alias);
+                }
+            }
+            for alias in &variant_aliases {
+                push_alias_part(&mut parts, alias);
+            }
+
             rows_data.push(VariantRow {
                 display,
-                aliases: if i == 0 {
-                    alias_str.clone()
-                } else {
-                    String::new()
-                },
+                aliases: parts.join(", "),
                 is_default,
                 rules: if i == 0 { rules } else { 0 },
                 complexity,
@@ -715,6 +723,12 @@ pub fn export(out: &OutputConfig) -> Result<()> {
     out.emit_with_default_name("reduction_graph.json", &text, &json)
 }
 
+fn push_alias_part(parts: &mut Vec<String>, alias: &str) {
+    if !parts.iter().any(|part| part.eq_ignore_ascii_case(alias)) {
+        parts.push(alias.to_string());
+    }
+}
+
 fn parse_direction(s: &str) -> Result<TraversalFlow> {
     match s {
         "out" => Ok(TraversalFlow::Outgoing),
@@ -803,5 +817,22 @@ fn render_tree(graph: &ReductionGraph, nodes: &[NeighborTree], text: &mut String
             let new_prefix = format!("{}{}", prefix, child_prefix);
             render_tree(graph, &node.children, text, &new_prefix);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::push_alias_part;
+
+    #[test]
+    fn push_alias_part_deduplicates_case_insensitively_in_order() {
+        let mut parts = Vec::new();
+        push_alias_part(&mut parts, "KSAT");
+        push_alias_part(&mut parts, "3SAT");
+        push_alias_part(&mut parts, "ksat");
+        push_alias_part(&mut parts, "2SAT");
+        push_alias_part(&mut parts, "3sat");
+
+        assert_eq!(parts, vec!["KSAT", "3SAT", "2SAT"]);
     }
 }

@@ -444,11 +444,12 @@ struct DeclareVariantsInput {
     entries: Vec<DeclareVariantEntry>,
 }
 
-/// A single entry: `[default] Type => "complexity_string"`.
+/// A single entry: `[default] Type => "complexity_string" [aliases ["X", ...]]`.
 struct DeclareVariantEntry {
     is_default: bool,
     ty: Type,
     complexity: syn::LitStr,
+    aliases: Vec<syn::LitStr>,
 }
 
 impl syn::parse::Parse for DeclareVariantsInput {
@@ -464,10 +465,47 @@ impl syn::parse::Parse for DeclareVariantsInput {
             let ty: Type = input.parse()?;
             input.parse::<syn::Token![=>]>()?;
             let complexity: syn::LitStr = input.parse()?;
+
+            // Optional: `aliases ["X", "Y", ...]`
+            let aliases = if input.peek(syn::Ident) {
+                let fork = input.fork();
+                let ident: syn::Ident = fork.parse()?;
+                if ident == "aliases" {
+                    input.parse::<syn::Ident>()?;
+                    let content;
+                    syn::bracketed!(content in input);
+                    let mut out = Vec::new();
+                    while !content.is_empty() {
+                        let lit: syn::LitStr = content.parse()?;
+                        if lit.value().trim().is_empty() {
+                            return Err(syn::Error::new(
+                                lit.span(),
+                                "variant alias must not be empty or whitespace-only",
+                            ));
+                        }
+                        out.push(lit);
+                        if content.peek(syn::Token![,]) {
+                            content.parse::<syn::Token![,]>()?;
+                        }
+                    }
+                    out
+                } else if fork.peek(syn::token::Bracket) {
+                    return Err(syn::Error::new(
+                        ident.span(),
+                        format!("expected 'aliases', found '{ident}'"),
+                    ));
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            };
+
             entries.push(DeclareVariantEntry {
                 is_default,
                 ty,
                 complexity,
+                aliases,
             });
 
             if input.peek(syn::Token![,]) {
@@ -552,6 +590,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         let ty = &entry.ty;
         let complexity_str = entry.complexity.value();
         let is_default = entry.is_default;
+        let alias_lits: Vec<_> = entry.aliases.iter().map(|s| s.value()).collect();
 
         // Parse the complexity expression to validate syntax
         let parsed = parser::parse_expr(&complexity_str).map_err(|e| {
@@ -633,6 +672,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
                     complexity: #complexity_str,
                     complexity_eval_fn: #complexity_eval_fn,
                     is_default: #is_default,
+                    aliases: &[#(#alias_lits),*],
                     #dispatch_fields
                 }
             }
@@ -765,6 +805,44 @@ mod tests {
             result.is_err(),
             "expected parse error for legacy solver kind marker"
         );
+    }
+
+    #[test]
+    fn declare_variants_rejects_empty_alias_literal() {
+        let err =
+            match syn::parse_str::<DeclareVariantsInput>("default Foo => \"1\" aliases [\"\"]") {
+                Ok(_) => panic!("empty alias literal should be rejected"),
+                Err(err) => err,
+            };
+        assert!(
+            err.to_string().contains("empty or whitespace-only"),
+            "expected empty-alias error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn declare_variants_rejects_whitespace_only_alias_literal() {
+        let err = match syn::parse_str::<DeclareVariantsInput>(
+            "default Foo => \"1\" aliases [\"  \\t\"]",
+        ) {
+            Ok(_) => panic!("whitespace-only alias literal should be rejected"),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string().contains("empty or whitespace-only"),
+            "expected whitespace-only alias error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn declare_variants_rejects_unknown_alias_keyword_before_bracket() {
+        let err = match syn::parse_str::<DeclareVariantsInput>(
+            "default Foo => \"1\" nicknames [\"Foo\"]",
+        ) {
+            Ok(_) => panic!("unknown aliases keyword should be rejected"),
+            Err(err) => err,
+        };
+        assert_eq!(err.to_string(), "expected 'aliases', found 'nicknames'");
     }
 
     #[test]

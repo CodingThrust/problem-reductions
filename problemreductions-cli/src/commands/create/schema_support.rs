@@ -180,9 +180,7 @@ pub(super) fn create_schema_driven(
 
     // KColoring/KN stores the number of colors at runtime in `num_colors`.
     // The schema only declares `graph`, so inject `num_colors` from --k for KN.
-    if canonical == "KColoring"
-        && resolved_variant.get("k").map(|s| s.as_str()) == Some("KN")
-    {
+    if canonical == "KColoring" && resolved_variant.get("k").map(|s| s.as_str()) == Some("KN") {
         if let Some(k) = args.k {
             json_map.insert("num_colors".to_string(), serde_json::json!(k));
         }
