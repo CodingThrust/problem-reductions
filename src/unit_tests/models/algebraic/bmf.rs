@@ -3,8 +3,6 @@ use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;
 
-include!("../../jl_helpers.rs");
-
 #[test]
 fn test_bmf_creation() {
     let matrix = vec![vec![true, false], vec![false, true]];
@@ -78,55 +76,56 @@ fn test_evaluate() {
     let matrix = vec![vec![true, false], vec![false, true]];
     let problem = BMF::new(matrix, 2);
 
-    // Exact factorization -> distance 0
+    // Exact factorization -> Min(Some(total_factor_size)) = 4 (two 1s in B, two in C)
     let config = vec![1, 0, 0, 1, 1, 0, 0, 1];
-    assert_eq!(Problem::evaluate(&problem, &config), Min(Some(0)));
+    assert_eq!(Problem::evaluate(&problem, &config), Min(Some(4)));
 
-    // Non-exact -> distance 2
+    // Non-exact -> Min(None)
     let config = vec![0, 0, 0, 0, 0, 0, 0, 0];
-    assert_eq!(Problem::evaluate(&problem, &config), Min(Some(2)));
+    assert_eq!(Problem::evaluate(&problem, &config), Min(None));
 }
 
 #[test]
 fn test_brute_force_ones() {
-    // All ones matrix can be factored with rank 1
+    // All-ones 2x2 factors exactly at rank 1: optimal total_factor_size = 4
+    // (B = [[1],[1]] has two 1s, C = [[1,1]] has two 1s).
     let matrix = vec![vec![true, true], vec![true, true]];
     let problem = BMF::new(matrix, 1);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_witnesses(&problem);
-    for sol in &solutions {
-        // Exact factorization has distance 0
-        assert_eq!(Problem::evaluate(&problem, sol), Min(Some(0)));
+    let witnesses = solver.find_all_witnesses(&problem);
+    assert!(!witnesses.is_empty());
+    for sol in &witnesses {
+        assert!(problem.is_exact(sol));
+        assert_eq!(Problem::evaluate(&problem, sol), Min(Some(4)));
     }
 }
 
 #[test]
 fn test_brute_force_identity() {
-    // Identity matrix needs rank 2
+    // Identity matrix factors exactly at rank 2.
     let matrix = vec![vec![true, false], vec![false, true]];
     let problem = BMF::new(matrix, 2);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_witnesses(&problem);
-    // Should find exact factorization
-    for sol in &solutions {
+    let witnesses = solver.find_all_witnesses(&problem);
+    for sol in &witnesses {
         assert!(problem.is_exact(sol));
     }
 }
 
 #[test]
 fn test_brute_force_insufficient_rank() {
-    // Identity matrix with rank 1 cannot be exact
+    // Rank-1 over the 2x2 identity admits no exact factorization,
+    // so every config evaluates to Min(None).
     let matrix = vec![vec![true, false], vec![false, true]];
     let problem = BMF::new(matrix, 1);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_witnesses(&problem);
-    // Best approximation has distance > 0
-    let best_distance = problem.hamming_distance(&solutions[0]);
-    // With rank 1, best we can do is distance 1 (all ones or all zeros except one)
-    assert!(best_distance >= 1);
+    let witness = solver.find_witness(&problem);
+    assert!(
+        witness.is_none() || Problem::evaluate(&problem, witness.as_ref().unwrap()) == Min(None)
+    );
 }
 
 #[test]
@@ -152,7 +151,7 @@ fn test_empty_matrix() {
     let matrix: Vec<Vec<bool>> = vec![];
     let problem = BMF::new(matrix, 1);
     assert_eq!(problem.num_variables(), 0);
-    // Empty matrix has distance 0
+    // Empty matrix factors exactly with zero factor size.
     assert_eq!(Problem::evaluate(&problem, &[]), Min(Some(0)));
 }
 
@@ -175,64 +174,24 @@ fn test_bmf_problem() {
     // dims: B(2*2) + C(2*2) = 8 binary variables
     assert_eq!(problem.dims(), vec![2; 8]);
 
-    // Exact factorization: B = I, C = I
-    // Config: [1,0,0,1, 1,0,0,1]
+    // Exact factorization: B = I, C = I — total factor size = 4
     assert_eq!(
         Problem::evaluate(&problem, &[1, 0, 0, 1, 1, 0, 0, 1]),
-        Min(Some(0))
+        Min(Some(4))
     );
 
-    // All zeros -> product is all zeros, distance = 2
+    // All zeros -> product is all zeros, not equal to A -> infeasible
     assert_eq!(
         Problem::evaluate(&problem, &[0, 0, 0, 0, 0, 0, 0, 0]),
-        Min(Some(2))
+        Min(None)
     );
 
-    // ExtremumSense is minimize
-
-    // Test with 1x1 matrix
+    // 1x1 matrix
     let matrix = vec![vec![true]];
     let problem = BMF::new(matrix, 1);
     assert_eq!(problem.dims(), vec![2; 2]); // B(1*1) + C(1*1)
-    assert_eq!(Problem::evaluate(&problem, &[1, 1]), Min(Some(0))); // Exact
-    assert_eq!(Problem::evaluate(&problem, &[0, 0]), Min(Some(1))); // Distance 1
-}
-
-#[test]
-fn test_jl_parity_evaluation() {
-    let data: serde_json::Value =
-        serde_json::from_str(include_str!("../../../../tests/data/jl/bmf.json")).unwrap();
-    for instance in data["instances"].as_array().unwrap() {
-        let matrix_json = instance["instance"]["matrix"].as_array().unwrap();
-        let matrix: Vec<Vec<bool>> = matrix_json
-            .iter()
-            .map(|row| {
-                row.as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|v| v.as_u64().unwrap() != 0)
-                    .collect()
-            })
-            .collect();
-        let k = instance["instance"]["k"].as_u64().unwrap() as usize;
-        let problem = BMF::new(matrix, k);
-        for eval in instance["evaluations"].as_array().unwrap() {
-            let config = jl_parse_config(&eval["config"]);
-            let result = problem.evaluate(&config);
-            let jl_size = eval["size"].as_i64().unwrap() as i32;
-            // BMF always returns Min(hamming_distance).
-            assert_eq!(
-                result,
-                Min(Some(jl_size)),
-                "BMF: size mismatch for config {:?}",
-                config
-            );
-        }
-        let best = BruteForce::new().find_all_witnesses(&problem);
-        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
-        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
-        assert_eq!(rust_best, jl_best, "BMF best solutions mismatch");
-    }
+    assert_eq!(Problem::evaluate(&problem, &[1, 1]), Min(Some(2))); // Exact, factor size 2
+    assert_eq!(Problem::evaluate(&problem, &[0, 0]), Min(None)); // Not exact
 }
 
 #[test]
@@ -256,13 +215,12 @@ fn test_bmf_paper_example() {
     let problem = BMF::new(matrix, 2);
     // B (3x2): [[1,0],[1,1],[0,1]], C (2x3): [[1,1,0],[0,1,1]]
     // Config: B row-major then C row-major
-    // B: b00=1,b01=0, b10=1,b11=1, b20=0,b21=1
-    // C: c00=1,c01=1,c02=0, c10=0,c11=1,c12=1
+    // Eight 1s total -> optimal total factor size = 8.
     let config = vec![1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1];
-    let result = Problem::evaluate(&problem, &config);
-    assert_eq!(result, Min(Some(0))); // exact factorization
+    assert!(problem.is_exact(&config));
+    assert_eq!(Problem::evaluate(&problem, &config), Min(Some(8)));
 
     let solver = BruteForce::new();
     let best = solver.find_witness(&problem).unwrap();
-    assert_eq!(Problem::evaluate(&problem, &best), Min(Some(0)));
+    assert!(problem.is_exact(&best));
 }

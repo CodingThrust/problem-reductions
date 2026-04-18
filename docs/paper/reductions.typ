@@ -5597,7 +5597,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let nc = x.instance.n
   let k = x.instance.k
   let A = x.instance.matrix
-  let dH = metric-value(x.optimal_value)
+  let fs = metric-value(x.optimal_value)
   // Decode B and C from optimal config
   // Config layout: B is m*k values, then C is k*n values
   let cfg = x.optimal_config
@@ -5609,11 +5609,11 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let fmt-mat(m) = math.mat(..m.map(row => row.map(v => $#v$)))
   [
     #problem-def("BMF")[
-      Given an $m times n$ boolean matrix $A$ and rank $k$, find boolean matrices $B in {0,1}^(m times k)$ and $C in {0,1}^(k times n)$ minimizing the Hamming distance $d_H (A, B circle.tiny C)$, where the boolean product $(B circle.tiny C)_(i j) = or.big_ell (B_(i ell) and C_(ell j))$.
+      Given an $m times n$ boolean matrix $A$ and rank $k$, find boolean matrices $B in {0,1}^(m times k)$ and $C in {0,1}^(k times n)$ satisfying $B circle.tiny C = A$ and minimizing $|B|_1 + |C|_1$ (the total number of $1$s in $B$ and $C$), where the boolean product $(B circle.tiny C)_(i j) = or.big_ell (B_(i ell) and C_(ell j))$. An instance is infeasible when no exact factorization of rank $k$ exists.
     ][
-    Boolean Matrix Factorization decomposes binary data into interpretable boolean factors, unlike real-valued SVD which loses the discrete structure. NP-hard even to approximate, BMF arises in data mining, text classification, and role-based access control where factors correspond to latent binary features. Practical algorithms use greedy rank-1 extraction or alternating fixed-point methods. The best known exact algorithm runs in $O^*(2^(m k + k n))$ by brute-force search over $B$ and $C$#footnote[No algorithm improving on brute-force enumeration is known for general BMF.].
+    Boolean Matrix Factorization decomposes binary data into interpretable boolean factors, unlike real-valued SVD which loses the discrete structure. Deciding whether an exact factorization of a given rank exists is NP-complete (Orlin 1977); the minimum rank is the _Boolean rank_ of $A$, which coincides with the biclique edge cover number of the bipartite graph whose biadjacency matrix is $A$ (Monson, Pullman, Rees 1995). BMF arises in data mining, text classification, and role-based access control where factors correspond to latent binary features. The best known exact algorithm runs in $O^*(2^(m k + k n))$ by brute-force search over $B$ and $C$#footnote[No algorithm improving on brute-force enumeration is known for general exact BMF.].
 
-    *Example.* Let $A = #fmt-mat(A-int)$ and $k = #k$. Set $B = #fmt-mat(B)$ and $C = #fmt-mat(C)$. Then $B circle.tiny C = #fmt-mat(A-int) = A$, achieving Hamming distance $d_H = #dH$ (exact factorization). The two boolean factors capture overlapping row/column patterns: factor 1 selects rows ${1, 2}$ and columns ${1, 2}$; factor 2 selects rows ${2, 3}$ and columns ${2, 3}$.
+    *Example.* Let $A = #fmt-mat(A-int)$ and $k = #k$. Set $B = #fmt-mat(B)$ and $C = #fmt-mat(C)$. Then $B circle.tiny C = #fmt-mat(A-int) = A$, so the factorization is exact with total factor size $|B|_1 + |C|_1 = #fs$. The two boolean factors capture overlapping row/column patterns: factor 1 selects rows ${1, 2}$ and columns ${1, 2}$; factor 2 selects rows ${2, 3}$ and columns ${2, 3}$.
 
     #pred-commands(
       "pred create --example BMF -o bmf.json",
@@ -14639,22 +14639,21 @@ The following reductions to Integer Linear Programming are straightforward formu
 // Matrix/encoding
 
 #reduction-rule("BMF", "ILP")[
-  Split the witness into binary factor matrices $B$ and $C$, reconstruct their Boolean product with McCormick auxiliaries, and minimize the Hamming distance to the target matrix.
+  Split the witness into binary factor matrices $B$ and $C$, reconstruct their Boolean product with McCormick auxiliaries, pin each reconstructed entry to the target, and minimize the total factor weight.
 ][
-  _Construction._ Variables: binary $b_(i,r)$, binary $c_(r,j)$, binary $p_(i,r,j)$ linearizing $b_(i,r) c_(r,j)$, binary $w_(i,j)$ for the reconstructed entry, and nonnegative error variables $e_(i,j)$. The ILP is:
+  _Construction._ Variables: binary $b_(i,r)$, binary $c_(r,j)$, binary $p_(i,r,j)$ linearizing $b_(i,r) c_(r,j)$, and binary $w_(i,j)$ for the reconstructed entry. The ILP is:
   $
-    min quad & sum_(i,j) e_(i,j) \
+    min quad & sum_(i,r) b_(i,r) + sum_(r,j) c_(r,j) \
     "subject to" quad & p_(i,r,j) <= b_(i,r) quad forall i, r, j \
     & p_(i,r,j) <= c_(r,j) quad forall i, r, j \
     & p_(i,r,j) >= b_(i,r) + c_(r,j) - 1 quad forall i, r, j \
     & w_(i,j) >= p_(i,r,j) quad forall i, r, j \
     & w_(i,j) <= sum_r p_(i,r,j) quad forall i, j \
-    & e_(i,j) >= A_(i,j) - w_(i,j) quad forall i, j \
-    & e_(i,j) >= w_(i,j) - A_(i,j) quad forall i, j \
-    & b_(i,r), c_(r,j), p_(i,r,j), w_(i,j) in {0, 1}, e_(i,j) in ZZ_(>=0).
+    & w_(i,j) = A_(i,j) quad forall i, j \
+    & b_(i,r), c_(r,j), p_(i,r,j), w_(i,j) in {0, 1}.
   $
 
-  _Correctness._ ($arrow.r.double$) Any choice of factor matrices induces the same Boolean product and Hamming error in the ILP. ($arrow.l.double$) Any feasible ILP assignment determines factor matrices $B$ and $C$, and the linearization forces the objective to equal the Hamming distance between $A$ and $B dot C$.
+  _Correctness._ ($arrow.r.double$) Any exact factorization $B circle.tiny C = A$ gives a feasible ILP solution with objective equal to $|B|_1 + |C|_1$. ($arrow.l.double$) The McCormick constraints force $p_(i,r,j) = b_(i,r) dot c_(r,j)$; the $w$ constraints then force $w_(i,j) = or.big_r p_(i,r,j)$, so the equality $w_(i,j) = A_(i,j)$ is feasible exactly when $B circle.tiny C = A$. If no exact rank-$k$ factorization exists the ILP is infeasible, matching BMF's infeasibility signal.
 
   _Solution extraction._ Output the flattened bits of $B$ followed by the flattened bits of $C$, discarding the reconstruction auxiliaries.
 ]

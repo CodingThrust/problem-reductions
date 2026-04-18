@@ -722,10 +722,10 @@ function main()
         export_biclique_cover(doc_bc_graph, [1,2,3], 2, "doc_6vertex"),
     ]))
 
-    # BMF
-    write_fixture("bmf.json", model_fixture("BMF", [
-        export_bmf(trues(3, 3), 2, "doc_3x3_ones"),
-    ]))
+    # NOTE: BMF is no longer exported as a Julia parity fixture. The Rust model
+    # was redefined as exact Boolean matrix factorization with a factor-size
+    # objective; the old Hamming-distance semantics implemented by
+    # `bmf_evaluate` / `export_bmf` below no longer match the Rust behavior.
 
     # ── Export reduction fixtures ──
     println("Exporting reduction fixtures...")

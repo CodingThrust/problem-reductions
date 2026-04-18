@@ -28,7 +28,8 @@ impl ReductionResult for ReductionISSimpleToTriangular {
     }
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.mapping_result.map_config_back_via_centers(target_solution)
+        self.mapping_result
+            .map_config_back_via_centers(target_solution)
     }
 }
 
