@@ -3,7 +3,10 @@
 //! Variables: binary x_{l,b} for left-vertex/biclique membership,
 //!            binary y_{r,b} for right-vertex/biclique membership,
 //!            binary z_{(l,r),b} = x_{l,b} * y_{r,b} (McCormick product).
-//! Coverage: Σ_b z_{(l,r),b} ≥ 1 for every edge (l,r).
+//! Sub-biclique constraint: for every non-edge (l,r) ∉ E(G) and every
+//!     biclique b, x_{l,b} + y_{r,b} ≤ 1, so no biclique covers any
+//!     non-edge of G.
+//! Coverage: Σ_b z_{(l,r),b} ≥ 1 for every edge (l,r) ∈ E(G).
 //! Objective: minimize Σ x_{l,b} + Σ y_{r,b}.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
@@ -35,13 +38,14 @@ impl ReductionResult for ReductionBicliqueCoverToILP {
 #[reduction(
     overhead = {
         num_vars = "num_vertices * rank + num_vertices * num_vertices * rank",
-        num_constraints = "num_vertices * num_vertices * rank + num_edges",
+        num_constraints = "num_vertices * num_vertices * rank + num_vertices * num_vertices * rank + num_edges",
     }
 )]
 impl ReduceTo<ILP<bool>> for BicliqueCover {
     type Result = ReductionBicliqueCoverToILP;
 
     fn reduce_to(&self) -> Self::Result {
+        use crate::topology::Graph;
         let left = self.left_size();
         let right = self.right_size();
         let n = left + right;
@@ -59,11 +63,21 @@ impl ReduceTo<ILP<bool>> for BicliqueCover {
         let num_vars = n * k + left * right * k;
         let source_vars = n * k;
 
-        // McCormick for z_{(l,r),b} = x_{l,b} * y_{r,b}
+        // Edge lookup using graph adjacency in unified coords.
+        let graph = self.graph();
+
+        // McCormick for z_{(l,r),b} = x_{l,b} * y_{r,b},
+        // plus sub-biclique constraint: x_{l,b} + y_{r,b} ≤ 1 for non-edges.
         for l in 0..left {
             for r in 0..right {
                 for b in 0..k {
                     constraints.extend(mccormick_product(z_idx(l, r, b), x_idx(l, b), y_idx(r, b)));
+                    if !graph.has_edge(l, left + r) {
+                        constraints.push(LinearConstraint::le(
+                            vec![(x_idx(l, b), 1.0), (y_idx(r, b), 1.0)],
+                            1.0,
+                        ));
+                    }
                 }
             }
         }

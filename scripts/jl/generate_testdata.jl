@@ -717,10 +717,13 @@ function main()
         export_setcovering(doc_sc, "doc_3subsets"),
     ]))
 
-    # BicliqueCover
-    write_fixture("biclique_cover.json", model_fixture("BicliqueCover", [
-        export_biclique_cover(doc_bc_graph, [1,2,3], 2, "doc_6vertex"),
-    ]))
+    # NOTE: BicliqueCover is no longer exported as a Julia parity fixture.
+    # The Rust model enforces the classical sub-biclique semantics (each
+    # biclique must be a complete bipartite subgraph of the input graph),
+    # whereas `biclique_cover_evaluate` above implements the OR-cover
+    # semantics used by the Julia package. Parity fixtures generated here
+    # would therefore disagree with Rust on configurations that cover
+    # non-edges.
 
     # NOTE: BMF is no longer exported as a Julia parity fixture. The Rust model
     # was redefined as exact Boolean matrix factorization with a factor-size

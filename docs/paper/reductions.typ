@@ -5778,9 +5778,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let total-size = metric-value(sol.metric)
   [
     #problem-def("BicliqueCover")[
-      Given a bipartite graph $G = (L, R, E)$ and integer $k$, find $k$ bicliques $(L_1, R_1), dots, (L_k, R_k)$ that cover all edges ($E subset.eq union.big_i L_i times R_i$) while minimizing the total size $sum_i (|L_i| + |R_i|)$.
+      Given a bipartite graph $G = (L, R, E)$ and integer $k$, find $k$ *sub-bicliques* of $G$, $(L_1, R_1), dots, (L_k, R_k)$ with $L_i times R_i subset.eq E$ for every $i$, whose edge sets jointly cover $E$ — i.e. $E = union.big_i L_i times R_i$. Minimize the total size $sum_i (|L_i| + |R_i|)$. A configuration that places vertices into a biclique $i$ for which $L_i times R_i$ is not a subset of $E$ (a "biclique" spanning non-edges of $G$) is infeasible.
     ][
-    Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipartite graph as a Boolean sum of rank-1 binary matrices, connecting it to Boolean matrix rank and nondeterministic communication complexity. Applications include data compression, database optimization (covering queries with materialized views), and bioinformatics (gene expression biclustering). NP-hard even for fixed $k >= 2$. The best known algorithm runs in $O^*(2^(|L| + |R|))$ by brute-force enumeration#footnote[No algorithm improving on brute-force enumeration is known for general Biclique Cover.].
+    Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipartite graph exactly as a Boolean sum of rank-1 binary matrices (Monson, Pullman, Rees 1995), so the minimum $k$ for which a cover exists equals the _Boolean rank_ of $M$. The problem connects to Boolean matrix factorization, nondeterministic communication complexity, and role-based access control; applications include database optimization (covering queries with materialized views) and bioinformatics (gene expression biclustering). NP-complete already for fixed $k >= 2$. The best known algorithm runs in $O^*(2^(|L| + |R|))$ by brute-force enumeration#footnote[No algorithm improving on brute-force enumeration is known for general Biclique Cover.].
 
     *Example.* Consider $G = (L, R, E)$ with $L = {#range(left-size).map(i => $ell_#(i + 1)$).join(", ")}$, $R = {#range(right-size).map(i => $r_#(i + 1)$).join(", ")}$, and edges $E = {#bip-edges.map(e => $(ell_#(e.at(0) + 1), r_#(e.at(1) + 1))$).join(", ")}$. A biclique cover with $k = #k$: $(L_1, R_1) = ({ell_1}, {r_1, r_2})$ covering edges ${(ell_1, r_1), (ell_1, r_2)}$, and $(L_2, R_2) = ({ell_2}, {r_2, r_3})$ covering ${(ell_2, r_2), (ell_2, r_3)}$. Total size $= (1+2) + (1+2) = #total-size$. Merging into a single biclique is impossible since $(ell_1, r_3) in.not E$.
 
@@ -14656,6 +14656,16 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) Any exact factorization $B circle.tiny C = A$ gives a feasible ILP solution with objective equal to $|B|_1 + |C|_1$. ($arrow.l.double$) The McCormick constraints force $p_(i,r,j) = b_(i,r) dot c_(r,j)$; the $w$ constraints then force $w_(i,j) = or.big_r p_(i,r,j)$, so the equality $w_(i,j) = A_(i,j)$ is feasible exactly when $B circle.tiny C = A$. If no exact rank-$k$ factorization exists the ILP is infeasible, matching BMF's infeasibility signal.
 
   _Solution extraction._ Output the flattened bits of $B$ followed by the flattened bits of $C$, discarding the reconstruction auxiliaries.
+]
+
+#reduction-rule("BMF", "BicliqueCover")[
+  Interpret the $m times n$ target matrix $A$ as the biadjacency matrix of a bipartite graph $G_A = (L, R, E)$ with $L = {1, dots, m}$, $R = {1, dots, n}$, and $(i, j) in E$ iff $A_(i j) = 1$, then reuse the same rank $k$.
+][
+  _Construction._ Given an instance $(A, k)$ of BMF, emit the BicliqueCover instance $(G_A, k)$. The vertex-membership layout transposes the BMF factor layout: column $r$ of $B$ becomes the left side of biclique $r$, and row $r$ of $C$ becomes its right side.
+
+  _Correctness._ Each rank-1 factor $B_(dot,r) C_(r,dot)^top$ is the all-ones submatrix on ${i : B_(i,r) = 1} times {j : C_(r,j) = 1}$. Exactness of $B circle.tiny C = A$ is equivalent to (i) every such rectangle lying inside $E$ (sub-biclique of $G_A$), and (ii) the union of the $k$ rectangles exactly matching $E$ — which are precisely the two BicliqueCover feasibility conditions. The BMF objective $|B|_1 + |C|_1$ equals the total biclique size $sum_r (|L_r| + |R_r|)$, so the optimization objectives coincide (Monson, Pullman, Rees 1995).
+
+  _Solution extraction._ Given a BicliqueCover witness (vertex-major, $"cfg"_("BC")[v k + r] in {0, 1}$), set $B_(i,r) = "cfg"_("BC")[i k + r]$ and $C_(r,j) = "cfg"_("BC")[(m + j) k + r]$. The left half is a direct copy; the right half transposes from vertex-major to biclique-row-major.
 ]
 
 #reduction-rule("ConsecutiveBlockMinimization", "ILP")[
