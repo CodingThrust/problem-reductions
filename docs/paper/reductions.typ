@@ -5597,7 +5597,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let nc = x.instance.n
   let k = x.instance.k
   let A = x.instance.matrix
-  let dH = metric-value(x.optimal_value)
+  let fs = metric-value(x.optimal_value)
   // Decode B and C from optimal config
   // Config layout: B is m*k values, then C is k*n values
   let cfg = x.optimal_config
@@ -5609,11 +5609,11 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let fmt-mat(m) = math.mat(..m.map(row => row.map(v => $#v$)))
   [
     #problem-def("BMF")[
-      Given an $m times n$ boolean matrix $A$ and rank $k$, find boolean matrices $B in {0,1}^(m times k)$ and $C in {0,1}^(k times n)$ minimizing the Hamming distance $d_H (A, B circle.tiny C)$, where the boolean product $(B circle.tiny C)_(i j) = or.big_ell (B_(i ell) and C_(ell j))$.
+      Given an $m times n$ boolean matrix $A$ and rank $k$, find boolean matrices $B in {0,1}^(m times k)$ and $C in {0,1}^(k times n)$ satisfying $B circle.tiny C = A$ and minimizing $|B|_1 + |C|_1$ (the total number of $1$s in $B$ and $C$), where the boolean product $(B circle.tiny C)_(i j) = or.big_ell (B_(i ell) and C_(ell j))$. An instance is infeasible when no exact factorization of rank $k$ exists.
     ][
-    Boolean Matrix Factorization decomposes binary data into interpretable boolean factors, unlike real-valued SVD which loses the discrete structure. NP-hard even to approximate, BMF arises in data mining, text classification, and role-based access control where factors correspond to latent binary features. Practical algorithms use greedy rank-1 extraction or alternating fixed-point methods. The best known exact algorithm runs in $O^*(2^(m k + k n))$ by brute-force search over $B$ and $C$#footnote[No algorithm improving on brute-force enumeration is known for general BMF.].
+    Boolean Matrix Factorization decomposes binary data into interpretable boolean factors, unlike real-valued SVD which loses the discrete structure. Deciding whether an exact factorization of a given rank exists is NP-complete (Orlin 1977); the minimum rank is the _Boolean rank_ of $A$, which coincides with the biclique edge cover number of the bipartite graph whose biadjacency matrix is $A$ (Monson, Pullman, Rees 1995). BMF arises in data mining, text classification, and role-based access control where factors correspond to latent binary features. The best known exact algorithm runs in $O^*(2^(m k + k n))$ by brute-force search over $B$ and $C$#footnote[No algorithm improving on brute-force enumeration is known for general exact BMF.].
 
-    *Example.* Let $A = #fmt-mat(A-int)$ and $k = #k$. Set $B = #fmt-mat(B)$ and $C = #fmt-mat(C)$. Then $B circle.tiny C = #fmt-mat(A-int) = A$, achieving Hamming distance $d_H = #dH$ (exact factorization). The two boolean factors capture overlapping row/column patterns: factor 1 selects rows ${1, 2}$ and columns ${1, 2}$; factor 2 selects rows ${2, 3}$ and columns ${2, 3}$.
+    *Example.* Let $A = #fmt-mat(A-int)$ and $k = #k$. Set $B = #fmt-mat(B)$ and $C = #fmt-mat(C)$. Then $B circle.tiny C = #fmt-mat(A-int) = A$, so the factorization is exact with total factor size $|B|_1 + |C|_1 = #fs$. The two boolean factors capture overlapping row/column patterns: factor 1 selects rows ${1, 2}$ and columns ${1, 2}$; factor 2 selects rows ${2, 3}$ and columns ${2, 3}$.
 
     #pred-commands(
       "pred create --example BMF -o bmf.json",
@@ -5778,9 +5778,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let total-size = metric-value(sol.metric)
   [
     #problem-def("BicliqueCover")[
-      Given a bipartite graph $G = (L, R, E)$ and integer $k$, find $k$ bicliques $(L_1, R_1), dots, (L_k, R_k)$ that cover all edges ($E subset.eq union.big_i L_i times R_i$) while minimizing the total size $sum_i (|L_i| + |R_i|)$.
+      Given a bipartite graph $G = (L, R, E)$ and integer $k$, find $k$ *sub-bicliques* of $G$, $(L_1, R_1), dots, (L_k, R_k)$ with $L_i times R_i subset.eq E$ for every $i$, whose edge sets jointly cover $E$ — i.e. $E = union.big_i L_i times R_i$. Minimize the total size $sum_i (|L_i| + |R_i|)$. A configuration that places vertices into a biclique $i$ for which $L_i times R_i$ is not a subset of $E$ (a "biclique" spanning non-edges of $G$) is infeasible.
     ][
-    Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipartite graph as a Boolean sum of rank-1 binary matrices, connecting it to Boolean matrix rank and nondeterministic communication complexity. Applications include data compression, database optimization (covering queries with materialized views), and bioinformatics (gene expression biclustering). NP-hard even for fixed $k >= 2$. The best known algorithm runs in $O^*(2^(|L| + |R|))$ by brute-force enumeration#footnote[No algorithm improving on brute-force enumeration is known for general Biclique Cover.].
+    Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipartite graph exactly as a Boolean sum of rank-1 binary matrices (Monson, Pullman, Rees 1995), so the minimum $k$ for which a cover exists equals the _Boolean rank_ of $M$. The problem connects to Boolean matrix factorization, nondeterministic communication complexity, and role-based access control; applications include database optimization (covering queries with materialized views) and bioinformatics (gene expression biclustering). NP-complete already for fixed $k >= 2$. The best known algorithm runs in $O^*(2^(|L| + |R|))$ by brute-force enumeration#footnote[No algorithm improving on brute-force enumeration is known for general Biclique Cover.].
 
     *Example.* Consider $G = (L, R, E)$ with $L = {#range(left-size).map(i => $ell_#(i + 1)$).join(", ")}$, $R = {#range(right-size).map(i => $r_#(i + 1)$).join(", ")}$, and edges $E = {#bip-edges.map(e => $(ell_#(e.at(0) + 1), r_#(e.at(1) + 1))$).join(", ")}$. A biclique cover with $k = #k$: $(L_1, R_1) = ({ell_1}, {r_1, r_2})$ covering edges ${(ell_1, r_1), (ell_1, r_2)}$, and $(L_2, R_2) = ({ell_2}, {r_2, r_3})$ covering ${(ell_2, r_2), (ell_2, r_3)}$. Total size $= (1+2) + (1+2) = #total-size$. Merging into a single biclique is impossible since $(ell_1, r_3) in.not E$.
 
@@ -14457,25 +14457,6 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Output the concatenated left/right binary selection vector.
 ]
 
-#reduction-rule("BicliqueCover", "ILP")[
-  Use $k$ candidate bicliques, assign vertices to any of them, force every graph edge to be covered by some common biclique, and minimize the total membership size.
-][
-  _Construction._ Variables: binary $x_(l,b)$ for left vertices, binary $y_(r,b)$ for right vertices, and binary $z_((l,r),b)$ linearizing $x_(l,b) y_(r,b)$. The ILP is:
-  $
-    min quad & sum_(l,b) x_(l,b) + sum_(r,b) y_(r,b) \
-    "subject to" quad & z_((l,r),b) <= x_(l,b) quad forall l, r, b \
-    & z_((l,r),b) <= y_(r,b) quad forall l, r, b \
-    & z_((l,r),b) >= x_(l,b) + y_(r,b) - 1 quad forall l, r, b \
-    & sum_b z_((l,r),b) >= 1 quad forall (l, r) in E \
-    & x_(l,b) + y_(r,b) <= 1 quad forall (l, r) in.not E, b \
-    & x_(l,b), y_(r,b), z_((l,r),b) in {0, 1}.
-  $
-
-  _Correctness._ ($arrow.r.double$) Any valid $k$-biclique cover assigns each covered edge to a biclique containing both endpoints, with objective equal to the total biclique size. ($arrow.l.double$) Any feasible ILP solution defines $k$ complete bipartite subgraphs whose union covers every edge, and the objective is exactly the source objective.
-
-  _Solution extraction._ Output the flattened vertex-by-biclique membership bits and discard the coverage auxiliaries.
-]
-
 #reduction-rule("BiconnectivityAugmentation", "ILP")[
   Select candidate edges under the budget and, for every deleted vertex, certify that the remaining augmented graph stays connected by a flow witness.
 ][
@@ -14639,24 +14620,43 @@ The following reductions to Integer Linear Programming are straightforward formu
 // Matrix/encoding
 
 #reduction-rule("BMF", "ILP")[
-  Split the witness into binary factor matrices $B$ and $C$, reconstruct their Boolean product with McCormick auxiliaries, and minimize the Hamming distance to the target matrix.
+  Split the witness into binary factor matrices $B$ and $C$, reconstruct their Boolean product with McCormick auxiliaries, pin each reconstructed entry to the target, and minimize the total factor weight.
 ][
-  _Construction._ Variables: binary $b_(i,r)$, binary $c_(r,j)$, binary $p_(i,r,j)$ linearizing $b_(i,r) c_(r,j)$, binary $w_(i,j)$ for the reconstructed entry, and nonnegative error variables $e_(i,j)$. The ILP is:
+  _Construction._ Variables: binary $b_(i,r)$, binary $c_(r,j)$, binary $p_(i,r,j)$ linearizing $b_(i,r) c_(r,j)$, and binary $w_(i,j)$ for the reconstructed entry. The ILP is:
   $
-    min quad & sum_(i,j) e_(i,j) \
+    min quad & sum_(i,r) b_(i,r) + sum_(r,j) c_(r,j) \
     "subject to" quad & p_(i,r,j) <= b_(i,r) quad forall i, r, j \
     & p_(i,r,j) <= c_(r,j) quad forall i, r, j \
     & p_(i,r,j) >= b_(i,r) + c_(r,j) - 1 quad forall i, r, j \
     & w_(i,j) >= p_(i,r,j) quad forall i, r, j \
     & w_(i,j) <= sum_r p_(i,r,j) quad forall i, j \
-    & e_(i,j) >= A_(i,j) - w_(i,j) quad forall i, j \
-    & e_(i,j) >= w_(i,j) - A_(i,j) quad forall i, j \
-    & b_(i,r), c_(r,j), p_(i,r,j), w_(i,j) in {0, 1}, e_(i,j) in ZZ_(>=0).
+    & w_(i,j) = A_(i,j) quad forall i, j \
+    & b_(i,r), c_(r,j), p_(i,r,j), w_(i,j) in {0, 1}.
   $
 
-  _Correctness._ ($arrow.r.double$) Any choice of factor matrices induces the same Boolean product and Hamming error in the ILP. ($arrow.l.double$) Any feasible ILP assignment determines factor matrices $B$ and $C$, and the linearization forces the objective to equal the Hamming distance between $A$ and $B dot C$.
+  _Correctness._ ($arrow.r.double$) Any exact factorization $B circle.tiny C = A$ gives a feasible ILP solution with objective equal to $|B|_1 + |C|_1$. ($arrow.l.double$) The McCormick constraints force $p_(i,r,j) = b_(i,r) dot c_(r,j)$; the $w$ constraints then force $w_(i,j) = or.big_r p_(i,r,j)$, so the equality $w_(i,j) = A_(i,j)$ is feasible exactly when $B circle.tiny C = A$. If no exact rank-$k$ factorization exists the ILP is infeasible, matching BMF's infeasibility signal.
 
   _Solution extraction._ Output the flattened bits of $B$ followed by the flattened bits of $C$, discarding the reconstruction auxiliaries.
+]
+
+#reduction-rule("BMF", "BicliqueCover")[
+  Interpret the $m times n$ target matrix $A$ as the biadjacency matrix of a bipartite graph $G_A = (L, R, E)$ with $L = {1, dots, m}$, $R = {1, dots, n}$, and $(i, j) in E$ iff $A_(i j) = 1$, then reuse the same rank $k$.
+][
+  _Construction._ Given an instance $(A, k)$ of BMF, emit the BicliqueCover instance $(G_A, k)$. The vertex-membership layout transposes the BMF factor layout: column $r$ of $B$ becomes the left side of biclique $r$, and row $r$ of $C$ becomes its right side.
+
+  _Correctness._ Each rank-1 factor $B_(dot,r) C_(r,dot)^top$ is the all-ones submatrix on ${i : B_(i,r) = 1} times {j : C_(r,j) = 1}$. Exactness of $B circle.tiny C = A$ is equivalent to (i) every such rectangle lying inside $E$ (sub-biclique of $G_A$), and (ii) the union of the $k$ rectangles exactly matching $E$ — which are precisely the two BicliqueCover feasibility conditions. The BMF objective $|B|_1 + |C|_1$ equals the total biclique size $sum_r (|L_r| + |R_r|)$, so the optimization objectives coincide (Monson, Pullman, Rees 1995).
+
+  _Solution extraction._ Given a BicliqueCover witness (vertex-major, $"cfg"_("BC")[v k + r] in {0, 1}$), set $B_(i,r) = "cfg"_("BC")[i k + r]$ and $C_(r,j) = "cfg"_("BC")[(m + j) k + r]$. The left half is a direct copy; the right half transposes from vertex-major to biclique-row-major.
+]
+
+#reduction-rule("BicliqueCover", "BMF")[
+  The inverse of the matrix-to-graph map: read off the biadjacency matrix $A_G in {0,1}^(|L| times |R|)$ of the bipartite graph $G$ and reuse the same rank $k$.
+][
+  _Construction._ Given an instance $(G, k)$ of BicliqueCover, emit the BMF instance $(A_G, k)$ where $A_G[i][j] = 1$ iff $(i, j) in E(G)$. Source and target live in the same variable space, with the layout permutation described below.
+
+  _Correctness._ Symmetric to the forward rule: the same Monson–Pullman–Rees equivalence (sub-bicliques of $G$ $<->$ rank-1 factors of $A_G$) holds in both directions, and the two objectives — total vertex memberships and $|B|_1 + |C|_1$ — agree by construction.
+
+  _Solution extraction._ Inverse transpose of the forward map: given a BMF witness (B row-major followed by C row-major), set $"cfg"_("BC")[i k + r] = B_(i,r)$ for left vertices and $"cfg"_("BC")[(m + j) k + r] = C_(r,j)$ for right vertices.
 ]
 
 #reduction-rule("ConsecutiveBlockMinimization", "ILP")[

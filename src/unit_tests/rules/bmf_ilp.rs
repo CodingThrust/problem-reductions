@@ -9,8 +9,8 @@ fn test_bmf_to_ilp_structure() {
     let problem = BMF::new(vec![vec![true, false], vec![false, true]], 1);
     let reduction: ReductionBMFToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
-    // b: 2*1=2, c: 1*2=2, p: 2*1*2=4, w: 2*2=4, e: 2*2=4 => 16
-    assert_eq!(ilp.num_vars, 16);
+    // b: 2*1=2, c: 1*2=2, p: 2*1*2=4, w: 2*2=4 => 12 (no error variables)
+    assert_eq!(ilp.num_vars, 12);
     assert_eq!(ilp.sense, ObjectiveSense::Minimize);
 }
 
@@ -25,7 +25,8 @@ fn test_bmf_to_ilp_closed_loop() {
 
 #[test]
 fn test_bmf_to_ilp_bf_vs_ilp() {
-    let problem = BMF::new(vec![vec![true, true], vec![true, false]], 1);
+    // All-ones 2x2 has an exact rank-1 factorization (boolean rank 1).
+    let problem = BMF::new(vec![vec![true, true], vec![true, true]], 1);
     let reduction: ReductionBMFToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     assert_bf_vs_ilp(&problem, &reduction);
 }
@@ -36,6 +37,6 @@ fn test_bmf_to_ilp_trivial() {
     let problem = BMF::new(vec![vec![true]], 1);
     let reduction: ReductionBMFToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
-    // b: 1, c: 1, p: 1, w: 1, e: 1 => 5
-    assert_eq!(ilp.num_vars, 5);
+    // b: 1, c: 1, p: 1, w: 1 => 4 (no error variables)
+    assert_eq!(ilp.num_vars, 4);
 }

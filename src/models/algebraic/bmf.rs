@@ -1,8 +1,10 @@
 //! Boolean Matrix Factorization (BMF) problem implementation.
 //!
-//! Given a boolean matrix A, find matrices B and C such that
-//! the boolean product B * C approximates A.
-//! The boolean product `(B * C)[i,j] = OR_k (B[i,k] AND C[k,j])`.
+//! Given a boolean matrix A and rank k, find boolean matrices B (m x k)
+//! and C (k x n) such that the boolean product B * C equals A exactly,
+//! minimizing the total number of 1s in B and C. Configs that do not
+//! produce an exact factorization evaluate to `Min(None)` (infeasible).
+//! The boolean product `(B * C)[i,j] = OR_r (B[i,r] AND C[r,j])`.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
@@ -30,7 +32,8 @@ inventory::submit! {
 /// - B: m x k boolean matrix
 /// - C: k x n boolean matrix
 ///
-/// Such that the Hamming distance between A and B*C is minimized.
+/// Such that `B * C = A` exactly, minimizing the total number of 1s in B and C.
+/// Configurations that do not yield an exact factorization are infeasible.
 ///
 /// # Example
 ///
@@ -38,21 +41,16 @@ inventory::submit! {
 /// use problemreductions::models::algebraic::BMF;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
-/// // 2x2 identity matrix
+/// // 2x2 identity matrix — boolean rank 2
 /// let a = vec![
 ///     vec![true, false],
 ///     vec![false, true],
 /// ];
-/// let problem = BMF::new(a, 1);
+/// let problem = BMF::new(a, 2);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
-///
-/// // Check the error
-/// for sol in &solutions {
-///     let error = problem.hamming_distance(sol);
-///     println!("Hamming error: {}", error);
-/// }
+/// let witness = solver.find_witness(&problem).unwrap();
+/// assert!(problem.is_exact(&witness));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BMF {
@@ -161,16 +159,14 @@ impl BMF {
     /// Compute the Hamming distance between the target and the product.
     pub fn hamming_distance(&self, config: &[usize]) -> usize {
         let (b, c) = self.extract_factors(config);
-        let product = Self::boolean_product(&b, &c);
 
-        self.matrix
-            .iter()
-            .zip(product.iter())
-            .map(|(a_row, p_row)| {
-                a_row
-                    .iter()
-                    .zip(p_row.iter())
-                    .filter(|(a, p)| a != p)
+        (0..self.m)
+            .map(|i| {
+                (0..self.n)
+                    .filter(|&j| {
+                        let product_entry = (0..self.k).any(|r| b[i][r] && c[r][j]);
+                        self.matrix[i][j] != product_entry
+                    })
                     .count()
             })
             .sum()
@@ -179,6 +175,11 @@ impl BMF {
     /// Check if the factorization is exact (Hamming distance = 0).
     pub fn is_exact(&self, config: &[usize]) -> bool {
         self.hamming_distance(config) == 0
+    }
+
+    /// Total number of 1s in B and C (the factor size to be minimized when exact).
+    pub fn total_factor_size(&self, config: &[usize]) -> usize {
+        config.iter().filter(|&&x| x == 1).count()
     }
 }
 
@@ -213,9 +214,11 @@ impl Problem for BMF {
     }
 
     fn evaluate(&self, config: &[usize]) -> Min<i32> {
-        // Minimize Hamming distance between A and B*C.
-        // All configurations are valid -- the distance is the objective.
-        Min(Some(self.hamming_distance(config) as i32))
+        // Feasible iff B*C = A exactly; objective is total factor size (|B| + |C| in 1s).
+        if self.hamming_distance(config) != 0 {
+            return Min(None);
+        }
+        Min(Some(self.total_factor_size(config) as i32))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -239,8 +242,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             2,
         )),
-        optimal_config: vec![0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0],
-        optimal_value: serde_json::json!(0),
+        // B = [[1,0],[1,1],[0,1]] (row-major: 1,0,1,1,0,1), C = [[1,1,0],[0,1,1]] (row-major: 1,1,0,0,1,1).
+        // Total 1s: 4 in B + 4 in C = 8, and B * C = A exactly.
+        optimal_config: vec![1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1],
+        optimal_value: serde_json::json!(8),
     }]
 }
 

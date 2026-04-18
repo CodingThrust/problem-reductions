@@ -1,7 +1,17 @@
 //! Biclique Cover problem implementation.
 //!
-//! The Biclique Cover problem asks for the minimum number of bicliques
-//! (complete bipartite subgraphs) needed to cover all edges of a bipartite graph.
+//! Given a bipartite graph `G = (L ∪ R, E)` and a bound `k`, find up to `k`
+//! bicliques whose union covers every edge of `G`. Each biclique must be a
+//! *complete bipartite subgraph of `G`* — if `L_b ⊆ L` and `R_b ⊆ R` describe
+//! biclique `b`, every pair `(l, r) ∈ L_b × R_b` must itself be an edge of `G`.
+//! A biclique is *not* simply any pair `(L_b, R_b)`; the subgraph it induces
+//! has to be complete. The objective minimizes the total number of vertex
+//! memberships across all bicliques.
+//!
+//! Under this classical definition, the minimum `k` for which a rank-`k`
+//! biclique cover exists is exactly the _Boolean rank_ of the biadjacency
+//! matrix of `G` (Monson, Pullman, Rees 1995), matching exact Boolean
+//! Matrix Factorization.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::BipartiteGraph;
@@ -177,9 +187,31 @@ impl BicliqueCover {
         self.is_valid_cover(config)
     }
 
-    /// Check if all edges are covered.
+    /// Check if the configuration is a valid biclique cover.
+    ///
+    /// Under the classical definition, a biclique is a complete bipartite
+    /// subgraph of the input graph: every pair `(l, r)` with `l ∈ L_b`
+    /// and `r ∈ R_b` must be an edge of `G`. A configuration is a valid
+    /// biclique cover iff every biclique is a sub-biclique of `G` and
+    /// every edge of `G` is covered by at least one biclique.
     pub fn is_valid_cover(&self, config: &[usize]) -> bool {
         use crate::topology::Graph;
+        let (left_bicliques, right_bicliques) = self.get_biclique_memberships(config);
+        let left_size = self.graph.left_size();
+        // Every biclique must be a sub-biclique of G (no non-edges covered).
+        for b in 0..self.k {
+            for &l in &left_bicliques[b] {
+                for &r in &right_bicliques[b] {
+                    // Endpoints come from get_biclique_memberships in unified
+                    // vertex space: l < left_size, r >= left_size.
+                    debug_assert!(l < left_size && r >= left_size);
+                    if !self.graph.has_edge(l, r) {
+                        return false;
+                    }
+                }
+            }
+        }
+        // Every edge of G must be covered by at least one biclique.
         self.graph
             .edges()
             .iter()
@@ -209,12 +241,31 @@ pub(crate) fn is_biclique_cover(
     left_bicliques: &[HashSet<usize>],
     right_bicliques: &[HashSet<usize>],
 ) -> bool {
-    edges.iter().all(|&(l, r)| {
+    let edge_set: HashSet<(usize, usize)> = edges
+        .iter()
+        .map(|&(u, v)| if u <= v { (u, v) } else { (v, u) })
+        .collect();
+
+    let all_bicliques_are_subgraphs =
         left_bicliques
             .iter()
             .zip(right_bicliques.iter())
-            .any(|(lb, rb)| lb.contains(&l) && rb.contains(&r))
-    })
+            .all(|(lb, rb)| {
+                lb.iter().all(|&l| {
+                    rb.iter().all(|&r| {
+                        let edge = if l <= r { (l, r) } else { (r, l) };
+                        edge_set.contains(&edge)
+                    })
+                })
+            });
+
+    all_bicliques_are_subgraphs
+        && edges.iter().all(|&(l, r)| {
+            left_bicliques
+                .iter()
+                .zip(right_bicliques.iter())
+                .any(|(lb, rb)| lb.contains(&l) && rb.contains(&r))
+        })
 }
 
 impl Problem for BicliqueCover {
@@ -239,20 +290,25 @@ impl Problem for BicliqueCover {
 }
 
 crate::declare_variants! {
-    default BicliqueCover => "2^num_vertices",
+    default BicliqueCover => "2^(num_vertices * rank)",
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::BipartiteGraph;
+    // Biclique 0: L_0={ℓ_1}, R_0={r_1, r_2} — covers edges (0,0), (0,1).
+    // Biclique 1: L_1={ℓ_2}, R_1={r_2, r_3} — covers edges (1,1), (1,2).
+    // Both are sub-bicliques of G; every edge covered; total size = 6.
+    // Vertex-major layout with k=2: v=0 in b=0, v=1 in b=1, v=2 in b=0,
+    // v=3 in both, v=4 in b=1.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "biclique_cover",
         instance: Box::new(BicliqueCover::new(
             BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 1), (1, 2)]),
             2,
         )),
-        optimal_config: vec![0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-        optimal_value: serde_json::json!(5),
+        optimal_config: vec![1, 0, 0, 1, 1, 0, 1, 1, 0, 1],
+        optimal_value: serde_json::json!(6),
     }]
 }
 
