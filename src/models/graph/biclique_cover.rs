@@ -241,12 +241,31 @@ pub(crate) fn is_biclique_cover(
     left_bicliques: &[HashSet<usize>],
     right_bicliques: &[HashSet<usize>],
 ) -> bool {
-    edges.iter().all(|&(l, r)| {
+    let edge_set: HashSet<(usize, usize)> = edges
+        .iter()
+        .map(|&(u, v)| if u <= v { (u, v) } else { (v, u) })
+        .collect();
+
+    let all_bicliques_are_subgraphs =
         left_bicliques
             .iter()
             .zip(right_bicliques.iter())
-            .any(|(lb, rb)| lb.contains(&l) && rb.contains(&r))
-    })
+            .all(|(lb, rb)| {
+                lb.iter().all(|&l| {
+                    rb.iter().all(|&r| {
+                        let edge = if l <= r { (l, r) } else { (r, l) };
+                        edge_set.contains(&edge)
+                    })
+                })
+            });
+
+    all_bicliques_are_subgraphs
+        && edges.iter().all(|&(l, r)| {
+            left_bicliques
+                .iter()
+                .zip(right_bicliques.iter())
+                .any(|(lb, rb)| lb.contains(&l) && rb.contains(&r))
+        })
 }
 
 impl Problem for BicliqueCover {
@@ -271,7 +290,7 @@ impl Problem for BicliqueCover {
 }
 
 crate::declare_variants! {
-    default BicliqueCover => "2^num_vertices",
+    default BicliqueCover => "2^(num_vertices * rank)",
 }
 
 #[cfg(feature = "example-db")]

@@ -156,6 +156,20 @@ fn test_empty_matrix() {
 }
 
 #[test]
+fn test_rank_zero_exactness() {
+    let nonzero = BMF::new(vec![vec![true, false]], 0);
+    assert_eq!(nonzero.dims(), Vec::<usize>::new());
+    assert_eq!(nonzero.hamming_distance(&[]), 1);
+    assert!(!nonzero.is_exact(&[]));
+    assert_eq!(Problem::evaluate(&nonzero, &[]), Min(None));
+
+    let zero = BMF::new(vec![vec![false, false]], 0);
+    assert_eq!(zero.hamming_distance(&[]), 0);
+    assert!(zero.is_exact(&[]));
+    assert_eq!(Problem::evaluate(&zero, &[]), Min(Some(0)));
+}
+
+#[test]
 fn test_is_exact() {
     let matrix = vec![vec![true]];
     let problem = BMF::new(matrix, 1);

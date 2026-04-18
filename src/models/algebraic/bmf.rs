@@ -159,16 +159,14 @@ impl BMF {
     /// Compute the Hamming distance between the target and the product.
     pub fn hamming_distance(&self, config: &[usize]) -> usize {
         let (b, c) = self.extract_factors(config);
-        let product = Self::boolean_product(&b, &c);
 
-        self.matrix
-            .iter()
-            .zip(product.iter())
-            .map(|(a_row, p_row)| {
-                a_row
-                    .iter()
-                    .zip(p_row.iter())
-                    .filter(|(a, p)| a != p)
+        (0..self.m)
+            .map(|i| {
+                (0..self.n)
+                    .filter(|&j| {
+                        let product_entry = (0..self.k).any(|r| b[i][r] && c[r][j]);
+                        self.matrix[i][j] != product_entry
+                    })
                     .count()
             })
             .sum()

@@ -43,8 +43,8 @@ impl ReductionResult for ReductionBicliqueCoverToBMF {
 
 #[reduction(
     overhead = {
-        rows = "num_vertices",
-        cols = "num_vertices",
+        rows = "left_size",
+        cols = "right_size",
         rank = "rank",
     }
 )]

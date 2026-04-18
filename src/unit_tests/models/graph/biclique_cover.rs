@@ -127,6 +127,12 @@ fn test_is_biclique_cover_function() {
     let right = vec![vec![2].into_iter().collect(), vec![3].into_iter().collect()];
     assert!(is_biclique_cover(&edges, &left, &right));
 
+    // A single pseudo-biclique covers both listed edges but also contains
+    // non-edges (0,3) and (1,2), so it is not a classical sub-biclique cover.
+    let left = vec![vec![0, 1].into_iter().collect()];
+    let right = vec![vec![2, 3].into_iter().collect()];
+    assert!(!is_biclique_cover(&edges, &left, &right));
+
     // Missing coverage
     let left = vec![vec![0].into_iter().collect()];
     let right = vec![vec![2].into_iter().collect()];
@@ -195,6 +201,21 @@ fn test_size_getters() {
     assert_eq!(problem.num_edges(), 2);
     assert_eq!(problem.k(), 1);
     assert_eq!(problem.rank(), 1);
+}
+
+#[test]
+fn test_complexity_includes_number_of_bicliques() {
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1)]);
+    let problem = BicliqueCover::new(graph, 2);
+    let entry = inventory::iter::<crate::registry::VariantEntry>()
+        .find(|entry| entry.name == "BicliqueCover")
+        .expect("BicliqueCover variant should be registered");
+
+    assert_eq!(problem.dims().len(), 8);
+    assert_eq!(
+        (entry.complexity_eval_fn)(&problem as &dyn std::any::Any),
+        256.0
+    );
 }
 
 #[test]

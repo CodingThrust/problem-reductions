@@ -20,6 +20,22 @@ fn test_bicliquecover_to_bmf_structure() {
 }
 
 #[test]
+fn test_bicliquecover_to_bmf_overhead_matches_target_shape() {
+    let problem = BicliqueCover::new(BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 2)]), 2);
+    let reduction: ReductionBicliqueCoverToBMF = ReduceTo::<BMF>::reduce_to(&problem);
+    let target = reduction.target_problem();
+
+    let entry = inventory::iter::<crate::rules::ReductionEntry>()
+        .find(|entry| entry.source_name == "BicliqueCover" && entry.target_name == "BMF")
+        .expect("BicliqueCover -> BMF reduction should be registered");
+    let overhead = (entry.overhead_eval_fn)(&problem as &dyn std::any::Any);
+
+    assert_eq!(overhead.get("rows"), Some(target.rows()));
+    assert_eq!(overhead.get("cols"), Some(target.cols()));
+    assert_eq!(overhead.get("rank"), Some(target.rank()));
+}
+
+#[test]
 fn test_bicliquecover_to_bmf_closed_loop_full_biclique() {
     // K_{2,2} at rank 1 — single biclique covers all 4 edges.
     let problem = BicliqueCover::new(
