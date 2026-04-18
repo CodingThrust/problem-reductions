@@ -14457,25 +14457,6 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Output the concatenated left/right binary selection vector.
 ]
 
-#reduction-rule("BicliqueCover", "ILP")[
-  Use $k$ candidate bicliques, assign vertices to any of them, force every graph edge to be covered by some common biclique, and minimize the total membership size.
-][
-  _Construction._ Variables: binary $x_(l,b)$ for left vertices, binary $y_(r,b)$ for right vertices, and binary $z_((l,r),b)$ linearizing $x_(l,b) y_(r,b)$. The ILP is:
-  $
-    min quad & sum_(l,b) x_(l,b) + sum_(r,b) y_(r,b) \
-    "subject to" quad & z_((l,r),b) <= x_(l,b) quad forall l, r, b \
-    & z_((l,r),b) <= y_(r,b) quad forall l, r, b \
-    & z_((l,r),b) >= x_(l,b) + y_(r,b) - 1 quad forall l, r, b \
-    & sum_b z_((l,r),b) >= 1 quad forall (l, r) in E \
-    & x_(l,b) + y_(r,b) <= 1 quad forall (l, r) in.not E, b \
-    & x_(l,b), y_(r,b), z_((l,r),b) in {0, 1}.
-  $
-
-  _Correctness._ ($arrow.r.double$) Any valid $k$-biclique cover assigns each covered edge to a biclique containing both endpoints, with objective equal to the total biclique size. ($arrow.l.double$) Any feasible ILP solution defines $k$ complete bipartite subgraphs whose union covers every edge, and the objective is exactly the source objective.
-
-  _Solution extraction._ Output the flattened vertex-by-biclique membership bits and discard the coverage auxiliaries.
-]
-
 #reduction-rule("BiconnectivityAugmentation", "ILP")[
   Select candidate edges under the budget and, for every deleted vertex, certify that the remaining augmented graph stays connected by a flow witness.
 ][
@@ -14666,6 +14647,16 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ Each rank-1 factor $B_(dot,r) C_(r,dot)^top$ is the all-ones submatrix on ${i : B_(i,r) = 1} times {j : C_(r,j) = 1}$. Exactness of $B circle.tiny C = A$ is equivalent to (i) every such rectangle lying inside $E$ (sub-biclique of $G_A$), and (ii) the union of the $k$ rectangles exactly matching $E$ — which are precisely the two BicliqueCover feasibility conditions. The BMF objective $|B|_1 + |C|_1$ equals the total biclique size $sum_r (|L_r| + |R_r|)$, so the optimization objectives coincide (Monson, Pullman, Rees 1995).
 
   _Solution extraction._ Given a BicliqueCover witness (vertex-major, $"cfg"_("BC")[v k + r] in {0, 1}$), set $B_(i,r) = "cfg"_("BC")[i k + r]$ and $C_(r,j) = "cfg"_("BC")[(m + j) k + r]$. The left half is a direct copy; the right half transposes from vertex-major to biclique-row-major.
+]
+
+#reduction-rule("BicliqueCover", "BMF")[
+  The inverse of the matrix-to-graph map: read off the biadjacency matrix $A_G in {0,1}^(|L| times |R|)$ of the bipartite graph $G$ and reuse the same rank $k$.
+][
+  _Construction._ Given an instance $(G, k)$ of BicliqueCover, emit the BMF instance $(A_G, k)$ where $A_G[i][j] = 1$ iff $(i, j) in E(G)$. Source and target live in the same variable space, with the layout permutation described below.
+
+  _Correctness._ Symmetric to the forward rule: the same Monson–Pullman–Rees equivalence (sub-bicliques of $G$ $<->$ rank-1 factors of $A_G$) holds in both directions, and the two objectives — total vertex memberships and $|B|_1 + |C|_1$ — agree by construction.
+
+  _Solution extraction._ Inverse transpose of the forward map: given a BMF witness (B row-major followed by C row-major), set $"cfg"_("BC")[i k + r] = B_(i,r)$ for left vertices and $"cfg"_("BC")[(m + j) k + r] = C_(r,j)$ for right vertices.
 ]
 
 #reduction-rule("ConsecutiveBlockMinimization", "ILP")[

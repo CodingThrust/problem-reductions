@@ -20,6 +20,43 @@ use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::BipartiteGraph;
 
+/// Convert a BicliqueCover config (vertex-major: index `v*k + b`) to a BMF
+/// config (B row-major at `[0, m*k)` then C row-major at `[m*k, m*k + k*n)`).
+///
+/// The left half copies unchanged; the right half transposes from
+/// vertex-major `(m+j)*k + l` to biclique-row-major `m*k + l*n + j`.
+pub(crate) fn config_bc_to_bmf(bc: &[usize], m: usize, n: usize, k: usize) -> Vec<usize> {
+    let mut bmf = vec![0usize; m * k + k * n];
+    for i in 0..m {
+        for l in 0..k {
+            bmf[i * k + l] = bc[i * k + l];
+        }
+    }
+    for l in 0..k {
+        for j in 0..n {
+            bmf[m * k + l * n + j] = bc[(m + j) * k + l];
+        }
+    }
+    bmf
+}
+
+/// Inverse of [`config_bc_to_bmf`]: BMF config (B row-major then C row-major)
+/// to BicliqueCover config (vertex-major).
+pub(crate) fn config_bmf_to_bc(bmf: &[usize], m: usize, n: usize, k: usize) -> Vec<usize> {
+    let mut bc = vec![0usize; (m + n) * k];
+    for i in 0..m {
+        for l in 0..k {
+            bc[i * k + l] = bmf[i * k + l];
+        }
+    }
+    for l in 0..k {
+        for j in 0..n {
+            bc[(m + j) * k + l] = bmf[m * k + l * n + j];
+        }
+    }
+    bc
+}
+
 /// Result of reducing BMF to BicliqueCover.
 #[derive(Debug, Clone)]
 pub struct ReductionBMFToBicliqueCover {
@@ -39,26 +76,7 @@ impl ReductionResult for ReductionBMFToBicliqueCover {
 
     /// Map a BicliqueCover config (vertex-major) back to a BMF config (B row-major, then C row-major).
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let m = self.m;
-        let n = self.n;
-        let k = self.k;
-        let mut source = vec![0usize; m * k + k * n];
-        // Left half: identical layout — BicliqueCover left vertex i, biclique l at index i*k + l
-        // matches BMF B[i][l] at index i*k + l.
-        for i in 0..m {
-            for l in 0..k {
-                source[i * k + l] = target_solution[i * k + l];
-            }
-        }
-        // Right half: transpose from vertex-major to biclique-row-major.
-        // BicliqueCover right vertex j, biclique l at index (m + j)*k + l.
-        // BMF C[l][j] at index m*k + l*n + j.
-        for l in 0..k {
-            for j in 0..n {
-                source[m * k + l * n + j] = target_solution[(m + j) * k + l];
-            }
-        }
-        source
+        config_bc_to_bmf(target_solution, self.m, self.n, self.k)
     }
 }
 
