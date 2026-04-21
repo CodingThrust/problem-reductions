@@ -1,7 +1,6 @@
-use crate::dispatch::{load_problem, read_input, ProblemJson, ReductionBundle};
+use crate::dispatch::{load_problem, read_input, BundleReplay, ProblemJson, ReductionBundle};
 use crate::output::OutputConfig;
 use anyhow::{Context, Result};
-use problemreductions::rules::ReductionGraph;
 use std::path::Path;
 use std::time::Duration;
 
@@ -166,75 +165,39 @@ fn solve_problem(
 
 /// Solve a reduction bundle: solve the target problem, then map the solution back.
 fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) -> Result<()> {
-    // 1. Load the target problem from the bundle
-    let target = load_problem(
-        &bundle.target.problem_type,
-        &bundle.target.variant,
-        bundle.target.data.clone(),
-    )?;
-    let target_name = target.problem_name();
+    let replay = BundleReplay::prepare(&bundle)?;
 
-    // 2. Solve the target problem
     let target_result = match solver_name {
-        "brute-force" => target.solve_brute_force_witness().ok_or_else(|| {
+        "brute-force" => replay.target.solve_brute_force_witness().ok_or_else(|| {
             anyhow::anyhow!(
                 "Bundle solving requires a witness-capable target problem and witness-capable reduction path; {} only supports aggregate-value solving.",
-                target_name
+                replay.target_name
             )
         })?,
-        "ilp" => target.solve_with_ilp().map_err(add_ilp_solver_hint)?,
-        "customized" => target
+        "ilp" => replay.target.solve_with_ilp().map_err(add_ilp_solver_hint)?,
+        "customized" => replay
+            .target
             .solve_with_customized()
             .map_err(add_customized_solver_hint)?,
         _ => unreachable!(),
     };
 
-    // 3. Load source problem and re-execute the reduction chain to get extract_solution
-    let source = load_problem(
-        &bundle.source.problem_type,
-        &bundle.source.variant,
-        bundle.source.data.clone(),
-    )?;
-    let source_name = source.problem_name();
+    let (source_config, source_eval) = replay.extract(&target_result.config);
 
-    let graph = ReductionGraph::new();
-
-    // Reconstruct the ReductionPath from the bundle's path steps
-    let reduction_path = problemreductions::rules::ReductionPath {
-        steps: bundle
-            .path
-            .iter()
-            .map(|s| problemreductions::rules::ReductionStep {
-                name: s.name.clone(),
-                variant: s.variant.clone(),
-            })
-            .collect(),
-    };
-
-    let chain = graph
-        .reduce_along_path(&reduction_path, source.as_any())
-        .ok_or_else(|| anyhow::anyhow!(
-            "Bundle solving requires a witness-capable reduction path; this bundle cannot recover a source solution."
-        ))?;
-
-    // 4. Extract solution back to source problem space
-    let source_config = chain.extract_solution(&target_result.config);
-    let source_eval = source.evaluate_dyn(&source_config);
-
-    let solver_desc = format!("{} (via {})", solver_name, target_name);
+    let solver_desc = format!("{} (via {})", solver_name, replay.target_name);
     let text = format!(
         "Problem: {}\nSolver: {}\nSolution: {:?}\nEvaluation: {}",
-        source_name, solver_desc, source_config, source_eval,
+        replay.source_name, solver_desc, source_config, source_eval,
     );
 
     let json = serde_json::json!({
-        "problem": source_name,
+        "problem": replay.source_name,
         "solver": solver_name,
-        "reduced_to": target_name,
+        "reduced_to": replay.target_name,
         "solution": source_config,
         "evaluation": source_eval,
         "intermediate": {
-            "problem": target_name,
+            "problem": replay.target_name,
             "solution": target_result.config,
             "evaluation": target_result.evaluation,
         },

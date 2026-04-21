@@ -159,6 +159,21 @@ Examples:
     Inspect(InspectArgs),
     /// Solve a problem instance
     Solve(SolveArgs),
+    /// Extract a source-space solution from a reduction bundle and a target-space config
+    #[command(after_help = "\
+Examples:
+  pred extract bundle.json --config 1,0,1,0
+  pred extract bundle.json --config 1,0,1,0 -o source.json
+  cat bundle.json | pred extract - --config 1,0,1,0
+
+Use this when an external solver has solved the bundle's target problem
+(e.g. a QUBO sampler, a neutral-atom platform, a QAOA runtime) and you want
+the corresponding solution in the original source problem space without
+having to shell back into `pred solve`.
+
+Input: a reduction bundle JSON (from `pred reduce`). Use - to read from stdin.
+--config is the target-space configuration (comma-separated, e.g. 1,0,1,0).")]
+    Extract(ExtractArgs),
     /// Start MCP (Model Context Protocol) server for AI assistant integration
     #[cfg(feature = "mcp")]
     #[command(after_help = "\
@@ -1210,6 +1225,15 @@ pub struct ReduceArgs {
 }
 
 #[derive(clap::Args)]
+pub struct ExtractArgs {
+    /// Reduction bundle JSON (from `pred reduce`). Use - for stdin.
+    pub input: PathBuf,
+    /// Target-space configuration to map back (comma-separated, e.g. 1,0,1,0)
+    #[arg(long)]
+    pub config: String,
+}
+
+#[derive(clap::Args)]
 pub struct InspectArgs {
     /// Problem JSON file or reduction bundle. Use - for stdin.
     pub input: PathBuf,
@@ -1242,6 +1266,7 @@ pub fn print_subcommand_help_hint(error_msg: &str) {
     let subcmds = [
         ("pred solve", "solve"),
         ("pred reduce", "reduce"),
+        ("pred extract", "extract"),
         ("pred create", "create"),
         ("pred evaluate", "evaluate"),
         ("pred inspect", "inspect"),
