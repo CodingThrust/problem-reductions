@@ -2,6 +2,7 @@ use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
+use crate::types::One;
 
 #[test]
 fn test_maximumindependentset_to_maximumclique_closed_loop() {
@@ -64,6 +65,26 @@ fn test_maximumindependentset_to_maximumclique_empty_graph() {
     let solver = BruteForce::new();
     let best_target = solver.find_all_witnesses(target);
     assert!(best_target.iter().all(|s| s.iter().sum::<usize>() == 4));
+}
+
+#[test]
+fn test_maximumindependentset_to_maximumclique_one_weights_closed_loop() {
+    // Unit-weight closed loop: <SimpleGraph, One> endpoint stays on One all the way.
+    let source = MaximumIndependentSet::new(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        vec![One; 5],
+    );
+    let reduction = ReduceTo::<MaximumClique<SimpleGraph, One>>::reduce_to(&source);
+    let target = reduction.target_problem();
+
+    assert_eq!(target.num_vertices(), 5);
+    assert_eq!(target.num_edges(), 6);
+
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &reduction,
+        "MaximumIndependentSet<One>->MaximumClique<One> closed loop",
+    );
 }
 
 #[test]

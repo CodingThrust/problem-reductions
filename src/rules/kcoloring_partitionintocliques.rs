@@ -5,6 +5,7 @@
 
 use crate::models::graph::{KColoring, PartitionIntoCliques};
 use crate::reduction;
+use crate::rules::graph_helpers::complement_edges;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::variant::KN;
@@ -28,8 +29,6 @@ impl ReductionResult for ReductionKColoringToPartitionIntoCliques {
         target_solution.to_vec()
     }
 }
-
-use super::graph_helpers::complement_edges;
 
 #[reduction(
     overhead = {

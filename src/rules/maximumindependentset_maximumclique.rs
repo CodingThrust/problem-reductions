@@ -33,7 +33,7 @@ where
     }
 }
 
-fn reduce_is_to_clique<W: WeightElement + Clone + Default>(
+fn reduce_is_to_clique<W: WeightElement>(
     src: &MaximumIndependentSet<SimpleGraph, W>,
 ) -> ReductionISToClique<W> {
     let comp_edges = super::graph_helpers::complement_edges(src.graph());
