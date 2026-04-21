@@ -8,6 +8,8 @@ pub use cost::{
 };
 pub use registry::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
 
+pub(crate) mod bicliquecover_bmf;
+pub(crate) mod bmf_bicliquecover;
 pub(crate) mod circuit_sat;
 pub(crate) mod circuit_spinglass;
 mod closestvectorproblem_qubo;
@@ -139,8 +141,6 @@ pub mod unitdiskmapping;
 pub(crate) mod acyclicpartition_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod balancedcompletebipartitesubgraph_ilp;
-#[cfg(feature = "ilp-solver")]
-pub(crate) mod bicliquecover_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod biconnectivityaugmentation_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -379,6 +379,8 @@ pub use traits::{
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     let mut specs = Vec::new();
+    specs.extend(bicliquecover_bmf::canonical_rule_example_specs());
+    specs.extend(bmf_bicliquecover::canonical_rule_example_specs());
     specs.extend(circuit_sat::canonical_rule_example_specs());
     specs.extend(circuit_spinglass::canonical_rule_example_specs());
     specs.extend(decisionminimumdominatingset_minmaxmulticenter::canonical_rule_example_specs());
@@ -507,7 +509,6 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     {
         specs.extend(acyclicpartition_ilp::canonical_rule_example_specs());
         specs.extend(balancedcompletebipartitesubgraph_ilp::canonical_rule_example_specs());
-        specs.extend(bicliquecover_ilp::canonical_rule_example_specs());
         specs.extend(biconnectivityaugmentation_ilp::canonical_rule_example_specs());
         specs.extend(binpacking_ilp::canonical_rule_example_specs());
         specs.extend(bmf_ilp::canonical_rule_example_specs());

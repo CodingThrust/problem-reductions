@@ -283,13 +283,14 @@ mod all_problems_solvable {
 
     #[test]
     fn test_bmf_solvable() {
+        // All-ones 2x2 at rank 1 has an exact boolean factorization.
         let problem = BMF::new(vec![vec![true, true], vec![true, true]], 1);
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            // BMF minimizes Hamming distance, all configs are valid (no invalid marker)
-            let _ = problem.evaluate(sol);
+            // BMF evaluates to Min(Some(total_factor_size)) only when B*C = A exactly.
+            assert!(problem.is_exact(sol));
         }
     }
 }
