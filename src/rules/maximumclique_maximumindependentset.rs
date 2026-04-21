@@ -7,7 +7,7 @@ use crate::models::graph::{MaximumClique, MaximumIndependentSet};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::WeightElement;
+use crate::types::{One, WeightElement};
 
 /// Result of reducing MaximumClique to MaximumIndependentSet.
 #[derive(Debug, Clone)]
@@ -33,18 +33,15 @@ where
     }
 }
 
-/// Build the complement graph: edges between all non-adjacent vertex pairs.
-fn complement_edges(graph: &SimpleGraph) -> Vec<(usize, usize)> {
-    let n = graph.num_vertices();
-    let mut edges = Vec::new();
-    for u in 0..n {
-        for v in (u + 1)..n {
-            if !graph.has_edge(u, v) {
-                edges.push((u, v));
-            }
-        }
-    }
-    edges
+fn reduce_clique_to_is<W: WeightElement>(
+    src: &MaximumClique<SimpleGraph, W>,
+) -> ReductionCliqueToIS<W> {
+    let comp_edges = super::graph_helpers::complement_edges(src.graph());
+    let target = MaximumIndependentSet::new(
+        SimpleGraph::new(src.graph().num_vertices(), comp_edges),
+        src.weights().to_vec(),
+    );
+    ReductionCliqueToIS { target }
 }
 
 #[reduction(
@@ -57,12 +54,21 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MaximumClique<SimpleG
     type Result = ReductionCliqueToIS<i32>;
 
     fn reduce_to(&self) -> Self::Result {
-        let comp_edges = complement_edges(self.graph());
-        let target = MaximumIndependentSet::new(
-            SimpleGraph::new(self.graph().num_vertices(), comp_edges),
-            self.weights().to_vec(),
-        );
-        ReductionCliqueToIS { target }
+        reduce_clique_to_is(self)
+    }
+}
+
+#[reduction(
+    overhead = {
+        num_vertices = "num_vertices",
+        num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",
+    }
+)]
+impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for MaximumClique<SimpleGraph, One> {
+    type Result = ReductionCliqueToIS<One>;
+
+    fn reduce_to(&self) -> Self::Result {
+        reduce_clique_to_is(self)
     }
 }
 
@@ -70,25 +76,46 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MaximumClique<SimpleG
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
 
-    vec![crate::example_db::specs::RuleExampleSpec {
-        id: "maximumclique_to_maximumindependentset",
-        build: || {
-            let source = MaximumClique::new(
-                SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-                vec![1i32; 4],
-            );
-            crate::example_db::specs::rule_example_with_witness::<
-                _,
-                MaximumIndependentSet<SimpleGraph, i32>,
-            >(
-                source,
-                SolutionPair {
-                    source_config: vec![0, 1, 1, 0],
-                    target_config: vec![0, 1, 1, 0],
-                },
-            )
+    vec![
+        crate::example_db::specs::RuleExampleSpec {
+            id: "maximumclique_to_maximumindependentset",
+            build: || {
+                let source = MaximumClique::new(
+                    SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+                    vec![1i32; 4],
+                );
+                crate::example_db::specs::rule_example_with_witness::<
+                    _,
+                    MaximumIndependentSet<SimpleGraph, i32>,
+                >(
+                    source,
+                    SolutionPair {
+                        source_config: vec![0, 1, 1, 0],
+                        target_config: vec![0, 1, 1, 0],
+                    },
+                )
+            },
         },
-    }]
+        crate::example_db::specs::RuleExampleSpec {
+            id: "maximumclique_to_maximumindependentset_one",
+            build: || {
+                let source = MaximumClique::new(
+                    SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+                    vec![One; 4],
+                );
+                crate::example_db::specs::rule_example_with_witness::<
+                    _,
+                    MaximumIndependentSet<SimpleGraph, One>,
+                >(
+                    source,
+                    SolutionPair {
+                        source_config: vec![0, 1, 1, 0],
+                        target_config: vec![0, 1, 1, 0],
+                    },
+                )
+            },
+        },
+    ]
 }
 
 #[cfg(test)]

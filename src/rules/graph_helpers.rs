@@ -1,6 +1,6 @@
 //! Shared helpers for graph-based reductions.
 
-use crate::topology::Graph;
+use crate::topology::{Graph, SimpleGraph};
 
 /// Extract a Hamiltonian cycle vertex ordering from edge-selection configs on complete graphs.
 ///
@@ -56,4 +56,18 @@ pub(crate) fn edges_to_cycle_order<G: Graph>(graph: &G, target_solution: &[usize
     }
 
     order
+}
+
+/// Build the complement graph edges: edges between all non-adjacent vertex pairs.
+pub(crate) fn complement_edges(graph: &SimpleGraph) -> Vec<(usize, usize)> {
+    let n = graph.num_vertices();
+    let mut edges = Vec::new();
+    for u in 0..n {
+        for v in (u + 1)..n {
+            if !graph.has_edge(u, v) {
+                edges.push((u, v));
+            }
+        }
+    }
+    edges
 }

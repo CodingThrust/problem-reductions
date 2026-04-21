@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
-use crate::types::Max;
+use crate::types::{Max, One};
 
 #[test]
 fn test_clique_creation() {
@@ -279,6 +279,29 @@ fn test_size_getters() {
     let problem = MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_edges(), 2);
+}
+
+#[test]
+fn test_clique_one_weights_evaluate_and_solve() {
+    use crate::traits::Problem;
+
+    // Triangle with unit weights: max clique covers all 3 vertices.
+    let problem = MaximumClique::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![One; 3],
+    );
+    assert!(!problem.is_weighted());
+    assert_eq!(problem.evaluate(&[1, 1, 1]), Max(Some(3)));
+    assert_eq!(problem.evaluate(&[1, 1, 0]), Max(Some(2)));
+    // Invalid clique on this graph? K3 is complete, so every subset is a clique.
+    // Re-verify invalidity on a path graph:
+    let path = MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![One; 3]);
+    assert_eq!(path.evaluate(&[1, 0, 1]), Max(None));
+
+    let solver = BruteForce::new();
+    let solutions = solver.find_all_witnesses(&problem);
+    assert_eq!(solutions.len(), 1);
+    assert_eq!(solutions[0], vec![1, 1, 1]);
 }
 
 #[test]

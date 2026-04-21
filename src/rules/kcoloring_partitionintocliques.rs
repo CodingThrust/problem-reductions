@@ -5,6 +5,7 @@
 
 use crate::models::graph::{KColoring, PartitionIntoCliques};
 use crate::reduction;
+use crate::rules::graph_helpers::complement_edges;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::variant::KN;
@@ -27,19 +28,6 @@ impl ReductionResult for ReductionKColoringToPartitionIntoCliques {
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
     }
-}
-
-fn complement_edges(graph: &SimpleGraph) -> Vec<(usize, usize)> {
-    let n = graph.num_vertices();
-    let mut edges = Vec::new();
-    for u in 0..n {
-        for v in (u + 1)..n {
-            if !graph.has_edge(u, v) {
-                edges.push((u, v));
-            }
-        }
-    }
-    edges
 }
 
 #[reduction(

@@ -7,7 +7,7 @@ use crate::models::graph::{MaximumClique, MaximumIndependentSet};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::WeightElement;
+use crate::types::{One, WeightElement};
 
 /// Result of reducing MaximumIndependentSet to MaximumClique.
 #[derive(Debug, Clone)]
@@ -33,6 +33,17 @@ where
     }
 }
 
+fn reduce_is_to_clique<W: WeightElement>(
+    src: &MaximumIndependentSet<SimpleGraph, W>,
+) -> ReductionISToClique<W> {
+    let comp_edges = super::graph_helpers::complement_edges(src.graph());
+    let target = MaximumClique::new(
+        SimpleGraph::new(src.graph().num_vertices(), comp_edges),
+        src.weights().to_vec(),
+    );
+    ReductionISToClique { target }
+}
+
 #[reduction(
     overhead = {
         num_vertices = "num_vertices",
@@ -43,21 +54,21 @@ impl ReduceTo<MaximumClique<SimpleGraph, i32>> for MaximumIndependentSet<SimpleG
     type Result = ReductionISToClique<i32>;
 
     fn reduce_to(&self) -> Self::Result {
-        let n = self.graph().num_vertices();
-        // Build complement graph edges
-        let mut complement_edges = Vec::new();
-        for u in 0..n {
-            for v in (u + 1)..n {
-                if !self.graph().has_edge(u, v) {
-                    complement_edges.push((u, v));
-                }
-            }
-        }
-        let target = MaximumClique::new(
-            SimpleGraph::new(n, complement_edges),
-            self.weights().to_vec(),
-        );
-        ReductionISToClique { target }
+        reduce_is_to_clique(self)
+    }
+}
+
+#[reduction(
+    overhead = {
+        num_vertices = "num_vertices",
+        num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",
+    }
+)]
+impl ReduceTo<MaximumClique<SimpleGraph, One>> for MaximumIndependentSet<SimpleGraph, One> {
+    type Result = ReductionISToClique<One>;
+
+    fn reduce_to(&self) -> Self::Result {
+        reduce_is_to_clique(self)
     }
 }
 
@@ -65,22 +76,46 @@ impl ReduceTo<MaximumClique<SimpleGraph, i32>> for MaximumIndependentSet<SimpleG
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
 
-    vec![crate::example_db::specs::RuleExampleSpec {
-        id: "maximumindependentset_to_maximumclique",
-        build: || {
-            let source = MaximumIndependentSet::new(
-                SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
-                vec![1i32; 5],
-            );
-            crate::example_db::specs::rule_example_with_witness::<_, MaximumClique<SimpleGraph, i32>>(
-                source,
-                SolutionPair {
-                    source_config: vec![1, 0, 1, 0, 1],
-                    target_config: vec![1, 0, 1, 0, 1],
-                },
-            )
+    vec![
+        crate::example_db::specs::RuleExampleSpec {
+            id: "maximumindependentset_to_maximumclique",
+            build: || {
+                let source = MaximumIndependentSet::new(
+                    SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+                    vec![1i32; 5],
+                );
+                crate::example_db::specs::rule_example_with_witness::<
+                    _,
+                    MaximumClique<SimpleGraph, i32>,
+                >(
+                    source,
+                    SolutionPair {
+                        source_config: vec![1, 0, 1, 0, 1],
+                        target_config: vec![1, 0, 1, 0, 1],
+                    },
+                )
+            },
         },
-    }]
+        crate::example_db::specs::RuleExampleSpec {
+            id: "maximumindependentset_to_maximumclique_one",
+            build: || {
+                let source = MaximumIndependentSet::new(
+                    SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+                    vec![One; 5],
+                );
+                crate::example_db::specs::rule_example_with_witness::<
+                    _,
+                    MaximumClique<SimpleGraph, One>,
+                >(
+                    source,
+                    SolutionPair {
+                        source_config: vec![1, 0, 1, 0, 1],
+                        target_config: vec![1, 0, 1, 0, 1],
+                    },
+                )
+            },
+        },
+    ]
 }
 
 #[cfg(test)]
