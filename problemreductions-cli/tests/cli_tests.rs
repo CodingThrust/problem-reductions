@@ -8788,6 +8788,8 @@ fn test_extract_roundtrip_mis_to_qubo() {
     let stdout = String::from_utf8(extract_out.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["problem"].as_str().unwrap(), "MaximumIndependentSet");
+    assert_eq!(json["reduced_to"].as_str().unwrap(), "QUBO");
+    assert_eq!(json["solver"].as_str().unwrap(), "external");
     assert_eq!(json["evaluation"].as_str().unwrap(), "Max(2)");
     assert_eq!(
         json["solution"].as_array().unwrap(),
@@ -8799,6 +8801,15 @@ fn test_extract_roundtrip_mis_to_qubo() {
         ]
     );
     assert_eq!(json["intermediate"]["problem"].as_str().unwrap(), "QUBO");
+    assert_eq!(
+        json["intermediate"]["solution"].as_array().unwrap(),
+        &vec![
+            serde_json::json!(0),
+            serde_json::json!(1),
+            serde_json::json!(0),
+            serde_json::json!(1),
+        ]
+    );
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
@@ -8878,6 +8889,179 @@ fn test_extract_rejects_wrong_config_length() {
         stderr.contains("Target config has 2 values"),
         "unexpected stderr: {stderr}"
     );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&bundle_file).ok();
+}
+
+#[test]
+fn test_extract_rejects_out_of_range_config_value() {
+    let problem_file = std::env::temp_dir().join("pred_test_extract_range_in.json");
+    let bundle_file = std::env::temp_dir().join("pred_test_extract_range_bundle.json");
+
+    pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--graph",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    pred()
+        .args([
+            "-o",
+            bundle_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "QUBO",
+        ])
+        .output()
+        .unwrap();
+
+    let extract_out = pred()
+        .args([
+            "extract",
+            bundle_file.to_str().unwrap(),
+            "--config",
+            "0,5,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!extract_out.status.success());
+    let stderr = String::from_utf8(extract_out.stderr).unwrap();
+    assert!(
+        stderr.contains("out of range"),
+        "unexpected stderr: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&bundle_file).ok();
+}
+
+#[test]
+fn test_extract_rejects_malformed_bundle_path_source_mismatch() {
+    use std::io::Write;
+
+    let problem_file = std::env::temp_dir().join("pred_test_extract_malformed_in.json");
+    let bundle_file = std::env::temp_dir().join("pred_test_extract_malformed_bundle.json");
+    let tampered_file = std::env::temp_dir().join("pred_test_extract_malformed_tampered.json");
+
+    pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--graph",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    pred()
+        .args([
+            "-o",
+            bundle_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "QUBO",
+        ])
+        .output()
+        .unwrap();
+
+    let bundle_text = std::fs::read_to_string(&bundle_file).unwrap();
+    let mut bundle: serde_json::Value = serde_json::from_str(&bundle_text).unwrap();
+    // Tamper: make the source type disagree with path[0].
+    bundle["source"]["type"] = serde_json::json!("NotTheRealSource");
+    let mut f = std::fs::File::create(&tampered_file).unwrap();
+    f.write_all(bundle.to_string().as_bytes()).unwrap();
+
+    let extract_out = pred()
+        .args([
+            "extract",
+            tampered_file.to_str().unwrap(),
+            "--config",
+            "0,1,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !extract_out.status.success(),
+        "expected failure on malformed bundle; stdout: {}",
+        String::from_utf8_lossy(&extract_out.stdout)
+    );
+    let stderr = String::from_utf8(extract_out.stderr).unwrap();
+    assert!(
+        stderr.contains("Malformed bundle"),
+        "unexpected stderr: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&bundle_file).ok();
+    std::fs::remove_file(&tampered_file).ok();
+}
+
+#[test]
+fn test_extract_reads_bundle_from_stdin() {
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let problem_file = std::env::temp_dir().join("pred_test_extract_stdin_in.json");
+    let bundle_file = std::env::temp_dir().join("pred_test_extract_stdin_bundle.json");
+
+    pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--graph",
+            "0-1,1-2,2-3",
+        ])
+        .output()
+        .unwrap();
+    pred()
+        .args([
+            "-o",
+            bundle_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "QUBO",
+        ])
+        .output()
+        .unwrap();
+    let bundle_text = std::fs::read_to_string(&bundle_file).unwrap();
+
+    let mut child = pred()
+        .args(["--json", "extract", "-", "--config", "0,1,0,1"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .as_mut()
+        .unwrap()
+        .write_all(bundle_text.as_bytes())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["problem"].as_str().unwrap(), "MaximumIndependentSet");
+    assert_eq!(json["reduced_to"].as_str().unwrap(), "QUBO");
+    assert_eq!(json["solver"].as_str().unwrap(), "external");
+    assert_eq!(json["evaluation"].as_str().unwrap(), "Max(2)");
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
