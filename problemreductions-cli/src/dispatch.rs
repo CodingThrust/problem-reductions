@@ -114,6 +114,111 @@ impl LoadedProblem {
     }
 }
 
+/// A validated reduction bundle ready to replay:
+/// source, target, and the reconstructed reduction chain. Construct via
+/// [`BundleReplay::prepare`]. All three CLI/MCP bundle workflows
+/// (`pred solve <bundle>`, `pred extract <bundle>`, MCP `solve_problem`)
+/// share this setup so validation and error text stay in sync.
+pub struct BundleReplay {
+    pub source: LoadedProblem,
+    pub source_name: String,
+    pub target: LoadedProblem,
+    pub target_name: String,
+    pub chain: problemreductions::rules::ReductionChain,
+}
+
+impl BundleReplay {
+    /// Validate the bundle and replay the reduction chain.
+    ///
+    /// Checks: `path` has at least two steps; `path[0]` matches `source`;
+    /// `path[-1]` matches `target`. Then loads both problems, reconstructs
+    /// the `ReductionPath`, and calls `reduce_along_path`. Returns an error
+    /// (not a panic) for malformed bundles or aggregate-only paths.
+    pub fn prepare(bundle: &ReductionBundle) -> Result<Self> {
+        if bundle.path.len() < 2 {
+            anyhow::bail!(
+                "Malformed bundle: `path` must contain at least two steps (source and target), got {}",
+                bundle.path.len()
+            );
+        }
+        let first = bundle.path.first().unwrap();
+        let last = bundle.path.last().unwrap();
+        if first.name != bundle.source.problem_type || first.variant != bundle.source.variant {
+            anyhow::bail!(
+                "Malformed bundle: path starts with {} but source is {}",
+                format_step(&first.name, &first.variant),
+                format_step(&bundle.source.problem_type, &bundle.source.variant),
+            );
+        }
+        if last.name != bundle.target.problem_type || last.variant != bundle.target.variant {
+            anyhow::bail!(
+                "Malformed bundle: path ends with {} but target is {}",
+                format_step(&last.name, &last.variant),
+                format_step(&bundle.target.problem_type, &bundle.target.variant),
+            );
+        }
+
+        let source = load_problem(
+            &bundle.source.problem_type,
+            &bundle.source.variant,
+            bundle.source.data.clone(),
+        )?;
+        let source_name = source.problem_name().to_string();
+
+        let target = load_problem(
+            &bundle.target.problem_type,
+            &bundle.target.variant,
+            bundle.target.data.clone(),
+        )?;
+        let target_name = target.problem_name().to_string();
+
+        let reduction_path = problemreductions::rules::ReductionPath {
+            steps: bundle
+                .path
+                .iter()
+                .map(|s| problemreductions::rules::ReductionStep {
+                    name: s.name.clone(),
+                    variant: s.variant.clone(),
+                })
+                .collect(),
+        };
+
+        let graph = ReductionGraph::new();
+        let chain = graph
+            .reduce_along_path(&reduction_path, source.as_any())
+            .ok_or_else(|| anyhow::anyhow!(
+                "Bundle requires a witness-capable reduction path; this bundle cannot map a target solution back to the source."
+            ))?;
+
+        Ok(Self {
+            source,
+            source_name,
+            target,
+            target_name,
+            chain,
+        })
+    }
+
+    /// Map a target-space configuration back to the source space and evaluate it.
+    pub fn extract(&self, target_config: &[usize]) -> (Vec<usize>, String) {
+        let source_config = self.chain.extract_solution(target_config);
+        let source_eval = self.source.evaluate_dyn(&source_config);
+        (source_config, source_eval)
+    }
+}
+
+fn format_step(name: &str, variant: &BTreeMap<String, String>) -> String {
+    if variant.is_empty() {
+        name.to_string()
+    } else {
+        let parts: Vec<String> = variant
+            .iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect();
+        format!("{}{{{}}}", name, parts.join(", "))
+    }
+}
+
 /// Load a problem from JSON type/variant/data.
 pub fn load_problem(
     name: &str,
