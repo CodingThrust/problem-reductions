@@ -8734,3 +8734,151 @@ fn test_inspect_minimum_cardinality_key_lists_customized_solver() {
 
     std::fs::remove_file(&problem_file).ok();
 }
+
+#[test]
+fn test_extract_roundtrip_mis_to_qubo() {
+    let problem_file = std::env::temp_dir().join("pred_test_extract_in.json");
+    let bundle_file = std::env::temp_dir().join("pred_test_extract_bundle.json");
+
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--graph",
+            "0-1,1-2,2-3",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let reduce_out = pred()
+        .args([
+            "-o",
+            bundle_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "QUBO",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        reduce_out.status.success(),
+        "reduce stderr: {}",
+        String::from_utf8_lossy(&reduce_out.stderr)
+    );
+
+    let extract_out = pred()
+        .args([
+            "--json",
+            "extract",
+            bundle_file.to_str().unwrap(),
+            "--config",
+            "0,1,0,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        extract_out.status.success(),
+        "extract stderr: {}",
+        String::from_utf8_lossy(&extract_out.stderr)
+    );
+    let stdout = String::from_utf8(extract_out.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["problem"].as_str().unwrap(), "MaximumIndependentSet");
+    assert_eq!(json["evaluation"].as_str().unwrap(), "Max(2)");
+    assert_eq!(
+        json["solution"].as_array().unwrap(),
+        &vec![
+            serde_json::json!(0),
+            serde_json::json!(1),
+            serde_json::json!(0),
+            serde_json::json!(1),
+        ]
+    );
+    assert_eq!(json["intermediate"]["problem"].as_str().unwrap(), "QUBO");
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&bundle_file).ok();
+}
+
+#[test]
+fn test_extract_rejects_plain_problem_file() {
+    let problem_file = std::env::temp_dir().join("pred_test_extract_plain.json");
+
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--graph",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let extract_out = pred()
+        .args([
+            "extract",
+            problem_file.to_str().unwrap(),
+            "--config",
+            "0,1,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!extract_out.status.success());
+    let stderr = String::from_utf8(extract_out.stderr).unwrap();
+    assert!(
+        stderr.contains("not a reduction bundle"),
+        "unexpected stderr: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_extract_rejects_wrong_config_length() {
+    let problem_file = std::env::temp_dir().join("pred_test_extract_wrong_len_in.json");
+    let bundle_file = std::env::temp_dir().join("pred_test_extract_wrong_len_bundle.json");
+
+    pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--graph",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    pred()
+        .args([
+            "-o",
+            bundle_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "QUBO",
+        ])
+        .output()
+        .unwrap();
+
+    let extract_out = pred()
+        .args(["extract", bundle_file.to_str().unwrap(), "--config", "0,1"])
+        .output()
+        .unwrap();
+    assert!(!extract_out.status.success());
+    let stderr = String::from_utf8(extract_out.stderr).unwrap();
+    assert!(
+        stderr.contains("Target config has 2 values"),
+        "unexpected stderr: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&bundle_file).ok();
+}

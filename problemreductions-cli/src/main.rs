@@ -34,7 +34,11 @@ fn main() -> anyhow::Result<()> {
     // Data-producing commands auto-output JSON when piped
     let auto_json = matches!(
         cli.command,
-        Commands::Reduce(_) | Commands::Solve(_) | Commands::Evaluate(_) | Commands::Inspect(_)
+        Commands::Reduce(_)
+            | Commands::Solve(_)
+            | Commands::Evaluate(_)
+            | Commands::Inspect(_)
+            | Commands::Extract(_)
     );
 
     let out = OutputConfig {
@@ -72,6 +76,7 @@ fn main() -> anyhow::Result<()> {
             commands::reduce::reduce(&args.input, args.to.as_deref(), args.via.as_deref(), &out)
         }
         Commands::Evaluate(args) => commands::evaluate::evaluate(&args.input, &args.config, &out),
+        Commands::Extract(args) => commands::extract::extract(&args.input, &args.config, &out),
         #[cfg(feature = "mcp")]
         Commands::Mcp => mcp::run(),
         Commands::Completions { shell } => {
