@@ -120,20 +120,25 @@ impl LoadedProblem {
 /// (`pred solve <bundle>`, `pred extract <bundle>`, MCP `solve_problem`)
 /// share this setup so validation and error text stay in sync.
 pub struct BundleReplay {
-    pub source: LoadedProblem,
-    pub source_name: String,
-    pub target: LoadedProblem,
-    pub target_name: String,
-    pub chain: problemreductions::rules::ReductionChain,
+    pub(crate) source: LoadedProblem,
+    pub(crate) source_name: String,
+    pub(crate) target: LoadedProblem,
+    pub(crate) target_name: String,
+    pub(crate) chain: problemreductions::rules::ReductionChain,
 }
 
 impl BundleReplay {
     /// Validate the bundle and replay the reduction chain.
     ///
-    /// Checks: `path` has at least two steps; `path[0]` matches `source`;
-    /// `path[-1]` matches `target`. Then loads both problems, reconstructs
-    /// the `ReductionPath`, and calls `reduce_along_path`. Returns an error
-    /// (not a panic) for malformed bundles or aggregate-only paths.
+    /// Checks:
+    /// - `path` has at least two steps
+    /// - `path[0]` matches `source` (name + variant)
+    /// - `path[-1]` matches `target` (name + variant)
+    /// - serializing the chain's replayed target equals `bundle.target.data`
+    ///   (tampered/stale bundles where `target.data` disagrees with what
+    ///   `reduce_along_path` actually produced are rejected)
+    ///
+    /// Returns an error (not a panic) for malformed bundles or aggregate-only paths.
     pub fn prepare(bundle: &ReductionBundle) -> Result<Self> {
         if bundle.path.len() < 2 {
             anyhow::bail!(
@@ -189,6 +194,20 @@ impl BundleReplay {
             .ok_or_else(|| anyhow::anyhow!(
                 "Bundle requires a witness-capable reduction path; this bundle cannot map a target solution back to the source."
             ))?;
+
+        // Coherence check: `bundle.target.data` must equal what replaying
+        // `source` along `path` actually produces. Without this, a caller
+        // could solve/validate against the bundle's stated target but then
+        // extract through a completely different chain target.
+        let replayed_target_data =
+            serialize_any_problem(&last.name, &last.variant, chain.target_problem_any())?;
+        if replayed_target_data != bundle.target.data {
+            anyhow::bail!(
+                "Malformed bundle: `target.data` does not match the result of replaying \
+                 `source` along `path`. The bundle is tampered or was produced by \
+                 incompatible code."
+            );
+        }
 
         Ok(Self {
             source,
