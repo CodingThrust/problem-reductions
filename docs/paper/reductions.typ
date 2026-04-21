@@ -11098,10 +11098,17 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
 ]
 
 
-#let mis_clique = load-example("MaximumIndependentSet", "MaximumClique")
+#let mis_clique = load-example(
+  "MaximumIndependentSet",
+  "MaximumClique",
+  source-variant: (graph: "SimpleGraph", weight: "i32"),
+  target-variant: (graph: "SimpleGraph", weight: "i32"),
+)
 #let mis_clique_sol = mis_clique.solutions.at(0)
 #reduction-rule("MaximumIndependentSet", "MaximumClique",
   example: true,
+  example-source-variant: (graph: "SimpleGraph", weight: "i32"),
+  example-target-variant: (graph: "SimpleGraph", weight: "i32"),
   example-caption: [Path graph $P_5$: IS $arrow.r$ Clique via complement],
   extra: [
     #pred-commands(
@@ -12689,10 +12696,17 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Identity: return the ILP variable vector $bold(c)$ as the Integer Knapsack multiplicities.
 ]
 
-#let clique_mis = load-example("MaximumClique", "MaximumIndependentSet")
+#let clique_mis = load-example(
+  "MaximumClique",
+  "MaximumIndependentSet",
+  source-variant: (graph: "SimpleGraph", weight: "i32"),
+  target-variant: (graph: "SimpleGraph", weight: "i32"),
+)
 #let clique_mis_sol = clique_mis.solutions.at(0)
 #reduction-rule("MaximumClique", "MaximumIndependentSet",
   example: true,
+  example-source-variant: (graph: "SimpleGraph", weight: "i32"),
+  example-target-variant: (graph: "SimpleGraph", weight: "i32"),
   example-caption: [Path graph $P_4$: clique in $G$ maps to independent set in complement $overline(G)$.],
   extra: [
     #pred-commands(
