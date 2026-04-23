@@ -33,6 +33,46 @@ fn test_map_unweighted_produces_uniform_weights() {
 }
 
 #[test]
+fn test_mis_simple_one_to_kings_one_is_deterministic_on_large_graph() {
+    // Regression for #1061: `pred reduce` output was non-deterministic because the
+    // greedy path decomposition used an unseeded thread RNG for tie-breaking and
+    // the adjacency list used HashSet iteration order. A 64-vertex graph matches
+    // the reporter's scenario (10x10 kings, p=0.3) and forces the Auto path to
+    // pick the Greedy branch (>30 vertices).
+    let n = 64;
+    let mut edges: Vec<(usize, usize)> = Vec::new();
+    for r in 0..8 {
+        for c in 0..8 {
+            let v = r * 8 + c;
+            if c + 1 < 8 {
+                edges.push((v, r * 8 + c + 1));
+            }
+            if r + 1 < 8 {
+                edges.push((v, (r + 1) * 8 + c));
+            }
+            if r + 1 < 8 && c + 1 < 8 {
+                edges.push((v, (r + 1) * 8 + c + 1));
+            }
+        }
+    }
+
+    let problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![One; n]);
+
+    let first = ReduceTo::<MaximumIndependentSet<KingsSubgraph, One>>::reduce_to(&problem);
+    let baseline_atoms = first.target_problem().graph().num_vertices();
+    let baseline_edges = first.target_problem().graph().edges().len();
+
+    for _ in 0..3 {
+        let again = ReduceTo::<MaximumIndependentSet<KingsSubgraph, One>>::reduce_to(&problem);
+        assert_eq!(
+            again.target_problem().graph().num_vertices(),
+            baseline_atoms,
+        );
+        assert_eq!(again.target_problem().graph().edges().len(), baseline_edges);
+    }
+}
+
+#[test]
 fn test_mis_simple_one_to_kings_one_closed_loop() {
     // Path graph: 0-1-2-3-4 (MIS = 3: select vertices 0, 2, 4)
     let problem = MaximumIndependentSet::new(

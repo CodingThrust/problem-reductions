@@ -219,6 +219,66 @@ fn test_pathwidth_auto_large() {
     assert_eq!(layout.vsep(), 1); // Path graph has pathwidth 1
 }
 
+#[test]
+fn test_pathwidth_greedy_is_deterministic() {
+    // Reproduces issue #1061: pathwidth greedy must be deterministic across calls.
+    // Graph is large enough that Auto picks Greedy and tie-breaking in greedy_step
+    // is exercised (grid with many symmetric choices).
+    let n = 64;
+    let mut edges: Vec<(usize, usize)> = Vec::new();
+    for r in 0..8 {
+        for c in 0..8 {
+            let v = r * 8 + c;
+            if c + 1 < 8 {
+                edges.push((v, r * 8 + c + 1));
+            }
+            if r + 1 < 8 {
+                edges.push((v, (r + 1) * 8 + c));
+            }
+        }
+    }
+
+    let first = pathwidth(n, &edges, PathDecompositionMethod::Auto);
+    for _ in 0..3 {
+        let other = pathwidth(n, &edges, PathDecompositionMethod::Auto);
+        assert_eq!(other.vertices, first.vertices);
+        assert_eq!(other.vsep(), first.vsep());
+    }
+}
+
+#[test]
+fn test_pathwidth_with_seed_varies_output() {
+    // Different seeds may produce different layouts (same pathwidth or better/worse).
+    // This verifies the seed API actually affects tie-breaking.
+    let n = 64;
+    let mut edges: Vec<(usize, usize)> = Vec::new();
+    for r in 0..8 {
+        for c in 0..8 {
+            let v = r * 8 + c;
+            if c + 1 < 8 {
+                edges.push((v, r * 8 + c + 1));
+            }
+            if r + 1 < 8 {
+                edges.push((v, (r + 1) * 8 + c));
+            }
+        }
+    }
+
+    let method = PathDecompositionMethod::greedy();
+    let a = pathwidth_with_seed(n, &edges, method, 0);
+    let b = pathwidth_with_seed(n, &edges, method, 0);
+    assert_eq!(a.vertices, b.vertices, "same seed → same layout");
+
+    // At least one of the sampled seeds should produce a different ordering,
+    // confirming the seed actually threads into tie-breaking.
+    let differs =
+        (1u64..=10).any(|s| pathwidth_with_seed(n, &edges, method, s).vertices != a.vertices);
+    assert!(
+        differs,
+        "expected some seed in 1..=10 to produce a different vertex ordering than seed 0",
+    );
+}
+
 // === Ground truth tests from JSON dataset ===
 
 /// Compute vsep from scratch for a given vertex ordering on a graph.
