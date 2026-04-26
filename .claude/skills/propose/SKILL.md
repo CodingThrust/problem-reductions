@@ -19,7 +19,8 @@ Interactive brainstorming skill that helps domain experts (who may not know the 
 
 <HARD-GATE>
 Do NOT write any code, create any files, or invoke implementation skills (add-model, add-rule, issue-to-pr).
-The ONLY output of this skill is GitHub issues filed via `gh issue create`.
+Exception: downloading main reference PDFs into `docs/research/raw/` is allowed and required by the literature-check step.
+The ONLY project output of this skill is GitHub issues filed via `gh issue create`; reference PDFs are supporting evidence, not implementation artifacts.
 </HARD-GATE>
 
 ## Process
@@ -295,6 +296,7 @@ Only fall back to the full `AskUserQuestion` if the inference is genuinely ambig
    Requirements:
    - Use concrete numeric exponents (e.g., `1.1996^n`, not `(2-ε)^n`)
    - Every option must include a link to the paper or resource
+   - For the selected main algorithm/reference, download the PDF into `docs/research/raw/` and read the relevant theorem/algorithm/proof before drafting. Prefer existing paper tooling (`python3 scripts/fetch_papers.py lookup/download/scihub`) when the reference is or will be in `docs/paper/references.bib`; otherwise save the directly fetched PDF with a clear slug. If no full paper is obtainable, state that explicitly and do not present unverified abstract-level claims as checked facts.
    - After the user picks one, fetch the BibTeX entry for the chosen reference (from the paper's page, DOI resolver, or Google Scholar) and record it — the BibTeX will be included in the filed issue
 
 5. **Solving strategy** — The library's brute-force solver works on every problem by enumerating the configuration space. **Auto-fill "Brute-force" as the baseline** — do not present it as a choice.
@@ -493,6 +495,25 @@ After studying the models, check whether this is a **well-known textbook reducti
 - Use WebSearch to check standard references (Garey & Johnson, Karp's 21, CLRS, Sipser, Arora & Barak)
 - Check if an existing GitHub issue already describes this reduction
 
+Then identify the **main algorithm reference** for the reduction: the paper/book chapter whose construction will be implemented. Download its PDF into `docs/research/raw/` and read it carefully before drafting:
+
+```bash
+# Preferred when the reference is already in or being added to docs/paper/references.bib
+python3 scripts/fetch_papers.py lookup
+python3 scripts/fetch_papers.py download
+python3 scripts/fetch_papers.py scihub
+
+# Fallback for an open PDF URL
+curl -L '<pdf-url>' -o docs/research/raw/<author-year-short-title>.pdf
+```
+
+Requirements:
+- Do not rely only on abstracts, snippets, or secondary summaries for the construction.
+- Read the theorem statement, construction/gadget definitions, proof lemmas, and any assumptions/normalization steps.
+- If the source has ambiguities, transcription risks, or missing details, call them out in the issue draft rather than smoothing them over.
+- The issue must include an implementable algorithm, not just a citation.
+- If no full reference can be obtained, tell the user and mark the proposal as unverified until the paper is available.
+
 If the reduction is well-known, use the literature to **pre-fill** answers in Step 3.4 — but still present each step to the user for confirmation. Do NOT skip the guided brainstorming.
 
 #### Step 3.4: Guided brainstorming
@@ -529,6 +550,7 @@ If the reduction is well-known, use the literature to **pre-fill** answers in St
    After the user picks one, present the full algorithm write-up for confirmation.
    - Must define all symbols before using them
    - Must be detailed enough that someone could implement it
+   - Must reflect the downloaded main reference directly: include normalization assumptions, gadget/variable definitions, edge/constraint families, parameter settings, and solution extraction when the reference provides them
 
 3. **Explanation** — Present a correctness argument explaining why the reduction preserves feasibility (for satisfaction problems) or optimality (for optimization problems), then ask for feedback via `AskUserQuestion`:
    ```
@@ -590,6 +612,7 @@ If the reduction is well-known, use the literature to **pre-fill** answers in St
          description: "<paper title, year> — <URL>"
    ```
    If no references are found, ask the user if this is a novel reduction.
+   After a reference is chosen, confirm the downloaded PDF path under `docs/research/raw/` and summarize what sections/theorems were read.
 
 ---
 
@@ -708,13 +731,14 @@ If proposing a model + rules, present all drafts together:
 
 **Critical: Run the check-issue logic on the draft BEFORE filing.** This catches problems early and avoids filing issues that will fail review.
 
-Apply all 4 checks from `/check-issue` against the draft content:
+Apply the `/check-issue` quality checks against the draft content:
 
 ### Rule draft checks
 1. **Usefulness:** `pred path <source> <target>` — verify no existing path. If path exists, run redundancy analysis.
 2. **Non-trivial:** Review the algorithm for genuine structural transformation (not just variable substitution or subtype coercion).
 3. **Correctness:** Verify references exist (check `check-issue/references.md`, `docs/paper/references.bib`, then WebSearch). Cross-check claims.
-4. **Well-written:** Verify all sections present, symbols consistent, overhead table field names match `pred show <target> --json` → `size_fields`, example is fully worked.
+4. **PDF/read-through:** Verify the main algorithm reference PDF was downloaded to `docs/research/raw/`, the relevant theorem/construction/proof was read, and the issue draft names the exact theorem/section used. If the issue only cites a paper without transcribing an implementable construction, this check fails.
+5. **Well-written:** Verify all sections present, symbols consistent, overhead table field names match `pred show <target> --json` → `size_fields`, example is fully worked.
 
 ### Model draft checks
 1. **Usefulness:** `pred show <name>` must fail (problem doesn't exist). At least one reduction planned.
@@ -725,7 +749,7 @@ Apply all 4 checks from `/check-issue` against the draft content:
 
 **If any check fails:** Fix the draft automatically if possible. If user input is needed, ask. Loop back to Step 4 with the corrected draft.
 
-**If all checks pass:** Show the user a summary: "Draft passes all 4 quality checks (Usefulness ✅, Non-trivial ✅, Correctness ✅, Well-written ✅). Ready to file."
+**If all checks pass:** Show the user a summary: "Draft passes all quality checks (Usefulness ✅, Non-trivial ✅, Correctness ✅, PDF/read-through ✅, Well-written ✅). Ready to file."
 
 Then present for approval via `AskUserQuestion`:
 
@@ -789,6 +813,7 @@ Print all issue URLs when done.
 - **Auto-infer obvious answers** — When the user's orienting description clearly determines the answer (problem type, data representation, variable structure, motivation), confirm inline rather than presenting an open-ended `AskUserQuestion`. Expert users find obvious multiple-choice questions patronizing.
 - **Study models before brainstorming** — always run `pred show <source> --json` and `pred show <target> --json` before asking questions. This reveals field types, size getters, and schema details that are essential for correct overhead tables.
 - **Pre-fill well-known reductions** — if the reduction appears in standard textbooks, pre-fill answers from literature but still present each step to the user for confirmation. Never skip brainstorming steps.
+- **Read the main reference, not just metadata** — for any rule whose algorithm comes from a paper, download the PDF to `docs/research/raw/`, read the actual construction/proof, and include implementation-level details in the issue. A citation-only algorithm section is not acceptable.
 - **One question at a time** — don't overwhelm; each `AskUserQuestion` call has one focused question
 - **Mathematical language only** — never mention Rust types, traits, macros, or code patterns to the user
 - **Help find references** — use WebSearch to help locate papers, verify claims
