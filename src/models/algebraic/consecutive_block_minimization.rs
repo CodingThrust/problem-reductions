@@ -58,7 +58,10 @@ inventory::submit! {
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(try_from = "ConsecutiveBlockMinimizationDef")]
+#[serde(
+    try_from = "ConsecutiveBlockMinimizationDef",
+    into = "ConsecutiveBlockMinimizationDef"
+)]
 pub struct ConsecutiveBlockMinimization {
     /// The binary matrix A (m x n).
     matrix: Vec<Vec<bool>>,
@@ -184,11 +187,9 @@ crate::declare_variants! {
     default ConsecutiveBlockMinimization => "factorial(num_cols) * num_rows * num_cols",
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct ConsecutiveBlockMinimizationDef {
     matrix: Vec<Vec<bool>>,
-    num_rows: usize,
-    num_cols: usize,
     bound: i64,
 }
 
@@ -196,20 +197,16 @@ impl TryFrom<ConsecutiveBlockMinimizationDef> for ConsecutiveBlockMinimization {
     type Error = String;
 
     fn try_from(value: ConsecutiveBlockMinimizationDef) -> Result<Self, Self::Error> {
-        let problem = Self::try_new(value.matrix, value.bound)?;
-        if value.num_rows != problem.num_rows {
-            return Err(format!(
-                "num_rows must match matrix row count ({})",
-                problem.num_rows
-            ));
+        Self::try_new(value.matrix, value.bound)
+    }
+}
+
+impl From<ConsecutiveBlockMinimization> for ConsecutiveBlockMinimizationDef {
+    fn from(value: ConsecutiveBlockMinimization) -> Self {
+        Self {
+            matrix: value.matrix,
+            bound: value.bound,
         }
-        if value.num_cols != problem.num_cols {
-            return Err(format!(
-                "num_cols must match matrix column count ({})",
-                problem.num_cols
-            ));
-        }
-        Ok(problem)
     }
 }
 

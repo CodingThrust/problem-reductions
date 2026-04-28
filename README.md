@@ -36,7 +36,7 @@ Try it out:
 pred show CBM
 
 # Create and solve a small CBM instance
-pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound 2 \
+pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound-k 2 \
   | pred solve - --solver brute-force
 ```
 

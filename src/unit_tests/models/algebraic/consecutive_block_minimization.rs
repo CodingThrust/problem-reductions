@@ -91,10 +91,20 @@ fn test_consecutive_block_minimization_serialization() {
 }
 
 #[test]
-fn test_consecutive_block_minimization_deserialization_rejects_inconsistent_dimensions() {
-    let json = r#"{"matrix":[[true]],"num_rows":1,"num_cols":2,"bound":1}"#;
+fn test_consecutive_block_minimization_serialization_omits_derived_fields() {
+    let problem = ConsecutiveBlockMinimization::new(vec![vec![true, false], vec![false, true]], 2);
+    let value: serde_json::Value = serde_json::to_value(&problem).unwrap();
+    let obj = value.as_object().unwrap();
+    assert_eq!(obj.len(), 2);
+    assert!(obj.contains_key("matrix"));
+    assert!(obj.contains_key("bound"));
+}
+
+#[test]
+fn test_consecutive_block_minimization_deserialization_rejects_ragged_matrix() {
+    let json = r#"{"matrix":[[true,false],[true]],"bound":1}"#;
     let err = serde_json::from_str::<ConsecutiveBlockMinimization>(json).unwrap_err();
-    assert!(err.to_string().contains("num_cols"));
+    assert!(err.to_string().contains("same length"));
 }
 
 #[test]
