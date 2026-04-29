@@ -32,11 +32,11 @@ make cli    # builds target/release/pred
 Try it out:
 
 ```bash
-# Show the Consecutive Block Minimization model (alias: CBM)
-pred show CBM
+# Show the Maximum Independent Set model (alias: MIS)
+pred show MIS
 
-# Create and solve a small CBM instance
-pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound 2 \
+# Create and solve MIS on the path graph 0-1-2-3
+pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1,1 \
   | pred solve - --solver brute-force
 ```
 
