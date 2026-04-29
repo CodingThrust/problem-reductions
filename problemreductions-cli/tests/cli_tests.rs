@@ -423,17 +423,15 @@ fn test_evaluate_sat() {
 }
 
 #[test]
-fn test_evaluate_consecutive_block_minimization_rejects_inconsistent_dimensions() {
+fn test_evaluate_consecutive_block_minimization_rejects_ragged_matrix() {
     let problem_json = r#"{
         "type": "ConsecutiveBlockMinimization",
         "data": {
-            "matrix": [[true]],
-            "num_rows": 1,
-            "num_cols": 2,
+            "matrix": [[true, false], [true]],
             "bound": 1
         }
     }"#;
-    let tmp = std::env::temp_dir().join("pred_test_eval_cbm_invalid_dims.json");
+    let tmp = std::env::temp_dir().join("pred_test_eval_cbm_ragged_matrix.json");
     std::fs::write(&tmp, problem_json).unwrap();
 
     let output = pred()
@@ -442,7 +440,7 @@ fn test_evaluate_consecutive_block_minimization_rejects_inconsistent_dimensions(
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("num_cols must match matrix column count"));
+    assert!(stderr.contains("same length"));
     assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
     std::fs::remove_file(&tmp).ok();
 }
