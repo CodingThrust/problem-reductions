@@ -4,6 +4,44 @@ use crate::topology::{Graph, SimpleGraph, TriangularSubgraph};
 use crate::types::One;
 
 #[test]
+fn test_mis_simple_one_to_triangular_is_deterministic_on_large_graph() {
+    // Regression for #1061: the triangular mapping shares the same greedy
+    // path decomposition as the KSG mapping, so it had the same non-determinism
+    // (unseeded RNG + HashSet iteration order in `adj`). A 64-vertex graph
+    // forces `pathwidth` to pick the Greedy branch.
+    let n = 64;
+    let mut edges: Vec<(usize, usize)> = Vec::new();
+    for r in 0..8 {
+        for c in 0..8 {
+            let v = r * 8 + c;
+            if c + 1 < 8 {
+                edges.push((v, r * 8 + c + 1));
+            }
+            if r + 1 < 8 {
+                edges.push((v, (r + 1) * 8 + c));
+            }
+            if r + 1 < 8 && c + 1 < 8 {
+                edges.push((v, (r + 1) * 8 + c + 1));
+            }
+        }
+    }
+
+    let problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![One; n]);
+    let first = ReduceTo::<MaximumIndependentSet<TriangularSubgraph, i32>>::reduce_to(&problem);
+    let baseline_atoms = first.target_problem().graph().num_vertices();
+    let baseline_edges = first.target_problem().graph().edges().len();
+
+    for _ in 0..3 {
+        let again = ReduceTo::<MaximumIndependentSet<TriangularSubgraph, i32>>::reduce_to(&problem);
+        assert_eq!(
+            again.target_problem().graph().num_vertices(),
+            baseline_atoms,
+        );
+        assert_eq!(again.target_problem().graph().edges().len(), baseline_edges);
+    }
+}
+
+#[test]
 fn test_mis_simple_one_to_triangular_closed_loop() {
     // Path graph: 0-1-2
     let problem =

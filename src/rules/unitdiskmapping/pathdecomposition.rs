@@ -14,15 +14,30 @@
 //! Experimental evaluation of a branch and bound algorithm for computing pathwidth.
 //! <https://doi.org/10.1007/978-3-319-07959-2_5>
 
+use rand::rngs::SmallRng;
 use rand::seq::IndexedRandom;
-use std::collections::{HashMap, HashSet};
+use rand::SeedableRng;
+use std::collections::{BTreeSet, HashMap, HashSet};
+
+/// Default seed used when no explicit seed is passed to [`pathwidth`].
+///
+/// Keeping a fixed default makes [`pathwidth`] and [`greedy_decompose`] deterministic
+/// across repeated invocations with the same input, which reductions and downstream
+/// benchmarks rely on for reproducibility. Callers that want diverse layouts can use
+/// [`pathwidth_with_seed`] instead.
+pub const DEFAULT_PATHWIDTH_SEED: u64 = 0;
 
 /// Adjacency list representation built once from an edge list.
-type AdjList = Vec<HashSet<usize>>;
+///
+/// Uses `BTreeSet` rather than `HashSet` so iteration order is deterministic
+/// (sorted by vertex index). Several places in this module push from `adj[v]`
+/// into the layout's neighbor list; HashSet iteration order leaked into the
+/// vertex ordering and caused non-reproducible path decompositions.
+type AdjList = Vec<BTreeSet<usize>>;
 
 /// Build an adjacency list from an edge list.
 fn build_adj(num_vertices: usize, edges: &[(usize, usize)]) -> AdjList {
-    let mut adj: Vec<HashSet<usize>> = vec![HashSet::new(); num_vertices];
+    let mut adj: AdjList = vec![BTreeSet::new(); num_vertices];
     for &(u, v) in edges {
         adj[u].insert(v);
         adj[v].insert(u);
@@ -258,8 +273,14 @@ fn greedy_exact(adj: &AdjList, mut layout: Layout) -> Layout {
 
 /// Perform one greedy step by choosing the best vertex from a list.
 ///
-/// Selects randomly among vertices that minimize the new vsep.
-fn greedy_step(adj: &AdjList, layout: &Layout, list: &[usize]) -> Layout {
+/// Selects among vertices that minimize the new vsep, breaking ties using the
+/// provided RNG. Passing an explicit RNG makes tie-breaking deterministic given a seed.
+fn greedy_step<R: rand::Rng + ?Sized>(
+    adj: &AdjList,
+    layout: &Layout,
+    list: &[usize],
+    rng: &mut R,
+) -> Layout {
     let layouts: Vec<Layout> = list.iter().map(|&v| extend(adj, layout, v)).collect();
 
     let costs: Vec<usize> = layouts.iter().map(|l| l.vsep()).collect();
@@ -272,17 +293,33 @@ fn greedy_step(adj: &AdjList, layout: &Layout, list: &[usize]) -> Layout {
         .map(|(i, _)| i)
         .collect();
 
-    let mut rng = rand::rng();
-    let &chosen_idx = best_indices.as_slice().choose(&mut rng).unwrap();
+    let &chosen_idx = best_indices.as_slice().choose(rng).unwrap();
 
     layouts.into_iter().nth(chosen_idx).unwrap()
 }
 
 /// Compute a path decomposition using the greedy algorithm.
 ///
-/// This combines exact rules (that don't increase pathwidth) with
-/// greedy choices when exact rules don't apply.
+/// Uses a fixed default seed (see [`DEFAULT_PATHWIDTH_SEED`]) so repeated calls on
+/// the same input produce the same layout. Use [`pathwidth_with_seed`] for variation.
+///
+/// Only exposed for unit tests; production code reaches the greedy path through
+/// [`pathwidth`] or [`pathwidth_with_seed`].
+#[cfg(test)]
 pub fn greedy_decompose(num_vertices: usize, edges: &[(usize, usize)]) -> Layout {
+    let mut rng = SmallRng::seed_from_u64(DEFAULT_PATHWIDTH_SEED);
+    greedy_decompose_with_rng(num_vertices, edges, &mut rng)
+}
+
+/// Compute a path decomposition using the greedy algorithm with a caller-supplied RNG.
+///
+/// This combines exact rules (that don't increase pathwidth) with greedy choices
+/// when exact rules don't apply. Random tie-breaking draws from `rng`.
+fn greedy_decompose_with_rng<R: rand::Rng + ?Sized>(
+    num_vertices: usize,
+    edges: &[(usize, usize)],
+    rng: &mut R,
+) -> Layout {
     let adj = build_adj(num_vertices, edges);
     let mut layout = Layout::empty(num_vertices);
 
@@ -290,9 +327,9 @@ pub fn greedy_decompose(num_vertices: usize, edges: &[(usize, usize)]) -> Layout
         layout = greedy_exact(&adj, layout);
 
         if !layout.neighbors.is_empty() {
-            layout = greedy_step(&adj, &layout, &layout.neighbors.clone());
+            layout = greedy_step(&adj, &layout, &layout.neighbors.clone(), rng);
         } else if !layout.disconnected.is_empty() {
-            layout = greedy_step(&adj, &layout, &layout.disconnected.clone());
+            layout = greedy_step(&adj, &layout, &layout.disconnected.clone(), rng);
         } else {
             break;
         }
@@ -424,6 +461,23 @@ pub fn pathwidth(
     edges: &[(usize, usize)],
     method: PathDecompositionMethod,
 ) -> Layout {
+    pathwidth_with_seed(num_vertices, edges, method, DEFAULT_PATHWIDTH_SEED)
+}
+
+/// Like [`pathwidth`], but with a caller-chosen RNG seed for greedy tie-breaking.
+///
+/// The greedy path-decomposition algorithm uses random choices to break ties
+/// between candidate vertices with the same vertex separation. A single `SmallRng`
+/// seeded with `seed` is threaded through all restarts, so restarts remain diverse
+/// (each advances the RNG state) while the overall output is reproducible.
+///
+/// `MinhThiTrick` and `Auto` on small graphs are deterministic and ignore the seed.
+pub fn pathwidth_with_seed(
+    num_vertices: usize,
+    edges: &[(usize, usize)],
+    method: PathDecompositionMethod,
+    seed: u64,
+) -> Layout {
     let method = match method {
         PathDecompositionMethod::Auto => {
             if num_vertices > 30 {
@@ -438,9 +492,10 @@ pub fn pathwidth(
         PathDecompositionMethod::Greedy { nrepeat } => {
             // Defend against direct enum construction with nrepeat = 0.
             let nrepeat = nrepeat.max(1);
+            let mut rng = SmallRng::seed_from_u64(seed);
             let mut best: Option<Layout> = None;
             for _ in 0..nrepeat {
-                let layout = greedy_decompose(num_vertices, edges);
+                let layout = greedy_decompose_with_rng(num_vertices, edges, &mut rng);
                 if best.is_none() || layout.vsep() < best.as_ref().unwrap().vsep() {
                     best = Some(layout);
                 }
